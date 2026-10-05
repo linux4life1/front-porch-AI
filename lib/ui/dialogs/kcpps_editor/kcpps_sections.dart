@@ -109,12 +109,31 @@ class KcppsChatLengthSection extends StatelessWidget {
           ],
         ),
         if (swa)
-          KeCheck(
-            value: d.slidingWindow,
-            label:
-                'Sliding window: less chat memory, but every reply reads '
-                'the whole chat again',
-            onChanged: (v) => c.edit((d) => d.copyWith(slidingWindow: v)),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              KeCheck(
+                key: const ValueKey('kcpps-sliding-window'),
+                value: c.swaLeftToKobold ? null : d.slidingWindow,
+                label: c.swaLeftToKobold
+                    ? 'Sliding window: left to KoboldCpp'
+                    : 'Sliding window: less chat memory, but every reply '
+                          'reads the whole chat again',
+                onChanged: (v) => c.edit((d) => d.copyWith(slidingWindow: v)),
+              ),
+              if (c.swaLeftWarns) ...[
+                const SizedBox(height: 6),
+                Text(
+                  kSwaLeftToKoboldNote,
+                  style: keText(
+                    context,
+                    size: 12,
+                    color: AppColors.porchHoneyOf(context),
+                    weight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ],
           )
         else if (c.info != null)
           Text(

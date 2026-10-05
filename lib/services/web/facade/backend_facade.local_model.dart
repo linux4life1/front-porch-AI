@@ -23,6 +23,12 @@ extension BackendFacadeLocalModel on BackendFacade {
     Map<String, dynamic>? preset;
     if (active != null) {
       final read = (await KcppsLibrary.open(active)).read;
+      // Only a preset that leaves sliding window to KoboldCpp needs the
+      // model's header read.
+      final swaLeft =
+          read is KcppsOk &&
+          kcppsSwaLeftToKobold(read.raw) &&
+          await _hasSlidingWindow(model);
       preset = {
         'path': active,
         'name': kcppsPresetName(active),
@@ -33,6 +39,7 @@ extension BackendFacadeLocalModel on BackendFacade {
           KcppsOk(:final config) => kcppsPlainWords(
             config,
             machineCards: _hardware?.hardwareInfo?.cardCount,
+            swaLeftToKobold: swaLeft,
           ),
           KcppsBroken(:final reason) => 'This preset cannot be read: $reason',
         },
@@ -123,6 +130,19 @@ extension BackendFacadeLocalModel on BackendFacade {
       );
     }
     return true;
+  }
+
+  /// The model at [model] has a sliding window. The sentence that needs it
+  /// is an extra: a header that cannot be read means no sentence, never a
+  /// card that fails.
+  Future<bool> _hasSlidingWindow(String model) async {
+    if (model.isEmpty) return false;
+    try {
+      return (await _cardModelFor(model)).info?.hasSlidingWindow ?? false;
+    } on Object catch (e) {
+      debugPrint('[web] could not read the model header for the card: $e');
+      return false;
+    }
   }
 
   Future<({String path, GGUFModelInfo? info, int? bytes})> _cardModelFor(

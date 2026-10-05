@@ -42,6 +42,15 @@ extension KcppsEditorFit on KcppsEditorController {
     rocmFailedBefore: storage.backendSettings.rocmFlashAttentionFailed,
   );
 
+  /// The preset says nothing about sliding window and the model has it:
+  /// KoboldCpp's own default stands until the switch is answered.
+  bool get swaLeftToKobold => draft.slidingWindowLeft && hasSlidingWindow;
+
+  /// ... and the file leaves fast forward on, so that default is sliding
+  /// window together with fast forward, which [kSwaLeftToKoboldNote] says.
+  bool get swaLeftWarns =>
+      swaLeftToKobold && kcppsSwaLeftToKobold(draft.swaLeftAsWritten!);
+
   /// The config the form writes, for the panel and the plain words.
   KoboldLaunchConfig get config => draft.toConfig(
     recurrent: recurrent,
@@ -234,9 +243,10 @@ extension KcppsEditorMmq on KcppsEditorController {
         _notify();
         // Built as the form is saved, so what the machine has already shown
         // it cannot run (flash attention on a ROCm build that died with it)
-        // is not loaded to be timed.
+        // is not loaded to be timed. Sliding window is answered as the
+        // switch reads, off while it is left to KoboldCpp: timed as before.
         final map = kcppsPresetLaunchMap(
-          _map(draft.copyWith(mmq: on)),
+          _map(draft.copyWith(mmq: on, slidingWindow: draft.slidingWindow)),
           modelPath: draft.modelPath,
           mmprojPath: '',
         );

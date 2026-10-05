@@ -251,7 +251,20 @@ Decisions already made by the maintainer:
    the app switches sliding window off only when the file itself has it on
    with fast forward on. A preset that does not mention sliding window is
    left to KoboldCpp's default, and the engine log says what that default
-   does when the model has sliding window.
+   does when the model has sliding window. The user is told on screen too
+   (2026-10-05): the preset editor, the desktop preset card and the phone's
+   preset card say it in the same sentence (`kSwaLeftToKoboldNote`) when the
+   model has sliding window and the file leaves fast forward on
+   (`kcppsSwaLeftToKobold`), and the editor's sliding-window switch shows a
+   third state, "left to KoboldCpp", instead of "off". Until the switch is
+   answered, a save keeps the file's own word: nothing about sliding window,
+   and fast forward and the window's padding as written
+   (`KcppsDraft.swaLeftAsWritten`), even when another edit rewrites that
+   group of settings. The phone's cards print the preset's plain words as
+   the server sends them (`preset.words`), so they need no change of their
+   own. Wording only: the launch runs the file as written, and the editor's
+   MMQ timing still loads the form with sliding window answered "off", as
+   before.
 8. Old KoboldCpp versions are not supported (2026-10-03). An engine before
    1.112 stops at load on the staged config: it compares the cache type as
    a number, and a config file is not converted the way a command line is.

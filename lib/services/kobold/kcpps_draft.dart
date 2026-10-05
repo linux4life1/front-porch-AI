@@ -24,6 +24,7 @@ class KcppsDraft {
     this.moeCpuLayers = 0,
     this.slots = 0,
     this.slidingWindow = false,
+    this.swaLeftAsWritten,
     this.mmprojPath = '',
     this.mmprojOnCpu = false,
     this.draftModelPath = '',
@@ -59,6 +60,17 @@ class KcppsDraft {
 
   /// Sliding window on (fast forward off): only for a model that has it.
   final bool slidingWindow;
+
+  /// Set when the preset says nothing about sliding window, so KoboldCpp's
+  /// own default stands until the form answers it (a [copyWith] that sets
+  /// [slidingWindow]). It holds what the file says about the settings that go
+  /// with sliding window (fast forward, the window's padding), which [toMap]
+  /// writes back as they were: saving other edits leaves the file's own
+  /// answer alone. Only for a model that has a sliding window.
+  final Map<String, dynamic>? swaLeftAsWritten;
+
+  /// Sliding window is left to KoboldCpp ([swaLeftAsWritten]).
+  bool get slidingWindowLeft => swaLeftAsWritten != null;
   final String mmprojPath;
   final bool mmprojOnCpu;
   final String draftModelPath;
@@ -78,11 +90,13 @@ class KcppsDraft {
   final Map<String, dynamic> extras;
 
   /// The form for a preset read from a file. [recurrent]: the model has
-  /// recurrent layers, which changes how many slots KoboldCpp makes.
+  /// recurrent layers, which changes how many slots KoboldCpp makes. [raw]:
+  /// the file as written, for what it leaves to KoboldCpp.
   factory KcppsDraft.fromConfig(
     String name,
     KoboldLaunchConfig c, {
     bool recurrent = false,
+    Map<String, dynamic>? raw,
   }) {
     final swa = c.contextMode == ContextManagementMode.slidingWindowAttention;
     return KcppsDraft(
@@ -106,6 +120,12 @@ class KcppsDraft {
               contextShift: c.contextShift,
             ),
       slidingWindow: swa,
+      swaLeftAsWritten: raw != null && kcppsLeavesSwaToKobold(raw)
+          ? {
+              for (final k in _swaCompanions)
+                if (raw.containsKey(k)) k: raw[k],
+            }
+          : null,
       mmprojPath: c.mmprojPath,
       mmprojOnCpu: c.mmprojOnCpu,
       draftModelPath: c.draftModelPath,
@@ -188,6 +208,15 @@ class KcppsDraft {
     );
     // No thread count leaves it to KoboldCpp.
     if (threads == null) map.remove('threads');
+    // Left to KoboldCpp: sliding window is not written either way, and the
+    // settings that go with it stay as the file has them.
+    final left = swaLeftAsWritten;
+    if (left != null && hasSlidingWindow) {
+      for (final k in ['noswa', 'useswa', ..._swaCompanions]) {
+        map.remove(k);
+      }
+      map.addAll(left);
+    }
     return map;
   }
 
@@ -227,6 +256,8 @@ class KcppsDraft {
     moeCpuLayers: moeCpuLayers ?? this.moeCpuLayers,
     slots: slots ?? this.slots,
     slidingWindow: slidingWindow ?? this.slidingWindow,
+    // Answering the switch ends it.
+    swaLeftAsWritten: slidingWindow == null ? swaLeftAsWritten : null,
     mmprojPath: mmprojPath ?? this.mmprojPath,
     mmprojOnCpu: mmprojOnCpu ?? this.mmprojOnCpu,
     draftModelPath: draftModelPath ?? this.draftModelPath,
@@ -240,3 +271,7 @@ class KcppsDraft {
     extras: extras,
   );
 }
+
+/// The settings that go with sliding window, kept as a file has them while
+/// it leaves sliding window to KoboldCpp ([KcppsDraft.swaLeftAsWritten]).
+const List<String> _swaCompanions = ['nofastforward', 'swapadding'];

@@ -234,7 +234,8 @@ class KeBox extends StatelessWidget {
   }
 }
 
-/// A checkbox with its words beside it.
+/// A checkbox with its words beside it. A [value] of null is the third
+/// state, drawn as a dash: nothing was chosen. A tap from it answers "off".
 class KeCheck extends StatelessWidget {
   const KeCheck({
     super.key,
@@ -243,14 +244,14 @@ class KeCheck extends StatelessWidget {
     required this.onChanged,
   });
 
-  final bool value;
+  final bool? value;
   final String label;
   final ValueChanged<bool>? onChanged;
 
   @override
   Widget build(BuildContext context) => MergeSemantics(
     child: InkWell(
-      onTap: onChanged == null ? null : () => onChanged!(!value),
+      onTap: onChanged == null ? null : () => onChanged!(value == false),
       borderRadius: BorderRadius.circular(6),
       child: Opacity(
         opacity: onChanged == null ? 0.45 : 1,
@@ -261,6 +262,7 @@ class KeCheck extends StatelessWidget {
               height: 20,
               child: Checkbox(
                 value: value,
+                tristate: value == null,
                 onChanged: onChanged == null
                     ? null
                     : (v) => onChanged!(v ?? false),

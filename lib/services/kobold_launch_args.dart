@@ -194,9 +194,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
     final read = await readKoboldPreset(kcppsPath);
     // Sliding window left to KoboldCpp's default is run as written. When
     // the model has it, the log says what that default does.
-    if (onNote != null &&
-        kcppsLeavesSwaToKobold(read.raw) &&
-        read.raw['nofastforward'] != true) {
+    if (onNote != null && kcppsSwaLeftToKobold(read.raw)) {
       final loading = modelPath.isNotEmpty
           ? modelPath
           : kcppsModelOf(read.raw, engineDir: storage.binDir.path);

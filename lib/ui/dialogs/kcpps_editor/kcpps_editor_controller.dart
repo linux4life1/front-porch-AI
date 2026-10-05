@@ -252,7 +252,12 @@ class KcppsEditorController extends ChangeNotifier {
       _opened = null;
       _saved = '';
     } else {
-      draft = KcppsDraft.fromConfig(name, ok.config, recurrent: recurrent);
+      draft = KcppsDraft.fromConfig(
+        name,
+        ok.config,
+        recurrent: recurrent,
+        raw: ok.raw,
+      );
       _raw = Map<String, dynamic>.of(ok.raw);
       _opened = _map();
       _saved = path == null ? '' : _snapshot();

@@ -263,6 +263,12 @@ bool kcppsHasSwaOn(Map<String, dynamic> map) =>
 bool kcppsLeavesSwaToKobold(Map<String, dynamic> map) =>
     !map.containsKey('noswa') && !map.containsKey('useswa');
 
+/// True when a config leaves sliding window to KoboldCpp and does not turn
+/// fast forward off. For a model that has sliding window, KoboldCpp's default
+/// then switches it on together with fast forward ([kSwaLeftToKoboldNote]).
+bool kcppsSwaLeftToKobold(Map<String, dynamic> map) =>
+    kcppsLeavesSwaToKobold(map) && map['nofastforward'] != true;
+
 /// Said when a preset leaves sliding window to KoboldCpp, with fast forward
 /// on, for a model that has it. Nothing is changed; the user is told.
 const String kSwaLeftToKoboldNote =

@@ -116,12 +116,15 @@ String koboldSpreadWords(KoboldLaunchConfig c, int cards) {
 /// [recurrent]: the model has recurrent layers, so KoboldCpp may make more
 /// smart cache slots than asked. [shortOfMemory]: no slots because the
 /// computer has no room for them. [machineCards]: the graphics cards this
-/// computer has, when known.
+/// computer has, when known. [swaLeftToKobold]: the preset leaves sliding
+/// window to KoboldCpp with fast forward on, for a model that has it, which
+/// [kSwaLeftToKoboldNote] says.
 String kcppsPlainWords(
   KoboldLaunchConfig c, {
   bool recurrent = false,
   bool shortOfMemory = false,
   int? machineCards,
+  bool swaLeftToKobold = false,
 }) {
   final model = c.modelPath.isEmpty
       ? 'the model chosen in Settings'
@@ -153,6 +156,7 @@ String kcppsPlainWords(
     'memory $size, reads ${koboldTokens(c.batchSize)} tokens at a time, and '
     '${swa ? 'reads the whole chat again for every reply' : 'starts replies fast on long chats'}.',
   );
+  if (swaLeftToKobold) out.add(kSwaLeftToKoboldNote);
   if (!swa) {
     final slots = koboldSmartCacheSlots(
       asked: c.smartCacheSlots,
