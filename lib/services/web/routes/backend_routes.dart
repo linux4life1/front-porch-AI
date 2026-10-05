@@ -165,9 +165,14 @@ class WebBackendRoutes {
     if (path == null || path.isEmpty) {
       return JsonResponse.badRequest('path is required');
     }
-    final ok = await _backend!.switchModel(path);
+    String? refused;
+    final ok = await _backend!.switchModel(
+      path,
+      onRefused: (words) => refused = words,
+    );
     if (!ok) return JsonResponse.error(404, 'Model not found');
-    return JsonResponse.ok(_backend.status());
+    // Additive: why the running KoboldCpp could not load it, or null.
+    return JsonResponse.ok({..._backend.status(), 'refused': refused});
   }
 
   Future<shelf.Response> _hfSearch(shelf.Request r) async {

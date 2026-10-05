@@ -112,12 +112,19 @@ extension LLMProviderKoboldHosts on LLMProvider {
 
   /// Puts what Settings now says chat runs (a new chat preset or model)
   /// into the running KoboldCpp: a reload of the staged chat config by
-  /// name, and a restart when the reload is not acted on or KoboldCpp
-  /// could not load it. What loaded is recorded as the model in use.
-  /// Nothing happens when KoboldCpp is not running or chat's pair is
-  /// loaded already.
-  Future<void> _reloadChatKobold() async {
-    if (!_koboldService.isProcessRunning) return;
+  /// name, and a restart when the engine never acts on it. What loaded is
+  /// recorded as the model in use. Nothing happens when KoboldCpp is not
+  /// running or chat's pair is loaded already.
+  ///
+  /// When it could not be loaded KoboldCpp has gone back to the model it
+  /// had, which still works. The reason is noted first, on the status line
+  /// and in the log. If a fresh start would be refused (the new model file
+  /// cannot be read, the preset is one the app will not start) nothing is
+  /// stopped, and the answer is a refusal saying why. Otherwise the engine
+  /// is stopped and started, and the start's answer is the answer. Null:
+  /// nothing to report.
+  Future<KoboldLaunchResult?> _reloadChatKobold() async {
+    if (!_koboldService.isProcessRunning) return null;
     try {
       await _koboldSwapHost(
         role: kKoboldChatRole,
@@ -125,13 +132,30 @@ extension LLMProviderKoboldHosts on LLMProvider {
         kcpps: '',
       ).restore();
       await recordKoboldModelInUse(_storageService);
-    } on KoboldSwapFailed catch (e) {
-      // A fresh start loads the new config, or says in plain words why not.
+      return null;
+    } on KoboldPresetProblem catch (e) {
+      // Refused before anything was sent: the engine runs what it ran.
       _koboldService.noteReloadFailed(e.message);
+      return _refusedKeepingEngine(e.message);
+    } on KoboldSwapFailed catch (e) {
+      _koboldService.noteReloadFailed(e.message);
+      // The swap's own last resort stops the engine for a restart. When that
+      // restart was refused, there is no previous model left to keep.
+      if (!_koboldService.isProcessRunning) {
+        return KoboldLaunchResult.refused(e.message);
+      }
+      final problem = await koboldLaunchProblem(_storageService);
+      if (problem != null) return _refusedKeepingEngine(problem);
       await _koboldService.stopKobold();
-      await ensureManagedBackendIsRunning();
+      return _ensureManagedKobold();
     }
   }
+
+  KoboldLaunchResult _refusedKeepingEngine(String why) =>
+      KoboldLaunchResult.refused(
+        'The new model was not loaded. The previous one is still running. '
+        '$why',
+      );
 
   /// Loads [config], which belongs to no role (a timing trial), into the
   /// running KoboldCpp the way a swap loads a role: staged in the admin

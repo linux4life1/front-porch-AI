@@ -106,7 +106,11 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
       if (!await askReplaceKcpps(context, c.draft.name.trim())) return;
       result = await run(true);
     }
-    if (result != KcppsSaveResult.saved || !mounted) return;
+    if (!mounted) return;
+    // Saved, but the running KoboldCpp was not given it: the dialog stays,
+    // with the reason in the footer.
+    if (result == KcppsSaveResult.notLoaded) _saved = true;
+    if (result != KcppsSaveResult.saved) return;
     _saved = true;
     if (use) Navigator.of(context).pop(true);
   }

@@ -272,7 +272,7 @@ extension KcppsEditorMmq on KcppsEditorController {
     } finally {
       mmqTiming = false;
       _notify();
-      await reloadChat?.call();
+      await _reloadChat();
     }
   }
 }

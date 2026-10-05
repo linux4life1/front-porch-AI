@@ -218,18 +218,6 @@ class _SettingsPageState extends State<SettingsPage> {
     });
   }
 
-  /// A new chat model or preset goes into a running KoboldCpp at once: a
-  /// reload by name, a restart only when that is not acted on.
-  void _reloadChatIfRunning() {
-    final llm = context.read<LLMProvider>();
-    if (!llm.koboldService.isProcessRunning) return;
-    unawaited(
-      llm.reloadChatKobold().catchError(
-        (Object e) => debugPrint('[Settings] chat reload failed: $e'),
-      ),
-    );
-  }
-
   void _scanLocalPresets() {
     final storage = Provider.of<StorageService>(context, listen: false);
     final files = kcppsPresetFiles(storage.binDir.path);

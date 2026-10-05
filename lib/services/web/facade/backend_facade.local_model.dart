@@ -57,6 +57,9 @@ extension BackendFacadeLocalModel on BackendFacade {
       'modelName': model.isEmpty ? null : koboldModelName(model),
       'running': k.isRunning,
       'phase': k.phase.name,
+      // What the status line says: the load in progress, or why a model
+      // change was not made. Additive; '' when there is nothing to say.
+      'statusMessage': k.modelLoadingStatus,
       'preset': preset,
       'auto': auto,
       // Why a chosen model has no `auto`: its file could not be read (else
@@ -91,9 +94,10 @@ extension BackendFacadeLocalModel on BackendFacade {
     await chooseKoboldPreset(_storage, path);
     if (_llm.koboldService.isProcessRunning) {
       unawaited(
-        _llm.reloadChatKobold().catchError(
-          (Object e) => debugPrint('[web] chat reload failed: $e'),
-        ),
+        _llm.reloadChatKobold().catchError((Object e) {
+          debugPrint('[web] chat reload failed: $e');
+          return null;
+        }),
       );
     }
     return true;
@@ -112,9 +116,10 @@ extension BackendFacadeLocalModel on BackendFacade {
       _cardReload?.cancel();
       _cardReload = Timer(
         kKoboldContextReloadDelay,
-        () => _llm.reloadChatKobold().catchError(
-          (Object e) => debugPrint('[web] chat reload failed: $e'),
-        ),
+        () => _llm.reloadChatKobold().catchError((Object e) {
+          debugPrint('[web] chat reload failed: $e');
+          return null;
+        }),
       );
     }
     return true;

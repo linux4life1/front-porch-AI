@@ -65,8 +65,11 @@ extension _HomePageChrome on _HomePageState {
     try {
       final kobold = Provider.of<KoboldService>(context, listen: false);
       status = kobold.modelLoadingStatus;
-      // Unloaded for being idle: words only, nothing is loading.
-      loading = kobold.phase != KoboldPhase.unloaded;
+      // Unloaded for being idle, or ready with a note (a model change that
+      // was refused): words only, nothing is loading.
+      loading =
+          kobold.phase != KoboldPhase.unloaded &&
+          kobold.phase != KoboldPhase.ready;
     } catch (_) {}
 
     if (status.isEmpty) return content;

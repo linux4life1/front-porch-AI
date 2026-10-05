@@ -24,6 +24,29 @@ part of 'settings_page.dart';
 /// the page's private launch state, so behavior is identical to when they
 /// lived inline. AppColors exclusive.
 extension _SettingsLaunchControls on _SettingsPageState {
+  /// A new chat model or preset goes into a running KoboldCpp at once: a
+  /// reload by name, a restart only when that is not acted on. When it was
+  /// not loaded, the reason is said the way a Start says its own.
+  void _reloadChatIfRunning() {
+    final llm = context.read<LLMProvider>();
+    if (!llm.koboldService.isProcessRunning) return;
+    // Taken before the wait: the page may be gone when it ends.
+    final messenger = ScaffoldMessenger.of(context);
+    unawaited(
+      llm
+          .reloadChatKobold()
+          .then((result) {
+            final words = result?.message;
+            if (words != null) {
+              messenger.showSnackBar(SnackBar(content: Text(words)));
+            }
+          })
+          .catchError(
+            (Object e) => debugPrint('[Settings] chat reload failed: $e'),
+          ),
+    );
+  }
+
   /// Apply GPU defaults based on detected hardware info.
   void _applyHardwareDefaults(HardwareInfo hw) {
     final storage = Provider.of<StorageService>(context, listen: false);

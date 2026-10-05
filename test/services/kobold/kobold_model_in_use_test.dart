@@ -124,7 +124,10 @@ void main() {
           ),
         ),
         kobold: FakeKoboldService(),
-        reloadChat: () async => reloads++,
+        reloadChat: () async {
+          reloads++;
+          return null;
+        },
         readFree: () async => (graphics: 15000, system: 28000),
         readModel: (path) async => (info: null, bytes: 1024),
         unified: false,

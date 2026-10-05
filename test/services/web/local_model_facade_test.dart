@@ -70,7 +70,10 @@ class _Llm extends FakeLLMProvider {
   KoboldService get koboldService => kobold;
 
   @override
-  Future<void> reloadChatKobold() async => reloads++;
+  Future<KoboldLaunchResult?> reloadChatKobold() async {
+    reloads++;
+    return null;
+  }
 }
 
 void main() {

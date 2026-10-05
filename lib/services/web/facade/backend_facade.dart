@@ -122,15 +122,20 @@ class BackendFacade {
   /// Like the desktop picker, the model brings its own preset or none: the
   /// previous model's preset used to stay active, so a bigger model started
   /// with the smaller one's context and layers. Returns false if the path
-  /// isn't a known local model.
-  Future<bool> switchModel(String path) async {
+  /// isn't a known local model. When the running KoboldCpp could not load it,
+  /// [onRefused] is given the reason in plain words.
+  Future<bool> switchModel(
+    String path, {
+    void Function(String words)? onRefused,
+  }) async {
     final known = _models.localModels.any((m) => m.path == path);
     if (!known) return false;
     await selectKoboldModel(_storage, path);
     // A running KoboldCpp loads the new model in place, as on the desktop;
     // a stopped one is started.
     if (_llm.koboldService.isProcessRunning) {
-      await _llm.reloadChatKobold();
+      final refusal = (await _llm.reloadChatKobold())?.refusal;
+      if (refusal != null) onRefused?.call(refusal);
     } else {
       await restart();
     }

@@ -149,6 +149,9 @@ class KoboldLaunchResult {
 
   final bool started;
   final String? message;
+
+  /// What a refusal says; null when the engine was started.
+  String? get refusal => started ? null : message;
 }
 
 KcppsRead _read(File file) {

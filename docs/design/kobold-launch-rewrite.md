@@ -256,6 +256,19 @@ Decisions already made by the maintainer:
     reach the engine: Start, a live reload of chat, a helper or story swap,
     the editor's MMQ timing, and the phone's preset pick.
     `kcppsRiskyPresetProblem` is the one place it is decided.
+13. A live reload of chat that KoboldCpp could not load keeps the old model
+    when a fresh start would be refused (2026-10-04). KoboldCpp goes back to
+    the model it had, which still works. The app used to stop it and start
+    again; a start refused for the new model file left nothing running and no
+    reason shown. The reason is now always noted first (status line and engine
+    log). If a fresh start would be refused (`koboldLaunchProblem`, which
+    includes a preset the app will not start), nothing is stopped and the
+    caller gets a refusal: the new model was not loaded, the previous one is
+    still running, and why. Otherwise the engine is stopped and started, and
+    the start's answer comes back. `reloadChatKobold` returns that answer.
+    Settings shows it in a snackbar, the preset editor in its problem line,
+    the phone's model switch in the response's `refused` field, and the
+    phone's Local model card through the status line it now carries.
 
 ## Design
 

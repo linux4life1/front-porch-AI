@@ -46,11 +46,11 @@ class _Llm extends FakeLLMProvider {
   KoboldService get koboldService => kobold;
 
   @override
-  Future<void> reloadChatKobold() {
+  Future<KoboldLaunchResult?> reloadChatKobold() async {
     reloads++;
-    return fails
-        ? Future<void>.error(StateError('KoboldCpp did not answer'))
-        : loaded.future;
+    if (fails) throw StateError('KoboldCpp did not answer');
+    await loaded.future;
+    return null;
   }
 }
 

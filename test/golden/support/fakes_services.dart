@@ -108,6 +108,8 @@ class FakeKoboldService extends ChangeNotifier implements KoboldService {
   @override
   bool get isReady => false;
   @override
+  String get modelLoadingStatus => '';
+  @override
   List<String> get logs => const [];
 
   @override

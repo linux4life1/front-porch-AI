@@ -14,8 +14,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 part 'kcpps_editor_controller.fit.dart';
 
-/// What saving said.
-enum KcppsSaveResult { saved, nameTaken, invalid, failed }
+/// What saving said. [notLoaded]: saved and made chat's preset, but the
+/// running KoboldCpp was not given it (why is in the problem line).
+enum KcppsSaveResult { saved, nameTaken, invalid, failed, notLoaded }
 
 /// The preset editor's state: the presets, the one being edited, the model
 /// it loads, and the machine it loads on.
@@ -44,8 +45,9 @@ class KcppsEditorController extends ChangeNotifier {
   final KoboldService kobold;
   final StoryRepository? stories;
 
-  /// Puts the chat preset into the running KoboldCpp.
-  final Future<void> Function()? reloadChat;
+  /// Puts the chat preset into the running KoboldCpp, and says why when it
+  /// was not loaded (null: nothing to report).
+  final Future<KoboldLaunchResult?> Function()? reloadChat;
 
   /// Loads a config as a trial into the running KoboldCpp; true when it
   /// runs afterwards.
@@ -389,8 +391,17 @@ class KcppsEditorController extends ChangeNotifier {
     }
     await recordKoboldModelInUse(storage);
     _notify();
-    await reloadChat?.call();
-    return result;
+    return await _reloadChat() ? result : KcppsSaveResult.notLoaded;
+  }
+
+  /// Puts the chat preset into the running KoboldCpp. False when it was not
+  /// loaded, with the reason where the editor shows problems.
+  Future<bool> _reloadChat() async {
+    final refusal = (await reloadChat?.call())?.refusal;
+    if (refusal == null) return true;
+    problem = refusal;
+    _notify();
+    return false;
   }
 
   /// Copies the preset being edited and opens the copy. False when there was
