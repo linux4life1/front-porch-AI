@@ -377,15 +377,23 @@ class _SettingsPageState extends State<SettingsPage> {
     final storageService = Provider.of<StorageService>(context);
     final modelManager = Provider.of<ModelManager>(context);
 
-    // Auto-select first model if none selected and models exist. Skip when a
-    // kcpps preset with a valid model is active (use "Managed by kcpps").
+    // Auto-select a model if none selected and models exist: the last-used
+    // one when the scan has it (the Local model card names that one), else the
+    // first. Skip when a kcpps preset with a valid model is active (use
+    // "Managed by kcpps").
     final kcppsModelExists = _kcppsModelExists.of(
       storageService.backendSettings.kcppsModelPath,
     );
     if (_selectedModelPath == null &&
         modelManager.models.isNotEmpty &&
         !(storageService.backendSettings.kcppsHasModel && kcppsModelExists)) {
-      _selectedModelPath = modelManager.models.first.path;
+      final last = storageService.backendSettings.lastUsedModelPath;
+      _selectedModelPath = modelManager.models
+          .map((m) => m.path)
+          .firstWhere(
+            (m) => last != null && p.equals(m, last),
+            orElse: () => modelManager.models.first.path,
+          );
     }
     // Warm architecture info for the (possibly just auto-selected) model so
     // the first gauge update is accurate.
