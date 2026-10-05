@@ -24,7 +24,8 @@ final Expando<({String words, int generation})> _providerStartRefusal =
     Expando<({String words, int generation})>('fpai.startRefusal');
 
 /// What the chat screen says about the connection when the app's own start of
-/// KoboldCpp was refused.
+/// KoboldCpp was refused, and what a change of backend sets going: a check of
+/// a remote one, and reading how a local model thinks.
 extension LLMProviderConnection on LLMProvider {
   /// Starts the app's KoboldCpp for chat entry or for a swap, and keeps what
   /// the start said, for [composerConnectionHint]. Null when nothing needed
@@ -67,5 +68,56 @@ extension LLMProviderConnection on LLMProvider {
             refusal.generation == _koboldService.loadGeneration
         ? refusal.words
         : null;
+  }
+
+  /// Read the local chat template (oMLX jinja / LMS GGUF / Kobold GGUF) so
+  /// heretic `{% set enable_thinking = true %}` is known *before* the first
+  /// eval, not only after Settings opens the thinking chips.
+  void _kickLocalThinkingResolve(BackendType type) {
+    switch (type) {
+      case BackendType.omlx:
+        final model = _storageService.backendSettings.remoteModelName;
+        if (model.isEmpty) return;
+        if (ReasoningSupportResolver.instance.isResolved(model)) return;
+        unawaited(
+          ReasoningSupportResolver.instance.resolveOmlx(
+            apiUrl: 'http://localhost:8000/v1',
+            modelName: model,
+            apiKey: _storageService.backendSettings.remoteApiKey,
+          ),
+        );
+        return;
+      case BackendType.openRouter:
+        final url = _openRouterService.apiUrl;
+        final model = _storageService.backendSettings.remoteModelName;
+        if (model.isEmpty || !isLocalRemoteUrl(url)) return;
+        if (ReasoningSupportResolver.instance.isResolved(model)) return;
+        unawaited(
+          ReasoningSupportResolver.instance.resolveLmStudio(
+            apiUrl: url,
+            modelName: model,
+            apiKey: _storageService.backendSettings.remoteApiKey,
+          ),
+        );
+        return;
+      case BackendType.kobold:
+        final path = _storageService.backendSettings.lastUsedModelPath;
+        if (path == null || path.isEmpty) return;
+        if (ReasoningSupportResolver.instance.isResolved(path)) return;
+        unawaited(ReasoningSupportResolver.instance.resolveLocalGguf(path));
+    }
+  }
+
+  bool _isRemoteBackend(BackendType type) =>
+      type == BackendType.openRouter || type == BackendType.omlx;
+
+  /// Live `GET /models` when the remote backend is (or becomes) active.
+  /// Skipped under `flutter test` so constructing a provider never hits
+  /// the network; tests that care call [OpenRouterService.refreshReachability].
+  void _maybePingRemote(BackendType type, {required bool configChanged}) {
+    if (kSkipRemoteAutoPing) return;
+    if (!_isRemoteBackend(type)) return;
+    if (!configChanged && type == _activeBackend) return;
+    unawaited(_openRouterService.refreshReachability());
   }
 }
