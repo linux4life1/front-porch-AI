@@ -19,6 +19,7 @@
 part of 'kobold_service.dart';
 
 const String _alreadyStarting = 'KoboldCpp is already starting.';
+const String _stopPressed = 'KoboldCpp was not started: Stop was pressed.';
 
 /// Process start/stop and console log ingest.
 extension KoboldServiceProcess on KoboldService {
@@ -88,6 +89,7 @@ extension KoboldServiceProcess on KoboldService {
     // resuming — one KoboldCpp process left with no owner, holding the port
     // and the VRAM. However this start ends, the finally releases it.
     _isStarting = true;
+    final generation = ++_startGeneration;
     try {
       await _stopForRestart();
       final unusable = await _unusableStart(executablePath, modelPath);
@@ -160,6 +162,7 @@ extension KoboldServiceProcess on KoboldService {
         staged,
         port: port,
         useRocm: useRocm,
+        generation: generation,
       );
     } finally {
       _isStarting = false;
@@ -182,7 +185,12 @@ extension KoboldServiceProcess on KoboldService {
       '[KoboldService] startKobold called while still running — stopping first.',
     );
     try {
-      await stopKobold();
+      _stoppingForRestart = true;
+      try {
+        await stopKobold();
+      } finally {
+        _stoppingForRestart = false;
+      }
       // Give the OS a moment to release the port
       await Future<void>.delayed(const Duration(seconds: 1));
     } catch (e) {
@@ -212,7 +220,9 @@ extension KoboldServiceProcess on KoboldService {
   }
 
   /// Spawns the process and wires its output, readiness and exit. A program
-  /// that cannot be run is a refusal, not a throw.
+  /// that cannot be run is a refusal, not a throw. [generation] is the start's
+  /// own number: a Stop pressed while it was being prepared changed it, and
+  /// nothing is spawned.
   Future<KoboldLaunchResult> _spawn(
     String executablePath,
     String modelPath,
@@ -221,6 +231,7 @@ extension KoboldServiceProcess on KoboldService {
     KoboldStagedRole? staged, {
     required int port,
     required bool useRocm,
+    required int generation,
   }) async {
     try {
       // ROCm: consumer RDNA cards need HSA_OVERRIDE_GFX_VERSION or the
@@ -229,6 +240,9 @@ extension KoboldServiceProcess on KoboldService {
       final extraEnv = useRocm
           ? await GpuBackendResolver.rocmEnvironment()
           : const <String, String>{};
+      // The last wait before the process exists, so the last place a Stop
+      // can still call the start off.
+      if (generation != _startGeneration) return _refuse(_stopPressed);
       _lastFailure = null;
       _rocmFlashAttentionLaunch =
           useRocm && staged != null && _flashAttentionIn(staged.key);
@@ -390,7 +404,16 @@ extension KoboldServiceProcess on KoboldService {
     // `_process` the moment the process dies — which can happen part-way
     // through the kill ladder below.
     final process = _process;
-    if (process == null) return;
+    if (process == null) {
+      // A start still being prepared is called off: it gives up before it
+      // spawns. The stop a start makes of the engine it replaces is not.
+      if (_isStarting && !_stoppingForRestart) {
+        _startGeneration++;
+        _modelLoadingStatus = '';
+        notify();
+      }
+      return;
+    }
     // Its exit is the app's doing, not a failure.
     _stoppingProcess = process;
     _addLog('Stopping Backend (PID: ${process.pid})...');

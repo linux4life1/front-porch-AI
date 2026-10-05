@@ -56,6 +56,14 @@ class KoboldService extends ChangeNotifier
   bool _isRunning = false;
   bool _isStarting = false;
 
+  /// Goes up when Stop is pressed while a start is still being prepared. That
+  /// start sees a different number just before it spawns and gives up.
+  int _startGeneration = 0;
+
+  /// True while a start stops the engine it replaces: that stop is not a
+  /// Stop press and must not call off the start that made it.
+  bool _stoppingForRestart = false;
+
   /// Why the engine last stopped on its own, or null.
   KoboldFailure? get lastFailure => _lastFailure;
   KoboldFailure? _lastFailure;

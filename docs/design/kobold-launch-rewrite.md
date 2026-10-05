@@ -297,6 +297,16 @@ Decisions already made by the maintainer:
     KoboldCpp applies `host` from `--config` at launch and ignores it on an
     admin reload, so a swap cannot change it. The app reaches the engine at
     `http://127.0.0.1:<port>` and nothing else (`kKoboldHost`).
+13. Stop while a start is still being prepared calls that start off
+    (2026-10-04). Pressing Stop after the start slot is claimed and before
+    KoboldCpp is spawned (the free-memory read, the model file check, the
+    first-run graphics card check) means KoboldCpp is not started, and the
+    start says "KoboldCpp was not started: Stop was pressed." Quitting the
+    app, and the update shutdown, stop a preparing start the same way. Only
+    the "nothing spawned yet" case changed: the kill ladder for a running
+    process is as it was, and the stop a start makes of the engine it
+    replaces does not call that start off. The start checks for a Stop
+    right before it spawns, after its last wait.
 
 ## Design
 

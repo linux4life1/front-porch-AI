@@ -111,7 +111,7 @@ extension _MainLifecycle on _MyAppState {
     // prevents an orphaned process when the app closes.
     try {
       final koboldService = Provider.of<KoboldService>(context, listen: false);
-      if (koboldService.isRunning) {
+      if (koboldService.isRunning || koboldService.isStarting) {
         await koboldService.stopKobold();
       }
     } catch (e) {

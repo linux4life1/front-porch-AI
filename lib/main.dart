@@ -399,7 +399,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
                           context,
                           listen: false,
                         );
-                        if (kobold.isRunning) await kobold.stopKobold();
+                        if (kobold.isRunning || kobold.isStarting) {
+                          await kobold.stopKobold();
+                        }
                       } catch (_) {}
                       try {
                         final webServer = Provider.of<WebServerHost>(
