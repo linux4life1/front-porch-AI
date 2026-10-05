@@ -195,4 +195,112 @@ void main() {
       expect(notifies, before, reason: 'nobody is left to be told');
     },
   );
+
+  group('after a tap has asked a live question', () {
+    const here = 'Remote API|https://x/v1|some/model|';
+    const there = 'Remote API|https://x/v1|other/model|';
+    const empty = LlmToolResponse(calls: [], text: '');
+
+    test(
+      'a provider-list answer that arrives later is not the verdict',
+      () async {
+        final probe = ToolTransportProbe();
+        final listAnswer = Completer<bool?>();
+        final tester = ToolSupportTester(
+          probe: probe,
+          fireToolEval: (_, _) async => empty,
+          getBackendIdentity: () => here,
+          isBackendReady: () => true,
+          isBusy: () => false,
+          onNotify: () {},
+          fetchMetadataToolVerdict: () => listAnswer.future,
+          retryGaps: const [],
+        );
+        addTearDown(tester.dispose);
+
+        tester.onBackendMaybeChanged(); // asks the provider's list; slow
+        await _settle();
+        await tester.test(force: true); // the tap: a live question, no answer
+        expect(probe.supportFor(here), ToolCallSupport.untested);
+
+        listAnswer.complete(true); // the list answers after the live question
+        await _settle();
+        expect(
+          probe.supportFor(here),
+          ToolCallSupport.untested,
+          reason: 'only a live question settles it',
+        );
+      },
+    );
+
+    test('the next try asks the model, not the provider list', () async {
+      final probe = ToolTransportProbe();
+      var lists = 0;
+      var pings = 0;
+      final tester = ToolSupportTester(
+        probe: probe,
+        // The first live question settles nothing; the second finds calls.
+        fireToolEval: (_, _) async => ++pings < 2 ? empty : _calls,
+        getBackendIdentity: () => here,
+        isBackendReady: () => true,
+        isBusy: () => false,
+        onNotify: () {},
+        fetchMetadataToolVerdict: () async {
+          lists++;
+          return false; // the list says no; the model, asked, says yes
+        },
+        retryGaps: const [Duration.zero, Duration.zero],
+      );
+      addTearDown(tester.dispose);
+
+      await tester.test(force: true);
+      expect(pings, 1);
+      expect(probe.supportFor(here), ToolCallSupport.untested);
+
+      tester.onBackendMaybeChanged(); // the notification the retry rides
+      await _settle();
+
+      expect(lists, 0, reason: 'the list is not asked for this model again');
+      expect(pings, 2);
+      expect(probe.supportFor(here), ToolCallSupport.supported);
+    });
+
+    test(
+      'the provider list is asked again once the model has changed',
+      () async {
+        final probe = ToolTransportProbe();
+        var identity = here;
+        var lists = 0;
+        final tester = ToolSupportTester(
+          probe: probe,
+          fireToolEval: (_, _) async => empty,
+          getBackendIdentity: () => identity,
+          isBackendReady: () => true,
+          isBusy: () => false,
+          onNotify: () {},
+          fetchMetadataToolVerdict: () async {
+            lists++;
+            return false;
+          },
+          retryGaps: const [Duration.zero, Duration.zero],
+        );
+        addTearDown(tester.dispose);
+
+        await tester.test(force: true);
+        expect(lists, 0);
+
+        identity = there; // another model: its list answer is welcome
+        tester.onBackendMaybeChanged();
+        await _settle();
+        expect(lists, 1);
+        expect(probe.supportFor(there), ToolCallSupport.unsupported);
+
+        identity = here; // and back: the tap's hold is gone
+        tester.onBackendMaybeChanged();
+        await _settle();
+        expect(lists, 2, reason: 'the list may be asked about it again');
+        expect(probe.supportFor(here), ToolCallSupport.unsupported);
+      },
+    );
+  });
 }

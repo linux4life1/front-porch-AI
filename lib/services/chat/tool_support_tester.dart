@@ -88,7 +88,8 @@ class ToolSupportTester {
   /// probe from it and skips the runtime ping entirely — free and instant.
   /// Null falls through to the ping, and the pill's tap-to-retest always
   /// fires the real ping (a live tool call is stronger evidence and may
-  /// overrule stale metadata).
+  /// overrule stale metadata). After a tap the list is not consulted for that
+  /// model again until the model changes: only a live ping settles it.
   final Future<bool?> Function()? fetchMetadataToolVerdict;
 
   /// See [kToolTestRetryGaps]. A seam so a test can shorten them.
@@ -109,6 +110,9 @@ class ToolSupportTester {
   bool _disposed = false;
   bool _checkedThisRun = false;
   String _lastAutoTestedIdentity = '';
+
+  /// The identity a tap asked a live question about, until the model changes.
+  String _forcedIdentity = '';
 
   /// The identity whose tests came back without an answer, how many did, and
   /// when the next one may go.
@@ -166,6 +170,7 @@ class ToolSupportTester {
     final identity = getBackendIdentity();
     if (force) {
       _unansweredIdentity = '';
+      _forcedIdentity = identity;
       probe.reset(identity);
     }
     if (probe.supportFor(identity) != ToolCallSupport.untested) return;
@@ -262,6 +267,7 @@ class ToolSupportTester {
   void onBackendMaybeChanged() {
     if (_disposed) return;
     final identity = getBackendIdentity();
+    if (identity != _forcedIdentity) _forcedIdentity = '';
     if (identity == _lastAutoTestedIdentity) return;
     // One question at a time. One that ends under another identity looks
     // again by itself (see [_ask]).
@@ -286,7 +292,7 @@ class ToolSupportTester {
   /// and the pill then short-circuit with zero requests to the model itself);
   /// otherwise fall through to the runtime ping exactly as before.
   Future<void> _seedOrTest(String identity) async {
-    final fetch = fetchMetadataToolVerdict;
+    final fetch = _forcedIdentity == identity ? null : fetchMetadataToolVerdict;
     if (fetch != null) {
       bool? verdict;
       try {
@@ -302,10 +308,12 @@ class ToolSupportTester {
         Timer.run(onBackendMaybeChanged);
         return;
       }
-      // A live question in flight (the user's tap) is the stronger answer: a
-      // late catalogue verdict must not stand in for it, or be kept.
+      // A live question (the user's tap), in flight or already asked, is the
+      // stronger answer: a late catalogue verdict must not stand in for it,
+      // or be kept.
       if (verdict != null &&
           !_testing &&
+          _forcedIdentity != identity &&
           probe.supportFor(identity) == ToolCallSupport.untested) {
         verdict ? probe.markSupported(identity) : probe.markXmlOnly(identity);
         return;
