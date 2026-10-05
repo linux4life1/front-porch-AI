@@ -437,6 +437,20 @@ void main() {
     expect(config.containsKey('usevulkan'), isFalse);
   });
 
+  test('on the app\'s own settings, a model with a sliding window starts '
+      'with it off and fast forward on', () async {
+    // Gemma 3's real header: it has a sliding window. Left unsaid, current
+    // KoboldCpp turns it on with fast forward also on, which degrades the
+    // output; the app always writes one of the two safe pairings, and its
+    // default is this one.
+    final config = staged(
+      await build(modelPath: 'test/fixtures/gguf_headers/gemma-3-12b-it.gguf'),
+    );
+    expect(config['noswa'], isTrue);
+    expect(config['nofastforward'], isFalse);
+    expect(config['noshift'], isFalse);
+  });
+
   group('a first run, before the hardware is known', () {
     test('with no backend ever chosen, the launch waits for detection and '
         'uses the card it finds', () async {

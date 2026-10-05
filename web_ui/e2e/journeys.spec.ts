@@ -298,9 +298,10 @@ test.describe('the Local model card', () => {
   const setBackend = (page: Page, backend: 'kobold' | 'openRouter') =>
     page.request.post('/api/settings', { data: { backend } });
 
-  // The stand-in backend as the suite set it up. The Settings page this journey
-  // visits saves its whole form, which clears the remote model name while
-  // KoboldCpp is the engine, so the backend alone is not enough to put back.
+  // The stand-in backend as the suite set it up. Switching the backend blanks
+  // the remote model name on purpose (BackendSettings.setBackendType: the
+  // picker must not keep the previous host's model), so putting back the
+  // backend alone leaves chat with no model.
   let standIn: { backend: string; remoteApiUrl: string; remoteModelName: string };
   test.beforeEach(async ({ request }) => {
     const s = await (await request.get('/api/settings')).json();
