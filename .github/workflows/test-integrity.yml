@@ -119,6 +119,13 @@ jobs:
               // The config that decides what the web suite even runs — same
               // category as analysis_options.yaml below.
               p === 'web_ui/vitest.config.ts' ||
+              // What counts as a pass for the phone browser suite: the retry
+              // count (playwright.config.ts), and the fixtures that allow a
+              // retry only after a browser crash and fail a test on any page
+              // error (support/fixtures.ts). Loosening either lets a failing
+              // phone test pass.
+              p === 'web_ui/e2e/playwright.config.ts' ||
+              p === 'web_ui/e2e/support/fixtures.ts' ||
               // Whole directory, not just workflows/: CODEOWNERS is the SECOND
               // gate on these same paths, and a PR that can delete it has
               // removed half the net.
