@@ -35,22 +35,50 @@ KoboldSpeed? parseKoboldSpeed(String line) {
   );
 }
 
+/// A reply that read enough to say how fast a prompt is read.
+bool koboldReadCounts(KoboldSpeed r) => r.read >= 512 && r.readSeconds > 0;
+
+/// A reply that wrote enough to say how fast the card writes.
+bool koboldWriteCounts(KoboldSpeed r) => r.written >= 16 && r.writeSeconds > 0;
+
 /// Seconds for a typical turn at these speeds: reading 1,000 tokens of
 /// prompt and writing 200. Only replies that read and wrote enough to time
-/// count; the middle of what is left is taken, so one slow reply (the
-/// first after a load, read from the disk) does not decide. Null with
-/// fewer than three such replies.
+/// count (see [koboldReadCounts] and [koboldWriteCounts]); the middle of
+/// what is left is taken, so one slow reply (the first after a load, read
+/// from the disk) does not decide. Null with fewer than three such replies
+/// of each.
 double? koboldTurnSeconds(List<KoboldSpeed> replies) {
   final read = [
     for (final r in replies)
-      if (r.read >= 512 && r.readSeconds > 0) r.read / r.readSeconds,
+      if (koboldReadCounts(r)) r.read / r.readSeconds,
   ]..sort();
   final write = [
     for (final r in replies)
-      if (r.written >= 16 && r.writeSeconds > 0) r.written / r.writeSeconds,
+      if (koboldWriteCounts(r)) r.written / r.writeSeconds,
   ]..sort();
   if (read.length < 3 || write.length < 3) return null;
   return 1000 / read[read.length ~/ 2] + 200 / write[write.length ~/ 2];
+}
+
+/// [replies] cut down to what timing can use: the newest [each] that count
+/// for reading and the newest [each] that count for writing, in the order
+/// they came. A reply that counts for neither says nothing and goes. Each
+/// kind is kept apart so that a run of one (a judge's short answer after a
+/// long prompt, a chat of short messages) cannot push out the other.
+List<KoboldSpeed> koboldKeepTimed(List<KoboldSpeed> replies, {int each = 8}) {
+  final keep = List.filled(replies.length, false);
+  for (final counts in [koboldReadCounts, koboldWriteCounts]) {
+    var kept = 0;
+    for (var i = replies.length - 1; i >= 0 && kept < each; i--) {
+      if (!counts(replies[i])) continue;
+      keep[i] = true;
+      kept++;
+    }
+  }
+  return [
+    for (var i = 0; i < replies.length; i++)
+      if (keep[i]) replies[i],
+  ];
 }
 
 /// MMQ on (true) or off when both have been timed; null until then.

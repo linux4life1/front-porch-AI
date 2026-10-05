@@ -124,8 +124,8 @@ mixin KoboldLaunchFields on SettingsBase {
 
   /// MMQ for an auto-mode launch on [card]: as learned, or the setting
   /// still to be timed there (on, KoboldCpp's default, then off). Replies
-  /// read their speeds into it until both have three (see
-  /// [noteKoboldOutput]).
+  /// read their speeds into it until each has three that can be timed (see
+  /// [noteKoboldOutput] and [koboldTurnSeconds]).
   bool mmqForLaunch(String card, String? engineVersion) {
     final key = _mmqKey(card, engineVersion);
     final learned = _mmqTimed[key];
@@ -133,7 +133,10 @@ mixin KoboldLaunchFields on SettingsBase {
       _mmqTrial = null;
       return learned;
     }
-    final on = (_mmqSamples[key]?['on']?.length ?? 0) < 3;
+    // "On" is done when enough of its replies could be timed: counting the
+    // replies seen would end it after three short ones, and "off" would then
+    // be tried for good with nothing known about "on".
+    final on = koboldTurnSeconds(_mmqSamples[key]?['on'] ?? const []) == null;
     _mmqTrial = (key: key, on: on);
     return on;
   }
@@ -151,9 +154,8 @@ mixin KoboldLaunchFields on SettingsBase {
     ];
     if (speeds.isEmpty) return;
     final both = _mmqSamples[trial.key] ??= {};
-    final mine = both[trial.on ? 'on' : 'off'] ??= [];
-    mine.addAll(speeds);
-    if (mine.length > 8) mine.removeRange(0, mine.length - 8);
+    final phase = trial.on ? 'on' : 'off';
+    both[phase] = koboldKeepTimed([...?both[phase], ...speeds]);
     final faster = koboldMmqFaster(
       on: both['on'] ?? const [],
       off: both['off'] ?? const [],

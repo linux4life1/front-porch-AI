@@ -182,6 +182,9 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       : '';
 
   if (kcppsPath != null) {
+    // The engine runs the user's file, not the MMQ setting auto mode is
+    // timing: its replies are not to be counted for it.
+    storage.backendSettings.pauseMmqLearning();
     final read = await readKoboldPreset(kcppsPath);
     // Sliding window left to KoboldCpp's default is run as written. When
     // the model has it, the log says what that default does.
@@ -218,6 +221,15 @@ Future<Map<String, dynamic>> koboldLaunchMap({
     hardware: hardware,
     awaitHardware: awaitHardware,
   );
+  // MMQ only does anything with CUDA and the ROCm build. A launch without it
+  // ends the trial an earlier one began, so its replies are not counted.
+  final bool? mmq;
+  if (hardware == null || gpu.backend != KoboldGpuBackend.cuda) {
+    b.pauseMmqLearning();
+    mmq = null;
+  } else {
+    mmq = b.mmqForLaunch(hardware.gpuName, engineVersion);
+  }
   final info = await _modelInfo(modelPath);
   final note = koboldFlashAttentionNote(
     backend: gpu.backend,
@@ -258,10 +270,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       hardware: hardware,
       free: free,
       batchAutomatic: b.batchAutomatic,
-      // MMQ only does anything with CUDA and the ROCm build.
-      mmq: hardware == null || gpu.backend != KoboldGpuBackend.cuda
-          ? null
-          : b.mmqForLaunch(hardware.gpuName, engineVersion),
+      mmq: mmq,
     ),
     caps: caps,
   );
