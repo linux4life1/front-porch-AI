@@ -64,7 +64,8 @@ extension BackendFacadeLocalModel on BackendFacade {
   /// Makes [path] chat's preset, or none (the app's own settings) when
   /// null. Only a preset in the engine folder is taken: the server may be
   /// reachable from the internet, so no other path is accepted. A running
-  /// KoboldCpp loads it in place.
+  /// KoboldCpp loads it in place, which takes as long as a model takes to
+  /// load: the card is returned at once and shows the progress.
   Future<bool> setChatPreset(String? path) async {
     if (path != null &&
         !kcppsPresetFiles(_storage.binDir.path).any((f) => f.path == path)) {
@@ -76,16 +77,18 @@ extension BackendFacadeLocalModel on BackendFacade {
     await b.setActiveKcppsPath(path);
     // As a launch does: a preset's own model becomes the model, so every
     // screen names what KoboldCpp loads.
-    final launch = resolveKoboldLaunch(_storage);
-    if (launch.modelPath.isNotEmpty &&
-        launch.modelPath != b.lastUsedModelPath) {
-      await b.setLastUsedModelPath(launch.modelPath);
-    }
+    await recordKoboldModelInUse(_storage);
     final model = b.lastUsedModelPath;
     if (model != null && model.isNotEmpty) {
       await _storage.presetSettings.setModelPreset(model, path ?? '');
     }
-    if (_llm.koboldService.isProcessRunning) await _llm.reloadChatKobold();
+    if (_llm.koboldService.isProcessRunning) {
+      unawaited(
+        _llm.reloadChatKobold().catchError(
+          (Object e) => debugPrint('[web] chat reload failed: $e'),
+        ),
+      );
+    }
     return true;
   }
 

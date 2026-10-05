@@ -362,6 +362,7 @@ class KcppsEditorController extends ChangeNotifier {
     if (draft.modelPath.isNotEmpty) {
       await storage.presetSettings.setModelPreset(draft.modelPath, file);
     }
+    await recordKoboldModelInUse(storage);
     _notify();
     await reloadChat?.call();
     return result;

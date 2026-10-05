@@ -63,12 +63,7 @@ extension KoboldServiceProcess on KoboldService {
       useRocm: b.useRocm ?? false,
     );
     if (!started.started) return started;
-    // The model that really started is the app's one record of "which
-    // model": the status card, the vision lookup, the thinking settings,
-    // an automatic restart and the web "loaded" marker all read it.
-    if (b.lastUsedModelPath != launch.modelPath) {
-      await b.setLastUsedModelPath(launch.modelPath);
-    }
+    await recordKoboldModelInUse(_storageService, launch: launch);
     return KoboldLaunchResult.started(launch.note);
   }
 

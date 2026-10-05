@@ -98,8 +98,9 @@ extension LLMProviderKoboldHosts on LLMProvider {
   /// Puts what Settings now says chat runs (a new chat preset or model)
   /// into the running KoboldCpp: a reload of the staged chat config by
   /// name, and a restart when the reload is not acted on or KoboldCpp
-  /// could not load it. Nothing happens when KoboldCpp is not running or
-  /// chat's pair is loaded already.
+  /// could not load it. What loaded is recorded as the model in use.
+  /// Nothing happens when KoboldCpp is not running or chat's pair is
+  /// loaded already.
   Future<void> _reloadChatKobold() async {
     if (!_koboldService.isProcessRunning) return;
     try {
@@ -108,6 +109,7 @@ extension LLMProviderKoboldHosts on LLMProvider {
         model: '',
         kcpps: '',
       ).restore();
+      await recordKoboldModelInUse(_storageService);
     } on KoboldSwapFailed catch (e) {
       // A fresh start loads the new config, or says in plain words why not.
       _koboldService.noteReloadFailed(e.message);
