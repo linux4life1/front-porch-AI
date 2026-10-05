@@ -166,6 +166,7 @@ extension KcppsEditorFit on KcppsEditorController {
     recurrent: recurrent,
     shortOfMemory: suggestedSlots?.limit == SmartCacheLimit.noRoom,
     machineCards: hardware.hardwareInfo?.cardCount,
+    swaLeftToKobold: swaLeftWarns,
   );
 
   List<String> get modelFacts =>

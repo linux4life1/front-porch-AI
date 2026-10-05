@@ -256,7 +256,8 @@ Decisions already made by the maintainer:
    preset card say it in the same sentence (`kSwaLeftToKoboldNote`) when the
    model has sliding window and the file leaves fast forward on
    (`kcppsSwaLeftToKobold`), and the editor's sliding-window switch shows a
-   third state, "left to KoboldCpp", instead of "off". Until the switch is
+   third state, "left to KoboldCpp", instead of "off" (the editor's own
+   "In plain words" says the sentence too). Until the switch is
    answered, a save keeps the file's own word: nothing about sliding window,
    and fast forward and the window's padding as written
    (`KcppsDraft.swaLeftAsWritten`), even when another edit rewrites that
