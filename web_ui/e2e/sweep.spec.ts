@@ -9,7 +9,7 @@
 // Buttons that destroy, generate, sign out or reach the internet are left
 // alone (journeys cover the useful ones); every confirm() is answered "no".
 
-import type { Page, TestInfo } from '@playwright/test';
+import type { Locator, Page, TestInfo } from '@playwright/test';
 import { expect, openRoute, test } from './support/fixtures';
 import {
   CONTROLS,
@@ -72,11 +72,31 @@ const ROUTES: ((i: { character: string; story: string }) => string)[] = [
   (i) => `/edit/${i.character}`,
 ];
 
+/**
+ * A re-render can swap a tagged control's node for a new one, and the tag
+ * goes with the old node. A probe of a control that is gone answers within
+ * this time instead of waiting out the test (CI: 90 s on phone WebKit); the
+ * new node gets a tag of its own on the next pass.
+ */
+const PROBE = { timeout: 2_000 };
+
+/** The control tagged [el] is no longer in the page. */
+async function replaced(el: Locator): Promise<boolean> {
+  return (await el.count()) === 0;
+}
+
 async function label(page: Page, id: number): Promise<string> {
-  return page.locator(`[data-sweep="${id}"]`).evaluate((el) => {
-    const h = el as HTMLElement;
-    return (h.getAttribute('aria-label') || h.getAttribute('title') || h.textContent || '').trim().slice(0, 60);
-  });
+  return page
+    .locator(`[data-sweep="${id}"]`)
+    .evaluate(
+      (el) => {
+        const h = el as HTMLElement;
+        return (h.getAttribute('aria-label') || h.getAttribute('title') || h.textContent || '').trim().slice(0, 60);
+      },
+      undefined,
+      PROBE,
+    )
+    .catch(() => '');
 }
 
 /** Number the clickable, non-link controls not yet numbered. */
@@ -209,23 +229,30 @@ async function sweep(page: Page, route: string, info: TestInfo): Promise<string[
   let clicks = 0;
   for (let id = 0; id < next && clicks < MAX_CLICKS; id++) {
     const el = page.locator(`[data-sweep="${id}"]`);
-    if (!(await el.count()) || !(await el.isVisible()) || !(await el.isEnabled())) continue;
+    if (!(await el.count()) || !(await el.isVisible()) || !(await el.isEnabled(PROBE).catch(() => false))) continue;
     const name = await label(page, id);
     if (!name || SKIP.test(name)) continue;
     clicks++;
     const url = page.url();
     const overlays = await overlayCount(page);
-    if ((await tap(el)) !== true) {
+    let tapped = await tap(el);
+    if (tapped !== true) {
       // Something the previous tap opened (a menu, a popover) may be in the
       // way. Dismiss it as a person would, then try once more.
       await dismissPopovers(page);
-      const blocker = await tap(el);
-      if (blocker !== true) {
-        found.push(`${route}: "${name}" cannot be tapped — ${blocker || 'timed out'}`);
-        await show(page, route);
-        next = await tag(page, 0);
+      if (!(await replaced(el))) tapped = await tap(el);
+    }
+    if (tapped !== true) {
+      if (await replaced(el)) {
+        // Re-rendered, not untappable: its new node is tagged here and gets
+        // its own turn later in this pass.
+        next = await tag(page, next);
         continue;
       }
+      found.push(`${route}: "${name}" cannot be tapped — ${tapped || 'timed out'}`);
+      await show(page, route);
+      next = await tag(page, 0);
+      continue;
     }
     await settle(page);
     if (page.url() !== url) {
