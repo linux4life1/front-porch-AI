@@ -51,6 +51,13 @@ class LibraryView {
 
   /// Selection keys of the group chats on screen: their group ids.
   Set<String> get groupIds => {for (final g in groups) g.id};
+
+  /// Every pickable card's selection key in grid order (group chats, then
+  /// characters): what a Shift-click range runs along.
+  List<String> get selectionOrder => [
+    for (final g in groups) g.id,
+    for (final c in characters) c.stableGroupId,
+  ];
 }
 
 /// How many picks there are and how many of them are out of sight (#347).

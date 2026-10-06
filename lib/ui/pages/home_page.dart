@@ -40,6 +40,7 @@ import 'package:front_porch_ai/ui/pages/home/dialogs/session_picker_dialog.dart'
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_wizard_page.dart';
 import 'package:front_porch_ai/ui/pages/home/home_drop_zone.dart';
 import 'package:front_porch_ai/ui/pages/home/library_import_picks.dart';
+import 'package:front_porch_ai/ui/pages/home/library_selection.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_mode_toggle.dart';
 import 'package:front_porch_ai/ui/pages/home/open_chat_env.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
@@ -86,12 +87,8 @@ class _HomePageState extends State<HomePage> {
       _activeFolderId == null ? _topSearchScope : _folderSearchScope;
   final _searchController = TextEditingController();
 
-  // Multi-select mode (used for organizing into folders, bulk actions, etc.)
-  bool _isSelecting = false;
-  // Multi-select for folder organization
-  bool _isOrganizing = false;
-  final Set<String> _selectedCharacterIds = {}; // imagePath-based IDs
-  final Set<String> _selectedGroupIds = {}; // GroupChat.id keys
+  // Multi-select / Organize into folders: mode, picks, Shift anchor, drag.
+  final LibrarySelection _selection = LibrarySelection();
 
   // Sorting
   String _sortMode = 'name'; // 'name', 'recent', 'importDate', 'messages'
@@ -132,6 +129,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() => _readViewPrefs(storage));
     });
+    _selection.addListener(_onSelectionChanged);
     Future.microtask(() => _refreshLastActivityCache());
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeOpenChatFromEnv(),
@@ -196,6 +194,9 @@ class _HomePageState extends State<HomePage> {
   @override
   void dispose() {
     _activityRefreshDebounce?.cancel();
+    _selection
+      ..removeListener(_onSelectionChanged)
+      ..dispose();
     _searchController.dispose();
     _gridScrollController.dispose();
     _koboldListened?.removeListener(_onKoboldUpdate);
@@ -349,10 +350,10 @@ class _HomePageState extends State<HomePage> {
               lastActivityCache: _lastActivityCache,
               messageCountCache: _messageCountCache,
               gridScale: _gridScale,
-              isSelecting: _isSelecting,
-              isOrganizing: _isOrganizing,
-              selectedCharacterIds: _selectedCharacterIds,
-              selectedGroupIds: _selectedGroupIds,
+              isSelecting: _selection.isSelecting,
+              isOrganizing: _selection.isOrganizing,
+              selectedCharacterIds: _selection.characterIds,
+              selectedGroupIds: _selection.groupIds,
               searchController: _searchController,
               gridScrollController: _gridScrollController,
               repo: repo,
@@ -361,10 +362,11 @@ class _HomePageState extends State<HomePage> {
               modeToggle: _buildModeToggle(),
               onTapCharacter: _handleTapCharacter,
               onTapGroup: _handleTapGroup,
-              onToggleSelect: _toggleSelect,
-              onToggleSelectGroup: _toggleSelectGroup,
-              onToggleSelectMode: _toggleSelectMode,
-              onToggleOrganizeMode: _toggleOrganizeMode,
+              onToggleSelect: (c) =>
+                  _selection.toggle(c.stableGroupId, group: false),
+              onToggleSelectGroup: (g) => _selection.toggle(g.id, group: true),
+              onToggleSelectMode: _selection.toggleSelectMode,
+              onToggleOrganizeMode: _selection.toggleOrganizeMode,
               onContextMenuAction: _handleContextMenuAction,
               onImport: _handleImport,
               onAcceptFolderDrop: _handleAcceptFolderDrop,
@@ -386,8 +388,9 @@ class _HomePageState extends State<HomePage> {
               onDeleteGroup: _handleDeleteGroup,
               onAfterNavigateBack: _refreshLastActivityCache,
               onGroupContextMenuAction: _handleGroupContextMenuAction,
-              onSelectAll: _selectAllVisible,
-              onSelectNone: _selectNone,
+              onSelectAll: _selection.selectAll,
+              onSelectNone: _selection.selectNone,
+              selection: _selection,
             ),
           ),
         );

@@ -4,17 +4,21 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/folder_grid_card.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/group_grid_card.dart';
+import 'package:front_porch_ai/ui/pages/home/library_selection.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_search_bar.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_toolbar.dart';
+import 'package:front_porch_ai/ui/pages/home/widgets/library_box_select.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/library_grid_keys.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/library_view.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 export 'package:front_porch_ai/ui/widgets/library_view.dart' show SearchScope;
 
@@ -77,6 +81,7 @@ class CharacterCardGrid extends StatelessWidget {
     this.onGroupContextMenuAction,
     this.onSelectAll,
     this.onSelectNone,
+    this.selection,
   });
 
   final String searchQuery;
@@ -151,6 +156,11 @@ class CharacterCardGrid extends StatelessWidget {
 
   /// Select none: clears every pick, hidden ones too.
   final VoidCallback? onSelectNone;
+
+  /// The picks as one controller. With it the grid takes a box drag and
+  /// Shift-, Ctrl- and Cmd-clicks (library phase 2); without it, the plain
+  /// callbacks above as before.
+  final LibrarySelection? selection;
 
   LibraryView _view() => libraryViewOf(
     characters: repo.characters,

@@ -178,31 +178,25 @@ extension _HomePageMove on _HomePageState {
     CharacterRepository repo,
     FolderService folderService,
   ) async {
-    // Resolve selected IDs back to imagePaths. Groups ride the same move:
-    // their selection ids ARE their group ids. One moveMany for the lot —
-    // Select all can hand over hundreds of cards (#347).
-    final byId = <String, CharacterCard>{};
-    for (final c in repo.characters) {
-      byId.putIfAbsent(_getCharacterIdFromCard(c), () => c);
-    }
-    final moved = await folderService.moveMany(
-      folderId: folderId,
-      characterPaths: [
-        for (final id in _selectedCharacterIds) ?byId[id]?.imagePath,
-      ],
-      groupIds: _selectedGroupIds,
+    // One moveMany for the whole selection (characters and groups), then
+    // the selection ends — LibrarySelection.moveTo, shared with the drag.
+    final moved = await _selection.moveTo(
+      folderId,
+      folders: folderService,
+      library: repo.characters,
     );
-    if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            folderId == null
-                ? 'Moved $moved item${moved == 1 ? '' : 's'} out of the folder'
-                : 'Moved $moved item${moved == 1 ? '' : 's'} to folder',
-          ),
+    if (context.mounted) _snackMoved(context, moved, folderId);
+  }
+
+  void _snackMoved(BuildContext context, int moved, String? folderId) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          folderId == null
+              ? 'Moved $moved item${moved == 1 ? '' : 's'} out of the folder'
+              : 'Moved $moved item${moved == 1 ? '' : 's'} to folder',
         ),
-      );
-    }
-    _cancelSelection();
+      ),
+    );
   }
 }

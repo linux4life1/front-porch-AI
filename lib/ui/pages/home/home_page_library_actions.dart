@@ -86,8 +86,8 @@ extension _HomePageLibraryActions on _HomePageState {
     );
     return tallySelection(
       view,
-      characterIds: _selectedCharacterIds,
-      groupIds: _selectedGroupIds,
+      characterIds: _selection.characterIds,
+      groupIds: _selection.groupIds,
       library: repo.characters,
       groupLibrary: groupRepo.groups,
     );

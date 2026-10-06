@@ -81,7 +81,7 @@ extension _HomePageDialogs on _HomePageState {
       return ids.contains(id);
     }).toList();
     final groups = groupRepo.groups
-        .where((g) => _selectedGroupIds.contains(g.id))
+        .where((g) => _selection.groupIds.contains(g.id))
         .toList();
     if (cards.isEmpty && groups.isEmpty) return;
 
