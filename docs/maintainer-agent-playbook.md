@@ -111,6 +111,26 @@ Ten minutes of this catches more than another thousand unit tests.
 
 ---
 
+## Hygiene gates
+
+Some drift fails CI by itself, so nobody has to spot it in review. These
+checks live in `test/hygiene/` and run in the ordinary `test` job, next to
+the older ones (the 500-line file cap, file pickers, deleted dead code). A
+failure names the file and line and says what to use instead.
+
+Where old offenders already existed, the gate is a ratchet: they are counted
+per file in `test/baselines/`, a file may never go above its count, and a new
+file starts at zero. Cleaning old ones up never fails anything. Now and then
+ask an agent to run the gates with `FPAI_TIGHTEN_BASELINES=1`, which lowers
+the counts to match (it can never raise them). Editing a baseline needs your
+`approved-test-change` label.
+
+**Dialogs.** Every pop-up goes through the warm-porch dialog
+(`showWarmDialog`). A dialog or sheet built any other way fails. Existing
+ones: `test/baselines/raw_dialogs.json`.
+
+---
+
 ## Cadence
 
 | When | What to run / say |
