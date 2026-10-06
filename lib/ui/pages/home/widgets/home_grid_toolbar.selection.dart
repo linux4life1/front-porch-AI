@@ -31,6 +31,28 @@ class LibrarySelectionActions {
 /// "(M hidden)" when a search or folder change hides some picks), then
 /// Select all and Select none.
 extension _HomeGridToolbarSelection on HomeGridToolbar {
+  /// While picking: the header keeps its room on the left and the sort, card
+  /// size and library actions sit on the right, as in the approved sketch.
+  /// As the window narrows the slider goes first, then the sort label, then
+  /// the inline actions (into the ⋮ menu); a squeezed window keeps only the
+  /// header. Widths are high-side estimates, like the browsing row's.
+  Widget _pickingRow(BuildContext context, double width) {
+    final room = width - 480;
+    final inlineActions = room >= 278;
+    return Row(
+      children: [
+        Expanded(child: Row(children: _selectionChildren(context))),
+        if (room >= 96) ...[
+          const SizedBox(width: 12),
+          _sortControl(context, labeled: room >= 420),
+          if (room >= 540) _scaleSlider(context),
+          if (inlineActions) ..._actionButtons(context),
+          if (!inlineActions) _overflowActions(context),
+        ],
+      ],
+    );
+  }
+
   List<Widget> _selectionChildren(BuildContext context) {
     final theme = Theme.of(context).textTheme;
     final actions = selectionActions;

@@ -166,7 +166,6 @@ class HomeGridToolbar extends StatelessWidget {
   }
 
   List<Widget> _leadingChildren(BuildContext context, double toggleMaxWidth) {
-    if (isSelecting || isOrganizing) return _selectionChildren(context);
     if (activeFolderId != null) {
       return [
         IconButton(
@@ -299,34 +298,28 @@ class HomeGridToolbar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          if (isSelecting || isOrganizing) return _pickingRow(context, width);
           // Content-area widths, not window sizes. Sidebar already ate its
           // share; these decide what still fits in the remaining strip.
           final showSlider = width >= 720;
           final labeledSort = width >= 520;
           final inlineActions = width >= 440;
-          final browsing = !isSelecting && !isOrganizing;
           // High-side estimates so the toggle goes compact a few px early
           // rather than the row overflowing. Not a window-size assumption.
-          var reserved = 0.0;
-          if (browsing) {
-            reserved += 12;
-            reserved += labeledSort ? 190 : 48;
-            if (showSlider) reserved += 120;
-            reserved += inlineActions ? 230 : 48;
-          }
+          var reserved = 12.0;
+          reserved += labeledSort ? 190 : 48;
+          if (showSlider) reserved += 120;
+          reserved += inlineActions ? 230 : 48;
           final toggleMax = math.max(0.0, width - reserved);
           return Row(
             children: [
               ..._leadingChildren(context, toggleMax),
-              if (browsing) ...[
-                const SizedBox(width: 12),
-                _sortControl(context, labeled: labeledSort),
-                if (showSlider) _scaleSlider(context),
-              ],
-              // While picking, the header's count gets the whole width.
-              if (browsing) const Spacer(),
-              if (browsing && inlineActions) ..._actionButtons(context),
-              if (browsing && !inlineActions) _overflowActions(context),
+              const SizedBox(width: 12),
+              _sortControl(context, labeled: labeledSort),
+              if (showSlider) _scaleSlider(context),
+              const Spacer(),
+              if (inlineActions) ..._actionButtons(context),
+              if (!inlineActions) _overflowActions(context),
             ],
           );
         },
