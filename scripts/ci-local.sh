@@ -20,6 +20,14 @@
 #                                       # intentional UI change and sync the
 #                                       # refreshed PNGs back into the repo
 #
+# Every mode, update-goldens included, first refuses a stale base: CI tests a
+# PR merged with Rawhide's head, so a green run on a branch that is not on the
+# current Rawhide proves nothing about the tree CI builds (a PR that merged
+# after the rebase can break the merge while this tree still passes). The
+# script fetches origin Rawhide and exits 3 unless origin/Rawhide's head is
+# the merge base of HEAD. FPAI_ALLOW_STALE_BASE=1 skips the check, for
+# offline use.
+#
 # The macOS working tree is rsynced into a named Docker volume (incremental,
 # a few seconds) instead of being mounted read-write, so the container's
 # Linux .dart_tool/build artifacts can never pollute the Mac checkout.
@@ -37,6 +45,21 @@ VOL=fpai-ci-workspace
 # compiling objective_c's native-asset hook).
 PUBVOL=fpai-pub-cache
 PLATFORM=linux/amd64
+
+# Stale-base refusal (see the header). Before any Docker work, for every mode.
+if [ "${FPAI_ALLOW_STALE_BASE:-0}" = "1" ]; then
+  echo "── skipping the Rawhide base check (FPAI_ALLOW_STALE_BASE=1)"
+else
+  echo "── checking this branch is on the current Rawhide…"
+  if ! git fetch --quiet origin Rawhide; then
+    echo "✗ Could not reach GitHub to check the current Rawhide. Connect and try again, or run with FPAI_ALLOW_STALE_BASE=1." >&2
+    exit 3
+  fi
+  if [ "$(git merge-base HEAD origin/Rawhide)" != "$(git rev-parse origin/Rawhide)" ]; then
+    echo "✗ This branch is not on the current Rawhide (another PR merged since your rebase). Rebase first, or run with FPAI_ALLOW_STALE_BASE=1." >&2
+    exit 3
+  fi
+fi
 
 if ! docker image inspect "$IMG" >/dev/null 2>&1; then
   echo "✗ Docker image $IMG not found — build/pull it first." >&2

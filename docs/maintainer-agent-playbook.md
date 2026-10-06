@@ -136,6 +136,13 @@ see-through, and black for a shadow or for the dimming behind a pop-up. A
 deliberate status colour (a green "ready" dot) passes when its line ends with
 `// theme-keep: <reason>`. Existing ones: `test/baselines/raw_colors.json`.
 
+**Stale base.** The local gate (`scripts/ci-local.sh`, every mode) refuses
+to run on a branch that is not on the current Rawhide, because CI tests the
+PR merged with Rawhide's head and a pass on an old base proves nothing about
+that. It says: "This branch is not on the current Rawhide (another PR merged
+since your rebase). Rebase first, or run with FPAI_ALLOW_STALE_BASE=1." The
+override is for working offline.
+
 ---
 
 ## Cadence
