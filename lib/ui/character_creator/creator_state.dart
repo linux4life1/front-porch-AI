@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -383,12 +384,29 @@ class CreatorState extends ChangeNotifier {
   // Public notify for step widgets (avoids protected member warnings when called from outside)
   void notify() => notifyListeners();
 
+  /// How long typing must pause before [scheduleSave] saves.
+  static const saveDelay = Duration(milliseconds: 500);
+  Timer? _saveTimer;
+
   /// Class door — `_CountingCreatorState` in the debounce test `@override`s
   /// this. An extension member is statically dispatched and cannot be.
-  Future<void> saveState() => _saveStateImpl();
+  /// Drops a pending [scheduleSave]: this save already includes that text.
+  Future<void> saveState() {
+    _saveTimer?.cancel();
+    return _saveStateImpl();
+  }
+
+  /// The typing door: one save once the user pauses, not one per keystroke
+  /// (#371). Callers still [notify] at once; only the save waits.
+  void scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(saveDelay, saveState);
+  }
 
   // Dispose for controllers (called by shell)
   void disposeControllers() {
+    // Keep what was typed in the last half second before leaving.
+    if (_saveTimer?.isActive ?? false) saveState();
     nameController.dispose();
     conceptController.dispose();
     keywordsController.dispose();

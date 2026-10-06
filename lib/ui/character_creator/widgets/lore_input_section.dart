@@ -59,12 +59,13 @@ class LoreInputSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 8),
+        // No onChanged: the URLs are read when generating and are never
+        // saved between visits, so typing here has nothing to save.
         TextField(
           controller: state.loreUrlsController,
           style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
           maxLines: 4,
           minLines: 2,
-          onChanged: (_) => state.saveState(),
           decoration: InputDecoration(
             hintText:
                 'https://wowpedia.fandom.com/wiki/Demon_hunter, https://wowpedia.fandom.com/wiki/Illidan_Stormrage',

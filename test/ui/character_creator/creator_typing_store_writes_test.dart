@@ -28,8 +28,15 @@
 // This test types into EVERY text box of each creation mode and counts the
 // writes that reach the real legacy preferences store (its platform channel
 // is answered here, so each write is counted where it would cost a rewrite).
+// Nothing may be written while the user types; one write, of the field that
+// changed, lands once they pause; and leaving the wizard mid-pause still
+// keeps the last letters.
 //
 // Proven to fail first: before the fix every box cost 71 writes per key.
+// Each part of the fix was removed in turn and reds a check here: the
+// changed-only save (71 writes after the pause), each mode's typing handler
+// (writes while typing), the flush on leaving (text lost), and Guided's
+// immediate redraw (the Generate button stays off).
 
 import 'dart:io';
 
@@ -247,30 +254,98 @@ Future<void> _typeIntoEveryBox(
       );
       await tester.pump(const Duration(milliseconds: 40));
     }
-    final whileTyping = store.wizardWritesSince(mark).length;
+    final whileTyping = store.wizardWritesSince(mark);
     await tester.pump(const Duration(milliseconds: 600));
-    final all = store.wizardWritesSince(mark);
+    final afterPause = store.wizardWritesSince(mark);
 
     expect(
       whileTyping,
-      lessThanOrEqualTo(4),
-      reason: '$label: a keystroke may pay for its own field, never all 71',
-    );
-    expect(
-      all.length,
-      lessThanOrEqualTo(4),
-      reason: '$label: the pause must not rewrite the whole wizard',
+      isEmpty,
+      reason: '$label: nothing may be saved while the user is still typing',
     );
     if (key != null) {
-      expect(
-        store.data['flutter.$key'],
-        c.text,
-        reason: '$label: what was typed must be saved once the user pauses',
-      );
+      expect(afterPause.map((w) => '${w.key}=${w.value}'), [
+        'flutter.$key=${c.text}',
+      ], reason: '$label: one write, of what was typed, once the user pauses');
     } else if (keys.containsKey(c)) {
-      expect(all, isEmpty, reason: '$label are never saved');
+      expect(afterPause, isEmpty, reason: '$label are never saved');
+    } else {
+      expect(
+        afterPause.length,
+        lessThanOrEqualTo(1),
+        reason: '$label: the pause must not rewrite the whole wizard',
+      );
     }
   }
+}
+
+/// Opens the wizard from a launcher screen, types into the box [boxOf]
+/// picks, and leaves with the AppBar's back arrow before the pause is over.
+Future<void> _typeThenLeave(
+  WidgetTester tester,
+  _PrefsStore store,
+  CreatorMode mode,
+  TextEditingController Function(CreatorState) boxOf,
+  String key,
+) async {
+  await _pumpApp(
+    tester,
+    Builder(
+      builder: (context) => Scaffold(
+        body: Center(
+          child: ElevatedButton(
+            // No transition, so the wizard is gone the frame after Back
+            // instead of after an animation that could outlast the pause.
+            onPressed: () => Navigator.of(context).push(
+              PageRouteBuilder<void>(
+                transitionDuration: Duration.zero,
+                reverseTransitionDuration: Duration.zero,
+                pageBuilder: (_, _, _) => const CharacterCreatorPage(),
+              ),
+            ),
+            child: const Text('Open creator'),
+          ),
+        ),
+      ),
+    ),
+  );
+  await tester.tap(find.text('Open creator'));
+  await tester.pump();
+  await tester.pump();
+  final state = _stateOf(tester);
+  await _openConfigure(tester, state, mode);
+
+  final box = _boxFor(boxOf(state));
+  await tester.ensureVisible(box);
+  await tester.pump();
+  await tester.showKeyboard(box);
+  await tester.pump();
+  final mark = store.writes.length;
+  tester.testTextInput.updateEditingValue(
+    const TextEditingValue(
+      text: 'Wren',
+      selection: TextSelection.collapsed(offset: 4),
+    ),
+  );
+  await tester.pump();
+  expect(store.wizardWritesSince(mark), isEmpty);
+
+  // Back well inside the half-second pause, so only the flush on leaving
+  // can have saved what follows.
+  await tester.tap(
+    find.descendant(
+      of: find.byType(AppBar),
+      matching: find.byIcon(Icons.arrow_back),
+    ),
+  );
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+  expect(find.byType(CharacterCreatorPage), findsNothing);
+  expect(
+    store.data['flutter.$key'],
+    'Wren',
+    reason: 'letters typed just before leaving must not be lost',
+  );
 }
 
 void main() {
@@ -326,4 +401,68 @@ void main() {
       await _typeIntoEveryBox(tester, store, state);
     },
   );
+
+  testWidgets('Guided: the name wakes the Generate button at once, '
+      'before anything is saved', (tester) async {
+    await _pumpApp(tester, const CharacterCreatorPage());
+    final state = _stateOf(tester);
+    await _openConfigure(tester, state, CreatorMode.guided);
+    final generate = find.ancestor(
+      of: find.text('Generate Character Description'),
+      matching: find.byWidgetPredicate((w) => w is ButtonStyleButton),
+    );
+    await tester.ensureVisible(generate);
+    await tester.pump();
+    expect(tester.widget<ButtonStyleButton>(generate).onPressed, isNull);
+
+    final box = _boxFor(state.nameController);
+    await tester.ensureVisible(box);
+    await tester.pump();
+    final mark = store.writes.length;
+    await tester.enterText(box, 'W');
+    await tester.pump();
+
+    expect(
+      tester.widget<ButtonStyleButton>(generate).onPressed,
+      isNotNull,
+      reason: 'only the save waits for a pause; the screen must not',
+    );
+    expect(store.wizardWritesSince(mark), isEmpty);
+  });
+
+  testWidgets('Quick: leaving mid-pause keeps the last letters', (
+    tester,
+  ) async {
+    await _typeThenLeave(
+      tester,
+      store,
+      CreatorMode.quick,
+      (s) => s.nameController,
+      'chargen_name',
+    );
+  });
+
+  testWidgets('Guided: leaving mid-pause keeps the last letters', (
+    tester,
+  ) async {
+    await _typeThenLeave(
+      tester,
+      store,
+      CreatorMode.guided,
+      (s) => s.guidedVisionController,
+      'chargen_guided_vision',
+    );
+  });
+
+  testWidgets('Automated: leaving mid-pause keeps the last letters', (
+    tester,
+  ) async {
+    await _typeThenLeave(
+      tester,
+      store,
+      CreatorMode.automated,
+      (s) => s.nameController,
+      'chargen_name',
+    );
+  });
 }

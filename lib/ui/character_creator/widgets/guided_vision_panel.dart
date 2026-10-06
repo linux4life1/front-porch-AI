@@ -21,6 +21,12 @@ class GuidedVisionPanel extends StatelessWidget {
     state.notify();
   }
 
+  /// Typing: redraw at once (the length tip reads the text), save on pause.
+  void _saveSoon() {
+    state.scheduleSave();
+    state.notify();
+  }
+
   Future<void> _expandNarrative(BuildContext context) async {
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
     final storage = Provider.of<StorageService>(context, listen: false);
@@ -185,7 +191,7 @@ class GuidedVisionPanel extends StatelessWidget {
               fontSize: 14,
               height: 1.5,
             ),
-            onChanged: (_) => _save(),
+            onChanged: (_) => _saveSoon(),
             decoration: InputDecoration(
               hintText: CreatorOptions.guidedVisionPlaceholders[placeholderIdx],
               hintStyle: TextStyle(
