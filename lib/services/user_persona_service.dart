@@ -25,6 +25,18 @@ import 'package:front_porch_ai/database/database.dart';
 part 'user_persona_service.model.dart';
 part 'user_persona_service.import.dart';
 
+int _lastPersonaId = 0;
+
+/// A new persona id: a millisecond timestamp, as ids always were, but never
+/// one already handed out. Two personas made in the same millisecond (the
+/// first-run default and one created right after it) would otherwise share
+/// an id and fail the table's unique key.
+String _newPersonaId() {
+  final now = DateTime.now().millisecondsSinceEpoch;
+  _lastPersonaId = now > _lastPersonaId ? now : _lastPersonaId + 1;
+  return '$_lastPersonaId';
+}
+
 class UserPersonaService extends ChangeNotifier {
   AppDatabase _db;
   List<UserPersona> _personas = [];
@@ -85,7 +97,7 @@ class UserPersonaService extends ChangeNotifier {
 
       if (dbPersonas.isEmpty) {
         // Create default persona
-        final defaultId = DateTime.now().millisecondsSinceEpoch.toString();
+        final defaultId = _newPersonaId();
         await _db.insertPersona(
           PersonasCompanion.insert(
             id: defaultId,
@@ -131,7 +143,7 @@ class UserPersonaService extends ChangeNotifier {
     String? avatarPath, {
     String birthday = '',
   }) async {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final id = _newPersonaId();
 
     await _db.insertPersona(
       PersonasCompanion.insert(

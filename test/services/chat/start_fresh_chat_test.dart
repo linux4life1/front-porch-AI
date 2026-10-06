@@ -70,8 +70,17 @@ void main() {
     final worlds = WorldRepository(storage, db);
     chat = ChatService(KoboldService(storage), personas, storage, worlds)
       ..setDatabase(db);
-    // Let the persona service finish seeding its default persona.
-    await Future<void>.delayed(const Duration(milliseconds: 50));
+    // The persona service seeds its default persona in the background. Wait
+    // for the seed itself, not a fixed 50 ms: under load the seed was still
+    // running when a case began (CI: it was given the same id as the case's
+    // first persona), and a seed that lands late resets who is active.
+    final seeding = Stopwatch()..start();
+    while (personas.personas.isEmpty) {
+      if (seeding.elapsed > const Duration(seconds: 20)) {
+        fail('the persona service never seeded its default persona');
+      }
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+    }
   });
 
   tearDown(() => disposeChatThenCloseDb(chat, db));
