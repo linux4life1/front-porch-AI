@@ -6,6 +6,7 @@
 // setting a generate reads. The ComfyUI here is a real loopback server serving
 // the official Flux.2 Klein template; every GGUF loader is a temp file.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -186,6 +187,30 @@ Future<_Comfy> _serve({
   return comfy;
 }
 
+/// The timers a desk test has started. Every Comfy read the desk makes holds
+/// one (its timeout) until the answer is in, so a pending one means a read,
+/// and the Ready check waiting on it, is still in flight.
+const _startedTimers = #studioDeskStartedTimers;
+
+/// [testWidgets] with every timer the body starts kept for [settle]: a test
+/// that ends with a read in flight fails "A Timer is still pending".
+void _deskTest(String description, WidgetTesterCallback body) {
+  testWidgets(description, (tester) {
+    final timers = <Timer>[];
+    return runZoned(
+      () => body(tester),
+      zoneValues: {_startedTimers: timers},
+      zoneSpecification: ZoneSpecification(
+        createTimer: (self, parent, zone, duration, callback) {
+          final timer = parent.createTimer(zone, duration, callback);
+          timers.add(timer);
+          return timer;
+        },
+      ),
+    );
+  });
+}
+
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   // flutter_test answers every HTTP call with a 400. The loopback ComfyUI
@@ -209,13 +234,18 @@ void main() {
     storage.imageGenSettings.load();
   }
 
-  /// Waits for real loopback requests, then lets the frame catch up.
+  /// Waits for real loopback requests, then lets the frame catch up. Done
+  /// only when no read the desk started is still in flight: a quiet server
+  /// alone is not enough, since a read the desk has just begun has not
+  /// reached it yet (on a slow machine a read took longer than the quiet
+  /// gap, and the test ended with one pending).
   Future<void> settle(
     WidgetTester tester, [
     _Comfy? comfy,
     int atLeast = 2,
     int stepMs = 100,
   ]) async {
+    final timers = Zone.current[_startedTimers] as List<Timer>? ?? const [];
     for (var i = 0; i < 200; i++) {
       await tester.runAsync(
         () => Future<void>.delayed(Duration(milliseconds: stepMs)),
@@ -224,7 +254,11 @@ void main() {
       final quiet =
           comfy == null ||
           DateTime.now().difference(comfy.lastRequest).inMilliseconds > 400;
-      if (i >= atLeast && quiet && find.text('Checking…').evaluate().isEmpty) {
+      final idle = timers.every((timer) => !timer.isActive);
+      if (i >= atLeast &&
+          quiet &&
+          idle &&
+          find.text('Checking…').evaluate().isEmpty) {
         break;
       }
     }
@@ -268,7 +302,7 @@ void main() {
   }
 
   group('a template graph', () {
-    testWidgets('is Ready and is not replaced by a bundled graph', (
+    _deskTest('is Ready and is not replaced by a bundled graph', (
       tester,
     ) async {
       await initSettings();
@@ -284,7 +318,7 @@ void main() {
       expect(s.comfyCreateModelChoices, before);
     });
 
-    testWidgets('lists the graph\'s own files, each with a way to change it', (
+    _deskTest('lists the graph\'s own files, each with a way to change it', (
       tester,
     ) async {
       await initSettings();
@@ -301,7 +335,7 @@ void main() {
       expect(find.text('Change'), findsNWidgets(5));
     });
 
-    testWidgets('picking a model keeps the graph and fills its own slot', (
+    _deskTest('picking a model keeps the graph and fills its own slot', (
       tester,
     ) async {
       await initSettings();
@@ -331,7 +365,7 @@ void main() {
       );
     });
 
-    testWidgets(
+    _deskTest(
       'the file list of a slot shows every file, the odd one last and marked',
       (tester) async {
         await initSettings();
@@ -371,7 +405,7 @@ void main() {
       },
     );
 
-    testWidgets('an explicit encoder that looks wrong is kept and listed', (
+    _deskTest('an explicit encoder that looks wrong is kept and listed', (
       tester,
     ) async {
       await initSettings();
@@ -395,71 +429,69 @@ void main() {
     });
   });
 
-  testWidgets(
-    'readiness is judged when a setting changes, not on every frame',
-    (tester) async {
-      await initSettings();
-      final comfy = (await tester.runAsync(_serve))!;
-      await useKlein(comfy);
-      await pumpDesk(tester, comfy: comfy);
-      final settled = comfy.objectInfoReads;
-      expect(settled, greaterThan(0));
+  _deskTest('readiness is judged when a setting changes, not on every frame', (
+    tester,
+  ) async {
+    await initSettings();
+    final comfy = (await tester.runAsync(_serve))!;
+    await useKlein(comfy);
+    await pumpDesk(tester, comfy: comfy);
+    final settled = comfy.objectInfoReads;
+    expect(settled, greaterThan(0));
 
-      for (var i = 0; i < 20; i++) {
-        await tester.pump(const Duration(milliseconds: 16));
-      }
-      storage.imageGenSettings.notify();
-      await storage.imageGenSettings.setImageGenSteps(12);
-      await settle(tester, comfy);
-      expect(
-        comfy.objectInfoReads,
-        settled,
-        reason: 'frames and unrelated settings do not re-read the node list',
-      );
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    storage.imageGenSettings.notify();
+    await storage.imageGenSettings.setImageGenSteps(12);
+    await settle(tester, comfy);
+    expect(
+      comfy.objectInfoReads,
+      settled,
+      reason: 'frames and unrelated settings do not re-read the node list',
+    );
 
-      await storage.imageGenSettings.setComfyCreateModelChoice(
-        _kleinId,
-        '%MODEL_VAE%',
-        'flux2-vae.safetensors2',
-      );
-      await settle(tester, comfy);
-      expect(comfy.objectInfoReads, greaterThan(settled));
-    },
-  );
+    await storage.imageGenSettings.setComfyCreateModelChoice(
+      _kleinId,
+      '%MODEL_VAE%',
+      'flux2-vae.safetensors2',
+    );
+    await settle(tester, comfy);
+    expect(comfy.objectInfoReads, greaterThan(settled));
+  });
 
-  testWidgets(
-    'a model that needs the GGUF loader update says so, only for it',
-    (tester) async {
-      await initSettings();
-      final comfy = (await tester.runAsync(_serve))!;
-      final s = storage.imageGenSettings;
-      await s.setImageGenBackend('comfyui');
-      await s.setComfyUiUrl(comfy.url);
-      await s.setComfyCreateWorkflowId('qwen_image_21');
-      for (final e in {
-        '%MODEL_DIFFUSION%': 'qwen-image-2.1-Q2_K.gguf',
-        '%MODEL_CLIP%': 'Qwen3-VL-8B-Instruct-Q4_K_M.gguf',
-        '%MODEL_VAE%': 'qwen_image_2.1_vae_bf16.safetensors',
-      }.entries) {
-        await s.setComfyCreateModelChoice('qwen_image_21', e.key, e.value);
-      }
-      final loader = File('${dir.path}/loader.py')
-        ..writeAsStringSync(kStockCity96Loader);
-      final saved = City96Gate.instance;
-      City96Gate.instance = City96Gate(
-        locate: (_) async => loader,
-        probe: const FakeProbe(me: 1000),
-        pidFor: (_) async => 100,
-      );
-      addTearDown(() => City96Gate.instance = saved);
+  _deskTest('a model that needs the GGUF loader update says so, only for it', (
+    tester,
+  ) async {
+    await initSettings();
+    final comfy = (await tester.runAsync(_serve))!;
+    final s = storage.imageGenSettings;
+    await s.setImageGenBackend('comfyui');
+    await s.setComfyUiUrl(comfy.url);
+    await s.setComfyCreateWorkflowId('qwen_image_21');
+    for (final e in {
+      '%MODEL_DIFFUSION%': 'qwen-image-2.1-Q2_K.gguf',
+      '%MODEL_CLIP%': 'Qwen3-VL-8B-Instruct-Q4_K_M.gguf',
+      '%MODEL_VAE%': 'qwen_image_2.1_vae_bf16.safetensors',
+    }.entries) {
+      await s.setComfyCreateModelChoice('qwen_image_21', e.key, e.value);
+    }
+    final loader = File('${dir.path}/loader.py')
+      ..writeAsStringSync(kStockCity96Loader);
+    final saved = City96Gate.instance;
+    City96Gate.instance = City96Gate(
+      locate: (_) async => loader,
+      probe: const FakeProbe(me: 1000),
+      pidFor: (_) async => 100,
+    );
+    addTearDown(() => City96Gate.instance = saved);
 
-      await pumpDesk(tester, comfy: comfy);
+    await pumpDesk(tester, comfy: comfy);
 
-      expect(find.textContaining(kCity96NeedsUpdate), findsOneWidget);
-      expect(find.text('Ready to generate.'), findsNothing);
-      expect(loader.readAsStringSync(), kStockCity96Loader);
-    },
-  );
+    expect(find.textContaining(kCity96NeedsUpdate), findsOneWidget);
+    expect(find.text('Ready to generate.'), findsNothing);
+    expect(loader.readAsStringSync(), kStockCity96Loader);
+  });
 
   group('Update loader…', () {
     late File loader;
@@ -501,7 +533,7 @@ void main() {
       await pumpDesk(tester, comfy: comfy);
     }
 
-    testWidgets('is offered when the model needs the update, and asks once', (
+    _deskTest('is offered when the model needs the update, and asks once', (
       tester,
     ) async {
       answers = [true];
@@ -521,7 +553,7 @@ void main() {
       expect(find.text('Ready to generate.'), findsNothing);
     });
 
-    testWidgets('asks again each time it is pressed, after a "no"', (
+    _deskTest('asks again each time it is pressed, after a "no"', (
       tester,
     ) async {
       answers = [false, true];
@@ -539,7 +571,7 @@ void main() {
       expect(loader.readAsStringSync(), contains('qwen3vl'));
     });
 
-    testWidgets('a closed window is not a "no": the button stays', (
+    _deskTest('a closed window is not a "no": the button stays', (
       tester,
     ) async {
       answers = [null];
@@ -552,7 +584,7 @@ void main() {
       expect(find.text('Update loader…'), findsOneWidget);
     });
 
-    testWidgets('is not offered when the loader cannot be changed here', (
+    _deskTest('is not offered when the loader cannot be changed here', (
       tester,
     ) async {
       answers = [];
@@ -601,9 +633,7 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('Shift is shown when the graph has a shift node', (
-      tester,
-    ) async {
+    _deskTest('Shift is shown when the graph has a shift node', (tester) async {
       final comfy = await useShifty(tester);
       await pumpDesk(tester, comfy: comfy);
       await openAdvanced(tester);
@@ -611,7 +641,7 @@ void main() {
       expect(find.text('Shift'), findsOneWidget);
     });
 
-    testWidgets('Shift starts at the graph\'s own value, not the global one', (
+    _deskTest('Shift starts at the graph\'s own value, not the global one', (
       tester,
     ) async {
       final comfy = await useShifty(tester);
@@ -626,7 +656,7 @@ void main() {
       );
     });
 
-    testWidgets(
+    _deskTest(
       'moving Shift sets it for this graph only, and it can be undone',
       (tester) async {
         final comfy = await useShifty(tester);
@@ -650,7 +680,7 @@ void main() {
       },
     );
 
-    testWidgets('Shift is shown for an uploaded graph that has one', (
+    _deskTest('Shift is shown for an uploaded graph that has one', (
       tester,
     ) async {
       final comfy = await useShifty(tester);
@@ -663,7 +693,7 @@ void main() {
       expect(find.text('Shift'), findsOneWidget);
     });
 
-    testWidgets('Create shows Sampler and Scheduler', (tester) async {
+    _deskTest('Create shows Sampler and Scheduler', (tester) async {
       final comfy = await useShifty(tester);
       await pumpDesk(tester, comfy: comfy);
       await openAdvanced(tester);
@@ -672,7 +702,7 @@ void main() {
       expect(find.text('Scheduler'), findsOneWidget);
     });
 
-    testWidgets('Edit has no Sampler or Scheduler to set', (tester) async {
+    _deskTest('Edit has no Sampler or Scheduler to set', (tester) async {
       final comfy = await useShifty(tester);
       await pumpDesk(tester, comfy: comfy, edit: true);
       await openAdvanced(tester);
@@ -682,7 +712,7 @@ void main() {
       expect(find.text('Scheduler'), findsNothing);
     });
 
-    testWidgets('a saved workflow that is not JSON does not break the desk', (
+    _deskTest('a saved workflow that is not JSON does not break the desk', (
       tester,
     ) async {
       final comfy = await useShifty(tester);
@@ -715,7 +745,7 @@ void main() {
       await settle(tester, comfy);
     }
 
-    testWidgets('a model of another family does not swap the kept graph', (
+    _deskTest('a model of another family does not swap the kept graph', (
       tester,
     ) async {
       await initSettings();
@@ -733,7 +763,7 @@ void main() {
       );
     });
 
-    testWidgets('a pick fills the kept graph\'s own slot, a checkpoint here', (
+    _deskTest('a pick fills the kept graph\'s own slot, a checkpoint here', (
       tester,
     ) async {
       final comfy = await useShifty(tester);
@@ -752,7 +782,7 @@ void main() {
   });
 
   group('every setting a generate reads has a control', () {
-    testWidgets('Remote: host, model list, style, prompt format, review', (
+    _deskTest('Remote: host, model list, style, prompt format, review', (
       tester,
     ) async {
       await initSettings();
@@ -780,7 +810,7 @@ void main() {
       expect(find.byType(ListTile), findsWidgets);
     });
 
-    testWidgets('Comfy: seed, negative prompt, style, review', (tester) async {
+    _deskTest('Comfy: seed, negative prompt, style, review', (tester) async {
       await initSettings();
       final comfy = (await tester.runAsync(_serve))!;
       await useKlein(comfy);
@@ -811,7 +841,7 @@ void main() {
       expect(s.imageGenPromptReview, !was);
     });
 
-    testWidgets('Draw Things: port, shift, seed mode, TeaCache, CFG Zero', (
+    _deskTest('Draw Things: port, shift, seed mode, TeaCache, CFG Zero', (
       tester,
     ) async {
       await initSettings();
