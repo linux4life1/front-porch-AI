@@ -83,6 +83,9 @@ extension ChatServiceSend on ChatService {
       }
     }
     final outbound = lookup.accepted ? lookup.userText : text;
+    // The turn starts now, before it waits behind anything: what is left of
+    // a chat save still running is what keeping that chat costs.
+    _koboldService.noteTurnStart();
     final previousSend = _sendChain;
     final sendGate = Completer<void>();
     _sendChain = sendGate.future;

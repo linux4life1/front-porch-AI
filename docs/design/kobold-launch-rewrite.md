@@ -1273,7 +1273,16 @@ each load of the model (`KoboldService.loadGeneration`).
   growth and the rest) that wait behind the save are not the user's wait and
   do not count. The service is told when a turn starts
   (`KoboldService.noteTurnStart`); only the first start during a save
-  counts. The load back before a reply always counts. A chat's cost is the
+  counts. The chat service tells it at the top of a send, a regenerate (a
+  swipe past the last alternate is one) and an impersonate, before they wait
+  for anything, and as each reply it generates starts, which covers
+  Continue, a group's next speaker and a Scene Guest. Continue first waits
+  for the turn before to settle, so a Continue tapped while that turn's
+  passes still wait behind a save is counted from its reply's start, after
+  the save: that wait is missed, which leans to keeping the chat. Counting
+  it at the tap is one more line in `continueGeneration`, left out so that
+  `chat_service_message_ops.dart` does not grow. The load back before a
+  reply always counts. A chat's cost is the
   mean of its last three saves' waits and its last load. What it spares:
   reading the whole chat again, its saved tokens at the speed KoboldCpp
   itself prints after every request ("Processed:N in Xs", read by
@@ -1403,6 +1412,12 @@ last load adds to them, a delete and a new load forget),
 before the next message keeps the chat, one still running counts only what
 is left of it, a check of the turn first in line waits for it, and the turn
 before's passes that wait behind it are not counted),
+`chat_turn_start_felt_test` (the chat service's turn starts, through the
+real service: with Realism on, a send and a regenerate started while the
+save runs, whose checks go first, and with the clock off a Continue and an
+impersonate, are each held up by the save and let a short chat go; a
+message sent once the save is done keeps it; each call was taken out once
+to see its test fail),
 `kobold_read_speed_test` (the speed from KoboldCpp's line: only reads big
 enough, the biggest lead, a new load starts over),
 `kobold_slot_keeper_slow_save_test` (through the real service, with the next
@@ -1439,6 +1454,7 @@ it keeps is a table of saved caches by session id.
 | Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
 | Delete a chat (app or phone), a character with its chats, a group, the Settings cleanup of chats nobody owns | the keeper lets go of each chat's saved cache; its slot is the next one used | yes (a test each) |
 | A chat that costs more to keep than to read again, after any reply above | every reply path ends in the same save (`chatEnd`), so the same weighing lets it go whichever path it came from, and tries it again as it grows; not a failure | yes (tests) |
+| The next turn starts while that save runs: send, regenerate (and a swipe past the last alternate), impersonate, Continue, a group's next speaker, a Scene Guest | the chat service tells the keeper at the top of send, regenerate and impersonate, and as each reply it generates starts; what is left of the save is the chat's wait. Continue waits for the turn before to settle first, so it is counted only from its reply's start | yes (a test each for send, regenerate, Continue, impersonate; group speakers and guests start on Continue's line) |
 | Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
 | Voice call message | the same send path in call mode: a reply naming the chat | yes (a test) |
 | Any of the above while the editor's speed test runs (desktop or phone) | the reply and the turn's judges, passes and tool calls wait in front of the line until chat's model is back, then go as they would have; Stop takes a held reply out | yes (tests) |
@@ -1451,7 +1467,11 @@ lane (`clerkSideLaneParams`) and carry no chat, and `generateWithTools`, which
 would ignore one anyway (a test on each side); `paramsOf` against impersonate,
 Scene Guest and the voice call (all name the chat; a test each); 1:1 against
 group (one session id each; a test); desktop against web (no setting, no
-screen; the words are built in Dart).
+screen; the words are built in Dart); the turn starts, send against
+regenerate, impersonate and Continue (a test each), and a group's next
+speaker and a Scene Guest against Continue (the same line, at the start of
+`_generateResponse`). The web and phone call the same service methods, so
+their turns start in the same places.
 
 **Live** (`test/live/kobold_slot_keeper_live_test.dart`): ten chat turns,
 about 1,500 tokens of rules and 200 more of history each turn plus a changing
