@@ -283,75 +283,81 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
 
     return Padding(
       padding: const EdgeInsets.only(top: 32),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showBack && currentStep > 0)
+      // Waiting buttons at 45%, as the Greetings sketch draws them: the amber
+      // Next keeps its colour when disabled, so it otherwise looks live.
+      child: Opacity(
+        opacity: busy ? 0.45 : 1,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showBack && currentStep > 0)
+                SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: busy
+                        ? null
+                        : () => creatorState.currentStep = currentStep - 1,
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    label: const Text('Back', style: TextStyle(fontSize: 14)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary(context),
+                      side: BorderSide(color: AppColors.borderOf(context)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              if (showBack && currentStep > 0) const SizedBox(width: 16),
               SizedBox(
+                width: 280,
                 height: 52,
-                child: OutlinedButton.icon(
+                child: ElevatedButton.icon(
                   onPressed: busy
                       ? null
-                      : () => creatorState.currentStep = currentStep - 1,
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Back', style: TextStyle(fontSize: 14)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary(context),
-                    side: BorderSide(color: AppColors.borderOf(context)),
+                      : onNext ??
+                            () {
+                              if (currentStep == 2) {
+                                creatorState.generateFromMode(
+                                  llmProvider: Provider.of<LLMProvider>(
+                                    context,
+                                    listen: false,
+                                  ),
+                                  storage: Provider.of<StorageService>(
+                                    context,
+                                    listen: false,
+                                  ),
+                                  personaService:
+                                      Provider.of<UserPersonaService>(
+                                        context,
+                                        listen: false,
+                                      ),
+                                );
+                                return;
+                              }
+                              if (currentStep == 6) {
+                                _saveAndFinish();
+                                return;
+                              }
+                              creatorState.currentStep = currentStep + 1;
+                            },
+                  icon: Icon(
+                    currentStep >= 6 ? Icons.check : Icons.arrow_forward,
+                    size: 20,
+                  ),
+                  label: Text(nextText, style: const TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: AppColors.onChaosAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-            if (showBack && currentStep > 0) const SizedBox(width: 16),
-            SizedBox(
-              width: 280,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: busy
-                    ? null
-                    : onNext ??
-                          () {
-                            if (currentStep == 2) {
-                              creatorState.generateFromMode(
-                                llmProvider: Provider.of<LLMProvider>(
-                                  context,
-                                  listen: false,
-                                ),
-                                storage: Provider.of<StorageService>(
-                                  context,
-                                  listen: false,
-                                ),
-                                personaService: Provider.of<UserPersonaService>(
-                                  context,
-                                  listen: false,
-                                ),
-                              );
-                              return;
-                            }
-                            if (currentStep == 6) {
-                              _saveAndFinish();
-                              return;
-                            }
-                            creatorState.currentStep = currentStep + 1;
-                          },
-                icon: Icon(
-                  currentStep >= 6 ? Icons.check : Icons.arrow_forward,
-                  size: 20,
-                ),
-                label: Text(nextText, style: const TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

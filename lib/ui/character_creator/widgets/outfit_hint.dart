@@ -93,6 +93,7 @@ class OutfitHint extends StatelessWidget {
               : const Icon(Icons.refresh, size: 18),
           label: Text(
             reading ? 'Reading the outfit…' : 'Re-read the outfit from it',
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor: amber,
@@ -101,10 +102,6 @@ class OutfitHint extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 16),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12),
-            ),
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w600,
             ),
           ),
         ),
@@ -120,12 +117,11 @@ class OutfitHint extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(20),
             ),
-            textStyle: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-            ),
           ),
-          child: const Text('Keep this outfit'),
+          child: const Text(
+            'Keep this outfit',
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          ),
         ),
       ),
     ];

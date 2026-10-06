@@ -180,8 +180,11 @@ ButtonStyle _outlined(BuildContext context, Color fg, Color line) =>
       padding: const EdgeInsets.symmetric(horizontal: 16),
       minimumSize: const Size(0, 44),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
     );
+
+/// Button words: set on the Text so they keep the theme's font (a
+/// ButtonStyle textStyle replaces the theme's style instead of merging).
+const _label = TextStyle(fontSize: 14, fontWeight: FontWeight.w600);
 
 /// Rewrite this greeting (with the steer, when there is one).
 class GreetingRegenerateButton extends StatelessWidget {
@@ -199,7 +202,7 @@ class GreetingRegenerateButton extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: onPressed,
           icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('Regenerate'),
+          label: const Text('Regenerate', style: _label),
           style: _outlined(context, amber, amber),
         ),
       ),
@@ -220,7 +223,7 @@ class GreetingStopButton extends StatelessWidget {
       child: OutlinedButton.icon(
         onPressed: onPressed,
         icon: const Icon(Icons.stop, size: 14),
-        label: const Text('Stop'),
+        label: const Text('Stop', style: _label),
         style: _outlined(
           context,
           AppColors.textPrimary(context).withValues(alpha: 0.87),
@@ -249,17 +252,13 @@ class GreetingAddButton extends StatelessWidget {
           child: TextButton.icon(
             onPressed: onPressed,
             icon: const Icon(Icons.add, size: 18),
-            label: const Text('Add another greeting'),
+            label: const Text('Add another greeting', style: _label),
             style: TextButton.styleFrom(
               foregroundColor: amber,
               disabledForegroundColor: amber,
               padding: const EdgeInsets.symmetric(horizontal: 18),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(12),
-              ),
-              textStyle: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
               ),
             ),
           ),
