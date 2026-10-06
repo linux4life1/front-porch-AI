@@ -157,15 +157,20 @@ void main() {
     await tester.tap(find.text('Top level only'));
     await tester.pump(const Duration(milliseconds: 400));
     await tester.enterText(search, 'Porch');
-    await pumpUntilFound(tester, card('Porch Beta'));
+    // Wait for the filter to land, not for a card that was already showing:
+    // pumpUntilFound returns without a frame when its card is on screen.
+    await pumpUntilTrue(
+      tester,
+      () => card('Quiet Gamma').evaluate().isEmpty,
+      describe: () => 'the Porch search to hide Quiet Gamma',
+    );
+    expect(card('Porch Beta'), findsOneWidget);
     expect(card('Porch Alpha'), findsOneWidget);
     expect(
       card('Porch Delta'),
       findsNothing,
       reason: 'Top level only leaves out the card filed in Cedar',
     );
-    expect(card('Quiet Gamma'), findsNothing);
-
     await tester.tap(find.byTooltip('Search scope'));
     await pumpUntilFound(tester, find.text('Everywhere'));
     await tester.tap(find.text('Everywhere'));
