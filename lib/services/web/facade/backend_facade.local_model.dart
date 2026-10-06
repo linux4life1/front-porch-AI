@@ -52,12 +52,19 @@ extension BackendFacadeLocalModel on BackendFacade {
     if (active == null && model.isNotEmpty) {
       final read = await _cardModelFor(model);
       unreadable = read.info == null || read.bytes == null;
+      final hardware = _hardware?.hardwareInfo;
       final facts = KoboldStatusFacts.of(
         storage: _storage,
-        hardware: _hardware?.hardwareInfo,
+        hardware: hardware,
         free: await _freeForCard(),
         info: read.info,
         bytes: read.bytes,
+        // What the speed test measured for this model, as a launch runs it.
+        measured: await koboldMeasuredForCard(
+          _storage,
+          model: model,
+          hardware: hardware,
+        ),
       );
       auto = facts?.toJson(b.contextSize);
     }

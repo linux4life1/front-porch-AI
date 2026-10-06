@@ -143,6 +143,15 @@ void main() {
     expect(next['usemmap'], isFalse);
   });
 
+  test('while the preset editor times a setting, the card says a test is '
+      'running, also while a try loads', () async {
+    final letGo = await rig.kobold.holdForSpeedTest();
+    rig.kobold.markModelLoading('Loading a try…');
+    expect(await rig.test.why(), 'A speed test is already running.');
+    expect(await rig.test.start(), 'A speed test is already running.');
+    letGo();
+  });
+
   test('picking the model again in auto mode keeps auto mode', () async {
     expect(await rig.test.start(), isNull);
     await rig.finished();

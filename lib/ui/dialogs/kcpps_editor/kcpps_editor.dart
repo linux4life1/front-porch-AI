@@ -6,6 +6,7 @@
 // small kit (`Ke*`) and prompts the Local model card speaks in too.
 // kcpps_editor_controller.fit.dart is `part of` the controller and is not
 // exported.
+export 'kcpps_batch_timing.dart';
 export 'kcpps_editor_controller.dart';
 export 'kcpps_editor_dialog.dart';
 export 'kcpps_editor_prompts.dart';

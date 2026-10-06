@@ -35,6 +35,13 @@ Future<void> _until(bool Function() done) async {
   }
 }
 
+/// What KoboldCpp prints after a timing prompt: the editor's timing reads it
+/// (since 2026-10-06 it shares the speed test's loop, which measures the
+/// engine's own speed line, not the wall clock).
+const _speedLine =
+    '\n[10:49:15] CtxLimit:2300/16384, Init:0.01s, Processed:2100 in 1.05s '
+    '(2000.00T/s), Generated:200/200 in 5.00s (40.00T/s), Total:6.06s';
+
 /// Long enough for a request sent too early to reach the socket.
 Future<void> _aWhile() =>
     Future<void>.delayed(const Duration(milliseconds: 250));
@@ -46,6 +53,9 @@ void main() {
   setUp(() async {
     h = await KoboldEngineHarness.start();
     addTearDown(h.dispose);
+    h.engine.beforeReply = (r) async {
+      if (r.kind == 'generate') h.kobold.debugEngineSaid(_speedLine);
+    };
     h.kobold.debugKeeperPlan = () async => const KoboldKeeperPlan.keep(3);
     final bin = await Directory.systemTemp.createTemp('fpai editor mmq line');
     addTearDown(() => bin.delete(recursive: true));
@@ -127,8 +137,11 @@ void main() {
     await h.kobold.waitForIdle();
     h.engine.forgetLog();
     final reading = Completer<void>();
-    h.engine.beforeReply = (r) =>
-        r.kind == 'generate' ? reading.future : Future<void>.value();
+    h.engine.beforeReply = (r) async {
+      if (r.kind != 'generate') return;
+      h.kobold.debugEngineSaid(_speedLine);
+      await reading.future;
+    };
     addTearDown(() {
       if (!reading.isCompleted) reading.complete();
     });

@@ -11,11 +11,13 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 import 'kcpps_codec.dart';
 import 'kcpps_library.dart';
 import 'kcpps_summary.dart';
+import 'kobold_backend_choice.dart';
 import 'kobold_context_verdict.dart';
 import 'kobold_launch_config.dart';
 import 'kobold_speed_plan.dart';
@@ -73,6 +75,34 @@ Future<KoboldKnobs?> koboldMeasuredKnobs(
     return koboldKnobsOf(read.config);
   }
   return null;
+}
+
+/// [koboldMeasuredKnobs] for the machine as a launch runs it: the backend
+/// by the switches in Settings ([koboldBackendFor]). What the Local model
+/// card judges, on the desktop and the phone. Null without a known machine.
+Future<KoboldKnobs?> koboldMeasuredForCard(
+  StorageService storage, {
+  required String model,
+  required HardwareInfo? hardware,
+  bool? unified,
+}) {
+  if (hardware == null) return Future.value();
+  final b = storage.backendSettings;
+  final gpu = koboldBackendFor(
+    hardware: hardware,
+    cublas: b.useCublas,
+    vulkan: b.useVulkan,
+    rocm: b.useRocm,
+    metal: b.useMetal,
+    gpuId: b.gpuId,
+    unified: unified,
+  );
+  return koboldMeasuredKnobs(
+    storage,
+    model: model,
+    card: hardware.gpuName,
+    backend: gpu.label,
+  );
 }
 
 /// Whether the preset at [path] is one the Local model card's speed test

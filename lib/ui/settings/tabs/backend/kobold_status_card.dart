@@ -14,12 +14,19 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kobold_card_note.dart';
+import 'kobold_context_control.dart';
+import 'kobold_speed_test_button.dart';
 
 /// "Local model": how the model runs here, in plain words, and the one
-/// thing a user sets in auto mode, the context. With a preset in use it
-/// says what the preset does instead.
+/// thing a user sets in auto mode, the context, with the speed test below
+/// it. With a preset in use it says what the preset does instead.
 class KoboldStatusCard extends StatefulWidget {
-  const KoboldStatusCard({super.key, this.reloadChat, this.unified});
+  const KoboldStatusCard({
+    super.key,
+    this.reloadChat,
+    this.unified,
+    this.speedTest,
+  });
 
   /// Puts a changed context into the running KoboldCpp. The app's own
   /// when null.
@@ -27,6 +34,9 @@ class KoboldStatusCard extends StatefulWidget {
 
   /// For tests: Apple Silicon's one memory pool or not.
   final bool? unified;
+
+  /// For tests: the speed test. The app's own when null.
+  final KoboldSpeedTest? speedTest;
 
   @override
   State<KoboldStatusCard> createState() => _KoboldStatusCardState();
@@ -52,12 +62,45 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
   Future<void> Function()? _reloadNow;
   Timer? _reload;
 
+  /// The speed test this card follows, and what it measured for the model
+  /// here, which a launch runs (read again when the test ends).
+  KoboldSpeedTest? _test;
+  KoboldKnobs? _measured;
+  String _measuredKey = '';
+
   /// Leaving the page does not cancel a reload: the new context is saved,
   /// and KoboldCpp would keep running with the old one.
   @override
   void dispose() {
     _runReload();
+    _test?.removeListener(_onTest);
     super.dispose();
+  }
+
+  void _follow(KoboldSpeedTest? test) {
+    if (identical(test, _test)) return;
+    _test?.removeListener(_onTest);
+    _test = test;
+    test?.addListener(_onTest);
+  }
+
+  void _onTest() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _readMeasured(
+    String key,
+    StorageService storage,
+    String model,
+    HardwareInfo? hardware,
+  ) async {
+    final knobs = await koboldMeasuredForCard(
+      storage,
+      model: model,
+      hardware: hardware,
+      unified: widget.unified,
+    );
+    if (mounted && key == _measuredKey) setState(() => _measured = knobs);
   }
 
   /// Runs the waiting reload now, if one waits.
@@ -143,9 +186,28 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
     if (free == null && !kobold.isRunning && !_readingFree) {
       _readFree(hardware);
     }
+    final hw = hardware.hardwareInfo;
+    final test =
+        widget.speedTest ?? context.read<LLMProvider?>()?.koboldSpeedTest;
+    _follow(test);
+    final measuredKey = [
+      model,
+      hw?.gpuName,
+      b.useCublas,
+      b.useVulkan,
+      b.useRocm,
+      b.useMetal,
+      b.gpuId,
+      storage.presetSettings.modelPresetMap[model],
+      test?.phase,
+      test?.line,
+    ].join('|');
+    if (measuredKey != _measuredKey) {
+      _measuredKey = measuredKey;
+      _readMeasured(measuredKey, storage, model, hw);
+    }
     // Everything KoboldStatusFacts.of reads: a change to any of it works the
     // facts out again, and a rebuild alone does not.
-    final hw = hardware.hardwareInfo;
     final key = [
       model,
       b.contextSize,
@@ -170,6 +232,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       hw?.vendor,
       hw?.hasCuda,
       hw?.hasMetal,
+      _measured,
     ].join('|');
     if (key != _factsKey) {
       _factsKey = key;
@@ -180,6 +243,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
         info: _info,
         bytes: _bytes,
         unified: widget.unified,
+        measured: _measured,
       );
     }
 
@@ -216,7 +280,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
           const SizedBox(height: 16),
           ...preset != null
               ? _presetBody(context)
-              : _autoBody(context, b, kobold),
+              : _autoBody(context, b, kobold, test),
         ],
       ),
     );
@@ -312,6 +376,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
     BuildContext context,
     BackendSettings b,
     KoboldService kobold,
+    KoboldSpeedTest? test,
   ) {
     final facts = _facts;
     if (facts == null) {
@@ -345,7 +410,27 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
         const SizedBox(height: 10),
       ],
       const SizedBox(height: 6),
-      _contextControl(context, facts, b, kobold),
+      KoboldContextControl(
+        facts: facts,
+        contextSize: b.contextSize,
+        pending: _pending,
+        onPick: (c) {
+          if (facts.verdicts[c]?.outcome == KoboldContextOutcome.tooBig) {
+            setState(() => _pending = c);
+          } else {
+            _apply(c, kobold);
+          }
+        },
+        onApply: (c) => _apply(c, kobold),
+      ),
+      if (test != null) ...[
+        const SizedBox(height: 16),
+        KoboldSpeedTestButton(
+          test: test,
+          model: _model ?? '',
+          phase: kobold.phase,
+        ),
+      ],
     ];
   }
 
@@ -362,109 +447,4 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       ),
     ],
   );
-
-  Widget _contextControl(
-    BuildContext context,
-    KoboldStatusFacts facts,
-    BackendSettings b,
-    KoboldService kobold,
-  ) {
-    final picked = _pending ?? b.contextSize;
-    final verdict = facts.verdicts[picked];
-    final words = verdict == null
-        ? null
-        : koboldContextWords(
-            verdict,
-            largestGood: facts.largestGood,
-            isCurrent: picked == b.contextSize,
-          );
-    final kind = verdict?.outcome;
-    final tint = switch (kind) {
-      KoboldContextOutcome.tooBig => AppColors.alertRedOf(context),
-      KoboldContextOutcome.tooSmall => AppColors.porchHoneyOf(context),
-      _ => AppColors.journalAccentOf(context),
-    };
-    final ok =
-        kind != KoboldContextOutcome.tooBig &&
-        kind != KoboldContextOutcome.tooSmall;
-    final best = facts.largestGood;
-    return Container(
-      padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-      decoration: BoxDecoration(
-        color: AppColors.insetPanelOf(context),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Context: how much chat history the character remembers',
-            style: keText(context, size: 14, weight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          KeChoices<int>(
-            key: const ValueKey('local-model-context'),
-            values: facts.choices,
-            selected: picked,
-            expand: false,
-            label: koboldTokens,
-            onSelected: (c) {
-              if (facts.verdicts[c]?.outcome == KoboldContextOutcome.tooBig) {
-                setState(() => _pending = c);
-              } else {
-                _apply(c, kobold);
-              }
-            },
-          ),
-          if (words != null) ...[
-            const SizedBox(height: 8),
-            KoboldCardNote(
-              key: const ValueKey('local-model-verdict'),
-              tint: tint,
-              warn: !ok,
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    TextSpan(
-                      text: '${words.title} ',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    TextSpan(text: words.text),
-                  ],
-                ),
-                style: keText(context, size: 14, height: 1.45),
-              ),
-            ),
-          ],
-          if (_pending case final big?) ...[
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 10,
-              runSpacing: 8,
-              children: [
-                if (best != null)
-                  KeButton(
-                    'Use ${koboldTokens(best)} tokens',
-                    kind: KeButtonKind.amber,
-                    onPressed: () => _apply(best, kobold),
-                  ),
-                KeButton(
-                  'Keep ${koboldTokens(big)} anyway…',
-                  onPressed: () async {
-                    final keep = await askKcpps(
-                      context,
-                      title: 'Keep ${koboldTokens(big)} tokens?',
-                      text: words?.text ?? '',
-                      yes: 'Keep it',
-                    );
-                    if (keep && mounted) await _apply(big, kobold);
-                  },
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 }

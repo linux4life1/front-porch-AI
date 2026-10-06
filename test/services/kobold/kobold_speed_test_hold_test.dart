@@ -37,6 +37,13 @@ Future<void> _until(bool Function() done) async {
   }
 }
 
+/// What KoboldCpp prints after a timing prompt: the editor's timing reads it
+/// (since 2026-10-06 it shares the speed test's loop, which measures the
+/// engine's own speed line, not the wall clock).
+const _speedLine =
+    '\n[10:49:15] CtxLimit:2300/16384, Init:0.01s, Processed:2100 in 1.05s '
+    '(2000.00T/s), Generated:200/200 in 5.00s (40.00T/s), Total:6.06s';
+
 /// Long enough for a request sent too early to reach the socket.
 Future<void> _aWhile() =>
     Future<void>.delayed(const Duration(milliseconds: 250));
@@ -58,7 +65,10 @@ void main() {
     servedBy = {};
     trialLoads = 0;
     firstTrialLoad = null;
-    h.engine.beforeReply = (r) async => servedBy[r] = model;
+    h.engine.beforeReply = (r) async {
+      servedBy[r] = model;
+      if (r.kind == 'generate') h.kobold.debugEngineSaid(_speedLine);
+    };
   });
 
   /// The editor, timing the preset it has open on the engine the chat uses.
@@ -121,7 +131,10 @@ void main() {
     });
     h.engine.beforeReply = (r) async {
       servedBy[r] = model;
-      if (r.kind == 'generate') await reading.future;
+      if (r.kind == 'generate') {
+        h.kobold.debugEngineSaid(_speedLine);
+        await reading.future;
+      }
     };
     final timing = speedTest.timeMmq();
     await _until(() => h.engine.arrived.any((r) => r.kind == 'generate'));
@@ -152,6 +165,7 @@ void main() {
     });
     h.engine.beforeReply = (r) async {
       servedBy[r] = model;
+      if (r.kind == 'generate') h.kobold.debugEngineSaid(_speedLine);
       if (r.kind == 'chat') await writing.future;
     };
     final sending = h.chat.sendMessage('Good evening, Ada.');

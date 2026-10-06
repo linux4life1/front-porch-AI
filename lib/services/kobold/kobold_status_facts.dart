@@ -20,6 +20,7 @@ class KoboldStatusFacts {
     required this.choices,
     required this.verdicts,
     required this.largestGood,
+    required this.batch,
     this.warning,
   });
 
@@ -32,6 +33,10 @@ class KoboldStatusFacts {
   /// The model was made for less chat than the app needs
   /// ([koboldShortModelWarning]); null when it was not.
   final String? warning;
+
+  /// The physical batch the verdicts judge, as a launch runs it here. Never
+  /// shown: auto mode names no settings.
+  final int batch;
 
   /// For the app's own settings, the model at [model] read as [info] of
   /// [bytes], on this machine. [measured]: what the speed test found for
@@ -154,6 +159,7 @@ class KoboldStatusFacts {
       choices: choices,
       verdicts: {for (final v in verdicts.verdicts) v.contextSize: v},
       largestGood: verdicts.largestGood,
+      batch: tuning.batchSize,
       warning: koboldShortModelWarning(info.contextLength),
     );
   }

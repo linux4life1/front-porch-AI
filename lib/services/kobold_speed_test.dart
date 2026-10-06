@@ -30,13 +30,13 @@ Future<KoboldSpeedRun> koboldTimeSettings({
   required Future<bool> Function(Map<String, dynamic> config) load,
   required Future<KoboldSpeed?> Function(int round) time,
   bool Function()? stop,
-  void Function(KoboldSpeedRun run)? onTry,
+  void Function(KoboldSpeedRun run, KoboldKnobs next)? onTry,
   void Function(KoboldSpeedRun run, Duration took)? onTimed,
 }) async {
   final run = KoboldSpeedRun(start, facts);
   for (var k = run.next(); k != null; k = run.next()) {
     if (stop?.call() ?? false) break;
-    onTry?.call(run);
+    onTry?.call(run, k);
     final watch = Stopwatch()..start();
     // A config the engine could not load is never the fastest.
     final speed = await load(await mapFor(k))
@@ -209,7 +209,7 @@ class KoboldSpeedTest extends ChangeNotifier {
         load: (config) => loadTrial(kSpeedTrialConfig, config),
         time: kobold.timeTurn,
         stop: () => _stop,
-        onTry: (run) {
+        onTry: (run, _) {
           step = run.tried.length + 1;
           if (!_stop) {
             doing = step == 1

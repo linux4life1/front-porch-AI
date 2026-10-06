@@ -42,13 +42,15 @@ extension LLMProviderSpeedTest on LLMProvider {
       return "A preset is in use. The speed test tunes the app's own "
           'settings.';
     }
+    // Before the phase: the preset editor's timing loads tries too, and
+    // while one loads the model is still there to test.
+    if (_koboldService.speedTestHolds) {
+      return 'A speed test is already running.';
+    }
     final phase = _koboldService.phase;
     if (!_koboldService.isProcessRunning ||
         (phase != KoboldPhase.ready && phase != KoboldPhase.unloaded)) {
       return 'Start the model first, then run the test.';
-    }
-    if (_koboldService.speedTestHolds) {
-      return 'A speed test is already running.';
     }
     if (_koboldService.hardwareInfo?.call() == null) {
       return 'This computer is still being looked at. Try again in a moment.';

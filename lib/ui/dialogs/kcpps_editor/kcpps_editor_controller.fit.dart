@@ -231,91 +231,13 @@ extension KcppsEditorOwnMoe on KcppsEditorController {
   }
 }
 
-/// Timing MMQ on and off on this card, from the editor.
-extension KcppsEditorMmq on KcppsEditorController {
+/// The chat memory at each size, for the cache picker.
+extension KcppsEditorCache on KcppsEditorController {
   /// The chat memory at [q], in MB, wherever it sits.
   int? cacheMbFor(KvQuant q) {
     final f = fit;
     if (f == null) return null;
     final l = f.copyWith(kvQuant: q).load();
     return l.cacheMb + l.ramCacheMb;
-  }
-
-  /// Loads the preset with MMQ on, reads a fresh prompt twice, then with it
-  /// off; keeps the faster, remembers it for this card, and puts chat back.
-  Future<void> timeMmq() async {
-    final load = loadTrial;
-    if (load == null || mmqTiming || !canWrite) return;
-    if (!kobold.isRunning) {
-      mmqStatus = 'Start the model first, then time it here.';
-      _notify();
-      return;
-    }
-    mmqTiming = true;
-    // Auto mode's own learning would take these runs for its own.
-    storage.backendSettings.pauseMmqLearning();
-    final best = <bool, Duration>{};
-    void Function()? letChatGo;
-    try {
-      // Chat waits for its own model until it is back below; what is running
-      // now finishes on it first.
-      final hold = holdForSpeedTest;
-      if (hold != null) {
-        mmqStatus = 'Waiting for KoboldCpp to finish what it is doing…';
-        _notify();
-        letChatGo = await hold();
-      }
-      var round = 0;
-      for (final on in [true, false]) {
-        mmqStatus = 'Loading with MMQ ${on ? 'on' : 'off'}…';
-        _notify();
-        // Built as the form is saved, so what the machine has already shown
-        // it cannot run (flash attention on a ROCm build that died with it)
-        // is not loaded to be timed. Sliding window is answered as the
-        // switch reads, off while it is left to KoboldCpp: timed as before.
-        final map = kcppsPresetLaunchMap(
-          _map(draft.copyWith(mmq: on, slidingWindow: draft.slidingWindow)),
-          modelPath: draft.modelPath,
-          mmprojPath: '',
-        );
-        if (!await load('${kStagedConfigPrefix}mmq.kcpps', map)) {
-          throw StateError('KoboldCpp did not load the preset');
-        }
-        mmqStatus = 'Timing with MMQ ${on ? 'on' : 'off'}…';
-        _notify();
-        // The better of two: the first read after a load can be slowed by
-        // the disk.
-        for (var i = 0; i < 2; i++) {
-          final t = await kobold.timePrompt(++round);
-          if (best[on] == null || t < best[on]!) best[on] = t;
-        }
-      }
-      final onFaster = best[true]! <= best[false]!;
-      draft = draft.copyWith(mmq: onFaster);
-      final card = hardware.hardwareInfo?.gpuName;
-      if (card != null) {
-        await storage.backendSettings.setMmqFor(card, engineVersion, onFaster);
-      }
-      String s(Duration d) =>
-          '${(d.inMilliseconds / 1000).toStringAsFixed(1)} s';
-      mmqStatus =
-          'On: ${s(best[true]!)}, off: ${s(best[false]!)}. '
-          '${onFaster ? 'On' : 'Off'} is faster here, so it is set.';
-    } on KoboldPresetProblem catch (e) {
-      // A preset that asks KoboldCpp to run a program or open itself to the
-      // internet is not loaded to be timed.
-      mmqStatus = e.message;
-    } on Object catch (e) {
-      mmqStatus = 'Timing stopped: $e';
-    } finally {
-      mmqTiming = false;
-      _notify();
-      try {
-        await _reloadChat();
-      } finally {
-        // Also when chat could not be put back: chat never waits for good.
-        letChatGo?.call();
-      }
-    }
   }
 }

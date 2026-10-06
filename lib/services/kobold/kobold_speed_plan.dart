@@ -73,6 +73,7 @@ class KoboldSpeedFacts {
     required this.mmq,
     required this.mlock,
     required this.flashAttention,
+    this.mmap = true,
   });
 
   /// The physical batches that fit (see `koboldBatchCandidates`).
@@ -80,6 +81,10 @@ class KoboldSpeedFacts {
 
   /// MMQ can be either: the CUDA build (NVIDIA, or AMD's ROCm) on a card.
   final bool mmq;
+
+  /// mmap is tried: every machine can run either. False for a timing of
+  /// one other setting alone (the preset editor's).
+  final bool mmap;
 
   /// Memory lock is allowed: layers set by hand, and not a MoE model.
   final bool mlock;
@@ -114,7 +119,7 @@ KoboldSpeedFacts koboldSpeedFactsFor({
 List<(KoboldKnob, List<Object>)> koboldSpeedSteps(KoboldSpeedFacts f) => [
   if (f.batches.length > 1) (KoboldKnob.batch, f.batches),
   if (f.mmq) (KoboldKnob.mmq, const [true, false]),
-  (KoboldKnob.mmap, const [true, false]),
+  if (f.mmap) (KoboldKnob.mmap, const [true, false]),
   if (f.mlock) (KoboldKnob.mlock, const [false, true]),
   if (f.flashAttention) (KoboldKnob.flashAttention, const [true, false]),
 ];

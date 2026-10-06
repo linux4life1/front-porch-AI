@@ -13,6 +13,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 part 'kcpps_editor_controller.fit.dart';
+part 'kcpps_editor_controller.timing.dart';
 
 /// What saving said. [notLoaded]: saved, but the running KoboldCpp was not
 /// given it (why is in the problem line); chat's choice is back on what runs.

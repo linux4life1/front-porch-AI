@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import 'kcpps_batch_timing.dart';
 import 'kcpps_editor_controller.dart';
 import 'kcpps_editor_style.dart';
 import 'kcpps_number_field.dart';
@@ -224,6 +225,8 @@ class KcppsSpeedSection extends StatelessWidget {
                 ],
               ),
             ),
+            const SizedBox(height: 8),
+            KcppsBatchTiming(c: c),
           ],
         ),
         KeCheck(

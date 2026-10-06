@@ -59,6 +59,14 @@ Since 2026-10-06 it keeps only the open chat by default, always (nothing
 weighs whether that is worth it), and lets it go when the user leaves it;
 Settings → Advanced can keep recent chats too (decision 26).
 
+Stage 10 (built, 2026-10-06): the batch in two, and the speed test. On
+KoboldCpp 1.122 and later the app writes a logical batch of 2,048 and
+chooses the physical one, which is what sets the working memory; NVIDIA
+cards start at 1,024, everything else at 512. A button on the Local model
+card, "Find the fastest settings for this computer", times a few settings
+one at a time when the user asks, and saves the fastest as a real preset
+for that model. See decisions 27 and 28 and "Stage 10".
+
 **Context handling: the app must choose, not leave it to chance.**
 Sliding window on its own is fine. The problem is sliding window together
 with fast forward. Today's normal launch sends no context-handling settings,
@@ -221,6 +229,26 @@ address**
 - Pinned by `test/live/kobold_host_live_test.dart` (the real engine) and
   `test/services/kobold/kobold_listen_address_test.dart` (every staged
   config).
+
+**Measured on 1.122.1, Apple Silicon (2026-10-06): the batch is two
+settings**
+
+- `--help` lists `batchsize` as the logical batch (default 512) and
+  `ubatchsize` as the physical one (default: the same as the batch). 1.117.1
+  has no `ubatchsize`.
+- Loaded from a config with Qwen2.5 0.5B, the engine reported: `batchsize`
+  512 alone, n_batch 512 and n_ubatch 512; 1,024 alone, 1,024 and 1,024;
+  2,048 with `ubatchsize` 512, 2,048 and 512; 2,048 with 1,024, 2,048 and
+  1,024; 2,048 with -1, 2,048 and 2,048.
+- The working memory follows the physical batch alone: 298.5 MiB at 512,
+  597 at 1,024 and 1,194 at 2,048, whatever the logical batch. The output
+  buffer did not change (0.58 MiB).
+- KoboldCpp's own export (`--exportconfig`) writes `ubatchsize: -1` for "the
+  same as the batch", and the value itself when one is given. Both exports
+  are pinned in `test/fixtures/kcpps/`.
+- A live reload first resets every setting to its default and then reads
+  the file, so a config without `ubatchsize` runs the physical batch equal
+  to `batchsize`, whatever the config before it said.
 
 **Cost in test changes.** Stages 2, 3 and 4 each have to rewrite existing
 tests, because those tests pin behaviour that is being removed on purpose.
@@ -560,6 +588,36 @@ Decisions already made by the maintainer:
     `KoboldFeltWait`, `KoboldReadSpeed` and the chat service's turn-start
     signal (`noteTurnStart`), which served only the weighing, are deleted;
     `parseKoboldSpeed` stays for auto mode's MMQ learning.
+27. The batch is two settings, and auto mode starts by the card
+    (2026-10-06). On an engine from 1.122 the app's own config always
+    writes the logical batch 2,048 (`batchsize`, both spellings) and the
+    physical batch it chooses (`ubatchsize`); an older engine, or one whose
+    version is not known, gets the physical batch as the one `batchsize`.
+    Every estimate (the fit, the Local model card's verdicts, the keeper's
+    memory plan) keys off the physical batch. The physical batch starts at
+    1,024 on every NVIDIA card (a 6 GB card read faster at 1,024 than at
+    512) and at 512 on ROCm, Vulkan, Apple Silicon and with no card. Memory
+    is a ceiling only: a batch that puts fewer layers or experts on the card
+    than 512 does is never used. A model with recurrent layers never runs
+    below 1,024 on Vulkan (KoboldCpp issue 2402: garbage at 512), a batch
+    chosen in Settings included. Nothing is tried at start-up: auto mode no
+    longer takes "the largest that fits". A preset runs as written.
+28. The speed test runs when the user asks, and its winner is a real preset
+    (2026-10-06). The Local model card (desktop, and the phone's Models
+    page) has "Find the fastest settings for this computer". It asks first
+    with a real estimate, then times one setting at a time with the best so
+    far: the physical batch (512, 1,024, and 2,048 only with plenty spare),
+    MMQ (CUDA and ROCm), mmap, memory lock (only with layers set by hand and
+    not for a MoE model) and flash attention (only where it can run and the
+    chat memory is full size). Each try is one reload and one timing prompt
+    that reads about 2,000 tokens and writes 200; the score is a whole turn
+    (1,000 read and 200 written at the speeds KoboldCpp printed). Cancel
+    stops after the current step and puts the model back. While it runs a
+    chat message is refused with how long is left. The winner is saved as
+    "<model> (measured on <card>)" through the preset library, linked to
+    the model, and auto mode runs its settings for that model from then on;
+    the card says one line of outcome words and no settings. Declined or
+    never pressed, nothing changes. Details under "Stage 10".
 
 ## Design
 
@@ -969,10 +1027,13 @@ As built (2026-10-04), to the sketch the maintainer approved:
   vm_stat, /proc/meminfo, FreePhysicalMemory) and kept as "free before the
   engine": a reading taken while the app's KoboldCpp runs would count the
   model against itself.
-- Auto mode tunes silently: the largest batch of 512/1024/2048 that keeps
-  as much of the model on the card as 512 does (an "Auto" chip, the
-  default, in Advanced; a chosen batch is kept); smart cache slots that fit
-  in free system memory (3, or KoboldCpp's 7 for a recurrent model).
+- Auto mode tunes silently: the physical batch by the card (decision 27,
+  which replaced "the largest of 512/1024/2048 that keeps as much of the
+  model on the card as 512 does" on 2026-10-06), or what the speed test
+  measured for the model (decision 28), within the same memory ceiling (an
+  "Auto" chip, the default, in Advanced; a chosen batch is kept); smart
+  cache slots that fit in free system memory (3, or KoboldCpp's 7 for a
+  recurrent model).
   Context shift (decisions 7 and 9): KoboldCpp's source keeps a slot for
   a regenerated reply and a checkpoint part way into a long prompt for a
   recurrent model, since its state cannot be rewound; so context shift
@@ -987,7 +1048,12 @@ As built (2026-10-04), to the sketch the maintainer approved:
   cannot be timed do not count towards either (counting them left the
   trial on "off" for good after three short replies), the newest eight of
   each kind are kept, and a launch that is not auto mode on CUDA (a preset,
-  another backend) ends a trial that is open.
+  another backend) ends a trial that is open. Since Stage 10 the editor's
+  timing and the speed test share one timing loop (`koboldTimeSettings`):
+  one timing per setting, scored as a whole turn from KoboldCpp's own
+  speed line, not the wall clock; a launch that runs measured settings
+  pauses the reply learner, and the speed test's MMQ answer is kept for
+  the card as the editor's is.
 - The "Local model" card on the KoboldCpp settings page is auto mode's
   only surface: how the model runs, in plain words, and the context, with
   a verdict per size from a read-cost model (weights a token uses plus the
@@ -1709,6 +1775,168 @@ saves take; whether later Vulkan saves are as slow is not known yet.
   next request in the line may go out. That race was there before the line
   existed (an eval's early stop, the retry hygiene call); the line does not
   widen it, and KoboldCpp ignores an abort that finds anything waiting.
+
+### Stage 10: the batch in two, and the speed test (as built)
+
+Decisions 27 and 28, in detail (2026-10-06).
+
+**The two batch settings.** `kcppsBatchOf` reads the physical and logical
+batch of any config: `ubatchsize` above 0 is the physical batch, never more
+than `batchsize`; none, or -1, makes `batchsize` the physical batch.
+`kcppsBatchKeys` writes them: with a logical batch, `batchsize` (both
+spellings) holds it and `ubatchsize` the physical; without, the physical
+batch is the one field. `KoboldBinaryVersion.splitsBatch` says which an
+engine takes (1.122 and later; a version not known counts as older, since
+the one field means the same everywhere). The typed config's `batchSize` is
+always the physical batch, `logicalBatchSize` the logical one or null, and
+the editor keeps a preset's two settings when only one is edited
+(`ubatchsize` is in the batch group of `kcppsMergeEdits`).
+
+**Where auto mode starts.** `koboldStartBatch` (1,024 on NVIDIA, 512
+elsewhere), `koboldBatchFloor` (1,024 for a recurrent model on Vulkan), and
+`koboldAutoTuning(measured:)`: the measured batch, else the start, each
+only while it puts no fewer layers or experts on the card than 512, else
+the floor. The Local model card's verdicts use the same function for every
+context size, on the desktop and the phone.
+
+**What the speed test tries.** `koboldBatchCandidates`: from the floor up,
+each batch within the ceiling, and 2,048 only with plenty spare, which is
+the whole model on the card at 2,048 with 2 GB of graphics memory still
+free beside it (`kKoboldBatch2048SpareMb`, twice the 1 GB KoboldCpp's own
+fit keeps); without a card, the floor alone. `koboldSpeedFactsFor` holds
+the other rules: MMQ with the CUDA build only (NVIDIA or ROCm), memory lock
+only with layers set by hand and not for a MoE model, flash attention only
+where it can run and the chat memory is full size. Order: the physical
+batch, MMQ, mmap, memory lock, flash attention. `KoboldSpeedRun` times what
+runs now first, then each other value of each setting with the best so far;
+a value is kept only when a turn is quicker by more than 2%
+(`kKoboldSpeedBand`), since the test has one timing of each. A try that
+could not load or could not be timed is never kept, and when what runs now
+cannot be timed the run ends with nothing changed. With automatic layers on
+an NVIDIA card that is six timings: what runs, two batches, MMQ, mmap,
+flash attention.
+
+**A try.** Chat's own config, built by the one launch function with the
+try's settings (`koboldLaunchMap(trial:)`), staged as `fpai-speed.kcpps`
+and put into the engine by the trial reload the editor's MMQ timing uses
+(`loadKoboldTrial`), which sends nothing when that content is what runs
+(the first try, usually). Then one timing prompt (`koboldTimingPrompt`,
+about 2,000 tokens, a fresh start so nothing is reused) that writes 200
+tokens with the end of text banned, so every try writes the same. The
+measure is KoboldCpp's own speed line for it (`KoboldSpeedLines`: a line cut
+across two reads counts once, whole, and the line still being written is
+read as it stands, since KoboldCpp ends it only when it next prints). The
+app's requests are held for the test as for the editor's timing
+(`holdForSpeedTest`), and a chat message is refused with "Testing speed
+settings, about N minutes left.": under the chat on the desktop, with the
+typed text kept, and as the send's answer on the phone, which keeps it too.
+
+**The estimate.** Before it starts: the number of timings times a reload
+and a timing. The reload is how long the last load of this model took
+(`KoboldLoadClock`: from the start of a launch, or a reload the engine
+accepted, to the model answering), or a guess from the file size; the
+timing comes from the last speeds the engine printed, or a slow card's.
+After each try the reload-and-timing is the mean of those measured.
+
+**The winner.** Saved by the preset library (`KcppsLibrary.write`, the door
+the editor's Save uses) as "<model> (measured on <card>)" in the engine
+folder, over a file of that name, which the question before the test names.
+It is chat's whole config with the winning settings, without the address
+and idle settings the app lays over every launch, and with a `measured`
+stamp (card, backend, engine version, day, made by the auto test) that the
+codec reads and writes as a setting of its own (the preset lists no
+"settings this app does not manage") and KoboldCpp ignores. The model's
+preset link points at it, the batch in Settings goes back to Auto, and MMQ
+is remembered for the card as the editor's timing does. Then chat's config
+is put back: the same content as the winning try when that ran last, so
+nothing is reloaded then.
+
+**Auto mode runs it.** `koboldMeasuredKnobs` finds the model's measured
+preset (the linked one, else the one under the test's own name) when its
+stamp says the auto test made it on this card through this backend, and
+`koboldLaunchMap` runs its five settings in place of auto mode's own, each
+under the same rules (the ceiling, a compressed cache turning flash
+attention on, memory lock only by hand). The Local model card takes the
+same settings (`KoboldStatusFacts.of(measured:)`). Auto mode stays auto
+mode: picking that model again in auto mode keeps auto mode
+(`selectKoboldModel`), and the card keeps its context and shows no
+settings. In custom mode the preset is picked like any other and runs as
+written. A preset the editor timed is the user's: auto mode takes nothing
+from it.
+
+**What the user sees.** In auto mode the Local model card has "Find the
+fastest settings for this computer" under the context. Tapped, it asks
+first ("This takes about 4 minutes. Replies may start sooner afterwards.
+Run it?", naming the preset it would replace when there is one), then a
+warm dialog shows a progress bar, "Step 2 of 6", the time left in words and
+what it is doing, with Cancel; it ends on one line ("Replies now come about
+17% sooner." or "Your current settings were already the fastest.") and
+Done, and the card keeps that line under the button for that model. When
+it cannot run, the button is off with the reason under it ("Start the model
+first, then run the test."). No setting is named anywhere on the card. The
+phone's Models page has the same button, question, dialog and line, in the
+desktop's words (decision 28).
+
+**The editor.** "Time batch sizes", under the batch field, times the
+physical batches that fit this preset on this card through the same loop
+(`koboldTimeSettings`), each as a trial of the form (as Save would write
+it), and puts the fastest in the form with a stamp that it was measured on
+this card; the line above the button says "Batch 1,024, measured on this
+card." or "Not measured on this card yet." (`koboldMeasuredWords`, from the
+preset's own stamp). On an engine from 1.122 a trial is the physical batch
+beside a logical 2,048, as auto mode runs it. The MMQ timing ("Time both on
+this card") runs on the same loop: one timing of each, scored as a whole
+turn from KoboldCpp's own speed line, where it used to take the faster of
+two wall-clock timings. Both hold the app's requests and put chat's model
+back as before. The editor stays desktop only.
+
+**Tests.** `kcpps_two_knob_batch_test` (the codec against two exports
+KoboldCpp 1.122.1 wrote, and the launch on 1.122, 1.117 and an unknown
+engine), `kobold_start_batch_test` (the start by backend, the ceiling, the
+Vulkan floor, the candidates), `kobold_speed_lines_test` (a line counted
+once, whole, across reads), `kobold_speed_plan_test` (the order and skip
+rules as a table, the greedy walk, the band, the words),
+`kobold_speed_test_run_test` (the real service, provider, staging and
+reloads on a loopback KoboldCpp that prints the speed of what it really
+loaded: six timings, the winner saved and read back through the codec, the
+link, auto mode kept, the next launch running it, Cancel putting the model
+back, a message refused meanwhile through `ChatService`, and "A speed test is
+already running." while the editor's timing holds the engine and a try
+loads),
+`kobold_measured_preset_test` (which preset auto mode runs, and the model
+pick), `speed_test_relay_test` (the phone through the real web server:
+ask, start, the hub's progress, the card's line, Cancel, a refused send),
+`local_model_measured_test` and `kobold_status_card_speed_test_test` (the
+phone's and the desktop's verdicts with measured settings: flash attention
+off makes 65,536 tokens too big for Llama 3.1 8B on a 16 GB card),
+`kobold_speed_test_overlay_test` (the dialog tapped through) and
+`kcpps_editor_batch_timing_test` (the editor's button, its trials and the
+saved file). Each rule was broken once to see its test fail.
+
+**Not done.**
+
+- The live suites need a real engine and a real card; the speed test has
+  not been run on one for this stage (decision 28's numbers above are from
+  the stand-in). Run it once on an NVIDIA card and on the AMD card.
+- mmap and memory lock change little the estimate can see: the card's
+  verdicts take the measured flash attention and batch, not mmap.
+- The Advanced tab's switches show the global settings, not what was
+  measured for the model in use.
+- The old reply-by-reply MMQ learner still runs in auto mode until a
+  measurement exists for the card; the speed test's answer ends it.
+
+**Existing tests changed** (the behaviour they pinned, "the largest batch
+that fits", is the thing replaced): `kobold_auto_tuning_test` (Vulkan now
+starts at 512), `kobold_auto_launch_test`, `kobold_auto_keeper_test`,
+`kobold_awaited_hardware_test` and `kobold_stage_header_cache_test` (an
+NVIDIA card's tuned batch is 1,024, still told apart from the untuned 512),
+and `test/live/kobold_presets_live_test.dart` (Apple Silicon's physical
+batch is 512, beside a logical 2,048 on 1.122). Changed because the
+editor's MMQ timing now reads KoboldCpp's own speed line:
+`kcpps_editor_mmq_line_test` and `kobold_speed_test_hold_test`, whose
+engine stand-in now prints that line after each timing prompt, as KoboldCpp
+does; what they pin (the hold, the order, "faster here", two trial loads)
+is unchanged.
 
 ## Migration for existing users
 
