@@ -20,7 +20,8 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'launch_choice_row.dart';
 
 /// "Free graphics memory when idle", in Advanced Launch Options: off, or how
 /// long KoboldCpp may sit with nothing to do before its model is unloaded.
@@ -36,76 +37,16 @@ class KoboldIdleUnloadRow extends StatelessWidget {
   final Color accent;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Free graphics memory when idle',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textPrimary(context),
-                ),
-              ),
-              const SizedBox(height: 2),
-              Text(
-                'Unloads the model when KoboldCpp has had nothing to do for '
-                'this long, so other programs can use the graphics memory. '
-                'The first reply after that takes longer to start.',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textTertiary(context),
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Wrap(
-          spacing: 6,
-          children: [
-            for (final minutes in kKoboldIdleUnloadChoices)
-              _chip(context, minutes),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _chip(BuildContext context, int minutes) {
-    final selected = settings.idleUnloadMinutes == minutes;
-    return Semantics(
-      button: true,
-      selected: selected,
-      child: GestureDetector(
-        onTap: () => settings.setIdleUnloadMinutes(minutes),
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 150),
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? accent
-                : AppColors.textPrimary(context).withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(
-              color: selected ? accent : AppColors.borderOf(context),
-            ),
-          ),
-          child: Text(
-            koboldIdleUnloadLabel(minutes),
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 12,
-              color: selected
-                  ? AppColors.onChaosAccent
-                  : AppColors.textTertiary(context),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => LaunchChoiceRow(
+    title: 'Free graphics memory when idle',
+    blurb:
+        'Unloads the model when KoboldCpp has had nothing to do for this '
+        'long, so other programs can use the graphics memory. The first '
+        'reply after that takes longer to start.',
+    choices: kKoboldIdleUnloadChoices,
+    chosen: settings.idleUnloadMinutes,
+    label: koboldIdleUnloadLabel,
+    onChoose: settings.setIdleUnloadMinutes,
+    accent: accent,
+  );
 }

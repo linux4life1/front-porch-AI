@@ -46,6 +46,10 @@ extension SettingsFacadeRead on SettingsFacade {
       // (0: never). Additive: an older PWA ignores both keys.
       'koboldIdleUnloadMinutes': b.idleUnloadMinutes,
       'koboldIdleUnloadChoices': kKoboldIdleUnloadChoices,
+      // How many chats besides the open one KoboldCpp keeps ready (0: only
+      // the open one). Additive: an older PWA ignores both keys.
+      'koboldKeepRecentChats': b.keepRecentChats,
+      'koboldKeepRecentChoices': kKoboldKeepRecentChoices,
       // Reasoning / "thinking" — for reasoning models (GLM-*:thinking, etc.) this
       // must be on or the provider's reasoning tokens are discarded and no
       // <think> block is ever produced for the chat to show.

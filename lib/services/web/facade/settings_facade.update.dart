@@ -263,6 +263,9 @@ extension SettingsFacadeUpdate on SettingsFacade {
     // Read by the running engine's idle clock: writing it is the update.
     final idle = body['koboldIdleUnloadMinutes'];
     if (idle is num) await b.setIdleUnloadMinutes(idle.toInt());
+    // Read by the keeper as it works, like the idle clock.
+    final recent = body['koboldKeepRecentChats'];
+    if (recent is num) await b.setKeepRecentChats(recent.toInt());
     if (body['gpuLayersNoteSeen'] == true) await b.dismissGpuLayersNote();
 
     final reasoning = body['reasoningEnabled'];

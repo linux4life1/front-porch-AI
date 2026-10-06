@@ -12,6 +12,7 @@ import { MessageSideSettings } from '../components/MessageSideSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { ModelTransportCard } from '../components/ModelTransportCard';
 import { IdleUnloadSettings } from '../components/IdleUnloadSettings';
+import { KeepRecentChatsSettings } from '../components/KeepRecentChatsSettings';
 import { applySpellCheckLang } from '../spellCheckLang';
 import {
   StepUpFields,
@@ -485,8 +486,9 @@ export function SettingsPage() {
         />
       </section>
 
-      {/* The desktop has it in Advanced Launch Options. */}
+      {/* The desktop has these two in Advanced Launch Options. */}
       {isManagedLocal && <IdleUnloadSettings />}
+      {isManagedLocal && <KeepRecentChatsSettings />}
 
       <GenerationSettingsFields
         backend={s.backend}

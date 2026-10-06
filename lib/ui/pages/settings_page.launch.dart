@@ -403,6 +403,11 @@ extension _SettingsLaunchOptions on _SettingsPageState {
             settings: storage.backendSettings,
             accent: accent,
           ),
+          const SizedBox(height: 16),
+          KoboldKeepRecentRow(
+            settings: storage.backendSettings,
+            accent: accent,
+          ),
           const SizedBox(height: 14),
           // Restart button — applies all Advanced Launch changes immediately.
           Builder(
