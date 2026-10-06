@@ -99,6 +99,7 @@ part 'chat/chat_service_session_manage.dart';
 part 'chat/chat_service_session_fork.dart';
 part 'chat/chat_service_session_new_chat_prep.dart';
 part 'chat/chat_service_generation.dart';
+part 'chat/chat_service_generation_entry.dart';
 part 'chat/chat_service_generation_blocks.dart';
 part 'chat/chat_service_generation_plan.dart';
 part 'chat/chat_service_generation_plan_register.dart';
@@ -154,7 +155,6 @@ part 'chat/chat_service_fields.dart';
 part 'chat/chat_service_group_realism_fields.dart';
 
 // Realism-eval cancel flag + GBNF note live in chat_service_defaults.dart.
-
 class ChatService extends ChangeNotifier
     with
         ChatServiceTodaySentence,

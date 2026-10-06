@@ -219,46 +219,14 @@ extension ChatServiceGeneration on ChatService {
     final forcedWiki = _pendingForcedWikiQuery;
     _clearForcedLookup();
     // Raise before the first await so an unawaited caller (AFK idle)
-    // is visible to drain / _isTurnBusy immediately. Abort must clear it.
+    // is visible to drain / _isTurnBusy immediately. A refused turn is
+    // lowered inside _admitTurn (chat_service_generation_entry.dart).
     _isGenerating = true;
     notifyListeners();
-    if (await _abortIfBackendDown()) {
-      // No turn will run — terminate BOTH live streams. The sentence stream
-      // has no error sentinel: `call_overlay` closes its controller on
-      // '__DONE__' alone, and `TtsService.speakStreaming` blocks in
-      // `await for` until that close, so a silent bail freezes a voice call
-      // on "Thinking…" with the mic never re-armed.
-      _tokenBroadcast.add('__ERROR__');
-      _sentenceBroadcast.add('__DONE__');
-      _isGenerating = false;
-      notifyListeners();
-      return;
-    }
-    // Continue is regen's sibling for WHO is speaking. Infer guest / group
-    // member from the bubble; refuse rather than guess.
-    if (mode == GenerationMode.continue_ && _messages.isNotEmpty) {
-      final last = _messages.last;
-      guestSpeaker ??= _sceneGuestForMessage(last);
-      if (guestSpeaker == null && _isGuestAuthoredMessage(last)) {
-        _setGuestStatus(
-          'Can’t continue "${last.sender}" — they have left the scene.',
-          isError: true,
-        );
-        notifyListeners();
-        return;
-      }
-      if (guestSpeaker == null && _activeGroup != null) {
-        forceSpeaker ??= _resolveGroupSpeakerForMessage(last);
-        if (forceSpeaker == null) {
-          _setGuestStatus(
-            'Can’t continue "${last.sender}" — who said it is ambiguous.',
-            isError: true,
-          );
-          notifyListeners();
-          return;
-        }
-      }
-    }
+    final speakers = await _admitTurn(mode, guestSpeaker, forceSpeaker);
+    if (speakers == null) return;
+    guestSpeaker = speakers.guest;
+    forceSpeaker = speakers.force;
     // regenerateLastMessage holds the settling flag; the finally restores it.
     final callerHeldSettling = _isPostGenerating;
     final epoch = ++_generationEpoch;
