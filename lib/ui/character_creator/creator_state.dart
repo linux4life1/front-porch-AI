@@ -388,6 +388,11 @@ class CreatorState extends ChangeNotifier {
   static const saveDelay = Duration(milliseconds: 500);
   Timer? _saveTimer;
 
+  /// The last save in line. Saves write one after another: a slow first
+  /// save (every key missing) could otherwise finish after a newer one and
+  /// put older text back.
+  Future<void> _saveQueue = Future<void>.value();
+
   /// Class door — `_CountingCreatorState` in the debounce test `@override`s
   /// this. An extension member is statically dispatched and cannot be.
   /// Drops a pending [scheduleSave]: this save already includes that text.

@@ -252,18 +252,32 @@ extension CreatorStatePrefs on CreatorState {
   /// Writes only the fields whose value changed. On Windows and Linux every
   /// preference write rewrites the whole preferences file on the UI thread,
   /// so writing all of them per keystroke stalled typing (#371). The check
-  /// is a read of the in-memory cache.
-  Future<void> _saveStateImpl() async {
+  /// is a read of the in-memory cache. The fields are read now; the writes
+  /// wait for any save still running.
+  Future<void> _saveStateImpl() {
     final fields = _savedFields();
-    final prefs = await SharedPreferences.getInstance();
-    for (final MapEntry(:key, :value) in fields.entries) {
-      if (prefs.get(key) == value) continue;
-      await switch (value) {
-        final bool v => prefs.setBool(key, v),
-        final int v => prefs.setInt(key, v),
-        _ => prefs.setString(key, value as String),
-      };
-    }
+    return _queuePrefsWrite((prefs) async {
+      for (final MapEntry(:key, :value) in fields.entries) {
+        if (prefs.get(key) == value) continue;
+        await switch (value) {
+          final bool v => prefs.setBool(key, v),
+          final int v => prefs.setInt(key, v),
+          _ => prefs.setString(key, value as String),
+        };
+      }
+    });
+  }
+
+  /// Runs [write] once every earlier creator save has finished. A failed
+  /// write still fails its own caller's future; the queue just moves on.
+  Future<void> _queuePrefsWrite(
+    Future<void> Function(SharedPreferences prefs) write,
+  ) {
+    final run = _saveQueue.then(
+      (_) async => write(await SharedPreferences.getInstance()),
+    );
+    _saveQueue = run.catchError((Object _) {});
+    return run;
   }
 
   void resetAllFields() {
@@ -395,15 +409,15 @@ extension CreatorStatePrefs on CreatorState {
 
   /// Clear the core saved-form prefs after a character is successfully created,
   /// so the next visit starts fresh. Mirrors the original review-step save.
-  Future<void> clearSavedFormPrefsAfterSave() async {
-    final prefs = await SharedPreferences.getInstance();
-    for (final key in [
-      CreatorState._prefName,
-      CreatorState._prefConcept,
-      CreatorState._prefKeywords,
-      CreatorState._prefArtStyle,
-    ]) {
-      await prefs.remove(key);
-    }
-  }
+  Future<void> clearSavedFormPrefsAfterSave() =>
+      _queuePrefsWrite((prefs) async {
+        for (final key in [
+          CreatorState._prefName,
+          CreatorState._prefConcept,
+          CreatorState._prefKeywords,
+          CreatorState._prefArtStyle,
+        ]) {
+          await prefs.remove(key);
+        }
+      });
 }

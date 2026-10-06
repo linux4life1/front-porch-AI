@@ -12,11 +12,9 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// the pre-refactor `_styledTextField`; auto-saves and notifies on change so
 /// the wizard's Generate button reacts to typing.
 ///
-/// Stateful only to own the save debounce: `CreatorState.saveState()` writes
-/// all ~70 wizard preference keys, which on Windows and Linux is a full
-/// re-serialize plus a synchronous whole-file rewrite PER KEY. Running that
-/// per keystroke made a typed sentence thousands of file writes on the UI
-/// thread (invisible on macOS/NSUserDefaults, janky everywhere else).
+/// Stateful only to own the save debounce: on Windows and Linux every
+/// preference write rewrites the whole preferences file on the UI thread,
+/// so a save per keystroke stalled typing (#371; invisible on macOS).
 /// `notify()` stays immediate — it is just a listener callback, and the
 /// Generate button's enabled state rides on it.
 class CreatorHintField extends StatefulWidget {
