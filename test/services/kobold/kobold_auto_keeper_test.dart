@@ -156,7 +156,10 @@ void main() {
 
       expect(config.containsKey('smartcache'), isFalse);
       expect(config['noshift'], isFalse);
-      expect(config['batchsize'], 2048);
+      // Changed 2026-10-06 (maintainer's ruling): auto mode no longer takes
+      // the largest batch that fits; an NVIDIA card starts at 1,024 (512
+      // untuned), so this still shows the batch was tuned.
+      expect(config['batchsize'], 1024);
     });
 
     test(

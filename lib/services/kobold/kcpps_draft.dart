@@ -16,6 +16,7 @@ class KcppsDraft {
     this.contextSize = 16384,
     this.kvQuant = KvQuant.f16,
     this.batchSize = 512,
+    this.logicalBatchSize,
     this.flashAttention = true,
     this.mmq,
     this.greedy = false,
@@ -42,7 +43,11 @@ class KcppsDraft {
   final String modelPath;
   final int contextSize;
   final KvQuant kvQuant;
+
+  /// The physical batch (see [KoboldLaunchConfig.batchSize]); the batch field
+  /// edits it. [logicalBatchSize] is kept as the preset has it.
   final int batchSize;
+  final int? logicalBatchSize;
   final bool flashAttention;
   final bool? mmq;
 
@@ -105,6 +110,7 @@ class KcppsDraft {
       contextSize: c.contextSize,
       kvQuant: c.kvQuant,
       batchSize: c.batchSize,
+      logicalBatchSize: c.logicalBatchSize,
       flashAttention: c.flashAttention,
       mmq: c.mmq,
       greedy: koboldPaddingIsGreedy(c.autofitPaddingMb),
@@ -186,6 +192,7 @@ class KcppsDraft {
       mmprojOnCpu: mmprojOnCpu,
       threads: threads,
       moreGpuIds: moreGpuIds,
+      logicalBatchSize: logicalBatchSize,
     );
   }
 
@@ -222,12 +229,16 @@ class KcppsDraft {
     return map;
   }
 
+  /// [singleBatch] writes the batch as one field again (see
+  /// [KoboldLaunchConfig.logicalBatchSize]).
   KcppsDraft copyWith({
     String? name,
     String? modelPath,
     int? contextSize,
     KvQuant? kvQuant,
     int? batchSize,
+    int? logicalBatchSize,
+    bool singleBatch = false,
     bool? flashAttention,
     bool? mmq,
     bool? greedy,
@@ -250,6 +261,9 @@ class KcppsDraft {
     contextSize: contextSize ?? this.contextSize,
     kvQuant: kvQuant ?? this.kvQuant,
     batchSize: batchSize ?? this.batchSize,
+    logicalBatchSize: singleBatch
+        ? null
+        : logicalBatchSize ?? this.logicalBatchSize,
     flashAttention: flashAttention ?? this.flashAttention,
     mmq: mmq ?? this.mmq,
     greedy: greedy ?? this.greedy,

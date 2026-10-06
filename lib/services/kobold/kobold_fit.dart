@@ -169,9 +169,67 @@ class KoboldAutoTuning {
       keeper && !recurrent ? (asked: 0, contextShift: true) : smartCache;
 }
 
-/// Batches auto mode tries: KoboldCpp's default and two larger ones, which
-/// read a prompt faster when they fit.
+/// Physical batches auto mode runs: KoboldCpp's default and two larger ones,
+/// which read a prompt faster on a card that is quick at them.
 const List<int> kKoboldAutoBatches = [512, 1024, 2048];
+
+/// The physical batch auto mode starts from, with nothing measured
+/// (maintainer's ruling, 2026-10-06): 1,024 on an NVIDIA card, where even a
+/// 6 GB card read faster at 1,024 than at 512; 512 everywhere else (ROCm,
+/// Vulkan, Apple Silicon, no card). Memory still decides, see
+/// [koboldAutoTuning].
+int koboldStartBatch(KoboldMachine machine) =>
+    machine.backend == KoboldMemoryBackend.cuda && machine.totalGraphicsMb > 0
+    ? 1024
+    : 512;
+
+/// The smallest physical batch [fit] runs with here: 1,024 for a model with
+/// recurrent layers on Vulkan, which writes garbage at 512 there (KoboldCpp
+/// issue 2402), else 512.
+int koboldBatchFloor(KoboldFit fit, KoboldMachine machine) =>
+    fit.recurrent && machine.backend == KoboldMemoryBackend.vulkan ? 1024 : 512;
+
+/// Graphics memory that must still be free beside the model at 2,048 for the
+/// speed test to try it: twice the 1 GB KoboldCpp's own fit keeps spare.
+const int kKoboldBatch2048SpareMb = 2048;
+
+/// The physical batches the speed test tries for [fit] here: from the floor
+/// ([koboldBatchFloor]) up, each that puts no less of the model on the card
+/// than 512 does, and 2,048 only with plenty spare: the whole model on the
+/// card and [kKoboldBatch2048SpareMb] still free beside it. Just the floor
+/// without a card, where a batch is KoboldCpp's own.
+List<int> koboldBatchCandidates(
+  KoboldFit fit,
+  KoboldMachine machine, {
+  int paddingMb = kKoboldFitPaddingMb,
+}) {
+  final floor = koboldBatchFloor(fit, machine);
+  if (machine.totalGraphicsMb <= 0) return [floor];
+  final budget = _budget(machine, paddingMb);
+  final base = _at(fit, machine, budget, 512);
+  return [
+    for (final b in kKoboldAutoBatches)
+      if (b == floor ||
+          (b > floor &&
+              _noWorse(_at(fit, machine, budget, b), base, budget) &&
+              (b < 2048 ||
+                  _plentySpare(_at(fit, machine, budget, b), machine))))
+        b,
+  ];
+}
+
+bool _plentySpare(KoboldLoad l, KoboldMachine machine) =>
+    l.allOnCard && machine.graphicsMb - l.cardMb >= kKoboldBatch2048SpareMb;
+
+int _budget(KoboldMachine machine, int paddingMb) =>
+    machine.unified ? machine.graphicsMb : machine.graphicsMb - paddingMb;
+
+/// How [fit] lands at physical batch [b]: KoboldCpp's own fit within
+/// [budget], or on Apple Silicon every layer on the graphics side.
+KoboldLoad _at(KoboldFit fit, KoboldMachine machine, int budget, int b) =>
+    machine.unified
+    ? fit.copyWith(batchSize: b).load()
+    : fit.copyWith(batchSize: b).mostThatFits(budget);
 
 /// The kinds of prompt the app sends one engine: the chat, the judges and
 /// one spare. Each gets a smart cache slot when memory allows.
@@ -182,14 +240,18 @@ const int _promptKinds = 3;
 /// again.
 const int _recurrentPromptKinds = 7;
 
-/// The largest batch that puts no less of the model on the card than 512
-/// does, and the slots the free system memory allows. [batchSize] fixes
-/// the batch instead (one the user chose). The fit keeps [paddingMb] spare:
+/// The physical batch auto mode runs, and the slots the free system memory
+/// allows. The batch is [measured] (what the speed test found fastest for
+/// this model here), else [koboldStartBatch], and either only while it puts
+/// no less of the model on the card than 512 does: memory is a ceiling, and
+/// a batch that would push layers or experts off the card falls back to
+/// 512. Never below [koboldBatchFloor]. [batchSize] fixes the batch instead
+/// (one the user chose, held to the floor). The fit keeps [paddingMb] spare:
 /// KoboldCpp's own default unless the preset editor's "greedy" says less.
 ///
 /// On Apple Silicon KoboldCpp puts every layer on the graphics side
-/// whatever fits ("Auto GPU layers set to maximum"); there the batch is the
-/// largest that keeps the whole within the memory the graphics may use.
+/// whatever fits ("Auto GPU layers set to maximum"); there the ceiling is
+/// the memory the graphics may use.
 ///
 /// Slots: one for each kind of prompt the app sends (the chat, the judges
 /// and one spare); for a model with recurrent layers KoboldCpp's own seven,
@@ -200,24 +262,22 @@ KoboldAutoTuning koboldAutoTuning(
   KoboldMachine machine, {
   int paddingMb = kKoboldFitPaddingMb,
   int? batchSize,
+  int? measured,
 }) {
-  final budget = machine.unified
-      ? machine.graphicsMb
-      : machine.graphicsMb - paddingMb;
-  KoboldLoad at(int b) => machine.unified
-      ? fit.copyWith(batchSize: b).load()
-      : fit.copyWith(batchSize: b).mostThatFits(budget);
-  var batch = batchSize ?? kKoboldAutoBatches.first;
-  var load = at(batch);
-  if (batchSize == null) {
-    for (final b in kKoboldAutoBatches.skip(1)) {
-      final l = at(b);
-      if (_noWorse(l, load, budget)) {
-        batch = b;
-        load = l;
-      }
-    }
+  final budget = _budget(machine, paddingMb);
+  KoboldLoad at(int b) => _at(fit, machine, budget, b);
+  final floor = koboldBatchFloor(fit, machine);
+  final int batch;
+  if (batchSize != null) {
+    batch = batchSize < floor ? floor : batchSize;
+  } else {
+    final base = at(512);
+    batch = [?measured, koboldStartBatch(machine)].firstWhere(
+      (b) => b == floor || (b > floor && _noWorse(at(b), base, budget)),
+      orElse: () => floor,
+    );
   }
+  final load = at(batch);
   final slots = suggestSmartCacheSlots(
     promptKinds: fit.recurrent ? _recurrentPromptKinds : _promptKinds,
     slotMb: fit.slotMb,

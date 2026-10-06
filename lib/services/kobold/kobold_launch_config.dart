@@ -77,6 +77,7 @@ class KoboldLaunchConfig {
     this.modelPath = '',
     this.contextSize = 16384,
     this.batchSize = 512,
+    this.logicalBatchSize,
     this.threads,
     this.gpuLayers = autoLayers,
     this.autofitPaddingMb,
@@ -109,7 +110,16 @@ class KoboldLaunchConfig {
 
   final String modelPath;
   final int contextSize;
+
+  /// The physical batch: the tokens computed at once, which sets the working
+  /// memory. Every estimate of what fits keys off it.
   final int batchSize;
+
+  /// The logical batch, for an engine that splits the two (from 1.122):
+  /// `batchsize` holds it and `ubatchsize` holds [batchSize]. Null writes
+  /// [batchSize] as the one `batchsize`, which every engine reads as the
+  /// physical batch.
+  final int? logicalBatchSize;
 
   /// Null leaves the thread count to KoboldCpp.
   final int? threads;
@@ -180,11 +190,16 @@ class KoboldLaunchConfig {
 
   bool get layersAreAutomatic => gpuLayers < 0;
 
+  /// [singleBatch] drops [logicalBatchSize]: the batch is written as one
+  /// field again.
   KoboldLaunchConfig copyWith({
     String? modelPath,
     int? contextSize,
     int? batchSize,
+    int? logicalBatchSize,
+    bool singleBatch = false,
     int? gpuLayers,
+    bool? useMmap,
     bool? useMlock,
     KvQuant? kvQuant,
     bool? flashAttention,
@@ -210,10 +225,13 @@ class KoboldLaunchConfig {
     modelPath: modelPath ?? this.modelPath,
     contextSize: contextSize ?? this.contextSize,
     batchSize: batchSize ?? this.batchSize,
+    logicalBatchSize: singleBatch
+        ? null
+        : logicalBatchSize ?? this.logicalBatchSize,
     threads: threads ?? this.threads,
     gpuLayers: gpuLayers ?? this.gpuLayers,
     autofitPaddingMb: autofitPaddingMb ?? this.autofitPaddingMb,
-    useMmap: useMmap,
+    useMmap: useMmap ?? this.useMmap,
     useMlock: useMlock ?? this.useMlock,
     kvQuant: kvQuant ?? this.kvQuant,
     flashAttention: flashAttention ?? this.flashAttention,

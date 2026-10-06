@@ -83,22 +83,28 @@ void main() {
         .cast<String, dynamic>();
   }
 
-  test('a model that fits with room gets the largest batch and no smart '
-      'cache (the app keeps its chats), and MMQ is timed on first', () async {
-    final config = await launch(
-      await _model(dir, 'Qwen3-14B'),
-      hardware: _nvidia(16384, 32768),
-      free: (graphics: 16000, system: 28000),
-    );
-    expect(config['batchsize'], 2048);
-    expect(config.containsKey('smartcache'), isFalse);
-    expect(config['noshift'], isFalse);
-    expect(
-      config['nommq'],
-      isFalse,
-      reason: "KoboldCpp's default, timed first",
-    );
-  });
+  // Changed 2026-10-06 (maintainer's ruling): auto mode starts an NVIDIA
+  // card at 1,024 instead of taking the largest batch that fits; 2,048 is
+  // only what the speed test can find. See kobold_start_batch_test.dart.
+  test(
+    'a model that fits with room on an NVIDIA card gets 1,024 and no '
+    'smart cache (the app keeps its chats), and MMQ is timed on first',
+    () async {
+      final config = await launch(
+        await _model(dir, 'Qwen3-14B'),
+        hardware: _nvidia(16384, 32768),
+        free: (graphics: 16000, system: 28000),
+      );
+      expect(config['batchsize'], 1024);
+      expect(config.containsKey('smartcache'), isFalse);
+      expect(config['noshift'], isFalse);
+      expect(
+        config['nommq'],
+        isFalse,
+        reason: "KoboldCpp's default, timed first",
+      );
+    },
+  );
 
   test('a batch chosen in Settings is kept', () async {
     await storage.backendSettings.setBatchAutomatic(false);

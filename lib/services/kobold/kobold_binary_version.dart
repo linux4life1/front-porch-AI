@@ -31,6 +31,24 @@ class KoboldBinaryVersion {
     return null;
   }
 
+  /// The first KoboldCpp that splits the batch in two: the logical batch
+  /// (`batchsize`) and the physical one (`ubatchsize`), the tokens computed
+  /// at once, which sets the working memory. An older engine reads
+  /// `batchsize` as the physical batch and ignores `ubatchsize`.
+  static const String splitBatchFrom = '1.122';
+
+  /// Whether an engine of [version] reads `ubatchsize`. An unknown version
+  /// does not: the single field means the same on every engine.
+  static bool splitsBatch(String? version) {
+    final have = _numbers(version);
+    if (have == null) return false;
+    final need = _numbers(splitBatchFrom)!;
+    for (var i = 0; i < need.length; i++) {
+      if (have[i] != need[i]) return have[i] > need[i];
+    }
+    return true;
+  }
+
   /// Major, minor and patch of the first version number in [version].
   static List<int>? _numbers(String? version) {
     final found = RegExp(r'(\d+)\.(\d+)(?:\.(\d+))?').firstMatch(version ?? '');

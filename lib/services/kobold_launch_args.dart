@@ -266,20 +266,25 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       architecture: info?.architecture,
     ),
   );
+  final tuned = await _tunedForMachine(
+    config,
+    info: info,
+    gpu: gpu,
+    hardware: machine,
+    free: free,
+    batchAutomatic: b.batchAutomatic,
+    mmq: mmq,
+    // The slot keeper looks after the chats unless it failed for this
+    // model with this engine before.
+    keeper: !b.keeperFailedFor(engineVersion, p.basename(modelPath)),
+    onNote: onNote,
+  );
+  // An engine from 1.122 takes a logical batch apart from the physical one
+  // chosen above; an older one reads the one field as the physical batch.
   return kcppsMap(
-    await _tunedForMachine(
-      config,
-      info: info,
-      gpu: gpu,
-      hardware: machine,
-      free: free,
-      batchAutomatic: b.batchAutomatic,
-      mmq: mmq,
-      // The slot keeper looks after the chats unless it failed for this
-      // model with this engine before.
-      keeper: !b.keeperFailedFor(engineVersion, p.basename(modelPath)),
-      onNote: onNote,
-    ),
+    KoboldBinaryVersion.splitsBatch(engineVersion)
+        ? tuned.copyWith(logicalBatchSize: kKoboldLogicalBatch)
+        : tuned,
   );
 }
 

@@ -83,8 +83,10 @@ void main() {
     final long = DateTime.utc(2026, 1, 1);
     file.setLastModifiedSync(long);
 
-    // What the header says: this machine has room for the largest batch.
-    expect((await stage(file.path))['batchsize'], 2048);
+    // What the header says: the tuning's batch for this card, 1,024 on an
+    // NVIDIA card (changed 2026-10-06 from the largest that fits, by the
+    // maintainer's ruling; 512 is still the untuned batch below).
+    expect((await stage(file.path))['batchsize'], 1024);
 
     // The same size and time, with a header that cannot be read. Read
     // again, the model would be taken for an ordinary one and the tuning
@@ -92,7 +94,7 @@ void main() {
     file.deleteSync();
     write(file, size, const []);
     file.setLastModifiedSync(long);
-    expect((await stage(file.path))['batchsize'], 2048);
+    expect((await stage(file.path))['batchsize'], 1024);
 
     // A file that changed is read afresh.
     file.setLastModifiedSync(DateTime.utc(2026, 1, 2));

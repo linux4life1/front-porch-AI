@@ -117,8 +117,12 @@ void main() {
     () async {
       await start();
       final staged = stagedChat();
-      // A small model on this Mac fits with plenty of room.
-      expect(staged['batchsize'], 2048);
+      // Changed 2026-10-06 (maintainer's ruling): auto mode starts Apple
+      // Silicon at a physical batch of 512 instead of the largest that fits.
+      // An engine from 1.122 is given it apart from a logical 2,048.
+      final batch = kcppsBatchOf(staged);
+      expect(batch.physical, 512);
+      expect(batch.logical, anyOf(isNull, kKoboldLogicalBatch));
       expect(staged.containsKey('smartcache'), isFalse);
       expect(await liveContextSize(port), 4096);
       expect(storage.backendSettings.engineContextSize, 4096);

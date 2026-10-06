@@ -89,10 +89,11 @@ void main() {
       'knew it at once', () async {
     final model = await _model(dir, 'Qwen3-14B');
     final known = await launch(model, hardware: _nvidia);
-    // The tuning is real here: a model that fits with room gets the
-    // largest batch, no smart cache (the app keeps its chats), and MMQ
-    // timed first.
-    expect(known['batchsize'], 2048);
+    // The tuning is real here: the NVIDIA card's batch, 1,024 (changed
+    // 2026-10-06 from the largest that fits, by the maintainer's ruling; 512
+    // untuned), no smart cache (the app keeps its chats), and MMQ timed
+    // first.
+    expect(known['batchsize'], 1024);
     expect(known.containsKey('smartcache'), isFalse);
     expect(known['nommq'], isFalse);
 

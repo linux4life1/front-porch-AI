@@ -33,6 +33,7 @@ const Set<String> _managedKeys = {
   'contextsize',
   'batchsize',
   'blasbatchsize',
+  'ubatchsize',
   'threads',
   'gpulayers',
   'autofitpadding',
@@ -165,12 +166,14 @@ KcppsRead _readKcpps(String text) {
       : cuda is List && cuda.contains('mmq')
       ? true
       : null;
+  final batch = kcppsBatchOf(map);
 
   return KcppsOk(
     KoboldLaunchConfig(
       modelPath: kcppsModelOf(map),
       contextSize: _asInt(map['contextsize']) ?? 16384,
-      batchSize: _asInt(map['batchsize'] ?? map['blasbatchsize']) ?? 512,
+      batchSize: batch.physical,
+      logicalBatchSize: batch.logical,
       threads: _asInt(map['threads']),
       gpuLayers: layers ?? KoboldLaunchConfig.autoLayers,
       autofitPaddingMb: _asInt(map['autofitpadding']),
@@ -277,6 +280,37 @@ const String kSwaLeftToKoboldNote =
     'has it. KoboldCpp switches it on together with fast forward, a pairing '
     'that degrades output. Add "noswa": true to the preset to switch it off.';
 
+/// The logical batch the app writes for an engine that splits the batch
+/// (from 1.122, see [kcppsBatchKeys]); the physical one is what it chooses.
+const int kKoboldLogicalBatch = 2048;
+
+/// The physical batch [map] runs, and the logical one when it splits the
+/// two: `ubatchsize` above 0 is the physical batch, never more than
+/// `batchsize` (an engine from 1.122 holds it to that). With no `ubatchsize`,
+/// or -1 ("the same as the batch"), `batchsize` is the physical batch, as
+/// every engine reads it. Measured on 1.122.1: 2,048 with `ubatchsize` 512
+/// runs a logical 2,048 and a physical 512, and the working memory follows
+/// the physical batch alone.
+({int physical, int? logical}) kcppsBatchOf(Map<String, dynamic> map) {
+  final batch = _asInt(map['batchsize'] ?? map['blasbatchsize']) ?? 512;
+  final ubatch = _asInt(map['ubatchsize']);
+  if (ubatch == null || ubatch <= 0) return (physical: batch, logical: null);
+  return (physical: ubatch < batch ? ubatch : batch, logical: batch);
+}
+
+/// The batch settings for a [physical] batch. With a [logical] one (an
+/// engine from 1.122) `batchsize` holds the logical batch, never less than
+/// the physical, and `ubatchsize` the physical. Without, `batchsize` holds
+/// the physical batch: the one field every engine reads that way, and an
+/// engine before 1.122 ignores `ubatchsize`.
+Map<String, int> kcppsBatchKeys(int physical, {int? logical}) {
+  if (logical == null) {
+    return {'batchsize': physical, 'blasbatchsize': physical};
+  }
+  final l = logical < physical ? physical : logical;
+  return {'batchsize': l, 'blasbatchsize': l, 'ubatchsize': physical};
+}
+
 /// The `.kcpps` map for [config].
 ///
 /// A key KoboldCpp renamed is written under BOTH names (`usecuda` and
@@ -290,8 +324,7 @@ Map<String, dynamic> kcppsMap(KoboldLaunchConfig config) {
     ...config.extras,
     if (config.modelPath.isNotEmpty) 'model_param': config.modelPath,
     'contextsize': config.contextSize,
-    'batchsize': config.batchSize,
-    'blasbatchsize': config.batchSize,
+    ...kcppsBatchKeys(config.batchSize, logical: config.logicalBatchSize),
     'gpulayers': config.gpuLayers,
     'autofitpadding': ?config.autofitPaddingMb,
     'usemmap': config.useMmap,
@@ -376,7 +409,7 @@ Map<String, dynamic> kcppsMergeEdits(
     {'usecuda', 'usecublas', 'usehipblas', 'usevulkan', 'nommq'},
     {'model', 'model_param'},
     {'flashattention', 'noflashattention'},
-    {'batchsize', 'blasbatchsize'},
+    {'batchsize', 'blasbatchsize', 'ubatchsize'},
     {'noswa', 'useswa', 'nofastforward', 'noshift', 'swapadding', 'smartcache'},
     {'gpulayers', 'autofit', 'autofitpadding', 'moecpu'},
   ];

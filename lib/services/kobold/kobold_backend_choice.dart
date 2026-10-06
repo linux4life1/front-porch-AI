@@ -90,9 +90,10 @@ class KoboldBackendChoice {
     );
   }
 
-  /// The batch auto mode holds the tuning to: KoboldCpp's own when nothing
-  /// goes on a card, the one chosen in Settings when [automatic] is off,
-  /// else null (the tuning picks the largest that fits).
+  /// The physical batch auto mode holds the tuning to: KoboldCpp's own when
+  /// nothing goes on a card, the one chosen in Settings when [automatic] is
+  /// off, else null (the tuning starts from [koboldStartBatch], or what the
+  /// speed test measured, within the memory ceiling).
   int? fixedBatch({required bool automatic, required int chosen}) => !onCard
       ? kKoboldAutoBatches.first
       : automatic

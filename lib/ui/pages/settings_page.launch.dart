@@ -336,7 +336,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM. Auto picks the largest that keeps the model on the card.',
+                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM. Auto uses 1,024 on NVIDIA cards and 512 elsewhere, or what the speed test found fastest, never more than keeps the model on the card.',
                       style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textTertiary(context),
