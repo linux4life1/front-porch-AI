@@ -55,6 +55,9 @@ Stage 9 (built, 2026-10-05): the slot keeper. The app saves each chat's
 cache in one of KoboldCpp's memory slots after a reply and loads it back
 before the chat's next reply, so a quick Realism check between replies no
 longer costs a re-read of the whole chat. See decision 17 and "Stage 9".
+Since 2026-10-06 it keeps only the open chat by default and lets it go when
+the user leaves it; Settings → Advanced can keep recent chats too (decision
+26).
 
 **Context handling: the app must choose, not leave it to chance.**
 Sliding window on its own is fine. The problem is sliding window together
@@ -519,6 +522,23 @@ Decisions already made by the maintainer:
     tried again as it grows, and a first save into a new slot decides
     nothing. No setting and nothing on screen: one line in the engine log.
     Details under "Stage 9", the keeper.
+26. One slot by default: the open chat's (maintainer ruling, 2026-10-06).
+    The keeper kept the open chat plus as many recent chats as free system
+    memory allowed, each up to a full context of RAM, for as long as
+    KoboldCpp ran. Now it keeps exactly the open chat, and when the user
+    leaves it (another chat, another character or a group, the phone's
+    switch, back to the library) that chat is let go and, once none is kept,
+    the slots are emptied so the memory goes back to the system. More is an
+    Advanced choice, "Keep recent chats ready" (Settings → Advanced →
+    Advanced Launch Options on the desktop, the Settings page on the phone):
+    0 to 4 chats besides the open one, default 0, bounded by the same
+    free-memory budget; those recent chats are not let go on leaving, only
+    the ones past the count, the oldest first. Nothing about it is on the
+    Local model card. One rule drives the keeper, auto mode's launch and the
+    card for an auto launch and a preset alike (`koboldKeeperRoom`,
+    `koboldKeeperChats`). KoboldCpp's own smart cache, which auto mode turns
+    off for an ordinary model and the preset editor suggests as an expert
+    choice, is untouched. Details under "Stage 9", the keeper.
 
 ## Design
 
@@ -1252,9 +1272,16 @@ each load of the model (`KoboldService.loadGeneration`).
   chat. An empty slot drops that chat only. A chat that comes back with a
   token count more than two off means something else uses the slots, and
   the keeper steps aside. A busy answer (429 or 503) is skipped for now.
+- It keeps the open chat and as many of the chats used before it as
+  Settings asks for (decision 26; none by default). Chats kept:
+  `koboldKeeperChats(recent: the Advanced count, room: the plan's room)`,
+  read at each use, so a change applies without a restart.
 - After a reply (finished, the reader left, or Stop closed the call; not one
   that failed) it saves into the chat's own slot, else a free one, else the
-  least recently used chat's. The line is held until the save is done, so a
+  least recently used chat's, never the open chat's. A chat that is not the
+  open one (left while its reply was written) is saved only as a recent
+  one, when Settings asks for any, and is otherwise not saved at all. The
+  line is held until the save is done, so a
   helper asked meanwhile goes out after it, and the reader is not kept
   waiting. The engine counts as busy for the idle unload until then too: the
   idle time runs from the end of the save, not from the end of the reply. A
@@ -1335,6 +1362,27 @@ each load of the model (`KoboldService.loadGeneration`).
   one slot (clearing is all of them, which would lose the other chats), so
   the engine is not called: what it holds there stays until that next save
   writes over it, and the memory was counted for every slot full anyway.
+- Leaving a chat (decision 26). Which chat is open has one source:
+  `ChatService`'s session id is a setter, and every change to a chat tells
+  `KoboldService.openChat`: a new chat, another character, a group and back,
+  a fork, an import, the chat that replaces a deleted one, and the phone's
+  switch, which goes through the same `ChatService` methods
+  (`ChatSessionFacade`, `ChatFacade`). A switch passes through no
+  chat (null) on its way and only the chat it lands on is told, so opening
+  the same chat again does not drop it. The desktop chat page counts itself
+  in and out (`chatScreenOpened`, `chatScreenClosed`): when the last one
+  closes the user went back to the library, and no chat is open. A reply
+  makes its chat the open one too, so a chat the phone keeps using while the
+  desktop sits in the library is kept again from its next reply. The keeper
+  only notes the open chat; what it lets go of waits its turn in the line
+  (`settle`), behind a save still running for the chat being left, and never
+  wakes a model unloaded for being idle (its slots went with it). It lets go
+  of the chats other than the open one past the recent count, the oldest
+  first, and once none is kept it empties the slots (`clear_state`), which
+  gives their memory back; the next save into a slot makes its buffer again
+  and so decides nothing about cost. While any chat is kept, a slot let go
+  stays allocated until a save writes over it: KoboldCpp can only empty them
+  all. One engine log line says the memory was given back.
 - A helper, and a coding session on the engine (`keepLoadedFor`), clear "the
   engine still holds the chat". The keeper waits out a coding session.
 - Every call runs in the swap lock and is skipped when the model changed
@@ -1347,12 +1395,14 @@ each load of the model (`KoboldService.loadGeneration`).
 an engine the app did not start, a config with smart cache on, fast forward
 off, a model that could not be read, a model with recurrent layers, sliding
 window left to KoboldCpp for a model that has it, and parallel requests
-above one. Chats kept: the smart cache slot arithmetic with KoboldCpp's five
-as the wish, a full context counted for each (slot buffers never shrink),
-the model's own system memory and 2 GB set aside; unknown figures keep one.
-On a Mac graphics and system memory are one pool.
+above one. Its room (`koboldKeeperRoom`): the smart cache slot arithmetic
+with KoboldCpp's five as the wish, a full context counted for each (slot
+buffers never shrink), the model's own system memory and 2 GB set aside;
+unknown figures have room for one. On a Mac graphics and system memory are
+one pool. How many of that room it keeps is `koboldKeeperChats` of the
+Advanced count (above), the one rule for an auto launch and a preset alike.
 
-**Auto mode and the way back.** `KoboldAutoTuning.chats` is that count for
+**Auto mode and the way back.** `KoboldAutoTuning.chats` is that room for
 the fit, `cacheSetting(keeper:)` what to write. An ordinary model gets no
 smart cache and context shift on; a model with recurrent layers is as it
 was (KoboldCpp's own smart cache). The preset editor, its suggestion and a
@@ -1370,11 +1420,17 @@ version writes the smart cache auto mode wrote before and says so in the
 engine log. A new engine version tries the keeper again.
 
 **Words.** The Local model card says "Going back to another chat is quick."
-for an ordinary model when two or more chats are kept. Today that is the
-same answer as the smart cache's own count (the same memory arithmetic), so
-the card's tests are regression pins, not proof of the change. The words are
-built in Dart (`KoboldStatusFacts`) and reach the phone through the facade:
-nothing to add in `web_ui/`. There is no new setting and no new screen.
+for an ordinary model when two or more chats are kept, by the same rule as
+the keeper (`koboldKeeperChats` of the Advanced count and the room): so by
+default it says "Going back to another chat takes a moment to catch up.",
+and "quick" only once Advanced keeps a recent chat and memory has room for
+it. The desktop card's memo key includes the count. The words are built in
+Dart (`KoboldStatusFacts`) and reach the phone through the facade. The one
+setting is "Keep recent chats ready" (decision 26): a row of chips in
+Advanced Launch Options (`KoboldKeepRecentRow`, sharing `LaunchChoiceRow`
+with the idle unload row), and on the phone a card beside the idle one
+(`KeepRecentChatsSettings`), read and saved through `/api/settings` as
+`koboldKeepRecentChats` with its choices (additive keys).
 
 **Tests.** `kobold_request_queue_test` and `kobold_requests_wait_test` (the
 line, over real HTTP), `kobold_slot_keeper_test` and
@@ -1432,7 +1488,19 @@ time, over real HTTP, lets every chat go for the load, also without being
 remembered), `kobold_keeper_idle_test` (the idle
 clock counts from the end of a slow save), `kobold_wire_test` (the abort
 handle, over real sockets), `kobold_auto_keeper_test` (what auto mode writes
-and the way back), and `test/live/kobold_slot_keeper_live_test.dart`
+and the way back), `chat_keeper_open_chat_test` (decision 26, through the
+real chat service on the stand-in: by default a new chat, another
+character, a group and back, the phone's switch through the web facade and
+the chat page closing each let the chat left go and give its memory back,
+a chat opened again is kept again, a reply still being written when the
+user leaves is not saved; with "Keep recent chats ready" that many chats
+left stay, the oldest goes first, going back to one loads it, the library
+keeps them, and lowering the count lets the extra ones go at the next
+switch), `kobold_keep_recent_rule_test` (the rule, the room, and the card's
+words by it), `settings_keep_recent_test` (the phone's setting through the
+real `/api/settings` route and facade), `kobold_keep_recent_row_test` and
+`KeepRecentChatsSettings.test.tsx` (the desktop chips and the phone's card),
+and `test/live/kobold_slot_keeper_live_test.dart`
 (below). The
 existing live suites (launch, swap, reload check, web card, presets) pass on
 1.117.1 and 1.122.1 with the keeper in. Existing tests changed because the
@@ -1442,7 +1510,13 @@ longer be open at once; the rule that a finished request lets go only of its
 own hold is pinned in `kobold_wire_test`), `kobold_auto_launch_test`,
 `kobold_awaited_hardware_test`, `kobold_stage_header_cache_test` and
 `test/live/kobold_presets_live_test.dart` (auto mode no longer writes
-`smartcache: 3` for an ordinary model).
+`smartcache: 3` for an ordinary model). Changed for decision 26, because
+each pinned recent chats kept by default: `kobold_slot_keeper_engine_test`
+("going back to another chat loads that chat"), `chat_deleted_chat_slot_test`
+(its chats are deleted after the user moved on, so kept only as recent
+ones), the card's "quick" case in `kobold_auto_keeper_test`, and the long
+chat in `test/live/kobold_slot_keeper_live_test.dart` (a second chat while
+the first stays kept); each now turns on the Advanced count it relies on.
 
 **Path-complete** (`docs/design/path-complete-chat-work.md`). The keeper is
 transport only: it reads and writes no message, metadata, Realism, Needs,
@@ -1458,6 +1532,7 @@ it keeps is a table of saved caches by session id.
 | Swipe | navigation; past the last alternate it is a regenerate | n/a |
 | Delete, edit history | nothing is recorded per message; KoboldCpp compares the tokens and reads from the first one that changed | n/a |
 | Delete a chat (app or phone), a character with its chats, a group, the Settings cleanup of chats nobody owns | the keeper lets go of each chat's saved cache; its slot is the next one used | yes (a test each) |
+| Leave a chat: a new chat, another character, a group and back (1:1 and group), a fork, an import, the phone's switch, back to the library (decision 26) | the session id setter (or the chat page closing) tells the keeper the open chat; in the line, the chat left is let go unless Advanced keeps it as a recent one, and with none kept the slots are emptied; a reply that ends after its chat was left is not saved | yes (a test each for a new chat, another character, a group and back, the phone's switch and the library; fork and import change the session id through the same setter) |
 | A chat that costs more to keep than to read again, after any reply above | every reply path ends in the same save (`chatEnd`), so the same weighing lets it go whichever path it came from, and tries it again as it grows; not a failure | yes (tests) |
 | The next turn starts while that save runs: send, regenerate (and a swipe past the last alternate), impersonate, Continue, a group's next speaker, a Scene Guest | the chat service tells the keeper at the top of send, regenerate and impersonate, and as each reply it generates starts; what is left of the save is the chat's wait. A slash command the app answers itself is not a turn. Continue waits for the turn before to settle first, so it is counted only from its reply's start | yes (a test each for send, regenerate, Continue, impersonate and a slash command; group speakers and guests start on Continue's line) |
 | Scene Guest turn | the guest's line is a reply like any other (`paramsOf`), named with the host's chat | yes (a test) |
@@ -1664,6 +1739,14 @@ saves are as slow is not known yet.
   2, 4, 8 replies corrects for it as the chat's own reads come in.
 - Saving older chats to disk instead of dropping them needs a KoboldCpp call
   that does not exist yet (LostRuins/koboldcpp#2520).
+- Freeing one slot's memory while other chats are kept: KoboldCpp has no
+  call for it (`clear_state` empties all), so with recent chats kept a slot
+  let go stays allocated until a save writes over it, and lowering the
+  Advanced count gives that memory back only once no chat is kept (leaving
+  the open chat with none recent does it).
+- The phone going back to its list of characters does not tell the app: the
+  phone and the desktop share one open chat, which the desktop may still
+  show. The phone's next switch, or the desktop's, lets the chat go.
 - A Stop pressed on a reply sends KoboldCpp an abort at the same moment the
   next request in the line may go out. That race was there before the line
   existed (an eval's early stop, the retry hygiene call); the line does not
