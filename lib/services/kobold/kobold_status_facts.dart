@@ -9,6 +9,7 @@ import 'kobold_app_config.dart';
 import 'kobold_backend_choice.dart';
 import 'kobold_context_verdict.dart';
 import 'kobold_fit.dart';
+import 'kobold_keeper_budget.dart';
 
 /// What the local model card says in auto mode, worked out once for each
 /// change of model, settings or machine: never on a rebuild.
@@ -128,9 +129,16 @@ class KoboldStatusFacts {
       lines: [
         '$setUp ${_pace(load, machine, gpu.onCard, byHand: byHand)}',
         'Replies on long chats start fast.',
-        // The keeper's chats for an ordinary model, KoboldCpp's own slots
-        // for a hybrid one.
-        (tuning.chats > 0 ? tuning.chats >= 2 : slots > 0)
+        // The keeper's chats for an ordinary model (the open one, and the
+        // recent ones Settings asks for), KoboldCpp's own slots for a
+        // hybrid one.
+        (tuning.chats > 0
+                ? koboldKeeperChats(
+                        recent: b.keepRecentChats,
+                        room: tuning.chats,
+                      ) >=
+                      2
+                : slots > 0)
             ? 'Going back to another chat is quick.'
             : 'Going back to another chat takes a moment to catch up.',
       ],

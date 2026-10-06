@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 
 // Leaves, not kobold.dart: the barrel loops back through storage_service.dart.
 import 'package:front_porch_ai/services/kobold/kobold_idle_unload.dart';
+import 'package:front_porch_ai/services/kobold/kobold_keeper_budget.dart';
 import 'package:front_porch_ai/services/kobold/kobold_launch_config.dart';
 import 'package:front_porch_ai/services/kobold/kobold_mmq_timing.dart';
 
@@ -38,6 +39,7 @@ mixin KoboldLaunchFields on SettingsBase {
   bool _batchAutomatic = true;
   Set<String> _keeperFailed = const {};
   int _idleUnloadMinutes = 0;
+  int _keepRecentChats = 0;
   int? _engineContextSize;
 
   /// The local backend type; prompts for other backends are not held to
@@ -98,6 +100,22 @@ mixin KoboldLaunchFields on SettingsBase {
     }
     _idleUnloadMinutes = value;
     await prefs?.setInt(k('kobold_idle_unload_minutes'), value);
+    notify();
+  }
+
+  /// How many chats besides the open one the app keeps ready in KoboldCpp's
+  /// memory; 0 (the default) keeps only the open chat, let go when it is
+  /// left. The keeper reads it as it works.
+  int get keepRecentChats => _keepRecentChats;
+
+  /// Takes one of [kKoboldKeepRecentChoices]; anything else is refused.
+  Future<void> setKeepRecentChats(int value) async {
+    if (!kKoboldKeepRecentChoices.contains(value)) {
+      debugPrint('Keeping $value recent chats is not a choice; ignored.');
+      return;
+    }
+    _keepRecentChats = value;
+    await prefs?.setInt(k('kobold_keep_recent_chats'), value);
     notify();
   }
 
@@ -296,6 +314,8 @@ mixin KoboldLaunchFields on SettingsBase {
         prefs?.getBool(k('kobold_preset_gate_skipped')) ?? false;
     final idle = prefs?.getInt(k('kobold_idle_unload_minutes')) ?? 0;
     _idleUnloadMinutes = kKoboldIdleUnloadChoices.contains(idle) ? idle : 0;
+    final recent = prefs?.getInt(k('kobold_keep_recent_chats')) ?? 0;
+    _keepRecentChats = kKoboldKeepRecentChoices.contains(recent) ? recent : 0;
     _keeperFailed = {...?prefs?.getStringList(k('kobold_keeper_failed'))};
     _mmqTimed = _readMmqTimed(prefs?.getString(k('kobold_mmq_timed')));
     _mmqSamples = _readMmqSamples(prefs?.getString(k('kobold_mmq_samples')));

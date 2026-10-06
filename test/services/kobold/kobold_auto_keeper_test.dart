@@ -295,6 +295,9 @@ void main() {
     test(
       'quick for an ordinary model when two or more chats are kept',
       () async {
+        // Two or more only with recent chats asked for in Settings →
+        // Advanced: by default the keeper keeps just the open chat.
+        await storage.backendSettings.setKeepRecentChats(1);
         final said = await lines('Qwen3-14B', _nvidia(16384, 65536), (
           graphics: 16000,
           system: 60000,

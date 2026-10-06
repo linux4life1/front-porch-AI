@@ -18,12 +18,24 @@ extension KoboldServiceKeeper on KoboldService {
     onFailure: _keeperFailed,
     readTime: (tokens) =>
         _requests.readSpeed.timeToRead(tokens, _loadGeneration),
+    recent: () => _storageService.backendSettings.keepRecentChats,
   );
 
   /// A deleted chat's saved cache is let go. Not a request to the engine, so
   /// it needs no place in the line; a keeper that was never needed is not
   /// made for it.
   void _forgetChat(String chat) => _requests.keeper?.forget(chat);
+
+  /// The chat the user has open changed. What the keeper lets go of, and
+  /// emptying the slots, waits its turn in the line: a save still running
+  /// for the chat left finishes first. It never wakes a model unloaded for
+  /// being idle (its slots went with it). A keeper that was never needed
+  /// holds nothing to let go of.
+  void _openChat(String? chat) {
+    final keeper = _requests.keeper;
+    if (keeper == null || !keeper.open(chat)) return;
+    unawaited(_requests.queue.run(keeper.settle));
+  }
 
   /// The engine could not do what the keeper asked. In auto mode that is
   /// remembered for this model on this engine version, and the next start

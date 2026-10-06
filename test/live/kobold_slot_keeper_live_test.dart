@@ -474,6 +474,9 @@ void main() {
     'under the time the keeper allows',
     () async {
       final rig = await startRig(liveEngineModel);
+      // The long chat stays kept while the second one is used: a recent
+      // chat, kept only when Settings → Advanced asks for one.
+      await rig.storage.backendSettings.setKeepRecentChats(1);
       final kobold = rig.kobold;
       final api = KoboldHttpSlotApi(() => kobold.baseUrl);
       final r = Random(11);

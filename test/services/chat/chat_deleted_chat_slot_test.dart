@@ -17,7 +17,13 @@ import '../../helpers/kobold_chat_harness.dart';
 void main() {
   late KoboldChatHarness h;
 
-  setUp(() async => h = await KoboldChatHarness.start());
+  setUp(() async {
+    h = await KoboldChatHarness.start();
+    // The chats deleted here were left for a new one and are still kept: by
+    // default a chat left is let go at once, so Settings → Advanced keeps
+    // two recent chats for these cases.
+    await h.base.storage.backendSettings.setKeepRecentChats(2);
+  });
 
   /// One reply in a new chat, saved by the keeper; the chat's id.
   Future<String> aChat(String line) async {

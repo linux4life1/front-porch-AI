@@ -4,6 +4,7 @@
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kobold_app_config.dart';
+import 'kobold_keeper_budget.dart';
 import 'kobold_launch_config.dart';
 
 /// Graphics memory a card is assumed to keep for the desktop, when it cannot
@@ -149,10 +150,11 @@ class KoboldAutoTuning {
   /// What to write for them.
   final ({int asked, bool contextShift}) smartCache;
 
-  /// The chats the slot keeper keeps beside the model: up to the five
-  /// KoboldCpp can save, as many as the free memory holds counting a full
-  /// context for each. None for a model with recurrent layers, which stays
-  /// with KoboldCpp's own smart cache, and none without room.
+  /// Room for the slot keeper's chats beside the model ([koboldKeeperRoom]):
+  /// up to the five KoboldCpp can save, as many as the free memory holds
+  /// counting a full context for each. None for a model with recurrent
+  /// layers, which stays with KoboldCpp's own smart cache, and none without
+  /// room. How many it keeps is [koboldKeeperChats] of this.
   final int chats;
 
   /// What to write for the chat cache: none of KoboldCpp's own smart cache
@@ -227,12 +229,11 @@ KoboldAutoTuning koboldAutoTuning(
     ),
     chats: fit.recurrent
         ? 0
-        : suggestSmartCacheSlots(
-            promptKinds: kKoboldSaveSlots,
+        : koboldKeeperRoom((
             slotMb: fit.slotMb,
             freeRamMb: machine.systemMb,
             modelRamMb: koboldModelSystemMb(load, machine),
-          ).slots,
+          )),
   );
 }
 

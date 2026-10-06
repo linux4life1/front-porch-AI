@@ -166,7 +166,45 @@ mixin ChatServiceFieldBag {
   int get historyBasePosition => _history.basePosition;
   bool _cancelRequested = false;
   int _generationEpoch = 0;
-  String? _currentSessionId;
+
+  String? _sessionId;
+
+  /// The chat open now. Every change goes through here, so KoboldCpp's saved
+  /// cache follows it: the chat left is let go unless Settings keeps recent
+  /// chats ready. A switch passes through no chat (null) on its way; only
+  /// the chat it lands on is told.
+  String? get _currentSessionId => _sessionId;
+  set _currentSessionId(String? id) {
+    if (id == _sessionId) return;
+    _sessionId = id;
+    if (id != null) _keeperFollows(id);
+  }
+
+  /// Chat screens open on the desktop ([chatScreenOpened]).
+  int _chatScreens = 0;
+
+  /// The desktop's chat page opened: the chat it shows is the open one.
+  void chatScreenOpened() {
+    if (_chatScreens++ == 0) _keeperFollows(_sessionId);
+  }
+
+  /// The desktop's chat page closed. With none left the user went back to
+  /// the library: no chat is open, and KoboldCpp's saved cache can go.
+  void chatScreenClosed() {
+    if (_chatScreens > 0 && --_chatScreens == 0) _keeperFollows(null);
+  }
+
+  void _keeperFollows(String? chat) {
+    // This bag is ChatService's; the engine is a field of the class.
+    final self = this;
+    if (self is! ChatService) return;
+    try {
+      self._koboldService.openChat(chat);
+    } on Object catch (e) {
+      debugPrint('[Chat] KoboldCpp could not be told which chat is open: $e');
+    }
+  }
+
   double _generationProgress = 0.0;
 
   // ── Real-absence awareness (Living Time §2) ──

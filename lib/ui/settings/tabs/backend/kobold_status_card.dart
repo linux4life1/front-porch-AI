@@ -162,6 +162,7 @@ class _KoboldStatusCardState extends State<KoboldStatusCard> {
       b.useRocm,
       b.useMetal,
       b.rocmFlashAttentionFailed,
+      b.keepRecentChats,
       _bytes,
       free,
       hw?.vramMb,

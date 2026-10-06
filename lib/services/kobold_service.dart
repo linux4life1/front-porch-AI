@@ -340,6 +340,10 @@ class KoboldService extends ChangeNotifier
   /// A chat was deleted: the keeper lets go of its saved cache.
   void forgetChat(String chat) => _forgetChat(chat);
 
+  /// The chat the user has open changed (null: none, back in the library).
+  /// The keeper keeps it and the recent chats Settings asks for.
+  void openChat(String? chat) => _openChat(chat);
+
   /// The user started a turn: the keeper counts what is left of a save
   /// still running as the wait keeping that chat costs.
   void noteTurnStart() => _requests.keeper?.turnStarts();

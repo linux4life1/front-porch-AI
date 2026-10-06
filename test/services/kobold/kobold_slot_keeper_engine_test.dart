@@ -121,6 +121,9 @@ void main() {
   test(
     'going back to another chat loads that chat, not the last one',
     () async {
+      // A waits while B is used: a recent chat, kept only when Settings →
+      // Advanced asks for one (by default only the open chat is).
+      await h.storage.backendSettings.setKeepRecentChats(1);
       final a = _words('a', 300);
       final b = _words('b', 300);
 

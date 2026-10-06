@@ -7,11 +7,17 @@
 // of KoboldCpp's memory slots when a reply ends and loads it back before the
 // chat's next reply, so a helper in between costs nothing.
 //
+// It keeps the chat the user has open, and as many of the chats used before
+// it as Settings asks for (none by default). A chat left behind beyond those
+// is let go, and once none is kept the slots are emptied so their memory
+// goes back to the system.
+//
 // It acts only inside the request queue, one request at a time, and steps
 // aside at the first sign that its picture of the engine is wrong: leaving
 // the cache alone is always safe and only costs speed.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'kobold_felt_wait.dart';
 import 'kobold_keeper_budget.dart';
@@ -51,13 +57,15 @@ class KoboldSlotKeeper {
     required void Function(String words) log,
     void Function(String why)? onFailure,
     KoboldReadTime? readTime,
+    int Function()? recent,
   }) : _api = api,
        _loadGeneration = loadGeneration,
        _plan = plan,
        _underSwapLock = underSwapLock,
        _log = log,
        _onFailure = onFailure,
-       _readTime = readTime;
+       _readTime = readTime,
+       _recent = recent;
 
   final KoboldSlotApi _api;
   final int Function() _loadGeneration;
@@ -65,6 +73,11 @@ class KoboldSlotKeeper {
   final KoboldUnderSwapLock _underSwapLock;
   final void Function(String) _log;
   final KoboldReadTime? _readTime;
+
+  /// How many chats besides the open one to keep ("Keep recent chats ready"
+  /// in Settings), read at each use; null keeps as many as there is room
+  /// for.
+  final int Function()? _recent;
 
   /// Told when the engine could not do what the keeper asked, so a start
   /// can remember it. Not told when the keeper chooses to stay out.
@@ -74,8 +87,18 @@ class KoboldSlotKeeper {
   /// process is new, and every slot died with the old one.
   int? _generation;
   _Mode _mode = _Mode.undecided;
-  int _chats = 0;
+
+  /// The most chats there is room for on this load: the plan's, never more
+  /// than the engine's slots.
+  int _room = 0;
   final Map<String, _Saved> _saved = {};
+
+  /// The chat the user has open ([open]), or the one a reply is for; never
+  /// pushed out for another.
+  String? _open;
+
+  /// A [settle] is waiting in the line.
+  bool _settling = false;
 
   /// Deleted chats: never saved again on this load. A save that was already
   /// running when one went must not bring it back into the table.
@@ -99,14 +122,23 @@ class KoboldSlotKeeper {
 
   /// How many chats it keeps for the load it has looked at; 0 when it keeps
   /// none.
-  int get chats => _mode == _Mode.on || _mode == _Mode.unprobed ? _chats : 0;
+  int get chats => _mode == _Mode.on || _mode == _Mode.unprobed ? _count : 0;
 
   /// Chats it holds a saved cache for.
   int get kept => _saved.length;
 
+  int get _recentWanted => _recent?.call() ?? _room;
+  int get _count => koboldKeeperChats(recent: _recentWanted, room: _room);
+
   /// A chat reply is about to be sent. Loads the chat's saved cache unless
-  /// the engine holds it already or it was never saved.
-  Future<void> chatStart(String key) => _guarded(() async {
+  /// the engine holds it already or it was never saved. A reply is only
+  /// sent for the chat the user is in, so that chat is the open one.
+  Future<void> chatStart(String key) {
+    _open = key;
+    return _chatStart(key);
+  }
+
+  Future<void> _chatStart(String key) => _guarded(() async {
     if (!await _ready()) return;
     if (_live == key) return;
     final saved = _saved[key];
@@ -205,7 +237,53 @@ class KoboldSlotKeeper {
         ..tokens = saved.tokens
         ..used = ++_clock;
       _live = key;
+      // The user may have left the chat while it saved.
+      _trim();
     }).whenComplete(() => _felt.saveEnds(made: false));
+  }
+
+  /// The chat the user has open changed: [key], or null when none is (back
+  /// in the library). Nothing is let go here: [settle] does that in the
+  /// line, after whatever is in it, so a save still running finishes first.
+  /// True when a [settle] is to be put in the line.
+  bool open(String? key) {
+    _open = key;
+    if (_settling) return false;
+    _settling = true;
+    return true;
+  }
+
+  /// Lets go of the chats left behind beyond the recent ones Settings asks
+  /// for, the oldest first, and once none is kept empties the slots, so
+  /// their memory goes back to the system. KoboldCpp can only empty them
+  /// all, so while any chat is kept the slots of those let go stay until a
+  /// save writes over them.
+  Future<void> settle() {
+    _settling = false;
+    return _guarded(() async {
+      final generation = _generation;
+      // A new load since: the slots died with the old one.
+      if (generation == null || generation != _loadGeneration()) return;
+      _trim();
+      if (_saved.isNotEmpty || _written.isEmpty) return;
+      if (!await _giveBackMemory(generation)) return;
+      _written.clear();
+      _log('No chat is kept ready now, so the memory it took was given back.');
+    });
+  }
+
+  /// The chats other than the open one, beyond the ones Settings asks to
+  /// keep, leave the table, the least recently used first.
+  void _trim() {
+    final open = _saved.containsKey(_open) ? 1 : 0;
+    final room = math.max(0, math.min(_recentWanted, _count - open));
+    final others = [
+      for (final e in _saved.entries)
+        if (e.key != _open) e,
+    ]..sort((a, b) => b.value.used.compareTo(a.value.used));
+    for (final e in others.skip(room)) {
+      _saved.remove(e.key);
+    }
   }
 
   /// Keeping [key] costs more than reading it again: it is not kept, so its
@@ -273,10 +351,10 @@ class KoboldSlotKeeper {
       _live = null;
       if (plan.keeps) {
         _mode = _Mode.unprobed;
-        _chats = plan.chats;
+        _room = plan.chats;
       } else {
         _mode = _Mode.off;
-        _chats = 0;
+        _room = 0;
         final why = plan.why;
         if (why != null) _log(why);
       }
@@ -310,26 +388,35 @@ class KoboldSlotKeeper {
       );
       return false;
     }
-    if (check.slotTokens.length < _chats) _chats = check.slotTokens.length;
+    if (check.slotTokens.length < _room) _room = check.slotTokens.length;
     _mode = _Mode.on;
+    final count = _count;
     _log(
-      'Keeping up to $_chats ${_chats == 1 ? 'chat' : 'chats'} ready in '
-      'memory, so coming back to one does not read it all again.',
+      count == 1
+          ? 'Keeping the open chat ready in memory, so a reply after a check '
+                'does not read it all again.'
+          : 'Keeping up to $count chats ready in memory, so coming back to '
+                'one does not read it all again.',
     );
     return true;
   }
 
   /// The slot [key] is saved in, else a free one, else the least recently
-  /// used chat's (that chat is dropped). Null when nothing may be kept.
+  /// used chat's (that chat is dropped), never the open chat's. Null when
+  /// [key] may not be kept: a chat that is not open is kept only as a
+  /// recent one, when Settings asks for any.
   int? _slotFor(String key) {
+    final count = _count;
+    if (count <= 0 || (key != _open && count < 2)) return null;
     final own = _saved[key];
     if (own != null) return own.slot;
-    if (_chats <= 0) return null;
     final taken = {for (final s in _saved.values) s.slot};
-    for (var slot = 0; slot < _chats; slot++) {
+    for (var slot = 0; slot < count; slot++) {
       if (!taken.contains(slot)) return slot;
     }
-    final oldest = _saved.entries.reduce(
+    final others = _saved.entries.where((e) => e.key != _open);
+    if (others.isEmpty) return null;
+    final oldest = others.reduce(
       (a, b) => a.value.used <= b.value.used ? a : b,
     );
     _saved.remove(oldest.key);
@@ -344,11 +431,13 @@ class KoboldSlotKeeper {
         return call();
       });
 
-  Future<void> _giveBackMemory(int generation) async {
+  /// Empties every slot. True when the engine did.
+  Future<bool> _giveBackMemory(int generation) async {
     try {
-      await _call(generation, _api.clear);
+      return await _call(generation, _api.clear) ?? false;
     } on KoboldSlotException catch (e) {
       _log('The saved chats could not be cleared: ${e.message}');
+      return false;
     }
   }
 
@@ -371,7 +460,7 @@ class KoboldSlotKeeper {
 
   void _stepAside(String why, {bool failure = false}) {
     _mode = _Mode.aside;
-    _chats = 0;
+    _room = 0;
     _live = null;
     _saved.clear();
     _log('Chats are no longer kept ready: $why');
