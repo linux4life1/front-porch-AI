@@ -97,12 +97,15 @@ void main() {
         ),
       ),
     );
-    for (
-      var i = 0;
-      i < 100 &&
-          find.text('Looking through the models folder…').evaluate().isNotEmpty;
-      i++
-    ) {
+    // The folder scan is real file work and takes what the machine takes.
+    // Wait for it to end, up to 20 s: 100 rounds (about 2 s) ran out in
+    // full-suite runs on a busy machine while the scan was still going.
+    final scan = Stopwatch()..start();
+    while (find
+            .text('Looking through the models folder…')
+            .evaluate()
+            .isNotEmpty &&
+        scan.elapsed < const Duration(seconds: 20)) {
       await settle(tester, 1);
     }
     expect(find.text('Looking through the models folder…'), findsNothing);
