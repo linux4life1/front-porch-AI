@@ -53,25 +53,17 @@ extension _HomePagePorch on _HomePageState {
     final ext = out.fileName.endsWith('.$kPorchPackExtension')
         ? kPorchPackExtension
         : kPorchExtension;
-    final String? saved;
-    try {
-      saved = await PickerPrefs.saveFile(
-        category: PickerPrefs.catExport,
-        bytes: out.bytes,
-        dialogTitle: 'Save characters',
-        fileName: out.fileName,
-        type: FileType.custom,
-        allowedExtensions: [ext],
-      );
-    } catch (e) {
-      debugPrint('[porch] save failed: $e');
-      await _porchMessage(
-        'Couldn’t save the file',
-        'The characters were packed, but the file couldn’t be saved there. '
-            'Try another folder.',
-      );
-      return;
-    }
+    // A save window that fails explains itself (GuardedPicker) and returns
+    // null like a cancel.
+    final saved = await GuardedPicker.saveFile(
+      context,
+      category: PickerPrefs.catExport,
+      bytes: out.bytes,
+      dialogTitle: 'Save characters',
+      fileName: out.fileName,
+      type: FileType.custom,
+      allowedExtensions: [ext],
+    );
     if (saved == null || !mounted) return;
     _cancelSelection();
     final n = cards.length;
@@ -89,7 +81,8 @@ extension _HomePagePorch on _HomePageState {
   /// The Import menu's `.porch` entry: the picker shows only `.porch` and
   /// `.porchpack`, and the importer refuses anything else by name.
   Future<void> _importPorchFiles() async {
-    final picked = await PickerPrefs.pickFiles(
+    final picked = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       dialogTitle: 'Import Front Porch characters',
       type: FileType.custom,
