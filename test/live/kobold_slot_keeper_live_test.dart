@@ -268,10 +268,9 @@ void main() {
   Future<_Run> script(_Rig rig, {required int turns}) async {
     final kobold = rig.kobold;
     final r = Random(7);
-    // Long enough that keeping the chat clearly pays on a small model on an
-    // idle machine too: the 0.5B model reads about 13,000 tokens a second
-    // there, so a chat of 5,000 is read again as fast as it is saved and
-    // loaded back, and the keeper rightly lets it go. About 11,000 here.
+    // Long enough that what keeping the chat spares shows on a small model
+    // on an idle machine too: the 0.5B model reads about 13,000 tokens a
+    // second there. About 11,000 here.
     final rules = _text(r, 10000);
     final run = _Run()
       ..staged = stagedChat(rig)
@@ -470,8 +469,8 @@ void main() {
   );
 
   test(
-    'a chat that grows toward the context is still kept: its save stays '
-    'under the time the keeper allows',
+    'a chat that grows toward the context is kept all the way: what its '
+    'saves and loads cost',
     () async {
       final rig = await startRig(liveEngineModel);
       // The long chat stays kept while the second one is used: a recent
@@ -529,8 +528,7 @@ void main() {
         return tokens;
       }
 
-      // Long from its first save that decides (the first only makes the
-      // slot): a short chat on a small model is rightly let go.
+      // Long from the start, so the saves and loads are of a big cache.
       var history = _text(r, 7000);
       for (var tokens = 0; tokens < 13000 && rows.length < 10;) {
         history = '$history\n${_text(r, 1300)}';
@@ -545,10 +543,6 @@ void main() {
         note: '  (a new chat, a slot not used before)',
       );
       final kept = kobold.debugKeeper.kept;
-      final tooSlow = [
-        for (final l in kobold.logs)
-          if (l.contains('to read it again')) l.trim(),
-      ];
       final said = engineSaid(kobold);
       await stopRig(rig);
       report(
@@ -558,13 +552,6 @@ void main() {
         '${rows.join('\n')}\n',
       );
       expect(rows.length, greaterThanOrEqualTo(3));
-      expect(
-        tooSlow,
-        isEmpty,
-        reason:
-            'a long chat was let go: keeping it cost more than reading it '
-            'again here',
-      );
       expect(kept, 2, reason: 'both chats are kept');
     },
     timeout: _slow,
@@ -621,7 +608,7 @@ void main() {
       addTearDown(() => disposeChatThenCloseDb(chat, db));
       final ada = CharacterCard(
         name: 'Ada',
-        // A long card: a short chat on a small model is rightly let go.
+        // A long card, so what the keeper spares shows.
         description: 'Keeps the porch. ' * 2600,
         firstMessage: 'Evening.',
         imagePath: '/tmp/ada-keeper-live.png',

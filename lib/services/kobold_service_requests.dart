@@ -19,10 +19,6 @@ class _RequestState {
 
   /// Saves a chat's cache after its reply and loads it before the next one.
   KoboldSlotKeeper? keeper;
-
-  /// How fast the engine reads, from its console: what a chat costs the
-  /// keeper to read again.
-  final KoboldReadSpeed readSpeed = KoboldReadSpeed();
   Future<KoboldKeeperPlan> Function()? debugPlan;
 
   /// Goes up with every [KoboldService.abortGeneration]: a reply that fails

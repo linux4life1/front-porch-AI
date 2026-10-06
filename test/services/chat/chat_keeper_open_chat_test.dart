@@ -7,7 +7,8 @@
 // for every way a chat is left: a new chat, another character, a group,
 // the phone's switch through the web facade, and going back to the library
 // (the chat page closing). Settings → Advanced → "Keep recent chats ready"
-// keeps that many of the chats left behind as well, the oldest let go first.
+// keeps that many of the chats left behind as well, the oldest let go first,
+// and deleting the last one kept gives its memory back too.
 
 import 'dart:async';
 
@@ -257,6 +258,23 @@ void main() {
 
       expect(kept(), 0);
       expect(held(), 0);
+    });
+
+    test('deleting the one chat still kept gives its memory back', () async {
+      await h.base.storage.backendSettings.setKeepRecentChats(1);
+      h.chat.chatScreenOpened();
+      await reply('Good evening, Ada.');
+      final left = h.chat.currentSessionId!;
+      h.chat.chatScreenClosed();
+      await h.kobold.waitForIdle();
+      expect(kept(), 1, reason: 'kept as the one recent chat');
+      expect(held(), greaterThan(0));
+
+      await h.chat.deleteSession(left, startReplacement: false);
+      await h.kobold.waitForIdle();
+
+      expect(kept(), 0);
+      expect(held(), 0, reason: 'its memory was not given back');
     });
   });
 }

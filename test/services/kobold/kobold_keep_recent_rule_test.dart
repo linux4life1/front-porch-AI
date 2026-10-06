@@ -45,7 +45,7 @@ void main() {
 
   group('the rule', () {
     test('by default only the open chat, whatever the room', () {
-      for (final room in [1, 2, 5]) {
+      for (final room in [0, 1, 2, 5]) {
         expect(koboldKeeperChats(recent: 0, room: room), 1, reason: '$room');
       }
     });
@@ -54,7 +54,11 @@ void main() {
       expect(koboldKeeperChats(recent: 2, room: 5), 3);
       expect(koboldKeeperChats(recent: 4, room: 5), 5);
       expect(koboldKeeperChats(recent: 4, room: 2), 2);
-      expect(koboldKeeperChats(recent: 3, room: 0), 0);
+      expect(
+        koboldKeeperChats(recent: 3, room: 0),
+        1,
+        reason: 'the open chat is kept even with no room',
+      );
     });
 
     test(

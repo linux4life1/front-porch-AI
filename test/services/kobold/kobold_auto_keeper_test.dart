@@ -252,7 +252,8 @@ void main() {
       );
     });
 
-    test('less memory keeps fewer chats, and none when there is no room', () {
+    test('less memory has room for fewer chats, and none when there is no '
+        'room: the open chat is kept all the same', () {
       // A full context of this model is 2,560 MB; its own share of system
       // memory is 511 MB, and 2,048 are set aside.
       expect(_tune('Qwen3-14B', _tight).chats, 1);
@@ -265,7 +266,7 @@ void main() {
       );
       final t = _tune('Qwen3-14B', none);
       expect(t.chats, 0);
-      expect(t.cacheSetting(keeper: true), t.smartCache);
+      expect(t.cacheSetting(keeper: true), (asked: 0, contextShift: true));
     });
 
     test('a model with recurrent layers is never the keeper\'s', () {

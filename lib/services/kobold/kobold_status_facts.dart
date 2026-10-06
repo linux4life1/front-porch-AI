@@ -132,7 +132,7 @@ class KoboldStatusFacts {
         // The keeper's chats for an ordinary model (the open one, and the
         // recent ones Settings asks for), KoboldCpp's own slots for a
         // hybrid one.
-        (tuning.chats > 0
+        (!tuning.recurrent
                 ? koboldKeeperChats(
                         recent: b.keepRecentChats,
                         room: tuning.chats,

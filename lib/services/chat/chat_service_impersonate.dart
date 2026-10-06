@@ -29,7 +29,6 @@ extension ChatServiceImpersonate on ChatService {
         _sceneGuest.busy) {
       return;
     }
-    _koboldService.noteTurnStart();
     if (await _abortIfBackendDown()) return;
 
     _isGenerating = true;

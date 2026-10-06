@@ -214,7 +214,6 @@ extension ChatServiceGeneration on ChatService {
     bool skipSpeakerEval = false,
     String regenCritique = '',
   }) async {
-    _koboldService.noteTurnStart();
     final forcedWeb = _pendingForcedWebQuery;
     final forcedWiki = _pendingForcedWikiQuery;
     _clearForcedLookup();

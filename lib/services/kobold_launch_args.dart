@@ -326,7 +326,7 @@ Future<KoboldLaunchConfig> _tunedForMachine(
       chosen: config.batchSize,
     ),
   );
-  if (!keeper && tuning.chats > 0) onNote?.call(kKeeperFailedNote);
+  if (!keeper && !tuning.recurrent) onNote?.call(kKeeperFailedNote);
   final cache = tuning.cacheSetting(keeper: keeper);
   return withMmq.copyWith(
     batchSize: tuning.batchSize,

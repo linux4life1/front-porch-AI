@@ -147,12 +147,14 @@ void main() {
       expect(plan.chats, 2);
     });
 
-    test('no room keeps nothing and says so', () {
+    test('no room still keeps the open chat: memory only bounds the recent '
+        'ones', () {
       final plan = _plan(
         memory: (slotMb: 1000, freeRamMb: 9000, modelRamMb: 8000),
       );
-      expect(plan.keeps, isFalse);
-      expect(plan.why, contains('memory'));
+      expect(plan.keeps, isTrue);
+      expect(plan.chats, 0);
+      expect(koboldKeeperChats(recent: 4, room: plan.chats), 1);
     });
   });
 }

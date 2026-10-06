@@ -114,7 +114,6 @@ extension ChatServiceReprocess on ChatService {
     String? wikiQuery,
   }) async {
     if (_messages.isEmpty || _sceneGuest.busy) return;
-    _koboldService.noteTurnStart(); // before it waits for the last turn
     if (!await _yieldSettlingTurn()) return;
     _memoryPassEpoch++;
     // Hold the settling flag across the WHOLE regen — the realism revert +

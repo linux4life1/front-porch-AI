@@ -89,11 +89,6 @@ extension ChatServiceSend on ChatService {
         imageBytes == null &&
         trimmed.startsWith('/') &&
         _characterRepository != null;
-    // The turn starts now, before it waits behind anything: what is left of
-    // a chat save still running is what keeping that chat costs. A slash
-    // command waits for nothing: one sent on as a message, unknown to the
-    // app, is counted from its reply's start.
-    if (!command) _koboldService.noteTurnStart();
     final previousSend = _sendChain;
     final sendGate = Completer<void>();
     _sendChain = sendGate.future;

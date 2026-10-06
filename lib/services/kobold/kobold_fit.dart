@@ -137,6 +137,7 @@ class KoboldAutoTuning {
     required this.slots,
     required this.smartCache,
     this.chats = 0,
+    this.recurrent = false,
   });
 
   final int batchSize;
@@ -152,16 +153,20 @@ class KoboldAutoTuning {
 
   /// Room for the slot keeper's chats beside the model ([koboldKeeperRoom]):
   /// up to the five KoboldCpp can save, as many as the free memory holds
-  /// counting a full context for each. None for a model with recurrent
-  /// layers, which stays with KoboldCpp's own smart cache, and none without
-  /// room. How many it keeps is [koboldKeeperChats] of this.
+  /// counting a full context for each; none for a model with recurrent
+  /// layers. How many it keeps is [koboldKeeperChats] of this: the open chat
+  /// at least, even with no room.
   final int chats;
 
+  /// The model has recurrent layers: it stays with KoboldCpp's own smart
+  /// cache, and the slot keeper keeps none of its chats.
+  final bool recurrent;
+
   /// What to write for the chat cache: none of KoboldCpp's own smart cache
-  /// when the slot keeper ([keeper]) looks after at least a chat, with
+  /// when the slot keeper ([keeper]) looks after the model's chats, with
   /// context shift on, else [smartCache].
   ({int asked, bool contextShift}) cacheSetting({required bool keeper}) =>
-      keeper && chats > 0 ? (asked: 0, contextShift: true) : smartCache;
+      keeper && !recurrent ? (asked: 0, contextShift: true) : smartCache;
 }
 
 /// Batches auto mode tries: KoboldCpp's default and two larger ones, which
@@ -227,6 +232,7 @@ KoboldAutoTuning koboldAutoTuning(
       slots: slots.slots,
       recurrent: fit.recurrent,
     ),
+    recurrent: fit.recurrent,
     chats: fit.recurrent
         ? 0
         : koboldKeeperRoom((
