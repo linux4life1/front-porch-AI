@@ -25,6 +25,10 @@
   /* Primary chrome accent: porch amber (was neon blue #3b82f6). */
   --accent: var(--porch-amber);
   --accent-ink: #ffffff;
+  /* AppColors.onChaosAccent: dark ink on solid amber (the desktop's choice). */
+  --on-accent: #1a1200;
+  /* White at 87%: the strong-but-not-headline text the sketches use. */
+  --text-strong: rgba(255, 255, 255, 0.87);
   /* Desktop AppColors.userBubble is still blue — chat bubbles are their own
      system, deliberately unchanged by the warm-porch chrome restyle. */
   --user-bubble: #3b82f6;

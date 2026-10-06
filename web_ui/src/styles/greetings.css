@@ -1,0 +1,137 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   The AI creator's Greetings step (#370) and its step dots, transcribed from
+   the approved sketch: the desktop board for the base rules (wide web), the
+   phone board ("one greeting being written") for the [data-layout="phone"]
+   deltas. Tokens are the AppColors mirrors in base.css.
+*/
+
+/* ── Step dots: the desktop's look (opt-in: StepIndicator variant="porch") ── */
+.step-indicator.porch .step-seg { align-items: flex-start; }
+.step-indicator.porch .step-line {
+  margin: 11px 4px 0; background: rgba(51, 65, 85, 0.6);
+}
+.step-indicator.porch .step-line.done { background: rgba(51, 65, 85, 0.6); }
+.step-indicator.porch .step-dot { gap: 3px; padding: 0 2px; }
+.step-indicator.porch .step-num {
+  width: 24px; height: 24px; font-size: 11px;
+  background: var(--surface-2); color: var(--faint);
+  border: 1px solid rgba(51, 65, 85, 0.3);
+}
+.step-indicator.porch .step-dot.done .step-num {
+  background: var(--porch-amber); color: var(--on-accent);
+}
+.step-indicator.porch .step-dot.current .step-num {
+  background: var(--porch-amber); color: var(--on-accent); border: 2px solid #fff;
+}
+.step-indicator.porch .step-label { font-size: 10px; color: var(--faint); }
+.step-indicator.porch .step-dot.done .step-label,
+.step-indicator.porch .step-dot.current .step-label { color: var(--muted); }
+
+/* ── The step ─────────────────────────────────────────────────── */
+.cg-greetings { display: flex; flex-direction: column; gap: 16px; }
+.cg-g-intro h2 { margin: 0 0 6px; font-size: 24px; font-weight: 700; color: var(--text); }
+.cg-g-intro p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--muted); }
+
+.cg-g-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 18px 20px; display: flex; flex-direction: column; gap: 12px;
+}
+.cg-g-card.writing { border: 1.5px solid rgba(244, 162, 89, 0.6); }
+.cg-g-card-head { display: flex; align-items: center; gap: 10px; min-height: 40px; }
+.cg-g-card-head h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--text); }
+.cg-g-sub { font-size: 12px; color: var(--muted); }
+.cg-g-writing { font-size: 12px; font-weight: 600; color: var(--porch-amber); }
+.cg-g-spacer { flex: 1 1 auto; }
+button.cg-g-icon {
+  width: 40px; height: 40px; border-radius: 20px; border: 0; padding: 0;
+  background: transparent; color: var(--muted);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+button.cg-g-icon:disabled { opacity: 0.45; }
+
+/* The editor's box (MacroField) dressed as the sketch's text area. */
+.cg-g-card .macro-field { margin: 0; }
+.cg-g-card .macro-area .macro-backdrop,
+.cg-g-card .macro-area .macro-input { border-radius: 12px; padding: 12px 14px; }
+
+.cg-g-stream {
+  min-height: 96px; box-sizing: border-box; background: var(--bg);
+  border: 1px solid var(--border); border-radius: 12px; padding: 12px 14px;
+  font-size: 15px; line-height: 1.55; color: var(--text);
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.cg-g-caret {
+  display: inline-block; width: 2px; height: 16px; background: var(--porch-amber);
+  vertical-align: -3px; margin-left: 2px;
+}
+.cg-g-error { margin: 0; font-size: 13px; }
+
+.cg-g-steer-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+input.cg-g-steer {
+  flex: 1 1 280px; min-width: 0; width: auto; height: 44px; box-sizing: border-box;
+  background: var(--surface-2); border: 0; border-radius: 12px; padding: 0 14px;
+  color: var(--text); font-size: 14px;
+}
+input.cg-g-steer::placeholder { color: var(--faint); }
+input.cg-g-steer:disabled { color: var(--muted); }
+button.cg-g-regen,
+button.cg-g-stop,
+button.cg-g-add-btn {
+  height: 44px; border-radius: 12px; background: transparent;
+  font-size: 14px; font-weight: 600;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+button.cg-g-regen { padding: 0 16px; border: 1px solid var(--porch-amber); color: var(--porch-amber); }
+button.cg-g-stop { padding: 0 16px; border: 1px solid var(--faint); color: var(--text-strong); }
+button.cg-g-add-btn { padding: 0 18px; border: 1px dashed var(--porch-amber); color: var(--porch-amber); }
+button.cg-g-regen:disabled,
+button.cg-g-add-btn:disabled { opacity: 0.45; }
+
+.cg-g-alt-head { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }
+.cg-g-alt-head h2 { margin: 0; font-size: 18px; font-weight: 700; color: var(--text); }
+.cg-g-alt-head span { font-size: 13px; color: var(--muted); }
+.cg-g-add { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.cg-g-hint { font-size: 13px; color: var(--muted); }
+
+/* Back + Open in editor: the sketch's bar, kept in reach while scrolling. */
+.wizard-nav.cg-g-nav {
+  position: sticky; bottom: 0; z-index: 2; gap: 10px;
+  background: var(--bg); padding: 12px 0 18px;
+}
+button.cg-g-back,
+button.cg-g-open {
+  height: 48px; border-radius: 12px; font-size: 15px;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+}
+button.cg-g-back {
+  flex: 1 1 0; border: 1px solid var(--border); background: transparent;
+  color: var(--muted); font-weight: 500;
+}
+button.cg-g-open {
+  flex: 2 1 0; border: 0; background: var(--porch-amber); color: var(--on-accent);
+  font-weight: 600;
+}
+button.cg-g-back:disabled,
+button.cg-g-open:disabled { opacity: 0.45; }
+
+/* ── Phone: the "one greeting being written" board ────────────── */
+[data-layout="phone"] .step-indicator.porch .step-num { width: 22px; height: 22px; }
+[data-layout="phone"] .step-indicator.porch .step-line { margin-top: 10px; }
+[data-layout="phone"] .cg-greetings { gap: 12px; }
+[data-layout="phone"] .cg-g-wide,
+[data-layout="phone"] .cg-g-sub { display: none; }
+[data-layout="phone"] .cg-g-intro h2 { margin: 0 0 4px; font-size: 20px; }
+[data-layout="phone"] .cg-g-intro p { font-size: 13px; line-height: 1.45; }
+[data-layout="phone"] .cg-g-card { border-radius: 14px; padding: 14px; gap: 10px; }
+[data-layout="phone"] .cg-g-card-head { gap: 8px; min-height: 0; }
+[data-layout="phone"] .cg-g-card-head h3 { font-size: 15px; }
+[data-layout="phone"] button.cg-g-icon { width: 44px; height: 44px; border-radius: 22px; }
+[data-layout="phone"] .cg-g-card .macro-area .macro-backdrop,
+[data-layout="phone"] .cg-g-card .macro-area .macro-input { padding: 10px 12px; }
+[data-layout="phone"] .cg-g-stream { padding: 10px 12px; font-size: 14px; line-height: 1.5; }
+[data-layout="phone"] .cg-g-steer-row { flex-direction: column; align-items: stretch; }
+[data-layout="phone"] input.cg-g-steer { flex: none; width: 100%; padding: 0 12px; }
+[data-layout="phone"] .wizard-nav.cg-g-nav {
+  margin: 0 -16px; padding: 12px 16px 18px; border-top: 1px solid var(--border);
+}

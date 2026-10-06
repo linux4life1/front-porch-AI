@@ -52,6 +52,8 @@ const ROUTES: ((i: { character: string; story: string }) => string)[] = [
   () => '/models',
   () => '/create',
   () => '/create-ai',
+  // The AI creator's Greetings step (#370), opened on a saved character.
+  (i) => `/create-ai?greetings=${i.character}`,
   () => '/create-group',
   () => '/worlds',
   () => '/worlds/from-wiki',

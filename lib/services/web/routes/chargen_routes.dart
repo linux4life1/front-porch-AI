@@ -41,6 +41,7 @@ class WebChargenRoutes {
     router.post('/api/chargen/greeting/add', _greetingAdd);
     router.post('/api/chargen/greeting/delete', _greetingDelete);
     router.post('/api/chargen/greeting/stop', _greetingStop);
+    router.get('/api/chargen/greeting/status', _greetingStatus);
   }
 
   final ChargenFacade _facade;
@@ -96,6 +97,13 @@ class WebChargenRoutes {
       },
     );
   }
+
+  /// `?characterId=`: `{writing}` is the greeting being written, or null.
+  shelf.Response _greetingStatus(shelf.Request r) => JsonResponse.ok({
+    'writing': _facade.writingGreeting(
+      r.url.queryParameters['characterId']?.trim() ?? '',
+    ),
+  });
 
   /// Body: `{characterId}`. `{stopped}` is false when nothing was running.
   Future<shelf.Response> _greetingStop(shelf.Request r) async {

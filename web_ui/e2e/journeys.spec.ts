@@ -194,6 +194,65 @@ test('edit a character, save, and nothing else on the card is lost', async ({ pa
   expect(after.firstMessage).toBe(before.firstMessage);
 });
 
+// The AI creator's Greetings step (#370) on a character made for this test,
+// so Porch Tester's greetings (which the conversation journeys read) are left
+// alone; the character is deleted whatever happens. The stand-in backend
+// writes every greeting as FPAI_REPLY.
+test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an add are saved', async ({
+  page,
+}) => {
+  const created = await page.request.post('/api/characters/create', {
+    data: {
+      name: `Greeting Journey ${test.info().project.name}`,
+      firstMessage: '*The lamp turns.* "You came."',
+      alternateGreetings: ['A storm on the jetty.', 'Fog over the harbor.'],
+    },
+  });
+  expect(created.ok(), `create: ${created.status()}`).toBe(true);
+  const id = String(((await created.json()) as { id: string | number }).id);
+  const detail = async () =>
+    (await (await page.request.get(`/api/characters/${id}/detail`)).json()) as {
+      firstMessage: string;
+      alternateGreetings: string[];
+    };
+  try {
+    await openRoute(page, `/create-ai?greetings=${id}`);
+    await expect(page.getByTestId('greetings-step')).toBeVisible();
+    const count = page.getByTestId('greeting-count');
+    await expect(count).toHaveText('2 of 5');
+
+    // A steered rewrite of the first message is written and saved.
+    const first = page.getByTestId('greeting-card-0');
+    await first.getByLabel('Steer the rewrite (optional)').fill('start at the harbor at dawn');
+    await first.getByRole('button', { name: 'Regenerate' }).click();
+    await expect(first.getByLabel('First message text')).toHaveValue(REPLY, { timeout: 60_000 });
+    await expect.poll(async () => (await detail()).firstMessage).toBe(REPLY);
+
+    // An alternate edited in place is saved once typing pauses.
+    await page.getByTestId('greeting-card-1').getByLabel('Alternate 1 text').fill('A calm morning on the jetty.');
+    await expect.poll(async () => (await detail()).alternateGreetings[0]).toBe('A calm morning on the jetty.');
+
+    // Delete takes alternate 2 off the card.
+    await page.getByTestId('greeting-card-2').getByRole('button', { name: 'Delete alternate 2' }).click();
+    await expect(count).toHaveText('1 of 5');
+    await expect.poll(async () => (await detail()).alternateGreetings).toEqual(['A calm morning on the jetty.']);
+
+    // Add another writes a new one straight away.
+    await page.getByRole('button', { name: 'Add another greeting' }).click();
+    await expect(count).toHaveText('2 of 5', { timeout: 60_000 });
+    await expect(page.getByTestId('greeting-card-2').getByLabel('Alternate 2 text')).toHaveValue(REPLY);
+    await expect
+      .poll(async () => (await detail()).alternateGreetings)
+      .toEqual(['A calm morning on the jetty.', REPLY]);
+
+    await page.getByRole('button', { name: 'Open in editor' }).click();
+    await expect(page).toHaveURL(new RegExp(`/edit/${id}$`));
+  } finally {
+    const gone = await page.request.post(`/api/characters/${id}/delete`);
+    expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+  }
+});
+
 test('the chat model sheet lists models you can tap, and offers providers', async ({ page }) => {
   await openPorchChat(page);
   await page.locator('.model-switch-chip').click();

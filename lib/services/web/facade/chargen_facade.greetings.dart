@@ -86,6 +86,13 @@ extension ChargenGreetings on ChargenFacade {
     return {'ok': true, 'index': index};
   }
 
+  /// Which greeting of [characterId] is being written, or null. A phone that
+  /// slept through the end of a write asks this when its socket comes back.
+  int? writingGreeting(String characterId) {
+    final job = _greetingJob;
+    return job != null && job.characterId == characterId ? job.index : null;
+  }
+
   /// Stop the greeting being written for [characterId]. Nothing it wrote is
   /// saved. False when no greeting of that character is being written.
   bool stopGreeting(String characterId) {

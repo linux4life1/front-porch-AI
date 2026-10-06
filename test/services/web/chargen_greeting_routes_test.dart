@@ -175,6 +175,18 @@ void main() {
     final id = (await characters.persistNewCard(card))!['id'].toString();
     CharacterCard saved() => characters.cardByDbId(id)!;
 
+    Future<Object?> writing() async {
+      final res = await router.call(
+        shelf.Request(
+          'GET',
+          Uri.parse(
+            'http://localhost/api/chargen/greeting/status?characterId=$id',
+          ),
+        ),
+      );
+      return (jsonDecode(await res.readAsString()) as Map)['writing'];
+    }
+
     // ── A steered rewrite of the first message is saved ──
     llm.next = '*$_name coils a rope on the harbor wall at dawn.* "Early."';
     final done = next('chargen_greeting_done');
@@ -207,6 +219,7 @@ void main() {
     });
     expect(code, 200);
     expect((await progress)['index'], 1);
+    expect(await writing(), 1, reason: 'a phone that slept can ask');
     (code, body) = await post('/api/chargen/greeting', {
       'characterId': id,
       'index': 2,
@@ -223,6 +236,7 @@ void main() {
     });
     expect(body['stopped'], isTrue);
     expect((await stopped)['index'], 1);
+    expect(await writing(), isNull);
     await Future<void>.delayed(const Duration(milliseconds: 200));
     expect(saved().alternateGreetings, ['ALT ONE', 'ALT TWO']);
 

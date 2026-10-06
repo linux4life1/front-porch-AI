@@ -17,6 +17,11 @@ export type WsEvent = {
   // unsaved field proposal the client reviews before applying.
   characterId?: string;
   proposal?: unknown;
+  // `chargen_greeting_*` (the creator's Greetings step): which greeting (0 is
+  // the first message; `text` carries it), and on `_done` the saved greetings.
+  index?: number;
+  firstMessage?: string;
+  alternateGreetings?: string[];
   // `world_wiki_done`: written lorebook cards, not saved until Preview.
   description?: string;
   climateEnabled?: boolean;
