@@ -227,11 +227,17 @@ async function sweep(page: Page, route: string, info: TestInfo): Promise<string[
 
   let next = await tag(page, 0);
   let clicks = 0;
+  let retags = 0;
   for (let id = 0; id < next && clicks < MAX_CLICKS; id++) {
     const el = page.locator(`[data-sweep="${id}"]`);
-    if (!(await el.count()) || !(await el.isVisible()) || !(await el.isEnabled(PROBE).catch(() => false))) continue;
-    const name = await label(page, id);
-    if (!name || SKIP.test(name)) continue;
+    const shown = (await el.count()) > 0 && (await el.isVisible()) && (await el.isEnabled(PROBE).catch(() => false));
+    const name = shown ? await label(page, id) : '';
+    if (!name || SKIP.test(name)) {
+      // Re-rendered before its turn: tag the live node now so it gets one,
+      // as after a failed tap below. Capped, for a node that never settles.
+      if ((await replaced(el)) && retags++ < MAX_CLICKS) next = await tag(page, next);
+      continue;
+    }
     clicks++;
     const url = page.url();
     const overlays = await overlayCount(page);
