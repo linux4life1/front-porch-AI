@@ -161,5 +161,16 @@ void main() {
 
       expect(letGo(), hasLength(1));
     });
+
+    test('a slash command answered without the model waits for nothing: the '
+        'chat is kept', () async {
+      await settledWhileSaving();
+
+      await h.chat.sendMessage('/expression happy');
+      await h.settle();
+
+      expect(letGo(), isEmpty);
+      expect(h.kobold.debugKeeper.kept, 1);
+    });
   });
 }

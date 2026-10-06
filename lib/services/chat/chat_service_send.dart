@@ -83,9 +83,17 @@ extension ChatServiceSend on ChatService {
       }
     }
     final outbound = lookup.accepted ? lookup.userText : text;
+    final trimmed = outbound.trim();
+    final command =
+        !lookup.accepted &&
+        imageBytes == null &&
+        trimmed.startsWith('/') &&
+        _characterRepository != null;
     // The turn starts now, before it waits behind anything: what is left of
-    // a chat save still running is what keeping that chat costs.
-    _koboldService.noteTurnStart();
+    // a chat save still running is what keeping that chat costs. A slash
+    // command waits for nothing: one sent on as a message, unknown to the
+    // app, is counted from its reply's start.
+    if (!command) _koboldService.noteTurnStart();
     final previousSend = _sendChain;
     final sendGate = Completer<void>();
     _sendChain = sendGate.future;
@@ -165,11 +173,7 @@ extension ChatServiceSend on ChatService {
     // Skipped when a photo is attached: an attach makes the intent "send a
     // message" unambiguous, and consuming the text as a command would drop
     // the attachment silently.
-    final trimmed = outbound.trim();
-    if (!lookup.accepted &&
-        imageBytes == null &&
-        trimmed.startsWith('/') &&
-        _characterRepository != null) {
+    if (command) {
       final handled = await _ensureCommandHandler().handle(trimmed);
       if (handled) return;
       // Unknown command — fall through and send as a normal message.
