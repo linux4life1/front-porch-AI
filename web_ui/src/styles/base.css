@@ -29,6 +29,8 @@
   --on-accent: #1a1200;
   /* White at 87%: the strong-but-not-headline text the sketches use. */
   --text-strong: rgba(255, 255, 255, 0.87);
+  /* Colors.amberAccent: the AI creator's sparkle, as on the desktop AppBar. */
+  --sparkle: #ffd740;
   /* Desktop AppColors.userBubble is still blue — chat bubbles are their own
      system, deliberately unchanged by the warm-porch chrome restyle. */
   --user-bubble: #3b82f6;

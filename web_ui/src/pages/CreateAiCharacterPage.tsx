@@ -96,9 +96,15 @@ export function CreateAiCharacterPage() {
 
   return (
     <div className="page wizard">
-      <header className="page-head">
-        <button className="ghost" onClick={() => navigate('/')}>← Library</button>
-        <h2>✨ AI Character Creator</h2>
+      <header className="page-head cg-head">
+        <button type="button" className="ghost" onClick={() => navigate('/')}>
+          <ArrowLeft />
+          Library
+        </button>
+        <h2>
+          <Sparkle />
+          AI Character Creator
+        </h2>
       </header>
 
       <StepIndicator steps={STEPS} current={step} onJump={held ? undefined : setStep} variant="porch" />
@@ -220,6 +226,13 @@ const arrow = {
 const ArrowLeft = () => (
   <svg {...arrow}>
     <path d="M19 12H5M11 6l-6 6 6 6" />
+  </svg>
+);
+
+const Sparkle = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden className="cg-spark">
+    <path d="M10 3l1.9 5.1L17 10l-5.1 1.9L10 17l-1.9-5.1L3 10l5.1-1.9z" />
+    <path d="M18.5 13l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
   </svg>
 );
 

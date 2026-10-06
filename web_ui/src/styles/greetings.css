@@ -6,8 +6,22 @@
    deltas. Tokens are the AppColors mirrors in base.css.
 */
 
+/* ── The creator's header: Library, then the title on one line ── */
+.page-head.cg-head { justify-content: flex-start; gap: 4px; }
+.cg-head button.ghost {
+  height: 44px; padding: 0 10px; border-radius: 10px; border: 0; background: transparent;
+  color: var(--muted); font-size: 14px; font-weight: 500;
+  display: flex; align-items: center; gap: 6px; flex-shrink: 0;
+}
+.cg-head h2 {
+  margin: 0; font-size: 17px; font-weight: 700; color: var(--text);
+  display: flex; align-items: center; gap: 6px;
+}
+.cg-spark { color: var(--sparkle); flex-shrink: 0; }
+
 /* ── Step dots: the desktop's look (opt-in: StepIndicator variant="porch") ── */
 .step-indicator.porch .step-seg { align-items: flex-start; }
+.step-indicator.porch .step-seg:first-child { flex: 0 0 auto; }
 .step-indicator.porch .step-line {
   margin: 11px 4px 0; background: rgba(51, 65, 85, 0.6);
 }
