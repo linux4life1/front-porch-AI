@@ -110,8 +110,20 @@ extension _HomePageLibraryActions on _HomePageState {
     ).uiSettings.setGridScale(scale);
   }
 
+  /// Remembered per level, like the sort: the top level offers Everywhere
+  /// and Top level only, a folder its three choices.
   void _handleSearchScopeChanged(SearchScope scope) {
-    applyState(() => _searchScope = scope);
+    final prefs = Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).uiSettings;
+    if (_activeFolderId == null) {
+      applyState(() => _topSearchScope = scope);
+      prefs.setTopSearchScope(scope.name);
+    } else {
+      applyState(() => _folderSearchScope = scope);
+      prefs.setFolderSearchScope(scope.name);
+    }
   }
 
   void _handleSearchQueryChanged(String query) {

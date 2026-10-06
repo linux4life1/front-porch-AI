@@ -22,6 +22,10 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+/// Where a library search looks (#346). Inside a folder: that folder's own
+/// cards, the folder and everything below it, or everywhere. At the top
+/// level [currentFolder] is "Top level only" (cards in no folder), and
+/// [folderRecursive] finds the same as [allCharacters] (everything).
 enum SearchScope { currentFolder, folderRecursive, allCharacters }
 
 /// What the home library grid shows, in display order: folder tiles, then
@@ -44,11 +48,10 @@ class LibraryView {
 
 /// The one place the home grid's folder, search and sort rules live.
 ///
-/// Browsing shows a folder's direct members (its subfolders are their own
-/// tiles; listing their cards too made phantom duplicates). Searching hides
-/// the folder tiles and looks inside subfolders, unless [scope] is
-/// [SearchScope.allCharacters], which ignores folders. At the top level,
-/// browsing shows only what is in no folder.
+/// Browsing shows a folder's direct members, and at the top level only what
+/// is in no folder: subfolders are their own tiles, and listing their cards
+/// as well made phantom duplicates. Searching hides the folder tiles and
+/// follows [scope] (see [SearchScope]) at every level.
 LibraryView libraryViewOf({
   required List<CharacterCard> characters,
   required List<GroupChat> groups,
@@ -66,9 +69,12 @@ LibraryView libraryViewOf({
   var casts = groups;
 
   final folderId = activeFolderId;
-  if (folderId != null && !(searching && scope == SearchScope.allCharacters)) {
+  final everywhere = searching && scope == SearchScope.allCharacters;
+  // Subfolders count only for a search that asks for them.
+  final recursive = searching && scope == SearchScope.folderRecursive;
+  if (folderId != null && !everywhere) {
     final names =
-        (searching
+        (recursive
                 ? folders.getCharactersInFolderRecursive(folderId)
                 : folders.getCharactersInFolder(folderId))
             .toSet();
@@ -78,7 +84,7 @@ LibraryView libraryViewOf({
           c,
     ];
     final ids =
-        (searching
+        (recursive
                 ? folders.groupIdsInFolderRecursive(folderId)
                 : folders.groupIdsInFolder(folderId))
             .toSet();
@@ -86,7 +92,7 @@ LibraryView libraryViewOf({
       for (final g in casts)
         if (ids.contains(g.id)) g,
     ];
-  } else if (folderId == null && !searching) {
+  } else if (folderId == null && !everywhere && !recursive) {
     final foldered = folders.getUnfolderedCharacterPaths();
     cards = [
       for (final c in cards)

@@ -19,12 +19,12 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
-    show SearchScope;
+import 'package:front_porch_ai/ui/widgets/library_view.dart' show SearchScope;
 
-/// The home grid's search field, with a folder-scope selector prefix when a
-/// folder is open. Extracted verbatim from CharacterCardGrid.build
-/// (behavior-preserving).
+/// The home grid's search field. Its leading button picks where a search
+/// looks, at every level (#346): inside a folder This Folder Only, Folder &
+/// Subfolders or All Characters; at the top level Everywhere or Top level
+/// only (cards in no folder).
 class HomeGridSearchBar extends StatelessWidget {
   const HomeGridSearchBar({
     super.key,
@@ -43,145 +43,139 @@ class HomeGridSearchBar extends StatelessWidget {
   final void Function(SearchScope scope) onSearchScopeChanged;
   final void Function(String query) onSearchQueryChanged;
 
+  /// At the top level, Folder & Subfolders is the whole library.
+  bool get _everywhere =>
+      searchScope == SearchScope.allCharacters ||
+      (activeFolderId == null && searchScope == SearchScope.folderRecursive);
+
+  PopupMenuItem<SearchScope> _scopeItem(
+    BuildContext context,
+    SearchScope value,
+    IconData icon,
+    String label, {
+    required bool selected,
+    required Color accent,
+  }) {
+    return PopupMenuItem(
+      value: value,
+      child: Row(
+        children: [
+          Icon(
+            icon,
+            size: 18,
+            color: selected ? accent : AppColors.iconSecondary(context),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            label,
+            style: TextStyle(
+              color: selected ? accent : AppColors.textSecondary(context),
+              fontSize: 13,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<PopupMenuEntry<SearchScope>> _scopeItems(BuildContext context) {
+    final honey = AppColors.porchHoneyOf(context);
+    final amber = AppColors.porchAmberOf(context);
+    if (activeFolderId == null) {
+      return [
+        _scopeItem(
+          context,
+          SearchScope.allCharacters,
+          Icons.search,
+          'Everywhere',
+          selected: _everywhere,
+          accent: honey,
+        ),
+        _scopeItem(
+          context,
+          SearchScope.currentFolder,
+          Icons.folder,
+          'Top level only',
+          selected: !_everywhere,
+          accent: amber,
+        ),
+      ];
+    }
+    return [
+      _scopeItem(
+        context,
+        SearchScope.currentFolder,
+        Icons.folder,
+        'This Folder Only',
+        selected: searchScope == SearchScope.currentFolder,
+        accent: amber,
+      ),
+      _scopeItem(
+        context,
+        SearchScope.folderRecursive,
+        Icons.snippet_folder,
+        'Folder & Subfolders',
+        selected: searchScope == SearchScope.folderRecursive,
+        accent: amber,
+      ),
+      _scopeItem(
+        context,
+        SearchScope.allCharacters,
+        Icons.search,
+        'All Characters',
+        selected: searchScope == SearchScope.allCharacters,
+        accent: honey,
+      ),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24.0),
-              child: TextField(
-                controller: searchController,
-                style: TextStyle(color: AppColors.textPrimary(context)),
-                decoration: InputDecoration(
-                  hintText:
-                      activeFolderId != null &&
-                          searchScope != SearchScope.allCharacters
-                      ? 'Search this folder...'
-                      : 'Search by name or tag...',
-                  hintStyle: TextStyle(color: AppColors.textTertiary(context)),
-                  prefixIcon: activeFolderId != null
-                      ? PopupMenuButton<SearchScope>(
-                          icon: Icon(
-                            searchScope == SearchScope.allCharacters
-                                ? Icons.search
-                                : Icons.folder_open,
-                            color: searchScope == SearchScope.allCharacters
-                                ? AppColors.porchHoneyOf(context)
-                                : AppColors.porchAmberOf(context),
-                            size: 20,
-                          ),
-                          tooltip: 'Search scope',
-                          color: AppColors.surfaceContainerOf(context),
-                          onSelected: onSearchScopeChanged,
-                          itemBuilder: (_) => [
-                            PopupMenuItem(
-                              value: SearchScope.currentFolder,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.folder,
-                                    size: 18,
-                                    color:
-                                        searchScope == SearchScope.currentFolder
-                                        ? AppColors.porchAmberOf(context)
-                                        : AppColors.iconSecondary(context),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'This Folder Only',
-                                    style: TextStyle(
-                                      color:
-                                          searchScope ==
-                                              SearchScope.currentFolder
-                                          ? AppColors.porchAmberOf(context)
-                                          : AppColors.textSecondary(context),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: SearchScope.folderRecursive,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.snippet_folder,
-                                    size: 18,
-                                    color:
-                                        searchScope ==
-                                            SearchScope.folderRecursive
-                                        ? AppColors.porchAmberOf(context)
-                                        : AppColors.iconSecondary(context),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'Folder & Subfolders',
-                                    style: TextStyle(
-                                      color:
-                                          searchScope ==
-                                              SearchScope.folderRecursive
-                                          ? AppColors.porchAmberOf(context)
-                                          : AppColors.textSecondary(context),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                            PopupMenuItem(
-                              value: SearchScope.allCharacters,
-                              child: Row(
-                                children: [
-                                  Icon(
-                                    Icons.search,
-                                    size: 18,
-                                    color:
-                                        searchScope == SearchScope.allCharacters
-                                        ? AppColors.porchHoneyOf(context)
-                                        : AppColors.iconSecondary(context),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    'All Characters',
-                                    style: TextStyle(
-                                      color:
-                                          searchScope ==
-                                              SearchScope.allCharacters
-                                          ? AppColors.porchHoneyOf(context)
-                                          : AppColors.textSecondary(context),
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        )
-                      : Icon(
-                          Icons.search,
-                          color: AppColors.iconSecondary(context),
-                        ),
-                  suffixIcon: searchQuery.isNotEmpty
-                      ? IconButton(
-                          icon: Icon(
-                            Icons.clear,
-                            color: AppColors.iconSecondary(context),
-                          ),
-                          onPressed: () {
-                            searchController.clear();
-                            onSearchQueryChanged('');
-                          },
-                        )
-                      : null,
-                  filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide.none,
+      padding: const EdgeInsets.symmetric(horizontal: 24.0),
+      child: TextField(
+        controller: searchController,
+        style: TextStyle(color: AppColors.textPrimary(context)),
+        decoration: InputDecoration(
+          hintText: activeFolderId != null && !_everywhere
+              ? 'Search this folder...'
+              : 'Search by name or tag...',
+          hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+          prefixIcon: PopupMenuButton<SearchScope>(
+            icon: Icon(
+              _everywhere ? Icons.search : Icons.folder_open,
+              color: _everywhere
+                  ? AppColors.porchHoneyOf(context)
+                  : AppColors.porchAmberOf(context),
+              size: 20,
+            ),
+            tooltip: 'Search scope',
+            color: AppColors.surfaceContainerOf(context),
+            onSelected: onSearchScopeChanged,
+            itemBuilder: _scopeItems,
+          ),
+          suffixIcon: searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: Icon(
+                    Icons.clear,
+                    color: AppColors.iconSecondary(context),
                   ),
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                ),
-                onChanged: onSearchQueryChanged,
-              ),
-            );
+                  onPressed: () {
+                    searchController.clear();
+                    onSearchQueryChanged('');
+                  },
+                )
+              : null,
+          filled: true,
+          fillColor: AppColors.surfaceContainerOf(context),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide.none,
+          ),
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        onChanged: onSearchQueryChanged,
+      ),
+    );
   }
 }
