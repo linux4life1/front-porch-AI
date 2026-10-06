@@ -71,6 +71,7 @@ extension _CreatorCore on CreatorState {
       // already follows its first message.
       greetings.reset(
         next: genService.greetingRecipe ?? const GreetingRecipe(),
+        outfitFrom: card.firstMessage,
       );
       _applyGeneratedPorchLife(card);
       lorebookEntryEnabled = {};

@@ -8,10 +8,10 @@
 // into {{char}}) in the box; while it is written only Stop works and Back and
 // Next wait, but the AppBar's back arrow keeps today's lock. Stop leaves the
 // old text. Delete takes an alternate and its starting state together. Add
-// writes a new one until 5, then waits. A new first message leaves the outfit
-// alone and the Realism step offers the re-read, which runs the creation pass
-// on the NEW first message; Keep this outfit just closes the hint. Each
-// greeting's starting state stays on Review.
+// writes a new one until 5, then waits. A new first message, rewritten or
+// edited by hand, leaves the outfit alone and the Realism step offers the
+// re-read, which runs the creation pass on the NEW first message; Keep this
+// outfit just closes the hint. Each greeting's starting state stays on Review.
 //
 // The model is the scripted LLMService the creator tests already use (it
 // answers by what the prompt asks for). The real CharacterGenService builds
@@ -397,6 +397,26 @@ void main() {
     expect(find.text('The first message changed'), findsOneWidget);
     await _tap(tester, find.byKey(const ValueKey('outfit-keep')));
     expect(find.text('The first message changed'), findsNothing);
+    expect(state.realismWorn, ['salt-stiff work shirt']);
+
+    // ── A hand edit counts too: the outfit was read from words that are no
+    // longer there. Keep settles it for the new words. ──
+    await _tap(tester, find.text('Back'));
+    expect(state.currentStep, 4);
+    await tester.enterText(
+      find.byKey(const ValueKey('greeting-box-0')),
+      '*{{char}} waits on the stairs with a lantern.* "Took you long enough."',
+    );
+    await _settle(tester);
+    await _tap(tester, find.text('Next: Realism'));
+    expect(
+      hint,
+      findsOneWidget,
+      reason: 'a hand edit leaves the outfit behind as much as a rewrite',
+    );
+    await tester.ensureVisible(hint);
+    await _tap(tester, find.byKey(const ValueKey('outfit-keep')));
+    expect(hint, findsNothing);
     expect(state.realismWorn, ['salt-stiff work shirt']);
 
     // ── Each greeting's starting state stays on Review ──

@@ -135,7 +135,15 @@ extension ChargenGreetings on ChargenFacade {
     return {'ok': true, ..._greetingsOf(characterId)};
   }
 
-  /// Keep how a character created here wrote its greetings (the last few).
+  /// How [card] wrote its greetings: the full recipe when this run created
+  /// it (the cache, persona and all lore included), else the stamp the card
+  /// carries since creation, which survives a reload and a restart.
+  GreetingRecipe _recipeFor(String characterId, CharacterCard card) =>
+      _recipes[characterId] ??
+      readGreetingRecipe(card) ??
+      const GreetingRecipe();
+
+  /// Cache how a character created here wrote its greetings (the last few).
   void _rememberRecipe(String? characterId, GreetingRecipe? recipe) {
     if (characterId == null || recipe == null) return;
     _recipes.remove(characterId);
@@ -158,7 +166,7 @@ extension ChargenGreetings on ChargenFacade {
         card: card,
         index: job.index,
         direction: direction,
-        recipe: _recipes[job.characterId] ?? const GreetingRecipe(),
+        recipe: _recipeFor(job.characterId, card),
         onProgress: (s) {
           // The hub paints every ~33 ms anyway; a phone needs far fewer.
           final now = DateTime.now();

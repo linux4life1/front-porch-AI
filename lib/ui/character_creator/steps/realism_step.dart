@@ -228,9 +228,13 @@ class RealismStep extends StatelessWidget {
                   state.realismCarrying = v;
                   state.notify();
                 },
-                // A rewritten first message leaves the outfit alone and
+                // A first message that changed since the outfit was read
+                // (rewritten or edited by hand) leaves the outfit alone and
                 // says so here, right above it (#370).
-                wardrobeNotice: state.greetings.firstMessageChanged
+                wardrobeNotice:
+                    state.greetings.firstMessageChangedFrom(
+                      state.firstMessageController.text,
+                    )
                     ? OutfitHint(
                         reading: state.greetings.rereadingOutfit,
                         error: state.greetings.outfitError,

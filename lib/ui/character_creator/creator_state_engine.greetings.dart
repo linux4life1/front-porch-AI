@@ -95,8 +95,9 @@ extension CreatorGreetingEngine on CreatorState {
       ..outfitGen = gen
       ..outfitError = null;
     notify();
+    final card = _greetingCard();
     final read = await gen
-        .rereadOpeningWardrobe(card: _greetingCard(), recipe: g.recipe)
+        .rereadOpeningWardrobe(card: card, recipe: g.recipe)
         .catchError((Object e) {
           debugPrint('CharacterCreator: outfit re-read failed: $e');
           return null;
@@ -112,15 +113,16 @@ extension CreatorGreetingEngine on CreatorState {
     } else {
       realismWorn = read.worn;
       realismCarrying = read.carrying;
-      g.firstMessageChanged = false;
+      g.outfitReadFrom = card.firstMessage;
     }
     notify();
   }
 
-  /// "Keep this outfit": the hint goes, the outfit stays.
+  /// "Keep this outfit": the outfit stays and now stands for the first
+  /// message as it reads today, so the hint goes until that changes again.
   void keepOutfit() {
     greetings
-      ..firstMessageChanged = false
+      ..outfitReadFrom = firstMessageController.text
       ..outfitError = null;
     notify();
   }
@@ -173,9 +175,9 @@ extension CreatorGreetingEngine on CreatorState {
         'was. Check that your model is running, then try again.',
       );
     } else if (index == 0) {
+      // The outfit was read from the old words; Realism sees the difference
+      // (CreatorGreetings.firstMessageChangedFrom) and offers a re-read.
       firstMessageController.text = text;
-      // The outfit was read from the old one; Realism offers a re-read.
-      g.firstMessageChanged = true;
     } else if (index <= altGreetingControllers.length) {
       altGreetingControllers[index - 1].text = text;
     } else {

@@ -34,8 +34,16 @@ const MODES: { id: ChargenMode; title: string; blurb: string; cls: string }[] = 
 export function CreateAiCharacterPage() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
-  // The character this run saved; its greetings are the last step.
-  const createdId = params.get('greetings');
+  // The character this run saved; its greetings are the last step. Held in
+  // state and set with the step on chargen_done: the router applies the URL
+  // as a transition, after the step change, so reading the id only from the
+  // URL let one render show the step without it. The URL keeps the id across
+  // a reload, and a different id arriving there is followed.
+  const urlId = params.get('greetings');
+  const [createdId, setCreatedId] = useState<string | null>(urlId);
+  useEffect(() => {
+    if (urlId) setCreatedId(urlId);
+  }, [urlId]);
   const [form, setForm] = useState<ChargenForm>(DEFAULT_FORM);
   const set = (p: Partial<ChargenForm>) => setForm((f) => ({ ...f, ...p }));
   const [step, setStep] = useState(() => (createdId ? GREETINGS : 0));
@@ -57,11 +65,13 @@ export function CreateAiCharacterPage() {
       if (e.event === 'chargen_status' && e.data) {
         setSteps((s) => [...s, e.data!]);
       } else if (e.event === 'chargen_done') {
+        const id = String(e.id);
         setBusy(false);
+        setCreatedId(id);
+        setStep(GREETINGS);
         // Replace, so the browser's Back leaves the creator instead of
         // landing on it with no character.
-        navigate(`/create-ai?greetings=${encodeURIComponent(String(e.id))}`, { replace: true });
-        setStep(GREETINGS);
+        navigate(`/create-ai?greetings=${encodeURIComponent(id)}`, { replace: true });
       } else if (e.event === 'chargen_error') {
         setBusy(false);
         setError(e.error || 'Generation failed');

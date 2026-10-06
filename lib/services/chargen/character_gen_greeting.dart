@@ -53,7 +53,73 @@ class GreetingRecipe {
   /// first tone, then round the list for the alternates.
   String toneFor(int index) =>
       tones.isEmpty ? 'Neutral' : tones[index % tones.length];
+
+  /// What [stampGreetingRecipe] writes on the card. Not the user's persona:
+  /// a card travels, and the persona is the user's. Long texts are cut to
+  /// what the prompts read (the interview) or to a size an export can carry
+  /// (the lore).
+  Map<String, dynamic> toStamp() => {
+    'length': greetingLength,
+    'tones': tones,
+    if (characterContext.isNotEmpty)
+      'context': _cut(characterContext, _stampContextChars),
+    if (interviewTranscript.isNotEmpty)
+      'interview': _cut(interviewTranscript, _stampInterviewChars),
+    if ((worldLore ?? '').trim().isNotEmpty)
+      'lore': _cut(worldLore!, _stampLoreChars),
+    'macros': includeDynamicMacros,
+    'reasoning': reasoningEnabled,
+    'nsfw': nsfwEnabled,
+  };
+
+  /// A stamp read back; null when [raw] is not one. Odd values fall back to
+  /// the defaults rather than failing (the card may come from anywhere).
+  static GreetingRecipe? fromStamp(Object? raw) {
+    if (raw is! Map) return null;
+    String text(String key) => raw[key] is String ? raw[key] as String : '';
+    final tones = [
+      if (raw['tones'] is List)
+        for (final t in raw['tones'] as List)
+          if (t is String && t.trim().isNotEmpty) t,
+    ];
+    final length = text('length');
+    final lore = text('lore');
+    return GreetingRecipe(
+      greetingLength: length.isEmpty ? 'Medium (2-4 paragraphs)' : length,
+      tones: tones.isEmpty ? const ['Neutral'] : tones,
+      characterContext: text('context'),
+      interviewTranscript: text('interview'),
+      worldLore: lore.trim().isEmpty ? null : lore,
+      includeDynamicMacros: raw['macros'] == true,
+      reasoningEnabled: raw['reasoning'] == true,
+      nsfwEnabled: raw['nsfw'] == true,
+    );
+  }
 }
+
+/// Where the recipe sits in the card's extension data, beside the narrative
+/// voice's stamp, so a greeting rewritten after a reload or a restart still
+/// matches the others.
+const kGreetingRecipeExtensionKey = 'greeting_recipe';
+
+/// The prompts read the interview's first 1,400 characters at most; lore
+/// past 8,000 would weigh down every export of the card.
+const _stampInterviewChars = 1400;
+const _stampLoreChars = 8000;
+const _stampContextChars = 4000;
+
+String _cut(String s, int max) => s.length > max ? s.substring(0, max) : s;
+
+/// Write [recipe] onto [card], as [stampNarrativeVoice] writes the voice.
+void stampGreetingRecipe(CharacterCard card, GreetingRecipe recipe) {
+  final raw = Map<String, dynamic>.from(card.rawExtensions ?? {});
+  raw[kGreetingRecipeExtensionKey] = recipe.toStamp();
+  card.rawExtensions = raw;
+}
+
+/// The recipe [card] was created with, or null when it carries none.
+GreetingRecipe? readGreetingRecipe(CharacterCard? card) =>
+    GreetingRecipe.fromStamp(card?.rawExtensions?[kGreetingRecipeExtensionKey]);
 
 /// One greeting at a time, for the creator's Greetings step.
 extension GenGreeting on CharacterGenService {

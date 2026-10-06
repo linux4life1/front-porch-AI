@@ -46,9 +46,18 @@ class CreatorGreetings {
   /// How creation wrote the greetings, so one more is written the same way.
   GreetingRecipe recipe = const GreetingRecipe();
 
-  /// The first message was rewritten after creation: the Realism step offers
-  /// to read the outfit again from it. Nothing is changed until asked.
-  bool firstMessageChanged = false;
+  /// The first message text the outfit (Wearing / Carrying) was read from:
+  /// the generated one, a re-read's, or the text "Keep this outfit" accepted.
+  /// Null before a card is generated.
+  String? outfitReadFrom;
+
+  /// The first message no longer says what the outfit was read from,
+  /// rewritten or edited by hand: the Realism step offers a re-read. Nothing
+  /// is changed until asked.
+  bool firstMessageChangedFrom(String current) {
+    final from = outfitReadFrom;
+    return from != null && current.trim() != from.trim();
+  }
 
   /// The outfit re-read is running, and its run (for leaving mid-read).
   bool rereadingOutfit = false;
@@ -81,8 +90,12 @@ class CreatorGreetings {
   }
 
   /// A new card (or Start over): stop any write or re-read, drop the steer
-  /// boxes and the hint, and keep [next] as the new card's recipe.
-  void reset({GreetingRecipe next = const GreetingRecipe()}) {
+  /// boxes, keep [next] as the new card's recipe and [outfitFrom] as the
+  /// first message its outfit was read from.
+  void reset({
+    GreetingRecipe next = const GreetingRecipe(),
+    String? outfitFrom,
+  }) {
     stopAll();
     for (final steer in _steers.values) {
       _disposeLater(steer);
@@ -90,7 +103,7 @@ class CreatorGreetings {
     _steers.clear();
     clearError();
     recipe = next;
-    firstMessageChanged = false;
+    outfitReadFrom = outfitFrom;
     outfitError = null;
   }
 

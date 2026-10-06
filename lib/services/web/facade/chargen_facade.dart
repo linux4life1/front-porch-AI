@@ -60,8 +60,9 @@ class ChargenFacade {
   final ChatService? _chat;
 
   /// The Greetings step (chargen_facade.greetings.dart): the one greeting
-  /// being written, how each character created here wrote its greetings,
-  /// and whether a whole character is being created right now.
+  /// being written, a cache of how characters created here wrote their
+  /// greetings (the card's own stamp is the record), and whether a whole
+  /// character is being created right now.
   _GreetingJob? _greetingJob;
   final Map<String, GreetingRecipe> _recipes = {};
   bool _creating = false;
