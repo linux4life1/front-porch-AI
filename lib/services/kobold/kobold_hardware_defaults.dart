@@ -68,13 +68,69 @@ int? physicalCoresFromLscpu(String output) {
   return cores.isEmpty ? null : cores.length;
 }
 
-/// Threads to give KoboldCpp: the physical cores on a machine with
-/// hyper-threading, otherwise one fewer than there are.
+/// Threads to give KoboldCpp. Apple Silicon: its performance cores (the
+/// efficiency cores slow the maths and the app's window needs some of them;
+/// a preset that asked for every core but one on an 18-core Mac starved the
+/// window while a long prompt was read). A machine with hyper-threading:
+/// the physical cores, whose second threads keep the app responsive.
+/// Otherwise one fewer than there are.
 Future<int> suggestKoboldThreads() async {
   final logical = Platform.numberOfProcessors;
   final physical = await detectPhysicalCpuCores();
-  if (logical > physical) return physical;
-  return (logical - 1).clamp(1, logical);
+  return koboldThreadsFor(
+    logical: logical,
+    physical: physical,
+    performance: Platform.isMacOS ? await detectPerformanceCores() : null,
+  );
+}
+
+/// The rule behind [suggestKoboldThreads], for the counts given.
+/// [performance] is the performance-core count where the chip has two
+/// kinds (Apple Silicon); null or zero means no such split is known.
+int koboldThreadsFor({
+  required int logical,
+  required int physical,
+  int? performance,
+}) {
+  if (performance != null && performance > 0) {
+    // Two fast cores stay with the app and the engine's own housekeeping;
+    // a small chip keeps at least four (or all it has).
+    final spare = performance - 2;
+    final floor = performance < 4 ? performance : 4;
+    return spare > floor ? spare : floor;
+  }
+  if (logical > physical) return physical.clamp(1, logical);
+  return (physical - 1).clamp(1, physical);
+}
+
+/// Apple Silicon's fast cores: every `hw.perflevelN` cluster that is not
+/// the Efficiency one (an M5 Max reports a 6-core "Super" cluster and a
+/// 12-core "Performance" cluster; a base chip "Performance" and
+/// "Efficiency"). Null on an Intel Mac, which has no such keys, or when the
+/// tool cannot be run.
+Future<int?> detectPerformanceCores() async {
+  try {
+    var fast = 0;
+    for (var level = 0; level < 4; level++) {
+      final name = await Process.run('sysctl', [
+        '-n',
+        'hw.perflevel$level.name',
+      ]);
+      if (name.exitCode != 0) break;
+      final count = await Process.run('sysctl', [
+        '-n',
+        'hw.perflevel$level.physicalcpu',
+      ]);
+      final cores = int.tryParse(count.stdout.toString().trim()) ?? 0;
+      if (name.stdout.toString().trim().toLowerCase() != 'efficiency') {
+        fast += cores;
+      }
+    }
+    return fast > 0 ? fast : null;
+  } catch (e) {
+    debugPrint('[Kobold] performance core detection failed: $e');
+    return null;
+  }
 }
 
 /// The graphics backend a brand-new preset should name for this machine.
