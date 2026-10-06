@@ -332,6 +332,7 @@ export function useLibrary() {
     gridMin,
     setGridMin,
     loading,
+    reload,
     error,
     setError,
     importing,

@@ -221,6 +221,9 @@ extension WebServerHostWiring on WebServerHost {
       chatPackageFacade: chatService != null
           ? ChatPackageFacade(chatService)
           : null,
+      porchFacade: (chatService != null && _characterRepository != null)
+          ? PorchFacade(_characterRepository!, chatService, _storage)
+          : null,
       chatToolsFacade: chatToolsFacade,
       groupFacade: groupFacade,
       settingsFacade: settingsFacade,

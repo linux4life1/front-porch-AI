@@ -13,6 +13,7 @@ import { useNavigate } from 'react-router-dom';
 import { InstallHint } from '../components/InstallHint';
 import { useLayout } from '../hooks/useBreakpoint';
 import { useLibrary, type LibChar, type LibFolder, type LibGroup } from '../hooks/useLibrary';
+import { usePorchTransfer } from '../hooks/usePorchTransfer';
 import { useProgressiveList } from '../hooks/useProgressiveList';
 import { CardMenu, type CardMenuItem, type MenuState } from '../components/library/CardMenu';
 import { CharacterCard, FolderCard, GroupCard } from '../components/library/LibraryCards';
@@ -70,6 +71,12 @@ export function CharactersPage() {
   const fileRef = useRef<HTMLInputElement>(null);
   const folderInputRef = useRef<HTMLInputElement>(null);
   const byafRef = useRef<HTMLInputElement>(null);
+  const porchRef = useRef<HTMLInputElement>(null);
+  const porch = usePorchTransfer({
+    reload: lib.reload,
+    setError: lib.setError,
+    cancelSelecting: lib.cancelSelecting,
+  });
 
   // `webkitdirectory` (whole-folder import) isn't a typed JSX attribute, so set
   // it on the element directly once it mounts.
@@ -139,6 +146,7 @@ export function CharactersPage() {
       onImportCards: () => fileRef.current?.click(),
       onImportFolder: () => folderInputRef.current?.click(),
       onImportByaf: () => byafRef.current?.click(),
+      onImportPorch: () => porchRef.current?.click(),
     });
 
   // ── Drag-and-drop (desktop/tablet only; phone uses the menu's Move action) ─
@@ -239,11 +247,25 @@ export function CharactersPage() {
           e.target.value = '';
         }}
       />
+      <input
+        ref={porchRef}
+        type="file"
+        accept=".porch,.porchpack"
+        multiple
+        hidden
+        data-testid="porch-import-input"
+        onChange={(e) => {
+          void porch.importPorch(e.target.files);
+          e.target.value = '';
+        }}
+      />
 
       {lib.selecting && (
         <SelectionBar
           count={lib.selectedIds.size}
           onMove={() => setDialog({ kind: 'move', ids: Array.from(lib.selectedIds) })}
+          onExport={() => void porch.exportPorch(Array.from(lib.selectedIds))}
+          exporting={porch.busy}
           onDelete={() => setDialog({ kind: 'deleteSelected', ids: Array.from(lib.selectedIds) })}
           onCancel={lib.cancelSelecting}
         />

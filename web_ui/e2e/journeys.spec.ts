@@ -7,6 +7,7 @@
 // survive a reload. Replies come from the host's stand-in backend; the text
 // is FPAI_REPLY.
 
+import { readFile } from 'node:fs/promises';
 import type { Locator, Page } from '@playwright/test';
 import { expect, openRoute, SERIAL, test } from './support/fixtures';
 
@@ -348,6 +349,35 @@ test('New Story walks four steps, keeps the draft when you leave, and the shelf 
   await expect(page).toHaveURL(/\/stories$/);
   const book = page.locator('[data-testid^="story-book-"]', { hasText: 'Draft Journey' }).first();
   await expect(book).toContainText('Stopped at step 4 · Engine');
+});
+
+// Issue #348: two selected characters leave as one .porchpack, and the same
+// file brought back is skipped by name, because the library still has them.
+// Export opens each character's chats to pack them and then reopens the
+// chat that was open, so the journeys after this one find it unchanged.
+test('export two characters as one .porchpack; importing it back skips both by name', async ({ page }) => {
+  await openRoute(page, '/');
+  await page.getByRole('button', { name: '☑ Select' }).click();
+  for (const name of ['Porch Tester', 'Second Guest']) {
+    await page.locator('.lib-card', { hasText: name }).locator('.lib-open').click();
+  }
+  const bar = page.locator('.selection-bar');
+  await expect(bar).toContainText('2 selected');
+
+  const download = page.waitForEvent('download');
+  await bar.getByRole('button', { name: '⬇ Export' }).click();
+  const file = await download;
+  expect(file.suggestedFilename()).toBe('Front Porch characters (2).porchpack');
+  await expect(bar).toHaveCount(0);
+
+  await page.getByTestId('porch-import-input').setInputFiles({
+    name: file.suggestedFilename(),
+    mimeType: 'application/octet-stream',
+    buffer: await readFile((await file.path())!),
+  });
+  await expect(page.locator('p.error')).toHaveText(
+    'Skipped 2 you already have: Porch Tester, Second Guest.',
+  );
 });
 
 // Chat and the rest of the suite run on the stand-in backend. The Local model

@@ -109,6 +109,25 @@ export const api = {
     }
     return res.blob();
   },
+  /** POST JSON and get a file back, named by the server's
+   *  `Content-Disposition: attachment; filename*=UTF-8''…` (.porch export). */
+  postForFile: async (
+    path: string,
+    body: unknown,
+    fallbackName: string,
+  ): Promise<{ blob: Blob; fileName: string }> => {
+    const res = await fetch(path, {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      throw parseApiErrorBody(await res.text(), res.status);
+    }
+    const named = /filename\*=UTF-8''([^;]+)/i.exec(res.headers.get('Content-Disposition') ?? '');
+    return { blob: await res.blob(), fileName: named ? decodeURIComponent(named[1]) : fallbackName };
+  },
   /** POST a raw recording blob and get JSON back (STT transcription). The
    *  container extension rides as a query param so the server names the temp
    *  file Whisper reads. */

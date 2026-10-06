@@ -66,6 +66,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
   if (deps.chatPackageFacade != null) {
     WebChatPackageRoutes(deps.chatPackageFacade!, router);
   }
+  if (deps.porchFacade != null) WebPorchRoutes(deps.porchFacade!, router);
   if (deps.chatToolsFacade != null) {
     WebChatToolsRoutes(deps.chatToolsFacade!, router);
   }
