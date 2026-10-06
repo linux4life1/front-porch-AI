@@ -24,11 +24,13 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/ui/character_creator/chargen_json.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 
 part 'creator_state_engine.tools.dart';
 part 'creator_state_engine.modes.dart';
 part 'creator_state_engine.core.dart';
+part 'creator_state_engine.greetings.dart';
 
 /// The real generation + save engine for the AI character creator, restored
 /// faithfully from the pre-refactor implementation. Lives as an extension so

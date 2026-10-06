@@ -2,13 +2,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/chat/birthday.dart';
-import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Step 4: seed the Realism Engine's initial state for the generated character.
+/// Step 5: seed the Realism Engine's initial state for the generated character.
 /// Restored from the god file's `_buildRealismStep` — the full form is now wired
 /// to CreatorState instead of the dummy hardcoded values the refactor shipped.
 class RealismStep extends StatelessWidget {
@@ -225,6 +228,21 @@ class RealismStep extends StatelessWidget {
                   state.realismCarrying = v;
                   state.notify();
                 },
+                // A rewritten first message leaves the outfit alone and
+                // says so here, right above it (#370).
+                wardrobeNotice: state.greetings.firstMessageChanged
+                    ? OutfitHint(
+                        reading: state.greetings.rereadingOutfit,
+                        error: state.greetings.outfitError,
+                        onReread: () => state.rereadOutfit(
+                          llmProvider: Provider.of<LLMProvider>(
+                            context,
+                            listen: false,
+                          ),
+                        ),
+                        onKeep: state.keepOutfit,
+                      )
+                    : null,
                 realismVerificationEnabled: state.realismVerificationEnabled,
                 onRealismVerificationChanged: (v) {
                   state.realismVerificationEnabled = v;

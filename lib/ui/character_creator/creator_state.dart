@@ -25,6 +25,8 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'creator_state.prefs.dart';
 part 'creator_state.models.dart';
@@ -35,7 +37,8 @@ enum CreatorMode { automated, guided, quick }
 /// Shared state for the AI character creator wizard: form fields,
 /// controllers, prefs, load/save/reset, step index, and generation.
 class CreatorState extends ChangeNotifier {
-  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=realism, 5=review)
+  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=greetings,
+  // 5=realism, 6=review)
   int _currentStep = 0;
   int get currentStep => _currentStep;
   set currentStep(int value) {
@@ -149,11 +152,20 @@ class CreatorState extends ChangeNotifier {
   final descController = TextEditingController();
   final personalityController = TextEditingController();
   final scenarioController = TextEditingController();
-  final firstMessageController = TextEditingController();
+  // Greeting boxes are the character editor's: spell check plus macro,
+  // "dialogue" and *action* colouring. Alternates are made the same way.
+  final firstMessageController = StyledTextController(
+    preset: StyledTextPreset.prose,
+  );
   final exampleDialogueController = TextEditingController();
   final systemPromptController = TextEditingController();
   List<TextEditingController> altGreetingControllers = [];
   List<GreetingRealismSeed?> greetingSeeds = [];
+  final greetings = CreatorGreetings();
+
+  /// An alternate greeting's box, made like [firstMessageController].
+  TextEditingController newGreetingBox([String text = '']) =>
+      StyledTextController(text: text, preset: StyledTextPreset.prose);
 
   // SharedPreferences keys (all lifted)
   static const _prefName = 'chargen_name';
@@ -412,6 +424,8 @@ class CreatorState extends ChangeNotifier {
   void disposeControllers() {
     // Keep what was typed in the last half second before leaving.
     if (_saveTimer?.isActive ?? false) saveState();
+    // A greeting still being written must not land in a disposed box.
+    greetings.dispose();
     nameController.dispose();
     conceptController.dispose();
     keywordsController.dispose();

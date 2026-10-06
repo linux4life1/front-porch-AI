@@ -319,6 +319,9 @@ extension CreatorStatePrefs on CreatorState {
     loreUrlsController.clear();
     loreFiles.clear();
 
+    // Greetings step: stop a write first, so nothing lands in a box below.
+    greetings.reset();
+
     // Review controllers
     descController.clear();
     personalityController.clear();

@@ -202,6 +202,7 @@ extension RealismFormPorch on RealismFormSection {
         onCarryingChanged: onCarryingChanged,
         pocketsEnabled: pocketsEnabled,
         onPocketsEnabledChanged: onPocketsEnabledChanged,
+        wardrobeNotice: wardrobeNotice,
       ),
     ];
   }

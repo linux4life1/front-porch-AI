@@ -67,6 +67,11 @@ extension _CreatorCore on CreatorState {
 
     if (card != null) {
       generatedCard = card;
+      // A new card: its greetings were written this way, and its outfit
+      // already follows its first message.
+      greetings.reset(
+        next: genService.greetingRecipe ?? const GreetingRecipe(),
+      );
       _applyGeneratedPorchLife(card);
       lorebookEntryEnabled = {};
       final lore = card.lorebook;
@@ -85,7 +90,7 @@ extension _CreatorCore on CreatorState {
         c.dispose();
       }
       altGreetingControllers = [
-        for (final g in card.alternateGreetings) TextEditingController(text: g),
+        for (final g in card.alternateGreetings) newGreetingBox(g),
       ];
       greetingSeeds = alignGreetingSeeds(
         card.frontPorchExtensions?.greetingSeeds ?? const [],
@@ -95,7 +100,7 @@ extension _CreatorCore on CreatorState {
       progress = 1.0;
       isGenerating = false;
       activeGenService = null;
-      setStep(4); // → Realism Engine step
+      setStep(4); // → Greetings step
       notify();
     } else {
       generatedCard = null;
@@ -104,7 +109,7 @@ extension _CreatorCore on CreatorState {
       if (!generationStatus.startsWith('Error')) {
         generationStatus = 'Generation failed. Check your backend connection.';
       }
-      setStep(4); // → Realism step (shows the error/Try-Again state)
+      setStep(4); // → Greetings step (shows the error/Try-Again state)
       notify();
     }
   }

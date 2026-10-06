@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/character_creator/steps/quick_config_step.dart
 import 'package:front_porch_ai/ui/character_creator/steps/guided_config_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/automated_config_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/generating_step.dart';
+import 'package:front_porch_ai/ui/character_creator/steps/greetings_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/realism_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/review_step.dart';
 
@@ -184,9 +185,11 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         _stepLine(context),
         _stepDot(context, 3, 'Generate'),
         _stepLine(context),
-        _stepDot(context, 4, 'Realism'),
+        _stepDot(context, 4, 'Greetings'),
         _stepLine(context),
-        _stepDot(context, 5, 'Review'),
+        _stepDot(context, 5, 'Realism'),
+        _stepLine(context),
+        _stepDot(context, 6, 'Review'),
       ],
     );
   }
@@ -253,7 +256,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     VoidCallback? onNext,
     bool showBack = true,
   }) {
-    final labels = ['Mode', 'Configure', 'Generate', 'Realism', 'Review'];
+    final labels = [
+      'Mode',
+      'Configure',
+      'Generate',
+      'Greetings',
+      'Realism',
+      'Review',
+    ];
     final nextText =
         nextLabel ??
         (currentStep < labels.length
@@ -266,7 +276,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     // the card + review fields), and Next jumped to the Realism step, which
     // reports "Generation failed" for a null card while the first is still
     // streaming. Abort Generation on the step itself remains the way out.
-    final busy = creatorState.isGenerating;
+    // A greeting being written (or the outfit being re-read) holds them the
+    // same way; that card's Stop is the way out. The AppBar keeps today's
+    // lock: leaving or starting over stops the write instead.
+    final busy = creatorState.isGenerating || creatorState.greetings.busy;
 
     return Padding(
       padding: const EdgeInsets.only(top: 32),
@@ -318,14 +331,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                               );
                               return;
                             }
-                            if (currentStep == 5) {
+                            if (currentStep == 6) {
                               _saveAndFinish();
                               return;
                             }
                             creatorState.currentStep = currentStep + 1;
                           },
                 icon: Icon(
-                  currentStep >= 5 ? Icons.check : Icons.arrow_forward,
+                  currentStep >= 6 ? Icons.check : Icons.arrow_forward,
                   size: 20,
                 ),
                 label: Text(nextText, style: const TextStyle(fontSize: 16)),
@@ -406,6 +419,8 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   : creatorState.currentStep == 3
                   ? GeneratingStep(state: creatorState)
                   : creatorState.currentStep == 4
+                  ? GreetingsStep(state: creatorState)
+                  : creatorState.currentStep == 5
                   ? RealismStep(state: creatorState)
                   : ReviewStep(state: creatorState),
             ),
