@@ -63,6 +63,11 @@ extension CharacterFacadeImport on CharacterFacade {
       );
       card.alternateGreetings = paired.greetings;
     }
+    // Greetings written by AI Enhance come with the recipe they were written
+    // with (the Enhance proposal's greetingRecipe); it replaces the one the
+    // duplicate brought from the original's creation.
+    final recipe = GreetingRecipe.fromStamp(fields['greetingRecipe']);
+    if (recipe != null) stampGreetingRecipe(card, recipe);
     // Linked worlds (attach worlds/lorebooks to a character). Worlds are keyed
     // by name; only replace when present so a partial edit doesn't clear them.
     final worlds = fields['worldNames'];

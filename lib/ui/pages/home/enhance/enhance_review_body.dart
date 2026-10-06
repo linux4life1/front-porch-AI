@@ -188,6 +188,12 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
             greetingSeeds: greetingPairs.seeds,
           );
         }
+        // The duplicate brought the original creation's greeting recipe;
+        // these greetings are Enhance's, so a later rewrite follows Enhance.
+        stampGreetingRecipe(
+          copy,
+          readGreetingRecipe(widget.enhanced) ?? const GreetingRecipe(),
+        );
       }
       final loreEntries = widget.enhanced.lorebook?.entries ?? [];
       final keptLore = [

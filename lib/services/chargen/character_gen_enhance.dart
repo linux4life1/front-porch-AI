@@ -263,6 +263,21 @@ extension GenEnhance on CharacterGenService {
     if (!selection.description) card.description = source.description;
     if (!selection.personality) card.personality = source.personality;
     if (!selection.scenario) card.scenario = source.scenario;
+    // How these greetings were written, for the copy that takes them (it is
+    // a duplicate, so it starts with the original creation's recipe): one
+    // neutral tone, this length, no lore. The chat they were grounded in and
+    // its interview stay out: a card travels, a chat stays where it is.
+    if (selection.greetings) {
+      stampGreetingRecipe(
+        card,
+        GreetingRecipe(
+          greetingLength: greetingLength,
+          tones: const ['Neutral'],
+          reasoningEnabled: reasoningEnabled,
+          nsfwEnabled: nsfwEnabled,
+        ),
+      );
+    }
     onStatus?.call('Character enhanced!');
     return card;
   }

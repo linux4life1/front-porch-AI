@@ -205,6 +205,12 @@ class ChargenFacade {
           if (selection.greetings) 'firstMessage': result.firstMessage,
           if (selection.greetings)
             'alternateGreetings': result.alternateGreetings,
+          // How those greetings were written; the phone sends it back with
+          // them, so the copy does not keep the original's recipe.
+          if (selection.greetings)
+            'greetingRecipe':
+                (readGreetingRecipe(result) ?? const GreetingRecipe())
+                    .toStamp(),
           if (selection.lorebook && result.lorebook != null)
             'lorebook': result.lorebook!.toJson(),
           if (porch != null)
