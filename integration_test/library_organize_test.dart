@@ -199,7 +199,16 @@ void main() {
       tester,
       find.text('Move 2 characters to folder (2 hidden)'),
     );
-    await tester.tap(find.text('Aspen').last);
+    // The picker's row, not the Aspen tile behind the dialog.
+    await tester.tap(
+      find.descendant(
+        of: find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(ListTile),
+        ),
+        matching: find.text('Aspen'),
+      ),
+    );
     await pumpUntilTrue(
       tester,
       () => folderService.getCharactersInFolder(aspen.id).length == 2,
