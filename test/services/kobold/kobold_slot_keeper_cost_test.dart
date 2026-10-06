@@ -1,9 +1,11 @@
-// Whether a chat is worth keeping: what keeping it costs (the save after each
-// reply, which holds the line, and the load before the next one) against what
-// it spares (reading the whole chat again), at the speed the engine itself
-// reads. The same slow save keeps a long chat and lets a short one go; a first
-// save into a slot never used, which also makes that slot's buffer, decides
-// nothing; a chat let go is tried again as it grows.
+// Whether a chat is worth keeping: what keeping it costs the user in waiting
+// (the part of the save after each reply that the next turn waits for, and
+// the load before the next reply) against what it spares (reading the whole
+// chat again), at the speed the engine itself reads. Here the next turn
+// starts as soon as each reply ends, so all of each save is waited for. The
+// same slow save keeps a long chat and lets a short one go; a first save into
+// a slot never used, which also makes that slot's buffer, decides nothing; a
+// chat let go is tried again as it grows.
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -72,12 +74,15 @@ void main() {
     reading = (tokens) => Duration(milliseconds: tokens);
   });
 
-  /// A judge, then a reply of [chat] that leaves [tokens] in the cache.
+  /// A judge, then a reply of [chat] that leaves [tokens] in the cache. The
+  /// next turn starts at once, so it waits for all of the save.
   Future<void> reply(KoboldSlotKeeper k, String chat, int tokens) async {
     k.helperStart();
     await k.chatStart(chat);
     api.live = tokens;
-    await k.chatEnd(chat, ok: true);
+    final saving = k.chatEnd(chat, ok: true);
+    k.turnStarts();
+    await saving;
   }
 
   List<String> letGo() => [
@@ -126,7 +131,7 @@ void main() {
       'save and a quick second one keep the chat', () async {
     api.saveTakes = const Duration(milliseconds: 800);
     final k = keeper();
-    await reply(k, 'A', 500); // 0.8 s, and a load as long, against 0.5 s
+    await reply(k, 'A', 500); // 0.8 s against 0.5 s
     expect(k.kept, 1, reason: 'the first save into a new slot decided');
 
     api.saveTakes = const Duration(milliseconds: 20);
@@ -159,14 +164,14 @@ void main() {
     api.saved.clear();
     await reply(k, 'A', 300);
     expect(api.saved, isEmpty, reason: 'saved again at once');
-    await reply(k, 'A', 350); // tried: still 0.6 s against 0.35 s
+    await reply(k, 'A', 350); // tried: still 0.4 s against 0.35 s
     expect(api.saved, hasLength(1));
     expect(k.kept, 0);
     for (final tokens in [400, 450, 500]) {
       await reply(k, 'A', tokens);
     }
     expect(api.saved, hasLength(1), reason: 'tried before 4 more replies');
-    await reply(k, 'A', 2000); // grown: 0.6 s against 2 s
+    await reply(k, 'A', 2000); // grown: 0.4 s against 2 s
     expect(api.saved, hasLength(2));
     expect(k.kept, 1);
     expect(letGo(), hasLength(1), reason: 'said once, not at every try');

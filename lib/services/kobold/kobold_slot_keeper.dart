@@ -13,6 +13,7 @@
 
 import 'dart:async';
 
+import 'kobold_felt_wait.dart';
 import 'kobold_keeper_budget.dart';
 import 'kobold_slot_api.dart';
 
@@ -31,9 +32,6 @@ class _Saved {
   final int slot;
   int tokens;
   int used;
-
-  /// How long its last load back took, once it has been loaded.
-  Duration? load;
 }
 
 /// A chat that cost more to keep than to read again. A chat grows, and
@@ -90,6 +88,9 @@ class KoboldSlotKeeper {
   /// buffer, so that save says nothing about what keeping the chat costs.
   final Set<int> _written = {};
 
+  /// What each chat's saves have cost the user in waiting.
+  final KoboldFeltWait _felt = KoboldFeltWait();
+
   /// The chat whose cache the engine holds right now, or null when anything
   /// else may have changed it.
   String? _live;
@@ -129,9 +130,8 @@ class KoboldSlotKeeper {
         failure: true,
       );
     }
-    saved
-      ..used = ++_clock
-      ..load = took.elapsed;
+    saved.used = ++_clock;
+    _felt.noteLoad(key, took.elapsed);
     _live = key;
   });
 
@@ -139,12 +139,19 @@ class KoboldSlotKeeper {
   /// engine's cache.
   void helperStart() => _live = null;
 
+  /// The user started a turn ([KoboldFeltWait.turnStarts]): a save still
+  /// running now holds it up, and that wait is what keeping the chat costs.
+  void turnStarts() => _felt.turnStarts();
+
   /// The chat reply ended. [ok] is false when the engine's cache cannot be
   /// trusted (the request failed); a reply the reader stopped is fine. Saves
   /// the chat's cache; the caller keeps the line until this completes.
   Future<void> chatEnd(String key, {required bool ok}) {
     _live = null;
     if (!ok) return Future<void>.value();
+    // From the reply's end the line is held for the save: a turn that
+    // starts from now waits for it.
+    _felt.saveStarts(key);
     return _guarded(() async {
       if (!await _ready()) return;
       // Deleted while its reply was written: no slot, so no live chat is
@@ -156,13 +163,10 @@ class KoboldSlotKeeper {
       final generation = _generation!;
       final slot = _slotFor(key);
       if (slot == null) return;
-      final took = Stopwatch();
+      if (!_written.contains(slot)) _felt.firstIntoSlot();
       final KoboldSlotSave? saved;
       try {
-        saved = await _call(generation, () {
-          took.start();
-          return _api.save(slot);
-        });
+        saved = await _call(generation, () => _api.save(slot));
       } on KoboldSlotException catch (e) {
         if (!e.timedOut) rethrow;
         // Never answered: what that slot holds is not known, and an engine
@@ -170,6 +174,7 @@ class KoboldSlotKeeper {
         // let go for this load. It did not refuse: not a failure either.
         return _stepAside('KoboldCpp did not finish saving a chat in time.');
       }
+      _felt.saveEnds(made: saved?.ok == true);
       if (saved == null) return;
       if (!saved.ok) {
         // An empty cache has nothing to keep; anything else not saving is
@@ -183,15 +188,16 @@ class KoboldSlotKeeper {
         }
         return;
       }
-      final newSlot = _written.add(slot);
-      if (_deleted.contains(key)) return;
-      final entry = _saved[key];
-      // What keeping costs: this save, which holds the line after each
-      // reply, and the load before the next one (as long as the save until
-      // one is measured). What it spares: reading the chat again.
-      final cost = took.elapsed + (entry?.load ?? took.elapsed);
-      final reread = newSlot ? null : _readTime?.call(saved.tokens);
-      if (reread != null && cost >= reread) {
+      _written.add(slot);
+      if (_deleted.contains(key)) {
+        _felt.forget(key);
+        return;
+      }
+      // What keeping costs the user in waiting ([KoboldFeltWait.of]) against
+      // what it spares: reading the chat again. Nothing known yet keeps it.
+      final cost = _felt.of(key);
+      final reread = cost == null ? null : _readTime?.call(saved.tokens);
+      if (cost != null && reread != null && cost >= reread) {
         return _letGoOf(key, cost, reread);
       }
       _letGo.remove(key);
@@ -199,7 +205,7 @@ class KoboldSlotKeeper {
         ..tokens = saved.tokens
         ..used = ++_clock;
       _live = key;
-    });
+    }).whenComplete(() => _felt.saveEnds(made: false));
   }
 
   /// Keeping [key] costs more than reading it again: it is not kept, so its
@@ -220,9 +226,9 @@ class KoboldSlotKeeper {
     String s(Duration d) =>
         (d.inMilliseconds / 1000).toStringAsFixed(d.inSeconds < 1 ? 2 : 1);
     _log(
-      'A chat is not kept ready: saving it and loading it back takes about '
-      '${s(cost)} s, more than the ${s(reread)} s KoboldCpp needs to read it '
-      'again. It is tried again as it grows.',
+      'A chat is not kept ready: waiting for its save and loading it back '
+      'costs about ${s(cost)} s, more than the ${s(reread)} s KoboldCpp needs '
+      'to read it again. It is tried again as it grows.',
     );
   }
 
@@ -245,6 +251,7 @@ class KoboldSlotKeeper {
   void forget(String key) {
     _saved.remove(key);
     _letGo.remove(key);
+    _felt.forget(key);
     _deleted.add(key);
     if (_live == key) _live = null;
   }
@@ -262,6 +269,7 @@ class KoboldSlotKeeper {
       _deleted.clear();
       _letGo.clear();
       _written.clear();
+      _felt.clear();
       _live = null;
       if (plan.keeps) {
         _mode = _Mode.unprobed;

@@ -41,9 +41,11 @@ void main() {
       ..noteAdminLoadedPair(modelPath: '/models/Qwen3-14B.gguf', kcppsPath: '');
   });
 
-  /// Streams [params] to its end and waits for the save after it.
+  /// Streams [params] to its end and waits for the save after it. The next
+  /// turn starts at once, so it waits for all of that save.
   Future<void> run(GenerationParams params) async {
     await h.kobold.generateStream(params).toList();
+    h.kobold.noteTurnStart();
     await h.kobold.waitForIdle();
   }
 

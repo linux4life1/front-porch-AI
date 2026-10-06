@@ -340,6 +340,10 @@ class KoboldService extends ChangeNotifier
   /// A chat was deleted: the keeper lets go of its saved cache.
   void forgetChat(String chat) => _forgetChat(chat);
 
+  /// The user started a turn: the keeper counts what is left of a save
+  /// still running as the wait keeping that chat costs.
+  void noteTurnStart() => _requests.keeper?.turnStarts();
+
   /// One prompt for the editor's MMQ timing, sent in the line.
   Future<Duration> timePrompt(int round) => _timePrompt(round);
 

@@ -34,6 +34,7 @@ export 'kobold_binary_version.dart';
 export 'kobold_config_stage.dart';
 export 'kobold_context_owner.dart';
 export 'kobold_context_verdict.dart';
+export 'kobold_felt_wait.dart';
 export 'kobold_fit.dart';
 export 'kobold_fit_view.dart';
 export 'kobold_hardware_defaults.dart';
