@@ -42,15 +42,13 @@ class RatchetHit {
   String toString() => '$path:$line  [$match]  $text';
 }
 
-/// A Dart file with comments and strings blanked, and its bracket structure.
+/// A Dart file with comments and strings blanked.
 class DartSource {
   DartSource(this.path, this.source) {
     for (var i = 0; i < source.length; i++) {
       if (source.codeUnitAt(i) == _nl) _lineStarts.add(i + 1);
     }
     code = _blank();
-    _parent = Int32List(code.length);
-    _mapBrackets();
   }
 
   factory DartSource.read(String path) =>
@@ -64,10 +62,6 @@ class DartSource {
 
   final _lineStarts = <int>[0];
   final _comments = <int, List<String>>{};
-  late final Int32List _parent;
-  final _closer = <int, int>{};
-  final _separators = <int, List<int>>{};
-  final _blockEnds = <int>{};
 
   /// Every match of [pattern] in the code, minus the ones [allow] excuses.
   List<RatchetHit> hits(RegExp pattern, {bool Function(Match m)? allow}) => [
@@ -97,47 +91,25 @@ class DartSource {
     return lo;
   }
 
-  /// Offset ranges vouched for by a comment that opens with [marker]
-  /// (`// theme-keep: <reason>`; prose that mentions it vouches for nothing).
-  ///
-  /// A marker at the end of a line covers that line and the whole argument,
-  /// list item or statement the line finishes: dart format wraps a long marked
-  /// line and leaves the comment after the closing `),`. A marker on a line of
-  /// its own covers the argument, item or statement that starts right below
-  /// its comment block. Neither reaches over a function, class or block body;
-  /// there a marker covers its own line only.
-  List<(int, int)> markedRanges(String marker) {
+  /// The 1-based lines vouched for by a comment that opens with [marker]
+  /// (`// theme-keep: <reason>`; prose that mentions it vouches for nothing):
+  /// the marker's own line, or, when the marker is alone on its line, the
+  /// single line directly below it. Never a statement, never a body.
+  Set<int> markedLines(String marker) {
     final opens = RegExp(
       '^\\s*(?:/{2,}|/\\*+|\\*+)\\s*${RegExp.escape(marker)}\\s*\\S',
     );
-    final ranges = <(int, int)>[];
-    _comments.forEach((line, comments) {
-      if (!comments.any(opens.hasMatch)) return;
-      final last = _lastCode(line);
-      if (last >= 0) {
-        ranges.add((_lineStarts[line], last));
-        if (!_blockEnds.contains(last)) ranges.add((_segmentStart(last), last));
-        return;
-      }
-      var below = line + 1;
-      while (below < _lineStarts.length &&
-          _firstCode(below) < 0 &&
-          _comments.containsKey(below)) {
-        below++;
-      }
-      if (below >= _lineStarts.length) return;
-      final first = _firstCode(below);
-      if (first < 0) return;
-      final end = _segmentEnd(first);
-      ranges.add((first, _blockEnds.contains(end) ? _lastCode(below) : end));
-    });
-    return ranges;
+    return {
+      for (final MapEntry(key: line, value: comments) in _comments.entries)
+        if (comments.any(opens.hasMatch))
+          (_hasCode(line) ? line : line + 1) + 1,
+    };
   }
 
   /// The identifier right before the innermost bracket around [offset]
   /// (`BoxShadow` inside `BoxShadow(color: …)`), or ''.
   String enclosingCall(int offset) {
-    final open = _parent[offset];
+    final open = _scanBack(offset, toSeparator: false);
     if (open < 0 || code.codeUnitAt(open) != _lparen) return '';
     final before = code.substring(max(0, open - 80), open);
     return RegExp(r'(\w+)\s*$').firstMatch(before)?.group(1) ?? '';
@@ -146,8 +118,30 @@ class DartSource {
   /// The named argument whose value [offset] sits in (`barrierColor` for
   /// `barrierColor: Colors.black54`), or ''.
   String argumentLabel(int offset) {
-    final head = code.substring(_segmentStart(offset), offset);
+    final head = code.substring(
+      _scanBack(offset, toSeparator: true) + 1,
+      offset,
+    );
     return RegExp(r'^\s*(\w+)\s*:').firstMatch(head)?.group(1) ?? '';
+  }
+
+  /// Walking back from [offset]: the innermost bracket still open there or,
+  /// with [toSeparator], a nearer `,` or `;` at the same depth; -1 if none.
+  int _scanBack(int offset, {required bool toSeparator}) {
+    var depth = 0;
+    for (var i = offset - 1; i >= 0; i--) {
+      final c = code.codeUnitAt(i);
+      if (c == _rparen || c == _rbracket || c == _rbrace) {
+        depth++;
+      } else if (c == _lparen || c == _lbracket || c == _lbrace) {
+        if (depth-- == 0) return i;
+      } else if (toSeparator &&
+          depth == 0 &&
+          (c == _comma || c == _semicolon)) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   String _lineText(int line) {
@@ -158,41 +152,15 @@ class DartSource {
     return text.length > 110 ? '${text.substring(0, 107)}...' : text;
   }
 
-  int _lineEnd(int line) =>
-      line + 1 < _lineStarts.length ? _lineStarts[line + 1] - 1 : code.length;
-
-  int _firstCode(int line) {
-    for (var i = _lineStarts[line]; i < _lineEnd(line); i++) {
-      if (!_isSpace(code.codeUnitAt(i))) return i;
+  /// Whether 0-based [line] holds any code once comments are blanked.
+  bool _hasCode(int line) {
+    final end = line + 1 < _lineStarts.length
+        ? _lineStarts[line + 1] - 1
+        : code.length;
+    for (var i = _lineStarts[line]; i < end; i++) {
+      if (!_isSpace(code.codeUnitAt(i))) return true;
     }
-    return -1;
-  }
-
-  int _lastCode(int line) {
-    for (var i = _lineEnd(line) - 1; i >= _lineStarts[line]; i--) {
-      if (!_isSpace(code.codeUnitAt(i))) return i;
-    }
-    return -1;
-  }
-
-  /// First offset of the argument, item or statement holding [offset].
-  int _segmentStart(int offset) {
-    final open = _parent[offset];
-    var start = open + 1;
-    for (final sep in _separators[open] ?? const <int>[]) {
-      if (sep >= offset) break;
-      start = sep + 1;
-    }
-    return start;
-  }
-
-  /// Last offset of the argument, item or statement holding [offset].
-  int _segmentEnd(int offset) {
-    final open = _parent[offset];
-    for (final sep in _separators[open] ?? const <int>[]) {
-      if (sep >= offset) return sep;
-    }
-    return open < 0 ? code.length - 1 : _closer[open] ?? code.length - 1;
+    return false;
   }
 
   String _blank() {
@@ -286,57 +254,6 @@ class DartSource {
     }
     return String.fromCharCodes(out);
   }
-
-  void _mapBrackets() {
-    int at(int i) => i >= 0 && i < code.length ? code.codeUnitAt(i) : -1;
-    List<int> seps(int open) => _separators.putIfAbsent(open, () => <int>[]);
-    final stack = <int>[];
-    int top() => stack.isEmpty ? -1 : stack.last;
-    for (var i = 0; i < code.length; i++) {
-      final c = code.codeUnitAt(i);
-      if (c == _rparen || c == _rbracket || c == _rbrace) {
-        // A `<` still open here was a comparison, not type arguments.
-        while (stack.isNotEmpty && at(stack.last) == _lt) {
-          stack.removeLast();
-        }
-        if (stack.isNotEmpty) _closer[stack.removeLast()] = i;
-        _parent[i] = top();
-        if (c == _rbrace && (top() < 0 || at(top()) == _lbrace)) {
-          var j = i + 1;
-          while (_isSpace(at(j))) {
-            j++;
-          }
-          // A closed block ends a statement; a closed literal or closure
-          // (`};`, `},`, `})`) is still part of its expression.
-          if (!';,)].?:'.codeUnits.contains(at(j))) {
-            seps(top()).add(i);
-            _blockEnds.add(i);
-          }
-        }
-        continue;
-      }
-      // dart format spaces a comparison (`a < b`); type arguments hug their
-      // first type (`List<Color>`, `<String, Color>{`, `showDialog<bool>(`).
-      // So an open `<` is type arguments, and the next `>` that is not part
-      // of `=>` or `>=` closes it, even on a line of its own.
-      if (c == _gt &&
-          at(top()) == _lt &&
-          at(i - 1) != _eq &&
-          at(i + 1) != _eq) {
-        _closer[stack.removeLast()] = i;
-        _parent[i] = top();
-        continue;
-      }
-      _parent[i] = top();
-      final typeArgs =
-          c == _lt && (_isIdentStart(at(i + 1)) || at(i + 1) == _lparen);
-      if (c == _lparen || c == _lbracket || c == _lbrace || typeArgs) {
-        stack.add(i);
-      } else if (c == _comma || c == _semicolon) {
-        seps(top()).add(i);
-      }
-    }
-  }
 }
 
 abstract class _Frame {}
@@ -360,6 +277,6 @@ bool _isIdent(int c) => _isIdentStart(c) || (c >= 48 && c <= 57);
 
 const _nl = 10, _space = 32, _dquote = 34, _dollar = 36, _quote = 39;
 const _lparen = 40, _rparen = 41, _star = 42, _comma = 44;
-const _slash = 47, _semicolon = 59, _lt = 60, _eq = 61, _gt = 62;
+const _slash = 47, _semicolon = 59;
 const _lbracket = 91, _backslash = 92, _rbracket = 93, _r = 114;
 const _lbrace = 123, _rbrace = 125;

@@ -13,13 +13,17 @@
 // the app with a dozen mismatched, dark-only boxes. Every dialog opened any
 // other way, anywhere in lib/, is drift from the one warm-porch look.
 //
-// "Any other way" is every call form, generic or not: showDialog,
-// showModalBottomSheet, showGeneralDialog, showAdaptiveDialog,
-// showCupertinoDialog, showCupertinoModalPopup, showBottomSheet, the dialog
-// routes, and the AlertDialog / SimpleDialog / CupertinoAlertDialog widgets.
-// A bare `Dialog(` shell is not counted: it cannot open itself, and the call
-// that shows it is. Date and time pickers are not counted: there is no warm
-// picker to send them to.
+// "Any other way" is every modal Flutter's material, cupertino and widgets
+// libraries open, generic or not: showDialog, showModalBottomSheet,
+// showGeneralDialog, showAdaptiveDialog, showRawDialog, showCupertinoDialog,
+// showCupertinoModalPopup, showCupertinoSheet, showBottomSheet,
+// showAboutDialog, showAdaptiveAboutDialog, their routes, and the AlertDialog
+// / SimpleDialog / CupertinoAlertDialog widgets. A bare `Dialog(` shell is not
+// counted: it cannot open itself, and the call that shows it is. Date and
+// time pickers are not counted: there is no warm picker to send them to.
+// Deliberately not matched, because nobody writes them by accident: a
+// tear-off called through `.call(` or `.new(`, and a dialog built inside
+// string interpolation.
 //
 // When this guard landed lib/ had a few hundred of these, so it is a ratchet
 // over test/baselines/raw_dialogs.json (file -> count). A file may never go
@@ -36,8 +40,10 @@ const _primitive = 'lib/ui/widgets/warm_dialog.dart';
 
 final _rawDialog = RegExp(
   r'\b(?:showDialog|showModalBottomSheet|showGeneralDialog|showAdaptiveDialog'
-  r'|showCupertinoDialog|showCupertinoModalPopup|showBottomSheet'
-  r'|DialogRoute|RawDialogRoute|CupertinoDialogRoute|ModalBottomSheetRoute)'
+  r'|showRawDialog|showCupertinoDialog|showCupertinoModalPopup'
+  r'|showCupertinoSheet|showBottomSheet|showAboutDialog|showAdaptiveAboutDialog'
+  r'|DialogRoute|RawDialogRoute|CupertinoDialogRoute|ModalBottomSheetRoute'
+  r'|CupertinoModalPopupRoute|CupertinoSheetRoute)'
   r'\s*[<(]'
   r'|\b(?:AlertDialog|SimpleDialog|CupertinoAlertDialog)\s*'
   r'(?:\.\s*adaptive\s*)?\(',
@@ -105,6 +111,13 @@ void main() {
       'ModalBottomSheetRoute',
       'CupertinoAlertDialog',
       'showDialog',
+      'showAboutDialog',
+      'showAdaptiveAboutDialog',
+      'showRawDialog',
+      'showCupertinoSheet',
+      'CupertinoModalPopupRoute',
+      'CupertinoModalPopupRoute',
+      'CupertinoSheetRoute',
     ]);
   });
 }
@@ -129,6 +142,13 @@ Future<void> open(BuildContext context) async {
   await Navigator.of(context).push(ModalBottomSheetRoute(builder: build, isScrollControlled: true));
   const CupertinoAlertDialog();
   final link = 'https://example.com/x'; await showDialog(context: context, builder: build);
+  showAboutDialog(context: context, applicationName: 'Front Porch AI');
+  showAdaptiveAboutDialog(context: context);
+  await showRawDialog<void>(context: context, builder: build);
+  await showCupertinoSheet<void>(context: context, pageBuilder: build);
+  await Navigator.of(context).push(CupertinoModalPopupRoute<void>(builder: build));
+  await Navigator.of(context).push(CupertinoModalPopupRoute(builder: build));
+  await Navigator.of(context).push(CupertinoSheetRoute<void>(builder: build));
   // Not counted: showDialog( in a comment, /* AlertDialog( */ in a block.
   await showWarmDialog<bool>(context, title: 'showDialog(', content: body);
   await _showDialog(context);

@@ -31,12 +31,12 @@
 // editor (#359), because white-on-dark vanishes on light paper.
 //
 // A deliberate status or data hue carries `// theme-keep: <reason>`, the
-// marker theme-lint already honours; the comment must open with it. At the
-// end of a line it covers the argument, list item or statement that line
-// finishes, so it still works after dart format wraps the line; on a line of
-// its own it covers the one that starts below it. It never covers a whole
-// function or class: mark the lines inside, or move a palette into
-// lib/ui/theme/.
+// marker theme-lint already honours; the comment must open with it. It covers
+// the colour on its own line (a colour split across lines counts as on each),
+// or, alone on a line, the single line directly below it. Never a statement,
+// never a body: a palette is marked line by line, or moves into
+// lib/ui/theme/. When dart format moves a long trailing marker onto a closing
+// `),` line, put the marker alone on the line above the colour instead.
 //
 // When this guard landed UI code had well over a thousand raw colours, so it
 // is a ratchet over test/baselines/raw_colors.json (file -> count). A file may
@@ -74,7 +74,7 @@ bool _isUiCode(String path) =>
         RegExp(r'^lib/main(\.\w+)?\.dart$').hasMatch(path));
 
 List<RatchetHit> _rawColours(DartSource source) {
-  final kept = source.markedRanges('theme-keep:');
+  final kept = source.markedLines('theme-keep:');
   return source.hits(
     _rawColour,
     allow: (m) {
@@ -86,7 +86,11 @@ List<RatchetHit> _rawColours(DartSource source) {
               _barrierArguments.contains(source.argumentLabel(m.start)))) {
         return true;
       }
-      return kept.any((r) => r.$1 <= m.start && m.start <= r.$2);
+      final last = source.lineOf(m.end - 1) + 1;
+      for (var line = source.lineOf(m.start) + 1; line <= last; line++) {
+        if (kept.contains(line)) return true;
+      }
+      return false;
     },
   );
 }
@@ -166,7 +170,8 @@ void main() {
       fix:
           'Use AppColors.<closest> (its *Of(context) pair where it has one, '
           'so light mode works). If the colour is a deliberate status or data '
-          'hue and not chrome, end the line with // theme-keep: <reason>.',
+          'hue and not chrome, end its line with // theme-keep: <reason>, or '
+          'put that comment alone on the line directly above it.',
     );
     if (problems.isNotEmpty) fail(problems.join('\n\n'));
   });
@@ -189,121 +194,111 @@ void main() {
     expect(_palette.hex, isNotEmpty);
   });
 
-  test('a marker survives dart format; the allowances stay narrow', () {
+  test('a marker covers its own line or the one below it, nothing wider; '
+      'the allowances stay narrow', () {
     final source = DartSource('layouts.dart', _layouts);
     final counted = _rawColours(source).map((h) => h.line).toList();
-    expect(counted, [15, 32, 46, 51, 60, 61, 62, 66, 79, 83, 87, 91, 103, 106]);
+    // Each fixture line marked `// counted` holds exactly one raw colour the
+    // guard must count; no other line may be counted.
+    final expected = [
+      for (final (i, line) in _layouts.split('\n').indexed)
+        if (line.contains('// counted')) i + 1,
+    ];
+    expect(counted, expected);
   });
 }
 
-// Lines 1-80 are dart format's own output for marked lines. The rest are
-// split forms the tree has, and colours the allowances must not swallow.
 const _layouts = r'''
-Widget build(BuildContext context) {
-  final shadows = [
-    [
-      [
-        f(
-          f(f(f(Colors.black, null, null), null, null)),
-        ), // theme-keep: drop shadow under the dragged cards
-        f(
-          Colors.green,
-          f(Colors.green, f(Colors.green)),
-        ), // theme-keep: a reason that is long enough
-        f(
-          f(f(const Color(0xFF9FD49F), const Color(0xFF3F7A46))),
-        ), // theme-keep: legend
-        Colors.red,
-      ],
-    ],
-  ];
-  final independent = AppColors.resolve(
-    context,
-    const Color(0xFF9FD49F),
-    const Color(0xFF3F7A46),
-  ); // theme-keep: dependency legend
-  // theme-keep: data-viz legend hues
-  // (one per section, shared with the web modal)
-  const palette = <String, Color>{
-    'System Prompt': Color(0xFF3B82F6),
-    'Lorebook': Color(0xFF8B5CF6),
-  };
-  // theme-keep: a blank line ends the comment block's reach
+// Kept: a marker on the colour's own line.
+final ready = Icon(Icons.check, color: Colors.green); // theme-keep: ready dot
 
-  const unmarked = [Color(0xFF111111)];
+// Kept: a marker on the line where a split colour ends.
+final engine = Icon(
+  Icons.check,
+  color: Colors
+      .green, // theme-keep: engine-ready status
+);
+
+// Kept: a marker alone on a line covers the single line below it.
+// theme-keep: rating star
+const star = Color(0xFFFFC107);
+
+// Kept: an inline block marker covers its whole line.
+Color flag(bool on) => on ? Colors.green /* theme-keep: on status */ : Colors.grey;
+
+// Counted: a marker on a return's `);` covers that line, not the statement.
+Widget badge() {
   return Column(
     children: [
-      Icon(
-        Icons.check_circle,
-        color: Colors.green,
-        size: 16,
-      ), // theme-keep: engine-ready status, not chrome
-      Icon(
-        Icons.circle,
-        color: on ? Colors.green /* theme-keep: on status */ : Colors.grey,
-      ),
-      Text(
-        'see https://example.com // Colors.red',
-        style: TextStyle(color: Colors.amber),
-      ),
-      Container(color: Colors.transparent),
-      DecoratedBox(
-        decoration: BoxDecoration(
-          color: Colors.black.withValues(alpha: 0.5),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 4,
-            ),
-          ],
-        ),
-      ),
-      Container(color: Colors.white.withValues(alpha: 0.1)),
-      Container(color: Color.fromARGB(255, 1, 2, 3)),
-      Container(color: CupertinoColors.systemBlue),
-      Container(
-        color: const Color(0xFF1D9BF0),
-      ), // theme-keep: hub verification blue, a long reason that wraps
-      Container(color: const Color.fromRGBO(1, 2, 3, 1)),
+      Container(color: Colors.purple), // counted
+      Icon(Icons.star, color: Colors.yellow), // counted
     ],
-  );
+  ); // theme-keep: badge colours
 }
 
-Widget flag(bool on) {
-  return Column(
-    children: [
-      Icon(
-        Icons.circle,
-        color: on
-            ? Colors
-                  .green // theme-keep: on status
-            : Colors.grey,
-      ),
-      Icon(
-        Icons.check,
-        color: Colors
-            .green,
-      ),
-      Container(
-        color: const Color(
-          0xFF000000,
-        ),
-      ),
-      Container(color: Colors.black26),
-    ],
-  );
-}
+// Counted: a marker above a palette covers its first line only.
+// theme-keep: legend hues
+const palette = <String, Color>{
+  'System Prompt': Color(0xFF3B82F6), // counted
+  'Lorebook': Color(0xFF8B5CF6), // counted
+};
+
+// Counted: a marker above an arrow function covers its first line only.
+// theme-keep: mood ring
+Color mood(String emotion) => emotion == 'joy'
+    ? Colors.amber // counted
+    : Colors.blueGrey; // counted
+
+// Counted: a marker above a closure argument covers its first line only.
+final sheet = Builder(
+  // theme-keep: sheet colours
+  builder: (context) {
+    return ColoredBox(color: Colors.teal); // counted
+  },
+);
+
+// Counted: the line below a marker is the rest of its own comment.
+// theme-keep: voice-gender dot, a fixed
+// pink/cyan pairing
+const female = Colors.pinkAccent; // counted
+
+// Counted: a blank line between the marker and the colour.
+// theme-keep: too far away
+
+const far = Color(0xFF111111); // counted
+
+// Counted: prose that names the marker (theme-keep: legend) is not one.
+const prose = Colors.teal; // counted
+
+final misc = [
+  Text('https://example.com // Colors.red', style: TextStyle(color: Colors.amber)), // counted
+  const ColoredBox(color: Colors.transparent),
+  DecoratedBox(
+    decoration: BoxDecoration(
+      color: Colors.black.withValues(alpha: 0.5), // counted
+      boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 4)],
+    ),
+  ),
+  Container(color: Colors.white.withValues(alpha: 0.1)), // counted
+  Container(color: Color.fromARGB(255, 1, 2, 3)), // counted
+  Container(color: CupertinoColors.systemBlue), // counted
+  Container(color: const Color.fromRGBO(1, 2, 3, 1)), // counted
+  Container(color: Colors.black26), // counted
+  Icon(
+    Icons.check,
+    color: Colors // counted
+        .green,
+  ),
+  Container(
+    color: const Color( // counted
+      0xFF000000,
+    ),
+  ),
+];
 
 Future<void> dim(BuildContext context) => showDialog(
   context: context,
   barrierColor: Colors.black54,
   builder: (_) => const SizedBox(),
 );
-
-// Prose that names the marker (theme-keep: legend) vouches for nothing.
-Color legend(String emotion) => Colors.teal;
-// theme-keep: a whole function is more than one marker can vouch for
-Color mood(String emotion) {
-  return Colors.indigo;
-}
 ''';

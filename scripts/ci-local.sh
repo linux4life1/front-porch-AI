@@ -25,8 +25,8 @@
 # current Rawhide proves nothing about the tree CI builds (a PR that merged
 # after the rebase can break the merge while this tree still passes). The
 # script fetches origin Rawhide and exits 3 unless origin/Rawhide's head is
-# the merge base of HEAD. FPAI_ALLOW_STALE_BASE=1 skips the check, for
-# offline use.
+# the merge base of HEAD. It also exits 3 when GitHub does not answer within
+# 20 seconds. FPAI_ALLOW_STALE_BASE=1 skips the check, for offline use.
 #
 # The macOS working tree is rsynced into a named Docker volume (incremental,
 # a few seconds) instead of being mounted read-write, so the container's
@@ -51,7 +51,20 @@ if [ "${FPAI_ALLOW_STALE_BASE:-0}" = "1" ]; then
   echo "── skipping the Rawhide base check (FPAI_ALLOW_STALE_BASE=1)"
 else
   echo "── checking this branch is on the current Rawhide…"
-  if ! git fetch --quiet origin Rawhide; then
+  # The fetch gets 20 seconds. A network that drops packets would leave it
+  # waiting for minutes, and macOS has no `timeout`, so the script watches it
+  # and stops it (and its transport helper) at the deadline.
+  git fetch --quiet origin Rawhide &
+  fetch_pid=$!
+  deadline=$((SECONDS + 20))
+  while kill -0 "$fetch_pid" 2>/dev/null && [ "$SECONDS" -lt "$deadline" ]; do
+    sleep 0.2
+  done
+  if kill -0 "$fetch_pid" 2>/dev/null; then
+    pkill -TERM -P "$fetch_pid" 2>/dev/null || true
+    kill -TERM "$fetch_pid" 2>/dev/null || true
+  fi
+  if ! wait "$fetch_pid" 2>/dev/null; then
     echo "✗ Could not reach GitHub to check the current Rawhide. Connect and try again, or run with FPAI_ALLOW_STALE_BASE=1." >&2
     exit 3
   fi
