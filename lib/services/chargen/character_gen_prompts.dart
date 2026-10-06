@@ -126,6 +126,7 @@ Respond with ONLY the JSON:''';
     String userPersonaContext = '',
     String interviewTranscript = '',
     String? worldLore,
+    String direction = '',
   }) {
     // Opt-in dynamic-macro rule — only when the creator's toggle is on.
     final macroLine = _includeDynamicMacros
@@ -246,6 +247,14 @@ $excerpt''';
           '\n\n== ESTABLISHED WORLD LORE ==\nThe scene is taking place in this world. Strictly follow its rules, terminology, magic, and locations:\n$worldLore';
     }
 
+    // The author's one-line steer from the creator's Greetings step. Last, so
+    // the model reads it nearest the answer. Creation passes none, which
+    // leaves that prompt byte-identical.
+    final steer = direction.trim();
+    final directionSection = steer.isEmpty
+        ? ''
+        : '\n\n== DIRECTION FROM THE AUTHOR ==\nWrite this opening the way the author asked: $steer\nWhere this differs from the Scenario above (the place, the time, the mood), follow the direction. Keep everything else about $name as written.';
+
     final pronouns = resolveNarrativePronouns(_narrativeSex);
     final leadIn = greetingLeadIn(
       name: name,
@@ -283,7 +292,7 @@ $personRule
 
 == LENGTH ==
 $lengthEnforcement
-This is MANDATORY — do NOT write less. Fill the space with rich, immersive prose.$previousContext
+This is MANDATORY — do NOT write less. Fill the space with rich, immersive prose.$previousContext$directionSection
 
 Begin:''';
   }

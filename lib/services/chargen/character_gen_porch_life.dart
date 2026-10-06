@@ -15,6 +15,45 @@ extension GenPorchLife on CharacterGenService {
     required bool nsfwEnabled,
     void Function(String)? onProgress,
   }) async {
+    final identity = await _readPorchLifeIdentity(
+      card: card,
+      name: name,
+      interviewTranscript: interviewTranscript,
+      nsfwEnabled: nsfwEnabled,
+      onProgress: onProgress,
+    );
+    if (identity == null) return;
+    final prior =
+        card.frontPorchExtensions ??
+        FrontPorchExtensions(needsSimEnabled: true);
+    card.frontPorchExtensions = prior.copyWith(
+      ambitions: identity.ambitions,
+      likes: identity.likes,
+      dislikes: identity.dislikes,
+      intimateInto: identity.intimateInto,
+      intimateNotInto: identity.intimateNotInto,
+      inventory: Pockets.cardJsonFrom(
+        worn: identity.worn,
+        carrying: identity.carrying,
+      ),
+    );
+    debugPrint(
+      'CharacterGen: Porch Life seeded '
+      'ambitions=${identity.ambitions.length} worn=${identity.worn.length} '
+      'carrying=${identity.carrying.length} intimate=${identity.intimateInto.length}',
+    );
+  }
+
+  /// The extraction itself: what [card]'s first message shows (and the
+  /// interview implies), read by the model. Null when it answered nothing.
+  /// The Greetings step's outfit re-read runs this same pass.
+  Future<PorchLifeIdentity?> _readPorchLifeIdentity({
+    required CharacterCard card,
+    required String name,
+    required String interviewTranscript,
+    required bool nsfwEnabled,
+    void Function(String)? onProgress,
+  }) async {
     final excerpt = interviewTranscript.length > 1400
         ? '${interviewTranscript.substring(0, 1400)}...'
         : interviewTranscript;
@@ -92,29 +131,10 @@ Respond with ONLY the JSON:''';
       );
       if (output != null) data = {'raw': output};
     }
-    if (data == null) return;
+    if (data == null) return null;
 
-    final identity = data.containsKey('raw')
+    return data.containsKey('raw')
         ? parsePorchLifeIdentity(data['raw'], nsfw: nsfwEnabled)
         : parsePorchLifeIdentity(data, nsfw: nsfwEnabled);
-    final prior =
-        card.frontPorchExtensions ??
-        FrontPorchExtensions(needsSimEnabled: true);
-    card.frontPorchExtensions = prior.copyWith(
-      ambitions: identity.ambitions,
-      likes: identity.likes,
-      dislikes: identity.dislikes,
-      intimateInto: identity.intimateInto,
-      intimateNotInto: identity.intimateNotInto,
-      inventory: Pockets.cardJsonFrom(
-        worn: identity.worn,
-        carrying: identity.carrying,
-      ),
-    );
-    debugPrint(
-      'CharacterGen: Porch Life seeded '
-      'ambitions=${identity.ambitions.length} worn=${identity.worn.length} '
-      'carrying=${identity.carrying.length} intimate=${identity.intimateInto.length}',
-    );
   }
 }

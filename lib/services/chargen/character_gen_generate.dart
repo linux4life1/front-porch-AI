@@ -277,6 +277,20 @@ extension GenGenerate on CharacterGenService {
     }
     if (_aborted || _generationEpoch != currentEpoch) return null;
 
+    // Kept so the creator's Greetings step can write one more greeting the
+    // way these were written (regenerateGreeting).
+    greetingRecipe = GreetingRecipe(
+      greetingLength: greetingLength,
+      tones: greetingTones,
+      characterContext: characterContext,
+      userPersonaContext: userPersonaContext,
+      interviewTranscript: interviewTranscript,
+      worldLore: worldLore,
+      includeDynamicMacros: includeDynamicMacros,
+      reasoningEnabled: reasoningEnabled,
+      nsfwEnabled: nsfwEnabled,
+    );
+
     // ── Step 3: Generate first message ────────────────────────
     onStatus?.call('Writing first message...');
     onProgress?.call(''); // Clear preview
