@@ -22,23 +22,8 @@ part of '../home_page.dart';
 /// [_HomePageDialogs].
 extension _HomePageDialogsImport on _HomePageState {
   Future<void> _importCharacter(BuildContext context) async {
-    final result = await PickerPrefs.pickFiles(
-      category: PickerPrefs.catImport,
-      type: FileType.custom,
-      allowedExtensions: ['png', 'json'],
-      allowMultiple: true,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-    if (!context.mounted) return;
-
-    final files = <File>[];
-    for (final f in result.files) {
-      final path = await PickerPrefs.localPathOrTemp(f);
-      if (path != null) files.add(File(path));
-    }
-
-    if (files.isEmpty) return;
+    final files = await pickLibraryCards(context);
+    if (files == null || !context.mounted) return;
     await _importCharacterFromFiles(context, files);
   }
 
@@ -100,20 +85,8 @@ extension _HomePageDialogsImport on _HomePageState {
   }
 
   Future<void> _importByaf(BuildContext context) async {
-    final result = await PickerPrefs.pickFiles(
-      category: PickerPrefs.catImport,
-      type: FileType.custom,
-      allowedExtensions: ['byaf'],
-      allowMultiple: true,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-    final paths = <String>[];
-    for (final f in result.files) {
-      final path = await PickerPrefs.localPathOrTemp(f);
-      if (path != null) paths.add(path);
-    }
-    if (paths.isEmpty || !context.mounted) return;
+    final paths = await pickLibraryByafFiles(context);
+    if (paths == null || !context.mounted) return;
     await _importByafFromPaths(context, paths);
   }
 
