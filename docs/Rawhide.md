@@ -6,3 +6,6 @@ These notes feed the in-app "Update Available" dialog for Rawhide / cutting-edge
 Last shipped nightly: `rawhide.20261006.fbe655b`. Everything below is unreleased.
 
 ## Recent improvements (unreleased — ships in the next build)
+
+- ⌨️ **Typing in the AI Character Creator no longer lags on Windows** — every key used to save the whole creator form, which on Windows rewrote the settings file dozens of times per letter. Typing now saves once you pause, and only what changed.
+- 🪟 **A file window that fails now says so** — when the window for choosing a file or folder, or for saving, doesn't appear, you get a plain explanation with a Try again button instead of a click that does nothing. A folder the app can't read says so too. And exporting a character, place, chat or story whose name has characters Windows doesn't allow in a file name (such as `:` or `?`) now opens the save window instead of waiting forever.
