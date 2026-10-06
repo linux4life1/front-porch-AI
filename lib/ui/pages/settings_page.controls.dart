@@ -173,7 +173,8 @@ extension _SettingsLaunchControls on _SettingsPageState {
   }
 
   Future<void> _pickStoragePath() async {
-    String? selectedDirectory = await PickerPrefs.getDirectoryPath(
+    String? selectedDirectory = await GuardedPicker.getDirectoryPath(
+      context,
       category: PickerPrefs.catDirectory,
     );
     if (selectedDirectory != null) {

@@ -103,7 +103,7 @@ extension _ChatPageInput on _ChatPageState {
   /// workaround, but never prevents sending (capability detection can't
   /// interrogate externally-started servers).
   Future<void> _attachImage() async {
-    final bytes = await pickChatImageAttachment();
+    final bytes = await pickChatImageAttachment(context);
     if (bytes == null || !mounted) return;
     await _acceptImageBytes(bytes);
   }

@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kcpps_editor_controller.dart';
@@ -143,8 +144,9 @@ class KcppsExtrasSection extends StatelessWidget {
 
   final KcppsEditorController c;
 
-  Future<String?> _pick() async {
-    final result = await PickerPrefs.pickFiles(
+  Future<String?> _pick(BuildContext context) async {
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['gguf'],
@@ -187,7 +189,7 @@ class KcppsExtrasSection extends StatelessWidget {
           padding: 12,
           fontSize: 13,
           onPressed: () async {
-            final picked = await _pick();
+            final picked = await _pick(context);
             if (picked != null) set(picked);
           },
         ),

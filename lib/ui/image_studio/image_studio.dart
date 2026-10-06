@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'edit_view.dart';
@@ -257,7 +258,8 @@ class _ImageStudioState extends State<ImageStudio> {
 
   /// Pick a transient img2img reference (desktop file dialog; not persisted).
   Future<void> _pickReferenceImage() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImage,
       dialogTitle: 'Select a reference image',
       type: FileType.image,

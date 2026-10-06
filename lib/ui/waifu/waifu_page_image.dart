@@ -20,7 +20,7 @@ part of 'waifu_page.dart';
 
 extension _WaifuPageImage on _WaifuPageState {
   Future<void> _attachImage() async {
-    final bytes = await pickChatImageAttachment();
+    final bytes = await pickChatImageAttachment(context);
     if (bytes == null || !mounted) return;
     await _acceptImageBytes(bytes);
   }

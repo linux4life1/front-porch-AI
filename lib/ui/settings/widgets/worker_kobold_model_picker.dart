@@ -23,6 +23,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Realism-evals GGUF for the managed Kobold process. Empty = Models-tab file.
@@ -42,8 +43,9 @@ class WorkerKoboldModelPicker extends StatelessWidget {
 
   static const inheritSentinel = '';
 
-  Future<void> _browse() async {
-    final result = await PickerPrefs.pickFiles(
+  Future<void> _browse(BuildContext context) async {
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: const ['gguf'],
@@ -119,7 +121,7 @@ class WorkerKoboldModelPicker extends StatelessWidget {
             const SizedBox(width: 8),
             TextButton(
               key: const Key('side-jobs-kobold-model-browse'),
-              onPressed: _browse,
+              onPressed: () => _browse(context),
               child: const Text('Browse…'),
             ),
           ],

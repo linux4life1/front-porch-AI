@@ -380,7 +380,8 @@ extension _StoryWriterBeats on _StoryWriterPageState {
 
   Future<void> _exportScene(StoryProject project, StoryScene scene) async {
     final text = project.sceneText(widget.actIndex, widget.sceneIndex);
-    final out = await PickerPrefs.saveFile(
+    final out = await GuardedPicker.saveFile(
+      context,
       category: PickerPrefs.catExport,
       bytes: Uint8List.fromList(utf8.encode(text)),
       dialogTitle: 'Save scene',

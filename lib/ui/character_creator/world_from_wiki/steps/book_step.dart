@@ -8,6 +8,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/web_search_settings.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 class WorldFromWikiBookStep extends StatelessWidget {
@@ -15,8 +16,9 @@ class WorldFromWikiBookStep extends StatelessWidget {
 
   final WorldFromWikiState state;
 
-  Future<void> _attach() async {
-    final result = await PickerPrefs.pickFiles(
+  Future<void> _attach(BuildContext context) async {
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md', 'pdf', 'json', 'csv'],
@@ -163,7 +165,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               OutlinedButton.icon(
-                onPressed: _attach,
+                onPressed: () => _attach(context),
                 icon: const Icon(Icons.attach_file, size: 18),
                 label: Text(
                   state.loreFiles.isEmpty

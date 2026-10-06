@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Waifu-only note. Creates `skills/` on first copy, not during build.
@@ -38,7 +39,8 @@ class _SkillsFolderNoteState extends State<SkillsFolderNote> {
   Future<void> _chooseFiles() async {
     if (_busy) return;
     final storage = context.read<StorageService>();
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: const ['md'],

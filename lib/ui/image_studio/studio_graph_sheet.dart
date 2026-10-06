@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 import 'studio_desk_copy.dart';
@@ -48,7 +49,8 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
   String _pendingStance = '';
 
   Future<void> _chooseFile() async {
-    final picked = await PickerPrefs.pickFiles(
+    final picked = await GuardedPicker.pickFiles(
+      context,
       category: 'studio-graph',
       dialogTitle: 'Workflow file',
       type: FileType.custom,

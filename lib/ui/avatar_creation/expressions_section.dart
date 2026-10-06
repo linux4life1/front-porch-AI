@@ -280,7 +280,7 @@ class ExpressionsSection extends StatelessWidget {
     BuildContext context,
     AvatarCreationController c,
   ) async {
-    final zipBytes = await pickZipBytes();
+    final zipBytes = await pickZipBytes(context);
     if (zipBytes == null || !context.mounted) return;
     final (added, unrecognized) = await c.importExpressionZip(zipBytes);
     if (!context.mounted) return;

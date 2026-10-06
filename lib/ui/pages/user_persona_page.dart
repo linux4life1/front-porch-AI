@@ -110,7 +110,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   Future<void> _pickAvatar() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImage,
       type: FileType.image,
       allowMultiple: false,
@@ -176,7 +177,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   Future<void> _importPersona() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],
@@ -246,7 +248,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
 
   Future<void> _exportPersona(UserPersona persona) async {
     final service = Provider.of<UserPersonaService>(context, listen: false);
-    String? outputFile = await PickerPrefs.saveFromBuilder(
+    String? outputFile = await GuardedPicker.saveFromBuilder(
+      context,
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Persona',
       fileName:

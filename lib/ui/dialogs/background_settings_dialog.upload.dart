@@ -111,7 +111,8 @@ extension _BackgroundUpload on BackgroundSettingsDialog {
                     onPressed: isUploading
                         ? null
                         : () async {
-                            final result = await PickerPrefs.pickFiles(
+                            final result = await GuardedPicker.pickFiles(
+                              context,
                               category: PickerPrefs.catImage,
                               type: FileType.image,
                             );

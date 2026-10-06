@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kcpps_editor_controller.dart';
@@ -94,7 +95,8 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
 
   Future<void> _open() async {
     if (!await _mayLeave()) return;
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['kcpps'],

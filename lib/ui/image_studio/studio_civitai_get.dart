@@ -15,7 +15,7 @@ import 'package:front_porch_ai/services/image/civitai_search_pages.dart';
 import 'package:front_porch_ai/services/image/civitai_version.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'studio_civitai_base.dart';
 import 'studio_civitai_card.dart';
@@ -199,7 +199,8 @@ class _StudioCivitaiGetState extends State<StudioCivitaiGet> {
   void _set(VoidCallback change) => setState(change);
 
   Future<void> _pickFolder() async {
-    final picked = await PickerPrefs.getDirectoryPath(
+    final picked = await GuardedPicker.getDirectoryPath(
+      context,
       category: 'studio-models',
       dialogTitle: 'Models folder',
     );

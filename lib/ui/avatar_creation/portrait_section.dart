@@ -55,7 +55,10 @@ class PortraitSection extends StatelessWidget {
         ),
         const SizedBox(height: 8),
         _modes(context, c),
-        if (!c.engineReady) ...[const SizedBox(height: 10), _noEngine(context, c)],
+        if (!c.engineReady) ...[
+          const SizedBox(height: 10),
+          _noEngine(context, c),
+        ],
         if (c.source == PortraitSource.generate && c.engineReady) ...[
           const SizedBox(height: 12),
           EngineStrip(controller: c),
@@ -90,7 +93,12 @@ class PortraitSection extends StatelessWidget {
   }
 
   Widget _modes(BuildContext context, AvatarCreationController c) {
-    Widget mode(PortraitSource s, IconData icon, String label, {bool enabled = true}) {
+    Widget mode(
+      PortraitSource s,
+      IconData icon,
+      String label, {
+      bool enabled = true,
+    }) {
       final selected = c.source == s;
       final accent = AppColors.formMasterAccent;
       return Expanded(
@@ -305,11 +313,7 @@ class PortraitSection extends StatelessWidget {
             ),
             if (!packOn) ...[
               for (final u in c.extraUploads)
-                _well(
-                  context,
-                  bytes: u.bytes,
-                  caption: u.emotion ?? 'look',
-                ),
+                _well(context, bytes: u.bytes, caption: u.emotion ?? 'look'),
               _well(
                 context,
                 bytes: null,
@@ -374,7 +378,9 @@ class PortraitSection extends StatelessWidget {
                 alignment: Alignment.bottomCenter,
                 child: Container(
                   width: double.infinity,
-                  color: AppColors.backgroundOf(context).withValues(alpha: 0.65),
+                  color: AppColors.backgroundOf(
+                    context,
+                  ).withValues(alpha: 0.65),
                   padding: const EdgeInsets.symmetric(vertical: 1),
                   child: Text(
                     caption,
@@ -391,8 +397,11 @@ class PortraitSection extends StatelessWidget {
     );
   }
 
-  Future<void> _pickPortrait(BuildContext context, AvatarCreationController c) async {
-    final bytes = await pickImageBytes();
+  Future<void> _pickPortrait(
+    BuildContext context,
+    AvatarCreationController c,
+  ) async {
+    final bytes = await pickImageBytes(context);
     if (bytes == null || !context.mounted) return;
     // Same crop step the gallery's "Replace portrait" uses.
     final cropped = await ImageCropDialog.show(context, imageBytes: bytes);
@@ -401,8 +410,11 @@ class PortraitSection extends StatelessWidget {
     if (!ok && context.mounted) _saveFailed(context);
   }
 
-  Future<void> _pickExtra(BuildContext context, AvatarCreationController c) async {
-    final bytes = await pickImageBytes();
+  Future<void> _pickExtra(
+    BuildContext context,
+    AvatarCreationController c,
+  ) async {
+    final bytes = await pickImageBytes(context);
     if (bytes == null || !context.mounted) return;
     final choice = await showUploadTagDialog(context, bytes);
     if (choice == null || !context.mounted) return;

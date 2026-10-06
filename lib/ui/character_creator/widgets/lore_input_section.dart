@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// World-lore ingestion: a comma-separated URL field plus attach/remove of
@@ -20,8 +21,9 @@ class LoreInputSection extends StatelessWidget {
     required this.accentColor,
   });
 
-  Future<void> _attach() async {
-    final result = await PickerPrefs.pickFiles(
+  Future<void> _attach(BuildContext context) async {
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['txt', 'md', 'pdf', 'json', 'csv'],
@@ -146,7 +148,7 @@ class LoreInputSection extends StatelessWidget {
             ),
           ),
         OutlinedButton.icon(
-          onPressed: _attach,
+          onPressed: () => _attach(context),
           icon: const Icon(Icons.upload_file, size: 16),
           label: const Text('Attach Lore File (.txt, .md, .pdf)'),
           style: OutlinedButton.styleFrom(

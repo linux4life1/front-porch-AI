@@ -185,7 +185,8 @@ extension _StoryDashboardActions on _StoryDashboardPageState {
       final audiobook = await service.generateAudiobook(project);
       if (audiobook == null || !mounted) return;
       final wav = await audiobook.file.readAsBytes();
-      final out = await PickerPrefs.saveFile(
+      final out = await GuardedPicker.saveFile(
+        context,
         category: PickerPrefs.catExport,
         bytes: wav,
         dialogTitle: 'Save audiobook',
@@ -203,7 +204,8 @@ extension _StoryDashboardActions on _StoryDashboardPageState {
     try {
       final epub = await EpubGeneratorService.generateEpub(project);
       if (epub == null || !mounted) return;
-      final out = await PickerPrefs.saveFile(
+      final out = await GuardedPicker.saveFile(
+        context,
         category: PickerPrefs.catExport,
         bytes: Uint8List.fromList(epub.bytes),
         dialogTitle: 'Save eBook',
@@ -220,7 +222,8 @@ extension _StoryDashboardActions on _StoryDashboardPageState {
   Future<void> _exportText(StoryProject project) async {
     try {
       final md = _pipeline.exportAsMarkdown(project);
-      final out = await PickerPrefs.saveFile(
+      final out = await GuardedPicker.saveFile(
+        context,
         category: PickerPrefs.catExport,
         bytes: Uint8List.fromList(utf8.encode(md)),
         dialogTitle: 'Save text',

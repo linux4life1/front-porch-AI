@@ -89,7 +89,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
   }
 
   Future<void> _pickAvatar() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImage,
       type: FileType.image,
       allowMultiple: false,

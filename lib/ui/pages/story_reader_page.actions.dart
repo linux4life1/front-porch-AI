@@ -78,7 +78,8 @@ extension _StoryReaderActions on _StoryReaderPageState {
         '${project.title.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}.txt';
 
     try {
-      final outputPath = await PickerPrefs.saveFile(
+      final outputPath = await GuardedPicker.saveFile(
+        context,
         category: PickerPrefs.catExport,
         bytes: Uint8List.fromList(utf8.encode(text)),
         dialogTitle: 'Export Story',

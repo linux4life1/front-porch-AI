@@ -239,7 +239,8 @@ class _LoreSectionState extends State<LoreSection> {
   }
 
   Future<void> _addFile() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: const ['txt', 'md'],

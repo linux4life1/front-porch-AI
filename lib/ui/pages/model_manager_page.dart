@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/widgets/hf_model_card.dart';
 import 'package:front_porch_ai/ui/widgets/local_model_card.dart';
 import 'package:front_porch_ai/ui/widgets/download_queue_panel.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 part 'model_manager_page.download.dart';
@@ -108,7 +109,8 @@ class _ModelManagerPageState extends State<ModelManagerPage>
   }
 
   Future<void> _importLocalModel() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['gguf'],
@@ -144,7 +146,8 @@ class _ModelManagerPageState extends State<ModelManagerPage>
   }
 
   Future<void> _changeModelsFolder() async {
-    final picked = await PickerPrefs.getDirectoryPath(
+    final picked = await GuardedPicker.getDirectoryPath(
+      context,
       category: PickerPrefs.catDirectory,
       dialogTitle: 'Select Models Folder',
     );

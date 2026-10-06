@@ -19,17 +19,21 @@
 import 'dart:typed_data';
 
 import 'package:archive/archive_io.dart';
+import 'package:flutter/widgets.dart';
 
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// Pure IO helpers for the Avatar Gallery add flows — file/ZIP picking and
-/// sprite-pack decoding. No widgets, no repository, no state: keeps the
-/// controller + shell under the size cap and trivially reasoned about.
+/// IO helpers for the Avatar Gallery add flows — file/ZIP picking and
+/// sprite-pack decoding. No repository, no state: keeps the controller +
+/// shell under the size cap. The pickers take a [BuildContext] only so a
+/// failed file window can explain itself ([GuardedPicker]).
 
 /// Pick a single image and return its bytes, or null if cancelled. Handles the
 /// macOS desktop quirk where `.bytes` is null and only `.path` is populated.
-Future<Uint8List?> pickImageBytes() async {
-  final result = await PickerPrefs.pickFiles(
+Future<Uint8List?> pickImageBytes(BuildContext context) async {
+  final result = await GuardedPicker.pickFiles(
+    context,
     category: PickerPrefs.catImage,
     type: FileType.image,
     allowMultiple: false,
@@ -38,8 +42,9 @@ Future<Uint8List?> pickImageBytes() async {
 }
 
 /// Pick a `.zip` sprite pack and return its bytes, or null if cancelled.
-Future<Uint8List?> pickZipBytes() async {
-  final result = await PickerPrefs.pickFiles(
+Future<Uint8List?> pickZipBytes(BuildContext context) async {
+  final result = await GuardedPicker.pickFiles(
+    context,
     category: PickerPrefs.catImport,
     type: FileType.custom,
     allowedExtensions: ['zip'],

@@ -102,12 +102,12 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
 
   // ── Add flows (pickers live here; the controller does the persistence) ──────
   Future<void> _addLook() async {
-    final bytes = await pickImageBytes();
+    final bytes = await pickImageBytes(context);
     if (bytes != null) await _c.addLook(bytes);
   }
 
   Future<void> _replacePortrait() async {
-    final bytes = await pickImageBytes();
+    final bytes = await pickImageBytes(context);
     if (bytes == null || !mounted) return;
     final cropped = await ImageCropDialog.show(context, imageBytes: bytes);
     if (cropped == null) return;
@@ -115,7 +115,7 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
   }
 
   Future<void> _addExpression() async {
-    final bytes = await pickImageBytes();
+    final bytes = await pickImageBytes(context);
     if (bytes == null || !mounted) return;
     final emotion = await _pickEmotion(preview: bytes);
     if (emotion == null) return;
@@ -128,7 +128,7 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
   }
 
   Future<void> _importZip() async {
-    final zip = await pickZipBytes();
+    final zip = await pickZipBytes(context);
     if (zip == null) return;
     final pack = decodeSpritePack(zip);
     final (added, unrecognized, skipped) = await _c.importSpritePack([
