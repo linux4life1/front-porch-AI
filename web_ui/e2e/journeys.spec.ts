@@ -429,6 +429,15 @@ test.describe('the Local model card', () => {
     await expect(card).toContainText('Set up for this computer automatically.');
     const verdict = page.getByTestId('local-model-verdict');
 
+    // The speed test, in auto mode. The host refuses it until the model runs
+    // (_speedTestWhyNot, lib/services/llm_provider.speed_test.dart), and the
+    // model seeded here is only a header (e2e_local_model.dart): the button
+    // is there, greyed, with the host's reason under it.
+    const speedTest = card.getByTestId('speed-test-button');
+    await expect(speedTest).toHaveText('Find the fastest settings for this computer');
+    await expect(speedTest).toBeDisabled();
+    await expect(card.getByTestId('speed-test-unavailable')).toHaveText('Start the model first, then run the test.');
+
     await card.getByRole('button', { name: '8,192', exact: true }).click();
     await expect(verdict).toContainText('Not recommended or supported.');
     await card.getByRole('button', { name: '16,384', exact: true }).click();
@@ -438,6 +447,8 @@ test.describe('the Local model card', () => {
     await presets.selectOption({ label: 'Long chats — 32k chat · fitted to the card · smart cache off' });
     await expect(card).toContainText('Uses your preset “Long chats”.');
     await expect(page.getByTestId('kobold-preset-card')).toContainText('lets KoboldCpp fit it to your card');
+    // A preset runs its own settings: no speed test under it.
+    await expect(speedTest).toHaveCount(0);
 
     // The preset sets the context: Settings locks the slider, in the desktop's
     // words, and the host refuses another one however it is asked.
@@ -450,10 +461,11 @@ test.describe('the Local model card', () => {
     const refused = await page.request.post('/api/settings', { data: { contextSize: 8192 } });
     expect(refused.status()).toBe(400);
 
-    // Back to automatic, as it was.
+    // Back to automatic, as it was, and the speed test with it.
     await openRoute(page, '/models');
     await presets.selectOption({ label: "The app's own settings (automatic)" });
     await expect(card).toContainText('Set up for this computer automatically.');
+    await expect(speedTest).toBeDisabled();
   });
 
   // The host seeds "Risky" (browser_test.dart) beside "Long chats": a list of

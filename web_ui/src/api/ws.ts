@@ -67,6 +67,9 @@ export type WsEvent = {
   estFraction?: number | null;
   genCur?: number | null;
   genTotal?: number | null;
+  // `speed_test` event (the Local model card's speed test): how it stands, in
+  // the host's words. Read with speedTestOf (components/models/useSpeedTest).
+  speedTest?: unknown;
 };
 
 export class ChatSocket {

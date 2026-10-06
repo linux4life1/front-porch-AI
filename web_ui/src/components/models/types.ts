@@ -7,6 +7,30 @@
 /** What the desktop's KoboldCpp status shows: one rule for every surface. */
 export type KoboldPhase = 'stopped' | 'starting' | 'loading' | 'unloaded' | 'ready';
 
+/** Where the Local model card's speed test is, as the host names it. */
+export type SpeedTestState = 'idle' | 'running' | 'stopping' | 'done' | 'stopped' | 'failed';
+
+/** The speed test in the host's words: on the card, and in each `speed_test`
+ *  event from the hub. */
+export interface SpeedTestRun {
+  state: SpeedTestState;
+  step: number;
+  /** 0 until the host knows how many steps there are. */
+  steps: number;
+  /** Time left in words ("about 3 minutes"); null when it is not running. */
+  left: string | null;
+  /** What it is doing now, in plain words. */
+  doing: string;
+  /** How a test ended, in one line: on the card, the last test of the card's
+   *  model; in an event, the latest test's. Null when there is none. */
+  line: string | null;
+}
+
+/** The speed test on the card: also why it cannot run now (null when it can). */
+export interface SpeedTestCard extends SpeedTestRun {
+  unavailable: string | null;
+}
+
 export interface BackendStatus {
   isLocal: boolean;
   running: boolean;

@@ -229,4 +229,104 @@
   font-weight: 600;
   color: var(--kc-faint);
 }
+
+/* The speed test (auto mode), as the desktop card and its warm dialog have
+ * it: an amber-outline button, why it cannot run now (muted), how the last
+ * test ended, and a dialog with an amber hairline and a progress bar. */
+.kc-speed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.kc-btn.amber {
+  border-color: color-mix(in srgb, var(--kc-amber) 55%, transparent);
+  color: var(--kc-amber);
+  font-weight: 600;
+}
+.kc-speed-btn {
+  max-width: 100%;
+  padding: 6px 16px;
+  line-height: 1.3;
+}
+.kc-speed-why {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--kc-muted);
+}
+.kc-speed-line {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.modal.kc-speed-dialog {
+  width: min(480px, 92vw);
+  background: var(--kc-card);
+  border-color: color-mix(in srgb, var(--kc-amber) 50%, transparent);
+  border-radius: 12px;
+  padding: 22px 24px;
+  gap: 12px;
+  color: var(--kc-ink);
+}
+.modal.kc-speed-dialog:focus { outline: none; }
+.kc-speed-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.kc-speed-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.kc-speed-result { font-size: 15px; }
+.kc-speed-dialog .modal-actions {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.kc-progress {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--kc-inset);
+  overflow: hidden;
+}
+.kc-progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: var(--kc-amber);
+  transition: width 0.4s ease;
+}
+/* Before the host knows how many steps there are, the bar moves, as the
+ * desktop's does. */
+.kc-progress.waiting .kc-progress-fill {
+  width: 40%;
+  animation: kc-progress-wait 1.4s ease-in-out infinite;
+}
+@keyframes kc-progress-wait {
+  from { left: -40%; }
+  to { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kc-progress.waiting .kc-progress-fill { animation: none; left: 30%; }
+}
+.kc-speed-steps {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+}
+.kc-speed-step { font-weight: 600; }
+.kc-speed-left {
+  color: var(--kc-muted);
+  text-align: right;
+}
+
 [data-layout='phone'] .kc-card { padding: 18px 16px; }
+[data-layout='phone'] .kc-speed-btn { align-self: stretch; }
+[data-layout='phone'] .modal.kc-speed-dialog { padding: 18px 16px; }

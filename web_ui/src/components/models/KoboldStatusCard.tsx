@@ -3,13 +3,16 @@
 //
 // The phone's "Local model" card (the desktop's KoboldStatusCard): how the
 // local model runs on the host, in plain words, and the one thing to set
-// in auto mode, the context, with the same verdicts as the desktop. With a
-// preset in use it says what the preset does. And, apart from it, the
-// KoboldCpp preset chat uses, picked from the host's presets.
+// in auto mode, the context, with the same verdicts as the desktop, and its
+// speed test. With a preset in use it says what the preset does. And, apart
+// from it, the KoboldCpp preset chat uses, picked from the host's presets.
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/client';
-import type { KoboldPhase } from './types';
+import { SpeedTestButton } from './SpeedTestButton';
+import { SpeedTestOverlay } from './SpeedTestOverlay';
+import type { KoboldPhase, SpeedTestCard } from './types';
+import { speedTestClock, useSpeedTest } from './useSpeedTest';
 
 export type KoboldVerdict = { outcome: string; title: string; text: string };
 
@@ -35,6 +38,9 @@ export type LocalModel = {
   presets: { path: string; name: string; line: string }[];
   /** A model is chosen and its file could not be read (additive). */
   modelUnreadable?: boolean;
+  /** The speed test, as the desktop card shows it (additive; absent on a
+   *  host without one, which then has no button). */
+  speedTest?: SpeedTestCard;
 };
 
 const tokens = (n: number) => n.toLocaleString('en-US');
@@ -60,21 +66,33 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
   const [asking, setAsking] = useState(false);
   // Why the preset just picked was refused, shown beside the picker.
   const [presetProblem, setPresetProblem] = useState('');
+  // When the card on screen was asked for, and the newest ask: an older
+  // answer that lands after a newer one is dropped, and the speed test
+  // weighs the card against the hub's events by it.
+  const [cardAt, setCardAt] = useState(0);
+  const newest = useRef(0);
 
-  const load = useCallback(
-    () =>
-      api
-        .get<LocalModel>('/api/backend/local-model')
-        .then(setCard)
-        .catch((e) => onError(message(e))),
-    [onError],
-  );
+  const load = useCallback(() => {
+    const at = speedTestClock();
+    newest.current = at;
+    return api
+      .get<LocalModel>('/api/backend/local-model')
+      .then((c) => {
+        if (newest.current !== at) return;
+        setCard(c);
+        setCardAt(at);
+      })
+      .catch((e) => {
+        if (newest.current === at) onError(message(e));
+      });
+  }, [onError]);
   useEffect(() => {
     void load();
     // Running and ready change on the host; a slow refresh is enough.
     const t = setInterval(() => void load(), 10000);
     return () => clearInterval(t);
   }, [load]);
+  const speed = useSpeedTest(card?.speedTest, cardAt, load);
 
   const setContext = async (context: number) => {
     setPending(null);
@@ -216,9 +234,11 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
                 </div>
               )}
             </div>
+            {card.speedTest && <SpeedTestButton card={card.speedTest} speed={speed} />}
           </>
         )}
       </section>
+      <SpeedTestOverlay speed={speed} />
 
       <section className="kc-card" aria-labelledby="kc-preset-h" data-testid="kobold-preset-card">
         <h3 id="kc-preset-h" style={{ margin: 0, fontSize: 18, fontWeight: 650 }}>
