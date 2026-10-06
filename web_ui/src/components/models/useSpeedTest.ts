@@ -6,11 +6,14 @@
 // starts it, and the phone follows it and can Cancel it. How it stands comes
 // from the host twice over: the card's own read (every 10 s, and again when
 // a test ends or the hub reconnects) and the hub's `speed_test` event each
-// time it changes. The newer of the two is shown. Every sentence is the host's.
+// time it changes. The newer of the two is shown. Every sentence is the host's,
+// except when a request does not get through: that is said in the phone's own
+// plain words (describeActionFailure), never the browser's.
 
 import { useCallback, useEffect, useState } from 'react';
-import { api, ApiError } from '../../api/client';
+import { api } from '../../api/client';
 import { ChatSocket } from '../../api/ws';
+import { describeActionFailure } from '../../pages/chat/chatActionError';
 import type { SpeedTestCard, SpeedTestRun, SpeedTestState } from './types';
 
 /** What the overlay shows: nothing, the question, why the test cannot run,
@@ -62,8 +65,9 @@ let ticks = 0;
  *  came after a read was sent knows more than that read. */
 export const speedTestClock = (): number => ++ticks;
 
-const message = (e: unknown) =>
-  e instanceof ApiError || e instanceof Error ? e.message : String(e);
+// A request that fails says so in the phone's own plain words, never the
+// browser's ("Failed to fetch"): the computer may be off or out of reach.
+const failed = (what: string) => (e: unknown) => describeActionFailure(what, e);
 
 type Ask = { ask: string | null; refused: string | null };
 type Start = { started: boolean; refused: string | null };
@@ -115,7 +119,7 @@ export function useSpeedTest(
     const next = await api.get<Ask>('/api/backend/local-model/speed-test').then(
       (a): SpeedTestView =>
         a.refused || !a.ask ? { kind: 'refused', words: a.refused ?? '' } : { kind: 'ask', words: a.ask },
-      (e): SpeedTestView => ({ kind: 'refused', words: message(e) }),
+      (e): SpeedTestView => ({ kind: 'refused', words: failed('open the speed test')(e) }),
     );
     setBusy(false);
     setView(next);
@@ -127,7 +131,7 @@ export function useSpeedTest(
     setLive({ run: SPEED_TEST_STARTING, at: speedTestClock() });
     const refused = await api
       .post<Start>('/api/backend/local-model/speed-test')
-      .then((r) => (r.started ? null : (r.refused ?? '')), message);
+      .then((r) => (r.started ? null : (r.refused ?? '')), failed('start the speed test'));
     setBusy(false);
     if (refused === null) {
       // A card read sent before this answer may have been read before the
@@ -146,7 +150,7 @@ export function useSpeedTest(
     setBusy(true);
     await api
       .post('/api/backend/local-model/speed-test/cancel')
-      .catch((e: unknown) => setProblem(message(e)));
+      .catch((e: unknown) => setProblem(failed('stop the speed test')(e)));
     setBusy(false);
   }, []);
 

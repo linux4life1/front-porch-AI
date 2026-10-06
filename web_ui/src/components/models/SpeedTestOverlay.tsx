@@ -4,8 +4,9 @@
 // The speed test's overlay on the phone, the desktop's warm dialog
 // (showKoboldSpeedTest): the question with how long it takes, then the test
 // as it runs (progress, the step, the time left and what it does, with
-// Cancel), then the one line it ended with. Every sentence is the host's;
-// the labels are the desktop's own.
+// Cancel), then the one line it ended with. Every sentence is the host's, or
+// the phone's own when the host cannot be reached (useSpeedTest); the labels
+// are the desktop's own.
 
 import { useEffect, useId, useRef } from 'react';
 import type { SpeedTestRun } from './types';

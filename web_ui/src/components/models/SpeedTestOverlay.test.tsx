@@ -69,6 +69,10 @@ const AUTO: LocalModel = {
 const ASK = 'This takes about 4 minutes. Replies may start sooner afterwards. Run it?';
 const LABEL = 'Find the fastest settings for this computer';
 
+/** The phone's own words when the computer does not answer (chatActionError). */
+const unreachable = (what: string) =>
+  `Couldn't ${what}. Front Porch AI didn't answer — check the app is still open on your computer and this device is on the same network, then try again.`;
+
 let container: HTMLDivElement;
 let root: Root;
 let card: LocalModel;
@@ -298,17 +302,44 @@ describe('the speed test overlay', () => {
     expect(($('speed-test-cancel') as HTMLButtonElement).disabled).toBe(true);
   });
 
-  it('a Cancel that does not reach the host says why, in the overlay', async () => {
+  it('a Cancel that does not reach the computer says so in plain words, and Cancel can be tapped again', async () => {
     await show(AUTO);
     await runIt();
     await progress(RUNNING);
-    post.mockRejectedValueOnce(new Error('Request failed (502)'));
+    // What Chromium's fetch throws when the computer cannot be reached.
+    post.mockRejectedValueOnce(new TypeError('Failed to fetch'));
     await tap('speed-test-cancel');
 
     const problem = $('speed-test-problem')!;
     expect(problem.getAttribute('role')).toBe('alert');
-    expect(problem.textContent).toBe('Request failed (502)');
+    expect(problem.textContent).toBe(unreachable('stop the speed test'));
     expect(($('speed-test-cancel') as HTMLButtonElement).disabled).toBe(false);
+
+    post.mockResolvedValueOnce({ ok: true });
+    await tap('speed-test-cancel');
+    expect(post).toHaveBeenLastCalledWith('/api/backend/local-model/speed-test/cancel');
+    expect($('speed-test-problem')).toBeNull();
+  });
+
+  it('when the computer cannot be reached at the question or at Run it, it says so in plain words, not the browser’s', async () => {
+    await show(AUTO);
+    // WebKit's words for the same failure.
+    get.mockRejectedValueOnce(new TypeError('Load failed'));
+    await tap('speed-test-button');
+    expect($('speed-test-refused')!.textContent).toBe(unreachable('open the speed test'));
+    expect(labels(overlay()!)).toEqual(['Close']);
+
+    // Close, and the button asks again.
+    await tap('speed-test-close');
+    await tap('speed-test-button');
+    expect($('speed-test-ask')!.textContent).toBe(ASK);
+
+    post.mockRejectedValueOnce(new TypeError('Failed to fetch'));
+    await tap('speed-test-run');
+    expect($('speed-test-refused')!.textContent).toBe(unreachable('start the speed test'));
+    expect(labels(overlay()!)).toEqual(['Close']);
+    expect($('speed-test-button')!.textContent).toBe(LABEL);
+    expect(container.textContent).not.toMatch(/Failed to fetch|Load failed/);
   });
 
   it('ends with the one line and Done; the card reads itself again and shows the line', async () => {
