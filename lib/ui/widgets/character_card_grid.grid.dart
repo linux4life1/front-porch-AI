@@ -49,6 +49,8 @@ extension CharacterCardGridBuild on CharacterCardGrid {
       mainAxisSpacing: 24,
     );
     final sel = selection;
+    // What a held, picked card drags: every pick (library phase 3).
+    final payload = sel != null && picking && !sel.isEmpty ? sel.payload : null;
 
     final grid = Scrollbar(
       controller: gridScrollController,
@@ -71,6 +73,7 @@ extension CharacterCardGridBuild on CharacterCardGrid {
           final groupOffset = index - folders.length;
           if (groupOffset < groups.length) {
             final group = groups[groupOffset];
+            final picked = selectedGroupIds.contains(group.id);
             return GroupGridCard(
               group: group,
               groupRepo: groupRepo,
@@ -91,10 +94,17 @@ extension CharacterCardGridBuild on CharacterCardGrid {
                   ? onToggleSelectGroup
                   : (g) => _pick(sel, view, g.id, group: true),
               onGroupContextMenuAction: onGroupContextMenuAction,
+              dragSelection: picked ? payload : null,
+              dimmed: picked && (sel?.dragsPicks ?? false),
+              onDragStarted: sel == null
+                  ? null
+                  : () => _dragStarted(sel, picked ? payload : null),
+              onDragEnded: sel?.endDrag,
             );
           }
           final character = displayCharacters[groupOffset - groups.length];
           final key = character.stableGroupId;
+          final picked = selectedCharacterIds.contains(key);
           return CharacterGridCard(
             character: character,
             activeFolderId: activeFolderId,
@@ -117,6 +127,12 @@ extension CharacterCardGridBuild on CharacterCardGrid {
             onContextMenuAction: onContextMenuAction,
             onResolveCharImage: onResolveCharImage,
             imageCacheEpoch: repo.coverEpoch,
+            dragSelection: picked ? payload : null,
+            dimmed: picked && (sel?.dragsPicks ?? false),
+            onDragStarted: sel == null
+                ? null
+                : () => _dragStarted(sel, picked ? payload : null),
+            onDragEnded: sel?.endDrag,
           );
         },
       ),
@@ -160,4 +176,7 @@ extension CharacterCardGridBuild on CharacterCardGrid {
       sel.toggle(key, group: group);
     }
   }
+
+  void _dragStarted(LibrarySelection sel, LibraryDragPayload? picks) =>
+      sel.beginDrag(picks?.count ?? 1, picks: picks != null);
 }

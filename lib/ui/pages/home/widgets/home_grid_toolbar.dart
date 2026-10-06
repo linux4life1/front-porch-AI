@@ -21,11 +21,13 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show FolderDialogAction;
 
 part 'home_grid_toolbar.actions.dart';
+part 'home_grid_toolbar.drag.dart';
 part 'home_grid_toolbar.selection.dart';
 
 /// The home grid's top toolbar: selection/organize header or folder breadcrumb
@@ -59,6 +61,8 @@ class HomeGridToolbar extends StatelessWidget {
     required this.onImport,
     this.hiddenSelectedCount = 0,
     this.selectionActions,
+    this.liveDrag = false,
+    this.onDropOnLevel,
   });
 
   final bool isSelecting;
@@ -73,6 +77,12 @@ class HomeGridToolbar extends StatelessWidget {
 
   /// Select all / Select none in the selection header; none without it.
   final LibrarySelectionActions? selectionActions;
+
+  /// A card or the picks are being dragged: the path becomes drop targets.
+  final bool liveDrag;
+
+  /// A drop on a level of the path; null folder id is the top level.
+  final void Function(Object item, String? folderId)? onDropOnLevel;
   final String sortMode;
   final double gridScale;
   final Widget modeToggle;
@@ -123,20 +133,24 @@ class HomeGridToolbar extends StatelessWidget {
   /// Clickable path — "My Characters / folder1 / folder2 / current". Every
   /// segment but the current one jumps straight there, so deep nesting never
   /// needs N back-taps to escape.
-  Widget _breadcrumb(BuildContext context) {
+  /// While a drag is live ([dropTargets]) every level but the current one
+  /// takes a drop instead (library phase 3).
+  Widget _breadcrumb(BuildContext context, {bool dropTargets = false}) {
     final trail = _trail();
     final crumbStyle = TextStyle(
       color: AppColors.textSecondary(context),
       fontSize: 15,
     );
-    Widget crumb(String label, String? target) => InkWell(
-      onTap: () => onFolderJump(target),
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Text(label, style: crumbStyle),
-      ),
-    );
+    Widget crumb(String label, String? target) => dropTargets
+        ? _levelTarget(context, label, target)
+        : InkWell(
+            onTap: () => onFolderJump(target),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(label, style: crumbStyle),
+            ),
+          );
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       // Keep the tail (the folder you're standing in) visible on long paths.
@@ -298,6 +312,7 @@ class HomeGridToolbar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          if (liveDrag) return _dragRow(context, width);
           if (isSelecting || isOrganizing) return _pickingRow(context, width);
           // Content-area widths, not window sizes. Sidebar already ate its
           // share; these decide what still fits in the remaining strip.

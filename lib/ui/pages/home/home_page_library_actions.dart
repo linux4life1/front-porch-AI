@@ -22,17 +22,22 @@ part of '../home_page.dart';
 extension _HomePageLibraryActions on _HomePageState {
   /// One drop handler for both draggable kinds: characters are keyed by image
   /// filename, group casts by their group id (see FolderService).
-  Future<void> _handleAcceptFolderDrop(
-    Object item,
-    CharacterFolder folder,
-  ) async {
-    final folderService = Provider.of<FolderService>(context, listen: false);
-    if (item is CharacterCard) {
-      if (item.imagePath != null) {
-        await folderService.addToFolder(folder.id, item.imagePath!);
-      }
-    } else if (item is GroupChat) {
-      await folderService.addGroupToFolder(folder.id, item.id);
+  Future<void> _handleAcceptFolderDrop(Object item, CharacterFolder folder) =>
+      _handleDropOnLevel(item, folder.id);
+
+  /// A drop on a folder tile or on a level of the path (null: the top
+  /// level). A dragged selection moves in one go and says so; a single
+  /// card moves quietly, as it always has.
+  Future<void> _handleDropOnLevel(Object item, String? folderId) async {
+    final moved = await _selection.drop(
+      item,
+      folderId,
+      folders: Provider.of<FolderService>(context, listen: false),
+      library: Provider.of<CharacterRepository>(context, listen: false)
+          .characters,
+    );
+    if (moved != null && item is LibraryDragPayload && mounted) {
+      _snackMoved(context, moved, folderId);
     }
   }
 

@@ -20,26 +20,35 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Multi-select and Organize into folders: the two picking modes.
 enum LibraryPickMode { none, select, organize }
 
 /// The home library's picks, in one place: which mode, which cards (by
-/// selection key: character stableGroupId, group id) and the card a
-/// Shift-click ranges from. Every gesture — tap, Ctrl/Cmd-click, Shift-click,
-/// a box, Select all, Move to Folder — goes through here, so the home page
-/// and the tests drive the same rules.
+/// selection key: character stableGroupId, group id), the card a Shift-click
+/// ranges from, and a drag in flight. Every gesture — tap, Ctrl/Cmd-click,
+/// Shift-click, a box, Select all, a drag onto a folder — goes through here,
+/// so the home page and the tests drive the same rules.
 class LibrarySelection extends ChangeNotifier {
   LibraryPickMode _mode = LibraryPickMode.none;
   final Set<String> characterIds = {};
   final Set<String> groupIds = {};
   String? _anchor;
+  int _dragCount = 0;
+  bool _dragsPicks = false;
 
   bool get isSelecting => _mode == LibraryPickMode.select;
   bool get isOrganizing => _mode == LibraryPickMode.organize;
   bool get picking => _mode != LibraryPickMode.none;
   bool get isEmpty => characterIds.isEmpty && groupIds.isEmpty;
+
+  /// Cards in a drag that is in flight; 0 when nothing is being dragged.
+  int get dragCount => _dragCount;
+
+  /// The drag in flight carries the picks (not one card).
+  bool get dragsPicks => _dragsPicks;
 
   void _clear() {
     characterIds.clear();
@@ -59,6 +68,8 @@ class LibrarySelection extends ChangeNotifier {
   void cancel() {
     _mode = LibraryPickMode.none;
     _anchor = null;
+    _dragCount = 0;
+    _dragsPicks = false;
     _clear();
     notifyListeners();
   }
@@ -132,6 +143,25 @@ class LibrarySelection extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// The picks as a drag carries them.
+  LibraryDragPayload get payload => LibraryDragPayload(
+    characterIds: {...characterIds},
+    groupIds: {...groupIds},
+  );
+
+  void beginDrag(int count, {required bool picks}) {
+    _dragCount = count;
+    _dragsPicks = picks;
+    notifyListeners();
+  }
+
+  void endDrag() {
+    if (_dragCount == 0 && !_dragsPicks) return;
+    _dragCount = 0;
+    _dragsPicks = false;
+    notifyListeners();
+  }
+
   /// Moves the picks to [folderId] (null: the top level) in one go, then
   /// ends the selection, as the Move to Folder button always has. Returns
   /// how many moved.
@@ -151,5 +181,32 @@ class LibrarySelection extends ChangeNotifier {
     );
     cancel();
     return moved;
+  }
+
+  /// A drop on a folder tile or a level of the path: the picks, or the one
+  /// card of a single-card drag. Null for data the library cannot move.
+  Future<int?> drop(
+    Object item,
+    String? folderId, {
+    required FolderService folders,
+    required List<CharacterCard> library,
+  }) {
+    endDrag();
+    return switch (item) {
+      LibraryDragPayload() => moveTo(
+        folderId,
+        folders: folders,
+        library: library,
+      ),
+      CharacterCard(:final imagePath?) => folders.moveMany(
+        folderId: folderId,
+        characterPaths: [imagePath],
+      ),
+      GroupChat(:final id) => folders.moveMany(
+        folderId: folderId,
+        groupIds: [id],
+      ),
+      _ => Future.value(null),
+    };
   }
 }

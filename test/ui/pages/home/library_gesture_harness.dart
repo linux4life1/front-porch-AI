@@ -117,6 +117,8 @@ class GestureLibrary {
     final scroll = ScrollController();
     addTearDown(scroll.dispose);
     final sel = selection;
+    Future<void> drop(Object item, String? id) =>
+        sel.drop(item, id, folders: folders, library: cards);
     await tester.pumpWidget(
       ChangeNotifierProvider<CharacterRepository>.value(
         value: repo,
@@ -151,7 +153,7 @@ class GestureLibrary {
                 onToggleOrganizeMode: sel.toggleOrganizeMode,
                 onContextMenuAction: (_, _) {},
                 onImport: (_) {},
-                onAcceptFolderDrop: (_, _) {},
+                onAcceptFolderDrop: (item, f) => drop(item, f.id),
                 onFolderDialogAction:
                     (FolderDialogAction _, {folder, parentId}) {},
                 onFolderTap: (_) {},
@@ -170,6 +172,7 @@ class GestureLibrary {
                 onSelectAll: sel.selectAll,
                 onSelectNone: sel.selectNone,
                 selection: sel,
+                onDropOnLevel: drop,
               ),
             ),
           ),

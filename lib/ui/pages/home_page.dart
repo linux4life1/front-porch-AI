@@ -38,6 +38,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 import 'package:front_porch_ai/ui/pages/home/dialogs/session_picker_dialog.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_wizard_page.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/pages/home/home_drop_zone.dart';
 import 'package:front_porch_ai/ui/pages/home/library_import_picks.dart';
 import 'package:front_porch_ai/ui/pages/home/library_selection.dart';
@@ -391,6 +392,7 @@ class _HomePageState extends State<HomePage> {
               onSelectAll: _selection.selectAll,
               onSelectNone: _selection.selectNone,
               selection: _selection,
+              onDropOnLevel: _handleDropOnLevel,
             ),
           ),
         );

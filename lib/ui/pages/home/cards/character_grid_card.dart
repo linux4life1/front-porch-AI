@@ -22,6 +22,8 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show kFolderDragHoldDelay;
@@ -47,6 +49,10 @@ class CharacterGridCard extends StatelessWidget {
     required this.onContextMenuAction,
     required this.onResolveCharImage,
     this.imageCacheEpoch = 0,
+    this.dragSelection,
+    this.dimmed = false,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   final CharacterCard character;
@@ -64,6 +70,15 @@ class CharacterGridCard extends StatelessWidget {
   /// From [CharacterRepository.coverEpoch] — forces [Image.file] to drop a
   /// stale frame when the portrait is rewritten in place (same path).
   final int imageCacheEpoch;
+
+  /// Set while this card is picked: holding it then drags every pick, with
+  /// the stacked ghost. Null keeps the one-card drag.
+  final LibraryDragPayload? dragSelection;
+
+  /// Drawn at 40% while the picks it belongs to are being dragged.
+  final bool dimmed;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
 
   /// Delegates to the canonical stable group ID.
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
@@ -95,47 +110,77 @@ class CharacterGridCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return LongPressDraggable<CharacterCard>(
-      data: character,
-      delay: kFolderDragHoldDelay,
-      feedback: Material(
-        color: Colors.transparent,
-        child: SizedBox(
-          width: 150,
-          height: 200,
-          child: Card(
-            color: AppColors.cardOf(context),
-            clipBehavior: Clip.antiAlias,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: character.imagePath != null
-                ? _coverImage(context, onResolveCharImage(character), size: 48)
-                : Icon(
-                    Icons.person,
-                    size: 64,
-                    color: AppColors.iconSecondary(context),
-                  ),
-          ),
-        ),
+    final picks = dragSelection;
+    // Scene Guests (Lite NPCs) are real library cards (so they persist and
+    // can be deleted here), but badge them so they're distinguishable from
+    // regular characters in the grid.
+    final face = character.isLite
+        ? Stack(
+            children: [
+              _buildCharacterCardInner(context, character),
+              Positioned(top: 6, left: 6, child: _guestBadge(context)),
+            ],
+          )
+        : _buildCharacterCardInner(context, character);
+    // Always an Opacity, so dimming mid-drag never rebuilds the draggable.
+    return Opacity(
+      opacity: dimmed ? 0.4 : 1,
+      child: LongPressDraggable<Object>(
+        data: picks ?? character,
+        delay: kFolderDragHoldDelay,
+        dragAnchorStrategy: picks == null
+            ? childDragAnchorStrategy
+            : LibraryDragGhost.anchor,
+        feedback: picks == null
+            ? _singleFeedback(context)
+            : LibraryDragGhost(
+                count: picks.count,
+                name: character.name,
+                cover: _ghostCover(context),
+              ),
+        childWhenDragging: picks == null
+            ? Opacity(
+                opacity: 0.3,
+                child: _buildCharacterCardInner(context, character),
+              )
+            : face,
+        onDragStarted: onDragStarted,
+        onDragEnd: (_) => onDragEnded?.call(),
+        child: face,
       ),
-      childWhenDragging: Opacity(
-        opacity: 0.3,
-        child: _buildCharacterCardInner(context, character),
-      ),
-      // Scene Guests (Lite NPCs) are real library cards (so they persist and can
-      // be deleted here), but badge them so they're distinguishable from regular
-      // characters in the grid.
-      child: character.isLite
-          ? Stack(
-              children: [
-                _buildCharacterCardInner(context, character),
-                Positioned(top: 6, left: 6, child: _guestBadge(context)),
-              ],
-            )
-          : _buildCharacterCardInner(context, character),
     );
   }
+
+  Widget _ghostCover(BuildContext context) => character.imagePath != null
+      ? _coverImage(context, onResolveCharImage(character), size: 32)
+      : ColoredBox(
+          color: AppColors.surfaceContainerOf(context),
+          child: Icon(
+            Icons.person,
+            size: 40,
+            color: AppColors.iconSecondary(context),
+          ),
+        );
+
+  Widget _singleFeedback(BuildContext context) => Material(
+    color: Colors.transparent,
+    child: SizedBox(
+      width: 150,
+      height: 200,
+      child: Card(
+        color: AppColors.cardOf(context),
+        clipBehavior: Clip.antiAlias,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: character.imagePath != null
+            ? _coverImage(context, onResolveCharImage(character), size: 48)
+            : Icon(
+                Icons.person,
+                size: 64,
+                color: AppColors.iconSecondary(context),
+              ),
+      ),
+    ),
+  );
 
   /// Small "Guest" chip overlaid on Scene Guest (Lite NPC) cards in the grid.
   Widget _guestBadge(BuildContext context) => Container(

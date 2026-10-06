@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -85,17 +86,19 @@ class FolderGridCard extends StatelessWidget {
     final charCount = folder.characterPaths.length;
     final groupCount = folder.groupIds.length;
 
-    // Object (not CharacterCard) so group casts can be dropped here too —
-    // typed as the base with an explicit will-accept guard, so an unrelated
-    // draggable neither highlights the folder nor fires the callback.
+    // Object (not CharacterCard) so group casts and a dragged selection can
+    // be dropped here too — typed as the base with an explicit will-accept
+    // guard, so an unrelated draggable neither highlights the folder nor
+    // fires the callback.
     return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) =>
-          details.data is CharacterCard || details.data is GroupChat,
+      onWillAcceptWithDetails: (details) => libraryDragCount(details.data) > 0,
       onAcceptWithDetails: (details) {
         onAcceptFolderDrop(details.data, folder);
       },
       builder: (context, candidateData, rejectedData) {
         final isHovering = candidateData.isNotEmpty;
+        // While something hovers, the count line says what a drop does.
+        final dropping = isHovering ? libraryDragCount(candidateData.first) : 0;
         return Card(
           color: isHovering
               ? AppColors.porchAmberOf(context).withValues(alpha: 0.15)
@@ -184,19 +187,31 @@ class FolderGridCard extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 8,
                               ),
-                              child: Text(
-                                groupCount > 0
-                                    ? '$charCount character${charCount == 1 ? '' : 's'}'
-                                          ' · $groupCount group${groupCount == 1 ? '' : 's'}'
-                                    : '$charCount character${charCount == 1 ? '' : 's'}',
-                                style: TextStyle(
-                                  color: AppColors.textSecondary(context),
-                                  fontSize: isSmall ? 11 : 13,
-                                ),
-                                textAlign: TextAlign.center,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: dropping > 0
+                                  ? Text(
+                                      'Drop to move $dropping here',
+                                      style: TextStyle(
+                                        color: AppColors.porchAmberOf(context),
+                                        fontSize: isSmall ? 11 : 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    )
+                                  : Text(
+                                      groupCount > 0
+                                          ? '$charCount character${charCount == 1 ? '' : 's'}'
+                                                ' · $groupCount group${groupCount == 1 ? '' : 's'}'
+                                          : '$charCount character${charCount == 1 ? '' : 's'}',
+                                      style: TextStyle(
+                                        color: AppColors.textSecondary(context),
+                                        fontSize: isSmall ? 11 : 13,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                             ),
                           ],
                           // The old inline Rename/Delete icon row lived behind
@@ -208,7 +223,7 @@ class FolderGridCard extends StatelessWidget {
                           // grid size.
                         ],
                       );
-                      },
+                    },
                   ),
                 ),
               ),
