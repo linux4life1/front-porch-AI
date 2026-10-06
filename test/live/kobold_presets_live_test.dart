@@ -208,7 +208,11 @@ void main() {
         ),
       );
       await c.timeMmq();
-      expect(c.mmqStatus, startsWith('On: '));
+      // The shared timing loop says both times and which won: "MMQ on: 7.0 s,
+      // MMQ off: 6.6 s a turn. MMQ off is faster here, so it is set."
+      expect(c.mmqStatus, startsWith('MMQ on: '));
+      expect(c.mmqStatus, contains(' a turn. '));
+      expect(c.mmqStatus, endsWith(' here, so it is set.'));
       expect(c.draft.mmq, isNotNull);
       expect(
         storage.backendSettings.mmqFor(
