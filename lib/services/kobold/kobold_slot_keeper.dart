@@ -19,7 +19,6 @@
 // the cache alone is always safe and only costs speed.
 
 import 'dart:async';
-import 'dart:math' as math;
 
 import 'kobold_keeper_budget.dart';
 import 'kobold_slot_api.dart';
@@ -227,16 +226,16 @@ class KoboldSlotKeeper {
     });
   }
 
-  /// The chats other than the open one, beyond the ones Settings asks to
-  /// keep, leave the table, the least recently used first.
+  /// The chats other than the open one, beyond the recent ones Settings
+  /// asks for and memory has room for, leave the table, the least recently
+  /// used first. The open chat's slot is its own: no chat open, or one not
+  /// saved yet, does not lend it to a recent chat.
   void _trim() {
-    final open = _saved.containsKey(_open) ? 1 : 0;
-    final room = math.max(0, math.min(_recentWanted, _count - open));
     final others = [
       for (final e in _saved.entries)
         if (e.key != _open) e,
     ]..sort((a, b) => b.value.used.compareTo(a.value.used));
-    for (final e in others.skip(room)) {
+    for (final e in others.skip(_count - 1)) {
       _saved.remove(e.key);
     }
   }
@@ -336,7 +335,7 @@ class KoboldSlotKeeper {
   /// recent one, when Settings asks for any.
   int? _slotFor(String key) {
     final count = _count;
-    if (count <= 0 || (key != _open && count < 2)) return null;
+    if (key != _open && count < 2) return null;
     final own = _saved[key];
     if (own != null) return own.slot;
     final taken = {for (final s in _saved.values) s.slot};

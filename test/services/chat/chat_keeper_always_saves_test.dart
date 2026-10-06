@@ -33,6 +33,8 @@ void main() {
   setUp(() async {
     h = await KoboldChatHarness.start();
     // What KoboldCpp prints after a request: 1,000 tokens read a second.
+    // The removed rule weighed saves against this speed; nothing reads it
+    // for the keeper now, and the chat must be kept all the same.
     h.kobold.debugEngineSaid(
       'Processed:2000 in 2.00s (1000.00T/s), '
       'Generated:16/16 in 0.50s (32.00T/s)\n',

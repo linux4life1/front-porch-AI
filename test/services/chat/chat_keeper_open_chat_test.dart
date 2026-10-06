@@ -74,6 +74,18 @@ void main() {
       expect(h.engine.of('save').last.slot, 0);
     });
 
+    test('no room in memory at all: the open chat is kept all the same, and '
+        'the next reply loads it back', () async {
+      h.kobold.debugKeeperPlan = () async => const KoboldKeeperPlan.keep(0);
+
+      await reply('Good evening, Ada.');
+      expect(kept(), 1, reason: 'the open chat was not kept');
+      h.engine.forgetLog();
+      await reply('Is the swing fixed?');
+
+      expect(h.engine.of('load').map((r) => r.slot), [0]);
+    });
+
     test('another character: the chat left goes', () async {
       await reply('Good evening, Ada.');
       final bea = card('Bea');
@@ -257,6 +269,21 @@ void main() {
       await h.kobold.waitForIdle();
 
       expect(kept(), 0);
+      expect(held(), 0);
+    });
+
+    test('with memory for the open chat only, the count asked for keeps none: '
+        'leaving gives the memory back', () async {
+      h.kobold.debugKeeperPlan = () async => const KoboldKeeperPlan.keep(1);
+      await h.base.storage.backendSettings.setKeepRecentChats(2);
+      h.chat.chatScreenOpened();
+      await reply('Good evening, Ada.');
+      expect(kept(), 1);
+
+      h.chat.chatScreenClosed();
+      await h.kobold.waitForIdle();
+
+      expect(kept(), 0, reason: "a recent chat took the open chat's slot");
       expect(held(), 0);
     });
 
