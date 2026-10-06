@@ -55,9 +55,12 @@ class LibrarySelection extends ChangeNotifier {
   /// Esc called the drag in flight off: nothing it is dropped on may take it.
   bool get dragCalledOff => _dragCalledOff;
 
+  /// No picks, and no Shift anchor: a range must never run from a card
+  /// that was picked before the picks were cleared.
   void _clear() {
     characterIds.clear();
     groupIds.clear();
+    _anchor = null;
   }
 
   void toggleSelectMode() => _toggleMode(LibraryPickMode.select);
@@ -72,7 +75,6 @@ class LibrarySelection extends ChangeNotifier {
   /// The ✕, Esc, and the end of a move: no picks, no mode.
   void cancel() {
     _mode = LibraryPickMode.none;
-    _anchor = null;
     _resetDrag();
     _clear();
     notifyListeners();
@@ -93,7 +95,6 @@ class LibrarySelection extends ChangeNotifier {
   /// Select none: every pick out, hidden ones too; still picking. The Shift
   /// anchor goes too, so the next Shift-click picks only its card.
   void selectNone() {
-    _anchor = null;
     _clear();
     notifyListeners();
   }

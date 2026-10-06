@@ -69,6 +69,15 @@ void main() {
     },
   );
 
+  test('leaving a mode by its toolbar toggle drops the Shift anchor', () {
+    const order = ['Ann', 'Bo', 'Cy', 'Dee', 'Eve'];
+    final sel = LibrarySelection()..toggle('Ann', group: false);
+    sel.toggleSelectMode(); // the toolbar's Multi-select, pressed again
+    expect(sel.characterIds, isEmpty);
+    sel.addRange('Eve', group: false, order: order, groupKeys: const {});
+    expect(sel.characterIds, {'Eve'}, reason: 'no range from the old Ann');
+  });
+
   test('a box and Select none move or drop the Shift anchor', () {
     const order = ['crew', 'Ann', 'Bo', 'Cy', 'Dee', 'Eve'];
     const groupKeys = {'crew'};
