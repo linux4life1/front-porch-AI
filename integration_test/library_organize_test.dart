@@ -54,6 +54,17 @@ final _kTinyPng = <int>[
 /// exists, so a tap right after can land on nothing (seen on CI).
 const kOpenAnimation = Duration(milliseconds: 400);
 
+/// Type into the library search box. The box must own the keyboard before
+/// the text is sent: enterText alone asks for focus and sends the text in
+/// the same breath, and on a slow runner the text arrived before the focus
+/// (Windows CI: the second search never changed the grid).
+Future<void> typeSearch(WidgetTester tester, Finder box, String text) async {
+  await tester.tap(box);
+  await tester.pump(kOpenAnimation);
+  await tester.enterText(box, text);
+  await tester.pump(kOpenAnimation);
+}
+
 /// Open the search-scope menu and choose [item].
 Future<void> pickScope(
   WidgetTester tester,
@@ -172,7 +183,7 @@ void main() {
     );
     await pickScope(tester, 'Top level only', alsoListed: 'Everywhere');
     await tester.pump(const Duration(milliseconds: 400));
-    await tester.enterText(search, 'Porch');
+    await typeSearch(tester, search, 'Porch');
     // Wait for the filter to land, not for a card that was already showing:
     // pumpUntilFound returns without a frame when its card is on screen.
     await pumpUntilTrue(
@@ -206,7 +217,7 @@ void main() {
     await pumpUntilFound(tester, find.text('2 selected'));
 
     // A new search hides both picks; they stay picked and are counted.
-    await tester.enterText(search, 'Quiet');
+    await typeSearch(tester, search, 'Quiet');
     await pumpUntilFound(tester, card('Quiet Gamma'));
     await pumpUntilFound(tester, find.text('2 selected (2 hidden)'));
 
