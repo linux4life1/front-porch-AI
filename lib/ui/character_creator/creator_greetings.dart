@@ -26,7 +26,7 @@ import 'package:front_porch_ai/services/services.dart';
 /// which notifies; the work itself is `CreatorGreetingEngine`.
 class CreatorGreetings {
   /// The most alternates the creator writes or lets you add.
-  static const maxAlternates = 5;
+  static const maxAlternates = kMaxAlternateGreetings;
 
   /// The greeting being written: 0 is the first message, 1 and up the
   /// alternates, and one past the last alternate while Add another writes.

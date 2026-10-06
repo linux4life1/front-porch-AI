@@ -18,6 +18,10 @@
 
 part of '../character_gen_service.dart';
 
+/// The most alternate greetings the creator writes or lets you add, on the
+/// desktop and through the web relay alike.
+const kMaxAlternateGreetings = 5;
+
 /// How a creation run wrote its greetings, kept so the creator's Greetings
 /// step (desktop and web) can write one more greeting the same way.
 /// The default is a card nobody recorded: medium length, a neutral tone and
