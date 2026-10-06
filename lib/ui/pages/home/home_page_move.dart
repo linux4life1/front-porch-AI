@@ -178,28 +178,20 @@ extension _HomePageMove on _HomePageState {
     CharacterRepository repo,
     FolderService folderService,
   ) async {
-    // Resolve selected IDs back to imagePaths
-    for (final id in _selectedCharacterIds) {
-      final card = repo.characters
-          .where((c) => _getCharacterIdFromCard(c) == id)
-          .firstOrNull;
-      if (card?.imagePath != null) {
-        if (folderId == null) {
-          await folderService.removeFromFolder(null, card!.imagePath!);
-        } else {
-          await folderService.addToFolder(folderId, card!.imagePath!);
-        }
-      }
+    // Resolve selected IDs back to imagePaths. Groups ride the same move:
+    // their selection ids ARE their group ids. One moveMany for the lot —
+    // Select all can hand over hundreds of cards (#347).
+    final byId = <String, CharacterCard>{};
+    for (final c in repo.characters) {
+      byId.putIfAbsent(_getCharacterIdFromCard(c), () => c);
     }
-    // Groups ride the same move — their selection ids ARE their group ids.
-    for (final groupId in _selectedGroupIds) {
-      if (folderId == null) {
-        await folderService.removeGroupFromFolder(null, groupId);
-      } else {
-        await folderService.addGroupToFolder(folderId, groupId);
-      }
-    }
-    final moved = _selectedCharacterIds.length + _selectedGroupIds.length;
+    final moved = await folderService.moveMany(
+      folderId: folderId,
+      characterPaths: [
+        for (final id in _selectedCharacterIds) ?byId[id]?.imagePath,
+      ],
+      groupIds: _selectedGroupIds,
+    );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
