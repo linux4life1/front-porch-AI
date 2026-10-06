@@ -74,7 +74,12 @@ void main() {
 
   tearDown(() => bin.delete(recursive: true));
 
-  Future<KcppsEditorController> open(WidgetTester tester) async {
+  /// The editor on "Mine", a preset for Qwen3 14B with a batch of 1,024;
+  /// [stamp] is the `measured` it was saved with, if any.
+  Future<KcppsEditorController> open(
+    WidgetTester tester, {
+    Map<String, dynamic>? stamp,
+  }) async {
     await tester.binding.setSurfaceSize(const Size(1280, 1800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     const header = 'test/fixtures/gguf_headers/Qwen3-14B';
@@ -96,6 +101,7 @@ void main() {
           'contextsize': 16384,
           'batchsize': 1024,
           'usecuda': ['normal', '0'],
+          'measured': ?stamp,
         }),
       );
     });
@@ -144,6 +150,67 @@ void main() {
   Finder measured() => find.byKey(const ValueKey('kcpps-batch-measured'));
 
   String text(WidgetTester tester, Finder f) => tester.widget<Text>(f).data!;
+
+  Future<Map> save(WidgetTester tester, KcppsEditorController editor) async {
+    await tester.tap(find.widgetWithText(KeButton, 'Save'));
+    for (var i = 0; i < 100 && editor.dirty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+    }
+    return jsonDecode(
+          await tester.runAsync(File(editor.path!).readAsString) as String,
+        )
+        as Map;
+  }
+
+  testWidgets('a measured setting changed by hand is not measured any more: '
+      'the line says so, and Save drops the stamp', (tester) async {
+    final editor = await open(
+      tester,
+      stamp: {
+        'card': 'NVIDIA GeForce RTX 4090',
+        'backend': 'cuda',
+        'engine': '1.122.1',
+        'on': '2026-10-06',
+      },
+    );
+    expect(text(tester, measured()), 'Batch 1,024, measured on this card.');
+
+    // A setting the test did not measure keeps the stamp.
+    await tester.enterText(find.byKey(const ValueKey('kcpps-slots')), '4');
+    await tester.pump();
+    expect(text(tester, measured()), 'Batch 1,024, measured on this card.');
+
+    // The batch, typed by hand, is not what was measured.
+    await tester.enterText(find.byKey(const ValueKey('kcpps-batch')), '2000');
+    await tester.pump();
+    expect(text(tester, measured()), 'Not measured on this card yet.');
+
+    final saved = await save(tester, editor);
+    expect(saved['batchsize'], 2000);
+    expect(saved.containsKey('measured'), isFalse);
+  });
+
+  testWidgets('MMQ or flash attention changed by hand is not measured any '
+      'more either', (tester) async {
+    final editor = await open(
+      tester,
+      stamp: {'card': 'NVIDIA GeForce RTX 4090', 'backend': 'cuda'},
+    );
+    expect(text(tester, measured()), 'Batch 1,024, measured on this card.');
+    editor.edit((d) => d.copyWith(mmq: !(d.mmq ?? true)));
+    await tester.pump();
+    expect(text(tester, measured()), 'Not measured on this card yet.');
+
+    final again = await open(
+      tester,
+      stamp: {'card': 'NVIDIA GeForce RTX 4090', 'backend': 'cuda'},
+    );
+    again.edit((d) => d.copyWith(flashAttention: !d.flashAttention));
+    await tester.pump();
+    expect(text(tester, measured()), 'Not measured on this card yet.');
+  });
 
   testWidgets('each size that fits is timed once, the fastest is set and '
       'stamped as measured here, and the file saves it', (tester) async {

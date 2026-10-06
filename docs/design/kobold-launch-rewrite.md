@@ -614,7 +614,7 @@ Decisions already made by the maintainer:
     (1,000 read and 200 written at the speeds KoboldCpp printed). Cancel
     stops after the current step and puts the model back. While it runs a
     chat message is refused with how long is left. The winner is saved as
-    "<model> (measured on <card>)" through the preset library, linked to
+    "<model file> (measured on <card>)" through the preset library, linked to
     the model, and auto mode runs its settings for that model from then on;
     the card says one line of outcome words and no settings. Declined or
     never pressed, nothing changes. Details under "Stage 10".
@@ -1271,9 +1271,10 @@ system-role check used to be sent at the same moment; only KoboldCpp's own
 lock put them in order, and the app could not say which chat the cache held.
 `KoboldRequestQueue` (`kobold/kobold_request_queue.dart`) is a first-come
 first-served line. `KoboldService` takes a place when a stream is listened
-to, a tool call is made, a system-role arm starts or the editor's MMQ timing
-sends a prompt (`timePrompt`, a fresh 2,000-token prompt that changes the
-cache like any other, so it never overlaps the save of a chat or a reply),
+to, a tool call is made, a system-role arm starts or a speed test (the Local
+model card's, or the editor's timing) sends a prompt (`timeTurn`, a fresh
+2,000-token prompt that changes the cache like any other, so it never
+overlaps the save of a chat or a reply),
 and gives it back when the stream ends, fails or is cancelled, or the call
 returns. Auto mode's MMQ learning sends nothing of its own: it reads the
 speed line of each reply. A reader that
@@ -1839,8 +1840,10 @@ timing comes from the last speeds the engine printed, or a slow card's.
 After each try the reload-and-timing is the mean of those measured.
 
 **The winner.** Saved by the preset library (`KcppsLibrary.write`, the door
-the editor's Save uses) as "<model> (measured on <card>)" in the engine
-folder, over a file of that name, which the question before the test names.
+the editor's Save uses) as "<model file> (measured on <card>)" in the
+engine folder, over a file of that name, which the question before the test
+names. The model file's own name, quant and all: two quants of one model
+keep a preset each.
 It is chat's whole config with the winning settings, without the address
 and idle settings the app lays over every launch, and with a `measured`
 stamp (card, backend, engine version, day, made by the auto test) that the
@@ -1849,7 +1852,11 @@ codec reads and writes as a setting of its own (the preset lists no
 preset link points at it, the batch in Settings goes back to Auto, and MMQ
 is remembered for the card as the editor's timing does. Then chat's config
 is put back: the same content as the winning try when that ran last, so
-nothing is reloaded then.
+nothing is reloaded then. When chat's model cannot be reloaded after the
+save (KoboldCpp refuses it, or the reload fails outright), nothing saved is
+undone and the test ends "Saved. The model could not be reloaded with the
+new settings; restart it to use them." Before the save, every way it ends
+says the settings were not changed.
 
 **Auto mode runs it.** `koboldMeasuredKnobs` finds the model's measured
 preset (the linked one, else the one under the test's own name) when its
@@ -1888,7 +1895,10 @@ beside a logical 2,048, as auto mode runs it. The MMQ timing ("Time both on
 this card") runs on the same loop: one timing of each, scored as a whole
 turn from KoboldCpp's own speed line, where it used to take the faster of
 two wall-clock timings. Both hold the app's requests and put chat's model
-back as before. The editor stays desktop only.
+back as before. A hand edit of a setting a speed test measures (the batch,
+flash attention, MMQ) drops the stamp (`KcppsDraft.editedFrom`, through
+the controller's one `edit`): the line says "Not measured on this card
+yet." and Save writes the file without it. The editor stays desktop only.
 
 **Tests.** `kcpps_two_knob_batch_test` (the codec against two exports
 KoboldCpp 1.122.1 wrote, and the launch on 1.122, 1.117 and an unknown
@@ -1900,9 +1910,11 @@ rules as a table, the greedy walk, the band, the words),
 reloads on a loopback KoboldCpp that prints the speed of what it really
 loaded: six timings, the winner saved and read back through the codec, the
 link, auto mode kept, the next launch running it, Cancel putting the model
-back, a message refused meanwhile through `ChatService`, and "A speed test is
+back, a message refused meanwhile through `ChatService`, "A speed test is
 already running." while the editor's timing holds the engine and a try
-loads),
+loads, two quants of one model measured in turn keeping a preset and a
+working link each, and "Saved. … restart it to use them." when chat's
+reload after the save is refused or throws, with nothing saved undone),
 `kobold_measured_preset_test` (which preset auto mode runs, and the model
 pick), `speed_test_relay_test` (the phone through the real web server:
 ask, start, the hub's progress, the card's line, Cancel, a refused send),
@@ -1911,7 +1923,8 @@ phone's and the desktop's verdicts with measured settings: flash attention
 off makes 65,536 tokens too big for Llama 3.1 8B on a 16 GB card),
 `kobold_speed_test_overlay_test` (the dialog tapped through) and
 `kcpps_editor_batch_timing_test` (the editor's button, its trials and the
-saved file). Each rule was broken once to see its test fail.
+saved file, and a hand edit of the batch, flash attention or MMQ dropping
+the stamp). Each rule was broken once to see its test fail.
 
 **Not done.**
 

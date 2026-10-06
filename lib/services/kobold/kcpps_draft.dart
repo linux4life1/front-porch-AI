@@ -262,6 +262,7 @@ class KcppsDraft {
     KoboldGpuBackend? backend,
     int? gpuId,
     KoboldMeasured? measured,
+    bool unmeasured = false,
   }) => KcppsDraft(
     name: name ?? this.name,
     modelPath: modelPath ?? this.modelPath,
@@ -291,9 +292,25 @@ class KcppsDraft {
     gpuId: gpuId ?? this.gpuId,
     moreGpuIds: moreGpuIds,
     cudaOptions: cudaOptions,
-    measured: measured ?? this.measured,
+    measured: unmeasured ? null : measured ?? this.measured,
     extras: extras,
   );
+
+  /// This form after a hand edit of [was]: a setting a speed test measures
+  /// (the batch, flash attention, MMQ) changed by hand is not what was
+  /// measured, so the stamp goes ("Not measured on this card yet.") and Save
+  /// drops it. An edit that brings its own stamp (a timing) keeps it.
+  KcppsDraft editedFrom(KcppsDraft was) {
+    final m = measured;
+    final changed =
+        batchSize != was.batchSize ||
+        logicalBatchSize != was.logicalBatchSize ||
+        flashAttention != was.flashAttention ||
+        mmq != was.mmq;
+    return m != null && identical(m, was.measured) && changed
+        ? copyWith(unmeasured: true)
+        : this;
+  }
 }
 
 /// The settings that go with sliding window, kept as a file has them while

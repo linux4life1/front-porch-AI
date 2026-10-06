@@ -142,14 +142,19 @@ void main() {
   });
 
   group('the words', () {
-    test('the name says the model and the card, never a setting', () {
+    test('the name says the model file and the card, never a setting; two '
+        'quants of one model get two names', () {
       expect(
         koboldMeasuredPresetName('/m/Qwen3-14B-Q4_K_M.gguf', _card),
-        'Qwen3 14B (measured on GeForce RTX 4090)',
+        'Qwen3-14B-Q4_K_M (measured on GeForce RTX 4090)',
+      );
+      expect(
+        koboldMeasuredPresetName('/m/Qwen3-14B-Q5_K_M.gguf', _card),
+        'Qwen3-14B-Q5_K_M (measured on GeForce RTX 4090)',
       );
       expect(
         koboldMeasuredPresetName('/m/Qwen3-14B-Q4_K_M.gguf', ''),
-        'Qwen3 14B (measured on this computer)',
+        'Qwen3-14B-Q4_K_M (measured on this computer)',
       );
       expect(
         koboldMeasuredPresetName('/m/a.gguf', 'Card: A/B'),

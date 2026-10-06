@@ -2,10 +2,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The preset the speed test saves (the maintainer's ruling, 2026-10-06): a
-// real, named preset, "<model> (measured on <card>)", that model's preset in
-// the model-to-preset link, and the settings auto mode takes from it. Not
-// the old hidden batch file: the user asked for it, and it shows wherever
-// presets do.
+// real, named preset, "<model file> (measured on <card>)", that model's
+// preset in the model-to-preset link, and the settings auto mode takes from
+// it. Not the old hidden batch file: the user asked for it, and it shows
+// wherever presets do.
 
 import 'dart:io';
 
@@ -23,12 +23,14 @@ import 'kobold_launch_config.dart';
 import 'kobold_speed_plan.dart';
 
 /// The name the speed test saves [model]'s settings under on [card] (the
-/// machine's name for it, '' without one): "Qwen3 14B (measured on GeForce
-/// RTX 4080)". Characters a file name cannot have become dashes.
+/// machine's name for it, '' without one): "Qwen3-14B-Q4_K_M (measured on
+/// GeForce RTX 4080)". The model file's own name, quant and all, so two
+/// quants of one model keep a preset each. Characters a file name cannot
+/// have become dashes.
 String koboldMeasuredPresetName(String model, String card) {
   final short = koboldCardShortName(card);
   final name =
-      '${koboldModelName(model)} (measured on '
+      '${p.basenameWithoutExtension(model)} (measured on '
       '${short.isEmpty ? 'this computer' : short})';
   return name.replaceAll(RegExp(r'[\\/:*?"<>|\x00-\x1F]'), '-');
 }

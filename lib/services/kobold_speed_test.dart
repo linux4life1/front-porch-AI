@@ -191,6 +191,9 @@ class KoboldSpeedTest extends ChangeNotifier {
   Future<void> _run() async {
     void Function()? letChatGo;
     KoboldSpeedSetup? s;
+    // Set once the winner is saved (its preset, the model's link to it and
+    // the settings beside them): no end after that says nothing changed.
+    var saved = false;
     try {
       letChatGo = await kobold.holdForSpeedTest();
       s = await setup();
@@ -240,7 +243,13 @@ class KoboldSpeedTest extends ChangeNotifier {
       doing = 'Putting the fastest settings in place…';
       _notify();
       await save(ready, run.best);
-      await reloadChat();
+      saved = true;
+      // A reload KoboldCpp would not do comes back as a refusal, not thrown.
+      final refused = (await reloadChat())?.refusal;
+      if (refused != null) {
+        debugPrint('[Speed test] saved; chat was not reloaded: $refused');
+        return _end(KoboldSpeedPhase.failed, _savedNotReloaded, s.model);
+      }
       _end(KoboldSpeedPhase.done, koboldSpeedResultWords(run.gain), s.model);
     } on _Stopped catch (e) {
       await _putBack();
@@ -254,6 +263,9 @@ class KoboldSpeedTest extends ChangeNotifier {
       );
     } on Object catch (e) {
       debugPrint('[Speed test] stopped: $e');
+      if (saved) {
+        return _end(KoboldSpeedPhase.failed, _savedNotReloaded, s?.model);
+      }
       await _putBack();
       _end(
         KoboldSpeedPhase.failed,
@@ -297,6 +309,12 @@ class KoboldSpeedTest extends ChangeNotifier {
     'line': model == null ? _line : lineFor(model),
   };
 }
+
+/// The end when the winner was saved but chat's model could not be reloaded
+/// with it: the next start runs it.
+const String _savedNotReloaded =
+    'Saved. The model could not be reloaded with the new settings; restart '
+    'it to use them.';
 
 /// A test that ends early: [why] in plain words, or null for a Cancel.
 class _Stopped implements Exception {

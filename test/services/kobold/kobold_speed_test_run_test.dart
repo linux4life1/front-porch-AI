@@ -65,8 +65,106 @@ void main() {
 
   String presetPath() => p.join(
     rig.storage.binDir.path,
-    'Qwen3 14B (measured on GeForce RTX 4090).kcpps',
+    'Qwen3-14B (measured on GeForce RTX 4090).kcpps',
   );
+
+  Future<KoboldKnobs?> measuredFor(String model) => koboldMeasuredKnobs(
+    rig.storage,
+    model: model,
+    card: SpeedTestRig.card,
+    backend: 'cuda',
+  );
+
+  const savedNotReloaded =
+      'Saved. The model could not be reloaded with the new settings; restart '
+      'it to use them.';
+
+  test('two quants of one model measured in turn keep two presets and two '
+      'working links', () async {
+    Future<String> measure(String quant) async {
+      final model = await SpeedTestRig.modelFile(
+        root,
+        'Qwen3-14B',
+        name: 'Qwen3-14B-$quant',
+      );
+      await rig.storage.backendSettings.setLastUsedModelPath(model);
+      await rig.llm.reloadChatKobold();
+      expect(await rig.test.start(), isNull);
+      await rig.finished();
+      expect(rig.test.phase, KoboldSpeedPhase.done, reason: quant);
+      return model;
+    }
+
+    final q4 = await measure('Q4_K_M');
+    final q5 = await measure('Q5_K_M');
+
+    final links = rig.storage.presetSettings.modelPresetMap;
+    expect(links[q4], isNot(links[q5]), reason: 'one preset each');
+    for (final model in [q4, q5]) {
+      final read = readKcpps(File(links[model]!).readAsStringSync()) as KcppsOk;
+      expect(read.config.modelPath, model);
+      expect(await measuredFor(model), isNotNull, reason: p.basename(model));
+    }
+  });
+
+  test('when KoboldCpp will not take the new settings after they are saved, '
+      'it says they were saved and to restart, and they stand', () async {
+    // After the save, KoboldCpp refuses chat's reload, and a fresh start
+    // would be refused too: the model file can no longer be read.
+    rig.engine.refuseReload = (name) {
+      if (name != kStagedChatConfig || !File(presetPath()).existsSync()) {
+        return false;
+      }
+      File(rig.model).writeAsBytesSync(const []);
+      return true;
+    };
+    expect(await rig.test.start(), isNull);
+    await rig.finished();
+    expect(rig.test.line, savedNotReloaded);
+    expect(File(presetPath()).existsSync(), isTrue);
+    expect(rig.storage.backendSettings.activeKcppsPath, isNull);
+    expect(
+      await measuredFor(rig.model),
+      isNotNull,
+      reason: 'a restart runs it',
+    );
+  });
+
+  test('when putting chat back fails outright after the save, it says the '
+      'same, and nothing it saved is undone', () async {
+    final real = rig.test;
+    final test = KoboldSpeedTest(
+      kobold: rig.kobold,
+      why: real.why,
+      setup: real.setup,
+      mapFor: real.mapFor,
+      loadTrial: real.loadTrial,
+      // Everything else is the app's own; only this reload fails, once the
+      // winner is saved.
+      reloadChat: () async {
+        if (File(presetPath()).existsSync()) {
+          throw StateError('KoboldCpp stopped answering');
+        }
+        return real.reloadChat();
+      },
+      save: real.save,
+      replaces: real.replaces,
+    );
+    addTearDown(test.dispose);
+    final b = rig.storage.backendSettings;
+    await b.setBatchAutomatic(false);
+    expect(b.mmqFor(SpeedTestRig.card, '1.122.1'), isNull);
+    expect(await test.start(), isNull);
+    final end = DateTime.now().add(const Duration(minutes: 2));
+    while (test.running && DateTime.now().isBefore(end)) {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+    }
+    expect(test.line, savedNotReloaded);
+    expect(rig.storage.presetSettings.modelPresetMap[rig.model], presetPath());
+    expect(b.batchAutomatic, isTrue);
+    expect(b.mmqFor(SpeedTestRig.card, '1.122.1'), isFalse);
+    expect(await measuredFor(rig.model), isNotNull);
+  });
 
   test('one setting at a time, the winner saved as a real preset, linked to '
       'the model, put in place, and launched with from then on', () async {

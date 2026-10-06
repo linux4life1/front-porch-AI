@@ -53,6 +53,10 @@ class SpeedEngine {
   /// it there.
   Future<void> Function(int timing)? beforeTiming;
 
+  /// Called as a reload is asked for: true refuses it (`{"success": false}`,
+  /// as KoboldCpp answers a reload it will not do) and nothing changes.
+  bool Function(String name)? refuseReload;
+
   /// Staged files it was asked to reload, in order.
   final reloads = <String>[];
 
@@ -100,6 +104,7 @@ class SpeedEngine {
   Map<String, dynamic> _reload(String body) {
     final name = (jsonDecode(body) as Map)['filename'] as String;
     reloads.add(name);
+    if (refuseReload?.call(name) ?? false) return {'success': false};
     Timer(const Duration(milliseconds: 500), () {
       _started = DateTime.now();
       loaded =
@@ -175,7 +180,7 @@ class SpeedTestRig {
       version: '1.122.1',
       size: 64,
     );
-    await b.setLastUsedModelPath(await _model(root, 'Qwen3-14B'));
+    await b.setLastUsedModelPath(await modelFile(root, 'Qwen3-14B'));
     final engine = await SpeedEngine.start(adminDir, speedsOf);
     final kobold = ProcesslessKobold(storage)
       ..setBaseUrl(engine.baseUrl)
@@ -225,11 +230,17 @@ class SpeedTestRig {
     await engine.close();
   }
 
-  static Future<String> _model(Directory dir, String fixture) async {
+  /// The header [fixture] grown to its model's real size in [dir], as
+  /// `[name].gguf` (the fixture's own name by default).
+  static Future<String> modelFile(
+    Directory dir,
+    String fixture, {
+    String? name,
+  }) async {
     const fx = 'test/fixtures/gguf_headers';
     final side =
         jsonDecode(File('$fx/$fixture.json').readAsStringSync()) as Map;
-    final file = File(p.join(dir.path, '$fixture.gguf'));
+    final file = File(p.join(dir.path, '${name ?? fixture}.gguf'));
     final raf = await file.open(mode: FileMode.write);
     await raf.writeFrom(File('$fx/$fixture.gguf').readAsBytesSync());
     await raf.setPosition((side['fixture_file_bytes'] as int) - 1);

@@ -300,7 +300,7 @@ class KcppsEditorController extends ChangeNotifier {
   }
 
   void edit(KcppsDraft Function(KcppsDraft d) change) {
-    draft = change(draft);
+    draft = change(draft).editedFrom(draft);
     _notify();
   }
 

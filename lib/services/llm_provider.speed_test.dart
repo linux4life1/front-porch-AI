@@ -134,12 +134,12 @@ extension LLMProviderSpeedTest on LLMProvider {
     );
   }
 
-  /// The winner as a real preset, "`<model>` (measured on `<card>`)", written
-  /// by the preset library into the engine folder over one of that name,
-  /// stamped as measured here, and made the model's own preset. Auto mode
-  /// runs its settings from now on ([koboldMeasuredKnobs]), a chosen batch
-  /// in Settings gives way to it, and MMQ is remembered for the card as the
-  /// editor's timing does.
+  /// The winner as a real preset, "`<model file>` (measured on `<card>`)",
+  /// written by the preset library into the engine folder over one of that
+  /// name, stamped as measured here, and made the model's own preset. Auto
+  /// mode runs its settings from now on ([koboldMeasuredKnobs]), a chosen
+  /// batch in Settings gives way to it, and MMQ is remembered for the card as
+  /// the editor's timing does.
   Future<void> _saveMeasuredPreset(KoboldSpeedSetup s, KoboldKnobs best) async {
     final map = await _speedTestMap(best)
       ..remove('host')

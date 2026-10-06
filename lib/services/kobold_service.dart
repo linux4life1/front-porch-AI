@@ -344,9 +344,6 @@ class KoboldService extends ChangeNotifier
   /// The keeper keeps it and the recent chats Settings asks for.
   void openChat(String? chat) => _openChat(chat);
 
-  /// One prompt for the editor's MMQ timing, sent in the line.
-  Future<Duration> timePrompt(int round) => _timePrompt(round);
-
   /// One speed test prompt, sent in the line: the engine's own speeds for it.
   Future<KoboldSpeed?> timeTurn(int round) => _timeTurn(round);
 
