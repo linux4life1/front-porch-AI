@@ -70,18 +70,44 @@ extension _HomePageLibraryActions on _HomePageState {
     applyState(() => _activeFolderId = current?.parentId);
   }
 
+  /// The selection counted the way the grid counts it: picks that still
+  /// exist, and how many of them the current search or folder hides.
+  SelectionTally _selectionTally() {
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
+    final view = libraryViewOf(
+      characters: repo.characters,
+      groups: groupRepo.groups,
+      folders: Provider.of<FolderService>(context, listen: false),
+      activeFolderId: _activeFolderId,
+      query: _searchQuery,
+      scope: _searchScope,
+      sortMode: _sortMode,
+    );
+    return tallySelection(
+      view,
+      characterIds: _selectedCharacterIds,
+      groupIds: _selectedGroupIds,
+      library: repo.characters,
+      groupLibrary: groupRepo.groups,
+    );
+  }
+
   void _handleMoveToFolder(Set<String> selectedIds) {
     final repo = Provider.of<CharacterRepository>(context, listen: false);
     final folderService = Provider.of<FolderService>(context, listen: false);
-    final chars = _selectedCharacterIds.length;
-    final groups = _selectedGroupIds.length;
+    final picks = _selectionTally();
+    final chars = picks.characters;
+    final groups = picks.groups;
     // "N characters" / "N groups" when the selection is homogeneous,
-    // "N items" for a mixed grab.
-    final title = groups == 0
-        ? 'Move $chars character${chars == 1 ? '' : 's'} to folder'
+    // "N items" for a mixed grab. The full number, hidden picks included.
+    final what = groups == 0
+        ? '$chars character${chars == 1 ? '' : 's'}'
         : chars == 0
-        ? 'Move $groups group${groups == 1 ? '' : 's'} to folder'
-        : 'Move ${chars + groups} items to folder';
+        ? '$groups group${groups == 1 ? '' : 's'}'
+        : '${chars + groups} items';
+    final hidden = picks.hidden > 0 ? ' (${picks.hidden} hidden)' : '';
+    final title = 'Move $what to folder$hidden';
     _showMoveToFolderDialog(
       context,
       folderService,

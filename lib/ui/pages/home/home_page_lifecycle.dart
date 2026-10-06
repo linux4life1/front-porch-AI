@@ -176,6 +176,26 @@ extension _HomePageLifecycle on _HomePageState {
     });
   }
 
+  /// Select all (#347): adds everything the grid shows, so with a search
+  /// only what it found, and keeps picks a search or folder change hid.
+  /// Ctrl/Cmd+A outside a selection starts Multi-select.
+  void _selectAllVisible(Set<String> characterIds, Set<String> groupIds) {
+    if (characterIds.isEmpty && groupIds.isEmpty) return;
+    applyState(() {
+      if (!_isSelecting && !_isOrganizing) _isSelecting = true;
+      _selectedCharacterIds.addAll(characterIds);
+      _selectedGroupIds.addAll(groupIds);
+    });
+  }
+
+  /// Select none: clears every pick, hidden ones too, and stays selecting.
+  void _selectNone() {
+    applyState(() {
+      _selectedCharacterIds.clear();
+      _selectedGroupIds.clear();
+    });
+  }
+
   void _cancelSelection() {
     applyState(() {
       _isSelecting = false;

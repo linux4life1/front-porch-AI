@@ -382,6 +382,8 @@ class _HomePageState extends State<HomePage> {
               onDeleteGroup: _handleDeleteGroup,
               onAfterNavigateBack: _refreshLastActivityCache,
               onGroupContextMenuAction: _handleGroupContextMenuAction,
+              onSelectAll: _selectAllVisible,
+              onSelectNone: _selectNone,
             ),
           ),
         );

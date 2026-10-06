@@ -44,6 +44,66 @@ class LibraryView {
   final List<CharacterCard> characters;
 
   bool get isEmpty => folders.isEmpty && groups.isEmpty && characters.isEmpty;
+
+  /// Selection keys of the characters on screen: the stableGroupId the
+  /// select toggle writes.
+  Set<String> get characterIds => {for (final c in characters) c.stableGroupId};
+
+  /// Selection keys of the group chats on screen: their group ids.
+  Set<String> get groupIds => {for (final g in groups) g.id};
+}
+
+/// How many picks there are and how many of them are out of sight (#347).
+/// Picks stay selected when a later search or folder change hides them,
+/// so the counts must say so.
+class SelectionTally {
+  const SelectionTally({
+    required this.characters,
+    required this.groups,
+    required this.hidden,
+  });
+
+  /// Selected characters that still exist in the library.
+  final int characters;
+
+  /// Selected group chats that still exist.
+  final int groups;
+
+  /// How many of those the current view does not show.
+  final int hidden;
+
+  int get total => characters + groups;
+
+  /// "3 selected", or "3 selected (1 hidden)".
+  String get label =>
+      hidden > 0 ? '$total selected ($hidden hidden)' : '$total selected';
+}
+
+/// Counts [characterIds] and [groupIds] against the whole library and
+/// [view]. A pick whose card was deleted elsewhere counts nowhere.
+SelectionTally tallySelection(
+  LibraryView view, {
+  required Set<String> characterIds,
+  required Set<String> groupIds,
+  required List<CharacterCard> library,
+  required List<GroupChat> groupLibrary,
+}) {
+  final shownChars = view.characterIds;
+  final shownGroups = view.groupIds;
+  var characters = 0;
+  var groups = 0;
+  var hidden = 0;
+  for (final id in {for (final c in library) c.stableGroupId}) {
+    if (!characterIds.contains(id)) continue;
+    characters++;
+    if (!shownChars.contains(id)) hidden++;
+  }
+  for (final g in groupLibrary) {
+    if (!groupIds.contains(g.id)) continue;
+    groups++;
+    if (!shownGroups.contains(g.id)) hidden++;
+  }
+  return SelectionTally(characters: characters, groups: groups, hidden: hidden);
 }
 
 /// The one place the home grid's folder, search and sort rules live.

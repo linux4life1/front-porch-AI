@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show FolderDialogAction;
 
 part 'home_grid_toolbar.actions.dart';
+part 'home_grid_toolbar.selection.dart';
 
 /// The home grid's top toolbar: selection/organize header or folder breadcrumb
 /// or the Characters/Stories mode toggle, plus the sort dropdown, grid-size
@@ -56,6 +57,8 @@ class HomeGridToolbar extends StatelessWidget {
     required this.onToggleOrganizeMode,
     required this.onFolderDialogAction,
     required this.onImport,
+    this.hiddenSelectedCount = 0,
+    this.selectionActions,
   });
 
   final bool isSelecting;
@@ -64,6 +67,12 @@ class HomeGridToolbar extends StatelessWidget {
 
   /// Characters + groups — groups are selectable alongside characters now.
   final int selectedCount;
+
+  /// How many of [selectedCount] the current search or folder hides.
+  final int hiddenSelectedCount;
+
+  /// Select all / Select none in the selection header; none without it.
+  final LibrarySelectionActions? selectionActions;
   final String sortMode;
   final double gridScale;
   final Widget modeToggle;
@@ -157,30 +166,7 @@ class HomeGridToolbar extends StatelessWidget {
   }
 
   List<Widget> _leadingChildren(BuildContext context, double toggleMaxWidth) {
-    if (isSelecting || isOrganizing) {
-      return [
-        IconButton(
-          icon: const Icon(Icons.close),
-          tooltip: 'Cancel selection',
-          visualDensity: VisualDensity.compact,
-          onPressed: onCancelSelection,
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            '$selectedCount selected',
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isOrganizing
-                  ? AppColors.porchHoneyOf(context)
-                  : AppColors.porchTerracottaOf(context),
-            ),
-          ),
-        ),
-      ];
-    }
+    if (isSelecting || isOrganizing) return _selectionChildren(context);
     if (activeFolderId != null) {
       return [
         IconButton(
@@ -337,7 +323,8 @@ class HomeGridToolbar extends StatelessWidget {
                 _sortControl(context, labeled: labeledSort),
                 if (showSlider) _scaleSlider(context),
               ],
-              const Spacer(),
+              // While picking, the header's count gets the whole width.
+              if (browsing) const Spacer(),
               if (browsing && inlineActions) ..._actionButtons(context),
               if (browsing && !inlineActions) _overflowActions(context),
             ],

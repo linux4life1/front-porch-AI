@@ -10,6 +10,7 @@ import 'package:front_porch_ai/ui/pages/home/cards/folder_grid_card.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/group_grid_card.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_search_bar.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_toolbar.dart';
+import 'package:front_porch_ai/ui/pages/home/widgets/library_grid_keys.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/library_view.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -73,6 +74,8 @@ class CharacterCardGrid extends StatelessWidget {
     required this.onDeleteGroup,
     required this.onAfterNavigateBack,
     this.onGroupContextMenuAction,
+    this.onSelectAll,
+    this.onSelectNone,
   });
 
   final String searchQuery;
@@ -136,6 +139,15 @@ class CharacterCardGrid extends StatelessWidget {
   /// Mirrors the existing `onContextMenuAction` pattern used for CharacterCard.
   final void Function(String action, GroupChat group)? onGroupContextMenuAction;
 
+  /// Select all (#347): hands over the selection keys of every character
+  /// and group chat on screen, so a search or "Top level only" limits it.
+  /// Also Ctrl/Cmd+A on the grid. Null hides Select all / Select none.
+  final void Function(Set<String> characterIds, Set<String> groupIds)?
+  onSelectAll;
+
+  /// Select none: clears every pick, hidden ones too.
+  final VoidCallback? onSelectNone;
+
   LibraryView _view() => libraryViewOf(
     characters: repo.characters,
     groups: groupRepo.groups,
@@ -151,7 +163,23 @@ class CharacterCardGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final view = _view();
-    final selectedCount = selectedCharacterIds.length + selectedGroupIds.length;
+    // Picks stay selected when a search or folder change hides them (#347).
+    final picks = tallySelection(
+      view,
+      characterIds: selectedCharacterIds,
+      groupIds: selectedGroupIds,
+      library: repo.characters,
+      groupLibrary: groupRepo.groups,
+    );
+    final selectedCount = picks.total;
+    final picking = isSelecting || isOrganizing;
+    final selectAll = onSelectAll;
+    final addShown = selectAll == null
+        ? null
+        : () => selectAll(view.characterIds, view.groupIds);
+    final moreToAdd =
+        !selectedCharacterIds.containsAll(view.characterIds) ||
+        !selectedGroupIds.containsAll(view.groupIds);
 
     return Stack(
       children: [
@@ -162,6 +190,13 @@ class CharacterCardGrid extends StatelessWidget {
               isOrganizing: isOrganizing,
               activeFolderId: activeFolderId,
               selectedCount: selectedCount,
+              hiddenSelectedCount: picks.hidden,
+              selectionActions: addShown == null && onSelectNone == null
+                  ? null
+                  : LibrarySelectionActions(
+                      selectAll: moreToAdd ? addShown : null,
+                      selectNone: selectedCount > 0 ? onSelectNone : null,
+                    ),
               sortMode: sortMode,
               gridScale: gridScale,
               modeToggle: modeToggle,
@@ -187,7 +222,14 @@ class CharacterCardGrid extends StatelessWidget {
               onSearchQueryChanged: onSearchQueryChanged,
             ),
             const SizedBox(height: 12),
-            Expanded(child: _buildGrid(context, view)),
+            Expanded(
+              child: LibraryGridKeys(
+                selecting: picking,
+                onSelectAll: addShown,
+                onEscape: picking ? onCancelSelection : null,
+                child: _buildGrid(context, view),
+              ),
+            ),
           ],
         ),
         if (isSelecting && selectedCount > 0)
@@ -224,7 +266,7 @@ class CharacterCardGrid extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '$selectedCount selected',
+                    picks.label,
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 14,
@@ -298,7 +340,7 @@ class CharacterCardGrid extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '$selectedCount selected',
+                    picks.label,
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 14,
