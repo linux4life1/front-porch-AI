@@ -93,6 +93,10 @@ extension _HomeGridToolbarActions on HomeGridToolbar {
         value: 'byaf',
         child: row(Icons.archive_outlined, 'Import Backyard AI (.byaf)'),
       ),
+      PopupMenuItem(
+        value: 'porch',
+        child: row(Icons.inventory_2_outlined, 'Import .porch / .porchpack'),
+      ),
     ];
   }
 
@@ -117,6 +121,7 @@ extension _HomeGridToolbarActions on HomeGridToolbar {
           case 'cards':
           case 'folder':
           case 'byaf':
+          case 'porch':
             onImport(value);
         }
       },

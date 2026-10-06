@@ -44,6 +44,7 @@ import 'package:front_porch_ai/ui/pages/home/open_chat_env.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/pages/edit_group_page.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
+import 'package:front_porch_ai/services/porch/porch.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 import 'package:front_porch_ai/ui/pages/story_home_view.dart';
 import 'package:front_porch_ai/ui/waifu/waifu.dart';
@@ -62,6 +63,7 @@ part 'home/home_page_dialogs.import.dart';
 part 'home/home_page_drop.dart';
 part 'home/home_page_char_ops.dart';
 part 'home/home_page_transfer.dart';
+part 'home/home_page_porch.dart';
 part 'home/home_page_history.dart';
 part 'home/home_page_lifecycle.dart';
 
@@ -373,6 +375,7 @@ class _HomePageState extends State<HomePage> {
               onDeleteSelected: _massDeleteSelected,
               // onCreateGroup no longer wired — old select-for-group path deprecated.
               onMoveToFolder: _handleMoveToFolder,
+              onExportSelected: _exportSelectedPorch,
               onSortChanged: _handleSortChanged,
               onGridScaleChanged: _handleGridScaleChanged,
               onGridScaleChangeEnd: _handleGridScaleChangeEnd,

@@ -244,6 +244,9 @@ extension _HomePageHandlers on _HomePageState {
       case 'byaf':
         _importByaf(context);
         break;
+      case 'porch':
+        _importPorchFiles();
+        break;
     }
   }
 

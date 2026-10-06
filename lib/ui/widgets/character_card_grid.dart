@@ -65,6 +65,7 @@ class CharacterCardGrid extends StatelessWidget {
     required this.onCancelSelection,
     required this.onDeleteSelected,
     required this.onMoveToFolder,
+    this.onExportSelected,
     required this.onSortChanged,
     required this.onGridScaleChanged,
     this.onGridScaleChangeEnd,
@@ -126,6 +127,9 @@ class CharacterCardGrid extends StatelessWidget {
   /// lives with the handler — this just hands over the selection).
   final void Function(Set<String> selectedIds) onDeleteSelected;
   final void Function(Set<String> selectedIds) onMoveToFolder;
+
+  /// Save the selected characters as a `.porch` (one) or `.porchpack`.
+  final void Function(Set<String> selectedIds)? onExportSelected;
   final void Function(String mode) onSortChanged;
   final void Function(double scale) onGridScaleChanged;
   final void Function(double scale)? onGridScaleChangeEnd;
@@ -294,6 +298,20 @@ class CharacterCardGrid extends StatelessWidget {
                       foregroundColor: AppColors.onChaosAccent,
                     ),
                   ),
+                  if (onExportSelected != null) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => onExportSelected!(selectedCharacterIds),
+                      icon: const Icon(Icons.ios_share, size: 18),
+                      label: const Text('Export'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.porchHoneyOf(context),
+                        side: BorderSide(
+                          color: AppColors.porchHoneyOf(context),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: () => onDeleteSelected(selectedCharacterIds),
