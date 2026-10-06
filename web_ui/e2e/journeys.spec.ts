@@ -369,15 +369,17 @@ test('export two characters as one .porchpack; importing it back skips both by n
   const file = await download;
   expect(file.suggestedFilename()).toBe('Front Porch characters (2).porchpack');
   await expect(bar).toHaveCount(0);
+  const notice = page.getByTestId('porch-notice');
+  await expect(notice).toHaveText('Saved 2 characters to Front Porch characters (2).porchpack.');
 
   await page.getByTestId('porch-import-input').setInputFiles({
     name: file.suggestedFilename(),
     mimeType: 'application/octet-stream',
     buffer: await readFile((await file.path())!),
   });
-  await expect(page.locator('p.error')).toHaveText(
-    'Skipped 2 you already have: Porch Tester, Second Guest.',
-  );
+  // A skip is news, not a failure: the notice, never the red error line.
+  await expect(notice).toHaveText('Skipped 2 you already have: Porch Tester, Second Guest.');
+  await expect(page.locator('p.error')).toHaveCount(0);
 });
 
 // Chat and the rest of the suite run on the stand-in backend. The Local model

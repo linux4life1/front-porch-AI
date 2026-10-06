@@ -28,17 +28,39 @@ import 'porch_format.dart';
 const String kPorchBusyWords =
     'A reply is still being written. Wait for it to finish, then try again.';
 
+/// Said when a second export or import starts while one is running.
+const String kPorchJobRunningWords =
+    'Another export or import is still running. Wait for it to finish.';
+
 /// Runs [body], then reopens the chat that was open before it. Moving a
 /// character's chats opens each one in turn (the `.fpchat` exporter reads
 /// the open chat), and the chat a person had open must not change under
 /// them — on the desktop or on the phone, which share it.
+///
+/// One job at a time: the claim is taken before the first await and given
+/// back only after the open chat is restored, so a second job from either
+/// device is refused instead of flipping the shared chat under this one.
 Future<T> keepingOpenChat<T>(
   ChatService chat,
   Future<T> Function() body,
 ) async {
-  if (chat.isGenerating || chat.isSettlingTurn || chat.isImporting) {
-    throw const PorchRefused(kPorchBusyWords);
+  if (!chat.tryBeginMovingChats()) {
+    throw const PorchRefused(kPorchJobRunningWords);
   }
+  try {
+    if (chat.isGenerating || chat.isSettlingTurn || chat.isImporting) {
+      throw const PorchRefused(kPorchBusyWords);
+    }
+    return await _restoringOpenChat(chat, body);
+  } finally {
+    chat.endMovingChats();
+  }
+}
+
+Future<T> _restoringOpenChat<T>(
+  ChatService chat,
+  Future<T> Function() body,
+) async {
   final character = chat.activeCharacter;
   final group = chat.activeGroup;
   final session = chat.currentSessionId;

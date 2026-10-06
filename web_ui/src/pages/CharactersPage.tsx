@@ -271,7 +271,16 @@ export function CharactersPage() {
         />
       )}
 
-      {lib.error && <p className="error">{lib.error}</p>}
+      {porch.notice && (
+        <p className="muted small" role="status" data-testid="porch-notice" style={{ whiteSpace: 'pre-line' }}>
+          {porch.notice}
+        </p>
+      )}
+      {lib.error && (
+        <p className="error" style={{ whiteSpace: 'pre-line' }}>
+          {lib.error}
+        </p>
+      )}
 
       {!lib.searching && lib.folderId !== null && (
         <div className="breadcrumb">

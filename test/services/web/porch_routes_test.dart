@@ -86,6 +86,9 @@ void main() {
       out.headers['content-disposition'],
       "attachment; filename*=UTF-8''Front%20Porch%20characters%20(2).porchpack",
     );
+    // The phone says "Groups were left out." from these, as the desktop does.
+    expect(out.headers['x-porch-count'], '2');
+    expect(out.headers['x-porch-groups-left-out'], '1');
     final bytes = await out.read().expand((c) => c).toList();
 
     final url =
@@ -133,4 +136,34 @@ void main() {
     );
     expect(kPorchExtension, 'porch');
   });
+
+  test('a phone export while a desktop export runs is refused with 409 in '
+      'plain words; the desktop one finishes and the phone can go again', () {
+    return a.seed('Aria Vale', 1).then((aria) async {
+      // The desktop job, started and not awaited: it holds the shared chat.
+      final desktop = a.exporter.exportCards([aria]);
+      final phone = await post(
+        routerFor(a),
+        '/api/porch/export',
+        jsonEncode({
+          'ids': [aria.dbId],
+        }),
+      );
+      expect(phone.statusCode, 409);
+      expect(
+        (jsonDecode(await phone.readAsString()) as Map)['error'],
+        kPorchJobRunningWords,
+      );
+
+      expect((await desktop).fileName, 'Aria Vale.porch');
+      final retry = await post(
+        routerFor(a),
+        '/api/porch/export',
+        jsonEncode({
+          'ids': [aria.dbId],
+        }),
+      );
+      expect(retry.statusCode, 200);
+    });
+  }, timeout: const Timeout(Duration(minutes: 2)));
 }

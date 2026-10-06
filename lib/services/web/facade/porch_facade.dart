@@ -32,9 +32,12 @@ class PorchFacade {
   final StorageService _storage;
 
   /// The characters with these library ids as one `.porch`, or one
-  /// `.porchpack` for two or more. Group ids are not characters and are left
-  /// out; with no character left, [PorchRefused] says so.
-  Future<({String fileName, Uint8List bytes})> export(List<String> ids) async {
+  /// `.porchpack` for two or more, with how many went in. Group ids
+  /// (`group_…`, as the library routes tell them apart) are not characters:
+  /// they are left out and counted, so the phone can say so as the desktop
+  /// does. With no character left, [PorchRefused] says so.
+  Future<({String fileName, Uint8List bytes, int count, int groupsLeftOut})>
+  export(List<String> ids) async {
     final wanted = ids.toSet();
     final cards = <CharacterCard>[
       for (final c in _repo.characters)
@@ -46,11 +49,17 @@ class PorchFacade {
         'a .porch file yet.',
       );
     }
-    return PorchExporter(
+    final out = await PorchExporter(
       repo: _repo,
       chat: _chat,
       storage: _storage,
     ).exportCards(cards);
+    return (
+      fileName: out.fileName,
+      bytes: out.bytes,
+      count: cards.length,
+      groupsLeftOut: wanted.where((id) => id.startsWith('group_')).length,
+    );
   }
 
   Future<PorchImportReport> import(String fileName, Uint8List bytes) async {

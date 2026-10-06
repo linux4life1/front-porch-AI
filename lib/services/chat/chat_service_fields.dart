@@ -142,6 +142,11 @@ mixin ChatServiceFieldBag {
   bool _isPostGenerating = false;
   bool _isImporting = false;
 
+  /// A `.porch` export or import is opening chats in turn. Not part of
+  /// [_isTurnBusy]: the job's own chat moves must still run. It keeps a
+  /// second job (desktop or phone) from flipping the shared chat under it.
+  bool _isMovingChats = false;
+
   // (_isTurnBusy — "this turn is still in motion" predicate for mutation
   // guards, NOT for stopGeneration/_cancelAndWaitForGeneration which must
   // keep testing _isGenerating alone — moved to chat_service_generation_stream.dart)

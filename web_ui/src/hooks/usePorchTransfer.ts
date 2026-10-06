@@ -4,6 +4,7 @@
 // .porch / .porchpack (issue #348): export the selected characters (one
 // .porch, or one .porchpack for two or more) and import those files. The
 // Dart relay runs the same exporter and importer as the desktop library.
+// What went well is a notice; only what failed is an error.
 
 import { useCallback, useState } from 'react';
 import { api } from '../api/client';
@@ -26,20 +27,29 @@ function names(list: string[]): string {
   return `${list.slice(0, shown).join(', ')} and ${list.length - shown} more`;
 }
 
-/** One summary across every file, in the desktop's words. */
-export function porchSummary(reports: PorchImportReport[], failures: string[]): string {
+/** The desktop's words after an export: the file, and any groups left out. */
+export function exportNotice(count: number, fileName: string, groupsLeftOut: number): string {
+  return `Saved ${plural(count, 'character')} to ${fileName}.${groupsLeftOut > 0 ? ' Groups were left out.' : ''}`;
+}
+
+/** One summary across every file, in the desktop's words: what was imported
+ *  or skipped is a notice; what was refused or failed is the error. */
+export function porchOutcome(
+  reports: PorchImportReport[],
+  failures: string[],
+): { notice: string; error: string } {
   const imported = reports.flatMap((r) => r.imported);
   const skipped = reports.flatMap((r) => r.skipped);
   const chats = reports.reduce((n, r) => n + r.chats, 0);
-  const lines = [
+  const notice = [
     ...(imported.length > 0
       ? [`Imported ${plural(imported.length, 'character')}${chats > 0 ? ` with ${plural(chats, 'chat')}` : ''}.`]
       : []),
     ...(skipped.length > 0 ? [`Skipped ${skipped.length} you already have: ${names(skipped)}.`] : []),
-    ...reports.flatMap((r) => r.refused),
-    ...failures,
-  ];
-  return lines.length > 0 ? lines.join('\n') : 'Those files held no characters.';
+  ].join('\n');
+  const error = [...reports.flatMap((r) => r.refused), ...failures].join('\n');
+  if (!notice && !error) return { notice: 'Those files held no characters.', error: '' };
+  return { notice, error };
 }
 
 export function usePorchTransfer(opts: {
@@ -49,16 +59,25 @@ export function usePorchTransfer(opts: {
 }) {
   const { reload, setError, cancelSelecting } = opts;
   const [busy, setBusy] = useState(false);
+  const [notice, setNotice] = useState('');
 
   const exportPorch = useCallback(
     async (ids: string[]) => {
       if (ids.length === 0) return;
       setBusy(true);
       setError('');
+      setNotice('');
       try {
         const file = await api.postForFile('/api/porch/export', { ids }, 'characters.porch');
         downloadBlob(file.blob, file.fileName);
         cancelSelecting();
+        setNotice(
+          exportNotice(
+            Number(file.headers.get('X-Porch-Count') ?? ids.length),
+            file.fileName,
+            Number(file.headers.get('X-Porch-Groups-Left-Out') ?? 0),
+          ),
+        );
       } catch (e) {
         setError(e instanceof Error ? e.message : 'The export didn’t finish. Try again.');
       } finally {
@@ -73,6 +92,7 @@ export function usePorchTransfer(opts: {
       if (!files || files.length === 0) return;
       setBusy(true);
       setError('');
+      setNotice('');
       const reports: PorchImportReport[] = [];
       const failures: string[] = [];
       for (const file of Array.from(files)) {
@@ -86,10 +106,12 @@ export function usePorchTransfer(opts: {
       }
       setBusy(false);
       if (reports.some((r) => r.imported.length > 0)) reload();
-      setError(porchSummary(reports, failures));
+      const outcome = porchOutcome(reports, failures);
+      setNotice(outcome.notice);
+      setError(outcome.error);
     },
     [reload, setError],
   );
 
-  return { busy, exportPorch, importPorch };
+  return { busy, notice, exportPorch, importPorch };
 }

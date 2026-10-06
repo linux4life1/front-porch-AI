@@ -35,7 +35,9 @@ class WebPorchRoutes {
 
   final PorchFacade _facade;
 
-  /// Body `{ "ids": [...] }` → the file to save.
+  /// Body `{ "ids": [...] }` → the file to save. `X-Porch-Count` says how
+  /// many characters went in, `X-Porch-Groups-Left-Out` how many selected
+  /// groups were not (the phone words both as the desktop does).
   Future<shelf.Response> _export(shelf.Request request) async {
     final List<String> ids;
     try {
@@ -53,6 +55,8 @@ class WebPorchRoutes {
           'Content-Disposition':
               "attachment; filename*=UTF-8''${Uri.encodeComponent(out.fileName)}",
           'Cache-Control': 'no-store',
+          'X-Porch-Count': '${out.count}',
+          'X-Porch-Groups-Left-Out': '${out.groupsLeftOut}',
         },
       );
     } on PorchRefused catch (e) {

@@ -193,6 +193,45 @@ void main() {
     expect(a.repo.characters, hasLength(1));
   }, timeout: const Timeout(Duration(minutes: 2)));
 
+  test('a second export or import while one runs is refused in plain words; '
+      'the first finishes and reopens the chat that was open', () async {
+    final aria = await a.seed('Aria Vale', 1);
+    final bram = await a.seed('Bram Elder', 2);
+    // Real chats for both, so the export opens other chats while it runs;
+    // Aria's is the one left open.
+    for (final c in [bram, aria]) {
+      await a.chat.setActiveCharacter(c);
+      await a.chat.sendMessage('Evening, ${c.name}.');
+      await drain(a);
+    }
+    final open = a.chat.activeCharacter;
+    final openChat = a.chat.currentSessionId;
+    final file = await exportToDisk(a, ['Bram Elder']);
+
+    final first = a.exporter.exportCards([aria, bram]);
+    await expectLater(
+      importFromDisk(a, [file]),
+      throwsA(
+        isA<PorchRefused>().having(
+          (e) => e.message,
+          'message',
+          kPorchJobRunningWords,
+        ),
+      ),
+    );
+    expect(
+      (await first).fileName,
+      'Front Porch characters (2).porchpack',
+      reason: 'the first job runs to the end',
+    );
+    expect(identical(a.chat.activeCharacter, open), isTrue);
+    expect(a.chat.currentSessionId, openChat);
+
+    // Once it is done, the next job runs.
+    final next = await importFromDisk(a, [file]);
+    expect(next.message, 'Skipped 1 you already have: Bram Elder.');
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
   test('damaged, renamed and foreign files are refused in plain words and '
       'change nothing', () async {
     await a.seed('Bram Elder', 2);

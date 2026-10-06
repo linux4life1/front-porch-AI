@@ -34,19 +34,24 @@ class HomeDropSource {
   final bool isDirectory;
 }
 
-/// Split a home-screen drop into the existing PNG and BYAF import lists.
+/// Split a home-screen drop into the PNG, BYAF and `.porch` import lists.
 class HomeDropPlan {
   const HomeDropPlan({
     this.pngPaths = const [],
     this.byafPaths = const [],
+    this.porchPaths = const [],
     this.rejectedNames = const [],
   });
 
   final List<String> pngPaths;
   final List<String> byafPaths;
+
+  /// `.porch` and `.porchpack` files: the Import menu's `.porch` importer.
+  final List<String> porchPaths;
   final List<String> rejectedNames;
 
-  bool get hasImportable => pngPaths.isNotEmpty || byafPaths.isNotEmpty;
+  bool get hasImportable =>
+      pngPaths.isNotEmpty || byafPaths.isNotEmpty || porchPaths.isNotEmpty;
 
   /// PNG and BYAF in one drop — one bulk pass, not two stacked dialogs.
   bool get isMixed => pngPaths.isNotEmpty && byafPaths.isNotEmpty;
@@ -56,7 +61,7 @@ class HomeDropPlan {
 }
 
 /// Overlay copy while a drag hovers the character library.
-const kHomeDropOverlayLabel = 'Drop PNG or BYAF cards';
+const kHomeDropOverlayLabel = 'Drop PNG cards, BYAF or .porch files';
 
 /// Classify [paths] by extension. Windows and POSIX separators both work.
 HomeDropPlan planHomeDrop(Iterable<String> paths) {
@@ -69,6 +74,7 @@ HomeDropPlan planHomeDrop(Iterable<String> paths) {
 HomeDropPlan planHomeDropSources(Iterable<HomeDropSource> sources) {
   final pngPaths = <String>[];
   final byafPaths = <String>[];
+  final porchPaths = <String>[];
   final rejectedNames = <String>[];
   for (final source in sources) {
     if (source.isDirectory || source.path.isEmpty) {
@@ -80,6 +86,8 @@ HomeDropPlan planHomeDropSources(Iterable<HomeDropSource> sources) {
       pngPaths.add(source.path);
     } else if (name.endsWith('.byaf')) {
       byafPaths.add(source.path);
+    } else if (name.endsWith('.porch') || name.endsWith('.porchpack')) {
+      porchPaths.add(source.path);
     } else {
       rejectedNames.add(_sourceLabel(source));
     }
@@ -87,6 +95,7 @@ HomeDropPlan planHomeDropSources(Iterable<HomeDropSource> sources) {
   return HomeDropPlan(
     pngPaths: pngPaths,
     byafPaths: byafPaths,
+    porchPaths: porchPaths,
     rejectedNames: rejectedNames,
   );
 }
@@ -99,12 +108,14 @@ String? homeDropRejectMessage(
   if (!hasImportable) {
     if (rejectedNames.length == 1) {
       return 'Can\'t import "${rejectedNames.first}" — drop PNG character '
-          'cards or .byaf files.';
+          'cards, .byaf or .porch files.';
     }
-    return "Can't import those files — drop PNG character cards or .byaf files.";
+    return "Can't import those files — drop PNG character cards, .byaf or "
+        '.porch files.';
   }
   if (rejectedNames.length == 1) {
-    return 'Skipped ${rejectedNames.first} (not a PNG card or .byaf).';
+    return 'Skipped ${rejectedNames.first} (not a PNG card, .byaf or .porch '
+        'file).';
   }
   return 'Skipped ${rejectedNames.length} unsupported files.';
 }

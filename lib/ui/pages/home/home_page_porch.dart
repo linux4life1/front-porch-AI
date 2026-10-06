@@ -97,6 +97,21 @@ extension _HomePagePorch on _HomePageState {
       allowMultiple: true,
     );
     if (picked == null || picked.files.isEmpty || !mounted) return;
+    await _importPorch([
+      for (final f in picked.files) (name: f.name, read: f.readAsBytes),
+    ]);
+  }
+
+  /// Dropped `.porch` / `.porchpack` files: the same importer and summary
+  /// as the Import menu.
+  Future<void> _importPorchPaths(List<String> paths) => _importPorch([
+    for (final p in paths)
+      (name: path.basename(p), read: () => File(p).readAsBytes()),
+  ]);
+
+  Future<void> _importPorch(
+    List<({String name, Future<Uint8List> Function() read})> files,
+  ) async {
     final importer = PorchImporter(
       repo: Provider.of<CharacterRepository>(context, listen: false),
       chat: Provider.of<ChatService>(context, listen: false),
@@ -106,8 +121,7 @@ extension _HomePagePorch on _HomePageState {
       'The import didn’t finish. Try again; if it keeps failing, import '
           'fewer files at a time.',
       (progress) async => importer.importFiles([
-        for (final f in picked.files)
-          (name: f.name, bytes: await f.readAsBytes()),
+        for (final f in files) (name: f.name, bytes: await f.read()),
       ], onProgress: progress),
     );
     if (report == null || !mounted) return;
