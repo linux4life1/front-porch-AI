@@ -36,7 +36,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 MODE="${1:-golden}"
-IMG="${FPAI_CI_IMAGE:-fpai-golden:3.44.8}"
+IMG="${FPAI_CI_IMAGE:-fpai-golden:3.47.0}"
 VOL=fpai-ci-workspace
 # The pub cache MUST persist across steps: every `docker run --rm` is a fresh
 # container, and without this volume the cache `flutter pub get` builds is

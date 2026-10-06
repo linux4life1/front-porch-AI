@@ -171,7 +171,10 @@ size is the other test).
   `AppColors.onChaosAccent` on solid amber. CI `theme-lint` fails new
   `Colors.blueAccent` under `lib/` unless `// theme-keep: <reason>` and the
   colour is a genuine semantic status hue the maintainer approved **in this
-  conversation**.
+  conversation**. Two ratchets in `test/hygiene/` (`raw_colors_ratchet_test`,
+  `raw_dialogs_ratchet_test`, baselines in `test/baselines/`) fail any file
+  that gains a raw colour or a dialog opened outside `showWarmDialog`; a new
+  file must have none.
 - Creation wizards follow `create_character_page.dart`: AppBar step dots,
   linear `_currentStep`, bottom nav. No side-menu wizards.
 - `GlobalKey`s are owner-scoped. Never `GlobalObjectKey(model)` — two live
