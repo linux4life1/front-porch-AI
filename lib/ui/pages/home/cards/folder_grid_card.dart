@@ -41,6 +41,7 @@ class FolderGridCard extends StatelessWidget {
     required this.onFolderTap,
     required this.onFolderDialogAction,
     required this.onResolveCharImage,
+    this.acceptsDrops = true,
   });
 
   final CharacterFolder folder;
@@ -57,6 +58,10 @@ class FolderGridCard extends StatelessWidget {
   })
   onFolderDialogAction;
   final File Function(CharacterCard card) onResolveCharImage;
+
+  /// False once Esc has called a drag off: the tile neither lights up for it
+  /// nor offers to take it (the drop itself is refused by the selection).
+  final bool acceptsDrops;
 
   List<File> _folderPreviewImages(
     BuildContext context,
@@ -91,12 +96,13 @@ class FolderGridCard extends StatelessWidget {
     // guard, so an unrelated draggable neither highlights the folder nor
     // fires the callback.
     return DragTarget<Object>(
-      onWillAcceptWithDetails: (details) => libraryDragCount(details.data) > 0,
+      onWillAcceptWithDetails: (details) =>
+          acceptsDrops && libraryDragCount(details.data) > 0,
       onAcceptWithDetails: (details) {
         onAcceptFolderDrop(details.data, folder);
       },
       builder: (context, candidateData, rejectedData) {
-        final isHovering = candidateData.isNotEmpty;
+        final isHovering = acceptsDrops && candidateData.isNotEmpty;
         // While something hovers, the count line says what a drop does.
         final dropping = isHovering ? libraryDragCount(candidateData.first) : 0;
         return Card(

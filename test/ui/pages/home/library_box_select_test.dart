@@ -134,4 +134,111 @@ void main() {
     await tester.pump();
     expect(lib.opened, ['Bo']);
   });
+
+  testWidgets('a box moves the Shift anchor to its last card', (tester) async {
+    await lib.pump(tester);
+    final sel = lib.selection;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.tap(find.text('Eve'), kind: PointerDeviceKind.mouse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+
+    await boxDrag(tester, 'Ann', 'Bo');
+    expect(sel.characterIds, {'Ann', 'Bo'});
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tap(find.text('Crew'), kind: PointerDeviceKind.mouse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    // From Bo back to Crew — not from Eve, which the box replaced.
+    expect(sel.groupIds, {'group_crew'});
+    expect(sel.characterIds, {'Ann', 'Bo'});
+  });
+
+  testWidgets('Select none forgets the anchor: Shift-click then picks only '
+      'that card', (tester) async {
+    await lib.pump(tester);
+    final sel = lib.selection;
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.tap(find.text('Ann'), kind: PointerDeviceKind.mouse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    await tester.tap(find.widgetWithText(TextButton, 'Select none'));
+    await tester.pump();
+    expect(sel.isEmpty, isTrue);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.tap(find.text('Cy'), kind: PointerDeviceKind.mouse);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+    await tester.pump();
+    expect(sel.characterIds, {'Cy'});
+  });
+
+  /// A press at [at], moved by [by], let go: a slip, not a box.
+  Future<void> slip(WidgetTester tester, Offset at, Offset by) async {
+    final mouse = await tester.startGesture(
+      at,
+      kind: PointerDeviceKind.mouse,
+      buttons: kPrimaryButton,
+    );
+    await mouse.moveTo(at + by / 2);
+    await tester.pump();
+    await mouse.moveTo(at + by);
+    await tester.pump();
+    expect(find.byKey(const Key('library-select-box')), findsNothing);
+    await mouse.up();
+    await tester.pump();
+  }
+
+  testWidgets('a slip under 8 px changes nothing; on a card it is a click', (
+    tester,
+  ) async {
+    await lib.pump(tester);
+    final sel = lib.selection;
+    sel.replace({'Ann', 'Bo'}, const {});
+    await tester.pump();
+
+    final below = tester.getBottomLeft(find.text('Ann')) + const Offset(0, 120);
+    await slip(tester, below, const Offset(5, 4));
+    expect(sel.characterIds, {'Ann', 'Bo'}, reason: 'a slip on empty space');
+
+    await slip(tester, centerOf(tester, 'Cy'), const Offset(5, 4));
+    expect(sel.characterIds, {
+      'Ann',
+      'Bo',
+      'Cy',
+    }, reason: 'a slip on a card is a click: it toggles that card');
+  });
+
+  testWidgets('a real box over empty space replaces the picks; with Ctrl it '
+      'keeps them', (tester) async {
+    await lib.pump(tester);
+    final sel = lib.selection;
+    sel.replace({'Ann', 'Bo'}, const {});
+    await tester.pump();
+    final below = tester.getBottomLeft(find.text('Ann')) + const Offset(0, 120);
+
+    Future<void> emptyBox() async {
+      final mouse = await tester.startGesture(
+        below,
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryButton,
+      );
+      for (var i = 1; i <= 4; i++) {
+        await mouse.moveTo(below + Offset(15.0 * i, 15.0 * i));
+        await tester.pump();
+      }
+      await mouse.up();
+      await tester.pump();
+    }
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await emptyBox();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(sel.characterIds, {'Ann', 'Bo'});
+
+    await emptyBox();
+    expect(sel.isEmpty, isTrue);
+    expect(sel.isSelecting, isTrue, reason: 'still picking, with nothing');
+  });
 }

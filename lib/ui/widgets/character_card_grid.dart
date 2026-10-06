@@ -241,7 +241,11 @@ class CharacterCardGrid extends StatelessWidget {
               child: LibraryGridKeys(
                 selecting: picking,
                 onSelectAll: addShown,
-                onEscape: picking ? onCancelSelection : null,
+                // Esc calls off a drag in flight first, then the picks.
+                onEscape:
+                    selection != null && (picking || selection!.dragCount > 0)
+                    ? selection!.escape
+                    : (picking ? onCancelSelection : null),
                 child: _buildGrid(context, view),
               ),
             ),

@@ -11,6 +11,7 @@
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -141,5 +142,69 @@ void main() {
     expect(lib.folders.moves.single.files, {'Cy.png'});
     expect(lib.selection.characterIds, {'Ann'}, reason: 'picks untouched');
     expect(lib.folders.getFolderForCharacter('/library/Cy.png')?.id, attic.id);
+  });
+
+  testWidgets('Esc during a drag calls it off: nothing drops, no "Moved 0", '
+      'and the picks stay', (tester) async {
+    await lib.folders.createFolder('Attic');
+    await lib.folders.reload();
+    await lib.pump(tester);
+    lib.selection.replace({'Ann', 'Bo'}, const {});
+    await tester.pump();
+
+    final mouse = await hold(tester, 'Bo');
+    await mouse.moveTo(centerOf(tester, 'Attic'));
+    await tester.pump();
+    expect(find.text('Drop to move 2 here'), findsOneWidget);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(
+      find.text('Drop to move 2 here'),
+      findsNothing,
+      reason: 'the folder no longer offers to take the drop',
+    );
+    expect(find.text('Drop on a folder'), findsNothing);
+    expect(opacityAbove(tester, 'Ann'), 1.0, reason: 'picks no longer dimmed');
+
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(lib.folders.moves, isEmpty, reason: 'nothing moved');
+    expect(lib.drops.whereType<int>(), isEmpty, reason: 'no "Moved 0"');
+    expect(lib.selection.characterIds, {'Ann', 'Bo'}, reason: 'picks kept');
+    expect(lib.selection.isSelecting, isTrue);
+  });
+
+  testWidgets('a drop moves the cards the ghost showed, even after Ctrl+A '
+      'mid-drag', (tester) async {
+    final attic = await lib.folders.createFolder('Attic');
+    await lib.folders.reload();
+    await lib.pump(tester);
+    lib.selection.replace({'Ann', 'Bo'}, const {});
+    await tester.pump();
+
+    final mouse = await hold(tester, 'Bo');
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('library-drag-ghost')),
+        matching: find.text('2'),
+      ),
+      findsOneWidget,
+    );
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pump();
+    expect(lib.selection.characterIds, {'Ann', 'Bo', 'Cy'});
+
+    await mouse.moveTo(centerOf(tester, 'Attic'));
+    await tester.pump();
+    await mouse.up();
+    await tester.pumpAndSettle();
+    expect(lib.folders.moves, hasLength(1));
+    expect(lib.folders.moves.single.folderId, attic.id);
+    expect(lib.folders.moves.single.files, {'Ann.png', 'Bo.png'});
+    expect(lib.folders.moves.single.groups, isEmpty);
+    expect(lib.drops, [2]);
   });
 }

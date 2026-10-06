@@ -71,6 +71,9 @@ class GestureLibrary {
   final selection = LibrarySelection();
   final opened = <String>[];
 
+  /// What each drop returned: how many moved, or null for "nothing dropped".
+  final drops = <int?>[];
+
   static Future<GestureLibrary> create(
     List<String> names, {
     List<GroupChat> groups = const [],
@@ -117,8 +120,8 @@ class GestureLibrary {
     final scroll = ScrollController();
     addTearDown(scroll.dispose);
     final sel = selection;
-    Future<void> drop(Object item, String? id) =>
-        sel.drop(item, id, folders: folders, library: cards);
+    Future<void> drop(Object item, String? id) async =>
+        drops.add(await sel.drop(item, id, folders: folders, library: cards));
     await tester.pumpWidget(
       ChangeNotifierProvider<CharacterRepository>.value(
         value: repo,

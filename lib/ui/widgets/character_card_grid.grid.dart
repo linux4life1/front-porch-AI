@@ -64,6 +64,8 @@ extension CharacterCardGridBuild on CharacterCardGrid {
           if (index < folders.length) {
             return FolderGridCard(
               folder: folders[index],
+              // Esc called the drag off: the tile stops offering to take it.
+              acceptsDrops: !(sel?.dragCalledOff ?? false),
               onAcceptFolderDrop: onAcceptFolderDrop,
               onFolderTap: onFolderTap,
               onFolderDialogAction: onFolderDialogAction,

@@ -68,9 +68,11 @@ extension _HomePageDialogs on _HomePageState {
     );
   }
 
-  /// Mass delete for the select-mode bar: resolve the selection ids (the
-  /// imagePath-basename scheme _toggleSelect writes) back to cards, gather any
-  /// selected groups, then run the shared severe-confirm purge on both.
+  /// Mass delete for the select-mode bar: resolve the selection ids (each
+  /// card's stableGroupId, the key LibrarySelection holds: the image's
+  /// basename, or a cleaned-up name when there is no image) back to cards,
+  /// gather any selected groups, then run the shared severe-confirm purge on
+  /// both.
   Future<void> _massDeleteSelected(Set<String> ids) async {
     final repo = Provider.of<CharacterRepository>(context, listen: false);
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);

@@ -69,12 +69,18 @@ class LibraryGridGeometry {
   }
 }
 
+/// How far the mouse must move before a press becomes a box: a smaller
+/// slip stays a click (on a card it toggles or opens it) and changes nothing.
+const double kLibraryBoxSlop = 8;
+
 /// A quick mouse drag on the library grid draws a box and picks every
 /// character and group card it touches (library phase 2). It starts on empty
 /// space or on a card — holding still first starts a card drag instead —
 /// and Ctrl/Cmd held at the start adds to the picks rather than replacing
-/// them. Near the top or bottom edge the grid scrolls. Mouse only: touch and
-/// trackpad gestures keep scrolling, and the scrollbar keeps its thumb.
+/// them. It changes the picks only once it is at least [kLibraryBoxSlop]
+/// wide and tall or touches a card. Near the top or bottom edge the grid
+/// scrolls. Mouse only: touch and trackpad gestures keep scrolling, and the
+/// scrollbar keeps its thumb.
 class LibraryBoxSelect extends StatefulWidget {
   const LibraryBoxSelect({
     super.key,
@@ -102,8 +108,14 @@ class LibraryBoxSelect extends StatefulWidget {
   final Set<String> pickedGroups;
 
   /// The picks while the box moves: what it touches, plus what was picked
-  /// before when Ctrl/Cmd was held.
-  final void Function(Set<String> characters, Set<String> groups) onBox;
+  /// before when Ctrl/Cmd was held; [anchor] is the last card it touches in
+  /// grid order (the next Shift-click ranges from it), or null.
+  final void Function(
+    Set<String> characters,
+    Set<String> groups,
+    String? anchor,
+  )
+  onBox;
 
   @override
   State<LibraryBoxSelect> createState() => _LibraryBoxSelectState();
@@ -118,6 +130,7 @@ class _LibraryBoxSelectState extends State<LibraryBoxSelect> {
   Set<String> _baseChars = const {};
   Set<String> _baseGroups = const {};
   Set<String> _lastTouched = const {};
+  bool _changesPicks = false;
   Timer? _autoScroll;
 
   double get _offset =>
@@ -133,6 +146,7 @@ class _LibraryBoxSelectState extends State<LibraryBoxSelect> {
     _baseChars = add ? {...widget.pickedCharacters} : const {};
     _baseGroups = add ? {...widget.pickedGroups} : const {};
     _lastTouched = const {};
+    _changesPicks = false;
     _pointer = details.localPosition;
     setState(() => _start = details.localPosition + Offset(0, _offset));
     _report();
@@ -181,15 +195,29 @@ class _LibraryBoxSelectState extends State<LibraryBoxSelect> {
     final width = context.size?.width ?? 0;
     final box = _box;
     final rects = widget.geometry.rects(widget.keys.length, width);
-    final touched = <String>{
-      for (var i = 0; i < rects.length; i++)
-        if (widget.keys[i] != null && rects[i].overlaps(box)) widget.keys[i]!,
-    };
-    if (setEquals(touched, _lastTouched)) return;
+    final touched = <String>{};
+    String? anchor;
+    for (var i = 0; i < rects.length; i++) {
+      final key = widget.keys[i];
+      if (key == null || !rects[i].overlaps(box)) continue;
+      touched.add(key);
+      anchor = key;
+    }
+    // A box with no real size that touches nothing changes nothing yet;
+    // once it has either, it owns the picks until it is let go.
+    if (!_changesPicks) {
+      final sized =
+          box.width >= kLibraryBoxSlop && box.height >= kLibraryBoxSlop;
+      if (!sized && touched.isEmpty) return;
+      _changesPicks = true;
+    } else if (setEquals(touched, _lastTouched)) {
+      return;
+    }
     _lastTouched = touched;
     widget.onBox(
       {..._baseChars, ...touched.where((k) => !widget.groupKeys.contains(k))},
       {..._baseGroups, ...touched.where(widget.groupKeys.contains)},
+      anchor,
     );
   }
 
@@ -223,7 +251,7 @@ class _LibraryBoxSelectState extends State<LibraryBoxSelect> {
         child: Stack(
           children: [
             widget.child,
-            if (_active)
+            if (_active && _changesPicks)
               Positioned.fill(
                 child: IgnorePointer(
                   child: ClipRect(
@@ -248,8 +276,10 @@ class _LibraryBoxSelectState extends State<LibraryBoxSelect> {
   }
 }
 
-/// Primary-button mouse drags only, and not on the scrollbar's strip at
-/// the right edge.
+/// Primary-button mouse drags only, not on the scrollbar's strip at the
+/// right edge, and only once the pointer is [kLibraryBoxSlop] from where it
+/// went down (the stock mouse slop is 2 px, so a slipping click became a
+/// box and lost the click).
 class _BoxDragRecognizer extends PanGestureRecognizer {
   _BoxDragRecognizer({required this.gutter, required this.width})
     : super(
@@ -259,11 +289,31 @@ class _BoxDragRecognizer extends PanGestureRecognizer {
 
   final double gutter;
   final double Function() width;
+  Offset _down = Offset.zero;
+  Offset _now = Offset.zero;
 
   @override
   bool isPointerAllowed(PointerEvent event) =>
       event.localPosition.dx < width() - gutter &&
       super.isPointerAllowed(event);
+
+  @override
+  void addAllowedPointer(PointerDownEvent event) {
+    _down = _now = event.position;
+    super.addAllowedPointer(event);
+  }
+
+  @override
+  void handleEvent(PointerEvent event) {
+    if (event is PointerMoveEvent) _now = event.position;
+    super.handleEvent(event);
+  }
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(
+    PointerDeviceKind pointerDeviceKind,
+    double? deviceTouchSlop,
+  ) => (_now - _down).distance >= kLibraryBoxSlop;
 }
 
 class _BoxPlacement extends SingleChildLayoutDelegate {
