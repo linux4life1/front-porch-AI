@@ -83,7 +83,10 @@ extension _CreatorCore on CreatorState {
       descController.text = card.description;
       personalityController.text = card.personality;
       scenarioController.text = card.scenario;
-      firstMessageController.text = card.firstMessage;
+      final oldFirst = firstMessageController;
+      firstMessageController = newGreetingBox(card.firstMessage);
+      // A step still fading out may hold the old box this frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) => oldFirst.dispose());
       exampleDialogueController.text = card.mesExample;
       systemPromptController.text = card.systemPrompt;
       for (final c in altGreetingControllers) {

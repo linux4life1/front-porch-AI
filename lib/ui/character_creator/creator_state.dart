@@ -152,18 +152,19 @@ class CreatorState extends ChangeNotifier {
   final descController = TextEditingController();
   final personalityController = TextEditingController();
   final scenarioController = TextEditingController();
-  // Greeting boxes are the character editor's: spell check plus macro,
-  // "dialogue" and *action* colouring. Alternates are made the same way.
-  final firstMessageController = StyledTextController(
-    preset: StyledTextPreset.prose,
-  );
+
+  /// Replaced by [newGreetingBox] when a generated card's greetings arrive,
+  /// like the alternates.
+  TextEditingController firstMessageController = TextEditingController();
   final exampleDialogueController = TextEditingController();
   final systemPromptController = TextEditingController();
   List<TextEditingController> altGreetingControllers = [];
   List<GreetingRealismSeed?> greetingSeeds = [];
   final greetings = CreatorGreetings();
 
-  /// An alternate greeting's box, made like [firstMessageController].
+  /// A generated greeting's box: the character editor's, with spell check
+  /// and macro, "dialogue" and *action* colouring. Made with its text, so
+  /// no spell-check pass is queued until someone types.
   TextEditingController newGreetingBox([String text = '']) =>
       StyledTextController(text: text, preset: StyledTextPreset.prose);
 
