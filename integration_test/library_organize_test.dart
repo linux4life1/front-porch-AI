@@ -49,6 +49,25 @@ final _kTinyPng = <int>[
   0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42, 0x60, 0x82,
 ];
 
+/// A popup menu or dialog is in the tree before it can take a tap: its open
+/// animation still scales it in. pumpUntilFound returns as soon as the text
+/// exists, so a tap right after can land on nothing (seen on CI).
+const kOpenAnimation = Duration(milliseconds: 400);
+
+/// Open the search-scope menu and choose [item].
+Future<void> pickScope(
+  WidgetTester tester,
+  String item, {
+  String? alsoListed,
+}) async {
+  await tester.tap(find.byTooltip('Search scope'));
+  await pumpUntilFound(tester, find.text(item));
+  await tester.pump(kOpenAnimation);
+  if (alsoListed != null) expect(find.text(alsoListed), findsOneWidget);
+  await tester.tap(find.text(item));
+  await tester.pump(kOpenAnimation);
+}
+
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
@@ -151,10 +170,7 @@ void main() {
       of: find.byType(CharacterGridCard),
       matching: find.text(name),
     );
-    await tester.tap(find.byTooltip('Search scope'));
-    await pumpUntilFound(tester, find.text('Top level only'));
-    expect(find.text('Everywhere'), findsOneWidget);
-    await tester.tap(find.text('Top level only'));
+    await pickScope(tester, 'Top level only', alsoListed: 'Everywhere');
     await tester.pump(const Duration(milliseconds: 400));
     await tester.enterText(search, 'Porch');
     // Wait for the filter to land, not for a card that was already showing:
@@ -171,14 +187,10 @@ void main() {
       findsNothing,
       reason: 'Top level only leaves out the card filed in Cedar',
     );
-    await tester.tap(find.byTooltip('Search scope'));
-    await pumpUntilFound(tester, find.text('Everywhere'));
-    await tester.tap(find.text('Everywhere'));
+    await pickScope(tester, 'Everywhere');
     await pumpUntilFound(tester, card('Porch Delta'));
 
-    await tester.tap(find.byTooltip('Search scope'));
-    await pumpUntilFound(tester, find.text('Top level only'));
-    await tester.tap(find.text('Top level only'));
+    await pickScope(tester, 'Top level only');
     await pumpUntilTrue(
       tester,
       () => card('Porch Delta').evaluate().isEmpty,
@@ -204,6 +216,8 @@ void main() {
       tester,
       find.text('Move 2 characters to folder (2 hidden)'),
     );
+    // Let the dialog finish opening before tapping inside it.
+    await tester.pump(kOpenAnimation);
     // The picker's row, not the Aspen tile behind the dialog.
     await tester.tap(
       find.descendant(
