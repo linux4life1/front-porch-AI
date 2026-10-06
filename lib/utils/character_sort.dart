@@ -85,6 +85,63 @@ List<CharacterCard> sortCharacters(
   return list;
 }
 
+/// Returns a new list of folder tiles sorted by [mode], the same way the cards
+/// beside them are (#345).
+///
+/// Name is A→Z. Under the data modes a folder takes the value of everything
+/// in [cardsIn] (the caller passes its characters, subfolders included):
+/// newest chat, newest card added, or total messages. A folder with no
+/// characters has nothing to sort by and goes last. Ties fall back to name.
+/// Generic so this file needs no folder service: [nameOf] and [cardsIn] read
+/// the caller's folder type.
+List<T> sortFolders<T>(
+  List<T> folders,
+  CharacterSortMode mode, {
+  required String Function(T folder) nameOf,
+  required Iterable<CharacterCard> Function(T folder) cardsIn,
+  Map<String, DateTime> lastActivity = const {},
+  Map<String, int> messageCount = const {},
+}) {
+  int byName(T a, T b) =>
+      nameOf(a).toLowerCase().compareTo(nameOf(b).toLowerCase());
+  final list = List<T>.from(folders);
+  if (mode == CharacterSortMode.name) return list..sort(byName);
+
+  int keyOf(CharacterCard c) => switch (mode) {
+    CharacterSortMode.recent =>
+      (lastActivity[c.stableGroupId] ?? _epochZero).millisecondsSinceEpoch,
+    CharacterSortMode.importDate => dateAdded(c).millisecondsSinceEpoch,
+    _ => messageCount[c.stableGroupId] ?? 0,
+  };
+  // Worked out once per folder: the sort compares each key many times.
+  final keys = <T, int?>{};
+  for (final folder in list) {
+    final cards = cardsIn(folder);
+    keys[folder] = cards.isEmpty
+        ? null
+        : mode == CharacterSortMode.messages
+        ? cards.fold<int>(0, (sum, c) => sum + keyOf(c))
+        : cards.map(keyOf).reduce((a, b) => a > b ? a : b);
+  }
+  return list..sort((a, b) {
+    final ka = keys[a];
+    final kb = keys[b];
+    if (ka == null || kb == null) {
+      if (ka != kb) return ka == null ? 1 : -1;
+      return byName(a, b);
+    }
+    final primary = kb.compareTo(ka);
+    return primary != 0 ? primary : byName(a, b);
+  });
+}
+
+/// Group chats in name order (A→Z) under every mode: the library keeps no
+/// dates, chat times or message counts for a group, so name is the only key
+/// they have — the same tiebreak every card sort ends on.
+List<GroupChat> sortGroups(List<GroupChat> groups) =>
+    List<GroupChat>.from(groups)
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
 /// The "date added" a card sorts by. Prefers the real DB [CharacterCard.createdAt];
 /// for legacy cards imported before that column was hydrated it falls back to
 /// the epoch embedded in the old `<name>_<epochMs>.png` filename, then to zero.

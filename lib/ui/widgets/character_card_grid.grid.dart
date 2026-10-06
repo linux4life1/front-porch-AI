@@ -20,39 +20,10 @@ part of 'character_card_grid.dart';
 
 /// Folder / group / character cells. Toolbar chrome stays on [CharacterCardGrid].
 extension CharacterCardGridBuild on CharacterCardGrid {
-  Widget _buildGrid(
-    BuildContext context,
-    List<CharacterCard> filteredCharacters,
-  ) {
-    final showFolders = searchQuery.isEmpty;
-    final folders = showFolders
-        ? folderService.getSubfolders(activeFolderId)
-        : <CharacterFolder>[];
-
-    // Groups follow the folder hierarchy exactly like characters now (the old
-    // bucket pinned every group to the top level and hid them during
-    // select/organize — they're selectable there too since they can be moved).
-    List<GroupChat> groups = _getFilteredGroups();
-
-    List<CharacterCard> displayCharacters;
-    if (showFolders && activeFolderId == null) {
-      final folderedFilenames = folderService.getUnfolderedCharacterPaths();
-      displayCharacters = filteredCharacters
-          .where(
-            (c) =>
-                c.imagePath == null ||
-                !folderedFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-      // Same top-level rule for groups: foldered ones only show inside their
-      // folder (this was the group-shaped hole in the unfoldered filter).
-      groups = groups
-          .where((g) => folderService.getFolderForGroup(g.id) == null)
-          .toList();
-    } else {
-      displayCharacters = filteredCharacters;
-    }
-
+  Widget _buildGrid(BuildContext context, LibraryView view) {
+    final folders = view.folders;
+    final groups = view.groups;
+    final displayCharacters = view.characters;
     final totalItems =
         folders.length + groups.length + displayCharacters.length;
     if (totalItems == 0) {

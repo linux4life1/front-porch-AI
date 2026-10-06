@@ -3,7 +3,6 @@
 
 import 'dart:io';
 
-import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card.dart';
@@ -12,13 +11,13 @@ import 'package:front_porch_ai/ui/pages/home/cards/group_grid_card.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_search_bar.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_toolbar.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/library_view.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/utils/utils.dart';
+
+export 'package:front_porch_ai/ui/widgets/library_view.dart' show SearchScope;
 
 part 'character_card_grid.grid.dart';
-
-enum SearchScope { currentFolder, folderRecursive, allCharacters }
 
 enum FolderDialogAction { create, rename, delete }
 
@@ -137,93 +136,21 @@ class CharacterCardGrid extends StatelessWidget {
   /// Mirrors the existing `onContextMenuAction` pattern used for CharacterCard.
   final void Function(String action, GroupChat group)? onGroupContextMenuAction;
 
-  List<CharacterCard> _getFilteredCharacters() {
-    List<CharacterCard> characters;
-
-    final skipFolderFilter =
-        searchScope == SearchScope.allCharacters && searchQuery.isNotEmpty;
-    if (activeFolderId != null && !skipFolderFilter) {
-      List<String> folderFilenames;
-      if (searchQuery.isEmpty) {
-        // Normal browsing: subfolder cards are rendered for navigation
-        // (see _buildGrid -> getSubfolders), so only list characters that
-        // live DIRECTLY in this folder. Using the recursive list here
-        // flattened every subfolder's characters back into the parent view,
-        // producing a phantom "duplicate" card for any character that had
-        // been moved into a subfolder. Because that phantom card and the
-        // real one share a single CharacterCard/DB row, deleting the
-        // phantom also deleted the original.
-        folderFilenames = folderService.getCharactersInFolder(activeFolderId!);
-      } else {
-        // Searching: subfolder cards are hidden (_buildGrid only shows
-        // folders when the query is empty), so search recursively so
-        // characters nested in subfolders remain findable.
-        folderFilenames = folderService.getCharactersInFolderRecursive(
-          activeFolderId!,
-        );
-      }
-      characters = repo.characters
-          .where(
-            (c) =>
-                c.imagePath != null &&
-                folderFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-    } else {
-      characters = repo.characters.toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      final query = searchQuery.toLowerCase();
-      characters = characters.where((c) {
-        if (c.name.toLowerCase().contains(query)) return true;
-        if (c.tags.any((t) => t.toLowerCase().contains(query))) return true;
-        return false;
-      }).toList();
-    }
-
-    return sortCharacters(
-      characters,
-      CharacterSortMode.fromKey(sortMode),
-      lastActivity: lastActivityCache,
-      messageCount: messageCountCache,
-    );
-  }
-
-  /// Folder + search filtering for group chats — the exact mirror of
-  /// [_getFilteredCharacters], keyed by group id instead of image filename
-  /// (groups have no image key). Groups used to bypass foldering entirely
-  /// and always render on the top level.
-  List<GroupChat> _getFilteredGroups() {
-    List<GroupChat> groups;
-
-    final skipFolderFilter =
-        searchScope == SearchScope.allCharacters && searchQuery.isNotEmpty;
-    if (activeFolderId != null && !skipFolderFilter) {
-      // Same browse-vs-search split as characters: direct members while
-      // browsing (subfolder cards handle navigation), recursive while
-      // searching (subfolder cards are hidden).
-      final ids = searchQuery.isEmpty
-          ? folderService.groupIdsInFolder(activeFolderId!)
-          : folderService.groupIdsInFolderRecursive(activeFolderId!);
-      groups = groupRepo.groups.where((g) => ids.contains(g.id)).toList();
-    } else {
-      groups = groupRepo.groups.toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      final query = searchQuery.toLowerCase();
-      groups = groups
-          .where((g) => g.name.toLowerCase().contains(query))
-          .toList();
-    }
-
-    return groups;
-  }
+  LibraryView _view() => libraryViewOf(
+    characters: repo.characters,
+    groups: groupRepo.groups,
+    folders: folderService,
+    activeFolderId: activeFolderId,
+    query: searchQuery,
+    scope: searchScope,
+    sortMode: sortMode,
+    lastActivity: lastActivityCache,
+    messageCount: messageCountCache,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final filteredCharacters = _getFilteredCharacters();
+    final view = _view();
     final selectedCount = selectedCharacterIds.length + selectedGroupIds.length;
 
     return Stack(
@@ -260,7 +187,7 @@ class CharacterCardGrid extends StatelessWidget {
               onSearchQueryChanged: onSearchQueryChanged,
             ),
             const SizedBox(height: 12),
-            Expanded(child: _buildGrid(context, filteredCharacters)),
+            Expanded(child: _buildGrid(context, view)),
           ],
         ),
         if (isSelecting && selectedCount > 0)

@@ -52,6 +52,7 @@ export 'log_view.dart';
 export 'slider_with_input.dart';
 export 'stop_sequence_list.dart';
 export 'character_card_grid.dart';
+export 'library_view.dart';
 export 'call_overlay.dart';
 export 'chance_time_overlay.dart';
 export 'warm_card.dart';
