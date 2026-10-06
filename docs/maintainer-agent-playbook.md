@@ -129,6 +129,13 @@ the counts to match (it can never raise them). Editing a baseline needs your
 (`showWarmDialog`). A dialog or sheet built any other way fails. Existing
 ones: `test/baselines/raw_dialogs.json`.
 
+**Colours.** Screens take their colours from the app palette (`AppColors`),
+so light mode and the warm-porch look hold everywhere. A raw colour in screen
+code fails, and the message names the nearest palette colour. Allowed:
+see-through, and black for a shadow or for the dimming behind a pop-up. A
+deliberate status colour (a green "ready" dot) passes when its line ends with
+`// theme-keep: <reason>`. Existing ones: `test/baselines/raw_colors.json`.
+
 ---
 
 ## Cadence
