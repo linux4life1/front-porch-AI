@@ -170,5 +170,8 @@ extension KoboldServiceKeeper on KoboldService {
 
   /// Test hook: [output] as if the engine had printed it.
   @visibleForTesting
-  void debugEngineSaid(String output) => _ingestLiveProgress(output);
+  void debugEngineSaid(String output) {
+    _ingestLiveProgress(output);
+    _speed.lines.add(output);
+  }
 }

@@ -55,6 +55,10 @@ class KoboldBackendChoice {
   /// Whether the model can go on a card (Apple Silicon counts).
   bool get onCard => unified || backend != KoboldGpuBackend.none;
 
+  /// The backend as a speed test's stamp names it: 'cuda', 'rocm',
+  /// 'vulkan', 'metal', or 'cpu' with no card.
+  String get label => !onCard ? 'cpu' : memory.name;
+
   /// The memory rules the model follows here. With no card, CUDA's stand
   /// in: nothing is placed on a card then.
   KoboldMemoryBackend get memory => unified

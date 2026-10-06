@@ -29,6 +29,18 @@ String koboldModelName(String path) {
   return kept.isEmpty ? p.basename(path) : kept.join(' ');
 }
 
+/// "NVIDIA GeForce GTX 1060 6GB" as "GeForce GTX 1060": the card's name
+/// without the maker's prefix, trademark marks or memory size. Empty when the
+/// machine names no card.
+String koboldCardShortName(String gpuName) {
+  if (gpuName.isEmpty || gpuName == 'Unknown GPU') return '';
+  return gpuName
+      .replaceAll(RegExp(r'\((R|TM)\)', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'^NVIDIA\s+', caseSensitive: false), '')
+      .replaceFirst(RegExp(r'\s+\d+\s*GB$', caseSensitive: false), '')
+      .trim();
+}
+
 /// "16k chat · fitted to the card · smart cache off".
 String kcppsShortLine(KcppsRead read) {
   if (read is KcppsBroken) return 'Cannot be read: ${read.reason}';

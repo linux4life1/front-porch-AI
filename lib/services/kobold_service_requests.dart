@@ -275,4 +275,7 @@ extension KoboldServiceRequests on KoboldService {
   bool _dropStoppedReplies() => _requests.dropStoppedReplies();
 
   Future<void> _waitForIdle() => _requests.queue.waitForIdle();
+
+  /// A speed test holds the app's requests now (see [holdForSpeedTest]).
+  bool get speedTestHolds => _requests.speedTest != null;
 }

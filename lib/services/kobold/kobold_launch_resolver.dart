@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/model_file_check.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 import 'kcpps_codec.dart';
+import 'kobold_measured_preset.dart';
 import 'kobold_preset_read.dart';
 
 /// What a launch will load.
@@ -168,10 +169,16 @@ KcppsRead _read(File file) {
 /// becomes the last-used model, and the active preset becomes that model's
 /// own preset, or none. Leaving the previous model's preset active would
 /// launch the new model with the old one's context and layers.
+///
+/// In auto mode (no preset chosen), a model whose own preset is the one the
+/// speed test saved keeps auto mode: auto mode runs the measured settings by
+/// itself ([koboldMeasuredKnobs]), and its card stays as it was.
 Future<void> selectKoboldModel(StorageService storage, String modelPath) async {
+  final auto = storage.backendSettings.activeKcppsPath == null;
   await storage.backendSettings.setLastUsedModelPath(modelPath);
   final saved = storage.presetSettings.modelPresetMap[modelPath];
   final usable = saved != null && saved.isNotEmpty && File(saved).existsSync();
+  if (usable && auto && await koboldIsAutoMeasured(saved)) return;
   await storage.backendSettings.setActiveKcppsPath(usable ? saved : null);
 }
 

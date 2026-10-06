@@ -88,21 +88,24 @@ String? koboldShortModelWarning(int? modelMax) =>
 /// The verdict for each of [choices] against the context [fit] has now,
 /// and the largest that works well (never below the floor). Auto mode's
 /// fit: KoboldCpp keeps [kKoboldFitPaddingMb] spare. [batchSize] is the
-/// batch the launch holds, when it does (see [koboldAutoTuning]). With
-/// layers set by hand, [gpuLayers] and [moeCpuBlocks] place the model
-/// instead of KoboldCpp's fit (see [koboldPlacedLoad]).
+/// batch the launch holds, when it does, and [measured] the one the speed
+/// test found, for each size within the memory ceiling (see
+/// [koboldAutoTuning]). With layers set by hand, [gpuLayers] and
+/// [moeCpuBlocks] place the model instead of KoboldCpp's fit (see
+/// [koboldPlacedLoad]).
 ({List<KoboldContextVerdict> verdicts, int? largestGood})
 koboldContextVerdicts({
   required KoboldFit fit,
   required KoboldMachine machine,
   required List<int> choices,
   int? batchSize,
+  int? measured,
   int? gpuLayers,
   int moeCpuBlocks = 0,
 }) {
   KoboldLoad placed(KoboldFit f) => koboldPlacedLoad(
     f,
-    koboldAutoTuning(f, machine, batchSize: batchSize),
+    koboldAutoTuning(f, machine, batchSize: batchSize, measured: measured),
     gpuLayers: gpuLayers,
     moeCpuBlocks: moeCpuBlocks,
   );

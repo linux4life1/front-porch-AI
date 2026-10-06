@@ -90,6 +90,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
     );
   }
   if (deps.backendFacade != null) {
+    WebSpeedTestRoutes(deps.backendFacade!, router);
     XaiRoutes(
       router,
       auth: deps.auth,

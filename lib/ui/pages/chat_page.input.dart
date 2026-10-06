@@ -167,6 +167,12 @@ extension _ChatPageInput on _ChatPageState {
             chatService.activeGroup == null)) {
       return;
     }
+    // Refused while the speed test runs: said under the chat, text kept.
+    final testing = chatService.sendRefusal(text, withImage: pending != null);
+    if (testing != null) {
+      chatService.announceLookupForce(testing);
+      return;
+    }
     final lookupBlock = chatService.lookupCommandBlock(text);
     if (lookupBlock != null) {
       chatService.announceLookupForce(lookupBlock);

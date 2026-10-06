@@ -61,6 +61,7 @@ const Set<String> _managedKeys = {
   'draftmodel',
   'draftamount',
   'usemtp',
+  'measured',
 };
 
 /// Words in a `usecuda` list the codec reads into fields of its own: the
@@ -200,6 +201,7 @@ KcppsRead _readKcpps(String text) {
       useMtp: map['usemtp'] == true,
       contextShift: map['noshift'] != true,
       cudaOptions: cudaOptions,
+      measured: KoboldMeasured.fromJson(map['measured']),
       extras: {
         for (final e in map.entries)
           if (!_managedKeys.contains(e.key)) e.key: e.value,
@@ -340,6 +342,7 @@ Map<String, dynamic> kcppsMap(KoboldLaunchConfig config) {
     if (config.draftModelPath.isNotEmpty) 'draftmodel': config.draftModelPath,
     'draftamount': ?config.draftAmount,
     if (config.useMtp) 'usemtp': true,
+    if (config.measured case final m?) 'measured': m.toJson(),
   };
 
   // Automatic fitting and `moecpu` cannot be combined; a manual layer

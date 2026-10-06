@@ -116,6 +116,7 @@ class WebServerHost extends ChangeNotifier {
   // freeze on web without the tick.
   VoidCallback? _genStatusListener;
   VoidCallback? _llmReadyListener;
+  VoidCallback? _speedTestListener;
   bool? _lastLlmReady;
   String? _lastLlmHint;
   Timer? _genStatusTicker;
@@ -387,6 +388,7 @@ class WebServerHost extends ChangeNotifier {
         _realismListener != null ||
         _genStatusListener != null ||
         _llmReadyListener != null ||
+        _speedTestListener != null ||
         _imageProgressListener != null ||
         _libraryListener != null ||
         _genStatusTicker != null ||
@@ -412,6 +414,10 @@ class WebServerHost extends ChangeNotifier {
       _llmProvider?.removeListener(_llmReadyListener!);
       _llmProvider?.openRouterService.removeListener(_llmReadyListener!);
       _llmReadyListener = null;
+    }
+    if (_speedTestListener case final l?) {
+      _llmProvider?.koboldSpeedTest?.removeListener(l);
+      _speedTestListener = null;
     }
     _lastLlmReady = null;
     _lastLlmHint = null;

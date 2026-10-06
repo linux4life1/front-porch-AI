@@ -67,6 +67,7 @@ export 'kobold_admin_swap.dart';
 export 'kobold_launch_args.dart';
 export 'llm_service.dart';
 export 'kobold_service.dart';
+export 'kobold_speed_test.dart';
 export 'chat_service.dart';
 export 'backend_manager.dart';
 export 'opencode/opencode.dart';

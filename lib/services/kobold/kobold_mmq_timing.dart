@@ -57,8 +57,23 @@ double? koboldTurnSeconds(List<KoboldSpeed> replies) {
       if (koboldWriteCounts(r)) r.written / r.writeSeconds,
   ]..sort();
   if (read.length < 3 || write.length < 3) return null;
-  return 1000 / read[read.length ~/ 2] + 200 / write[write.length ~/ 2];
+  return _turn(read[read.length ~/ 2], write[write.length ~/ 2]);
 }
+
+/// Seconds for a typical turn at one reply's speeds, by the same measure as
+/// [koboldTurnSeconds]; null when it read or wrote too little to time.
+double? koboldTurnSecondsOf(KoboldSpeed r) =>
+    koboldReadCounts(r) && koboldWriteCounts(r)
+    ? _turn(r.read / r.readSeconds, r.written / r.writeSeconds)
+    : null;
+
+/// A typical turn: reading 1,000 tokens of prompt and writing 200.
+double _turn(double readPerSecond, double writePerSecond) =>
+    1000 / readPerSecond + 200 / writePerSecond;
+
+/// Tokens each of the speed test's prompts writes: a typical reply, so how
+/// fast writing is counts as much as reading.
+const int kKoboldTimingWrite = 200;
 
 /// [replies] cut down to what timing can use: the newest [each] that count
 /// for reading and the newest [each] that count for writing, in the order
@@ -118,8 +133,15 @@ String koboldTimingPrompt(int round) {
   return out.toString();
 }
 
-/// Times one fresh prompt and a short reply on the engine at [baseUrl].
-Future<Duration> timeKoboldPrompt(String baseUrl, int round) async {
+/// Times one fresh prompt and a reply of [write] tokens on the engine at
+/// [baseUrl]. [fullLength] writes all of them, whatever the model would stop
+/// at, so every timing writes the same.
+Future<Duration> timeKoboldPrompt(
+  String baseUrl,
+  int round, {
+  int write = 48,
+  bool fullLength = false,
+}) async {
   final client = HttpClient()..connectionTimeout = const Duration(seconds: 10);
   final watch = Stopwatch()..start();
   try {
@@ -128,9 +150,10 @@ Future<Duration> timeKoboldPrompt(String baseUrl, int round) async {
     request.write(
       jsonEncode({
         'prompt': koboldTimingPrompt(round),
-        'max_length': 48,
+        'max_length': write,
         'temperature': 0.7,
         'quiet': true,
+        if (fullLength) 'ban_eos_token': true,
       }),
     );
     final response = await request.close().timeout(const Duration(minutes: 15));

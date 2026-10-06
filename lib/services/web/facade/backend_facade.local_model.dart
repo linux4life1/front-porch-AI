@@ -3,6 +3,8 @@
 
 part of 'backend_facade.dart';
 
+const String _kNoSpeedTest = 'The speed test is not available here.';
+
 /// The phone's "Local model" card and chat-preset picker: the same facts
 /// as the desktop card (KoboldStatusFacts), the presets in the engine
 /// folder with a line each, and the two things the phone sets.
@@ -72,6 +74,9 @@ extension BackendFacadeLocalModel on BackendFacade {
       // Why a chosen model has no `auto`: its file could not be read (else
       // this computer is not known yet). Additive.
       'modelUnreadable': unreadable,
+      // The speed test, as the desktop card shows it (additive): its state
+      // in words, and why it cannot run now (null when it can).
+      'speedTest': ?await _speedTestCard(model),
       'presets': [
         for (final e in presets)
           {'path': e.path, 'name': e.name, 'line': kcppsShortLine(e.read)},
@@ -132,6 +137,30 @@ extension BackendFacadeLocalModel on BackendFacade {
     }
     return true;
   }
+
+  Future<Map<String, dynamic>?> _speedTestCard(String model) async {
+    final test = _llm.koboldSpeedTest;
+    if (test == null) return null;
+    return {...test.toJson(model: model), 'unavailable': await test.why()};
+  }
+
+  /// The speed test's question before it runs, with how long it takes, or
+  /// why it cannot run now: the desktop's own words.
+  Future<Map<String, dynamic>> speedTestAsk() async {
+    final test = _llm.koboldSpeedTest;
+    if (test == null) return {'ask': null, 'refused': _kNoSpeedTest};
+    final a = await test.ask();
+    return {'ask': a.ask, 'refused': a.refusal};
+  }
+
+  /// Starts the speed test: null when it started, else why not, in words.
+  Future<String?> startSpeedTest() async {
+    final test = _llm.koboldSpeedTest;
+    return test == null ? _kNoSpeedTest : await test.start();
+  }
+
+  /// Stops the speed test after the step under way.
+  void cancelSpeedTest() => _llm.koboldSpeedTest?.cancel();
 
   /// The model at [model] has a sliding window. The sentence that needs it
   /// is an extra: a header that cannot be read means no sentence, never a

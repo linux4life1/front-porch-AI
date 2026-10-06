@@ -289,10 +289,14 @@ extension LLMProviderKoboldHosts on LLMProvider {
     return (model: chat.modelPath, kcpps: chat.kcppsPath ?? '');
   }
 
+  /// [trial] and [asName]: the speed test's try of chat's own config, staged
+  /// under its own name (see `koboldLaunchMap`).
   Future<KoboldStagedRole> _stageKoboldRole({
     required String role,
     required String model,
     required String kcpps,
+    KoboldKnobs? trial,
+    String? asName,
   }) {
     final chat = resolveKoboldLaunch(_storageService);
     final chatKcpps = chat.kcppsPath ?? '';
@@ -310,7 +314,10 @@ extension LLMProviderKoboldHosts on LLMProvider {
     return stageKoboldRole(
       storage: _storageService,
       executablePath: _backendManager.backendPath ?? '',
-      name: asChat ? kStagedChatConfig : '$kStagedConfigPrefix$role.kcpps',
+      name:
+          asName ??
+          (asChat ? kStagedChatConfig : '$kStagedConfigPrefix$role.kcpps'),
+      trial: trial,
       modelPath: m,
       kcppsPath: k.isEmpty ? null : k,
       // Vision rides with the chat model only. Helper models never use it.

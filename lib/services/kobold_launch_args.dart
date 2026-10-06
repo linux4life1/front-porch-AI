@@ -91,7 +91,8 @@ Future<List<String>> buildKoboldLaunchArgs({
 /// job) before a swap. The same function for all of them, so a swap loads
 /// exactly what a launch would. Every one names [kKoboldHost] as its
 /// address and [kKoboldAdminUnloadTimeout] as its idle unload, over whatever
-/// a preset said.
+/// a preset said. [trial]: the speed test's settings for one of its tries
+/// (see [koboldLaunchMap]).
 Future<KoboldStagedRole> stageKoboldRole({
   required StorageService storage,
   required String executablePath,
@@ -109,6 +110,7 @@ Future<KoboldStagedRole> stageKoboldRole({
   Future<HardwareInfo?> Function()? awaitHardware,
   FreeMemoryMb? free,
   void Function(String note)? onNote,
+  KoboldKnobs? trial,
 }) async {
   final version = await KoboldBinaryVersion.versionFor(executablePath);
   final config = await koboldLaunchMap(
@@ -127,6 +129,7 @@ Future<KoboldStagedRole> stageKoboldRole({
     free: free,
     engineVersion: version,
     onNote: onNote,
+    trial: trial,
   );
   config['host'] = kKoboldHost;
   config['adminunloadtimeout'] = kKoboldAdminUnloadTimeout;
@@ -161,7 +164,13 @@ Future<KoboldStagedRole> stageKoboldRole({
 }
 
 /// The config a launch will run: the user's preset as it was written (see
-/// [kcppsPresetLaunchMap]), or the app's own settings.
+/// [kcppsPresetLaunchMap]), or the app's own settings. For those, the five
+/// settings the speed test tries (the physical batch, MMQ, mmap, memory lock
+/// and flash attention) are [trial]'s, a try of the test, else what the test
+/// measured for this model here ([koboldMeasuredKnobs]), else auto mode's
+/// own. Every rule still holds over them: the memory ceiling for the batch,
+/// a compressed cache turning flash attention on, memory lock only with
+/// layers set by hand and not for a MoE model.
 Future<Map<String, dynamic>> koboldLaunchMap({
   required StorageService storage,
   required String modelPath,
@@ -178,6 +187,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
   FreeMemoryMb? free,
   String? engineVersion,
   void Function(String note)? onNote,
+  KoboldKnobs? trial,
 }) async {
   // A missing vision file must never stop a launch.
   final mmproj =
@@ -227,12 +237,24 @@ Future<Map<String, dynamic>> koboldLaunchMap({
     hardware: hardware,
     awaitHardware: awaitHardware,
   );
+  final knobs =
+      trial ??
+      await koboldMeasuredKnobs(
+        storage,
+        model: modelPath,
+        card: machine?.gpuName ?? '',
+        backend: gpu.label,
+      );
   // MMQ only does anything with CUDA and the ROCm build. A launch without it
-  // ends the trial an earlier one began, so its replies are not counted.
+  // ends the trial an earlier one began, so its replies are not counted, and
+  // so does one that runs a measured setting.
   final bool? mmq;
   if (machine == null || gpu.backend != KoboldGpuBackend.cuda) {
     b.pauseMmqLearning();
     mmq = null;
+  } else if (knobs != null) {
+    b.pauseMmqLearning();
+    mmq = knobs.mmq;
   } else {
     mmq = b.mmqForLaunch(machine.gpuName, engineVersion);
   }
@@ -255,9 +277,9 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       backend: gpu.backend,
       gpuId: gpu.gpuId,
       rocm: gpu.rocm,
-      flashAttention: b.flashAttentionEnabled,
+      flashAttention: knobs?.flashAttention ?? b.flashAttentionEnabled,
       kvQuant: b.kvQuant,
-      mlock: b.mlockEnabled,
+      mlock: knobs?.mlock ?? b.mlockEnabled,
       rocmFlashAttentionFailed: b.rocmFlashAttentionFailed,
     ),
     model: KoboldModelFacts(
@@ -267,12 +289,14 @@ Future<Map<String, dynamic>> koboldLaunchMap({
     ),
   );
   final tuned = await _tunedForMachine(
-    config,
+    config.copyWith(useMmap: knobs?.mmap),
     info: info,
     gpu: gpu,
     hardware: machine,
     free: free,
-    batchAutomatic: b.batchAutomatic,
+    // A try runs its own batch, whatever Settings holds the tuning to.
+    batchAutomatic: trial != null || b.batchAutomatic,
+    measured: knobs?.batch,
     mmq: mmq,
     // The slot keeper looks after the chats unless it failed for this
     // model with this engine before.
@@ -305,6 +329,7 @@ Future<KoboldLaunchConfig> _tunedForMachine(
   required bool batchAutomatic,
   required bool? mmq,
   required bool keeper,
+  int? measured,
   void Function(String note)? onNote,
 }) async {
   final withMmq = mmq == null ? config : config.copyWith(mmq: mmq);
@@ -330,6 +355,7 @@ Future<KoboldLaunchConfig> _tunedForMachine(
       automatic: batchAutomatic,
       chosen: config.batchSize,
     ),
+    measured: measured,
   );
   if (!keeper && !tuning.recurrent) onNote?.call(kKeeperFailedNote);
   final cache = tuning.cacheSetting(keeper: keeper);

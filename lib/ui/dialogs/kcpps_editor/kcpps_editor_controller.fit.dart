@@ -174,16 +174,8 @@ extension KcppsEditorFit on KcppsEditorController {
 
   /// "your GeForce GTX 1060", or "this computer" without a card.
   String get cardName {
-    final name = hardware.hardwareInfo?.gpuName ?? '';
-    if (!hasCard || name.isEmpty || name == 'Unknown GPU') {
-      return 'this computer';
-    }
-    final short = name
-        .replaceAll(RegExp(r'\((R|TM)\)', caseSensitive: false), '')
-        .replaceFirst(RegExp(r'^NVIDIA\s+', caseSensitive: false), '')
-        .replaceFirst(RegExp(r'\s+\d+\s*GB$', caseSensitive: false), '')
-        .trim();
-    return 'your $short';
+    final short = koboldCardShortName(hardware.hardwareInfo?.gpuName ?? '');
+    return !hasCard || short.isEmpty ? 'this computer' : 'your $short';
   }
 
   /// "5.1 GB free of 6 GB (the rest is your desktop)".

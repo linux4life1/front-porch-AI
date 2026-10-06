@@ -24,6 +24,26 @@ part of '../chat_service.dart';
 /// `chat_service_send_handoff.dart`. Continue does not tick — that path
 /// never enters this file.
 extension ChatServiceSend on ChatService {
+  /// Why a message cannot be sent now, in words: while the speed test has the
+  /// app's KoboldCpp, with about how long is left, instead of the message
+  /// waiting minutes behind it. Null when it can go, and for a slash command
+  /// the app answers itself, which needs no model. The composer asks this
+  /// before it lets go of the text.
+  String? sendRefusal(String text, {bool withImage = false}) {
+    final llm = _llmProvider;
+    if (llm == null || !llm.hasManagedProcess) return null;
+    final words = llm.koboldSpeedTest?.chatRefusal;
+    if (words == null) return null;
+    final lookup = parseLookupForce(text);
+    final outbound = lookup.accepted ? lookup.userText : text;
+    final command =
+        !lookup.accepted &&
+        !withImage &&
+        outbound.trim().startsWith('/') &&
+        _characterRepository != null;
+    return command ? null : words;
+  }
+
   /// [imageBytes] optionally attaches a photo (already downscaled+PNG-encoded
   /// by the composer) to this user turn. The bytes are saved to disk HERE,
   /// after all guards pass, so a guard bail can never orphan a file. The photo
@@ -67,6 +87,11 @@ extension ChatServiceSend on ChatService {
     // keep the wider _isTurnBusy guard, because that is where the race
     // actually corrupts something.
     if (_isGenerating) return;
+    final testing = sendRefusal(text, withImage: imageBytes != null);
+    if (testing != null) {
+      _setGuestStatus(testing, isError: true);
+      return;
+    }
     final lookup = parseLookupForce(text);
     if (lookup.attempted) {
       final block =

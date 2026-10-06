@@ -58,6 +58,7 @@ extension KoboldServiceAdmin on KoboldService {
     _modelReady = true;
     _stopReadinessProbe();
     _idleTouch();
+    _speed.loads.ready(requestModel);
     // Resolve the probe key and arm the measurement in the idle window right
     // after load — the only place it is cheap. See [KoboldSystemRole].
     //
@@ -103,6 +104,7 @@ extension KoboldServiceAdmin on KoboldService {
       ..unloaded = null
       ..failed = null;
     _clearReady(status);
+    _speed.loads.started();
   }
 
   void _clearReady(String status) {

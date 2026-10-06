@@ -269,6 +269,7 @@ extension KoboldServiceProcess on KoboldService {
       _isRunning = true;
       _modelLoadingStatus = 'Initializing model...';
       _modelReady = false;
+      _speed.loads.started();
       _loadedModelPath = modelPath.isNotEmpty
           ? modelPath
           : _storageService.backendSettings.kcppsModelPath;
@@ -295,6 +296,7 @@ extension KoboldServiceProcess on KoboldService {
             _addLog(data);
             _parseLoadingStatus(data);
             _ingestLiveProgress(data);
+            _speed.lines.add(data);
             _storageService.backendSettings.noteKoboldOutput(data);
             _noteReplyFinished(launched, outLines.add(data));
           });

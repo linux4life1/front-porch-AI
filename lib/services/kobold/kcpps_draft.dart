@@ -36,6 +36,7 @@ class KcppsDraft {
     this.gpuId,
     this.moreGpuIds = const [],
     this.cudaOptions = const [],
+    this.measured,
     this.extras = const {},
   });
 
@@ -92,6 +93,9 @@ class KcppsDraft {
   /// Vulkan cards after [gpuId], kept as the preset has them.
   final List<int> moreGpuIds;
   final List<String> cudaOptions;
+
+  /// Where a speed test measured the preset (see [KoboldMeasured]).
+  final KoboldMeasured? measured;
   final Map<String, dynamic> extras;
 
   /// The form for a preset read from a file. [recurrent]: the model has
@@ -142,6 +146,7 @@ class KcppsDraft {
       gpuId: c.gpuId,
       moreGpuIds: c.moreGpuIds,
       cudaOptions: c.cudaOptions,
+      measured: c.measured,
       extras: c.extras,
     );
   }
@@ -193,6 +198,7 @@ class KcppsDraft {
       threads: threads,
       moreGpuIds: moreGpuIds,
       logicalBatchSize: logicalBatchSize,
+      measured: measured,
     );
   }
 
@@ -255,6 +261,7 @@ class KcppsDraft {
     bool? useMtp,
     KoboldGpuBackend? backend,
     int? gpuId,
+    KoboldMeasured? measured,
   }) => KcppsDraft(
     name: name ?? this.name,
     modelPath: modelPath ?? this.modelPath,
@@ -284,6 +291,7 @@ class KcppsDraft {
     gpuId: gpuId ?? this.gpuId,
     moreGpuIds: moreGpuIds,
     cudaOptions: cudaOptions,
+    measured: measured ?? this.measured,
     extras: extras,
   );
 }

@@ -201,6 +201,18 @@ extension WebServerHostStreams on WebServerHost {
       _lastLlmHint = llm.composerConnectionHint;
       llm.addListener(onLlmReady);
       llm.openRouterService.addListener(onLlmReady);
+
+      // The speed test's progress → the phone's overlay, as it changes (a
+      // few times a step).
+      final test = llm.koboldSpeedTest;
+      if (test != null) {
+        void onSpeedTest() => streamHub.broadcast({
+          'event': 'speed_test',
+          'speedTest': test.toJson(),
+        });
+        _speedTestListener = onSpeedTest;
+        test.addListener(onSpeedTest);
+      }
     }
 
     // Image generation live progress → web clients: percent + (when the

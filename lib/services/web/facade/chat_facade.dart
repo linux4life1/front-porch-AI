@@ -365,6 +365,11 @@ class ChatFacade {
 
   String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);
 
+  /// Why a message cannot be sent now (the speed test has the engine), as
+  /// the desktop's composer is told; null when it can.
+  String? sendRefusal(String text, {bool withImage = false}) =>
+      _chat.sendRefusal(text, withImage: withImage);
+
   void continueGeneration() {
     withoutCity96Ask(_chat.continueGeneration);
     _notify();
