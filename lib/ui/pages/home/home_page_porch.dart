@@ -29,7 +29,7 @@ extension _HomePagePorch on _HomePageState {
       for (final c in repo.characters)
         if (selectedIds.contains(c.stableGroupId)) c,
     ];
-    final groupsLeftOut = _selectedGroupIds.isNotEmpty;
+    final groupsLeftOut = _selection.groupIds.isNotEmpty;
     if (cards.isEmpty) {
       await _porchMessage(
         'Nothing to export',
