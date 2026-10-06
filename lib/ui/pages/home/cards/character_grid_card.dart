@@ -27,6 +27,8 @@ import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show kFolderDragHoldDelay;
 import 'package:front_porch_ai/utils/utils.dart';
 
+part 'character_grid_card.body.dart';
+
 /// A single character card in the home grid: draggable (for folder organizing),
 /// selectable, with the avatar/name/message-count body and a right-click
 /// context menu. Scene Guests (Lite NPCs) get a "Guest" badge. Extracted
@@ -108,11 +110,7 @@ class CharacterGridCard extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: character.imagePath != null
-                ? _coverImage(
-                    context,
-                    onResolveCharImage(character),
-                    size: 48,
-                  )
+                ? _coverImage(context, onResolveCharImage(character), size: 48)
                 : Icon(
                     Icons.person,
                     size: 64,
@@ -202,190 +200,11 @@ class CharacterGridCard extends StatelessWidget {
                   final isTiny = constraints.maxWidth < 160;
 
                   if (isTiny) {
-                    return Stack(
-                      fit: StackFit.expand,
-                      children: [
-                        character.imagePath != null
-                            ? _coverImage(
-                                context,
-                                onResolveCharImage(character),
-                                size: 32,
-                              )
-                            : Container(
-                                color: AppColors.surfaceContainerOf(context),
-                                child: Icon(
-                                  Icons.person,
-                                  size: 32,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                              ),
-                        Positioned(
-                          left: 0,
-                          right: 0,
-                          bottom: 0,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 6,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                begin: Alignment.bottomCenter,
-                                end: Alignment.topCenter,
-                                colors: [
-                                  AppColors.resolve(
-                                    context,
-                                    Colors.black87,
-                                    Colors.black54,
-                                  ),
-                                  Colors.transparent,
-                                ],
-                              ),
-                            ),
-                            child: Text(
-                              character.name,
-                              style: const TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                      ],
-                    );
+                    return _tinyBody(context, character);
                   }
-
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Expanded(
-                        flex: isCompact ? 4 : 3,
-                        child: character.imagePath != null
-                            ? _coverImage(
-                                context,
-                                onResolveCharImage(character),
-                                size: isCompact ? 32 : 64,
-                              )
-                            : Container(
-                                color: AppColors.surfaceContainerOf(context),
-                                child: Icon(
-                                  Icons.person,
-                                  size: isCompact ? 32 : 64,
-                                  color: AppColors.iconSecondary(context),
-                                ),
-                              ),
-                      ),
-                      Expanded(
-                        flex: 1,
-                        child: Padding(
-                          padding: EdgeInsets.all(isCompact ? 6.0 : 12.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      character.name,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: isCompact ? 12 : null,
-                                          ),
-                                      maxLines: 1,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                                  if (msgCount > 0)
-                                    Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        Icon(
-                                          Icons.chat_bubble_outline,
-                                          size: 11,
-                                          color: AppColors.iconSecondary(context),
-                                        ),
-                                        const SizedBox(width: 3),
-                                        Text(
-                                          '$msgCount',
-                                          style: TextStyle(
-                                            color: AppColors.textTertiary(
-                                              context,
-                                            ),
-                                            fontSize: isCompact ? 10 : 11,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                ],
-                              ),
-                              if (!isCompact) ...[
-                                const SizedBox(height: 4),
-                                if (character.tags.isNotEmpty)
-                                  Flexible(
-                                    child: Wrap(
-                                      spacing: 4,
-                                      runSpacing: 2,
-                                      children: character.tags
-                                          .take(3)
-                                          .map(
-                                            (tag) => Container(
-                                              padding: const EdgeInsets.symmetric(
-                                                horizontal: 6,
-                                                vertical: 2,
-                                              ),
-                                              decoration: BoxDecoration(
-                                                color: AppColors.porchAmberOf(
-                                                  context,
-                                                ).withValues(alpha: 0.18),
-                                                border: Border.all(
-                                                  color: AppColors.porchAmberOf(
-                                                    context,
-                                                  ).withValues(alpha: 0.4),
-                                                ),
-                                                borderRadius:
-                                                    BorderRadius.circular(4),
-                                              ),
-                                              child: Text(
-                                                tag,
-                                                style: TextStyle(
-                                                  color: AppColors.porchAmberOf(
-                                                    context,
-                                                  ),
-                                                  fontSize: 10,
-                                                  fontWeight: FontWeight.w500,
-                                                ),
-                                              ),
-                                            ),
-                                          )
-                                          .toList(),
-                                    ),
-                                  )
-                                else
-                                  Flexible(
-                                    child: Text(
-                                      character.formattedDescription,
-                                      style: Theme.of(
-                                        context,
-                                      ).textTheme.bodySmall,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ),
-                              ],
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
+                  return _fullBody(context, character, msgCount, isCompact);
                 },
-            ),
+              ),
             ),
           ),
           if (isSelecting || isOrganizing)
@@ -458,5 +277,4 @@ class CharacterGridCard extends StatelessWidget {
       ),
     );
   }
-
 }

@@ -54,7 +54,9 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 // State is split across part files (private extensions) to stay under 500.
 part 'home/home_page_chrome.dart';
 part 'home/home_page_chrome.actions.dart';
+part 'home/home_page_library_actions.dart';
 part 'home/home_page_handlers.dart';
+part 'home/home_page_move.dart';
 part 'home/home_page_dialogs.dart';
 part 'home/home_page_dialogs.import.dart';
 part 'home/home_page_drop.dart';
