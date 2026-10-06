@@ -170,178 +170,100 @@ extension CreatorStatePrefs on CreatorState {
     notify();
   }
 
+  /// Every saved wizard field, keyed by its preference. Read in one go,
+  /// before any await, so a save started as the wizard closes still sees the
+  /// text of controllers that are about to be disposed.
+  Map<String, Object> _savedFields() => {
+    CreatorState._prefName: nameController.text,
+    CreatorState._prefConcept: conceptController.text,
+    CreatorState._prefKeywords: keywordsController.text,
+    CreatorState._prefArtStyle: artStyle,
+    CreatorState._prefModel: selectedModelId,
+    CreatorState._prefGreetingLength: greetingLength,
+    CreatorState._prefAltCount: altGreetingCount,
+    CreatorState._prefTone: selectedTones.join(','),
+    CreatorState._prefLorebook: generateLorebook,
+    CreatorState._prefAge: ageController.text,
+    CreatorState._prefSex: sexController.text,
+    CreatorState._prefRelationship: relationshipController.text,
+    CreatorState._prefPersona: selectedPersonaId,
+    CreatorState._prefQuickScenario: quickScenarioController.text,
+    CreatorState._prefLoreCategories: selectedLoreCategories.join(','),
+    CreatorState._prefLoreDepth: loreDepth,
+    CreatorState._prefDynamicMacros: includeDynamicMacros,
+    CreatorState._prefNarrativePerspective: narrativePerspective,
+    CreatorState._prefNarrativeTense: narrativeTense,
+    CreatorState._prefRelationships: selectedRelationships.join(','),
+    CreatorState._prefCustomRelationship: customRelationship,
+    CreatorState._prefNsfwEnabled: nsfwEnabled,
+    CreatorState._prefRealismVerificationEnabled: realismVerificationEnabled,
+    CreatorState._prefRealismVerificationMax: realismVerificationMaxReprocesses,
+    CreatorState._prefRealismVerificationStrict: realismVerificationStrictness,
+    CreatorState._prefRealismNeedsDirectorAuthority:
+        realismNeedsDirectorAuthority,
+    CreatorState._prefBodyType: bodyType,
+    CreatorState._prefRace: race,
+    CreatorState._prefCustomRace: customRaceController.text,
+    CreatorState._prefHairLength: hairLength,
+    CreatorState._prefHairStyle: hairStyle,
+    CreatorState._prefSkinTone: skinTone,
+    CreatorState._prefNotableFeatures: notableFeatures.join(','),
+    CreatorState._prefAbsCore: absCore,
+    CreatorState._prefThighs: thighs,
+    CreatorState._prefHips: hips,
+    CreatorState._prefShoulders: shoulders,
+    CreatorState._prefWaist: waist,
+    CreatorState._prefChestSize: chestSize,
+    CreatorState._prefButtSize: buttSize,
+    CreatorState._prefExperience: experience,
+    CreatorState._prefDominance: dominance,
+    CreatorState._prefKinks: selectedKinks.join(','),
+    CreatorState._prefCustomKinks: customKinksController.text,
+    CreatorState._prefOutfitVibe: outfitVibe,
+    CreatorState._prefGenerationDetail: generationDetail,
+    CreatorState._prefBackstoryOrigin: backstoryOrigin,
+    CreatorState._prefBackstoryTone: backstoryTone,
+    CreatorState._prefBackstoryEra: backstoryEra,
+    CreatorState._prefBackstoryNotes: backstoryNotesController.text,
+    CreatorState._prefConceptGenerated: conceptGenerated,
+    CreatorState._prefCreatorMode: _creatorMode.name,
+    CreatorState._prefGuidedVision: guidedVisionController.text,
+    CreatorState._prefGuidedAppearance: guidedAppearanceController.text,
+    CreatorState._prefGuidedHair: guidedHairController.text,
+    CreatorState._prefGuidedFeatures: guidedFeaturesController.text,
+    CreatorState._prefGuidedRace: guidedRaceController.text,
+    CreatorState._prefGuidedPersonality: guidedPersonalityController.text,
+    CreatorState._prefGuidedSpeech: guidedSpeechController.text,
+    CreatorState._prefGuidedSecret: guidedSecretController.text,
+    CreatorState._prefGuidedOrigin: guidedOriginController.text,
+    CreatorState._prefGuidedSetting: guidedSettingController.text,
+    CreatorState._prefGuidedTone: guidedToneController.text,
+    CreatorState._prefGuidedRelDynamic: guidedRelDynamicController.text,
+    CreatorState._prefGuidedRelScenario: guidedRelScenarioController.text,
+    CreatorState._prefGuidedNsfwBody: guidedNsfwBodyController.text,
+    CreatorState._prefGuidedNsfwExp: guidedNsfwExpController.text,
+    CreatorState._prefGuidedNsfwDom: guidedNsfwDomController.text,
+    CreatorState._prefGuidedNsfwKinks: guidedNsfwKinksController.text,
+    CreatorState._prefGuidedNsfwClothing: guidedNsfwClothingController.text,
+    CreatorState._prefGuidedNsfwPersonality:
+        guidedNsfwPersonalityController.text,
+  };
+
+  /// Writes only the fields whose value changed. On Windows and Linux every
+  /// preference write rewrites the whole preferences file on the UI thread,
+  /// so writing all of them per keystroke stalled typing (#371). The check
+  /// is a read of the in-memory cache.
   Future<void> _saveStateImpl() async {
+    final fields = _savedFields();
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(CreatorState._prefName, nameController.text);
-    await prefs.setString(CreatorState._prefConcept, conceptController.text);
-    await prefs.setString(CreatorState._prefKeywords, keywordsController.text);
-    await prefs.setString(CreatorState._prefArtStyle, artStyle);
-    await prefs.setString(CreatorState._prefModel, selectedModelId);
-    await prefs.setString(CreatorState._prefGreetingLength, greetingLength);
-    await prefs.setInt(CreatorState._prefAltCount, altGreetingCount);
-    await prefs.setString(CreatorState._prefTone, selectedTones.join(','));
-    await prefs.setBool(CreatorState._prefLorebook, generateLorebook);
-    await prefs.setString(CreatorState._prefAge, ageController.text);
-    await prefs.setString(CreatorState._prefSex, sexController.text);
-    await prefs.setString(
-      CreatorState._prefRelationship,
-      relationshipController.text,
-    );
-    await prefs.setString(CreatorState._prefPersona, selectedPersonaId);
-    await prefs.setString(
-      CreatorState._prefQuickScenario,
-      quickScenarioController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefLoreCategories,
-      selectedLoreCategories.join(','),
-    );
-    await prefs.setString(CreatorState._prefLoreDepth, loreDepth);
-    await prefs.setBool(CreatorState._prefDynamicMacros, includeDynamicMacros);
-    await prefs.setString(
-      CreatorState._prefNarrativePerspective,
-      narrativePerspective,
-    );
-    await prefs.setString(CreatorState._prefNarrativeTense, narrativeTense);
-    await prefs.setString(
-      CreatorState._prefRelationships,
-      selectedRelationships.join(','),
-    );
-    await prefs.setString(
-      CreatorState._prefCustomRelationship,
-      customRelationship,
-    );
-    await prefs.setBool(CreatorState._prefNsfwEnabled, nsfwEnabled);
-    await prefs.setBool(
-      CreatorState._prefRealismVerificationEnabled,
-      realismVerificationEnabled,
-    );
-    await prefs.setInt(
-      CreatorState._prefRealismVerificationMax,
-      realismVerificationMaxReprocesses,
-    );
-    await prefs.setInt(
-      CreatorState._prefRealismVerificationStrict,
-      realismVerificationStrictness,
-    );
-    await prefs.setBool(
-      CreatorState._prefRealismNeedsDirectorAuthority,
-      realismNeedsDirectorAuthority,
-    );
-    await prefs.setString(CreatorState._prefBodyType, bodyType);
-    await prefs.setString(CreatorState._prefRace, race);
-    await prefs.setString(
-      CreatorState._prefCustomRace,
-      customRaceController.text,
-    );
-    await prefs.setString(CreatorState._prefHairLength, hairLength);
-    await prefs.setString(CreatorState._prefHairStyle, hairStyle);
-    await prefs.setString(CreatorState._prefSkinTone, skinTone);
-    await prefs.setString(
-      CreatorState._prefNotableFeatures,
-      notableFeatures.join(','),
-    );
-    await prefs.setString(CreatorState._prefAbsCore, absCore);
-    await prefs.setString(CreatorState._prefThighs, thighs);
-    await prefs.setString(CreatorState._prefHips, hips);
-    await prefs.setString(CreatorState._prefShoulders, shoulders);
-    await prefs.setString(CreatorState._prefWaist, waist);
-    await prefs.setString(CreatorState._prefChestSize, chestSize);
-    await prefs.setString(CreatorState._prefButtSize, buttSize);
-    await prefs.setString(CreatorState._prefExperience, experience);
-    await prefs.setString(CreatorState._prefDominance, dominance);
-    await prefs.setString(CreatorState._prefKinks, selectedKinks.join(','));
-    await prefs.setString(
-      CreatorState._prefCustomKinks,
-      customKinksController.text,
-    );
-    await prefs.setString(CreatorState._prefOutfitVibe, outfitVibe);
-    await prefs.setString(CreatorState._prefGenerationDetail, generationDetail);
-    await prefs.setString(CreatorState._prefBackstoryOrigin, backstoryOrigin);
-    await prefs.setString(CreatorState._prefBackstoryTone, backstoryTone);
-    await prefs.setString(CreatorState._prefBackstoryEra, backstoryEra);
-    await prefs.setString(
-      CreatorState._prefBackstoryNotes,
-      backstoryNotesController.text,
-    );
-    await prefs.setBool(CreatorState._prefConceptGenerated, conceptGenerated);
-    await prefs.setString(CreatorState._prefCreatorMode, _creatorMode.name);
-    await prefs.setString(
-      CreatorState._prefGuidedVision,
-      guidedVisionController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedAppearance,
-      guidedAppearanceController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedHair,
-      guidedHairController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedFeatures,
-      guidedFeaturesController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedRace,
-      guidedRaceController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedPersonality,
-      guidedPersonalityController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedSpeech,
-      guidedSpeechController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedSecret,
-      guidedSecretController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedOrigin,
-      guidedOriginController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedSetting,
-      guidedSettingController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedTone,
-      guidedToneController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedRelDynamic,
-      guidedRelDynamicController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedRelScenario,
-      guidedRelScenarioController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedNsfwBody,
-      guidedNsfwBodyController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedNsfwExp,
-      guidedNsfwExpController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedNsfwDom,
-      guidedNsfwDomController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedNsfwKinks,
-      guidedNsfwKinksController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedNsfwClothing,
-      guidedNsfwClothingController.text,
-    );
-    await prefs.setString(
-      CreatorState._prefGuidedNsfwPersonality,
-      guidedNsfwPersonalityController.text,
-    );
+    for (final MapEntry(:key, :value) in fields.entries) {
+      if (prefs.get(key) == value) continue;
+      await switch (value) {
+        final bool v => prefs.setBool(key, v),
+        final int v => prefs.setInt(key, v),
+        _ => prefs.setString(key, value as String),
+      };
+    }
   }
 
   void resetAllFields() {
