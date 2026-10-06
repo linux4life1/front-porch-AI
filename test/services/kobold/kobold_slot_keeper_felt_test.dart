@@ -12,8 +12,8 @@ import 'package:front_porch_ai/services/services.dart';
 
 import '../../helpers/kobold_engine_harness.dart';
 
-/// About 300 tokens of chat: read again in 0.3 s at 1,000 tokens a second.
-final String _chat = [for (var i = 0; i < 300; i++) 'w$i'].join(' ');
+/// About 400 tokens of chat: read again in 0.4 s at 1,000 tokens a second.
+final String _chat = [for (var i = 0; i < 400; i++) 'w$i'].join(' ');
 
 GenerationParams _reply(int turn) => GenerationParams(
   prompt: '$_chat turn $turn',
@@ -90,7 +90,8 @@ void main() {
     saveTakes = const Duration(milliseconds: 1000);
     await twoTurns();
     // The next message 850 ms into a 1 s save: 0.15 s left to wait, less
-    // than the 0.3 s reading the chat again would take.
+    // than the 0.4 s reading the chat again would take, with room for a
+    // slow load back on a busy runner.
     await Future<void>.delayed(const Duration(milliseconds: 850));
     h.kobold.noteTurnStart();
     await ask(_helper('check of turn 3')); // it waited; the save was weighed
