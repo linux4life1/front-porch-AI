@@ -33,7 +33,7 @@ const MODES: { id: ChargenMode; title: string; blurb: string; cls: string }[] = 
 
 export function CreateAiCharacterPage() {
   const navigate = useNavigate();
-  const [params, setParams] = useSearchParams();
+  const [params] = useSearchParams();
   // The character this run saved; its greetings are the last step.
   const createdId = params.get('greetings');
   const [form, setForm] = useState<ChargenForm>(DEFAULT_FORM);
@@ -58,7 +58,9 @@ export function CreateAiCharacterPage() {
         setSteps((s) => [...s, e.data!]);
       } else if (e.event === 'chargen_done') {
         setBusy(false);
-        setParams({ greetings: String(e.id) });
+        // Replace, so the browser's Back leaves the creator instead of
+        // landing on it with no character.
+        navigate(`/create-ai?greetings=${encodeURIComponent(String(e.id))}`, { replace: true });
         setStep(GREETINGS);
       } else if (e.event === 'chargen_error') {
         setBusy(false);
@@ -67,7 +69,7 @@ export function CreateAiCharacterPage() {
     });
     socket.connect();
     return () => socket.close();
-  }, [setParams]);
+  }, [navigate]);
 
   const generate = async () => {
     if (!form.name.trim() || busy) return;
