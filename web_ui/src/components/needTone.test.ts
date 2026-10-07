@@ -22,4 +22,12 @@ describe('needTone', () => {
     expect(needTone(1)).toBe('danger');
     expect(needTone(0)).toBe('danger');
   });
+
+  it('follows the cutoffs the server sends when they differ from the defaults', () => {
+    // The engine owns the bands; a future change there must move the phone too.
+    expect(needTone(45, 50, 30)).toBe('warn');
+    expect(needTone(30, 50, 30)).toBe('danger');
+    expect(needTone(51, 50, 30)).toBe('ok');
+    expect(needTone(40, undefined, undefined)).toBe('warn');
+  });
 });

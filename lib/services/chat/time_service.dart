@@ -184,6 +184,14 @@ class TimeService {
   int _bodyWearMinutes = 0;
   int get bodyWearMinutes => _bodyWearMinutes;
 
+  /// The minutes still to wear, taken once: a turn that notes no new beat
+  /// must not wear the last one again.
+  int takeBodyWearMinutes() {
+    final minutes = _bodyWearMinutes;
+    _bodyWearMinutes = 0;
+    return minutes;
+  }
+
   /// True when the beat was lived off-screen (a skip, next morning, time
   /// away): wear then stops at the skip floors, not the on-screen stop.
   bool _bodyBeatOffScreen = false;

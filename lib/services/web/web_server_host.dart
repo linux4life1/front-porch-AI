@@ -132,6 +132,8 @@ class WebServerHost extends ChangeNotifier {
   // detach + cancel on stop().
   VoidCallback? _libraryListener;
   Timer? _libraryDebounce;
+  VoidCallback? _settingsListener;
+  Timer? _settingsDebounce;
 
   // Connected-client presence (drives the desktop remote-lock overlay + the
   // settings "client connected" line). Set on the first authenticated request.
@@ -391,8 +393,10 @@ class WebServerHost extends ChangeNotifier {
         _speedTestListener != null ||
         _imageProgressListener != null ||
         _libraryListener != null ||
+        _settingsListener != null ||
         _genStatusTicker != null ||
-        _libraryDebounce != null;
+        _libraryDebounce != null ||
+        _settingsDebounce != null;
     if (server == null && !wired) return;
     _server = null;
     _storyFacade = null;
@@ -426,6 +430,12 @@ class WebServerHost extends ChangeNotifier {
       _imageProgressListener = null;
     }
     _wasImageGenerating = false;
+    if (_settingsListener != null) {
+      _storage.removeListener(_settingsListener!);
+      _settingsListener = null;
+    }
+    _settingsDebounce?.cancel();
+    _settingsDebounce = null;
     if (_libraryListener != null) {
       _characterRepository?.removeListener(_libraryListener!);
       _folderService?.removeListener(_libraryListener!);

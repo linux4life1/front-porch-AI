@@ -191,7 +191,11 @@ void main() {
     expect(refractoryOf('Ada').opened, isTrue);
   });
 
-  test('clock off: every reply is a quarter hour for every member', () async {
+  // Review (Needs v2): with the clock off a reply is fifteen minutes for
+  // the character who spoke, as it was one turn before, so a refractory
+  // still ends after the same number of that character's replies as it
+  // did. Another member's reply does not spend it.
+  test('clock off: a reply is a quarter hour for the one who spoke', () async {
     await chat.setPassageOfTimeEnabled(false);
     await speak('Ada', line: 'The wave crests.', climax: true, turns: 5);
     expect(refractoryOf('Ada').minutes, 75);
@@ -199,8 +203,11 @@ void main() {
     await speak('Bea');
     expect(
       refractoryOf('Ada').minutes,
-      60,
-      reason: 'Bea\'s reply counts for Ada, who is present but silent',
+      75,
+      reason: 'Bea\'s reply is Bea\'s turn, not Ada\'s',
     );
+
+    await speak('Ada');
+    expect(refractoryOf('Ada').minutes, 60, reason: 'Ada\'s own reply counts');
   });
 }

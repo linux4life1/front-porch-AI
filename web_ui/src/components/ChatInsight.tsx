@@ -194,7 +194,13 @@ export function ChatInsight({
         <>
           <h4 className="section-label">Needs</h4>
           {Object.entries(realism.needs).map(([k, v]) => (
-            <NeedBar key={k} label={NEED_LABELS[k] ?? k} value={v} />
+            <NeedBar
+              key={k}
+              label={NEED_LABELS[k] ?? k}
+              value={v}
+              urgentAt={realism.needsUrgentAt}
+              criticalAt={realism.needsCriticalAt}
+            />
           ))}
         </>
       )}

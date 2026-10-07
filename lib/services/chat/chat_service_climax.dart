@@ -140,15 +140,19 @@ extension ChatServiceClimax on ChatService {
   /// reply's pending metadata.
   void _tickRefractoryPerReply({String? loadedId}) {
     if (_clockRunning) return;
-    for (final id in _refractoryBodyIds()) {
-      _moveRefractory(
-        id,
-        () => _pendingRealismMetadata ??= {},
-        loadedId,
-        (b) =>
-            b.refractory.elapse(kRefractoryMinutesPerTurn, arousal: b.arousal),
-      );
-    }
+    // Clock off: a reply is fifteen minutes for the character who spoke, as
+    // it was one turn before; the others wait for their own replies, so a
+    // refractory still ends after the same number of that character's
+    // replies as it did.
+    final ids = _refractoryBodyIds();
+    final id = loadedId ?? (ids.length == 1 ? ids.single : null);
+    if (id == null || !ids.contains(id)) return;
+    _moveRefractory(
+      id,
+      () => _pendingRealismMetadata ??= {},
+      loadedId,
+      (b) => b.refractory.elapse(kRefractoryMinutesPerTurn, arousal: b.arousal),
+    );
   }
 
   /// Story minutes this reply's beat spanned: the clock now minus where the

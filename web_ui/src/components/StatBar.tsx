@@ -25,6 +25,24 @@ export function StatBar({ label, value, percent, tone }: { label: string; value:
 
 /** One need (0-100) in its band colour. Passed on as a fraction, so a need at
  *  1, the on-screen wear floor, draws a sliver rather than a full bar. */
-export function NeedBar({ label, value }: { label: string; value: number }) {
-  return <StatBar label={label} value={`${value}`} percent={value / 100} tone={needTone(value)} />;
+export function NeedBar({
+  label,
+  value,
+  urgentAt,
+  criticalAt,
+}: {
+  label: string;
+  value: number;
+  /** The engine's cutoffs from the realism payload; the helper's defaults otherwise. */
+  urgentAt?: number;
+  criticalAt?: number;
+}) {
+  return (
+    <StatBar
+      label={label}
+      value={`${value}`}
+      percent={value / 100}
+      tone={needTone(value, urgentAt, criticalAt)}
+    />
+  );
 }

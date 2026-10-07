@@ -264,7 +264,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     // must not start chasing dialogue.
     if (_clockRunning) {
       final named = clockNamedInReply(msg.text, _timeService.clock);
-      if (named != null) await _timeService.applyReconciledClock(named);
+      if (named != null) {
+        await _timeService.applyReconciledClock(named);
+        // The beat's minutes were worn before the judge ran; the correction
+        // leaves only its own extra minutes to wear.
+        _wearBeatOn(msg);
+      }
     }
     final meta = msg.activeMetadata;
     final rs = meta?['realism_state'];
@@ -272,8 +277,12 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     if (_needsSimEnabled &&
         _needsSimulation.vector.isNotEmpty &&
         rs['needs'] is Map) {
-      (rs['needs'] as Map)['vector'] = Map<String, int>.from(
-        _needsSimulation.vector,
+      final needs = rs['needs'] as Map;
+      needs['vector'] = Map<String, int>.from(_needsSimulation.vector);
+      // The carry was captured pre-wear; a swipe restoring post-beat bars
+      // with a pre-beat fraction would spend that fraction twice.
+      needs[kNeedsWearCarryKey] = Map<String, double>.from(
+        _needsSimulation.wearCarry,
       );
     }
     if (rs.containsKey('arousalLevel')) {

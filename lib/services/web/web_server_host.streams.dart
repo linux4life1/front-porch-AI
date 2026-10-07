@@ -283,4 +283,20 @@ extension WebServerHostStreams on WebServerHost {
     _folderService?.addListener(onLibraryChanged);
     _groupChatRepository?.addListener(onLibraryChanged);
   }
+
+  /// Settings live-sync: one debounced `settings_changed` whenever a setting
+  /// is written anywhere (the desktop or a web client), so a phone page that
+  /// shows a setting's consequence (the clock-off line under Needs, the
+  /// refractory words) refetches instead of keeping its first read.
+  void _attachSettingsRelay(StreamHub streamHub) {
+    void onSettingsChanged() {
+      _settingsDebounce?.cancel();
+      _settingsDebounce = Timer(const Duration(milliseconds: 150), () {
+        streamHub.broadcast({'event': 'settings_changed'});
+      });
+    }
+
+    _settingsListener = onSettingsChanged;
+    _storage.addListener(onSettingsChanged);
+  }
 }

@@ -66,6 +66,7 @@ extension WebServerHostWiring on WebServerHost {
 
     if (streamHub != null) {
       _attachLibraryRelay(characterFacade, streamHub);
+      _attachSettingsRelay(streamHub);
     }
 
     // Built before ChatFacade so its saved-image resolver (basename → File

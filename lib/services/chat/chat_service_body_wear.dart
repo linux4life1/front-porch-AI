@@ -20,28 +20,44 @@ extension ChatServiceBodyWear on ChatService {
     if (!_needsSimEnabled) return;
     if (t.mode == GenerationMode.continue_) return;
     _pendingRealismMetadata ??= {};
-    final minutes = _timeService.bodyWearMinutes;
+    _pendingRealismMetadata!['needs_time_wear'] = const <String, int>{};
+    _wearBeatOn(t.streamTarget);
+  }
+
+  /// Wears whatever minutes the clock has not yet charged, taking them so
+  /// they cannot be charged twice, and records the result on [target]. A
+  /// second call in the same turn (a named-time correction read from the
+  /// reply) keeps the first call's "before" and extends its "after" and
+  /// the chip's time part.
+  void _wearBeatOn(ChatMessage target) {
+    if (!_needsSimEnabled) return;
+    final minutes = _timeService.takeBodyWearMinutes();
+    if (minutes <= 0) return;
     final offScreen = _timeService.bodyBeatOffScreen;
-    var beat = _BeatWear.none;
-    if (minutes > 0) {
-      beat = _activeGroup == null
-          ? _wearHost(minutes, offScreen: offScreen)
-          : _wearGroup(minutes, offScreen: offScreen);
-    }
+    final beat = _activeGroup == null
+        ? _wearHost(minutes, offScreen: offScreen)
+        : _wearGroup(minutes, offScreen: offScreen);
     if (beat.before.isNotEmpty) {
       // Mutate the attached slot in place: the legacy `metadata` field
       // shares that map, and replacing the slot would leave it behind
       // without the clock stamps written after this (clock_trust_stamp).
-      final slot = t.streamTarget.activeMetadata;
+      final slot = target.activeMetadata;
       final meta = slot ?? <String, dynamic>{};
-      meta[kNeedsPreWearByMember] = beat.before;
+      meta.putIfAbsent(kNeedsPreWearByMember, () => beat.before);
+      meta.putIfAbsent(kNeedsPreWearCarryByMember, () => beat.carryBefore);
       meta[kNeedsWornByMember] = beat.after;
-      meta[kNeedsPreWearCarryByMember] = beat.carryBefore;
-      if (slot == null) t.streamTarget.activeMetadata = meta;
+      if (slot == null) target.activeMetadata = meta;
     }
-    _pendingRealismMetadata!['needs_time_wear'] = {
-      for (final e in beat.speakerTaken.entries) e.key: -e.value,
-    };
+    _pendingRealismMetadata ??= {};
+    final wear = Map<String, int>.from(
+      (_pendingRealismMetadata!['needs_time_wear'] as Map?)
+              ?.cast<String, int>() ??
+          const <String, int>{},
+    );
+    for (final e in beat.speakerTaken.entries) {
+      wear[e.key] = (wear[e.key] ?? 0) - e.value;
+    }
+    _pendingRealismMetadata!['needs_time_wear'] = wear;
   }
 
   /// The 1:1 host lives on the scalar vector.

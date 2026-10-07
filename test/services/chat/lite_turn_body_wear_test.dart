@@ -249,6 +249,25 @@ void main() {
     expect(guestNeeds()['hunger'], 80);
   });
 
+  test('group regen with Realism off wears the beat once, not twice', () async {
+    await boot();
+    // Needs answers to its own switch; the Realism engine is off here, so
+    // the engine-gated group rewind never runs (review finding, Needs v2).
+    await chat!.setRealismEnabled(false);
+    chat!.setNextCharacter(named('Flora'));
+    await chat!.sendMessage('How are you?');
+    await drainTurn();
+    expect(floraNeeds()['hunger'], 37);
+
+    await chat!.regenerateLastMessage();
+    await drainTurn();
+    expect(
+      floraNeeds()['hunger'],
+      37,
+      reason: 'regen rewinds the present bodies and wears the beat once',
+    );
+  });
+
   test('lite Continue does not wear Flora a second time', () async {
     await boot();
     chat!.setNextCharacter(named('GuestPoke'));

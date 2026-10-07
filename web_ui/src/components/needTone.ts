@@ -15,8 +15,15 @@ export const NEED_CRITICAL_AT = 25;
 
 export type NeedTone = 'ok' | 'warn' | 'danger';
 
-export function needTone(value: number): NeedTone {
-  if (value <= NEED_CRITICAL_AT) return 'danger';
-  if (value <= NEED_URGENT_AT) return 'warn';
+// The server sends the engine's two numbers with every realism payload
+// (`needsUrgentAt` / `needsCriticalAt`); the constants are the fallback for
+// a payload that predates them.
+export function needTone(
+  value: number,
+  urgentAt: number = NEED_URGENT_AT,
+  criticalAt: number = NEED_CRITICAL_AT,
+): NeedTone {
+  if (value <= criticalAt) return 'danger';
+  if (value <= urgentAt) return 'warn';
   return 'ok';
 }

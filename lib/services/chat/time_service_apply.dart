@@ -95,8 +95,9 @@ extension TimeServiceApply on TimeService {
     _setClockPullingStartDate(newClock);
     _turnsSinceClockMoved = 0;
     _namedReconcileExact = true;
+    final delta = _clock.difference(oldClock).inMinutes;
     if (labelMins != null) {
-      final adjusted = labelMins + _clock.difference(oldClock).inMinutes;
+      final adjusted = labelMins + delta;
       _noteBodyBeat(
         minutes: adjusted < 0 ? 0 : adjusted,
         nextMorning: false,
@@ -104,6 +105,9 @@ extension TimeServiceApply on TimeService {
         offScreen: false,
       );
     }
+    // The beat's own minutes were taken by the wear that ran before the
+    // reply was read; only the correction's extra minutes remain to wear.
+    _bodyWearMinutes = delta < 0 ? 0 : delta;
     await _ifDayChanged(dayBefore);
   }
 

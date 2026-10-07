@@ -74,6 +74,9 @@ export interface Realism {
   fixation: string;
   needsEnabled: boolean;
   needs: Record<string, number>;
+  /** The engine's band cutoffs for the bar colours; absent on older servers. */
+  needsUrgentAt?: number;
+  needsCriticalAt?: number;
 }
 
 export interface LoreEntry {

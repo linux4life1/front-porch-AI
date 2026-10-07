@@ -226,7 +226,13 @@ export function useChatSession() {
               })
             : null,
         );
-      } else if (e.event === 'chat_updated' || e.event === 'generating') {
+      } else if (
+        e.event === 'chat_updated' ||
+        e.event === 'generating' ||
+        e.event === 'settings_changed'
+      ) {
+        // settings_changed: the tools payload carries the clock switch and
+        // the refractory words, both of which follow a setting.
         scheduleRefresh();
       } else if (e.event === 'connected') {
         // (Re)connected. The socket may have been down (phone sleep, network
