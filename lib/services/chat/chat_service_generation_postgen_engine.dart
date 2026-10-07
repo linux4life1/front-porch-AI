@@ -120,6 +120,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           _abortSlotClockIfThisTurnTicked(t);
         } else {
           _wearBodiesAfterClock(t);
+          _tickRefractoryAfterClock(t);
         }
       }
       if (scoredReply.isNotEmpty && !_postGenAbortRequested) {

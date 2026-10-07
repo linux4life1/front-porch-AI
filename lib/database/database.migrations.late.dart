@@ -7,7 +7,7 @@
 
 part of 'database.dart';
 
-/// Schema v40 → v54 of the onUpgrade ladder. Blocks are byte-verbatim.
+/// Schema v40 → v55 of the onUpgrade ladder. Blocks are byte-verbatim.
 extension _AppDatabaseMigrationLate on AppDatabase {
   Future<void> _upgradeFromV40(Migrator m, int from, int to) async {
     if (from < 40) {
@@ -254,6 +254,25 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         'WHERE updated_at = 0',
       );
       debugPrint('[DB] v54: backfilled growth_rings timestamps');
+    }
+    if (from < 55) {
+      // v54→v55: the refractory counts story minutes. NULL for every
+      // existing row is right — no minutes were ever saved, so the load
+      // reads the row's cooldown_turns_* once as turns × 15. Additive and
+      // nullable, so a downgrade to v54 keeps reading sessions; the columns
+      // are ignored.
+      for (final ddl in const [
+        'ALTER TABLE sessions ADD COLUMN refractory_minutes_remaining INTEGER',
+        'ALTER TABLE sessions ADD COLUMN refractory_minutes_total INTEGER',
+        'ALTER TABLE sessions ADD COLUMN refractory_opened INTEGER',
+      ]) {
+        try {
+          await customStatement(ddl);
+          debugPrint('[DB] v55: $ddl');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
     }
   }
 

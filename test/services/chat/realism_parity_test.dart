@@ -161,12 +161,7 @@ void main() {
         fixationLifespan: 3,
         spatialStance: 'beside you',
       );
-      nsfw.loadNsfwScalars(
-        arousalLevel: 20,
-        nsfwCooldownEnabled: false,
-        cooldownTurnsRemaining: 0,
-        cooldownTurnsTotal: 0,
-      );
+      nsfw.loadNsfwScalars(arousalLevel: 20, nsfwCooldownEnabled: false);
       needs.restoreFromSnapshot({
         'vector': {
           'hunger': 60,
@@ -205,7 +200,9 @@ void main() {
       'fixationLifespan': gi(id, 'fixationLifespan', 0),
       'spatialStance': e(id)['spatialStance'],
       'arousal': gi(id, 'arousal', 0),
-      'cooldownTurnsRemaining': gi(id, 'cooldownTurnsRemaining', 0),
+      // 2026-10-06: the save writes the refractory in story minutes now; the
+      // old turn key would read its default 0 and pin nothing.
+      'refractoryMinutesRemaining': gi(id, 'refractoryMinutesRemaining', 0),
       'needs': (e(id)['needs'] as Map?)?.cast<String, int>(),
     };
 

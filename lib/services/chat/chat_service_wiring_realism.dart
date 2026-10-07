@@ -82,8 +82,8 @@ extension ChatServiceWiringRealism on ChatService {
   }
 
   // ── NSFW cooldown & arousal (extracted to NsfwService) ─────────────────────
-  // State (cooldown enabled/remaining/total, arousalLevel), tier calc, reset/seed/load/restore,
-  // group per-speaker load/save scalars, applyClimax/decrement live in _nsfwService (plain class).
+  // State (cooldown enabled, refractory minutes, arousalLevel), tier calc, reset/seed/load/restore,
+  // group per-speaker load/save scalars, applyClimax live in _nsfwService (plain class).
   // ChatService owns via late final + delegates. (Declared before needs for init safety because
   // needs closes over the getArousal/getNsfw/getCooldown/setArousal cbs.)
   // Reset helpers on service keep the multiple "keep reset blocks in sync" sites correct (now incl needs/chaos/... + leaves (see CLAUDE.md for full; incomplete zeroing now complete) + " ; no reset scalar) comments)
@@ -96,6 +96,7 @@ extension ChatServiceWiringRealism on ChatService {
       getGroupValue: (charId, key) => _groupRealism[charId]?.valueFor(key),
       setGroupValue: (charId, key, v) =>
           _memberForWrite(charId).setValue(key, v),
+      isClockRunning: () => _clockRunning,
     );
   }
 

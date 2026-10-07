@@ -95,7 +95,11 @@ void main() {
       // v53: sessions.passage_of_time_gate_migrated — one-shot leftover
       //      per-chat Passage of Time re-derive. Ladder in
       //      lib/database/database.migrations.late.dart.
-      expect(db.schemaVersion, 54);
+      // v55: sessions.refractory_minutes_remaining / _total and
+      //      refractory_opened — the refractory in story minutes (2026-10-06).
+      //      The ladder step and the once-only turns × 15 read are guarded by
+      //      test/services/chat/refractory_legacy_load_test.dart.
+      expect(db.schemaVersion, 55);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {

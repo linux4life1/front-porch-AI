@@ -1732,6 +1732,41 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _refractoryMinutesRemainingMeta =
+      const VerificationMeta('refractoryMinutesRemaining');
+  @override
+  late final GeneratedColumn<int> refractoryMinutesRemaining =
+      GeneratedColumn<int>(
+        'refractory_minutes_remaining',
+        aliasedName,
+        true,
+        type: DriftSqlType.int,
+        requiredDuringInsert: false,
+      );
+  static const VerificationMeta _refractoryMinutesTotalMeta =
+      const VerificationMeta('refractoryMinutesTotal');
+  @override
+  late final GeneratedColumn<int> refractoryMinutesTotal = GeneratedColumn<int>(
+    'refractory_minutes_total',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _refractoryOpenedMeta = const VerificationMeta(
+    'refractoryOpened',
+  );
+  @override
+  late final GeneratedColumn<bool> refractoryOpened = GeneratedColumn<bool>(
+    'refractory_opened',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("refractory_opened" IN (0, 1))',
+    ),
+  );
   static const VerificationMeta _trustLevelMeta = const VerificationMeta(
     'trustLevel',
   );
@@ -2098,6 +2133,9 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     arousalLevel,
     cooldownTurnsRemaining,
     cooldownTurnsTotal,
+    refractoryMinutesRemaining,
+    refractoryMinutesTotal,
+    refractoryOpened,
     trustLevel,
     activeFixation,
     fixationLifespan,
@@ -2413,6 +2451,33 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         cooldownTurnsTotal.isAcceptableOrUnknown(
           data['cooldown_turns_total']!,
           _cooldownTurnsTotalMeta,
+        ),
+      );
+    }
+    if (data.containsKey('refractory_minutes_remaining')) {
+      context.handle(
+        _refractoryMinutesRemainingMeta,
+        refractoryMinutesRemaining.isAcceptableOrUnknown(
+          data['refractory_minutes_remaining']!,
+          _refractoryMinutesRemainingMeta,
+        ),
+      );
+    }
+    if (data.containsKey('refractory_minutes_total')) {
+      context.handle(
+        _refractoryMinutesTotalMeta,
+        refractoryMinutesTotal.isAcceptableOrUnknown(
+          data['refractory_minutes_total']!,
+          _refractoryMinutesTotalMeta,
+        ),
+      );
+    }
+    if (data.containsKey('refractory_opened')) {
+      context.handle(
+        _refractoryOpenedMeta,
+        refractoryOpened.isAcceptableOrUnknown(
+          data['refractory_opened']!,
+          _refractoryOpenedMeta,
         ),
       );
     }
@@ -2786,6 +2851,18 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.int,
         data['${effectivePrefix}cooldown_turns_total'],
       )!,
+      refractoryMinutesRemaining: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refractory_minutes_remaining'],
+      ),
+      refractoryMinutesTotal: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}refractory_minutes_total'],
+      ),
+      refractoryOpened: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}refractory_opened'],
+      ),
       trustLevel: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}trust_level'],
@@ -2941,14 +3018,23 @@ class Session extends DataClass implements Insertable<Session> {
   final bool nsfwCooldownEnabled;
   final bool passageOfTimeEnabled;
 
-  /// v53 — one-shot: leftover `passage_of_time_enabled` from the old
-  /// card-AND / auto-seed cannot be told from a user-set false. First
-  /// hydrate after this column exists re-derives (card AND Porch Life
-  /// default) and sets this true so a later chat-settings Off sticks.
+  /// v53 — leftover `passage_of_time_enabled` is storage only. Porch
+  /// Life `passageOfTimeDefault` is the live gate. First hydrate after
+  /// this column exists logs the leftover once and sets this true so
+  /// we stop rewriting it as if it were a gate.
   final bool passageOfTimeGateMigrated;
   final int arousalLevel;
   final int cooldownTurnsRemaining;
   final int cooldownTurnsTotal;
+
+  /// v55 — the refractory in story minutes (cooldown_turns_* above are no
+  /// longer written). Nullable, no default: NULL marks a row from before
+  /// minutes, whose turns the load reads once as turns × 15.
+  final int? refractoryMinutesRemaining;
+  final int? refractoryMinutesTotal;
+
+  /// v55 — the opening afterglow turn has been spoken. NULL as above.
+  final bool? refractoryOpened;
   final int trustLevel;
   final String activeFixation;
   final int fixationLifespan;
@@ -3055,6 +3141,9 @@ class Session extends DataClass implements Insertable<Session> {
     required this.arousalLevel,
     required this.cooldownTurnsRemaining,
     required this.cooldownTurnsTotal,
+    this.refractoryMinutesRemaining,
+    this.refractoryMinutesTotal,
+    this.refractoryOpened,
     required this.trustLevel,
     required this.activeFixation,
     required this.fixationLifespan,
@@ -3142,6 +3231,17 @@ class Session extends DataClass implements Insertable<Session> {
     map['arousal_level'] = Variable<int>(arousalLevel);
     map['cooldown_turns_remaining'] = Variable<int>(cooldownTurnsRemaining);
     map['cooldown_turns_total'] = Variable<int>(cooldownTurnsTotal);
+    if (!nullToAbsent || refractoryMinutesRemaining != null) {
+      map['refractory_minutes_remaining'] = Variable<int>(
+        refractoryMinutesRemaining,
+      );
+    }
+    if (!nullToAbsent || refractoryMinutesTotal != null) {
+      map['refractory_minutes_total'] = Variable<int>(refractoryMinutesTotal);
+    }
+    if (!nullToAbsent || refractoryOpened != null) {
+      map['refractory_opened'] = Variable<bool>(refractoryOpened);
+    }
     map['trust_level'] = Variable<int>(trustLevel);
     map['active_fixation'] = Variable<String>(activeFixation);
     map['fixation_lifespan'] = Variable<int>(fixationLifespan);
@@ -3248,6 +3348,16 @@ class Session extends DataClass implements Insertable<Session> {
       arousalLevel: Value(arousalLevel),
       cooldownTurnsRemaining: Value(cooldownTurnsRemaining),
       cooldownTurnsTotal: Value(cooldownTurnsTotal),
+      refractoryMinutesRemaining:
+          refractoryMinutesRemaining == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refractoryMinutesRemaining),
+      refractoryMinutesTotal: refractoryMinutesTotal == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refractoryMinutesTotal),
+      refractoryOpened: refractoryOpened == null && nullToAbsent
+          ? const Value.absent()
+          : Value(refractoryOpened),
       trustLevel: Value(trustLevel),
       activeFixation: Value(activeFixation),
       fixationLifespan: Value(fixationLifespan),
@@ -3350,6 +3460,13 @@ class Session extends DataClass implements Insertable<Session> {
         json['cooldownTurnsRemaining'],
       ),
       cooldownTurnsTotal: serializer.fromJson<int>(json['cooldownTurnsTotal']),
+      refractoryMinutesRemaining: serializer.fromJson<int?>(
+        json['refractoryMinutesRemaining'],
+      ),
+      refractoryMinutesTotal: serializer.fromJson<int?>(
+        json['refractoryMinutesTotal'],
+      ),
+      refractoryOpened: serializer.fromJson<bool?>(json['refractoryOpened']),
       trustLevel: serializer.fromJson<int>(json['trustLevel']),
       activeFixation: serializer.fromJson<String>(json['activeFixation']),
       fixationLifespan: serializer.fromJson<int>(json['fixationLifespan']),
@@ -3433,6 +3550,11 @@ class Session extends DataClass implements Insertable<Session> {
       'arousalLevel': serializer.toJson<int>(arousalLevel),
       'cooldownTurnsRemaining': serializer.toJson<int>(cooldownTurnsRemaining),
       'cooldownTurnsTotal': serializer.toJson<int>(cooldownTurnsTotal),
+      'refractoryMinutesRemaining': serializer.toJson<int?>(
+        refractoryMinutesRemaining,
+      ),
+      'refractoryMinutesTotal': serializer.toJson<int?>(refractoryMinutesTotal),
+      'refractoryOpened': serializer.toJson<bool?>(refractoryOpened),
       'trustLevel': serializer.toJson<int>(trustLevel),
       'activeFixation': serializer.toJson<String>(activeFixation),
       'fixationLifespan': serializer.toJson<int>(fixationLifespan),
@@ -3500,6 +3622,9 @@ class Session extends DataClass implements Insertable<Session> {
     int? arousalLevel,
     int? cooldownTurnsRemaining,
     int? cooldownTurnsTotal,
+    Value<int?> refractoryMinutesRemaining = const Value.absent(),
+    Value<int?> refractoryMinutesTotal = const Value.absent(),
+    Value<bool?> refractoryOpened = const Value.absent(),
     int? trustLevel,
     String? activeFixation,
     int? fixationLifespan,
@@ -3572,6 +3697,15 @@ class Session extends DataClass implements Insertable<Session> {
     cooldownTurnsRemaining:
         cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
     cooldownTurnsTotal: cooldownTurnsTotal ?? this.cooldownTurnsTotal,
+    refractoryMinutesRemaining: refractoryMinutesRemaining.present
+        ? refractoryMinutesRemaining.value
+        : this.refractoryMinutesRemaining,
+    refractoryMinutesTotal: refractoryMinutesTotal.present
+        ? refractoryMinutesTotal.value
+        : this.refractoryMinutesTotal,
+    refractoryOpened: refractoryOpened.present
+        ? refractoryOpened.value
+        : this.refractoryOpened,
     trustLevel: trustLevel ?? this.trustLevel,
     activeFixation: activeFixation ?? this.activeFixation,
     fixationLifespan: fixationLifespan ?? this.fixationLifespan,
@@ -3703,6 +3837,15 @@ class Session extends DataClass implements Insertable<Session> {
       cooldownTurnsTotal: data.cooldownTurnsTotal.present
           ? data.cooldownTurnsTotal.value
           : this.cooldownTurnsTotal,
+      refractoryMinutesRemaining: data.refractoryMinutesRemaining.present
+          ? data.refractoryMinutesRemaining.value
+          : this.refractoryMinutesRemaining,
+      refractoryMinutesTotal: data.refractoryMinutesTotal.present
+          ? data.refractoryMinutesTotal.value
+          : this.refractoryMinutesTotal,
+      refractoryOpened: data.refractoryOpened.present
+          ? data.refractoryOpened.value
+          : this.refractoryOpened,
       trustLevel: data.trustLevel.present
           ? data.trustLevel.value
           : this.trustLevel,
@@ -3814,6 +3957,9 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('arousalLevel: $arousalLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
           ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
+          ..write('refractoryMinutesRemaining: $refractoryMinutesRemaining, ')
+          ..write('refractoryMinutesTotal: $refractoryMinutesTotal, ')
+          ..write('refractoryOpened: $refractoryOpened, ')
           ..write('trustLevel: $trustLevel, ')
           ..write('activeFixation: $activeFixation, ')
           ..write('fixationLifespan: $fixationLifespan, ')
@@ -3881,6 +4027,9 @@ class Session extends DataClass implements Insertable<Session> {
     arousalLevel,
     cooldownTurnsRemaining,
     cooldownTurnsTotal,
+    refractoryMinutesRemaining,
+    refractoryMinutesTotal,
+    refractoryOpened,
     trustLevel,
     activeFixation,
     fixationLifespan,
@@ -3947,6 +4096,9 @@ class Session extends DataClass implements Insertable<Session> {
           other.arousalLevel == this.arousalLevel &&
           other.cooldownTurnsRemaining == this.cooldownTurnsRemaining &&
           other.cooldownTurnsTotal == this.cooldownTurnsTotal &&
+          other.refractoryMinutesRemaining == this.refractoryMinutesRemaining &&
+          other.refractoryMinutesTotal == this.refractoryMinutesTotal &&
+          other.refractoryOpened == this.refractoryOpened &&
           other.trustLevel == this.trustLevel &&
           other.activeFixation == this.activeFixation &&
           other.fixationLifespan == this.fixationLifespan &&
@@ -4011,6 +4163,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<int> arousalLevel;
   final Value<int> cooldownTurnsRemaining;
   final Value<int> cooldownTurnsTotal;
+  final Value<int?> refractoryMinutesRemaining;
+  final Value<int?> refractoryMinutesTotal;
+  final Value<bool?> refractoryOpened;
   final Value<int> trustLevel;
   final Value<String> activeFixation;
   final Value<int> fixationLifespan;
@@ -4074,6 +4229,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.arousalLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
     this.cooldownTurnsTotal = const Value.absent(),
+    this.refractoryMinutesRemaining = const Value.absent(),
+    this.refractoryMinutesTotal = const Value.absent(),
+    this.refractoryOpened = const Value.absent(),
     this.trustLevel = const Value.absent(),
     this.activeFixation = const Value.absent(),
     this.fixationLifespan = const Value.absent(),
@@ -4138,6 +4296,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.arousalLevel = const Value.absent(),
     this.cooldownTurnsRemaining = const Value.absent(),
     this.cooldownTurnsTotal = const Value.absent(),
+    this.refractoryMinutesRemaining = const Value.absent(),
+    this.refractoryMinutesTotal = const Value.absent(),
+    this.refractoryOpened = const Value.absent(),
     this.trustLevel = const Value.absent(),
     this.activeFixation = const Value.absent(),
     this.fixationLifespan = const Value.absent(),
@@ -4202,6 +4363,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<int>? arousalLevel,
     Expression<int>? cooldownTurnsRemaining,
     Expression<int>? cooldownTurnsTotal,
+    Expression<int>? refractoryMinutesRemaining,
+    Expression<int>? refractoryMinutesTotal,
+    Expression<bool>? refractoryOpened,
     Expression<int>? trustLevel,
     Expression<String>? activeFixation,
     Expression<int>? fixationLifespan,
@@ -4273,6 +4437,11 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         'cooldown_turns_remaining': cooldownTurnsRemaining,
       if (cooldownTurnsTotal != null)
         'cooldown_turns_total': cooldownTurnsTotal,
+      if (refractoryMinutesRemaining != null)
+        'refractory_minutes_remaining': refractoryMinutesRemaining,
+      if (refractoryMinutesTotal != null)
+        'refractory_minutes_total': refractoryMinutesTotal,
+      if (refractoryOpened != null) 'refractory_opened': refractoryOpened,
       if (trustLevel != null) 'trust_level': trustLevel,
       if (activeFixation != null) 'active_fixation': activeFixation,
       if (fixationLifespan != null) 'fixation_lifespan': fixationLifespan,
@@ -4343,6 +4512,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<int>? arousalLevel,
     Value<int>? cooldownTurnsRemaining,
     Value<int>? cooldownTurnsTotal,
+    Value<int?>? refractoryMinutesRemaining,
+    Value<int?>? refractoryMinutesTotal,
+    Value<bool?>? refractoryOpened,
     Value<int>? trustLevel,
     Value<String>? activeFixation,
     Value<int>? fixationLifespan,
@@ -4411,6 +4583,11 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       cooldownTurnsRemaining:
           cooldownTurnsRemaining ?? this.cooldownTurnsRemaining,
       cooldownTurnsTotal: cooldownTurnsTotal ?? this.cooldownTurnsTotal,
+      refractoryMinutesRemaining:
+          refractoryMinutesRemaining ?? this.refractoryMinutesRemaining,
+      refractoryMinutesTotal:
+          refractoryMinutesTotal ?? this.refractoryMinutesTotal,
+      refractoryOpened: refractoryOpened ?? this.refractoryOpened,
       trustLevel: trustLevel ?? this.trustLevel,
       activeFixation: activeFixation ?? this.activeFixation,
       fixationLifespan: fixationLifespan ?? this.fixationLifespan,
@@ -4559,6 +4736,19 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (cooldownTurnsTotal.present) {
       map['cooldown_turns_total'] = Variable<int>(cooldownTurnsTotal.value);
     }
+    if (refractoryMinutesRemaining.present) {
+      map['refractory_minutes_remaining'] = Variable<int>(
+        refractoryMinutesRemaining.value,
+      );
+    }
+    if (refractoryMinutesTotal.present) {
+      map['refractory_minutes_total'] = Variable<int>(
+        refractoryMinutesTotal.value,
+      );
+    }
+    if (refractoryOpened.present) {
+      map['refractory_opened'] = Variable<bool>(refractoryOpened.value);
+    }
     if (trustLevel.present) {
       map['trust_level'] = Variable<int>(trustLevel.value);
     }
@@ -4689,6 +4879,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('arousalLevel: $arousalLevel, ')
           ..write('cooldownTurnsRemaining: $cooldownTurnsRemaining, ')
           ..write('cooldownTurnsTotal: $cooldownTurnsTotal, ')
+          ..write('refractoryMinutesRemaining: $refractoryMinutesRemaining, ')
+          ..write('refractoryMinutesTotal: $refractoryMinutesTotal, ')
+          ..write('refractoryOpened: $refractoryOpened, ')
           ..write('trustLevel: $trustLevel, ')
           ..write('activeFixation: $activeFixation, ')
           ..write('fixationLifespan: $fixationLifespan, ')

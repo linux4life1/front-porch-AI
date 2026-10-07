@@ -233,6 +233,7 @@ extension ChatServiceGenerationPostGen on ChatService {
             _abortSlotClockIfThisTurnTicked(t);
           } else {
             _wearBodiesAfterClock(t);
+            _tickRefractoryAfterClock(t);
             _maybeKickDreamPrefetch();
             await _saveChat();
           }

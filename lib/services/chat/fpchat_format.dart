@@ -48,6 +48,11 @@ const Set<String> kFpchatRealismStateCoreKeys = {
   'storyClock',
   'storyStartDate',
   'arousalLevel',
+  'refractoryMinutesRemaining',
+  'refractoryMinutesTotal',
+  'refractoryOpened',
+  // No longer written; files from before minutes carry them, and the
+  // restore reads them once as turns × 15.
   'cooldownTurnsRemaining',
   'cooldownTurnsTotal',
   'trustLevel',

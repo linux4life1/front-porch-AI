@@ -53,6 +53,7 @@ library;
 
 import 'package:front_porch_ai/services/chat/pockets.dart';
 import 'package:front_porch_ai/services/chat/needs_wear.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 
 /// The runtime keys the engine reads and writes each turn. Every name that
 /// used to be scattered as a string literal across chat_service parts lives
@@ -73,8 +74,13 @@ abstract final class GroupRealismKeys {
   static const trustRepairPending = 'trustRepairPending';
   static const arousal = 'arousal'; // historical: snapshots say arousalLevel
   static const nsfwCooldownEnabled = 'nsfwCooldownEnabled';
-  static const cooldownTurnsRemaining = 'cooldownTurnsRemaining';
-  static const cooldownTurnsTotal = 'cooldownTurnsTotal';
+  static const refractoryMinutesRemaining = RefractoryKeys.minutes;
+  static const refractoryMinutesTotal = RefractoryKeys.total;
+  static const refractoryOpened = RefractoryKeys.opened;
+
+  /// Saved before the refractory counted minutes; read once as turns × 15.
+  static const legacyCooldownTurnsRemaining = RefractoryKeys.legacyTurns;
+  static const legacyCooldownTurnsTotal = RefractoryKeys.legacyTotal;
   static const emotion = 'emotion';
   static const emotionIntensity = 'emotionIntensity';
   static const needs = 'needs';
@@ -110,8 +116,11 @@ abstract final class GroupRealismKeys {
     trustRepairPending,
     arousal,
     nsfwCooldownEnabled,
-    cooldownTurnsRemaining,
-    cooldownTurnsTotal,
+    refractoryMinutesRemaining,
+    refractoryMinutesTotal,
+    refractoryOpened,
+    legacyCooldownTurnsRemaining,
+    legacyCooldownTurnsTotal,
     emotion,
     emotionIntensity,
     needs,
@@ -201,13 +210,11 @@ class GroupMemberRealism {
   bool? get nsfwCooldownEnabled => _bool(GroupRealismKeys.nsfwCooldownEnabled);
   set nsfwCooldownEnabled(bool? v) =>
       _data[GroupRealismKeys.nsfwCooldownEnabled] = v;
-  int? get cooldownTurnsRemaining =>
-      _int(GroupRealismKeys.cooldownTurnsRemaining);
-  set cooldownTurnsRemaining(int? v) =>
-      _data[GroupRealismKeys.cooldownTurnsRemaining] = v;
-  int? get cooldownTurnsTotal => _int(GroupRealismKeys.cooldownTurnsTotal);
-  set cooldownTurnsTotal(int? v) =>
-      _data[GroupRealismKeys.cooldownTurnsTotal] = v;
+
+  /// Story minutes; a member saved before minutes reads its turns × 15. The
+  /// setter writes the minute keys and leaves any old turn keys untouched.
+  Refractory get refractory => Refractory.read(_data) ?? Refractory.none;
+  set refractory(Refractory v) => _data.addAll(v.toSnapshot());
 
   // ── Emotion ───────────────────────────────────────────────────────────
   String? get emotion => _string(GroupRealismKeys.emotion);

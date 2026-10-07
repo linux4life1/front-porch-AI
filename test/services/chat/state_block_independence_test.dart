@@ -66,73 +66,77 @@ void main() {
       ),
     );
 
-    final rel = RelationshipService(
-      onNotify: () {},
-      onSaveChat: () async {},
-      getIsGroupActive: () => false,
-      getObserverMode: () => true,
-      getGroupCharacterCount: () => 0,
-      getShouldTrackInterCharacterRelationships: () => false,
-      getCurrentSpeakerIdForRealism: () => '',
-      getCurrentGroupMemberIds: () => const {},
-      getOtherGroupMemberIds: (_) => const [],
-      getOtherGroupMemberIdToLowerName: (_) => const {},
-      getRecentExchangeLowerText: () => '',
-      getMessageCount: () => 0,
-      getIsGroupRealismActive: () => false,
-      getGroupAffectionScore: (id, {defaultValue = 0}) => defaultValue,
-      getGroupRelationshipTier: (id, {defaultValue = 0}) => defaultValue,
-      setGroupRelationshipTier: (id, v) {},
-      getGroupLongTermTier: (id, {defaultValue = 0}) => defaultValue,
-      setGroupLongTermTier: (id, v) {},
-      getGroupSpatialStance: (id, {defaultValue = ''}) => defaultValue,
-      setGroupSpatialStance: (id, v) {},
-      getGroupInterCharacterRelationships: (id) => const {},
-      setGroupInterCharacterRelationships: (id, m) {},
-      setGroupAffectionScore: (id, v) {},
-      getGroupLongTermScore: (id, {defaultValue = 0}) => defaultValue,
-      setGroupLongTermScore: (id, v) {},
-      getGroupTrustLevel: (id, {defaultValue = 0}) => defaultValue,
-      setGroupTrustLevel: (id, v) {},
-      getGroupFixation: (id, {defaultValue = ''}) => defaultValue,
-      setGroupFixation: (id, v) {},
-      getGroupFixationLifespan: (id, {defaultValue = 0}) => defaultValue,
-      setGroupFixationLifespan: (id, v) {},
-    )..loadScalars(
-      affectionScore: 60,
-      longTermScore: 60,
-      trustLevel: 60,
-      activeFixation: 'the letter she never sent',
-      fixationLifespan: 5,
-      spatialStance: 'leaning against the counter',
-    );
+    final rel =
+        RelationshipService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getIsGroupActive: () => false,
+          getObserverMode: () => true,
+          getGroupCharacterCount: () => 0,
+          getShouldTrackInterCharacterRelationships: () => false,
+          getCurrentSpeakerIdForRealism: () => '',
+          getCurrentGroupMemberIds: () => const {},
+          getOtherGroupMemberIds: (_) => const [],
+          getOtherGroupMemberIdToLowerName: (_) => const {},
+          getRecentExchangeLowerText: () => '',
+          getMessageCount: () => 0,
+          getIsGroupRealismActive: () => false,
+          getGroupAffectionScore: (id, {defaultValue = 0}) => defaultValue,
+          getGroupRelationshipTier: (id, {defaultValue = 0}) => defaultValue,
+          setGroupRelationshipTier: (id, v) {},
+          getGroupLongTermTier: (id, {defaultValue = 0}) => defaultValue,
+          setGroupLongTermTier: (id, v) {},
+          getGroupSpatialStance: (id, {defaultValue = ''}) => defaultValue,
+          setGroupSpatialStance: (id, v) {},
+          getGroupInterCharacterRelationships: (id) => const {},
+          setGroupInterCharacterRelationships: (id, m) {},
+          setGroupAffectionScore: (id, v) {},
+          getGroupLongTermScore: (id, {defaultValue = 0}) => defaultValue,
+          setGroupLongTermScore: (id, v) {},
+          getGroupTrustLevel: (id, {defaultValue = 0}) => defaultValue,
+          setGroupTrustLevel: (id, v) {},
+          getGroupFixation: (id, {defaultValue = ''}) => defaultValue,
+          setGroupFixation: (id, v) {},
+          getGroupFixationLifespan: (id, {defaultValue = 0}) => defaultValue,
+          setGroupFixationLifespan: (id, v) {},
+        )..loadScalars(
+          affectionScore: 60,
+          longTermScore: 60,
+          trustLevel: 60,
+          activeFixation: 'the letter she never sent',
+          fixationLifespan: 5,
+          spatialStance: 'leaning against the counter',
+        );
 
-    final nsfw = NsfwService(
-      getGroupInt: (id, key, {defaultValue = 0}) => defaultValue,
-      getGroupValue: (id, key) => null,
-      setGroupValue: (id, key, v) {},
-    )..loadNsfwScalars(
-      nsfwCooldownEnabled: true,
-      arousalLevel: 0,
-      cooldownTurnsRemaining: 2,
-      cooldownTurnsTotal: 4,
-    );
+    final nsfw =
+        NsfwService(
+          getGroupInt: (id, key, {defaultValue = 0}) => defaultValue,
+          getGroupValue: (id, key) => null,
+          setGroupValue: (id, key, v) {},
+        )..loadNsfwScalars(
+          nsfwCooldownEnabled: true,
+          arousalLevel: 0,
+          // 2026-10-06: the refractory counts story minutes now; 2 of 4 turns
+          // with the opening turn spoken is 30 of 60 min, the same body line.
+          refractory: const Refractory(minutes: 30, total: 60, opened: true),
+        );
 
-    final sim = NeedsSimulation(
-      onNotify: () {},
-      onSaveChat: () async {},
-      getTimeOfDay: () => 'evening',
-      getRealismEnabled: () => engineOn,
-      getObserverMode: () => true,
-      getCurrentSpeakerIdForRealism: () => '',
-      getIsGroupNonObserverMode: () => false,
-      getGroupNeeds: (_) => const {},
-      setGroupNeeds: (_, _) {},
-      getEnjoysLowHygiene: () => false,
-      getNeedsSimEnabled: () => engineOn,
-    )..restoreFromSnapshot({
-      'vector': {'hunger': 5},
-    });
+    final sim =
+        NeedsSimulation(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getTimeOfDay: () => 'evening',
+          getRealismEnabled: () => engineOn,
+          getObserverMode: () => true,
+          getCurrentSpeakerIdForRealism: () => '',
+          getIsGroupNonObserverMode: () => false,
+          getGroupNeeds: (_) => const {},
+          setGroupNeeds: (_, _) {},
+          getEnjoysLowHygiene: () => false,
+          getNeedsSimEnabled: () => engineOn,
+        )..restoreFromSnapshot({
+          'vector': {'hunger': 5},
+        });
 
     const day = DailyWeather(
       condition: WeatherCondition.rain,
@@ -273,7 +277,8 @@ void main() {
       expect(
         txt,
         contains('flour-dusted apron'),
-        reason: 'Porch Life calls this one "works alone", and it bills a model '
+        reason:
+            'Porch Life calls this one "works alone", and it bills a model '
             'request every turn — a user paying for it with the engine off was '
             'getting nothing at all in the prompt',
       );
@@ -284,7 +289,8 @@ void main() {
       expect(
         txt,
         contains('thunderstorms'),
-        reason: 'the fragment is literally commented "DELIBERATELY NOT '
+        reason:
+            'the fragment is literally commented "DELIBERATELY NOT '
             'REALISM-GATED" and was sitting inside the realism gate',
       );
       expect(txt, contains('being interrupted'));
@@ -310,7 +316,8 @@ void main() {
       expect(
         txt.trim(),
         isNotEmpty,
-        reason: 'the entire block used to be skipped with the engine off, so '
+        reason:
+            'the entire block used to be skipped with the engine off, so '
             'every one of these fragments was built and thrown away',
       );
     });
@@ -321,7 +328,10 @@ void main() {
     // purpose is to keep time moving without the engine — but the READING lives
     // in this block, so while the block was engine-gated the feature could
     // advance a clock nobody could ever see. A per-turn bill for nothing.
-    expect(block(engineOn: false, clockRunning: true), contains('day 1 of the story'));
+    expect(
+      block(engineOn: false, clockRunning: true),
+      contains('day 1 of the story'),
+    );
   });
 
   test('with no clock running, the time line stays out', () {
@@ -348,20 +358,24 @@ void main() {
       expect(
         txt,
         isNot(contains('Hunger:')),
-        reason: 'Needs genuinely require the engine — un-gating the block must '
+        reason:
+            'Needs genuinely require the engine — un-gating the block must '
             'not start narrating hunger in a chat that is not simulating it',
       );
       expect(txt, isNot(contains('the letter she never sent')));
       expect(txt, isNot(contains('Mood: Wistful')));
     });
 
-    test('with the engine on they come back, alongside the independent ones', () {
-      final txt = block(engineOn: true);
+    test(
+      'with the engine on they come back, alongside the independent ones',
+      () {
+        final txt = block(engineOn: true);
 
-      expect(txt, contains('leaning against the counter'));
-      expect(txt, contains('Mood: Wistful'));
-      expect(txt, contains('flour-dusted apron'));
-      expect(txt, contains('thunderstorms'));
-    });
+        expect(txt, contains('leaning against the counter'));
+        expect(txt, contains('Mood: Wistful'));
+        expect(txt, contains('flour-dusted apron'));
+        expect(txt, contains('thunderstorms'));
+      },
+    );
   });
 }

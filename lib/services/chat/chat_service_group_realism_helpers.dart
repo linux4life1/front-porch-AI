@@ -278,8 +278,7 @@ extension ChatServiceGroupRealismHelpers on ChatService {
     }
     if (rs.containsKey('arousalLevel')) {
       rs['arousalLevel'] = _nsfwService.arousalLevel;
-      rs['cooldownTurnsRemaining'] = _nsfwService.cooldownTurnsRemaining;
-      rs['cooldownTurnsTotal'] = _nsfwService.cooldownTurnsTotal;
+      rs.addAll(_nsfwService.refractory.toSnapshot());
     }
     if (rs.containsKey('spatialStance')) {
       meta!.putIfAbsent(

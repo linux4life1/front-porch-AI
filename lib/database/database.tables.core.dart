@@ -138,6 +138,15 @@ class Sessions extends Table {
     const Constant(0),
   )(); // refractory length at climax — persists the cooldown progress denominator
 
+  /// v55 — the refractory in story minutes (cooldown_turns_* above are no
+  /// longer written). Nullable, no default: NULL marks a row from before
+  /// minutes, whose turns the load reads once as turns × 15.
+  IntColumn get refractoryMinutesRemaining => integer().nullable()();
+  IntColumn get refractoryMinutesTotal => integer().nullable()();
+
+  /// v55 — the opening afterglow turn has been spoken. NULL as above.
+  BoolColumn get refractoryOpened => boolean().nullable()();
+
   // Realism Engine v3.0 Behavioral Mechanics
   IntColumn get trustLevel =>
       integer().withDefault(const Constant(0))(); // -100 to 100 paranoia/trust

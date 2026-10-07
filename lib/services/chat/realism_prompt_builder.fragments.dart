@@ -115,7 +115,8 @@ String _arousalSection(
   String charName,
   String userName,
   int currentArousal,
-  int refractoryTurnsLeft,
+  int refractoryMinutesLeft,
+  bool clockRunning,
 ) =>
     '- "arousal_delta": physical desire shift this turn ($kMinArousalDelta to +$kMaxArousalDelta). '
     'Current arousal: $currentArousal/100.\n'
@@ -134,8 +135,8 @@ String _arousalSection(
     'breathing, focus, flushed skin, body language.\n'
     '  A non-sexual, non-romantic turn (food, work, errands, small talk, plain comfort) is 0 — and if '
     'current arousal is above 0 on such a turn, return roughly -5 to -10 so it cools back toward neutral.\n'
-    '${refractoryTurnsLeft > 0 ? '  NOTE: $charName just climaxed and is in the post-orgasm refractory '
-              '($refractoryTurnsLeft turns left). Their low desire right now is contented satedness, NOT '
+    '${refractoryMinutesLeft > 0 ? '  NOTE: $charName just climaxed and is in the post-orgasm refractory '
+              '${describeRefractory(refractoryMinutesLeft, clockRunning: clockRunning).prompt}. Their low desire right now is contented satedness, NOT '
               'aversion — an affectionate afterglow. Score gentle deltas (-3 to +5); a soft "not yet" to '
               'another advance is normal recovery, not a rejection, so do not score it negative unless '
               'something genuinely upsetting happened.\n' : ''}';

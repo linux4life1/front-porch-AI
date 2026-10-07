@@ -16,11 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/chat/refractory.dart';
+
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped NSFW
-/// cooldown & arousal (lust) state: the refractory cooldown (enabled flag,
-/// remaining turns, original total for phased prompt), the arousalLevel
-/// (-100..+100), and derived arousalTier / arousalTierName (tier -10..+10
-/// with names matching relationship system: Feverish..Deserted).
+/// cooldown & arousal (lust) state: the refractory ([Refractory]: story
+/// minutes left, the length at climax for the phased prompt, and the opening
+/// turn flag), the arousalLevel (-100..+100), and derived arousalTier /
+/// arousalTierName (tier -10..+10 with names matching relationship system:
+/// Feverish..Deserted).
 ///
 /// ## The human model
 /// Arousal is a *desire* meter. Positive = building want; **negative =
@@ -47,33 +50,32 @@
 /// setGroupValue), keeping the service testable and cycle-free.
 ///
 /// NSFW state is *chat-scoped* for the enabled flag + cooldowns in 1:1, with
-/// per-speaker scalars for group (arousal/cooldowns/nsfwEnabled per char via
+/// per-speaker scalars for group (arousal/refractory/nsfwEnabled per char via
 /// impersonation load/save like relationship/needs). Group vs 1:1 parity is
-/// strict: the cooldown decrements once per response turn in both modes (1:1
-/// in sendMessage; group per speaker in the realism dance after that
-/// speaker's scalars are loaded), and all mutations live in service methods
-/// shared by both paths. OneShot vs normal parity likewise: cooldown/arousal
-/// mutations + snapshot/restore + decrement + apply are identical sites.
-///
-/// @Deprecated shims on ChatService (exactly 5): nsfwCooldownEnabled,
-/// cooldownTurnsRemaining, arousalLevel, arousalTier, arousalTierName.
-/// (setNsfwCooldownEnabled also forwarded via thin wrapper.)
+/// strict: the refractory runs down by story minutes for every present body
+/// at once (ChatService._tickRefractoryAfterClock), or a quarter hour per
+/// reply with the clock off, and every mutation rule lives in [Refractory],
+/// shared by both modes. OneShot vs normal parity likewise: arousal mutations
+/// + snapshot/restore + apply are identical sites.
 class NsfwService {
   // 3 group cbs (onNotify/onSaveChat removed as dead/unused per review; god owns save/notify for post-gen climax/sexual fidelity per plan boundaries).
   // Granular cbs for group per-char nsfw state (arousal + cooldowns +
   // nsfwCooldownEnabled) so load/save scalars for impersonated speaker work
   // without the service owning the _groupRealism map. Mirrors relationship
-  // pattern. getGroupInt for numeric (arousal, cooldown turns); getGroupValue
-  // for possibly-bool nsfwCooldownEnabled; setGroupValue for writes.
+  // pattern. getGroupInt for numeric arousal; getGroupValue for
+  // possibly-bool nsfwCooldownEnabled and the refractory keys; setGroupValue
+  // for writes.
   final int Function(String charId, String key) getGroupInt;
   final dynamic Function(String charId, String key) getGroupValue;
   final void Function(String charId, String key, dynamic value) setGroupValue;
 
+  /// Porch Life Passage of Time, live. Only decides the countdown's words:
+  /// story minutes while it runs, replies while it is off.
+  final bool Function() _isClockRunning;
+
   // Owned state (moved verbatim from ChatService).
   bool _nsfwCooldownEnabled = false;
-  int _cooldownTurnsRemaining = 0;
-  int _cooldownTurnsTotal =
-      0; // original refractory duration (for phased prompt)
+  Refractory _refractory = Refractory.none;
   int _arousalLevel =
       0; // -100 to +100 scale (tier-based, matching relationship system)
 
@@ -81,31 +83,37 @@ class NsfwService {
     required this.getGroupInt,
     required this.getGroupValue,
     required this.setGroupValue,
-  });
+    bool Function()? isClockRunning,
+  }) : _isClockRunning = isClockRunning ?? _clockOn;
 
-  // ── Public surface (for @Deprecated shims in ChatService + direct test/UI callers) ──────
+  static bool _clockOn() => true;
+
+  // ── Public surface (ChatService delegates + direct test/UI callers) ──────
 
   bool get nsfwCooldownEnabled => _nsfwCooldownEnabled;
-  int get cooldownTurnsRemaining => _cooldownTurnsRemaining;
-  int get cooldownTurnsTotal => _cooldownTurnsTotal;
   int get arousalLevel => _arousalLevel;
 
-  /// First Afterglow generation after climax — the only turn that may
+  Refractory get refractory => _refractory;
+  int get refractoryMinutesRemaining => _refractory.minutes;
+  int get refractoryMinutesTotal => _refractory.total;
+  bool get refractoryOpened => _refractory.opened;
+  bool get clockRunning => _isClockRunning();
+
+  /// The chip and prompt words for the live refractory (see
+  /// [describeRefractory]); empty when none is running.
+  ({String chip, String prompt}) get refractoryWords =>
+      describeRefractory(_refractory.minutes, clockRunning: _isClockRunning());
+
+  /// First Afterglow reply after the climax reply — the only turn that may
   /// force limp / tired / exhausted body language. Later Afterglow turns
   /// keep the sexual "not yet" and closeness, but energy and comfort
   /// come from Needs.
   ///
-  /// Decrement ticks at send start (1:1 in the send handoff, group after
-  /// that speaker's scalars load), so the first afterglow prompt usually
-  /// sees remaining == total - 1. Remaining == total covers Continue of
-  /// the climax reply (no tick) and any read before the tick.
-  bool get isOpeningAfterglowTurn {
-    if (_cooldownTurnsRemaining <= 0) return false;
-    final total = _cooldownTurnsTotal > 0
-        ? _cooldownTurnsTotal
-        : _cooldownTurnsRemaining;
-    return _cooldownTurnsRemaining >= total - 1;
-  }
+  /// A flag, not a count: the climax sets it unspoken, and the first reply
+  /// generated after the climax reply marks it spoken in post-gen. A
+  /// same-moment second reply (no minutes passed) is therefore not the
+  /// opening turn. Continue of the climax reply still reads it as opening.
+  bool get isOpeningAfterglowTurn => _refractory.isOpeningTurn;
 
   /// Calculate arousal tier from level score (-100 to +100)
   int get arousalTier => arousalTierForLevel(_arousalLevel);
@@ -165,17 +173,13 @@ class NsfwService {
     _arousalLevel = v.clamp(-100, 100);
   }
 
-  void setCooldownTurnsRemaining(int v) {
-    _cooldownTurnsRemaining = v;
+  /// Restores and rewinds (regen, delete, swipe, receipts).
+  void setRefractory(Refractory r) {
+    _refractory = r;
   }
 
-  void setCooldownTurnsTotal(int v) {
-    _cooldownTurnsTotal = v;
-  }
-
-  /// Centralize the 3 mutations performed on confirmed climax (called from
-  /// god's _checkClimaxInResponse after meta pre-save; caller does needs
-  /// deltas + postClimaxCrash + save/notify for fidelity).
+  /// The climax pass's one effect on this body: the refractory starts at the
+  /// judge's turns × 15 story minutes with its opening turn unspoken.
   ///
   /// Arousal lands at 0, not negative: post-climax satedness is contentment,
   /// not aversion — the refractory cooldown carries the "not right now"
@@ -183,25 +187,8 @@ class NsfwService {
   /// negative branches the moment the cooldown expired, reading as repulsion
   /// right after wanted sex.)
   void applyClimaxEffects({required int turns}) {
-    _cooldownTurnsTotal = turns;
-    _cooldownTurnsRemaining = turns;
+    _refractory = Refractory.fromJudgeTurns(turns);
     _arousalLevel = 0;
-  }
-
-  /// Ticks the refractory once per response turn. On expiry (this decrement
-  /// reaching 0) the body returns to baseline receptivity: the total resets
-  /// and any lingering negative arousal halves toward neutral, so a character
-  /// never exits the cooldown stuck reading as cold or repelled.
-  void decrementCooldownIfActive() {
-    if (_cooldownTurnsRemaining > 0) {
-      _cooldownTurnsRemaining--;
-      if (_cooldownTurnsRemaining == 0) {
-        _cooldownTurnsTotal = 0;
-        if (_arousalLevel < 0) {
-          _arousalLevel = _arousalLevel ~/ 2;
-        }
-      }
-    }
   }
 
   /// The single apply path for eval-scored arousal deltas (multi-call and
@@ -216,7 +203,7 @@ class NsfwService {
   int applyEvalArousalDelta(int delta) {
     var effective = delta;
     var floor = -100;
-    if (_cooldownTurnsRemaining > 0) {
+    if (_refractory.running) {
       effective = (effective / 2).round();
       floor = _arousalLevel < -10 ? _arousalLevel : -10;
     }
@@ -231,8 +218,7 @@ class NsfwService {
   void setNsfwCooldownEnabled(bool enabled) {
     _nsfwCooldownEnabled = enabled;
     if (!enabled) {
-      _cooldownTurnsRemaining = 0;
-      _cooldownTurnsTotal = 0;
+      _refractory = Refractory.none;
       _arousalLevel = 0;
     }
   }
@@ -242,8 +228,7 @@ class NsfwService {
   // delete flows, empty session, regen, swipe/restore, etc.).
   void resetForFreshChat() {
     _nsfwCooldownEnabled = false;
-    _cooldownTurnsRemaining = 0;
-    _cooldownTurnsTotal = 0;
+    _refractory = Refractory.none;
     _arousalLevel = 0;
   }
 
@@ -251,8 +236,7 @@ class NsfwService {
   /// ext seed of the enabled flag). Keeps non-ext and ext paths in sync.
   void resetRuntimeArousalAndCooldown() {
     _arousalLevel = 0;
-    _cooldownTurnsRemaining = 0;
-    _cooldownTurnsTotal = 0;
+    _refractory = Refractory.none;
   }
 
   void seedFromV2OrExt({required bool nsfwCooldownEnabled}) {
@@ -264,43 +248,28 @@ class NsfwService {
   void loadNsfwScalars({
     required bool nsfwCooldownEnabled,
     required int arousalLevel,
-    required int cooldownTurnsRemaining,
-    int cooldownTurnsTotal = 0,
+    Refractory refractory = Refractory.none,
   }) {
     _nsfwCooldownEnabled = nsfwCooldownEnabled;
     _arousalLevel = arousalLevel.clamp(-100, 100);
-    _cooldownTurnsRemaining = cooldownTurnsRemaining;
-    _cooldownTurnsTotal = cooldownTurnsTotal;
+    _refractory = refractory;
   }
 
   // For swipe/regen paths that restore prior realism_state.
-  void restoreNsfwFromRealismState(Map<String, dynamic> state) {
-    final al = state['arousalLevel'];
-    _arousalLevel = (al is int ? al : (al is num ? al.toInt() : _arousalLevel))
-        .clamp(-100, 100);
-    final cr = state['cooldownTurnsRemaining'];
-    _cooldownTurnsRemaining = cr is int
-        ? cr
-        : (cr is num ? cr.toInt() : _cooldownTurnsRemaining);
-    final ct = state['cooldownTurnsTotal'];
-    _cooldownTurnsTotal = ct is int
-        ? ct
-        : (ct is num ? ct.toInt() : _cooldownTurnsTotal);
-  }
+  void restoreNsfwFromRealismState(Map<String, dynamic> state) =>
+      _restoreFromSnapshot(state);
 
   // For _restoreRealismStateFromMessage (and similar state replay).
-  void restoreNsfwFromMessageState(Map<String, dynamic> state) {
+  void restoreNsfwFromMessageState(Map<String, dynamic> state) =>
+      _restoreFromSnapshot(state);
+
+  /// A key the snapshot does not carry keeps its current value. Snapshots
+  /// saved before minutes carry turns, read once as turns × 15.
+  void _restoreFromSnapshot(Map<String, dynamic> state) {
     final al = state['arousalLevel'];
     _arousalLevel = (al is int ? al : (al is num ? al.toInt() : _arousalLevel))
         .clamp(-100, 100);
-    final cr = state['cooldownTurnsRemaining'];
-    _cooldownTurnsRemaining = cr is int
-        ? cr
-        : (cr is num ? cr.toInt() : _cooldownTurnsRemaining);
-    final ct = state['cooldownTurnsTotal'];
-    _cooldownTurnsTotal = ct is int
-        ? ct
-        : (ct is num ? ct.toInt() : _cooldownTurnsTotal);
+    _refractory = Refractory.read(state) ?? _refractory;
   }
 
   // ── Group per-char scalars (for impersonation in group realism) ──────────
@@ -317,8 +286,12 @@ class NsfwService {
     _nsfwCooldownEnabled =
         rawEnabled == true || rawEnabled == 1 || rawEnabled == 'true';
 
-    _cooldownTurnsRemaining = getGroupInt(charId, 'cooldownTurnsRemaining');
-    _cooldownTurnsTotal = getGroupInt(charId, 'cooldownTurnsTotal');
+    // A member saved before minutes carries turns: read once as turns × 15.
+    _refractory =
+        Refractory.read({
+          for (final k in RefractoryKeys.all) k: getGroupValue(charId, k),
+        }) ??
+        Refractory.none;
   }
 
   /// Writes the current nsfw scalars back into the target group character's
@@ -328,7 +301,8 @@ class NsfwService {
     // Note: group uses 'arousal' key (historical) vs snapshot 'arousalLevel' for compat.
     setGroupValue(charId, 'arousal', _arousalLevel);
     setGroupValue(charId, 'nsfwCooldownEnabled', _nsfwCooldownEnabled);
-    setGroupValue(charId, 'cooldownTurnsRemaining', _cooldownTurnsRemaining);
-    setGroupValue(charId, 'cooldownTurnsTotal', _cooldownTurnsTotal);
+    for (final e in _refractory.toSnapshot().entries) {
+      setGroupValue(charId, e.key, e.value);
+    }
   }
 }

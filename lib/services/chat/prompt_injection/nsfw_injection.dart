@@ -39,7 +39,7 @@ const _afterglowNeedsDrive =
 /// / sated tiredness for most of the arc and fought those lines.
 ///
 /// GROUP-SAFETY CONTRACT: this leaf reads NsfwService SCALARS
-/// (arousalLevel / cooldown turns), which are per-speaker-valid at assembly
+/// (arousalLevel / refractory minutes), which are per-speaker-valid at assembly
 /// time because `_loadGroupRealismIntoScalars`
 /// (chat_service_realism_dance.dart) calls
 /// `nsfwService.loadNsfwScalarsForSpeaker(charId)` before any prompt is
@@ -90,10 +90,10 @@ class NsfwInjection {
 
     final name = _speakerName();
 
-    if (nsfwService.cooldownTurnsRemaining > 0) {
-      final remaining = nsfwService.cooldownTurnsRemaining;
-      final total = nsfwService.cooldownTurnsTotal > 0
-          ? nsfwService.cooldownTurnsTotal
+    if (nsfwService.refractoryMinutesRemaining > 0) {
+      final remaining = nsfwService.refractoryMinutesRemaining;
+      final total = nsfwService.refractoryMinutesTotal > 0
+          ? nsfwService.refractoryMinutesTotal
           : remaining;
       if (nsfwService.isOpeningAfterglowTurn) {
         return 'Body: $name just climaxed — still trembling, flushed, '

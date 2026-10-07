@@ -15,6 +15,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/fpchat_codec.dart';
 import 'package:front_porch_ai/services/chat/fpchat_format.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -224,11 +225,12 @@ void main() {
       longTermScore: 0,
       trustLevel: 9,
     );
+    // 2026-10-06: the refractory counts story minutes (1 of 2 turns is 15 of
+    // 30 min); the reset contract under test is unchanged.
     chat.nsfwService.loadNsfwScalars(
       nsfwCooldownEnabled: true,
       arousalLevel: 40,
-      cooldownTurnsRemaining: 1,
-      cooldownTurnsTotal: 2,
+      refractory: const Refractory(minutes: 15, total: 30, opened: true),
     );
 
     final outcome = await chat.importChatPackage(Uint8List.fromList(bytes));
@@ -236,7 +238,7 @@ void main() {
     expect(chat.messages.length, 4);
     expect(chat.relationshipService.affectionScore, 0);
     expect(chat.nsfwService.arousalLevel, 0);
-    expect(chat.nsfwService.cooldownTurnsTotal, 0);
+    expect(chat.nsfwService.refractoryMinutesTotal, 0);
   });
 
   test(
