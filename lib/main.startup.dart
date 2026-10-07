@@ -210,14 +210,16 @@ Future<({AppDatabase db, bool needsMigration})?> _openDatabaseGuarded() async {
 /// change below happens with the engine already producing frames, so the
 /// engine's resize handshake can complete instead of timing out with no
 /// frame to wait for (flutter/flutter#192537: a timed-out handshake left
-/// the window white until a real resize). [runApp] has already been called.
+/// the window white until a real resize). On Windows [runApp] has already
+/// been called; macOS and Linux still call this before it.
 Future<void> _showMainWindow() async {
   final forcedSize = WindowSizeEnv.sizeFromEnvironment();
   final windowOptions = mainWindowOptions(size: forcedSize);
 
   if (Platform.isWindows) {
-    // The first frame, at the window's creation size, before any resize.
-    await WidgetsBinding.instance.endOfFrame;
+    // The first frame rasterized by the engine, at the window's creation
+    // size, before any resize.
+    await WidgetsBinding.instance.waitUntilFirstFrameRasterized;
   }
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {

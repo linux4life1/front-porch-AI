@@ -87,7 +87,9 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
       if (wparam == kShowWatchdogTimerId) {
         KillTimer(hwnd, kShowWatchdogTimerId);
         if (!IsWindowVisible(hwnd)) {
-          Show();
+          // SW_SHOW, not Show()'s SW_SHOWNORMAL: Dart may already have
+          // maximized the hidden window, and SW_SHOWNORMAL would restore it.
+          ShowWindow(hwnd, SW_SHOW);
         }
         return 0;
       }
