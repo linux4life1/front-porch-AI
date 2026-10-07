@@ -230,7 +230,7 @@ The Needs Simulation is an optional layer on top of the Realism Engine that give
 | **Hygiene** | Feels grimy; wants to freshen up |
 | **Comfort** | Physically uncomfortable; wants to shift, stretch, or relocate |
 
-**How it plays out.** Every turn drains each need a little. Below **35** a need becomes urgent and starts shading the character's behavior; below **20** it's critical and they will act on it. Let hunger, energy, bladder, hygiene, or comfort hit rock bottom and you get a genuine story consequence — a character who hasn't eaten in far too long doesn't just mention it, they hit a wall — after which that need recovers partway, the way a body does. Needs also interact: a deeply bored character finds company less soothing, exhaustion makes hunger bite harder, and nobody's comfortable with a desperately full bladder.
+**How it plays out.** Hunger, bladder and energy wear with the story clock at fixed rates (a waking day with no food runs hunger from full to empty), day or night; the other four move only when the scene costs or restores them. Nothing is said above **55**. From **55** down a need is a passing thought ("could eat"), from **40** down the character plans around it and the bar turns amber, from **25** down it changes what they do and the bar turns red, and at **0** it happens: an accident, a collapse. With Passage of time off, needs change only when the story says so.
 
 **The scene feeds the simulation.** What actually happens in the story is what moves the numbers. A meal restores hunger. A bath restores hygiene. A nap restores energy. Laughter, affection, and adventure top up fun and social. An intimate scene ripples through several at once — energy and hygiene down, fun and social up.
 
@@ -238,7 +238,7 @@ The Needs Simulation is an optional layer on top of the Realism Engine that give
 
 **Making it yours.**
 
-- Each need's starting value and its decay rate per turn can be tuned per character in the editor, along with a **Needs delta strength** dial (1×–5×) if you want gentler or much more dramatic swings from the same scenes.
+- Each need's starting value can be set per character in the editor, each need can be switched off on its own, and one **Pace** control (Sloth, Normal, Fast) makes the body run slower or faster than a person's.
 - There's an option for characters who canonically *enjoy* being a mess — low hygiene reads as contentment for them instead of distress.
 - If a reply's needs chips look plainly wrong, the last message carries a **Manual Reprocess** pill: type what the model got wrong, and it re-scores that turn. A **Revert** pill puts the old numbers back.
 - The numbers never appear in the story itself. The character just gets hungry like a person, not like a video game.

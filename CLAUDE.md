@@ -52,7 +52,7 @@ dart format path/to/the_file_you_edited.dart
 flutter test --concurrency=4 --exclude-tags golden
 
 flutter test test/path/to/file.dart
-flutter test -n "test name"
+flutter test --plain-name "test name"
 
 # Linux-gated pixel goldens (macOS `flutter test` never runs them)
 ./scripts/ci-local.sh                 # goldens in the fpai-golden image
