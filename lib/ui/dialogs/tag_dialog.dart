@@ -143,7 +143,9 @@ class _TagDialogState extends State<TagDialog> {
             const SizedBox(height: 16),
 
             // Current tags: a scrolling region that yields to the input and
-            // the buttons when the list is long.
+            // the buttons when the list is long. The scrollbar paints only
+            // when there is something to scroll, so a short list lays out
+            // exactly as before.
             if (_tags.isNotEmpty) ...[
               Flexible(
                 child: Scrollbar(
@@ -151,7 +153,6 @@ class _TagDialogState extends State<TagDialog> {
                   thumbVisibility: true,
                   child: SingleChildScrollView(
                     controller: _tagsScroll,
-                    padding: const EdgeInsets.only(right: 12),
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -210,36 +211,40 @@ class _TagDialogState extends State<TagDialog> {
               },
             ),
 
-            // Autocomplete suggestions
+            // Autocomplete suggestions. Flexible too, so a short window with
+            // a long tag list and suggestions open shares the height instead
+            // of overflowing.
             if (_suggestions.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 150),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF374151),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _suggestions.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      dense: true,
-                      title: Text(
-                        _suggestions[index],
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 150),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF374151),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _suggestions.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          _suggestions[index],
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                      leading: const Icon(
-                        Icons.label,
-                        size: 16,
-                        color: Colors.white38,
-                      ),
-                      onTap: () => _addTag(_suggestions[index]),
-                    );
-                  },
+                        leading: const Icon(
+                          Icons.label,
+                          size: 16,
+                          color: Colors.white38,
+                        ),
+                        onTap: () => _addTag(_suggestions[index]),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],

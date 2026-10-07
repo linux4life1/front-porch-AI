@@ -67,4 +67,30 @@ void main() {
     expect(find.text('tag number 79').hitTestable(), findsOneWidget);
     expect(find.text('Save Tags').hitTestable(), findsOneWidget);
   });
+
+  testWidgets('a 420 px tall window still shows the input and Save', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(520, 420);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    final character = CharacterCard(
+      name: 'Finna',
+      description: 'A goblin with far too many tags.',
+      tags: List.generate(80, (i) => 'tag number $i'),
+    );
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: TagDialog(character: character)),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.byType(TextField).hitTestable(), findsOneWidget);
+    expect(find.text('Save Tags').hitTestable(), findsOneWidget);
+  });
 }
