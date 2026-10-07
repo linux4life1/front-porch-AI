@@ -6,6 +6,20 @@
 #include "spell_check_plugin.h"
 #include <flutter/plugin_registrar_windows.h>
 
+namespace {
+
+// Dart shows the window itself once it has painted at its final size
+// (lib/main.startup.dart, _showMainWindow). Resizing the window before the
+// engine has produced a frame can leave Flutter's resize handshake stuck,
+// with the window white until a real resize (flutter/flutter#192537), so
+// the restore of the saved bounds happens after the first frame, hidden.
+// This timer is the safety net: if Dart has not shown the window a few
+// seconds after the first frame, show it anyway.
+constexpr UINT_PTR kShowWatchdogTimerId = 1;
+constexpr UINT kShowWatchdogMs = 3000;
+
+}  // namespace
+
 FlutterWindow::FlutterWindow(const flutter::DartProject& project)
     : project_(project) {}
 
@@ -31,12 +45,13 @@ bool FlutterWindow::OnCreate() {
   SetChildContent(flutter_controller_->view()->GetNativeWindow());
 
   flutter_controller_->engine()->SetNextFrameCallback([&]() {
-    this->Show();
+    SetTimer(GetHandle(), kShowWatchdogTimerId, kShowWatchdogMs, nullptr);
   });
 
-  // Flutter can complete the first frame before the "show window" callback is
-  // registered. The following call ensures a frame is pending to ensure the
-  // window is shown. It is a no-op if the first frame hasn't completed yet.
+  // Flutter can complete the first frame before the callback above is
+  // registered. The following call ensures a frame is pending so the
+  // watchdog is always armed. It is a no-op if the first frame hasn't
+  // completed yet.
   flutter_controller_->ForceRedraw();
 
   return true;
@@ -67,6 +82,15 @@ FlutterWindow::MessageHandler(HWND hwnd, UINT const message,
   switch (message) {
     case WM_FONTCHANGE:
       flutter_controller_->engine()->ReloadSystemFonts();
+      break;
+    case WM_TIMER:
+      if (wparam == kShowWatchdogTimerId) {
+        KillTimer(hwnd, kShowWatchdogTimerId);
+        if (!IsWindowVisible(hwnd)) {
+          Show();
+        }
+        return 0;
+      }
       break;
   }
 
