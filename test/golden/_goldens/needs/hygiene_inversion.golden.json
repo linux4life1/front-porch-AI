@@ -17,10 +17,10 @@
   },
   "30": {
     "enjoysLow": 5,
-    "normal": 2
+    "normal": 3
   },
   "40": {
-    "enjoysLow": 4,
+    "enjoysLow": 5,
     "normal": 3
   },
   "50": {
@@ -29,10 +29,10 @@
   },
   "60": {
     "enjoysLow": 3,
-    "normal": 4
+    "normal": 5
   },
   "70": {
-    "enjoysLow": 2,
+    "enjoysLow": 3,
     "normal": 5
   },
   "80": {
