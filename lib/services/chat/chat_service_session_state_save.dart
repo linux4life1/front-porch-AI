@@ -267,10 +267,15 @@ extension ChatServiceSessionStateSave on ChatService {
         ),
         groupRealismState: drift.Value(groupRealismJson),
         arousalLevel: drift.Value(_nsfwService.arousalLevel),
-        cooldownTurnsRemaining: drift.Value(
-          _nsfwService.cooldownTurnsRemaining,
+        // v55 — story minutes. The old cooldown_turns_* columns are no longer
+        // written; a row that never had minutes reads them once on load.
+        refractoryMinutesRemaining: drift.Value(
+          _nsfwService.refractoryMinutesRemaining,
         ),
-        cooldownTurnsTotal: drift.Value(_nsfwService.cooldownTurnsTotal),
+        refractoryMinutesTotal: drift.Value(
+          _nsfwService.refractoryMinutesTotal,
+        ),
+        refractoryOpened: drift.Value(_nsfwService.refractoryOpened),
         trustLevel: drift.Value(_relationshipService.trustLevel),
         activeFixation: drift.Value(_relationshipService.activeFixation),
         fixationLifespan: drift.Value(_relationshipService.fixationLifespan),

@@ -115,7 +115,7 @@ class BondBars extends StatelessWidget {
             progress: (nsfw.arousalLevel.abs() / 100).clamp(0.0, 1.0),
             tooltip: 'Arousal: Physical/sexual tension level.',
           ),
-          if (nsfw.cooldownTurnsRemaining > 0) ...[
+          if (nsfw.refractoryMinutesRemaining > 0) ...[
             const SizedBox(height: 4),
             Row(
               children: [
@@ -126,9 +126,10 @@ class BondBars extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Flexible(
+                  // Same words as the eval prompt and the phone: story
+                  // minutes, or replies while Passage of Time is off.
                   child: Text(
-                    'Refractory: ${nsfw.cooldownTurnsRemaining} '
-                    'turn${nsfw.cooldownTurnsRemaining == 1 ? '' : 's'} remaining',
+                    nsfw.refractoryWords.chip,
                     style: TextStyle(
                       fontSize: 11,
                       color: AppColors.lustAccentOf(context),

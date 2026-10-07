@@ -181,7 +181,8 @@ extension RealismEvalCalls on RealismEvals {
           recent: recent,
           arousalEnabled: arousalEnabled,
           arousalLevel: nsfwService.arousalLevel,
-          refractoryTurnsLeft: nsfwService.cooldownTurnsRemaining,
+          refractoryMinutesLeft: nsfwService.refractoryMinutesRemaining,
+          clockRunning: nsfwService.clockRunning,
           allowedEmotionLabels: labels,
           toolsMode: toolsMode,
         );

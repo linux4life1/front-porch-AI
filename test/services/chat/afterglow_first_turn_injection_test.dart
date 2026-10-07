@@ -27,16 +27,18 @@
 //   * From the second afterglow generation on, closeness and "not yet"
 //     stay, but tired / limp / exhausted do not override Needs.
 //
-// Decrement ticks at send start, so the first afterglow prompt usually
-// sees remaining == total - 1. Remaining == total is Continue of the
-// climax reply (no tick). Both are the opening turn.
+// 2026-10-06, needs-on-the-clock v2: the opening turn is a flag, not
+// "remaining >= total - 1". The refractory now counts story minutes, so a
+// same-moment reply would never move the count; the climax sets the flag
+// unspoken and the first reply after the climax reply marks it spoken. The
+// cases below are the same turns expressed as minutes and that flag.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 
-NsfwService _svc({int remaining = 0, int total = 0}) {
+NsfwService _svc({Refractory refractory = Refractory.none}) {
   return NsfwService(
     getGroupInt: (_, _) => 0,
     getGroupValue: (_, _) => null,
@@ -44,8 +46,7 @@ NsfwService _svc({int remaining = 0, int total = 0}) {
   )..loadNsfwScalars(
     nsfwCooldownEnabled: true,
     arousalLevel: 0,
-    cooldownTurnsRemaining: remaining,
-    cooldownTurnsTotal: total,
+    refractory: refractory,
   );
 }
 
@@ -80,10 +81,11 @@ const _exhaustionLock = [
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
-  group('opening-turn math (tick happens before the prompt)', () {
-    test(
-      'apply + first decrement is still the opening turn; the second is not',
-      () {
+  group(
+    'opening-turn flag (spent by the first reply after the climax reply)',
+    () {
+      test('climax leaves it unspoken, time alone does not spend it, the first '
+          'reply after the climax reply does', () {
         final svc = _svc();
         svc.setNsfwCooldownEnabled(true);
         svc.applyClimaxEffects(turns: 6);
@@ -91,56 +93,60 @@ void main() {
         expect(
           svc.isOpeningAfterglowTurn,
           isTrue,
-          reason: 'right after climax, before any send tick',
+          reason: 'right after climax, before the next reply',
         );
 
-        svc.decrementCooldownIfActive();
+        svc.setRefractory(svc.refractory.elapse(15, arousal: 0).refractory);
         expect(
           svc.isOpeningAfterglowTurn,
           isTrue,
-          reason: 'first user send ticks 6 → 5; that prompt is still turn 1',
+          reason: 'a quarter hour passed (90 → 75); still turn 1',
         );
 
-        svc.decrementCooldownIfActive();
+        svc.setRefractory(svc.refractory.markOpened());
         expect(
           svc.isOpeningAfterglowTurn,
           isFalse,
-          reason: 'second send ticks 5 → 4; Needs must drive tired/comfort',
+          reason: 'that reply spoke it; Needs must drive tired/comfort',
         );
-      },
-    );
-  });
+
+        svc.setRefractory(svc.refractory.elapse(0, arousal: 0).refractory);
+        expect(
+          svc.isOpeningAfterglowTurn,
+          isFalse,
+          reason: 'a same-moment second reply is not the opening turn',
+        );
+      });
+    },
+  );
 
   group('Body line', () {
-    test('turn 1 (pre-tick and first send) may force limp/tired', () {
-      for (final pair in [(remaining: 6, total: 6), (remaining: 5, total: 6)]) {
-        final txt = _inject(
-          _svc(remaining: pair.remaining, total: pair.total),
-        ).buildNsfwCooldownInjection();
+    test('turn 1 (before and after time passes) may force limp/tired', () {
+      for (final r in [
+        const Refractory(minutes: 90, total: 90),
+        const Refractory(minutes: 75, total: 90),
+      ]) {
+        final txt = _inject(_svc(refractory: r)).buildNsfwCooldownInjection();
         expect(
           txt,
           contains('just climaxed'),
-          reason: '${pair.remaining}/${pair.total} is the opening turn',
+          reason: '$r is the opening turn',
         );
         expect(txt, contains('wrecked'));
       }
     });
 
     test('turn 2+ keeps afterglow closeness but does not override Needs', () {
-      for (final pair in [
-        (remaining: 4, total: 6),
-        (remaining: 3, total: 6),
-        (remaining: 2, total: 6),
-        (remaining: 1, total: 6),
+      for (final r in [
+        const Refractory(minutes: 60, total: 90, opened: true),
+        const Refractory(minutes: 45, total: 90, opened: true),
+        const Refractory(minutes: 30, total: 90, opened: true),
+        const Refractory(minutes: 15, total: 90, opened: true),
+        // The same moment as the opening reply: no time, but turn 2.
+        const Refractory(minutes: 90, total: 90, opened: true),
       ]) {
-        final txt = _inject(
-          _svc(remaining: pair.remaining, total: pair.total),
-        ).buildNsfwCooldownInjection();
-        expect(
-          txt,
-          contains('afterglow'),
-          reason: '${pair.remaining}/${pair.total} is still Afterglow',
-        );
+        final txt = _inject(_svc(refractory: r)).buildNsfwCooldownInjection();
+        expect(txt, contains('afterglow'), reason: '$r is still Afterglow');
         expect(
           txt.toLowerCase(),
           contains('energy'),
@@ -153,9 +159,7 @@ void main() {
           expect(
             txt,
             isNot(contains(lock)),
-            reason:
-                '${pair.remaining}/${pair.total} must not re-assert '
-                '"$lock"',
+            reason: '$r must not re-assert "$lock"',
           );
         }
       }
@@ -163,7 +167,9 @@ void main() {
 
     test('group later-turn uses the upcoming speaker, same contract', () {
       final txt = _inject(
-        _svc(remaining: 4, total: 6),
+        _svc(
+          refractory: const Refractory(minutes: 60, total: 90, opened: true),
+        ),
         group: true,
         speakerId: 'Rue',
         groupChars: [

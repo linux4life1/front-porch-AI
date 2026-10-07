@@ -19,6 +19,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/author_note_builder.dart';
@@ -443,8 +444,9 @@ void main() {
     test('nsfw: refractory phase prose, no turn counts', () {
       final n = createTestNsfwSvc();
       n.setNsfwCooldownEnabled(true);
-      n.setCooldownTurnsRemaining(5);
-      n.setCooldownTurnsTotal(5);
+      // 2026-10-06: the refractory counts story minutes (5 judge turns =
+      // 75 min, opening turn unspoken); the body line still has no numbers.
+      n.setRefractory(Refractory.fromJudgeTurns(5));
       final b = createTestNsfw(
         nsfwSvc: n,
         activeChar: CharacterCard(name: 'Nia'),

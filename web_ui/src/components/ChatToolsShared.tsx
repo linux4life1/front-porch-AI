@@ -64,7 +64,17 @@ export interface ToolsState {
     lastIndex: number;
   };
   chaos: { enabled: boolean; nsfwEnabled: boolean; pressure: number; hasPendingEvent: boolean };
-  nsfw: { cooldownEnabled: boolean; cooldownTurnsRemaining: number; arousalLevel: number; arousalTier: string };
+  // refractoryLabel is the desktop chip's own text ("Refractory: about 45 min",
+  // or "Refractory: 3 replies" with Passage of Time off), ready-made so the
+  // phone cannot word it differently; '' when no refractory is running.
+  nsfw: {
+    cooldownEnabled: boolean;
+    refractoryMinutesRemaining: number;
+    refractoryClockRunning: boolean;
+    refractoryLabel: string;
+    arousalLevel: number;
+    arousalTier: string;
+  };
   // Ambitions (Living Time §6, additive — absent on older facades).
   // `step` is the open quest climbing this ambition (v46); null when none.
   standingMood?: string;

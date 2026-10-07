@@ -327,7 +327,7 @@ extension ChatServiceReprocess on ChatService {
 
         // Wear waits until the clock commits on the replayed reply.
         _applyMoodDecay();
-        _nsfwService.decrementCooldownIfActive();
+        _tickRefractoryPerReply();
 
         await _runPreGenRealismJudges(
           onChunk: handleChunk,

@@ -127,11 +127,14 @@ void main() {
     );
     await d.waitSendable(); // post-gen checks — where the climax fires — done
 
+    // 2026-10-06, needs-on-the-clock v2: the refractory counts story
+    // minutes, 15 per judge turn, so refractory_turns=6 starts 90 minutes.
     final nsfw = chatService.nsfwService;
     expect(
-      nsfw.cooldownTurnsRemaining,
-      6,
-      reason: 'the canned eval said is_climax=true with refractory_turns=6 — '
+      nsfw.refractoryMinutesRemaining,
+      90,
+      reason:
+          'the canned eval said is_climax=true with refractory_turns=6 — '
           'if no cooldown started, detection failed end-to-end (failure '
           'shape 1: the field the model was never obliged to answer)',
     );
@@ -155,9 +158,10 @@ void main() {
     await d.waitSendable();
 
     expect(
-      nsfw.cooldownTurnsRemaining,
-      6,
-      reason: 'the regenerated swipe climaxed too, so a FRESH refractory must '
+      nsfw.refractoryMinutesRemaining,
+      90,
+      reason:
+          'the regenerated swipe climaxed too, so a FRESH refractory must '
           'survive the swipe-merge restore (failure shape 2: the stale '
           'snapshot wipe). Zero here means the wipe is back.',
     );

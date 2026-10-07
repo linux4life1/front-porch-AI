@@ -22,6 +22,7 @@
 // band moved.
 import 'package:front_porch_ai/services/chat/ambition_service.dart';
 import 'package:front_porch_ai/services/chat/preference_scoring.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 
 part 'realism_prompt_builder.fragments.dart';
 
@@ -296,7 +297,8 @@ class RealismPromptBuilder {
     required String recent,
     required bool arousalEnabled,
     required int arousalLevel,
-    int refractoryTurnsLeft = 0,
+    int refractoryMinutesLeft = 0,
+    bool clockRunning = true,
     List<String> allowedEmotionLabels = const [],
     String preferences = '',
     List<({String text, int progress})> ambitions = const [],
@@ -305,7 +307,7 @@ class RealismPromptBuilder {
       '${judgePrefix(charName: charName, userName: userName, dossier: dossier, standing: standing, preferences: preferences, ambitions: ambitions)}'
       'Name what $charName truly feels right now. Evaluate:\n'
       '${_emotionSection(charName, allowedEmotionLabels)}'
-      '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryTurnsLeft) : ''}'
+      '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning) : ''}'
       '\n'
       '${_recentBlock(recent)}'
       '${toolsMode ? _toolInstruction('report_emotional_state') : _jsonInstruction(['emotion', 'emotion_intensity', if (arousalEnabled) 'arousal_delta'])}';
@@ -339,7 +341,8 @@ class RealismPromptBuilder {
     required String recent,
     required bool arousalEnabled,
     required int arousalLevel,
-    int refractoryTurnsLeft = 0,
+    int refractoryMinutesLeft = 0,
+    bool clockRunning = true,
     List<String> allowedEmotionLabels = const [],
     String? primaryObjective,
     List<({String text, int progress})> ambitions = const [],
@@ -352,7 +355,7 @@ class RealismPromptBuilder {
       '${_bondSection(charName, userName)}'
       '${_trustSection(charName, userName)}'
       '${_emotionSection(charName, allowedEmotionLabels)}'
-      '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryTurnsLeft) : ''}'
+      '${arousalEnabled ? _arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning) : ''}'
       '${_objectiveSection(charName, userName, primaryObjective, ambitions)}'
       '${_fixationSection(charName)}'
       '${_reasonSection()}'

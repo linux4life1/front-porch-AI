@@ -58,7 +58,8 @@ const _kReplyPieces = ['Wired for sound, ', 'both of us.'];
 /// turn has been scored. Sources, so a future rename knows where to look:
 /// RelationshipService.saveRelationshipScalarsToGroup (8 scalars + 2 counters),
 /// applyShortTermDecay ('turnsSinceDecayCheck'), NsfwService
-/// .saveNsfwScalarsToGroup (4, note the historical 'arousal' key),
+/// .saveNsfwScalarsToGroup (5, note the historical 'arousal' key; since
+/// 2026-10-06 the refractory is three minute keys, not two turn keys),
 /// _saveScalarsIntoGroupRealism (emotion pair + 'needs'), and
 /// ensureInterCharacterRelationshipsSeeded ('relationships').
 const _requiredMemberKeys = {
@@ -75,8 +76,9 @@ const _requiredMemberKeys = {
   'turnsSinceDecayCheck',
   'arousal',
   'nsfwCooldownEnabled',
-  'cooldownTurnsRemaining',
-  'cooldownTurnsTotal',
+  'refractoryMinutesRemaining',
+  'refractoryMinutesTotal',
+  'refractoryOpened',
   'emotion',
   'emotionIntensity',
   'needs',

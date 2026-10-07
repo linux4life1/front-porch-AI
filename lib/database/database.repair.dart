@@ -213,6 +213,10 @@ extension AppDatabaseMaintenance on AppDatabase {
         'nsfw_cooldown_enabled INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_remaining INTEGER NOT NULL DEFAULT 0',
         'cooldown_turns_total INTEGER NOT NULL DEFAULT 0',
+        // v55 — the refractory in minutes. Nullable; NULL = a pre-v55 row.
+        'refractory_minutes_remaining INTEGER',
+        'refractory_minutes_total INTEGER',
+        'refractory_opened INTEGER',
         'selected_look_avatar_id TEXT', // v37 gallery look
         'theme_overrides TEXT', // per-chat theme
         'context_budget_json TEXT', // v44 Context Viewer snapshot

@@ -34,6 +34,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -319,11 +320,12 @@ void main() {
     // Seed the merged Lust bar (cooldown on, warm arousal, ticking
     // refractory) and an active fixation — the exact surfaces the old
     // separate NSFW box owned.
+    // 2026-10-06: the refractory counts story minutes, so the chip reads
+    // "Refractory: about 30 min" (2 of 4 turns is 30 of 60 min).
     chat.nsfwService.loadNsfwScalars(
       nsfwCooldownEnabled: true,
       arousalLevel: 62,
-      cooldownTurnsRemaining: 2,
-      cooldownTurnsTotal: 4,
+      refractory: const Refractory(minutes: 30, total: 60, opened: true),
     );
     chat.relationshipService.loadScalars(
       affectionScore: 120,

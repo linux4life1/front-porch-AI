@@ -123,9 +123,11 @@ extension ChatServiceBodyWear on ChatService {
     return out;
   }
 
-  /// A swipe shows the bodies that beat left behind. The speaker is restored
-  /// from their own snapshot, which also includes the scene.
+  /// A swipe shows the bodies that beat left behind, refractory included. The
+  /// speaker is restored from their own snapshot, which also includes the
+  /// scene.
   void _restoreWornBodiesExceptSpeaker(ChatMessage msg, String speakerId) {
+    _restoreRefractoryAfterBeat(msg, speakerId);
     final worn = presentBodiesFromMeta(msg.activeMetadata?[kNeedsWornByMember]);
     if (_activeGroup == null) {
       final hostOnly = <String, Map<String, int>>{

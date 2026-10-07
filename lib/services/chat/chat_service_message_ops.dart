@@ -350,6 +350,7 @@ extension ChatServiceMessageOps on ChatService {
         // clock from it mid-turn would move story time under that speaker.
         if (!duringTurn) {
           _applyClockAfterDelete(deleted, wasTail: wasTail);
+          if (wasTail) _restoreRefractoryBeforeBeat(deleted);
         }
       }
 

@@ -41,9 +41,10 @@ extension ChatServiceClimax on ChatService {
   /// used to be skipped outright): a climax the first half already registered
   /// is not re-claimed by its aftermath, and one the continuation adds
   /// finally starts its refractory. `applyClimaxEffects` is absolute
-  /// (remaining = turns, arousal = 0), so even a re-affirmation cannot
-  /// stack; the metadata guard below keeps the FIRST reading's
-  /// pre-climax arousal, because by the second reading it is already 0.
+  /// (turns × 15 story minutes, opening turn unspoken, arousal = 0), so even
+  /// a re-affirmation cannot stack; the metadata guard below keeps the FIRST
+  /// reading's pre-climax arousal, because by the second reading it is
+  /// already 0.
   Future<void> _runClimaxPass(String reply) async {
     if (!_afterglowActive) return;
     if (reply.trim().isEmpty) return;
@@ -93,8 +94,201 @@ extension ChatServiceClimax on ChatService {
 
     debugPrint(
       '[Afterglow] climax detected (arousal was $preClimaxArousal) — '
-      'refractory $turns turns',
+      'refractory ${_nsfwService.refractoryMinutesRemaining} min',
     );
     notifyListeners();
+  }
+
+  // ── The refractory on the story clock ────────────────────────────────────
+
+  /// After the clock commits. With Passage of Time running, every body's
+  /// refractory runs down by this beat's story minutes, a skip or a night
+  /// included. With it off, the reply's quarter hour was taken before
+  /// generation ([_tickRefractoryPerReply]). Either way the speaker has now
+  /// spoken their opening afterglow turn. Continue is the same beat: nothing.
+  void _tickRefractoryAfterClock(_GenTurn t) {
+    if (t.mode != GenerationMode.normal || !_realismEnabled) return;
+    final speakerId = _isLiteTurn(t)
+        ? null
+        : _getCharacterIdFromCard(t.speakingCharacter);
+    final loadedId = _activeGroup != null && !_observerMode ? speakerId : null;
+    Map<String, dynamic> slot() => _clockWriteSlot(t.streamTarget);
+    if (_clockRunning) {
+      final minutes = _refractoryBeatMinutes(t.streamTarget);
+      for (final id in _refractoryBodyIds()) {
+        _moveRefractory(
+          id,
+          slot,
+          loadedId,
+          (b) => b.refractory.elapse(minutes, arousal: b.arousal),
+        );
+      }
+    }
+    if (speakerId == null) return;
+    _moveRefractory(
+      speakerId,
+      slot,
+      loadedId,
+      (b) => (refractory: b.refractory.markOpened(), arousal: b.arousal),
+    );
+  }
+
+  /// Clock off: each reply is a quarter hour for every body, so a refractory
+  /// ends after as many replies as the judge gave turns. Runs where the
+  /// per-reply tick always ran (the 1:1 send and regen; in a group right
+  /// after the speaker's scalars load, [loadedId]); the receipt rides the
+  /// reply's pending metadata.
+  void _tickRefractoryPerReply({String? loadedId}) {
+    if (_clockRunning) return;
+    for (final id in _refractoryBodyIds()) {
+      _moveRefractory(
+        id,
+        () => _pendingRealismMetadata ??= {},
+        loadedId,
+        (b) =>
+            b.refractory.elapse(kRefractoryMinutesPerTurn, arousal: b.arousal),
+      );
+    }
+  }
+
+  /// Story minutes this reply's beat spanned: the clock now minus where the
+  /// beat began. That is the recorded after of the nearest earlier reply (a
+  /// skip at send moves the clock before this reply stamps its own before),
+  /// else this reply's own before.
+  int _refractoryBeatMinutes(ChatMessage reply) {
+    DateTime? start;
+    final at = _messages.lastIndexWhere((m) => identical(m, reply));
+    for (var i = (at < 0 ? _messages.length : at) - 1; i >= 0; i--) {
+      final m = _messages[i];
+      if (m.isUser || m.sender == 'System') continue;
+      start = slotClockAfter(m.activeMetadata);
+      if (start != null) break;
+    }
+    start ??= slotClockBefore(reply.activeMetadata);
+    if (start == null) return 0;
+    final minutes = _timeService.clock.difference(start).inMinutes;
+    return minutes > 0 ? minutes : 0;
+  }
+
+  /// The 1:1 host, or every group member. Scene guests carry no refractory.
+  List<String> _refractoryBodyIds() {
+    if (_activeGroup == null) {
+      final host = _activeCharacter;
+      return host == null ? const [] : [_getCharacterIdFromCard(host)];
+    }
+    return [
+      for (final c in _groupCharacters)
+        if (_getCharacterIdFromCard(c) case final id when id.isNotEmpty) id,
+    ];
+  }
+
+  /// Steps one running refractory: the live scalars for the 1:1 host or the
+  /// loaded group speaker, else that member's own entry. A change is recorded
+  /// on the beat's receipts in [meta].
+  void _moveRefractory(
+    String id,
+    Map<String, dynamic> Function() meta,
+    String? loadedId,
+    RefractoryBody Function(RefractoryBody) step,
+  ) {
+    if (_activeGroup != null && id.isEmpty) return;
+    final live = _activeGroup == null || id == loadedId;
+    final before = _refractoryBody(id, live: live);
+    if (!before.refractory.running) return;
+    final after = step(before);
+    if (after == before) return;
+    _setRefractoryBody(id, after, live: live);
+    noteRefractoryBeat(meta(), id, before: before, after: after);
+  }
+
+  RefractoryBody _refractoryBody(String id, {required bool live}) {
+    if (live) {
+      return (
+        refractory: _nsfwService.refractory,
+        arousal: _nsfwService.arousalLevel,
+      );
+    }
+    final member = _groupRealism[id];
+    return (
+      refractory: member?.refractory ?? Refractory.none,
+      arousal: member?.arousal ?? 0,
+    );
+  }
+
+  void _setRefractoryBody(
+    String id,
+    RefractoryBody body, {
+    required bool live,
+    bool withArousal = true,
+  }) {
+    if (live) {
+      _nsfwService.setRefractory(body.refractory);
+      if (withArousal) _nsfwService.setArousalLevel(body.arousal);
+      return;
+    }
+    final member = _memberForWrite(id)..refractory = body.refractory;
+    if (withArousal) member.arousal = body.arousal;
+  }
+
+  /// Regen and a tail delete: every body this reply's beat moved goes back to
+  /// where the beat found it. The speaker's arousal stays with the realism
+  /// rewind, which owns the rest of their turn.
+  void _restoreRefractoryBeforeBeat(ChatMessage msg) => _applyRefractoryReceipt(
+    msg.activeMetadata?[kRefractoryPreBeat],
+    keepArousalOf: _refractorySpeakerId(msg),
+  );
+
+  /// A swipe: every co-present body as this alternative's beat left it. The
+  /// speaker comes back with their own realism snapshot.
+  void _restoreRefractoryAfterBeat(ChatMessage msg, String speakerId) =>
+      _applyRefractoryReceipt(
+        msg.activeMetadata?[kRefractoryPostBeat],
+        skip: speakerId,
+      );
+
+  void _applyRefractoryReceipt(
+    Object? raw, {
+    String? skip,
+    String? keepArousalOf,
+  }) {
+    final receipt = refractoryReceipt(raw);
+    if (receipt.isEmpty) return;
+    final ids = _refractoryBodyIds();
+    if (_activeGroup == null) {
+      final hostId = ids.firstOrNull;
+      if (hostId == null || hostId == skip) return;
+      final body =
+          receipt[hostId] ??
+          (receipt.length == 1 ? receipt.values.first : null);
+      if (body == null) return;
+      _setRefractoryBody(
+        hostId,
+        body,
+        live: true,
+        withArousal: hostId != keepArousalOf,
+      );
+      return;
+    }
+    for (final MapEntry(key: id, value: body) in receipt.entries) {
+      if (id == skip || !ids.contains(id)) continue;
+      _setRefractoryBody(
+        id,
+        body,
+        live: false,
+        withArousal: id != keepArousalOf,
+      );
+    }
+  }
+
+  /// Whose turn [msg] was: the 1:1 host unless a scene guest wrote it, or the
+  /// group member it resolves to.
+  String? _refractorySpeakerId(ChatMessage msg) {
+    if (_activeGroup == null) {
+      final host = _activeCharacter;
+      if (host == null || _isGuestAuthoredMessage(msg)) return null;
+      return _getCharacterIdFromCard(host);
+    }
+    final speaker = _resolveGroupSpeakerForMessage(msg);
+    return speaker == null ? null : _getCharacterIdFromCard(speaker);
   }
 }

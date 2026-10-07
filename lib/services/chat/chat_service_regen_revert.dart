@@ -38,6 +38,7 @@ extension ChatServiceRegenRevert on ChatService {
     // pre-wear snapshot before replay; do not run the host speaker revert.
     if (regenGuest != null) {
       _restorePresentBodiesForReplay(lastMsg);
+      _restoreRefractoryBeforeBeat(lastMsg);
       return true;
     }
 
@@ -148,8 +149,7 @@ extension ChatServiceRegenRevert on ChatService {
           final preClimaxArousal =
               lastMsg.activeMetadata!['pre_climax_arousal'] as int? ?? 0;
           _nsfwService.setArousalLevel(preClimaxArousal);
-          _nsfwService.setCooldownTurnsRemaining(0);
-          _nsfwService.setCooldownTurnsTotal(0);
+          _nsfwService.setRefractory(Refractory.none);
           debugPrint(
             '[Realism:Regen] Reverted climax state: arousal restored to $preClimaxArousal, cooldown cleared',
           );
@@ -305,6 +305,10 @@ extension ChatServiceRegenRevert on ChatService {
         _activeCharacter = preRegenActiveCharacter;
       }
     }
+    // Last, so it wins: the snapshots above are each speaker's own last turn,
+    // and every body this beat's clock reached is put back to the beat's
+    // start — the replay ticks them once.
+    _restoreRefractoryBeforeBeat(lastMsg);
     return true;
   }
 
