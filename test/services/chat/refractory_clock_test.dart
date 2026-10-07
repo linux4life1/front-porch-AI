@@ -12,6 +12,8 @@
 //    `story_clock_before` instead of the earlier reply's after (a send-time
 //    skip is stamped before that before).
 //  * opening turn: the post-gen markOpened step.
+//  * Continue: the `t.mode != GenerationMode.normal` gate in
+//    `_tickRefractoryAfterClock` (without it Continue re-charges the beat).
 //  * regen (clock on): the post-gen restamp of the minutes and the flag into
 //    the reply's realism_state, which the regen merge restores. (Here the
 //    previous reply's snapshot already rewinds the host, so the receipt
@@ -203,6 +205,28 @@ void main() {
         reason: 'a same-moment second reply is no longer the opening turn',
       );
       expect(nsfw().refractoryMinutesRemaining, 75);
+    });
+
+    test('Continue is the same beat: no tick, and the opening turn stays '
+        'unspoken', () async {
+      await send('The wave crests and breaks over us both.', climax: true);
+      // No second climax in the continuation: a fresh one would reset the
+      // refractory and hide any tick.
+      llm
+        ..minutes = 30
+        ..climax = false;
+      await chat.continueGeneration();
+      await settle();
+      expect(
+        nsfw().refractoryMinutesRemaining,
+        75,
+        reason: 'the clock does not move on Continue, so nothing ticks',
+      );
+      expect(nsfw().isOpeningAfterglowTurn, isTrue);
+
+      await send('Stay right here.', minutes: 20);
+      expect(llm.lastReplyWasOpening, isTrue);
+      expect(nsfw().refractoryMinutesRemaining, 55);
     });
 
     test('regen restores the minutes and the flag, and replays the beat '
