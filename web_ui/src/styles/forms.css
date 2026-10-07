@@ -44,6 +44,9 @@
 .realism-toggle-text { display: flex; flex-direction: column; gap: 2px; }
 .realism-toggle-text > span { font-size: 0.9rem; color: var(--text); }
 .realism-toggle-text > small { font-size: 0.74rem; color: var(--faint); }
+/* The clock-off line under a Needs switch (NeedsClockOffNote). */
+.needs-clock-off { margin: 2px 0 4px; line-height: 1.4; }
+.pl-child > .needs-clock-off { margin: 0; }
 .needs-row {
   display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px;
   padding-bottom: 10px; border-bottom: 1px solid var(--border);

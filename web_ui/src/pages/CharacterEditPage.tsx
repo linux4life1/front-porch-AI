@@ -16,6 +16,7 @@ import { MacroField } from '../components/MacroField';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
 import { useAdultThemes } from '../components/realism/useAdultThemes';
+import { usePassageOfTime } from '../components/realism/usePassageOfTime';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { TokenBadge } from '../components/realism/controls';
 import { type RealismValues, compactGreetingPairs, realismFromDetail } from '../components/realism/realismTypes';
@@ -64,6 +65,7 @@ const FIELDS: { key: keyof CharDetail; label: string; rows: number }[] = [
 
 export function CharacterEditPage() {
   const adultThemes = useAdultThemes();
+  const clockOn = usePassageOfTime();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [c, setC] = useState<CharDetail | null>(null);
@@ -210,6 +212,7 @@ export function CharacterEditPage() {
         onChange={setGreetings}
         seeds={rv.greetingSeeds}
         showNeeds
+        clockOn={clockOn}
         onSeedsChange={(seeds) => patch({ greetingSeeds: seeds })}
       />
 
@@ -324,7 +327,7 @@ export function CharacterEditPage() {
       {rv.realismEnabled && (
         <>
           <h3 className="section-label">Needs Simulation</h3>
-          <NeedsFormSection v={rv} set={patch} />
+          <NeedsFormSection v={rv} set={patch} clockOn={clockOn} />
         </>
       )}
 

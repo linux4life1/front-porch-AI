@@ -31,11 +31,14 @@ export function GroupSettings({
   groupId,
   onCommand,
   onToggleDirector,
+  clockOn,
 }: {
   group: GroupBlock;
   groupId: string;
   onCommand?: (cmd: string) => void;
   onToggleDirector: (v: boolean) => void;
+  /** Porch Life's Passage of Time, for the greetings' clock-off line. */
+  clockOn: boolean;
 }) {
   const [systemPrompt, setSystemPrompt] = useState(group.systemPrompt);
   const [scenario, setScenario] = useState(group.scenario);
@@ -120,6 +123,7 @@ export function GroupSettings({
           }}
           seeds={seeds}
           showNeeds
+          clockOn={clockOn}
           onSeedsChange={(s) => {
             setSeeds(s);
             const paired = compactGreetingPairs(alts, s);

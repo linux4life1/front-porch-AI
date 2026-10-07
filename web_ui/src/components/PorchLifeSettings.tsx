@@ -28,6 +28,7 @@
 import { useEffect, useState } from 'react';
 import type { ReactNode } from 'react';
 import { api, ApiError } from '../api/client';
+import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
 interface PorchLifeState {
   realismDefault: boolean;
@@ -114,6 +115,7 @@ function FeatureRow({
   value,
   onChange,
   children,
+  showChildWhenOff = false,
 }: {
   icon: string;
   label: string;
@@ -124,6 +126,8 @@ function FeatureRow({
   value: boolean;
   onChange: (v: boolean) => void;
   children?: ReactNode;
+  /** Show `children` with the switch off too (desktop FeatureRow parity). */
+  showChildWhenOff?: boolean;
 }) {
   // An unmet requirement GATES the row (dead switch + dimmed + indented),
   // matching the desktop widget. The first draft left dependants live and
@@ -151,7 +155,7 @@ function FeatureRow({
           />
         </label>
       </div>
-      {children && value && !gated && <div className="pl-child">{children}</div>}
+      {children && (value || showChildWhenOff) && !gated && <div className="pl-child">{children}</div>}
     </div>
   );
 }
@@ -444,7 +448,10 @@ export function PorchLifeSettings() {
           blurb="Hunger, energy, comfort and the rest, Sims-style — they drift through a scene and colour how the character feels. The engine is what turns a need into a mood, so needs run with it or not at all. Individual chats can still switch them off in the sidebar."
           value={st.needsSimDefault}
           onChange={(v) => set('needsSimDefault', v)}
-        />
+          showChildWhenOff
+        >
+          {!timeOn && <NeedsClockOffNote clockOn={timeOn} />}
+        </FeatureRow>
       </FeatureGroup>
 
       <FeatureGroup title="Time & World" subtitle="the story's clock and sky">

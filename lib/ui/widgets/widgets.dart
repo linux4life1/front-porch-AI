@@ -65,6 +65,7 @@ export 'setup_overlay.dart';
 export 'expanded_editor_dialog.dart';
 export 'realism_progress_row.dart';
 export 'needs_bar.dart';
+export 'needs_clock_off_note.dart';
 export 'fixation_chip.dart';
 export 'group_avatar_montage.dart';
 export 'group_member_card.dart';

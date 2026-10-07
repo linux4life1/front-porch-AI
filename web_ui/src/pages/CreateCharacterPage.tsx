@@ -16,6 +16,7 @@ import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEdit
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
 import { useAdultThemes } from '../components/realism/useAdultThemes';
+import { usePassageOfTime } from '../components/realism/usePassageOfTime';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { type RealismValues, REALISM_DEFAULTS, compactGreetingPairs, inventoryToChips } from '../components/realism/realismTypes';
 
@@ -52,6 +53,7 @@ const EMPTY: Draft = {
 
 export function CreateCharacterPage() {
   const adultThemes = useAdultThemes();
+  const clockOn = usePassageOfTime();
   const navigate = useNavigate();
   const [step, setStep] = useState(0);
   const [d, setD] = useState<Draft>(EMPTY);
@@ -137,6 +139,7 @@ export function CreateCharacterPage() {
               onChange={(g) => set('alternateGreetings', g)}
               seeds={d.greetingSeeds}
               showNeeds
+              clockOn={clockOn}
               onSeedsChange={(seeds) => set('greetingSeeds', seeds)}
             />
             <label>
@@ -161,7 +164,7 @@ export function CreateCharacterPage() {
         {step === 4 && (
           <>
             <RealismFormSection v={d} set={patch} showIntimate={adultThemes} />
-            {d.realismEnabled && <NeedsFormSection v={d} set={patch} />}
+            {d.realismEnabled && <NeedsFormSection v={d} set={patch} clockOn={clockOn} />}
           </>
         )}
 
