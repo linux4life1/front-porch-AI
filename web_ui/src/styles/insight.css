@@ -130,7 +130,11 @@
 .stat-head { display: flex; justify-content: space-between; font-size: 0.8rem; }
 .stat-track { height: 7px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
 .stat-fill { height: 100%; background: var(--accent); border-radius: 999px; }
-.stat-fill.warn { background: var(--logwarn); }
+/* Needs bars (needTone): calm honey above the band, porch amber from 40 down,
+   red from 25 down. The default fill is already amber, so a healthy need steps
+   off it, the honey-then-amber pairing the lore meter below uses. */
+.stat-fill.ok { background: var(--porch-honey); }
+.stat-fill.warn { background: var(--porch-amber); }
 .stat-fill.danger { background: var(--danger); }
 .stat-line { display: flex; justify-content: space-between; font-size: 0.85rem; padding: 2px 0; }
 /* Fixation: purple-accented label so it pops instead of melding into the panel. */

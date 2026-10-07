@@ -15,22 +15,7 @@ import { ChatTools } from './ChatTools';
 import { type CastMember } from './CastBar';
 import { LookSwiper } from './ChatAvatar';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
-
-/** A labelled stat bar (bond / trust / needs). */
-function StatBar({ label, value, percent, tone }: { label: string; value: string; percent: number; tone?: string }) {
-  const pct = Math.max(0, Math.min(100, percent <= 1 ? percent * 100 : percent));
-  return (
-    <div className="stat">
-      <div className="stat-head">
-        <span>{label}</span>
-        <span className="muted">{value}</span>
-      </div>
-      <div className="stat-track">
-        <div className={`stat-fill ${tone ?? ''}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
+import { NeedBar, StatBar } from './StatBar';
 
 export function ChatInsight({
   realism,
@@ -209,8 +194,7 @@ export function ChatInsight({
         <>
           <h4 className="section-label">Needs</h4>
           {Object.entries(realism.needs).map(([k, v]) => (
-            <StatBar key={k} label={NEED_LABELS[k] ?? k} value={`${v}`} percent={v}
-              tone={v <= 20 ? 'danger' : ''} />
+            <NeedBar key={k} label={NEED_LABELS[k] ?? k} value={v} />
           ))}
         </>
       )}

@@ -119,6 +119,7 @@ const String defaultApiSystemPrompt =
 
 // Forwarding for critical threshold (moved to NeedsSimulation after buffer removal; UI + cards still reference the old ChatService surface)
 int get needCriticalThreshold => NeedsSimulation.needCriticalThreshold;
+int get needUrgentThreshold => NeedsSimulation.needUrgentThreshold;
 
 // The three tuning constants below are the same "private static -> library
 // top-level" move as the consts above, swept in during round 4b: each was a

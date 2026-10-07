@@ -18,8 +18,8 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 
 // The compact chips a NON-expanded group member card shows, plus the emotion
 // ring colour, lifted verbatim out of group_member_card.dart on 2026-08-08.
@@ -57,8 +57,9 @@ class MiniTierChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
       decoration: BoxDecoration(
-        color: (isNeg ? AppColors.negativeAccentOf(context) : color)
-            .withValues(alpha: 0.15),
+        color: (isNeg ? AppColors.negativeAccentOf(context) : color).withValues(
+          alpha: 0.15,
+        ),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
@@ -73,8 +74,9 @@ class MiniTierChip extends StatelessWidget {
   }
 }
 
-/// One urgent need as a single letter and a number ("H12"), amber normally and
-/// the negative accent once it crosses [needCriticalThreshold].
+/// One of a member's two lowest needs as a letter and a number ("H12"). It
+/// follows the sidebar bars' band ([NeedsBar.bandColorOf]: amber, then red)
+/// and stays a quiet neutral above it, so a healthy member shows no warning.
 class MiniNeedChip extends StatelessWidget {
   const MiniNeedChip({super.key, required this.name, required this.value});
 
@@ -83,25 +85,18 @@ class MiniNeedChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isCrit = value <= needCriticalThreshold;
+    final tint =
+        NeedsBar.bandColorOf(context, value) ??
+        AppColors.textSecondary(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 3, vertical: 1),
       decoration: BoxDecoration(
-        color:
-            (isCrit
-                    ? AppColors.negativeAccentOf(context)
-                    : AppColors.porchAmberOf(context))
-                .withValues(alpha: 0.12),
+        color: tint.withValues(alpha: 0.12),
         borderRadius: BorderRadius.circular(3),
       ),
       child: Text(
         '${name[0].toUpperCase()}$value',
-        style: TextStyle(
-          fontSize: 9,
-          color: isCrit
-              ? AppColors.negativeAccentOf(context)
-              : AppColors.porchAmberOf(context),
-        ),
+        style: TextStyle(fontSize: 9, color: tint),
       ),
     );
   }
