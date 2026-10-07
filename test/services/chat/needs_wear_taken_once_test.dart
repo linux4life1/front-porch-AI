@@ -87,6 +87,44 @@ void main() {
     );
   });
 
+  test(
+    'a correction before the wear adds to the beat, never replaces it',
+    () async {
+      final t = _clock();
+      t.seedFromV2OrExt(
+        dayCount: 1,
+        timeOfDay: 'morning',
+        storyStartDate: '2026-08-22',
+        storyStartTime: '09:00',
+      );
+      await _measured(t, 20);
+      // The post-reply clock advance reads the named time before any wear.
+      await t.applyReconciledClock(DateTime.utc(2026, 8, 22, 10, 0));
+      expect(
+        t.takeBodyWearMinutes(),
+        60,
+        reason: 'the beat and the correction',
+      );
+    },
+  );
+
+  test('a night skip survives a reply that names the morning hour', () async {
+    final t = _clock();
+    t.seedFromV2OrExt(
+      dayCount: 1,
+      timeOfDay: 'evening',
+      storyStartDate: '2026-08-22',
+      storyStartTime: '20:31',
+    );
+    await t.detectOocTimeSkip('We sleep through the night.');
+    expect(t.bodyWearMinutes, 11 * 60 + 29);
+    expect(t.bodyBeatOffScreen, isTrue);
+    // "it's seven in the morning": an hour earlier than the clock landed.
+    await t.applyReconciledClock(DateTime.utc(2026, 8, 23, 7, 0));
+    expect(t.bodyBeatOffScreen, isTrue, reason: 'still the night, off-screen');
+    expect(t.takeBodyWearMinutes(), 10 * 60 + 29);
+  });
+
   test('a correction backwards owes nothing', () async {
     final t = _clock();
     t.seedFromV2OrExt(

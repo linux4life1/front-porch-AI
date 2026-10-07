@@ -96,6 +96,13 @@ extension TimeServiceApply on TimeService {
     _turnsSinceClockMoved = 0;
     _namedReconcileExact = true;
     final delta = _clock.difference(oldClock).inMinutes;
+    // Whatever the beat still owes: its whole span when this runs before
+    // the wear (the post-reply clock advance), nothing when the wear already
+    // took it (the post-gen restamp). The correction adds its own delta to
+    // that, never replaces it, so a skip's night is still worn after a
+    // reply that names the morning hour.
+    final owed = _bodyWearMinutes;
+    final offScreen = _bodyBeatOffScreen;
     if (labelMins != null) {
       final adjusted = labelMins + delta;
       _noteBodyBeat(
@@ -105,9 +112,9 @@ extension TimeServiceApply on TimeService {
         offScreen: false,
       );
     }
-    // The beat's own minutes were taken by the wear that ran before the
-    // reply was read; only the correction's extra minutes remain to wear.
-    _bodyWearMinutes = delta < 0 ? 0 : delta;
+    final stillOwed = owed + delta;
+    _bodyWearMinutes = stillOwed < 0 ? 0 : stillOwed;
+    _bodyBeatOffScreen = offScreen;
     await _ifDayChanged(dayBefore);
   }
 
