@@ -57,19 +57,20 @@ Future<void> _apply(TimeService t, String json) {
 
 void main() {
   test(
-    'an awake span tells hunger and bladder to move, with no hourly tax',
+    // Needs v2 (2026-10-06): the clock charges the span in code; the judge
+    // is told so and scores events only. Zero is a valid answer.
+    'an awake span tells the judge time is already charged, events only',
     () {
       expect(
         needsSpanForBeat(minutes: 150, nextMorning: false, isSkip: false),
         '2 hr 30 min',
       );
       final note = needsBeatNote('2 hr 30 min');
-      expect(note, contains('must move with that span'));
-      expect(note, contains('A few minutes is a small drop'));
-      expect(note, contains('A long stretch is a real one'));
-      expect(note, contains('Zero on hunger or bladder is only legal'));
-      expect(note, isNot(contains('per hour')));
-      expect(note, isNot(contains('already worn')));
+      expect(note, contains('time has already been charged'));
+      expect(note, contains('Score only what the scene itself did'));
+      expect(note, contains('A quiet reply is all zeros'));
+      expect(note, isNot(contains('You choose the size')));
+      expect(note, isNot(contains('Zero on hunger or bladder is only legal')));
       expect(note, isNot(contains('already applied')));
     },
   );
@@ -79,8 +80,8 @@ void main() {
     () {
       for (final span in [null, '', 'same moment']) {
         final note = needsBeatNote(span);
-        expect(note, contains('stay put'));
-        expect(note, isNot(contains('must move with that span')));
+        expect(note, contains('Time charged nothing'));
+        expect(note, isNot(contains('time has already been charged for it')));
       }
       expect(
         needsSpanForBeat(minutes: 0, nextMorning: false, isSkip: false),
@@ -99,10 +100,14 @@ void main() {
       ),
       'Next morning',
     );
+    // Needs v2: a night is never assumed; the judge is asked if they slept.
     final night = needsBeatNote('Next morning');
-    expect(night, contains('The night is the whole'));
-    expect(night, contains('Sleep still restores energy'));
-    expect(night, isNot(contains('must move with that span')));
+    expect(night, contains('Did they sleep?'));
+    expect(
+      night,
+      contains('If they stayed up, leave energy where the time left it'),
+    );
+    expect(night, isNot(contains('The night is the whole')));
 
     const dest = 'Sun, Aug 23 · 4:00 PM';
     expect(
@@ -116,7 +121,10 @@ void main() {
     );
     final skip = needsBeatNote(dest);
     expect(skip, contains('skipped to $dest'));
-    expect(skip, contains('Do not charge those hours twice'));
+    expect(
+      skip,
+      contains('If the skip crossed a night, ask whether they slept'),
+    );
     expect(
       needsSpanForBeat(minutes: 0, nextMorning: false, isSkip: true),
       isNull,
@@ -143,7 +151,7 @@ void main() {
 
     t.clearBodyBeat();
     expect(t.needsSpanLabel, isNull);
-    expect(needsBeatNote(t.needsSpanLabel), contains('stay put'));
+    expect(needsBeatNote(t.needsSpanLabel), contains('Time charged nothing'));
   });
 
   test(
@@ -154,7 +162,9 @@ void main() {
       await t.detectOocTimeSkip('We sleep through the night.');
       expect(t.bodyTimeLabel, isNull);
       expect(t.needsSpanLabel, 'Next morning');
-      expect(t.awakeWearMinutes, 0);
+      // Needs v2: the night is a span the body wears, off-screen.
+      expect(t.bodyWearMinutes, greaterThan(0));
+      expect(t.bodyBeatOffScreen, isTrue);
     },
   );
 
@@ -163,17 +173,21 @@ void main() {
     () async {
       final t = _clock();
       await _apply(t, '{"minutes_elapsed": 150, "new_day": false}');
-      expect(t.awakeWearMinutes, 0);
+      // Needs v2: the clock charges the 150 minutes in code; the judge is
+      // told so and scores events only.
+      expect(t.bodyWearMinutes, 150);
+      expect(t.bodyBeatOffScreen, isFalse);
       expect(t.bodyTimeLabel, '2 hr 30 min');
       expect(t.needsSpanLabel, '2 hr 30 min');
       expect(
         needsBeatNote(t.needsSpanLabel),
-        contains('must move with that span'),
+        contains('time has already been charged'),
       );
 
       final away = _clock();
       away.advanceTimePeriods(1);
-      expect(away.awakeWearMinutes, 0);
+      expect(away.bodyWearMinutes, greaterThan(0));
+      expect(away.bodyBeatOffScreen, isTrue);
       expect(away.needsSpanLabel, away.bodyTimeLabel);
       expect(minutesFromTimePassed(away.needsSpanLabel), greaterThan(0));
 
@@ -189,59 +203,58 @@ void main() {
       '{"minutes_elapsed": 0, "continuous_instant": true, "new_day": false}',
     );
     expect(t.needsSpanLabel, 'same moment');
-    expect(needsBeatNote(t.needsSpanLabel), contains('stay put'));
+    expect(needsBeatNote(t.needsSpanLabel), contains('Time charged nothing'));
   });
 
-  test(
-    'the needs prompt tells hunger and bladder to follow the beat',
-    () async {
-      String? scenePrompt;
-      String? awayPrompt;
-      final scene = createTestLlmEvalEngine(
-        activeChar: CharacterCard(name: 'Nia'),
-        streamFactory: (params) {
-          scenePrompt = params.prompt;
-          return Stream.value(
-            '{"hunger_delta":-8,"energy_delta":0,"hygiene_delta":0,'
-            '"fun_delta":0,"social_delta":0,"bladder_delta":-6,'
-            '"comfort_delta":0,"reason":"a long afternoon"}',
-          );
-        },
-      );
-      await scene.evaluateNeedsImpactCall('they talked on the porch');
-      expect(scenePrompt, contains('HUNGER AND BLADDER FOLLOW THE BEAT'));
-      expect(scenePrompt, contains('You choose the size'));
-      expect(
-        scenePrompt,
-        contains('On the same moment, all seven 0 is a quiet beat'),
-      );
-      expect(scenePrompt, isNot(contains('already worn off the bars')));
-      expect(scenePrompt, isNot(contains('TIME WEAR IS HANDLED SEPARATELY')));
-      expect(scenePrompt, isNot(contains('per hour')));
+  test('the needs prompt tells the judge time is already charged', () async {
+    String? scenePrompt;
+    String? awayPrompt;
+    final scene = createTestLlmEvalEngine(
+      activeChar: CharacterCard(name: 'Nia'),
+      streamFactory: (params) {
+        scenePrompt = params.prompt;
+        return Stream.value(
+          '{"hunger_delta":-8,"energy_delta":0,"hygiene_delta":0,'
+          '"fun_delta":0,"social_delta":0,"bladder_delta":-6,'
+          '"comfort_delta":0,"reason":"a long afternoon"}',
+        );
+      },
+    );
+    await scene.evaluateNeedsImpactCall('they talked on the porch');
+    // Needs v2: the span is charged in code, the judge scores events.
+    expect(scenePrompt, contains('TIME HAS ALREADY BEEN CHARGED'));
+    expect(scenePrompt, isNot(contains('HUNGER AND BLADDER FOLLOW THE BEAT')));
+    expect(scenePrompt, contains('Do not charge the span again'));
+    expect(
+      scenePrompt,
+      contains('All seven 0 is a quiet beat, and a valid answer'),
+    );
+    expect(scenePrompt, isNot(contains('already worn off the bars')));
+    expect(scenePrompt, isNot(contains('TIME WEAR IS HANDLED SEPARATELY')));
+    expect(scenePrompt, isNot(contains('per hour')));
 
-      final away = createTestLlmEvalEngine(
-        activeChar: CharacterCard(name: 'Nia'),
-        streamFactory: (params) {
-          awayPrompt = params.prompt;
-          return Stream.value(
-            '{"hunger_delta":-12,"energy_delta":0,"hygiene_delta":0,'
-            '"fun_delta":0,"social_delta":0,"bladder_delta":-10,'
-            '"comfort_delta":0,"reason":"gone for the afternoon"}',
-          );
-        },
-      );
-      await away.evaluateNeedsImpactCall(
-        'she came back from the walk',
-        awayScene: true,
-      );
-      expect(awayPrompt, contains('Hunger and bladder follow that span'));
-      expect(
-        awayPrompt,
-        isNot(contains('Do not also subtract the hours that passed')),
-      );
-      expect(awayPrompt, isNot(contains('already worn')));
-    },
-  );
+    final away = createTestLlmEvalEngine(
+      activeChar: CharacterCard(name: 'Nia'),
+      streamFactory: (params) {
+        awayPrompt = params.prompt;
+        return Stream.value(
+          '{"hunger_delta":-12,"energy_delta":0,"hygiene_delta":0,'
+          '"fun_delta":0,"social_delta":0,"bladder_delta":-10,'
+          '"comfort_delta":0,"reason":"gone for the afternoon"}',
+        );
+      },
+    );
+    await away.evaluateNeedsImpactCall(
+      'she came back from the walk',
+      awayScene: true,
+    );
+    expect(awayPrompt, contains('Time has already been charged for the beat'));
+    expect(
+      awayPrompt,
+      isNot(contains('Do not also subtract the hours that passed')),
+    );
+    expect(awayPrompt, isNot(contains('already worn')));
+  });
 
   test('post-gen asks for that span instead of pre-applied wear', () {
     final src = File(
@@ -253,7 +266,9 @@ void main() {
     expect(src, isNot(contains('Report only what the scene did')));
   });
 
-  test('a long hunger drop without food survives the verifier', () async {
+  // Needs v2: the clock charges the span, so a judge drop with no cost in
+  // the scene is a second charge and is corrected like a gain.
+  test('a long hunger drop without food is corrected like a gain', () async {
     final verifier = RealismVerification(
       fireLLMEval: (p, {onChunk}) async => null,
       stripThinkBlocks: (s) => s,
@@ -273,8 +288,8 @@ void main() {
       rawOutput: '{"hunger_delta": -20, "reason": "a long afternoon"}',
       sceneResponse: 'we sat on the porch and swapped stories',
     );
-    expect(drop.status, 'accepted');
-    expect(drop.correctedRaw, contains('"hunger_delta": -20'));
+    expect(drop.status, 'corrected');
+    expect(drop.correctedRaw, contains('"hunger_delta": -2'));
 
     final gain = await verifier.verify(
       evalKind: 'needs_impact',

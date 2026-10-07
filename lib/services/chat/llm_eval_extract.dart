@@ -203,11 +203,8 @@ extension LlmEvalExtract on LlmEvalEngine {
             '  • Exercise, yoga, or stretching \u2192 energy +5 to +15, comfort +5\n'
             '  • Drinking any beverage \u2192 energy +5 to +10\n'
             '  • Cooking or preparing food \u2192 comfort +5\n\n'
-            'The scene starts with the beat. Hunger and bladder follow that span, '
-            'and it is the whole change for those two. You choose the size. A meal, '
-            'a drink, or a bathroom replaces a second drop for that need. Energy, '
-            'hygiene, fun, social, and comfort move only when the scene itself '
-            'costs or restores them.\n'
+            'Time has already been charged for the beat named at the start of the '
+            'scene. Score only what the scene itself restored or cost.\n'
             '${toolsMode ? 'Use ONLY the tool — no plain-text reply.' : 'Return raw JSON with no markdown, no explanation.'}';
       } else if (userCritique != null && userCritique.trim().isNotEmpty) {
         // B: unified rich correction prompt (no duplication of context logic)
@@ -253,18 +250,13 @@ extension LlmEvalExtract on LlmEvalEngine {
                 // state was being scored as changing it, and the lower a need
                 // went the more vivid the prose and the harder the next hit.
                 //
-                // Hunger and bladder follow the beat named above the scene.
-                // Describing the current bar is not a second cost on top of it.
-                'HUNGER AND BLADDER FOLLOW THE BEAT named at the start of the scene. '
-                'On an awake span they must move with that span. You choose the size: '
-                'a few minutes is a small drop, a long stretch is a real one. If the '
-                'scene fed them, hunger is the meal, not the meal plus another drop. '
-                'If they used the bathroom, bladder is that relief. If they drank, '
-                'bladder drops for the drink. If none of that happened, both still '
-                'drop for the span. Zero on hunger or bladder is only legal when that '
-                'need was restored, or when the beat is the same moment. A night, a '
-                'skip, or time away is the whole change for those two. Sleep still '
-                'restores energy.\n'
+                // The clock charges the span in code (needs_wear.dart); the
+                // beat note above the scene says so. The judge scores events.
+                'TIME HAS ALREADY BEEN CHARGED for the beat named at the start of the '
+                'scene: hunger, bladder and energy moved with the minutes. Do not '
+                'charge the span again. Score what the scene did: a meal is the meal, '
+                'a drink fills the bladder (a drop), the bathroom is that relief, '
+                'sleep restores energy. Nothing happened means zero.\n'
                 'The scene text above was WRITTEN FROM the current needs listed below — '
                 'a character mentioning their empty stomach, dragging their feet, or '
                 'squirming is DESCRIBING the state you are being shown, not becoming '
@@ -287,9 +279,9 @@ extension LlmEvalExtract on LlmEvalEngine {
                 'Partial or interrupted versions get proportionally smaller deltas. Reserve small numbers (±1 to ±8) for INCIDENTAL effects, never for a complete relief or restoration.\n\n' +
             flatJsonAsk +
             (toolsMode
-                ? 'Individual needs may be 0. When the beat named a span, all seven 0 is a failed eval — hunger and bladder have to move with it unless that need was restored. On the same moment, all seven 0 is a quiet beat.'
+                ? 'Individual needs may be 0. All seven 0 is a quiet beat, and a valid answer.'
                 : '"reason": "<brief grounded reason for the deltas>" }\n'
-                      'Individual needs may be 0. When the beat named a span, all seven 0 is a failed eval — hunger and bladder have to move with it unless that need was restored. On the same moment, all seven 0 is a quiet beat.');
+                      'Individual needs may be 0. All seven 0 is a quiet beat, and a valid answer.');
       }
     }
 
@@ -343,7 +335,10 @@ extension LlmEvalExtract on LlmEvalEngine {
       // silently skipping the needs turn.
       var text = searchText.trim().isNotEmpty ? searchText : raw;
       if (text.trim().isEmpty) return null;
-      if (scoped.isEmpty && !needsImpactHasNonZeroDelta(text)) {
+      // A quiet beat is a legitimate all-zero now that the clock charges
+      // the span. Only the away prompt, which expects restorations, still
+      // retries a tools reply whose required ints came back as zeros.
+      if (awayScene && scoped.isEmpty && !needsImpactHasNonZeroDelta(text)) {
         final usedTools =
             useTools &&
             (probe?.shouldFireTools(

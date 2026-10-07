@@ -52,6 +52,7 @@
 library;
 
 import 'package:front_porch_ai/services/chat/pockets.dart';
+import 'package:front_porch_ai/services/chat/needs_wear.dart';
 
 /// The runtime keys the engine reads and writes each turn. Every name that
 /// used to be scattered as a string literal across chat_service parts lives
@@ -77,6 +78,10 @@ abstract final class GroupRealismKeys {
   static const emotion = 'emotion';
   static const emotionIntensity = 'emotionIntensity';
   static const needs = 'needs';
+
+  /// Fractions of a point the clock has charged this member but not yet
+  /// taken (see needsWearForSpan). Not a key the needs-enabled inference reads.
+  static const needsWearCarry = 'needsWearCarry';
 
   /// Pockets & Wardrobe (docs/design/pockets-and-preferences.md Part 1). Rides
   /// this per-member bag rather than earning a schema migration: the record is
@@ -254,6 +259,14 @@ class GroupMemberRealism {
 
   Map<String, int>? get needs => _intMap(GroupRealismKeys.needs);
   set needs(Map<String, int>? v) => _data[GroupRealismKeys.needs] = v;
+
+  Map<String, double> get needsWearCarry {
+    final raw = _data[GroupRealismKeys.needsWearCarry];
+    return raw is Map ? wearCarryFrom(raw) : const {};
+  }
+
+  set needsWearCarry(Map<String, double> v) =>
+      _data[GroupRealismKeys.needsWearCarry] = Map<String, double>.from(v);
 
   Map<String, int>? get relationships =>
       _intMap(GroupRealismKeys.relationships);

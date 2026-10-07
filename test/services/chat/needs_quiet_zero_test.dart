@@ -55,7 +55,8 @@ void main() {
       );
       final raw = await e.evaluateNeedsImpactCall('they sit together a while');
       expect(sawRepair, isFalse, reason: 'quiet zeros are not a failed read');
-      expect(textCalls, 1, reason: 'tools zeros may retry text once');
+      // Needs v2: a quiet beat is a valid all-zero; no text retry.
+      expect(textCalls, 0, reason: 'tools zeros are a quiet beat now');
       expect(needsImpactHasNonZeroDelta(raw!), isFalse);
     },
   );

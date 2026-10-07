@@ -243,6 +243,7 @@ extension ChatServiceRealismEvals on ChatService {
       final needsSnap = <String, dynamic>{
         'vector': Map<String, int>.from(_needsSimulation.vector),
         'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
+        kNeedsWearCarryKey: Map<String, double>.from(_needsSimulation.wearCarry),
       };
       state['needs'] = needsSnap;
 

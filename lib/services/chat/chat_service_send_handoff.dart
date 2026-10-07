@@ -125,6 +125,11 @@ extension ChatServiceSendHandoff on ChatService {
       preTurnVector = Map<String, int>.from(_needsSimulation.vector);
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
+      // The carried fraction rewinds with the bars, so a regen charges the
+      // beat exactly once more, not from a reset carry.
+      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
+        _needsSimulation.wearCarry,
+      );
     }
     if (_realismActiveThisMode && addressedGuest == null) {
       // 1:1 only. Group per-speaker stamp lives in the realism dance —

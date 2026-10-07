@@ -38,63 +38,67 @@ const Map<String, int> _needDefaults = {
   'comfort': 70,
 };
 
-/// Stepped background prose per need, worst-first (index 0 = crisis → 4 =
-/// mild). PRONOUN-FREE by design (docs/design/prompt-state-injection.md §3):
-/// these lines render directly inside the composed state block right after a
-/// header that names the character ("Hunger: [line]"), so gendered or
-/// generic pronouns here would clash with the named, gendered header on
-/// small models (the "their stomach… she said" template-paste read). Keep
-/// any new lines pronoun-free participial/nominal phrases for the same
-/// reason. ({{user}} macros are fine — the block is macro-resolved.)
+/// Stepped background prose per need, worst-first (index 0 = empty, 1 =
+/// crisis, 2 = strong, 3 = moderate, 4 = mild; the bands are
+/// [NeedsSimulation.needStepUpperBounds]). PRONOUN-FREE by design
+/// (docs/design/prompt-state-injection.md §3): these lines render directly
+/// inside the composed state block right after a header that names the
+/// character ("Hunger: [line]"), so gendered or generic pronouns here would
+/// clash with the named, gendered header on small models (the "their
+/// stomach… she said" template-paste read). Keep any new lines pronoun-free
+/// participial/nominal phrases for the same reason. ({{user}} macros are
+/// fine — the block is macro-resolved.) The mild line always says it is not
+/// pressing, so a small model does not escalate it. Bladder lines say "a
+/// bathroom" and leave the rest to the model, the Sims way.
 const Map<String, List<String>> _needSteppedText = {
   'hunger': [
-    '''Doubled over by a violent stomach cramp — genuinely starving: vision swimming, knees weak, barely able to stay upright. The hunger has become a real physical crisis.''',
-    '''Sharp, gnawing hunger cramps; light-headed and shaky, thoughts drifting uncontrollably to food, focus on anything else a real struggle.''',
-    '''Stomach painfully hollow and tight — a constant, distracting ache; restless, short-tempered, thoughts keep returning to when the next meal might come.''',
-    '''A steady, empty feeling in the stomach; thoughts occasionally wander toward food — a bit distracted and low-energy.''',
-    '''A quiet, background emptiness in the stomach — not urgent, but noticeable; a chance to eat soon would be welcome.''',
+    '''Starving to the point of collapse: grey-faced, vision swimming, knees going. A real physical crisis, not a mood.''',
+    '''Ravenous and shaky: light-headed, hands unsteady, thoughts pulled back to food every few moments; eating has become the priority.''',
+    '''Properly hungry: a hollow, gnawing stomach that is hard to ignore; a little short-tempered and distracted, actively looking for a chance to eat.''',
+    '''Getting hungry: the stomach starting to feel empty; a meal within the hour would be good, and may say so or suggest food if it fits.''',
+    '''Could eat. A passing thought of food, nothing pressing; easily set aside.''',
   ],
   'bladder': [
-    '''Control gives out completely — a sudden hot rush, an accident happening right now in the current scene; the humiliation is immediate and overwhelming.''',
-    '''Fighting with everything not to lose control — thighs pressed tight, constant shifting, voice tight with strain; an accident is very close.''',
-    '''A strong, insistent pressure has built up — visibly uncomfortable, watching for a polite way to slip away soon.''',
-    '''A steady, distracting pressure low in the belly; the need keeps growing — a bathroom before too long would be a relief.''',
-    '''A faint but persistent urge to use the restroom sits at the back of the mind, bringing slight restlessness.''',
+    '''Control gives out: an accident, right now, in the scene. Hot, unstoppable, and the shame is immediate.''',
+    '''Desperate for a bathroom: fighting to hold on, thighs pressed together, voice tight; minutes matter and an accident is close.''',
+    '''Needs a bathroom soon: a strong, insistent pressure that makes it hard to settle; shifting in place and looking for any excuse to go.''',
+    '''Needs a bathroom before too long: a steady, noticeable pressure; keeping an eye out for a natural moment to slip away.''',
+    '''Could use a bathroom at some point. A faint awareness, nothing pressing; no need to act on it yet.''',
   ],
   'energy': [
-    '''The body gives out completely — eyes flutter mid-sentence and collapse follows, slumping to the floor or into {{user}}'s arms, fully unconscious from exhaustion.''',
-    '''Barely staying awake — head nodding, speech slow and heavy, eyes unfocused; sleep could take over at any moment.''',
-    '''A heavy, crushing tiredness; every movement takes effort and thoughts run slow — rest is desperately wanted.''',
-    '''A deep weariness — movements a little slower, noticeably less animated than usual, clearly running low on energy.''',
-    '''A comfortable, heavy tiredness behind the eyes; curling up to rest would be welcome if the chance arose.''',
+    '''Collapsing from exhaustion: the body simply gives out, eyes fluttering closed, slumping to the floor or into {{user}}'s arms.''',
+    '''Fighting to stay awake: head nodding, words slow and thick, eyes drifting shut mid-sentence; sleep could take over any moment.''',
+    '''Worn out: heavy limbs, slow thoughts, every task taking effort; openly wanting to lie down and likely to say so.''',
+    '''Tired: movements a touch slower, less animated than usual; a yawn may slip out, and a rest or an early night sounds good.''',
+    '''A little tired. Could do with sitting down for a bit; nothing that changes the moment.''',
   ],
   'social': [
-    '''Overwhelming loneliness — hollow and raw, on the edge of breaking down without real, meaningful connection soon.''',
-    '''Painfully isolated; the lack of real connection is starting to hurt — unusually quiet, clingy, or emotionally fragile.''',
-    '''A deep ache for genuine connection sits in the chest; casual interaction feels hollow — meaningful moments and closeness keep being sought.''',
-    '''Feeling the absence of real companionship — a little more eager than usual for meaningful conversation or physical closeness.''',
-    '''A quiet, gentle craving for real connection — a touch warmer and more attentive than normal.''',
+    '''Overwhelmed by loneliness: on the edge of breaking down; any real warmth will be clung to.''',
+    '''Painfully isolated: hollow and raw, close to breaking down without some genuine connection soon.''',
+    '''Lonely: the lack of real connection is starting to hurt; quieter, clingier or more fragile than usual, reaching for meaningful moments.''',
+    '''Missing real connection: a little keener than usual for conversation or closeness, and inclined to draw it out.''',
+    '''A small wish for company. A touch warmer and more attentive than usual; nothing more.''',
   ],
   'fun': [
-    '''Torturous boredom — dangerously restless, liable to do something reckless or wildly inappropriate just to feel *something* again.''',
-    '''Deeply restless and thoroughly bored — constant fidgeting, ready to suggest almost anything to break the monotony.''',
-    '''A heavy restlessness has settled in; everything feels dull — any excuse for something more stimulating keeps being sought.''',
-    '''Noticeably bored and fidgety; the current situation feels flat — actively hoping for a change of pace.''',
-    '''A mild restlessness — a little more eager than usual for something fun or different to happen.''',
+    '''Climbing the walls: unable to sit still another minute; will act out, unwisely, for any kind of stimulation.''',
+    '''Bored to the point of recklessness: dangerously restless, liable to do something rash or inappropriate just to feel something.''',
+    '''Thoroughly bored: restless and fidgeting, ready to suggest almost anything to break the monotony.''',
+    '''Getting bored: the current situation feels flat; fidgety, and hoping for a change of pace.''',
+    '''A little under-stimulated. Open to something fun or different if it comes up; not bothered otherwise.''',
   ],
   'hygiene': [
-    '''Filthy and overwhelmed by it — the grime or smell strong enough to cause physical discomfort and self-consciousness to the point of distress.''',
-    '''Genuinely dirty and very aware of it — an urge to cover up or pull away from contact until there's a chance to clean up.''',
-    '''A persistent grimy feeling clings — self-conscious, thoughts keep returning to washing or changing.''',
-    '''Starting to feel noticeably unkempt — a quiet discomfort, wanting to freshen up soon.''',
-    '''A faint background sense of being a little grubby — mildly self-conscious about it.''',
+    '''Filthy: the grime or smell strong enough to be distressing; acutely self-conscious, and it stays until a wash.''',
+    '''Genuinely grimy and very aware of it: an urge to cover up or pull away from contact until there is a chance to clean up.''',
+    '''Noticeably dirty and self-conscious about it: thoughts keep returning to a wash or a change of clothes; may hold back from close contact.''',
+    '''Starting to feel unkempt: a quiet discomfort, and a wish to freshen up when there is a chance.''',
+    '''A little grubby. Faintly aware of it, not bothered.''',
   ],
   'comfort': [
-    '''Unbearable physical discomfort — impossible to stay like this any longer; relief will be sought no matter what it disrupts.''',
-    '''The body is in real distress — too hot, too cold, cramped, or aching badly; constant shifting, focus on anything else a struggle.''',
-    '''A strong physical discomfort wears on — constant adjusting of position or surroundings, clearly unable to settle.''',
-    '''Noticeably uncomfortable — a persistent physical irritation (temperature, pressure, stiffness) making it hard to fully relax.''',
-    '''A mild but persistent physical discomfort in the background, bringing slight restlessness.''',
+    '''Unbearable: impossible to stay like this a moment longer; relief will be sought whatever it disrupts.''',
+    '''In real physical distress: too hot, too cold, cramped or aching badly; focus on anything else is a struggle.''',
+    '''Clearly uncomfortable: constantly adjusting position or surroundings, unable to settle, and looking to fix whatever is causing it.''',
+    '''Uncomfortable: a persistent irritation, whether temperature, pressure or stiffness, that makes it hard to fully relax; may shift position or mention it.''',
+    '''Slightly uncomfortable. A minor physical irritation (a stiff neck, a warm room), easily ignored.''',
   ],
 };
 
@@ -112,11 +116,11 @@ const Map<String, List<String>> _needSteppedText = {
 /// is simply remaining unwashed and musky. Pronoun-free like
 /// [needSteppedText] (rendered right after a named header).
 const List<String> _hygieneSteppedTextWhenEnjoysLow = [
-  '''Scrubbed and scentless in a way that feels wrong on the skin — the familiar musk scoured completely away; exposed and on edge, quietly wishing that natural scent were back. (This is about missing a natural body scent, never about seeking out filth.)''',
-  '''Uncomfortably fresh — too soft, too soapy, the natural scent washed thin; its absence is off-putting, that thorough wash already regretted.''',
-  '''Still a little too clean for comfort — without the familiar musk comes an odd self-consciousness, as if something comforting were missing.''',
-  '''Starting to feel a touch over-scrubbed; the settled, lived-in comfort of an unwashed natural scent is quietly missed.''',
-  '''A faint just-washed freshness lingers — mildly unsatisfying next to the natural musk.''',
+  '''Stripped of every trace of natural scent: raw, exposed and unsettled; nothing feels right until it returns. (About missing a natural body scent, never about seeking out filth.)''',
+  '''Scrubbed and scentless in a way that feels wrong on the skin: exposed and on edge without the familiar scent. (About missing a natural body scent, never about seeking out filth.)''',
+  '''Uncomfortably fresh: too soft, too soapy; that thorough wash already regretted and the natural musk wished back.''',
+  '''A little too clean: the familiar natural scent is thin, and its absence is quietly missed.''',
+  '''A faint just-washed freshness. A touch too clean for comfort; barely registers.''',
 ];
 
 // Mandatory "this just happened" events fired when a HARD-EVENT need bottoms

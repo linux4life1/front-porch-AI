@@ -90,7 +90,7 @@ void main() {
     });
 
     test(
-      'a hunger drop without eat or food is the beat and survives',
+      'a hunger drop without eat or food is a second charge and is corrected',
       () async {
         final r = await _verifier().verify(
           evalKind: 'needs_impact',
@@ -99,12 +99,15 @@ void main() {
         );
         expect(
           r.status,
-          'accepted',
+          'corrected',
           reason:
-              'A time drop is not a spike. The old rule rewrote -20 to -2 '
-              'whenever the scene lacked eat/food, which undid the beat.',
+              'Needs v2 (2026-10-06): the clock charges the span in code '
+              '(needs_wear.dart), so a judge drop with nothing in the scene '
+              'to cost it would charge the beat twice. The 2026-09-29 rule '
+              'that let a drop through as "the beat" is reversed with it.',
         );
-        expect(r.correctedRaw, contains('"hunger_delta": -20'));
+        expect(r.correctedRaw, contains('"hunger_delta": -2'));
+        expect(r.correctedRaw, isNot(contains('-20')));
       },
     );
 

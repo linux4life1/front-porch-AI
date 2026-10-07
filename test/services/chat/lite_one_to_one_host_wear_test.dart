@@ -195,17 +195,19 @@ void main() {
   });
 
   test(
-    '1:1 guest turn stamps time without taxing the host; regen/swipe stay put',
+    '1:1 guest turn wears the host once; regen and swipe keep that one wear',
     () async {
       await boot(_ScriptedLlm());
       expect(hunger(), 40);
 
       await chat!.speakGuestNow(liveGuest());
       await drainTurn();
+      // Needs v2 (2026-10-06): time passes for everyone present. The
+      // guest's 30-minute beat wears the host's hunger 3 (needs_wear.dart).
       expect(
         hunger(),
-        40,
-        reason: '30 min on the clock is not a host body tax',
+        37,
+        reason: '30 min on the clock wears the host, speaker or not',
       );
       final reply = chat!.messages.lastWhere((m) => !m.isUser);
       expect(reply.sender, 'Riley');
@@ -215,8 +217,8 @@ void main() {
       await drainTurn();
       expect(
         hunger(),
-        40,
-        reason: 'guest regen must not invent a clock tax on the host',
+        37,
+        reason: 'guest regen rewinds the host and wears the beat once more',
       );
       expect(chat!.messages.last.swipes.length, greaterThan(1));
       expect(chat!.messages.last.activeMetadata?['time_passed'], '30 min');
@@ -224,15 +226,16 @@ void main() {
       final idx = chat!.messages.indexOf(chat!.messages.last);
       await chat!.swipeMessage(idx, -1);
       await drainTurn();
-      expect(hunger(), 40);
+      expect(hunger(), 37, reason: 'the older swipe wore the same beat');
     },
   );
 
-  test('delete of a 1:1 guest reply does not invent host wear', () async {
+  test('delete of a 1:1 guest reply refunds the host wear', () async {
     await boot(_ScriptedLlm());
     await chat!.speakGuestNow(liveGuest());
     await drainTurn();
-    expect(hunger(), 40);
+    // Needs v2: the guest's beat wore the host once.
+    expect(hunger(), 37);
 
     final idx = chat!.messages.indexWhere(
       (m) => !m.isUser && m.sender == 'Riley' && m == chat!.messages.last,
@@ -243,7 +246,7 @@ void main() {
     expect(
       hunger(),
       40,
-      reason: 'tail-delete must not invent a drop the clock never applied',
+      reason: 'tail-delete gives back the beat\'s wear to everyone present',
     );
   });
 

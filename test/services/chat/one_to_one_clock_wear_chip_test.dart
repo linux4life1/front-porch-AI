@@ -43,6 +43,19 @@ const _carmenNeeds = {
   'comfort': 80,
 };
 
+/// Needs v2 (2026-10-06): the clock charges the span in code. Thirty
+/// minutes at Normal pace is hunger 3, bladder 7 (7.5, half carried),
+/// energy 2 (2.5, half carried); the other four move only on events.
+const _carmenAfter30 = {
+  'hunger': 77,
+  'bladder': 73,
+  'energy': 78,
+  'social': 80,
+  'fun': 80,
+  'hygiene': 80,
+  'comfort': 80,
+};
+
 class _ZeroMinuteLlm extends _ScriptedLlm {
   @override
   Stream<String> generateStream(GenerationParams params) async* {
@@ -306,10 +319,10 @@ void main() {
 
     expect(
       bars(),
-      _carmenNeeds,
+      _carmenAfter30,
       reason:
-          'scene eval returned zeros — a 30-min clock must not '
-          'drop Hunger+Bladder+Energy+Social+Fun+Hygiene+Comfort',
+          'scene eval returned zeros — the 30-min clock wears hunger, '
+          'bladder and energy at the fixed rates and nothing else',
     );
     expect(
       lastBot().activeMetadata?['time_passed'],
@@ -323,10 +336,15 @@ void main() {
     );
     expect(
       lastBot().activeMetadata?[kNeedsUnaffectedMeta],
-      isTrue,
-      reason:
-          'short no-action turn must stamp No needs affected so '
-          'the UI proves Needs ran without moving bars',
+      isNull,
+      reason: 'the bars moved with the clock, so this is not a quiet turn',
+    );
+    final deltas = lastBot().activeMetadata?['needs_deltas'] as Map?;
+    expect(deltas?['hunger']?['delta'], -3);
+    expect(
+      deltas?['hunger']?['reason'],
+      '30 min',
+      reason: 'the chip names the time part when only time moved the bar',
     );
   });
 
@@ -402,9 +420,9 @@ void main() {
       await chat!.sendMessage('How are you?');
       await drainTurn();
 
-      expect(bars(), _carmenNeeds);
+      expect(bars(), _carmenAfter30);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
-      expect(lastBot().activeMetadata?[kNeedsUnaffectedMeta], isTrue);
+      expect(lastBot().activeMetadata?[kNeedsUnaffectedMeta], isNull);
     },
   );
 
@@ -681,13 +699,13 @@ void main() {
   });
 
   test(
-    '1:1 regen restamps time_passed and does not invent clock wear',
+    '1:1 regen restamps time_passed and wears the beat exactly once',
     () async {
       await boot();
       final origin = chat!.timeService.clock;
       await chat!.sendMessage('How are you?');
       await drainTurn();
-      expect(bars(), _carmenNeeds);
+      expect(bars(), _carmenAfter30);
       expect(lastBot().activeMetadata?['time_passed'], '30 min');
       expect(
         chat!.timeService.clock.difference(origin).inMinutes,
@@ -708,10 +726,10 @@ void main() {
       expect(lastBot().swipeIndex, isNot(firstSwipe));
       expect(
         bars(),
-        _carmenNeeds,
+        _carmenAfter30,
         reason:
-            'regen must not apply a board-wide clock tax — '
-            'scene eval is still zeros',
+            'regen rewinds to the pre-turn bars and carry, then wears the '
+            'same 30 minutes once: the same bars, not a second charge',
       );
       expect(
         lastBot().activeMetadata?['time_passed'],
@@ -735,11 +753,20 @@ void main() {
         30,
         reason: 'three regens must not accumulate minutes',
       );
+      expect(
+        bars(),
+        _carmenAfter30,
+        reason: 'three regens must not accumulate wear either',
+      );
 
       final regenIndex = chat!.messages.indexOf(lastBot());
       await chat!.swipeMessage(regenIndex, -1);
       await drainTurn();
-      expect(bars(), _carmenNeeds);
+      expect(
+        bars(),
+        _carmenAfter30,
+        reason: 'the older swipe wore the same beat once from the same base',
+      );
       expect(
         lastBot().activeMetadata?['time_passed'],
         firstChip,
@@ -775,6 +802,27 @@ void main() {
     },
   );
 
+  test('1:1 OOC skip of six hours wears to the skip floors', () async {
+    await boot();
+    expect(bars(), _carmenNeeds);
+
+    await chat!.sendMessage('(OOC: six hours pass)');
+    await drainTurn();
+
+    // Needs v2: 360 minutes off-screen is hunger 36, bladder 90 and energy
+    // 30 of wear, held at the skip floors (45 / 60 / 25) because off-screen
+    // people look after themselves. Energy lands on 50, above its floor.
+    expect(bars(), {
+      ..._carmenNeeds,
+      'hunger': 45,
+      'bladder': 60,
+      'energy': 50,
+    });
+    expect(lastBot().activeMetadata?['time_skip_to'], isNotNull);
+    final deltas = lastBot().activeMetadata?['needs_deltas'] as Map?;
+    expect(deltas?['bladder']?['delta'], -20);
+  });
+
   test('1:1 Continue does not tick the story clock', () async {
     await boot();
     await chat!.sendMessage('How are you?');
@@ -790,7 +838,7 @@ void main() {
       afterSend,
       reason: 'Continue is the same beat — it must not run the time eval',
     );
-    expect(bars(), _carmenNeeds);
+    expect(bars(), _carmenAfter30, reason: 'Continue wears nothing more');
   });
 
   test(

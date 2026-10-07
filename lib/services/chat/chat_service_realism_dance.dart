@@ -112,6 +112,9 @@ extension ChatServiceRealismDance on ChatService {
             );
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurn;
+      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
+        _memberForWrite(charId).needsWearCarry,
+      );
       _loadGroupRealismIntoScalars(charId);
     } else if (_activeGroup != null) {
       // Group speaker (observer mode or needs-off): load this speaker's persisted

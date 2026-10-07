@@ -65,6 +65,7 @@ export 'needs_impact_evaluator.dart';
 export 'needs_impact_zero.dart';
 export 'needs_persist.dart';
 export 'needs_simulation.dart';
+export 'needs_wear.dart';
 export 'nsfw_service.dart';
 export 'objective_mention_gate.dart';
 export 'objective_eval_tools.dart';

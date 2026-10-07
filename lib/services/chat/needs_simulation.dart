@@ -19,6 +19,7 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/needs_wear.dart';
 
 part 'needs_simulation.tables.dart';
 
@@ -49,6 +50,10 @@ class NeedsSimulation {
   final bool Function() getNeedsSimEnabled;
 
   Map<String, int> _vector = {};
+
+  /// Fractions of a point the clock has charged but not yet taken, per need
+  /// (see needsWearForSpan). Rewound with the vector.
+  Map<String, double> _wearCarry = {};
   String? _pendingCatastrophe;
   String?
   _lastSceneReason; // from model/Director for better chip reasons on scene deltas
@@ -72,6 +77,8 @@ class NeedsSimulation {
   });
 
   Map<String, int> get vector => Map<String, int>.unmodifiable(_vector);
+  Map<String, double> get wearCarry =>
+      Map<String, double>.unmodifiable(_wearCarry);
   String? get pendingCatastrophe => _pendingCatastrophe;
   Set<String> get hygieneCrisisAcked =>
       Set<String>.unmodifiable(_hygieneCrisisAcked);
@@ -105,10 +112,14 @@ class NeedsSimulation {
     };
   }
 
-  static const int needUrgentThreshold = 35;
-  static const int needCriticalThreshold = 20;
+  /// Bar colours follow the bands: amber from the moderate band down, red
+  /// from the strong band down.
+  static const int needUrgentThreshold = 40;
+  static const int needCriticalThreshold = 25;
 
-  static const List<int> needStepUpperBounds = [0, 15, 30, 45, 65];
+  /// Upper bound of each band, worst first: 0 empty, 10 crisis, 25 strong,
+  /// 40 moderate, 55 mild. Above 55 a need says nothing.
+  static const List<int> needStepUpperBounds = [0, 10, 25, 40, 55];
 
   static const Map<String, List<String>> needSteppedText = _needSteppedText;
   static const List<String> hygieneSteppedTextWhenEnjoysLow =
@@ -120,6 +131,7 @@ class NeedsSimulation {
 
   void initializeFresh() {
     _vector = Map<String, int>.from(needDefaults);
+    _wearCarry = {};
     _pendingCatastrophe = null;
     _lastSceneReason = null;
     _hygieneCrisisAcked.clear();
@@ -133,6 +145,7 @@ class NeedsSimulation {
   /// are respected instead of the hardcoded [needDefaults].
   void initializeFreshWithDefaults(Map<String, int> defaults) {
     _vector = Map<String, int>.from(defaults);
+    _wearCarry = {};
     _pendingCatastrophe = null;
     _lastSceneReason = null;
     _hygieneCrisisAcked.clear();
@@ -141,9 +154,38 @@ class NeedsSimulation {
 
   void clearVector() {
     _vector.clear();
+    _wearCarry = {};
     _pendingCatastrophe = null;
     _lastSceneReason = null;
     _hygieneCrisisAcked.clear();
+  }
+
+  /// The clock's wear for one beat, applied to the live vector. [points] is
+  /// what needsWearForSpan charged; [carry] is its leftover fraction, kept
+  /// so the next beat continues from it. [offScreen] picks the skip floors
+  /// over the on-screen stop (see wornBar). Returns the drop each bar took.
+  Map<String, int> applyTimeWear({
+    required Map<String, int> points,
+    required Map<String, double> carry,
+    required bool offScreen,
+  }) {
+    final taken = <String, int>{};
+    for (final entry in points.entries) {
+      final current = _vector[entry.key];
+      if (current == null) continue;
+      final next = wornBar(
+        need: entry.key,
+        current: current,
+        drop: entry.value,
+        offScreen: offScreen,
+      );
+      if (next != current) {
+        _vector[entry.key] = next;
+        taken[entry.key] = current - next;
+      }
+    }
+    _wearCarry = Map<String, double>.from(carry);
+    return taken;
   }
 
   void resetBuffers() {
@@ -273,6 +315,11 @@ class NeedsSimulation {
         ..clear()
         ..addAll(ack.map((e) => e.toString()));
     }
+    // A snapshot without a carry (older rows, a bare vector) starts the
+    // fractions over; a vector restore without one is a rewind to a turn
+    // whose carry the stamp did not keep, and sub-point drift is accepted.
+    final carry = needsData[kNeedsWearCarryKey];
+    _wearCarry = carry is Map ? wearCarryFrom(carry) : {};
     // No buffer restore.
     _lastSceneReason = null;
   }
@@ -327,9 +374,10 @@ class NeedsSimulation {
   }
 
   /// Returns the lowest (worst) needs that should receive background state
-  /// this turn, worst-first, capped at 3. Hunger and bladder stay silent at
-  /// mild (step 4) — a faint urge made every chat about peeing and eating.
-  /// Other needs still inject at step 4. Sated needs never surface.
+  /// this turn, worst-first, capped at 3. Every need injects from the mild
+  /// band (step 4); the mild lines carry their own "not pressing", which is
+  /// what used to keep hunger and bladder a band quieter. Sated needs never
+  /// surface.
   ///
   /// [enjoysLowHygieneOverride] MUST carry the specific speaker's flag in
   /// group chats (same reason as [getInjectionEffectiveStep]) — without it the
@@ -362,14 +410,8 @@ class NeedsSimulation {
           return byStep != 0 ? byStep : a.value.compareTo(b.value);
         });
     return ranked
-        .where((e) => _injectsNeed(e.key, e.effectiveStep))
+        .where((e) => e.effectiveStep <= needStepUpperBounds.length - 1)
         .take(3)
         .toList();
-  }
-
-  /// Hunger/bladder at step 4 is "a faint urge" — too loud for ambient clocks.
-  static bool _injectsNeed(String key, int effectiveStep) {
-    if (key == 'hunger' || key == 'bladder') return effectiveStep <= 3;
-    return effectiveStep <= 4;
   }
 }

@@ -101,7 +101,7 @@ extension TimeServiceApply on TimeService {
         minutes: adjusted < 0 ? 0 : adjusted,
         nextMorning: false,
         isSkip: false,
-        wearAwake: false,
+        offScreen: false,
       );
     }
     await _ifDayChanged(dayBefore);
@@ -151,7 +151,7 @@ extension TimeServiceApply on TimeService {
         minutes: jumped < 0 ? 0 : jumped,
         nextMorning: false,
         isSkip: false,
-        wearAwake: false,
+        offScreen: true,
       );
       // Same skip ownership as detectOocTimeSkip: the post-reply eval
       // must not add minutes, and the tick takes the time_skip_to
@@ -217,15 +217,16 @@ extension TimeServiceApply on TimeService {
     final next = StoryClock.resolveSkipTarget(_clock, lower);
 
     final dayBefore = dayCount;
+    final skipped = next.difference(_clock).inMinutes;
     _clock = next;
     _turnsSinceClockMoved = 0;
     _oocSkipMovedClockThisTurn = true;
     final destination = '$displayShortDate · $displayClock';
     _noteBodyBeat(
-      minutes: 0,
+      minutes: skipped,
       nextMorning: isNightSkip(lower),
       isSkip: true,
-      wearAwake: false,
+      offScreen: true,
       skipDestination: destination,
     );
     onSetPendingRealismMetadata('time_skip_to', destination);
@@ -248,6 +249,7 @@ extension TimeServiceApply on TimeService {
     bool continuousInstant = false,
   }) async {
     final dayBefore = dayCount;
+    final clockBefore = _clock;
     var moved = false;
     final namedHolds =
         _namedReconcileExact &&
@@ -285,18 +287,19 @@ extension TimeServiceApply on TimeService {
       debugPrint('[Realism:Time] Stall backstop — snapped to $timeOfDay');
     }
     if (!stalled) {
+      // A night crossed is the whole jump, not the minutes the eval named.
       _noteBodyBeat(
-        minutes: m,
+        minutes: newDay ? _clock.difference(clockBefore).inMinutes : m,
         nextMorning: newDay,
         isSkip: false,
-        wearAwake: false,
+        offScreen: newDay,
       );
     } else {
       _noteBodyBeat(
         minutes: _clock.difference(stallFrom!).inMinutes,
         nextMorning: false,
         isSkip: false,
-        wearAwake: false,
+        offScreen: false,
       );
     }
     debugPrint('[Realism:Time] committed $m min');
