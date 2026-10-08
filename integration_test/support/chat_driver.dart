@@ -57,73 +57,52 @@ class ChatDriver {
   /// depending only on the bubble's public contract, not the page's
   /// private key scheme. ChatMessage does not override `==`, so this is
   /// the same equality the old key used.
-  Finder bubbleFor(ChatMessage msg) {
-    final live = _live(msg);
-    return find.byWidgetPredicate(
-      (w) => w is MessageBubble && identical(w.message, live),
-    );
-  }
+  Finder bubbleFor(ChatMessage msg) => find.byWidgetPredicate(
+    (w) => w is MessageBubble && identical(w.message, msg),
+  );
 
-  /// The instance of [msg] the chat holds now. A caller keeps the object it
-  /// read before a turn; if the list has been rebuilt since, no bubble
-  /// carries that object, and the one with the same place, sender and
-  /// words is the message. Logged when it happens, so a CI log says so.
-  ChatMessage _live(ChatMessage msg) {
-    final messages = chatService.messages;
-    for (final m in messages) {
-      if (identical(m, msg)) return msg;
-    }
-    for (final m in messages) {
-      if (m.isUser == msg.isUser &&
-          m.sender == msg.sender &&
-          m.text == msg.text) {
-        debugPrint(
-          '[ChatDriver] the list no longer holds the caller\'s message '
-          'object; matched its live instance by sender and text',
-        );
-        return m;
-      }
-    }
-    return msg;
-  }
-
-  /// [bubbleFor], revealed by scrolling. The reversed list VIRTUALIZES, so
-  /// an old message's bubble may not be built at all until dragged into
-  /// view (the macOS leg of message_actions' first CI run). Positive drags
-  /// reveal older messages in the reversed list; the negative tail is
-  /// insurance.
+  /// [bubbleFor], revealed by scrolling. The transcript (`ListView`, keyed
+  /// `transcript-listview`, oldest at the top, opened at the bottom)
+  /// VIRTUALIZES: an older message's bubble is not built until it is in
+  /// view. The list is moved through its own ScrollPosition, a viewport at
+  /// a time toward the top and then the bottom, until the bubble is built
+  /// or both ends have been reached. Pointer drags were the old way, and
+  /// on every CI platform they moved the list by nothing at all, so the
+  /// greeting of a five-message chat stayed unbuilt (message_actions).
   Future<Finder> revealBubbleFor(ChatMessage msg) async {
     final f = bubbleFor(msg);
     if (f.evaluate().isNotEmpty) return f;
-    // The list may not have built a bubble yet on a slow runner.
     await pumpUntilFound(
       tester,
-      find.byType(MessageBubble),
+      find.byKey(const ValueKey('transcript-listview')),
       timeout: const Duration(seconds: 30),
     );
     final scrollable = find
-        .ancestor(
-          of: find.byType(MessageBubble).first,
+        .descendant(
+          of: find.byKey(const ValueKey('transcript-listview')),
           matching: find.byType(Scrollable),
         )
         .first;
-    // Twelve fixed drags with one 250 ms pump each gave up on a loaded
-    // runner before the virtualized list had built what a drag revealed
-    // (message_actions on the Linux and macOS shards). Now each direction
-    // is dragged until the bubble is built or the list stops moving (its
-    // end), with real time for the build and one deadline for the lot.
+    final position = tester.state<ScrollableState>(scrollable).position;
+    final step = position.viewportDimension > 0
+        ? position.viewportDimension * 0.8
+        : 400.0;
     final deadline = DateTime.now().add(
       const Duration(seconds: 45) * kCiTimeoutScale,
     );
-    for (final dy in const [300.0, -300.0]) {
-      var last = double.nan;
+    for (final towardTop in const [true, false]) {
       while (f.evaluate().isEmpty && DateTime.now().isBefore(deadline)) {
-        final at = tester.state<ScrollableState>(scrollable).position.pixels;
-        if (at == last) break;
-        last = at;
-        await tester.drag(scrollable, Offset(0, dy));
-        for (var i = 0; i < 4 && f.evaluate().isEmpty; i++) {
-          await tester.pump(const Duration(milliseconds: 100));
+        final target = towardTop
+            ? position.pixels - step
+            : position.pixels + step;
+        final clamped = target.clamp(
+          position.minScrollExtent,
+          position.maxScrollExtent,
+        );
+        if (clamped == position.pixels) break; // this end is reached
+        position.jumpTo(clamped);
+        for (var i = 0; i < 3 && f.evaluate().isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 50));
         }
       }
       if (f.evaluate().isNotEmpty) break;
