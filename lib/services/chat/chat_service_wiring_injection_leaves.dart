@@ -253,7 +253,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   NeedsInjection _buildNeedsInjection() {
     return NeedsInjection(
       needsSimulation: _needsSimulation,
-      getNeedsSimEnabled: () => _needsSimEnabled,
+      getNeedsSimEnabled: () => _needsActive,
       getRealismEnabled: () => _realismEnabled,
       getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,

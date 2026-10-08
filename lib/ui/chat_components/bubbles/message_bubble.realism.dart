@@ -75,15 +75,17 @@ extension _BubbleRealism on _MessageBubbleState {
     final verifStatus = (verifData?['status'] as String? ?? '').trim();
     final verifPasses = (verifData?['passes'] as num?)?.toInt() ?? 0;
     final verifReason = (verifData?['reason'] as String? ?? '').trim();
-    // Mood, clock, needs, or the verifier mean this reply was scored.
-    // A missing bond/trust key on that reply is a dropped zero, not a
-    // skipped judge. Say so, the same way Needs says nothing moved.
+    // Mood, needs, or the verifier mean the engine scored this reply. A
+    // missing bond/trust key on that reply is a dropped zero, not a
+    // skipped judge. Say so, the same way Needs says nothing moved. The
+    // clock is not on that list: Passage of Time runs without the engine
+    // (2026-08-06), so a time chip alone proves nothing about the judge,
+    // and counting it put "Bond unchanged" on every reply of a chat with
+    // Realism off (a user's report on v1.5.0).
     final realismTouched =
         emotionLabel.isNotEmpty ||
         needsUnaffected ||
         (needsDeltas != null && needsDeltas.isNotEmpty) ||
-        timePassed.isNotEmpty ||
-        timeSkipTo.isNotEmpty ||
         verifStatus.isNotEmpty ||
         bondRecorded ||
         trustRecorded;

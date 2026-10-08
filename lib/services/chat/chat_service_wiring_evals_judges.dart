@@ -78,7 +78,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getCharacterIdFromCard: _getCharacterIdFromCard,
       getMessages: () => _messages,
       needsSimulation: _needsSimulation,
-      getNeedsSimEnabled: () => _needsSimEnabled,
+      getNeedsSimEnabled: () => _needsActive,
       getRealismEnabled: () => _realismEnabled,
       getNeedsModelAuthorityEnabled: () =>
           (_activeCharacter

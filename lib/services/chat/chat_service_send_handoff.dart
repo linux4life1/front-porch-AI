@@ -116,11 +116,11 @@ extension ChatServiceSendHandoff on ChatService {
     // can use the same delta-revert mechanism the classic realism fields
     // (bond/trust/arousal) use.
     Map<String, int>? preTurnVector;
-    // Needs is its own switch. Stamp the pre-wear body even when the
-    // Realism engine is off so regen can rewind (hide ≠ skip restore).
+    // Needs follow the engine (_needsActive): with it off nothing wears, so
+    // there is nothing for a regen to rewind and no stamp to leave.
     if (addressedGuest == null &&
         _activeGroup == null &&
-        _needsSimEnabled &&
+        _needsActive &&
         _needsSimulation.vector.isNotEmpty) {
       preTurnVector = Map<String, int>.from(_needsSimulation.vector);
       _pendingRealismMetadata ??= {};

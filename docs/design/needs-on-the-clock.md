@@ -216,6 +216,18 @@ With Passage of Time off there is no story time, so nothing wears. This is versi
 
 One line of copy, desktop and phone, under the Needs switch wherever it appears (chat sidebar gear, character editor and creators, an alternate greeting's Needs block, group Needs tab, group creation, Settings → Porch Life), shown only while the clock is off: **"With Passage of time off, needs change only when the story says so."** Without it a user who turns the clock off and sees the bars sit still thinks Needs is broken. "Off" is the Porch Life Passage of Time switch (`passageOfTimeDefault`), the live clock gate; the line shows whether or not that Needs switch is itself on.
 
+## Realism Engine off, and the global Needs switch
+
+Needs require the Realism Engine (the Porch Life tab says so): with the
+engine off no judge runs and the clock wears nothing either, so the bars
+hold and the reply carries no needs stamp or chip, only the time chip,
+which Passage of Time owns on its own. Version 2 as shipped in v1.5.0 let
+the clock wear the body with the engine off ("Needs answers to its own
+switch"), and a user with Realism off saw "Bladder −1" under a reply; the
+rule went back on 2026-10-08. The global Needs switch (Settings → Porch
+Life) is read live, the way Objectives read theirs, so turning it off
+takes effect on the next turn rather than the next time the chat opens.
+
 ## What you will see, and what does not change
 
 On desktop and on the phone, in the same work:

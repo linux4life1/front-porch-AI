@@ -249,23 +249,23 @@ void main() {
     expect(guestNeeds()['hunger'], 80);
   });
 
-  test('group regen with Realism off wears the beat once, not twice', () async {
+  test('group send and regen with Realism off wear nothing', () async {
     await boot();
-    // Needs answers to its own switch; the Realism engine is off here, so
-    // the engine-gated group rewind never runs (review finding, Needs v2).
+    // Changed 2026-10-08: this case pinned "Needs answers to its own switch"
+    // (a Needs v2 review finding), and with the engine off expected the
+    // wear once. Needs require the engine (the Porch Life tab's own words),
+    // and a v1.5.0 user saw "Bladder −1" with Realism off; the wear now
+    // stays behind the engine, as the needs judge always did.
+    final before = floraNeeds()['hunger'];
     await chat!.setRealismEnabled(false);
     chat!.setNextCharacter(named('Flora'));
     await chat!.sendMessage('How are you?');
     await drainTurn();
-    expect(floraNeeds()['hunger'], 37);
+    expect(floraNeeds()['hunger'], before, reason: 'no engine, no wear');
 
     await chat!.regenerateLastMessage();
     await drainTurn();
-    expect(
-      floraNeeds()['hunger'],
-      37,
-      reason: 'regen rewinds the present bodies and wears the beat once',
-    );
+    expect(floraNeeds()['hunger'], before, reason: 'and none on regen');
   });
 
   test('lite Continue does not wear Flora a second time', () async {

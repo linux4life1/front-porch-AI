@@ -103,7 +103,7 @@ extension ChatServiceRealismDance on ChatService {
 
     // Group: stamp the body as it is now. Wear happens after the clock,
     // for everyone who is present, not as a per-send tick on the speaker.
-    if (_activeGroup != null && !_observerMode && _needsSimEnabled) {
+    if (_activeGroup != null && !_observerMode && _needsActive) {
       final currentForSpeaker = _getGroupNeeds(charId);
       final preTurn = currentForSpeaker.isNotEmpty
           ? Map<String, int>.from(currentForSpeaker)
@@ -151,7 +151,7 @@ extension ChatServiceRealismDance on ChatService {
 
     // Capture this speaker's pre-turn needs vector (before decay + eval)
     Map<String, int>? preTurnVector;
-    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+    if (_needsActive && _needsSimulation.vector.isNotEmpty) {
       preTurnVector = Map<String, int>.from(_needsSimulation.vector);
     }
 

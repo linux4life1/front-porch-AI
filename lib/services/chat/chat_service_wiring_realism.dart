@@ -112,7 +112,7 @@ extension ChatServiceWiringRealism on ChatService {
       getGroupNeeds: _getGroupNeeds,
       setGroupNeeds: _setGroupNeeds,
       getEnjoysLowHygiene: () => enjoysLowHygiene,
-      getNeedsSimEnabled: () => _needsSimEnabled,
+      getNeedsSimEnabled: () => _needsActive,
     );
   }
 

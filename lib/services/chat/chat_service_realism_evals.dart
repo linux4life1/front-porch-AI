@@ -233,7 +233,7 @@ extension ChatServiceRealismEvals on ChatService {
     // (see setNeedsSimEnabled and ext seeding). Snapshots only carry the vector
     // for timeline continuity while the sim is on. This prevents historical
     // snapshots from resurrecting a stale enabled state after a mid-chat toggle-off.
-    if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+    if (_needsActive && _needsSimulation.vector.isNotEmpty) {
       // Explicit <String, dynamic> for the needs snapshot so that 'deltas' (Map with
       // mixed int/String values from computeNeedsDeltasWithReasons) can be attached
       // without runtime generic value-type violation (the 'vector' entry statically
@@ -242,7 +242,9 @@ extension ChatServiceRealismEvals on ChatService {
       final needsSnap = <String, dynamic>{
         'vector': Map<String, int>.from(_needsSimulation.vector),
         'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
-        kNeedsWearCarryKey: Map<String, double>.from(_needsSimulation.wearCarry),
+        kNeedsWearCarryKey: Map<String, double>.from(
+          _needsSimulation.wearCarry,
+        ),
       };
       state['needs'] = needsSnap;
 

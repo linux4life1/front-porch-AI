@@ -3,7 +3,7 @@
 //
 // T1: Realism OFF + Passage of Time ON. The clock runs, the time chip
 // stamps, Realism evals do not fire, exactly one time-only LLM call
-// lands per turn, Needs bars stay put, and needs_unaffected is written.
+// lands per turn, Needs bars stay put, and nothing of Needs is written.
 // Restores the case that realism_off_test weakened by turning PoT off.
 
 import 'dart:io';
@@ -225,19 +225,26 @@ void main() {
         '30 min',
         reason: 'the time chip must stamp',
       );
-      // Needs v2 (2026-10-06): Needs answers to its own switch. With the
-      // Realism engine off no judge runs, but the clock still wears hunger,
-      // bladder and energy for the 30 minutes (needs_wear.dart).
-      expect(chat!.needsSimulation.vector, {
-        ...beforeNeeds,
-        'hunger': beforeNeeds['hunger']! - 3,
-        'bladder': beforeNeeds['bladder']! - 7,
-        'energy': beforeNeeds['energy']! - 2,
-      }, reason: 'the clock wears the body even with the Realism engine off');
+      // Needs require the Realism engine (the Porch Life tab's own words).
+      // Needs v2 (2026-10-06) had the clock wear the body here anyway, and
+      // a v1.5.0 user with Realism off saw "Bladder −1" under a reply;
+      // changed back 2026-10-08. With the engine off nothing of Needs is
+      // written on the reply either: no wear, no pre-turn stamp, and no
+      // "needs unaffected" receipt, since a chip is what the user saw.
+      expect(
+        chat!.needsSimulation.vector,
+        beforeNeeds,
+        reason: 'no engine, no wear',
+      );
+      expect(last.activeMetadata?.containsKey('needs_time_wear'), isFalse);
+      expect(
+        last.activeMetadata?.containsKey('needs_pre_turn_vector'),
+        isFalse,
+      );
       expect(
         last.activeMetadata?[kNeedsUnaffectedMeta],
         isNull,
-        reason: 'the bars moved, so the no-needs-affected chip is not stamped',
+        reason: 'no needs receipt on a reply the engine never scored',
       );
     },
   );

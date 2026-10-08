@@ -106,7 +106,13 @@ extension ChatServiceGenerationStream on ChatService {
       } else if (_pendingRealismMetadata == null) {
         initialMetadata = null;
       } else {
-        initialMetadata = Map<String, dynamic>.from(_pendingRealismMetadata!);
+        // needs_time_wear is post-gen scratch (the chip step reads it),
+        // written after this reset, so a value here is the previous
+        // turn's and would ride onto this reply: with the global Needs
+        // switch turned off mid-chat, the new reply wore nothing and
+        // showed last turn's wear.
+        initialMetadata = Map<String, dynamic>.from(_pendingRealismMetadata!)
+          ..remove('needs_time_wear');
       }
       debugPrint(
         '[Realism:Metadata] PRE-GEN attach (needs_deltas + any post-gen '

@@ -16,8 +16,20 @@ extension ChatServiceBodyWear on ChatService {
   /// every present body before and after, with the fraction each carried
   /// in, is stamped on the reply itself, because the pending map never
   /// reaches the message and regen and delete read the message.
+  /// Needs are moving for this chat: the per-chat switch, the global one
+  /// read live (as objectivesActive does, so "off" takes effect on the next
+  /// turn rather than the next reopen), and the Realism engine, which Needs
+  /// require (the Porch Life tab says so). Before v2 the only way a need
+  /// moved was the needs judge, behind the engine; the clock's wear must
+  /// not get past that gate, or a reply with the engine off shows
+  /// "Bladder −1" (a user's report on v1.5.0).
+  bool get _needsActive =>
+      _realismEnabled &&
+      _needsSimEnabled &&
+      _storageService.realismSettings.needsSimDefault;
+
   void _wearBodiesAfterClock(_GenTurn t) {
-    if (!_needsSimEnabled) return;
+    if (!_needsActive) return;
     if (t.mode == GenerationMode.continue_) return;
     _pendingRealismMetadata ??= {};
     _pendingRealismMetadata!['needs_time_wear'] = const <String, int>{};
@@ -30,7 +42,7 @@ extension ChatServiceBodyWear on ChatService {
   /// reply) keeps the first call's "before" and extends its "after" and
   /// the chip's time part.
   void _wearBeatOn(ChatMessage target) {
-    if (!_needsSimEnabled) return;
+    if (!_needsActive) return;
     final minutes = _timeService.takeBodyWearMinutes();
     if (minutes <= 0) return;
     final offScreen = _timeService.bodyBeatOffScreen;
