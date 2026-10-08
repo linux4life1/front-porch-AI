@@ -200,13 +200,17 @@ class BackendManager extends ChangeNotifier {
       _useRocm = _storageService.backendSettings.useRocm == true;
       print('AG_DEBUG: ROCm binary (user opt-in): $_useRocm');
     }
+    // Only a look that had the data root counts: the first pass can start
+    // before the storage has one and report no engine, and the root can
+    // arrive during that look, so what it had is taken before it begins.
+    final looked = _storageService.rootPath != null;
     await checkBackendAvailability();
     if (_storageService.rootPath != null) {
       final v = await KoboldBinaryVersion.read(_storageService.binDir.path);
       _localVersion = v.version;
       _localSize = v.size;
     }
-    if (!_engineChecked.isCompleted) _engineChecked.complete();
+    if (looked && !_engineChecked.isCompleted) _engineChecked.complete();
     if (UpdateService.isSupported) {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool('update_auto_check') ?? true) {

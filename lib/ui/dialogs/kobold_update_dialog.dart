@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/backend_manager.dart';
@@ -67,9 +69,20 @@ class _KoboldUpdateDialogState extends State<KoboldUpdateDialog> {
     return v == null ? 'your copy' : 'KoboldCpp $v';
   }
 
+  bool _updating = false;
+
   Future<void> _update() async {
+    if (_updating) return;
+    _updating = true;
     setState(() => _phase = _Phase.downloading);
-    await _manager.downloadBackend();
+    // A download already running (from Settings, or a second press) is
+    // waited for, not reported done.
+    if (_manager.isDownloading) {
+      await _manager.awaitDownload();
+    } else {
+      await _manager.downloadBackend();
+    }
+    _updating = false;
     if (!mounted) return;
     final error = _manager.error;
     setState(() {
@@ -156,14 +169,21 @@ class _KoboldUpdateDialogState extends State<KoboldUpdateDialog> {
       case _Phase.failed:
         return WarmDialogText(
           'The download did not finish: $_problem\n\n'
-          'Check your connection and try again.',
+          'Check your connection and try again.$_lockHint',
         );
       case _Phase.removeFailed:
-        return WarmDialogText('$_problem\n\nYou can try again.');
+        return WarmDialogText('$_problem\n\nYou can try again.$_lockHint');
       case _Phase.asking:
         return WarmDialogText(_tooOld ? _tooOldWords : _newerWords);
     }
   }
+
+  /// Windows keeps a running program's file locked, so an engine left
+  /// running by an earlier session blocks both the update and the removal.
+  String get _lockHint => Platform.isWindows
+      ? ' If KoboldCpp is still running from an earlier session, close it '
+            'first.'
+      : '';
 
   String get _tooOldWords =>
       'This version of Front Porch AI writes settings that KoboldCpp '

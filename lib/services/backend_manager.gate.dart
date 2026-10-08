@@ -22,9 +22,27 @@ part of 'backend_manager.dart';
 /// the engine's verified version, a version check it can wait on, the
 /// snooze of a "Not now", and removing an engine the user will not update.
 extension BackendManagerGate on BackendManager {
-  /// Resolves once the first look for the engine file is over, so a reader
-  /// does not act on [backendPath] before it is known.
+  /// Resolves once the first look for the engine file with a data root is
+  /// over, so a reader does not act on [backendPath] before it is known.
   Future<void> get engineChecked => _engineChecked.future;
+
+  /// Waits for a download in flight (one begun from Settings, or a second
+  /// press); returns at once when none is.
+  Future<void> awaitDownload() async {
+    if (!_isDownloading) return;
+    final done = Completer<void>();
+    void listener() {
+      if (!_isDownloading && !done.isCompleted) done.complete();
+    }
+
+    addListener(listener);
+    try {
+      if (!_isDownloading) return;
+      await done.future;
+    } finally {
+      removeListener(listener);
+    }
+  }
 
   /// The installed engine's version from the record written for this very
   /// binary, or null when there is none: the same answer the launch refusal
@@ -86,6 +104,7 @@ extension BackendManagerGate on BackendManager {
     DateTime? now,
     @visibleForTesting bool? autoCheck,
   }) async {
+    await _storageService.initialized;
     await engineChecked;
     final installed = _backendPath != null && !isIntelMac;
     if (!installed) return KoboldUpdateGate.nothing;
