@@ -171,12 +171,17 @@ void main() {
       url: 'http://127.0.0.1:1/none',
       recordVersion: '1.100',
     );
+    // A variant from an earlier GPU choice sits beside it; the lookup
+    // would fall back to that one, so Remove takes every engine file.
+    final variant = File(p.join(bin.path, 'koboldcpp-linux-x64-oldpc'));
+    await tester.runAsync(() => variant.writeAsBytes(List.filled(64, 2)));
     await tester.tap(find.text('Remove it, I use something else'));
     await settle(
       tester,
       () => find.byType(KoboldUpdateDialog).evaluate().isEmpty,
     );
     expect(File(engine).existsSync(), isFalse);
+    expect(variant.existsSync(), isFalse, reason: 'the variant goes too');
     expect(
       File(p.join(bin.path, KoboldBinaryVersion.fileName)).existsSync(),
       isFalse,

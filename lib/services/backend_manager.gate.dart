@@ -123,18 +123,24 @@ extension BackendManagerGate on BackendManager {
 
   /// Removes the managed engine and its version record, for a user who
   /// will not update an engine below the floor and uses another backend.
-  /// The app downloads a current one again from Settings when asked.
-  /// Returns what went wrong, in a sentence, or null.
+  /// Every engine file in the closet goes (Linux can hold the variant of
+  /// an earlier GPU choice beside the current one, and the lookup would
+  /// fall back to it), and a half-downloaded `.part`. The app downloads a
+  /// current one again from Settings when asked. Returns what went wrong,
+  /// in a sentence, or null.
   Future<String?> removeEngine() async {
     final exe = _backendPath;
     if (exe == null) return null;
     try {
-      final file = File(exe);
-      if (await file.exists()) await file.delete();
-      final record = File(
-        path.join(path.dirname(exe), KoboldBinaryVersion.fileName),
-      );
-      if (await record.exists()) await record.delete();
+      final dir = Directory(path.dirname(exe));
+      await for (final entry in dir.list()) {
+        if (entry is! File) continue;
+        final name = path.basename(entry.path);
+        if (name.startsWith('koboldcpp') ||
+            name == KoboldBinaryVersion.fileName) {
+          await entry.delete();
+        }
+      }
     } on FileSystemException catch (e) {
       final why = 'KoboldCpp could not be removed: ${e.osError?.message ?? e}';
       _error = why;
