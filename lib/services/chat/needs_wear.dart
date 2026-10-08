@@ -28,6 +28,16 @@ const Map<String, int> needsWearPerHour = {
   'energy': 5,
 };
 
+/// With the clock off the reply is the beat: the speaker's hunger, bladder
+/// and energy wear this much per reply (version 1's per-turn tick, back by
+/// the maintainer's ruling of 2026-10-08), so the body still moves between
+/// events. No pace, no carry; the other four stay on events.
+const Map<String, int> needsTickPerReply = {
+  'hunger': 2,
+  'bladder': 3,
+  'energy': 3,
+};
+
 /// Off-screen, people look after themselves: a skip (OOC, narrative, time
 /// away, next morning) never wears a bar below these.
 const Map<String, int> needsSkipFloors = {

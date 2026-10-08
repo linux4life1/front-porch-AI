@@ -23,7 +23,7 @@ import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
 
 const _line =
-    'With Passage of time off, needs change only when the story says so.';
+    'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
 
 class _GroupChat extends FakeChatService {
   _GroupChat(this._group, this._chars);

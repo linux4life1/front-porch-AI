@@ -159,7 +159,12 @@ void main() {
       final i = await h.oneToOneWithStampedReply(needsCard('Mara'));
       final ok = await h.chat.manualReprocessNeeds(i, _critique);
       expect(ok, isTrue);
-      // Captured from origin/Rawhide bb04f0d5 with this exact harness.
+      // Captured from origin/Rawhide bb04f0d5 with this exact harness;
+      // re-captured 2026-10-08 after the clock-off tick returned (the
+      // harness runs with the clock off): the deltas the Director is shown
+      // now carry the tick (hunger -7, bladder -8, energy -8 = the judge's
+      // -5 plus 2 / 3 / 3), as they carry the clock's wear with it on.
+      // That line is the only change.
       final expected = File(
         'test/fixtures/reprocess_needs/all_seven_unscoped_prompt.txt',
       ).readAsStringSync();
@@ -168,7 +173,10 @@ void main() {
     });
 
     test('B8 Hunger turned off after a -12 turn: unticked reprocess keeps '
-        'stored hunger at 58 (swipe slot and after reload)', () async {
+        'stored hunger at 56 (swipe slot and after reload)', () async {
+      // 70 - 12 from the judge - 2 from the clock-off tick (2026-10-08;
+      // this harness runs with the clock off). The pin is that a need
+      // switched off keeps the delta its turn gave it, whatever the number.
       h.llm.liveNeedsReply =
           '{"hunger_delta": -12, "bladder_delta": 0, "energy_delta": 0, '
           '"social_delta": 0, "fun_delta": 0, "hygiene_delta": 0, '
@@ -178,8 +186,8 @@ void main() {
       );
       expect(
         _slotVector(h.chat.messages[i])['hunger'],
-        58,
-        reason: 'precondition: the live turn stamped 70 - 12',
+        56,
+        reason: 'precondition: the live turn stamped 70 - 12 - 2',
       );
 
       h.chat.activeCharacter!.frontPorchExtensions!.needsOff = ['hunger'];
@@ -191,7 +199,7 @@ void main() {
 
       expect(
         _slotVector(h.chat.messages[i])['hunger'],
-        58,
+        56,
         reason: 'swipe slot: a need switched off must keep its old delta',
       );
 
@@ -199,7 +207,7 @@ void main() {
       await h.settleTurn();
       expect(
         _slotVector(h.chat.messages[i])['hunger'],
-        58,
+        56,
         reason: 'persisted row after reload',
       );
     });

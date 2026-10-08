@@ -11,7 +11,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const LINE = 'With Passage of time off, needs change only when the story says so.';
+const LINE = 'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
 
 const post = vi.fn(async (_url?: string, _body?: unknown) => ({}));
 

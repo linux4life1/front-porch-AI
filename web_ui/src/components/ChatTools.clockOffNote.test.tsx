@@ -13,7 +13,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ToolsState } from './ChatToolsShared';
 
-const LINE = 'With Passage of time off, needs change only when the story says so.';
+const LINE = 'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
 
 let passageEnabled = true;
 

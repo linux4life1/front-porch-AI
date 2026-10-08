@@ -14,7 +14,7 @@ export function NeedsClockOffNote({ clockOn }: { clockOn: boolean }) {
   if (clockOn !== false) return null;
   return (
     <p className="muted small needs-clock-off">
-      With Passage of time off, needs change only when the story says so.
+      With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.
     </p>
   );
 }

@@ -372,28 +372,40 @@ void main() {
     );
   });
 
-  test('1:1 PoT OFF gives no tick and no time chip', () async {
-    await boot();
-    await chat!.setPassageOfTimeEnabled(false);
-    expect(chat!.timeService.passageOfTimeEnabled, isFalse);
-    final before = chat!.timeService.clock;
+  test(
+    '1:1 PoT OFF gives no time chip, and the reply ticks the body',
+    () async {
+      await boot();
+      await chat!.setPassageOfTimeEnabled(false);
+      expect(chat!.timeService.passageOfTimeEnabled, isFalse);
+      final before = chat!.timeService.clock;
 
-    await chat!.sendMessage('How are you?');
-    await drainTurn();
+      await chat!.sendMessage('How are you?');
+      await drainTurn();
 
-    expect(chat!.timeService.clock, before, reason: 'PoT off never ticks');
-    expect(bars(), _carmenNeeds, reason: 'a stopped clock is not a body tax');
-    expect(
-      lastBot().activeMetadata?['time_passed'],
-      isNull,
-      reason: 'design: no duration chip when the clock did not move',
-    );
-    expect(
-      lastBot().activeMetadata?[kNeedsUnaffectedMeta],
-      isTrue,
-      reason: 'no-action still proves Needs ran when time did not move',
-    );
-  });
+      expect(chat!.timeService.clock, before, reason: 'PoT off never ticks');
+      // Needs v2 pinned "a stopped clock is not a body tax" here. The
+      // maintainer's ruling of 2026-10-08: with the clock off, Needs work as
+      // version 1 did, the judge plus a per-reply tick for hunger, bladder
+      // and energy (needs_wear.dart needsTickPerReply), so the body still
+      // moves between events. The chip carries the tick, so this is not a
+      // "no needs affected" turn any more.
+      expect(bars(), {
+        ..._carmenNeeds,
+        'hunger': _carmenNeeds['hunger']! - 2,
+        'bladder': _carmenNeeds['bladder']! - 3,
+        'energy': _carmenNeeds['energy']! - 3,
+      }, reason: 'clock off: version 1\'s per-reply tick');
+      expect(
+        lastBot().activeMetadata?['time_passed'],
+        isNull,
+        reason: 'design: no duration chip when the clock did not move',
+      );
+      expect(lastBot().activeMetadata?[kNeedsUnaffectedMeta], isNull);
+      final deltas = lastBot().activeMetadata?['needs_deltas'] as Map?;
+      expect(deltas?.keys.toSet(), {'hunger', 'bladder', 'energy'});
+    },
+  );
 
   test(
     '1:1 card+global seed starts the clock without extra chat toggles',

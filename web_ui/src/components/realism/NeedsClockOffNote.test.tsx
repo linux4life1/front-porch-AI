@@ -16,7 +16,7 @@ import { NeedsClockOffNote } from './NeedsClockOffNote';
 import { NeedsFormSection } from './NeedsFormSection';
 import { REALISM_DEFAULTS } from './realismTypes';
 
-const LINE = 'With Passage of time off, needs change only when the story says so.';
+const LINE = 'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
 
 let container: HTMLDivElement;
 let root: Root;

@@ -16,7 +16,7 @@ This is immersive erotic roleplay. Detailed physical and psychological descripti
 Be reasonable and faithful to the written text. Do not invent events that are not described.
 
 PREVIOUS DELTAS:
-{"hunger":-5,"bladder":-5,"energy":-5,"social":-5,"fun":-5,"hygiene":-5,"comfort":-5}
+{"hunger":-7,"bladder":-8,"energy":-8,"social":-5,"fun":-5,"hygiene":-5,"comfort":-5}
 
 USER CRITIQUE (The user noticed an issue with the deltas that MUST be fixed):
 "She ate a full meal; hunger should rise."

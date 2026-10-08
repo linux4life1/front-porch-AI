@@ -38,7 +38,9 @@ List<String> _chatServiceLibrary() => [
 
 /// Files that read the stored switch as a condition, and why that is right.
 const _stateAndRewinds = <String, String>{
-  _pass: 'the gate itself, and the rewinds (restore, refund) of a stamp',
+  _pass: 'the gate itself',
+  'lib/services/chat/chat_service_needs_rewinds.dart':
+      'rewinds (restore, refund) of a stamp a reply carries',
   'lib/services/chat/chat_service_chat_entry.dart': 'seeds the bars at open',
   'lib/services/chat/chat_service_group_entry.dart': 'seeds the bars at open',
   'lib/services/chat/chat_service_group_lite.dart':

@@ -41,7 +41,7 @@ class NeedsClockOffNote extends StatelessWidget {
   });
 
   static const text =
-      'With Passage of time off, needs change only when the story says so.';
+      'With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so.';
 
   final bool? clockOn;
   final EdgeInsetsGeometry padding;

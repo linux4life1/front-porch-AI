@@ -140,6 +140,7 @@ part 'chat/chat_service_wiring_injection.dart';
 part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
 part 'chat/chat_service_needs_pass.dart';
+part 'chat/chat_service_needs_rewinds.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_away_pulse.dart';
@@ -446,8 +447,7 @@ class ChatService extends ChangeNotifier
   bool get isEvaluatingRealism => _isEvaluatingRealism;
   bool get isProcessingGreeting => _isProcessingGreeting;
 
-  // Verifier phase (for overlay header "🕵️ Verifying Realism output" + pass progress, and bubble chip data source).
-  // God coordination only; leaf drives via cb thins (no new god void _).
+  // Verifier phase: the overlay header, pass progress, and the bubble chip.
   bool get isVerifyingRealism => _isVerifyingRealism;
   int get verificationPass => _verificationPass;
   int get verificationMaxPasses => _verificationMaxPasses;

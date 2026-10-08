@@ -16,8 +16,11 @@
 //
 // The wear: after the clock commits, every present body wears the beat's
 // story minutes at fixed rates (needs_wear.dart); the scene eval then
-// scores events on top. Continue does not invent a second beat, and a
-// clock that is off records no minutes, so nothing wears.
+// scores events on top. With the clock off the reply is the beat: the
+// speaker's hunger, bladder and energy tick a fixed step (version 1's
+// per-turn tick, the maintainer's ruling of 2026-10-08), so the body still
+// moves between events. Continue does not invent a second beat. The
+// rewinds of these stamps live in chat_service_needs_rewinds.dart.
 
 part of '../chat_service.dart';
 
@@ -89,15 +92,22 @@ extension ChatServiceNeedsPass on ChatService {
   /// they cannot be charged twice, and records the result on [target]. A
   /// second call in the same turn (a named-time correction read from the
   /// reply) keeps the first call's "before" and extends its "after" and
-  /// the chip's time part.
+  /// the chip's time part. With the clock off the reply itself is the
+  /// beat: the speaker ticks [needsTickPerReply], through the same stamps,
+  /// so regen, swipe and delete rewind it the same way.
   void _wearBeatOn(ChatMessage target) {
     if (!_needsActive) return;
-    final minutes = _timeService.takeBodyWearMinutes();
-    if (minutes <= 0) return;
-    final offScreen = _timeService.bodyBeatOffScreen;
-    final beat = _activeGroup == null
-        ? _wearHost(minutes, offScreen: offScreen)
-        : _wearGroup(minutes, offScreen: offScreen);
+    final _BeatWear beat;
+    if (_clockRunning) {
+      final minutes = _timeService.takeBodyWearMinutes();
+      if (minutes <= 0) return;
+      final offScreen = _timeService.bodyBeatOffScreen;
+      beat = _activeGroup == null
+          ? _wearHost(minutes, offScreen: offScreen)
+          : _wearGroup(minutes, offScreen: offScreen);
+    } else {
+      beat = _tickSpeaker();
+    }
     if (beat.before.isNotEmpty) {
       // Mutate the attached slot in place: the legacy `metadata` field
       // shares that map, and replacing the slot would leave it behind
@@ -145,6 +155,70 @@ extension ChatServiceNeedsPass on ChatService {
       before: {hostId: before},
       after: {hostId: Map<String, int>.from(_needsSimulation.vector)},
       carryBefore: {hostId: carryBefore},
+    );
+  }
+
+  /// The clock-off beat: the speaker's body alone, a fixed step per reply,
+  /// the carry left as it was for when the clock comes back. Version 1
+  /// ticked the speaker, not the room, so the room is left alone here too.
+  _BeatWear _tickSpeaker() {
+    final card = _activeGroup == null
+        ? _activeCharacter
+        : _groupCharacters
+              .where(
+                (c) =>
+                    _getCharacterIdFromCard(c) ==
+                    _getCurrentSpeakerIdForRealism(),
+              )
+              .firstOrNull;
+    if (card == null) return _BeatWear.none;
+    final id = _getCharacterIdFromCard(card);
+    final on = needsThatAreOn(
+      needsTickPerReply.keys.toList(),
+      card.frontPorchExtensions?.needsOff ?? const [],
+    );
+    final points = {for (final need in on) need: needsTickPerReply[need]!};
+    if (_activeGroup == null) {
+      final before = Map<String, int>.from(_needsSimulation.vector);
+      if (before.isEmpty) return _BeatWear.none;
+      final carry = Map<String, double>.from(_needsSimulation.wearCarry);
+      final taken = _needsSimulation.applyTimeWear(
+        points: points,
+        carry: carry,
+        offScreen: false,
+      );
+      return _BeatWear(
+        speakerTaken: taken,
+        before: {id: before},
+        after: {id: Map<String, int>.from(_needsSimulation.vector)},
+        carryBefore: {id: carry},
+      );
+    }
+    final stored = _getGroupNeeds(id);
+    if (stored.isEmpty) return _BeatWear.none;
+    final carry = Map<String, double>.from(_memberForWrite(id).needsWearCarry);
+    final worn = Map<String, int>.from(stored);
+    for (final e in points.entries) {
+      final current = worn[e.key];
+      if (current == null) continue;
+      worn[e.key] = wornBar(
+        need: e.key,
+        current: current,
+        drop: e.value,
+        offScreen: false,
+      );
+    }
+    _setGroupNeeds(id, worn);
+    final taken = _needsSimulation.applyTimeWear(
+      points: points,
+      carry: carry,
+      offScreen: false,
+    );
+    return _BeatWear(
+      speakerTaken: taken,
+      before: {id: Map<String, int>.from(stored)},
+      after: {id: worn},
+      carryBefore: {id: carry},
     );
   }
 
@@ -200,145 +274,6 @@ extension ChatServiceNeedsPass on ChatService {
       after: after,
       carryBefore: carryBefore,
     );
-  }
-
-  /// 1:1 regen when Needs is on: prefer the send-time pre-turn vector,
-  /// then the present-body stamp. Realism-off still has to rewind or
-  /// the replay wears a second time (80 → 78 → 76).
-  void _restoreNeedsBaselineForReplay(ChatMessage msg) {
-    if (!_needsSimEnabled) return;
-    final preTurn = msg.activeMetadata?['needs_pre_turn_vector'];
-    if (preTurn is Map && preTurn.isNotEmpty) {
-      final carry = msg.activeMetadata?[kNeedsPreTurnCarry];
-      _needsSimulation.restoreFromSnapshot({
-        'vector': Map<String, int>.from(preTurn),
-        if (carry is Map) kNeedsWearCarryKey: carry,
-      });
-      return;
-    }
-    _restorePresentBodiesForReplay(msg);
-  }
-
-  /// Regen loads every present body from the pre-wear snapshot, then the
-  /// replayed reply wears them once.
-  void _restorePresentBodiesForReplay(ChatMessage msg) {
-    final before = presentBodiesFromMeta(
-      msg.activeMetadata?[kNeedsPreWearByMember],
-    );
-    if (before.isEmpty) return;
-    final carries = presentCarriesFromMeta(
-      msg.activeMetadata?[kNeedsPreWearCarryByMember],
-    );
-    if (_activeGroup == null) {
-      _restoreLiveHostFromBodyMap(before, carries: carries);
-      return;
-    }
-    final worn = <String, Map<String, int>>{};
-    for (final id in before.keys) {
-      final live = _getGroupNeeds(id);
-      worn[id] = live.isNotEmpty
-          ? Map<String, int>.from(live)
-          : Map<String, int>.from(before[id]!);
-    }
-    final restored = presentBodiesForReplay(before: before, worn: worn);
-    for (final entry in restored.entries) {
-      _setGroupNeeds(entry.key, entry.value);
-      final carry = carries[entry.key];
-      if (carry != null) _memberForWrite(entry.key).needsWearCarry = carry;
-    }
-  }
-
-  /// 1:1 host bars live on the scalar vector, not `_groupRealism`.
-  void _restoreLiveHostFromBodyMap(
-    Map<String, Map<String, int>> bodies, {
-    Map<String, Map<String, double>> carries = const {},
-  }) {
-    if (bodies.isEmpty) return;
-    final hostId = _activeCharacter != null
-        ? _getCharacterIdFromCard(_activeCharacter!)
-        : '';
-    final snap =
-        bodies[hostId] ?? (bodies.length == 1 ? bodies.values.first : null);
-    if (snap == null || snap.isEmpty) return;
-    final carry =
-        carries[hostId] ?? (carries.length == 1 ? carries.values.first : null);
-    _needsSimulation.restoreFromSnapshot({
-      'vector': Map<String, int>.from(snap),
-      kNeedsWearCarryKey: ?carry,
-    });
-  }
-
-  /// Delete gives back this beat's wear to everyone except the speaker.
-  /// [capturedBeforeRestore] is those bars before time-travel. The speaker
-  /// is refunded from their chip, which already includes wear.
-  void _refundPresentWearExcept(
-    ChatMessage deleted,
-    String? speakerId,
-    Map<String, Map<String, int>> capturedBeforeRestore,
-  ) {
-    if (!_needsSimEnabled) return;
-    final refunded = refundCoPresentWear(
-      captured: capturedBeforeRestore,
-      preWear: presentBodiesFromMeta(
-        deleted.activeMetadata?[kNeedsPreWearByMember],
-      ),
-      worn: presentBodiesFromMeta(deleted.activeMetadata?[kNeedsWornByMember]),
-      skipId: speakerId,
-    );
-    if (_activeGroup == null) {
-      _restoreLiveHostFromBodyMap(refunded);
-      return;
-    }
-    for (final entry in refunded.entries) {
-      _setGroupNeeds(entry.key, entry.value);
-    }
-  }
-
-  /// Live bars for everyone this reply wore, read before delete time-travel.
-  Map<String, Map<String, int>> _capturePresentNeedsBeforeDelete(
-    ChatMessage deleted,
-  ) {
-    final ids = <String>{
-      ...presentBodiesFromMeta(
-        deleted.activeMetadata?[kNeedsPreWearByMember],
-      ).keys,
-      ...presentBodiesFromMeta(
-        deleted.activeMetadata?[kNeedsWornByMember],
-      ).keys,
-    };
-    final out = <String, Map<String, int>>{};
-    for (final id in ids) {
-      if (_activeGroup == null) {
-        final live = _needsSimulation.vector;
-        if (live.isEmpty) continue;
-        out[id] = Map<String, int>.from(live);
-        continue;
-      }
-      final live = _getGroupNeeds(id);
-      if (live.isEmpty) continue;
-      out[id] = Map<String, int>.from(live);
-    }
-    return out;
-  }
-
-  /// A swipe shows the bodies that beat left behind, refractory included. The
-  /// speaker is restored from their own snapshot, which also includes the
-  /// scene.
-  void _restoreWornBodiesExceptSpeaker(ChatMessage msg, String speakerId) {
-    _restoreRefractoryAfterBeat(msg, speakerId);
-    final worn = presentBodiesFromMeta(msg.activeMetadata?[kNeedsWornByMember]);
-    if (_activeGroup == null) {
-      final hostOnly = <String, Map<String, int>>{
-        for (final entry in worn.entries)
-          if (entry.key != speakerId) entry.key: entry.value,
-      };
-      _restoreLiveHostFromBodyMap(hostOnly);
-      return;
-    }
-    for (final entry in worn.entries) {
-      if (entry.key == speakerId) continue;
-      _setGroupNeeds(entry.key, Map<String, int>.from(entry.value));
-    }
   }
 
   Map<String, int> _coerceNeedsVector(dynamic src) {
