@@ -87,6 +87,11 @@ jobs:
   guard:
     name: Guard protected paths
     runs-on: ubuntu-latest
+    # A promotion candidate (scripts/promote-rawhide-to-main.sh) carries every
+    # test change since the last release, each already approved on its own PR;
+    # here the guard would only ask for the label again. Maintainer's call,
+    # 2026-10-08.
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'release/promote-') }}
     steps:
       - name: Check for modified tests, goldens, baselines and CI
         uses: actions/github-script@v9

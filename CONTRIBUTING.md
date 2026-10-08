@@ -102,6 +102,13 @@ flutter test --tags golden              # pixel goldens; authored on Linux
 cd web_ui && npm run lint && npm test   # only if you touched web_ui/
 ```
 
+Or the one command that picks those from what your branch changes, and runs
+the browser suite when `web_ui/` changed (a web journey only runs there):
+
+```bash
+tools/preflight.sh
+```
+
 Linux goldens that a Mac `flutter test` never executes:
 
 ```bash

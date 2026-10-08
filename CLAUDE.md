@@ -48,6 +48,12 @@ flutter analyze
 dart format path/to/the_file_you_edited.dart
   # Only files you already edited. NEVER `dart format .`
 
+# Before a push: the checks the branch needs, chosen from what it changes
+# (analyze on changed Dart, the hygiene ratchets, the branch's own tests,
+# web lint/vitest/bundle when web_ui changed, --browser for the Playwright
+# suite). An integration of two branches runs every suite either one had.
+tools/preflight.sh
+
 # What the CI `test` job runs
 flutter test --concurrency=4 --exclude-tags golden
 

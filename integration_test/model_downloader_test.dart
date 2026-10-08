@@ -117,7 +117,9 @@ void main() {
       find.text('Model Manager'),
       timeout: const Duration(seconds: 45),
     );
-    await tester.tap(find.text('Search / Download'));
+    // The page was just switched; the tab is in the tree before the
+    // transition lets it take a tap.
+    await tapWhenHittable(tester, find.text('Search / Download'));
     await pumpUntilFound(
       tester,
       find.widgetWithText(ElevatedButton, 'Search'),

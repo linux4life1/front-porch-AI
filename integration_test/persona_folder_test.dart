@@ -38,17 +38,7 @@ import 'support/chat_driver.dart';
 import 'support/e2e_sandbox.dart';
 import 'support/fake_backend.dart';
 
-/// Taps [finder] once a tap there would land on it. A page, menu or dialog
-/// is in the tree from the first frame of its opening animation, while the
-/// tap still goes to what is under it. CI logged "would not hit test" for
-/// "New Persona" during the page change (Windows) and for "Move to Folder…"
-/// while the menu was still opening (Linux), then timed out waiting for
-/// what the tap should have opened.
-Future<void> tapWhenHittable(WidgetTester tester, Finder finder) async {
-  await pumpUntilFound(tester, finder.hitTestable());
-  await tester.tap(finder.hitTestable());
-  await tester.pump();
-}
+// tapWhenHittable lives in support/e2e_sandbox.dart; it was born here.
 
 /// Types into a text field the way a person does: tap it, then type, so the
 /// field holds the keyboard before the text is sent.

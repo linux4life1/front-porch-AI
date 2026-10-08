@@ -66,9 +66,10 @@ jobs:
 
       - name: Install Linux Dependencies
         if: matrix.platform == 'linux'
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libwebkit2gtk-4.1-dev ninja-build pkg-config cmake libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev libwebkit2gtk-4.1-dev ninja-build pkg-config cmake libunwind-dev libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Sync Version from Tag
         shell: bash
@@ -582,7 +583,7 @@ jobs:
           dpkg-deb --build deb Front_Porch_AI-Linux.deb
           
           # 3. Prepare .rpm
-          sudo apt-get install -y rpm
+          sudo apt-get -o Acquire::Retries=3 install -y rpm
           mkdir -p rpmroot/{BUILD,RPMS,SOURCES,SPECS,SRPMS,INSTALL}
           
           cat <<EOF > rpmroot/SPECS/front-porch-ai.spec

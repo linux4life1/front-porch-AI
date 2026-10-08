@@ -122,15 +122,23 @@ if git grep -nE '^(<<<<<<<|>>>>>>>) ' -- .github lib web_ui scripts >/dev/null 2
 fi
 ok "no conflict markers"
 
-# 6) Every workflow YAML parses.
-if command -v python3 >/dev/null 2>&1; then
+# 6) Every workflow YAML parses. Whichever parser this machine has: python3
+#    with PyYAML, else ruby's (ships with macOS), else none. A machine with
+#    python3 but no PyYAML used to fail this gate after the five above passed,
+#    which read as a bad tree.
+yaml_check=""
+if python3 -c "import yaml" >/dev/null 2>&1; then
+  yaml_check='python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))"'
+elif command -v ruby >/dev/null 2>&1; then
+  yaml_check='ruby -ryaml -e "YAML.load_file(ARGV[0])"'
+fi
+if [ -n "$yaml_check" ]; then
   for f in .github/workflows/*.yml; do
-    python3 -c "import yaml,sys; yaml.safe_load(open(sys.argv[1]))" "$f" \
-      || die "YAML parse failed: $f"
+    eval "$yaml_check" '"$f"' >/dev/null 2>&1 || die "YAML parse failed: $f"
   done
   ok "all .github/workflows/*.yml parse"
 else
-  info "python3 not found — skipped YAML lint (do it manually)."
+  info "no YAML parser found (python3 with PyYAML, or ruby) — skipped YAML lint (do it manually)."
 fi
 
 # ── Done — hand back to the human ────────────────────────────────────────────

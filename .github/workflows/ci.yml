@@ -273,9 +273,10 @@ jobs:
       # bundle behind the runner's own packages.
       - name: Install Linux desktop dependencies
         if: matrix.device == 'linux'
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Install dependencies
@@ -418,9 +419,10 @@ jobs:
           cache-dependency-path: web_ui/package-lock.json
 
       - name: Install Linux desktop dependencies
+        timeout-minutes: 10
         run: |
-          sudo apt-get update
-          sudo apt-get install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
+          sudo apt-get -o Acquire::Retries=3 update
+          sudo apt-get -o Acquire::Retries=3 install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
 
       - name: Install WebUI dependencies + browsers

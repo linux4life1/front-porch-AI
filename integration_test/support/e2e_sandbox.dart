@@ -92,6 +92,17 @@ Future<void> _pumpGuarded(WidgetTester tester) async {
 
 /// Pump until [condition] is true or fail with [describe]. For state that
 /// isn't a widget (service fields, fake-server counters).
+/// Taps [finder] once it is under the pointer, not just in the tree. A tap
+/// during a page change lands on the transition's IgnorePointer and does
+/// nothing (the Model Manager tab on Windows, "New Persona" on Windows,
+/// "Move to Folder…" on Linux), and the test then waits for a screen the
+/// tap never opened.
+Future<void> tapWhenHittable(WidgetTester tester, Finder finder) async {
+  await pumpUntilFound(tester, finder.hitTestable());
+  await tester.tap(finder.hitTestable());
+  await tester.pump();
+}
+
 Future<void> pumpUntilTrue(
   WidgetTester tester,
   bool Function() condition, {
