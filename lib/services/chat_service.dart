@@ -459,11 +459,11 @@ class ChatService extends ChangeNotifier
   /// chat_service_accessors.dart.
   String get realismEvalStreamTextClean => _realismEvalStreamTextCleanImpl;
   String get characterEmotion => _characterEmotion;
-
   String get emotionIntensity => _emotionIntensity;
 
-  /// Per-session Needs (Sims-style) simulation active. Seeded from the card.
+  /// The chat's Needs switch; [needsActive] is the gate Needs run behind.
   bool get needsSimEnabled => _needsSimEnabled;
+  bool get needsActive => _needsActive;
 
   /// Writes Porch Life Passage of Time — the live clock gate. Class-pinned
   /// so goldens/fakes can override.

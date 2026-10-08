@@ -222,6 +222,13 @@ finds the kit still there.
 `realismSettings.objectivesEnabled`. Not a stored AND at seed time. Flipping
 the global off must take effect on the next turn.
 
+**Needs run behind one gate.** `_needsActive`
+(`lib/services/chat/chat_service_needs_pass.dart`) = Realism engine AND
+the chat's Needs switch AND the global `needsSimDefault` read live. Every
+run (stamp, prompt lines, judge, clock wear, chip, Reprocess) reads it;
+the stored `_needsSimEnabled` is only for seeding, saving and rewinding
+state. `test/hygiene/needs_gate_ratchet_test.dart` enforces it.
+
 **Clock.** Passage of time needs a **model call**, not the Realism Engine.
 `_clockRunning` is Porch Life `passageOfTimeDefault` **live** — the same
 row Settings → Porch Life shows. Card veto and leftover per-chat

@@ -289,6 +289,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   final bool needsSimEnabled;
   @override
+  bool get needsActive => realismEnabled && needsSimEnabled;
+  @override
   final String characterEmotion;
   @override
   final String emotionIntensity;

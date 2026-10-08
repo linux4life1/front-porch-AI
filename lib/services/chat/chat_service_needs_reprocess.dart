@@ -337,6 +337,7 @@ extension ChatServiceNeedsReprocess on ChatService {
   /// Safe for 1:1 and group (speaker via msg.sender + dance on last).
   /// Returns true on success.
   Future<bool> revertNeedsReprocess(int index) async {
+    if (!_needsActive) return false;
     if (index < 0 || index >= _messages.length) return false;
     if (_isTurnBusy) return false;
     final msg = _messages[index];

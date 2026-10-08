@@ -216,7 +216,9 @@ class ChatFacade {
       out['enabledNeeds'] = target.enabled;
       out['needsSpeaker'] = target.speaker;
     }
-    if (md['needs_deltas_pre_reprocess'] is Map) out['needsRevertable'] = true;
+    if (_chat.needsActive && md['needs_deltas_pre_reprocess'] is Map) {
+      out['needsRevertable'] = true;
+    }
     if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
     final search = md['search_receipt'];
     if (search is Map) {

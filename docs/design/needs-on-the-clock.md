@@ -228,6 +228,21 @@ rule went back on 2026-10-08. The global Needs switch (Settings → Porch
 Life) is read live, the way Objectives read theirs, so turning it off
 takes effect on the next turn rather than the next time the chat opens.
 
+One gate, one place. `_needsActive` in
+`lib/services/chat/chat_service_needs_pass.dart` is that AND (engine,
+the chat's switch, the global switch live), and it is the only way Needs
+run: the pre-turn stamp (`_needsStampPreTurn`, 1:1 and group), the prompt
+lines, the judge, the clock's wear, the chip under the reply and
+Reprocess Needs all read it. The stored per-chat switch
+(`_needsSimEnabled`) still decides whether a chat *keeps* Needs state —
+seeding the bars when a chat opens or a member joins, saving them with
+the session, rewinding a regen or a delete to the stamp it has — because
+those are not runs: a chat with the engine off keeps its bars where they
+were, and finds them again when the engine comes back.
+`test/hygiene/needs_gate_ratchet_test.dart` holds that line: the gate is
+defined once, and a condition on the stored switch outside the named
+state-and-rewind files fails the build.
+
 ## What you will see, and what does not change
 
 On desktop and on the phone, in the same work:

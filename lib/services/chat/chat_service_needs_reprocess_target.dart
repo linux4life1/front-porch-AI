@@ -37,7 +37,7 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
     if (meta == null || !meta.containsKey('realism_state')) return null;
     final preState = meta['realism_state'];
     if (preState is! Map || preState['needs'] == null) return null;
-    if (!needsSimEnabled) return null;
+    if (!needsActive) return null;
 
     final isGroupNonObs = activeGroup != null && !observerMode;
     CharacterCard? card;
