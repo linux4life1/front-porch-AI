@@ -78,9 +78,12 @@ cd web_ui && npm run lint && npm test   # CI `web-tests` (tsc + react-hooks esli
 flutter test integration_test/web_ui/browser_test.dart -d macos
 # FPAI_E2E_HOLD=1 on that command keeps the sandboxed app serving; then
 # `cd web_ui && npm run e2e` with the env in web_ui/e2e/.auth/server.json
-cd web_ui && npm run build              # writes ../assets/web_app — required
-                                        # after ANY web_ui change or the
-                                        # desktop app serves the old bundle
+cd web_ui && npm ci && npm run build    # writes ../assets/web_app. The bundle
+                                        # is built, not tracked: once after a
+                                        # clone and after ANY web_ui change,
+                                        # or the desktop app serves nothing
+                                        # (CI, the nightly and the release
+                                        # build it themselves)
 
 flutter build linux
 flutter build windows

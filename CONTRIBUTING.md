@@ -68,8 +68,9 @@ git clone https://github.com/<your-username>/front-porch-AI.git
 cd front-porch-AI
 flutter pub get
 
-# Only if you are working on the web/mobile UI
-cd web_ui && npm ci
+# The web/phone UI the desktop app serves is built, not committed: once
+# after cloning, and again after any change under web_ui/
+cd web_ui && npm ci && npm run build
 ```
 
 Database schema changes also need:

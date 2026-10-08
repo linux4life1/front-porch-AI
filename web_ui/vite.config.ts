@@ -1,4 +1,7 @@
-import { defineConfig } from 'vite';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { defineConfig, type Plugin } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
@@ -6,9 +9,29 @@ import { VitePWA } from 'vite-plugin-pwa';
 // from assets/web_app. `base: './'` keeps asset URLs relative so it works
 // behind any mount (localhost, Tailscale, ngrok). In dev, /api and /ws are
 // proxied to the running Flutter desktop app's web server on :8085.
+/**
+ * The bundle directory is not tracked, but pubspec.yaml declares its four
+ * directories, which must exist for `flutter build`; a .gitkeep in each is
+ * tracked. emptyOutDir removes them with the old bundle, so they are put
+ * back once the build has written.
+ */
+function keepDirectoryMarkers(): Plugin {
+  return {
+    name: 'keep-directory-markers',
+    closeBundle() {
+      for (const dir of ['', 'assets', 'audio', 'fonts']) {
+        const full = path.join(fileURLToPath(new URL('../assets/web_app/', import.meta.url)), dir);
+        mkdirSync(full, { recursive: true });
+        writeFileSync(path.join(full, '.gitkeep'), '');
+      }
+    },
+  };
+}
+
 export default defineConfig({
   base: './',
   plugins: [
+    keepDirectoryMarkers(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

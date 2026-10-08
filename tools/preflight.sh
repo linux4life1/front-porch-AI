@@ -68,12 +68,14 @@ if [ -n "$TESTS" ]; then
   run flutter test --concurrency=4 $TESTS
 fi
 
+if [ ! -f assets/web_app/index.html ] && [ "$WEB" -eq 1 ]; then
+  step "the WebUI bundle is missing (it is built, not tracked): building it"
+  ( cd web_ui && [ -d node_modules ] || npm ci --ignore-scripts; npm run build ) || failures+=("web_ui build")
+fi
+
 if [ -n "$WEB_CHANGED" ] && [ "$WEB" -eq 1 ]; then
   step "web_ui: lint, vitests, bundle"
   ( cd web_ui && npm run lint && npm test -- --run && npm run build ) || failures+=("web_ui lint/test/build")
-  if [ -n "$(git status --porcelain assets/web_app)" ]; then
-    echo "note: assets/web_app changed with this build; commit it with the branch"
-  fi
   [ "$BROWSER" -eq 1 ] || { BROWSER=1; echo "web_ui changed: the browser suite runs too (pass --no-web to skip the web steps)"; }
 fi
 

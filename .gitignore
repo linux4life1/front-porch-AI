@@ -191,3 +191,14 @@ test/fixtures/fpchat/*.fpchat
 /test/cli/
 /docs/design/headless-live-chat.md
 /lib/services/storage/storage_service_init.dart
+
+# The WebUI bundle is built, not tracked: `cd web_ui && npm run build`. A
+# committed copy conflicted on every merge, and every workflow that ships
+# or tests it builds it from the commit anyway. The .gitkeep files keep
+# the four directories pubspec.yaml declares in place for `flutter build`.
+assets/web_app/**
+!assets/web_app/**/
+!assets/web_app/**/.gitkeep
+
+# CocoaPods writes this on every build; it was tracked but never committed.
+macos/Podfile.lock

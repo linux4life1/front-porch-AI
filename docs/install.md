@@ -197,7 +197,7 @@ flutter pub get
 flutter run
 ```
 
-The generated database code and the built web/phone interface are both committed, so a fresh clone runs with no extra build steps. You only need Node and npm if you're actually changing the web UI in `web_ui/` — then run `npm ci && npm run build` in that folder, which writes the bundle the Flutter app serves.
+The generated database code is committed. The web/phone interface is built from `web_ui/`, not committed, so a fresh clone needs Node and npm once before the app can serve its phone UI, and again after any change in `web_ui/`: `npm ci && npm run build` in that folder, which writes the bundle the Flutter app serves.
 
 **Release builds**
 
