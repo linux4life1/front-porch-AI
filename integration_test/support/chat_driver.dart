@@ -57,9 +57,35 @@ class ChatDriver {
   /// depending only on the bubble's public contract, not the page's
   /// private key scheme. ChatMessage does not override `==`, so this is
   /// the same equality the old key used.
-  Finder bubbleFor(ChatMessage msg) => find.byWidgetPredicate(
-    (w) => w is MessageBubble && identical(w.message, msg),
-  );
+  Finder bubbleFor(ChatMessage msg) {
+    final live = _live(msg);
+    return find.byWidgetPredicate(
+      (w) => w is MessageBubble && identical(w.message, live),
+    );
+  }
+
+  /// The instance of [msg] the chat holds now. A caller keeps the object it
+  /// read before a turn; if the list has been rebuilt since, no bubble
+  /// carries that object, and the one with the same place, sender and
+  /// words is the message. Logged when it happens, so a CI log says so.
+  ChatMessage _live(ChatMessage msg) {
+    final messages = chatService.messages;
+    for (final m in messages) {
+      if (identical(m, msg)) return msg;
+    }
+    for (final m in messages) {
+      if (m.isUser == msg.isUser &&
+          m.sender == msg.sender &&
+          m.text == msg.text) {
+        debugPrint(
+          '[ChatDriver] the list no longer holds the caller\'s message '
+          'object; matched its live instance by sender and text',
+        );
+        return m;
+      }
+    }
+    return msg;
+  }
 
   /// [bubbleFor], revealed by scrolling. The reversed list VIRTUALIZES, so
   /// an old message's bubble may not be built at all until dragged into
@@ -109,9 +135,19 @@ class ChatDriver {
     // false pass: callers immediately dead-end on the empty finder and
     // time out loudly in their own waits.
     if (f.evaluate().isEmpty) {
+      final shown = find
+          .byType(MessageBubble)
+          .evaluate()
+          .map((e) => (e.widget as MessageBubble).message)
+          .map(
+            (m) => '"${m.text.length > 24 ? m.text.substring(0, 24) : m.text}"',
+          )
+          .join(', ');
       fail(
         'the bubble for "${msg.text}" was not reachable by scrolling '
-        'the chat list',
+        'the chat list; the list holds ${chatService.messages.length} message(s), '
+        'the caller\'s object is ${chatService.messages.any((m) => identical(m, msg)) ? 'still' : 'no longer'} '
+        'in it, and the bubbles built are: $shown',
       );
     }
     return f;
