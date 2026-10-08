@@ -84,6 +84,9 @@ extension BackendManagerDownload on BackendManager {
 
       if (response.statusCode != 200) {
         print('AG_DEBUG: Download failed with status ${response.statusCode}');
+        // Closed here too: the finally below only covers the stream, so a
+        // refused request left the client's idle connection open.
+        client.close();
         throw Exception(
           'Failed to download backend: HTTP ${response.statusCode}',
         );

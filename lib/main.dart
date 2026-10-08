@@ -357,7 +357,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       actions: [warmDialogCancel(context, label: 'OK')],
                     );
                   }
-                  _checkForUpdates(context);
+                  _checkForUpdates(context).then((_) {
+                    if (context.mounted) _checkKoboldEngine(context);
+                  });
                   _autoStartWebServer(context);
                   // Start auto-backup (always on, every 10 minutes)
                   BackupService.startAutoBackup();

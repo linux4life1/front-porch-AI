@@ -48,6 +48,7 @@ export 'tts_settings_dialog.dart';
 export 'type_delete_dialog.dart';
 export 'ui_settings_dialog.dart';
 export 'update_dialog.dart';
+export 'kobold_update_dialog.dart';
 export 'user_persona_dialog.dart';
 export 'variant_picker_dialog.dart';
 export 'voice_browser_dialog.dart';

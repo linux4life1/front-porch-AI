@@ -175,8 +175,19 @@ extension _MainLifecycle on _MyAppState {
 
     final hasUpdate = await updateService.checkForUpdate();
     if (hasUpdate && context.mounted) {
-      UpdateDialog.show(context);
+      // Awaited so the engine's box below never lands on top of this one.
+      await UpdateDialog.show(context);
     }
+  }
+
+  /// After the app's own update check: an engine below the floor, or a
+  /// newer release not put off, gets its box. Nothing when KoboldCpp is not
+  /// installed; it is optional.
+  Future<void> _checkKoboldEngine(BuildContext context) async {
+    final manager = Provider.of<BackendManager>(context, listen: false);
+    final gate = await manager.updateGate();
+    if (gate == KoboldUpdateGate.nothing || !context.mounted) return;
+    await KoboldUpdateDialog.show(context, manager, gate);
   }
 
   Future<void> _autoStartWebServer(BuildContext context) async {

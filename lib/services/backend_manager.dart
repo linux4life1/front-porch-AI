@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/update_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 part 'backend_manager.download.dart';
+part 'backend_manager.gate.dart';
 
 /// Said wherever the app would offer KoboldCpp on an Intel Mac, which cannot
 /// run it: the desktop's Backend tab and the phone's Models page (its own
@@ -56,6 +57,10 @@ class BackendManager extends ChangeNotifier {
   /// until it has answered: unknown is never taken for an Intel Mac.
   String? _arch;
   final Completer<void> _archRead = Completer<void>();
+
+  /// Done once the first look for the engine file and its record is over;
+  /// the start-up gate reads [backendPath] only after this.
+  final Completer<void> _engineChecked = Completer<void>();
   bool _useRocm = false;
   bool _hasCuda = false;
   // Detected once. When the CPU lacks AVX2 (older/low-end PCs), KoboldCpp's
@@ -201,6 +206,7 @@ class BackendManager extends ChangeNotifier {
       _localVersion = v.version;
       _localSize = v.size;
     }
+    if (!_engineChecked.isCompleted) _engineChecked.complete();
     if (UpdateService.isSupported) {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool('update_auto_check') ?? true) {

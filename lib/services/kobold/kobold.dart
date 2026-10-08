@@ -53,4 +53,5 @@ export 'kobold_speed_lines.dart';
 export 'kobold_speed_plan.dart';
 export 'kobold_status_facts.dart';
 export 'kobold_swap_wait.dart';
+export 'kobold_update_gate.dart';
 export 'kobold_wire.dart';
