@@ -69,20 +69,38 @@ class ChatDriver {
   Future<Finder> revealBubbleFor(ChatMessage msg) async {
     final f = bubbleFor(msg);
     if (f.evaluate().isNotEmpty) return f;
+    // The list may not have built a bubble yet on a slow runner.
+    await pumpUntilFound(
+      tester,
+      find.byType(MessageBubble),
+      timeout: const Duration(seconds: 30),
+    );
     final scrollable = find
         .ancestor(
           of: find.byType(MessageBubble).first,
           matching: find.byType(Scrollable),
         )
         .first;
-    const drags = [
-      300.0, 300.0, 300.0, 300.0, 300.0, 300.0, //
-      -300.0, -300.0, -300.0, -300.0, -300.0, -300.0,
-    ];
-    for (final dy in drags) {
+    // Twelve fixed drags with one 250 ms pump each gave up on a loaded
+    // runner before the virtualized list had built what a drag revealed
+    // (message_actions on the Linux and macOS shards). Now each direction
+    // is dragged until the bubble is built or the list stops moving (its
+    // end), with real time for the build and one deadline for the lot.
+    final deadline = DateTime.now().add(
+      const Duration(seconds: 45) * kCiTimeoutScale,
+    );
+    for (final dy in const [300.0, -300.0]) {
+      var last = double.nan;
+      while (f.evaluate().isEmpty && DateTime.now().isBefore(deadline)) {
+        final at = tester.state<ScrollableState>(scrollable).position.pixels;
+        if (at == last) break;
+        last = at;
+        await tester.drag(scrollable, Offset(0, dy));
+        for (var i = 0; i < 4 && f.evaluate().isEmpty; i++) {
+          await tester.pump(const Duration(milliseconds: 100));
+        }
+      }
       if (f.evaluate().isNotEmpty) break;
-      await tester.drag(scrollable, Offset(0, dy));
-      await tester.pump(const Duration(milliseconds: 250));
     }
     // fail(), never an assertion: support/ is harness, not evidence
     // (e2e_support_has_no_assertions_test bans the assertion marker here,
