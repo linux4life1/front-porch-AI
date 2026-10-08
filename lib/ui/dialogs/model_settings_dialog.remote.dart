@@ -43,6 +43,18 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
     }
   }
 
+  /// Key for a probe of [apiUrl]: what is typed in the box, else what the
+  /// app itself would send there. The box stays blank on a SuperGrok
+  /// sign-in, so the typed text alone probes api.x.ai with no credentials.
+  String _probeKeyFor(String apiUrl) {
+    final typed = _apiKeyController.text.trim();
+    if (typed.isNotEmpty) return typed;
+    return Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).backendSettings.remoteApiKeyFor(apiUrl);
+  }
+
   Future<void> _testConnection() async {
     rebuildState(() {
       _isTesting = true;
@@ -60,7 +72,7 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
     // fetchAvailableModels doc note).
     final result = await openRouter.testConnection(
       apiUrl: apiUrl,
-      apiKey: _apiKeyController.text.trim(),
+      apiKey: _probeKeyFor(apiUrl),
     );
     if (mounted) {
       rebuildState(() {
@@ -82,8 +94,12 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
       url: storage.backendSettings.remoteApiUrl,
     );
     final showUrl = remoteProviderShowsUrlField(kind);
-    final needsKey = remoteProviderNeedsApiKey(kind);
+    final isXai = kind == RemoteProviderKind.xai;
+    final viaSuperGrok = isXai && llm.superGrok.isSignedIn;
+    final needsKey = remoteProviderNeedsApiKey(kind) && !viaSuperGrok;
     final hasKey = storage.backendSettings.remoteApiKey.isNotEmpty;
+    // xAI: sign-in first; the key box only once asked for or already saved.
+    final showKey = needsKey && (!isXai || hasKey || _xaiKeyOpen);
     final model = _modelNameController.text.trim();
     final ready = model.isNotEmpty && (!needsKey || hasKey);
 
@@ -111,7 +127,16 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
           ),
           const SizedBox(height: 12),
         ],
-        if (needsKey) ...[
+        if (isXai) ...[
+          SuperGrokCard(
+            auth: llm.superGrok,
+            onUseApiKey: showKey
+                ? null
+                : () => rebuildState(() => _xaiKeyOpen = true),
+          ),
+          const SizedBox(height: 12),
+        ],
+        if (showKey) ...[
           if (hasKey && !_showKeyEditor)
             _savedKeyRow()
           else
@@ -203,7 +228,9 @@ extension _ModelSettingsRemoteSection on _ModelSettingsDialogState {
                 ready
                     ? 'Ready'
                     : needsKey && !hasKey
-                    ? 'Needs an API key'
+                    ? (isXai
+                          ? 'Sign in with SuperGrok or add a key'
+                          : 'Needs an API key')
                     : 'Needs a model',
                 style: TextStyle(
                   fontSize: 13,

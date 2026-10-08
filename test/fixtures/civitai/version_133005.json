@@ -1,0 +1,43 @@
+{
+ "baseModel": "SD 1.5",
+ "downloadUrl": "https://civitai.com/api/download/models/133005",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/133005?fileId=96913",
+   "hashes": {
+    "AutoV1": "CD94EB61",
+    "AutoV2": "EB748EA422",
+    "AutoV3": "7E2BA0417CD8",
+    "BLAKE3": "DBACAD65D94563D1BB05BBFB3EE88620646F097F102DE61E900BE7A2F352BE93",
+    "CRC32": "9AAC8927",
+    "SHA256": "EB748EA422FEA806C85E142A06055A3F54AC91E3333153A766AF57C2FCC91817",
+    "SHA256_12": "EB748EA422FE"
+   },
+   "id": 96913,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "bf16",
+    "size": null
+   },
+   "name": "MaouBigV1.2.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2023-08-03T23:11:11.219",
+   "sizeKB": 147572.7763671875,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 133005,
+ "model": {
+  "name": "Maou (Both Forms)",
+  "nsfw": false,
+  "poi": false,
+  "type": "LORA"
+ },
+ "modelId": 102565,
+ "name": "MaouBigv1.0",
+ "nsfwLevel": 3
+}

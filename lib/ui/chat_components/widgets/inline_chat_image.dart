@@ -23,6 +23,7 @@ import 'package:flutter/services.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// A locally generated image inside a chat bubble (from `/image` or the Image
@@ -49,7 +50,9 @@ class _InlineChatImageState extends State<InlineChatImage> {
   @override
   void initState() {
     super.initState();
-    _exists = File(widget.path).existsSync(); // io-ok: once per element, not per build
+    _exists = File(
+      widget.path,
+    ).existsSync(); // io-ok: once per element, not per build
   }
 
   @override
@@ -149,7 +152,8 @@ class _InlineChatImageState extends State<InlineChatImage> {
       items: [
         _item(context, 'save', Icons.save_alt, 'Save image as…'),
         _item(context, 'folder', Icons.folder_open, 'Show in folder'),
-        if (hasPrompt) _item(context, 'widget.prompt', Icons.copy, 'Copy widget.prompt'),
+        if (hasPrompt)
+          _item(context, 'widget.prompt', Icons.copy, 'Copy widget.prompt'),
       ],
     );
     if (choice == null || !context.mounted) return;
@@ -190,7 +194,8 @@ class _InlineChatImageState extends State<InlineChatImage> {
 
   Future<void> _saveAs(BuildContext context) async {
     final bytes = await File(widget.path).readAsBytes();
-    final target = await PickerPrefs.saveFile(
+    final target = await GuardedPicker.saveFile(
+      context,
       category: PickerPrefs.catExport,
       bytes: bytes,
       dialogTitle: 'Save image',

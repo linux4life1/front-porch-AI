@@ -1,0 +1,31 @@
+{
+ "source": "https://huggingface.co/unsloth/Qwen3-30B-A3B-GGUF  Qwen3-30B-A3B-Q4_K_M.gguf  (header fetched 2026-10-03)",
+ "real_file_bytes": 18556686912,
+ "real_data_start": 5970496,
+ "fixture_file_bytes": 18550754272,
+ "truth": {
+  "arch": "qwen3moe",
+  "n_layer": 48,
+  "n_tensors": 579,
+  "bytes": {
+   "total": 18550716416,
+   "blocks": 18120425472,
+   "expert": 17553162240,
+   "shared_expert": 0,
+   "token_embd": 175030272,
+   "output": 255252480,
+   "other": 8192
+  },
+  "mb": {
+   "total": 17691,
+   "blocks": 17281,
+   "expert": 16740,
+   "shared_expert": 0,
+   "token_embd": 167,
+   "output": 243,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 784,
+   "gpu_all_layers": 17524
+  }
+ }
+}

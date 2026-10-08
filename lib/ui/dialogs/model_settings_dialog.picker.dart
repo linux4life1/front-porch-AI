@@ -50,7 +50,7 @@ extension _ModelSettingsPickerSection on _ModelSettingsDialogState {
     try {
       models = await openRouter.fetchAvailableModels(
         apiUrl: apiUrl,
-        apiKey: _apiKeyController.text.trim(),
+        apiKey: _probeKeyFor(apiUrl),
       );
     } catch (e) {
       if (mounted) {

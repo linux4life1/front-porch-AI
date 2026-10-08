@@ -1,0 +1,70 @@
+{
+ "baseModel": "Pony",
+ "downloadUrl": "https://civitai.com/api/download/models/2884631",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/2884631?fileId=2764472",
+   "hashes": {
+    "AutoV1": "6DA62168",
+    "AutoV2": "1D580C1C3F",
+    "AutoV3": "9547B5EC713A",
+    "BLAKE3": "21FBD48846095EA24E9B22BB579C5E7F06BAED99100D10406B1ECE106DA60744",
+    "CRC32": "2E8F7CBE",
+    "SHA256": "1D580C1C3F3612FA4DB88AF65372255582D5509CA0B28F85387273368301941B",
+    "SHA256_12": "1D580C1C3F36"
+   },
+   "id": 2764472,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "cyberrealisticPony_v180Coreshift_2764472.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2026-04-23T16:02:44.141",
+   "sizeKB": 6775430.9453125,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  },
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/2884631?fileId=2764485",
+   "hashes": {
+    "AutoV1": "DAC0F994",
+    "AutoV2": "9D0E340F5F",
+    "AutoV3": "272BF60975EA",
+    "BLAKE3": "4C8FBD4904BBD073F40D2DAE07D8B04F0D4F33A534685B8CBD6C6D6F48C3A290",
+    "CRC32": "49CBD95F",
+    "SHA256": "9D0E340F5FD20C20010EC677E1CDFC2CDFBD60161317224BF4737981EA7EA59D",
+    "SHA256_12": "9D0E340F5FD2"
+   },
+   "id": 2764485,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp32",
+    "size": "full"
+   },
+   "name": "cyberrealisticPony_v180Coreshift_2764485.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": false,
+   "scannedAt": "2026-04-23T17:58:00.615",
+   "sizeKB": 13550506.59375,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 2884631,
+ "model": {
+  "name": "CyberRealistic Pony",
+  "nsfw": false,
+  "poi": false,
+  "type": "Checkpoint"
+ },
+ "modelId": 443821,
+ "name": "v18.0 CoreShift",
+ "nsfwLevel": 13
+}

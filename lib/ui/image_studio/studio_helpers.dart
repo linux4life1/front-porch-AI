@@ -69,3 +69,9 @@ String reapplyCurrentStyleSuffix(
   String updated = '$base$glue$suffix'.trim();
   return ImageGenContext.truncate(updated, 1000);
 }
+
+/// The style a history entry restores to: its own when the desk can show it,
+/// otherwise the one already chosen. An entry saved under a style key that no
+/// longer exists would leave the dropdown with nothing selected.
+String restorableStyle(String saved, String current) =>
+    ImageGenService.styleLabels.containsKey(saved) ? saved : current;

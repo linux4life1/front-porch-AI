@@ -28,6 +28,7 @@ export function MessageActions({
   onEdit,
   onDelete,
   onVariantPicked,
+  onActionFailed,
 }: {
   m: Message;
   isLast: boolean;
@@ -50,6 +51,7 @@ export function MessageActions({
   onEdit: () => void;
   onDelete: () => void;
   onVariantPicked?: () => void;
+  onActionFailed?: (what: string, e: unknown) => void;
 }) {
   const count = m.swipeCount ?? 1;
   const idx = (m.swipeIndex ?? 0) + 1;
@@ -80,7 +82,8 @@ export function MessageActions({
     const next = (greetingIndex + dir + greetCount) % greetCount;
     void api
       .post('/api/chat/select-variant', { messageIndex: 0, variantIndex: next })
-      .then(() => onVariantPicked?.());
+      .then(() => onVariantPicked?.())
+      .catch((e) => onActionFailed?.('switch greetings', e));
   };
   const openCritique = () => {
     setDraft('');

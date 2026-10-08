@@ -19,7 +19,7 @@ new, or jump straight to whatever you're stuck on.
 | [Characters](characters.md) | Creating and editing characters, the V2/V2.5 card spec, avatars and expressions, importing from Backyard `.byaf` |
 | [Keyboard Shortcuts](keyboard-shortcuts.md) | Every shortcut, by screen |
 | [Output Sanitizer Syntax](output-sanitizer-syntax.md) | The find/replace rules for cleaning up model output, with worked examples |
-| [MoE-Aware VRAM Estimation](moe-vram-estimation.md) | How GPU layer counts are chosen for mixture-of-experts models |
+| [MoE-Aware VRAM Estimation](moe-vram-estimation.md) | How the preset dialog guesses the graphics memory a model will use, including mixture-of-experts models, so you can pick a context size, batch size and cache type that fit |
 
 ## When something goes wrong
 

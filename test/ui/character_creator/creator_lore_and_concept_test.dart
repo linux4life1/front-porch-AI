@@ -24,9 +24,9 @@
 //    `> limit` test became unconditionally true, and `clamp(0, len)` made the
 //    kept-character count 0 — so every character of the gathered lore was
 //    dropped and the model was handed the bare "[TRUNCATED…]" marker instead.
-//    2048 is not a contrived number: it is the app's OWN low-VRAM
-//    recommendation (OptimizationService), applied by a button in this very
-//    wizard.
+//    2048 is not a contrived number: it was the app's OWN low-VRAM
+//    recommendation (the Auto-Configure button, since removed), applied by a
+//    button in this very wizard.
 //
 // 2. Automated mode built its description by appending fragments to the
 //    concept box unconditionally, so an empty concept box produced a

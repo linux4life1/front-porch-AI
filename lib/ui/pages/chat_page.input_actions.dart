@@ -225,6 +225,7 @@ extension _ChatPageInputActions on _ChatPageState {
             final hint = chatComposerHint(
               apiReady: apiReady,
               observerMode: chatService.observerMode,
+              reason: llm.composerConnectionHint,
             );
             final storage = Provider.of<StorageService>(context);
             return ReadingSizeScope(

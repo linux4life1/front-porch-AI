@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { ToolCallingPill, type ToolSupport } from './ToolCallingPill';
 import { ChatLorebookModal } from './ChatLorebookModal';
 import { ImportLorebookWizard } from './ImportLorebookWizard';
 import { ChatPlacesSection } from './ChatPlacesSection';
@@ -14,102 +15,7 @@ import { ChatTools } from './ChatTools';
 import { type CastMember } from './CastBar';
 import { LookSwiper } from './ChatAvatar';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
-
-/**
- * "Does my model support tool calling?" pill — desktop sidebar parity.
- * Green = native tool calls work (Realism/Journal/Growth use them), amber =
- * text fallback, neutral = not tested yet. Click to retest the live model;
- * the server also retests automatically on model/backend switches.
- */
-type ToolSupport = {
-  state: string;
-  testing: boolean;
-  preferText?: boolean;
-  paused?: boolean;
-  checked?: boolean;
-};
-
-function ToolCallingPill({ support }: { support?: ToolSupport }) {
-  const [busy, setBusy] = useState(false);
-  const [local, setLocal] = useState(support);
-  useEffect(() => setLocal(support), [support]);
-  if (!local) return null;
-  const testing = busy || local.testing;
-  const s = local.state;
-  const skipped = s === 'supported' && !!local.preferText;
-  const paused = !!local.paused;
-  const tone = testing
-    ? 'busy'
-    : paused || skipped
-      ? 'warn'
-      : s === 'supported'
-        ? 'ok'
-        : s === 'unsupported'
-          ? 'warn'
-          : 'idle';
-  const label = testing
-    ? 'Tool calling: testing…'
-    : paused
-      ? 'Tool calling: paused this run'
-      : skipped
-        ? 'Tool calling: supported — using JSON'
-        : s === 'supported'
-          ? 'Tool calling: supported'
-          : s === 'unsupported'
-            ? 'Tool calling: not supported'
-            : 'Tool calling: not tested';
-  const detail = testing
-    ? 'Asking the model for a tool call'
-    : paused
-      ? 'Empty answers this session — click to retry'
-      : skipped
-        ? 'You turned native tool calls off in Generation settings'
-        : s === 'supported'
-          ? 'Realism, Journal & Growth use native tool calls'
-          : s === 'unsupported'
-            ? 'Using the text fallback — still works'
-            : 'Click to test the current model';
-  const retest = async () => {
-    setBusy(true);
-    try {
-      setLocal(await api.post<ToolSupport>('/api/chat/tool-test', {}));
-    } catch {
-      /* verdict refreshes with the next chat_updated anyway */
-    }
-    setBusy(false);
-  };
-  return (
-    <button
-      className={`tool-pill tool-pill-${tone}`}
-      onClick={retest}
-      disabled={testing}
-      title="Whether the current model can answer engine evaluations (Realism, Journal, Growth Rings) with native tool calls. Without it a text fallback is used — chats still work. Click to retest; retests also run when you switch models."
-    >
-      <span className="tool-pill-dot" />
-      <span className="tool-pill-text">
-        <strong>{label}</strong>
-        <span className="muted small">{detail}</span>
-      </span>
-      <span className="tool-pill-retest">↻</span>
-    </button>
-  );
-}
-
-/** A labelled stat bar (bond / trust / needs). */
-function StatBar({ label, value, percent, tone }: { label: string; value: string; percent: number; tone?: string }) {
-  const pct = Math.max(0, Math.min(100, percent <= 1 ? percent * 100 : percent));
-  return (
-    <div className="stat">
-      <div className="stat-head">
-        <span>{label}</span>
-        <span className="muted">{value}</span>
-      </div>
-      <div className="stat-track">
-        <div className={`stat-fill ${tone ?? ''}`} style={{ width: `${pct}%` }} />
-      </div>
-    </div>
-  );
-}
+import { NeedBar, StatBar } from './StatBar';
 
 export function ChatInsight({
   realism,
@@ -159,13 +65,7 @@ export function ChatInsight({
   /** Live composer draft — powers the "would trigger next" preview. */
   draft?: string;
   /** Current model's tool-calling verdict (POST /api/chat/tool-test retests). */
-  toolSupport?: {
-    state: string;
-    testing: boolean;
-    preferText?: boolean;
-    paused?: boolean;
-    checked?: boolean;
-  };
+  toolSupport?: ToolSupport;
 }) {
   const [note, setNote] = useState(authorNote);
   // "Would trigger next": mutation-free dry-run against the draft, debounced.
@@ -294,8 +194,13 @@ export function ChatInsight({
         <>
           <h4 className="section-label">Needs</h4>
           {Object.entries(realism.needs).map(([k, v]) => (
-            <StatBar key={k} label={NEED_LABELS[k] ?? k} value={`${v}`} percent={v}
-              tone={v <= 20 ? 'danger' : ''} />
+            <NeedBar
+              key={k}
+              label={NEED_LABELS[k] ?? k}
+              value={v}
+              urgentAt={realism.needsUrgentAt}
+              criticalAt={realism.needsCriticalAt}
+            />
           ))}
         </>
       )}

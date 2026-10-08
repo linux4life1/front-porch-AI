@@ -1,0 +1,31 @@
+{
+ "source": "https://huggingface.co/unsloth/gemma-4-26B-A4B-it-GGUF  gemma-4-26B-A4B-it-UD-Q4_K_M.gguf  (header fetched 2026-10-03)",
+ "real_file_bytes": 16947541728,
+ "real_data_start": 15824672,
+ "fixture_file_bytes": 16931760256,
+ "truth": {
+  "arch": "gemma4",
+  "n_layer": 30,
+  "n_tensors": 658,
+  "bytes": {
+   "total": 16931717056,
+   "blocks": 16147369920,
+   "expert": 14353054720,
+   "shared_expert": 0,
+   "token_embd": 784334848,
+   "output": 0,
+   "other": 12288
+  },
+  "mb": {
+   "total": 16147,
+   "blocks": 15399,
+   "expert": 13688,
+   "shared_expert": 0,
+   "token_embd": 748,
+   "output": 0,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 1711,
+   "gpu_all_layers": 15399
+  }
+ }
+}

@@ -184,6 +184,11 @@ class RealismSettings with SettingsBase {
   bool _weatherEnabled = true;
   bool _weatherFahrenheit = false;
   bool _absenceBannerEnabled = true;
+
+  /// Chat layout: the user's bubble mirrored to the right (avatar right,
+  /// buttons left), the look before user and character rows shared one
+  /// layout. Off = both on the left.
+  bool _userMessagesOnRight = false;
   bool _absenceAckEnabled = false;
   int _absenceThresholdHours = 24;
   bool _dreamsEnabled = true;
@@ -264,6 +269,7 @@ class RealismSettings with SettingsBase {
   /// OFF by explicit maintainer decision (can read as creepy). Threshold in
   /// hours before either fires.
   bool get absenceBannerEnabled => _absenceBannerEnabled;
+  bool get userMessagesOnRight => _userMessagesOnRight;
   bool get absenceAckEnabled => _absenceAckEnabled;
   int get absenceThresholdHours => _absenceThresholdHours;
 
@@ -318,6 +324,12 @@ class RealismSettings with SettingsBase {
   Future<void> setWeatherFahrenheit(bool value) async {
     _weatherFahrenheit = value;
     await prefs?.setBool(k('weather_fahrenheit'), value);
+    notify();
+  }
+
+  Future<void> setUserMessagesOnRight(bool value) async {
+    _userMessagesOnRight = value;
+    await prefs?.setBool(k('user_messages_on_right'), value);
     notify();
   }
 

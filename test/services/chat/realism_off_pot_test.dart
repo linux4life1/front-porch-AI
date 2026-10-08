@@ -177,7 +177,7 @@ void main() {
   tearDown(() => disposeChatThenCloseDb(chat, db));
 
   test(
-    'T1 Realism OFF + PoT ON: one time call, no Realism evals, static Needs',
+    'T1 Realism OFF + PoT ON: one time call, no Realism evals, clock wear only',
     () async {
       await boot();
       expect(chat!.realismEnabled, isFalse);
@@ -225,15 +225,19 @@ void main() {
         '30 min',
         reason: 'the time chip must stamp',
       );
-      expect(
-        chat!.needsSimulation.vector,
-        beforeNeeds,
-        reason: 'Needs bars stay static',
-      );
+      // Needs v2 (2026-10-06): Needs answers to its own switch. With the
+      // Realism engine off no judge runs, but the clock still wears hunger,
+      // bladder and energy for the 30 minutes (needs_wear.dart).
+      expect(chat!.needsSimulation.vector, {
+        ...beforeNeeds,
+        'hunger': beforeNeeds['hunger']! - 3,
+        'bladder': beforeNeeds['bladder']! - 7,
+        'energy': beforeNeeds['energy']! - 2,
+      }, reason: 'the clock wears the body even with the Realism engine off');
       expect(
         last.activeMetadata?[kNeedsUnaffectedMeta],
-        isTrue,
-        reason: 'no needs affected chip / needs_unaffected key is stamped',
+        isNull,
+        reason: 'the bars moved, so the no-needs-affected chip is not stamped',
       );
     },
   );

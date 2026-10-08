@@ -88,8 +88,7 @@ extension ChatServiceControls on ChatService {
         if (!enabled) {
           entry
             ..arousal = 0
-            ..cooldownTurnsRemaining = 0
-            ..cooldownTurnsTotal = 0;
+            ..refractory = Refractory.none;
         }
       }
     }

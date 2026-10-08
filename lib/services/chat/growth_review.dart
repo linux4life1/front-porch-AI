@@ -138,16 +138,17 @@ class GrowthReview {
   /// Unaccepted ops are skipped; ops whose target ring vanished (user
   /// deleted it meanwhile) are skipped silently. The add cap is enforced
   /// HERE so no transport or mode can flood the timeline.
-  Future<void> applyOwnerProposals(
-    String sessionId,
-    GrowthOwnerProposals owner,
-  ) async {
+  Future<({int added, int reinforced, int revised, int retired})>
+  applyOwnerProposals(String sessionId, GrowthOwnerProposals owner) async {
     final rings = await store.ringsFor(sessionId, owner.ownerId);
     final byId = {for (final r in rings) r.id: r};
     final addCap = owner.distilled
         ? kDistillApplyCap
         : GrowthPhysics.kMaxNewRingsPerPass;
     var adds = 0;
+    var reinforced = 0;
+    var revised = 0;
+    var retired = 0;
     for (final op in owner.ops) {
       if (!op.accepted) continue;
       switch (op.action) {
@@ -172,15 +173,18 @@ class GrowthReview {
           final ring = byId[op.ringId];
           if (ring == null || ring.retired) continue;
           await store.reinforceRing(ring, sourcePositions: op.sourcePositions);
+          reinforced++;
           break;
         case GrowthOpAction.revise:
           final ring = byId[op.ringId];
           if (ring == null) continue;
           await store.reviseRing(ring, content: op.text);
+          revised++;
           break;
         case GrowthOpAction.retire:
           if (op.ringId == null || !byId.containsKey(op.ringId)) continue;
           await store.retireRing(op.ringId!);
+          retired++;
           break;
       }
     }
@@ -193,6 +197,12 @@ class GrowthReview {
         isGroup: getIsGroup(),
       );
     }
+    return (
+      added: adds,
+      reinforced: reinforced,
+      revised: revised,
+      retired: retired,
+    );
   }
 
   /// Commit the pending batch: accepted ops, cursor past the reviewed

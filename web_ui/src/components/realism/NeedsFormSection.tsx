@@ -6,6 +6,7 @@
 // and an "enjoys low hygiene" toggle. Reused by character create + edit.
 
 import { Slider, ToggleRow } from './controls';
+import { NeedsClockOffNote } from './NeedsClockOffNote';
 import { type RealismValues } from './realismTypes';
 
 type Patch = (patch: Partial<RealismValues>) => void;
@@ -21,7 +22,16 @@ const NEEDS: [string, keyof RealismValues][] = [
   ['Comfort', 'needsBaselineComfort'],
 ];
 
-export function NeedsFormSection({ v, set }: { v: RealismValues; set: Patch }) {
+export function NeedsFormSection({
+  v,
+  set,
+  clockOn,
+}: {
+  v: RealismValues;
+  set: Patch;
+  /** Porch Life's Passage of Time, for the clock-off line. */
+  clockOn: boolean;
+}) {
   return (
     <div className="realism-section">
       <ToggleRow
@@ -30,6 +40,7 @@ export function NeedsFormSection({ v, set }: { v: RealismValues; set: Patch }) {
         value={v.needsSimEnabled}
         onChange={(b) => set({ needsSimEnabled: b })}
       />
+      <NeedsClockOffNote clockOn={clockOn} />
 
       {v.needsSimEnabled && (
         <>

@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import '../sidebar_tokens.dart';
 
 /// The Character State gear flyout — an inline inset panel (not a popup menu,
@@ -81,6 +82,9 @@ class CharacterStateSettings extends StatelessWidget {
             onChanged: chat.isGenerating
                 ? null
                 : (val) => chat.setNeedsSimEnabled(val),
+          ),
+          NeedsClockOffNote(
+            clockOn: storage.realismSettings.passageOfTimeDefault,
           ),
           const SizedBox(height: 10),
           _modeRow(

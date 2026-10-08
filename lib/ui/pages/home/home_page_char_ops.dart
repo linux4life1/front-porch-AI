@@ -24,41 +24,22 @@ part of '../home_page.dart';
 /// (part of the same library, so it keeps full access to page state).
 extension _HomePageCharOps on _HomePageState {
   Future<void> _folderImportCharacters(BuildContext context) async {
-    final dirPath = await PickerPrefs.getDirectoryPath(
-      category: PickerPrefs.catDirectory,
-      dialogTitle: 'Select folder containing character files',
-    );
-
-    if (dirPath == null) return;
-    if (!context.mounted) return;
-
-    // Scan for both V2 PNG cards and Backyard AI (.byaf) files.
-    final pngFiles = <File>[];
-    final byafFiles = <File>[];
-    await for (final entity in Directory(dirPath).list(recursive: true)) {
-      if (entity is! File) continue;
-      final lower = entity.path.toLowerCase();
-      if (lower.endsWith('.png')) {
-        pngFiles.add(entity);
-      } else if (lower.endsWith('.byaf')) {
-        byafFiles.add(entity);
-      }
-    }
+    // V2 PNG cards and Backyard AI (.byaf) files under the picked folder.
+    final found = await pickLibraryFolder(context);
+    if (found == null || !context.mounted) return;
+    final (pngs: pngFiles, byafs: byafFiles) = found;
 
     if (pngFiles.isEmpty && byafFiles.isEmpty) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'No character cards (.png) or Backyard AI files (.byaf) found in '
-              'the selected folder.',
-            ),
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'No character cards (.png) or Backyard AI files (.byaf) found in '
+            'the selected folder.',
           ),
-        );
-      }
+        ),
+      );
       return;
     }
-    if (!context.mounted) return;
 
     // Breakdown + per-type confirm: a mixed folder never imports anything
     // unexpectedly — the user sees exactly what's there and picks.

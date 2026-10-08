@@ -69,7 +69,9 @@ String buildGrowthPrompt({
   );
   b.writeln();
 
-  b.writeln('$ownerName\'s core personality (fixed — never restate it as growth):');
+  b.writeln(
+    '$ownerName\'s core personality (fixed — never restate it as growth):',
+  );
   b.writeln(_trimTo(basePersonality, kGrowthBaseCap));
   b.writeln();
 
@@ -134,8 +136,12 @@ String buildGrowthPrompt({
     'lasting scar. One-off events belong in the journal, not here.',
   );
   b.writeln(
-    '- Prefer reinforcing an existing ring that showed up again over adding '
-    'a near-duplicate. Retire a ring these events contradicted or that '
+    '- Reinforce a ring only when a NEW message in this window shows it '
+    'again, and cite that message. A different change, even a related one, '
+    'is a new ring.',
+  );
+  b.writeln(
+    '- Retire a ring these events contradicted or that '
     '$ownerName has outgrown.',
   );
   b.writeln(
@@ -149,8 +155,7 @@ String buildGrowthPrompt({
   );
   b.writeln(
     '- Add at most ${distill ? kDistillMaxRings : GrowthPhysics.kMaxNewRingsPerPass} '
-    'new ring(s). If nothing durable changed, emit nothing at all — most '
-    'checks should find no new growth.',
+    'new ring(s). If nothing durable changed, emit nothing at all.',
   );
 
   if (toolsMode) {

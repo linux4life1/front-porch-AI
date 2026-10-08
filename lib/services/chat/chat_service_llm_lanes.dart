@@ -29,10 +29,30 @@ extension ChatServiceLlmLanes on ChatService {
       _llmProvider?.sideLaneService ??
       _koboldService;
 
+  /// Whether the spoken-reply backend is the local KoboldCpp (a test double
+  /// says so through [testIsLocalOverride]).
+  bool get _mouthIsLocal => testLlmServiceOverride != null
+      ? testIsLocalOverride
+      : (_llmProvider?.isLocal ?? true);
+
   bool get _sideLaneIsKobold {
     if (testWorkerLlmServiceOverride != null) return false;
     if (testLlmServiceOverride != null) return testIsLocalOverride;
     return _llmProvider?.sideLaneIsKobold ?? false;
+  }
+
+  /// The chat a reply belongs to, for KoboldCpp's cache. Only a chat reply
+  /// carries it ([GenerationParams.kvChat]).
+  String? get _kvChatKey => _currentSessionId;
+
+  /// A deleted chat's saved cache is let go. This runs inside the database's
+  /// delete: what goes wrong is said in the log and goes no further.
+  void _letGoOfDeletedChat(String chat) {
+    try {
+      _koboldService.forgetChat(chat);
+    } on Object catch (e) {
+      debugPrint('[Chat] letting go of a deleted chat\'s cache failed: $e');
+    }
   }
 
   bool get _workerLaneActive =>
@@ -87,7 +107,20 @@ extension ChatServiceLlmLanes on ChatService {
     return p.closeWorkerLane();
   }
 
-  /// Stop mouth speech and side-lane evals/clerk/journal together.
+  /// The turn was cancelled: its replies that still wait for the engine's
+  /// line leave it, and nothing on the wire is touched. True when one left.
+  /// Chat replies go out through the mouth, so only the mouth has any.
+  bool _dropWaitingReplies() {
+    try {
+      return _mouthLlm.dropStoppedReplies();
+    } catch (e) {
+      debugPrint('[Chat] taking a stopped reply out of the line failed: $e');
+      return false;
+    }
+  }
+
+  /// Abort mouth speech and side-lane evals/clerk/journal together: whatever
+  /// is on the wire, whoever's it is.
   void _abortAllLanes() {
     final mouth = _mouthLlm;
     final side = _sideLaneLlm;

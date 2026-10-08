@@ -34,6 +34,10 @@ class StoryRepository extends ChangeNotifier {
   List<model.StoryProject> get projects => List.unmodifiable(_projects);
   bool get isLoading => _isLoading;
 
+  /// Runs after a project row is deleted, so side files (run log, Director
+  /// undo snapshot) go with it. Set by the pipeline.
+  Future<void> Function(String id)? onDelete;
+
   StoryRepository(this._db);
 
   /// Update the database reference (e.g. after cloud sync replaces the DB file).
@@ -87,6 +91,7 @@ class StoryRepository extends ChangeNotifier {
   /// the whole chat-to-story feature was dead on both surfaces.
   Future<void> saveProject(model.StoryProject project) async {
     project.updatedAt = DateTime.now();
+    project.normalize();
     if (project.dbId == null) {
       final id = await _db.insertStoryProject(
         StoryProjectsCompanion(
@@ -110,11 +115,24 @@ class StoryRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Swap in a different object for the same story (Director undo restores
+  /// a snapshot) and persist it. Pages re-read by id, so they pick it up.
+  Future<void> replaceProject(model.StoryProject project) async {
+    final index = _projects.indexWhere((p) => p.dbId == project.dbId);
+    if (index == -1) {
+      _projects.insert(0, project);
+    } else {
+      _projects[index] = project;
+    }
+    await saveProject(project);
+  }
+
   /// Delete a project permanently.
   Future<void> deleteProject(String id) async {
     await _db.deleteStoryProject(id);
     _projects.removeWhere((p) => p.dbId == id);
     notifyListeners();
+    await onDelete?.call(id);
   }
 
   /// Get a project by database ID.

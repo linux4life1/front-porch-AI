@@ -31,7 +31,9 @@ const String faithfulArchitectDirective =
     'bible, acts, and threads MUST follow the timeline\'s events in their '
     'original order — do not reorder, replace, or invent major plot events. '
     'You may deepen interiority, sensory detail, and connective tissue '
-    'between events, but every major beat must come from the timeline.';
+    'between events, but every major beat must come from the timeline. '
+    'The cast is the people who appear in the timeline: do not invent new '
+    'characters, antagonists or NPCs, whatever was said above.';
 
 /// Appended to the Scene Weaver prompt when [StoryProject.faithfulMode].
 const String faithfulSceneDirective =
@@ -58,12 +60,13 @@ StoryProject buildChatStoryProject({
     title: faithful
         ? 'The Story of $charName & $userName'
         : 'Inspired by $charName & $userName',
-    concept: (faithful
+    concept:
+        (faithful
             ? 'A faithful novelization of the roleplay between $charName '
-                'and $userName — the real events of their chat, retold as '
-                'prose.'
+                  'and $userName — the real events of their chat, retold as '
+                  'prose.'
             : 'A story inspired by the roleplay between $charName and '
-                '$userName.') +
+                  '$userName.') +
         (recap.trim().isEmpty ? '' : '\n\nWhere the story stands: $recap'),
     useChatHistory: true,
     chatHistoryCharacterIds: [characterId],

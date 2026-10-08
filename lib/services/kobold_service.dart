@@ -22,8 +22,9 @@ import 'dart:io';
 
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
-import 'package:front_porch_ai/services/kobold_binary_version.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_process_control.dart';
@@ -34,10 +35,17 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/openai_chat_stream.dart';
 import 'package:front_porch_ai/services/system_role_probe.dart';
+import 'package:front_porch_ai/services/worker_gpu_swap.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 import 'package:path/path.dart' as path;
 
 part 'kobold_service_admin.dart';
+part 'kobold_service_exit.dart';
+part 'kobold_service_idle.dart';
+part 'kobold_service_keeper.dart';
 part 'kobold_service_process.dart';
+part 'kobold_service_requests.dart';
+part 'kobold_service_speed.dart';
 
 class KoboldService extends ChangeNotifier
     with WidgetsBindingObserver
@@ -51,17 +59,58 @@ class KoboldService extends ChangeNotifier
   Process? _process;
   bool _isRunning = false;
   bool _isStarting = false;
+
+  /// Goes up when Stop is pressed while a start is still being prepared. That
+  /// start sees a different number just before it spawns and gives up.
+  int _startGeneration = 0;
+
+  /// True while a start stops the engine it replaces: that stop is not a
+  /// Stop press and must not call off the start that made it.
+  bool _stoppingForRestart = false;
+
+  /// Why the engine last stopped on its own, or null.
+  KoboldFailure? get lastFailure => _lastFailure;
+  KoboldFailure? _lastFailure;
+  Process? _stoppingProcess;
+  bool _rocmFlashAttentionLaunch = false;
+
+  /// A reply has finished since this process started (its first "CtxLimit:"
+  /// line). Only a crash before that falls back to no flash attention.
+  bool _replyFinished = false;
   final List<String> _logs = [];
   String _modelLoadingStatus = '';
   bool _modelReady = false;
   String? _loadedModelPath;
   String? _loadedKcppsPath;
 
-  /// One-shot "load just finished" latch. Home drains it (no success toast —
-  /// dual-local swaps would stack those). Unlike [_modelReady], reset after
-  /// [consumeModelReady] so each load is seen once.
-  bool _modelJustLoaded = false;
+  /// Goes up every time what this process has loaded changes: a start, a
+  /// stop, an exit, an admin unload or reload. A caller that loaded a model
+  /// can tell later whether it is still the one in memory.
+  int _loadGeneration = 0;
+
+  /// Goes up when a load is CONFIRMED: a start, or a swap read back as
+  /// running what it was asked for. A reload that was only asked for does not
+  /// raise it: it can still fail, and the engine then goes back to the model
+  /// it had. What a model is called is read from its file against this.
+  int _residentGeneration = 0;
+
   String? _executablePath;
+
+  /// The detected graphics hardware, when the app has it. A launch with no
+  /// backend ever chosen uses it instead of falling back to the CPU.
+  HardwareInfo? Function()? hardwareInfo;
+
+  /// The same, waiting for a first detection that is still running. Only
+  /// asked when no graphics backend was ever chosen.
+  Future<HardwareInfo?> Function()? hardwareWhenKnown;
+
+  /// Reads the free graphics and system memory, before a launch.
+  Future<FreeMemoryMb?> Function()? readFreeMemory;
+
+  /// What [readFreeMemory] said before the running engine started: what
+  /// the model loaded into. Swaps tune with it too, so a swap back to the
+  /// chat model stages the same config as the launch did.
+  FreeMemoryMb? freeBeforeLaunch;
   Timer? _readinessProbe;
 
   /// Ground-truth per-request progress parsed from the managed process's own
@@ -74,8 +123,22 @@ class KoboldService extends ChangeNotifier
   bool get isRunning => _isRunning;
   bool get isStarting => _isStarting;
   List<String> get logs => List.unmodifiable(_logs);
+
+  /// The status line: what a start or a load is doing, a note such as why a
+  /// model change was not made, or, while stopped, why KoboldCpp stopped on
+  /// its own ([lastFailure]), until the next Start or Stop.
   String get modelLoadingStatus => _modelLoadingStatus;
   bool get modelReady => _modelReady;
+
+  /// See [_loadGeneration].
+  int get loadGeneration => _loadGeneration;
+
+  /// See [_residentGeneration].
+  int get residentGeneration => _residentGeneration;
+
+  /// The content of the config the engine was last given, by launch or by
+  /// swap. Null when nothing is loaded. See `isResident`.
+  String? _residentKey;
 
   /// GGUF last started or last admin-reloaded onto this process.
   String? get loadedModelPath => _loadedModelPath;
@@ -97,24 +160,15 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  /// Consume the one-shot "model just loaded" latch.
-  /// Returns true exactly once after each model load. Does NOT affect
-  /// [isReady] or [modelReady]. Home drains this without a success toast.
-  bool consumeModelReady() {
-    if (_modelJustLoaded) {
-      _modelJustLoaded = false;
-      return true;
-    }
-    return false;
-  }
-
-  String _baseUrl = 'http://127.0.0.1:5001';
+  String _baseUrl = 'http://$kKoboldHost:5001';
   String get baseUrl => _baseUrl;
-  http.Client? _activeClient;
 
-  /// Tracks the completion of the current generation stream.
-  /// Used by waitForIdle() to serialize requests without aborting in-flight ones.
-  Future<void>? _pendingRequest;
+  /// The port the app talks to the engine on. A start that names no port
+  /// uses it, so a restart comes back where the app is listening.
+  int get port {
+    final url = Uri.tryParse(_baseUrl);
+    return url != null && url.hasPort ? url.port : 5001;
+  }
 
   /// The measurement armed by the last [_markModelReady]. Production never
   /// waits on it (see [KoboldSystemRole.arm]); [debugMarkModelReady] does,
@@ -127,9 +181,9 @@ class KoboldService extends ChangeNotifier
 
   // LLMService interface
   @override
-  /// True only when the process is running AND the model is fully loaded.
-  /// Use [isProcessRunning] if you only need to know if the process is alive.
-  bool get isReady => _isRunning && _modelReady;
+  /// The process runs and its model is loaded, or was unloaded for being idle
+  /// and comes back with the next request. See [isProcessRunning].
+  bool get isReady => _isRunning && (_modelReady || _idle.unloaded != null);
 
   /// True if the KoboldCPP process has been started (model may still be loading).
   bool get isProcessRunning => _isRunning;
@@ -174,13 +228,14 @@ class KoboldService extends ChangeNotifier
         } else {
           // Orphaned zombie from a previous app instance (e.g. after update).
           // Kill it so we can start fresh on the same port — but ONLY when the
-          // managed local backend is the selected one. killOrphanedKobold-
-          // Processes sweeps the whole MACHINE by image name, and this probe
-          // runs from the constructor on every launch, so on Remote API / oMLX
+          // managed local backend is the selected one. This probe runs from
+          // the constructor on every launch, so on Remote API / oMLX
           // (pointing at 127.0.0.1:5001 without an API key is a supported
-          // setup) it would SIGKILL a server the app neither started nor is
-          // about to replace. Same gate the other backend-owning paths use
-          // (backend_manager.dart, setup_service.dart).
+          // setup) the kill could take down a server the app neither started
+          // nor is about to replace (on Windows, any KoboldCpp by name; on
+          // Mac and Linux, any started from the app's own engine folder).
+          // Same gate the other backend-owning paths use (backend_manager.dart,
+          // setup_service.dart).
           await _storageService.initialized;
           final backendType = _storageService.backendSettings.backendType;
           if (backendType == 'openRouter' || backendType == 'omlx') {
@@ -193,7 +248,10 @@ class KoboldService extends ChangeNotifier
           debugPrint(
             '[KoboldService] Found orphaned KoboldCPP on $_baseUrl — killing it.',
           );
-          await killOrphanedKoboldProcesses(_addLog);
+          await killOrphanedKoboldProcesses(
+            _addLog,
+            binDir: _storageService.binDir.path,
+          );
         }
       }
     } catch (_) {
@@ -206,6 +264,7 @@ class KoboldService extends ChangeNotifier
   @override
   void dispose() {
     _stopReadinessProbe();
+    _idleStop();
     WidgetsBinding.instance.removeObserver(this);
     stopKobold();
     super.dispose();
@@ -230,7 +289,11 @@ class KoboldService extends ChangeNotifier
   }
 
   // Public notify for same-library extensions (avoids protected member warnings).
-  void notify() => notifyListeners();
+  // A stop that dispose() started finishes later, and its last log lines must
+  // not notify a disposed service (dispose leaves no listeners).
+  void notify() {
+    if (hasListeners) notifyListeners();
+  }
 
   File get _logFile => File(
     path.join(_storageService.rootPath!, 'characters', 'session_log.txt'),
@@ -256,116 +319,38 @@ class KoboldService extends ChangeNotifier
     }
   }
 
-  /// LLMService interface implementation.
-  ///
-  /// Routes generation through KoboldCpp's OpenAI-compatible
-  /// `/v1/chat/completions` endpoint (via [streamOpenAiChat]) instead of the
-  /// legacy raw `/api/extra/generate/stream`. The chat endpoint applies the
-  /// loaded model's instruct template server-side, so instruct GGUFs follow
-  /// instructions and stop naturally via EOS — the raw endpoint did neither
-  /// (immediate empty responses or runaway repetition on un-templated prompts).
-  /// This is the same transport the `.kcpps` pseudo-remote backend has always
-  /// used against the same server. KoboldCpp ignores the model name.
-  ///
-  // Local tool calling: recent KoboldCpp supports OpenAI tools with
-  // template-aware models (Qwen3 family etc.). Models/servers that can't
-  // simply yield no tool calls and the caller's negotiation falls back to
-  // its text transport (the Journal's XML floor).
+  // The request bodies live in kobold_service_requests.dart. They stay class
+  // members so test doubles can override them.
   @override
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
-  ) async {
-    if (!isReady) return null;
-    http.Client? mine;
-    return _runSerialized<LlmToolResponse?>(() async {
-      if (params.stillWantTools?.call() == false) return null;
-      return postOpenAiChatWithTools(
-        _baseUrl,
-        params,
-        tools,
-        thinkingModelKey: _storageService.backendSettings.lastUsedModelPath,
-        foldSystemIntoUser: _systemRole.foldSystemIntoUser,
-        toolChoice: params.toolChoice,
-        registerClient: (client) {
-          mine = client;
-          _activeClient = client;
-        },
-        // Same ownership rule the `_pendingRequest` slot two lines below
-        // already follows (and OpenRouterService already applies to this
-        // very field): a finishing call may only clear the abort handle if
-        // it is still ITS handle. Clearing a newer request's client left
-        // Stop/abort with nothing to close.
-        onDone: () {
-          if (identical(_activeClient, mine)) _activeClient = null;
-        },
-      );
-    });
-  }
-
-  /// Run [body] with exclusive use of the single-slot local engine: wait for
-  /// any in-flight request, then register on the SAME `_pendingRequest` slot
-  /// [generateStream] uses, so other `waitForIdle` callers (text evals, the
-  /// Scene Guest mint, the system-role probe) queue behind us instead of
-  /// racing. Extracted from [generateWithTools], which was the only thing
-  /// that did this dance — a second hand-rolled copy of a slot protocol is
-  /// how one of them ends up subtly different.
-  Future<T> _runSerialized<T>(Future<T> Function() body) async {
-    await waitForIdle();
-    final completer = Completer<void>();
-    _pendingRequest = completer.future;
-    try {
-      return await body();
-    } finally {
-      if (!completer.isCompleted) completer.complete();
-      // Only release the slot if it is still OURS — a stream that started
-      // meanwhile (the main chat path doesn't waitForIdle) must not have its
-      // registration nulled by this call's late finally.
-      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
-    }
-  }
-
-  /// `_activeClient` is registered for [abortGeneration]; `_pendingRequest`
-  /// (a completer future) is tracked so [waitForIdle] still unblocks on close.
-  @override
-  Stream<String> generateStream(GenerationParams params) async* {
-    final completer = Completer<void>();
-    _pendingRequest = completer.future;
-    http.Client? mine;
-    try {
-      yield* streamOpenAiChat(
-        _baseUrl,
-        params,
-        thinkingModelKey: _storageService.backendSettings.lastUsedModelPath,
-        foldSystemIntoUser: _systemRole.foldSystemIntoUser,
-        registerClient: (client) {
-          mine = client;
-          _activeClient = client;
-        },
-        // Ownership guard — see generateWithTools: this stream's late
-        // teardown must not null a newer request's abort handle.
-        onDone: () {
-          if (identical(_activeClient, mine)) _activeClient = null;
-        },
-      );
-    } finally {
-      if (!completer.isCompleted) completer.complete();
-      // Same slot-ownership guard as generateWithTools: don't null a newer
-      // request's registration from this one's late finally.
-      if (identical(_pendingRequest, completer.future)) _pendingRequest = null;
-    }
-  }
+  ) => _generateWithTools(params, tools);
 
   @override
-  void abortGeneration() {
-    _activeClient?.close();
-    _activeClient = null;
-    // Fire the server-side abort asynchronously so KoboldCPP stops the
-    // current generation even after the socket is dropped. We don't await
-    // here to keep the call non-blocking for the UI, but the server will
-    // drain to idle before accepting the next request.
-    _postAbort();
-  }
+  Stream<String> generateStream(GenerationParams params) =>
+      _generateStream(params);
+
+  @override
+  void abortGeneration() => _abortGeneration();
+
+  @override
+  bool dropStoppedReplies() => _dropStoppedReplies();
+
+  /// A chat was deleted: the keeper lets go of its saved cache.
+  void forgetChat(String chat) => _forgetChat(chat);
+
+  /// The chat the user has open changed (null: none, back in the library).
+  /// The keeper keeps it and the recent chats Settings asks for.
+  void openChat(String? chat) => _openChat(chat);
+
+  /// One speed test prompt, sent in the line: the engine's own speeds for it.
+  Future<KoboldSpeed?> timeTurn(int round) => _timeTurn(round);
+
+  /// The editor's speed test is about to load its own preset: the app's own
+  /// requests wait for chat's model until the function this returns is
+  /// called. Completes once what was already in the line is done.
+  Future<void Function()> holdForSpeedTest() => _holdForSpeedTest();
 
   /// POST /api/extra/abort — KoboldCPP blocks until the active generation
   /// is fully stopped, then returns HTTP 200. Call this (and await it) before
@@ -394,20 +379,28 @@ class KoboldService extends ChangeNotifier
   /// Wait for any in-flight generation to complete naturally.
   /// Unlike [ensureServerIdle], this does NOT abort the active request —
   /// it simply awaits the stream to close. Returns immediately if idle.
-  Future<void> waitForIdle() async {
-    final pending = _pendingRequest;
-    if (pending != null) {
-      await pending;
-    }
-  }
+  Future<void> waitForIdle() => _waitForIdle();
 
   /// Fire-and-forget server-side abort (used by abortGeneration).
   void _postAbort() {
     ensureServerIdle().catchError((_) {});
   }
 
-  // Class members so `import … show KoboldService` still resolves them.
-  Future<void> startKobold(
+  /// The one way to start the engine for chat. See [resolveKoboldLaunch]
+  /// for which model and preset load. Nothing is started, and the result
+  /// says why, when no model is chosen or the model or preset cannot be
+  /// read.
+  Future<KoboldLaunchResult> launch(
+    String executablePath, {
+    String? pickedModel,
+    int port = 5001,
+  }) => _launch(executablePath, pickedModel: pickedModel, port: port);
+
+  /// Starts the engine for [modelPath] (empty when [kcppsPath] owns the
+  /// model). The result says why nothing was started. A class member, so
+  /// `import … show KoboldService` still resolves it and test doubles can
+  /// override it.
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,

@@ -19,14 +19,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'expression_pack_widgets.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-import 'comfy_create_panel.dart';
 
 /// Step 1 of the Expression-pack dialog: the setup form. Owns its own local
 /// choices (set size, variation strength, replace-existing) and reports them
@@ -40,10 +39,22 @@ class ExpressionPackSetup extends StatefulWidget {
     required this.onCancel,
     required this.onStart,
     this.storage,
+    this.busy = false,
+    this.note,
+    this.promptRules,
+    this.onRulesChanged,
+    this.originalPrompts = const {},
   });
 
   final StorageService? storage;
+  final bool busy;
+  final ExpressionPromptRules? promptRules;
+  final ValueChanged<ExpressionPromptRules>? onRulesChanged;
+  final Map<String, String> originalPrompts;
   final Uint8List baseImage;
+
+  /// A short line shown under the portrait (that it was converted to PNG).
+  final String? note;
   final String characterName;
 
   /// Emotions this character already has images for (drives the default
@@ -65,6 +76,22 @@ class ExpressionPackSetup extends StatefulWidget {
 }
 
 class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
+  ExpressionPromptRules? _rules;
+  Future<void> _editRules() async {
+    final settings =
+        (widget.storage ?? context.read<StorageService>()).expressionSettings;
+    final rules = await showExpressionPromptRulesEditor(
+      context,
+      rules: _rules ?? widget.promptRules ?? settings.expressionPromptRules,
+      globalDefaults: () => settings.expressionPromptRules,
+      saveDefaults: settings.setExpressionPromptRules,
+      originals: widget.originalPrompts,
+    );
+    if (!mounted || rules == null) return;
+    setState(() => _rules = rules);
+    widget.onRulesChanged?.call(rules);
+  }
+
   bool _fullSet = false;
   bool _skipExisting = true;
   // 0.7 default from maintainer field-testing: at 0.5 the img2img anchor
@@ -112,6 +139,17 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             ),
           ],
         ),
+        if (widget.note != null) ...[
+          const SizedBox(height: 8),
+          Text(
+            widget.note!,
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+              fontStyle: FontStyle.italic,
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         if (ImageGenBackend.fromKey(
               (widget.storage ?? context.read<StorageService>())
@@ -119,11 +157,10 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
                   .imageGenBackend,
             ) ==
             ImageGenBackend.comfyUi) ...[
-          const ComfyCreatePanel(),
-          const SizedBox(height: 10),
           Text(
-            'The pack uses a ready Edit workflow when selected; otherwise '
-            'it uses this Create family for img2img from the base portrait.',
+            'On ComfyUI the pack runs your Edit graph (chosen on the Image '
+            'Studio desk, under Edit). If it is not ready the pack stops and '
+            'says what is missing; it never uses the Create graph instead.',
             style: TextStyle(
               color: AppColors.textTertiary(context),
               fontSize: 11,
@@ -266,6 +303,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             fontSize: 11.5,
           ),
         ),
+        TextButton(onPressed: _editRules, child: const Text('Prompt rules…')),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.end,
@@ -279,7 +317,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             ),
             const SizedBox(width: 10),
             ElevatedButton.icon(
-              onPressed: _effectiveCount == 0
+              onPressed: widget.busy || _effectiveCount == 0
                   ? null
                   : () => widget.onStart(
                       fullSet: _fullSet,

@@ -169,7 +169,8 @@ extension GrowthPanelCards on GrowthPanel {
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
-                        '#$pos',
+                        // Stored 0-based; bubbles count from #1.
+                        '#${pos + 1}',
                         style: TextStyle(
                           fontSize: 9,
                           fontWeight: FontWeight.w600,

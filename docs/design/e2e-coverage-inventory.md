@@ -37,9 +37,11 @@ Update this file when you add or retire a suite.
 | `message_actions_test` | Edit / regenerate / delete-with-needs-refund via real bubble controls |
 | `swipe_fork_cancel_test` | Swipe chevrons, cancel-mid-regen put-back, fork branch |
 | `web_server_test` | PWA shell, anon 401, setup→cookie→state over real HTTP |
+| `web_ui/browser_test` | **Web UI in real browsers** (Playwright, WebKit phone + Chromium desktop) against the booted app: `web_ui/e2e/sweep.spec.ts` taps every safe control on every screen (fails on covered / tap-through controls, dialogs a finger can't close, phone sideways scroll, broken pictures, console errors, failing `/api`); `web_ui/e2e/journeys.spec.ts` signs in, chats, edits (#330), regenerates + swipes, continues, deletes, switches chats, persists a setting. Own CI job `web-e2e` (not in the e2e-smoke matrix — lives in a subdirectory). `FPAI_E2E_HOLD=1` keeps the sandboxed app serving for `npm run e2e` iteration. |
 | `story_time_test` | Story clock advances + survives reload |
 | `backup_restore_test` | Create → restore → services rebound |
 | `persona_folder_test` | Persona form + session; folder create/move/open |
+| `library_organize_test` | Home library: folder tiles follow the sort (made C, B, A → shown A, B, C), the top-level search scope (Top level only / Everywhere), Multi-select → Select all with a search, "N selected (M hidden)", Move to Folder → FolderService membership (#345, #346, #347) |
 | `persona_default_test` | Default persona behaviour |
 | `lorebook_chat_test` | This Chat lore entry → triggers → injection |
 | `lorebook_import_test` | Import path |
@@ -111,7 +113,7 @@ Update this file when you add or retire a suite.
 3. **Journal + Growth rewrite twin** one journey (delete/regen purges both)
 4. **RAG receipt honesty** with embedding unavailable
 5. **Pockets transfer + erase → diary** (recent features)
-6. **Web parity journeys** for Journal plant/review and Porch Life 18+ (if driver can hit web_ui via host — optional later)
+6. **Web parity journeys** for Journal plant/review and Porch Life 18+ — the host exists now (`web_ui/browser_test` + `web_ui/e2e/journeys.spec.ts`); add them there.
 7. **Scene guest** offer → accept
 8. **Director mode** group turn
 

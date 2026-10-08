@@ -8,6 +8,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_ext_persist.dart';
 
@@ -347,6 +348,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                       color: AppColors.textSecondary(context),
                     ),
                   ),
+                  const NeedsClockOffNote(),
                 ],
               ),
             ),

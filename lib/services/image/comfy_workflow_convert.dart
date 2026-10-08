@@ -17,85 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'comfy_subgraph_widgets.dart';
+import 'image.dart';
 
 const _kSkipTypes = {'MarkdownNote', 'Note'};
-const _kControlAfter = {'randomize', 'fixed', 'increment', 'decrement'};
-const _kLinkTypes = {
-  'MODEL',
-  'CLIP',
-  'VAE',
-  'LATENT',
-  'CONDITIONING',
-  'IMAGE',
-  'MASK',
-  'CONTROL_NET',
-  'GUIDER',
-  'NOISE',
-  'SAMPLER',
-  'SIGMAS',
-};
-
-/// Fallback widget order when /object_info is missing (bundled starters, CI).
-const kComfyFallbackWidgets = <String, List<String>>{
-  'UNETLoader': ['unet_name', 'weight_dtype'],
-  'UnetLoaderGGUF': ['unet_name'],
-  'UnetLoaderGGUFAdvanced': [
-    'unet_name',
-    'dequant_dtype',
-    'patch_dtype',
-    'patch_on_device',
-  ],
-  'CLIPLoader': ['clip_name', 'type', 'device'],
-  'CLIPLoaderGGUF': ['clip_name', 'type'],
-  'DualCLIPLoaderGGUF': ['clip_name1', 'clip_name2', 'type'],
-  'TripleCLIPLoaderGGUF': ['clip_name1', 'clip_name2', 'clip_name3'],
-  'QuadrupleCLIPLoaderGGUF': [
-    'clip_name1',
-    'clip_name2',
-    'clip_name3',
-    'clip_name4',
-  ],
-  'DualCLIPLoader': ['clip_name1', 'clip_name2', 'type', 'device'],
-  'VAELoader': ['vae_name'],
-  'CheckpointLoaderSimple': ['ckpt_name'],
-  'CLIPTextEncode': ['text'],
-  'KSampler': ['seed', 'steps', 'cfg', 'sampler_name', 'scheduler', 'denoise'],
-  'EmptyLatentImage': ['width', 'height', 'batch_size'],
-  'EmptySD3LatentImage': ['width', 'height', 'batch_size'],
-  'ModelSamplingAuraFlow': ['shift'],
-  'FluxGuidance': ['guidance'],
-  'CFGNorm': ['strength'],
-  'LoraLoader': ['lora_name', 'strength_model', 'strength_clip'],
-  'SaveImage': ['filename_prefix'],
-  'LoadImage': ['image'],
-  'TextEncodeQwenImageEditPlus': ['prompt'],
-  'TextEncodeQwenImage21': ['prompt', 'negative_prompt', 'resolution'],
-  'TextGenerate': [
-    'prompt',
-    'max_length',
-    'sampling_mode',
-    'sampling_mode.temperature',
-    'sampling_mode.top_k',
-    'sampling_mode.top_p',
-    'sampling_mode.min_p',
-    'sampling_mode.repetition_penalty',
-    'sampling_mode.presence_penalty',
-    'sampling_mode.seed',
-    'thinking',
-    'use_default_template',
-    'mtp',
-  ],
-  'ComfySwitchNode': ['switch'],
-  'PrimitiveStringMultiline': ['value'],
-  'QwenImage21Cache': ['device', 'dtype'],
-  'ResolutionSelector': ['aspect_ratio', 'megapixels', 'multiple'],
-  'SaveImageAdvanced': [
-    'filename_prefix',
-    'format',
-    'format.bit_depth',
-    'format.input_color_space',
-  ],
-};
 
 bool isComfyApiWorkflow(Map<String, dynamic> raw) {
   if (raw.containsKey('nodes') && raw.containsKey('links')) return false;
@@ -114,8 +38,10 @@ Map<String, dynamic>? ensureComfyApiGraph(
   Map<String, dynamic>? objectInfo,
 }) {
   if (isComfyApiWorkflow(raw)) {
-    return raw.map(
-      (k, v) => MapEntry(k, v is Map ? Map<String, dynamic>.from(v) : v),
+    return _withoutIncompleteTerminalCompare(
+      raw.map(
+        (k, v) => MapEntry(k, v is Map ? Map<String, dynamic>.from(v) : v),
+      ),
     );
   }
   if (isComfyUiWorkflow(raw)) {
@@ -129,7 +55,7 @@ Map<String, dynamic> convertComfyUiToApi(
   Map<String, dynamic> ui, {
   Map<String, dynamic>? objectInfo,
 }) {
-  final flat = _flattenComfyUiGraph(ui);
+  final flat = _flattenComfyUiGraph(ui, objectInfo);
   final nodes = flat.nodes;
   final linksById = {for (final l in flat.links) l.id: l};
   final nodesById = {for (final n in nodes) n.id: n};
@@ -152,55 +78,50 @@ Map<String, dynamic> convertComfyUiToApi(
       if (origin == null) continue;
       inputs[inp.name] = [origin.$1, origin.$2];
     }
-    final names = comfyWidgetInputNames(objectInfo, n.type);
-    var nameI = 0;
-    for (final value in n.widgets) {
-      if (value is String && _kControlAfter.contains(value)) continue;
-      if (nameI >= names.length) break;
-      final name = names[nameI++];
-      inputs.putIfAbsent(name, () => value);
+    for (final entry in comfyWidgetValues(
+      objectInfo,
+      n.type,
+      n.widgets,
+    ).entries) {
+      inputs.putIfAbsent(entry.key, () => entry.value);
     }
     inputs.addAll(flat.values[n.id] ?? const {});
     out[n.id] = {'class_type': n.type, 'inputs': inputs};
   }
-  return out;
+  return _withoutIncompleteTerminalCompare(out);
 }
 
-List<String> comfyWidgetInputNames(
-  Map<String, dynamic>? objectInfo,
-  String type,
+/// Saved comparisons can be output nodes with an unfilled UI-only view input.
+/// Omit those only when no other node consumes them.
+Map<String, dynamic> _withoutIncompleteTerminalCompare(
+  Map<String, dynamic> graph,
 ) {
-  final fromInfo = _widgetNamesFromObjectInfo(objectInfo, type);
-  if (fromInfo.isNotEmpty) return fromInfo;
-  return kComfyFallbackWidgets[type] ?? const [];
-}
-
-List<String> _widgetNamesFromObjectInfo(
-  Map<String, dynamic>? info,
-  String type,
-) {
-  if (info == null) return const [];
-  final node = info[type];
-  if (node is! Map) return const [];
-  final input = node['input'];
-  if (input is! Map) return const [];
-  final names = <String>[];
-  for (final section in ['required', 'optional']) {
-    final sec = input[section];
-    if (sec is! Map) continue;
-    for (final e in sec.entries) {
-      if (_isWidgetSpec(e.value)) names.add(e.key.toString());
+  final referenced = <String>{};
+  for (final node in graph.values.whereType<Map>()) {
+    final inputs = node['inputs'];
+    if (inputs is! Map) continue;
+    for (final value in inputs.values) {
+      if (value is List && value.length == 2 && value[1] is num) {
+        referenced.add('${value[0]}');
+      }
     }
   }
-  return names;
+  return {
+    for (final entry in graph.entries)
+      if (!_isIncompleteTerminalCompare(entry, referenced))
+        entry.key: entry.value,
+  };
 }
 
-bool _isWidgetSpec(Object? spec) {
-  if (spec is! List || spec.isEmpty) return false;
-  final first = spec.first;
-  if (first is List) return true;
-  if (first is String) return !_kLinkTypes.contains(first);
-  return false;
+bool _isIncompleteTerminalCompare(
+  MapEntry<String, dynamic> entry,
+  Set<String> referenced,
+) {
+  final node = entry.value;
+  if (node is! Map || node['class_type'] != 'ImageCompare') return false;
+  if (referenced.contains(entry.key)) return false;
+  final inputs = node['inputs'];
+  return inputs is! Map || inputs['compare_view'] == null;
 }
 
 (String, int)? _followReroute(
@@ -265,7 +186,10 @@ class _FlatUi {
   const _FlatUi(this.nodes, this.links, this.values);
 }
 
-_FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
+_FlatUi _flattenComfyUiGraph(
+  Map<String, dynamic> ui,
+  Map<String, dynamic>? objectInfo,
+) {
   final subgraphs = <String, Map<String, dynamic>>{};
   final defs = ui['definitions'];
   if (defs is Map && defs['subgraphs'] is List) {
@@ -293,8 +217,28 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
         final ports = _asList(sg['inputs']);
         final widgetPorts = [
           for (final port in ports)
-            if (port is Map && !_kLinkTypes.contains(port['type'])) port,
+            if (port is Map && !kComfyLinkTypes.contains(port['type'])) port,
         ];
+        final consumers = <int, List<(String, String, Map<String, Object?>)>>{};
+        for (final internal in _asList(sg['links'])) {
+          final origin = _linkOrigin(internal);
+          final target = _linkTarget(internal);
+          if (origin?.$1 != '-10' || target == null) continue;
+          final child = nodes
+              .where((n) => n.id == '${id}_${target.$1}')
+              .firstOrNull;
+          if (child == null ||
+              target.$2 < 0 ||
+              target.$2 >= child.inputs.length) {
+            continue;
+          }
+          consumers.putIfAbsent(origin!.$2, () => []).add((
+            target.$1,
+            child.inputs[target.$2].name,
+            comfyWidgetValues(objectInfo, child.type, child.widgets),
+          ));
+        }
+        final portValues = <int, Object?>{};
         for (final internal in _asList(sg['links'])) {
           final origin = _linkOrigin(internal);
           final target = _linkTarget(internal);
@@ -317,14 +261,15 @@ _FlatUi _flattenComfyUiGraph(Map<String, dynamic> ui) {
             continue;
           }
           final inputName = child.inputs[target.$2].name;
-          final widgetIndex = comfySubgraphWidgetIndex(
-            raw,
-            widgetPorts,
-            ports[portIndex],
-            target.$1,
-            inputName,
+          final widgetValue = portValues.putIfAbsent(
+            portIndex,
+            () => promotedSubgraphWidgetValue(
+              raw,
+              widgetPorts,
+              ports[portIndex] as Map,
+              consumers[portIndex] ?? const [],
+            ),
           );
-          final widgetValue = subgraphWidgetValue(raw, portName, widgetIndex);
           final parentInput = _asList(
             raw['inputs'],
           ).whereType<Map>().where((i) => i['name'] == portName).firstOrNull;
@@ -427,11 +372,14 @@ _UiNode _readNode(Map raw, String id, String prefix) {
   if (wv is List) widgets.addAll(wv);
   final inputs = <_UiIn>[];
   final rawIns = raw['inputs'];
+  // A Reroute's only input is legitimately nameless; _followReroute needs
+  // it to carry the wire through. Nameless inputs elsewhere are UI-only.
+  final isReroute = raw['type'] == 'Reroute';
   if (rawIns is List) {
     for (final inp in rawIns) {
       if (inp is! Map) continue;
       final name = inp['name']?.toString() ?? '';
-      if (name.isEmpty) continue;
+      if (name.isEmpty && !isReroute) continue;
       final link = inp['link'];
       inputs.add(_UiIn(name, link is num ? '$prefix${link.toInt()}' : null));
     }

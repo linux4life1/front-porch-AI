@@ -118,6 +118,10 @@ class RealismFormSection extends StatelessWidget {
   final bool? pocketsEnabled;
   final ValueChanged<bool>? onPocketsEnabledChanged;
 
+  /// Shown right above the Wearing / Carrying panel. The AI creator's
+  /// outfit hint after a new first message; null everywhere else.
+  final Widget? wardrobeNotice;
+
   // Realism Verification (Director/Verifier) toggle — shown under Optional Features like other optionals.
   // Sliders for max reprocesses + strictness live in the Details dialog (right-click edit); form surfaces the toggle for creator/edit flows.
   final bool realismVerificationEnabled;
@@ -194,6 +198,7 @@ class RealismFormSection extends StatelessWidget {
     this.onCarryingChanged,
     this.pocketsEnabled,
     this.onPocketsEnabledChanged,
+    this.wardrobeNotice,
     required this.realismVerificationEnabled,
     required this.onRealismVerificationChanged,
     this.showVerificationToggle = true,

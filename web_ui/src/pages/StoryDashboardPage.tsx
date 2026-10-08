@@ -1,135 +1,87 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Story bible dashboard: view the generated structure (concept, cast + voices,
-// threads, lore, editable acts + convergence points), distill chat history, drive
-// the pipeline with live progress, export (txt/md/epub/audiobook), and jump to
-// the structure/writer/reader. Mirrors the desktop StoryDashboardPage.
+// Overview (sketch M): where the story is and what is next, then the bible with
+// inline edits, the cast strip, the chat card, the engine card and the story so
+// far. Web twin of the desktop StoryDashboardPage's Overview section.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import { api } from '../api/client';
-import { AiEngineStrip } from '../components/AiEngineStrip';
 import { useStory } from '../hooks/useStory';
-import type { StoryAct, StoryVoice } from '../storyTypes';
-import { ChatDistillPanel } from './story/ChatDistillPanel';
-import { CastVoiceEditor } from './story/CastVoiceEditor';
-import { ActsEditor } from './story/ActsEditor';
-import { StoryExportBar } from './story/StoryExportBar';
-import '../styles/ws-j.css';
+import { autopilotCopy, redistillCopy, regenerateBibleCopy, rewriteArcCopy } from './story/confirmCopy';
+import { BibleCard } from './story/overview/BibleCard';
+import { CastCard, ChatCard, EngineCard, SoFarCard } from './story/overview/SideCards';
+import { UpNextCard } from './story/overview/UpNextCard';
+import { upNextFor, type UpNextAction } from './story/overview/upNext';
+import { StudioLoading, StudioShell, studioPath } from './story/StudioShell';
+import { lensNameFor, useLenses } from './story/structure/LensParts';
+import { useConfirm } from './story/useConfirm';
 
 export function StoryDashboardPage() {
   const { id = '' } = useParams();
   const navigate = useNavigate();
-  const { project: p, status, error, run, save } = useStory(id);
-  const [voices, setVoices] = useState<StoryVoice[]>([]);
+  const { project: p, status, error, run, stop, save } = useStory(id);
+  const lenses = useLenses();
+  const { ask, dialog } = useConfirm();
+  // Building the bible first distills the chat; the second stage waits here until the first has finished.
+  const queued = useRef<string | null>(null);
 
+  useEffect(() => { if (error) queued.current = null; }, [error]);
   useEffect(() => {
-    api.get<{ voices: StoryVoice[] }>('/api/stories/voices')
-      .then((r) => setVoices(r.voices)).catch(() => {});
-  }, []);
+    if (status?.running) return;
+    const stage = queued.current;
+    if (!stage) return;
+    queued.current = null;
+    void run(stage);
+  }, [status?.running, run]);
 
-  if (!p) {
-    return <div className="page">{error ? <p className="error">{error}</p> : <div className="spinner" />}</div>;
-  }
+  if (!p) return <StudioLoading error={error} />;
 
-  const busy = status?.running ?? false;
-  const hasBible = p.concept.trim() !== '' && (p.cast.length > 0 || p.status_quo.trim() !== '');
-  const hasActs = p.acts.length > 0;
-  const hasProse = !!p.prose && Object.keys(p.prose).length > 0;
+  const running = status?.running ?? false;
+  const up = upNextFor(p, running, status?.status ?? '', (lens) => lensNameFor(p, lenses, lens));
 
-  const pickVoice = (i: number, voiceId: string) => {
-    const cast = p.cast.map((c, idx) =>
-      idx === i ? { ...c, voice_model: voiceId || undefined } : c);
-    void save({ cast });
+  const buildBible = () => {
+    const distillFirst = p.use_chat_history && p.chat_history_character_ids.length > 0 && !p.distilled_timeline;
+    if (distillFirst) {
+      queued.current = 'story-architect';
+      void run('chat-distiller');
+    } else {
+      void run('story-architect');
+    }
   };
-  const saveActs = async (acts: StoryAct[]) => { await save({ acts }); };
+
+  const act: Record<UpNextAction, () => void> = {
+    bible: buildBible,
+    acts: () => { void run('act-structure'); },
+    continue: () => { void run('write-next'); },
+    read: () => navigate(studioPath(id, 'read')),
+  };
+
+  const redistill = () => ask(redistillCopy, async () => {
+    // The old timeline goes first so the distiller starts from the chat again.
+    if (await save({ distilled_timeline: '' })) void run('chat-distiller');
+  });
 
   return (
-    <div className="page">
-      <div className="page-head">
-        <button className="ghost" onClick={() => navigate('/stories')}>← Stories</button>
-        <h2>{p.title}</h2>
-        <button className="ghost small" onClick={() => navigate(`/stories/${id}/setup`)}>Edit setup</button>
+    <StudioShell id={id} project={p} section="overview" status={status} error={error} onStop={stop}>
+      <div className="s-col" style={{ gap: 12 }} data-testid="studio-overview">
+        <UpNextCard up={up} running={running} onAction={act[up.action]}
+          onAutopilot={() => ask(autopilotCopy(p), () => { void run('autopilot'); })} />
+        <div className="s-over-cols">
+          <BibleCard p={p} running={running} onSave={(patch) => { void save(patch); }}
+            onRegenerate={() => ask(regenerateBibleCopy(p), buildBible)}
+            onRewriteArc={p.engine_mode === 'studio' && p.cast.length > 0
+              ? () => ask(rewriteArcCopy(p), () => { void run('story-arc'); })
+              : undefined} />
+          <div className="s-col" style={{ gap: 12 }}>
+            <CastCard id={id} p={p} onOpen={() => navigate(studioPath(id, 'cast'))} />
+            {p.use_chat_history && <ChatCard p={p} running={running} onRedistill={redistill} />}
+            <EngineCard p={p} onChange={() => navigate(`/stories/${id}/setup`)} />
+            <SoFarCard p={p} onOpen={() => navigate(studioPath(id, 'lore'))} />
+          </div>
+        </div>
       </div>
-      <AiEngineStrip />
-
-      {busy && (
-        <div className="card story-progress" aria-live="polite">
-          <div className="spinner small" />
-          <div>
-            <strong>{status?.step || 'Working'}</strong>
-            <p className="muted small">{status?.status}{status?.tokens ? ` · ${status.tokens} tokens` : ''}</p>
-          </div>
-        </div>
-      )}
-      {error && <p className="error">{error}</p>}
-
-      <section className="card">
-        <h3>Pipeline</h3>
-        <div className="btn-row">
-          <button className="primary" disabled={busy} onClick={() => run('story-architect')}>
-            {hasBible ? 'Regenerate bible' : 'Generate story bible'}
-          </button>
-          <button className="ghost" disabled={busy || !hasBible} onClick={() => run('act-structure')}>
-            {hasActs ? 'Regenerate acts' : 'Generate act structure'}
-          </button>
-          <button className="ghost" disabled={busy} onClick={() => run('autopilot')}>Autopilot (everything)</button>
-        </div>
-        {hasActs && (
-          <div className="btn-row" style={{ marginTop: 10 }}>
-            <button className="primary" onClick={() => navigate(`/stories/${id}/structure`)}>Structure &amp; write →</button>
-            {hasProse && (
-              <button className="ghost" onClick={() => navigate(`/stories/${id}/read`)}>Read 📖</button>
-            )}
-          </div>
-        )}
-      </section>
-
-      {p.use_chat_history && (
-        <ChatDistillPanel id={id} project={p} busy={busy} onRedistill={() => run('chat-distiller')} />
-      )}
-
-      {hasBible && (
-        <>
-          <section className="card">
-            <h3>Concept</h3>
-            {p.concept && <p>{p.concept}</p>}
-            {p.status_quo && <p><strong>Status quo:</strong> {p.status_quo}</p>}
-            {p.inciting_incident && <p><strong>Inciting incident:</strong> {p.inciting_incident}</p>}
-            {p.themes && <p><strong>Themes:</strong> {p.themes}</p>}
-            {(p.style?.genre || p.style?.mood) && (
-              <p className="muted small">{[p.style.genre, p.style.mood].filter(Boolean).join(' · ')}</p>
-            )}
-          </section>
-
-          {p.cast.length > 0 && (
-            <CastVoiceEditor cast={p.cast} voices={voices} onPick={pickVoice} />
-          )}
-
-          {p.threads.length > 0 && (
-            <section className="card">
-              <h3>Threads</h3>
-              {p.threads.map((t) => (
-                <p key={t.id}><strong>{t.name}:</strong> <span className="muted">{t.description}</span></p>
-              ))}
-            </section>
-          )}
-
-          {p.lore.length > 0 && (
-            <section className="card">
-              <h3>Lore</h3>
-              <div className="chip-select">
-                {p.lore.map((l, i) => <span key={i} className="chip" title={l.detail}>{l.topic}</span>)}
-              </div>
-            </section>
-          )}
-
-          {hasActs && <ActsEditor project={p} busy={busy} onSave={saveActs} />}
-
-          <StoryExportBar id={id} title={p.title} />
-        </>
-      )}
-    </div>
+      {dialog}
+    </StudioShell>
   );
 }

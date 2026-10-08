@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/waifu/waifu_brand.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Home toolbar mode: Chats, Porch Stories, or Waifu Coder.
 enum HomeMode { chats, stories, waifu }
@@ -38,6 +39,7 @@ class HomeModeToggle extends StatelessWidget {
     required this.onShowStories,
     this.showWaifu = false,
     this.onShowWaifu,
+    this.studio = false,
   });
 
   final bool showStories;
@@ -45,6 +47,9 @@ class HomeModeToggle extends StatelessWidget {
   final VoidCallback onShowStories;
   final bool showWaifu;
   final VoidCallback? onShowWaifu;
+
+  /// Paint in the Porch Stories studio palette (the Stories shelf).
+  final bool studio;
 
   /// Labeled "Chats" + "Porch Stories" + "Waifu Coder" is wide. Drop to
   /// icons before the 651px toolbar overflow case (and the 360px squeeze).
@@ -59,9 +64,15 @@ class HomeModeToggle extends StatelessWidget {
             constraints.maxWidth >= labeledMinWidth;
         return Container(
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
+            color: studio
+                ? StudioColors.raiseOf(context)
+                : AppColors.surfaceContainerOf(context),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.borderOf(context)),
+            border: Border.all(
+              color: studio
+                  ? StudioColors.lineOf(context)
+                  : AppColors.borderOf(context),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -71,6 +82,7 @@ class HomeModeToggle extends StatelessWidget {
                 icon: Icons.chat_bubble_outline,
                 isActive: !showStories && !showWaifu,
                 showLabel: showLabels,
+                studio: studio,
                 onTap: onShowChats,
               ),
               _ModeButton(
@@ -78,6 +90,7 @@ class HomeModeToggle extends StatelessWidget {
                 icon: Icons.auto_stories,
                 isActive: showStories,
                 showLabel: showLabels,
+                studio: studio,
                 onTap: onShowStories,
               ),
               _ModeButton(
@@ -85,6 +98,7 @@ class HomeModeToggle extends StatelessWidget {
                 icon: Icons.code,
                 isActive: showWaifu,
                 showLabel: showLabels,
+                studio: studio,
                 onTap: onShowWaifu ?? () {},
               ),
             ],
@@ -101,6 +115,7 @@ class _ModeButton extends StatelessWidget {
     required this.icon,
     required this.isActive,
     required this.showLabel,
+    required this.studio,
     required this.onTap,
   });
 
@@ -108,11 +123,17 @@ class _ModeButton extends StatelessWidget {
   final IconData icon;
   final bool isActive;
   final bool showLabel;
+  final bool studio;
   final VoidCallback onTap;
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber = studio
+        ? StudioColors.amberOf(context)
+        : AppColors.porchAmberOf(context);
+    final idle = studio
+        ? StudioColors.mutedOf(context)
+        : AppColors.textSecondary(context);
     final child = InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),
@@ -134,16 +155,22 @@ class _ModeButton extends StatelessWidget {
             Icon(
               icon,
               size: 18,
-              color: isActive ? amber : AppColors.iconSecondary(context),
+              color: isActive
+                  ? amber
+                  : studio
+                  ? idle
+                  : AppColors.iconSecondary(context),
             ),
             if (showLabel) ...[
               const SizedBox(width: 8),
               Text(
                 label,
                 style: TextStyle(
-                  color: isActive
-                      ? AppColors.textPrimary(context)
-                      : AppColors.textSecondary(context),
+                  color: !isActive
+                      ? idle
+                      : studio
+                      ? StudioColors.inkOf(context)
+                      : AppColors.textPrimary(context),
                   fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
                   fontSize: 14,
                 ),

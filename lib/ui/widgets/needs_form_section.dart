@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/needs_clock_off_note.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
 /// Standalone Needs Simulation configuration form.
@@ -113,6 +114,10 @@ class NeedsFormSection extends StatelessWidget {
                 value: enabled,
                 onChanged: onEnabledChanged,
                 context: context,
+              ),
+              // Lines up with the switch's subtitle (20 icon + 12 gap).
+              const NeedsClockOffNote(
+                padding: EdgeInsets.only(left: 32, top: 6),
               ),
 
               // ── Gated content (only when Needs Simulation is ON) ──

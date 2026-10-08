@@ -23,28 +23,51 @@ part of '../chat_service.dart';
 extension ChatServiceActions on ChatService {
   // ── Action Suggestions ────────────────────────────────────────────────
 
+  /// True while [anchor] is still the last message — same chat, same turn.
+  /// Every switch / load / fork / tail-delete path rebuilds `_messages`, so
+  /// this one check is what keeps suggestions off another chat's bubble.
+  bool _suggestionsStillFor(ChatMessage? anchor) =>
+      anchor != null &&
+      _messages.isNotEmpty &&
+      identical(_messages.last, anchor);
+
+  List<String> get _anchoredSuggestedActions =>
+      _suggestionsStillFor(_suggestedActionsAnchor)
+      ? _suggestedActions
+      : const [];
+
+  bool get _anchoredIsGeneratingActions =>
+      _isGeneratingActions && _suggestionsStillFor(_suggestedActionsAnchor);
+
   /// Clear suggestions (called when user sends any message).
   void clearSuggestions() {
-    if (_suggestedActions.isNotEmpty || _isGeneratingActions) {
+    if (_suggestedActions.isNotEmpty ||
+        _isGeneratingActions ||
+        _suggestedActionsAnchor != null) {
       _suggestedActions = [];
       _isGeneratingActions = false;
+      _suggestedActionsAnchor = null;
       notifyListeners();
     }
   }
 
   /// Generate action suggestions on demand (called from UI button).
   Future<void> generateActions() async {
-    if (_isGeneratingActions) return;
-    if (_llmProvider == null) return;
     if (_messages.isEmpty) return;
+    final anchor = _messages.last;
+    // A double tap on the same message is ignored; a run left behind by
+    // another chat is superseded (it checks the anchor before landing).
+    if (_isGeneratingActions && identical(_suggestedActionsAnchor, anchor)) {
+      return;
+    }
 
     _isGeneratingActions = true;
     _suggestedActions = [];
+    _suggestedActionsAnchor = anchor;
     notifyListeners();
 
     try {
-      final llmService = _llmProvider!.activeService;
-      if (!llmService.isReady) {
+      if (!_mouthLlm.isReady) {
         debugPrint('[Actions] ✗ LLM not ready');
         return;
       }
@@ -129,6 +152,13 @@ extension ChatServiceActions on ChatService {
         }
       }
 
+      // Superseded by a newer tap, or the chat moved on underneath us with
+      // no newer tap at all — either way there is no bubble to land on.
+      if (!identical(_suggestedActionsAnchor, anchor) ||
+          !_suggestionsStillFor(anchor)) {
+        debugPrint('[Actions] ✗ Chat moved on before suggestions landed');
+        return;
+      }
       if (actions.isNotEmpty) {
         _suggestedActions = actions.take(6).toList(); // cap at 6
         debugPrint(
@@ -140,8 +170,18 @@ extension ChatServiceActions on ChatService {
     } catch (e) {
       debugPrint('[Actions] ✗ Generation failed: $e');
     } finally {
-      _isGeneratingActions = false;
-      notifyListeners();
+      // A superseded run must not touch the flag the newer run now owns.
+      if (identical(_suggestedActionsAnchor, anchor)) {
+        _isGeneratingActions = false;
+        if (_suggestionsStillFor(anchor)) {
+          notifyListeners();
+        } else {
+          // The chat moved on: drop the orphan rather than keep it around,
+          // and leave the new chat's listeners alone — nothing changed there.
+          _suggestedActions = [];
+          _suggestedActionsAnchor = null;
+        }
+      }
     }
   }
 }

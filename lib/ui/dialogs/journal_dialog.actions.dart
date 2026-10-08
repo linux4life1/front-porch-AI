@@ -112,7 +112,8 @@ extension _JournalDialogActions on _JournalDialogState {
           (
             pos: pos,
             line:
-                '#$pos  ${messages[pos].sender}: '
+                // Stored 0-based; bubbles count from #1.
+                '#${pos + 1}  ${messages[pos].sender}: '
                 '${messages[pos].displayText}',
           ),
     ];

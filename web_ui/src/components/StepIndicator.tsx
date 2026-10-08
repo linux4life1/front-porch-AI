@@ -10,13 +10,17 @@ export function StepIndicator({
   steps,
   current,
   onJump,
+  variant,
 }: {
   steps: string[];
   current: number;
   onJump?: (i: number) => void;
+  /** `porch`: the desktop's dots (amber done and current, dark ink, a white
+   *  ring on the current step), as the approved AI creator sketch draws them. */
+  variant?: 'porch';
 }) {
   return (
-    <div className="step-indicator">
+    <div className={variant ? `step-indicator ${variant}` : 'step-indicator'}>
       {steps.map((label, i) => (
         <div key={label} className="step-seg">
           {i > 0 && <span className={`step-line${i <= current ? ' done' : ''}`} />}

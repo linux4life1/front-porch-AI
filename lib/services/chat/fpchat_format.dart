@@ -48,6 +48,11 @@ const Set<String> kFpchatRealismStateCoreKeys = {
   'storyClock',
   'storyStartDate',
   'arousalLevel',
+  'refractoryMinutesRemaining',
+  'refractoryMinutesTotal',
+  'refractoryOpened',
+  // No longer written; files from before minutes carry them, and the
+  // restore reads them once as turns × 15.
   'cooldownTurnsRemaining',
   'cooldownTurnsTotal',
   'trustLevel',
@@ -303,6 +308,49 @@ List<ChatMessage> messagesFromPackage({
     }
   }
   return out;
+}
+
+/// Hand `messages_extra` rows owned by the exporting card [from] to the card
+/// they are restored onto [to]. A row's `character_id` is how a 1:1 reply is
+/// told from a scene guest's, and every owner stamp in its metadata (pockets
+/// rewind, Journal item cards) names its owner under `'char'`. Rows and
+/// stamps of anyone else (scene guests) pass through verbatim. Returns
+/// [extras] untouched when there is nothing to remap.
+List<dynamic>? rekeyFpchatMessageOwner(
+  List<dynamic>? extras,
+  String? from,
+  String? to,
+) {
+  if (extras == null || from == null || to == null || from == to) {
+    return extras;
+  }
+  return [
+    for (final row in extras)
+      if (row is Map)
+        <String, dynamic>{
+          for (final e in row.entries)
+            '${e.key}': e.key == 'character_id'
+                ? (e.value == from ? to : e.value)
+                : _rekeyCharStamps(e.value, from, to),
+        }
+      else
+        row,
+  ];
+}
+
+Object? _rekeyCharStamps(Object? node, String from, String to) {
+  if (node is Map) {
+    return <String, dynamic>{
+      for (final e in node.entries)
+        '${e.key}': e.key == 'char' && e.value == from
+            ? to
+            : _rekeyCharStamps(e.value, from, to),
+    };
+  }
+  if (node is List) {
+    return [for (final v in node) _rekeyCharStamps(v, from, to)];
+  }
+  return node;
 }
 
 Map<String, dynamic> decodeChatJson(String raw) {

@@ -24,7 +24,16 @@ part of 'hardware_service.dart';
 class _NvidiaSmiResult {
   final String name;
   final int vramMb;
-  _NvidiaSmiResult({required this.name, required this.vramMb});
+
+  /// Cards listed, and the smallest one's memory.
+  final int cards;
+  final int smallestMb;
+  _NvidiaSmiResult({
+    required this.name,
+    required this.vramMb,
+    required this.cards,
+    required this.smallestMb,
+  });
 }
 
 /// nvidia-smi: locating the binary, running it, and parsing its CSV.
@@ -82,16 +91,32 @@ extension HardwareServiceNvidia on HardwareService {
     return null;
   }
 
+  /// [_parseNvidiaSmi] for tests.
+  @visibleForTesting
+  ({String name, int vramMb, int cards, int smallestMb}) debugParseNvidiaSmi(
+    String stdout,
+  ) {
+    final r = _parseNvidiaSmi(stdout);
+    return (
+      name: r.name,
+      vramMb: r.vramMb,
+      cards: r.cards,
+      smallestMb: r.smallestMb,
+    );
+  }
+
   /// Parses `nvidia-smi --query-gpu=name,memory.total --format=csv,noheader,
-  /// nounits` output into a name + VRAM-in-MB pair.
+  /// nounits` output: the name and memory (MB) of the card with the most,
+  /// how many cards there are, and the smallest card's memory.
   ///
-  /// Handles multi-GPU systems by picking the entry with the largest VRAM.
-  /// Also tolerates older nvidia-smi versions that ignore `nounits` and emit
-  /// a "MiB" / "MB" suffix after the number.
+  /// Tolerates older nvidia-smi versions that ignore `nounits` and emit a
+  /// "MiB" / "MB" suffix after the number.
   _NvidiaSmiResult _parseNvidiaSmi(String stdout) {
     final lines = stdout.trim().split('\n');
     String bestName = 'Unknown GPU';
     int bestVram = 0;
+    var cards = 0;
+    var smallest = 0;
     for (final line in lines) {
       if (line.trim().isEmpty) continue;
       // CSV split — but only on the first comma, in case the GPU name itself
@@ -101,6 +126,7 @@ extension HardwareServiceNvidia on HardwareService {
       final namePart = line.substring(0, commaIdx).trim();
       final vramPart = line.substring(commaIdx + 1).trim();
       if (namePart.isEmpty) continue;
+      cards++;
 
       // Strip any trailing unit suffix ("MiB", "MB", "Mib", ...) and parse.
       final vramDigits = RegExp(r'^(\d+)').firstMatch(vramPart);
@@ -108,6 +134,9 @@ extension HardwareServiceNvidia on HardwareService {
           ? 0
           : int.tryParse(vramDigits.group(1)!) ?? 0;
 
+      if (smiVram > 0 && (smallest == 0 || smiVram < smallest)) {
+        smallest = smiVram;
+      }
       if (smiVram > bestVram) {
         bestVram = smiVram;
         bestName = namePart;
@@ -117,6 +146,11 @@ extension HardwareServiceNvidia on HardwareService {
         if (smiVram > 0) bestVram = smiVram;
       }
     }
-    return _NvidiaSmiResult(name: bestName, vramMb: bestVram);
+    return _NvidiaSmiResult(
+      name: bestName,
+      vramMb: bestVram,
+      cards: cards,
+      smallestMb: smallest == 0 ? bestVram : smallest,
+    );
   }
 }

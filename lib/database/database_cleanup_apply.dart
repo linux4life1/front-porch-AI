@@ -100,8 +100,19 @@ Future<int> _deleteOrphanMessageEmbeddings(
   );
 }
 
+/// The ids [query] (a `SELECT id`) finds: the chats about to be removed, to
+/// be told as deleted once they are ([AppDatabase.noteSessionsDeleted]).
+Future<List<String>> _sessionIds(AppDatabase db, String query) async => [
+  for (final row in await db.customSelect(query).get()) row.read<String>('id'),
+];
+
 /// Deletes orphan sessions and cascades to their messages + embeddings.
 Future<int> _deleteOrphanSessionsCascade(AppDatabase db) async {
+  final ids = await _sessionIds(db, '''
+      SELECT id FROM sessions WHERE character_id IS NOT NULL AND (
+        NOT EXISTS (SELECT 1 FROM characters c WHERE c.id = sessions.character_id AND c.deleted_at IS NULL)
+      )
+    ''');
   await db.customUpdate('''
       DELETE FROM message_embeddings WHERE session_id IN (
         SELECT id FROM sessions WHERE character_id IS NOT NULL AND (
@@ -116,15 +127,23 @@ Future<int> _deleteOrphanSessionsCascade(AppDatabase db) async {
         )
       )
     ''', updates: {});
-  return db.customUpdate('''
+  final count = await db.customUpdate('''
       DELETE FROM sessions WHERE character_id IS NOT NULL AND (
         NOT EXISTS (SELECT 1 FROM characters c WHERE c.id = sessions.character_id AND c.deleted_at IS NULL)
       )
     ''', updates: {});
+  db.noteSessionsDeleted(ids);
+  return count;
 }
 
 /// Deletes group-orphaned sessions and cascades to their messages + embeddings.
 Future<int> _deleteOrphanGroupSessionsCascade(AppDatabase db) async {
+  final ids = await _sessionIds(db, '''
+      SELECT s.id FROM sessions s
+      LEFT JOIN groups g ON g.id = s.group_id
+      WHERE s.character_id IS NULL AND s.group_id IS NOT NULL
+        AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
+    ''');
   await db.customUpdate('''
       DELETE FROM message_embeddings WHERE session_id IN (
         SELECT s.id FROM sessions s
@@ -141,7 +160,7 @@ Future<int> _deleteOrphanGroupSessionsCascade(AppDatabase db) async {
           AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
       )
     ''', updates: {});
-  return db.customUpdate('''
+  final count = await db.customUpdate('''
       DELETE FROM sessions WHERE rowid IN (
         SELECT s.rowid FROM sessions s
         LEFT JOIN groups g ON g.id = s.group_id
@@ -149,6 +168,8 @@ Future<int> _deleteOrphanGroupSessionsCascade(AppDatabase db) async {
           AND (g.id IS NULL OR g.deleted_at IS NOT NULL)
       )
     ''', updates: {});
+  db.noteSessionsDeleted(ids);
+  return count;
 }
 
 Future<int> _deleteOrphanMessages(AppDatabase db) async {

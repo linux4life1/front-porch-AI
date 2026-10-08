@@ -108,6 +108,8 @@ class FakeKoboldService extends ChangeNotifier implements KoboldService {
   @override
   bool get isReady => false;
   @override
+  String get modelLoadingStatus => '';
+  @override
   List<String> get logs => const [];
 
   @override
@@ -136,10 +138,13 @@ class FakeVoiceManager extends ChangeNotifier implements VoiceManager {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-/// [ImageGenService] double for [ImageGenSettingsDialog] (via
-/// [GenerationOptionsTab]). [fetchImageModels] returns an empty list so
-/// [_fetchModels] completes without network access.
+/// [ImageGenService] double for [ImageGenSettingsDialog] (the studio desk).
+/// [fetchImageModels] returns an empty list so the desk's model list completes
+/// without network access.
 class FakeImageGenService extends ChangeNotifier implements ImageGenService {
+  @override
+  bool get isGenerating => false;
+
   @override
   Future<List<ImageModelInfo>> fetchImageModels() async => const [];
 

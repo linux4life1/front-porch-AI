@@ -176,6 +176,14 @@ Future<({AppDatabase db, bool needsMigration})?> _openDatabaseGuarded() async {
         settingsFileCorrupt: e is FormatException,
       ),
     );
+    if (Platform.isWindows) {
+      // The Windows runner no longer shows the window on the first frame
+      // (see _showMainWindow); the error window has no bounds to restore.
+      WidgetsBinding.instance.addPostFrameCallback((_) async {
+        await windowManager.show();
+        await windowManager.focus();
+      });
+    }
     return null;
   }
   _dbHealthy = dbHealthy;
@@ -198,9 +206,21 @@ Future<({AppDatabase db, bool needsMigration})?> _openDatabaseGuarded() async {
   return (db: db, needsMigration: needsMigration);
 }
 
+/// On Windows the window stays hidden until Dart shows it, and every size
+/// change below happens with the engine already producing frames, so the
+/// engine's resize handshake can complete instead of timing out with no
+/// frame to wait for (flutter/flutter#192537: a timed-out handshake left
+/// the window white until a real resize). On Windows [runApp] has already
+/// been called; macOS and Linux still call this before it.
 Future<void> _showMainWindow() async {
   final forcedSize = WindowSizeEnv.sizeFromEnvironment();
   final windowOptions = mainWindowOptions(size: forcedSize);
+
+  if (Platform.isWindows) {
+    // The first frame rasterized by the engine, at the window's creation
+    // size, before any resize.
+    await WidgetsBinding.instance.waitUntilFirstFrameRasterized;
+  }
 
   await windowManager.waitUntilReadyToShow(windowOptions, () async {
     if (forcedSize != null) {
@@ -264,6 +284,11 @@ Future<void> _showMainWindow() async {
       }
     }
 
+    if (Platform.isWindows) {
+      // A frame at the restored size, so the window appears painted rather
+      // than white or stretched from the creation size.
+      await WidgetsBinding.instance.endOfFrame;
+    }
     await windowManager.show();
     await windowManager.focus();
     await windowManager.setPreventClose(true);

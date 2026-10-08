@@ -51,8 +51,12 @@ void main() {
     });
   });
 
-  group('tools all-zero retries text', () {
-    test('uses the text JSON when tools filled every delta with 0', () async {
+  // Needs v2 (2026-10-06): the clock charges the span in code, so a quiet
+  // beat is a legitimate all-zero and common. The text retry after tools
+  // zeros would fire on most quiet turns and double the eval cost on local
+  // models; it is kept only for the away prompt, which expects restorations.
+  group('tools all-zero is a quiet beat', () {
+    test('keeps the tools zeros instead of retrying as text', () async {
       var textCalls = 0;
       final e = _engine(
         toolArgs: _zeroArgs,
@@ -66,9 +70,27 @@ void main() {
       final raw = await e.evaluateNeedsImpactCall(
         'she pees on him, riding hard',
       );
+      expect(textCalls, 0);
+      expect(needsImpactHasNonZeroDelta(raw!), isFalse);
+    });
+
+    test('the away prompt still retries tools zeros as text once', () async {
+      var textCalls = 0;
+      final e = _engine(
+        toolArgs: _zeroArgs,
+        onText: (p) {
+          textCalls++;
+          return '{"hunger_delta":40,"energy_delta":60,"hygiene_delta":0,'
+              '"fun_delta":0,"social_delta":0,"bladder_delta":70,'
+              '"comfort_delta":10,"reason":"ate, slept, went"}';
+        },
+      );
+      final raw = await e.evaluateNeedsImpactCall(
+        'she ate, slept and freshened up while you were away',
+        awayScene: true,
+      );
       expect(textCalls, 1);
-      expect(raw, contains('"bladder_delta":60'));
-      expect(needsImpactHasNonZeroDelta(raw!), isTrue);
+      expect(raw, contains('"bladder_delta":70'));
     });
 
     test(
@@ -93,7 +115,7 @@ void main() {
         final raw = await e.evaluateNeedsImpactCall(
           'they sit together a while',
         );
-        expect(textCalls, 1);
+        expect(textCalls, 0);
         expect(needsImpactHasNonZeroDelta(raw!), isFalse);
       },
     );

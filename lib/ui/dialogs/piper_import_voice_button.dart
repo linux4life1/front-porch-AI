@@ -16,12 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// "Add custom voice" for the Piper Voice Model Browser: picks a raw Piper
 /// `.onnx` (its sibling `.onnx.json` must sit next to it — the standard
@@ -44,12 +45,14 @@ class _PiperImportVoiceButtonState extends State<PiperImportVoiceButton> {
   bool _importing = false;
 
   Future<void> _import() async {
-    final file = await FilePicker.pickFile(
+    final result = await GuardedPicker.pickFiles(
+      context,
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['onnx'],
       dialogTitle: 'Pick a Piper voice model (.onnx)',
     );
-    final path = file?.path;
+    final path = result?.files.first.path;
     if (path == null || !mounted) return;
     setState(() => _importing = true);
     try {

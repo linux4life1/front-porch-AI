@@ -18,15 +18,12 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';
+import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
-import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
-import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-import 'avatar_creation_controller.dart';
+import 'avatar_creation_widgets.dart';
 
 /// "Expressions — independent of how the portrait got here": the pack toggle
 /// + the Studio's two presets verbatim (8 base / all 28), the capability-gated
@@ -76,6 +73,16 @@ class ExpressionsSection extends StatelessWidget {
                     : null,
               ),
               if (packOn) _presetDropdown(context, c),
+              if (packOn)
+                TextButton(
+                  onPressed: c.running
+                      ? null
+                      : () => editCreatorPromptRules(context, c),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.formMasterAccent,
+                  ),
+                  child: const Text('Prompt rules…'),
+                ),
               if (packOn && c.qcVisible) ...[
                 const SizedBox(width: 4),
                 _label(context, 'Vision QC'),
@@ -165,88 +172,38 @@ class ExpressionsSection extends StatelessWidget {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const ComfyCreatePanel(),
+          const AvatarStudioLine(edit: true),
           const SizedBox(height: 8),
           _readiness(
             context,
             ok: editReady || savedEdit,
             text: editReady
-                ? 'Edit workflow ready — pack uses Edit when it can; '
-                      'otherwise the Create family above (img2img).'
+                ? 'Edit workflow ready — the pack runs it.'
                 : savedEdit
                 ? 'Saved Edit workflow selected — its model choices are '
                       'checked when the pack starts.'
-                : 'Pack uses the Create family above (img2img). Optional: '
-                      'set up Qwen-Image-Edit or Flux Kontext in Image '
-                      'Studio → Edit.',
+                : 'The pack runs your Edit workflow (Image Studio → Edit) and '
+                      'stops with a message if it is not ready. It never '
+                      'uses the Create family instead.',
           ),
         ],
       );
     }
     if (controls.showEditPicker) {
-      final options = controls.editAllowlist
-          ? [
-              for (final o in c.modelOptions)
-                if (remoteEditSpec(o.value) != null) o,
-            ]
-          : c.modelOptions;
-      final slotValue = c.storage.imageGenSettings.imageGenEditModel;
-      final shown = options.isNotEmpty
-          ? options
-          : (slotValue.isNotEmpty
-                ? [(value: slotValue, label: slotValue)]
-                : const <({String value, String label})>[]);
       final ready = c.editCapability.supportsEdit;
       return Wrap(
         spacing: 10,
         runSpacing: 6,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
-          _label(context, 'Edit model'),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 320),
-            child: shown.isEmpty
-                ? Text(
-                    controls.editAllowlist
-                        ? 'No edit-capable models in this provider\'s list.'
-                        : 'Models appear once the engine is connected.',
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 11,
-                    ),
-                  )
-                : ModelSlotDropdown(
-                    settings: c.storage.imageGenSettings,
-                    editSlot: true,
-                    keyPrefix: 'creator-edit-model',
-                    fontSize: 12,
-                    decoration: InputDecoration(
-                      hintText: 'Pick an edit model',
-                      hintStyle: TextStyle(
-                        color: AppColors.textTertiary(context),
-                      ),
-                      filled: true,
-                      fillColor: AppColors.surfaceContainerOf(context),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(8),
-                        borderSide: BorderSide.none,
-                      ),
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      isDense: true,
-                    ),
-                    options: shown,
-                  ),
-          ),
+          const AvatarStudioLine(edit: true),
           _readiness(
             context,
             ok: ready,
             text: ready
                 ? 'Ready'
                 : controls.editAllowlist
-                ? 'Pick an edit model'
+                ? 'Pick an edit model in Image Studio (⚙)'
                 : 'img2img fallback',
           ),
         ],
@@ -332,7 +289,7 @@ class ExpressionsSection extends StatelessWidget {
     BuildContext context,
     AvatarCreationController c,
   ) async {
-    final zipBytes = await pickZipBytes();
+    final zipBytes = await pickZipBytes(context);
     if (zipBytes == null || !context.mounted) return;
     final (added, unrecognized) = await c.importExpressionZip(zipBytes);
     if (!context.mounted) return;

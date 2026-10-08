@@ -71,6 +71,26 @@ class GeneralTab extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SwitchListTile(
+            key: const ValueKey('user-messages-on-right'),
+            contentPadding: EdgeInsets.zero,
+            title: Text(
+              'My messages on the right',
+              style: TextStyle(color: AppColors.textPrimary(context)),
+            ),
+            subtitle: Text(
+              'Off, your messages sit on the left with your picture, like '
+              'the character\'s. On, they move to the right with your '
+              'picture on the right, the way chat looked before.',
+              style: TextStyle(
+                fontSize: 12.5,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            value: storageService.realismSettings.userMessagesOnRight,
+            onChanged: (v) =>
+                storageService.realismSettings.setUserMessagesOnRight(v),
+          ),
+          SwitchListTile(
             contentPadding: EdgeInsets.zero,
             title: Text(
               'Follow streaming replies',

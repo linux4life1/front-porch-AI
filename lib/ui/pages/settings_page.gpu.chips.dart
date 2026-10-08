@@ -194,6 +194,8 @@ extension _SettingsGpuChips on _SettingsPageState {
     BuildContext context,
     HardwareService hardwareService,
   ) {
+    // Saves all four switches, not only the one touched: all four off is "CPU
+    // only", while any left unset lets the launch pick a GPU on its own.
     void selectBackend({
       bool vulkan = false,
       bool rocm = false,
@@ -223,14 +225,7 @@ extension _SettingsGpuChips on _SettingsPageState {
                 _useMetal = false;
               }
             });
-            if (val) {
-              selectBackend(vulkan: true);
-            } else {
-              Provider.of<StorageService>(
-                context,
-                listen: false,
-              ).backendSettings.setUseVulkan(false);
-            }
+            selectBackend(vulkan: val);
           },
         ),
         Tooltip(
@@ -250,14 +245,7 @@ extension _SettingsGpuChips on _SettingsPageState {
                         _useMetal = false;
                       }
                     });
-                    if (val) {
-                      selectBackend(rocm: true);
-                    } else {
-                      Provider.of<StorageService>(
-                        context,
-                        listen: false,
-                      ).backendSettings.setUseRocm(false);
-                    }
+                    selectBackend(rocm: val);
                   }
                 : null, // Disabled if ROCm not installed
             avatar: hardwareService.hardwareInfo?.hasRocm == true
@@ -282,14 +270,7 @@ extension _SettingsGpuChips on _SettingsPageState {
                         _useMetal = false;
                       }
                     });
-                    if (val) {
-                      selectBackend(cublas: true);
-                    } else {
-                      Provider.of<StorageService>(
-                        context,
-                        listen: false,
-                      ).backendSettings.setUseCublas(false);
-                    }
+                    selectBackend(cublas: val);
                   }
                 : null, // Disabled if not Nvidia
             avatar: hardwareService.hardwareInfo?.vendor == 'Nvidia'
@@ -314,14 +295,7 @@ extension _SettingsGpuChips on _SettingsPageState {
                         _useRocm = false;
                       }
                     });
-                    if (val) {
-                      selectBackend(metal: true);
-                    } else {
-                      Provider.of<StorageService>(
-                        context,
-                        listen: false,
-                      ).backendSettings.setUseMetal(false);
-                    }
+                    selectBackend(metal: val);
                   }
                 : null, // Disabled if not MacOS/Metal
             avatar: hardwareService.hardwareInfo?.hasMetal == true

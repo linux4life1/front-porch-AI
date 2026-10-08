@@ -91,6 +91,8 @@ export function importCardMenu(a: {
   onImportCards: () => void;
   onImportFolder: () => void;
   onImportByaf: () => void;
+  /** Front Porch's own .porch / .porchpack files (issue #348). */
+  onImportPorch?: () => void;
 }): CardMenuItem[] {
   return [
     { label: 'Import cards…', icon: '🖼', onClick: a.onImportCards },
@@ -100,6 +102,9 @@ export function importCardMenu(a: {
       icon: '📦',
       onClick: a.onImportByaf,
     },
+    ...(a.onImportPorch
+      ? [{ label: 'Import .porch / .porchpack…', icon: '🗂', onClick: a.onImportPorch }]
+      : []),
     {
       label: 'Browse AI Character Cards ↗',
       icon: '🌐',

@@ -18,16 +18,15 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'comfy_workflow.dart';
-import 'image/comfy_catalog.dart';
-import 'image/comfy_edit_workflow.dart';
-import 'image/comfy_template_index.dart';
+import 'image/image.dart';
+
+export 'image/comfy_run_ledger.dart' show ComfyRunCancelled;
 
 part 'comfy_ui_service.catalog.dart';
 
@@ -47,16 +46,26 @@ class ComfyUiService {
 
   String get _root => ensureHttpScheme(baseUrl);
 
+  final ComfyRunLedger _runs = ComfyRunLedger();
+
+  /// Stops what this client has running on the server: a queued prompt is
+  /// taken off the queue, a running one is interrupted. The waiting call then
+  /// throws [ComfyRunCancelled]. [beforePost]: a generation is under way that
+  /// has not posted its workflow yet.
+  Future<void> cancelRun({bool beforePost = false}) =>
+      _runs.cancel(_root, beforePost: beforePost);
+
+  /// A new generation begins: an earlier cancel does not reach it.
+  void clearCancel() => _runs.clearStop();
+
+  /// Whether a cancel is waiting for the next post; for tests.
+  bool get cancelIsPending => _runs.stopIsPending;
+
   /// Normalize a user-typed server address into a usable base URL: trims,
   /// strips trailing slashes, and prepends `http://` when no scheme is given
   /// (`localhost:8188`, `192.168.1.20:7860` → valid URLs instead of a silent
   /// connection failure). Shared by the A1111 paths in ImageGenService. Pure.
-  static String ensureHttpScheme(String url) {
-    var u = url.trim().replaceAll(RegExp(r'/+$'), '');
-    if (u.isEmpty) return u;
-    if (!u.contains('://')) u = 'http://$u';
-    return u;
-  }
+  static String ensureHttpScheme(String url) => normalizeImageServerUrl(url);
 
   /// Known A1111-style → ComfyUI sampler name mappings, used when the stored
   /// sampler (shared across backends) isn't already a ComfyUI-native name.
@@ -181,7 +190,7 @@ class ComfyUiService {
   }
 
   Future<List<String>> fetchLoras() async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return const [];
     return optionsFromObjectInfo(info, 'LoraLoader', 'lora_name');
   }
@@ -193,8 +202,9 @@ class ComfyUiService {
   /// fall back to file-name detection, so this is strictly best-effort.
   Future<Map<String, dynamic>> fetchLoraMetadata(String filename) async {
     try {
-      final uri = Uri.parse('$_root/view_metadata/loras')
-          .replace(queryParameters: {'filename': filename});
+      final uri = Uri.parse(
+        '$_root/view_metadata/loras',
+      ).replace(queryParameters: {'filename': filename});
       final r = await http.get(uri).timeout(const Duration(seconds: 8));
       if (r.statusCode != 200 || r.body.isEmpty) return const {};
       final decoded = jsonDecode(r.body);
@@ -293,7 +303,7 @@ class ComfyUiService {
   /// which the UI shows as "can't check" rather than a false "missing". Used to
   /// gate a bundled edit preset before the user can run it.
   Future<List<String>?> missingEditNodes(List<String> requiredNodes) async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return null;
     return requiredNodes.where((n) => !info.containsKey(n)).toList();
   }
@@ -302,7 +312,19 @@ class ComfyUiService {
   Future<Uint8List> runPromptGraph(
     Map<String, dynamic> workflow, {
     void Function(double? progress, Uint8List? preview)? onProgress,
-  }) => _runWorkflow(workflow, onProgress);
+    String primaryFile = '',
+    bool uploaded = false,
+  }) async {
+    final posted = await _graphReadyToPost(
+      workflow: workflow,
+      primaryFile: primaryFile,
+      uploaded: uploaded,
+    );
+    // Only a graph that loads the Qwen-Image 2.1 GGUF pair is checked; any
+    // other model posts without the loader ever being looked at.
+    await City96Gate.instance.ensureOrThrow(comfyUrl: _root, graph: posted);
+    return _runWorkflow(posted, onProgress);
+  }
 
   /// Run an EDIT: upload the reference image, splice it (as `%IMAGE%`) plus the
   /// caller's [tokenValues] into the token-placeholdered [workflowTemplate] (a
@@ -314,6 +336,8 @@ class ComfyUiService {
     required Map<String, dynamic> workflowTemplate,
     required Map<String, Object?> tokenValues,
     void Function(double? progress, Uint8List? preview)? onProgress,
+    String primaryFile = '',
+    bool uploaded = false,
   }) async {
     final imageName = await uploadImage(referenceImageBytes);
     final graph = substituteComfyWorkflow(workflowTemplate, {
@@ -328,7 +352,12 @@ class ComfyUiService {
         'uploaded workflow.',
       );
     }
-    return _runWorkflow(graph, onProgress);
+    return runPromptGraph(
+      graph,
+      onProgress: onProgress,
+      primaryFile: primaryFile,
+      uploaded: uploaded,
+    );
   }
 
   /// Submit [workflow], stream best-effort progress over ComfyUI's WebSocket,
@@ -340,72 +369,41 @@ class ComfyUiService {
   ) async {
     final clientId =
         'frontporch-${DateTime.now().microsecondsSinceEpoch.toRadixString(16)}';
-    final submit = await http
-        .post(
-          Uri.parse('$_root/prompt'),
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'prompt': workflow, 'client_id': clientId}),
-        )
-        .timeout(const Duration(seconds: 30));
-    if (submit.statusCode != 200) {
-      String detail = 'HTTP ${submit.statusCode}';
-      try {
-        final err = jsonDecode(submit.body);
-        detail = err['error']?['message']?.toString() ?? detail;
-      } catch (_) {}
-      throw Exception('ComfyUI rejected the workflow: $detail');
+    _runs.submitting();
+    http.Response submit;
+    try {
+      submit = await http
+          .post(
+            Uri.parse('$_root/prompt'),
+            headers: {'Content-Type': 'application/json'},
+            body: jsonEncode({'prompt': workflow, 'client_id': clientId}),
+          )
+          .timeout(const Duration(seconds: 30));
+    } catch (_) {
+      await _runs.submitted(_root, null);
+      rethrow;
     }
-    final promptId = (jsonDecode(
-      submit.body,
-    ) as Map<String, dynamic>)['prompt_id']?.toString();
+    if (submit.statusCode != 200) {
+      await _runs.submitted(_root, null);
+      final refused = parseComfySubmitFailure(_root, submit.body);
+      throw Exception(
+        refused?.banner ??
+            'ComfyUI at $_root rejected the workflow '
+                '(HTTP ${submit.statusCode}).',
+      );
+    }
+    final promptId =
+        (jsonDecode(submit.body) as Map<String, dynamic>)['prompt_id']
+            ?.toString();
     if (promptId == null || promptId.isEmpty) {
+      await _runs.submitted(_root, null);
       throw Exception('ComfyUI did not return a prompt_id');
     }
+    await _runs.submitted(_root, promptId);
 
-    // Best-effort live progress over ComfyUI's WebSocket: text frames carry
-    // {type:'progress', data:{value,max}} during sampling; binary frames are
-    // preview images (8-byte header: int32 event type 1 = preview, int32
-    // format, then JPEG/PNG bytes) when the server runs with previews on.
-    WebSocket? ws;
-    if (onProgress != null) {
-      try {
-        final wsRoot = _root
-            .replaceFirst('https://', 'wss://')
-            .replaceFirst('http://', 'ws://');
-        ws = await WebSocket.connect('$wsRoot/ws?clientId=$clientId')
-            .timeout(const Duration(seconds: 3));
-        ws.listen(
-          (frame) {
-            try {
-              if (frame is String) {
-                final msg = jsonDecode(frame) as Map<String, dynamic>;
-                if (msg['type'] == 'progress') {
-                  final d = msg['data'] as Map<String, dynamic>?;
-                  final value = (d?['value'] as num?)?.toDouble();
-                  final max = (d?['max'] as num?)?.toDouble();
-                  if (value != null && max != null && max > 0) {
-                    onProgress((value / max).clamp(0.0, 1.0), null);
-                  }
-                }
-              } else if (frame is List<int> && frame.length > 8) {
-                final header = Uint8List.fromList(frame.sublist(0, 4)).buffer
-                    .asByteData();
-                if (header.getInt32(0) == 1) {
-                  onProgress(null, Uint8List.fromList(frame.sublist(8)));
-                }
-              }
-            } catch (_) {
-              // malformed frame — ignore; progress is decorative
-            }
-          },
-          onError: (_) {},
-          cancelOnError: true,
-        );
-      } catch (e) {
-        debugPrint('ComfyUI: progress WebSocket unavailable ($e)');
-        ws = null;
-      }
-    }
+    final ws = onProgress == null
+        ? null
+        : await openComfyProgress(_root, clientId, onProgress);
 
     // Poll history until this prompt completes (generation can be slow on
     // first model load; 10 min cap mirrors the other local backends). The
@@ -415,6 +413,7 @@ class ComfyUiService {
     try {
       while (DateTime.now().isBefore(deadline)) {
         await Future<void>.delayed(const Duration(seconds: 1));
+        if (_runs.isCancelled(promptId)) throw const ComfyRunCancelled();
         try {
           final h = await http
               .get(Uri.parse('$_root/history/$promptId'))
@@ -425,10 +424,7 @@ class ComfyUiService {
           if (entry is! Map) continue;
           final status = entry['status'];
           if (status is Map && status['status_str'] == 'error') {
-            throw Exception(
-              'ComfyUI reported an error — check the model name and its '
-              'server console.',
-            );
+            throw Exception(comfyHistoryFailureMessage(_root, status));
           }
           final out = entry['outputs'];
           if (out is Map && out.isNotEmpty) {
@@ -440,6 +436,7 @@ class ComfyUiService {
         }
       }
     } finally {
+      _runs.finished(promptId);
       unawaited(ws?.close());
     }
     if (outputs == null) {

@@ -18,11 +18,11 @@
 
 part of 'settings_page.dart';
 
-/// Hardware & GPU block of the Advanced tab: the VRAM gauge card plus the
-/// Auto-Configure action. The GPU/context controls (context window, GPU
-/// layers, backend chips) live in settings_page.gpu.dart. Extracted from the
-/// inline _buildAdvancedTab; direct state access preserves behavior.
-/// Warm-porch: model=amber, context=honey, status green/amber/red.
+/// Hardware & GPU block of the Advanced tab: the graphics card and its
+/// memory. The GPU/context controls (context window, GPU layers, backend
+/// chips) live in settings_page.gpu.dart. There is no memory estimate here:
+/// the Local model card (and the preset editor) work it out exactly, and a
+/// second, rougher figure here disagreed with it.
 extension _SettingsHardware on _SettingsPageState {
   Widget _buildHardwareGpuSection(
     BuildContext context,
@@ -31,29 +31,23 @@ extension _SettingsHardware on _SettingsPageState {
     LLMProvider llmProvider,
     bool isPresetActive,
   ) {
+    // The box shows what is saved: a preset, the Local model card and the
+    // phone change the context without it. What is typed in it is saved as it
+    // is typed, so only a different number is put in.
+    final saved = storageService.backendSettings.contextSize;
+    if (saved != _savedContext) {
+      _savedContext = saved;
+      if (int.tryParse(_contextSizeController.text) != saved) {
+        _contextSizeController.text = saved.toString();
+      }
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            const SectionHeader('Hardware & GPU'),
-            TextButton.icon(
-              onPressed: _autoConfigure,
-              icon: Icon(
-                Icons.auto_fix_high,
-                color: AppColors.porchAmberOf(context),
-              ),
-              label: Text(
-                'Auto-Configure',
-                style: TextStyle(color: AppColors.porchAmberOf(context)),
-              ),
-            ),
-          ],
-        ),
+        const SectionHeader('Hardware & GPU'),
         const SizedBox(height: 16),
-        // Hardware Info with VRAM Gauge (always shown).
         Container(
+          width: double.infinity,
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
             color: AppColors.cardOf(context),
@@ -66,62 +60,10 @@ extension _SettingsHardware on _SettingsPageState {
                   'Hardware not detected.',
                   style: TextStyle(color: AppColors.negativeAccentOf(context)),
                 )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(
-                          Icons.memory,
-                          color: AppColors.porchAmberOf(context),
-                          size: 20,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            hardwareService.hardwareInfo!.gpuName,
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    if (llmProvider.isLocal)
-                      _buildVramGauge(context, storageService, hardwareService)
-                    else ...[
-                      // Remote API — show total VRAM only, no usage estimate.
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: Container(
-                          height: 20,
-                          width: double.infinity,
-                          color: AppColors.textPrimary(
-                            context,
-                          ).withValues(alpha: 0.08),
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          _buildVramLegendDot(
-                            AppColors.textTertiary(context),
-                            'Total ${hardwareService.hardwareInfo!.vramMb} MB',
-                          ),
-                          const SizedBox(width: 12),
-                          Text(
-                            'Remote API — GPU not in use',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: AppColors.textTertiary(context),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ],
+              : _buildHardwareCard(
+                  context,
+                  hardwareService.hardwareInfo!,
+                  llmProvider,
                 ),
         ),
         const SizedBox(height: 16),
@@ -135,228 +77,71 @@ extension _SettingsHardware on _SettingsPageState {
     );
   }
 
-  /// The local-backend VRAM usage gauge (model + context estimate vs total).
-  Widget _buildVramGauge(
+  /// The card's name and memory. With KoboldCpp, where the model will run
+  /// here, it says where the memory estimate is: on the Local model card,
+  /// which an Intel Mac does not have.
+  Widget _buildHardwareCard(
     BuildContext context,
-    StorageService storageService,
-    HardwareService hardwareService,
+    HardwareInfo hw,
+    LLMProvider llmProvider,
   ) {
-    // Memoize the KV-cost future per model path — a fresh Future per rebuild
-    // (this gauge rebuilds per frame during a context-slider drag) made the
-    // snapshot flip null→data every frame, flickering between the exact and
-    // heuristic estimates.
-    if (_kvBytesFuturePath != _selectedModelPath) {
-      _kvBytesFuturePath = _selectedModelPath;
-      _kvBytesFuture = _selectedModelPath != null
-          ? Provider.of<ModelManager>(
-              context,
-              listen: false,
-            ).getKvCacheBytesPerToken(_selectedModelPath!)
-          : Future.value(null);
-    }
-    return FutureBuilder<int?>(
-      future: _kvBytesFuture,
-      builder: (context, snapshot) {
-        final totalVram = hardwareService.hardwareInfo!.vramMb.toDouble();
-        if (totalVram <= 0) return const SizedBox.shrink();
-
-        // Estimate model VRAM usage from model size.
-        final modelSizeMb = _getSelectedModelSizeMb();
-        final contextSize = int.tryParse(_contextSizeController.text) ?? 4096;
-
-        // Use exact KV cost if parsed, else fallback to 100MB per 1k heuristic.
-        final kvBytesPerToken = snapshot.data;
-        double contextVramMb = kvBytesPerToken != null
-            ? (contextSize * kvBytesPerToken / (1024 * 1024))
-            : (contextSize / 1024 * 100.0);
-
-        if (storageService.backendSettings.kvQuantizationLevel == 1) {
-          contextVramMb *= 0.5;
-        } else if (storageService.backendSettings.kvQuantizationLevel == 2) {
-          contextVramMb *= 0.25;
-        }
-
-        final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;
-
-        // Improved model VRAM estimate using real architecture data when available.
-        double modelVramMb;
-        if (gpuLayers >= 99) {
-          modelVramMb = modelSizeMb.toDouble();
-        } else {
-          final archInfo = _selectedModelPath != null
-              ? Provider.of<ModelManager>(
-                  context,
-                  listen: false,
-                ).getCachedModelArchitectureInfo(_selectedModelPath!)
-              : null;
-          if (archInfo != null && archInfo.nLayers > 0) {
-            final bytesPerLayer = archInfo.estimateBytesPerLayer(
-              (modelSizeMb * 1024 * 1024).toInt(),
-            );
-            modelVramMb = (bytesPerLayer * gpuLayers / (1024 * 1024))
-                .toDouble();
-          } else {
-            // Fallback to old heuristic only when we have no architecture data.
-            modelVramMb = (modelSizeMb * (gpuLayers / 40.0)).clamp(
-              0,
-              modelSizeMb.toDouble(),
-            );
-          }
-        }
-        final usedVram = modelVramMb + contextVramMb;
-        final usedRatio = (usedVram / totalVram).clamp(0.0, 1.0);
-        final modelRatio = (modelVramMb / totalVram).clamp(0.0, 1.0);
-        final contextRatio = (contextVramMb / totalVram).clamp(0.0, usedRatio);
-        final freeVram = (totalVram - usedVram).clamp(0, totalVram);
-
-        Color gaugeColor;
-        if (usedRatio > 0.95) {
-          gaugeColor = AppColors.negativeAccentOf(context);
-        } else if (usedRatio > 0.8) {
-          gaugeColor = AppColors.taskAccentOf(context);
-        } else {
-          gaugeColor = AppColors.bondHighOf(context);
-        }
-
-        final modelColor = AppColors.porchAmberOf(context);
-        final contextColor = AppColors.porchHoneyOf(context);
-
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    final local =
+        llmProvider.isLocal &&
+        !Provider.of<BackendManager>(context, listen: false).isIntelMac;
+    final faint = AppColors.textTertiary(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
           children: [
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final totalWidth = constraints.maxWidth;
-                final modelWidth = totalWidth * modelRatio;
-                final contextWidth = totalWidth * contextRatio;
-
-                return ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: SizedBox(
-                    height: 20,
-                    child: Stack(
-                      children: [
-                        // Background (free).
-                        Container(
-                          width: double.infinity,
-                          color: AppColors.textPrimary(
-                            context,
-                          ).withValues(alpha: 0.08),
-                        ),
-                        // Model portion (starts at left).
-                        Positioned(
-                          left: 0,
-                          top: 0,
-                          bottom: 0,
-                          width: modelWidth,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              gradient: LinearGradient(
-                                colors: [
-                                  modelColor,
-                                  modelColor.withValues(alpha: 0.7),
-                                ],
-                              ),
-                            ),
-                          ),
-                        ),
-                        // Context portion (starts exactly where model ends).
-                        if (contextWidth > 0)
-                          Positioned(
-                            left: modelWidth,
-                            top: 0,
-                            bottom: 0,
-                            width: contextWidth,
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    contextColor,
-                                    contextColor.withValues(alpha: 0.7),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+            Icon(
+              Icons.memory,
+              color: AppColors.porchAmberOf(context),
+              size: 20,
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                _buildVramLegendDot(
-                  modelColor,
-                  'Model ~${modelVramMb.round()} MB',
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                hw.gpuName,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
                 ),
-                const SizedBox(width: 16),
-                _buildVramLegendDot(
-                  contextColor,
-                  'Context ~${contextVramMb.round()} MB',
-                ),
-                const SizedBox(width: 16),
-                _buildVramLegendDot(
-                  AppColors.textTertiary(context),
-                  'Free ~${freeVram.round()} MB',
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '${usedVram.round()} / ${totalVram.round()} MB used',
-              style: TextStyle(
-                fontSize: 11,
-                color: gaugeColor,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],
-        );
-      },
-    );
-  }
-
-  /// Small colored dot + label for the VRAM gauge legend.
-  Widget _buildVramLegendDot(Color color, String label) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 4),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: AppColors.textTertiary(context),
+        Padding(
+          padding: const EdgeInsets.only(left: 30, top: 6),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${koboldMemoryWords(hw.vramMb)} of graphics memory'
+                '${hw.isSharedMemory ? ', shared with the system' : ''}.',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+              if (local) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'The Local model card, on the Backend tab, shows how your '
+                  'model and its chat fit in this memory.',
+                  style: TextStyle(fontSize: 12, color: faint, height: 1.4),
+                ),
+              ] else if (!llmProvider.isLocal) ...[
+                const SizedBox(height: 8),
+                Text(
+                  'Remote API — GPU not in use',
+                  style: TextStyle(fontSize: 12, color: faint),
+                ),
+              ],
+            ],
           ),
         ),
       ],
     );
-  }
-
-  /// Estimate the selected model's file size in MB for the VRAM gauge.
-  /// Memoized per path: this is called from the gauge's build, which reruns
-  /// PER FRAME while the context slider drags — stat-ing a multi-GB GGUF on
-  /// every frame was a documented io-lint-class violation (grandfathered).
-  int _getSelectedModelSizeMb() {
-    final path = _selectedModelPath;
-    if (path == null) return 0;
-    if (_modelSizeMbForPath == path) return _modelSizeMbCache;
-    var sizeMb = 0;
-    try {
-      final file = File(path);
-      if (file.existsSync()) {
-        sizeMb = (file.lengthSync() / (1024 * 1024)).round(); // io-ok: memoized per path — runs once per model selection, not per frame
-      }
-    } catch (_) {}
-    _modelSizeMbForPath = path;
-    _modelSizeMbCache = sizeMb;
-    return sizeMb;
   }
 }

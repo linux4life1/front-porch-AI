@@ -25,7 +25,7 @@ part of 'story_pipeline_service.dart';
 /// pages and the web facade, so a private extension would hide them).
 extension StoryPipelinePlanning on StoryPipelineService {
   /// Stage 1: Story Architect — concept → story bible.
-  Future<void> runStoryArchitect(StoryProject project) async {
+  Future<void> _quickArchitect(StoryProject project) async {
     _isRunning = true;
     _setStatus('Story Architect', 'Generating story bible from concept...');
 
@@ -53,8 +53,10 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: Chat history is provided above. This is 
         prompt,
         maxLength: 8192,
         stage: StoryStageParams.bible,
+        project: project,
+        label: 'Story Architect',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('architect', response);
 
       if (json == null) {
         throw Exception('Failed to parse story bible JSON from AI response');
@@ -109,7 +111,7 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: Chat history is provided above. This is 
   }
 
   /// Stage 2: Act Structurer — story bible → 3 acts.
-  Future<void> runActStructurer(StoryProject project) async {
+  Future<void> _quickActs(StoryProject project) async {
     _isRunning = true;
     _setStatus(
       'Act Structurer',
@@ -131,8 +133,13 @@ Themes: ${project.themes}
 Style: ${jsonEncode(project.style.toJson())}
 Threads: ${jsonEncode(project.threads.map((t) => t.toJson()).toList())}''';
 
-      final response = await _callLLM(prompt, maxLength: 8192);
-      final json = StoryJson.parseJson(response);
+      final response = await _callLLM(
+        prompt,
+        maxLength: 8192,
+        project: project,
+        label: 'Act Structurer',
+      );
+      final json = StoryQuickXml.parse('acts', response);
 
       if (json == null || json['acts'] == null) {
         throw Exception('Failed to parse act structure from AI response');
@@ -157,7 +164,7 @@ Threads: ${jsonEncode(project.threads.map((t) => t.toJson()).toList())}''';
   }
 
   /// Stage 3: Scene Weaver — act → scenes.
-  Future<void> runSceneWeaver(StoryProject project, int actIndex) async {
+  Future<void> _quickScenes(StoryProject project, int actIndex) async {
     _isRunning = true;
     final actNum = actIndex + 1;
     _setStatus('Scene Weaver', 'Weaving scenes for Act $actNum...');
@@ -185,8 +192,13 @@ Existing Cast: ${project.cast.map((c) => '${c.name} (${c.role})').join(', ')}
 ${actIndex > 0 ? '\nIMPORTANT: This is Act $actNum. Maintain continuity with the events described in the STORY SO FAR section above. Build upon established plot threads and character developments.' : ''}
 ${chatContext.isNotEmpty ? '\nCRITICAL: The chat history above is CANON. Scenes MUST dramatize the events from these conversations. Map chat events to specific scenes in this act.' : ''}''';
 
-      final response = await _callLLM(prompt, maxLength: 8192);
-      final json = StoryJson.parseJson(response);
+      final response = await _callLLM(
+        prompt,
+        maxLength: 8192,
+        project: project,
+        label: 'Scene Weaver',
+      );
+      final json = StoryQuickXml.parse('scenes', response);
 
       if (json == null || json['scenes'] == null) {
         throw Exception('Failed to parse scenes from AI response');
@@ -221,7 +233,7 @@ ${chatContext.isNotEmpty ? '\nCRITICAL: The chat history above is CANON. Scenes 
   }
 
   /// Stage 4: Beat Director — scene → beats.
-  Future<void> runBeatDirector(
+  Future<void> _quickBeats(
     StoryProject project,
     int actIndex,
     int sceneIndex,
@@ -242,11 +254,16 @@ Characters: ${scene.castNames.join(', ')}
 Active Threads: ${scene.activeThreadIds.join(', ')}
 Scene Valence: ${scene.valence}''';
 
-      final response = await _callLLM(prompt, maxLength: 6144);
+      final response = await _callLLM(
+        prompt,
+        maxLength: 6144,
+        project: project,
+        label: 'Beat Director',
+      );
       debugPrint(
         '[BeatDirector] Raw response (first 500): ${response.length > 500 ? response.substring(0, 500) : response}',
       );
-      final json = StoryJson.parseJson(response);
+      final json = StoryQuickXml.parse('beats', response);
 
       if (json == null || json['beats'] == null) {
         debugPrint(

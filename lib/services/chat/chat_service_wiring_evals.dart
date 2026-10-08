@@ -179,7 +179,19 @@ extension ChatServiceWiringEvals on ChatService {
   /// KoboldCpp included (Qwen3 etc. call tools fine); incapable models fall
   /// back to the XML floor.
   Future<LlmToolResponse?> _fireToolEval(ToolEvalSpec spec) async {
-    return _withWorkerLane(() => _fireToolEvalUnheld(spec));
+    var reached = false;
+    try {
+      return await _withWorkerLane(() {
+        reached = true;
+        return _fireToolEvalUnheld(spec);
+      });
+    } catch (e) {
+      // A lane that could not be prepared (the helper model did not load)
+      // never asked the model. That says nothing about its tool calls, and
+      // read as an answer it would brand the model text-only and be kept.
+      if (reached || isToolTransportFailure(e)) rethrow;
+      throw LlmToolTransportException('$e');
+    }
   }
 
   Future<LlmToolResponse?> _fireToolEvalUnheld(ToolEvalSpec spec) async {
@@ -244,10 +256,10 @@ extension ChatServiceWiringEvals on ChatService {
       return resp;
     } on TimeoutException {
       // The deadline abandoned an in-flight call. On the single-slot local
-      // backend that orphan holds the shared idle slot (_pendingRequest), so
-      // waitForIdle callers — text evals, the Scene Guest mint — would hang
-      // behind it indefinitely; tear it down. (If the server is hung on the
-      // orphan, the server-side abort also frees anything queued behind it.)
+      // backend that orphan holds the line to the engine, so everything
+      // queued — text evals, the Scene Guest mint — would hang behind it
+      // indefinitely; tear it down. (If the server is hung on the orphan,
+      // the server-side abort also frees anything queued behind it.)
       // Remote backends don't serialize on the slot — nothing to release.
       if (service is KoboldService) service.abortGeneration();
       // The wall time was spent whether or not an answer came back.
@@ -273,7 +285,11 @@ extension ChatServiceWiringEvals on ChatService {
           modelPath: null,
         );
       }
-      return _llmProvider?.workerEvalIdentity ?? '';
+      final provider = _llmProvider;
+      if (provider == null) return '';
+      return provider.workerEvalIdentityNamed(
+        modelKey: _workerNamedByEngine ? _localModelKeyNow : null,
+      );
     }
     final service = _mouthLlm;
     final remoteApiUrl = service is LlmApiEndpoint
@@ -281,13 +297,90 @@ extension ChatServiceWiringEvals on ChatService {
         : (testLlmServiceOverride != null && !testIsLocalOverride
               ? _storageService.backendSettings.remoteApiUrl
               : '');
+    // The model is named by what names it: a local one by its file (name and
+    // size, not folder), a remote one by its host and name. Each leaves out
+    // the other's leftovers (the remote name typed last week, the local file
+    // picked last month); they would send a known model to be tested again.
+    final local = _mouthIsLocal;
     return evalBackendIdentityFor(
       backendName: service.backendName,
       remoteApiUrl: remoteApiUrl,
-      remoteModelName: _storageService.backendSettings.remoteModelName,
-      modelPath: _storageService.backendSettings.lastUsedModelPath,
+      remoteModelName: local
+          ? ''
+          : _storageService.backendSettings.remoteModelName,
+      modelPath: local ? _localModelKeyNow : null,
     );
   }
+
+  /// The local model the eval identity names: the one whose answers the
+  /// engine gives. With nothing running, the one the next start loads. The
+  /// app's record of the picked model is not it while an engine runs: a pick
+  /// changes the record at once and the engine answers with the old weights
+  /// until a reload has been asked for, done and read back, so an answer filed
+  /// under the record would belong to another model. While the engine is
+  /// still loading nothing can be asked, so it names the model it was asked to
+  /// load (the pill shows what is known of it). Null for a running engine
+  /// that is ready on a model nobody has confirmed: its load has not been read
+  /// back, or it went back to another after a reload that did not take.
+  String? get _localModelPath {
+    final kobold = _koboldService;
+    if (!kobold.isProcessRunning) {
+      return _storageService.backendSettings.lastUsedModelPath;
+    }
+    return kobold.answeringModelPath ??
+        (kobold.modelReady ? null : kobold.loadedModelPath);
+  }
+
+  /// The local model's key in the eval identity; see [_localModelPath]. An
+  /// unknown is its own key, never kept and never asked on its own.
+  String get _localModelKeyNow {
+    final kobold = _koboldService;
+    final path = _localModelPath;
+    if (path == null || path.isEmpty) {
+      return kobold.isProcessRunning
+          ? unknownLocalModelKey(kobold.loadGeneration)
+          : '';
+    }
+    return _modelKeys.of(path, stamp: kobold.residentGeneration);
+  }
+
+  /// A local helper the lane does not swap in (the chat model is not a local
+  /// one, so nothing is unloaded to make room) answers with whatever the
+  /// engine runs, not with the file the helper setting names. It is named,
+  /// and held back while unknown, the way the chat model is. One the lane
+  /// swaps in is named by its own model, which the swap puts there and checks.
+  bool get _workerNamedByEngine {
+    final provider = _llmProvider;
+    return _workerLaneActive &&
+        testWorkerLlmServiceOverride == null &&
+        provider != null &&
+        provider.workerBackend == BackendType.kobold &&
+        !provider.workerGpuSwapAvailable;
+  }
+
+  /// True while the local engine is ready on a model nobody has confirmed.
+  bool get _localModelUnknown =>
+      (_workerLaneActive ? _workerNamedByEngine : _mouthIsLocal) &&
+      _koboldService.isProcessRunning &&
+      (_localModelPath ?? '').isEmpty;
+
+  /// Settled tool-calling verdicts outlive the run, each "no" stamped with the
+  /// app and (for the local engine) the KoboldCpp version it was given under.
+  void _wireToolVerdicts() {
+    _toolProbe
+      ..store = _storageService.toolVerdictSettings
+      ..stampFor = (identity) => toolVerdictStamp(
+        engineVersion: _identityIsLocalEngine(identity)
+            ? _llmProvider?.backendManager.localVersion
+            : null,
+      );
+  }
+
+  /// Whether [identity] is one whose answers come from the local engine: the
+  /// chat model's when the chat backend is local, the worker's when it is.
+  bool _identityIsLocalEngine(String identity) => identity.startsWith('worker|')
+      ? _llmProvider?.workerBackend == BackendType.kobold
+      : _mouthIsLocal;
 
   /// Active tool-support prober behind the sidebar's tool-calling pill:
   /// verdicts land on the same [_toolProbe] the passes use, auto-retests on
@@ -298,6 +391,7 @@ extension ChatServiceWiringEvals on ChatService {
       fireToolEval: _fireToolEval,
       getBackendIdentity: () => _evalBackendIdentity,
       isBackendReady: () => _sideLaneLlm.isReady,
+      modelKnown: () => !_localModelUnknown,
       isBusy: () => _isGenerating || (_llmProvider?.gpuSwapBusy ?? false),
       workerLaneReadyForPing: () =>
           _llmProvider?.workerLaneReadyForAutoPing ?? true,
@@ -349,5 +443,6 @@ extension ChatServiceWiringEvals on ChatService {
     'preferText': _storageService.realismSettings.preferTextEvals,
     'paused': toolCallingPaused,
     'checked': _toolSupportTester.checkedThisRun,
+    'saved': _toolProbe.isKept(_evalBackendIdentity),
   };
 }

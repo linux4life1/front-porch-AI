@@ -16,6 +16,27 @@ export interface RunArgs {
   actIndex?: number;
   sceneIndex?: number;
   beatIndex?: number;
+  /** Stage-specific extras (sequence, directive, protect, refinement, name). */
+  [key: string]: unknown;
+}
+
+/** Fired after a save made outside a page's own `useStory` (the studio header's Rename). */
+const SAVED_EVENT = 'story-saved';
+
+/// Save a whole project from somewhere that has no `useStory` of its own (the
+/// shell's Rename). Every `useStory` showing that story reloads, so no page
+/// keeps the old title and writes it back on its next save.
+export async function saveStoryProject(id: string, body: Record<string, unknown>): Promise<void> {
+  await api.post(`/api/stories/${id}`, body);
+  window.dispatchEvent(new CustomEvent(SAVED_EVENT, { detail: id }));
+}
+
+/// Rename through the title-only route. A whole-project write from the shelf
+/// or the header could overwrite a run in progress; this one touches nothing
+/// else. Pages showing the story reload the same way as after a save.
+export async function renameStory(id: string, title: string): Promise<void> {
+  await api.post(`/api/stories/${id}/rename`, { title });
+  window.dispatchEvent(new CustomEvent(SAVED_EVENT, { detail: id }));
 }
 
 export function useStory(id: string) {
@@ -30,6 +51,12 @@ export function useStory(id: string) {
   }, [id]);
 
   useEffect(reload, [reload]);
+
+  useEffect(() => {
+    const onSaved = (e: Event) => { if ((e as CustomEvent<string>).detail === id) reload(); };
+    window.addEventListener(SAVED_EVENT, onSaved);
+    return () => window.removeEventListener(SAVED_EVENT, onSaved);
+  }, [id, reload]);
 
   useEffect(() => {
     api.get<StoryStatus>('/api/stories/status').then(setStatus).catch(() => {});
@@ -88,5 +115,16 @@ export function useStory(id: string) {
     [id, project, reload],
   );
 
-  return { project, status, error, run, save, reload };
+  /// Ask the running stage to stop at its next safe point; the status
+  /// stream flips `stopping` until it does.
+  const stop = useCallback(async () => {
+    try {
+      const s = await api.post<StoryStatus>(`/api/stories/${id}/stop`, {});
+      setStatus(s);
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not stop');
+    }
+  }, [id]);
+
+  return { project, status, error, run, stop, save, reload };
 }

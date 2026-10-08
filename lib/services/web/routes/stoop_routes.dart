@@ -388,6 +388,8 @@ class WebStoopRoutes {
         id,
         token: _token(request),
         webSession: Cookies.sessionToken(request),
+        // Same switch the hub uses: ?v=thumb is the postcard WebP for tiles.
+        thumb: request.url.queryParameters['v'] == 'thumb',
       );
       if (asset == null) return JsonResponse.error(401, 'stoop_not_signed_in');
       final (status, bytes, contentType) = asset;

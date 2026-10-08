@@ -67,15 +67,12 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
     final liveDb = AppDatabase.current ?? db;
     storyLlmService = llmProvider.activeService;
     storyDb = liveDb;
-    return StoryPipelineService(
-      Provider.of<StoryRepository>(context, listen: false),
-      llmProvider.activeService,
-      MemoryService(
-        Provider.of<EmbeddingService>(context, listen: false),
-        storage,
-        liveDb,
-      ),
-      liveDb,
+    return buildStoryPipelineService(
+      repository: Provider.of<StoryRepository>(context, listen: false),
+      llm: llmProvider,
+      storage: storage,
+      embeddings: Provider.of<EmbeddingService>(context, listen: false),
+      db: liveDb,
     );
   }
 
@@ -160,7 +157,23 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
           update: (context, storage, previous) =>
               previous ?? KoboldService(storage),
         ),
-        ChangeNotifierProvider(create: (_) => HardwareService()),
+        ChangeNotifierProvider(
+          create: (context) {
+            final hardware = HardwareService();
+            context.read<KoboldService>()
+              ..hardwareInfo = (() => hardware.hardwareInfo)
+              ..hardwareWhenKnown = hardware.whenKnown
+              ..readFreeMemory = () async {
+                final storage = context.read<StorageService>();
+                final free = await hardware.readFreeMemory(
+                  gpuId: storage.backendSettings.gpuId,
+                );
+                hardware.freeBeforeEngine = free;
+                return free;
+              };
+            return hardware;
+          },
+        ),
         // Anonymous, opt-out app analytics. Lazy like AuthState — only built
         // when the Stoop is first opened (RepositoryPage reads it), so users who
         // never touch the hub make no network calls. It listens to AuthState and

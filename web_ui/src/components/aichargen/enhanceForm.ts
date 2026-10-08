@@ -60,6 +60,9 @@ export interface EnhanceProposal {
   scenario?: string;
   firstMessage?: string;
   alternateGreetings?: string[];
+  /** How those greetings were written (the relay's stamp, opaque here); sent
+   *  back with them so the copy does not keep the original's recipe. */
+  greetingRecipe?: Record<string, unknown>;
   lorebook?: unknown;
   porchLife?: EnhancePorchLife;
 }
@@ -243,6 +246,9 @@ export function buildApplyBody(
     }
     if (proposal.alternateGreetings !== undefined) {
       body.alternateGreetings = edits.alternateGreetings ?? proposal.alternateGreetings;
+    }
+    if (proposal.greetingRecipe !== undefined) {
+      body.greetingRecipe = proposal.greetingRecipe;
     }
   }
   if (accepted.lorebook && proposal.lorebook != null) {

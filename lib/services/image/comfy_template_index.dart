@@ -36,7 +36,11 @@ class ComfyTemplateEntry {
 
   String get pickerId => 'comfy:$source:$name';
 
-  bool get isCreate => _has(_kCreateTags) && !_has(_kBlockedTags) && openSource;
+  bool get isCreate =>
+      _has(_kCreateTags) &&
+      !_has(_kEditTags) &&
+      !_has(_kBlockedTags) &&
+      openSource;
 
   bool get isEdit => _has(_kEditTags) && !_has(_kBlockedTags) && openSource;
 
@@ -55,8 +59,10 @@ class ComfyTemplateEntry {
   }
 }
 
-const _kCreateTags = {'text to image', 'text-to-image', 't2i'};
-const _kEditTags = {'image edit', 'image-edit', 'instruct'};
+const kComfyCreateTags = {'text to image', 'text-to-image', 't2i'};
+const kComfyEditTags = {'image edit', 'image-edit', 'instruct'};
+const _kCreateTags = kComfyCreateTags;
+const _kEditTags = kComfyEditTags;
 const _kBlockedTags = {
   'controlnet',
   'inpaint',

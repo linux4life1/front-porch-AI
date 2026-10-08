@@ -14,10 +14,13 @@ import { ChatThemeSettings } from '../components/ChatThemeSettings';
 import { ProcessingOverlay } from '../components/ProcessingOverlay';
 import { type Realism } from '../components/chatTypes';
 import { useLayout } from '../hooks/useBreakpoint';
+import { ChatModelSwitcher } from './chat/ChatModelSwitcher';
+import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
 import { useFollowStreamingReplies } from '../followStreaming';
+import { useUserMessageSide } from '../userMessageSide';
 
 export function ChatPage() {
   const navigate = useNavigate();
@@ -28,6 +31,7 @@ export function ChatPage() {
   // for a panel nobody could see, twice over with the drawer open.
   const { isDesktop } = useLayout();
   const followStreamingReplies = useFollowStreamingReplies();
+  useUserMessageSide();
   const session = useChatSession();
   const send = useChatSend(session.refresh);
   const {
@@ -37,8 +41,8 @@ export function ChatPage() {
     acceptFate, cancelRealism, openSessions, loadSession, newChat,
   } = session;
   const {
-    sendError, setSendError, editTarget, setEditTarget, reprocessIndex,
-    setReprocessIndex, sendMessage, retrySend, regenerate, continueGen, fork,
+    sendError, setSendError, actionError, setActionError, reportActionFailure,
+    editTarget, setEditTarget, reprocessIndex, setReprocessIndex, sendMessage, retrySend, regenerate, continueGen, fork,
     swipe, del, beginEdit, saveEdit, saveAuthorNote, saveTheme,
     submitReprocess, revertNeeds,
   } = send;
@@ -228,6 +232,7 @@ export function ChatPage() {
             <span className="chat-title">{title}</span>
           </div>
           <div className="chat-header-actions">
+            <ChatModelSwitcher />
             {editId && (
               <button
                 className="link-btn"
@@ -270,44 +275,15 @@ export function ChatPage() {
           onCommand={sendMessage}
         />
 
-        {importNotice && (
-          <div className="chat-import-notice">
-            <p>{importNotice}</p>
-            <button
-              type="button"
-              className="link-btn"
-              aria-label="Dismiss"
-              onClick={() => setImportNotice('')}
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        {sendError && (
-          <div className="chat-import-notice" role="alert">
-            <p>
-              ⚠️ {sendError.message}
-              <br />
-              <span className="muted">Still here, not sent: “{sendError.text}”</span>
-            </p>
-            <button
-              type="button"
-              className="link-btn"
-              disabled={sendError.retrying}
-              onClick={() => void retrySend()}
-            >
-              {sendError.retrying ? 'Sending…' : 'Try again'}
-            </button>
-            <button
-              type="button"
-              className="link-btn"
-              aria-label="Dismiss"
-              onClick={() => setSendError(null)}
-            >
-              ✕
-            </button>
-          </div>
-        )}
+        <ChatNotices
+          importNotice={importNotice}
+          onDismissImport={() => setImportNotice('')}
+          sendError={sendError}
+          onRetrySend={() => void retrySend()}
+          onDismissSendError={() => setSendError(null)}
+          actionError={actionError}
+          onDismissActionError={() => setActionError(null)}
+        />
         {state.absencePhrase && state.sessionId && !absenceDismissed.has(state.sessionId) && (
           <div className="absence-banner">
             <span className="absence-banner-icon">🕰️</span>
@@ -355,7 +331,8 @@ export function ChatPage() {
           onRevert={revertNeeds}
           greetCount={state.totalGreetings}
           greetingIndex={state.greetingIndex}
-          onVariantPicked={() => void refresh()}
+          onVariantPicked={refresh}
+          onActionFailed={reportActionFailure}
         />
 
         <ProcessingOverlay p={processing} onCancel={cancelRealism} />
@@ -390,9 +367,12 @@ export function ChatPage() {
           cast={cast}
           impersonateFill={impersonateFill}
           onImpersonate={(prefix) => {
-            void api.post('/api/chat/impersonate', { prefix });
+            api
+              .post('/api/chat/impersonate', { prefix })
+              .catch((e) => reportActionFailure('write your line for you', e));
           }}
           apiReady={state.llmReady !== false}
+          apiHint={state.llmHint}
         />
       </div>
 
@@ -425,14 +405,24 @@ export function ChatPage() {
           sessions={sessions}
           loading={loadingSessions}
           activeSessionId={state.sessionId}
-          onLoad={loadSession}
-          onNew={newChat}
+          onLoad={(id) =>
+            loadSession(id).catch((e) => reportActionFailure('open that conversation', e))
+          }
+          onNew={() =>
+            newChat().catch((e) => reportActionFailure('start a new chat', e))
+          }
           onDelete={async (id) => {
-            await api.post('/api/chat/session', {
-              action: 'delete',
-              sessionId: id,
-              startReplacement: id === state.sessionId,
-            });
+            try {
+              await api.post('/api/chat/session', {
+                action: 'delete',
+                sessionId: id,
+                startReplacement: id === state.sessionId,
+              });
+            } catch (e) {
+              setShowSessions(false);
+              reportActionFailure('delete that conversation', e);
+              return;
+            }
             await openSessions();
             await refresh();
           }}

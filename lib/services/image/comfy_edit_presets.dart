@@ -34,6 +34,7 @@
 
 import 'dart:convert';
 
+import 'edit_profile.dart';
 import 'comfy_edit_workflow.dart';
 import 'comfy_workflow_adapt.dart';
 import 'comfy_workflow_convert.dart';
@@ -364,12 +365,16 @@ resolveComfyEditRequest({
   required int steps,
   required double cfg,
   required double denoise,
-  required double shift,
+
+  /// The shift the person set for this graph, or null: the graph then posts
+  /// its own.
+  required double? shift,
   int width = 1024,
   int height = 1024,
   String sampler = 'euler',
   String scheduler = 'simple',
   Map<String, dynamic>? liveTemplate,
+  Map<String, dynamic>? objectInfo,
 }) {
   final values = <String, Object?>{
     ComfyEditTokens.prompt: prompt,
@@ -378,7 +383,7 @@ resolveComfyEditRequest({
     ComfyEditTokens.steps: steps,
     ComfyEditTokens.cfg: cfg,
     ComfyEditTokens.denoise: denoise,
-    ComfyEditTokens.shift: shift,
+    ComfyEditTokens.shift: shift ?? kEditRecommendedShift,
     ComfyEditTokens.width: width,
     ComfyEditTokens.height: height,
     ComfyEditTokens.sampler: sampler,
@@ -387,7 +392,7 @@ resolveComfyEditRequest({
 
   if (workflowId.startsWith('comfy:')) {
     if (liveTemplate == null) return null;
-    final api = ensureComfyApiGraph(liveTemplate);
+    final api = ensureComfyApiGraph(liveTemplate, objectInfo: objectInfo);
     if (api == null) return null;
     final adapted = adaptComfyApiWorkflow(api);
     final tokens = detectComfyTokens(adapted.template);
@@ -396,7 +401,10 @@ resolveComfyEditRequest({
       final file = modelChoices['$workflowId/${slot.token}'] ?? '';
       if (file.isNotEmpty) values[slot.token] = file;
     }
-    return (template: adapted.template, values: values);
+    return (
+      template: shift == null ? adapted.templateWithOwnShift : adapted.template,
+      values: values,
+    );
   }
 
   if (workflowId == kComfyUploadedWorkflowId) {
@@ -435,12 +443,14 @@ bool comfyEditReady({
   required String uploadedWorkflowJson,
   required Map<String, String> modelChoices,
   Map<String, dynamic>? liveTemplate,
+  Map<String, dynamic>? objectInfo,
 }) {
   final req = resolveComfyEditRequest(
     workflowId: workflowId,
     uploadedWorkflowJson: uploadedWorkflowJson,
     modelChoices: modelChoices,
     liveTemplate: liveTemplate,
+    objectInfo: objectInfo,
     prompt: 'x',
     negative: '',
     seed: 0,

@@ -7,7 +7,7 @@
 // state; sending is delegated to onSend so all chat/network state stays in
 // ChatPage.
 
-import { useState, useRef, useEffect } from 'react';
+import { useCallback, useState, useRef, useEffect } from 'react';
 import { MicButton } from './VoiceControls';
 import { renderRpInline } from './rpText';
 import { prepareChatPhotoBase64 } from '../pages/chatPhoto';
@@ -66,6 +66,7 @@ export function ChatComposer({
   impersonateFill,
   onImpersonate,
   apiReady = true,
+  apiHint,
 }: {
   onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
@@ -84,15 +85,21 @@ export function ChatComposer({
   onImpersonate?: (prefix: string) => void;
   /** Host LLM connection (not a one-off HTTP 500). False → "No API connection". */
   apiReady?: boolean;
+  /** Why the host's start of KoboldCpp was refused: said above the box while
+   *  there is no connection (additive; the host may not send it). */
+  apiHint?: string | null;
 }) {
   const [draft, setDraftState] = useState('');
-  const setDraft = (v: string | ((d: string) => string)) => {
-    setDraftState((prev) => {
-      const next = typeof v === 'function' ? v(prev) : v;
-      onDraftChange?.(next);
-      return next;
-    });
-  };
+  const setDraft = useCallback(
+    (v: string | ((d: string) => string)) => {
+      setDraftState((prev) => {
+        const next = typeof v === 'function' ? v(prev) : v;
+        onDraftChange?.(next);
+        return next;
+      });
+    },
+    [onDraftChange],
+  );
   const [slashDismissed, setSlashDismissed] = useState(false);
 
   // "@" cast autocomplete — the cast-name twin of the slash cheat sheet
@@ -162,7 +169,7 @@ export function ChatComposer({
       ta.focus();
       ta.setSelectionRange(impersonateFill.length, impersonateFill.length);
     });
-  }, [impersonateFill]);
+  }, [impersonateFill, setDraft]);
 
   // Keep the coloured backdrop scrolled in lock-step with the textarea.
   const syncScroll = () => {
@@ -179,11 +186,13 @@ export function ChatComposer({
 
   const [photo, setPhoto] = useState<{ file: File; preview: string } | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
+  const [photoError, setPhotoError] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
 
   const clearPhoto = () => {
     if (photo) URL.revokeObjectURL(photo.preview);
     setPhoto(null);
+    setPhotoError('');
   };
 
   const send = () => {
@@ -201,13 +210,23 @@ export function ChatComposer({
       return;
     }
     setPhotoBusy(true);
+    setPhotoError('');
+    // A photo that can't be read must not quietly become a text-only send:
+    // hand both back and say so.
     void prepareChatPhotoBase64(pending.file)
-      .then((b64) => onSend(text, b64))
-      .catch(() => onSend(text))
-      .finally(() => {
+      .then((b64) => {
         URL.revokeObjectURL(pending.preview);
-        setPhotoBusy(false);
-      });
+        onSend(text, b64);
+      })
+      .catch((e) => {
+        console.warn('[chat] photo could not be prepared', e);
+        setDraft((d) => d || text);
+        setPhoto(pending);
+        setPhotoError(
+          "That photo couldn't be read, so nothing was sent. Try a different photo, or remove it to send just your text.",
+        );
+      })
+      .finally(() => setPhotoBusy(false));
   };
 
   return (
@@ -215,6 +234,11 @@ export function ChatComposer({
     {held && (
       <div className="send-held-banner" role="status">
         Got it — sending when the last reply is fully wrapped up.
+      </div>
+    )}
+    {!apiReady && apiHint && (
+      <div className="api-hint-banner" role="status" data-testid="composer-api-hint">
+        {apiHint}
       </div>
     )}
     <div className="chat-input">
@@ -232,6 +256,11 @@ export function ChatComposer({
           setPhoto({ file, preview: URL.createObjectURL(file) });
         }}
       />
+      {photoError && (
+        <p className="error" role="alert">
+          ⚠️ {photoError}
+        </p>
+      )}
       {photo && (
         <div className="composer-photo-chip">
           <img src={photo.preview} alt="" />
@@ -330,7 +359,10 @@ export function ChatComposer({
               setSlashDismissed(true);
               return;
             }
-            if (e.key === 'Enter' && !e.shiftKey) {
+            // Enter that confirms an IME candidate (Japanese, Chinese,
+            // Korean…) is not a send. Safari flags it only via keyCode 229.
+            const composing = e.nativeEvent.isComposing || e.keyCode === 229;
+            if (e.key === 'Enter' && !e.shiftKey && !composing) {
               e.preventDefault();
               send();
             }

@@ -52,7 +52,7 @@ extension _StoryReaderToc on _StoryReaderPageState {
     }
 
     return Drawer(
-      backgroundColor: AppColors.backgroundOf(context),
+      backgroundColor: StudioColors.bgOf(context),
       child: SafeArea(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -64,7 +64,7 @@ extension _StoryReaderToc on _StoryReaderPageState {
               decoration: BoxDecoration(
                 border: Border(
                   bottom: BorderSide(
-                    color: AppColors.borderOf(context),
+                    color: StudioColors.lineOf(context),
                     width: 1,
                   ),
                 ),
@@ -78,7 +78,7 @@ extension _StoryReaderToc on _StoryReaderPageState {
                       fontFamily: 'Georgia',
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary(context),
+                      color: StudioColors.inkOf(context),
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -87,7 +87,7 @@ extension _StoryReaderToc on _StoryReaderPageState {
                     style: TextStyle(
                       fontFamily: 'Georgia',
                       fontSize: 12,
-                      color: AppColors.textSecondary(context),
+                      color: StudioColors.mutedOf(context),
                       letterSpacing: 2,
                     ),
                   ),
@@ -150,6 +150,26 @@ extension _StoryReaderToc on _StoryReaderPageState {
     return InkWell(
       onTap: () {
         Navigator.pop(context); // Close drawer
+        // Scroll mode has no flip widget: jump to the page's chapter.
+        if (_flipKey.currentState == null) {
+          final page = _pages![pageIndex.clamp(0, _pages!.length - 1)];
+          final act = page.actIndex;
+          final scene = page.sceneIndex;
+          if (act != null && scene != null) {
+            final project = Provider.of<StoryRepository>(
+              context,
+              listen: false,
+            ).getById(widget.projectId);
+            if (project != null) {
+              final chapters = _chapters(project);
+              final i = chapters.indexWhere(
+                (c) => c.act == act && c.index == scene,
+              );
+              if (i >= 0) _jumpToChapter(i);
+            }
+          }
+          return;
+        }
         rebuildState(() => _currentPage = flipPage);
         _flipKey.currentState?.goToPage(flipPage);
       },
@@ -161,7 +181,7 @@ extension _StoryReaderToc on _StoryReaderPageState {
           bottom: isAct ? 10 : 6,
         ),
         color: isCurrentPage
-            ? AppColors.porchAmberOf(context).withValues(alpha: 0.15)
+            ? StudioColors.amberOf(context).withValues(alpha: 0.15)
             : null,
         child: Row(
           children: [
@@ -175,10 +195,10 @@ extension _StoryReaderToc on _StoryReaderPageState {
                       ? FontWeight.w600
                       : FontWeight.normal,
                   color: isCurrentPage
-                      ? AppColors.porchAmberOf(context)
+                      ? StudioColors.amberOf(context)
                       : isAct || isTitle
-                      ? AppColors.textPrimary(context)
-                      : AppColors.textSecondary(context),
+                      ? StudioColors.inkOf(context)
+                      : StudioColors.mutedOf(context),
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
@@ -189,7 +209,7 @@ extension _StoryReaderToc on _StoryReaderPageState {
               style: TextStyle(
                 fontFamily: 'Georgia',
                 fontSize: 11,
-                color: AppColors.textTertiary(context),
+                color: StudioColors.faintOf(context),
               ),
             ),
           ],

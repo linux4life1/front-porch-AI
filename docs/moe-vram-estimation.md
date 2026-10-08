@@ -1,5 +1,61 @@
 # MoE-Aware VRAM Estimation and KoboldCPP Launch for Auto-Configure
 
+> **Status (2026-10-04).** The estimation on this page is live, in the form
+> "How the estimate is worked out now" describes. The preset editor, the
+> Local model card and every launch fit the model with `KoboldFit`, which
+> runs `koboldLoad` (`lib/utils/kobold_placement.dart`) over the model file's
+> own header (`GGUFModelInfo`, `GGUFWeights`). The tests that check those
+> figures against real KoboldCpp loads call `koboldLoad` itself; the old
+> wrapper they used, `VramEstimator.estimateFromArchitecture`, is gone
+> (2026-10-05). What the rest of this page calls the active weight ratio
+> (the `activeWeightRatio` getter), the batch suggestion
+> (`suggestBatchSize`) and the fixed overhead are gone; the one piece of the
+> ratio still used is the fallback for a file whose tensor table cannot be
+> read (`gpuWeightRatioWhenOffloadingExperts`).
+>
+> **What the estimate is for.** It does not decide how a model is loaded,
+> and never did: KoboldCpp fits the model. The estimate is a guess at how
+> that fit will come out, there so you can pick a context size, batch size
+> and cache type that fit in the graphics memory left over after a MoE
+> model's active weights, and the model runs at full speed. The preset the
+> dialog writes tells KoboldCpp to fit the model and to keep the spare
+> memory the guess counted on.
+>
+> **What is gone.** Only the Auto-Configure button and the code behind it
+> (`KoboldLayerSolver`, `OptimizationService`), which picked a GPU layer
+> count for launches that used no preset. Those launches now leave the fit
+> to KoboldCpp as well (Settings → Hardware & GPU → Graphics memory:
+> Automatic). Parts 3 to 6 of "Required Code Changes" below describe that
+> removed code, and the `activeWeightRatio` getter of part 1 is removed
+> too; they are kept for the history. The launch design is in
+> [design/kobold-launch-rewrite.md](design/kobold-launch-rewrite.md).
+
+## How the estimate is worked out now (2026-10-04)
+
+The figures are now read from the model file and KoboldCpp's own rules,
+and checked against what a real KoboldCpp printed: 93 loads of 20 models
+on Apple Silicon, loads of three models on a 16 GB AMD card (Vulkan and
+ROCm), and the original author's log from a 6 GB NVIDIA card. The code is
+`lib/utils/kobold_memory_rules.dart`; the measurements are pinned in
+`test/utils/vram_estimator_real_engine_test.dart`,
+`test/utils/vram_estimator_metal_test.dart` and
+`test/fixtures/kobold_loads/`.
+
+| Part | How it is worked out | How close it came |
+|---|---|---|
+| Weights on the card | The sizes of the file's own tensors (the tensor table in the header), sorted by where KoboldCpp puts them: the blocks, the experts (kept in system memory when they do not fit), the output layer. A model that ties its output to its input embedding gets a second copy on the card. On Apple Silicon the whole file is mapped. | To the MiB (784.42 reported, 784 worked out, for MoE experts kept off the card; 6776.84 for Gemma 4 12B with its tied copy) |
+| Attention cache | Per layer: keys and values for the context plus 128 cells, rounded up to 256. A sliding-window layer with sliding window on holds the window plus one batch, rounded up to 256, plus 128. Recurrent and convolution layers keep a small fixed state instead; layers that reuse another layer's cache keep none; compressed-attention (MLA) models keep one key row per layer. With flash attention off, every layer's values are sized to the largest layer's. | To the MiB on every load |
+| Working memory | The larger of: the scores for a batch over the whole vocabulary; the layers' working set (masks over the cache, the feed-forward block, the attention queries; with flash attention off, one layer's attention scores). On Vulkan, once the scores reach 1 GiB they add to the layers' set instead. On Apple Silicon, long contexts need extra room. | Never below the engine; 8.5% above on average on Apple Silicon |
+| Beyond the listed buffers | Vulkan 80 MB, ROCm 330 to 530 MB, NVIDIA 500 MB (no measurement yet), Apple Silicon 100 MB. | Measured on Vulkan and ROCm |
+
+The active weight ratio below was the original way of working out a MoE
+model's share on the card, from its parameter counts. It came close for
+some models and not others (Gemma 4 26B-A4B: about 12% against 11.1%
+exactly; Kimi-VL-A3B: about 22% against 5.4%), because the parameter
+counts leave out what the file stores at different precisions. The tensor
+table gives the exact answer, so the ratio is now only the fallback for a
+file whose tensor table cannot be read.
+
 ## Problem
 
 The current app has two interacting failures for MoE models:
@@ -175,8 +231,9 @@ Add computed getters:
 
 ### 2. `GGUFParser` (`lib/utils/gguf_parser.dart`)
 
-Add these to the KV whitelist in both `getKvCacheBytesPerToken` and
-`getModelArchitectureInfo`:
+Add these to the KV whitelist in `getModelArchitectureInfo` (this plan also
+named `getKvCacheBytesPerToken`, which went with the old Settings memory
+bar on 2026-10-05):
 - `{arch}.expert_count`
 - `{arch}.expert_used_count`
 - `{arch}.expert_feed_forward_length`

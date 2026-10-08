@@ -30,7 +30,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// 1. one rough hop to the target's proportional offset, then
 /// 2. viewport-sized pages toward the target — comparing its position
 ///    against the currently built range — until its key materializes,
-///    finishing with an animated `ensureVisible` that centers it.
+///    finishing with an animated `ensureVisible` that lands its top at the
+///    top of the view (centering cut the opening off a tall message).
 ///
 /// Axis is read from the live position: `AxisDirection.up` is a reverse
 /// list (offset 0 = newest) — the Rawhide harness still uses that shape.
@@ -83,7 +84,7 @@ Future<void> jumpToMessage({
     if (ctx != null) {
       await Scrollable.ensureVisible(
         ctx,
-        alignment: 0.5,
+        alignment: 0.0,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
       );

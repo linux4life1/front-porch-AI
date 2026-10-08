@@ -31,7 +31,7 @@ extension StoryPipelineActs on StoryPipelineService {
   ///   1. Scene Weaver (scenes + beats in one call)
   ///   2. Combined prose for the entire act (one call)
   /// This reduces ~20+ calls per act down to just 2-3.
-  Future<void> generateFullAct(StoryProject project, int actIndex) async {
+  Future<void> _quickFullAct(StoryProject project, int actIndex) async {
     _isRunning = true;
     final act = project.acts[actIndex];
 
@@ -43,7 +43,7 @@ extension StoryPipelineActs on StoryPipelineService {
           'Act ${act.number}: Scenes',
           'Generating scenes for "${act.title}"...',
         );
-        await runSceneWeaver(project, actIndex);
+        await _quickScenes(project, actIndex);
         // Every stage clears _isRunning in its own `finally`, but the act is
         // far from done — the prose phase below is the long part. Without
         // this re-arm the progress overlay vanishes and every Generate
@@ -64,7 +64,7 @@ extension StoryPipelineActs on StoryPipelineService {
             'Act ${act.number}: Beats',
             'Planning beats for scene ${sceneIdx + 1}/${scenes.length}...',
           );
-          await runBeatDirector(project, actIndex, sceneIdx);
+          await _quickBeats(project, actIndex, sceneIdx);
           _isRunning = true; // same stage-finally reset as above
         }
       }
@@ -90,7 +90,7 @@ extension StoryPipelineActs on StoryPipelineService {
   }
 
   /// Public method to regenerate prose for a single scene (after clearing old prose).
-  Future<void> regenerateSceneProse(
+  Future<void> _quickRegenerateScene(
     StoryProject project,
     int actIndex,
     int sceneIndex,
@@ -172,6 +172,13 @@ extension StoryPipelineActs on StoryPipelineService {
 
     final isFirstScene = actIndex == 0 && sceneIndex == 0;
     final pov = project.pov;
+    // Same rolling ban list the Studio writer gets: phrases the model has
+    // leaned on in the last few scenes.
+    project.autoBannedPhrases = StoryQuality.overusedPhrases(
+      StoryQuality.recentProse(project, actIndex, sceneIndex),
+      exclude: [...project.cast.map((c) => c.name), ...project.bannedPhrases],
+    );
+    final bannedBlock = StudioProsePrompts.bannedBlock(project);
     final pace = project.narrativePace;
     final dialogue = project.dialogueDensity;
     final styleGuide = project.writingStyle.isNotEmpty
@@ -271,6 +278,7 @@ WRITING RULES:
 5. Write 400-800 words of rich, detailed prose for this beat.
 6. Vary sentence length. Mix short punchy sentences with longer descriptive ones.
 $styleGuide
+$bannedBlock
 ${runningContext.isNotEmpty ? '\nCONTINUITY — The story so far ends with:\n"""\n...$runningContext\n"""\nYour prose MUST continue seamlessly from this text. The reader should feel zero discontinuity.' : ''}
 $forwardHint
 
@@ -280,6 +288,9 @@ Output ONLY the prose text for this single beat, nothing else. No labels, no hea
         prompt,
         maxLength: tier == PromptTier.smallLocal ? 4096 : 8192,
         stage: StoryStageParams.prose,
+        project: project,
+        role: StoryRole.prose,
+        label: 'Writing',
       );
       final cleanedResponse = StoryJson.stripThinkTags(response).trim();
 
@@ -300,17 +311,22 @@ Output ONLY the prose text for this single beat, nothing else. No labels, no hea
   }
 
   /// Autopilot: run the entire pipeline from concept to finished prose.
-  Future<void> runAutopilot(StoryProject project) async {
+  Future<void> _autopilot(StoryProject project) async {
     try {
-      // 1. Story Architect
-      await runStoryArchitect(project);
-
-      // 2. Act Structure
-      await runActStructurer(project);
-
-      // 3. Generate each act end-to-end
-      for (int actIdx = 0; actIdx < project.acts.length; actIdx++) {
-        await generateFullAct(project, actIdx);
+      // Writes what is left. The bible and the acts are built only when
+      // they do not exist yet; a fresh start is "Regenerate bible" first.
+      if (project.cast.isEmpty && project.concept.trim().isNotEmpty) {
+        await runStoryArchitect(project);
+      }
+      if (project.acts.isEmpty) {
+        await runActStructurer(project);
+      } else if (_studio(project)) {
+        await _finishBible(project);
+      }
+      // One scene at a time through the same path as "Continue writing",
+      // so Stop lands between scenes and nothing written is touched.
+      while (await writeNextScene(project)) {
+        if (_stopRequested) break;
       }
 
       _setStatus('Complete', 'Story generation finished!');

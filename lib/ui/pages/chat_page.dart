@@ -202,6 +202,7 @@ class _ChatPageState extends State<ChatPage> {
     final chat = Provider.of<ChatService>(context, listen: false);
     _chatService = chat;
     chat.addListener(_onChatServiceChanged);
+    chat.chatScreenOpened();
 
     // Resume timer if this is a pre-existing chat with history
     chat.resumeDynamicResponses();
@@ -351,6 +352,7 @@ class _ChatPageState extends State<ChatPage> {
   @override
   void dispose() {
     _chatService?.pauseDynamicResponses();
+    _chatService?.chatScreenClosed();
     _ttsService?.removeListener(_onTtsChanged);
     _chatService?.removeListener(_onChatServiceChanged);
     _chatFocusNode.dispose();

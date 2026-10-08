@@ -26,10 +26,19 @@ extension _HomePageChrome on _HomePageState {
     return HomeModeToggle(
       showStories: _homeMode == HomeMode.stories,
       showWaifu: _homeMode == HomeMode.waifu,
-      onShowChats: () => applyState(() => _homeMode = HomeMode.chats),
-      onShowStories: () => applyState(() => _homeMode = HomeMode.stories),
-      onShowWaifu: () => applyState(() => _homeMode = HomeMode.waifu),
+      studio: _homeMode == HomeMode.stories,
+      onShowChats: () => _setHomeMode(HomeMode.chats),
+      onShowStories: () => _setHomeMode(HomeMode.stories),
+      onShowWaifu: () => _setHomeMode(HomeMode.waifu),
     );
+  }
+
+  void _setHomeMode(HomeMode mode) {
+    applyState(() => _homeMode = mode);
+    Provider.of<AppState>(
+      context,
+      listen: false,
+    ).setSidebarHidden(mode != HomeMode.chats);
   }
 
   /// Toggle row that shrinks instead of overflowing when the window is
@@ -50,51 +59,6 @@ extension _HomePageChrome on _HomePageState {
     );
   }
 
-  Widget _wrapWithStatusBar(BuildContext context, Widget content) {
-    String status = '';
-    try {
-      final kobold = Provider.of<KoboldService>(context, listen: false);
-      status = kobold.modelLoadingStatus;
-    } catch (_) {}
-
-    if (status.isEmpty) return content;
-
-    return Column(
-      children: [
-        Expanded(child: content),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-          decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
-            border: Border(top: BorderSide(color: AppColors.borderOf(context))),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                status,
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 6),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(4),
-                child: LinearProgressIndicator(
-                  minHeight: 4,
-                  backgroundColor: AppColors.surfaceContainerOf(context),
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    AppColors.porchHoneyOf(context),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ],
-    );
-  }
+  Widget _wrapWithStatusBar(BuildContext context, Widget content) =>
+      KoboldHomeStatus(child: content);
 }

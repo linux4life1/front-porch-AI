@@ -9,7 +9,7 @@
 // highlight stays glued to the caret. Reused by the character edit page text
 // fields and the lorebook content boxes.
 
-import { Fragment, useEffect, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react';
 import type { ReactNode, UIEvent } from 'react';
 
 // Curly-brace macros like {{char}}, {{user}}, {{random:a,b}}. Non-greedy and
@@ -44,12 +44,14 @@ function HighlightArea({
   rows,
   placeholder,
   autoFocus,
+  ariaLabel,
 }: {
   value: string;
   onChange: (v: string) => void;
   rows: number;
   placeholder?: string;
   autoFocus?: boolean;
+  ariaLabel?: string;
 }) {
   const backdropRef = useRef<HTMLDivElement>(null);
   const syncScroll = (e: UIEvent<HTMLTextAreaElement>) => {
@@ -70,6 +72,7 @@ function HighlightArea({
         rows={rows}
         placeholder={placeholder}
         autoFocus={autoFocus}
+        aria-label={ariaLabel}
         spellCheck={false}
         onScroll={syncScroll}
         onChange={(e) => onChange(e.target.value)}
@@ -84,14 +87,33 @@ export function MacroField({
   onChange,
   rows = 3,
   placeholder,
+  ariaLabel,
+  showHead = true,
+  full: fullProp,
+  onFullChange,
 }: {
   label?: string;
   value: string;
   onChange: (v: string) => void;
   rows?: number;
   placeholder?: string;
+  /** The textarea's accessible name when no visible label sits beside it. */
+  ariaLabel?: string;
+  /** False hides the label + expand row; the caller then opens the
+   *  fullscreen editor itself through [full] / [onFullChange]. */
+  showHead?: boolean;
+  full?: boolean;
+  onFullChange?: (open: boolean) => void;
 }) {
-  const [full, setFull] = useState(false);
+  const [fullState, setFullState] = useState(false);
+  const full = fullProp ?? fullState;
+  const setFull = useCallback(
+    (open: boolean) => {
+      if (fullProp === undefined) setFullState(open);
+      onFullChange?.(open);
+    },
+    [fullProp, onFullChange],
+  );
 
   // Close the fullscreen editor on Escape.
   useEffect(() => {
@@ -101,23 +123,31 @@ export function MacroField({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [full]);
+  }, [full, setFull]);
 
   return (
     <>
       <div className="macro-field">
-        <div className="macro-field-head">
-          {label ? <span>{label}</span> : <span />}
-          <button
-            type="button"
-            className="icon-btn macro-expand"
-            title="Expand to fullscreen"
-            onClick={() => setFull(true)}
-          >
-            ⤢
-          </button>
-        </div>
-        <HighlightArea value={value} onChange={onChange} rows={rows} placeholder={placeholder} />
+        {showHead && (
+          <div className="macro-field-head">
+            {label ? <span>{label}</span> : <span />}
+            <button
+              type="button"
+              className="icon-btn macro-expand"
+              title="Expand to fullscreen"
+              onClick={() => setFull(true)}
+            >
+              ⤢
+            </button>
+          </div>
+        )}
+        <HighlightArea
+          value={value}
+          onChange={onChange}
+          rows={rows}
+          placeholder={placeholder}
+          ariaLabel={ariaLabel}
+        />
       </div>
 
       {full && (

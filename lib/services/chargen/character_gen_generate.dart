@@ -277,6 +277,20 @@ extension GenGenerate on CharacterGenService {
     }
     if (_aborted || _generationEpoch != currentEpoch) return null;
 
+    // Kept so the creator's Greetings step can write one more greeting the
+    // way these were written (regenerateGreeting).
+    greetingRecipe = GreetingRecipe(
+      greetingLength: greetingLength,
+      tones: greetingTones,
+      characterContext: characterContext,
+      userPersonaContext: userPersonaContext,
+      interviewTranscript: interviewTranscript,
+      worldLore: worldLore,
+      includeDynamicMacros: includeDynamicMacros,
+      reasoningEnabled: reasoningEnabled,
+      nsfwEnabled: nsfwEnabled,
+    );
+
     // ── Step 3: Generate first message ────────────────────────
     onStatus?.call('Writing first message...');
     onProgress?.call(''); // Clear preview
@@ -400,6 +414,11 @@ extension GenGenerate on CharacterGenService {
     // (Logic lives in chargen/char_macro.dart so it stays unit-testable.)
     applyCharMacroToCard(card, name);
     stampNarrativeVoice(card, voice: _narrativeVoice, sex: _narrativeSex);
+    // Beside the voice: how the greetings were written, so a rewrite after a
+    // reload or a restart matches them (the desktop save and the web create
+    // both persist this card).
+    final recipe = greetingRecipe;
+    if (recipe != null) stampGreetingRecipe(card, recipe);
 
     onStatus?.call('Character generated!');
     return card;

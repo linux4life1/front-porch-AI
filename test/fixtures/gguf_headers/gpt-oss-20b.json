@@ -1,0 +1,31 @@
+{
+ "source": "ggml-org/gpt-oss-20b-GGUF/gpt-oss-20b-MXFP4.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 12109566624,
+ "real_data_start": 13008288,
+ "fixture_file_bytes": 12096587712,
+ "truth": {
+  "arch": "gpt-oss",
+  "n_layer": 24,
+  "n_tensors": 459,
+  "bytes": {
+   "total": 12096558336,
+   "blocks": 10865888256,
+   "expert": 10178887680,
+   "shared_expert": 0,
+   "token_embd": 615329280,
+   "output": 615329280,
+   "other": 11520
+  },
+  "mb": {
+   "total": 11536,
+   "blocks": 10363,
+   "expert": 9707,
+   "shared_expert": 0,
+   "token_embd": 587,
+   "output": 587,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 1242,
+   "gpu_all_layers": 10949
+  }
+ }
+}

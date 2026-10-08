@@ -17,12 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/image_studio/generation_options_tab.dart';
 
 /// Dialog for configuring image generation settings.
-/// Now a thin shell delegating to the shared GenerationOptionsTab (AppColors clean, extracted for studio tab use).
-/// Old form logic + fetch state moved to generation_options_tab.dart (no duplication).
+/// The body is the studio desk; its Advanced knobs hold Style and Prompt
+/// format.
 class ImageGenSettingsDialog extends StatelessWidget {
   const ImageGenSettingsDialog({super.key});
 
@@ -71,7 +72,7 @@ class ImageGenSettingsDialog extends StatelessWidget {
             Flexible(
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
-                child: const GenerationOptionsTab(),
+                child: const StudioDesk(showGenerate: false),
               ),
             ),
           ],

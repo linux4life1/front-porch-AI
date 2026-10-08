@@ -54,15 +54,11 @@ extension _HomePageLifecycle on _HomePageState {
     _maybeOpenChatFromEnv();
   }
 
+  // No toast when a model finishes loading: dual-local mouth/worker swaps
+  // mark ready on every GGUF load, and the success SnackBars stacked.
   void _onKoboldUpdate() {
     if (!mounted) return;
-    try {
-      final kobold = Provider.of<KoboldService>(context, listen: false);
-      // Drain the one-shot. Do not toast — dual-local mouth/worker swaps
-      // mark ready on every GGUF load and the success SnackBar stacked.
-      kobold.consumeModelReady();
-      applyState(() {}); // Rebuild to update status bar
-    } catch (_) {}
+    applyState(() {}); // Rebuild to update status bar
   }
 
   /// Query the DB to build caches for last activity time and message count per character.
@@ -123,69 +119,10 @@ extension _HomePageLifecycle on _HomePageState {
   /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
 
-  void _toggleSelectMode() {
-    applyState(() {
-      _isSelecting = !_isSelecting;
-      _isOrganizing = false;
-      if (!_isSelecting) {
-        _selectedCharacterIds.clear();
-        _selectedGroupIds.clear();
-      }
-    });
+  /// Picks changed (any gesture, see [LibrarySelection]): redraw the grid.
+  void _onSelectionChanged() {
+    if (mounted) applyState(() {});
   }
 
-  void _toggleOrganizeMode() {
-    applyState(() {
-      _isOrganizing = !_isOrganizing;
-      _isSelecting = false;
-      if (!_isOrganizing) {
-        _selectedCharacterIds.clear();
-        _selectedGroupIds.clear();
-      }
-    });
-  }
-
-  void _toggleSelect(CharacterCard character) {
-    final id = character.imagePath != null
-        ? path.basenameWithoutExtension(character.imagePath!)
-        : character.name
-              .replaceAll(RegExp(r'[^\w\s]'), '')
-              .replaceAll(' ', '_');
-    applyState(() {
-      if (_selectedCharacterIds.contains(id)) {
-        _selectedCharacterIds.remove(id);
-        if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
-          _isSelecting = false;
-          _isOrganizing = false;
-        }
-      } else {
-        _selectedCharacterIds.add(id);
-      }
-    });
-  }
-
-  /// Group analogue of [_toggleSelect] — groups are selected by their id
-  /// (they have no image-filename key).
-  void _toggleSelectGroup(GroupChat group) {
-    applyState(() {
-      if (_selectedGroupIds.contains(group.id)) {
-        _selectedGroupIds.remove(group.id);
-        if (_selectedCharacterIds.isEmpty && _selectedGroupIds.isEmpty) {
-          _isSelecting = false;
-          _isOrganizing = false;
-        }
-      } else {
-        _selectedGroupIds.add(group.id);
-      }
-    });
-  }
-
-  void _cancelSelection() {
-    applyState(() {
-      _isSelecting = false;
-      _isOrganizing = false;
-      _selectedCharacterIds.clear();
-      _selectedGroupIds.clear();
-    });
-  }
+  void _cancelSelection() => _selection.cancel();
 }

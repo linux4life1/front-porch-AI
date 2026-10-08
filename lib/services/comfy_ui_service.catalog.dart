@@ -18,18 +18,83 @@
 
 part of 'comfy_ui_service.dart';
 
+/// Long enough for one expression pack, short enough that a newly installed
+/// node shows up on the next sitting.
+const Duration _objectInfoFreshFor = Duration(minutes: 2);
+
+final Expando<Map<String, dynamic>> _objectInfoCache = Expando();
+final Expando<DateTime> _objectInfoCachedAt = Expando();
+
 extension _ComfyCatalog on ComfyUiService {
-  /// One /object_info fetch shared by the model/LoRA/sampler listings.
-  Future<Map<String, dynamic>?> _objectInfo() async {
+  /// One /object_info fetch shared by a generate and its sampler lookup.
+  /// A successful read is reused for [_objectInfoFreshFor]. Pass
+  /// [fresh] for a model or LoRA list: a file can appear the moment a
+  /// download finishes, and that list must not stay on the generate cache.
+  /// A failed read is not kept. [fromCache] belongs to this read only.
+  Future<({Map<String, dynamic>? info, bool fromCache})> _readObjectInfo({
+    bool fresh = false,
+  }) async {
+    if (!fresh) {
+      final cached = _objectInfoCache[this];
+      final at = _objectInfoCachedAt[this];
+      if (cached != null &&
+          at != null &&
+          DateTime.now().difference(at) < _objectInfoFreshFor) {
+        return (info: cached, fromCache: true);
+      }
+    }
     try {
       final r = await http
           .get(Uri.parse('$_root/object_info'))
           .timeout(const Duration(seconds: 15));
-      if (r.statusCode != 200) return null;
-      return jsonDecode(r.body) as Map<String, dynamic>;
+      if (r.statusCode != 200) return (info: null, fromCache: false);
+      final decoded = jsonDecode(r.body) as Map<String, dynamic>;
+      _objectInfoCache[this] = decoded;
+      _objectInfoCachedAt[this] = DateTime.now();
+      return (info: decoded, fromCache: false);
     } catch (e) {
       debugPrint('ComfyUI: object_info failed: $e');
-      return null;
+      return (info: null, fromCache: false);
+    }
+  }
+
+  Future<Map<String, dynamic>?> _objectInfo({bool fresh = false}) async {
+    final read = await _readObjectInfo(fresh: fresh);
+    return read.info;
+  }
+
+  /// The graph to post. A cached node list can predate a loader the user
+  /// just installed. One fresh read is enough; a second failure stands.
+  /// A checkpoint graph with a GGUF file is not retried: another node list
+  /// cannot turn that graph into an unet workflow.
+  Future<Map<String, dynamic>> _graphReadyToPost({
+    required Map<String, dynamic> workflow,
+    required String primaryFile,
+    required bool uploaded,
+  }) async {
+    final read = uploaded
+        ? (info: null, fromCache: false)
+        : await _readObjectInfo();
+    try {
+      return graphToPost(
+        graph: workflow,
+        primaryFile: primaryFile,
+        uploaded: uploaded,
+        objectInfo: read.info,
+      );
+    } on ComfyGraphNotReady catch (e) {
+      if (uploaded ||
+          !read.fromCache ||
+          e.block != ComfyGraphBlock.missingLoader) {
+        rethrow;
+      }
+      final fresh = await _readObjectInfo(fresh: true);
+      return graphToPost(
+        graph: workflow,
+        primaryFile: primaryFile,
+        uploaded: false,
+        objectInfo: fresh.info,
+      );
     }
   }
 }
@@ -41,24 +106,50 @@ extension ComfyUiCatalogApi on ComfyUiService {
     return cat.createDiscovery;
   }
 
-  Future<ComfyFileCatalog> fetchCatalog() async {
-    final info = await _objectInfo();
-    if (info == null) return const ComfyFileCatalog();
-    return ComfyFileCatalog(
+  /// Raw `/object_info`, or null when this ComfyUI cannot be read. Always a
+  /// new read, so a Ready line never rests on a list from before a download.
+  Future<Map<String, dynamic>?> fetchObjectInfo() => _objectInfo(fresh: true);
+
+  /// The node list a generate converts and posts with. A read from the last
+  /// two minutes is reused; a fresh [fetchObjectInfo] refreshes it.
+  Future<Map<String, dynamic>?> objectInfoForRun() => _objectInfo();
+
+  Future<ComfyFileCatalog> fetchCatalog() async =>
+      await fetchCatalogIfUp() ?? const ComfyFileCatalog();
+
+  /// [fetchCatalog], or null when the server did not answer (an empty
+  /// catalog is a server that answered with nothing installed).
+  Future<ComfyFileCatalog?> fetchCatalogIfUp() async {
+    final info = await _objectInfo(fresh: true);
+    if (info == null) return null;
+    return assembleComfyCatalog(
       checkpoints: ComfyUiService.optionsFromObjectInfo(
         info,
         'CheckpointLoaderSimple',
         'ckpt_name',
       ),
-      diffusionModels: ComfyUiService.optionsFromObjectInfo(
+      unetNames: ComfyUiService.optionsFromObjectInfo(
         info,
         'UNETLoader',
         'unet_name',
       ),
-      textEncoders: ComfyUiService.optionsFromObjectInfo(
+      ggufNames: ComfyUiService.optionsFromObjectInfo(
         info,
-        'CLIPLoader',
-        'clip_name',
+        'UnetLoaderGGUF',
+        'unet_name',
+      ),
+      ggufAdvancedNames: ComfyUiService.optionsFromObjectInfo(
+        info,
+        'UnetLoaderGGUFAdvanced',
+        'unet_name',
+      ),
+      textEncoders: mergeComfyCreateModels(
+        ComfyUiService.optionsFromObjectInfo(info, 'CLIPLoader', 'clip_name'),
+        ComfyUiService.optionsFromObjectInfo(
+          info,
+          'CLIPLoaderGGUF',
+          'clip_name',
+        ),
       ),
       vaes: ComfyUiService.optionsFromObjectInfo(info, 'VAELoader', 'vae_name'),
       loras: ComfyUiService.optionsFromObjectInfo(
@@ -74,7 +165,7 @@ extension ComfyUiCatalogApi on ComfyUiService {
     String loaderClass,
     String inputName,
   ) async {
-    final info = await _objectInfo();
+    final info = await _objectInfo(fresh: true);
     if (info == null) return const [];
     return ComfyUiService.optionsFromObjectInfo(info, loaderClass, inputName);
   }
@@ -141,6 +232,20 @@ extension ComfyUiCatalogApi on ComfyUiService {
       if (raw is Map) return raw.cast<String, dynamic>();
     }
     return null;
+  }
+
+  /// The live graph behind a Create or Edit workflow pick: a saved Desktop
+  /// workflow, one of Comfy's own templates, or a bundled family's template.
+  /// Null when the pick has none (a bundled preset without a template, an
+  /// uploaded graph) or this ComfyUI cannot serve it. Generate and the Ready
+  /// line both read it here, so they judge the same graph.
+  Future<Map<String, dynamic>?> fetchWorkflowTemplate(String workflowId) {
+    final name = comfyTemplateNameFor(workflowId);
+    if (name == null) return Future.value();
+    return fetchTemplateJson(
+      name,
+      preferUserdata: comfyTemplatePrefersUserdata(workflowId),
+    );
   }
 
   Future<Object?> _getJson(String path) async {

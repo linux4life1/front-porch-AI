@@ -20,6 +20,11 @@ part of 'open_router_service.dart';
 
 /// Shared chat payload, tools transport, and style retry.
 extension OpenRouterServiceTools on OpenRouterService {
+  /// Test seam: the chat/completions body [generateStream] would send.
+  @visibleForTesting
+  Map<String, dynamic> chatRequestPayload(GenerationParams params) =>
+      _chatPayload(params, stream: true);
+
   /// Chat-completions payload shared by [generateStream] and
   /// [generateWithTools] (one builder, so the two paths can't drift).
   Map<String, dynamic> _chatPayload(
@@ -36,6 +41,10 @@ extension OpenRouterServiceTools on OpenRouterService {
     // extensions). Everyone else (OpenRouter, Nano-GPT, vLLM, LM Studio)
     // supports or ignores the native sampler fields.
     final strictOpenAi = _apiUrl.contains('openai.com');
+    // xAI 400s `stop` and `reasoning_effort` on its reasoning models (Grok
+    // 4 family) instead of ignoring them the way OpenRouter does. Send only
+    // standard fields; the client-side stop trim still enforces stops.
+    final leanXai = remoteApiUrlIsXai(_apiUrl);
     // Mandatory-reasoning models spend `max_tokens` on the think they cannot
     // switch off, so an eval's 4000 cap was regularly consumed mid-think and
     // the answer (content JSON or tool call) never arrived — the intermittent
@@ -59,7 +68,7 @@ extension OpenRouterServiceTools on OpenRouterService {
         'frequency_penalty': params.repeatPenalty > 1.0
             ? (params.repeatPenalty - 1.0).clamp(0.0, 2.0)
             : 0.0
-      else ...{
+      else if (!leanXai) ...{
         // The real thing — Rep Pen used to be mistranslated into
         // frequency_penalty (1.15 → 0.15) and Min-P was dropped entirely.
         'repetition_penalty': params.repeatPenalty,
@@ -73,7 +82,8 @@ extension OpenRouterServiceTools on OpenRouterService {
     // This gives OpenRouter (and Nano-GPT etc.) the strongest signal to disable thinking
     // for models like Kimi K2.6:thinking, DeepSeek hybrids, etc.
     // We always include the 'enabled' key so the disable is explicit.
-    if (params.reasoningEnabled || params.reasoningMaxTokens != null) {
+    if (!leanXai &&
+        (params.reasoningEnabled || params.reasoningMaxTokens != null)) {
       final reasoning = <String, dynamic>{'enabled': params.reasoningEnabled};
       if (params.reasoningEnabled && params.reasoningEffort.isNotEmpty) {
         // Empty effort (Waifu) omits the key so GLM 5.3 is not rewritten
@@ -165,7 +175,9 @@ extension OpenRouterServiceTools on OpenRouterService {
     }
 
     // Add stop sequences if present
-    if (params.stopSequences != null && params.stopSequences!.isNotEmpty) {
+    if (!leanXai &&
+        params.stopSequences != null &&
+        params.stopSequences!.isNotEmpty) {
       // Remote providers commonly hard-cap `stop` at 4 (OpenAI spec). The
       // list arrives priority-ordered (stop_sequences.dart) so these 4 are
       // the most important — user stops first, then custom, then names. The

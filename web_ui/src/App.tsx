@@ -24,6 +24,11 @@ import { StoryDashboardPage } from './pages/StoryDashboardPage';
 import { StoryStructurePage } from './pages/StoryStructurePage';
 import { StoryWriterPage } from './pages/StoryWriterPage';
 import { StoryReaderPage } from './pages/StoryReaderPage';
+import { StoryDirectorPage } from './pages/StoryDirectorPage';
+import { StoryCastPage } from './pages/StoryCastPage';
+import { StoryRelationshipsPage } from './pages/StoryRelationshipsPage';
+import { StoryLorePage } from './pages/StoryLorePage';
+import { StoryRunLogPage } from './pages/StoryRunLogPage';
 import { ModelsPage } from './pages/ModelsPage';
 import { AccountPage } from './pages/AccountPage';
 import { StoopSection } from './pages/stoop/StoopSection';
@@ -68,11 +73,18 @@ export function App() {
         <Route path="/worlds" element={<WorldsPage />} />
         <Route path="/worlds/from-wiki" element={<WorldFromWikiPage />} />
         <Route path="/stories" element={<StoriesPage />} />
+        <Route path="/stories/new" element={<StorySetupPage />} />
         <Route path="/stories/:id" element={<StoryDashboardPage />} />
         <Route path="/stories/:id/setup" element={<StorySetupPage />} />
         <Route path="/stories/:id/structure" element={<StoryStructurePage />} />
+        <Route path="/stories/:id/write" element={<StoryWriterPage />} />
         <Route path="/stories/:id/write/:act/:scene" element={<StoryWriterPage />} />
         <Route path="/stories/:id/read" element={<StoryReaderPage />} />
+        <Route path="/stories/:id/director" element={<StoryDirectorPage />} />
+        <Route path="/stories/:id/cast" element={<StoryCastPage />} />
+        <Route path="/stories/:id/relationships" element={<StoryRelationshipsPage />} />
+        <Route path="/stories/:id/lore" element={<StoryLorePage />} />
+        <Route path="/stories/:id/log" element={<StoryRunLogPage />} />
         <Route path="/models" element={<ModelsPage />} />
         <Route path="/stoop/*" element={<StoopSection />} />
         <Route path="/edit/:id" element={<CharacterEditPage />} />

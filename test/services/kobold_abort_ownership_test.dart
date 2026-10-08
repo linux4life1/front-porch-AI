@@ -1,16 +1,17 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// KoboldService keeps ONE abort handle (`_activeClient`) for the whole
-// backend, and two overlapping requests are ordinary: the chat stream runs
-// while a background pass (eval, journal, cast detector) fires on the same
-// server. The request that finished FIRST used to null that handle
+// KoboldService keeps ONE abort handle (its KoboldWire) for the whole
+// backend. The request that finished first used to null that handle
 // unconditionally, so a later Stop closed nothing and the still-running
 // generation kept streaming.
 //
-// Red-proven 2026-08-15: restore `onDone: () => _activeClient = null` in
-// generateStream and the second stream below never terminates — the test
-// fails on its 8s timeout instead of passing.
+// Requests now go to the engine one at a time (see KoboldRequestQueue), so
+// the next request can no longer be open while the one before it finishes:
+// the first test pins what is left of that rule, that Stop still reaches a
+// request that started right after another one ended. The rule that a
+// finished request lets go only of its own hold can no longer be reached
+// through the service; kobold_wire_test.dart pins it on the wire itself.
 //
 // The second test pins the other half of the startKobold work: the
 // re-entrancy slot is now claimed BEFORE the stop ladder, so every early
@@ -56,7 +57,7 @@ void main() {
     return storage;
   }
 
-  test('a finishing request leaves a newer request abortable', () async {
+  test('a request that follows a finished one can be stopped', () async {
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
 
@@ -106,12 +107,18 @@ void main() {
     kobold
         .generateStream(const GenerationParams(prompt: 'SECOND-REQUEST'))
         .listen((_) {}, onDone: endSecond, onError: endSecond);
-    await secondOpen.future;
+    await Future<void>.delayed(const Duration(milliseconds: 200));
+    expect(
+      secondOpen.isCompleted,
+      isFalse,
+      reason: 'the engine takes one request at a time: the second waits',
+    );
 
-    // The first request finishes normally while the second is still streaming.
+    // The first request finishes normally and the second takes its turn.
     firstRes.write('data: [DONE]\n');
     await firstRes.close();
     await firstDone.future.timeout(const Duration(seconds: 8));
+    await secondOpen.future.timeout(const Duration(seconds: 8));
     expect(secondDone.isCompleted, isFalse);
 
     kobold.abortGeneration();

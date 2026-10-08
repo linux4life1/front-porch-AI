@@ -24,6 +24,7 @@ import 'dart:convert';
 
 import 'comfy_create_workflow.dart';
 import 'comfy_edit_presets.dart';
+import 'edit_profile.dart';
 import 'comfy_edit_workflow.dart';
 import 'comfy_starters.dart';
 import 'comfy_workflow_adapt.dart';
@@ -109,6 +110,23 @@ const ComfyCreatePreset kFluxCreatePreset = ComfyCreatePreset(
   ],
 );
 
+const ComfyCreatePreset kQwen21CreatePreset = ComfyCreatePreset(
+  id: 'qwen_image_21',
+  label: 'Qwen-Image 2.1',
+  comfyTemplateName: '',
+  modelSlots: [kComfyDiffusionSlot, kComfyClipSlot, kComfyVaeSlot],
+  requiredNodes: [
+    'UNETLoader',
+    'CLIPLoader',
+    'VAELoader',
+    'TextEncodeQwenImage21',
+    'EmptySD3LatentImage',
+    'KSampler',
+    'VAEDecode',
+    'SaveImage',
+  ],
+);
+
 const ComfyCreatePreset kQwenCreatePreset = ComfyCreatePreset(
   id: 'qwen_image',
   label: 'Qwen-Image',
@@ -147,6 +165,7 @@ const List<ComfyCreatePreset> kComfyCreatePresets = [
   kSdCreatePreset,
   kFluxCreatePreset,
   kQwenCreatePreset,
+  kQwen21CreatePreset,
   kZitCreatePreset,
 ];
 
@@ -236,7 +255,10 @@ ComfyCreateRequest? resolveComfyCreateRequest({
   required int steps,
   required double cfg,
   required double denoise,
-  required double shift,
+
+  /// The shift the person set for this graph, or null: the graph then posts
+  /// its own.
+  required double? shift,
   required int width,
   required int height,
   String sampler = 'euler',
@@ -252,7 +274,7 @@ ComfyCreateRequest? resolveComfyCreateRequest({
     steps: steps,
     cfg: cfg,
     denoise: denoise,
-    shift: shift,
+    shift: shift ?? kEditRecommendedShift,
     width: width,
     height: height,
     sampler: sampler,
@@ -281,7 +303,7 @@ ComfyCreateRequest? resolveComfyCreateRequest({
     if (file.isNotEmpty) values[slot.token] = file;
   }
   return ComfyCreateRequest(
-    template: adapted.template,
+    template: shift == null ? adapted.templateWithOwnShift : adapted.template,
     values: values,
     slots: adapted.slots,
     vaeNodeId: adapted.vaeNodeId,
@@ -299,6 +321,7 @@ bool comfyCreateReady({
   required Map<String, String> modelChoices,
   String checkpointFallback = '',
   Map<String, dynamic>? liveTemplate,
+  Map<String, dynamic>? objectInfo,
 }) {
   final req = resolveComfyCreateRequest(
     workflowId: workflowId,
@@ -315,6 +338,7 @@ bool comfyCreateReady({
     height: 64,
     checkpointFallback: checkpointFallback,
     liveTemplate: liveTemplate,
+    objectInfo: objectInfo,
   );
   if (req == null) return false;
   if (workflowId == kComfyUploadedWorkflowId) {

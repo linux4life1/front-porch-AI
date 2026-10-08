@@ -52,7 +52,7 @@ dart format path/to/the_file_you_edited.dart
 flutter test --concurrency=4 --exclude-tags golden
 
 flutter test test/path/to/file.dart
-flutter test -n "test name"
+flutter test --plain-name "test name"
 
 # Linux-gated pixel goldens (macOS `flutter test` never runs them)
 ./scripts/ci-local.sh                 # goldens in the fpai-golden image
@@ -66,7 +66,12 @@ flutter test integration_test/app_smoke_test.dart -d linux
 # corrupts Flutter's isolate JSON).
 
 cd web_ui && npm ci
-cd web_ui && npm run lint && npm test   # CI `web-tests` (tsc + vitest)
+cd web_ui && npm run lint && npm test   # CI `web-tests` (tsc + react-hooks eslint + vitest)
+# Web UI in real browsers against the booted app — CI `web-e2e`
+# (once: cd web_ui && npm ci && npx playwright install chromium webkit)
+flutter test integration_test/web_ui/browser_test.dart -d macos
+# FPAI_E2E_HOLD=1 on that command keeps the sandboxed app serving; then
+# `cd web_ui && npm run e2e` with the env in web_ui/e2e/.auth/server.json
 cd web_ui && npm run build              # writes ../assets/web_app — required
                                         # after ANY web_ui change or the
                                         # desktop app serves the old bundle
@@ -166,7 +171,10 @@ size is the other test).
   `AppColors.onChaosAccent` on solid amber. CI `theme-lint` fails new
   `Colors.blueAccent` under `lib/` unless `// theme-keep: <reason>` and the
   colour is a genuine semantic status hue the maintainer approved **in this
-  conversation**.
+  conversation**. Two ratchets in `test/hygiene/` (`raw_colors_ratchet_test`,
+  `raw_dialogs_ratchet_test`, baselines in `test/baselines/`) fail any file
+  that gains a raw colour or a dialog opened outside `showWarmDialog`; a new
+  file must have none.
 - Creation wizards follow `create_character_page.dart`: AppBar step dots,
   linear `_currentStep`, bottom nav. No side-menu wizards.
 - `GlobalKey`s are owner-scoped. Never `GlobalObjectKey(model)` — two live
@@ -355,6 +363,7 @@ branch's copy.
 | `test` | Unit/widget tests (`--concurrency=4 --exclude-tags golden`) |
 | `e2e-smoke` | A suite under `integration_test/*_test.dart` fails (one process per file, 5 shards × 3 OSes) |
 | `web-tests` | `npm run lint` / `npm test` in `web_ui/` |
+| `web-e2e` | Playwright sweep + journeys against the real app (`integration_test/web_ui/browser_test.dart`); also runs on Rawhide/main pushes |
 | `theme-lint` | New raw `Colors.blueAccent` under `lib/` |
 | `io-lint` | New sync I/O under `lib/ui/` |
 | `golden` | Pixel golden drift (Linux image) |
@@ -386,6 +395,9 @@ Do not edit `pubspec.yaml` version — CI/CD normalizes releases.
 - Prefer one broad interaction / E2E journey over another pure unit of a
   helper. Goldens answer “does it look right”; a tap answers “can a user do
   this.”
+- Web UI: a new screen is swept automatically once it has a route in
+  `web_ui/e2e/sweep.spec.ts` `ROUTES`; a new user flow gets a journey in
+  `web_ui/e2e/journeys.spec.ts`. The maintainer does not hand-test the PWA.
 - Inventory of E2E suites: [docs/design/e2e-coverage-inventory.md](docs/design/e2e-coverage-inventory.md).
   Before persist-asserting chat state: `await d.waitSendable()`
   (`isSettlingTurn` is part of the turn).

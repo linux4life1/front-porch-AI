@@ -85,8 +85,7 @@ class BackendModeSelector extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    'Local inference is not supported on Intel Macs. Only '
-                    'Remote API mode is available.',
+                    kIntelMacLocalUnsupported,
                     style: TextStyle(
                       fontSize: 12,
                       color: AppColors.taskAccentOf(context),
@@ -142,7 +141,7 @@ class BackendModeSelector extends StatelessWidget {
                 Text(
                   'Named host — URL and key restore on tap. Pick a model '
                   'for that host. Custom is for a URL that is not '
-                  'OpenRouter, Nano-GPT, or LM Studio.',
+                  'OpenRouter, Nano-GPT, xAI, or LM Studio.',
                   style: theme.textTheme.bodySmall?.copyWith(color: muted),
                 ),
               if (config != null) ...[const SizedBox(height: 16), config!],

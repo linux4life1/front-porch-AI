@@ -34,6 +34,7 @@ part 'chargen/character_gen_parsing.dart';
 part 'chargen/character_gen_enhance.dart';
 part 'chargen/character_gen_porch_life.dart';
 part 'chargen/character_gen_generate.dart';
+part 'chargen/character_gen_greeting.dart';
 
 /// Per-category descriptions for lorebook generation prompts.
 const _loreCategoryDescriptions = {
@@ -116,6 +117,10 @@ class CharacterGenService {
   /// The raw LLM output from the last base card generation, for image prompt extraction.
   String? lastRawOutput;
   String? generatedImagePrompt;
+
+  /// How the last [GenGenerate.generateCharacter] run wrote its greetings.
+  /// Null until a run reaches them.
+  GreetingRecipe? greetingRecipe;
 
   int _generationEpoch = 0;
   bool _aborted = false;

@@ -96,6 +96,13 @@ extension WebServerHostStreams on WebServerHost {
           streamHub.broadcast({'event': 'chat_updated'});
           _wasPendingImageReview = pendingReview;
         }
+        // Turn fully settled. Web clients refetch on `done`, which fires when
+        // the text stops streaming — before post-gen appends the new swipe
+        // and chips — so without this a regenerated reply read "1/1" on the
+        // phone until something else changed.
+        final turnBusy = chatService.isGenerating || chatService.isSettlingTurn;
+        if (_wasTurnBusy && !turnBusy) streamHub.broadcastChatUpdate();
+        _wasTurnBusy = turnBusy;
       }
 
       _realismListener = onProcessing;
@@ -145,9 +152,11 @@ extension WebServerHostStreams on WebServerHost {
           'active': true,
           'phase': chatService.generationPhase.name,
           'elapsed': chatService.prefillElapsedSeconds,
+          // 'journal' and 'growth' are named by the client; what has the
+          // engine (the speed test) is sent in words.
           'busyWith': chatService.isSummaryGenerating
               ? 'journal'
-              : (chatService.isGrowthPassRunning ? 'growth' : null),
+              : (chatService.isGrowthPassRunning ? 'growth' : live?.heldBy),
           // Backend-reported queue depth — NOT attributable (may be someone
           // waiting on us), so clients state it neutrally (review finding).
           'queued': fresh ? live.waitingCount : 0,
@@ -174,20 +183,36 @@ extension WebServerHostStreams on WebServerHost {
     }
 
     // Composer "No API connection" placeholder — push chat_updated only when
-    // the connection flag flips (not on one-off request failures).
+    // the connection flag or the reason it gives flips (not on one-off request
+    // failures).
     final llm = _llmProvider;
     if (streamHub != null && llm != null) {
       void onLlmReady() {
         final ready = llm.composerConnectionReady;
-        if (_lastLlmReady == ready) return;
+        final hint = llm.composerConnectionHint;
+        if (_lastLlmReady == ready && _lastLlmHint == hint) return;
         _lastLlmReady = ready;
+        _lastLlmHint = hint;
         streamHub.broadcastChatUpdate();
       }
 
       _llmReadyListener = onLlmReady;
       _lastLlmReady = llm.composerConnectionReady;
+      _lastLlmHint = llm.composerConnectionHint;
       llm.addListener(onLlmReady);
       llm.openRouterService.addListener(onLlmReady);
+
+      // The speed test's progress → the phone's overlay, as it changes (a
+      // few times a step).
+      final test = llm.koboldSpeedTest;
+      if (test != null) {
+        void onSpeedTest() => streamHub.broadcast({
+          'event': 'speed_test',
+          'speedTest': test.toJson(),
+        });
+        _speedTestListener = onSpeedTest;
+        test.addListener(onSpeedTest);
+      }
     }
 
     // Image generation live progress → web clients: percent + (when the
@@ -196,6 +221,10 @@ extension WebServerHostStreams on WebServerHost {
     // are throttled to ~1/s to keep the socket light.
     final imageGen = _imageGenService;
     if (streamHub != null && imageGen != null) {
+      void onPackChanged() =>
+          streamHub.broadcast({'event': 'expression_pack_changed'});
+      _packBoardListener = onPackChanged;
+      expressionPackBoard.addListener(onPackChanged);
       void onImageProgress() {
         final generating = imageGen.isGenerating;
         if (!generating && !_wasImageGenerating) return;
@@ -257,5 +286,21 @@ extension WebServerHostStreams on WebServerHost {
     _characterRepository?.addListener(onLibraryChanged);
     _folderService?.addListener(onLibraryChanged);
     _groupChatRepository?.addListener(onLibraryChanged);
+  }
+
+  /// Settings live-sync: one debounced `settings_changed` whenever a setting
+  /// is written anywhere (the desktop or a web client), so a phone page that
+  /// shows a setting's consequence (the clock-off line under Needs, the
+  /// refractory words) refetches instead of keeping its first read.
+  void _attachSettingsRelay(StreamHub streamHub) {
+    void onSettingsChanged() {
+      _settingsDebounce?.cancel();
+      _settingsDebounce = Timer(const Duration(milliseconds: 150), () {
+        streamHub.broadcast({'event': 'settings_changed'});
+      });
+    }
+
+    _settingsListener = onSettingsChanged;
+    _storage.addListener(onSettingsChanged);
   }
 }

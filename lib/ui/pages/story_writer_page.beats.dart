@@ -18,322 +18,392 @@
 
 part of 'story_writer_page.dart';
 
-/// Beat cards, write/rewrite actions, and scene export for [StoryWriterPage].
+/// Beat cards (sketch O) and the actions behind them.
 extension _StoryWriterBeats on _StoryWriterPageState {
   Widget _buildBeatCard(
     StoryProject project,
-    StoryBeat beat,
-    int idx,
+    List<StoryBeat> beats,
+    int b,
     StoryPipelineService pipeline,
   ) {
-    final bId = '$_sId-$idx';
-    final prose = project.prose[bId];
-    final hasProse = prose?.final_ != null;
-
-    return Card(
-      color: AppColors.cardOf(context),
-      margin: const EdgeInsets.only(bottom: 12),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: hasProse
-              ? AppColors.bondHighOf(context).withValues(alpha: 0.25)
-              : AppColors.borderOf(context).withValues(alpha: 0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Beat header
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 3,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _beatTypeColor(beat.type).withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    beat.type,
-                    style: TextStyle(
-                      color: _beatTypeColor(beat.type),
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Beat ${idx + 1}',
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context),
-                      fontSize: 13,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                ),
-                // Pacing indicator
-                Icon(
-                  beat.pacing == 0
-                      ? Icons.speed
-                      : (beat.pacing == 2 ? Icons.flash_on : Icons.balance),
-                  size: 16,
-                  color: AppColors.iconSecondary(context),
-                ),
-                const SizedBox(width: 8),
-                // Valence
-                Text(
-                  beat.valence > 0 ? '+${beat.valence}' : '${beat.valence}',
-                  style: TextStyle(
-                    color:
-                        (beat.valence > 0
-                                ? AppColors.bondHighOf(context)
-                                : AppColors.negativeAccentOf(context))
-                            .withValues(alpha: 0.7),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
-            ),
-          ),
-          // Beat description
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-            child: Text(
-              beat.description,
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 12,
-                height: 1.4,
+    final beat = beats[b];
+    final prose =
+        project.prose[StoryProjectShape.beatKey(
+          widget.actIndex,
+          widget.sceneIndex,
+          b,
+        )];
+    final text = prose?.final_ ?? prose?.draft ?? '';
+    final written = project.beatsWritten(widget.actIndex, widget.sceneIndex);
+    // The beat being written right now streams in place.
+    final streaming =
+        pipeline.isRunning &&
+        text.isEmpty &&
+        b == written &&
+        pipeline.streamingText.isNotEmpty;
+    final muted = StudioColors.mutedOf(context);
+    final fix = prose?.fix;
+    return StoryCard(
+      key: ValueKey('story-beat-$b'),
+      selected: streaming,
+      children: [
+        Row(
+          children: [
+            StoryChip('Beat ${b + 1}'),
+            const SizedBox(width: 6),
+            if (beat.type.isNotEmpty) StoryChip(beat.type, tone: 'honey'),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                beat.description,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: StudioType.ui(context, size: 12, color: muted),
               ),
             ),
-          ),
-
-          // Prose content
-          if (hasProse)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-              child: Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(
-                  color: AppColors.sunkenSurfaceOf(context),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: SelectableText(
-                  prose!.final_!,
-                  style: TextStyle(
-                    color: AppColors.textSecondary(context),
-                    fontSize: 14,
-                    height: 1.7,
-                    fontFamily: 'serif',
+            if (streaming)
+              const StoryChip('writing…', tone: 'amber')
+            else
+              StoryMenuButton(
+                key: ValueKey('story-beat-menu-$b'),
+                entries: [
+                  StoryMenuEntry(
+                    'Edit text by hand',
+                    enabled: text.isNotEmpty,
+                    onSelect: () => _editByHand(project, b, text),
                   ),
-                ),
-              ),
-            ),
-
-          // Actions
-          Padding(
-            padding: const EdgeInsets.fromLTRB(8, 4, 8, 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                if (!hasProse)
-                  TextButton.icon(
-                    onPressed: pipeline.isRunning
-                        ? null
-                        : () => _writeBeat(project, idx, pipeline),
-                    icon: const Icon(Icons.edit, size: 14),
-                    label: const Text('Write', style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.porchHoneyOf(context),
-                    ),
+                  StoryMenuEntry(
+                    text.isEmpty ? 'Write' : 'Rewrite',
+                    enabled: !pipeline.isRunning,
+                    onSelect: () => text.isEmpty
+                        ? _writeBeat(project, b, pipeline)
+                        : _rewriteBeat(project, b, pipeline),
                   ),
-                if (hasProse) ...[
-                  TextButton.icon(
-                    onPressed: pipeline.isRunning
-                        ? null
-                        : () => _writeBeat(project, idx, pipeline),
-                    icon: const Icon(Icons.refresh, size: 14),
-                    label: const Text(
-                      'Rewrite',
-                      style: TextStyle(fontSize: 12),
-                    ),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textTertiary(context),
-                    ),
+                  StoryMenuEntry(
+                    'Rewrite with a note…',
+                    enabled: !pipeline.isRunning && text.isNotEmpty,
+                    onSelect: () => _rewriteWithNote(project, b, pipeline),
                   ),
-                  TextButton.icon(
-                    onPressed: () {
-                      Clipboard.setData(ClipboardData(text: prose!.final_!));
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Copied!'),
-                          duration: Duration(seconds: 1),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.copy, size: 14),
-                    label: const Text('Copy', style: TextStyle(fontSize: 12)),
-                    style: TextButton.styleFrom(
-                      foregroundColor: AppColors.textTertiary(context),
-                    ),
+                  StoryMenuEntry(
+                    'Copy',
+                    enabled: text.isNotEmpty,
+                    onSelect: () =>
+                        Clipboard.setData(ClipboardData(text: text)),
                   ),
                 ],
+              ),
+          ],
+        ),
+        if (text.isNotEmpty) _qualityChips(project, text),
+        if (fix != null) _fixCard(project, b, fix, pipeline),
+        if (streaming)
+          Text.rich(
+            TextSpan(
+              text: pipeline.streamingText,
+              children: [
+                TextSpan(
+                  text: '▍',
+                  style: TextStyle(color: StudioColors.amberOf(context)),
+                ),
               ],
             ),
+            style: StudioType.prose(context),
+          )
+        else if (text.isNotEmpty)
+          SelectableText(text, style: StudioType.prose(context))
+        else if (beat.anchor.isNotEmpty)
+          Text(
+            'Anchor: ${beat.anchor}',
+            style: StudioType.ui(
+              context,
+              size: 12,
+              color: muted,
+            ).copyWith(fontStyle: FontStyle.italic),
           ),
-        ],
-      ),
+      ],
     );
   }
 
-  Color _beatTypeColor(String type) {
-    switch (type.toLowerCase()) {
-      case 'action':
-        return AppColors.negativeAccentOf(context);
-      case 'reaction':
-        return AppColors.frostAccentOf(context);
-      case 'dialogue':
-        return AppColors.porchHoneyOf(context);
-      case 'revelation':
-        return AppColors.fixationAccentOf(context);
-      case 'resolution':
-        return AppColors.bondHighOf(context);
-      default:
-        return AppColors.textTertiary(context);
-    }
+  Widget _qualityChips(StoryProject project, String prose) {
+    final quality = StoryQuality.analyze(
+      prose,
+      bannedPhrases: [...project.bannedPhrases, ...project.autoBannedPhrases],
+    );
+    return Wrap(
+      spacing: 6,
+      runSpacing: 6,
+      children: [
+        for (final chip in quality.chips)
+          StoryChip(chip.label, tone: chip.tone.name),
+      ],
+    );
   }
 
-  Future<void> _generateBeats(
+  /// "Continuity: fixed" with the reason, the patched lines as
+  /// strike-through / insert, and Undo.
+  Widget _fixCard(
     StoryProject project,
+    int b,
+    ContinuityFix fix,
     StoryPipelineService pipeline,
-  ) async {
+  ) => Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Row(
+        children: [
+          const StoryChip('Continuity: fixed', tone: 'bad'),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              fix.reason,
+              style: StudioType.ui(
+                context,
+                size: 12,
+                color: StudioColors.mutedOf(context),
+              ),
+            ),
+          ),
+          StoryButton.ghost(
+            'Undo fix',
+            key: ValueKey('story-undo-fix-$b'),
+            onPressed: pipeline.isRunning
+                ? null
+                : () => pipeline.undoContinuityFix(
+                    project,
+                    widget.actIndex,
+                    widget.sceneIndex,
+                    b,
+                  ),
+          ),
+        ],
+      ),
+      for (final edit in fix.edits)
+        Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text.rich(
+            TextSpan(
+              children: [
+                TextSpan(
+                  text: edit.find,
+                  style: const TextStyle(
+                    decoration: TextDecoration.lineThrough,
+                    color: StudioColors.diffDelFg,
+                    backgroundColor: StudioColors.diffDelBg,
+                  ),
+                ),
+                const TextSpan(text: ' '),
+                TextSpan(
+                  text: edit.replace,
+                  style: const TextStyle(
+                    color: StudioColors.diffInsFg,
+                    backgroundColor: StudioColors.diffInsBg,
+                  ),
+                ),
+              ],
+            ),
+            style: StudioType.prose(context, size: 13.5),
+          ),
+        ),
+    ],
+  );
+
+  // ── Actions ─────────────────────────────────────────────────────────
+
+  Future<void> _guarded(Future<void> Function() work) async {
     try {
-      await pipeline.runBeatDirector(
-        project,
-        widget.actIndex,
-        widget.sceneIndex,
-      );
+      await work();
       if (mounted) rebuildState(() {});
     } catch (e) {
       if (mounted) showAiErrorSnackBar(context, e);
     }
+  }
+
+  Future<void> _planBeats(
+    StoryProject project,
+    StoryPipelineService pipeline, {
+    bool again = false,
+  }) async {
+    if (again) {
+      final ok = await showStoryConfirm(
+        context,
+        title: 'Plan the beats again?',
+        body:
+            'The beat list is rebuilt. Prose already written for this scene '
+            'is kept but may no longer line up with the new beats.',
+        confirmLabel: 'Plan again',
+      );
+      if (!ok) return;
+    }
+    await _guarded(
+      () =>
+          pipeline.runBeatDirector(project, widget.actIndex, widget.sceneIndex),
+    );
   }
 
   Future<void> _writeBeat(
     StoryProject project,
-    int beatIdx,
+    int b,
+    StoryPipelineService pipeline,
+  ) => _guarded(
+    () => pipeline.runDraftAndEdit(
+      project,
+      widget.actIndex,
+      widget.sceneIndex,
+      b,
+    ),
+  );
+
+  Future<void> _writeScene(
+    StoryProject project,
+    StoryPipelineService pipeline,
+  ) => _guarded(
+    () => pipeline.autoWriteScene(project, widget.actIndex, widget.sceneIndex),
+  );
+
+  Future<void> _rewriteBeat(
+    StoryProject project,
+    int b,
+    StoryPipelineService pipeline,
+  ) => _guarded(
+    () => pipeline.rewriteBeat(project, widget.actIndex, widget.sceneIndex, b),
+  );
+
+  Future<void> _rewriteWithNote(
+    StoryProject project,
+    int b,
     StoryPipelineService pipeline,
   ) async {
-    try {
-      await pipeline.runDraftAndEdit(
+    final note = TextEditingController();
+    final ok = await showStoryDialog<bool>(
+      context,
+      title: 'Rewrite beat ${b + 1} with a note',
+      width: 460,
+      body: StoryTextArea(
+        controller: note,
+        hint:
+            'What should change? e.g. slower, let Joss speak first, less '
+            'smoke',
+        minLines: 3,
+      ),
+      actions: (ctx) => [
+        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.primary(
+          'Rewrite',
+          onPressed: () => Navigator.pop(ctx, true),
+        ),
+      ],
+    );
+    if (ok != true || !mounted) return;
+    await _guarded(
+      () => pipeline.rewriteBeat(
         project,
         widget.actIndex,
         widget.sceneIndex,
-        beatIdx,
-      );
-      if (mounted) rebuildState(() {});
-    } catch (e) {
-      if (mounted) showAiErrorSnackBar(context, e);
-    }
+        b,
+        directive: note.text.trim(),
+      ),
+    );
   }
 
-  Future<void> _autoWriteScene(
+  Future<void> _editByHand(StoryProject project, int b, String text) async {
+    final ctl = TextEditingController(text: text);
+    final ok = await showStoryDialog<bool>(
+      context,
+      title: 'Beat ${b + 1}',
+      width: 640,
+      body: StoryTextArea(controller: ctl, minLines: 10, prose: true),
+      actions: (ctx) => [
+        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.primary('Save', onPressed: () => Navigator.pop(ctx, true)),
+      ],
+    );
+    if (ok != true || !mounted) return;
+    final key = StoryProjectShape.beatKey(
+      widget.actIndex,
+      widget.sceneIndex,
+      b,
+    );
+    final prose = project.prose[key] ?? BeatProse();
+    prose
+      ..final_ = ctl.text.trim()
+      ..fix = null;
+    project.prose[key] = prose;
+    await Provider.of<StoryRepository>(
+      context,
+      listen: false,
+    ).saveProject(project);
+    rebuildState(() {});
+  }
+
+  Future<void> _rewriteScene(
     StoryProject project,
+    StoryScene scene,
     StoryPipelineService pipeline,
   ) async {
-    try {
-      await pipeline.autoWriteScene(
+    final ok = await showStoryConfirm(
+      context,
+      title:
+          'Rewrite ${project.sceneLabel(widget.actIndex, widget.sceneIndex)} · ${scene.title}?',
+      body: storyRewriteSceneBody(project, widget.actIndex, widget.sceneIndex),
+      confirmLabel: 'Rewrite',
+      destructive: true,
+    );
+    if (!ok) return;
+    await _guarded(() async {
+      StoryStructure.clearSceneProse(
         project,
         widget.actIndex,
         widget.sceneIndex,
       );
-      if (mounted) {
-        rebuildState(() {});
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('Scene complete!'),
-            backgroundColor: AppColors.surfaceContainerOf(context),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) showAiErrorSnackBar(context, e);
-    }
-  }
-
-  void _handleMenuAction(
-    String action,
-    StoryProject project,
-    StoryPipelineService pipeline,
-  ) {
-    final sceneText = _getSceneText(project);
-    switch (action) {
-      case 'copy':
-        Clipboard.setData(ClipboardData(text: sceneText));
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Scene text copied!'),
-            duration: Duration(seconds: 1),
-          ),
-        );
-        break;
-      case 'export':
-        _exportScene(project, sceneText);
-        break;
-    }
-  }
-
-  String _getSceneText(StoryProject project) {
-    final beats = project.beats[_sId] ?? [];
-    final buffer = StringBuffer();
-    for (int i = 0; i < beats.length; i++) {
-      final prose = project.prose['$_sId-$i'];
-      if (prose?.final_ != null) {
-        buffer.writeln(prose!.final_);
-        buffer.writeln();
-      }
-    }
-    return buffer.toString();
-  }
-
-  Future<void> _exportScene(StoryProject project, String text) async {
-    try {
-      final scene = project.scenes[widget.actIndex]![widget.sceneIndex];
-      final dir = await getApplicationDocumentsDirectory();
-      final file = File(
-        storySceneExportPath(dir.path, project.title, scene.title),
+      await Provider.of<StoryRepository>(
+        context,
+        listen: false,
+      ).saveProject(project);
+      await pipeline.regenerateSceneProse(
+        project,
+        widget.actIndex,
+        widget.sceneIndex,
       );
-      await file.writeAsString(text);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Exported to ${file.path}'),
-            backgroundColor: AppColors.surfaceContainerOf(context),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) showAiErrorSnackBar(context, e);
+    });
+  }
+
+  void _copyScene(StoryProject project) {
+    Clipboard.setData(
+      ClipboardData(
+        text: project.sceneText(widget.actIndex, widget.sceneIndex),
+      ),
+    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Scene copied.')));
+  }
+
+  Future<void> _exportScene(StoryProject project, StoryScene scene) async {
+    final text = project.sceneText(widget.actIndex, widget.sceneIndex);
+    final out = await GuardedPicker.saveFile(
+      context,
+      category: PickerPrefs.catExport,
+      bytes: Uint8List.fromList(utf8.encode(text)),
+      dialogTitle: 'Save scene',
+      fileName: p.basename(
+        storySceneExportPath('', project.title, scene.title),
+      ),
+      type: FileType.custom,
+      allowedExtensions: ['txt'],
+    );
+    if (out != null && mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Scene saved to $out')));
     }
   }
 }
 
-/// Absolute path a scene export is written to: [dirPath] plus a sanitized
-/// `<project>_<scene>.txt` file name.
-///
-/// Only the FILE NAME may be sanitized. The sanitizer used to run over the
-/// whole interpolated path, so every separator (and the Windows drive colon)
-/// became `_` and the export landed in the process working directory under a
-/// mangled name — invisible on macOS/Linux, an access-denied write on Windows
-/// where the CWD is the install folder.
+/// Path a scene export is written to: [dirPath] plus a sanitized
+/// `<project>_<scene>.txt` file name. Only the FILE NAME is sanitized — a
+/// sanitizer run over the whole path once turned every separator (and the
+/// Windows drive colon) into `_`, so exports landed in the process working
+/// directory under a mangled name. The save dialog takes the basename.
 String storySceneExportPath(
   String dirPath,
   String projectTitle,

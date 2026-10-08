@@ -159,7 +159,13 @@ extension ChatServiceImages on ChatService {
   /// Assemble the live chat context and craft the image prompt through
   /// `ImageGenService.generateSmartPrompt` (LLM when ready, static fallback
   /// otherwise). Mirrors chat_page._showImageGenDialog's collection block.
-  Future<String?> _craftImageCommandPrompt(ImageCommandRequest request) async {
+  ///
+  /// The Image Studio's "Write it for me" passes what the person typed as
+  /// [instruction], for the builder to parse into the prompt.
+  Future<String?> _craftImageCommandPrompt(
+    ImageCommandRequest request, {
+    String? instruction,
+  }) async {
     final igs = _imageGenService;
     if (igs == null) return null;
 
@@ -220,6 +226,27 @@ extension ChatServiceImages on ChatService {
       timeOfDay: _timeService.timeOfDay,
       isGroupNonObserver: isGroupNonObserver,
       currentSpeakerId: isGroupNonObserver ? character?.name : null,
+      userInstruction: instruction,
+    );
+  }
+
+  /// The prompt the Image Studio's "Write it for me" writes for the chat that
+  /// is open: [subject] is `free` (what the person typed, or the scene when
+  /// nothing was typed), `char` (the character on screen) or `persona`.
+  /// Null when no image backend is set up.
+  Future<String?> craftStudioPrompt(String subject, String instruction) {
+    final typed = instruction.trim();
+    // As the desktop Studio does: the subject picks the mode, and whatever is
+    // in the prompt box is guidance for the writer to parse. Freeform with
+    // nothing typed describes the scene.
+    final request = ImageCommandRequest(switch (subject) {
+      'char' => ImageCommandKind.character,
+      'persona' => ImageCommandKind.me,
+      _ => ImageCommandKind.scene,
+    });
+    return _craftImageCommandPrompt(
+      request,
+      instruction: typed.isEmpty ? null : typed,
     );
   }
 }

@@ -21,3 +21,4 @@ export 'stoop_comment_gate.dart';
 export 'stoop_comments_client.dart';
 export 'http_stoop_comments_client.dart';
 export 'stoop_comments_opt_in.dart';
+export 'stoop_asset_cache.dart';

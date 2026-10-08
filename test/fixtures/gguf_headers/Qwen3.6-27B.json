@@ -1,0 +1,31 @@
+{
+ "source": "https://huggingface.co/unsloth/Qwen3.6-27B-GGUF  Qwen3.6-27B-Q4_K_M.gguf  (header fetched 2026-10-03)",
+ "real_file_bytes": 16817244384,
+ "real_data_start": 10993888,
+ "fixture_file_bytes": 16806303136,
+ "truth": {
+  "arch": "qwen35",
+  "n_layer": 64,
+  "n_tensors": 851,
+  "bytes": {
+   "total": 16806250496,
+   "blocks": 15048124416,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 715161600,
+   "output": 1042944000,
+   "other": 20480
+  },
+  "mb": {
+   "total": 16028,
+   "blocks": 14351,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 682,
+   "output": 995,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 15346,
+   "gpu_all_layers": 15346
+  }
+ }
+}

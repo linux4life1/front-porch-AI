@@ -68,6 +68,11 @@ class AppDirectories {
   Directory get webThumbnailCacheDir =>
       Directory(path.join(rootPath ?? '', 'cache', 'web_thumbs'));
 
+  /// Cache for Stoop card art pulled from the hub (thumbs + originals).
+  /// Derived data — safe to delete; refetched on demand.
+  Directory get stoopAssetCacheDir =>
+      Directory(path.join(rootPath ?? '', 'cache', 'stoop_assets'));
+
   /// Resolve a character [imagePath] (stored in the DB) to a [File].
   ///
   /// The DB may contain either:

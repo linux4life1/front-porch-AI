@@ -16,13 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/guarded_picker.dart';
 import 'package:front_porch_ai/utils/gguf_vision.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -112,13 +112,16 @@ class _VisionProjectorFieldState extends State<VisionProjectorField> {
   Future<void> _pickMmproj() async {
     final path = widget.modelPath;
     if (path == null) return;
-    final file = await FilePicker.pickFile(
+    final result = await GuardedPicker.pickFiles(
+      context,
+      category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['gguf'],
       dialogTitle: 'Select vision projector (mmproj .gguf)',
     );
-    if (file?.path == null) return;
-    await widget.storage.presetSettings.setModelMmproj(path, file!.path);
+    final mmproj = result?.files.first.path;
+    if (mmproj == null) return;
+    await widget.storage.presetSettings.setModelMmproj(path, mmproj);
     if (!mounted) return;
     setState(() {});
     widget.onChanged?.call();

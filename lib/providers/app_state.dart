@@ -31,6 +31,19 @@ class AppState extends ChangeNotifier {
   int _homeResetTick = 0;
   int get homeResetTick => _homeResetTick;
 
+  /// The sidebar belongs to the main screen only. Home's sub-apps (Porch
+  /// Stories, Waifu Coder) take the whole window; the mode toggle above
+  /// them is the way back.
+  bool _sidebarHidden = false;
+  bool get sidebarHidden => _sidebarHidden && _selectedIndex == 0;
+
+  /// [notify] false is for dispose, where listeners must not be rebuilt.
+  void setSidebarHidden(bool hidden, {bool notify = true}) {
+    if (_sidebarHidden == hidden) return;
+    _sidebarHidden = hidden;
+    if (notify) notifyListeners();
+  }
+
   void setIndex(int index) {
     if (index == 0 && _selectedIndex == 0) _homeResetTick++;
     _selectedIndex = index;

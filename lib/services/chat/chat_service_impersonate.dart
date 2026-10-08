@@ -283,6 +283,8 @@ extension ChatServiceImpersonate on ChatService {
         bannedPhrases: g.resolveBannedPhrases(_storageService).isNotEmpty
             ? g.resolveBannedPhrases(_storageService)
             : null,
+        kvChat: _kvChatKey,
+        stillWant: () => !_cancelRequested,
       );
 
       final stream = _mouthGenerateStream(genParams);

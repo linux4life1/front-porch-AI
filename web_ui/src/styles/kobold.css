@@ -1,0 +1,332 @@
+/* Copyright (C) 2026 Front Porch AI
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ *
+ * The "Local model" card and the KoboldCpp preset card, as the approved
+ * sketch has them (desktop: KoboldStatusCard, AppColors' slate/inset/load
+ * tokens). Dark values match the desktop exactly; light values are the
+ * desktop's light pairs. */
+
+:root {
+  --kc-card: #1e293b;
+  --kc-inset: #172033;
+  --kc-sunken: #111827;
+  --kc-ink: #f3f4f6;
+  --kc-muted: #cbd5e1;
+  --kc-faint: #94a3b8;
+  --kc-amber: #f4a259;
+  --kc-amber-solid: #f4a259;
+  --kc-on-amber: #241505;
+  --kc-honey: #e9c46a;
+  --kc-teal: #4db6ac;
+  --kc-on-teal: #062b27;
+  --kc-red: #f87171;
+  --kc-line: rgba(255, 255, 255, 0.1);
+  --kc-line-strong: rgba(255, 255, 255, 0.12);
+}
+:root[data-theme='light'] {
+  --kc-card: #ffffff;
+  --kc-inset: #f3eee6;
+  --kc-sunken: #e9e2d8;
+  --kc-ink: #1f2937;
+  --kc-muted: #475569;
+  --kc-faint: #64748b;
+  --kc-amber: #b45309;
+  --kc-honey: #8f6400;
+  --kc-teal: #00796b;
+  --kc-red: #b91c1c;
+  --kc-line: rgba(0, 0, 0, 0.09);
+  --kc-line-strong: rgba(0, 0, 0, 0.11);
+}
+
+.kc-card {
+  background: var(--kc-card);
+  border: 1px solid var(--kc-line);
+  border-radius: 12px;
+  padding: 22px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  color: var(--kc-ink);
+  margin-bottom: 16px;
+}
+.kc-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+.kc-head h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 650;
+}
+.kc-sub {
+  font-size: 14px;
+  color: var(--kc-muted);
+  margin-top: 4px;
+}
+.kc-pill {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--kc-on-teal);
+  border-radius: 999px;
+  padding: 4px 10px;
+  white-space: nowrap;
+}
+.kc-pill.ready { background: var(--kc-teal); }
+.kc-pill.loading { background: var(--kc-honey); }
+.kc-pill.stopped,
+.kc-pill.unloaded { background: var(--kc-faint); }
+.kc-lines {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.kc-lines li {
+  display: flex;
+  gap: 10px;
+}
+.kc-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: var(--kc-amber);
+}
+.kc-context {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  border-radius: 10px;
+  background: var(--kc-inset);
+  padding: 14px 16px;
+}
+.kc-context-label {
+  font-size: 14px;
+  font-weight: 600;
+}
+.kc-chips {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.kc-chip {
+  min-height: 44px;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid var(--kc-line-strong);
+  background: transparent;
+  color: var(--kc-muted);
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+}
+.kc-chip[aria-pressed='true'] {
+  border-color: var(--kc-amber);
+  background: color-mix(in srgb, var(--kc-amber) 14%, transparent);
+  color: var(--kc-ink);
+}
+.kc-verdict {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.kc-verdict p { margin: 0; flex: 1; }
+.kc-verdict .kc-mark {
+  flex: none;
+  width: 12px;
+  height: 12px;
+  margin-top: 4px;
+  border-radius: 50%;
+}
+.kc-verdict.ok { background: color-mix(in srgb, var(--kc-teal) 12%, transparent); }
+.kc-verdict.ok .kc-mark { background: var(--kc-teal); }
+.kc-verdict.warn {
+  background: color-mix(in srgb, var(--kc-honey) 14%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kc-honey) 50%, transparent);
+}
+.kc-verdict.warn .kc-mark,
+.kc-verdict.bad .kc-mark {
+  border-radius: 2px;
+  width: 0;
+  height: 0;
+  margin-top: 3px;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  background: none;
+}
+.kc-verdict.warn .kc-mark { border-bottom: 12px solid var(--kc-honey); }
+.kc-verdict.bad {
+  background: color-mix(in srgb, var(--kc-red) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--kc-red) 50%, transparent);
+}
+.kc-verdict.bad .kc-mark { border-bottom: 12px solid var(--kc-red); }
+.kc-row {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+.kc-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border-radius: 10px;
+  border: 1px solid var(--kc-line-strong);
+  background: transparent;
+  color: var(--kc-muted);
+  font: inherit;
+  cursor: pointer;
+}
+.kc-btn.solid {
+  border: none;
+  background: var(--kc-amber-solid);
+  color: var(--kc-on-amber);
+  font-weight: 700;
+}
+.kc-words {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.kc-plain {
+  border-radius: 12px;
+  background: var(--kc-sunken);
+  padding: 14px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.kc-plain-head {
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--kc-faint);
+}
+.kc-select {
+  min-height: 44px;
+  width: 100%;
+  border-radius: 10px;
+  border: 1px solid var(--kc-line-strong);
+  background: var(--kc-sunken);
+  color: var(--kc-ink);
+  padding: 0 12px;
+  font: inherit;
+  font-size: 15px;
+}
+.kc-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--kc-faint);
+}
+
+/* The speed test (auto mode), as the desktop card and its warm dialog have
+ * it: an amber-outline button, why it cannot run now (muted), how the last
+ * test ended, and a dialog with an amber hairline and a progress bar. */
+.kc-speed {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+}
+.kc-btn.amber {
+  border-color: color-mix(in srgb, var(--kc-amber) 55%, transparent);
+  color: var(--kc-amber);
+  font-weight: 600;
+}
+.kc-speed-btn {
+  max-width: 100%;
+  padding: 6px 16px;
+  line-height: 1.3;
+}
+.kc-speed-why {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+  color: var(--kc-muted);
+}
+.kc-speed-line {
+  margin: 2px 0 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.modal.kc-speed-dialog {
+  width: min(480px, 92vw);
+  background: var(--kc-card);
+  border-color: color-mix(in srgb, var(--kc-amber) 50%, transparent);
+  border-radius: 12px;
+  padding: 22px 24px;
+  gap: 12px;
+  color: var(--kc-ink);
+}
+.modal.kc-speed-dialog:focus { outline: none; }
+.kc-speed-title {
+  margin: 0 0 4px;
+  font-size: 16px;
+  font-weight: 700;
+}
+.kc-speed-text {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+}
+.kc-speed-result { font-size: 15px; }
+.kc-speed-dialog .modal-actions {
+  flex-wrap: wrap;
+  margin-top: 6px;
+}
+.kc-progress {
+  position: relative;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--kc-inset);
+  overflow: hidden;
+}
+.kc-progress-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: inherit;
+  background: var(--kc-amber);
+  transition: width 0.4s ease;
+}
+/* Before the host knows how many steps there are, the bar moves, as the
+ * desktop's does. */
+.kc-progress.waiting .kc-progress-fill {
+  width: 40%;
+  animation: kc-progress-wait 1.4s ease-in-out infinite;
+}
+@keyframes kc-progress-wait {
+  from { left: -40%; }
+  to { left: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .kc-progress.waiting .kc-progress-fill { animation: none; left: 30%; }
+}
+.kc-speed-steps {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 14px;
+}
+.kc-speed-step { font-weight: 600; }
+.kc-speed-left {
+  color: var(--kc-muted);
+  text-align: right;
+}
+
+[data-layout='phone'] .kc-card { padding: 18px 16px; }
+[data-layout='phone'] .kc-speed-btn { align-self: stretch; }
+[data-layout='phone'] .modal.kc-speed-dialog { padding: 18px 16px; }

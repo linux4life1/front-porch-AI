@@ -102,6 +102,7 @@ export function StoopCardPage() {
           assetId={detail.primaryAssetId}
           name={detail.name}
           className="lib-art stoop-detail-art"
+          full
         />
         <div className="stoop-detail-info">
           <h3>

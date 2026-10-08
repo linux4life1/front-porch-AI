@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
-import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
@@ -129,25 +128,5 @@ class ImageReferenceResolver {
       );
     }
     return editMode;
-  }
-
-  /// Saved ComfyUI workflows need their live graph before their model slots
-  /// can be checked. Both expression-pack hosts use this at run time.
-  static Future<bool> packEditModeForGeneration(
-    ImageGenSettings settings,
-  ) async {
-    if (ImageGenBackend.fromKey(settings.imageGenBackend) !=
-        ImageGenBackend.comfyUi) {
-      return packEditMode(settings);
-    }
-    final workflowId = settings.comfyEditWorkflowId;
-    final name = comfyTemplateNameFor(workflowId);
-    if (name == null) return packEditMode(settings);
-    final template = await ComfyUiService(baseUrl: settings.comfyUiUrl)
-        .fetchTemplateJson(
-          name,
-          preferUserdata: comfyTemplatePrefersUserdata(workflowId),
-        );
-    return packEditMode(settings, liveTemplate: template);
   }
 }

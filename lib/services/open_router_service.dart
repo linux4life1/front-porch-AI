@@ -32,6 +32,7 @@ import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 
 // RemoteModelInfo lived here for years — re-export so importers keep working.
 export 'package:front_porch_ai/services/remote_model_info.dart';

@@ -67,6 +67,12 @@ extension _CreatorCore on CreatorState {
 
     if (card != null) {
       generatedCard = card;
+      // A new card: its greetings were written this way, and its outfit
+      // already follows its first message.
+      greetings.reset(
+        next: genService.greetingRecipe ?? const GreetingRecipe(),
+        outfitFrom: card.firstMessage,
+      );
       _applyGeneratedPorchLife(card);
       lorebookEntryEnabled = {};
       final lore = card.lorebook;
@@ -78,14 +84,17 @@ extension _CreatorCore on CreatorState {
       descController.text = card.description;
       personalityController.text = card.personality;
       scenarioController.text = card.scenario;
-      firstMessageController.text = card.firstMessage;
+      final oldFirst = firstMessageController;
+      firstMessageController = newGreetingBox(card.firstMessage);
+      // A step still fading out may hold the old box this frame.
+      WidgetsBinding.instance.addPostFrameCallback((_) => oldFirst.dispose());
       exampleDialogueController.text = card.mesExample;
       systemPromptController.text = card.systemPrompt;
       for (final c in altGreetingControllers) {
         c.dispose();
       }
       altGreetingControllers = [
-        for (final g in card.alternateGreetings) TextEditingController(text: g),
+        for (final g in card.alternateGreetings) newGreetingBox(g),
       ];
       greetingSeeds = alignGreetingSeeds(
         card.frontPorchExtensions?.greetingSeeds ?? const [],
@@ -95,7 +104,7 @@ extension _CreatorCore on CreatorState {
       progress = 1.0;
       isGenerating = false;
       activeGenService = null;
-      setStep(4); // → Realism Engine step
+      setStep(4); // → Greetings step
       notify();
     } else {
       generatedCard = null;
@@ -104,7 +113,7 @@ extension _CreatorCore on CreatorState {
       if (!generationStatus.startsWith('Error')) {
         generationStatus = 'Generation failed. Check your backend connection.';
       }
-      setStep(4); // → Realism step (shows the error/Try-Again state)
+      setStep(4); // → Greetings step (shows the error/Try-Again state)
       notify();
     }
   }
@@ -171,14 +180,21 @@ extension _CreatorCore on CreatorState {
     if (provider.activeBackend == BackendType.kobold &&
         provider.koboldService.isReady) {
       freeContextLimit =
-          storage.backendSettings.contextSize - 3000; // leave 3K for generation
+          storage.backendSettings.promptContext(
+            storage.backendSettings.contextSize,
+          ) -
+          3000; // leave 3K for generation
       if (freeContextLimit <= 0) {
         // A context window at or under that 3K reservation (the app's own
         // low-VRAM recommendation is 2048) made the limit negative, and the
         // clamp below then truncated EVERY character of lore away — the model
         // got the bare "[TRUNCATED…]" marker and nothing else, silently. Give
         // the lore half a small window instead of none of it.
-        freeContextLimit = storage.backendSettings.contextSize ~/ 2;
+        freeContextLimit =
+            storage.backendSettings.promptContext(
+              storage.backendSettings.contextSize,
+            ) ~/
+            2;
       }
     } else {
       freeContextLimit = 120000;

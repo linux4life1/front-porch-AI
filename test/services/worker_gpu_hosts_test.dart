@@ -257,6 +257,18 @@ void main() {
       baseUrl: 'http://127.0.0.1:5001',
       requestedModelPath: '/tmp/worker.gguf',
       requestedKcppsPath: '/tmp/worker.kcpps',
+      stageConfig: () async => const KoboldStagedRole(
+        filename: 'fpai-worker.kcpps',
+        path: '/admin/fpai-worker.kcpps',
+        key: 'worker config',
+        modelPath: '/tmp/worker.gguf',
+        kcppsPath: '/tmp/worker.kcpps',
+        expectedModel: 'worker',
+        contextSize: 16384,
+      ),
+      // What the engine says once it has loaded the worker config.
+      engineModel: () async => 'koboldcpp/worker',
+      engineContext: () async => 16384,
       noteLoadedPair: (model, kcpps) {
         notedModel = model;
         notedKcpps = kcpps;
@@ -277,8 +289,9 @@ void main() {
     await host.restore();
     expect(hits, [
       'POST api/admin/reload_config {"filename":"unload_model"}',
-      'POST api/admin/reload_config '
-          '{"filename":"worker.gguf","overrideconfig":"worker.kcpps"}',
+      // Was the GGUF's name plus the preset as an override, both linked
+      // into the admin folder. Now the one staged config.
+      'POST api/admin/reload_config {"filename":"fpai-worker.kcpps"}',
     ]);
     expect(host.label, 'kobold:/tmp/worker.gguf');
     expect(notedModel, '/tmp/worker.gguf');
@@ -287,37 +300,42 @@ void main() {
     expect(starts, 0);
   });
 
-  test(
-    'empty GGUF + different .kcpps reloads in-process and does not restart',
-    () async {
-      final hits = <String>[];
-      var starts = 0;
-      final host = KoboldProcessHost(
-        baseUrl: 'http://127.0.0.1:5001',
-        requestedModelPath: null,
-        requestedKcppsPath: '/tmp/worker.kcpps',
-        launchedKcppsPath: () => '/tmp/mouth.kcpps',
-        stopProcess: () async {},
-        startProcess: () async => starts++,
-        admin: HttpGpuSwapHost(
-          kind: LocalSwapKind.koboldProcess,
-          apiUrl: 'http://127.0.0.1:5001',
-          modelId: '',
-          send: (method, uri, headers, body) async {
-            hits.add('$method ${uri.pathSegments.join('/')} $body');
-            return http.Response('{"success":true}', 200);
-          },
-        ),
-      );
-      await host.unload();
-      await host.restore();
-      expect(hits, [
-        'POST api/admin/reload_config {"filename":"unload_model"}',
-        'POST api/admin/reload_config {"filename":"worker.kcpps"}',
-      ]);
-      expect(starts, 0);
-    },
-  );
+  // Replaces "empty GGUF + different .kcpps reloads in-process": which
+  // file name to send is no longer a choice, and what matters now is that a
+  // config the engine already has is not asked for again.
+  test('a config that is already loaded is not asked for again', () async {
+    final hits = <String>[];
+    var readyWaits = 0;
+    final host = KoboldProcessHost(
+      baseUrl: 'http://127.0.0.1:5001',
+      requestedModelPath: '/tmp/worker.gguf',
+      stageConfig: () async => const KoboldStagedRole(
+        filename: 'fpai-worker.kcpps',
+        path: '/admin/fpai-worker.kcpps',
+        key: 'worker config',
+        modelPath: '/tmp/worker.gguf',
+        kcppsPath: '',
+        expectedModel: 'worker',
+        contextSize: 16384,
+      ),
+      isResident: (key) => key == 'worker config',
+      waitUntilReady: () async => readyWaits++,
+      stopProcess: () async {},
+      startProcess: () async {},
+      admin: HttpGpuSwapHost(
+        kind: LocalSwapKind.koboldProcess,
+        apiUrl: 'http://127.0.0.1:5001',
+        modelId: '',
+        send: (method, uri, headers, body) async {
+          hits.add('$method ${uri.pathSegments.join('/')} $body');
+          return http.Response('{"success":true}', 200);
+        },
+      ),
+    );
+    await host.restore();
+    expect(hits, isEmpty);
+    expect(readyWaits, 0);
+  });
 
   test('HTTP 200 empty ACK does not stop the process', () async {
     var stops = 0;
@@ -381,14 +399,15 @@ void main() {
   });
 
   test(
-    'empty GGUF + same .kcpps as launched still uses admin initial_model',
+    // Was "empty GGUF + same .kcpps as launched": the launched preset is no
+    // longer compared. A host given no config to stage asks for the model
+    // the engine was started with.
+    'a host with no staged config uses admin initial_model',
     () async {
       final hits = <String>[];
       var starts = 0;
       final host = KoboldProcessHost(
         baseUrl: 'http://127.0.0.1:5001',
-        requestedKcppsPath: '/tmp/mouth.kcpps',
-        launchedKcppsPath: () => '/tmp/mouth.kcpps',
         stopProcess: () async {},
         startProcess: () async => starts++,
         admin: HttpGpuSwapHost(

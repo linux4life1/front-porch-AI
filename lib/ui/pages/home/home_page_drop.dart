@@ -18,7 +18,7 @@
 
 part of '../home_page.dart';
 
-/// Desktop PNG/BYAF drop → the same import methods the picker uses.
+/// Desktop PNG/BYAF/.porch drop → the same import methods the picker uses.
 extension _HomePageDrop on _HomePageState {
   Widget _wrapChatsWithDrop(BuildContext context, Widget child) {
     return HomeDropZone(
@@ -45,15 +45,18 @@ extension _HomePageDrop on _HomePageState {
         pngs: [for (final path in plan.pngPaths) File(path)],
         byafs: plan.byafPaths,
       );
-      return;
+    } else {
+      if (plan.pngPaths.isNotEmpty) {
+        await _importCharacterFromFiles(context, [
+          for (final path in plan.pngPaths) File(path),
+        ]);
+      }
+      if (plan.byafPaths.isNotEmpty && context.mounted) {
+        await _importByafFromPaths(context, plan.byafPaths);
+      }
     }
-    if (plan.pngPaths.isNotEmpty) {
-      await _importCharacterFromFiles(context, [
-        for (final path in plan.pngPaths) File(path),
-      ]);
-    }
-    if (plan.byafPaths.isNotEmpty && context.mounted) {
-      await _importByafFromPaths(context, plan.byafPaths);
+    if (plan.porchPaths.isNotEmpty && context.mounted) {
+      await _importPorchPaths(plan.porchPaths);
     }
   }
 }

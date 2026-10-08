@@ -263,7 +263,7 @@ class _RecordingKobold extends KoboldService {
   String? lastExe;
 
   @override
-  Future<void> startKobold(
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,
@@ -278,6 +278,7 @@ class _RecordingKobold extends KoboldService {
   }) async {
     startCalls++;
     lastExe = executablePath;
+    return const KoboldLaunchResult.started();
   }
 }
 

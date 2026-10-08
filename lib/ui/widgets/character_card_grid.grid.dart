@@ -20,39 +20,10 @@ part of 'character_card_grid.dart';
 
 /// Folder / group / character cells. Toolbar chrome stays on [CharacterCardGrid].
 extension CharacterCardGridBuild on CharacterCardGrid {
-  Widget _buildGrid(
-    BuildContext context,
-    List<CharacterCard> filteredCharacters,
-  ) {
-    final showFolders = searchQuery.isEmpty;
-    final folders = showFolders
-        ? folderService.getSubfolders(activeFolderId)
-        : <CharacterFolder>[];
-
-    // Groups follow the folder hierarchy exactly like characters now (the old
-    // bucket pinned every group to the top level and hid them during
-    // select/organize — they're selectable there too since they can be moved).
-    List<GroupChat> groups = _getFilteredGroups();
-
-    List<CharacterCard> displayCharacters;
-    if (showFolders && activeFolderId == null) {
-      final folderedFilenames = folderService.getUnfolderedCharacterPaths();
-      displayCharacters = filteredCharacters
-          .where(
-            (c) =>
-                c.imagePath == null ||
-                !folderedFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-      // Same top-level rule for groups: foldered ones only show inside their
-      // folder (this was the group-shaped hole in the unfoldered filter).
-      groups = groups
-          .where((g) => folderService.getFolderForGroup(g.id) == null)
-          .toList();
-    } else {
-      displayCharacters = filteredCharacters;
-    }
-
+  Widget _buildGrid(BuildContext context, LibraryView view) {
+    final folders = view.folders;
+    final groups = view.groups;
+    final displayCharacters = view.characters;
     final totalItems =
         folders.length + groups.length + displayCharacters.length;
     if (totalItems == 0) {
@@ -69,28 +40,32 @@ extension CharacterCardGridBuild on CharacterCardGrid {
       );
     }
 
-    return Scrollbar(
+    final picking = isSelecting || isOrganizing;
+    final padding = EdgeInsets.fromLTRB(24, 24, 24, picking ? 80 : 24);
+    final delegate = SliverGridDelegateWithMaxCrossAxisExtent(
+      maxCrossAxisExtent: gridScale,
+      childAspectRatio: 0.7,
+      crossAxisSpacing: 24,
+      mainAxisSpacing: 24,
+    );
+    final sel = selection;
+    // What a held, picked card drags: every pick (library phase 3).
+    final payload = sel != null && picking && !sel.isEmpty ? sel.payload : null;
+
+    final grid = Scrollbar(
       controller: gridScrollController,
       thumbVisibility: true,
       child: GridView.builder(
         controller: gridScrollController,
-        padding: EdgeInsets.fromLTRB(
-          24,
-          24,
-          24,
-          (isSelecting || isOrganizing) ? 80 : 24,
-        ),
-        gridDelegate: SliverGridDelegateWithMaxCrossAxisExtent(
-          maxCrossAxisExtent: gridScale,
-          childAspectRatio: 0.7,
-          crossAxisSpacing: 24,
-          mainAxisSpacing: 24,
-        ),
+        padding: padding,
+        gridDelegate: delegate,
         itemCount: totalItems,
         itemBuilder: (context, index) {
           if (index < folders.length) {
             return FolderGridCard(
               folder: folders[index],
+              // Esc called the drag off: the tile stops offering to take it.
+              acceptsDrops: !(sel?.dragCalledOff ?? false),
               onAcceptFolderDrop: onAcceptFolderDrop,
               onFolderTap: onFolderTap,
               onFolderDialogAction: onFolderDialogAction,
@@ -99,19 +74,39 @@ extension CharacterCardGridBuild on CharacterCardGrid {
           }
           final groupOffset = index - folders.length;
           if (groupOffset < groups.length) {
+            final group = groups[groupOffset];
+            final picked = selectedGroupIds.contains(group.id);
             return GroupGridCard(
-              group: groups[groupOffset],
+              group: group,
               groupRepo: groupRepo,
               activeFolderId: activeFolderId,
               isSelecting: isSelecting,
               isOrganizing: isOrganizing,
               selectedGroupIds: selectedGroupIds,
-              onTapGroup: onTapGroup,
-              onToggleSelectGroup: onToggleSelectGroup,
+              onTapGroup: sel == null
+                  ? onTapGroup
+                  : (g) async {
+                      if (_pickModifier) {
+                        _pick(sel, view, g.id, group: true);
+                        return;
+                      }
+                      await onTapGroup(g);
+                    },
+              onToggleSelectGroup: sel == null
+                  ? onToggleSelectGroup
+                  : (g) => _pick(sel, view, g.id, group: true),
               onGroupContextMenuAction: onGroupContextMenuAction,
+              dragSelection: picked ? payload : null,
+              dimmed: picked && (sel?.dragsPicks ?? false),
+              onDragStarted: sel == null
+                  ? null
+                  : () => _dragStarted(sel, picked ? payload : null),
+              onDragEnded: sel?.endDrag,
             );
           }
           final character = displayCharacters[groupOffset - groups.length];
+          final key = character.stableGroupId;
+          final picked = selectedCharacterIds.contains(key);
           return CharacterGridCard(
             character: character,
             activeFolderId: activeFolderId,
@@ -119,14 +114,71 @@ extension CharacterCardGridBuild on CharacterCardGrid {
             isSelecting: isSelecting,
             isOrganizing: isOrganizing,
             selectedCharacterIds: selectedCharacterIds,
-            onTapCharacter: onTapCharacter,
-            onToggleSelect: onToggleSelect,
+            onTapCharacter: sel == null
+                ? onTapCharacter
+                : (c) async {
+                    if (_pickModifier) {
+                      _pick(sel, view, key, group: false);
+                      return;
+                    }
+                    await onTapCharacter(c);
+                  },
+            onToggleSelect: sel == null
+                ? onToggleSelect
+                : (_) => _pick(sel, view, key, group: false),
             onContextMenuAction: onContextMenuAction,
             onResolveCharImage: onResolveCharImage,
             imageCacheEpoch: repo.coverEpoch,
+            dragSelection: picked ? payload : null,
+            dimmed: picked && (sel?.dragsPicks ?? false),
+            onDragStarted: sel == null
+                ? null
+                : () => _dragStarted(sel, picked ? payload : null),
+            onDragEnded: sel?.endDrag,
           );
         },
       ),
     );
+    if (sel == null) return grid;
+    // A quick mouse drag draws a box over the grid (library phase 2).
+    return LibraryBoxSelect(
+      scrollController: gridScrollController,
+      geometry: LibraryGridGeometry(delegate: delegate, padding: padding),
+      keys: [for (final _ in folders) null, ...view.selectionOrder],
+      groupKeys: view.groupIds,
+      pickedCharacters: selectedCharacterIds,
+      pickedGroups: selectedGroupIds,
+      onBox: sel.replace,
+      child: grid,
+    );
   }
+
+  /// Shift or Ctrl/Cmd held: a click picks instead of opening the card.
+  bool get _pickModifier {
+    final keys = HardwareKeyboard.instance;
+    return keys.isShiftPressed || keys.isControlPressed || keys.isMetaPressed;
+  }
+
+  /// A pick click (library phase 2): Shift ranges from the last clicked
+  /// card, anything else toggles this one.
+  void _pick(
+    LibrarySelection sel,
+    LibraryView view,
+    String key, {
+    required bool group,
+  }) {
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      sel.addRange(
+        key,
+        group: group,
+        order: view.selectionOrder,
+        groupKeys: view.groupIds,
+      );
+    } else {
+      sel.toggle(key, group: group);
+    }
+  }
+
+  void _dragStarted(LibrarySelection sel, LibraryDragPayload? picks) =>
+      sel.beginDrag(picks?.count ?? 1, picks: picks != null);
 }

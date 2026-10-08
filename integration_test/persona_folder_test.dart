@@ -32,11 +32,31 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/cards.dart';
 
 import 'support/chat_driver.dart';
 import 'support/e2e_sandbox.dart';
 import 'support/fake_backend.dart';
+
+/// Taps [finder] once a tap there would land on it. A page, menu or dialog
+/// is in the tree from the first frame of its opening animation, while the
+/// tap still goes to what is under it. CI logged "would not hit test" for
+/// "New Persona" during the page change (Windows) and for "Move to Folder…"
+/// while the menu was still opening (Linux), then timed out waiting for
+/// what the tap should have opened.
+Future<void> tapWhenHittable(WidgetTester tester, Finder finder) async {
+  await pumpUntilFound(tester, finder.hitTestable());
+  await tester.tap(finder.hitTestable());
+  await tester.pump();
+}
+
+/// Types into a text field the way a person does: tap it, then type, so the
+/// field holds the keyboard before the text is sent.
+Future<void> typeInto(WidgetTester tester, Finder field, String text) async {
+  await tapWhenHittable(tester, field);
+  await tester.enterText(field, text);
+  await tester.pump();
+}
 
 const _kGreeting = 'Welcome to the persona porch.';
 const _kReplyPieces = ['The fake backend replies ', 'about personas.'];
@@ -115,18 +135,20 @@ void main() {
     // ── Persona: create through the REAL form ───────────────────────────
     appState.setIndex(4);
     await pumpUntilFound(tester, find.text('User Personas'));
-    await tester.tap(find.text('New Persona'));
-    await pumpUntilFound(tester, find.text('Save Persona'));
-    await tester.enterText(
+    await tapWhenHittable(tester, find.text('New Persona'));
+    await pumpUntilFound(tester, find.text('Save Persona').hitTestable());
+    await typeInto(
+      tester,
       find.widgetWithText(TextFormField, 'Title').first,
       'Porch Tester',
     );
-    await tester.enterText(
+    await typeInto(
+      tester,
       find.widgetWithText(TextFormField, 'Name').first,
       'Porchy',
     );
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.text('Save Persona'));
+    await tapWhenHittable(tester, find.text('Save Persona'));
     await d.waitFor(
       () => personaService.personas.any((p) => p.title == 'Porch Tester'),
       () =>
@@ -226,14 +248,15 @@ void main() {
     await repo.loadCharacters();
     await pumpUntilFound(tester, find.byType(CharacterGridCard));
 
-    await tester.tap(find.byTooltip('New Folder'));
-    await pumpUntilFound(tester, find.text('Create'));
-    await tester.enterText(
+    await tapWhenHittable(tester, find.byTooltip('New Folder'));
+    await pumpUntilFound(tester, find.text('Create').hitTestable());
+    await typeInto(
+      tester,
       find.widgetWithText(TextField, 'Folder name...').first,
       'Porch Folder',
     );
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(find.text('Create'));
+    await tapWhenHittable(tester, find.text('Create'));
     await d.waitFor(
       () => folderService.folders.any((f) => f.name == 'Porch Folder'),
       () =>
@@ -249,11 +272,21 @@ void main() {
     // The card's context menu is right-click only (long-press starts a
     // folder drag instead).
     final card = find.byType(CharacterGridCard).first;
+    await pumpUntilFound(tester, card.hitTestable());
     await tester.tapAt(tester.getCenter(card), buttons: kSecondaryButton);
-    await pumpUntilFound(tester, find.text('Move to Folder…'));
-    await tester.tap(find.text('Move to Folder…'));
+    await tapWhenHittable(tester, find.text('Move to Folder…'));
     await pumpUntilFound(tester, find.text('Home (no folder)'));
-    await tester.tap(find.text('Porch Folder').last);
+    // The picker's row, not the folder tile behind the dialog.
+    await tapWhenHittable(
+      tester,
+      find.descendant(
+        of: find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.byType(ListTile),
+        ),
+        matching: find.text('Porch Folder'),
+      ),
+    );
     await d.waitFor(
       () => folderService.getCharactersInFolder(folder.id).isNotEmpty,
       () =>
@@ -262,7 +295,14 @@ void main() {
     );
 
     // ── Open the folder like a user and see the character inside ────────
-    await tester.tap(find.text('Porch Folder').first);
+    // The grid's folder tile, once the picker has closed over it.
+    await tapWhenHittable(
+      tester,
+      find.descendant(
+        of: find.byType(FolderGridCard),
+        matching: find.text('Porch Folder'),
+      ),
+    );
     await pumpUntilFound(tester, find.byTooltip('Up one level'));
     await d.waitForWidget(find.text('Persona Partner'));
 

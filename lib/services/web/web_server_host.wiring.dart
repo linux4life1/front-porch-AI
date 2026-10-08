@@ -66,13 +66,18 @@ extension WebServerHostWiring on WebServerHost {
 
     if (streamHub != null) {
       _attachLibraryRelay(characterFacade, streamHub);
+      _attachSettingsRelay(streamHub);
     }
 
     // Built before ChatFacade so its saved-image resolver (basename → File
     // with the traversal guard) can be shared for chat image messages.
     final imageFacade = _imageGenService != null
-        ? ImageFacade(_imageGenService!, _storage)
+        ? ImageFacade(_imageGenService!, _storage, _characterRepository)
         : null;
+    imageFacade?.promptLlm = () {
+      final service = _llmProvider?.activeService;
+      return service?.isReady == true ? service : null;
+    };
 
     final chatFacade = (chatService != null && _characterRepository != null)
         ? ChatFacade(
@@ -187,8 +192,12 @@ extension WebServerHostWiring on WebServerHost {
             streamHub,
             snapshotBuilder: snapshotBuilder,
             tts: _ttsService,
+            storage: _storage,
+            llm: _llmProvider,
+            imageGen: _imageGenService,
           )
         : null;
+    _storyFacade = storyFacade;
 
     final storyExportFacade = (_storyRepository != null && _ttsService != null)
         ? StoryExportFacade(
@@ -216,6 +225,9 @@ extension WebServerHostWiring on WebServerHost {
       chatFacade: chatFacade,
       chatPackageFacade: chatService != null
           ? ChatPackageFacade(chatService)
+          : null,
+      porchFacade: (chatService != null && _characterRepository != null)
+          ? PorchFacade(_characterRepository!, chatService, _storage)
           : null,
       chatToolsFacade: chatToolsFacade,
       groupFacade: groupFacade,

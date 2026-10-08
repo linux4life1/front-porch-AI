@@ -23,6 +23,29 @@ void main() {
       expect(plan.hasImportable, isTrue);
     });
 
+    test('routes .porch and .porchpack files into the .porch import list', () {
+      final plan = planHomeDrop([
+        '/exports/Aria Vale.porch',
+        r'C:\exports\Front Porch characters (3).PORCHPACK',
+        '/exports/hero.png',
+      ]);
+      expect(plan.porchPaths, [
+        '/exports/Aria Vale.porch',
+        r'C:\exports\Front Porch characters (3).PORCHPACK',
+      ]);
+      expect(plan.pngPaths, ['/exports/hero.png']);
+      expect(plan.rejectedNames, isEmpty);
+      expect(plan.hasImportable, isTrue);
+      expect(plan.rejectMessage, isNull);
+    });
+
+    test('a lone .porch drop is importable on its own', () {
+      final plan = planHomeDrop(['/exports/Bram Elder.porch']);
+      expect(plan.porchPaths, ['/exports/Bram Elder.porch']);
+      expect(plan.hasImportable, isTrue);
+      expect(plan.isMixed, isFalse);
+    });
+
     test('batches mixed PNG and BYAF drops', () {
       final plan = planHomeDrop([
         '/lib/one.png',
@@ -40,7 +63,8 @@ void main() {
       expect(plan.rejectedNames, ['card.json', 'notes.txt']);
       expect(
         plan.rejectMessage,
-        "Can't import those files — drop PNG character cards or .byaf files.",
+        "Can't import those files — drop PNG character cards, .byaf or "
+        '.porch files.',
       );
     });
 
@@ -48,7 +72,8 @@ void main() {
       final plan = planHomeDrop(['photo.jpg']);
       expect(
         plan.rejectMessage,
-        'Can\'t import "photo.jpg" — drop PNG character cards or .byaf files.',
+        'Can\'t import "photo.jpg" — drop PNG character cards, .byaf or '
+        '.porch files.',
       );
     });
 
@@ -58,7 +83,7 @@ void main() {
       expect(plan.rejectedNames, ['readme.md']);
       expect(
         plan.rejectMessage,
-        'Skipped readme.md (not a PNG card or .byaf).',
+        'Skipped readme.md (not a PNG card, .byaf or .porch file).',
       );
     });
 
@@ -81,7 +106,10 @@ void main() {
       ]);
       expect(plan.pngPaths, ['/Users/me/Ada.png']);
       expect(plan.rejectedNames, ['cards']);
-      expect(plan.rejectMessage, 'Skipped cards (not a PNG card or .byaf).');
+      expect(
+        plan.rejectMessage,
+        'Skipped cards (not a PNG card, .byaf or .porch file).',
+      );
     });
 
     test('rejects an item with no path', () {

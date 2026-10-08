@@ -7,7 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
-import { type LocalModel, fmtSize } from './types';
+import { type LocalModelFile, type ModelSwitch, fmtSize } from './types';
 
 export function LocalModels({
   isLocal,
@@ -18,29 +18,36 @@ export function LocalModels({
   reloadStatus: () => Promise<void>;
   onError: (s: string) => void;
 }) {
-  const [models, setModels] = useState<LocalModel[]>([]);
+  const [models, setModels] = useState<LocalModelFile[]>([]);
   const [folder, setFolder] = useState<string>('');
   const [busy, setBusy] = useState(false);
+  // Why the running KoboldCpp could not load the model just switched to, shown
+  // in that model's row.
+  const [refused, setRefused] = useState<{ path: string; words: string } | null>(null);
 
-  const load = () => api.get<{ models: LocalModel[] }>('/api/backend/models').then((r) => setModels(r.models)).catch(() => {});
+  const load = () => api.get<{ models: LocalModelFile[] }>('/api/backend/models').then((r) => setModels(r.models)).catch(() => {});
   useEffect(() => {
     void load();
     api.get<{ path: string }>('/api/backend/models-folder').then((r) => setFolder(r.path)).catch(() => {});
   }, []);
 
-  const use = (m: LocalModel) => {
+  const use = (m: LocalModelFile) => {
     if (!window.confirm(`Switch to "${m.name}"? This restarts the backend (~30s).`)) return;
     setBusy(true);
-    api.post('/api/backend/models/switch', { path: m.path })
-      .then(() => Promise.all([load(), reloadStatus()]))
+    setRefused(null);
+    api.post<ModelSwitch>('/api/backend/models/switch', { path: m.path })
+      .then((r) => {
+        setRefused(r.refused ? { path: m.path, words: r.refused } : null);
+        return Promise.all([load(), reloadStatus()]);
+      })
       .catch((e) => onError(e instanceof ApiError ? e.message : 'Switch failed'))
       .finally(() => setBusy(false));
   };
 
-  const del = (m: LocalModel) => {
+  const del = (m: LocalModelFile) => {
     if (!window.confirm(`Delete "${m.name}"? This permanently removes the file from disk.`)) return;
     setBusy(true);
-    api.post<{ models: LocalModel[] }>('/api/backend/models/delete', { path: m.path })
+    api.post<{ models: LocalModelFile[] }>('/api/backend/models/delete', { path: m.path })
       .then((r) => setModels(r.models))
       .catch((e) => onError(e instanceof ApiError ? e.message : 'Delete failed'))
       .finally(() => setBusy(false));
@@ -61,6 +68,11 @@ export function LocalModels({
                 <span className="muted small">
                   {fmtSize(m.sizeBytes)} · {m.quant}{m.paramCountB ? ` · ${m.paramCountB}B` : ''}
                 </span>
+                {refused?.path === m.path && (
+                  <span className="error small" role="alert" data-testid="switch-refused" style={{ whiteSpace: 'pre-line' }}>
+                    {refused.words}
+                  </span>
+                )}
               </div>
               <div className="model-actions">
                 {m.loaded ? (

@@ -23,8 +23,8 @@ const kStoopTileSummaryMaxLines = 2;
 /// under the square art. 0.64 was a few pixels short and clipped mid-word.
 const kStoopCardTileAspectRatio = 0.60;
 
-/// The hub card tile (hub.frontporchai.app .hub-tile): square art on top
-/// with badge pills, then a body — name, @creator, two-line summary, and a
+/// The hub card tile (hub.frontporchai.app .hub-tile): art on top (square,
+/// or 16:10 for a world) with badge pills, then a body — name, @creator, two-line summary, and a
 /// stats foot (▲ score, ⬇ downloads, token count). Lifts with an amber
 /// border + warm glow on hover. [compact] is the Mod's-Picks-row variant
 /// (.hub-picktile): art + name only.
@@ -92,17 +92,22 @@ class _StoopCardTileState extends State<StoopCardTile> {
     );
   }
 
-  // Square art with the badge pills floated top-left (lantern placeholder
-  // shows through when a card has no avatar asset).
+  // Art box with the badge pills floated top-left (lantern placeholder shows
+  // through when a card has no avatar asset). Mirrors the hub: square and
+  // top-anchored for characters/groups so a portrait keeps its head;
+  // 16:10 landscape, centred, for worlds (.hub-tile-world).
   Widget _art(StoopCard card) {
     return AspectRatio(
-      aspectRatio: 1,
+      aspectRatio: card.isWorld ? 16 / 10 : 1,
       child: Stack(
         fit: StackFit.expand,
         children: [
           ColoredBox(
             color: stoopBg1(context),
-            child: StoopAvatar(assetId: card.primaryAssetId),
+            child: StoopAvatar(
+              assetId: card.primaryAssetId,
+              alignment: card.isWorld ? Alignment.center : Alignment.topCenter,
+            ),
           ),
           Positioned(
             top: 8,

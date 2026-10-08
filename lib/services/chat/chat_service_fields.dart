@@ -22,6 +22,14 @@ part of '../chat_service.dart';
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
+  /// The database's word of every chat it deletes, for KoboldCpp's saved
+  /// cache of it. Moves with the database, so it is re-made on a swap.
+  StreamSubscription<String>? _deletedChats;
+
+  /// The chat model's key in the eval identity, read from its file once per
+  /// model and per engine load.
+  final _modelKeys = LocalModelKeys();
+
   /// Named lookup for the next reply only. Cleared when that reply starts.
   String? _pendingForcedWebQuery;
   String? _pendingForcedWikiQuery;
@@ -29,6 +37,11 @@ mixin ChatServiceFieldBag {
   // Action suggestions
   List<String> _suggestedActions = [];
   bool _isGeneratingActions = false;
+  // The message the suggestions (or the in-flight generation) were made for.
+  // Every chat switch / load / fork / tail-delete path rebuilds `_messages`,
+  // so "anchor is still the last message" is the one check that keeps
+  // suggestions from leaking onto another chat's latest bubble (#329).
+  ChatMessage? _suggestedActionsAnchor;
   // Objective/quest system
   List<Objective> _activeObjectives = [];
 
@@ -129,6 +142,11 @@ mixin ChatServiceFieldBag {
   bool _isPostGenerating = false;
   bool _isImporting = false;
 
+  /// A `.porch` export or import is opening chats in turn. Not part of
+  /// [_isTurnBusy]: the job's own chat moves must still run. It keeps a
+  /// second job (desktop or phone) from flipping the shared chat under it.
+  bool _isMovingChats = false;
+
   // (_isTurnBusy — "this turn is still in motion" predicate for mutation
   // guards, NOT for stopGeneration/_cancelAndWaitForGeneration which must
   // keep testing _isGenerating alone — moved to chat_service_generation_stream.dart)
@@ -141,9 +159,52 @@ mixin ChatServiceFieldBag {
   bool _entrancesInFlight = false;
   bool _isLoadingSession = false;
   final _history = SessionHistoryWindow();
+
+  /// Saved position of `messages[0]`. Older rows still loading sit
+  /// before it, so a row's place in the whole chat is this plus its index.
+  /// A class member (not an extension) so test fakes can pin it.
+  int get historyBasePosition => _history.basePosition;
   bool _cancelRequested = false;
   int _generationEpoch = 0;
-  String? _currentSessionId;
+
+  String? _sessionId;
+
+  /// The chat open now. Every change goes through here, so KoboldCpp's saved
+  /// cache follows it: the chat left is let go unless Settings keeps recent
+  /// chats ready. A switch passes through no chat (null) on its way; only
+  /// the chat it lands on is told.
+  String? get _currentSessionId => _sessionId;
+  set _currentSessionId(String? id) {
+    if (id == _sessionId) return;
+    _sessionId = id;
+    if (id != null) _keeperFollows(id);
+  }
+
+  /// Chat screens open on the desktop ([chatScreenOpened]).
+  int _chatScreens = 0;
+
+  /// The desktop's chat page opened: the chat it shows is the open one.
+  void chatScreenOpened() {
+    if (_chatScreens++ == 0) _keeperFollows(_sessionId);
+  }
+
+  /// The desktop's chat page closed. With none left the user went back to
+  /// the library: no chat is open, and KoboldCpp's saved cache can go.
+  void chatScreenClosed() {
+    if (_chatScreens > 0 && --_chatScreens == 0) _keeperFollows(null);
+  }
+
+  void _keeperFollows(String? chat) {
+    // This bag is ChatService's; the engine is a field of the class.
+    final self = this;
+    if (self is! ChatService) return;
+    try {
+      self._koboldService.openChat(chat);
+    } on Object catch (e) {
+      debugPrint('[Chat] KoboldCpp could not be told which chat is open: $e');
+    }
+  }
+
   double _generationProgress = 0.0;
 
   // ── Real-absence awareness (Living Time §2) ──

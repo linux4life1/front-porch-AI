@@ -91,7 +91,8 @@ List<String> _chunkText(String text, {int maxWords = 500}) {
 extension _DataBankDialogImport on _DataBankDialogState {
   /// Pick a file and import its contents as Data Bank entries.
   Future<void> _importFile() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: [..._textExtensions, ..._pdfExtensions],

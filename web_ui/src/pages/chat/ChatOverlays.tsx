@@ -22,7 +22,7 @@ export function ChatOverlays(props: {
   onClosePicker: () => void;
   editTarget: { index: number; text: string } | null;
   onCancelEdit: () => void;
-  onSaveEdit: (text: string) => void | Promise<void>;
+  onSaveEdit: (text: string) => Promise<void>;
   showPersona: boolean;
   onClosePersona: () => void;
   onPersonaChanged: () => void | Promise<void>;

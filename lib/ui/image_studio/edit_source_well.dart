@@ -45,37 +45,47 @@ class EditSourceWell extends StatelessWidget {
     return GestureDetector(
       onTap: busy ? null : onPick,
       child: Container(
-        width: 96,
-        height: 96,
+        width: double.infinity,
+        height: has ? null : 120,
+        constraints: has
+            ? const BoxConstraints(maxHeight: 560)
+            : const BoxConstraints(minHeight: 120),
+        alignment: Alignment.center,
         decoration: BoxDecoration(
           color: AppColors.surfaceContainerOf(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: has ? AppColors.formMasterAccent : AppColors.borderOf(context),
+            color: has
+                ? AppColors.formMasterAccent
+                : AppColors.borderOf(context),
             width: has ? 1.5 : 1,
           ),
         ),
         clipBehavior: Clip.antiAlias,
         child: has
             ? Stack(
-                fit: StackFit.expand,
                 children: [
-                  Image.memory(bytes!, fit: BoxFit.cover),
+                  Image.memory(
+                    bytes!,
+                    fit: BoxFit.contain,
+                    width: double.infinity,
+                  ),
                   Positioned(
-                    top: 2,
-                    right: 2,
+                    top: 8,
+                    right: 8,
                     child: GestureDetector(
                       onTap: busy ? null : onClear,
                       child: Container(
-                        padding: const EdgeInsets.all(3),
+                        padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
-                          color: AppColors.backgroundOf(context)
-                              .withValues(alpha: 0.8),
+                          color: AppColors.backgroundOf(
+                            context,
+                          ).withValues(alpha: 0.8),
                           shape: BoxShape.circle,
                         ),
                         child: Icon(
                           Icons.close,
-                          size: 14,
+                          size: 16,
                           color: AppColors.iconSecondary(context),
                         ),
                       ),

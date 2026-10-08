@@ -147,9 +147,14 @@ void main() {
 
     await chat.sendMessage('Will you call me tomorrow?');
     // The promise pass is fire-and-forget from the post-generation phase;
-    // drain event-loop turns (no wall-clock settle) until it lands.
-    for (var i = 0; i < 200 && llm.promisePrompts.isEmpty; i++) {
-      await Future<void>.delayed(Duration.zero);
+    // drain event-loop turns until it lands. A fixed 200 yields was a hidden
+    // limit: the post-generation phase gained work ahead of this pass (the
+    // clock wear and the refractory tick, #394) and a loaded CI runner
+    // needed more turns than that, so the wait is a condition with a real
+    // deadline (needs_v2 review; the known-flakes lesson on hidden limits).
+    final deadline = DateTime.now().add(const Duration(seconds: 20));
+    while (llm.promisePrompts.isEmpty && DateTime.now().isBefore(deadline)) {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
     }
 
     expect(

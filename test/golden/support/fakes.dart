@@ -281,6 +281,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   @override
   final int summaryLastIndex;
   @override
+  int get historyBasePosition => 0;
+  @override
   final bool summaryPaused;
   @override
   final bool isSummaryGenerating;

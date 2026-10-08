@@ -48,10 +48,30 @@ String friendlyGenerationError(String rawError) {
         'The backend crashed (likely out of VRAM). '
         'Try reducing GPU layers or context size in Settings.';
   } else if (errorMsg.contains('not generation-ready') ||
-      errorMsg.contains('reload_config')) {
+      errorMsg.contains('did not finish loading')) {
+    // The engine restarted and the model had not come up when the wait
+    // ended; it may well still be loading. The swap code may already have
+    // put chat back, so the advice holds either way.
     errorMsg =
-        'The worker model did not become ready after the GPU swap. '
+        'The model was still loading when the app stopped waiting. '
+        'Wait for the ready light, then send again.';
+  } else if (errorMsg.contains('did not act on the reload')) {
+    errorMsg =
+        'KoboldCpp did not switch models when asked. Send again; if it '
+        'keeps happening, restart the engine in Settings.';
+  } else if (errorMsg.contains('reload_config')) {
+    // The request to switch never got through; the engine still has the
+    // chat model, and the swap code has put chat back in charge.
+    errorMsg =
+        'KoboldCpp did not answer the request to switch models. '
         'Chat speech was put back. Try sending again.';
+  } else if (errorMsg.contains('need a Grok subscription') ||
+      errorMsg.contains('personal-team-blocked')) {
+    errorMsg =
+        'xAI says this account is out of credits for now. If you signed in '
+        'with SuperGrok, your allowance refills on xAI\'s schedule — try '
+        'again later. If you use an xAI API key, add credits at '
+        'console.x.ai.';
   } else if (errorMsg.contains('timed out') ||
       errorMsg.contains('TimeoutException')) {
     errorMsg =

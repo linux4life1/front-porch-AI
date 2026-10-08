@@ -189,19 +189,38 @@ class CharacterLibraryFacade {
     return true;
   }
 
-  /// Move many characters at once; returns how many actually moved.
+  /// Move many characters and group chats at once (the phone's Move to
+  /// folder): one [FolderService.moveMany], so one transaction and one
+  /// reload, as the desktop's bulk move does. Ids and folders are checked
+  /// as [moveToFolder] checks them, and unknown ids are skipped. Returns how
+  /// many moved.
   Future<int> bulkMove(List<String> ids, String? folderId) async {
-    var moved = 0;
+    final target = (folderId != null && folderId.isNotEmpty) ? folderId : null;
+    if (target != null && !_folderExists(target)) return 0;
+    final paths = <String>[];
+    final groupIds = <String>[];
     for (final id in ids) {
-      if (await moveToFolder(id, folderId)) moved++;
+      if (id.startsWith('group_')) {
+        if (_groups?.getById(id) != null) groupIds.add(id);
+        continue;
+      }
+      final path = (await _resolve(id))?.imagePath;
+      if (path != null && path.isNotEmpty) paths.add(path);
     }
-    return moved;
+    return _folders.moveMany(
+      folderId: target,
+      characterPaths: paths,
+      groupIds: groupIds,
+    );
   }
 
   /// Duplicate a character (deep-copies extensions + fresh stable id via the
   /// desktop path). Returns the new {id, name} or null. [newName] overrides
   /// the default "(duplicate)" suffix — web AI Enhance passes "(Enhanced)".
-  Future<Map<String, dynamic>?> duplicate(String charId, {String? newName}) async {
+  Future<Map<String, dynamic>?> duplicate(
+    String charId, {
+    String? newName,
+  }) async {
     final card = await _resolve(charId);
     if (card == null) return null;
     final dup = await _repo.duplicateCharacter(card, newNameOverride: newName);

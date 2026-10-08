@@ -226,6 +226,7 @@ extension _GroupWizardRealismStep on _CreateGroupChatPageState {
                       color: AppColors.textSecondary(context),
                     ),
                   ),
+                  const NeedsClockOffNote(),
                 ],
               ],
             ),

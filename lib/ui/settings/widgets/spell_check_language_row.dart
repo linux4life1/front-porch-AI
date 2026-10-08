@@ -10,7 +10,8 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart'
     show DesktopSpellCheckService, StorageService, kSpellCheckOff;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart' show StyledDropdown;
+import 'package:front_porch_ai/ui/widgets/widgets.dart'
+    show GuardedPicker, StyledDropdown;
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Sentinel dropdown value for the "Load a dictionary file…" entry. Not a
@@ -57,7 +58,8 @@ class _SpellCheckLanguageRowState extends State<SpellCheckLanguageRow> {
   /// dictionaries, so there is nowhere on macOS or Windows to put such a file.
   /// Those users add a language through the OS instead.
   Future<void> _addDictionaryFile() async {
-    final picked = await PickerPrefs.pickFiles(
+    final picked = await GuardedPicker.pickFiles(
+      context,
       category: 'dictionary',
       dialogTitle: 'Choose a hunspell .dic or .aff file',
       allowedExtensions: ['dic', 'aff'],

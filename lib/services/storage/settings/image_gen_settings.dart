@@ -25,6 +25,8 @@ import '../../image/image_gen_lora_slots.dart';
 import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
+part 'image_gen_settings.comfy_shift.dart';
+part 'image_gen_settings.comfy_url.dart';
 part 'image_gen_settings.load.dart';
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
@@ -39,7 +41,8 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _imageGenBackend =
       'remote'; // 'remote', 'a1111', 'drawthings', 'comfyui'
   String _localImageGenUrl = 'http://127.0.0.1:7860';
-  String _comfyUiUrl = 'http://127.0.0.1:8188';
+  String _comfyUiUrl = kDefaultComfyUiUrl;
+  bool _comfyUiUrlExplicit = false;
   String _imageGenModel = '';
 
   // The EDIT-task model slot (phase #12 model-slot split). One shared
@@ -96,11 +99,17 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _comfyEditWorkflowId = 'qwen_image_edit'; // == kQwenImageEditPreset.id
   Map<String, String> _comfyEditModelChoices = {};
   String _comfyEditUploadedWorkflow = '';
+  String _comfyEditUploadedTitle = '';
 
   // Comfy Create: family id + slot map + BYO JSON (same shape as edit).
   String _comfyCreateWorkflowId = 'sd';
   Map<String, String> _comfyCreateModelChoices = {};
   String _comfyCreateUploadedWorkflow = '';
+  String _comfyCreateUploadedTitle = '';
+
+  /// Shifts the person moved on the desk, by `create|<graph id>` or
+  /// `edit|<graph id>`. A graph with no entry posts its own shift.
+  Map<String, double> _comfyShifts = {};
 
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;
@@ -153,6 +162,7 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   Map<String, String> get comfyEditModelChoices =>
       Map.unmodifiable(_comfyEditModelChoices);
   String get comfyEditUploadedWorkflow => _comfyEditUploadedWorkflow;
+  String get comfyEditUploadedTitle => _comfyEditUploadedTitle;
 
   /// The user's chosen file for a preset's model slot, or null if unpicked.
   String? comfyEditModelChoice(String presetId, String token) =>
@@ -162,6 +172,7 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   Map<String, String> get comfyCreateModelChoices =>
       Map.unmodifiable(_comfyCreateModelChoices);
   String get comfyCreateUploadedWorkflow => _comfyCreateUploadedWorkflow;
+  String get comfyCreateUploadedTitle => _comfyCreateUploadedTitle;
 
   String? comfyCreateModelChoice(String presetId, String token) =>
       _comfyCreateModelChoices['$presetId/$token'];
@@ -184,9 +195,15 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
+  /// An address the person gave (typed on the desk, or saved from the phone):
+  /// it always wins over one found on its own. An empty one turns finding the
+  /// address on again.
   Future<void> setComfyUiUrl(String value) async {
-    _comfyUiUrl = value;
-    await prefs?.setString(k('comfy_ui_url'), value);
+    final cleared = value.trim().isEmpty;
+    _comfyUiUrl = cleared ? kDefaultComfyUiUrl : value;
+    _comfyUiUrlExplicit = !cleared;
+    await prefs?.setString(k('comfy_ui_url'), _comfyUiUrl);
+    await prefs?.setBool(k('comfy_ui_url_explicit'), _comfyUiUrlExplicit);
     notify();
   }
 
@@ -410,9 +427,16 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
-  Future<void> setComfyEditUploadedWorkflow(String json) async {
+  Future<void> setComfyEditUploadedWorkflow(
+    String json, {
+    String title = '',
+  }) async {
     _comfyEditUploadedWorkflow = json;
     await prefs?.setString(k('comfy_edit_uploaded_workflow'), json);
+    if (title.isNotEmpty) {
+      _comfyEditUploadedTitle = title;
+      await prefs?.setString(k('comfy_edit_uploaded_title'), title);
+    }
     notify();
   }
 
@@ -439,9 +463,16 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
-  Future<void> setComfyCreateUploadedWorkflow(String json) async {
+  Future<void> setComfyCreateUploadedWorkflow(
+    String json, {
+    String title = '',
+  }) async {
     _comfyCreateUploadedWorkflow = json;
     await prefs?.setString(k('comfy_create_uploaded_workflow'), json);
+    if (title.isNotEmpty) {
+      _comfyCreateUploadedTitle = title;
+      await prefs?.setString(k('comfy_create_uploaded_title'), title);
+    }
     notify();
   }
 }

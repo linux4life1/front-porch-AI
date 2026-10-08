@@ -36,7 +36,8 @@ extension _ChatPageSessionDialogs on _ChatPageState {
 
   Future<void> _importChat() async {
     try {
-      final result = await PickerPrefs.pickFiles(
+      final result = await GuardedPicker.pickFiles(
+        context,
         category: PickerPrefs.catImport,
         type: FileType.custom,
         allowedExtensions: ['fpchat', 'json', 'jsonl'],
@@ -184,7 +185,8 @@ extension _ChatPageSessionDialogs on _ChatPageState {
           return;
         }
         final fileName = '${characterName}_$timestamp.fpchat';
-        final outPath = await PickerPrefs.saveFile(
+        final outPath = await GuardedPicker.saveFile(
+          context,
           category: PickerPrefs.catExport,
           bytes: bytes,
           dialogTitle: 'Export Full Front Porch Chat',
@@ -206,7 +208,8 @@ extension _ChatPageSessionDialogs on _ChatPageState {
           return;
         }
         final fileName = '${characterName}_$timestamp.jsonl';
-        final outPath = await PickerPrefs.saveFile(
+        final outPath = await GuardedPicker.saveFile(
+          context,
           category: PickerPrefs.catExport,
           bytes: Uint8List.fromList(utf8.encode(jsonl)),
           dialogTitle: 'Export SillyTavern JSONL',

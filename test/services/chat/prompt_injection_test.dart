@@ -19,6 +19,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/author_note_builder.dart';
@@ -443,8 +444,9 @@ void main() {
     test('nsfw: refractory phase prose, no turn counts', () {
       final n = createTestNsfwSvc();
       n.setNsfwCooldownEnabled(true);
-      n.setCooldownTurnsRemaining(5);
-      n.setCooldownTurnsTotal(5);
+      // 2026-10-06: the refractory counts story minutes (5 judge turns =
+      // 75 min, opening turn unspoken); the body line still has no numbers.
+      n.setRefractory(Refractory.fromJudgeTurns(5));
       final b = createTestNsfw(
         nsfwSvc: n,
         activeChar: CharacterCard(name: 'Nia'),
@@ -644,29 +646,50 @@ void main() {
       expect(b.buildNeedsInjection(), isEmpty);
     });
 
-    test('mild hunger and bladder stay silent; steady hunger injects', () {
-      final mild = createTestNeeds(
-        isGroupNonObs: true,
-        speakerId: 'g1',
-        groupChars: [CharacterCard(name: 'G1')],
-        groupNeeds: {
-          'g1': {...satedVector(), 'hunger': 54, 'bladder': 50},
-        },
-      );
-      expect(mild.buildNeedsInjection(), isEmpty);
+    // Needs v2 (2026-10-06): every need injects from the mild band (41-55)
+    // with a line that says it is not pressing; above 55 nothing is said.
+    // Hunger and bladder no longer wait a band longer than the others.
+    test(
+      'mild needs inject their not-pressing line; quiet ones stay silent',
+      () {
+        final mild = createTestNeeds(
+          isGroupNonObs: true,
+          speakerId: 'g1',
+          groupChars: [CharacterCard(name: 'G1')],
+          groupNeeds: {
+            'g1': {...satedVector(), 'hunger': 54, 'bladder': 50},
+          },
+        );
+        final mildTxt = mild.buildNeedsInjection();
+        expect(mildTxt, contains('Hunger: Could eat.'));
+        expect(
+          mildTxt,
+          contains('Bladder: Could use a bathroom at some point.'),
+        );
 
-      final biting = createTestNeeds(
-        isGroupNonObs: true,
-        speakerId: 'g1',
-        groupChars: [CharacterCard(name: 'G1')],
-        groupNeeds: {
-          'g1': {...satedVector(), 'hunger': 40},
-        },
-      );
-      final txt = biting.buildNeedsInjection();
-      expect(txt, contains('Hunger:'));
-      expect(txt, isNot(contains('quiet, background emptiness')));
-    });
+        final quiet = createTestNeeds(
+          isGroupNonObs: true,
+          speakerId: 'g1',
+          groupChars: [CharacterCard(name: 'G1')],
+          groupNeeds: {
+            'g1': {...satedVector(), 'hunger': 56, 'bladder': 60},
+          },
+        );
+        expect(quiet.buildNeedsInjection(), isEmpty);
+
+        final biting = createTestNeeds(
+          isGroupNonObs: true,
+          speakerId: 'g1',
+          groupChars: [CharacterCard(name: 'G1')],
+          groupNeeds: {
+            'g1': {...satedVector(), 'hunger': 40},
+          },
+        );
+        final txt = biting.buildNeedsInjection();
+        expect(txt, contains('Hunger: Getting hungry'));
+        expect(txt, isNot(contains('Could eat.')));
+      },
+    );
 
     test('worst-3 cap and words-only lines', () {
       final gneeds = {

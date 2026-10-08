@@ -58,6 +58,7 @@ extension RealismSettingsLoad on RealismSettings {
     _weatherEnabled = prefs?.getBool(k('weather_enabled')) ?? true;
     _weatherFahrenheit = prefs?.getBool(k('weather_fahrenheit')) ?? false;
     _absenceBannerEnabled = prefs?.getBool(k('absence_banner_enabled')) ?? true;
+    _userMessagesOnRight = prefs?.getBool(k('user_messages_on_right')) ?? false;
     _absenceAckEnabled = prefs?.getBool(k('absence_ack_enabled')) ?? false;
     _absenceThresholdHours = prefs?.getInt(k('absence_threshold_hours')) ?? 24;
     _dreamsEnabled = prefs?.getBool(k('dreams_enabled')) ?? true;

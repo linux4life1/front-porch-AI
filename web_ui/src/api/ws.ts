@@ -17,6 +17,11 @@ export type WsEvent = {
   // unsaved field proposal the client reviews before applying.
   characterId?: string;
   proposal?: unknown;
+  // `chargen_greeting_*` (the creator's Greetings step): which greeting (0 is
+  // the first message; `text` carries it), and on `_done` the saved greetings.
+  index?: number;
+  firstMessage?: string;
+  alternateGreetings?: string[];
   // `world_wiki_done`: written lorebook cards, not saved until Preview.
   description?: string;
   climateEnabled?: boolean;
@@ -62,6 +67,9 @@ export type WsEvent = {
   estFraction?: number | null;
   genCur?: number | null;
   genTotal?: number | null;
+  // `speed_test` event (the Local model card's speed test): how it stands, in
+  // the host's words. Read with speedTestOf (components/models/useSpeedTest).
+  speedTest?: unknown;
 };
 
 export class ChatSocket {
@@ -92,6 +100,9 @@ export class ChatSocket {
       }
     };
     ws.onclose = () => {
+      // A socket that was replaced or closed on purpose must not clear, or
+      // reconnect over, the one that came after it.
+      if (this.ws !== ws) return;
       this.ws = null;
       if (!this.closed) this.scheduleReconnect();
     };
@@ -112,7 +123,18 @@ export class ChatSocket {
 
   close(): void {
     this.closed = true;
-    this.ws?.close();
+    const ws = this.ws;
     this.ws = null;
+    if (!ws) return;
+    // Leaving a page before its socket has connected: closing it now makes
+    // Safari log "WebSocket is closed before the connection is established".
+    // Let it finish connecting, then close it.
+    if (ws.readyState === WebSocket.CONNECTING) {
+      ws.onmessage = null;
+      ws.onerror = null;
+      ws.onopen = () => ws.close();
+      return;
+    }
+    ws.close();
   }
 }

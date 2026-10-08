@@ -39,14 +39,17 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
       builder: (context, llmProvider, kobold, _) {
         final logs = kobold.logs;
         final isRunning = kobold.isRunning;
-        final isReady = kobold.isReady;
 
         final statusColor = isRunning
             ? Colors.greenAccent
             : AppColors.textTertiary(context);
-        final statusLabel = isRunning
-            ? (isReady ? 'Ready' : 'Starting…')
-            : 'Stopped';
+        final statusLabel = switch (kobold.phase) {
+          KoboldPhase.stopped => 'Stopped',
+          KoboldPhase.starting => 'Starting…',
+          KoboldPhase.loading => 'Loading…',
+          KoboldPhase.unloaded => 'Unloaded while idle',
+          KoboldPhase.ready => 'Ready',
+        };
 
         return Dialog(
           backgroundColor: AppColors.backgroundOf(context),

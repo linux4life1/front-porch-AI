@@ -25,7 +25,7 @@ part of 'story_pipeline_service.dart';
 /// directly, so a private extension would hide it).
 extension StoryPipelineProse on StoryPipelineService {
   /// Stage 5+6: Drafter + Editor — beat → prose.
-  Future<void> runDraftAndEdit(
+  Future<void> _quickDraftAndEdit(
     StoryProject project,
     int actIndex,
     int sceneIndex,
@@ -98,6 +98,8 @@ $voices
 ## Style & Tone
 ${project.style.writingGuide}
 
+${StudioProsePrompts.bannedBlock(project)}
+
 ${prevBeatText.isNotEmpty ? '## Previous Beat Text (continue from here)\n$prevBeatText' : '## This is the FIRST beat of the scene.'}
 
 ${nextBeat != null ? '## Next Beat Preview (end just before this)\n${nextBeat.description}' : '## This is the LAST beat of the scene. Bring it to a satisfying close.'}
@@ -113,6 +115,9 @@ Write the prose now. Return ONLY the prose text, no commentary.''';
           drafterPrompt,
           maxLength: 1024,
           stage: StoryStageParams.prose,
+          project: project,
+          role: StoryRole.prose,
+          label: 'Drafter',
         ),
       ).trim();
 
@@ -142,6 +147,9 @@ Return ONLY the polished prose text.''';
           editorPrompt,
           maxLength: 1024,
           stage: StoryStageParams.editing,
+          project: project,
+          role: StoryRole.prose,
+          label: 'Editor',
         ),
       ).trim();
       project.prose[bId] = BeatProse(draft: draft, final_: edited);
@@ -158,7 +166,7 @@ Return ONLY the polished prose text.''';
   }
 
   /// Stage 7: Archivist — update cast/lore after prose is written.
-  Future<void> runArchivist(
+  Future<void> _quickArchivist(
     StoryProject project,
     int actIndex,
     int sceneIndex,
@@ -185,8 +193,13 @@ ${sceneText.toString().substring(0, sceneText.length.clamp(0, 3000))}
 ## Current Cast: ${project.cast.map((c) => c.name).join(', ')}
 ## Existing Lore: ${project.lore.map((l) => l.topic).join(', ')}''';
 
-      final response = await _callLLM(prompt, maxLength: 2048);
-      final json = StoryJson.parseJson(response);
+      final response = await _callLLM(
+        prompt,
+        maxLength: 2048,
+        project: project,
+        label: 'Archivist',
+      );
+      final json = StoryQuickXml.parse('archivist', response);
 
       if (json != null) {
         // Apply cast updates
@@ -269,8 +282,13 @@ Scene Goal: ${scene.description}
 Written Prose Summary: ${prose.substring(0, prose.length.clamp(0, 500))}
 Next Beat Plan: ${nextBeat.description}''';
 
-      final response = await _callLLM(prompt, maxLength: 2048);
-      final json = StoryJson.parseJson(response);
+      final response = await _callLLM(
+        prompt,
+        maxLength: 2048,
+        project: project,
+        label: 'Beat Validator',
+      );
+      final json = StoryQuickXml.parse('validator', response);
 
       if (json != null &&
           json['valid'] == false &&
@@ -296,7 +314,7 @@ Next Beat Plan: ${nextBeat.description}''';
   }
 
   /// Auto-write all beats in a scene sequentially.
-  Future<void> autoWriteScene(
+  Future<void> _quickAutoWriteScene(
     StoryProject project,
     int actIndex,
     int sceneIndex,
@@ -315,6 +333,10 @@ Next Beat Plan: ${nextBeat.description}''';
     // is cancellable, so the user would watch it burn tokens forever. A scene
     // is a handful of beats; this only ever trips on a runaway.
     final beatCeiling = (project.beats[sId]?.length ?? 0) + 24;
+    project.autoBannedPhrases = StoryQuality.overusedPhrases(
+      StoryQuality.recentProse(project, actIndex, sceneIndex),
+      exclude: [...project.cast.map((c) => c.name), ...project.bannedPhrases],
+    );
     for (
       int i = 0;
       i < (project.beats[sId]?.length ?? 0) && i < beatCeiling;
@@ -323,7 +345,7 @@ Next Beat Plan: ${nextBeat.description}''';
       final bId = '$sId-$i';
       if (project.prose[bId]?.final_ != null) continue; // Skip already written
 
-      await runDraftAndEdit(project, actIndex, sceneIndex, i);
+      await _quickDraftAndEdit(project, actIndex, sceneIndex, i);
       // runDraftAndEdit clears _isRunning in its own `finally`, but the scene
       // is not finished — re-arm so the validator/next-beat stretch still
       // reads as busy in the UI (same reset as generateFullAct's stages).
@@ -336,6 +358,6 @@ Next Beat Plan: ${nextBeat.description}''';
     }
 
     // Run archivist after the full scene
-    await runArchivist(project, actIndex, sceneIndex);
+    await _quickArchivist(project, actIndex, sceneIndex);
   }
 }

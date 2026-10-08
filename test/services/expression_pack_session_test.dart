@@ -413,5 +413,42 @@ void main() {
       // would assert in debug mode, so this proves the disposed bail-out.
       await running;
     });
+
+    test('a second cancel() is ignored: ComfyUI is interrupted once, and the '
+        'run still ends', () async {
+      final slot2 = Completer<Uint8List?>();
+      var calls = 0;
+      var interrupts = 0;
+      final session = ExpressionPackSession(
+        emotions: const ['joy', 'anger', 'neutral'],
+        basePrompt: 'a portrait of luna',
+        negativePrompt: 'np',
+        denoise: 0.7,
+        onCancel: () => interrupts++,
+        generate:
+            ({
+              required String prompt,
+              required String negativePrompt,
+              required int seed,
+              required double denoise,
+            }) {
+              calls++;
+              if (calls == 2) return slot2.future;
+              return Future.value(Uint8List.fromList([calls]));
+            },
+      );
+      session.addListener(() {
+        if (session.doneCount != 1) return;
+        session.cancel();
+        session.cancel();
+        if (!slot2.isCompleted) slot2.complete(Uint8List.fromList([2]));
+      });
+
+      await session.run().timeout(const Duration(seconds: 5));
+
+      expect(interrupts, 1);
+      expect(session.doneCount, lessThan(3));
+      expect(session.isRunning, isFalse);
+    });
   });
 }

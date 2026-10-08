@@ -431,11 +431,11 @@ void main() {
 
         expect(find.text('Where this memory came from'), findsOneWidget);
         expect(
-          find.textContaining('#0  Sam: I was wrong earlier.'),
+          find.textContaining('#1  Sam: I was wrong earlier.'),
           findsOneWidget,
         );
         expect(
-          find.textContaining('#1  Mara: That means a lot.'),
+          find.textContaining('#2  Mara: That means a lot.'),
           findsOneWidget,
         );
         // No jump callback wired here → no tap affordance offered.
@@ -499,7 +499,7 @@ void main() {
           findsOneWidget,
         );
 
-        await tester.tap(find.textContaining('#1  Mara: That means a lot.'));
+        await tester.tap(find.textContaining('#2  Mara: That means a lot.'));
         await tester.pumpAndSettle();
 
         expect(jumps, [1]);

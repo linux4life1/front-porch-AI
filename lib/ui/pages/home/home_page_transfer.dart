@@ -23,9 +23,9 @@ part of '../home_page.dart';
 /// Split out of the _HomePageState god file as a private extension
 /// (part of the same library, so it keeps full access to page state).
 extension _HomePageTransfer on _HomePageState {
-
   Future<void> _exportCharacter(BuildContext context, character) async {
-    String? outputFile = await PickerPrefs.saveFromBuilder(
+    String? outputFile = await GuardedPicker.saveFromBuilder(
+      context,
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Character Card',
       fileName: '${character.name}.png',
@@ -69,7 +69,8 @@ extension _HomePageTransfer on _HomePageState {
   /// accepts, just without the avatar image.
   Future<void> _exportCharacterJson(BuildContext context, character) async {
     final safeName = character.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    String? outputFile = await PickerPrefs.saveFromBuilder(
+    String? outputFile = await GuardedPicker.saveFromBuilder(
+      context,
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Character Card (JSON)',
       fileName: '$safeName.json',
@@ -214,7 +215,8 @@ extension _HomePageTransfer on _HomePageState {
     }
 
     final safeName = group.name.replaceAll(RegExp(r'[^a-zA-Z0-9_-]'), '_');
-    String? outputFile = await PickerPrefs.saveFromBuilder(
+    String? outputFile = await GuardedPicker.saveFromBuilder(
+      context,
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Group Card',
       fileName: '$safeName.group.png',
@@ -244,5 +246,4 @@ extension _HomePageTransfer on _HomePageState {
       }
     }
   }
-
 }

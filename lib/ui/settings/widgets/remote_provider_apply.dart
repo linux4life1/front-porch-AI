@@ -58,6 +58,6 @@ Future<void> applyRemoteProvider({
   }
 
   urlController?.text = storage.backendSettings.remoteApiUrl;
-  keyController?.text = storage.backendSettings.remoteApiKey;
+  keyController?.text = typedRemoteApiKey(storage.backendSettings);
   modelController?.text = storage.backendSettings.remoteModelName;
 }

@@ -176,7 +176,7 @@ export function GrowthPanel({
           </div>
         )}
         {r.receipts.slice(0, 3).map((p) => (
-          <span key={p} className="growth-receipt" title={`Earned at message #${p}`}>#{p}</span>
+          <span key={p} className="growth-receipt" title={`Earned at message #${p + 1}`}>#{p + 1}</span>
         ))}
         {r.receipts.length > 3 && <span className="muted small">+{r.receipts.length - 3}</span>}
       </div>

@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
+
 import 'growth_ops.dart';
 import 'growth_physics.dart';
 import 'salience_kick_gate.dart';
@@ -61,6 +62,9 @@ bool growthPassIsDue({
   if (userMessagesSincePass <= 0) return false;
   return kickPending || userMessagesSincePass >= interval;
 }
+
+/// [MemorySettings.growthInterval] when a caller does not pass the slider.
+int _defaultGrowthInterval() => 5;
 
 /// Growth Rings — the growth pass + effective-personality layering
 /// (docs/design/growth-rings.md). Replaces EvolutionService's monolithic
@@ -123,6 +127,10 @@ class GrowthService {
 
   final bool Function() getGrowthEnabled;
   final bool Function() getReviewFirst;
+
+  /// User messages between automatic passes. The reinforce brake allows
+  /// about one strength step per ring per this many messages.
+  final int Function() getGrowthInterval;
   final bool Function() getIsPassRunning;
   final void Function(bool) setIsPassRunning;
 
@@ -153,6 +161,7 @@ class GrowthService {
     required this.getJournalCards,
     required this.getGrowthEnabled,
     required this.getReviewFirst,
+    this.getGrowthInterval = _defaultGrowthInterval,
     required this.getIsPassRunning,
     required this.setIsPassRunning,
     required this.refreshCache,
@@ -250,11 +259,17 @@ class GrowthService {
       // Gating on `start == 0` only protected a virgin growth record; a
       // stuck non-zero cursor on a long chat reopened an unbounded window
       // after one failed pass. Same trap Journal fixed in journal_maintenance.
-      var start = growthPassWindowStart(
+      final freshFrom = growthPassWindowStart(
         await store.cursorFor(sessionToken),
         messages.length,
       );
-      if (start >= messages.length) {
+      // A forced "Check" on a caught-up cursor re-reads already-reviewed
+      // messages for context. It may still ADD, but it must not re-score
+      // them: no reinforce and no fade, or each press bumps the same ring
+      // +0.20 and fades the rest.
+      final rewound = freshFrom >= messages.length;
+      var start = freshFrom;
+      if (rewound) {
         if (!force) return;
         start = (messages.length - kForceWindowFallback).clamp(
           0,
@@ -317,6 +332,7 @@ class GrowthService {
         }
 
         final distillMode = legacyText.isNotEmpty;
+        final intervalHeld = <String>{};
         final resolved = _resolveOps(
           ops,
           active,
@@ -324,6 +340,8 @@ class GrowthService {
           ownerName: owner.name,
           windowStart: start,
           windowLength: window.length,
+          rewound: rewound,
+          intervalHeld: intervalHeld,
         );
         final proposals = GrowthOwnerProposals(
           ownerId: ownerId,
@@ -350,16 +368,42 @@ class GrowthService {
             .map((op) => op.ringId)
             .whereType<String>()
             .toSet();
-        await store.fadeUnreinforced(sessionToken, ownerId, engagedIds);
+        // A too-soon reinforce is not applied, but the ring did show up:
+        // do not also fade it on the passes that refuse the extra step.
+        engagedIds.addAll(intervalHeld);
+        if (!rewound) {
+          await store.fadeUnreinforced(sessionToken, ownerId, engagedIds);
+        }
 
+        final proposed = proposals.ops.length;
+        final ({int added, int reinforced, int revised, int retired}) wrote;
         if (reviewMode) {
           if (proposals.ops.isNotEmpty) parked.add(proposals);
+          int count(GrowthOpAction action) =>
+              proposals.ops.where((op) => op.action == action).length;
+          wrote = (
+            added: count(GrowthOpAction.add),
+            reinforced: count(GrowthOpAction.reinforce),
+            revised: count(GrowthOpAction.revise),
+            retired: count(GrowthOpAction.retire),
+          );
         } else {
-          await review.applyOwnerProposals(sessionToken, proposals);
+          wrote = await review.applyOwnerProposals(sessionToken, proposals);
         }
         anySucceeded = true;
+        final addN = wrote.added;
+        final reinN = wrote.reinforced;
+        final revN = wrote.revised;
+        final retN = wrote.retired;
+        final applied = addN + reinN + revN + retN;
+        final gap = !reviewMode && proposed != applied
+            ? ' ($proposed proposed)'
+            : '';
         debugPrint(
-          '[Growth] ✓ ${owner.name}: ${proposals.ops.length} op(s)'
+          '[Growth] ✓ ${owner.name}: $applied op(s) '
+          '(+$addN add, $reinN reinforce, $revN revise, $retN retire)'
+          '${rewound ? ' (re-check)' : ''}'
+          '$gap'
           '${proposals.distilled ? ' (distilled legacy growth)' : ''}'
           '${reviewMode ? ' (for review)' : ''}',
         );

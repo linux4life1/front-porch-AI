@@ -19,16 +19,22 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:flutter/foundation.dart' show visibleForTesting;
+
 import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
+    show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
+
+part 'chargen_facade.greetings.dart';
 
 /// Web adapter for the AI character creator. The generator itself
 /// ([CharacterGenService.generateCharacter]) is already fully headless — the
@@ -52,6 +58,14 @@ class ChargenFacade {
   final ImageGenService? _imageGen;
   final StorageService? _storage;
   final ChatService? _chat;
+
+  /// The Greetings step (chargen_facade.greetings.dart): the one greeting
+  /// being written, a cache of how characters created here wrote their
+  /// greetings (the card's own stamp is the record), and whether a whole
+  /// character is being created right now.
+  _GreetingJob? _greetingJob;
+  final Map<String, GreetingRecipe> _recipes = {};
+  bool _creating = false;
 
   /// Whether an LLM backend is ready to generate.
   bool get available => _llm.activeService.isReady;
@@ -149,7 +163,10 @@ class ChargenFacade {
           isLocalKobold:
               _llm.activeBackend == BackendType.kobold &&
               _llm.koboldService.isReady,
-          contextSize: _storage?.backendSettings.contextSize ?? 8192,
+          contextSize: switch (_storage?.backendSettings) {
+            final b? => b.promptContext(b.contextSize),
+            null => 8192,
+          },
         ),
       );
       final gen = CharacterGenService(svc);
@@ -188,6 +205,12 @@ class ChargenFacade {
           if (selection.greetings) 'firstMessage': result.firstMessage,
           if (selection.greetings)
             'alternateGreetings': result.alternateGreetings,
+          // How those greetings were written; the phone sends it back with
+          // them, so the copy does not keep the original's recipe.
+          if (selection.greetings)
+            'greetingRecipe':
+                (readGreetingRecipe(result) ?? const GreetingRecipe())
+                    .toStamp(),
           if (selection.lorebook && result.lorebook != null)
             'lorebook': result.lorebook!.toJson(),
           if (porch != null)
@@ -276,7 +299,8 @@ class ChargenFacade {
   /// backend / prompt / on failure (generation never blocks on the image step).
   /// Mirrors the desktop buildPortraitPromptSeed: strip the character name from the
   /// LLM-authored prompt so the image model doesn't render it as text.
-  Future<List<int>?> _renderPortrait(String name, String? imagePrompt) async {
+  @visibleForTesting
+  Future<List<int>?> renderPortrait(String name, String? imagePrompt) async {
     final svc = _imageGen;
     final prompt = imagePrompt?.trim() ?? '';
     if (svc == null || !svc.isConfigured || prompt.isEmpty) return null;
@@ -303,7 +327,10 @@ class ChargenFacade {
       // Configured size, oriented portrait, configured default negative —
       // mirrors the desktop creator (the old fixed 512x512 failed on remote
       // models that reject small sizes and capped local quality).
-      return await svc.generateImage(prompt: clean, isPortrait: true);
+      // No desktop dialog can be answered from here; see ImageFacade.generate.
+      return await withoutCity96Ask(
+        () => svc.generateImage(prompt: clean, isPortrait: true),
+      );
     } catch (_) {
       _hub?.broadcast({
         'event': 'chargen_status',
@@ -318,6 +345,7 @@ class ChargenFacade {
     Map<String, dynamic> fields,
     LLMService svc,
   ) async {
+    _creating = true;
     try {
       // Quick / Guided / Automated all flow through the same headless generator;
       // the web wizard assembles concept + characterContext per-mode (mirroring
@@ -375,7 +403,7 @@ class ChargenFacade {
       // convenience; desktop generation moved to the explicit Portrait &
       // Avatars panel). The LLM authored the prompt during generation; strip the
       // name (image models render names as text) and render a 512² portrait.
-      final portrait = await _renderPortrait(name, gen.generatedImagePrompt);
+      final portrait = await renderPortrait(name, gen.generatedImagePrompt);
       final saved = await _characters.persistNewCard(
         card,
         portraitBytes: portrait,
@@ -387,6 +415,7 @@ class ChargenFacade {
         });
         return;
       }
+      _rememberRecipe(saved['id']?.toString(), gen.greetingRecipe);
       _hub?.broadcast({
         'event': 'chargen_done',
         'id': saved['id'],
@@ -394,6 +423,8 @@ class ChargenFacade {
       });
     } catch (e) {
       _hub?.broadcast({'event': 'chargen_error', 'error': '$e'});
+    } finally {
+      _creating = false;
     }
   }
 }

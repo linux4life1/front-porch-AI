@@ -58,6 +58,10 @@ static void my_application_activate(GApplication *application) {
   g_autoptr(FlDartProject) project = fl_dart_project_new();
   fl_dart_project_set_dart_entrypoint_arguments(
       project, self->dart_entrypoint_arguments);
+  // Draw with Skia on every desktop: Impeller smears and ghosts text while a
+  // local model is working the GPU (flutter/flutter#193927). Same switch as
+  // macos/Runner/Info.plist and windows/runner/main.cpp.
+  fl_dart_project_set_enable_impeller(project, FALSE);
 
   FlView *view = fl_view_new(project);
   GdkRGBA background_color;

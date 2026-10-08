@@ -60,7 +60,7 @@ class QuickConfigStep extends StatelessWidget {
       style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
       maxLines: maxLines,
       minLines: minLines,
-      onChanged: (_) => state.saveState(),
+      onChanged: (_) => state.scheduleSave(),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
@@ -169,12 +169,14 @@ class QuickConfigStep extends StatelessWidget {
                   _inputLabel(
                     context,
                     'Describe them (optional)',
-                    helper: 'A sentence or two is plenty. Leave it blank and the AI will invent someone.',
+                    helper:
+                        'A sentence or two is plenty. Leave it blank and the AI will invent someone.',
                   ),
                   _textField(
                     context,
                     controller: state.conceptController,
-                    hint: 'A gruff dwarven blacksmith who secretly writes poetry...',
+                    hint:
+                        'A gruff dwarven blacksmith who secretly writes poetry...',
                     accent: quickAccent,
                     maxLines: 4,
                     minLines: 3,
@@ -183,12 +185,14 @@ class QuickConfigStep extends StatelessWidget {
                   _inputLabel(
                     context,
                     'Scenario / Setting (optional)',
-                    helper: 'Where does the story take place? What\'s the situation? The AI will build on this.',
+                    helper:
+                        'Where does the story take place? What\'s the situation? The AI will build on this.',
                   ),
                   _textField(
                     context,
                     controller: state.quickScenarioController,
-                    hint: 'A modern coffee shop where they work as a barista, a fantasy guild hall, a space station...',
+                    hint:
+                        'A modern coffee shop where they work as a barista, a fantasy guild hall, a space station...',
                     accent: quickAccent,
                     maxLines: 3,
                     minLines: 2,
@@ -231,7 +235,8 @@ class QuickConfigStep extends StatelessWidget {
                   _inputLabel(
                     context,
                     'Number of Greetings',
-                    helper: 'How many first messages to generate (1 main + alternates).',
+                    helper:
+                        'How many first messages to generate (1 main + alternates).',
                   ),
                   AlternateGreetingsSlider(
                     value: state.quickGreetingCount,
@@ -272,9 +277,7 @@ class QuickConfigStep extends StatelessWidget {
                       state.saveState();
                       state.notify();
                     },
-                    onSexChanged: () {
-                      state.saveState();
-                    },
+                    onSexChanged: state.scheduleSave,
                   ),
                   const SizedBox(height: 16),
                   DynamicMacrosToggle(
@@ -305,7 +308,8 @@ class QuickConfigStep extends StatelessWidget {
                 value: state.quickNsfwEnabled,
                 accentColor: nsfwAccent,
                 title: 'NSFW Content',
-                subtitle: 'Enables adult themes in personality, lorebook, and greetings',
+                subtitle:
+                    'Enables adult themes in personality, lorebook, and greetings',
                 animated: true,
                 onChanged: (v) {
                   state.quickNsfwEnabled = v;

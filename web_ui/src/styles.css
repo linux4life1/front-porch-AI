@@ -24,5 +24,7 @@
 @import './styles/crop.css';
 @import './styles/stoop.css';
 @import './styles/engine.css';
+@import './styles/kobold.css';
 @import './styles/calendar.css';
 @import './styles/living-time.css';
+@import './styles/greetings.css';

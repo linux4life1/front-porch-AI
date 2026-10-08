@@ -20,11 +20,10 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
-import 'package:front_porch_ai/ui/image_studio/comfy_create_panel.dart';
-import 'package:front_porch_ai/ui/image_studio/model_slot_dropdown.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'avatar_creation_controller.dart';
+import 'avatar_studio_line.dart';
 
 /// Compact mirror of Image Studio's engine controls — backend picker, live
 /// connection dot, Test, CREATE-model picker, and a gear that jumps to the
@@ -38,10 +37,6 @@ class EngineStrip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = controller;
-    final controls = imageSurfaceFor(
-      backend: c.backend,
-      modelName: c.storage.imageGenSettings.imageGenModel,
-    );
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -88,20 +83,7 @@ class EngineStrip extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (controls.showWorkflowSlots)
-            const ComfyCreatePanel()
-          else if (controls.showCheckpointSlot)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(top: 10),
-                  child: _label(context, 'CREATE MODEL'),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: _createModelPicker(context, c)),
-              ],
-            ),
+          const AvatarStudioLine(),
           const SizedBox(height: 6),
           Text(
             'Bound to the Studio\'s Create-model slot — model memory is split '
@@ -198,70 +180,6 @@ class EngineStrip extends StatelessWidget {
         const SizedBox(width: 6),
         Text(text, style: TextStyle(color: color, fontSize: 12)),
       ],
-    );
-  }
-
-  Widget _createModelPicker(BuildContext context, AvatarCreationController c) {
-    if (c.loadingModels) {
-      return const Padding(
-        padding: EdgeInsets.only(top: 10),
-        child: SizedBox(
-          width: 14,
-          height: 14,
-          child: CircularProgressIndicator(
-            strokeWidth: 2,
-            color: AppColors.formMasterAccent,
-          ),
-        ),
-      );
-    }
-    // Offline fallback: surface the persisted selection even before a fetch.
-    final options = c.modelOptions.isNotEmpty
-        ? c.modelOptions
-        : (c.storage.imageGenSettings.imageGenModel.isNotEmpty
-              ? [
-                  (
-                    value: c.storage.imageGenSettings.imageGenModel,
-                    label: c.storage.imageGenSettings.imageGenModel,
-                  ),
-                ]
-              : const <({String value, String label})>[]);
-    if (options.isEmpty) {
-      return Padding(
-        padding: const EdgeInsets.only(top: 10),
-        child: Text(
-          c.backend == ImageGenBackend.drawThings && c.connectionOk == true
-              ? 'Draw Things is connected, but Model Browser is off, so '
-                    'there is no model list.'
-              : 'Models appear here once the engine is connected.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-          ),
-        ),
-      );
-    }
-    return ModelSlotDropdown(
-      settings: c.storage.imageGenSettings,
-      editSlot: false,
-      keyPrefix: 'creator-create-model',
-      fontSize: 12,
-      decoration: InputDecoration(
-        hintText: 'Select',
-        hintStyle: TextStyle(color: AppColors.textTertiary(context)),
-        filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: 12,
-          vertical: 10,
-        ),
-        isDense: true,
-      ),
-      options: options,
     );
   }
 }

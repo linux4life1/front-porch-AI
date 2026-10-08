@@ -111,6 +111,43 @@ Ten minutes of this catches more than another thousand unit tests.
 
 ---
 
+## Hygiene gates
+
+Some drift fails CI by itself, so nobody has to spot it in review. These
+checks live in `test/hygiene/` and run in the ordinary `test` job, next to
+the older ones (the 500-line file cap, file pickers, deleted dead code). A
+failure names the file and line and says what to use instead.
+
+Where old offenders already existed, the gate is a ratchet: they are counted
+per file in `test/baselines/`, a file may never go above its count, and a new
+file starts at zero. Cleaning old ones up never fails anything. Now and then
+ask an agent to run the gates with `FPAI_TIGHTEN_BASELINES=1`, which lowers
+the counts to match (it can never raise them). Editing a baseline needs your
+`approved-test-change` label.
+
+**Dialogs.** Every pop-up goes through the warm-porch dialog
+(`showWarmDialog`). A dialog or sheet built any other way fails. Existing
+ones: `test/baselines/raw_dialogs.json`.
+
+**Colours.** Screens take their colours from the app palette (`AppColors`),
+so light mode and the warm-porch look hold everywhere. A raw colour in screen
+code fails, and the message names the nearest palette colour. Allowed:
+see-through, and black for a shadow or for the dimming behind a pop-up. A
+deliberate status colour (a green "ready" dot) passes when its line ends with
+`// theme-keep: <reason>`, or when that comment sits alone on the line just
+above it. One comment never excuses more than that one line. Existing ones:
+`test/baselines/raw_colors.json`.
+
+**Stale base.** The local gate (`scripts/ci-local.sh`, every mode) refuses
+to run on a branch that is not on the current Rawhide, because CI tests the
+PR merged with Rawhide's head and a pass on an old base proves nothing about
+that. It says: "This branch is not on the current Rawhide (another PR merged
+since your rebase). Rebase first, or run with FPAI_ALLOW_STALE_BASE=1." If
+GitHub does not answer within 20 seconds it stops and says so. The override
+is for working offline.
+
+---
+
 ## Cadence
 
 | When | What to run / say |

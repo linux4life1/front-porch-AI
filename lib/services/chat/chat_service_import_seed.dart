@@ -205,8 +205,9 @@ extension ChatServiceImportSeed on ChatService {
       'fixation_lifespan': _relationshipService.fixationLifespan,
       'spatial_stance': _relationshipService.spatialStance,
       'arousal_level': _nsfwService.arousalLevel,
-      'cooldown_turns_remaining': _nsfwService.cooldownTurnsRemaining,
-      'cooldown_turns_total': _nsfwService.cooldownTurnsTotal,
+      'refractory_minutes_remaining': _nsfwService.refractoryMinutesRemaining,
+      'refractory_minutes_total': _nsfwService.refractoryMinutesTotal,
+      'refractory_opened': _nsfwService.refractoryOpened,
       'time_of_day': _timeService.timeOfDay,
       'day_count': _timeService.dayCount,
       'start_day_of_week': _timeService.startDayOfWeekAnchor,
@@ -270,10 +271,17 @@ extension ChatServiceImportSeed on ChatService {
       if (head['spatial_stance'] != null)
         'spatialStance': head['spatial_stance'],
       if (head['arousal_level'] != null) 'arousalLevel': head['arousal_level'],
+      if (head['refractory_minutes_remaining'] != null)
+        RefractoryKeys.minutes: head['refractory_minutes_remaining'],
+      if (head['refractory_minutes_total'] != null)
+        RefractoryKeys.total: head['refractory_minutes_total'],
+      if (head['refractory_opened'] != null)
+        RefractoryKeys.opened: head['refractory_opened'],
+      // Files saved before minutes: turns, read once as turns × 15.
       if (head['cooldown_turns_remaining'] != null)
-        'cooldownTurnsRemaining': head['cooldown_turns_remaining'],
+        RefractoryKeys.legacyTurns: head['cooldown_turns_remaining'],
       if (head['cooldown_turns_total'] != null)
-        'cooldownTurnsTotal': head['cooldown_turns_total'],
+        RefractoryKeys.legacyTotal: head['cooldown_turns_total'],
       if (head['time_of_day'] != null) 'timeOfDay': head['time_of_day'],
       if (head['day_count'] != null) 'dayCount': head['day_count'],
       if (head['start_day_of_week'] != null)

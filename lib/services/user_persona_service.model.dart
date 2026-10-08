@@ -76,7 +76,7 @@ class UserPersona {
     final personaText =
         (json['persona'] as String?) ?? (json['description'] as String?) ?? '';
     return UserPersona(
-      id: json['id'] ?? DateTime.now().millisecondsSinceEpoch.toString(),
+      id: json['id'] ?? _newPersonaId(),
       title: json['title'] ?? '',
       name: json['name'] ?? 'User',
       persona: personaText,

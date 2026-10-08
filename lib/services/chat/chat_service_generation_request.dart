@@ -189,6 +189,8 @@ extension ChatServiceGenerationRequest on ChatService {
             ? g2.resolveBannedPhrases(_storageService)
             : null,
         images: turnImages,
+        kvChat: _kvChatKey,
+        stillWant: () => !_cancelRequested,
       );
     }
 

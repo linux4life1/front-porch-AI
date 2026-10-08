@@ -42,48 +42,98 @@ Future<T?> showWarmDialog<T>(
   double width = 320,
   bool barrierDismissible = true,
 }) {
+  return showWarmDialogOf<T>(
+    context,
+    barrierDismissible: barrierDismissible,
+    builder: (_) => WarmDialog(
+      title: title,
+      content: content,
+      actions: actions,
+      icon: icon,
+      accent: accent,
+      destructive: destructive,
+      width: width,
+    ),
+  );
+}
+
+/// Opens a dialog that owns its own state: [builder] returns a widget (usually
+/// a StatefulWidget) whose `build` returns a [WarmDialog], so the body and the
+/// buttons can share that state (a Save that disables while saving, a message
+/// a button sets). For a dialog with fixed content and buttons, [showWarmDialog]
+/// is shorter.
+Future<T?> showWarmDialogOf<T>(
+  BuildContext context, {
+  required WidgetBuilder builder,
+  bool barrierDismissible = true,
+}) {
   return showDialog<T>(
     context: context,
     barrierDismissible: barrierDismissible,
-    builder: (ctx) {
-      final tint = destructive ? AppColors.negativeAccentOf(ctx) : accent;
-      return AlertDialog(
-        backgroundColor: AppColors.surfaceOf(ctx),
-        // One radius (matches the sidebar's warm-porch cards) and one border
-        // convention: an accent-tinted hairline, or the neutral border.
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-          side: BorderSide(
-            color:
-                tint?.withValues(alpha: 0.5) ??
-                AppColors.borderOf(ctx).withValues(alpha: 0.6),
-          ),
+    builder: builder,
+  );
+}
+
+/// The warm-porch dialog scaffold itself. [showWarmDialog] builds one; a
+/// dialog with its own state returns one from `build` (see [showWarmDialogOf]).
+class WarmDialog extends StatelessWidget {
+  const WarmDialog({
+    super.key,
+    required this.title,
+    required this.content,
+    this.actions,
+    this.icon,
+    this.accent,
+    this.destructive = false,
+    this.width = 320,
+  });
+  final String title;
+  final Widget content;
+  final List<Widget>? actions;
+  final IconData? icon;
+  final Color? accent;
+  final bool destructive;
+  final double width;
+
+  @override
+  Widget build(BuildContext ctx) {
+    final tint = destructive ? AppColors.negativeAccentOf(ctx) : accent;
+    return AlertDialog(
+      backgroundColor: AppColors.surfaceOf(ctx),
+      // One radius (matches the sidebar's warm-porch cards) and one border
+      // convention: an accent-tinted hairline, or the neutral border.
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color:
+              tint?.withValues(alpha: 0.5) ??
+              AppColors.borderOf(ctx).withValues(alpha: 0.6),
         ),
-        title: Row(
-          children: [
-            if (icon != null) ...[
-              Icon(icon, color: tint ?? AppColors.iconSecondary(ctx), size: 22),
-              const SizedBox(width: 10),
-            ],
-            Expanded(
-              child: Text(
-                title,
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: destructive
-                      ? AppColors.negativeAccentOf(ctx)
-                      : AppColors.textPrimary(ctx),
-                ),
+      ),
+      title: Row(
+        children: [
+          if (icon != null) ...[
+            Icon(icon, color: tint ?? AppColors.iconSecondary(ctx), size: 22),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              title,
+              style: TextStyle(
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+                color: destructive
+                    ? AppColors.negativeAccentOf(ctx)
+                    : AppColors.textPrimary(ctx),
               ),
             ),
-          ],
-        ),
-        content: SizedBox(width: width, child: content),
-        actions: actions,
-      );
-    },
-  );
+          ),
+        ],
+      ),
+      content: SizedBox(width: width, child: content),
+      actions: actions,
+    );
+  }
 }
 
 /// A dialog body paragraph in the warm-porch secondary text color (theme-aware).

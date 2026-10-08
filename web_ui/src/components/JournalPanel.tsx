@@ -181,7 +181,7 @@ export function JournalPanel({
           <span className="muted small">Day {c.storyDay}</span>
         )}
         {c.receipts.slice(0, 3).map((p) => (
-          <span key={p} className="growth-receipt" title={`From message #${p}`}>#{p}</span>
+          <span key={p} className="growth-receipt" title={`From message #${p + 1}`}>#{p + 1}</span>
         ))}
         {c.receipts.length > 3 && (
           <span className="muted small">+{c.receipts.length - 3}</span>

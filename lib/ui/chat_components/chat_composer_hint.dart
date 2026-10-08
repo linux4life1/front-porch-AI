@@ -29,8 +29,16 @@ const kDirectTheSceneHint = 'Direct the scene...';
 /// [apiReady] is the *connection* flag ([LLMProvider.composerConnectionReady])
 /// — configured / process up. Local GGUF-ready is not this (swaps would
 /// flash the input). A one-off HTTP 500 on a live backend is not this.
-String chatComposerHint({required bool apiReady, required bool observerMode}) {
-  if (!apiReady) return kNoApiConnectionHint;
+///
+/// [reason] is why the app's start of KoboldCpp was refused
+/// ([LLMProvider.composerConnectionHint]); it says it in place of the
+/// generic words, and only while there is no connection.
+String chatComposerHint({
+  required bool apiReady,
+  required bool observerMode,
+  String? reason,
+}) {
+  if (!apiReady) return reason ?? kNoApiConnectionHint;
   if (observerMode) return kDirectTheSceneHint;
   return kTypeAMessageHint;
 }

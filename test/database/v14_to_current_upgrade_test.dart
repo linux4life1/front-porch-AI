@@ -132,7 +132,9 @@ void main() {
     }
 
     final first = await hydrateOnce();
-    expect(first['_meta']!['user_version'], 53);
+    // 2026-10-06: v55 adds the refractory minute columns, so the ladder now
+    // ends at 55.
+    expect(first['_meta']!['user_version'], 55);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -157,7 +159,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 53);
+    expect(second['_meta']!['user_version'], 55);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

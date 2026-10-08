@@ -31,7 +31,7 @@ class ResultView extends StatelessWidget {
   final bool isSaving;
   final VoidCallback onSave;
   final VoidCallback onAccept;
-  final VoidCallback onVariations;
+  final VoidCallback? onVariations;
   final VoidCallback onEditRegen;
   final VoidCallback? onSendToChat;
 

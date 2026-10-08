@@ -20,17 +20,18 @@
 // report. The persistence layer was never the bug — setContextSize always
 // round-tripped — the Settings page's silent auto-config was re-running on
 // every visit for users whose saved gpuLayers was 0 and persisting a
-// recomputed context over the saved one. These tests pin the three facts the
-// fix relies on: the round trip works, `gpuLayersConfigured` distinguishes
-// "never configured" from "deliberately 0", and the optimizer honors a
-// requested context size verbatim (so re-running it against the SAVED value
-// is a no-op on context).
+// recomputed context over the saved one. These tests pin the facts the fix
+// relies on: the round trip works, and `gpuLayersConfigured` distinguishes
+// "never configured" from "deliberately 0".
+//
+// A third group used to pin that the optimizer honoured a requested context
+// size. It went with the optimizer: KoboldCpp now fits the model itself and
+// nothing in the app recomputes the context size, so there is no longer
+// anything that could overwrite the saved one.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-import 'package:front_porch_ai/services/optimization_service.dart';
-import 'package:front_porch_ai/services/services.dart' show HardwareInfo;
 import 'package:front_porch_ai/services/storage/settings/backend_settings.dart';
 
 Future<BackendSettings> _loadedSettings(Map<String, Object> values) async {
@@ -88,23 +89,6 @@ void main() {
     test('true for an existing install with a saved non-zero value', () async {
       final s = await _loadedSettings({'gpu_layers': 24});
       expect(s.gpuLayersConfigured, isTrue);
-    });
-  });
-
-  group('OptimizationService requested context', () {
-    test('a requested context size is returned verbatim, never resized', () {
-      final hw = HardwareInfo(
-        gpuName: 'Test GPU',
-        vramMb: 8192,
-        ramMb: 32768,
-        vendor: 'Nvidia',
-      );
-      final result = OptimizationService.calculateSettings(
-        hw,
-        modelSizeMb: 7000,
-        requestedContextSize: 32768,
-      );
-      expect(result.contextSize, 32768);
     });
   });
 }

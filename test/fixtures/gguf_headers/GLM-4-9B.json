@@ -1,0 +1,31 @@
+{
+ "source": "bartowski/THUDM_GLM-4-9B-0414-GGUF/THUDM_GLM-4-9B-0414-Q4_K_M.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 6166574464,
+ "real_data_start": 9336192,
+ "fixture_file_bytes": 6157269856,
+ "truth": {
+  "arch": "glm4",
+  "n_layer": 40,
+  "n_tensors": 523,
+  "bytes": {
+   "total": 6157238272,
+   "blocks": 5298831360,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 349175808,
+   "output": 509214720,
+   "other": 16384
+  },
+  "mb": {
+   "total": 5872,
+   "blocks": 5053,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 333,
+   "output": 486,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 5539,
+   "gpu_all_layers": 5539
+  }
+ }
+}

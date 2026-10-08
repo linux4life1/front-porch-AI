@@ -220,7 +220,7 @@ class AppearanceBuilderCard extends StatelessWidget {
                   state.race = '';
                   state.notify();
                 }
-                state.saveState();
+                state.scheduleSave();
               },
             ),
           ),

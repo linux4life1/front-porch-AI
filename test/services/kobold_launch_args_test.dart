@@ -1,29 +1,93 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Guards for the KoboldCpp argv builder.
+// Guards for the KoboldCpp launch builder.
 //
-// Every rule in buildKoboldLaunchArgs is a decision with a bug behind it — the
-// iGPU-defaulting --usecublas that ran a discrete RTX's work on the integrated
-// GPU at ~0.5 t/s, the flash-attention prerequisite that --quantkv needs, the
-// launcher's argparse cap that rejects a batch size the engine itself accepts.
-// None of it was reachable by a test while it lived inside startKobold, which
-// spawns a process; as a pure function it is, so here it is.
+// The app launches KoboldCpp one way: from a config it writes into the admin
+// folder. The command line carries only the port and the admin folder, which
+// KoboldCpp will not take from a config. Every rule about memory, the
+// graphics card, the cache and the vision file is therefore a rule about what
+// that config says, and that is what these cases read back.
 //
-// This file was written when the block was extracted (2026-08-08). It asserts
-// the arguments as they were ALREADY being built — it is a characterisation of
-// the shipped behaviour, not a new specification.
+// Rewritten 2026-10-03 with the launch rewrite (docs/design/
+// kobold-launch-rewrite.md). The earlier version of this file asserted
+// individual command-line flags (`--gpulayers 33`, `--usemlock`,
+// `--blasbatchsize`, a one-setting batch file); those flags are no longer
+// sent, on purpose, so those assertions became false. Each rule that still
+// holds has a case here in its new form.
+//
+// 2026-10-03: two cases added (a preset is staged as it was written; a
+// preset that leaves sliding window to KoboldCpp). No existing case changed.
+//
+// Changed 2026-10-04: every staged config now names `host: 127.0.0.1`, so
+// the app's KoboldCpp answers this computer only (the command line is
+// frozen; see kobold/kobold_listen_address_test.dart). "A preset is staged
+// as it was written" counted every key outside its overlay, and the listen
+// address is now one more setting the app lays over a preset. The case lists
+// it in the overlay and in the one pairing it spells out; nothing else in it
+// changed.
+//
+// Changed 2026-10-05: every staged config now also says
+// `adminunloadtimeout: 0`, so KoboldCpp's own idle unload never runs (the app
+// keeps its own timer, which can load chat back; see
+// kobold/kobold_admin_unload_off_test.dart). The same kind of change as the
+// listen address: one more setting the app lays over a preset. "A preset is
+// staged as it was written" lists it in the overlay and in the one pairing it
+// spells out; nothing else in it changed.
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
+import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 // The path_provider mock + in-memory StorageService factory.
 import 'kobold_service_test.dart'
     show createStorageService, setupPathProviderMock;
+
+final _nvidia = HardwareInfo(
+  gpuName: 'RTX 3060',
+  vramMb: 12288,
+  ramMb: 32768,
+  vendor: 'Nvidia',
+  hasCuda: true,
+);
+
+/// The header of a model file. With [slidingWindow], its metadata says the
+/// model has sliding window.
+List<int> _gguf({bool slidingWindow = false}) {
+  List<int> u32(int v) => Uint8List(4)..buffer.asUint32List()[0] = v;
+  List<int> u64(int v) => Uint8List(8)..buffer.asUint64List()[0] = v;
+  final meta = {
+    'general.architecture': 'gemma3',
+    'gemma3.block_count': '4',
+    'gemma3.attention.head_count': '4',
+    'gemma3.embedding_length': '64',
+    // The key real model files use. An earlier version of this helper
+    // wrote `gemma3.sliding_window`, which no model has; the app read that
+    // same wrong key, so sliding window was never seen on a real model.
+    if (slidingWindow) 'gemma3.attention.sliding_window': '1024',
+  };
+  return [
+    ...utf8.encode('GGUF'),
+    ...u32(3),
+    ...u64(0),
+    ...u64(meta.length),
+    for (final e in meta.entries) ...[
+      ...u64(utf8.encode(e.key).length),
+      ...utf8.encode(e.key),
+      ...u32(8), // a string value
+      ...u64(utf8.encode(e.value).length),
+      ...utf8.encode(e.value),
+    ],
+  ];
+}
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -52,6 +116,9 @@ void main() {
     bool useCublas = false,
     bool useMetal = false,
     bool useRocm = false,
+    HardwareInfo? hardware,
+    Future<HardwareInfo?> Function()? awaitHardware,
+    void Function(String note)? onNote,
   }) => buildKoboldLaunchArgs(
     storage: storage,
     executablePath: '${binDir.path}/koboldcpp',
@@ -65,194 +132,431 @@ void main() {
     useCublas: useCublas,
     useMetal: useMetal,
     useRocm: useRocm,
+    hardware: hardware,
+    awaitHardware: awaitHardware,
+    onNote: onNote,
   );
 
-  /// The value that follows [flag], or null when the flag is absent.
-  String? valueAfter(List<String> args, String flag) {
-    final i = args.indexOf(flag);
-    return i < 0 || i + 1 >= args.length ? null : args[i + 1];
-  }
+  /// The config the launch will run, read back from where it was staged.
+  Map<String, dynamic> staged(List<String> args) =>
+      (jsonDecode(File(args[args.indexOf('--config') + 1]).readAsStringSync())
+              as Map)
+          .cast<String, dynamic>();
 
-  test('standard mode carries the model, port, context and layers', () async {
-    final args = await build();
-    expect(valueAfter(args, '--model'), '/models/mini-magnum-12b.gguf');
-    expect(valueAfter(args, '--port'), '5001');
-    expect(valueAfter(args, '--contextsize'), '8192');
-    expect(valueAfter(args, '--gpulayers'), '33');
+  File preset(Map<String, dynamic> content) =>
+      File('${binDir.path}/mine.kcpps')..writeAsStringSync(jsonEncode(content));
+
+  test('the command line is the staged config, the port and the admin '
+      'folder, and nothing else', () async {
+    final args = await build(port: 5002);
+    final adminDir = koboldAdminDirFor(storage);
+    expect(args, [
+      '--config',
+      '$adminDir/$kStagedChatConfig',
+      '--port',
+      '5002',
+      '--admin',
+      '--admindir',
+      adminDir,
+    ]);
+    expect(Directory(adminDir).existsSync(), isTrue);
   });
 
-  test('--jinja is on BOTH launch paths', () async {
-    // The whole reason reasoning models can think locally — and, less happily,
-    // the reason a template with no system branch gets to throw the character
-    // card away (system_role_probe.dart). It must never be conditional.
-    expect(await build(), contains('--jinja'));
-    expect(await build(kcppsPath: '/presets/mine.kcpps'), contains('--jinja'));
+  test('the app\'s own settings carry the model and context, and leave '
+      'memory placement to KoboldCpp', () async {
+    final config = staged(await build());
+    expect(config['model_param'], '/models/mini-magnum-12b.gguf');
+    expect(config['contextsize'], 8192);
+    // The caller passed 33, but nobody chose "set layers myself".
+    expect(config['gpulayers'], -1);
+    expect(config.containsKey('autofit'), isFalse);
+    expect(config['usemmap'], isTrue);
+    expect(config['usemlock'], isFalse);
   });
 
-  test('preset mode defers to the .kcpps and only forces the port', () async {
-    final args = await build(kcppsPath: '/presets/mine.kcpps', modelPath: '');
-    expect(valueAfter(args, '--config'), '/presets/mine.kcpps');
-    expect(valueAfter(args, '--port'), '5001');
-    expect(
-      args,
-      isNot(contains('--model')),
-      reason: 'an empty modelPath means the preset owns the model',
-    );
-    expect(
-      args,
-      isNot(contains('--contextsize')),
-      reason: 'the preset owns everything except the port',
-    );
-  });
-
-  test('a preset with no model of its own still gets one on the CLI', () async {
-    // Without this KoboldCpp opens its own native file picker.
-    final args = await build(
-      kcppsPath: '/presets/mine.kcpps',
-      modelPath: '/models/picked.gguf',
-    );
-    expect(valueAfter(args, '--model'), '/models/picked.gguf');
-  });
-
-  test('CUDA always names an explicit GPU id', () async {
-    // A bare --usecublas defaults to GPU 0, which on an iGPU + discrete-RTX
-    // machine is the iGPU: everything ran at ~0.5 t/s and nothing said why.
-    await storage.backendSettings.setGpuId(1);
-    final args = await build(useCublas: true);
-    expect(valueAfter(args, '--usecublas'), '1');
+  test('a layer count is sent only when the user chose to set it', () async {
+    await storage.backendSettings.setGpuLayersManual(true);
+    expect(staged(await build(gpuLayers: 33))['gpulayers'], 33);
   });
 
   test(
-    'ROCm names its device too and always disables flash attention',
+    'the chat template is on for both the app settings and a preset',
     () async {
-      // The flash-attention kernel crashes on many AMD cards, so it is off even
-      // when the user asked for it in Advanced settings.
-      await storage.backendSettings.setGpuId(2);
-      await storage.backendSettings.setFlashAttentionEnabled(true);
-      final args = await build(useRocm: true);
-      expect(valueAfter(args, '--usehipblas'), '2');
-      expect(args, contains('--noflashattention'));
-      expect(args, isNot(contains('--flashattention')));
-    },
-  );
-
-  test('flash attention no longer requires KV quantisation to be on', () async {
-    // It used to be added only alongside --quantkv, so CUDA and Metal users
-    // without KV quant silently never got the ~30% speed-up.
-    await storage.backendSettings.setFlashAttentionEnabled(true);
-    expect(await build(useCublas: true), contains('--flashattention'));
-    expect(await build(useMetal: true), contains('--flashattention'));
-    expect(
-      await build(),
-      isNot(contains('--flashattention')),
-      reason: 'no GPU backend that supports it',
-    );
-  });
-
-  test(
-    '--quantkv forces flash attention on, even if the user turned it off',
-    () async {
-      // V-cache quantisation does not work without it.
-      await storage.backendSettings.setFlashAttentionEnabled(false);
-      await storage.backendSettings.setKvQuantizationLevel(2);
-      final args = await build(useCublas: true);
-      expect(valueAfter(args, '--quantkv'), '2');
-      expect(args, contains('--flashattention'));
+      expect(staged(await build())['jinja'], isTrue);
+      final file = preset({'model_param': '/m/a.gguf', 'jinja': false});
       expect(
-        args.where((a) => a == '--flashattention').length,
-        1,
-        reason: 'added twice would be a duplicate flag on the command line',
+        staged(await build(modelPath: '', kcppsPath: file.path))['jinja'],
+        isTrue,
       );
     },
   );
 
-  test('--quantkv does NOT force flash attention on ROCm', () async {
-    await storage.backendSettings.setFlashAttentionEnabled(true);
-    await storage.backendSettings.setKvQuantizationLevel(2);
-    final args = await build(useRocm: true);
-    expect(args, contains('--quantkv'));
-    expect(
-      args,
-      isNot(contains('--flashattention')),
-      reason: 'the kernel crashes on AMD — quantkv must not smuggle it back',
+  test('a preset keeps its own settings, including ones the app does not '
+      'manage', () async {
+    final file = preset({
+      'model_param': '/m/preset-model.gguf',
+      'contextsize': 12288,
+      'gpulayers': 20,
+      'defaultgenamt': 999,
+      'noswa': true,
+    });
+    await storage.backendSettings.setGpuLayersManual(false);
+    final config = staged(
+      await build(modelPath: '', kcppsPath: file.path, contextSize: 8192),
+    );
+    expect(config['model_param'], '/m/preset-model.gguf');
+    expect(config['contextsize'], 12288);
+    expect(config['gpulayers'], 20);
+    expect(config['defaultgenamt'], 999);
+    // The user's file is read, never edited.
+    expect(jsonDecode(file.readAsStringSync())['jinja'], isNull);
+  });
+
+  test(
+    'a preset with no model of its own gets the one the app picked',
+    () async {
+      final file = preset({'contextsize': 4096});
+      final config = staged(
+        await build(modelPath: '/models/picked.gguf', kcppsPath: file.path),
+      );
+      expect(config['model_param'], '/models/picked.gguf');
+    },
+  );
+
+  test('a preset that cannot be read stops the launch with a plain '
+      'message', () async {
+    final file = File('${binDir.path}/broken.kcpps')
+      ..writeAsStringSync('{not json');
+    await expectLater(
+      build(modelPath: '', kcppsPath: file.path),
+      throwsA(
+        isA<KoboldPresetProblem>().having(
+          (e) => e.message,
+          'message',
+          allOf(contains('broken.kcpps'), contains('can\'t be read')),
+        ),
+      ),
     );
   });
 
-  test('the default BLAS batch size is left off the command line', () async {
-    await storage.backendSettings.setBlasBatchSize(512);
-    expect(
-      await build(),
-      isNot(contains('--blasbatchsize')),
-      reason: "KoboldCpp's own default should apply when untouched",
+  test('a preset is staged as it was written: the staged file equals the '
+      'original apart from the few settings the app lays over it', () async {
+    // What the app may differ in: the model it resolved, the chat template,
+    // the vision file, the listen address, KoboldCpp's own idle unload (off),
+    // and sliding window when the file has it on together with fast forward.
+    const overlay = {
+      'model_param',
+      'jinja',
+      'mmproj',
+      'host',
+      'adminunloadtimeout',
+      'noswa',
+    };
+    final proj = File('${binDir.path}/proj.gguf')..writeAsStringSync('x');
+
+    for (final written in <Map<String, dynamic>>[
+      // CUDA with its options.
+      {
+        'usecuda': ['normal', '1', 'nommq', 'rowsplit'],
+      },
+      {
+        'usecuda': ['lowvram', '0', 'mmq'],
+      },
+      // Two graphics cards with a split between them.
+      {
+        'usevulkan': [0, 1],
+        'tensor_split': [1, 1],
+      },
+      // A layer count with the MoE experts of 12 layers on the CPU.
+      {'gpulayers': 48, 'moecpu': 12},
+      // Sliding window with fast forward off, and sizes past the range the
+      // app's own settings offer.
+      {
+        'noswa': false,
+        'nofastforward': true,
+        'swapadding': 512,
+        'smartcache': 40,
+      },
+      // No context size: KoboldCpp's default must stay KoboldCpp's.
+      {'model_param': '/m/own.gguf', 'batchsize': 1536},
+    ]) {
+      final config = staged(
+        await build(
+          modelPath: '/models/picked.gguf',
+          kcppsPath: preset(written).path,
+          mmprojPath: proj.path,
+          contextSize: 8192,
+        ),
+      );
+      expect(
+        {...config}..removeWhere((key, _) => overlay.contains(key)),
+        {...written}..removeWhere((key, _) => overlay.contains(key)),
+        reason: 'nothing dropped, changed or filled in for $written',
+      );
+      expect(config['model_param'], '/models/picked.gguf');
+      expect(config['jinja'], isTrue);
+      expect(config['mmproj'], proj.path);
+      // The file's own answer on sliding window stands whenever it is not
+      // "on, with fast forward on".
+      expect(config['noswa'], written['noswa'], reason: '$written');
+      expect(config.containsKey('contextsize'), isFalse, reason: '$written');
+    }
+
+    // The one pairing the app changes: on in the file, with fast forward on.
+    final unsafe = staged(
+      await build(
+        modelPath: '',
+        kcppsPath: preset({'noswa': false, 'smartcache': 40}).path,
+      ),
     );
+    expect(unsafe, {
+      'noswa': true,
+      'smartcache': 40,
+      'jinja': true,
+      'host': '127.0.0.1',
+      'adminunloadtimeout': 0,
+    });
   });
 
-  test('an oversized BLAS batch rides a config file, not the flag', () async {
-    // KoboldCpp's CLI rejects anything above 4096 (an argparse `choices`
-    // list), but its config loader applies values with setattr AFTER parsing,
-    // so the engine accepts what the launcher refuses.
+  test('a preset that leaves sliding window to KoboldCpp is run as written, '
+      'and the log says what that means for a model that has it', () async {
+    final withSwa = File('${binDir.path}/swa.gguf')
+      ..writeAsBytesSync(_gguf(slidingWindow: true));
+    final without = File('${binDir.path}/plain.gguf')
+      ..writeAsBytesSync(_gguf());
+    final silent = preset({'contextsize': 4096});
+
+    final notes = <String>[];
+    final config = staged(
+      await build(
+        modelPath: withSwa.path,
+        kcppsPath: silent.path,
+        onNote: notes.add,
+      ),
+    );
+    expect(config.containsKey('noswa'), isFalse, reason: 'nothing changed');
+    expect(notes.single, contains('does not say how to handle sliding'));
+    expect(notes.single, contains('"noswa": true'));
+
+    // A model without sliding window: nothing to say.
+    notes.clear();
+    await build(
+      modelPath: without.path,
+      kcppsPath: silent.path,
+      onNote: notes.add,
+    );
+    expect(notes, isEmpty);
+
+    // A preset that settles it, or has fast forward off: nothing to say.
+    for (final settled in [
+      {'noswa': true},
+      {'nofastforward': true},
+    ]) {
+      await build(
+        modelPath: withSwa.path,
+        kcppsPath: preset(settled).path,
+        onNote: notes.add,
+      );
+      expect(notes, isEmpty, reason: '$settled');
+    }
+  });
+
+  test('CUDA names the chosen card, as text', () async {
+    await storage.backendSettings.setGpuId(1);
+    final config = staged(await build(useCublas: true));
+    expect(config['usecublas'], ['normal', '1']);
+  });
+
+  // Changed 2026-10-04: this case pinned "ROCm always switches flash
+  // attention off", which also left a compressed cache that could not
+  // shrink. The maintainer ruled that ROCm follows the setting like any
+  // other card (the ROCm build ran every model tested with it on, on a real
+  // RX 6900 XT), with a fallback to off on a machine where it died.
+  test('ROCm names the card and has flash attention like any other card, '
+      'so a compressed cache shrinks', () async {
+    await storage.backendSettings.setKvQuant(KvQuant.q8_0);
+    final config = staged(await build(useRocm: true));
+    expect(config['usecublas'], ['normal', '0']);
+    expect(config['noflashattention'], isFalse);
+    expect(config['quantkv'], 'q8_0');
+  });
+
+  test('Vulkan lets KoboldCpp pick the device', () async {
+    expect(staged(await build(useVulkan: true))['usevulkan'], isEmpty);
+  });
+
+  test('flash attention follows the setting, and a compressed cache turns '
+      'it on regardless', () async {
+    expect(staged(await build(useCublas: true))['noflashattention'], isFalse);
+    await storage.backendSettings.setFlashAttentionEnabled(false);
+    expect(staged(await build(useCublas: true))['noflashattention'], isTrue);
+    await storage.backendSettings.setKvQuant(KvQuant.q4_0);
+    final config = staged(await build(useCublas: true));
+    expect(config['noflashattention'], isFalse);
+    expect(config['quantkv'], 'q4_0');
+  });
+
+  test('the older stored cache level still counts until a level is picked '
+      'by name', () async {
+    // What an earlier version stored: 0 / 1 / 2 for f16, q8_0, q4_0.
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('kv_quantization_level', 2);
+    expect(staged(await build())['quantkv'], 'q4_0');
+    await storage.backendSettings.setKvQuant(KvQuant.q5_1);
+    expect(staged(await build())['quantkv'], 'q5_1');
+  });
+
+  test('any batch size rides in the config; no extra file is written beside '
+      'the engine', () async {
+    expect(staged(await build())['batchsize'], 512);
     await storage.backendSettings.setBlasBatchSize(8192);
-    final args = await build();
-    expect(args, isNot(contains('--blasbatchsize')));
-    final config = valueAfter(args, '--config');
-    expect(config, isNotNull);
-    expect(config, endsWith('fpai_batch_override.kcpps'));
+    expect(staged(await build())['batchsize'], 8192);
     expect(
-      jsonDecode(File(config!).readAsStringSync()),
-      {'batchsize': 8192},
-      reason:
-          'the override must carry ONLY the batch size — every other '
-          'flag stays authoritative on the CLI',
+      File('${binDir.path}/fpai_batch_override.kcpps').existsSync(),
+      isFalse,
     );
   });
 
-  test('an in-range BLAS batch uses the plain flag', () async {
-    await storage.backendSettings.setBlasBatchSize(2048);
-    final args = await build();
-    expect(valueAfter(args, '--blasbatchsize'), '2048');
-    expect(args, isNot(contains('--config')));
-  });
-
-  test('mlock is passed only when enabled', () async {
+  test('the memory lock is off by default, and stays off while KoboldCpp '
+      'is fitting the model itself', () async {
+    expect(staged(await build())['usemlock'], isFalse);
     await storage.backendSettings.setMlockEnabled(true);
-    expect(await build(), contains('--usemlock'));
-    await storage.backendSettings.setMlockEnabled(false);
-    expect(await build(), isNot(contains('--usemlock')));
+    expect(staged(await build())['usemlock'], isFalse);
+    await storage.backendSettings.setGpuLayersManual(true);
+    expect(staged(await build())['usemlock'], isTrue);
   });
 
-  test('a missing mmproj is dropped rather than aborting the launch', () async {
-    // A stale path in settings must not stop the backend from starting.
-    expect(
-      await build(mmprojPath: '${binDir.path}/not-here.gguf'),
-      isNot(contains('--mmproj')),
+  test(
+    'a missing vision file is dropped rather than stopping the launch',
+    () async {
+      final config = staged(await build(mmprojPath: '/nope/proj.gguf'));
+      expect(config.containsKey('mmproj'), isFalse);
+    },
+  );
+
+  test('a vision file that exists is written for the app settings and for '
+      'a preset', () async {
+    final proj = File('${binDir.path}/proj.gguf')..writeAsStringSync('x');
+    expect(staged(await build(mmprojPath: proj.path))['mmproj'], proj.path);
+    final file = preset({'model_param': '/m/a.gguf'});
+    final config = staged(
+      await build(modelPath: '', kcppsPath: file.path, mmprojPath: proj.path),
     );
-    expect(await build(mmprojPath: ''), isNot(contains('--mmproj')));
-
-    final real = File('${binDir.path}/mmproj.gguf')..writeAsStringSync('x');
-    final args = await build(mmprojPath: real.path);
-    expect(valueAfter(args, '--mmproj'), real.path);
+    expect(config['mmproj'], proj.path);
   });
 
-  test('an mmproj reaches preset launches too', () async {
-    // Multimodal presets were the case that used to be silently sightless.
-    final real = File('${binDir.path}/mmproj.gguf')..writeAsStringSync('x');
-    final args = await build(
-      kcppsPath: '/presets/mine.kcpps',
-      modelPath: '',
-      mmprojPath: real.path,
+  test('with no backend ever chosen, the detected card is used instead of '
+      'the CPU', () async {
+    final config = staged(await build(hardware: _nvidia));
+    expect(config['usecublas'], ['normal', '0']);
+    // Nothing detected yet: no backend setting, as before.
+    final blind = staged(await build());
+    expect(blind.containsKey('usecublas'), isFalse);
+    expect(blind.containsKey('usevulkan'), isFalse);
+  }, skip: Platform.isMacOS ? 'Metal needs no backend setting' : false);
+
+  test('an explicit "CPU only" choice is respected', () async {
+    final b = storage.backendSettings;
+    await b.setUseCublas(false);
+    await b.setUseVulkan(false);
+    await b.setUseMetal(false);
+    await b.setUseRocm(false);
+    final config = staged(await build(hardware: _nvidia));
+    expect(config.containsKey('usecublas'), isFalse);
+    expect(config.containsKey('usevulkan'), isFalse);
+  });
+
+  test('on the app\'s own settings, a model with a sliding window starts '
+      'with it off and fast forward on', () async {
+    // Gemma 3's real header: it has a sliding window. Left unsaid, current
+    // KoboldCpp turns it on with fast forward also on, which degrades the
+    // output; the app always writes one of the two safe pairings, and its
+    // default is this one.
+    final config = staged(
+      await build(modelPath: 'test/fixtures/gguf_headers/gemma-3-12b-it.gguf'),
     );
-    expect(valueAfter(args, '--mmproj'), real.path);
+    expect(config['noswa'], isTrue);
+    expect(config['nofastforward'], isFalse);
+    expect(config['noshift'], isFalse);
   });
 
-  test('vulkan is passed through', () async {
-    expect(await build(useVulkan: true), contains('--usevulkan'));
-    expect(await build(), isNot(contains('--usevulkan')));
+  group('a first run, before the hardware is known', () {
+    test('with no backend ever chosen, the launch waits for detection and '
+        'uses the card it finds', () async {
+      var asked = 0;
+      final config = staged(
+        await build(
+          awaitHardware: () async {
+            asked++;
+            return _nvidia;
+          },
+        ),
+      );
+      expect(asked, 1);
+      expect(config['usecuda'], ['normal', '0']);
+    }, skip: Platform.isMacOS ? 'Metal needs no backend setting' : false);
+
+    test('detection that finds nothing leaves the launch on the CPU', () async {
+      final config = staged(await build(awaitHardware: () async => null));
+      expect(config.containsKey('usecuda'), isFalse);
+      expect(config.containsKey('usevulkan'), isFalse);
+    });
+
+    test('nothing is waited for when the card is already known, or when a '
+        'backend was chosen', () async {
+      var asked = 0;
+      Future<HardwareInfo?> ask() async {
+        asked++;
+        return _nvidia;
+      }
+
+      await build(hardware: _nvidia, awaitHardware: ask);
+      await build(useVulkan: true, awaitHardware: ask);
+      expect(asked, 0);
+    });
   });
 
-  test('managed launches enable admin reload_config', () async {
-    final args = await build();
-    expect(args, contains('--admin'));
-    expect(valueAfter(args, '--admindir'), isNotEmpty);
-    expect(await build(kcppsPath: '/presets/mine.kcpps'), contains('--admin'));
+  group('a preset that cannot be launched from', () {
+    test('is explained in plain words, for the screen that starts the '
+        'engine', () async {
+      expect(await koboldPresetProblem(null), isNull);
+      expect(
+        await koboldPresetProblem(preset({'contextsize': 4096}).path),
+        isNull,
+      );
+
+      final broken = File('${binDir.path}/broken.kcpps')
+        ..writeAsStringSync('{not a config');
+      final problem = await koboldPresetProblem(broken.path);
+      expect(problem, contains('broken.kcpps'));
+      expect(problem, contains('can\'t be read'));
+      expect(problem, contains('Settings'));
+
+      expect(
+        await koboldPresetProblem('${binDir.path}/gone.kcpps'),
+        contains('could not be opened'),
+      );
+    });
   });
+
+  test(
+    'what the reader changed or noticed in a preset goes to the log',
+    () async {
+      final notes = <String>[];
+      await build(
+        kcppsPath: preset({
+          // As KoboldCpp's launcher saves it: sliding window left on with
+          // fast forward, and a forced fit over a layer count.
+          'noswa': false,
+          'nofastforward': false,
+          'autofit': true,
+          'gpulayers': 30,
+        }).path,
+        onNote: notes.add,
+      );
+      expect(notes, hasLength(2));
+      expect(notes.join(' '), contains('sliding window is switched off'));
+      expect(notes.join(' '), contains('forces automatic fit'));
+    },
+  );
 }

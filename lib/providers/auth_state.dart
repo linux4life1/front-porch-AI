@@ -11,6 +11,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/painting.dart' show PaintingBinding;
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 
 /// Where the repository session currently stands.
@@ -184,6 +185,14 @@ class AuthState extends ChangeNotifier {
     await _api.logout(_refreshToken);
     await _store.clear();
     _clearSession();
+    await _forgetStoopArt();
+  }
+
+  // Card art is signed-in-only: drop the disk cache and the decoded copies
+  // so the next account on this machine starts from nothing.
+  Future<void> _forgetStoopArt() async {
+    await StoopAssetCache.forgetAll();
+    PaintingBinding.instance.imageCache.clear();
   }
 
   /// Agree to the current AUP. Updates the account so the gate clears.
@@ -296,6 +305,7 @@ class AuthState extends ChangeNotifier {
     }
     await _store.clear();
     _clearSession();
+    await _forgetStoopArt();
   }
 
   Future<void> _applyAuth(AuthResult r) async {

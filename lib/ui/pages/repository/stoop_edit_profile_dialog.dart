@@ -17,6 +17,7 @@ import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_profile_header.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// The Edit Profile dialog from the approved mockup: profile photo (verified
@@ -89,7 +90,8 @@ class _EditProfileCardState extends State<_EditProfileCard> {
 
   Future<void> _pickPhoto() async {
     final auth = context.read<AuthState>();
-    final picked = await PickerPrefs.pickFiles(
+    final picked = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImage,
       dialogTitle: 'Choose a profile photo',
       type: FileType.custom,
@@ -116,7 +118,9 @@ class _EditProfileCardState extends State<_EditProfileCard> {
     } on BackporchApiException catch (e) {
       if (mounted) setState(() => _error = _mapError(e.code));
     } catch (_) {
-      if (mounted) setState(() => _error = 'Upload failed. Check your connection.');
+      if (mounted) {
+        setState(() => _error = 'Upload failed. Check your connection.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -127,7 +131,9 @@ class _EditProfileCardState extends State<_EditProfileCard> {
     try {
       await context.read<AuthState>().removeAvatar();
     } catch (_) {
-      if (mounted) setState(() => _error = 'Couldn’t remove the photo. Try again.');
+      if (mounted) {
+        setState(() => _error = 'Couldn’t remove the photo. Try again.');
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -310,7 +316,9 @@ class _EditProfileCardState extends State<_EditProfileCard> {
                   style: TextStyle(color: stoopCream(context)),
                   decoration: stoopInput(
                     context,
-                    i == 0 ? 'https:// — your chub / Backyard / socials' : 'https://…',
+                    i == 0
+                        ? 'https:// — your chub / Backyard / socials'
+                        : 'https://…',
                   ),
                 ),
                 if (i < _links.length - 1) const SizedBox(height: 8),
@@ -377,4 +385,3 @@ class _EditProfileCardState extends State<_EditProfileCard> {
     );
   }
 }
-

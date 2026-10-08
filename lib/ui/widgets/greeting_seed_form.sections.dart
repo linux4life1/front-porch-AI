@@ -259,6 +259,8 @@ extension _GreetingSeedSections on _GreetingSeedFormState {
           'Needs Simulation',
           AppColors.verifiedAccentOf(context),
         ),
+        // Lines up with the header text (18 icon + 8 gap).
+        const NeedsClockOffNote(padding: EdgeInsets.only(left: 26, top: 4)),
         const SizedBox(height: 12),
         _card(
           Column(

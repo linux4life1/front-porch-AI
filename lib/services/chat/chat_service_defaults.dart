@@ -119,6 +119,7 @@ const String defaultApiSystemPrompt =
 
 // Forwarding for critical threshold (moved to NeedsSimulation after buffer removal; UI + cards still reference the old ChatService surface)
 int get needCriticalThreshold => NeedsSimulation.needCriticalThreshold;
+int get needUrgentThreshold => NeedsSimulation.needUrgentThreshold;
 
 // The three tuning constants below are the same "private static -> library
 // top-level" move as the consts above, swept in during round 4b: each was a
@@ -158,6 +159,14 @@ const String kSpatialStancePreTurn = 'spatial_stance_pre_turn';
 /// restamp overwrites `realism_state.withUser` with the reply's verdict.
 /// Regen/swipe must put the turn's START back (audit P1.7).
 const String kWithUserPreTurn = 'with_user_pre_turn';
+
+/// Realism as it stood before a USER message was first scored, stamped on
+/// that user message. The scored result rides the reply, so once the reply
+/// is deleted, cancelled, or failed, this is the only record of the turn's
+/// start. Generate reply on a trailing user message rewinds here and
+/// re-scores (#339). 1:1 holds one snapshot; groups key it by speaker id.
+const String kRealismPreTurn = 'realism_pre_turn';
+const String kRealismPreTurnBySpeaker = 'realism_pre_turn_by_speaker';
 
 // Internal flag to signal a cancellation request for realism evaluation.
 // This is a file-scope flag to avoid needing to thread state through the

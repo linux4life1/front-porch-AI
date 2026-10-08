@@ -91,6 +91,12 @@ Keep faces you like; only generate missing ones.
 
 No base portrait → it stops. No edit-capable *image* model → pack-from-portrait cannot run.
 
+**On ComfyUI a pack runs your Edit graph and nothing else.** If that graph is not ready (a model file not chosen, a node missing, ComfyUI not reachable) the pack stops and says what is missing; it never makes the pack with the Create graph instead. Set the Edit graph up on the desk under **Edit**. A1111, and a Draw Things model that cannot edit, have no Edit path and still make the pack by img2img.
+
+**Cancel** stops the picture being made, on ComfyUI too, and leaves the ones already made. A picture that was stopped is made again on **Resume**.
+
+The phone can start a pack for any character in the library, watch it, cancel it, and import the pictures you keep (Image Studio → Expression pack). A pack started on the computer shows on the phone, and can be cancelled there, but is imported on the computer.
+
 ---
 
 ## When it is grey / broken

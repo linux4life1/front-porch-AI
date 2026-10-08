@@ -24,6 +24,9 @@ extension HardwareServiceLinux on HardwareService {
   Future<void> _detectLinux() async {
     String gpuName = 'Unknown GPU';
     int vramMb = 0;
+    var cardCount = 1;
+    var amdCards = 0;
+    int? smallestCardMb;
     int ramMb = 0;
     String vendor = 'Unknown';
 
@@ -97,20 +100,20 @@ extension HardwareServiceLinux on HardwareService {
           gpuName = parsed.name;
         }
         if (parsed.vramMb > 0) vramMb = parsed.vramMb;
+        if (parsed.cards > 0) cardCount = parsed.cards;
+        smallestCardMb = parsed.smallestMb;
       }
     } else if (vendor == 'AMD') {
       // Try sysfs for AMD VRAM (amdgpu driver exposes this)
       try {
-        final drmDir = Directory('/sys/class/drm');
-        if (await drmDir.exists()) {
-          final cards = await drmDir.list().toList();
-          for (final card in cards) {
-            final vramFile = File('${card.path}/device/mem_info_vram_total');
-            if (await vramFile.exists()) {
-              final vramBytes =
-                  int.tryParse((await vramFile.readAsString()).trim()) ?? 0;
-              final cardVramMb = (vramBytes / (1024 * 1024)).round();
-              if (cardVramMb > vramMb) vramMb = cardVramMb;
+        for (final card in await amdDrmCards()) {
+          final vramBytes = int.tryParse(card.total) ?? 0;
+          final cardVramMb = (vramBytes / (1024 * 1024)).round();
+          if (cardVramMb > vramMb) vramMb = cardVramMb;
+          if (cardVramMb > 0) {
+            amdCards++;
+            if (smallestCardMb == null || cardVramMb < smallestCardMb) {
+              smallestCardMb = cardVramMb;
             }
           }
         }
@@ -119,6 +122,7 @@ extension HardwareServiceLinux on HardwareService {
       }
     }
 
+    if (amdCards > 0) cardCount = amdCards;
     _hardwareInfo = HardwareInfo(
       gpuName: gpuName,
       vramMb: vramMb,
@@ -128,6 +132,8 @@ extension HardwareServiceLinux on HardwareService {
       hasRocm: _hasRocm,
       hasMetal: false,
       linuxDistro: distro,
+      cardCount: cardCount,
+      smallestCardMb: smallestCardMb,
     );
   }
 

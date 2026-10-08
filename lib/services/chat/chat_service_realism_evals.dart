@@ -206,8 +206,7 @@ extension ChatServiceRealismEvals on ChatService {
       'storyClock': _timeService.storyClockIso,
       'storyStartDate': _timeService.storyStartDateIso,
       'arousalLevel': _nsfwService.arousalLevel,
-      'cooldownTurnsRemaining': _nsfwService.cooldownTurnsRemaining,
-      'cooldownTurnsTotal': _nsfwService.cooldownTurnsTotal,
+      ..._nsfwService.refractory.toSnapshot(),
       'trustLevel': _relationshipService.trustLevel,
       'pendingTrustRepair': _relationshipService.pendingTrustRepair,
       'activeFixation': _relationshipService.activeFixation,
@@ -243,6 +242,7 @@ extension ChatServiceRealismEvals on ChatService {
       final needsSnap = <String, dynamic>{
         'vector': Map<String, int>.from(_needsSimulation.vector),
         'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
+        kNeedsWearCarryKey: Map<String, double>.from(_needsSimulation.wearCarry),
       };
       state['needs'] = needsSnap;
 

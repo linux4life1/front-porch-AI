@@ -19,7 +19,12 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/image/studio_model_roots.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
+import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
+import 'package:front_porch_ai/services/web/routes/expression_pack_routes.dart';
+import 'package:front_porch_ai/services/web/routes/image_desk_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
@@ -41,6 +46,9 @@ class WebBackendRoutes {
       router.post('/api/backend/engine/install', _installEngine);
       router.get('/api/backend/models', _models);
       router.post('/api/backend/models/switch', _switchModel);
+      router.get('/api/backend/local-model', _localModel);
+      router.post('/api/backend/local-model/preset', _setChatPreset);
+      router.post('/api/backend/local-model/context', _setLocalContext);
       router.post('/api/backend/models/delete', _deleteModel);
       router.get('/api/backend/models-folder', _modelsFolder);
       router.get('/api/backend/hf/search', _hfSearch);
@@ -69,8 +77,21 @@ class WebBackendRoutes {
       router.post('/api/image/generate', _imageGenerate);
       router.get('/api/image/saved/<name>', _imageSaved);
       router.get('/api/image/comfy-catalog', _imageComfyCatalog);
+      router.get('/api/image/studio/ready', _imageStudioReady);
+      router.get('/api/image/local-catalog', _imageLocalCatalog);
+      router.post('/api/image/studio/installed', _imageInstalled);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
+      ImageDeskRoutes(router, deps: _deps, image: image);
+      ExpressionPackRoutes(router, image: image);
+      CivitaiRoutes(
+        router,
+        auth: _deps.auth,
+        adultAllowed: () => _deps.storage.realismSettings.adultThemesEnabled,
+        rootForAsync: savedStudioModelRoot,
+        typeFoldersFor: studioModelTypeFolders,
+        trustedRootsFor: studioSavedModelRoots,
+      );
     }
   }
 
@@ -82,8 +103,9 @@ class WebBackendRoutes {
       JsonResponse.ok(_backend!.status());
 
   Future<shelf.Response> _restart(shelf.Request r) async {
-    await _backend!.restart();
-    return JsonResponse.ok(_backend.status());
+    final refused = await _backend!.restart();
+    // Additive: why it was not started, or null.
+    return JsonResponse.ok({..._backend.status(), 'refused': refused});
   }
 
   Future<shelf.Response> _stop(shelf.Request r) async {
@@ -99,15 +121,59 @@ class WebBackendRoutes {
   Future<shelf.Response> _models(shelf.Request r) async =>
       JsonResponse.ok({'models': await _backend!.localModels()});
 
+  /// The "Local model" card and the chat-preset picker.
+  Future<shelf.Response> _localModel(shelf.Request r) async =>
+      JsonResponse.ok(await _backend!.localModel());
+
+  /// `{path}`: a preset in the engine folder, or null for the app's own
+  /// settings. Anything else is refused, and so is a preset the app will not
+  /// start KoboldCpp from (422, with the reason in `error`).
+  Future<shelf.Response> _setChatPreset(shelf.Request r) async {
+    final body = await _json(r);
+    final raw = body['path'];
+    if (raw != null && raw is! String) {
+      return JsonResponse.badRequest('path must be text or null');
+    }
+    final path = raw is String && raw.isNotEmpty ? raw : null;
+    try {
+      if (!await _backend!.setChatPreset(path)) {
+        return JsonResponse.error(404, 'Preset not found');
+      }
+    } on KoboldPresetProblem catch (e) {
+      return JsonResponse.error(422, e.message);
+    }
+    return JsonResponse.ok(await _backend.localModel());
+  }
+
+  /// `{context}`: tokens, [kKoboldContextMin] to [kKoboldContextMax].
+  Future<shelf.Response> _setLocalContext(shelf.Request r) async {
+    final body = await _json(r);
+    final context = body['context'];
+    if (context is! int || !await _backend!.setLocalContext(context)) {
+      return JsonResponse.badRequest(
+        'context must be a whole number of tokens from '
+        '${koboldTokens(kKoboldContextMin)} to '
+        '${koboldTokens(kKoboldContextMax)}, '
+        'and is set by the KoboldCpp preset while one is in use',
+      );
+    }
+    return JsonResponse.ok(await _backend.localModel());
+  }
+
   Future<shelf.Response> _switchModel(shelf.Request r) async {
     final body = await _json(r);
     final path = body['path']?.toString();
     if (path == null || path.isEmpty) {
       return JsonResponse.badRequest('path is required');
     }
-    final ok = await _backend!.switchModel(path);
+    String? refused;
+    final ok = await _backend!.switchModel(
+      path,
+      onRefused: (words) => refused = words,
+    );
     if (!ok) return JsonResponse.error(404, 'Model not found');
-    return JsonResponse.ok(_backend.status());
+    // Additive: why the running KoboldCpp could not load it, or null.
+    return JsonResponse.ok({..._backend.status(), 'refused': refused});
   }
 
   Future<shelf.Response> _hfSearch(shelf.Request r) async {
@@ -272,13 +338,17 @@ class WebBackendRoutes {
     // must not redirect image generation either. Local A1111 / Comfy /
     // Draw Things hosts are the same class of SSRF.
     final cfg = _image!.config();
-    if (imageConfigWriteNeedsStepUp(
-      body,
-      currentRemoteApiUrl: '${cfg['remoteApiUrl'] ?? ''}',
-      currentLocalUrl: '${cfg['localUrl'] ?? ''}',
-      currentComfyUrl: '${cfg['comfyUrl'] ?? ''}',
-      currentDrawThingsHost: '${cfg['drawThingsHost'] ?? ''}',
-    )) {
+    // A graph the caller supplies is what Comfy runs on this computer, so it
+    // needs the password too.
+    if (imageConfigUploadsGraph(body) ||
+        imageConfigWriteNeedsStepUp(
+          body,
+          currentRemoteApiUrl: '${cfg['remoteApiUrl'] ?? ''}',
+          currentLocalUrl: '${cfg['localUrl'] ?? ''}',
+          currentComfyUrl: '${cfg['comfyUrl'] ?? ''}',
+          currentDrawThingsHost: '${cfg['drawThingsHost'] ?? ''}',
+          currentDrawThingsPort: cfg['drawThingsPort'] as int?,
+        )) {
       final denied = await denyUnlessSteppedUp(
         auth: _deps.auth,
         body: body,
@@ -286,16 +356,37 @@ class WebBackendRoutes {
       );
       if (denied != null) return denied;
     }
-    await _image.updateConfig(body);
+    try {
+      await _image.updateConfig(body);
+    } on DeskRefused catch (e) {
+      return ImageDeskRoutes.refused(e);
+    }
     return JsonResponse.ok(_image.config());
   }
 
   Future<shelf.Response> _imageGenerate(shelf.Request r) async {
-    final body = await _json(r);
+    // An Edit carries its picture in the body, which can be larger than the
+    // usual JSON limit.
+    final Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(
+        r,
+        maxBytes: RequestBody.uploadMaxBytes,
+      );
+    } on BodyTooLarge {
+      return JsonResponse.error(413, 'That picture is too large.');
+    } on FormatException {
+      return JsonResponse.badRequest('That request was not JSON.');
+    }
     if ((body['prompt']?.toString().trim() ?? '').isEmpty) {
       return JsonResponse.badRequest('prompt is required');
     }
-    final result = await _image!.generate(body);
+    final Map<String, dynamic>? result;
+    try {
+      result = await _image!.generate(body);
+    } on DeskRefused catch (e) {
+      return ImageDeskRoutes.refused(e);
+    }
     if (result == null) {
       return JsonResponse.error(
         502,
@@ -305,8 +396,37 @@ class WebBackendRoutes {
     return JsonResponse.ok(result);
   }
 
-  Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async =>
-      JsonResponse.ok(await _image!.comfyCatalog());
+  Future<shelf.Response> _imageComfyCatalog(shelf.Request r) async {
+    final q = r.url.queryParameters;
+    return JsonResponse.ok(
+      await _image!.comfyCatalog(
+        edit: q['mode'] == 'edit',
+        token: q['token'] ?? '',
+        loraFacts: q['lora'] == '1',
+      ),
+    );
+  }
+
+  Future<shelf.Response> _imageLocalCatalog(shelf.Request r) async =>
+      JsonResponse.ok(
+        await _image!.localCatalog(model: r.url.queryParameters['model'] ?? ''),
+      );
+
+  Future<shelf.Response> _imageStudioReady(shelf.Request r) async {
+    final edit = r.url.queryParameters['mode'] == 'edit';
+    return JsonResponse.ok(await _image!.studioReady(edit: edit));
+  }
+
+  Future<shelf.Response> _imageInstalled(shelf.Request r) async {
+    final body = await _json(r);
+    return JsonResponse.ok(
+      await _image!.installedChoice(
+        workflowId: body['workflowId']?.toString() ?? '',
+        file: body['filename']?.toString() ?? '',
+        lora: body['lora'] == true,
+      ),
+    );
+  }
 
   Future<shelf.Response> _imageComfyWorkflowSlots(shelf.Request r) async {
     final id = r.url.queryParameters['workflowId'] ?? '';

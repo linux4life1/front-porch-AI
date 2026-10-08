@@ -129,7 +129,12 @@ jobs:
         # Pixel golden tests run in the dedicated `golden` job below so a render
         # diff never masks a logic failure here and vice-versa.
         run: flutter test --concurrency=4 --reporter expanded --exclude-tags golden
-        timeout-minutes: 20
+        # 30, not 20: the suite is 8,960 tests and ran 18 to 21 minutes on
+        # every Rawhide push of 2026-10-07, so 20 was a coin flip (two runs
+        # died at the wall with zero failures). This is headroom, not a
+        # licence: a suite that creeps toward 30 needs a slow test found and
+        # fixed, as the note above says, not another raise.
+        timeout-minutes: 30
 
   # Live Stoop pin (#264): talks HTTP to the real hub, not FakeStoopServer.
   # Secrets stay on this job's env only — never echo them. Fork PRs skip
@@ -384,6 +389,71 @@ jobs:
           npm test
         working-directory: web_ui
 
+  # The web UI in real browsers against the real app: boots the desktop app on
+  # a sandboxed library (integration_test/web_ui/browser_test.dart), starts its
+  # web server, and runs Playwright — WebKit at iPhone size, Chromium at
+  # desktop size. The sweep pokes every screen; the journeys sign in, chat,
+  # edit, regenerate, swipe, continue, delete, switch chats. Runs on pushes
+  # too: most web work lands on Rawhide directly, where e2e-smoke never runs.
+  web-e2e:
+    name: WebUI in real browsers (Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v7
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.47.0'
+          channel: 'stable'
+          cache: true
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web_ui/package-lock.json
+
+      - name: Install Linux desktop dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+
+      - name: Install WebUI dependencies + browsers
+        run: |
+          npm ci --ignore-scripts
+          npx playwright install --with-deps chromium webkit
+        working-directory: web_ui
+
+      # Serve the bundle built from this commit, not whatever was committed.
+      - name: Build WebUI bundle
+        run: npm run build
+        working-directory: web_ui
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Run browser suite (under xvfb)
+        env:
+          FPAI_REPO_ROOT: ${{ github.workspace }}
+        run: |
+          xvfb-run -a -s "-screen 0 1600x1000x24" \
+            flutter test integration_test/web_ui/browser_test.dart -d linux
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: web-e2e-report
+          path: |
+            web_ui/e2e/report
+            web_ui/e2e/results
+          retention-days: 14
+
   theme-lint:
     name: Theme lint (no new raw blueAccent)
     # Skip on Rawhide→main promotion PRs: their diff is the ENTIRE Rawhide
@@ -514,4 +584,6 @@ jobs:
         # 3 consecutive green runs and zero diffs. See the `test` job above for
         # the full rationale and the rollback rule.
         run: flutter test --concurrency=4 --reporter expanded --tags golden
-        timeout-minutes: 10
+        # 20 since 2026-09-30: flutter test loads every test file to find the
+        # golden-tagged ones, and ~970 files pushed the step past 10 minutes.
+        timeout-minutes: 20

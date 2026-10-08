@@ -42,6 +42,14 @@ extension SettingsFacadeRead on SettingsFacade {
       'remoteConfigured': _llm.openRouterService.isConfigured,
       'remoteReachability': _llm.openRouterService.reachability.name,
       'contextSize': b.contextSize,
+      // KoboldCpp frees the graphics memory after this many idle minutes
+      // (0: never). Additive: an older PWA ignores both keys.
+      'koboldIdleUnloadMinutes': b.idleUnloadMinutes,
+      'koboldIdleUnloadChoices': kKoboldIdleUnloadChoices,
+      // How many chats besides the open one KoboldCpp keeps ready (0: only
+      // the open one). Additive: an older PWA ignores both keys.
+      'koboldKeepRecentChats': b.keepRecentChats,
+      'koboldKeepRecentChoices': kKoboldKeepRecentChoices,
       // Reasoning / "thinking" — for reasoning models (GLM-*:thinking, etc.) this
       // must be on or the provider's reasoning tokens are discarded and no
       // <think> block is ever produced for the chat to show.
@@ -121,6 +129,7 @@ extension SettingsFacadeRead on SettingsFacade {
         'weatherFahrenheit': _storage.realismSettings.weatherFahrenheit,
         'dreamsEnabled': _storage.realismSettings.dreamsEnabled,
         'absenceBannerEnabled': _storage.realismSettings.absenceBannerEnabled,
+        'userMessagesOnRight': _storage.realismSettings.userMessagesOnRight,
         'absenceAckEnabled': _storage.realismSettings.absenceAckEnabled,
         'absenceThresholdHours': _storage.realismSettings.absenceThresholdHours,
         // Read-only context so the web can show the same honest warnings the

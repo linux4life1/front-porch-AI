@@ -77,7 +77,8 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
   }
 
   Future<void> _pickFile() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],

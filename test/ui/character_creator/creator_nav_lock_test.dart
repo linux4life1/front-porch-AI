@@ -9,9 +9,10 @@
 // over the first: activeGenService points only at the newest one, so "Abort
 // Generation" left the first still running, and whichever finished last stomped
 // generatedCard plus all six review controllers and yanked the user to the
-// Realism step. Pressing Next instead jumped to step 4, where RealismStep shows
+// Realism step. Pressing Next instead jumped to step 4, which shows
 // "Generation failed. The LLM did not produce valid output." for a card that is
-// still being written.
+// still being written (step 4 was Realism then; it is Greetings since #370,
+// which shows the same message, so Next on this step reads "Next: Greetings").
 //
 // Red-proved: dropping the `busy ? null :` guards makes both disabled-state
 // expectations fail (onPressed comes back non-null).
@@ -120,7 +121,7 @@ void main() {
       isNotNull,
       reason: 'sanity: nothing is running yet, so Back still works',
     );
-    expect(_button(tester, 'Next: Realism').onPressed, isNotNull);
+    expect(_button(tester, 'Next: Greetings').onPressed, isNotNull);
 
     state.isGenerating = true;
     state.notify();
@@ -132,10 +133,10 @@ void main() {
       reason: 'Back → Generate is how a second concurrent generation starts',
     );
     expect(
-      _button(tester, 'Next: Realism').onPressed,
+      _button(tester, 'Next: Greetings').onPressed,
       isNull,
       reason:
-          'Next lands on RealismStep, which calls a null card a failure '
+          'Next lands on GreetingsStep, which calls a null card a failure '
           'while the generation is still streaming',
     );
 

@@ -18,242 +18,226 @@
 
 part of 'story_dashboard_page.dart';
 
-/// Pipeline-triggering actions for [_StoryDashboardPageState]: running the
-/// Story Architect / Act Structurer, loading the chat preview, saving act
-/// edits, and audiobook/ePub export. Extracted verbatim from the inline
-/// methods; `setState` calls become `rebuildState` since extensions cannot
-/// touch a State's protected members directly.
+/// Pipeline actions and exports for the studio. Every destructive action
+/// confirms in the studio dialog and says what is lost (sketch V).
 extension _StoryDashboardActions on _StoryDashboardPageState {
+  StoryPipelineService get _pipeline =>
+      Provider.of<StoryPipelineService>(context, listen: false);
+
   Future<void> _runStoryArchitect() async {
-    final pipeline = Provider.of<StoryPipelineService>(context, listen: false);
     final project = _project;
     if (project == null) return;
-
     try {
-      // Run Chat Distiller first if chat history is enabled
       if (project.useChatHistory &&
           project.chatHistoryCharacterIds.isNotEmpty &&
           project.distilledTimeline.isEmpty) {
-        await pipeline.runChatDistiller(project);
+        await _pipeline.runChatDistiller(project);
       }
-      await pipeline.runStoryArchitect(project);
+      await _pipeline.runStoryArchitect(project);
       if (mounted) rebuildState(() {});
     } catch (e) {
       if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
-  Future<void> _runActStructurer() async {
-    final pipeline = Provider.of<StoryPipelineService>(context, listen: false);
-    final project = _project;
-    if (project == null) return;
+  Future<void> _regenerateBible(StoryProject project) async {
+    final written = project.orderedScenes
+        .where((s) => project.beatsWritten(s.act, s.index) > 0)
+        .length;
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Regenerate the bible?',
+      body:
+          'This rewrites the cast, themes, threads and lore from your idea. '
+          '${written > 0 ? 'Your $written written scene${written == 1 ? '' : 's'} stay but may no longer match. ' : ''}'
+          'Interviews and portraits are kept.',
+      confirmLabel: 'Regenerate',
+      destructive: true,
+    );
+    if (!ok) return;
+    await _runStoryArchitect();
+  }
 
+  Future<void> _rewriteArc(StoryProject project) async {
+    final written = project.orderedScenes
+        .where((s) => project.beatsWritten(s.act, s.index) > 0)
+        .length;
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Rewrite the arc?',
+      body:
+          'This rewrites the inciting incident, themes, twists and threads '
+          'together, to fit your world and cast. The world, cast and '
+          'interviews stay as they are.'
+          '${project.acts.isEmpty ? '' : ' Your acts${written > 0 ? ' and $written written scene${written == 1 ? '' : 's'}' : ''} stay but may no longer match.'}',
+      confirmLabel: 'Rewrite',
+    );
+    if (!ok) return;
     try {
-      await pipeline.runActStructurer(project);
-      if (mounted) {
-        // Reset act controllers to pick up new data
-        _actTitleControllers.clear();
-        _actDescControllers.clear();
-        rebuildState(() {});
-      }
+      await _pipeline.runStoryArc(project);
+      if (mounted) rebuildState(() {});
     } catch (e) {
       if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
-  Future<void> _loadChatPreview(StoryProject project) async {
-    if (_loadingChatPreview) return;
-    rebuildState(() => _loadingChatPreview = true);
-
+  Future<void> _redistill(StoryProject project) async {
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Redistill the chat?',
+      body:
+          'The timeline is rebuilt from the chat. The bible is not changed; '
+          'regenerate it afterwards if the timeline moved.',
+      confirmLabel: 'Redistill',
+    );
+    if (!ok) return;
     try {
-      final pipeline = Provider.of<StoryPipelineService>(
-        context,
-        listen: false,
-      );
-      final messages = await pipeline.getChatPreviewMessages(project);
-
-      if (mounted) {
-        rebuildState(() {
-          _chatPreviewMessages = messages;
-          _loadingChatPreview = false;
-          _showChatPreview = true;
-        });
-      }
+      project.distilledTimeline = '';
+      await _pipeline.runChatDistiller(project);
+      if (mounted) rebuildState(() {});
     } catch (e) {
-      if (mounted) {
-        rebuildState(() => _loadingChatPreview = false);
+      if (mounted) showAiErrorSnackBar(context, e);
+    }
+  }
+
+  Future<void> _buildActs(StoryProject project) async {
+    try {
+      await _pipeline.runActStructurer(project);
+      if (mounted) rebuildState(() {});
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
+    }
+  }
+
+  Future<void> _continueWriting(StoryProject project) async {
+    try {
+      final wrote = await _pipeline.writeNextScene(project);
+      if (!mounted) return;
+      if (!wrote) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error loading chat preview: $e'),
-            backgroundColor: AppColors.negativeAccentOf(context),
-          ),
+          const SnackBar(content: Text('The whole story is written.')),
         );
       }
+      rebuildState(() {});
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
-  /// Save edited act fields back to the project.
-  Future<void> _saveActEdits(StoryProject project) async {
-    final repo = Provider.of<StoryRepository>(context, listen: false);
-    for (int i = 0; i < project.acts.length; i++) {
-      if (_actTitleControllers.containsKey(i)) {
-        project.acts[i] = StoryAct(
-          number: project.acts[i].number,
-          title: _actTitleControllers[i]!.text,
-          description: _actDescControllers[i]!.text,
-          focusThreadIds: project.acts[i].focusThreadIds,
-          knots: project.acts[i].knots,
-        );
-      }
-    }
-    await repo.saveProject(project);
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Act edits saved!'),
-          backgroundColor: AppColors.surfaceContainerOf(context),
-          duration: const Duration(seconds: 1),
-        ),
-      );
+  Future<void> _autopilot(StoryProject project) async {
+    final total = project.orderedScenes.length;
+    final written = project.orderedScenes
+        .where((s) => project.beatsWritten(s.act, s.index) > 0)
+        .length;
+    final left = total - written;
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Write the whole story?',
+      body: total == 0
+          ? 'Autopilot builds the acts, outlines every sequence and writes '
+                'every scene, one after another'
+                '${project.reviewEnabled ? ', with reviews on' : ''}. You can '
+                'stop at any time and keep what\'s done.'
+          : 'Autopilot writes the $left scene${left == 1 ? '' : 's'} that '
+                '${left == 1 ? 'is' : 'are'} left, one after another'
+                '${project.reviewEnabled ? ', with reviews on' : ''}. It will '
+                'not touch the $written already written or the bible. You can '
+                'stop at any time and keep what\'s done.',
+      confirmLabel: 'Start',
+    );
+    if (!ok) return;
+    try {
+      await _pipeline.runAutopilot(project);
+      if (mounted) rebuildState(() {});
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
-  Future<void> _startAudiobookGeneration(
-    StoryProject project,
-    AudiobookGeneratorService service,
-  ) async {
+  Future<void> _deleteStory(StoryProject project) async {
+    final words = project.wordCount;
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Delete ${project.title}?',
+      body: words > 0
+          ? '${thousands(words)} words, its bible and its run log will be '
+                'removed. This cannot be undone.'
+          : 'Its setup and bible will be removed. This cannot be undone.',
+      confirmLabel: 'Delete',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    await Provider.of<StoryRepository>(
+      context,
+      listen: false,
+    ).deleteProject(project.dbId!);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  // ── Exports: one implementation, reached from the header ⋯ and the reader.
+
+  Future<void> _exportAudiobook(StoryProject project) async {
+    final service = Provider.of<AudiobookGeneratorService>(
+      context,
+      listen: false,
+    );
     try {
       final audiobook = await service.generateAudiobook(project);
-      if (audiobook != null && mounted) {
-        // Save file dialog
-        final wav = await audiobook.file.readAsBytes();
-        final String? outputFile = await PickerPrefs.saveFile(
-          category: PickerPrefs.catExport,
-          bytes: wav,
-          dialogTitle: 'Save Audiobook',
-          fileName: 'audiobook_${project.title.replaceAll(' ', '_')}.wav',
-          type: FileType.custom,
-          allowedExtensions: ['wav'],
-        );
-        if (outputFile != null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('Audiobook saved to $outputFile'),
-                backgroundColor: AppColors.surfaceContainerOf(context),
-              ),
-            );
-          }
-        }
-      }
+      if (audiobook == null || !mounted) return;
+      final wav = await audiobook.file.readAsBytes();
+      final out = await GuardedPicker.saveFile(
+        context,
+        category: PickerPrefs.catExport,
+        bytes: wav,
+        dialogTitle: 'Save audiobook',
+        fileName: 'audiobook_${project.title.replaceAll(' ', '_')}.wav',
+        type: FileType.custom,
+        allowedExtensions: ['wav'],
+      );
+      if (out != null && mounted) _saved('Audiobook saved to $out');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Audiobook failed: $e'),
-            backgroundColor: AppColors.negativeAccentOf(context),
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
   Future<void> _exportEpub(StoryProject project) async {
     try {
       final epub = await EpubGeneratorService.generateEpub(project);
-      if (epub != null && mounted) {
-        final String? outputFile = await PickerPrefs.saveFile(
-          category: PickerPrefs.catExport,
-          bytes: Uint8List.fromList(epub.bytes),
-          dialogTitle: 'Save eBook',
-          fileName: '${project.title.replaceAll(' ', '_')}.epub',
-          type: FileType.custom,
-          allowedExtensions: ['epub'],
-        );
-        if (outputFile != null) {
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(
-                content: Text('eBook saved to $outputFile'),
-                backgroundColor: AppColors.surfaceContainerOf(context),
-              ),
-            );
-          }
-        }
-      }
+      if (epub == null || !mounted) return;
+      final out = await GuardedPicker.saveFile(
+        context,
+        category: PickerPrefs.catExport,
+        bytes: Uint8List.fromList(epub.bytes),
+        dialogTitle: 'Save eBook',
+        fileName: '${project.title.replaceAll(' ', '_')}.epub',
+        type: FileType.custom,
+        allowedExtensions: ['epub'],
+      );
+      if (out != null && mounted) _saved('eBook saved to $out');
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('eBook export failed: $e'),
-            backgroundColor: AppColors.negativeAccentOf(context),
-          ),
-        );
-      }
+      if (mounted) showAiErrorSnackBar(context, e);
     }
   }
 
-  Widget _buildAudiobookProgress(AudiobookGeneratorService service) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 24),
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: AppColors.porchHoneyOf(context).withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.porchHoneyOf(context).withValues(alpha: 0.5),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.headphones, color: AppColors.porchHoneyOf(context)),
-              const SizedBox(width: 12),
-              Text(
-                'Compiling Audiobook...',
-                style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const Spacer(),
-              TextButton.icon(
-                onPressed: service.stop,
-                icon: Icon(
-                  Icons.stop,
-                  color: AppColors.negativeAccentOf(context),
-                  size: 16,
-                ),
-                label: Text(
-                  'Abort',
-                  style: TextStyle(color: AppColors.negativeAccentOf(context)),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          LinearProgressIndicator(
-            value: service.progress,
-            backgroundColor: AppColors.borderOf(context).withValues(alpha: 0.3),
-            valueColor: AlwaysStoppedAnimation<Color>(
-              AppColors.porchHoneyOf(context),
-            ),
-            minHeight: 8,
-            borderRadius: BorderRadius.circular(4),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            service.status,
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 13,
-            ),
-          ),
-        ],
-      ),
-    );
+  Future<void> _exportText(StoryProject project) async {
+    try {
+      final md = _pipeline.exportAsMarkdown(project);
+      final out = await GuardedPicker.saveFile(
+        context,
+        category: PickerPrefs.catExport,
+        bytes: Uint8List.fromList(utf8.encode(md)),
+        dialogTitle: 'Save text',
+        fileName: '${project.title.replaceAll(' ', '_')}.md',
+        type: FileType.custom,
+        allowedExtensions: ['md'],
+      );
+      if (out != null && mounted) _saved('Text saved to $out');
+    } catch (e) {
+      if (mounted) showAiErrorSnackBar(context, e);
+    }
   }
+
+  void _saved(String message) => ScaffoldMessenger.of(
+    context,
+  ).showSnackBar(SnackBar(content: Text(message)));
 }

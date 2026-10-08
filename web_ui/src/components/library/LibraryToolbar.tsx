@@ -116,11 +116,16 @@ export function LibraryToolbar({
 export function SelectionBar({
   count,
   onMove,
+  onExport,
+  exporting = false,
   onDelete,
   onCancel,
 }: {
   count: number;
   onMove: () => void;
+  /** Save the selection as a .porch (one) or .porchpack (two or more). */
+  onExport?: () => void;
+  exporting?: boolean;
   onDelete: () => void;
   onCancel: () => void;
 }) {
@@ -131,6 +136,11 @@ export function SelectionBar({
         <button className="ghost small" disabled={count === 0} onClick={onMove}>
           📁 Move to folder
         </button>
+        {onExport && (
+          <button className="ghost small" disabled={count === 0 || exporting} onClick={onExport}>
+            {exporting ? 'Exporting…' : '⬇ Export'}
+          </button>
+        )}
         <button className="danger-btn small" disabled={count === 0} onClick={onDelete}>
           🗑 Delete
         </button>

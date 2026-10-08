@@ -114,7 +114,7 @@ extension _WorldBasicsSection on _WorldManagementPageState {
                       children: [
                         TextButton.icon(
                           onPressed: () async {
-                            final bytes = await pickImageBytes();
+                            final bytes = await pickImageBytes(context);
                             if (bytes == null) return;
                             // Decode+resize+JPEG of a
                             // multi-MB photo — off the UI

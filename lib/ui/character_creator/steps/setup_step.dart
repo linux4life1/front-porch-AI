@@ -6,7 +6,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/setup_backend_picker.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
@@ -94,7 +93,10 @@ class SetupStep extends StatelessWidget {
                         getSubtitle: (f) => f.path,
                         onSelected: (f) {
                           state.selectedLocalModelPath = f.path;
-                          storage.backendSettings.setLastUsedModelPath(f.path);
+                          // Like the other pickers: the model brings its
+                          // own preset or none, so a preset that owns a
+                          // different model does not load that one instead.
+                          selectKoboldModel(storage, f.path);
                           state.notify();
                         },
                       );
@@ -153,21 +155,25 @@ class SetupStep extends StatelessWidget {
                 const SizedBox(height: 16),
                 Builder(
                   builder: (ctx) {
-                    final k = Provider.of<KoboldService>(ctx);
+                    final phase = Provider.of<KoboldService>(ctx).phase;
                     final isTransitioning =
-                        k.isStarting || (k.isRunning && !k.modelReady);
-                    final dotColor = k.modelReady
-                        ? Colors.green.shade300
-                        : isTransitioning
-                        ? Colors.orange.shade300
-                        : Colors.red.shade300;
-                    final label = k.modelReady
-                        ? 'Ready'
-                        : k.isStarting
-                        ? 'Starting...'
-                        : k.isRunning
-                        ? 'Loading model...'
-                        : 'Stopped';
+                        phase == KoboldPhase.starting ||
+                        phase == KoboldPhase.loading;
+                    final dotColor = switch (phase) {
+                      KoboldPhase.ready => Colors.green.shade300,
+                      KoboldPhase.unloaded => AppColors.slateFaintOf(ctx),
+                      KoboldPhase.starting ||
+                      KoboldPhase.loading => Colors.orange.shade300,
+                      KoboldPhase.stopped => Colors.red.shade300,
+                    };
+                    final label = switch (phase) {
+                      KoboldPhase.ready => 'Ready',
+                      // It loads again with the next request.
+                      KoboldPhase.unloaded => 'Unloaded while idle',
+                      KoboldPhase.starting => 'Starting...',
+                      KoboldPhase.loading => 'Loading model...',
+                      KoboldPhase.stopped => 'Stopped',
+                    };
                     return Row(
                       children: [
                         _BackendStatusDot(
@@ -428,59 +434,5 @@ class SetupStep extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  void _applyAutoConfigure(
-    BuildContext context,
-    CreatorState state,
-    StorageService storage,
-  ) {
-    final hardware = Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).hardwareInfo;
-    if (hardware == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Hardware not detected yet.')),
-      );
-      return;
-    }
-
-    int modelSize = 5000;
-    if (state.selectedLocalModelPath.isNotEmpty) {
-      try {
-        final file = File(state.selectedLocalModelPath);
-        final exists = file.existsSync(); // io-ok: Auto-Configure tap
-        if (exists) {
-          final n = file.lengthSync(); // io-ok: Auto-Configure tap
-          modelSize = (n / (1024 * 1024)).round();
-        }
-      } catch (_) {}
-    }
-
-    final userContext = int.tryParse(state.contextSizeController.text);
-    final modelManager = Provider.of<ModelManager>(context, listen: false);
-    int? kvBytesPerToken;
-    if (state.selectedLocalModelPath.isNotEmpty) {
-      kvBytesPerToken =
-          modelManager
-              .getCachedModelArchitectureInfo(state.selectedLocalModelPath)
-              ?.kvBytesPerToken ??
-          modelManager.getCachedKvBytesPerToken(state.selectedLocalModelPath);
-    }
-
-    final suggestion = OptimizationService.calculateSettings(
-      hardware,
-      modelSizeMb: modelSize,
-      requestedContextSize: userContext,
-      kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: storage.backendSettings.kvQuantizationLevel,
-    );
-
-    state.gpuLayersController.text = suggestion.gpuLayers.toString();
-    state.contextSizeController.text = suggestion.contextSize.toString();
-    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
-    storage.backendSettings.setContextSize(suggestion.contextSize);
-    state.notify();
   }
 }

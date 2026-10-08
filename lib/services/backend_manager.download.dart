@@ -23,6 +23,10 @@ part of 'backend_manager.dart';
 /// — backend_binary_staging_test calls it.
 extension BackendManagerDownload on BackendManager {
   Future<void> _downloadBackendImpl() async {
+    // Which engine to fetch, and whether one can run here, need the
+    // processor. Waited for first: nothing awaits between the check below
+    // and the download being marked as running.
+    await architectureKnown;
     if (_isDownloading) return;
     if (_storageService.rootPath == null) return;
 
@@ -53,7 +57,7 @@ extension BackendManagerDownload on BackendManager {
       }
 
       final executableName = _getExecutableName();
-      final downloadUrl = _getDownloadUrl();
+      final downloadUrl = engineDownloadUrl;
       final savePath = path.join(binDir.path, executableName);
       // Stage into a sibling `.part` and swap it onto the live path only after
       // the size checks pass. Writing straight onto `savePath` meant a stream
@@ -80,6 +84,9 @@ extension BackendManagerDownload on BackendManager {
 
       if (response.statusCode != 200) {
         print('AG_DEBUG: Download failed with status ${response.statusCode}');
+        // Closed here too: the finally below only covers the stream, so a
+        // refused request left the client's idle connection open.
+        client.close();
         throw Exception(
           'Failed to download backend: HTTP ${response.statusCode}',
         );
@@ -193,6 +200,13 @@ extension BackendManagerDownload on BackendManager {
           version: _remoteVersion!,
           size: fileSize,
         );
+      } else {
+        // The lookup failed: no record beats the old engine's, which would
+        // refuse this one as too old.
+        final stale = File(
+          path.join(binDir.path, KoboldBinaryVersion.fileName),
+        );
+        if (await stale.exists()) await stale.delete();
       }
 
       _isDownloading = false;
@@ -263,7 +277,7 @@ extension BackendManagerDownload on BackendManager {
       return 'koboldcpp-linux-x64-nocuda';
     }
     if (Platform.isMacOS) {
-      return _arch == 'arm64' ? 'koboldcpp-mac-arm64' : 'koboldcpp-mac-x64';
+      return _intelCpu ? 'koboldcpp-mac-x64' : 'koboldcpp-mac-arm64';
     }
     return 'koboldcpp';
   }
@@ -283,9 +297,9 @@ extension BackendManagerDownload on BackendManager {
       return '$base/koboldcpp-linux-x64-nocuda';
     }
     if (Platform.isMacOS) {
-      return _arch == 'arm64'
-          ? 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp-mac-arm64'
-          : 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp-mac-x64';
+      return _intelCpu
+          ? 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp-mac-x64'
+          : 'https://github.com/LostRuins/koboldcpp/releases/latest/download/koboldcpp-mac-arm64';
     }
     throw Exception('Unsupported platform');
   }

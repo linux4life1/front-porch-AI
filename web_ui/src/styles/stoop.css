@@ -95,7 +95,13 @@
 .stoop-badge.lore { color: var(--text); }
 
 .stoop-detail-head { display: flex; gap: 16px; align-items: flex-start; }
-.stoop-detail-art { width: 140px; flex: none; }
+/* Detail art is the whole picture at its own height (hub .hub-detail-img), not a 3:4 crop. */
+.stoop-detail-art { width: 140px; flex: none; aspect-ratio: auto; }
+.lib-art.stoop-detail-art img { height: auto; }
+.stoop-detail-art .lib-art-fallback { width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: center; }
+/* World tiles: wide landscape frame, centred (hub .hub-tile-world). */
+.stoop-tile-world .lib-art { aspect-ratio: 16 / 10; }
+.stoop-tile-world .lib-art img { object-position: center; }
 .stoop-detail-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
 .stoop-detail-info h3 { margin: 0; }
 .stoop-original-creator { font-style: italic; font-size: 13px; }

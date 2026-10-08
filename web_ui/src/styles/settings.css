@@ -58,6 +58,7 @@
 .slider-field input[type='range'] {
   width: 100%; accent-color: var(--accent); cursor: pointer; padding: 0; background: none; border: none;
 }
+.slider-field input:disabled { opacity: 0.45; cursor: not-allowed; }
 
 /* ── Group creation member picker ──────────────────────────────────────── */
 .grp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
@@ -127,3 +128,37 @@
 .session-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
 .auth-note { color: var(--accent); }
 
+
+/* Unofficial SuperGrok sign-in (xAI host) — desktop SuperGrokCard. */
+.sg-card {
+  border: 1px solid rgba(244, 162, 89, 0.45);
+  border-radius: var(--radius);
+  background: var(--card);
+  padding: 12px;
+  margin: 8px 0 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.sg-card .cpu-warn { margin: 0; }
+.sg-head { display: flex; align-items: center; gap: 8px; }
+.sg-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  color: var(--porch-amber);
+  background: rgba(244, 162, 89, 0.12);
+  border: 1px solid rgba(244, 162, 89, 0.5);
+}
+.sg-code {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--porch-amber);
+  user-select: all;
+}
+.sg-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.sg-signed-in { margin: 0; font-weight: 600; color: var(--ok); }
+.sg-fine { margin: 0; font-size: 0.75rem; color: var(--porch-amber); }

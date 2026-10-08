@@ -3,22 +3,21 @@
 
 import 'dart:io';
 
-import 'package:path/path.dart' as path;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
-import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/folder_grid_card.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/group_grid_card.dart';
-import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_search_bar.dart';
-import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_toolbar.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/cards.dart';
+import 'package:front_porch_ai/ui/pages/home/library_selection.dart';
+import 'package:front_porch_ai/ui/pages/home/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/library_view.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-part 'character_card_grid.grid.dart';
+export 'package:front_porch_ai/ui/widgets/library_view.dart' show SearchScope;
 
-enum SearchScope { currentFolder, folderRecursive, allCharacters }
+part 'character_card_grid.grid.dart';
 
 enum FolderDialogAction { create, rename, delete }
 
@@ -65,6 +64,7 @@ class CharacterCardGrid extends StatelessWidget {
     required this.onCancelSelection,
     required this.onDeleteSelected,
     required this.onMoveToFolder,
+    this.onExportSelected,
     required this.onSortChanged,
     required this.onGridScaleChanged,
     this.onGridScaleChangeEnd,
@@ -74,6 +74,10 @@ class CharacterCardGrid extends StatelessWidget {
     required this.onDeleteGroup,
     required this.onAfterNavigateBack,
     this.onGroupContextMenuAction,
+    this.onSelectAll,
+    this.onSelectNone,
+    this.selection,
+    this.onDropOnLevel,
   });
 
   final String searchQuery;
@@ -124,6 +128,9 @@ class CharacterCardGrid extends StatelessWidget {
   /// lives with the handler — this just hands over the selection).
   final void Function(Set<String> selectedIds) onDeleteSelected;
   final void Function(Set<String> selectedIds) onMoveToFolder;
+
+  /// Save the selected characters as a `.porch` (one) or `.porchpack`.
+  final void Function(Set<String> selectedIds)? onExportSelected;
   final void Function(String mode) onSortChanged;
   final void Function(double scale) onGridScaleChanged;
   final void Function(double scale)? onGridScaleChangeEnd;
@@ -137,94 +144,55 @@ class CharacterCardGrid extends StatelessWidget {
   /// Mirrors the existing `onContextMenuAction` pattern used for CharacterCard.
   final void Function(String action, GroupChat group)? onGroupContextMenuAction;
 
-  List<CharacterCard> _getFilteredCharacters() {
-    List<CharacterCard> characters;
+  /// Select all (#347): hands over the selection keys of every character
+  /// and group chat on screen, so a search or "Top level only" limits it.
+  /// Also Ctrl/Cmd+A on the grid. Null hides Select all / Select none.
+  final void Function(Set<String> characterIds, Set<String> groupIds)?
+  onSelectAll;
 
-    final skipFolderFilter =
-        searchScope == SearchScope.allCharacters && searchQuery.isNotEmpty;
-    if (activeFolderId != null && !skipFolderFilter) {
-      List<String> folderFilenames;
-      if (searchQuery.isEmpty) {
-        // Normal browsing: subfolder cards are rendered for navigation
-        // (see _buildGrid -> getSubfolders), so only list characters that
-        // live DIRECTLY in this folder. Using the recursive list here
-        // flattened every subfolder's characters back into the parent view,
-        // producing a phantom "duplicate" card for any character that had
-        // been moved into a subfolder. Because that phantom card and the
-        // real one share a single CharacterCard/DB row, deleting the
-        // phantom also deleted the original.
-        folderFilenames = folderService.getCharactersInFolder(activeFolderId!);
-      } else {
-        // Searching: subfolder cards are hidden (_buildGrid only shows
-        // folders when the query is empty), so search recursively so
-        // characters nested in subfolders remain findable.
-        folderFilenames = folderService.getCharactersInFolderRecursive(
-          activeFolderId!,
-        );
-      }
-      characters = repo.characters
-          .where(
-            (c) =>
-                c.imagePath != null &&
-                folderFilenames.contains(path.basename(c.imagePath!)),
-          )
-          .toList();
-    } else {
-      characters = repo.characters.toList();
-    }
+  /// Select none: clears every pick, hidden ones too.
+  final VoidCallback? onSelectNone;
 
-    if (searchQuery.isNotEmpty) {
-      final query = searchQuery.toLowerCase();
-      characters = characters.where((c) {
-        if (c.name.toLowerCase().contains(query)) return true;
-        if (c.tags.any((t) => t.toLowerCase().contains(query))) return true;
-        return false;
-      }).toList();
-    }
+  /// The picks as one controller. With it the grid takes a box drag,
+  /// Shift-, Ctrl- and Cmd-clicks, and drags of the whole selection (library
+  /// phases 2–3); without it, the plain callbacks above as before.
+  final LibrarySelection? selection;
 
-    return sortCharacters(
-      characters,
-      CharacterSortMode.fromKey(sortMode),
-      lastActivity: lastActivityCache,
-      messageCount: messageCountCache,
-    );
-  }
+  /// A drop on a level of the path in the toolbar; null is the top level.
+  final void Function(Object item, String? folderId)? onDropOnLevel;
 
-  /// Folder + search filtering for group chats — the exact mirror of
-  /// [_getFilteredCharacters], keyed by group id instead of image filename
-  /// (groups have no image key). Groups used to bypass foldering entirely
-  /// and always render on the top level.
-  List<GroupChat> _getFilteredGroups() {
-    List<GroupChat> groups;
-
-    final skipFolderFilter =
-        searchScope == SearchScope.allCharacters && searchQuery.isNotEmpty;
-    if (activeFolderId != null && !skipFolderFilter) {
-      // Same browse-vs-search split as characters: direct members while
-      // browsing (subfolder cards handle navigation), recursive while
-      // searching (subfolder cards are hidden).
-      final ids = searchQuery.isEmpty
-          ? folderService.groupIdsInFolder(activeFolderId!)
-          : folderService.groupIdsInFolderRecursive(activeFolderId!);
-      groups = groupRepo.groups.where((g) => ids.contains(g.id)).toList();
-    } else {
-      groups = groupRepo.groups.toList();
-    }
-
-    if (searchQuery.isNotEmpty) {
-      final query = searchQuery.toLowerCase();
-      groups = groups
-          .where((g) => g.name.toLowerCase().contains(query))
-          .toList();
-    }
-
-    return groups;
-  }
+  LibraryView _view() => libraryViewOf(
+    characters: repo.characters,
+    groups: groupRepo.groups,
+    folders: folderService,
+    activeFolderId: activeFolderId,
+    query: searchQuery,
+    scope: searchScope,
+    sortMode: sortMode,
+    lastActivity: lastActivityCache,
+    messageCount: messageCountCache,
+  );
 
   @override
   Widget build(BuildContext context) {
-    final filteredCharacters = _getFilteredCharacters();
-    final selectedCount = selectedCharacterIds.length + selectedGroupIds.length;
+    final view = _view();
+    // Picks stay selected when a search or folder change hides them (#347).
+    final picks = tallySelection(
+      view,
+      characterIds: selectedCharacterIds,
+      groupIds: selectedGroupIds,
+      library: repo.characters,
+      groupLibrary: groupRepo.groups,
+    );
+    final selectedCount = picks.total;
+    final picking = isSelecting || isOrganizing;
+    final selectAll = onSelectAll;
+    final addShown = selectAll == null
+        ? null
+        : () => selectAll(view.characterIds, view.groupIds);
+    final moreToAdd =
+        !selectedCharacterIds.containsAll(view.characterIds) ||
+        !selectedGroupIds.containsAll(view.groupIds);
 
     return Stack(
       children: [
@@ -235,6 +203,15 @@ class CharacterCardGrid extends StatelessWidget {
               isOrganizing: isOrganizing,
               activeFolderId: activeFolderId,
               selectedCount: selectedCount,
+              hiddenSelectedCount: picks.hidden,
+              selectionActions: addShown == null && onSelectNone == null
+                  ? null
+                  : LibrarySelectionActions(
+                      selectAll: moreToAdd ? addShown : null,
+                      selectNone: selectedCount > 0 ? onSelectNone : null,
+                    ),
+              liveDrag: (selection?.dragCount ?? 0) > 0,
+              onDropOnLevel: onDropOnLevel,
               sortMode: sortMode,
               gridScale: gridScale,
               modeToggle: modeToggle,
@@ -260,7 +237,18 @@ class CharacterCardGrid extends StatelessWidget {
               onSearchQueryChanged: onSearchQueryChanged,
             ),
             const SizedBox(height: 12),
-            Expanded(child: _buildGrid(context, filteredCharacters)),
+            Expanded(
+              child: LibraryGridKeys(
+                selecting: picking,
+                onSelectAll: addShown,
+                // Esc calls off a drag in flight first, then the picks.
+                onEscape:
+                    selection != null && (picking || selection!.dragCount > 0)
+                    ? selection!.escape
+                    : (picking ? onCancelSelection : null),
+                child: _buildGrid(context, view),
+              ),
+            ),
           ],
         ),
         if (isSelecting && selectedCount > 0)
@@ -297,7 +285,7 @@ class CharacterCardGrid extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '$selectedCount selected',
+                    picks.label,
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 14,
@@ -325,6 +313,20 @@ class CharacterCardGrid extends StatelessWidget {
                       foregroundColor: AppColors.onChaosAccent,
                     ),
                   ),
+                  if (onExportSelected != null) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: () => onExportSelected!(selectedCharacterIds),
+                      icon: const Icon(Icons.ios_share, size: 18),
+                      label: const Text('Export'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.porchHoneyOf(context),
+                        side: BorderSide(
+                          color: AppColors.porchHoneyOf(context),
+                        ),
+                      ),
+                    ),
+                  ],
                   const SizedBox(width: 8),
                   ElevatedButton.icon(
                     onPressed: () => onDeleteSelected(selectedCharacterIds),
@@ -371,7 +373,7 @@ class CharacterCardGrid extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '$selectedCount selected',
+                    picks.label,
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 14,

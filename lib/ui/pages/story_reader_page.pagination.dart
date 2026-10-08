@@ -31,7 +31,7 @@ const TextStyle _kProseStyle = TextStyle(
   fontSize: 15,
   // theme-keep: book prop — the page ink stays this sepia-brown in every app
   // theme; it's the color of "text printed on paper", not app chrome.
-  color: Color(0xFF3A2A1A),
+  color: Color(0xFF3A2A1A), // theme-keep: book prop
   height: 1.75,
   letterSpacing: 0.2,
 );

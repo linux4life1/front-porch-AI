@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -81,6 +82,29 @@ const _uuid = Uuid();
 )
 class AppDatabase extends _$AppDatabase {
   AppDatabase._internal(super.e);
+
+  final StreamController<String> _deletedSessions =
+      StreamController<String>.broadcast(sync: true);
+
+  /// The id of each chat [deleteSessionById] has removed, which every way of
+  /// deleting a chat ends in (one chat, a character's, a group's), and of
+  /// each the Settings cleanup removes with its own query. What lives
+  /// outside the database for a chat, like KoboldCpp's saved cache of it,
+  /// goes when the chat does.
+  Stream<String> get deletedSessions => _deletedSessions.stream;
+
+  /// Tells [deletedSessions] about chats a query removed.
+  void noteSessionsDeleted(Iterable<String> ids) {
+    if (_deletedSessions.isClosed) return;
+    ids.forEach(_deletedSessions.add);
+  }
+
+  /// Closing the database ends [deletedSessions] too; a listener gets done.
+  @override
+  Future<void> close() {
+    unawaited(_deletedSessions.close());
+    return super.close();
+  }
 
   static AppDatabase? _instance;
   static String? _dbPath;
@@ -275,7 +299,7 @@ class AppDatabase extends _$AppDatabase {
   }
 
   @override
-  int get schemaVersion => 53;
+  int get schemaVersion => 55;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(

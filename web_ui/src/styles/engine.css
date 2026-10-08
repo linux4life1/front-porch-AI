@@ -46,39 +46,6 @@
   100% { margin-left: 0; }
 }
 
-/* ── AI Engine strip (Porch Stories surfaces) ─────────────────────────────
-   Web mirror of the desktop AiEngineStatusCard: can the AI generate right
-   now? Green ready, amber starting/loading, red not running (with Start). */
-.engine-strip {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 10px 0;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 10px;
-  background: var(--surface);
-  font-size: 0.85rem;
-  color: var(--muted);
-}
-.engine-strip .engine-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-.engine-strip-ok .engine-dot { background: var(--ok); }
-.engine-strip-busy .engine-dot { background: var(--accent-amber); }
-.engine-strip-down .engine-dot { background: var(--danger); }
-.engine-strip-down { border-color: rgba(255, 107, 107, 0.5); }
-.engine-strip .engine-text { flex: 1; min-width: 0; }
-.engine-strip .engine-actions {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-shrink: 0;
-}
-.engine-strip .engine-actions a { color: var(--accent); font-weight: 600; }
 
 /* ── Tool-calling pill (chat insight panel) ───────────────────────────────
    Desktop sidebar parity: does the current model speak the tools protocol?

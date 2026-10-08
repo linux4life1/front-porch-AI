@@ -50,9 +50,13 @@ function recapState(journalEnabled: boolean): ToolsState {
       pressure: 0,
       hasPendingEvent: false,
     },
+    // 2026-10-06: the facade sends the refractory in story minutes with its
+    // ready-made label instead of a turn count (same inert values).
     nsfw: {
       cooldownEnabled: false,
-      cooldownTurnsRemaining: 0,
+      refractoryMinutesRemaining: 0,
+      refractoryClockRunning: true,
+      refractoryLabel: '',
       arousalLevel: 0,
       arousalTier: '',
     },

@@ -6,29 +6,39 @@
 // glyph) if every source fails — important because Safari renders a broken-image
 // box for an empty/odd src WITHOUT firing onError.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
 
-/** A bare <img> for the small chat-header avatar. */
-export function SmartImg({ primary, fallback, className }: { primary: string; fallback?: string; className: string }) {
+/**
+ * primary → fallback → nothing. Also checks right after each source is placed:
+ * WebKit reports a URL it has already seen fail (the header and the sidebar
+ * portrait ask for the same expression picture) before any error listener
+ * runs, so onError never fires and the broken-picture box stays.
+ */
+function useFallbackSrc(primary: string, fallback?: string) {
   const [src, setSrc] = useState(primary);
   const [failed, setFailed] = useState(false);
+  const ref = useRef<HTMLImageElement>(null);
   useEffect(() => {
     setSrc(primary);
     setFailed(false);
   }, [primary]);
-  if (failed || !src) return null;
-  return (
-    <img
-      className={className}
-      src={src}
-      alt=""
-      onError={() => {
-        if (fallback && src !== fallback) setSrc(fallback);
-        else setFailed(true);
-      }}
-    />
-  );
+  const onError = useCallback(() => {
+    if (fallback && src !== fallback) setSrc(fallback);
+    else setFailed(true);
+  }, [fallback, src]);
+  useEffect(() => {
+    const img = ref.current;
+    if (img && img.complete && img.naturalWidth === 0 && img.getAttribute('src')) onError();
+  }, [src, onError]);
+  return { src, gone: failed || !src, ref, onError };
+}
+
+/** A bare <img> for the small chat-header avatar. */
+export function SmartImg({ primary, fallback, className }: { primary: string; fallback?: string; className: string }) {
+  const { src, gone, ref, onError } = useFallbackSrc(primary, fallback);
+  if (gone) return null;
+  return <img ref={ref} className={className} src={src} alt="" onError={onError} />;
 }
 
 /** Larger character portrait for the insight panel — prefers the mood-driven
@@ -36,24 +46,11 @@ export function SmartImg({ primary, fallback, className }: { primary: string; fa
  *  avatar; if every source fails it renders NOTHING. The mood also appears in the
  *  Mood stat row, so hiding here loses no information. */
 export function Portrait({ primary, fallback, mood }: { primary: string; fallback?: string; mood?: string }) {
-  const [src, setSrc] = useState(primary);
-  const [failed, setFailed] = useState(false);
-  useEffect(() => {
-    setSrc(primary);
-    setFailed(false);
-  }, [primary]);
-  if (failed || !src) return null;
+  const { src, gone, ref, onError } = useFallbackSrc(primary, fallback);
+  if (gone) return null;
   return (
     <div className="portrait-wrap">
-      <img
-        className="portrait"
-        src={src}
-        alt=""
-        onError={() => {
-          if (fallback && src !== fallback) setSrc(fallback);
-          else setFailed(true);
-        }}
-      />
+      <img ref={ref} className="portrait" src={src} alt="" onError={onError} />
       {mood && <span className="portrait-mood">{mood}</span>}
     </div>
   );

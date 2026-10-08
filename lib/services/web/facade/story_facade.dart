@@ -17,11 +17,15 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/web/facade/story_snapshot_builder.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
+
+part 'story_facade.studio.dart';
 
 /// Web adapter for Porch Stories. The generator ([StoryPipelineService]) and the
 /// store ([StoryRepository]) are already fully headless, so this is a thin
@@ -34,16 +38,33 @@ class StoryFacade {
     this._hub, {
     StorySnapshotBuilder? snapshotBuilder,
     TtsService? tts,
+    StorageService? storage,
+    LLMProvider? llm,
+    ImageGenService? imageGen,
   }) : _snapshotBuilder = snapshotBuilder,
-       _tts = tts;
+       _tts = tts,
+       _storage = storage,
+       _llm = llm,
+       _imageGen = imageGen;
 
   final StoryRepository _repo;
-  final StoryPipelineService _pipeline;
+  StoryPipelineService _pipeline;
   final StreamHub? _hub;
   final StorySnapshotBuilder? _snapshotBuilder;
   final TtsService? _tts;
+  final StorageService? _storage;
+  final LLMProvider? _llm;
+  final ImageGenService? _imageGen;
 
   bool _loaded = false;
+
+  /// The pipeline a run started here is on, until it ends: after a backend
+  /// switch its status and Stop still go to it, not to the new one.
+  StoryPipelineService? _inFlight;
+
+  /// The pipeline the app uses now: it makes a new one when the chat backend
+  /// switches (a pipeline binds its backend when it is made).
+  set pipeline(StoryPipelineService value) => _pipeline = value;
 
   Future<void> _ensureLoaded() async {
     if (_loaded) return;
@@ -72,9 +93,24 @@ class StoryFacade {
         'genre': p.style.genre,
         'mood': p.style.mood,
         'tier': p.promptTier.name,
+        'engine': p.engineMode.name,
         'sceneCount': sceneCount,
         'proseCount': proseCount,
         'hasConcept': p.concept.trim().isNotEmpty,
+        // The shelf (sketch H): one wording for desktop and web.
+        'setupStep': p.setupStep,
+        'wordCount': p.wordCount,
+        'targetWords': p.targetWords,
+        'genreLine': storyGenreLine(p),
+        'shelf': () {
+          final st = storyShelfStatus(p);
+          return {
+            'status': st.status,
+            'fraction': st.fraction,
+            'done': st.done,
+            'setup': st.setup,
+          };
+        }(),
       };
     }).toList();
   }
@@ -125,6 +161,28 @@ class StoryFacade {
     return true;
   }
 
+  /// Record the reader's page without touching the rest of the project — a
+  /// full-project save from the reader would overwrite pipeline output or
+  /// desktop edits made since the reader loaded. Same write as the desktop
+  /// reader's page-flip.
+  Future<bool> saveReadingPosition(
+    String id,
+    int? pageIndex, {
+    String? mode,
+    double? scroll,
+  }) async {
+    await _ensureLoaded();
+    final project = _repo.getById(id);
+    if (project == null) return false;
+    if (pageIndex != null) {
+      project.lastReadPageIndex = pageIndex < 0 ? 0 : pageIndex;
+    }
+    if (mode == 'book' || mode == 'scroll') project.readerMode = mode!;
+    if (scroll != null) project.readerScroll = scroll.clamp(0.0, 1.0);
+    await _repo.saveProject(project);
+    return true;
+  }
+
   Future<bool> delete(String id) async {
     await _ensureLoaded();
     if (_repo.getById(id) == null) return false;
@@ -132,13 +190,21 @@ class StoryFacade {
     return true;
   }
 
-  /// Current pipeline progress (also pushed live over the hub during a run).
-  Map<String, dynamic> status() => {
-    'running': _pipeline.isRunning,
-    'step': _pipeline.currentStep,
-    'status': _pipeline.statusMessage,
-    'tokens': _pipeline.tokenCount,
-  };
+  /// Current pipeline progress (also pushed live over the hub during a run,
+  /// from the pipeline the run started on, [of]).
+  Map<String, dynamic> status([StoryPipelineService? of]) {
+    final p = of ?? _inFlight ?? _pipeline;
+    return {
+      'running': p.isRunning,
+      'stopping': p.stopRequested,
+      'step': p.currentStep,
+      'status': p.statusMessage,
+      'tokens': p.tokenCount,
+      // The beat being written streams in place on the Write screen. The
+      // pipeline notifies every ~3 tokens, so this rides the same cadence.
+      'streamingText': p.streamingText,
+    };
+  }
 
   /// Kick off one pipeline [stage] in the background. Progress streams as
   /// `story_status`; on completion `story_updated {id}` (or `story_error`) tells
@@ -150,18 +216,22 @@ class StoryFacade {
     int? actIndex,
     int? sceneIndex,
     int? beatIndex,
+    Map<String, dynamic> args = const {},
   }) async {
     await _ensureLoaded();
     final p = _repo.getById(id);
     if (p == null) return false;
-    final job = _dispatch(p, stage, actIndex, sceneIndex, beatIndex);
+    final job = _dispatch(p, stage, actIndex, sceneIndex, beatIndex, args);
     if (job == null) return false;
 
     // Scope the progress listener to this job's lifetime so nothing leaks across
     // server restarts (the pipeline is a long-lived singleton; the hub is not).
+    // The run reports from, and its listener comes off, the pipeline it
+    // started on, even if the app has switched to a new one meanwhile.
+    final pipeline = _inFlight = _pipeline;
     void onProgress() =>
-        _hub?.broadcast({'event': 'story_status', ...status()});
-    _pipeline.addListener(onProgress);
+        _hub?.broadcast({'event': 'story_status', ...status(pipeline)});
+    pipeline.addListener(onProgress);
     unawaited(
       job
           .then((_) async {
@@ -171,7 +241,10 @@ class StoryFacade {
           .catchError((Object e) {
             _hub?.broadcast({'event': 'story_error', 'id': id, 'error': '$e'});
           })
-          .whenComplete(() => _pipeline.removeListener(onProgress)),
+          .whenComplete(() {
+            pipeline.removeListener(onProgress);
+            if (identical(_inFlight, pipeline)) _inFlight = null;
+          }),
     );
     return true;
   }
@@ -182,12 +255,40 @@ class StoryFacade {
     int? a,
     int? s,
     int? b,
+    Map<String, dynamic> args,
   ) {
+    String text(String key) => args[key]?.toString() ?? '';
     switch (stage) {
+      case 'write-next':
+        return _pipeline.writeNextScene(p);
+      case 'plan-sequence':
+        final n = args['sequence'];
+        return n is int ? _pipeline.planSequenceScenes(p, n) : null;
+      case 'rewrite-beat':
+        return (a == null || s == null || b == null)
+            ? null
+            : _pipeline.rewriteBeat(p, a, s, b, directive: text('directive'));
+      case 'interview':
+        return text('name').isEmpty
+            ? null
+            : _pipeline.runCharacterInterview(p, text('name'));
+      case 'director-plan':
+        return text('directive').isEmpty
+            ? null
+            : _pipeline.runDirectorPlan(
+                p,
+                text('directive'),
+                protectWrittenProse: args['protect'] != false,
+                refinement: text('refinement'),
+              );
+      case 'director-apply':
+        return _pipeline.applyDirectorPlan(p);
       case 'chat-distiller':
         return _pipeline.runChatDistiller(p);
       case 'story-architect':
         return _pipeline.runStoryArchitect(p);
+      case 'story-arc':
+        return _pipeline.runStoryArc(p);
       case 'act-structure':
         return _pipeline.runActStructurer(p);
       case 'scene-weaver':
@@ -244,6 +345,11 @@ class StoryFacade {
         .map((v) => {'id': v.id, 'name': v.name, 'engine': v.engine})
         .toList();
   }
+
+  /// The chats a story can start from: the desktop picker's own list.
+  Future<List<Map<String, dynamic>>> chatSources() async => [
+    for (final row in await _pipeline.chatSources()) row.toJson(),
+  ];
 
   /// Quick-concept archetype chips for the setup wizard (genre/style/concept
   /// seeds). Mirrors the desktop "Quick concepts" + Refresh.

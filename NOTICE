@@ -1,0 +1,18 @@
+Front Porch AI
+Copyright (C) 2026 Front Porch AI
+
+This product is licensed under the GNU Affero General Public License,
+version 3 or later (see LICENSE).
+
+Porch Stories — the Studio engine's staging (world foundation, character
+interviews, story arc, acts, eight sequences, scene and beat planning,
+review loops, continuity ledger, narrative lenses, surgical edits and the
+Director) and the wording of the built-in narrative lenses — is adapted
+from EllipsisProse (formerly WriteforMe) by pacmanincarnate,
+https://github.com/pacmanincarnate/WriteforMe, licensed under the Apache
+License, Version 2.0. The prompts were rewritten for this app; the design
+and the lens texts are theirs. Modifications are noted in the files under
+lib/services/story/.
+
+A copy of the Apache License, Version 2.0 is available at
+http://www.apache.org/licenses/LICENSE-2.0

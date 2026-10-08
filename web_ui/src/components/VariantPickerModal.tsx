@@ -7,6 +7,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { describeActionFailure } from '../pages/chat/chatActionError';
 
 interface VariantRow {
   index: number;
@@ -65,7 +66,13 @@ export function VariantPickerModal({
   }, [messageIndex]);
 
   const pick = async (variantIndex: number) => {
-    await api.post('/api/chat/select-variant', { messageIndex, variantIndex });
+    setErr('');
+    try {
+      await api.post('/api/chat/select-variant', { messageIndex, variantIndex });
+    } catch (e) {
+      setErr(describeActionFailure('switch to that version', e));
+      return;
+    }
     onPicked();
   };
 

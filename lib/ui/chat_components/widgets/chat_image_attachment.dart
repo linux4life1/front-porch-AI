@@ -24,6 +24,7 @@ import 'package:image/image.dart' as img;
 
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 const kChatImageMaxFileBytes = 24 * 1024 * 1024;
@@ -37,8 +38,9 @@ const kChatImageMaxSide = 8192;
 /// every source format. Decode/resize runs off the UI isolate — a 12 MP phone
 /// photo would jank the composer otherwise. Returns null when the user
 /// cancels or the file can't be decoded as an image.
-Future<Uint8List?> pickChatImageAttachment() async {
-  final result = await PickerPrefs.pickFiles(
+Future<Uint8List?> pickChatImageAttachment(BuildContext context) async {
+  final result = await GuardedPicker.pickFiles(
+    context,
     category: PickerPrefs.catImage,
     dialogTitle: 'Attach a photo',
     type: FileType.image,

@@ -20,9 +20,35 @@
 // this directory now holds 6 files with multi-file importers). Deliberately
 // NOT re-exported from the curated `services.dart` (the chat/-leaf
 // precedent: `services.dart` does not re-export domain leaves either).
-
 export 'faithful_mode.dart';
-export 'story_json.dart';
+export 'prompts/director_prompts.dart';
+export 'prompts/studio_archive_prompts.dart';
+export 'prompts/studio_bible_prompts.dart';
+export 'prompts/studio_context.dart';
+export 'prompts/studio_prose_prompts.dart';
+export 'prompts/studio_structure_prompts.dart';
 export 'story_archetypes.dart';
-export 'story_prompts.dart';
+export 'story_chat_memory.dart';
+export 'story_chat_sources.dart';
 export 'story_context.dart';
+export 'story_continuity.dart';
+export 'story_director.dart';
+export 'story_director_apply.dart';
+export 'story_edits.dart';
+export 'story_engine_types.dart';
+export 'story_json.dart';
+export 'story_lenses.dart';
+export 'story_lore_index.dart';
+export 'story_pacing.dart';
+export 'story_prompts.dart';
+export 'story_quality.dart';
+export 'story_quick_xml.dart';
+export 'story_review.dart';
+export 'story_run_summary.dart';
+export 'story_shelf.dart';
+export 'story_structure.dart';
+export 'story_studio_store.dart';
+export 'story_tools.dart';
+export 'story_xml.dart';
+export 'studio_parse.dart';
+export 'studio_parse_prose.dart';

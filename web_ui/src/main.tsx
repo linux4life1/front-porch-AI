@@ -6,6 +6,7 @@ import { createRoot } from 'react-dom/client';
 import { HashRouter } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { App } from './App';
+import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { applyChatColors, loadChatColors } from './chatColors';
 import { applyReadingSize, loadReadingSize } from './readingSize';
 import './styles.css';
@@ -18,9 +19,11 @@ applyReadingSize(loadReadingSize());
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <HashRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
+      <AppErrorBoundary>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </AppErrorBoundary>
     </HashRouter>
   </StrictMode>,
 );

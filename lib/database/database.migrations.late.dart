@@ -7,7 +7,7 @@
 
 part of 'database.dart';
 
-/// Schema v40 → v53 of the onUpgrade ladder. Blocks are byte-verbatim.
+/// Schema v40 → v55 of the onUpgrade ladder. Blocks are byte-verbatim.
 extension _AppDatabaseMigrationLate on AppDatabase {
   Future<void> _upgradeFromV40(Migrator m, int from, int to) async {
     if (from < 40) {
@@ -210,6 +210,68 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         debugPrint('[DB] v53: added sessions.passage_of_time_gate_migrated');
       } catch (_) {
         // already present (re-run / dual-version)
+      }
+    }
+    if (from < 54) {
+      // v53→v54: growth_rings came from the raw v36 DDL with
+      // `created_at/last_reinforced_at/updated_at ... DEFAULT 0`, and addRing
+      // never wrote them, so every upgraded ring reads 1970. Backfill once
+      // from the best evidence: the first receipt's message time, else the
+      // first reinforce, else the chat's creation, else now.
+      // messages.updated_at is the last edit, and whole chats get
+      // bulk-touched, so that guess can land after the ring's own stamps.
+      // created_at is the earliest of the guess, last_reinforced_at, and
+      // updated_at (a missing stamp does not pull the min down). A bad
+      // source_message_ids value must not throw — that fails the open.
+      // Only rows still at 0 are touched, so a re-run is a no-op.
+      await customStatement('''
+        UPDATE growth_rings SET created_at = MIN(
+          COALESCE(
+            NULLIF((SELECT MIN(m.updated_at) FROM messages m
+                    WHERE m.session_id = growth_rings.session_id
+                      AND m.position = CAST(
+                        CASE WHEN json_valid(growth_rings.source_message_ids)
+                          THEN json_extract(
+                            growth_rings.source_message_ids, '\$[0]')
+                        END AS INTEGER)
+                      AND m.updated_at > 0), 0),
+            NULLIF(growth_rings.last_reinforced_at, 0),
+            NULLIF((SELECT s.created_at FROM sessions s
+                    WHERE s.id = growth_rings.session_id), 0),
+            CAST(strftime('%s', 'now') AS INTEGER)
+          ),
+          COALESCE(NULLIF(growth_rings.last_reinforced_at, 0), 9223372036854775807),
+          COALESCE(NULLIF(growth_rings.updated_at, 0), 9223372036854775807)
+        )
+        WHERE created_at = 0
+      ''');
+      await customStatement(
+        'UPDATE growth_rings SET last_reinforced_at = created_at '
+        'WHERE last_reinforced_at = 0',
+      );
+      await customStatement(
+        'UPDATE growth_rings SET updated_at = MAX(created_at, last_reinforced_at) '
+        'WHERE updated_at = 0',
+      );
+      debugPrint('[DB] v54: backfilled growth_rings timestamps');
+    }
+    if (from < 55) {
+      // v54→v55: the refractory counts story minutes. NULL for every
+      // existing row is right — no minutes were ever saved, so the load
+      // reads the row's cooldown_turns_* once as turns × 15. Additive and
+      // nullable, so a downgrade to v54 keeps reading sessions; the columns
+      // are ignored.
+      for (final ddl in const [
+        'ALTER TABLE sessions ADD COLUMN refractory_minutes_remaining INTEGER',
+        'ALTER TABLE sessions ADD COLUMN refractory_minutes_total INTEGER',
+        'ALTER TABLE sessions ADD COLUMN refractory_opened INTEGER',
+      ]) {
+        try {
+          await customStatement(ddl);
+          debugPrint('[DB] v55: $ddl');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
       }
     }
   }

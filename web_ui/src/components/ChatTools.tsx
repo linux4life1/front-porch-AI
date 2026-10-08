@@ -20,6 +20,7 @@ import { ChatToolsMemory, ChatToolsRecap, ChatToolsWiki } from './ChatToolsMemor
 import { ChatToolsChaos, ChatToolsNsfw, ChatToolsPockets } from './ChatToolsRealism';
 import { ChatToolsAmbitions, ChatToolsObjectives, ChatToolsStandingMood } from './ChatToolsObjectives';
 import { Toggle, type ToolsState } from './ChatToolsShared';
+import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
 export { TextField } from './SummaryRecapField';
 export type { ToolsState } from './ChatToolsShared';
@@ -112,8 +113,9 @@ export function ChatTools({
     <div className="chat-tools">
       <Toggle label="Realism engine" value={t.realismEnabled} onChange={(v) => toggle('realism', v)} />
       <Toggle label="Needs simulation" value={t.needsEnabled} onChange={(v) => toggle('needs', v)} />
+      <NeedsClockOffNote clockOn={t.time.passageEnabled} />
       <div className="tool-row">
-        <button className="link-btn" onClick={() => setShowBudget(true)}>
+        <button className="link-btn budget-link" onClick={() => setShowBudget(true)}>
           📊 Context budget — what the model was sent
         </button>
       </div>
@@ -296,6 +298,7 @@ export function ChatTools({
           groupId={groupId}
           onCommand={onCommand}
           onToggleDirector={(v) => toggle('director', v)}
+          clockOn={t.time.passageEnabled}
         />
       )}
 

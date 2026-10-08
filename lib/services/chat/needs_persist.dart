@@ -6,11 +6,13 @@
 // blobs still decode.
 
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
+import 'package:front_porch_ai/services/chat/needs_wear.dart';
 
 Map<String, dynamic> encodeNeedsPersist(NeedsSimulation sim) {
   return {
     'vector': Map<String, int>.from(sim.vector),
     'hygiene_crisis_acked': sim.hygieneCrisisAcked.toList(),
+    kNeedsWearCarryKey: Map<String, double>.from(sim.wearCarry),
   };
 }
 

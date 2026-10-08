@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Dummy-proof note plus a JSON-only file picker that copies recipe cards
@@ -39,7 +40,8 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
   Future<void> _chooseFiles() async {
     if (_busy) return;
     final storage = context.read<StorageService>();
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: const ['json'],

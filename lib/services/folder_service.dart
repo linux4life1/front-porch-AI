@@ -243,6 +243,53 @@ class FolderService extends ChangeNotifier {
     await _load();
   }
 
+  /// Move many characters and group chats at once (#347): one transaction
+  /// and one reload, so one redraw. Moving them one by one re-read every
+  /// character and reloaded every folder per card. [folderId] null sends
+  /// them back to the top level. Returns how many exist (and so are now
+  /// there); ones already there are counted but not written again.
+  Future<int> moveMany({
+    required String? folderId,
+    Iterable<String> characterPaths = const [],
+    Iterable<String> groupIds = const [],
+  }) async {
+    final files = {for (final p in characterPaths) _normalize(p)};
+    final groups = groupIds.toSet();
+    if (files.isEmpty && groups.isEmpty) return 0;
+    var moved = 0;
+    await _db.transaction(() async {
+      if (files.isNotEmpty) {
+        final now = DateTime.now();
+        for (final c in await _db.getAllCharacters()) {
+          final path = c.imagePath;
+          // The first row per file, as addToFolder does.
+          if (path == null || !files.remove(_normalize(path))) continue;
+          moved++;
+          if (c.folderId == folderId) continue;
+          await _db.updateCharacter(
+            CharactersCompanion(
+              id: Value(c.id),
+              name: Value(c.name),
+              folderId: Value(folderId),
+              updatedAt: Value(now),
+            ),
+          );
+        }
+      }
+      if (groups.isNotEmpty) {
+        for (final g in await _db.getAllGroups()) {
+          if (!groups.contains(g.id)) continue;
+          moved++;
+          if (g.folderId != folderId) {
+            await _db.updateGroupFolderId(g.id, folderId);
+          }
+        }
+      }
+    });
+    await _load();
+    return moved;
+  }
+
   /// Put a freshly-made copy in the same folder its source lives in.
   /// Membership is keyed by image filename, so a duplicate starts life
   /// unfoldered and (before this) dropped onto the home screen's top level

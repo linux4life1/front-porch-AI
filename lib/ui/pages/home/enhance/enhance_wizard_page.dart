@@ -212,7 +212,9 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
         isLocalKobold:
             llmProvider.activeBackend == BackendType.kobold &&
             llmProvider.koboldService.isReady,
-        contextSize: storage.backendSettings.contextSize,
+        contextSize: storage.backendSettings.promptContext(
+          storage.backendSettings.contextSize,
+        ),
       ),
     );
     final gen = CharacterGenService(llm);

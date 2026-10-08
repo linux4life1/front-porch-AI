@@ -104,39 +104,37 @@ String? needsSpanForBeat({
   return timePassedLabel(minutes: minutes, nextMorning: false, isSkip: false);
 }
 
-/// What the needs judge is told about this beat. The judge chooses how
-/// large hunger and bladder move. There is no points-per-hour table.
-String needsBeatNote(String? span) {
+/// What the needs judge is told about this beat. The clock has already
+/// charged the span (needs_wear.dart); the judge scores only what the
+/// scene did. A night is never assumed: on a skip through one, the judge
+/// is asked whether they slept.
+String needsBeatNote(String? span, {bool nextMorning = false}) {
   final text = span?.trim() ?? '';
-  const others =
-      'Energy, hygiene, fun, social, and comfort move only for an explicit '
-      'scene cost or a restoration. Describing how they feel right now is '
-      'not a new cost.';
+  const events =
+      'Score only what the scene itself did: a meal, a snack, a drink, the '
+      'bathroom, a wash, a nap, sleep, exertion, sex, a mess, closeness. '
+      'Describing how they feel right now is not an event. A quiet reply '
+      'is all zeros.';
   if (text.isEmpty || text == 'same moment') {
-    return 'This beat is the same moment. Hunger and bladder stay put '
-        'unless the scene fed them, they drank, or they used the bathroom. '
-        '$others';
+    return 'This beat is the same moment. Time charged nothing. $events';
   }
-  if (text == 'Next morning') {
-    return 'THIS BEAT: Next morning. The night is the whole hunger and '
-        'bladder change for this reply. You choose the size. A meal or a '
-        'bathroom in the morning is that restoration, not a restoration plus '
-        'another drain. Sleep still restores energy. $others';
+  if (nextMorning || text == 'Next morning') {
+    return 'THIS BEAT crossed a night and time has already been charged '
+        'for it. Did they sleep? If the scene shows or implies it, restore '
+        'energy (+60 to +100) and the morning bathroom (bladder +60 to '
+        '+100). If they stayed up, leave energy where the time left it. '
+        '$events';
   }
   if (minutesFromTimePassed(text) != null) {
-    return 'THIS BEAT lasted $text. That is awake time their body lived. '
-        'Hunger and bladder must move with that span. You choose the size. '
-        'A few minutes is a small drop. A long stretch is a real one. If the '
-        'scene fed them, hunger is the meal, not the meal plus another drop. '
-        'If they used the bathroom, bladder is that relief. If they drank, '
-        'bladder drops for the drink. If none of that happened, both still '
-        'drop for the span. Zero on hunger or bladder is only legal when '
-        'that need was restored. $others';
+    return 'THIS BEAT lasted $text and time has already been charged for '
+        'it: hunger, bladder and energy have moved. $events';
   }
-  return 'THIS BEAT skipped to $text. That jump is the whole hunger and '
-      'bladder change for this reply. You choose the size from how long the '
-      'skip covers. A meal, a drink, or a bathroom replaces a second drop '
-      'for that need. Do not charge those hours twice. $others';
+  return 'THIS BEAT skipped to $text and time has already been charged for '
+      'it. If the skip crossed a night, ask whether they slept: if the scene '
+      'shows or implies it, restore energy and the morning bathroom; if '
+      'they stayed up, leave energy where the time left it. A meal, a drink '
+      'or a bathroom during the skip that the scene mentions is an event. '
+      '$events';
 }
 
 /// Chip text for minutes the clock actually applied. A skip uses the
@@ -197,6 +195,10 @@ const String kNeedsPreWearByMember = 'needs_pre_wear_by_member';
 /// Where every present body landed after that beat's wear. A swipe shows this.
 const String kNeedsWornByMember = 'needs_worn_by_member';
 
+/// The fraction each present body carried into the beat, beside
+/// [kNeedsPreWearByMember], so a replay charges the beat from the same point.
+const String kNeedsPreWearCarryByMember = 'needs_pre_wear_carry_by_member';
+
 /// The bars a regen must load before it wears the beat again.
 ///
 /// [worn] is where the bodies are now, after the beat being replaced.
@@ -239,6 +241,22 @@ Map<String, Map<String, int>> refundCoPresentWear({
       changed = true;
     }
     if (changed) out[id] = next;
+  }
+  return out;
+}
+
+/// Read a stamped per-body carry map. Metadata comes back untyped.
+Map<String, Map<String, double>> presentCarriesFromMeta(Object? raw) {
+  if (raw is! Map) return const {};
+  final out = <String, Map<String, double>>{};
+  for (final entry in raw.entries) {
+    final body = entry.value;
+    if (body is! Map) continue;
+    out[entry.key.toString()] = {
+      for (final need in body.entries)
+        if (need.value is num)
+          need.key.toString(): (need.value as num).toDouble(),
+    };
   }
   return out;
 }

@@ -95,6 +95,7 @@ const kOpenRouterApiV1 = 'https://openrouter.ai/api/v1';
 const kNanoGptApiV1 = 'https://nano-gpt.com/api/v1';
 const kLmStudioApiV1 = 'http://localhost:1234/v1';
 const kOmlxApiV1 = 'http://localhost:8000/v1';
+const kXaiApiV1 = 'https://api.x.ai/v1';
 
 bool remoteApiUrlIsOpenRouter(String url) {
   final host = Uri.tryParse(normalizeRemoteApiUrl(url))?.host ?? '';
@@ -105,6 +106,9 @@ bool remoteApiUrlIsNanoGpt(String url) {
   final host = Uri.tryParse(normalizeRemoteApiUrl(url))?.host ?? '';
   return host == 'nano-gpt.com' || host.endsWith('.nano-gpt.com');
 }
+
+bool remoteApiUrlIsXai(String url) =>
+    Uri.tryParse(normalizeRemoteApiUrl(url))?.host == 'api.x.ai';
 
 bool _isLoopbackHost(String host) => host == 'localhost' || host == '127.0.0.1';
 

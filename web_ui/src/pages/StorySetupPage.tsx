@@ -1,251 +1,229 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Story setup wizard: concept → style → AI config. Mirrors the desktop
-// StorySetupPage; saves the full project then sends you to the bible dashboard.
-// Character-card snapshots are rebuilt server-side from the selected ids + the
-// role map this page sends (the web has no card text), so seeding & persona work.
+// New Story: Idea → Cast → Shape → Engine, with a summary rail that fills in
+// as you go. The project row is created on the first Next and saved after
+// every step, so backing out keeps the draft and the shelf shows where it
+// stopped. At /stories/:id/setup it reopens an existing story's setup (the
+// studio's "Setup" button). Web twin of lib/ui/pages/story_setup_page.dart.
 
 import { useEffect, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
-import { AiEngineStrip } from '../components/AiEngineStrip';
-import { StepIndicator } from '../components/StepIndicator';
-import { OptionTiles } from './story/OptionTiles';
+import type { StoryProject } from '../storyTypes';
+import { CastStep } from './story/setup/CastStep';
 import {
-  type StoryProject, type StoryArchetype,
-  POV_OPTIONS, ROLE_OPTIONS, GENRES, MOODS, WRITING_STYLES, PROSE_LENGTHS,
-  PACES, DIALOGUE, MATURITY, PROMPT_TIERS,
-} from '../storyTypes';
-import '../styles/ws-j.css';
+  adoptChat, applyDraft, draftFromProject, emptyDraft,
+  type CharacterRow, type ChatSource, type Draft,
+} from './story/setup/draft';
+import { EngineStep } from './story/setup/EngineStep';
+import { IdeaStep } from './story/setup/IdeaStep';
+import { useNarrow } from './story/setup/primitives';
+import { SetupRail } from './story/setup/SetupRail';
+import { ShapeStep } from './story/setup/ShapeStep';
+import { useLaneLabels } from './story/setup/useLaneLabels';
+import { loadCharacters, loadPersonaName } from './story/setup/useSetupData';
+import '../styles/studio.css';
 
-const STEPS = ['Concept', 'Style', 'Cast & AI'];
+const STEPS = ['Idea', 'Cast', 'Shape', 'Engine'];
+
+const message = (e: unknown, fallback: string) => (e instanceof ApiError ? e.message : fallback);
 
 export function StorySetupPage() {
-  const { id = '' } = useParams();
+  const { id: routeId } = useParams();
   const navigate = useNavigate();
-  const [p, setP] = useState<StoryProject | null>(null);
-  const [chars, setChars] = useState<{ id: string; name: string }[]>([]);
-  const [roles, setRoles] = useState<Record<string, string>>({});
-  const [archetypes, setArchetypes] = useState<StoryArchetype[]>([]);
+  const location = useLocation();
+  const fromChat = (location.state as { fromChat?: ChatSource } | null)?.fromChat;
+  const narrow = useNarrow();
+
+  const [loaded, setLoaded] = useState(false);
+  const [draft, setDraft] = useState<Draft>(emptyDraft);
+  const [chars, setChars] = useState<CharacterRow[]>([]);
+  const [personaName, setPersonaName] = useState('User');
   const [step, setStep] = useState(0);
-  const [error, setError] = useState('');
+  const [reached, setReached] = useState(0);
+  const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const rolesInit = useRef(false);
+  const [notice, setNotice] = useState('');
+  const [error, setError] = useState('');
+  // The project as last saved: the base every save writes the draft onto.
+  const project = useRef<StoryProject | null>(null);
+  const busy = useRef(false);
+  const root = useRef<HTMLDivElement | null>(null);
+  const laneLabels = useLaneLabels(draft.lanes);
 
   useEffect(() => {
-    api.get<StoryProject>(`/api/stories/${id}`).then(setP)
-      .catch((e) => setError(e instanceof ApiError ? e.message : 'Failed to load'));
-    api.get<{ id: string; name: string }[]>('/api/characters')
-      .then((r) => setChars(r.map((c) => ({ id: c.id, name: c.name }))))
-      .catch(() => {});
-    void rerollArchetypes();
-  }, [id]);
+    let live = true;
+    (async () => {
+      try {
+        const [characters, persona, existing] = await Promise.all([
+          loadCharacters().catch(() => [] as CharacterRow[]),
+          loadPersonaName(),
+          routeId ? api.get<StoryProject>(`/api/stories/${routeId}`) : Promise.resolve(null),
+        ]);
+        if (!live) return;
+        let next = existing ? draftFromProject(existing, characters) : emptyDraft();
+        let start = 0;
+        if (existing) {
+          project.current = existing;
+          // Finished = the wizard cleared its step (null); a draft keeps the step it stopped at.
+          const done = existing.setup_step == null && !!existing.concept?.trim();
+          setEditing(done);
+          // A draft resumes where it stopped; a finished story reopens every step.
+          if (typeof existing.setup_step === 'number') start = Math.min(Math.max(existing.setup_step, 0), STEPS.length - 1);
+          setReached(done ? STEPS.length - 1 : start);
+        }
+        if (fromChat) next = adoptChat(next, fromChat, persona);
+        setChars(characters);
+        setPersonaName(persona);
+        setDraft(next);
+        setStep(start);
+        setLoaded(true);
+      } catch (e) {
+        if (live) setError(message(e, 'Could not open this story.'));
+      }
+    })();
+    return () => { live = false; };
+  }, [routeId, fromChat]);
 
-  // Restore role assignments from existing snapshots once both the project and
-  // the character list are loaded. Match by the snapshot's char `id` (web), or
-  // by name (snapshots written by the desktop carry no id) — so editing a
-  // desktop-made story on the web doesn't clobber its roles on save.
-  useEffect(() => {
-    if (!p || rolesInit.current) return;
-    const charSnaps = (p.character_card_snapshots || []).filter((s) => s.self_insert !== 'true');
-    if (charSnaps.length === 0) { rolesInit.current = true; return; }
-    if (chars.length === 0) return; // wait for the character list
-    const restored: Record<string, string> = {};
-    for (const snap of charSnaps) {
-      const cid = snap.id || chars.find((c) => c.name === snap.name)?.id;
-      if (cid) restored[cid] = snap.role || 'Supporting';
-    }
-    setRoles(restored);
-    rolesInit.current = true;
-  }, [p, chars]);
+  // Phones get a fifth "Ready?" screen in place of the rail.
+  const stepCount = STEPS.length + (narrow ? 1 : 0);
+  const at = Math.min(step, stepCount - 1);
+  const last = at === stepCount - 1;
+  const label = at < STEPS.length ? STEPS[at] : 'Ready?';
 
-  const rerollArchetypes = async () => {
-    try {
-      const r = await api.get<{ archetypes: StoryArchetype[] }>('/api/stories/archetypes');
-      setArchetypes(r.archetypes);
-    } catch {
-      setArchetypes([]);
-    }
-  };
+  useEffect(() => { root.current?.scrollIntoView({ block: 'start' }); }, [at]);
 
-  if (!p) {
-    return <div className="page">{error ? <p className="error">{error}</p> : <div className="spinner" />}</div>;
-  }
-
-  const set = (patch: Partial<StoryProject>) => setP({ ...p, ...patch });
-  const toggle = (key: 'selected_genres' | 'selected_moods', v: string) => {
-    const cur = p[key];
-    set({ [key]: cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v] } as Partial<StoryProject>);
-  };
-  const toggleChar = (cid: string) => {
-    const cur = p.chat_history_character_ids;
-    const on = cur.includes(cid);
-    set({ chat_history_character_ids: on ? cur.filter((x) => x !== cid) : [...cur, cid] });
-    if (!on) {
-      // First selected character defaults to Protagonist, like the desktop.
-      const hasProtagonist = Object.values(roles).includes('Protagonist');
-      setRoles({ ...roles, [cid]: hasProtagonist ? 'Supporting' : 'Protagonist' });
-    }
-  };
-
-  const finish = async () => {
+  /** Create the row on the first save; write the draft onto it. `setupStep` is where a resume starts (null once built). */
+  const save = async (setupStep: number | null): Promise<boolean> => {
+    if (busy.current) return false;
+    busy.current = true;
     setSaving(true);
+    setError('');
     try {
-      await api.post(`/api/stories/${id}`, { ...p, character_roles: roles });
-      navigate(`/stories/${id}`);
+      let base = project.current;
+      if (!base) {
+        const created = await api.post<{ id: string }>('/api/stories', { title: draft.title.trim() });
+        base = await api.get<StoryProject>(`/api/stories/${created.id}`);
+        project.current = base;
+      }
+      const next = applyDraft(base, draft, chars, personaName);
+      if (!editing) next.setup_step = setupStep;
+      await api.post(`/api/stories/${next.id}`, next);
+      project.current = next;
+      return true;
     } catch (e) {
-      setError(e instanceof ApiError ? e.message : 'Save failed');
+      setError(message(e, 'Could not save. Check that the app is running, then try again.'));
+      return false;
+    } finally {
+      busy.current = false;
       setSaving(false);
     }
   };
 
-  const chips = (opts: string[], sel: string[], onTap: (v: string) => void) => (
-    <div className="chip-select">
-      {opts.map((o) => (
-        <button key={o} type="button"
-          className={`chip-toggle${sel.includes(o) ? ' on' : ''}`}
-          onClick={() => onTap(o)}>{o}</button>
-      ))}
-    </div>
-  );
+  const leave = () => {
+    if (location.key === 'default') navigate('/stories');
+    else navigate(-1);
+  };
+
+  /** Nothing saved yet: nothing to keep. Otherwise keep the draft where it stopped. */
+  const close = async () => {
+    if (project.current && !(await save(at))) return;
+    leave();
+  };
+
+  const back = async () => {
+    if (project.current) await save(at - 1);
+    setStep(at - 1);
+  };
+
+  const finish = async () => {
+    if (!(await save(null))) return;
+    if (editing) {
+      leave();
+      return;
+    }
+    const id = project.current?.id;
+    try {
+      await api.post(`/api/stories/${id}/run`, { stage: 'story-architect' });
+    } catch (e) {
+      setError(message(e, 'Saved, but the bible could not start. Press the button again to retry.'));
+      return;
+    }
+    navigate(`/stories/${id}`, { replace: true });
+  };
+
+  const next = async () => {
+    if (at === 0 && !draft.concept.trim()) {
+      setNotice('Say what the story is first.');
+      return;
+    }
+    setNotice('');
+    if (!last) {
+      if (!(await save(at + 1))) return;
+      setStep(at + 1);
+      setReached((r) => Math.max(r, at + 1));
+      return;
+    }
+    await finish();
+  };
+
+  if (!loaded) {
+    return (
+      <div className="studio-scope wiz">
+        {error ? <p className="s-error" style={{ padding: 16 }}>{error}</p> : <div className="spinner" aria-label="Loading" />}
+      </div>
+    );
+  }
+
+  const nextLabel = last
+    ? (editing ? 'Save changes' : 'Build the story bible')
+    : `Next: ${STEPS[at + 1] ?? 'Ready?'}`;
+  const shared = { draft, set: setDraft };
+  const rail = { draft, step: at, chars, personaName, laneLabels };
 
   return (
-    <div className="page wizard">
-      <div className="page-head">
-        <button className="ghost" onClick={() => navigate('/stories')}>← Stories</button>
-        <h2>Set up your story</h2>
-      </div>
-      <StepIndicator steps={STEPS} current={step} onJump={setStep} />
+    <div className="studio-scope wiz" ref={root} data-testid="story-setup">
+      <header className="wiz-head">
+        <button type="button" className="s-btn-ico ghost" aria-label="Back to stories" onClick={() => void close()}>←</button>
+        <span className="t">{editing ? 'Setup' : 'New story'}</span>
+        <span className="s" data-testid="story-setup-step">{label}</span>
+        <span className="s-spacer" />
+        <div className="s-steps" role="group" aria-label="Steps">
+          {STEPS.map((name, i) => (
+            <button key={name} type="button" data-testid={`story-step-${i}`}
+              className={i < at ? 'done' : i === at ? 'on' : ''} aria-current={i === at ? 'step' : undefined}
+              disabled={i > reached} onClick={() => setStep(i)}>
+              <i>{i < at ? '✓' : i + 1}</i>{name}
+            </button>
+          ))}
+        </div>
+      </header>
 
-      {step === 0 && (
-        <section className="card">
-          <label>Title<input value={p.title} onChange={(e) => set({ title: e.target.value })} /></label>
-          <label>Concept
-            <textarea rows={5} value={p.concept} onChange={(e) => set({ concept: e.target.value })}
-              placeholder="The premise of your story…" />
-          </label>
-          <p className="field-label">Quick concepts</p>
-          <div className="archetype-row">
-            {archetypes.map((a, i) => (
-              <button key={i} type="button" className="chip-toggle"
-                title={a.value} onClick={() => set({ concept: a.value })}>{a.label}</button>
-            ))}
-            <button type="button" className="archetype-refresh" onClick={rerollArchetypes}>↻ Refresh</button>
+      <div className="wiz-body">
+        <div className="wiz-main">
+          <div className="wiz-inner" key={at}>
+            {at === 0 && <IdeaStep {...shared} chars={chars} userName={personaName} />}
+            {at === 1 && <CastStep {...shared} chars={chars} personaName={personaName} />}
+            {at === 2 && <ShapeStep {...shared} />}
+            {at === 3 && <EngineStep {...shared} laneLabels={laneLabels} />}
+            {at >= STEPS.length && <SetupRail {...rail} asPage />}
+            {notice && <span className="s-muted" role="status">{notice}</span>}
+            {error && <span className="s-error" role="alert">{error}</span>}
           </div>
-          <label>Themes <span className="muted small">(optional)</span>
-            <input value={p.themes} onChange={(e) => set({ themes: e.target.value })}
-              placeholder="redemption, found family…" />
-          </label>
-        </section>
-      )}
-
-      {step === 1 && (
-        <section className="card">
-          <label>Point of view
-            <select value={p.pov} onChange={(e) => set({ pov: e.target.value })}>
-              {POV_OPTIONS.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </label>
-          <label>Acts: {p.act_count}
-            <input type="range" min={1} max={5} value={p.act_count}
-              onChange={(e) => set({ act_count: Number(e.target.value) })} />
-          </label>
-          <p className="field-label">Genres</p>
-          {chips(GENRES, p.selected_genres, (v) => toggle('selected_genres', v))}
-          <p className="field-label">Moods</p>
-          {chips(MOODS, p.selected_moods, (v) => toggle('selected_moods', v))}
-          <label>Writing style
-            <select value={p.writing_style} onChange={(e) => set({ writing_style: e.target.value })}>
-              <option value="">Auto</option>
-              {WRITING_STYLES.map((o) => <option key={o}>{o}</option>)}
-            </select>
-          </label>
-          <OptionTiles label="Prose length" options={PROSE_LENGTHS}
-            value={p.prose_length} onChange={(v) => set({ prose_length: v })} />
-          <OptionTiles label="Narrative pace" options={PACES}
-            value={p.narrative_pace} onChange={(v) => set({ narrative_pace: v })} />
-          <OptionTiles label="Dialogue density" options={DIALOGUE}
-            value={p.dialogue_density} onChange={(v) => set({ dialogue_density: v })} />
-          <OptionTiles label="Maturity" options={MATURITY}
-            value={p.maturity_rating} onChange={(v) => set({ maturity_rating: v })} />
-        </section>
-      )}
-
-      {step === 2 && (
-        <section className="card">
-          <h3 className="section-label">👥 Characters &amp; sources</h3>
-          <p className="muted small">
-            Feature characters from your library in the story — their chat history seeds each one's
-            personality, voice, and memories. You can also add your own persona as a character.
-          </p>
-          <label className="row-label">
-            <input type="checkbox" checked={p.use_chat_history}
-              onChange={(e) => set({ use_chat_history: e.target.checked })} />
-            Feature characters from my library
-          </label>
-          {p.use_chat_history && (
-            <>
-              <p className="field-label">Pick characters</p>
-              <div className="char-pick">
-                {chars.length === 0 ? <p className="muted small">No characters found.</p> :
-                  chars.map((c) => (
-                    <button key={c.id} type="button"
-                      className={`chip-toggle${p.chat_history_character_ids.includes(c.id) ? ' on' : ''}`}
-                      onClick={() => toggleChar(c.id)}>{c.name}</button>
-                  ))}
-              </div>
-            </>
-          )}
-          {p.use_chat_history && p.chat_history_character_ids.length > 0 && (
-            <div style={{ marginTop: 8 }}>
-              <p className="field-label">Roles</p>
-              {chars.filter((c) => p.chat_history_character_ids.includes(c.id)).map((c) => (
-                <div key={c.id} className="cast-role-row">
-                  <span className="cast-name">{c.name}</span>
-                  <select value={roles[c.id] || 'Supporting'}
-                    onChange={(e) => setRoles({ ...roles, [c.id]: e.target.value })}>
-                    {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
-                  </select>
-                </div>
-              ))}
-            </div>
-          )}
-          <label className="row-label">
-            <input type="checkbox" checked={p.include_user_persona}
-              onChange={(e) => set({ include_user_persona: e.target.checked })} />
-            Include my persona as a character
-          </label>
-          {p.include_user_persona && (
-            <div className="persona-role">
-              <span className="muted small">Persona role</span>
-              <select value={p.user_persona_role || 'Protagonist'}
-                onChange={(e) => set({ user_persona_role: e.target.value })}>
-                {ROLE_OPTIONS.map((r) => <option key={r}>{r}</option>)}
-              </select>
-            </div>
-          )}
-          <hr style={{ border: 'none', borderTop: '1px solid var(--border)', margin: '14px 0' }} />
-          <AiEngineStrip />
-          <label>Prompt style — how prompts are written for your model (this does not pick the model)
-            <select value={p.prompt_tier} onChange={(e) => set({ prompt_tier: e.target.value })}>
-              {PROMPT_TIERS.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-            </select>
-          </label>
-        </section>
-      )}
-
-      {error && <p className="error">{error}</p>}
-      <div className="wizard-nav">
-        {step > 0 && <button className="ghost" onClick={() => setStep(step - 1)}>Back</button>}
-        {step < STEPS.length - 1 ? (
-          <button className="primary" onClick={() => setStep(step + 1)} disabled={!p.title.trim()}>Next</button>
-        ) : (
-          <button className="primary" onClick={finish} disabled={saving || !p.concept.trim()}>
-            {saving ? 'Saving…' : 'Save & continue'}
-          </button>
-        )}
+        </div>
+        {!narrow && <SetupRail {...rail} />}
       </div>
+
+      <footer className="wiz-foot">
+        <button type="button" className="s-btn-ghost" data-testid="story-setup-back"
+          onClick={() => void (at === 0 ? close() : back())}>{at === 0 ? 'Cancel' : 'Back'}</button>
+        <span className="s-spacer" />
+        {narrow && <span className="s-muted s-small">{at + 1} of {stepCount}</span>}
+        <button type="button" className="s-btn-primary" data-testid="story-setup-next" disabled={saving} onClick={() => void next()}>
+          {nextLabel}
+        </button>
+      </footer>
     </div>
   );
 }

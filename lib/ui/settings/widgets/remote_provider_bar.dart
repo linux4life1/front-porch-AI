@@ -21,8 +21,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// One-row host switcher (KoboldCpp / OpenRouter / Nano-GPT / LM Studio /
-/// oMLX / Custom). oMLX is omitted unless [showOmlx] is true (macOS).
+/// One-row host switcher (KoboldCpp / OpenRouter / Nano-GPT / xAI /
+/// LM Studio / oMLX / Custom). oMLX is omitted unless [showOmlx] is true (macOS).
 class RemoteProviderBar extends StatelessWidget {
   const RemoteProviderBar({
     super.key,
@@ -39,7 +39,7 @@ class RemoteProviderBar extends StatelessWidget {
   final bool showOmlx;
   final bool koboldEnabled;
 
-  /// OpenRouter / Nano-GPT / LM Studio only — wizard Setup, not Model Settings.
+  /// OpenRouter / Nano-GPT / xAI / LM Studio only — wizard Setup, not Model Settings.
   final bool remoteHostsOnly;
 
   /// Worker "Off" — no host pill is highlighted.
@@ -49,6 +49,7 @@ class RemoteProviderBar extends StatelessWidget {
     (RemoteProviderKind.kobold, 'KoboldCpp'),
     (RemoteProviderKind.openRouter, 'OpenRouter'),
     (RemoteProviderKind.nanoGpt, 'Nano-GPT'),
+    (RemoteProviderKind.xai, 'xAI'),
     (RemoteProviderKind.lmStudio, 'LM Studio'),
     (RemoteProviderKind.omlx, 'oMLX'),
     (RemoteProviderKind.custom, 'Custom'),
@@ -57,6 +58,7 @@ class RemoteProviderBar extends StatelessWidget {
   static const _remoteHosts = <(RemoteProviderKind, String)>[
     (RemoteProviderKind.openRouter, 'OpenRouter'),
     (RemoteProviderKind.nanoGpt, 'Nano-GPT'),
+    (RemoteProviderKind.xai, 'xAI'),
     (RemoteProviderKind.lmStudio, 'LM Studio'),
   ];
 
@@ -67,24 +69,39 @@ class RemoteProviderBar extends StatelessWidget {
       for (final e in source)
         if (e.$1 != RemoteProviderKind.omlx || showOmlx) e,
     ];
-    return Row(
-      children: [
-        for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(width: 5),
-          Expanded(
-            child: _Pill(
-              label: items[i].$2,
-              selected: !noneSelected && items[i].$1 == selected,
-              enabled:
-                  items[i].$1 != RemoteProviderKind.kobold || koboldEnabled,
-              onTap: () => onSelected(items[i].$1),
-            ),
-          ),
-        ],
-      ],
+    _Pill pill((RemoteProviderKind, String) e, {bool wrapped = false}) => _Pill(
+      label: e.$2,
+      selected: !noneSelected && e.$1 == selected,
+      enabled: e.$1 != RemoteProviderKind.kobold || koboldEnabled,
+      wrapped: wrapped,
+      onTap: () => onSelected(e.$1),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Too narrow for every name on one line (Model Settings dialog):
+        // wrap whole pills onto a second row instead of clipping them.
+        if (constraints.maxWidth / items.length < _kMinPillWidth) {
+          return Wrap(
+            spacing: 5,
+            runSpacing: 5,
+            children: [for (final e in items) pill(e, wrapped: true)],
+          );
+        }
+        return Row(
+          children: [
+            for (var i = 0; i < items.length; i++) ...[
+              if (i > 0) const SizedBox(width: 5),
+              Expanded(child: pill(items[i])),
+            ],
+          ],
+        );
+      },
     );
   }
 }
+
+/// Below this per-pill width the row wraps instead of ellipsizing names.
+const double _kMinPillWidth = 76;
 
 class _Pill extends StatelessWidget {
   const _Pill({
@@ -92,12 +109,16 @@ class _Pill extends StatelessWidget {
     required this.selected,
     required this.enabled,
     required this.onTap,
+    this.wrapped = false,
   });
 
   final String label;
   final bool selected;
   final bool enabled;
   final VoidCallback onTap;
+
+  /// Sized to its label (in a [Wrap]) rather than filling a row slot.
+  final bool wrapped;
 
   @override
   Widget build(BuildContext context) {
@@ -119,8 +140,11 @@ class _Pill extends StatelessWidget {
         onTap: enabled ? onTap : null,
         borderRadius: BorderRadius.circular(999),
         child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
+          alignment: wrapped ? null : Alignment.center,
+          padding: EdgeInsets.symmetric(
+            vertical: 8,
+            horizontal: wrapped ? 12 : 2,
+          ),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(

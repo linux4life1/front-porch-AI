@@ -26,9 +26,8 @@ extension _SettingsAdvancedTab on _SettingsPageState {
     final hardwareService = Provider.of<HardwareService>(context);
     final llmProvider = Provider.of<LLMProvider>(context);
     final theme = Theme.of(context);
-    final isPresetActive =
-        storageService.backendSettings.activeKcppsPath != null &&
-        storageService.backendSettings.activeKcppsPath!.isNotEmpty;
+    // The one rule every place that sets the context follows.
+    final presetOwnsContext = storageService.backendSettings.presetOwnsContext;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -79,7 +78,7 @@ extension _SettingsAdvancedTab on _SettingsPageState {
             storageService,
             hardwareService,
             llmProvider,
-            isPresetActive,
+            presetOwnsContext,
           ),
           const SizedBox(height: 24),
           _buildAdvancedLaunchOptions(context, storageService),
@@ -165,30 +164,6 @@ extension _SettingsAdvancedTab on _SettingsPageState {
           ),
         ),
       ],
-    );
-  }
-
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    required BuildContext context,
-    bool isNumber = false,
-  }) {
-    final theme = Theme.of(context);
-    return TextField(
-      controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      style: theme.textTheme.bodyMedium,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: theme.textTheme.bodySmall?.color),
-        filled: true,
-        fillColor: AppColors.cardOf(context),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-      ),
     );
   }
 }

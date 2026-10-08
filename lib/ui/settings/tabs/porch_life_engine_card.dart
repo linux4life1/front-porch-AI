@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// "The Engine" group — extracted when the tab grew past its comfort size
 /// (it once also held the Model transport card, since moved to Generation
@@ -67,6 +68,13 @@ class PorchLifeEngineCard extends StatelessWidget {
               'them off in the sidebar.',
           value: storage.realismSettings.needsSimDefault,
           onChanged: storage.realismSettings.setNeedsSimDefault,
+          showChildWhenOff: true,
+          child: storage.realismSettings.passageOfTimeDefault
+              ? null
+              : const NeedsClockOffNote(
+                  clockOn: false,
+                  padding: EdgeInsets.zero,
+                ),
         ),
       ],
     );

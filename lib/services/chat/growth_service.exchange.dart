@@ -123,6 +123,8 @@ extension GrowthServiceExchange on GrowthService {
     required String ownerName,
     int windowStart = 0,
     int windowLength = 0,
+    bool rewound = false,
+    Set<String>? intervalHeld,
   }) {
     String named(String text) =>
         resolveGrowthMacros(text, charName: ownerName, userName: getUserName());
@@ -158,6 +160,43 @@ extension GrowthServiceExchange on GrowthService {
           // User-pinned rings are permanent: the pass may reinforce or
           // reword them, but only the diary UI may retire them.
           if (op.action == GrowthOpAction.retire && ring.pinned) continue;
+          if (op.action == GrowthOpAction.reinforce) {
+            // Reinforcement needs a NEW message. A rewound re-check has
+            // none, and a reinforce that only re-cites the ring's own
+            // receipts is the same event counted twice.
+            if (rewound) continue;
+            final had = GrowthStore.receiptsOf(ring).toSet();
+            final freshCite = op.sourcePositions.any(
+              (position) => !had.contains(position),
+            );
+            if (!freshCite) continue;
+            if (had.isNotEmpty) {
+              var newest = 0;
+              for (final position in had) {
+                if (position > newest) newest = position;
+              }
+              var cited = newest;
+              for (final position in op.sourcePositions) {
+                if (position > cited) cited = position;
+              }
+              // The interval counts user messages, not transcript slots.
+              // A ring cited late in one pass can still step on the next
+              // scheduled pass once a full interval of user turns has
+              // landed. Held rings stay fade-exempt.
+              final messages = getMessages();
+              var userTurns = 0;
+              final end = cited >= messages.length
+                  ? messages.length - 1
+                  : cited;
+              for (var i = newest + 1; i <= end; i++) {
+                if (messages[i].isUser) userTurns++;
+              }
+              if (userTurns < getGrowthInterval()) {
+                intervalHeld?.add(ring.id);
+                continue;
+              }
+            }
+          }
           resolved.add(
             GrowthProposedOp(
               action: op.action,

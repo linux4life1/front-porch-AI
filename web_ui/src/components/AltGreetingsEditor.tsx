@@ -15,12 +15,15 @@ export function AltGreetingsEditor({
   seeds = [],
   onSeedsChange,
   showNeeds = true,
+  clockOn,
 }: {
   greetings: string[];
   onChange: (next: string[]) => void;
   seeds?: (GreetingSeed | null)[];
   onSeedsChange?: (next: (GreetingSeed | null)[]) => void;
   showNeeds?: boolean;
+  /** Porch Life's Passage of Time, for the Needs block's clock-off line. */
+  clockOn: boolean;
 }) {
   const aligned = align(seeds, greetings.length);
   const setSeeds = (next: (GreetingSeed | null)[]) => onSeedsChange?.(align(next, greetings.length));
@@ -71,6 +74,7 @@ export function AltGreetingsEditor({
             <GreetingSeedForm
               seed={aligned[i] ?? null}
               showNeeds={showNeeds}
+              clockOn={clockOn}
               showInventory
               onChange={(next) => {
                 const copy = [...aligned];

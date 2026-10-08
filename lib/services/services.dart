@@ -33,6 +33,11 @@
 
 export 'desktop_spell_check_service.dart';
 export 'engine_health.dart';
+export 'expression_pack_base.dart';
+export 'expression_pack_base_check.dart';
+export 'expression_pack_convert.dart';
+export 'expression_pack_jpeg_check.dart';
+export 'expression_pack_prepare.dart';
 export 'expression_pack_service.dart';
 export 'model_fetch.dart';
 export 'model_manager.dart';
@@ -55,10 +60,14 @@ export 'database_rebind.dart';
 export 'llm_provider.dart';
 export 'worker_backend.dart';
 export 'worker_gpu_swap.dart';
+export 'http_gpu_swap_host.dart';
 export 'worker_gpu_hosts.dart';
+export 'kobold/kobold.dart';
 export 'kobold_admin_swap.dart';
+export 'kobold_launch_args.dart';
 export 'llm_service.dart';
 export 'kobold_service.dart';
+export 'kobold_speed_test.dart';
 export 'chat_service.dart';
 export 'backend_manager.dart';
 export 'opencode/opencode.dart';
@@ -93,6 +102,8 @@ export 'expression_classifier.dart';
 export 'hardware_service.dart';
 export 'voice_manager.dart';
 export 'update_service.dart';
+export 'story_lane_labels.dart';
+export 'story_pipeline_factory.dart';
 export 'story_pipeline_service.dart';
 
 // Backup & generation tools (now used by web server + UI)

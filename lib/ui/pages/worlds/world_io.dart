@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Pick a `.fpworld` (or bare lorebook `.json`) and import it as a new
@@ -35,7 +36,8 @@ Future<void> importFpWorldFlow(
   BuildContext context,
   WorldRepository repo,
 ) async {
-  final result = await PickerPrefs.pickFiles(
+  final result = await GuardedPicker.pickFiles(
+    context,
     category: PickerPrefs.catImport,
     dialogTitle: 'Import Place (.fpworld)',
     type: FileType.custom,
@@ -46,9 +48,9 @@ Future<void> importFpWorldFlow(
   try {
     final world = await repo.importWorld(File(path));
     if (context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported "${world.name}"')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Imported "${world.name}"')));
     }
   } catch (e) {
     if (context.mounted) {
@@ -66,7 +68,8 @@ Future<void> exportFpWorldFlow(
   WorldRepository repo,
   World world,
 ) async {
-  String? outputFile = await PickerPrefs.saveFromBuilder(
+  String? outputFile = await GuardedPicker.saveFromBuilder(
+    context,
     category: PickerPrefs.catExport,
     dialogTitle: 'Export World (.fpworld)',
     fileName: '${world.name}.fpworld',

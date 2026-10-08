@@ -20,7 +20,7 @@ part of 'model_settings_dialog.dart';
 
 /// The local (KoboldCpp) backend's settings panel: model dropdown, vision
 /// projector field, preset picker, hardware info, GPU/context fields, KV
-/// quantization, and the Auto-Configure / Start-Restart buttons. Split out of
+/// quantization, and the Start-Restart button. Split out of
 /// `model_settings_dialog.dart` — verbatim except `setState` -> `rebuildState`
 /// (extensions can't call a State's protected members) and the amber ->
 /// formMasterAccent retheme noted inline below.
@@ -30,7 +30,6 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
     final modelManager = Provider.of<ModelManager>(context);
     final hardwareService = Provider.of<HardwareService>(context);
     final koboldService = Provider.of<KoboldService>(context);
-
     // Auto-select first model if none selected and models exist.
     // Skip when a kcpps preset with a valid model is active (use "Managed by kcpps").
     // Gate the exists memo on kcppsHasModel — same short-circuit the old
@@ -42,7 +41,18 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
     if (_selectedModelPath == null &&
         modelManager.models.isNotEmpty &&
         !kcppsModelExists) {
-      _selectedModelPath = modelManager.models.first.path;
+      _selectedModelPath = modelListStart(
+        modelManager.models,
+        storage.backendSettings.lastUsedModelPath,
+      );
+    }
+    // A preset sets its own context, so the box follows the preset that is
+    // active instead of showing what it held when the dialog opened.
+    final activePreset = storage.backendSettings.activeKcppsPath;
+    if (activePreset != _contextPreset) {
+      _contextPreset = activePreset;
+      _contextSizeController.text = storage.backendSettings.contextSize
+          .toString();
     }
 
     return Column(
@@ -64,16 +74,7 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
               rebuildState(() {
                 _selectedModelPath = val;
               });
-              storage.backendSettings.setLastUsedModelPath(val);
-              final savedPreset = storage.presetSettings.modelPresetMap[val];
-              if (savedPreset != null &&
-                  savedPreset.isNotEmpty &&
-                  _presetFileExists.of(savedPreset)) {
-                storage.backendSettings.setActiveKcppsPath(savedPreset);
-              } else {
-                storage.backendSettings.setActiveKcppsPath(null);
-              }
-              _applyAutoConfiguration();
+              selectKoboldModel(storage, val);
             }
           },
         ),
@@ -110,54 +111,11 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                   storage: storage,
                   localPresets: _localPresets,
                   hint: 'None (Use App Settings)',
-                  onChanged: (val) {
-                    storage.backendSettings.setActiveKcppsPath(val);
-                    if (_selectedModelPath != null && val != null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        val,
-                      );
-                    } else if (_selectedModelPath != null && val == null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        '',
-                      );
-                    }
-                    if (val != null &&
-                        storage.backendSettings.kcppsHasModel &&
-                        _kcppsModelExists.of(
-                          storage.backendSettings.kcppsModelPath,
-                        )) {
-                      rebuildState(() {
-                        _selectedModelPath = null;
-                      });
-                    }
-                  },
-                  onExternalClear: () {
-                    storage.backendSettings.setActiveKcppsPath(null);
-                    if (_selectedModelPath != null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        '',
-                      );
-                    }
-                  },
-                  onBrowsePicked: (path) {
-                    if (_selectedModelPath != null) {
-                      storage.presetSettings.setModelPreset(
-                        _selectedModelPath!,
-                        path,
-                      );
-                    }
-                    _scanLocalPresets();
-                    if (storage.backendSettings.kcppsHasModel &&
-                        _kcppsModelExists.of(
-                          storage.backendSettings.kcppsModelPath,
-                        )) {
-                      rebuildState(() {
-                        _selectedModelPath = null;
-                      });
-                    }
+                  onChanged: _choosePreset,
+                  onExternalClear: () => _choosePreset(null),
+                  onBrowsePicked: (path) async {
+                    await _choosePreset(path);
+                    if (mounted) _scanLocalPresets();
                   },
                   onModelStatusChanged: (_) {
                     rebuildState(() {});
@@ -241,36 +199,35 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                         ),
                         const SizedBox(height: 16),
 
+                        GpuLayersField(
+                          dense: true,
+                          manual: storage.backendSettings.gpuLayersManual,
+                          retiredLayers:
+                              storage.backendSettings.retiredGpuLayers,
+                          onDismissRetired:
+                              storage.backendSettings.dismissGpuLayersNote,
+                          controller: _gpuLayersController,
+                          onManualChanged: (v) {
+                            Provider.of<StorageService>(
+                              context,
+                              listen: false,
+                            ).backendSettings.setGpuLayersManual(v);
+                            rebuildState(() {});
+                          },
+                          onLayersChanged: _saveGpuLayers,
+                        ),
+                        const SizedBox(height: 12),
                         Row(
                           children: [
                             Expanded(
-                              child: _buildTextField(
-                                label: 'GPU Layers',
-                                controller: _gpuLayersController,
-                                isNumber: true,
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: IgnorePointer(
-                                ignoring: _isPresetActive(context),
-                                child: Opacity(
-                                  opacity: _isPresetActive(context) ? 0.5 : 1.0,
-                                  child: _isPresetActive(context)
-                                      ? Tooltip(
-                                          message:
-                                              'Context size is controlled by the active .kcpps preset and cannot be edited here.',
-                                          child: _buildTextField(
-                                            label: 'Context Size',
-                                            controller: _contextSizeController,
-                                            isNumber: true,
-                                          ),
-                                        )
-                                      : _buildTextField(
-                                          label: 'Context Size',
-                                          controller: _contextSizeController,
-                                          isNumber: true,
-                                        ),
+                              child: PresetContextLock(
+                                locked:
+                                    storage.backendSettings.presetOwnsContext,
+                                child: _buildTextField(
+                                  label: 'Context Size',
+                                  controller: _contextSizeController,
+                                  isNumber: true,
+                                  onChanged: _saveContextSize,
                                 ),
                               ),
                             ),
@@ -288,86 +245,17 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: Provider.of<StorageService>(
+                              child: KvQuantPicker(
+                                value: Provider.of<StorageService>(
+                                  context,
+                                ).backendSettings.kvQuant,
+                                onChanged: (val) {
+                                  Provider.of<StorageService>(
                                     context,
-                                  ).backendSettings.kvQuantizationLevel,
-                                  isExpanded: true,
-                                  dropdownColor: AppColors.surfaceContainerOf(
-                                    context,
-                                  ),
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary(context),
-                                    fontSize: 13,
-                                  ),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      Provider.of<StorageService>(
-                                        context,
-                                        listen: false,
-                                      ).backendSettings.setKvQuantizationLevel(
-                                        val,
-                                      );
-                                      rebuildState(() {});
-                                    }
-                                  },
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 0,
-                                      child: Text('0 - None (FP16)'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 1,
-                                      child: Text('1 - 8-Bit Q8'),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 2,
-                                      child: Text('2 - 4-Bit Q4'),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Tooltip(
-                              message:
-                                  'Quantizes the context window to save significant VRAM with minimal quality loss. Note: KoboldCPP dynamically disables Context Shifting when this is active.',
-                              child: Icon(
-                                Icons.info_outline,
-                                size: 16,
-                                color: AppColors.iconSecondary(context),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                IgnorePointer(
-                  ignoring: isPresetActive,
-                  child: Opacity(
-                    opacity: isPresetActive ? 0.4 : 1.0,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            TextButton.icon(
-                              onPressed: _applyAutoConfiguration,
-                              icon: const Icon(
-                                Icons.auto_fix_high,
-                                // Retheme: was Colors.amber.
-                                color: AppColors.formMasterAccent,
-                              ),
-                              label: const Text(
-                                'Auto-Configure',
-                                style: TextStyle(
-                                  color: AppColors.formMasterAccent,
-                                ),
+                                    listen: false,
+                                  ).backendSettings.setKvQuant(val);
+                                  rebuildState(() {});
+                                },
                               ),
                             ),
                           ],

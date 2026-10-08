@@ -284,14 +284,14 @@ extension RealismVerificationRules on RealismVerification {
     // (the strict-quote extractor never matched `"hunger_delta"`), found in
     // the 2026-08-10 eval review. The plain key stays as the fallback the
     // parser also accepts.
-    // A drop is the beat the clock named. Crushing abs() rewrote a long
-    // hungry afternoon back to -2 whenever nobody ate. A gain without
-    // eat/food is still a spike.
+    // The clock charges the span in code (needs_wear.dart), so a hunger
+    // swing either way without eat/food is a spike: a gain invents a meal, a
+    // drop charges the beat a second time.
     final hKey = extractJsonInt(raw, 'hunger_delta') != null
         ? 'hunger_delta'
         : 'hunger';
     final h = extractJsonInt(raw, hKey) ?? 0;
-    if (h > (8 * strictFactor) &&
+    if (h.abs() > (8 * strictFactor) &&
         !scene.contains('eat') &&
         !scene.contains('food')) {
       return _RuleResult(

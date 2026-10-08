@@ -103,7 +103,7 @@ extension _ChatPageInput on _ChatPageState {
   /// workaround, but never prevents sending (capability detection can't
   /// interrogate externally-started servers).
   Future<void> _attachImage() async {
-    final bytes = await pickChatImageAttachment();
+    final bytes = await pickChatImageAttachment(context);
     if (bytes == null || !mounted) return;
     await _acceptImageBytes(bytes);
   }
@@ -165,6 +165,12 @@ extension _ChatPageInput on _ChatPageState {
         chatService.entrancesInFlight ||
         (chatService.activeCharacter == null &&
             chatService.activeGroup == null)) {
+      return;
+    }
+    // Refused while the speed test runs: said under the chat, text kept.
+    final testing = chatService.sendRefusal(text, withImage: pending != null);
+    if (testing != null) {
+      chatService.announceLookupForce(testing);
       return;
     }
     final lookupBlock = chatService.lookupCommandBlock(text);

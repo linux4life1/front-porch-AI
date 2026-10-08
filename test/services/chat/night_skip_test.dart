@@ -83,7 +83,9 @@ void main() {
       await t.detectOocTimeSkip('We sleep through the night.');
       expect(t.clock, DateTime.utc(2026, 8, 23, 8, 0));
       expect(t.dayCount, 2);
-      expect(t.awakeWearMinutes, 0);
+      // Needs v2: the night is a span the body wears, off-screen (floors).
+      expect(t.bodyWearMinutes, 11 * 60 + 29);
+      expect(t.bodyBeatOffScreen, isTrue);
     });
 
     test('a measured reply wears those minutes', () async {
@@ -106,14 +108,17 @@ void main() {
         getEmotionIntensity: () => '',
         timeOnly: true,
       );
-      expect(t.awakeWearMinutes, 0, reason: 'clock apply never wears Needs');
+      // Needs v2: the clock charges the span (needs_wear.dart), on-screen.
+      expect(t.bodyWearMinutes, 90);
+      expect(t.bodyBeatOffScreen, isFalse);
       expect(t.bodyTimeLabel, '1 hr 30 min');
     });
 
-    test('time away does not add awake wear', () {
+    test('time away wears its span off-screen', () {
       final t = _clock();
       t.advanceTimePeriods(1);
-      expect(t.awakeWearMinutes, 0);
+      expect(t.bodyWearMinutes, greaterThan(0));
+      expect(t.bodyBeatOffScreen, isTrue);
       expect(t.bodyTimeLabel, isNotNull);
     });
 

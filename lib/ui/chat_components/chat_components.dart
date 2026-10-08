@@ -32,6 +32,7 @@ export 'sidebar/character_portrait.dart';
 export 'sidebar/chat_main_settings.dart';
 export 'stage/chat_message_list.dart';
 export 'stage/chat_resize_sidebar.dart';
+export 'stage/transcript_anchor.dart';
 export 'stage/transcript_auto_scroll.dart';
 export 'stage/transcript_window.dart';
 export 'sidebar/expandable_sidebar_text.dart';

@@ -110,6 +110,16 @@ void main(List<String> args) async {
   await _healPrefsAndConsolidateFiles();
   final boot = await _openDatabaseGuarded();
   if (boot == null) return; // DbInitErrorApp is already running
+  if (Platform.isWindows) {
+    // Windows runs the app first and shows the window once it has painted
+    // at its final size. Restoring the saved bounds before the engine has
+    // produced a frame can leave its resize handshake stuck, and the window
+    // white until a real resize (flutter/flutter#192537). The runner keeps
+    // the window hidden until Dart shows it (windows/runner/flutter_window.cpp).
+    runApp(_buildRootWidget(boot.db, boot.needsMigration));
+    await _showMainWindow();
+    return;
+  }
   await _showMainWindow();
   runApp(_buildRootWidget(boot.db, boot.needsMigration));
 }
@@ -347,7 +357,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       actions: [warmDialogCancel(context, label: 'OK')],
                     );
                   }
-                  _checkForUpdates(context);
+                  _checkForUpdates(context).then((_) {
+                    if (context.mounted) _checkKoboldEngine(context);
+                  });
                   _autoStartWebServer(context);
                   // Start auto-backup (always on, every 10 minutes)
                   BackupService.startAutoBackup();
@@ -399,7 +411,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
                           context,
                           listen: false,
                         );
-                        if (kobold.isRunning) await kobold.stopKobold();
+                        if (kobold.isRunning || kobold.isStarting) {
+                          await kobold.stopKobold();
+                        }
                       } catch (_) {}
                       try {
                         final webServer = Provider.of<WebServerHost>(
@@ -425,8 +439,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
                   responsiveScale * storage.uiSettings.textScale;
 
               return MediaQuery(
-                data: MediaQuery.of(context)
-                    .copyWith(textScaler: TextScaler.linear(effectiveScale)),
+                data: MediaQuery.of(
+                  context,
+                ).copyWith(textScaler: TextScaler.linear(effectiveScale)),
                 child: Stack(
                   children: [
                     const MainLayout(),

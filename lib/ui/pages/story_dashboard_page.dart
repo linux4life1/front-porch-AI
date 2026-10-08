@@ -16,40 +16,47 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
 import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/services/services.dart';
+
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/pages/story_structure_page.dart';
-import 'package:front_porch_ai/ui/pages/story_reader_page.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/services/epub_generator_service.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/ui/pages/story_home_view.dart';
+import 'package:front_porch_ai/ui/pages/story_reader_page.dart';
+import 'package:front_porch_ai/ui/pages/story_setup_page.dart';
+import 'package:front_porch_ai/ui/pages/story_structure_page.dart';
+import 'package:front_porch_ai/ui/pages/story_writer_page.dart';
+import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-// The pipeline actions, body composition, chat-history preview, editable act
-// cards, and bible display cards live in these `part of` files (extensions on
-// _StoryDashboardPageState) to keep every file under the 500-LOC cap — same
-// pattern chat_service.dart / settings_page.dart use. They share this
-// library's imports and access the page's private state directly, so
-// behavior is unchanged.
+part 'story_dashboard_page.shell.dart';
+part 'story_dashboard_page.overview.dart';
+part 'story_dashboard_page.up_next.dart';
 part 'story_dashboard_page.actions.dart';
-part 'story_dashboard_page.body.dart';
-part 'story_dashboard_page.chat_history.dart';
-part 'story_dashboard_page.act_cards.dart';
-part 'story_dashboard_page.bible_cards.dart';
 
-/// Dashboard page — story bible overview: concept, themes, cast, threads, lore.
+/// The studio (sketch M): one header for the whole story, the sidebar, and
+/// the selected section. The web twin is StudioShell.tsx + the section
+/// pages.
 class StoryDashboardPage extends StatefulWidget {
   final String projectId;
   final bool autoRunStoryArchitect;
+
+  /// Which section to open first (the shelf's Read, a deep link).
+  final StudioSection? openSection;
 
   const StoryDashboardPage({
     super.key,
     required this.projectId,
     this.autoRunStoryArchitect = false,
+    this.openSection,
   });
 
   @override
@@ -57,19 +64,14 @@ class StoryDashboardPage extends StatefulWidget {
 }
 
 class _StoryDashboardPageState extends State<StoryDashboardPage> {
+  late StudioSection _section = widget.openSection ?? StudioSection.overview;
+
+  /// The scene the Write screen shows; null picks the next unfinished one.
+  ({int act, int scene})? _writeTarget;
   bool _hasAutoRun = false;
-  bool _showChatPreview = false;
-  List<String> _chatPreviewMessages = [];
-  bool _loadingChatPreview = false;
 
-  // Editable act controllers
-  final Map<int, TextEditingController> _actTitleControllers = {};
-  final Map<int, TextEditingController> _actDescControllers = {};
-
-  // Relocated from its original mid-file position under the CHAT HISTORY
-  // PREVIEW banner (now story_dashboard_page.chat_history.dart) — extensions
-  // cannot hold fields, so this lives here with the rest of the state.
-  bool _showRawMessages = false;
+  /// The reader folds the sidebar away; ☰ in its bar brings it back.
+  bool _sidebarShown = true;
 
   @override
   void didChangeDependencies() {
@@ -80,27 +82,18 @@ class _StoryDashboardPageState extends State<StoryDashboardPage> {
     }
   }
 
-  @override
-  void dispose() {
-    for (final c in _actTitleControllers.values) {
-      c.dispose();
-    }
-    for (final c in _actDescControllers.values) {
-      c.dispose();
-    }
-    super.dispose();
-  }
-
   StoryProject? get _project => Provider.of<StoryRepository>(
     context,
     listen: false,
   ).getById(widget.projectId);
 
-  /// Re-exposes the protected [setState] for the `part of` extensions
-  /// (`story_dashboard_page.*.dart`), which hold the pipeline actions, chat
-  /// history preview, and editable cards but can't call a State's protected
-  /// members directly.
+  /// Re-exposes the protected [setState] for the `part of` extensions.
   void rebuildState(VoidCallback fn) => setState(fn);
+
+  void _open(StudioSection s) => setState(() {
+    _section = s;
+    _sidebarShown = s != StudioSection.read;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -108,64 +101,51 @@ class _StoryDashboardPageState extends State<StoryDashboardPage> {
       builder: (context, repo, pipeline, child) {
         final project = repo.getById(widget.projectId);
         if (project == null) {
-          return Scaffold(
-            body: Center(
-              child: Text(
-                'Project not found',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+          return StudioTheme(
+            child: Scaffold(
+              backgroundColor: StudioColors.bgOf(context),
+              body: Center(
+                child: Text(
+                  'This story is gone.',
+                  style: StudioType.ui(
+                    context,
+                    color: StudioColors.mutedOf(context),
+                  ),
+                ),
               ),
             ),
           );
         }
-
-        return Scaffold(
-          backgroundColor: AppColors.backgroundOf(context),
-          appBar: AppBar(
-            title: Text(project.title),
-            backgroundColor: AppColors.surfaceContainerOf(context),
-            foregroundColor: AppColors.textPrimary(context),
-            elevation: 0,
-            actions: [
-              if (project.acts.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          StoryReaderPage(projectId: widget.projectId),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.menu_book,
-                    color: AppColors.porchHoneyOf(context),
-                  ),
-                  label: Text(
-                    'Read',
-                    style: TextStyle(
-                      color: AppColors.porchHoneyOf(context),
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+        final narrow =
+            MediaQuery.of(context).size.width < kStudioSidebarBreakpoint;
+        final sidebar = StudioSidebar(
+          project: project,
+          selected: _section,
+          onSelect: _open,
+          horizontal: narrow,
+        );
+        return StudioTheme(
+          child: Scaffold(
+            backgroundColor: StudioColors.bgOf(context),
+            body: Column(
+              children: [
+                _buildHeader(project, pipeline),
+                _buildProgress(project),
+                if (narrow && _sidebarShown) sidebar,
+                Expanded(
+                  child: narrow || !_sidebarShown
+                      ? _buildSection(project, pipeline)
+                      : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            sidebar,
+                            Expanded(child: _buildSection(project, pipeline)),
+                          ],
+                        ),
                 ),
-              if (project.acts.isNotEmpty)
-                TextButton.icon(
-                  onPressed: () => Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (_) =>
-                          StoryStructurePage(projectId: widget.projectId),
-                    ),
-                  ),
-                  icon: Icon(
-                    Icons.account_tree,
-                    color: AppColors.textSecondary(context),
-                  ),
-                  label: Text(
-                    'Structure',
-                    style: TextStyle(color: AppColors.textSecondary(context)),
-                  ),
-                ),
-            ],
+              ],
+            ),
           ),
-          body: _buildBody(project, pipeline),
         );
       },
     );

@@ -9,6 +9,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Slider, SelectRow, ToggleRow } from './realism/controls';
 import { ChipList } from './realism/ChipList';
+import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 import {
   type GreetingSeed,
   INTENSITY_OPTIONS,
@@ -23,11 +24,14 @@ export function GreetingSeedForm({
   onChange,
   showNeeds = true,
   showInventory = false,
+  clockOn,
 }: {
   seed: GreetingSeed | null;
   onChange: (next: GreetingSeed | null) => void;
   showNeeds?: boolean;
   showInventory?: boolean;
+  /** Porch Life's Passage of Time, for the Needs block's clock-off line. */
+  clockOn: boolean;
 }) {
   const stash = useRef<GreetingSeed | null>(seed);
   const [uiOn, setUiOn] = useState(seed != null);
@@ -176,10 +180,11 @@ export function GreetingSeedForm({
           {showNeeds && (
             <>
               <h4 className="realism-head">Needs Simulation</h4>
+              <NeedsClockOffNote clockOn={clockOn} />
               <div className="card realism-card">
                 <p className="muted small">
                   Baselines (0–100, higher = more sated). Blank inherits the card.
-                  Decay stays on the card.
+                  Pace stays on the card.
                 </p>
                 {NEEDS.map(([key, label]) => (
                   <Slider

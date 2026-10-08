@@ -153,9 +153,13 @@ void main() {
     await d.waitForWidget(find.text('STANCE'));
 
     // ── The receipt pill jumps to the cited message ─────────────────────
-    // The fake's canned ring carries src="1" — the user's own turn. Tapping
-    // the receipt must seek the chat list to that bubble.
-    final receipt = find.text('#1');
+    // The fake's canned ring carries src="1" — the user's own turn, shown
+    // 1-based as #2 like the bubble numbers. Tapping the receipt (not the
+    // bubble's own #2 under its avatar) must seek the chat list to it.
+    final receipt = find.byWidgetPredicate(
+      (w) =>
+          w is Text && w.data == '#2' && w.key != const Key('message-number'),
+    );
     await d.waitForWidget(receipt);
     await tester.ensureVisible(receipt.first);
     await tester.pump(const Duration(milliseconds: 200));

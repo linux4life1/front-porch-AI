@@ -20,15 +20,17 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'library_view_prefs.dart';
 import 'settings_base.dart';
 
 /// UI / theme / chat presentation settings (bubble colors/opacity, fonts,
-/// dark mode, backgrounds, display buffer, sort/grid, effective color helpers).
+/// dark mode, backgrounds, display buffer, effective color helpers). The home
+/// library's sort, card size and search scope live in [LibraryViewPrefs].
 ///
 /// Lifted from StorageService (Stage 7). Shims preserve getUserBubbleColor etc.
 /// Note: effective *Color / getChatFontFamily take optional CharacterCard for
 /// per-card overrides (frontPorchExtensions) and fall back to globals.
-class UiSettings with SettingsBase {
+class UiSettings with SettingsBase, LibraryViewPrefs {
   double _bubbleOpacity = 1.0;
 
   // Global chat color defaults
@@ -63,8 +65,6 @@ class UiSettings with SettingsBase {
   bool _displayBufferEnabled = false;
   double _targetDisplayTps = 6.0; // ~250 WPM average human reading speed
   double _bufferDurationSeconds = 3.0;
-  String _sortMode = 'name'; // 'name', 'recent', 'importDate'
-  double _gridScale = 300.0; // maxCrossAxisExtent in pixels (150-450)
 
   // Chat-sidebar accordion expansion (persisted per group id so the layout
   // survives restarts). Ids: author_note / character_state / journal_memory /
@@ -100,8 +100,6 @@ class UiSettings with SettingsBase {
   bool get displayBufferEnabled => _displayBufferEnabled;
   double get targetDisplayTps => _targetDisplayTps;
   double get bufferDurationSeconds => _bufferDurationSeconds;
-  String get sortMode => _sortMode;
-  double get gridScale => _gridScale;
 
   void load() {
     _bubbleOpacity = prefs?.getDouble(k('bubble_opacity')) ?? _bubbleOpacity;
@@ -186,8 +184,7 @@ class UiSettings with SettingsBase {
     _bufferDurationSeconds =
         prefs?.getDouble(k('buffer_duration_seconds')) ?? 3.0;
 
-    _sortMode = prefs?.getString(k('sort_mode')) ?? 'name';
-    _gridScale = prefs?.getDouble(k('grid_scale')) ?? 300.0;
+    loadLibraryViewPrefs();
 
     for (final id in _sidebarGroupIds) {
       final v = prefs?.getBool(k('sidebar_group_expanded_$id'));
@@ -352,18 +349,6 @@ class UiSettings with SettingsBase {
   Future<void> setBufferDurationSeconds(double value) async {
     _bufferDurationSeconds = value;
     await prefs?.setDouble(k('buffer_duration_seconds'), value);
-    notify();
-  }
-
-  Future<void> setSortMode(String value) async {
-    _sortMode = value;
-    await prefs?.setString(k('sort_mode'), value);
-    notify();
-  }
-
-  Future<void> setGridScale(double value) async {
-    _gridScale = value.clamp(150.0, 450.0);
-    await prefs?.setDouble(k('grid_scale'), _gridScale);
     notify();
   }
 

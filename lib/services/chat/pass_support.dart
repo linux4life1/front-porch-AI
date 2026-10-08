@@ -23,8 +23,12 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
+import 'package:front_porch_ai/services/chat/tool_verdict_stamp.dart';
 import 'package:front_porch_ai/services/services.dart'
     show LlmToolCall, LlmToolResponse, OneShotMode, isToolTransportFailure;
+import 'package:front_porch_ai/services/storage/storage.dart'
+    show ToolVerdictSettings;
+import 'package:front_porch_ai/utils/utils.dart' show namesUnknownLocalModel;
 
 part 'pass_support_fire.dart';
 
@@ -130,15 +134,20 @@ bool resolveOneShotMode({
   };
 }
 
-/// Per-run memory of which backend identities can (or can't) speak the
-/// OpenAI tools protocol — shared by every tool-negotiating consumer (the
-/// Journal, Growth, and all structured evals) so a backend answers the probe
-/// at most once per run no matter who asks first.
+/// Memory of which backend identities can (or can't) speak the OpenAI tools
+/// protocol — shared by every tool-negotiating consumer (the Journal, Growth,
+/// and all structured evals) so a model answers the probe once no matter who
+/// asks first.
 ///
 /// A ChangeNotifier so the chat sidebar's tool-calling pill repaints live as
 /// verdicts land (from background passes or the manual test). Identity keys
 /// carry the backend name + model, so switching models resets the verdict to
 /// [ToolCallSupport.untested] by construction.
+///
+/// With a [store], settled verdicts outlive the run: every verdict that lands
+/// is written through to it, and a model it already knows is answered from it
+/// before anything is asked. Skip, pause and inconclusive counts are per run
+/// and never stored.
 ///
 /// Distinct from `OpenRouterToolSupport` (services/openrouter_tool_support.dart)
 /// on purpose. That one is inside the HTTP door and answers "is a `tools` POST
@@ -149,14 +158,52 @@ bool resolveOneShotMode({
 /// merge them: the transport would inherit per-send skip/pause bookkeeping, and
 /// this probe would inherit one provider's catalog semantics.
 class ToolTransportProbe extends ChangeNotifier {
-  /// true = tools confirmed working, false = XML/text-only.
+  /// Where settled verdicts are kept between runs; null keeps them for this
+  /// run only. Attached by the owner once storage exists.
+  ToolVerdictSettings? store;
+
+  /// true = tools confirmed working, false = XML/text-only. This run's
+  /// verdicts; a model [store] knows and this run has not met is read from it.
   final Map<String, bool> _verdicts = {};
   final Set<String> _skipThisSend = {};
   final Map<String, int> _consecutiveInconclusive = {};
   final Set<String> _pausedUntilPing = {};
   bool _inUserSend = false;
 
-  bool isXmlOnly(String backendIdentity) => _verdicts[backendIdentity] == false;
+  /// The stamp that holds now for [identity] (app, and engine for a local
+  /// model), set by the owner. Null: kept answers are not stamped.
+  String Function(String identity)? stampFor;
+
+  /// This run's verdict, else the kept one. A kept "no" given under another
+  /// engine or app is unknown again, so tools are tried and the model asked
+  /// once more; a kept "yes" stands.
+  bool? _verdictFor(String id) {
+    final run = _verdicts[id];
+    if (run != null) return run;
+    final kept = store?.verdictFor(id);
+    if (kept == false && !_keptNoStands(id)) return null;
+    return kept;
+  }
+
+  bool _keptNoStands(String id) {
+    final now = stampFor?.call(id);
+    if (now == null) return true;
+    return toolVerdictStampHolds(store?.stampFor(id) ?? '', now);
+  }
+
+  /// A verdict is kept for a model that can be named; one given while the
+  /// engine ran a model nobody had confirmed belongs to none.
+  bool _keepable(String id) => !namesUnknownLocalModel(id);
+
+  bool isXmlOnly(String backendIdentity) =>
+      _verdictFor(backendIdentity) == false;
+
+  /// True when the answer for [backendIdentity] was kept from an earlier run
+  /// and nothing this run has settled it since (the sidebar pill says so, and
+  /// that a tap asks again).
+  bool isKept(String backendIdentity) =>
+      !_verdicts.containsKey(backendIdentity) &&
+      _verdictFor(backendIdentity) != null;
 
   bool isPausedUntilPing(String backendIdentity) =>
       _pausedUntilPing.contains(backendIdentity);
@@ -165,8 +212,15 @@ class ToolTransportProbe extends ChangeNotifier {
       _skipThisSend.contains(backendIdentity);
 
   void markXmlOnly(String backendIdentity) {
-    if (_verdicts[backendIdentity] == false) return;
+    if (_verdictFor(backendIdentity) == false) return;
     _verdicts[backendIdentity] = false;
+    if (_keepable(backendIdentity)) {
+      store?.remember(
+        backendIdentity,
+        false,
+        stamp: stampFor?.call(backendIdentity) ?? '',
+      );
+    }
     notifyListeners();
   }
 
@@ -227,16 +281,21 @@ class ToolTransportProbe extends ChangeNotifier {
   void markSupported(String backendIdentity) {
     _consecutiveInconclusive[backendIdentity] = 0;
     _skipThisSend.remove(backendIdentity);
-    if (_verdicts[backendIdentity] == true) return;
+    if (_verdictFor(backendIdentity) == true) return;
     _verdicts[backendIdentity] = true;
+    if (_keepable(backendIdentity)) store?.remember(backendIdentity, true);
     notifyListeners();
   }
 
-  /// Forget the verdict (manual retest / model reloaded under the same key).
+  /// Forget the verdict (manual retest / model reloaded under the same key),
+  /// the kept one too: if the retest settles nothing the model is simply
+  /// unknown again and the next run asks.
   /// `|` not `||`: a supported identity's pill tap must still drop pause.
   void reset(String backendIdentity) {
     // `|` not `||`: a supported identity's pill tap must still drop pause.
-    final droppedVerdict = _verdicts.remove(backendIdentity) != null;
+    final droppedVerdict =
+        (_verdicts.remove(backendIdentity) != null) |
+        (store?.forget(backendIdentity) ?? false);
     final droppedSkip = _skipThisSend.remove(backendIdentity);
     final droppedPause = _pausedUntilPing.remove(backendIdentity);
     final droppedConsecutive =
@@ -247,7 +306,7 @@ class ToolTransportProbe extends ChangeNotifier {
   }
 
   ToolCallSupport supportFor(String backendIdentity) =>
-      switch (_verdicts[backendIdentity]) {
+      switch (_verdictFor(backendIdentity)) {
         true => ToolCallSupport.supported,
         false => ToolCallSupport.unsupported,
         null => ToolCallSupport.untested,

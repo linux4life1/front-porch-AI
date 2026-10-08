@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
@@ -32,6 +33,9 @@ class SetupService extends ChangeNotifier {
   SetupService(this._storageService, this._backendManager, this._koboldService);
 
   Future<void> runAutoSetup() async {
+    // Until the processor is known no Mac counts as an Intel one, so wait for
+    // it first (nothing awaits between the step check and the step set).
+    await _backendManager.architectureKnown;
     if (_currentStep != SetupStep.idle && _currentStep != SetupStep.error) {
       return;
     }
@@ -105,30 +109,16 @@ class SetupService extends ChangeNotifier {
       //    .kcpps preset that owns the model — the preset used to be its own
       //    "pseudoRemote" backend, but it is now just a launch option of the
       //    local backend, so a single autostart branch handles both.
-      final modelPath = _storageService.backendSettings.lastUsedModelPath;
-      final presetOwnsModel =
-          _storageService.backendSettings.kcppsHasModel &&
-          _storageService.backendSettings.kcppsModelFileExists;
-
+      //    An engine the user started meanwhile is left alone: a launch
+      //    would stop it and start it again. (One still starting already
+      //    refuses a second launch.)
       if (_storageService.backendSettings.autostartBackend &&
-          (modelPath != null || presetOwnsModel)) {
+          !_koboldService.isRunning &&
+          resolveKoboldLaunch(_storageService).canLaunch) {
         _currentStep = SetupStep.startingBackend;
         notifyListeners();
 
-        await _koboldService.startKobold(
-          _backendManager.backendPath!,
-          modelPath ?? '',
-          kcppsPath: _storageService.backendSettings.activeKcppsPath,
-          mmprojPath: modelPath != null
-              ? _storageService.presetSettings.modelMmprojMap[modelPath]
-              : null,
-          gpuLayers: _storageService.backendSettings.gpuLayers,
-          contextSize: _storageService.backendSettings.contextSize,
-          useVulkan: _storageService.backendSettings.useVulkan ?? false,
-          useCublas: _storageService.backendSettings.useCublas ?? false,
-          useMetal: _storageService.backendSettings.useMetal ?? false,
-          useRocm: _storageService.backendSettings.useRocm ?? false,
-        );
+        await _koboldService.launch(_backendManager.backendPath!);
 
         _currentStep = SetupStep.complete;
         notifyListeners();

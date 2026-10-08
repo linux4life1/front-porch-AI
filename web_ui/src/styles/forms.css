@@ -44,6 +44,9 @@
 .realism-toggle-text { display: flex; flex-direction: column; gap: 2px; }
 .realism-toggle-text > span { font-size: 0.9rem; color: var(--text); }
 .realism-toggle-text > small { font-size: 0.74rem; color: var(--faint); }
+/* The clock-off line under a Needs switch (NeedsClockOffNote). */
+.needs-clock-off { margin: 2px 0 4px; line-height: 1.4; }
+.pl-child > .needs-clock-off { margin: 0; }
 .needs-row {
   display: grid; grid-template-columns: 1.4fr 1fr; gap: 14px;
   padding-bottom: 10px; border-bottom: 1px solid var(--border);
@@ -72,6 +75,7 @@
 .pl-chip {
   font-size: 0.66rem; font-weight: 700; letter-spacing: 0.3px;
   padding: 2px 8px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap;
+  max-width: 100%;
 }
 /* "works alone" — the independent/no-strings-attached state, same semantic
    green as the desktop chip's theme-keep marker (dependency legend). */
@@ -79,7 +83,10 @@
   color: var(--ok); background: color-mix(in srgb, var(--ok) 14%, transparent);
   border-color: color-mix(in srgb, var(--ok) 40%, transparent);
 }
+/* "needs A, B, and C" can be wider than a phone: let it wrap, not push the
+   whole settings page into scrolling sideways. */
 .pl-chip-needs {
+  white-space: normal;
   color: var(--accent); background: color-mix(in srgb, var(--accent) 14%, transparent);
   border-color: color-mix(in srgb, var(--accent) 38%, transparent);
 }

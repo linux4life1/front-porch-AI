@@ -24,9 +24,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-import 'expression_pack_prompt_editor.dart';
-import 'expression_pack_qc_ui.dart';
+import 'expression_pack_widgets.dart';
 
 /// Step 2 of the Expression-pack dialog: the live generation grid. One cell
 /// per emotion, generated sequentially by the [ExpressionPackSession]; this
@@ -36,10 +34,12 @@ import 'expression_pack_qc_ui.dart';
 class ExpressionPackGrid extends StatelessWidget {
   const ExpressionPackGrid({
     super.key,
+    this.storage,
     required this.session,
     required this.imageGen,
     required this.cancelRequested,
     required this.importing,
+    this.imported = false,
     required this.qc,
     required this.resolvingVision,
     required this.onVisionCheck,
@@ -48,10 +48,12 @@ class ExpressionPackGrid extends StatelessWidget {
     required this.onImport,
   });
 
+  final StorageService? storage;
   final ExpressionPackSession session;
   final ImageGenService imageGen;
   final bool cancelRequested;
   final bool importing;
+  final bool imported;
 
   /// The dialog-owned Vision QC controller (null until the first check).
   final ExpressionPackQc? qc;
@@ -67,7 +69,7 @@ class ExpressionPackGrid extends StatelessWidget {
     return ListenableBuilder(
       // QC verdicts land on the slots via the controller's own notifications,
       // so the grid re-renders on either source.
-      listenable: qc == null ? session : Listenable.merge([session, qc]),
+      listenable: Listenable.merge([session, imageGen, ?qc]),
       builder: (context, _) {
         final total = session.slots.length;
         return Column(
@@ -109,8 +111,12 @@ class ExpressionPackGrid extends StatelessWidget {
                   childAspectRatio: 0.74,
                 ),
                 itemCount: total,
-                itemBuilder: (context, i) =>
-                    _PackCell(session: session, index: i, imageGen: imageGen),
+                itemBuilder: (context, i) => _PackCell(
+                  session: session,
+                  index: i,
+                  imageGen: imageGen,
+                  locked: importing || imported,
+                ),
               ),
             ),
             _footer(context),
@@ -144,6 +150,38 @@ class ExpressionPackGrid extends StatelessWidget {
         ),
       );
     } else {
+      final settings = storage?.expressionSettings;
+      if (settings != null) {
+        buttons.add(
+          TextButton(
+            onPressed: importing || imported
+                ? null
+                : () async {
+                    final rules = await showExpressionPromptRulesEditor(
+                      context,
+                      rules: session.promptRules,
+                      previewPrompt: (emotion, rules) =>
+                          session.previewPromptFor(
+                            session.slots.indexWhere(
+                              (s) => s.emotion == emotion,
+                            ),
+                            rules,
+                          ),
+                      globalDefaults: () => settings.expressionPromptRules,
+                      saveDefaults: settings.setExpressionPromptRules,
+                      originals: {
+                        for (var i = 0; i < session.slots.length; i++)
+                          session.slots[i].emotion: session.originalPromptFor(
+                            i,
+                          ),
+                      },
+                    );
+                    if (rules != null) session.updatePromptRules(rules);
+                  },
+            child: const Text('Prompt rules…'),
+          ),
+        );
+      }
       // Vision QC (advisory): only offered once there are images to check and
       // no import is writing them out.
       if (session.doneCount > 0 && !importing) {
@@ -160,7 +198,7 @@ class ExpressionPackGrid extends StatelessWidget {
         if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 10));
         buttons.add(
           OutlinedButton.icon(
-            onPressed: onResume,
+            onPressed: imported || imageGen.isGenerating ? null : onResume,
             icon: Icon(
               Icons.play_arrow,
               size: 16,
@@ -183,7 +221,9 @@ class ExpressionPackGrid extends StatelessWidget {
         if (buttons.isNotEmpty) buttons.add(const SizedBox(width: 10));
         buttons.add(
           ElevatedButton.icon(
-            onPressed: (session.keptCount == 0 || importing) ? null : onImport,
+            onPressed: (session.keptCount == 0 || importing || imported)
+                ? null
+                : onImport,
             icon: importing
                 ? const SizedBox(
                     width: 14,
@@ -191,7 +231,11 @@ class ExpressionPackGrid extends StatelessWidget {
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
                 : const Icon(Icons.download_done, size: 16),
-            label: Text('Import ${session.keptCount} expressions'),
+            label: Text(
+              imported
+                  ? 'Expressions imported'
+                  : 'Import ${session.keptCount} expressions',
+            ),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.formMasterAccent,
               foregroundColor: AppColors.onChaosAccent,
@@ -206,7 +250,12 @@ class ExpressionPackGrid extends StatelessWidget {
       decoration: BoxDecoration(
         border: Border(top: BorderSide(color: AppColors.borderOf(context))),
       ),
-      child: Row(mainAxisAlignment: MainAxisAlignment.end, children: buttons),
+      child: Wrap(
+        alignment: WrapAlignment.end,
+        spacing: 8,
+        runSpacing: 8,
+        children: buttons,
+      ),
     );
   }
 }
@@ -219,11 +268,13 @@ class _PackCell extends StatelessWidget {
     required this.session,
     required this.index,
     required this.imageGen,
+    required this.locked,
   });
 
   final ExpressionPackSession session;
   final int index;
   final ImageGenService imageGen;
+  final bool locked;
 
   @override
   Widget build(BuildContext context) {
@@ -336,8 +387,9 @@ class _PackCell extends StatelessWidget {
                       child: Checkbox(
                         value: slot.keep,
                         activeColor: AppColors.formMasterAccent,
-                        onChanged: (v) =>
-                            session.setKeep(index, v ?? false),
+                        onChanged: locked
+                            ? null
+                            : (v) => session.setKeep(index, v ?? false),
                       ),
                     ),
                   ),
@@ -358,7 +410,8 @@ class _PackCell extends StatelessWidget {
                       // Same seed + same settings = the same image, so a
                       // re-roll is ALWAYS the editor: tweak prompt/strength
                       // (pack-consistent seed) or opt into fresh noise.
-                      onPressed: session.isRunning
+                      onPressed:
+                          locked || session.isRunning || imageGen.isGenerating
                           ? null
                           : () => unawaited(
                               showPackRerollEditor(context, session, index),
@@ -386,10 +439,7 @@ class _PackCell extends StatelessWidget {
               const SizedBox(height: 4),
               IconButton(
                 padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(
-                  minWidth: 28,
-                  minHeight: 28,
-                ),
+                constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
                 iconSize: 16,
                 // A failed slot produced NO image, so a same-settings retry
                 // is meaningful (errors are usually transient).
@@ -398,9 +448,13 @@ class _PackCell extends StatelessWidget {
                   Icons.refresh,
                   color: AppColors.iconSecondary(context),
                 ),
-                onPressed: session.isRunning
+                onPressed: locked || session.isRunning || imageGen.isGenerating
                     ? null
-                    : () => unawaited(session.reroll(index)),
+                    : () {
+                        if (!imageGen.isGenerating) {
+                          unawaited(session.reroll(index));
+                        }
+                      },
               ),
             ],
           ),

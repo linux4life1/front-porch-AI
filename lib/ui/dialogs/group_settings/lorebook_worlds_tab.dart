@@ -9,6 +9,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 
@@ -114,7 +115,8 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   }
 
   Future<void> _importGroupLorebookJson() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],

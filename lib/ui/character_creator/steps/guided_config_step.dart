@@ -27,6 +27,12 @@ class GuidedConfigStep extends StatelessWidget {
     state.notify();
   }
 
+  /// Typing: redraw at once (the vision panel reads the name), save on pause.
+  void _saveSoon() {
+    state.scheduleSave();
+    state.notify();
+  }
+
   /// Section heading used for the (non-collapsible) basic-info block.
   Widget _sectionHeading(BuildContext context, String title, String helper) {
     return Column(
@@ -129,14 +135,14 @@ class GuidedConfigStep extends StatelessWidget {
                     ),
                   );
                 },
-                onChanged: (_) => _save(),
+                onChanged: (_) => _saveSoon(),
               ),
               const SizedBox(height: 16),
               AgeGenderRow(
                 ageController: state.ageController,
                 genderController: state.sexController,
                 genderLabel: 'Sex',
-                onChanged: _save,
+                onChanged: _saveSoon,
               ),
               const SizedBox(height: 4),
 
@@ -154,7 +160,7 @@ class GuidedConfigStep extends StatelessWidget {
                     hint: "Or describe: 'tall and lanky with long legs'",
                     suggestions: CreatorOptions.guidedBuildSuggestions,
                     maxLines: 2,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -162,7 +168,7 @@ class GuidedConfigStep extends StatelessWidget {
                     controller: state.guidedHairController,
                     hint: "e.g. 'waist-length silver hair, usually messy'",
                     suggestions: CreatorOptions.guidedHairSuggestions,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -171,7 +177,7 @@ class GuidedConfigStep extends StatelessWidget {
                     hint:
                         "e.g. 'a jagged scar across their left eye, pointed elf ears'",
                     suggestions: CreatorOptions.guidedFeatureSuggestions,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -179,7 +185,7 @@ class GuidedConfigStep extends StatelessWidget {
                     controller: state.guidedRaceController,
                     hint: "e.g. 'half-dragon shapeshifter'",
                     suggestions: CreatorOptions.guidedRaceSuggestions,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                 ],
               ),
@@ -199,7 +205,7 @@ class GuidedConfigStep extends StatelessWidget {
                         "What are they like? e.g. 'Sharp wit, never shows vulnerability, but secretly writes poetry'",
                     suggestions: CreatorOptions.guidedPersonalitySuggestions,
                     maxLines: 3,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -208,7 +214,7 @@ class GuidedConfigStep extends StatelessWidget {
                     hint:
                         "e.g. 'Formal and old-fashioned' or 'Lots of slang, drops F-bombs'",
                     suggestions: CreatorOptions.guidedSpeechSuggestions,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -216,7 +222,7 @@ class GuidedConfigStep extends StatelessWidget {
                     controller: state.guidedSecretController,
                     hint:
                         "What's beneath the surface? e.g. 'Seems cold but is terrified of being alone'",
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                 ],
               ),
@@ -237,7 +243,7 @@ class GuidedConfigStep extends StatelessWidget {
                         "e.g. 'Grew up on the streets after their parents disappeared'",
                     suggestions: CreatorOptions.guidedOriginSuggestions,
                     maxLines: 2,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -246,7 +252,7 @@ class GuidedConfigStep extends StatelessWidget {
                     hint:
                         "When and where? e.g. 'Cyberpunk megacity' or 'Medieval fantasy kingdom'",
                     suggestions: CreatorOptions.guidedSettingSuggestions,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -255,7 +261,7 @@ class GuidedConfigStep extends StatelessWidget {
                     hint:
                         "Overall feel? e.g. 'Dark and gritty but with moments of warmth'",
                     suggestions: CreatorOptions.guidedToneSuggestions,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                 ],
               ),
@@ -275,7 +281,7 @@ class GuidedConfigStep extends StatelessWidget {
                         "e.g. 'Coworkers who secretly like each other' or 'They're my bodyguard'",
                     suggestions: CreatorOptions.guidedRelSuggestions,
                     maxLines: 2,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   SuggestionChipField(
                     accent: guidedAccent,
@@ -283,7 +289,7 @@ class GuidedConfigStep extends StatelessWidget {
                     controller: state.guidedRelScenarioController,
                     hint:
                         "Where does the story start? e.g. 'First day at a new school'",
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                 ],
               ),
@@ -317,7 +323,7 @@ class GuidedConfigStep extends StatelessWidget {
                           "Describe specifics if you want: 'modest chest, wide hips, thick thighs'",
                       suggestions: CreatorOptions.guidedNsfwBodySuggestions,
                       isNsfw: true,
-                      onChanged: _save,
+                      onChanged: _saveSoon,
                     ),
                     SuggestionChipField(
                       accent: guidedAccent,
@@ -327,7 +333,7 @@ class GuidedConfigStep extends StatelessWidget {
                           "How experienced are they? e.g. 'First time, nervous but eager'",
                       suggestions: CreatorOptions.guidedNsfwExpSuggestions,
                       isNsfw: true,
-                      onChanged: _save,
+                      onChanged: _saveSoon,
                     ),
                     SuggestionChipField(
                       accent: guidedAccent,
@@ -337,7 +343,7 @@ class GuidedConfigStep extends StatelessWidget {
                           "Who takes the lead? e.g. 'Dominant in public, submissive behind closed doors'",
                       suggestions: CreatorOptions.guidedNsfwDomSuggestions,
                       isNsfw: true,
-                      onChanged: _save,
+                      onChanged: _saveSoon,
                     ),
                     SuggestionChipField(
                       accent: guidedAccent,
@@ -348,7 +354,7 @@ class GuidedConfigStep extends StatelessWidget {
                       suggestions: CreatorOptions.guidedNsfwKinkSuggestions,
                       maxLines: 2,
                       isNsfw: true,
-                      onChanged: _save,
+                      onChanged: _saveSoon,
                     ),
                     SuggestionChipField(
                       accent: guidedAccent,
@@ -358,7 +364,7 @@ class GuidedConfigStep extends StatelessWidget {
                           "What do they wear? e.g. 'Always wears thigh-highs and an oversized shirt at home'",
                       suggestions: CreatorOptions.guidedNsfwClothingSuggestions,
                       isNsfw: true,
-                      onChanged: _save,
+                      onChanged: _saveSoon,
                     ),
                     SuggestionChipField(
                       accent: guidedAccent,
@@ -368,7 +374,7 @@ class GuidedConfigStep extends StatelessWidget {
                           "How do they act during intimacy? e.g. 'Giggly and playful, hides their face when embarrassed'",
                       maxLines: 2,
                       isNsfw: true,
-                      onChanged: _save,
+                      onChanged: _saveSoon,
                     ),
                   ],
                 ),

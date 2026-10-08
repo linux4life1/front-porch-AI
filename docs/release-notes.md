@@ -2,7 +2,7 @@
 
 Front Porch AI ships often: a stable release every few weeks, patch releases in between, and a nightly Rawhide build most days.
 
-**The current stable release is v1.4.0, "Toolbox".**
+**The current stable release is v1.5.0, "Revenge of the Kobold".**
 
 This page is the long-form history — the headlines of every release, newest first. The [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases) is always the complete and most up-to-date record, and it is also where the nightly builds live.
 
@@ -12,6 +12,8 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ## Table of Contents
 
+- [v1.5.0 — Revenge of the Kobold](#v150--revenge-of-the-kobold)
+- [v1.4.1 — KB5069420: Cumulative Porch Update](#v141--kb5069420-cumulative-porch-update)
 - [v1.4.0 — Toolbox](#v140--toolbox)
 - [v1.3.2 — Make a Wish](#v132--make-a-wish)
 - [v1.3.1 — Clock In](#v131--clock-in)
@@ -32,9 +34,45 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ---
 
+## v1.5.0 — Revenge of the Kobold
+
+**Released:** v1.5.0 — current stable
+
+The engine room got rebuilt while you were chatting. Kobold insists you update.
+
+- 🧠 **KoboldCpp, rebuilt so it just works** — it fits your model to your graphics card by itself, a plain Local model card shows what's loaded and whether it fits, presets have a real editor with a load estimate from the model file, model switches reload in place, and an Unload when idle setting frees the card. The phone has the same card and preset picker.
+- ⚡ **Replies start fast and stay fast** — a chat's place in KoboldCpp's memory survives the checks between replies, and a speed test finds the fastest settings for your computer and keeps them as a preset.
+- 🛟 **When KoboldCpp can't, you're told why** — out of graphics memory, an unreadable model, a preset that can't run: a plain sentence, the largest context that fits, and your working model stays up. KoboldCpp older than 1.112 is refused; at start the app offers to update an old one (or remove it) and mentions a newer release once every three days.
+- 🍽️ **Needs keep time with the story** — hunger, bladder and energy wear at a steady rate per story hour, a skip never empties a bar, sleep is something the story shows, the bars turn amber at 40 and red at 25, and the Refractory countdown runs on the story clock.
+- 📚 **Porch Stories Studio** — a second story engine that interviews the cast, checks every planning step, writes beat by beat with a continuity check, and uses a chat's Journal and Growth Rings when the story comes from a chat. Stories and Waifu Coder take the whole window.
+- 🎭 **An Expressions workspace in Image Studio, with prompt rules** — packs get their own tab and keep their results; rules put your words before and after every prompt or find and replace inside it, as defaults or per pack. The Image Studio desk puts Create and Edit on one surface, with a pile of ComfyUI fixes.
+- 🗂️ **A library you can grab** — box select, Shift and Ctrl picks, drag a whole selection into a folder, Select all, folders that follow the sort, search scope, a tag window that scrolls, and `.porch` / `.porchpack` export and import. Desktop for now.
+- 🔢 **Chat reads better** — every message has a number from #1, your messages sit on the left like the character's (a switch puts them back on the right), reading old messages no longer snaps you down, and a pile of chat fixes.
+- 🪄 **The AI Character Creator has a Greetings step** on desktop and phone, and typing in it no longer lags on Windows.
+- 📱 **The phone catches up** — message editing works again and keeps its Thinking, failed taps say why, a broken screen offers a way out, the in-chat model button switches provider, and CJK keyboards no longer send mid-word.
+- 🤖 **xAI is a chat backend**, with an unofficial SuperGrok sign-in or an API key.
+- 🪟 **Desktop fixes** — no more white window at start on Windows, text no longer smears while a local model works the graphics card, and a file window that fails says so.
+- 🍎 **macOS 13.3 Ventura is the new floor** on the Mac; the memory-search runtime the app ships needs it.
+
+---
+
+## v1.4.1 — KB5069420: Cumulative Porch Update
+
+**Released:** v1.4.1
+
+Round two. Restart not required.
+
+- ⏰ **Needs follow the story clock** — bars move with the time the scene says passed, not with every message.
+- 🔎 **Tell the character exactly what to look up** — `/search -- the name` or `/wiki -- the name`, or force a Web or Wiki lookup from the regenerate box.
+- 📚 **Export a lorebook your way**, and 🌍 **bring a character's lore into your Worlds**.
+- 🚩 **Stoop: report a real person.**
+- Windows pickers that no longer hang, Image Studio LoRA and ComfyUI fixes, and a pile of chat fixes.
+
+---
+
 ## v1.4.0 — Toolbox
 
-**Released:** v1.4.0 — current stable
+**Released:** v1.4.0
 
 - 🛠️ **Waifu Coder runs OpenCode** the way the app already runs Kobold — a private binary you start, stop, and update. Same seat.
 - 🔎 **They can look things up while talking** — web search rides the reply. Wiki is this character’s book. Recipe cards live in the library tools drawer for chat and Waifu.

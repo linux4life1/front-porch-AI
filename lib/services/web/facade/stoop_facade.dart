@@ -181,6 +181,7 @@ class StoopFacade {
     String assetId, {
     String? token,
     String? webSession,
+    bool thumb = false,
   }) async {
     final t = _tokenForAsset(headerToken: token, webSession: webSession);
     if (t == null || t.isEmpty) return null;
@@ -188,7 +189,7 @@ class StoopFacade {
     try {
       final res = await client
           .get(
-            Uri.parse('$baseUrl/assets/$assetId/raw'),
+            Uri.parse('$baseUrl${stoopAssetPath(assetId, thumb: thumb)}'),
             headers: {'Authorization': 'Bearer $t'},
           )
           .timeout(const Duration(seconds: 30));

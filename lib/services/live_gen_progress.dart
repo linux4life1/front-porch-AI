@@ -55,6 +55,11 @@ class LiveGenProgress {
   /// attribute the wait (review finding: attribution here was invertible).
   int waitingCount = 0;
 
+  /// What has the engine while the app's own requests wait for it, in words
+  /// ("the speed test"), or null. About the engine, not one request, so
+  /// [reset] leaves it: only the source that set it clears it.
+  String? heldBy;
+
   /// The source-side id of the request this display is latched onto (oMLX
   /// `request_id`). The poller pins the FIRST request it sees and follows it
   /// until the server stops reporting it — without the pin, two concurrent
@@ -232,10 +237,7 @@ class LiveGenProgress {
   /// poll (maintainer report, oMLX). Now the shown fraction only ever climbs
   /// or holds within one prompt pass; overshoot reads as the bar pausing
   /// until the real count catches up. A new pass resets the ratchet.
-  double? estimatedPromptFraction({
-    double? tokensPerSecond,
-    DateTime? now,
-  }) {
+  double? estimatedPromptFraction({double? tokensPerSecond, DateTime? now}) {
     final raw = promptFraction();
     if (raw == null) return null;
     double result;

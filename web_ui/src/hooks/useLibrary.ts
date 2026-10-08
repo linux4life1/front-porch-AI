@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Library state + actions for the Characters page. Owns the data (characters /
-// folders / groups), the current-folder URL param, search/sort/scope, the grid
-// size (a web-local view pref), multi-select state, and every write action —
+// folders / groups), the current-folder URL param, search, and the web-local
+// view prefs (sort, search scope, grid size — the settings API does not carry
+// desktop sort_mode), multi-select state, and every write action —
 // each a thin call to the Dart web server which delegates to the same desktop
 // services (FolderService / CharacterRepository / V2CardService / GroupCard*).
 // The page + components stay presentational so no file exceeds the size cap.
@@ -12,6 +13,13 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api } from '../api/client';
 import { ChatSocket } from '../api/ws';
+import {
+  loadLibraryScope,
+  loadLibrarySort,
+  saveLibraryScope,
+  saveLibrarySort,
+  type LibraryScope,
+} from '../libraryView';
 import { useLibraryActions } from './useLibrary.actions';
 
 export interface LibChar {
@@ -45,7 +53,7 @@ export interface LibGroup {
   members: LibGroupMember[];
 }
 
-export type SearchScope = 'currentFolder' | 'folderRecursive' | 'allCharacters';
+export type SearchScope = LibraryScope;
 
 const GRID_MIN_KEY = 'fpai.lib.gridMin';
 const GRID_MIN_DEFAULT = 150;
@@ -72,8 +80,14 @@ export function useLibrary() {
   );
 
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState('name');
-  const [scope, setScope] = useState<SearchScope>('currentFolder');
+  const [sort, setSortState] = useState(loadLibrarySort);
+  const setSort = useCallback((v: string) => {
+    setSortState(saveLibrarySort(v));
+  }, []);
+  const [scope, setScopeState] = useState<SearchScope>(loadLibraryScope);
+  const setScope = useCallback((v: SearchScope) => {
+    setScopeState(saveLibraryScope(v));
+  }, []);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [importing, setImporting] = useState(false);
@@ -81,12 +95,20 @@ export function useLibrary() {
   const reload = useCallback(() => setReloadKey((k) => k + 1), []);
 
   const [gridMin, setGridMinState] = useState<number>(() => {
-    const v = Number(localStorage.getItem(GRID_MIN_KEY));
-    return Number.isFinite(v) && v >= 110 && v <= 320 ? v : GRID_MIN_DEFAULT;
+    try {
+      const v = Number(localStorage.getItem(GRID_MIN_KEY));
+      return Number.isFinite(v) && v >= 110 && v <= 320 ? v : GRID_MIN_DEFAULT;
+    } catch {
+      return GRID_MIN_DEFAULT;
+    }
   });
   const setGridMin = useCallback((v: number) => {
     setGridMinState(v);
-    localStorage.setItem(GRID_MIN_KEY, String(v));
+    try {
+      localStorage.setItem(GRID_MIN_KEY, String(v));
+    } catch {
+      /* storage full / disabled — card size just won't persist */
+    }
   }, []);
 
   // Multi-select (covers the desktop "select" + "organize" bulk-move flows).
@@ -310,6 +332,7 @@ export function useLibrary() {
     gridMin,
     setGridMin,
     loading,
+    reload,
     error,
     setError,
     importing,

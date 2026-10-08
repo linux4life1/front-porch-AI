@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/services/chat/chat.dart' show visibleNeedsFor;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show NeedsSimulation, visibleNeedsFor;
 import 'package:front_porch_ai/services/services.dart';
 
 /// Realism-READ leaf for [ChatFacade] (web server). Pure reads of existing
@@ -90,6 +91,10 @@ class ChatRealismRead {
         'needs': _chat.needsSimEnabled
             ? visibleNeedsFor(_chat.getNeedsForGroupCharacter(card), card)
             : const <String, int>{},
+        // The bands the bars colour by, from the engine, so the phone and
+        // the desktop cannot disagree (needs_bar.dart reads the same two).
+        'needsUrgentAt': NeedsSimulation.needUrgentThreshold,
+        'needsCriticalAt': NeedsSimulation.needCriticalThreshold,
       };
     }
     return null;
@@ -133,6 +138,8 @@ class ChatRealismRead {
       'needs': _chat.needsSimEnabled
           ? visibleNeedsFor(_chat.needsSimulation.vector, _chat.activeCharacter)
           : <String, int>{},
+      'needsUrgentAt': NeedsSimulation.needUrgentThreshold,
+      'needsCriticalAt': NeedsSimulation.needCriticalThreshold,
     };
   }
 }

@@ -23,6 +23,8 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -47,6 +49,10 @@ class GroupGridCard extends StatefulWidget {
     required this.onTapGroup,
     required this.onToggleSelectGroup,
     this.onGroupContextMenuAction,
+    this.dragSelection,
+    this.dimmed = false,
+    this.onDragStarted,
+    this.onDragEnded,
   });
 
   final GroupChat group;
@@ -60,6 +66,15 @@ class GroupGridCard extends StatefulWidget {
 
   /// Called when the user right-clicks (secondary tap) a group card.
   final void Function(String action, GroupChat group)? onGroupContextMenuAction;
+
+  /// Set while this group is picked: holding it then drags every pick, with
+  /// the stacked ghost. Null keeps the one-card drag.
+  final LibraryDragPayload? dragSelection;
+
+  /// Drawn at 40% while the picks it belongs to are being dragged.
+  final bool dimmed;
+  final VoidCallback? onDragStarted;
+  final VoidCallback? onDragEnded;
 
   @override
   State<GroupGridCard> createState() => _GroupGridCardState();
@@ -287,45 +302,69 @@ class _GroupGridCardState extends State<GroupGridCard> {
         // Group casts drag into folders exactly like characters do — the
         // folder drop targets accept either kind (they were CharacterCard-only,
         // which is why groups couldn't be dragged at all).
-        return LongPressDraggable<GroupChat>(
-          data: group,
-          delay: kFolderDragHoldDelay,
-          feedback: Material(
-            color: Colors.transparent,
-            child: SizedBox(
-              width: 150,
-              height: 200,
-              child: Card(
-                color: AppColors.cardOf(context),
-                clipBehavior: Clip.antiAlias,
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
+        final picks = widget.dragSelection;
+        final montage = memberFiles.isEmpty
+            ? Icon(
+                Icons.groups,
+                size: 64,
+                color: AppColors.porchTerracottaOf(context),
+              )
+            : Center(
+                child: GroupAvatarMontage(
+                  images: memberFiles.take(4).toList(),
+                  side: 120,
                 ),
-                child: ColoredBox(
-                  color: AppColors.porchTerracottaOf(
-                    context,
-                  ).withValues(alpha: 0.12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: memberFiles.isEmpty
-                        ? Icon(
-                            Icons.groups,
-                            size: 64,
-                            color: AppColors.porchTerracottaOf(context),
-                          )
-                        : Center(
-                            child: GroupAvatarMontage(
-                              images: memberFiles.take(4).toList(),
-                              side: 120,
-                            ),
+              );
+        // Always an Opacity, so dimming mid-drag never rebuilds the draggable.
+        return Opacity(
+          opacity: widget.dimmed ? 0.4 : 1,
+          child: LongPressDraggable<Object>(
+            data: picks ?? group,
+            delay: kFolderDragHoldDelay,
+            dragAnchorStrategy: picks == null
+                ? childDragAnchorStrategy
+                : LibraryDragGhost.anchor,
+            onDragStarted: widget.onDragStarted,
+            onDragEnd: (_) => widget.onDragEnded?.call(),
+            feedback: picks != null
+                ? LibraryDragGhost(
+                    count: picks.count,
+                    name: group.name,
+                    cover: ColoredBox(
+                      color: AppColors.porchTerracottaOf(
+                        context,
+                      ).withValues(alpha: 0.12),
+                      child: FittedBox(child: montage),
+                    ),
+                  )
+                : Material(
+                    color: Colors.transparent,
+                    child: SizedBox(
+                      width: 150,
+                      height: 200,
+                      child: Card(
+                        color: AppColors.cardOf(context),
+                        clipBehavior: Clip.antiAlias,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: ColoredBox(
+                          color: AppColors.porchTerracottaOf(
+                            context,
+                          ).withValues(alpha: 0.12),
+                          child: Padding(
+                            padding: const EdgeInsets.all(12),
+                            child: montage,
                           ),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
-            ),
+            childWhenDragging: picks == null
+                ? Opacity(opacity: 0.3, child: card)
+                : card,
+            child: card,
           ),
-          childWhenDragging: Opacity(opacity: 0.3, child: card),
-          child: card,
         );
       },
     );

@@ -25,6 +25,7 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/server_bootstrap.dart';
@@ -63,6 +64,8 @@ class WebServerHost extends ChangeNotifier {
   SttService? _sttService;
   StoryRepository? _storyRepository;
   StoryPipelineService? _storyPipelineService;
+  // The running server's story routes, re-pointed when the pipeline is.
+  StoryFacade? _storyFacade;
 
   HttpServer? _server;
   AuthService? _auth;
@@ -87,6 +90,9 @@ class WebServerHost extends ChangeNotifier {
   bool _wasEvaluatingRealism = false;
   bool _wasAwaitingChanceTime = false;
   bool _wasPendingImageReview = false;
+  // A turn's last writes (the new swipe, chips) land while it settles, after
+  // the stream's `done`; see the turn-settled broadcast in _attachLiveRelays.
+  bool _wasTurnBusy = false;
   // Throttle/dedupe state for the processing broadcast: during evals every
   // ChatService notify (≤150ms apart) used to re-send the FULL accumulated
   // eval text — O(n²) bytes over the socket and a client re-render per frame,
@@ -111,7 +117,10 @@ class WebServerHost extends ChangeNotifier {
   // freeze on web without the tick.
   VoidCallback? _genStatusListener;
   VoidCallback? _llmReadyListener;
+  VoidCallback? _packBoardListener;
+  VoidCallback? _speedTestListener;
   bool? _lastLlmReady;
+  String? _lastLlmHint;
   Timer? _genStatusTicker;
   bool _wasBroadcastingGenStatus = false;
   DateTime _lastGenStatusSent = DateTime.fromMillisecondsSinceEpoch(0);
@@ -125,6 +134,8 @@ class WebServerHost extends ChangeNotifier {
   // detach + cancel on stop().
   VoidCallback? _libraryListener;
   Timer? _libraryDebounce;
+  VoidCallback? _settingsListener;
+  Timer? _settingsDebounce;
 
   // Connected-client presence (drives the desktop remote-lock overlay + the
   // settings "client connected" line). Set on the first authenticated request.
@@ -251,8 +262,13 @@ class WebServerHost extends ChangeNotifier {
   void setTtsService(TtsService service) => _ttsService = service;
   void setSttService(SttService service) => _sttService = service;
   void setStoryRepository(StoryRepository repo) => _storyRepository = repo;
-  void setStoryPipelineService(StoryPipelineService service) =>
-      _storyPipelineService = service;
+
+  /// The app makes a new pipeline when the chat backend switches and disposes
+  /// the old one, so a running server's story routes move to the new one.
+  void setStoryPipelineService(StoryPipelineService service) {
+    _storyPipelineService = service;
+    _storyFacade?.pipeline = service;
+  }
 
   /// The auth service (lazily built once a database is available) — exposed so
   /// the desktop settings UI can surface the account and offer the local
@@ -376,17 +392,23 @@ class WebServerHost extends ChangeNotifier {
         _realismListener != null ||
         _genStatusListener != null ||
         _llmReadyListener != null ||
+        _speedTestListener != null ||
         _imageProgressListener != null ||
+        _packBoardListener != null ||
         _libraryListener != null ||
+        _settingsListener != null ||
         _genStatusTicker != null ||
-        _libraryDebounce != null;
+        _libraryDebounce != null ||
+        _settingsDebounce != null;
     if (server == null && !wired) return;
     _server = null;
+    _storyFacade = null;
     if (_realismListener != null) {
       _chatService?.removeListener(_realismListener!);
       _realismListener = null;
     }
     _wasEvaluatingRealism = false;
+    _wasTurnBusy = false;
     if (_genStatusListener != null) {
       _chatService?.removeListener(_genStatusListener!);
       _koboldService?.removeListener(_genStatusListener!);
@@ -400,12 +422,27 @@ class WebServerHost extends ChangeNotifier {
       _llmProvider?.openRouterService.removeListener(_llmReadyListener!);
       _llmReadyListener = null;
     }
+    if (_speedTestListener case final l?) {
+      _llmProvider?.koboldSpeedTest?.removeListener(l);
+      _speedTestListener = null;
+    }
     _lastLlmReady = null;
+    if (_packBoardListener != null) {
+      expressionPackBoard.removeListener(_packBoardListener!);
+      _packBoardListener = null;
+    }
+    _lastLlmHint = null;
     if (_imageProgressListener != null) {
       _imageGenService?.removeListener(_imageProgressListener!);
       _imageProgressListener = null;
     }
     _wasImageGenerating = false;
+    if (_settingsListener != null) {
+      _storage.removeListener(_settingsListener!);
+      _settingsListener = null;
+    }
+    _settingsDebounce?.cancel();
+    _settingsDebounce = null;
     if (_libraryListener != null) {
       _characterRepository?.removeListener(_libraryListener!);
       _folderService?.removeListener(_libraryListener!);

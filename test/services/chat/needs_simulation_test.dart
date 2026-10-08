@@ -166,7 +166,8 @@ void main() {
     });
 
     test('needCriticalThreshold exposed', () {
-      expect(NeedsSimulation.needCriticalThreshold, 20);
+      // Needs v2 (2026-10-06): red follows the strong band's top, 25.
+      expect(NeedsSimulation.needCriticalThreshold, 25);
     });
 
     test('need keys and defaults stable', () {
@@ -195,8 +196,11 @@ void main() {
     test('consume catas + step helpers', () {
       sim.initializeFresh();
       sim.consumePendingCatastrophe();
-      // current getNeedStep: 10 <=15 -> step 1 (thresholds [0,15,30,...])
+      // Needs v2 bands [0,10,25,40,55]: 10 is the crisis band's top, step 1.
       expect(sim.getNeedStep('hunger', 10), 1);
+      expect(sim.getNeedStep('hunger', 11), 2);
+      expect(sim.getNeedStep('hunger', 55), 4);
+      expect(sim.getNeedStep('hunger', 56), 5);
     });
 
     test('catastrophe fires at 0 for a hard-event need + lifts to floor', () {

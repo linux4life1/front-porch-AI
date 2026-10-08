@@ -73,7 +73,7 @@
 .swipe { display: inline-flex; align-items: center; gap: 2px; user-select: none; -webkit-user-select: none; }
 .swipe-count { font-size: 0.72rem; color: var(--muted); min-width: 30px; text-align: center; }
 /* Fullscreen message editor (desktop MessageEditDialog parity) */
-.msg-edit-backdrop { z-index: 80; }
+.msg-edit-overlay { z-index: 80; }
 .msg-edit-modal {
   width: min(920px, 96vw);
   height: min(88vh, 900px);
@@ -82,6 +82,8 @@
   flex-direction: column;
   gap: 8px;
   padding: 14px 16px 12px;
+  /* Header stays put; the body region scrolls. */
+  overflow: hidden;
 }
 .msg-edit-modal-head {
   display: flex;
@@ -90,11 +92,13 @@
   gap: 12px;
   font-weight: 700;
   color: var(--text);
+  flex-shrink: 0;
 }
 .msg-edit-modal-title { display: inline-flex; align-items: center; gap: 8px; font-size: 1.05rem; }
 .msg-edit-modal-actions { display: flex; gap: 8px; align-items: center; }
 .msg-edit-think-toggle {
   display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  flex-shrink: 0;
   width: 100%; background: var(--surface-2); border: 1px solid var(--border);
   border-radius: 10px; padding: 8px 12px; color: var(--text); font-size: 0.88rem;
   cursor: pointer; text-align: left;
@@ -111,6 +115,11 @@
   font-size: calc(14px * var(--reading-size, 1));
   background: var(--surface-2); border: 1px solid var(--border); border-radius: 10px;
   padding: 10px 12px; width: 100%; box-sizing: border-box;
+}
+.msg-edit-modal > .error { flex-shrink: 0; }
+.msg-edit-scroll {
+  flex: 1; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch;
+  display: flex; flex-direction: column; gap: 8px;
 }
 .msg-edit-body-label {
   font-size: 0.78rem; font-weight: 600; letter-spacing: 0.03em;
@@ -143,6 +152,32 @@
 .msg-edit-body::placeholder { color: var(--muted); }
 .msg-edit-modal-foot {
   display: flex; justify-content: space-between; align-items: center;
-  gap: 12px; padding-top: 2px;
+  gap: 12px; padding-top: 2px; flex-shrink: 0;
 }
+/* Phone: 100dvh ignores the keyboard, and centering a too-tall sheet slides
+   the header under the status bar. Track the visual viewport (--fp-vv-* from
+   visualViewport) and fill it. --fp-safe-* lets tests stand in for env(). */
+[data-layout="phone"] .drawer-backdrop.msg-edit-overlay {
+  top: var(--fp-vv-top, 0px);
+  left: var(--fp-vv-left, 0px);
+  right: auto;
+  bottom: auto;
+  width: var(--fp-vvw, 100%);
+  height: var(--fp-vvh, 100%);
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+[data-layout="phone"] .msg-edit-modal {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  border-radius: 0;
+  padding-top: calc(14px + var(--fp-safe-top, env(safe-area-inset-top)));
+  padding-right: calc(16px + var(--fp-safe-right, env(safe-area-inset-right)));
+  padding-bottom: calc(12px + var(--fp-safe-bottom, env(safe-area-inset-bottom)));
+  padding-left: calc(16px + var(--fp-safe-left, env(safe-area-inset-left)));
+}
+[data-layout="phone"] .msg-edit-body-area { min-height: 140px; }
 

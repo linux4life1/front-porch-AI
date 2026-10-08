@@ -27,7 +27,7 @@ extension _SettingsGpuControls on _SettingsPageState {
     BuildContext context,
     StorageService storageService,
     HardwareService hardwareService,
-    bool isPresetActive,
+    bool presetOwnsContext,
   ) {
     final theme = Theme.of(context);
     final accent = AppColors.porchAmberOf(context);
@@ -35,7 +35,7 @@ extension _SettingsGpuControls on _SettingsPageState {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        if (isPresetActive) ...[
+        if (presetOwnsContext) ...[
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
@@ -49,8 +49,9 @@ extension _SettingsGpuControls on _SettingsPageState {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'A configuration preset is active. Advanced settings are '
-                    'managed by the preset and cannot be edited here.',
+                    // The card holds the cache setting too, locked with it.
+                    kPresetOwnsContextAndCache,
+                    key: const ValueKey('preset-owns-context'),
                     style: theme.textTheme.bodySmall?.copyWith(color: accent),
                   ),
                 ),
@@ -60,13 +61,11 @@ extension _SettingsGpuControls on _SettingsPageState {
           const SizedBox(height: 16),
         ],
         IgnorePointer(
-          ignoring: isPresetActive,
+          ignoring: presetOwnsContext,
           child: Opacity(
-            opacity: isPresetActive ? 0.4 : 1.0,
+            opacity: presetOwnsContext ? 0.4 : 1.0,
             child: Tooltip(
-              message: isPresetActive
-                  ? 'Context size is controlled by the active .kcpps preset and cannot be edited here.'
-                  : '',
+              message: presetOwnsContext ? kPresetOwnsContextAndCache : '',
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -144,47 +143,14 @@ extension _SettingsGpuControls on _SettingsPageState {
                             ),
                             const SizedBox(width: 12),
                             Expanded(
-                              child: DropdownButtonHideUnderline(
-                                child: DropdownButton<int>(
-                                  value: storageService
-                                      .backendSettings
-                                      .kvQuantizationLevel,
-                                  isExpanded: true,
-                                  dropdownColor: AppColors.surfaceContainerOf(
-                                    context,
-                                  ),
-                                  style: TextStyle(
-                                    color: AppColors.textPrimary(context),
-                                    fontSize: 13,
-                                  ),
-                                  onChanged: (val) {
-                                    if (val != null) {
-                                      storageService.backendSettings
-                                          .setKvQuantizationLevel(val);
-                                      rebuildState(() {}); // Refresh VRAM gauge
-                                    }
-                                  },
-                                  items: const [
-                                    DropdownMenuItem(
-                                      value: 0,
-                                      child: Text(
-                                        '0 - None (Highest Quality, FP16)',
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 1,
-                                      child: Text(
-                                        '1 - 8-Bit Q8 (~50% VRAM Savings)',
-                                      ),
-                                    ),
-                                    DropdownMenuItem(
-                                      value: 2,
-                                      child: Text(
-                                        '2 - 4-Bit Q4 (~75% VRAM Savings)',
-                                      ),
-                                    ),
-                                  ],
-                                ),
+                              child: KvQuantPicker(
+                                value: storageService.backendSettings.kvQuant,
+                                onChanged: (val) {
+                                  storageService.backendSettings.setKvQuant(
+                                    val,
+                                  );
+                                  rebuildState(() {}); // Refresh VRAM gauge
+                                },
                               ),
                             ),
                             const SizedBox(width: 8),
@@ -201,7 +167,8 @@ extension _SettingsGpuControls on _SettingsPageState {
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Larger context = more memory per conversation. Auto-configure adjusts GPU layers to fit.',
+                          'Larger context = more memory per conversation. KoboldCpp fits the '
+                          'model into what is left.',
                           style: TextStyle(
                             fontSize: 11,
                             color: AppColors.textTertiary(context),
@@ -216,18 +183,26 @@ extension _SettingsGpuControls on _SettingsPageState {
           ),
         ),
         const SizedBox(height: 16),
-        // GPU Layers.
-        Row(
-          children: [
-            Expanded(
-              child: _buildTextField(
-                label: 'GPU Layers',
-                controller: _gpuLayersController,
-                context: context,
-                isNumber: true,
-              ),
-            ),
-          ],
+        // GPU layers: automatic unless the user takes over.
+        GpuLayersField(
+          manual: storageService.backendSettings.gpuLayersManual,
+          retiredLayers: storageService.backendSettings.retiredGpuLayers,
+          onDismissRetired: () {
+            storageService.backendSettings.dismissGpuLayersNote();
+            rebuildState(() {});
+          },
+          controller: _gpuLayersController,
+          onManualChanged: (v) {
+            storageService.backendSettings.setGpuLayersManual(v);
+            rebuildState(() {});
+          },
+          onLayersChanged: (v) {
+            final layers = int.tryParse(v);
+            if (layers != null) {
+              storageService.backendSettings.setGpuLayers(layers);
+            }
+            rebuildState(() {});
+          },
         ),
         const SizedBox(height: 16),
         _buildAccelerationSection(context, hardwareService),

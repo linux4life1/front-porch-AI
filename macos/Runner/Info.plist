@@ -9,6 +9,13 @@
 	     reliably in all launch paths. -->
 	<key>FLTEnableMergedPlatformUIThread</key>
 	<false/>
+	<!-- Draw with Skia, not Impeller. Impeller's glyph texture on macOS comes
+	     out smeared or ghosted while the GPU is busy or memory is tight, which
+	     is every moment a local model is loaded and reading a prompt
+	     (flutter/flutter#193927). Remove this key to try Impeller again once
+	     that issue is fixed. -->
+	<key>FLTEnableImpeller</key>
+	<false/>
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleExecutable</key>

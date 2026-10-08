@@ -395,7 +395,7 @@ class _RecordingKobold extends KoboldService {
   String? get loadedKcppsPath => loadedKcpps;
 
   @override
-  Future<void> startKobold(
+  Future<KoboldLaunchResult> startKobold(
     String executablePath,
     String modelPath, {
     String? kcppsPath,
@@ -416,6 +416,7 @@ class _RecordingKobold extends KoboldService {
     ready = true;
     loaded = modelPath;
     loadedKcpps = kcppsPath;
+    return const KoboldLaunchResult.started();
   }
 }
 

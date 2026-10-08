@@ -23,6 +23,7 @@ extension ChatFacadeState on ChatFacade {
   /// Full chat state payload (matches legacy `/api/chat/state`).
   Map<String, dynamic> state() {
     final activeChar = _chat.activeCharacter;
+    final base = _chat.historyBasePosition;
     final messages = _chat.messages.asMap().entries.map((e) {
       final m = e.value;
       final md = m.activeMetadata;
@@ -48,6 +49,9 @@ extension ChatFacadeState on ChatFacade {
         // Stable across prepend (same Dart object). Index shifts and
         // remounts every row — that resets the web scrollbar thumb.
         'rowKey': identityHashCode(m),
+        // Place in the whole chat (0-based) while older rows still load;
+        // `index` stays the action address.
+        'position': base + e.key,
         'sender': m.sender,
         'text': m.displayText,
         'isUser': m.isUser,
@@ -217,6 +221,10 @@ extension ChatFacadeState on ChatFacade {
       // PWAs ignore it and keep the normal composer placeholder. Local
       // GGUF-ready is ignored so mouth/worker swaps do not flash the box.
       'llmReady': _llm?.composerConnectionReady ?? true,
+      // Why the app's start of KoboldCpp was refused, for the composer's
+      // placeholder in place of "No API connection". Additive; omitted when
+      // there is nothing to say.
+      'llmHint': ?_llm?.composerConnectionHint,
       // Which named lookups the regenerate dialog may offer. Web is omitted
       // on the client when false. Wiki stays visible but disabled.
       'lookupSources': {

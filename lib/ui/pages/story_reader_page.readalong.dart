@@ -69,9 +69,26 @@ extension _StoryReaderReadAlong on _StoryReaderPageState {
 
   Future<void> _startReadAlong() async {
     if (_isReadingAlong || _pages == null) return;
+    final tts = Provider.of<TtsService>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    if (!storage.ttsSettings.ttsEnabled) {
+      // With TTS off every page would synthesize to nothing and the book
+      // would flip through in silence. Say so instead (web reader does too).
+      await showWarmDialog<void>(
+        context,
+        title: 'Voice is off',
+        icon: Icons.volume_off_outlined,
+        content: const Text(
+          'Reading aloud needs the voice engine. Turn it on under '
+          'Settings → Voice & Media → Text-to-Speech, then tap Read to me '
+          'again.',
+        ),
+        actions: [warmDialogCancel(context, label: 'OK')],
+      );
+      return;
+    }
     rebuildState(() => _isReadingAlong = true);
 
-    final tts = Provider.of<TtsService>(context, listen: false);
     final repo = Provider.of<StoryRepository>(context, listen: false);
     final project = repo.getById(widget.projectId);
     final cast = project?.cast ?? [];
@@ -183,7 +200,12 @@ extension _StoryReaderReadAlong on _StoryReaderPageState {
 
       // Advance to next page
       if (_currentPage < flipCount - 1) {
-        _flipKey.currentState?.nextPage();
+        // In scroll mode there is no flip widget to advance the page.
+        if (_flipKey.currentState != null) {
+          _flipKey.currentState!.nextPage();
+        } else {
+          rebuildState(() => _currentPage++);
+        }
         await Future.delayed(const Duration(milliseconds: 800));
       } else {
         break; // End of story
@@ -207,97 +229,4 @@ extension _StoryReaderReadAlong on _StoryReaderPageState {
   /// The AppBar "Read to me" / in-progress / Stop action. Extracted from the
   /// inline `Consumer<TtsService>` in build()'s AppBar actions so the shell
   /// build() and this file both stay under the line cap.
-  Widget _buildReadAlongAction() {
-    return Consumer<TtsService>(
-      builder: (context, tts, _) {
-        if (_isReadingAlong) {
-          return Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                margin: const EdgeInsets.only(right: 4),
-                decoration: BoxDecoration(
-                  // theme-keep: status — ready (green) vs waiting-on-buffer
-                  // (orange) must stay two distinct hues regardless of app
-                  // theme; this is a status signal, not chrome.
-                  color: _bufferedPageCount > 0
-                      ? Colors.green.withValues(alpha: 0.2)
-                      : Colors.orange.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    // theme-keep: status
-                    color: _bufferedPageCount > 0
-                        ? Colors.green.withValues(alpha: 0.4)
-                        : Colors.orange.withValues(alpha: 0.4),
-                  ),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.queue_music,
-                      size: 12,
-                      // theme-keep: status
-                      color: _bufferedPageCount > 0
-                          ? Colors.greenAccent
-                          : Colors.orange,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '$_bufferedPageCount pg',
-                      style: TextStyle(
-                        fontSize: 11,
-                        // theme-keep: status
-                        color: _bufferedPageCount > 0
-                            ? Colors.greenAccent
-                            : Colors.orange,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              if (tts.isGenerating)
-                Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: SizedBox(
-                    width: 14,
-                    height: 14,
-                    child: CircularProgressIndicator(
-                      color: AppColors.porchAmberOf(context),
-                      strokeWidth: 2,
-                    ),
-                  ),
-                ),
-              TextButton.icon(
-                onPressed: _stopReadAlong,
-                icon: Icon(
-                  Icons.stop_circle,
-                  color: AppColors.porchAmberOf(context),
-                  size: 20,
-                ),
-                label: Text(
-                  'Stop',
-                  style: TextStyle(
-                    color: AppColors.porchAmberOf(context),
-                    fontSize: 12,
-                  ),
-                ),
-              ),
-            ],
-          );
-        }
-        return TextButton.icon(
-          onPressed: _startReadAlong,
-          icon: Icon(
-            Icons.play_circle_fill,
-            color: AppColors.iconSecondary(context),
-          ),
-          label: Text(
-            'Read to me',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-        );
-      },
-    );
-  }
 }

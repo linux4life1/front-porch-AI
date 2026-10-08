@@ -96,11 +96,11 @@ void main() {
     final page = File(
       'web_ui/src/components/models/ImageGen.tsx',
     ).readAsStringSync();
-    final fields = File(
-      'web_ui/src/components/models/ComfyCreateFields.tsx',
-    ).readAsStringSync();
-    expect(page.contains("'sd'"), isTrue);
-    expect(fields.contains('value={p.id}'), isTrue);
+    // The phone's page renders the desk, which is where the graph is chosen,
+    // and a server that names no Create graph is given the sd one.
+    expect(page.contains('<StudioDesk'), isTrue);
+    expect(page.contains("comfyCreateWorkflowId ?? 'sd'"), isTrue);
+    expect(page.contains('<ComfyCreateFields'), isFalse);
     expect(kComfyCreatePresets.map((p) => p.id), contains('sd'));
   });
 

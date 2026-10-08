@@ -15,16 +15,19 @@ export function StoopCardArt({
   assetId,
   name,
   className,
+  full = false,
 }: {
   assetId: string | null;
   name: string;
   className?: string;
+  /** Load the original instead of the postcard thumb (card page only). */
+  full?: boolean;
 }) {
   return (
     <div className={className ?? 'lib-art'}>
       {assetId ? (
         <img
-          src={stoop.assetUrl(assetId)}
+          src={stoop.assetUrl(assetId, { thumb: !full })}
           alt=""
           loading="lazy"
           onError={(e) => {
@@ -66,8 +69,9 @@ export function StoopBadges({ card }: { card: StoopCard }) {
 
 export function StoopCardTile({ card }: { card: StoopCard }) {
   const navigate = useNavigate();
+  const world = card.type === 'WORLD';
   return (
-    <div className="lib-card stoop-tile">
+    <div className={`lib-card stoop-tile${world ? ' stoop-tile-world' : ''}`}>
       <button
         className="lib-open"
         onClick={() =>

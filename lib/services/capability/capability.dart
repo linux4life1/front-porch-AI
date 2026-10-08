@@ -4,6 +4,7 @@
 // Barrel for backend/model capability probing: vision support, model
 // capabilities, and image-reference role resolution.
 
+export 'expression_pack_plan.dart';
 export 'image_reference_resolver.dart';
 export 'image_reference_role.dart';
 export 'lmstudio_gguf.dart';

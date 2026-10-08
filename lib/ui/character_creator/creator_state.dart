@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -24,6 +25,8 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'creator_state.prefs.dart';
 part 'creator_state.models.dart';
@@ -34,7 +37,8 @@ enum CreatorMode { automated, guided, quick }
 /// Shared state for the AI character creator wizard: form fields,
 /// controllers, prefs, load/save/reset, step index, and generation.
 class CreatorState extends ChangeNotifier {
-  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=realism, 5=review)
+  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=greetings,
+  // 5=realism, 6=review)
   int _currentStep = 0;
   int get currentStep => _currentStep;
   set currentStep(int value) {
@@ -148,11 +152,21 @@ class CreatorState extends ChangeNotifier {
   final descController = TextEditingController();
   final personalityController = TextEditingController();
   final scenarioController = TextEditingController();
-  final firstMessageController = TextEditingController();
+
+  /// Replaced by [newGreetingBox] when a generated card's greetings arrive,
+  /// like the alternates.
+  TextEditingController firstMessageController = TextEditingController();
   final exampleDialogueController = TextEditingController();
   final systemPromptController = TextEditingController();
   List<TextEditingController> altGreetingControllers = [];
   List<GreetingRealismSeed?> greetingSeeds = [];
+  final greetings = CreatorGreetings();
+
+  /// A generated greeting's box: the character editor's, with spell check
+  /// and macro, "dialogue" and *action* colouring. Made with its text, so
+  /// no spell-check pass is queued until someone types.
+  TextEditingController newGreetingBox([String text = '']) =>
+      StyledTextController(text: text, preset: StyledTextPreset.prose);
 
   // SharedPreferences keys (all lifted)
   static const _prefName = 'chargen_name';
@@ -383,12 +397,36 @@ class CreatorState extends ChangeNotifier {
   // Public notify for step widgets (avoids protected member warnings when called from outside)
   void notify() => notifyListeners();
 
+  /// How long typing must pause before [scheduleSave] saves.
+  static const saveDelay = Duration(milliseconds: 500);
+  Timer? _saveTimer;
+
+  /// The last save in line. Saves write one after another: a slow first
+  /// save (every key missing) could otherwise finish after a newer one and
+  /// put older text back.
+  Future<void> _saveQueue = Future<void>.value();
+
   /// Class door — `_CountingCreatorState` in the debounce test `@override`s
   /// this. An extension member is statically dispatched and cannot be.
-  Future<void> saveState() => _saveStateImpl();
+  /// Drops a pending [scheduleSave]: this save already includes that text.
+  Future<void> saveState() {
+    _saveTimer?.cancel();
+    return _saveStateImpl();
+  }
+
+  /// The typing door: one save once the user pauses, not one per keystroke
+  /// (#371). Callers still [notify] at once; only the save waits.
+  void scheduleSave() {
+    _saveTimer?.cancel();
+    _saveTimer = Timer(saveDelay, saveState);
+  }
 
   // Dispose for controllers (called by shell)
   void disposeControllers() {
+    // Keep what was typed in the last half second before leaving.
+    if (_saveTimer?.isActive ?? false) saveState();
+    // A greeting still being written must not land in a disposed box.
+    greetings.dispose();
     nameController.dispose();
     conceptController.dispose();
     keywordsController.dispose();

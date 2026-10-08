@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/character_creator/steps/quick_config_step.dart
 import 'package:front_porch_ai/ui/character_creator/steps/guided_config_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/automated_config_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/generating_step.dart';
+import 'package:front_porch_ai/ui/character_creator/steps/greetings_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/realism_step.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/review_step.dart';
 
@@ -184,9 +185,11 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         _stepLine(context),
         _stepDot(context, 3, 'Generate'),
         _stepLine(context),
-        _stepDot(context, 4, 'Realism'),
+        _stepDot(context, 4, 'Greetings'),
         _stepLine(context),
-        _stepDot(context, 5, 'Review'),
+        _stepDot(context, 5, 'Realism'),
+        _stepLine(context),
+        _stepDot(context, 6, 'Review'),
       ],
     );
   }
@@ -253,7 +256,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     VoidCallback? onNext,
     bool showBack = true,
   }) {
-    final labels = ['Mode', 'Configure', 'Generate', 'Realism', 'Review'];
+    final labels = [
+      'Mode',
+      'Configure',
+      'Generate',
+      'Greetings',
+      'Realism',
+      'Review',
+    ];
     final nextText =
         nextLabel ??
         (currentStep < labels.length
@@ -266,79 +276,88 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     // the card + review fields), and Next jumped to the Realism step, which
     // reports "Generation failed" for a null card while the first is still
     // streaming. Abort Generation on the step itself remains the way out.
-    final busy = creatorState.isGenerating;
+    // A greeting being written (or the outfit being re-read) holds them the
+    // same way; that card's Stop is the way out. The AppBar keeps today's
+    // lock: leaving or starting over stops the write instead.
+    final busy = creatorState.isGenerating || creatorState.greetings.busy;
 
     return Padding(
       padding: const EdgeInsets.only(top: 32),
-      child: Center(
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (showBack && currentStep > 0)
+      // Waiting buttons at 45%, as the Greetings sketch draws them: the amber
+      // Next keeps its colour when disabled, so it otherwise looks live.
+      child: Opacity(
+        opacity: busy ? 0.45 : 1,
+        child: Center(
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (showBack && currentStep > 0)
+                SizedBox(
+                  height: 52,
+                  child: OutlinedButton.icon(
+                    onPressed: busy
+                        ? null
+                        : () => creatorState.currentStep = currentStep - 1,
+                    icon: const Icon(Icons.arrow_back, size: 18),
+                    label: const Text('Back', style: TextStyle(fontSize: 14)),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.textSecondary(context),
+                      side: BorderSide(color: AppColors.borderOf(context)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              if (showBack && currentStep > 0) const SizedBox(width: 16),
               SizedBox(
+                width: 280,
                 height: 52,
-                child: OutlinedButton.icon(
+                child: ElevatedButton.icon(
                   onPressed: busy
                       ? null
-                      : () => creatorState.currentStep = currentStep - 1,
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Back', style: TextStyle(fontSize: 14)),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary(context),
-                    side: BorderSide(color: AppColors.borderOf(context)),
+                      : onNext ??
+                            () {
+                              if (currentStep == 2) {
+                                creatorState.generateFromMode(
+                                  llmProvider: Provider.of<LLMProvider>(
+                                    context,
+                                    listen: false,
+                                  ),
+                                  storage: Provider.of<StorageService>(
+                                    context,
+                                    listen: false,
+                                  ),
+                                  personaService:
+                                      Provider.of<UserPersonaService>(
+                                        context,
+                                        listen: false,
+                                      ),
+                                );
+                                return;
+                              }
+                              if (currentStep == 6) {
+                                _saveAndFinish();
+                                return;
+                              }
+                              creatorState.currentStep = currentStep + 1;
+                            },
+                  icon: Icon(
+                    currentStep >= 6 ? Icons.check : Icons.arrow_forward,
+                    size: 20,
+                  ),
+                  label: Text(nextText, style: const TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: AppColors.onChaosAccent,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
                 ),
               ),
-            if (showBack && currentStep > 0) const SizedBox(width: 16),
-            SizedBox(
-              width: 280,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: busy
-                    ? null
-                    : onNext ??
-                          () {
-                            if (currentStep == 2) {
-                              creatorState.generateFromMode(
-                                llmProvider: Provider.of<LLMProvider>(
-                                  context,
-                                  listen: false,
-                                ),
-                                storage: Provider.of<StorageService>(
-                                  context,
-                                  listen: false,
-                                ),
-                                personaService: Provider.of<UserPersonaService>(
-                                  context,
-                                  listen: false,
-                                ),
-                              );
-                              return;
-                            }
-                            if (currentStep == 5) {
-                              _saveAndFinish();
-                              return;
-                            }
-                            creatorState.currentStep = currentStep + 1;
-                          },
-                icon: Icon(
-                  currentStep >= 5 ? Icons.check : Icons.arrow_forward,
-                  size: 20,
-                ),
-                label: Text(nextText, style: const TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -406,6 +425,8 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
                   : creatorState.currentStep == 3
                   ? GeneratingStep(state: creatorState)
                   : creatorState.currentStep == 4
+                  ? GreetingsStep(state: creatorState)
+                  : creatorState.currentStep == 5
                   ? RealismStep(state: creatorState)
                   : ReviewStep(state: creatorState),
             ),

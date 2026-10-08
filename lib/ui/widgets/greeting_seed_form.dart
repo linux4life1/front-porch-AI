@@ -8,6 +8,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/pockets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
+import 'package:front_porch_ai/ui/widgets/needs_clock_off_note.dart';
 import 'package:front_porch_ai/ui/widgets/slider_with_input.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/ui/widgets/synced_text_field.dart';

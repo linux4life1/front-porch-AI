@@ -149,11 +149,22 @@ extension ChatServiceChatPackageImport on ChatService {
       }
     }
 
+    final remapTo = ownerRemapFrom == null
+        ? null
+        : _getCharacterIdFromCard(_activeCharacter!);
+
     // Phase 0: seed card defaults so save never bleeds prior live state.
     await _seedLiveRealismForImportedSession();
 
+    // The messages move too: a reply still stamped with the exporting card's
+    // id reads as a scene guest who left, so Regenerate and Continue refuse
+    // it, and its rewind puts item cards back under an unread id.
     final extras = full && fpai != null
-        ? fpai['messages_extra'] as List?
+        ? rekeyFpchatMessageOwner(
+            fpai['messages_extra'] as List?,
+            ownerRemapFrom,
+            remapTo,
+          )
         : null;
     final msgs = messagesFromPackage(laneA: laneA, extras: extras);
 
@@ -183,9 +194,6 @@ extension ChatServiceChatPackageImport on ChatService {
       // After seed wiped guests: restore `fpai.cast` on a matching open
       // chat. Mismatched / dialogue-only never reaches here (`full` is false).
       await _applyCastFromPackage(fpai[kFpchatCastKey]);
-      final remapTo = ownerRemapFrom == null
-          ? null
-          : _getCharacterIdFromCard(_activeCharacter!);
       // Journal cards (Phase 1)
       final journal = fpai['journal'] as List?;
       if (journal != null) {

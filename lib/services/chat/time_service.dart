@@ -179,10 +179,23 @@ class TimeService {
   DateTime? _capturedStartDate;
   String? _capturedSessionId;
 
-  /// Awake minutes the body should wear for the beat just committed.
-  /// Zero when this beat is a night, a skip, or time away.
-  int _awakeWearMinutes = 0;
-  int get awakeWearMinutes => _awakeWearMinutes;
+  /// Story minutes the body wears for the beat just committed: the minutes
+  /// the clock moved, whatever kind of beat it was. Zero for the same moment.
+  int _bodyWearMinutes = 0;
+  int get bodyWearMinutes => _bodyWearMinutes;
+
+  /// The minutes still to wear, taken once: a turn that notes no new beat
+  /// must not wear the last one again.
+  int takeBodyWearMinutes() {
+    final minutes = _bodyWearMinutes;
+    _bodyWearMinutes = 0;
+    return minutes;
+  }
+
+  /// True when the beat was lived off-screen (a skip, next morning, time
+  /// away): wear then stops at the skip floors, not the on-screen stop.
+  bool _bodyBeatOffScreen = false;
+  bool get bodyBeatOffScreen => _bodyBeatOffScreen;
 
   /// Chip text for that beat. Null when the skip chip already says it.
   String? _timePassedLabel;
@@ -195,19 +208,23 @@ class TimeService {
   String? get needsSpanLabel => _needsSpanLabel;
 
   void clearBodyBeat() {
-    _awakeWearMinutes = 0;
+    _bodyWearMinutes = 0;
+    _bodyBeatOffScreen = false;
     _timePassedLabel = null;
     _needsSpanLabel = null;
   }
 
+  /// [minutes] is how far the clock moved; [offScreen] marks a span the
+  /// characters lived away from the scene (a skip, a night, time away).
   void _noteBodyBeat({
     required int minutes,
     required bool nextMorning,
     required bool isSkip,
-    required bool wearAwake,
+    required bool offScreen,
     String? skipDestination,
   }) {
-    _awakeWearMinutes = wearAwake ? minutes : 0;
+    _bodyWearMinutes = minutes < 0 ? 0 : minutes;
+    _bodyBeatOffScreen = offScreen;
     _timePassedLabel = timePassedLabel(
       minutes: minutes,
       nextMorning: nextMorning,

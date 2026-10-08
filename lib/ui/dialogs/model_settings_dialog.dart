@@ -26,11 +26,9 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 // Not in barrels (internal or low-frequency)
-import 'package:front_porch_ai/services/model_file_check.dart';
-import 'package:front_porch_ai/services/optimization_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/settings/tabs/backend/worker_backend_section.dart';
+import 'package:front_porch_ai/ui/settings/tabs/backend/backend.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -61,11 +59,10 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   // Local backend fields
   final _gpuLayersController = TextEditingController(text: '0');
   final _contextSizeController = TextEditingController(text: '');
-  bool _useVulkan = false;
-  bool _useCublas = false;
-  bool _useMetal = false;
-  bool _useRocm = false;
   String? _selectedModelPath;
+
+  /// The preset the context box was last brought in step with.
+  String? _contextPreset;
 
   // Remote API fields
   final _apiUrlController = TextEditingController();
@@ -74,28 +71,25 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   String? _connectionStatus;
   bool _isTesting = false;
   bool _showKeyEditor = false;
+  bool _xaiKeyOpen = false;
 
   // Preset fields
   List<File> _localPresets = [];
   final _kcppsModelExists = PathExistsMemo();
-  final _presetFileExists = PathExistsMemo();
 
   @override
   void initState() {
     super.initState();
     final storage = Provider.of<StorageService>(context, listen: false);
     // Local settings
-    _useCublas = storage.backendSettings.useCublas == true;
-    _useVulkan = storage.backendSettings.useVulkan == true;
-    _useMetal = storage.backendSettings.useMetal == true;
-    _useRocm = storage.backendSettings.useRocm == true;
     _selectedModelPath = storage.backendSettings.lastUsedModelPath;
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
+    _contextPreset = storage.backendSettings.activeKcppsPath;
     // Remote settings
     _apiUrlController.text = storage.backendSettings.remoteApiUrl;
-    _apiKeyController.text = storage.backendSettings.remoteApiKey;
+    _apiKeyController.text = typedRemoteApiKey(storage.backendSettings);
     _modelNameController.text = storage.backendSettings.remoteModelName;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -107,7 +101,7 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
   void _scanLocalPresets() {
     final storage = Provider.of<StorageService>(context, listen: false);
     setState(() {
-      _localPresets = scanKcppsPresets(storage.binDir);
+      _localPresets = kcppsPresetFiles(storage.binDir.path);
     });
   }
 
@@ -236,12 +230,14 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     bool isNumber = false,
     bool isObscured = false,
     VoidCallback? onEditingComplete,
+    ValueChanged<String>? onChanged,
   }) {
     return TextField(
       controller: controller,
       keyboardType: isNumber ? TextInputType.number : TextInputType.text,
       obscureText: isObscured,
       onEditingComplete: onEditingComplete,
+      onChanged: onChanged,
       style: TextStyle(color: AppColors.textPrimary(context)),
       decoration: InputDecoration(
         labelText: label,

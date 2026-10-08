@@ -190,10 +190,6 @@ void main() {
       expect(kobold.modelLoadingStatus, isEmpty);
     });
 
-    test('consumeModelReady returns false when not ready', () async {
-      expect(kobold.consumeModelReady(), isFalse);
-    });
-
     test('isReady requires both isRunning and modelReady', () async {
       // Neither running nor model ready
       expect(kobold.isReady, isFalse);

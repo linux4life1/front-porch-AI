@@ -335,21 +335,18 @@ void main() {
         await Future<void>.delayed(Duration.zero);
       }
 
-      expect(
-        c.needsSimulation.vector,
-        {
-          'hunger': 80,
-          'bladder': 80,
-          'energy': 80,
-          'social': 80,
-          'fun': 80,
-          'hygiene': 80,
-          'comfort': 80,
-        },
-        reason:
-            'send must not tax every on-need from the clock — '
-            'scene eval returned zeros, so the bars stay put',
-      );
+      // Needs v2 (2026-10-06): the clock charges the span in code. Thirty
+      // minutes at Normal pace wears hunger 3, bladder 7 and energy 2; the
+      // other four move only on events, and the scene eval returned zeros.
+      expect(c.needsSimulation.vector, {
+        'hunger': 77,
+        'bladder': 73,
+        'energy': 78,
+        'social': 80,
+        'fun': 80,
+        'hygiene': 80,
+        'comfort': 80,
+      }, reason: 'the clock wears hunger, bladder and energy; nothing else');
       expect(
         c.messages.lastWhere((m) => !m.isUser).activeMetadata?['time_passed'],
         '30 min',
@@ -359,8 +356,8 @@ void main() {
         c.messages
             .lastWhere((m) => !m.isUser)
             .activeMetadata?[kNeedsUnaffectedMeta],
-        isTrue,
-        reason: 'zero scene deltas must still stamp No needs affected',
+        isNull,
+        reason: 'the clock moved the bars, so this is not a quiet turn',
       );
     },
   );

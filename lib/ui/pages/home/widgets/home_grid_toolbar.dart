@@ -21,9 +21,14 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show FolderDialogAction;
+
+part 'home_grid_toolbar.actions.dart';
+part 'home_grid_toolbar.drag.dart';
+part 'home_grid_toolbar.selection.dart';
 
 /// The home grid's top toolbar: selection/organize header or folder breadcrumb
 /// or the Characters/Stories mode toggle, plus the sort dropdown, grid-size
@@ -54,6 +59,10 @@ class HomeGridToolbar extends StatelessWidget {
     required this.onToggleOrganizeMode,
     required this.onFolderDialogAction,
     required this.onImport,
+    this.hiddenSelectedCount = 0,
+    this.selectionActions,
+    this.liveDrag = false,
+    this.onDropOnLevel,
   });
 
   final bool isSelecting;
@@ -62,6 +71,18 @@ class HomeGridToolbar extends StatelessWidget {
 
   /// Characters + groups — groups are selectable alongside characters now.
   final int selectedCount;
+
+  /// How many of [selectedCount] the current search or folder hides.
+  final int hiddenSelectedCount;
+
+  /// Select all / Select none in the selection header; none without it.
+  final LibrarySelectionActions? selectionActions;
+
+  /// A card or the picks are being dragged: the path becomes drop targets.
+  final bool liveDrag;
+
+  /// A drop on a level of the path; null folder id is the top level.
+  final void Function(Object item, String? folderId)? onDropOnLevel;
   final String sortMode;
   final double gridScale;
   final Widget modeToggle;
@@ -112,20 +133,24 @@ class HomeGridToolbar extends StatelessWidget {
   /// Clickable path — "My Characters / folder1 / folder2 / current". Every
   /// segment but the current one jumps straight there, so deep nesting never
   /// needs N back-taps to escape.
-  Widget _breadcrumb(BuildContext context) {
+  /// While a drag is live ([dropTargets]) every level but the current one
+  /// takes a drop instead (library phase 3).
+  Widget _breadcrumb(BuildContext context, {bool dropTargets = false}) {
     final trail = _trail();
     final crumbStyle = TextStyle(
       color: AppColors.textSecondary(context),
       fontSize: 15,
     );
-    Widget crumb(String label, String? target) => InkWell(
-      onTap: () => onFolderJump(target),
-      borderRadius: BorderRadius.circular(6),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Text(label, style: crumbStyle),
-      ),
-    );
+    Widget crumb(String label, String? target) => dropTargets
+        ? _levelTarget(context, label, target)
+        : InkWell(
+            onTap: () => onFolderJump(target),
+            borderRadius: BorderRadius.circular(6),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+              child: Text(label, style: crumbStyle),
+            ),
+          );
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       // Keep the tail (the folder you're standing in) visible on long paths.
@@ -135,10 +160,7 @@ class HomeGridToolbar extends StatelessWidget {
         children: [
           crumb('My Characters', null),
           for (var i = 0; i < trail.length; i++) ...[
-            Text(
-              '/',
-              style: TextStyle(color: AppColors.textTertiary(context)),
-            ),
+            Text('/', style: TextStyle(color: AppColors.textTertiary(context))),
             if (i < trail.length - 1)
               crumb(trail[i].name, trail[i].id)
             else
@@ -146,9 +168,9 @@ class HomeGridToolbar extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 4),
                 child: Text(
                   trail[i].name,
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ),
           ],
@@ -158,30 +180,6 @@ class HomeGridToolbar extends StatelessWidget {
   }
 
   List<Widget> _leadingChildren(BuildContext context, double toggleMaxWidth) {
-    if (isSelecting || isOrganizing) {
-      return [
-        IconButton(
-          icon: const Icon(Icons.close),
-          tooltip: 'Cancel selection',
-          visualDensity: VisualDensity.compact,
-          onPressed: onCancelSelection,
-        ),
-        const SizedBox(width: 8),
-        Flexible(
-          child: Text(
-            '$selectedCount selected',
-            overflow: TextOverflow.ellipsis,
-            softWrap: false,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: isOrganizing
-                  ? AppColors.porchHoneyOf(context)
-                  : AppColors.porchTerracottaOf(context),
-            ),
-          ),
-        ),
-      ];
-    }
     if (activeFolderId != null) {
       return [
         IconButton(
@@ -307,120 +305,6 @@ class HomeGridToolbar extends StatelessWidget {
     );
   }
 
-  List<Widget> _actionButtons(BuildContext context) {
-    return [
-      IconButton(
-        tooltip:
-            'Refresh character list (pick up external changes, e.g. Character Card Forge)',
-        icon: const Icon(Icons.refresh),
-        visualDensity: VisualDensity.compact,
-        onPressed: () => repo.loadCharacters(),
-      ),
-      IconButton(
-        tooltip: 'Multi-select characters (for organizing, moving, etc.)',
-        icon: const Icon(Icons.check_box_outlined),
-        visualDensity: VisualDensity.compact,
-        onPressed: onToggleSelectMode,
-      ),
-      IconButton(
-        tooltip: 'Organize into folders',
-        icon: Icon(
-          Icons.drive_file_move_outlined,
-          color: AppColors.porchHoneyOf(context),
-        ),
-        visualDensity: VisualDensity.compact,
-        onPressed: onToggleOrganizeMode,
-      ),
-      if (activeFolderId == null)
-        IconButton(
-          tooltip: 'New Folder',
-          icon: const Icon(Icons.create_new_folder_outlined),
-          visualDensity: VisualDensity.compact,
-          onPressed: () => onFolderDialogAction(FolderDialogAction.create),
-        ),
-      if (activeFolderId != null)
-        IconButton(
-          tooltip: 'New Subfolder',
-          icon: Icon(
-            Icons.create_new_folder_outlined,
-            color: AppColors.porchAmberOf(context),
-          ),
-          visualDensity: VisualDensity.compact,
-          onPressed: () => onFolderDialogAction(
-            FolderDialogAction.create,
-            parentId: activeFolderId,
-          ),
-        ),
-      PopupMenuButton<String>(
-        tooltip: 'Import or discover characters',
-        icon: const Icon(Icons.download),
-        color: AppColors.surfaceContainerOf(context),
-        onSelected: onImport,
-        itemBuilder: (_) => _importItems(context),
-      ),
-    ];
-  }
-
-  List<PopupMenuEntry<String>> _importItems(BuildContext context) {
-    final iconColor = AppColors.iconSecondary(context);
-    Widget row(IconData icon, String label) => Row(
-      children: [
-        Icon(icon, size: 18, color: iconColor),
-        const SizedBox(width: 8),
-        Text(label),
-      ],
-    );
-    return [
-      PopupMenuItem(value: 'cards', child: row(Icons.download, 'Import Cards')),
-      PopupMenuItem(
-        value: 'folder',
-        child: row(Icons.library_add, 'Import Folder'),
-      ),
-      PopupMenuItem(
-        value: 'byaf',
-        child: row(Icons.archive_outlined, 'Import Backyard AI (.byaf)'),
-      ),
-    ];
-  }
-
-  Widget _overflowActions(BuildContext context) {
-    return PopupMenuButton<String>(
-      tooltip: 'More library actions',
-      icon: const Icon(Icons.more_vert),
-      color: AppColors.surfaceContainerOf(context),
-      onSelected: (value) {
-        switch (value) {
-          case 'refresh':
-            repo.loadCharacters();
-          case 'select':
-            onToggleSelectMode?.call();
-          case 'organize':
-            onToggleOrganizeMode?.call();
-          case 'new_folder':
-            onFolderDialogAction(
-              FolderDialogAction.create,
-              parentId: activeFolderId,
-            );
-          case 'cards':
-          case 'folder':
-          case 'byaf':
-            onImport(value);
-        }
-      },
-      itemBuilder: (_) => [
-        const PopupMenuItem(value: 'refresh', child: Text('Refresh list')),
-        const PopupMenuItem(value: 'select', child: Text('Multi-select')),
-        const PopupMenuItem(value: 'organize', child: Text('Organize')),
-        PopupMenuItem(
-          value: 'new_folder',
-          child: Text(activeFolderId == null ? 'New Folder' : 'New Subfolder'),
-        ),
-        const PopupMenuDivider(),
-        ..._importItems(context),
-      ],
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -428,33 +312,29 @@ class HomeGridToolbar extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           final width = constraints.maxWidth;
+          if (liveDrag) return _dragRow(context, width);
+          if (isSelecting || isOrganizing) return _pickingRow(context, width);
           // Content-area widths, not window sizes. Sidebar already ate its
           // share; these decide what still fits in the remaining strip.
           final showSlider = width >= 720;
           final labeledSort = width >= 520;
           final inlineActions = width >= 440;
-          final browsing = !isSelecting && !isOrganizing;
           // High-side estimates so the toggle goes compact a few px early
           // rather than the row overflowing. Not a window-size assumption.
-          var reserved = 0.0;
-          if (browsing) {
-            reserved += 12;
-            reserved += labeledSort ? 190 : 48;
-            if (showSlider) reserved += 120;
-            reserved += inlineActions ? 230 : 48;
-          }
+          var reserved = 12.0;
+          reserved += labeledSort ? 190 : 48;
+          if (showSlider) reserved += 120;
+          reserved += inlineActions ? 230 : 48;
           final toggleMax = math.max(0.0, width - reserved);
           return Row(
             children: [
               ..._leadingChildren(context, toggleMax),
-              if (browsing) ...[
-                const SizedBox(width: 12),
-                _sortControl(context, labeled: labeledSort),
-                if (showSlider) _scaleSlider(context),
-              ],
+              const SizedBox(width: 12),
+              _sortControl(context, labeled: labeledSort),
+              if (showSlider) _scaleSlider(context),
               const Spacer(),
-              if (browsing && inlineActions) ..._actionButtons(context),
-              if (browsing && !inlineActions) _overflowActions(context),
+              if (inlineActions) ..._actionButtons(context),
+              if (!inlineActions) _overflowActions(context),
             ],
           );
         },

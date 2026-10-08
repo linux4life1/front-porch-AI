@@ -167,7 +167,7 @@ Yes, through **OpenRouter** (one key, lots of models) or any OpenAI-compatible U
 Usually the model is too big and spilled into regular RAM.
 
 - Smaller model, or Q4 instead of Q8
-- Settings → Advanced → lower **GPU Layers**
+- Settings → Advanced → keep **Graphics memory** on Automatic (if you turned on **Set layers myself**, lower the number or switch it back off)
 - Check it actually sees your GPU: [GPU not detected](troubleshooting.md#gpu-not-detected)
 - Giant context (16k+) is slow even on a good card
 
@@ -548,6 +548,8 @@ Settings → **Advanced**:
 2. Same Wi-Fi: open `http://YOUR-PC:8085`.
 3. First visit: create a web login. Away from home / not localhost: also type the **setup code** from that Settings page.
 4. Desktop must stay on. It is the brain.
+
+The AI engine itself (KoboldCpp) answers only this computer, so a phone, or a program on another computer such as SillyTavern, can't connect to it directly. The phone goes through the app, as above.
 
 Add to Home Screen: Android may pop a banner; iPhone is Share → Add to Home Screen.
 

@@ -19,9 +19,8 @@
 part of 'image_gen_service.dart';
 
 /// Cluster E — local backend discovery & model admin. Every public member
-/// here is fake-pinned by `_TabFakeImageGenService`
-/// (test/ui/image_studio/generation_options_tab_test.dart), so the shell
-/// keeps one-line forwarding stubs and this extension holds the verbatim
+/// here is overridden by test doubles that `implement` the service (the desk
+/// tests among them), so the shell keeps one-line forwarding stubs and this extension holds the verbatim
 /// bodies (renamed with an `Impl` suffix). `_waitForModelReady` was already
 /// private and unfaked, so it moves with its original name unchanged.
 extension _ImageGenLocalAdmin on ImageGenService {
@@ -291,6 +290,32 @@ extension _ImageGenLocalAdmin on ImageGenService {
     } catch (e) {
       debugPrint('ImageGen: fetchA1111Schedulers failed: $e');
       return [];
+    } finally {
+      client.close();
+    }
+  }
+}
+
+/// Asks Automatic1111 to look at its Lora folder again. It lists the LoRAs it
+/// found when it started, so a file downloaded since is not in
+/// `GET /sdapi/v1/loras` until this is asked. A public extension (not a class
+/// member) so the test doubles that implement the service need no change.
+extension A1111LoraRefresh on ImageGenService {
+  /// `POST /sdapi/v1/refresh-loras`. A server that has no such endpoint, or
+  /// does not answer, is simply left as it was: false.
+  Future<bool> refreshA1111Loras(String baseUrl) async {
+    final client = http.Client();
+    try {
+      final uri = Uri.parse(
+        '${ComfyUiService.ensureHttpScheme(baseUrl)}/sdapi/v1/refresh-loras',
+      );
+      final response = await client
+          .post(uri)
+          .timeout(const Duration(seconds: 15));
+      return response.statusCode == 200;
+    } catch (e) {
+      debugPrint('ImageGen: refreshA1111Loras failed (ignored): $e');
+      return false;
     } finally {
       client.close();
     }

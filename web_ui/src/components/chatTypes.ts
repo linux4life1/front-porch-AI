@@ -38,6 +38,8 @@ export interface Message {
   index: number;
   /** Stable row identity from the desktop object; falls back to index. */
   rowKey?: number;
+  /** 0-based place in the whole chat (additive — older apps omit it). */
+  position?: number;
   sender: string;
   text: string;
   isUser: boolean;
@@ -72,6 +74,9 @@ export interface Realism {
   fixation: string;
   needsEnabled: boolean;
   needs: Record<string, number>;
+  /** The engine's band cutoffs for the bar colours; absent on older servers. */
+  needsUrgentAt?: number;
+  needsCriticalAt?: number;
 }
 
 export interface LoreEntry {

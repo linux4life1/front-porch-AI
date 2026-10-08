@@ -33,8 +33,14 @@ extension _ImageGenComfy on ImageGenService {
     required double? editStrength,
     required ImageReferenceRole refRole,
   }) async {
-    final comfy = _ensureComfyUi;
     final settings = _storage.imageGenSettings;
+    var comfy = _ensureComfyUi;
+    // An address nobody typed is only a guess: when nothing answers there,
+    // look for ComfyUI before giving up.
+    if (!settings.comfyUiUrlExplicit && !await comfy.testConnection()) {
+      await redialComfy(settings);
+      comfy = _ensureComfyUi;
+    }
     final (width, height) = _parseSize(size ?? settings.imageGenSize);
     final available = await comfy.fetchSamplers();
     final storedSampler = settings.imageGenSampler;
@@ -53,15 +59,10 @@ extension _ImageGenComfy on ImageGenService {
       final storedSeed = effectiveSeed == -1
           ? Random().nextInt(1 << 31)
           : effectiveSeed;
-      final editName = comfyTemplateNameFor(settings.comfyEditWorkflowId);
-      final editTemplate = editName == null
-          ? null
-          : await comfy.fetchTemplateJson(
-              editName,
-              preferUserdata: comfyTemplatePrefersUserdata(
-                settings.comfyEditWorkflowId,
-              ),
-            );
+      final editTemplate = await comfy.fetchWorkflowTemplate(
+        settings.comfyEditWorkflowId,
+      );
+      final objectInfo = await comfy.objectInfoForRun();
       final req = resolveComfyEditRequest(
         workflowId: settings.comfyEditWorkflowId,
         uploadedWorkflowJson: settings.comfyEditUploadedWorkflow,
@@ -72,10 +73,11 @@ extension _ImageGenComfy on ImageGenService {
         steps: settings.editSteps,
         cfg: settings.editCfgScale,
         denoise: editStrength ?? kEditRecommendedStrength,
-        shift: settings.editShift,
+        shift: settings.comfyShiftFor(settings.comfyEditWorkflowId, edit: true),
         width: width,
         height: height,
         liveTemplate: editTemplate,
+        objectInfo: objectInfo,
       );
       if (req == null) {
         throw Exception(
@@ -88,19 +90,21 @@ extension _ImageGenComfy on ImageGenService {
         workflowTemplate: req.template,
         tokenValues: req.values,
         onProgress: _updateGenProgress,
+        primaryFile: deskPrimaryFile(
+          backend: 'comfyui',
+          edit: true,
+          workflowId: settings.comfyEditWorkflowId,
+          choices: settings.comfyEditModelChoices,
+          legacyModel: '',
+        ),
+        uploaded: settings.comfyEditWorkflowId == kComfyUploadedWorkflowId,
       );
     }
 
-    final liveName = comfyTemplateNameFor(settings.comfyCreateWorkflowId);
-    Map<String, dynamic>? liveTemplate;
-    if (liveName != null) {
-      liveTemplate = await comfy.fetchTemplateJson(
-        liveName,
-        preferUserdata: comfyTemplatePrefersUserdata(
-          settings.comfyCreateWorkflowId,
-        ),
-      );
-    }
+    final liveTemplate = await comfy.fetchWorkflowTemplate(
+      settings.comfyCreateWorkflowId,
+    );
+    final objectInfo = await comfy.objectInfoForRun();
     final req = resolveComfyCreateRequest(
       workflowId: settings.comfyCreateWorkflowId,
       uploadedWorkflowJson: settings.comfyCreateUploadedWorkflow,
@@ -111,13 +115,17 @@ extension _ImageGenComfy on ImageGenService {
       steps: settings.imageGenSteps,
       cfg: settings.imageGenCfgScale,
       denoise: denoise ?? settings.imageGenDenoise,
-      shift: settings.editShift,
+      shift: settings.comfyShiftFor(
+        settings.comfyCreateWorkflowId,
+        edit: false,
+      ),
       width: width,
       height: height,
       sampler: sampler,
       scheduler: scheduler,
       checkpointFallback: refModelName,
       liveTemplate: liveTemplate,
+      objectInfo: objectInfo,
     );
     if (req == null) {
       throw Exception(
@@ -169,6 +177,17 @@ extension _ImageGenComfy on ImageGenService {
         '(${leftover.join(', ')}). Pick a model for each slot.',
       );
     }
-    return comfy.runPromptGraph(graph, onProgress: _updateGenProgress);
+    return comfy.runPromptGraph(
+      graph,
+      onProgress: _updateGenProgress,
+      primaryFile: deskPrimaryFile(
+        backend: 'comfyui',
+        edit: false,
+        workflowId: settings.comfyCreateWorkflowId,
+        choices: settings.comfyCreateModelChoices,
+        legacyModel: refModelName,
+      ),
+      uploaded: settings.comfyCreateWorkflowId == kComfyUploadedWorkflowId,
+    );
   }
 }

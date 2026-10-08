@@ -47,7 +47,10 @@ String closeOpenThink(String text) {
 /// Two cases, do not collapse them:
 /// * Closed think-only (`<think>…</think>` and nothing visible) — Qwen-class
 ///   `reasoning_content` parked a finished line in think. Lift that body
-///   so the bubble speaks (live Flora poke).
+///   only when it looks like a short spoken line ([looksLikeParkedSpeech],
+///   the Flora poke). A long multi-paragraph dump (a model that never
+///   closed `</think>`, sent whole as reasoning) keeps its tags: the
+///   Thought chip holds it and the bubble shows the thoughts hint.
 /// * Stream still inside an open `<think>` — backend cut mid-thought.
 ///   Salvage the closer and keep the tags; do not promote. The Thought
 ///   chip stays, display stays empty, stored text ends with `</think>`.
@@ -61,7 +64,23 @@ String resolveMouthSpeech(String raw) {
   final parts = splitMessageForEdit(closed);
   if (parts.body.trim().isNotEmpty) return closed;
   final lifted = parts.thinking.trim();
-  return lifted.isNotEmpty ? lifted : closed.trim();
+  if (lifted.isEmpty) return closed.trim();
+  if (!looksLikeParkedSpeech(lifted)) return closed;
+  return lifted;
+}
+
+/// Upper bound for lifting a think-only body into the bubble.
+const int kLiftThinkMaxChars = 800;
+
+/// A finished line parked in the think channel, not a planning dump:
+/// short, and at most two paragraphs.
+bool looksLikeParkedSpeech(String thought) {
+  final t = thought.trim();
+  if (t.isEmpty || t.length > kLiftThinkMaxChars) return false;
+  final paragraphs = t
+      .split(RegExp(r'\n\s*\n'))
+      .where((p) => p.trim().isNotEmpty);
+  return paragraphs.length <= 2;
 }
 
 String stripThinkTags(String text) {

@@ -181,32 +181,26 @@ class _MessageBubbleState extends State<MessageBubble> {
       );
     }
 
+    // Settings "My messages on the right": the user's row is mirrored.
+    final mirrored =
+        message.isUser &&
+        !isDirectorNote &&
+        (storage?.realismSettings.userMessagesOnRight ?? false);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
+        // Laying the row out right to left puts the avatar on the right
+        // and the bubble against it; the bubble's own text is unaffected.
+        textDirection: mirrored ? TextDirection.rtl : null,
         mainAxisAlignment: isDirectorNote
             ? MainAxisAlignment.center
-            : (message.isUser
-                  ? MainAxisAlignment.end
-                  : MainAxisAlignment.start),
+            : MainAxisAlignment.start,
         children: [
-          if (!message.isUser && !isDirectorNote)
-            CircleAvatar(
-              radius: 16,
-              child: characterImage == null
-                  ? const Icon(Icons.person)
-                  : ClipOval(
-                      child: Image.file(
-                        characterImage!,
-                        width: 32,
-                        height: 32,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const Icon(Icons.person),
-                      ),
-                    ),
-            ),
-          if (!message.isUser && !isDirectorNote) const SizedBox(width: 12),
+          if (!isDirectorNote) ...[
+            _avatarColumn(context, boundToChat),
+            const SizedBox(width: 12),
+          ],
 
           Flexible(
             child: Stack(
@@ -304,35 +298,6 @@ class _MessageBubbleState extends State<MessageBubble> {
               ],
             ),
           ),
-
-          if (message.isUser) const SizedBox(width: 12),
-          if (message.isUser)
-            boundToChat
-                ? Consumer<UserPersonaService>(
-                    builder: (context, service, _) {
-                      final persona = service.personas
-                          .where((p) => p.name == message.sender)
-                          .firstOrNull;
-                      if (persona?.avatarPath != null) {
-                        return CircleAvatar(
-                          backgroundImage: FileImage(
-                            File(persona!.avatarPath!),
-                          ),
-                          radius: 16,
-                        );
-                      }
-                      return const CircleAvatar(
-                        backgroundColor: Colors.purple,
-                        radius: 16,
-                        child: Icon(Icons.person, color: Colors.white),
-                      );
-                    },
-                  )
-                : CircleAvatar(
-                    radius: 16,
-                    backgroundColor: AppColors.porchAmberOf(context),
-                    child: Icon(Icons.person, color: AppColors.onChaosAccent),
-                  ),
         ],
       ),
     );

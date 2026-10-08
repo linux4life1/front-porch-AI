@@ -25,8 +25,8 @@ extension ImageGenSettingsLoad on ImageGenSettings {
     _imageGenBackend = prefs?.getString(k('image_gen_backend')) ?? 'remote';
     _localImageGenUrl =
         prefs?.getString(k('local_image_gen_url')) ?? 'http://127.0.0.1:7860';
-    _comfyUiUrl =
-        prefs?.getString(k('comfy_ui_url')) ?? 'http://127.0.0.1:8188';
+    _comfyUiUrl = prefs?.getString(k('comfy_ui_url')) ?? kDefaultComfyUiUrl;
+    _comfyUiUrlExplicit = prefs?.getBool(k('comfy_ui_url_explicit')) ?? false;
     _imageGenModel = prefs?.getString(k('image_gen_model')) ?? '';
     _imageGenEditModel = prefs?.getString(k('image_gen_edit_model')) ?? '';
     // One-time migration seed: before the slot split the single model served
@@ -90,6 +90,8 @@ extension ImageGenSettingsLoad on ImageGenSettings {
     );
     _comfyEditUploadedWorkflow =
         prefs?.getString(k('comfy_edit_uploaded_workflow')) ?? '';
+    _comfyEditUploadedTitle =
+        prefs?.getString(k('comfy_edit_uploaded_title')) ?? '';
     _comfyCreateWorkflowId =
         prefs?.getString(k('comfy_create_workflow_id')) ?? 'sd';
     _comfyCreateModelChoices = _decodeStringMap(
@@ -97,6 +99,9 @@ extension ImageGenSettingsLoad on ImageGenSettings {
     );
     _comfyCreateUploadedWorkflow =
         prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
+    _comfyCreateUploadedTitle =
+        prefs?.getString(k('comfy_create_uploaded_title')) ?? '';
+    _comfyShifts = _decodeShifts(prefs?.getString(k('comfy_shifts')));
     loadImageRemotePrefs();
   }
 

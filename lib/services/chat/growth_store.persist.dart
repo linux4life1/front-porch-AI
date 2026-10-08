@@ -45,6 +45,10 @@ extension GrowthStorePersist on GrowthStore {
         if (victim != null) await _retire(db, victim.id);
       }
     }
+    // Stamp explicitly: upgraded libraries got growth_rings from the raw
+    // v36 DDL (`created_at ... DEFAULT 0`), not Drift's currentDateAndTime
+    // default, so an omitted column landed as 1970 on every real install.
+    final now = DateTime.now();
     await db.insertGrowthRing(
       GrowthRingsCompanion(
         sessionId: Value(sessionId),
@@ -57,6 +61,9 @@ extension GrowthStorePersist on GrowthStore {
         sourceMessageIds: Value(
           sourcePositions.isEmpty ? null : jsonEncode(sourcePositions),
         ),
+        createdAt: Value(now),
+        lastReinforcedAt: Value(now),
+        updatedAt: Value(now),
       ),
     );
   }

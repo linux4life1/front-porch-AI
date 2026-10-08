@@ -1,15 +1,16 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// AI character creator — a stepped wizard (Mode → Details → Output → Generate)
-// mirroring the desktop creator's three modes (Quick / Guided / Automated). All
-// three feed the same headless generator via POST /api/chargen/create; the
-// per-mode field assembly lives in chargenForm.ts so a web-created card matches a
-// desktop one. Progress streams over the WebSocket hub; on completion it jumps to
-// the editor.
+// AI character creator — a stepped wizard (Mode → Details → Output → Generate
+// → Greetings) mirroring the desktop creator's three modes (Quick / Guided /
+// Automated). All three feed the same headless generator via POST
+// /api/chargen/create; the per-mode field assembly lives in chargenForm.ts so a
+// web-created card matches a desktop one. Progress streams over the WebSocket
+// hub; the saved character then opens on the Greetings step (?greetings=<id>,
+// so a reload keeps it), and "Open in editor" goes on to the editor.
 
-import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { StepIndicator } from '../components/StepIndicator';
@@ -19,8 +20,10 @@ import { GuidedConfig } from '../components/aichargen/GuidedConfig';
 import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
 import { OutputSettings } from '../components/aichargen/OutputSettings';
 import { LoreContext } from '../components/aichargen/LoreContext';
+import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
 
-const STEPS = ['Mode', 'Details', 'Output', 'Generate'];
+const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Greetings'];
+const GREETINGS = STEPS.indexOf('Greetings');
 
 const MODES: { id: ChargenMode; title: string; blurb: string; cls: string }[] = [
   { id: 'quick', title: '⚡ Quick', blurb: 'A short concept — the LLM fills in the rest. Fastest.', cls: 'quick' },
@@ -30,9 +33,22 @@ const MODES: { id: ChargenMode; title: string; blurb: string; cls: string }[] = 
 
 export function CreateAiCharacterPage() {
   const navigate = useNavigate();
+  const [params] = useSearchParams();
+  // The character this run saved; its greetings are the last step. Held in
+  // state and set with the step on chargen_done: the router applies the URL
+  // as a transition, after the step change, so reading the id only from the
+  // URL let one render show the step without it. The URL keeps the id across
+  // a reload, and a different id arriving there is followed.
+  const urlId = params.get('greetings');
+  const [createdId, setCreatedId] = useState<string | null>(urlId);
+  useEffect(() => {
+    if (urlId) setCreatedId(urlId);
+  }, [urlId]);
   const [form, setForm] = useState<ChargenForm>(DEFAULT_FORM);
   const set = (p: Partial<ChargenForm>) => setForm((f) => ({ ...f, ...p }));
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(() => (createdId ? GREETINGS : 0));
+  const [writing, setWriting] = useState(false);
+  const greetings = useRef<GreetingsStepHandle>(null);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<string[]>([]);
@@ -49,8 +65,13 @@ export function CreateAiCharacterPage() {
       if (e.event === 'chargen_status' && e.data) {
         setSteps((s) => [...s, e.data!]);
       } else if (e.event === 'chargen_done') {
+        const id = String(e.id);
         setBusy(false);
-        navigate(`/edit/${e.id}`);
+        setCreatedId(id);
+        setStep(GREETINGS);
+        // Replace, so the browser's Back leaves the creator instead of
+        // landing on it with no character.
+        navigate(`/create-ai?greetings=${encodeURIComponent(id)}`, { replace: true });
       } else if (e.event === 'chargen_error') {
         setBusy(false);
         setError(e.error || 'Generation failed');
@@ -73,16 +94,30 @@ export function CreateAiCharacterPage() {
     }
   };
 
-  const canAdvance = step !== 0 || form.name.trim().length > 0;
+  const canAdvance =
+    (step !== 0 || form.name.trim().length > 0) && (step !== GREETINGS - 1 || !!createdId);
+  const held = busy || writing;
+
+  const openEditor = async () => {
+    // Edits typed in the last moment go first, so the editor opens on them.
+    await greetings.current?.flush();
+    navigate(`/edit/${createdId}`);
+  };
 
   return (
     <div className="page wizard">
-      <header className="page-head">
-        <button className="ghost" onClick={() => navigate('/')}>← Library</button>
-        <h2>✨ AI Character Creator</h2>
+      <header className="page-head cg-head">
+        <button type="button" className="ghost" onClick={() => navigate('/')}>
+          <ArrowLeft />
+          Library
+        </button>
+        <h2>
+          <Sparkle />
+          AI Character Creator
+        </h2>
       </header>
 
-      <StepIndicator steps={STEPS} current={step} onJump={busy ? undefined : setStep} />
+      <StepIndicator steps={STEPS} current={step} onJump={held ? undefined : setStep} variant="porch" />
 
       {available === false && (
         <p className="muted">No LLM backend is ready — start or connect a model on the Models page first.</p>
@@ -147,14 +182,72 @@ export function CreateAiCharacterPage() {
             )}
           </div>
         )}
-      </div>
 
-      <div className="wizard-nav">
-        <button disabled={step === 0 || busy} onClick={() => setStep(step - 1)}>← Back</button>
-        {step < STEPS.length - 1 && (
-          <button className="primary" disabled={!canAdvance} onClick={() => setStep(step + 1)}>Next →</button>
+        {step === GREETINGS && createdId && (
+          <GreetingsStep ref={greetings} characterId={createdId} onWritingChange={setWriting} />
+        )}
+        {step === GREETINGS && !createdId && (
+          <p className="muted">Generate a character first; its greetings open here.</p>
         )}
       </div>
+
+      {step === GREETINGS ? (
+        <nav className="wizard-nav cg-g-nav" aria-label="Wizard steps">
+          <button type="button" className="cg-g-back" disabled={writing} onClick={() => setStep(step - 1)}>
+            <ArrowLeft />
+            Back
+          </button>
+          <button
+            type="button"
+            className="cg-g-open"
+            disabled={writing || !createdId}
+            onClick={() => void openEditor()}
+          >
+            Open in editor
+            <ArrowRight />
+          </button>
+        </nav>
+      ) : (
+        <div className="wizard-nav">
+          <button disabled={step === 0 || held} onClick={() => setStep(step - 1)}>← Back</button>
+          {step < STEPS.length - 1 && (
+            <button className="primary" disabled={!canAdvance || held} onClick={() => setStep(step + 1)}>
+              Next →
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 }
+
+const arrow = {
+  width: 18,
+  height: 18,
+  viewBox: '0 0 24 24',
+  fill: 'none',
+  stroke: 'currentColor',
+  strokeWidth: 2,
+  strokeLinecap: 'round' as const,
+  strokeLinejoin: 'round' as const,
+  'aria-hidden': true,
+};
+
+const ArrowLeft = () => (
+  <svg {...arrow}>
+    <path d="M19 12H5M11 6l-6 6 6 6" />
+  </svg>
+);
+
+const Sparkle = () => (
+  <svg width={18} height={18} viewBox="0 0 24 24" fill="currentColor" aria-hidden className="cg-spark">
+    <path d="M10 3l1.9 5.1L17 10l-5.1 1.9L10 17l-1.9-5.1L3 10l5.1-1.9z" />
+    <path d="M18.5 13l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+  </svg>
+);
+
+const ArrowRight = () => (
+  <svg {...arrow}>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);

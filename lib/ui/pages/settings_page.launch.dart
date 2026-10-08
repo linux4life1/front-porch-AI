@@ -37,6 +37,40 @@ extension _SettingsLaunchOptions on _SettingsPageState {
     return _launchModelExistsCache;
   }
 
+  /// The Start/Restart button under Advanced Launch Options: applies the
+  /// launch settings above by starting the engine again.
+  Future<void> _restartFromLaunchOptions(BuildContext ctx) async {
+    final koboldService = Provider.of<KoboldService>(ctx, listen: false);
+    final backendManager = Provider.of<BackendManager>(ctx, listen: false);
+    final storage = Provider.of<StorageService>(ctx, listen: false);
+    final messenger = ScaffoldMessenger.of(ctx);
+
+    // Checked before anything is stopped, so a model or preset that cannot
+    // be used leaves the running engine alone.
+    final problem = await koboldLaunchProblem(storage);
+    if (problem != null) {
+      messenger.showSnackBar(SnackBar(content: Text(problem)));
+      return;
+    }
+
+    final wasRunning = koboldService.isRunning;
+    if (wasRunning) {
+      await koboldService.stopKobold();
+      await Future.delayed(const Duration(seconds: 1));
+    }
+    final result = await koboldService.launch(backendManager.backendPath!);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.message ??
+              (wasRunning
+                  ? 'Restarting backend with new settings…'
+                  : 'Starting backend…'),
+        ),
+      ),
+    );
+  }
+
   Widget _buildAdvancedLaunchOptions(
     BuildContext context,
     StorageService storage,
@@ -185,12 +219,27 @@ extension _SettingsLaunchOptions on _SettingsPageState {
           toggle(
             label: 'Flash Attention',
             tooltip:
-                'Faster attention math. ~20–40% speed boost on RTX/Apple Silicon. Disabled automatically for ROCm.',
+                'Faster attention math, and less memory. ~20–40% speed boost on RTX/Apple Silicon. AMD (ROCm) follows this switch too: if KoboldCpp stops while answering with it on, the app turns it off and starts again. Gemma 4 on Vulkan always runs without it.',
             value: storage.backendSettings.flashAttentionEnabled,
             recommended: true,
             onChanged: (v) =>
                 storage.backendSettings.setFlashAttentionEnabled(v),
           ),
+          // Switched off, it still runs with a compressed cache.
+          if (!storage.backendSettings.flashAttentionEnabled &&
+              storage.backendSettings.kvQuant.needsFlashAttention)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Text(
+                kKoboldCompressedTurnsFlashOn,
+                key: const ValueKey('flash-attention-compressed-note'),
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: accent,
+                ),
+              ),
+            ),
           toggle(
             label: 'Lock Weights in RAM (mlock)',
             tooltip: Platform.isLinux
@@ -287,7 +336,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                     ),
                     const SizedBox(height: 2),
                     Text(
-                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM.',
+                      'Tokens processed in parallel during prompt evaluation. Higher = faster context loading, more VRAM. Auto uses 1,024 on NVIDIA cards and 512 elsewhere, or what the speed test found fastest, never more than keeps the model on the card.',
                       style: TextStyle(
                         fontSize: 11,
                         color: AppColors.textTertiary(context),
@@ -299,11 +348,17 @@ extension _SettingsLaunchOptions on _SettingsPageState {
               const SizedBox(width: 12),
               Wrap(
                 spacing: 6,
-                children: [256, 512, 1024, 2048, 4096, 8192].map((bs) {
-                  final isSelected =
-                      storage.backendSettings.blasBatchSize == bs;
+                // 0 is Auto: the launch picks the batch for this machine.
+                children: [0, 256, 512, 1024, 2048, 4096, 8192].map((bs) {
+                  final b = storage.backendSettings;
+                  final isSelected = bs == 0
+                      ? b.batchAutomatic
+                      : !b.batchAutomatic && b.blasBatchSize == bs;
                   return GestureDetector(
-                    onTap: () => storage.backendSettings.setBlasBatchSize(bs),
+                    onTap: () async {
+                      await b.setBatchAutomatic(bs == 0);
+                      if (bs != 0) await b.setBlasBatchSize(bs);
+                    },
                     child: AnimatedContainer(
                       duration: const Duration(milliseconds: 150),
                       padding: const EdgeInsets.symmetric(
@@ -324,7 +379,11 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                         ),
                       ),
                       child: Text(
-                        bs >= 1024 ? '${bs ~/ 1024}K' : '$bs',
+                        bs == 0
+                            ? 'Auto'
+                            : bs >= 1024
+                            ? '${bs ~/ 1024}K'
+                            : '$bs',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
@@ -338,6 +397,16 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                 }).toList(),
               ),
             ],
+          ),
+          const SizedBox(height: 16),
+          KoboldIdleUnloadRow(
+            settings: storage.backendSettings,
+            accent: accent,
+          ),
+          const SizedBox(height: 16),
+          KoboldKeepRecentRow(
+            settings: storage.backendSettings,
+            accent: accent,
           ),
           const SizedBox(height: 14),
           // Restart button — applies all Advanced Launch changes immediately.
@@ -384,72 +453,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                     ),
                   if (canRestart)
                     ElevatedButton.icon(
-                      onPressed: koboldService.isRunning
-                          ? () async {
-                              await koboldService.stopKobold();
-                              await Future.delayed(const Duration(seconds: 1));
-                              if (!ctx.mounted) return;
-                              koboldService.startKobold(
-                                backendManager.backendPath!,
-                                storage.backendSettings.lastUsedModelPath!,
-                                kcppsPath:
-                                    storage.backendSettings.activeKcppsPath,
-                                mmprojPath:
-                                    storage
-                                        .presetSettings
-                                        .modelMmprojMap[storage
-                                        .backendSettings
-                                        .lastUsedModelPath!],
-                                gpuLayers: storage.backendSettings.gpuLayers,
-                                contextSize:
-                                    storage.backendSettings.contextSize,
-                                useVulkan:
-                                    storage.backendSettings.useVulkan ?? false,
-                                useCublas:
-                                    storage.backendSettings.useCublas ?? false,
-                                useMetal:
-                                    storage.backendSettings.useMetal ?? false,
-                                useRocm:
-                                    storage.backendSettings.useRocm ?? false,
-                              );
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Restarting backend with new settings…',
-                                  ),
-                                ),
-                              );
-                            }
-                          : () {
-                              koboldService.startKobold(
-                                backendManager.backendPath!,
-                                storage.backendSettings.lastUsedModelPath!,
-                                kcppsPath:
-                                    storage.backendSettings.activeKcppsPath,
-                                mmprojPath:
-                                    storage
-                                        .presetSettings
-                                        .modelMmprojMap[storage
-                                        .backendSettings
-                                        .lastUsedModelPath!],
-                                gpuLayers: storage.backendSettings.gpuLayers,
-                                contextSize:
-                                    storage.backendSettings.contextSize,
-                                useVulkan:
-                                    storage.backendSettings.useVulkan ?? false,
-                                useCublas:
-                                    storage.backendSettings.useCublas ?? false,
-                                useMetal:
-                                    storage.backendSettings.useMetal ?? false,
-                                useRocm:
-                                    storage.backendSettings.useRocm ?? false,
-                              );
-                              ScaffoldMessenger.of(ctx).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Starting backend…'),
-                                ),
-                              );
-                            },
+                      onPressed: () => _restartFromLaunchOptions(ctx),
                       icon: Icon(
                         koboldService.isRunning
                             ? Icons.restart_alt

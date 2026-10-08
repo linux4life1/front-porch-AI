@@ -146,13 +146,6 @@
 }
 
 
-@media (max-width: 640px) {
-  .msg-edit-modal {
-    width: 100vw; height: 100dvh; max-height: 100dvh;
-    border-radius: 0; min-height: 100dvh;
-  }
-  .msg-edit-body-area { min-height: 40vh; }
-}
 .thinking {
   align-self: flex-start; max-width: 85%; font-size: 0.82rem; color: var(--muted);
   background: var(--surface-2); border: 1px solid var(--border);

@@ -76,7 +76,9 @@ extension ChatFacadeHistory on ChatFacade {
   }
 
   void swipe(int messageIndex, int direction, {String? critique}) {
-    _chat.swipeMessage(messageIndex, direction, critique: critique);
+    withoutCity96Ask(
+      () => _chat.swipeMessage(messageIndex, direction, critique: critique),
+    );
     _notify();
   }
 
@@ -104,6 +106,11 @@ extension ChatFacadeHistory on ChatFacade {
     _chat.resolveImagePromptReview(prompt);
     _notify();
   }
+
+  /// "Write it for me" on the phone's Image Studio: the prompt the writer
+  /// makes for the chat that is open. Null when no image backend is set up.
+  Future<String?> craftStudioPrompt(String subject, String instruction) =>
+      _chat.craftStudioPrompt(subject, instruction);
 
   Future<bool> insertImage(String filename, {String prompt = ''}) async {
     final file = _resolveSavedImage?.call(filename.trim());

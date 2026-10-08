@@ -25,24 +25,21 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'edit_view.dart';
-import 'expression_pack_dialog.dart';
-import 'studio_helpers.dart';
-import 'studio_mode_tabs.dart';
-import 'studio_view.dart';
+import 'studio_widgets.dart';
 
 part 'studio_prompt_craft.dart';
 part 'image_studio.subject.dart';
+part 'image_studio.workspace.dart';
 
 /// The Image Studio: one shared canvas driven by a **Subject** selector
-/// (Freeform / Character / Your persona). Backend/model/size/steps/CFG/sampler/
-/// scheduler/seed/LoRA controls live in the collapsible [StudioSettingsPanel].
-/// Picking Character/Persona auto-fills the prompt from their appearance (via
-/// the [ImagePromptBuilder]); Freeform is yours (blank + Craft distills the
-/// current chat scene). Layout lives in [StudioView]; this owns the session
-/// state + handlers.
+/// (Freeform / Character / Your persona). Backend, model, size, steps, LoRA,
+/// seed and the rest of the generation settings live on the studio desk. The
+/// prompt box starts empty; "Write it for me" crafts one with the LLM (from
+/// the character, or for Freeform the current chat scene). Layout lives in
+/// [StudioView]; this owns the session state + handlers.
 class ImageStudio extends StatefulWidget {
   final ImageGenMode mode;
   final String? customPrompt;
@@ -122,19 +119,22 @@ class _ImageStudioState extends State<ImageStudio> {
   late String _selectedStyle;
   late String _paradigm;
 
-  /// 0 = Create, 1 = Edit (the intent tabs).
+  /// 0 = Create, 1 = Edit, 2 = Expressions.
   int _studioTab = 0;
+  final _expressionsKey = GlobalKey<StudioExpressionTabState>();
+  bool _allowClose = false;
 
   // Group-chat subject: the picked cast member, or a whole-cast "group shot".
   // Both null/false → fall back to the 1:1 character passed on the widget.
   String? _pickedGroupName;
-  String? _pickedGroupDesc;
   String? _pickedGroupDbId;
   bool _groupShot = false;
   late String _editablePrompt;
-  late String _negativeForGen;
   Uint8List? _currentImageBytes;
+  Uint8List? _lastStudioImage;
   String _error = '';
+  String _seenGraph = '';
+  String _seenModel = '';
   bool _isCrafting = false;
   bool _isGenerating = false;
   bool _saving = false;
@@ -151,7 +151,7 @@ class _ImageStudioState extends State<ImageStudio> {
   final List<({String prompt, Uint8List bytes, String style})> _history = [];
 
   late final ImagePromptBuilder _builder;
-  late ImageGenContext _ctx;
+  StorageService? _storage;
 
   @override
   void initState() {
@@ -159,14 +159,36 @@ class _ImageStudioState extends State<ImageStudio> {
     final storage = Provider.of<StorageService>(context, listen: false);
     _selectedStyle = storage.imageGenSettings.imageGenStyle;
     _paradigm = storage.imageGenSettings.imageGenPromptParadigm;
-    _negativeForGen = storage.imageGenSettings.imageGenNegativePrompt;
     _activeMode = widget.mode;
     _builder = ImagePromptBuilder(llmService: widget.llmService);
-    // No boilerplate prefill for ANY subject: an empty box (with a guiding
-    // hint) until the user types or taps "Write it for me". Dumping the raw
-    // character description made both a poor prompt and poor UX.
+    // No boilerplate prefill for ANY subject: an empty box until the user
+    // types or taps "Write it for me". Dumping the raw character description
+    // made a poor prompt.
     _editablePrompt = '';
-    _ctx = _makeContextForMode(_activeMode);
+    _storage = storage..addListener(_followStyleSettings);
+  }
+
+  @override
+  void dispose() {
+    _storage?.removeListener(_followStyleSettings);
+    super.dispose();
+  }
+
+  /// The style and prompt format are chosen on the desk and stored as the
+  /// defaults. A change there re-applies to the prompt already written, as
+  /// choosing them here always did.
+  void _followStyleSettings() {
+    final settings = _storage?.imageGenSettings;
+    if (settings == null || !mounted) return;
+    if (settings.imageGenStyle == _selectedStyle &&
+        settings.imageGenPromptParadigm == _paradigm) {
+      return;
+    }
+    setState(() {
+      _selectedStyle = settings.imageGenStyle;
+      _paradigm = settings.imageGenPromptParadigm;
+      _reapplyStyle();
+    });
   }
 
   /// Re-apply the live style suffix to a non-empty prompt so Generate sends the
@@ -181,30 +203,17 @@ class _ImageStudioState extends State<ImageStudio> {
     );
   }
 
-  void _updateStyle(String newStyle) {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    storage.imageGenSettings.setImageGenStyle(
-      newStyle,
-    ); // persist global default
-    setState(() {
-      _selectedStyle = newStyle;
-      _reapplyStyle();
-    });
-  }
-
-  void _updateParadigm(String p) => setState(() {
-    _paradigm = p;
-    _reapplyStyle();
-  });
-
   void _updatePrompt(String text) => setState(() => _editablePrompt = text);
-  void _updateNegative(String text) => setState(() => _negativeForGen = text);
 
   bool get _isBusy => _isCrafting || _isGenerating || _saving;
 
   Future<void> _generate() async {
+    if (context.read<ImageGenService>().isGenerating) return;
     final prompt = _editablePrompt.trim();
-    if (prompt.isEmpty) return;
+    if (prompt.isEmpty) {
+      setState(() => _error = 'Write a prompt first.');
+      return;
+    }
 
     setState(() {
       _isGenerating = true;
@@ -216,7 +225,6 @@ class _ImageStudioState extends State<ImageStudio> {
     try {
       final bytes = await service.generateImage(
         prompt: prompt,
-        negativePrompt: _negativeForGen,
         isPortrait: _isPortraitSubject, // portraits orient vertically
         referenceImage: _referenceImageBytes, // img2img on local backends
       );
@@ -225,6 +233,7 @@ class _ImageStudioState extends State<ImageStudio> {
       setState(() {
         _isGenerating = false;
         _currentImageBytes = bytes;
+        if (bytes != null) _lastStudioImage = bytes;
         if (bytes == null) {
           _error = service.statusMessage.isNotEmpty
               ? service.statusMessage
@@ -250,7 +259,8 @@ class _ImageStudioState extends State<ImageStudio> {
 
   /// Pick a transient img2img reference (desktop file dialog; not persisted).
   Future<void> _pickReferenceImage() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImage,
       dialogTitle: 'Select a reference image',
       type: FileType.image,
@@ -329,7 +339,7 @@ class _ImageStudioState extends State<ImageStudio> {
       );
     }
     widget.onAccept?.call(path);
-    Navigator.pop(context);
+    await _closeStudio();
   }
 
   /// Save the current result to the character's Avatar Gallery as a look
@@ -371,7 +381,7 @@ class _ImageStudioState extends State<ImageStudio> {
   ) {
     setState(() {
       _editablePrompt = entry.prompt;
-      _selectedStyle = entry.style;
+      _selectedStyle = restorableStyle(entry.style, _selectedStyle);
       _currentImageBytes = entry.bytes;
       _error = '';
     });
@@ -392,78 +402,24 @@ class _ImageStudioState extends State<ImageStudio> {
     };
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final configured = Provider.of<ImageGenService>(
-      context,
-      listen: false,
-    ).isConfigured;
-    // Any generation (Create OR Edit) flips the shared service busy; fold it in
-    // so the tabs lock and Create can't double-submit while Edit is running.
-    final genBusy = context.select<ImageGenService, bool>(
-      (s) => s.isGenerating,
-    );
-
-    return StudioView(
-      activeMode: _activeMode,
-      characterName: _activeCharName,
-      groupCharacters: widget.groupCharacters,
-      groupShotActive: _groupShot,
-      onPickGroupMember: _pickGroupSubject,
-      onPickGroupShot: () => _pickGroupSubject(null),
-      selectedStyle: _selectedStyle,
-      paradigm: _paradigm,
-      prompt: _editablePrompt,
-      negative: _negativeForGen,
-      referenceBytes: _referenceImageBytes,
-      currentImageBytes: _currentImageBytes,
-      error: _error,
-      isCrafting: _isCrafting,
-      isGenerating: _isGenerating,
-      saving: _saving,
-      isBusy: _isBusy || genBusy,
-      llmAvailable: widget.llmService != null && widget.llmService!.isReady,
-      configured: configured,
-      builder: _builder,
-      ctx: _ctx,
-      history: _history,
-      onClose: () => Navigator.pop(context),
-      onSelectSubject: _selectSubject,
-      onStyleChanged: _updateStyle,
-      onParadigmChanged: _updateParadigm,
-      onPickReference: _pickReferenceImage,
-      onClearReference: () => setState(() => _referenceImageBytes = null),
-      onPromptChanged: _updatePrompt,
-      onNegativeChanged: _updateNegative,
-      onCraftLlm: _craftWithLlmIfAvailable,
-      onExpressionPack: _packTargetDbId == null ? null : _openExpressionPack,
-      onGenerate: _generate,
-      onSave: _save,
-      onAccept: _accept,
-      onVariations: _variations,
-      onEditRegen: _editAndRegen,
-      onSendToChat: _sendToChat,
-      onSaveToGallery: _canSaveToGallery ? _saveToGallery : null,
-      onRestore: _restoreFromHistory,
-      showEdit: _studioTab == 1,
-      modeTabs: StudioModeTabs(
-        selected: _studioTab,
-        onChanged: (i) => setState(() => _studioTab = i),
-        enabled: !_isBusy && !genBusy,
-      ),
-      editBody: EditView(
-        onSendToChat: widget.onSendToChat,
-        onAcceptBytes: hasAcceptAction(_activeMode)
-            ? (bytes) => _accept(bytes)
-            : null,
-        onSaveToGalleryBytes: _canSaveToGallery
-            ? (bytes) => _saveToGallery(bytes)
-            : null,
-        acceptLabel: getAcceptLabel(_activeMode),
-        // Pre-load the current portrait as the edit source (the user can still
-        // swap in an unrelated photo via "Add photo").
-        initialSourcePath: widget.characterImagePath,
-      ),
-    );
+  /// A refusal from the last generate no longer applies once the graph or a
+  /// model file has been changed on the desk.
+  void _dropStaleError() {
+    final settings = context.read<StorageService>().imageGenSettings;
+    final graph =
+        '${settings.comfyCreateWorkflowId}|${settings.comfyEditWorkflowId}';
+    final model =
+        '${settings.imageGenModel}|${settings.imageGenEditModel}|${settings.comfyCreateModelChoices}|${settings.comfyEditModelChoices}';
+    final first = _seenGraph.isEmpty && _seenModel.isEmpty;
+    if (graph == _seenGraph && model == _seenModel) return;
+    _seenGraph = graph;
+    _seenModel = model;
+    if (first || _error.isEmpty) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _error.isNotEmpty) setState(() => _error = '');
+    });
   }
+
+  @override
+  Widget build(BuildContext context) => _buildStudio(context);
 }

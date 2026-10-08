@@ -94,7 +94,8 @@ bool searchApiKeyWriteNeedsStepUp(Map<String, dynamic> body) {
 }
 
 /// True when POST /api/image/config would persist a new remote URL/key **or**
-/// a new local image-gen host (A1111 / Comfy / Draw Things). A stolen
+/// a new local image-gen host or Draw Things port (A1111 / Comfy / Draw
+/// Things). A stolen
 /// session cookie must not redirect generation at any of those.
 bool imageConfigWriteNeedsStepUp(
   Map<String, dynamic> body, {
@@ -102,6 +103,7 @@ bool imageConfigWriteNeedsStepUp(
   required String currentLocalUrl,
   required String currentComfyUrl,
   required String currentDrawThingsHost,
+  int? currentDrawThingsPort,
 }) {
   if (remoteCredentialWriteNeedsStepUp(
     body,
@@ -119,6 +121,11 @@ bool imageConfigWriteNeedsStepUp(
   }
   if (body['drawThingsHost'] is String &&
       body['drawThingsHost'].toString() != currentDrawThingsHost) {
+    return true;
+  }
+  // The port picks what a new host or the saved one is dialled on.
+  if (body['drawThingsPort'] is int &&
+      body['drawThingsPort'] != currentDrawThingsPort) {
     return true;
   }
   return false;

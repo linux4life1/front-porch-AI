@@ -213,11 +213,19 @@ extension ChatServiceSessionHydrate on ChatService {
         ),
       );
     }
+    // Minutes once written; a row from before v55 reads its turns × 15.
     _nsfwService.loadNsfwScalars(
       nsfwCooldownEnabled: s.nsfwCooldownEnabled,
       arousalLevel: s.arousalLevel,
-      cooldownTurnsRemaining: s.cooldownTurnsRemaining,
-      cooldownTurnsTotal: s.cooldownTurnsTotal,
+      refractory:
+          Refractory.read({
+            RefractoryKeys.minutes: s.refractoryMinutesRemaining,
+            RefractoryKeys.total: s.refractoryMinutesTotal,
+            RefractoryKeys.opened: s.refractoryOpened,
+            RefractoryKeys.legacyTurns: s.cooldownTurnsRemaining,
+            RefractoryKeys.legacyTotal: s.cooldownTurnsTotal,
+          }) ??
+          Refractory.none,
     );
     final nv = s.needsVector;
     final hasSavedNeeds = nv is String && nv.isNotEmpty;

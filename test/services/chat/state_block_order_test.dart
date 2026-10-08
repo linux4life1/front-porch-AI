@@ -65,73 +65,77 @@ void main() {
       ),
     );
 
-    final rel = RelationshipService(
-      onNotify: () {},
-      onSaveChat: () async {},
-      getIsGroupActive: () => false,
-      getObserverMode: () => true,
-      getGroupCharacterCount: () => 0,
-      getShouldTrackInterCharacterRelationships: () => false,
-      getCurrentSpeakerIdForRealism: () => '',
-      getCurrentGroupMemberIds: () => const {},
-      getOtherGroupMemberIds: (_) => const [],
-      getOtherGroupMemberIdToLowerName: (_) => const {},
-      getRecentExchangeLowerText: () => '',
-      getMessageCount: () => 0,
-      getIsGroupRealismActive: () => false,
-      getGroupAffectionScore: (id, {defaultValue = 0}) => defaultValue,
-      getGroupRelationshipTier: (id, {defaultValue = 0}) => defaultValue,
-      setGroupRelationshipTier: (id, v) {},
-      getGroupLongTermTier: (id, {defaultValue = 0}) => defaultValue,
-      setGroupLongTermTier: (id, v) {},
-      getGroupSpatialStance: (id, {defaultValue = ''}) => defaultValue,
-      setGroupSpatialStance: (id, v) {},
-      getGroupInterCharacterRelationships: (id) => const {},
-      setGroupInterCharacterRelationships: (id, m) {},
-      setGroupAffectionScore: (id, v) {},
-      getGroupLongTermScore: (id, {defaultValue = 0}) => defaultValue,
-      setGroupLongTermScore: (id, v) {},
-      getGroupTrustLevel: (id, {defaultValue = 0}) => defaultValue,
-      setGroupTrustLevel: (id, v) {},
-      getGroupFixation: (id, {defaultValue = ''}) => defaultValue,
-      setGroupFixation: (id, v) {},
-      getGroupFixationLifespan: (id, {defaultValue = 0}) => defaultValue,
-      setGroupFixationLifespan: (id, v) {},
-    )..loadScalars(
-      affectionScore: 60,
-      longTermScore: 60,
-      trustLevel: 60,
-      activeFixation: 'the letter she never sent',
-      fixationLifespan: 5,
-      spatialStance: 'leaning against the counter',
-    );
+    final rel =
+        RelationshipService(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getIsGroupActive: () => false,
+          getObserverMode: () => true,
+          getGroupCharacterCount: () => 0,
+          getShouldTrackInterCharacterRelationships: () => false,
+          getCurrentSpeakerIdForRealism: () => '',
+          getCurrentGroupMemberIds: () => const {},
+          getOtherGroupMemberIds: (_) => const [],
+          getOtherGroupMemberIdToLowerName: (_) => const {},
+          getRecentExchangeLowerText: () => '',
+          getMessageCount: () => 0,
+          getIsGroupRealismActive: () => false,
+          getGroupAffectionScore: (id, {defaultValue = 0}) => defaultValue,
+          getGroupRelationshipTier: (id, {defaultValue = 0}) => defaultValue,
+          setGroupRelationshipTier: (id, v) {},
+          getGroupLongTermTier: (id, {defaultValue = 0}) => defaultValue,
+          setGroupLongTermTier: (id, v) {},
+          getGroupSpatialStance: (id, {defaultValue = ''}) => defaultValue,
+          setGroupSpatialStance: (id, v) {},
+          getGroupInterCharacterRelationships: (id) => const {},
+          setGroupInterCharacterRelationships: (id, m) {},
+          setGroupAffectionScore: (id, v) {},
+          getGroupLongTermScore: (id, {defaultValue = 0}) => defaultValue,
+          setGroupLongTermScore: (id, v) {},
+          getGroupTrustLevel: (id, {defaultValue = 0}) => defaultValue,
+          setGroupTrustLevel: (id, v) {},
+          getGroupFixation: (id, {defaultValue = ''}) => defaultValue,
+          setGroupFixation: (id, v) {},
+          getGroupFixationLifespan: (id, {defaultValue = 0}) => defaultValue,
+          setGroupFixationLifespan: (id, v) {},
+        )..loadScalars(
+          affectionScore: 60,
+          longTermScore: 60,
+          trustLevel: 60,
+          activeFixation: 'the letter she never sent',
+          fixationLifespan: 5,
+          spatialStance: 'leaning against the counter',
+        );
 
-    final nsfw = NsfwService(
-      getGroupInt: (id, key, {defaultValue = 0}) => defaultValue,
-      getGroupValue: (id, key) => null,
-      setGroupValue: (id, key, v) {},
-    )..loadNsfwScalars(
-      nsfwCooldownEnabled: true,
-      arousalLevel: 0,
-      cooldownTurnsRemaining: 2,
-      cooldownTurnsTotal: 4,
-    );
+    final nsfw =
+        NsfwService(
+          getGroupInt: (id, key, {defaultValue = 0}) => defaultValue,
+          getGroupValue: (id, key) => null,
+          setGroupValue: (id, key, v) {},
+        )..loadNsfwScalars(
+          nsfwCooldownEnabled: true,
+          arousalLevel: 0,
+          // 2026-10-06: the refractory counts story minutes now; 2 of 4 turns
+          // with the opening turn spoken is 30 of 60 min, the same body line.
+          refractory: const Refractory(minutes: 30, total: 60, opened: true),
+        );
 
-    final sim = NeedsSimulation(
-      onNotify: () {},
-      onSaveChat: () async {},
-      getTimeOfDay: () => 'evening',
-      getRealismEnabled: () => true,
-      getObserverMode: () => true,
-      getCurrentSpeakerIdForRealism: () => '',
-      getIsGroupNonObserverMode: () => false,
-      getGroupNeeds: (_) => const {},
-      setGroupNeeds: (_, _) {},
-      getEnjoysLowHygiene: () => false,
-      getNeedsSimEnabled: () => true,
-    )..restoreFromSnapshot({
-      'vector': {'hunger': 5},
-    });
+    final sim =
+        NeedsSimulation(
+          onNotify: () {},
+          onSaveChat: () async {},
+          getTimeOfDay: () => 'evening',
+          getRealismEnabled: () => true,
+          getObserverMode: () => true,
+          getCurrentSpeakerIdForRealism: () => '',
+          getIsGroupNonObserverMode: () => false,
+          getGroupNeeds: (_) => const {},
+          setGroupNeeds: (_, _) {},
+          getEnjoysLowHygiene: () => false,
+          getNeedsSimEnabled: () => true,
+        )..restoreFromSnapshot({
+          'vector': {'hunger': 5},
+        });
 
     const day = DailyWeather(
       condition: WeatherCondition.rain,
@@ -293,7 +297,8 @@ void main() {
       expect(
         block,
         contains(e.value),
-        reason: '${e.key} is missing — the ordering checks below would be '
+        reason:
+            '${e.key} is missing — the ordering checks below would be '
             'meaningless without it',
       );
     }
@@ -305,7 +310,8 @@ void main() {
       expect(
         positions[i].$2,
         greaterThan(positions[i - 1].$2),
-        reason: '"${positions[i].$1}" must come after "${positions[i - 1].$1}"'
+        reason:
+            '"${positions[i].$1}" must come after "${positions[i - 1].$1}"'
             ' — see the section comments in realism_state_injection.dart for '
             'why this sequence and not another',
       );
@@ -358,7 +364,8 @@ void main() {
       expect(
         at('reach for it before looking elsewhere'),
         greaterThan(at('Body:')),
-        reason: 'it reads backwards over what she has, needs and feels, so it '
+        reason:
+            'it reads backwards over what she has, needs and feels, so it '
             'has to follow all of them',
       );
       expect(

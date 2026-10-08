@@ -107,6 +107,13 @@ class GenerationParams {
   /// prefer-text (the ping shares this door).
   final bool Function()? stillWantTools;
 
+  /// Asked when a request's turn comes at KoboldCpp and again just before it
+  /// is sent: false means the caller no longer wants the reply (Stop was
+  /// pressed while it waited), and the request is not sent. Null always
+  /// wants. Set on chat replies; the Stop button cancels the turn, not the
+  /// reader's subscription, so a reply that waits has to ask.
+  final bool Function()? stillWant;
+
   /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
@@ -114,6 +121,12 @@ class GenerationParams {
   /// When set, chat-completions `messages` is this list (after optional
   /// system). Null keeps the single user blob chat uses.
   final List<Map<String, Object>>? chatMessages;
+
+  /// The chat this reply belongs to, so KoboldCpp's cache for it can be kept
+  /// while helper prompts run in between. Set on a chat reply and nowhere
+  /// else; only [KoboldService.generateStream] reads it. A helper that
+  /// carries it by mistake only costs speed.
+  final String? kvChat;
 
   const GenerationParams({
     required this.prompt,
@@ -144,8 +157,10 @@ class GenerationParams {
     this.toolChoice,
     this.onChunk,
     this.stillWantTools,
+    this.stillWant,
     this.backendIdentity = '',
     this.chatMessages,
+    this.kvChat,
   });
 
   /// Chat-completions `messages`. Null [chatMessages] is the historical
@@ -333,6 +348,11 @@ abstract class LLMService extends ChangeNotifier {
 
   /// Abort the current in-flight generation request (closes the HTTP client).
   void abortGeneration() {}
+
+  /// The caller's turn was cancelled: replies of it that still wait for this
+  /// backend's line leave it, and whatever is on the wire is left alone.
+  /// True when one left. Only a backend with a line has any.
+  bool dropStoppedReplies() => false;
 
   /// Whether the backend is ready to accept requests.
   bool get isReady;

@@ -38,14 +38,21 @@ extension ChatServiceRegenRevert on ChatService {
     // pre-wear snapshot before replay; do not run the host speaker revert.
     if (regenGuest != null) {
       _restorePresentBodiesForReplay(lastMsg);
+      _restoreRefractoryBeforeBeat(lastMsg);
       return true;
     }
 
     // Needs answers to its own switch. Sitting this rewind inside
-    // `_realismEnabled` left a Realism-off 1:1 wearing twice on regen.
-    // Groups still impersonate + restore inside the engine gate.
-    if (_needsSimEnabled && _activeGroup == null) {
-      _restoreNeedsBaselineForReplay(lastMsg);
+    // `_realismEnabled` left a Realism-off chat wearing twice on regen.
+    // With Realism on, a group still impersonates + restores inside the
+    // engine gate below; with it off that gate never runs, so the present
+    // bodies rewind here (review finding, Needs v2).
+    if (_needsSimEnabled) {
+      if (_activeGroup == null) {
+        _restoreNeedsBaselineForReplay(lastMsg);
+      } else if (!_realismEnabled) {
+        _restorePresentBodiesForReplay(lastMsg);
+      }
     }
 
     // GROUP parity: the revert must operate on the rejected SPEAKER's
@@ -148,8 +155,7 @@ extension ChatServiceRegenRevert on ChatService {
           final preClimaxArousal =
               lastMsg.activeMetadata!['pre_climax_arousal'] as int? ?? 0;
           _nsfwService.setArousalLevel(preClimaxArousal);
-          _nsfwService.setCooldownTurnsRemaining(0);
-          _nsfwService.setCooldownTurnsTotal(0);
+          _nsfwService.setRefractory(Refractory.none);
           debugPrint(
             '[Realism:Regen] Reverted climax state: arousal restored to $preClimaxArousal, cooldown cleared',
           );
@@ -167,8 +173,10 @@ extension ChatServiceRegenRevert on ChatService {
         final preTurnNeeds =
             lastMsg.activeMetadata!['needs_pre_turn_vector'] as Map?;
         if (preTurnNeeds != null && _needsSimEnabled) {
+          final preTurnCarry = lastMsg.activeMetadata![kNeedsPreTurnCarry];
           _needsSimulation.restoreFromSnapshot({
             'vector': Map<String, int>.from(preTurnNeeds),
+            if (preTurnCarry is Map) kNeedsWearCarryKey: preTurnCarry,
           });
           restoredNeedsFromPreTurn = true;
           debugPrint(
@@ -305,6 +313,10 @@ extension ChatServiceRegenRevert on ChatService {
         _activeCharacter = preRegenActiveCharacter;
       }
     }
+    // Last, so it wins: the snapshots above are each speaker's own last turn,
+    // and every body this beat's clock reached is put back to the beat's
+    // start — the replay ticks them once.
+    _restoreRefractoryBeforeBeat(lastMsg);
     return true;
   }
 

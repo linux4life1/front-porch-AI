@@ -1,0 +1,31 @@
+{
+ "source": "bartowski/Mistral-Nemo-Instruct-2407-GGUF/Mistral-Nemo-Instruct-2407-Q4_K_M.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 7477208192,
+ "real_data_start": 7885952,
+ "fixture_file_bytes": 7469345888,
+ "truth": {
+  "arch": "llama",
+  "n_layer": 40,
+  "n_tensors": 363,
+  "bytes": {
+   "total": 7469322240,
+   "blocks": 6541312000,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 377487360,
+   "output": 550502400,
+   "other": 20480
+  },
+  "mb": {
+   "total": 7123,
+   "blocks": 6238,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 360,
+   "output": 525,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 6763,
+   "gpu_all_layers": 6763
+  }
+ }
+}

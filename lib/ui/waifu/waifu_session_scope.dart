@@ -99,6 +99,13 @@ WaifuHarness? waifuBindSessionHarness({
     manager: manager,
     backend: backend,
     backendOf: backendOf,
+    // The local model may have been unloaded for being idle.
+    keepLoaded: provider == null
+        ? null
+        : (turn) {
+            final svc = provider.activeService;
+            return svc is KoboldService ? svc.keepLoadedFor(turn) : turn();
+          },
     store: store,
     onChanged: onChanged,
     onAsk: onAsk,

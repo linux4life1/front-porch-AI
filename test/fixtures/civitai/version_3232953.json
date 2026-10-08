@@ -1,0 +1,42 @@
+{
+ "baseModel": "Krea 2",
+ "downloadUrl": "https://civitai.com/api/download/models/3232953",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/3232953?fileId=3115384",
+   "hashes": {
+    "AutoV1": "406BFFA8",
+    "AutoV2": "AB657F0E37",
+    "AutoV3": "3169A906F1CA",
+    "BLAKE3": "5348F91033FDBA50CFADC14C20733F1F01E58E5721BB393BC04350152070D770",
+    "CRC32": "5C2FB3DD",
+    "SHA256": "AB657F0E37F8CA9B22524650113B3F5FD6D366C18AAC74DA832CEED8F5091987",
+    "SHA256_12": "AB657F0E37F8"
+   },
+   "id": 3115384,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "bf16"
+   },
+   "name": "SKP-NSFW_Master_Krea2_turbo.safetensors",
+   "pickleScanMessage": null,
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2026-08-15T22:35:27.349",
+   "sizeKB": 1828355.201171875,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 3232953,
+ "model": {
+  "name": "NSFW MASTER",
+  "nsfw": false,
+  "poi": false,
+  "type": "LORA"
+ },
+ "modelId": 667086,
+ "name": "Krea2_Turbo - v1.0",
+ "nsfwLevel": 29
+}

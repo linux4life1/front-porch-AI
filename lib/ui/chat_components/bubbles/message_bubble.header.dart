@@ -20,6 +20,7 @@ part of 'message_bubble.dart';
 
 /// The message header row: Director label / sender name (with the group
 /// tap-to-queue affordance) / TTS speaker button / edit / fork / delete.
+/// User and character rows share one layout.
 /// Split out of `message_bubble.dart`'s `build()` to keep the shell under
 /// the file-size cap (`settings_page.dart` part-file precedent). Takes the
 /// locals `build()` already computed as parameters rather than
@@ -32,8 +33,14 @@ extension _BubbleHeader on _MessageBubbleState {
     StorageService? storage,
     bool isDirectorNote,
   ) {
+    // Mirrored user row: name on the right, buttons on the left.
+    final mirrored =
+        message.isUser &&
+        !isDirectorNote &&
+        (storage?.realismSettings.userMessagesOnRight ?? false);
     return Row(
       mainAxisSize: MainAxisSize.min,
+      textDirection: mirrored ? TextDirection.rtl : null,
       children: [
         if (isDirectorNote) ...[
           Icon(
@@ -68,7 +75,7 @@ extension _BubbleHeader on _MessageBubbleState {
             ),
           ),
           const Spacer(),
-        ] else if (!message.isUser) ...[
+        ] else ...[
           Builder(
             builder: (context) {
               final chatService = widget.chatService;
@@ -84,7 +91,9 @@ extension _BubbleHeader on _MessageBubbleState {
                       AppColors.textPrimary(context),
                 ),
               );
-              if (chatService != null && chatService.isGroupMode) {
+              if (chatService != null &&
+                  chatService.isGroupMode &&
+                  !message.isUser) {
                 return GestureDetector(
                   onTap: () {
                     final ch = resolveGroupSpeakerForMessage(
@@ -260,6 +269,70 @@ extension _BubbleHeader on _MessageBubbleState {
             padding: EdgeInsets.zero,
             constraints: const BoxConstraints(),
             onPressed: () => _showDeleteConfirmation(context, index),
+          ),
+      ],
+    );
+  }
+
+  /// Speaker avatar with the message's place in the whole chat under it
+  /// (1-based; receipts in Journal and Growth use the same number).
+  Widget _avatarColumn(BuildContext context, bool boundToChat) {
+    final chat = widget.chatService;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (!message.isUser)
+          CircleAvatar(
+            radius: 16,
+            child: characterImage == null
+                ? const Icon(Icons.person)
+                : ClipOval(
+                    child: Image.file(
+                      characterImage!,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => const Icon(Icons.person),
+                    ),
+                  ),
+          )
+        else if (boundToChat)
+          Consumer<UserPersonaService>(
+            builder: (context, service, _) {
+              final persona = service.personas
+                  .where((p) => p.name == message.sender)
+                  .firstOrNull;
+              if (persona?.avatarPath != null) {
+                return CircleAvatar(
+                  backgroundImage: FileImage(File(persona!.avatarPath!)),
+                  radius: 16,
+                );
+              }
+              return const CircleAvatar(
+                backgroundColor: Colors.purple,
+                radius: 16,
+                child: Icon(Icons.person, color: Colors.white),
+              );
+            },
+          )
+        else
+          CircleAvatar(
+            radius: 16,
+            backgroundColor: AppColors.porchAmberOf(context),
+            child: Icon(Icons.person, color: AppColors.onChaosAccent),
+          ),
+        if (chat != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 4),
+            child: Text(
+              '#${chat.historyBasePosition + index + 1}',
+              key: const Key('message-number'),
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+                color: AppColors.textTertiary(context),
+              ),
+            ),
           ),
       ],
     );

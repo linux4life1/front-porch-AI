@@ -97,7 +97,8 @@ extension _EditCharacterPageHost on _EditCharacterPageState {
   }
 
   Future<void> _importLorebookJson() async {
-    final result = await PickerPrefs.pickFiles(
+    final result = await GuardedPicker.pickFiles(
+      context,
       category: PickerPrefs.catImport,
       type: FileType.custom,
       allowedExtensions: ['json'],
@@ -184,7 +185,8 @@ extension _EditCharacterPageHost on _EditCharacterPageState {
     );
 
     try {
-      final path = await PickerPrefs.saveFile(
+      final path = await GuardedPicker.saveFile(
+        context,
         category: PickerPrefs.catExport,
         dialogTitle: 'Export lorebook',
         fileName: _lorebookExportFileName(name),

@@ -18,104 +18,9 @@
 
 part of 'story_reader_page.dart';
 
-/// Scene regeneration + text export for [_StoryReaderPageState]: locating the
-/// current page's (act, scene) metadata, the regenerate-this-scene confirm
-/// dialog + pipeline call, assembling the full story text, and exporting it
-/// to a file. Extracted from the inline state methods; direct state access
-/// preserves behavior. AppColors + warm-porch accents.
+/// Text export for [_StoryReaderPageState]: assembling the full story text
+/// and saving it. Rewriting a scene lives in Structure and Write, not here.
 extension _StoryReaderActions on _StoryReaderPageState {
-  /// Returns the scene metadata (actIndex, sceneIndex) for the current page, or null if not a prose page.
-  ({int actIndex, int sceneIndex})? _getCurrentSceneMeta() {
-    if (_pages == null) return null;
-    final width = MediaQuery.of(context).size.width;
-    final isTwoPageSpread = width > 800;
-
-    final pageIdx = isTwoPageSpread ? _currentPage * 2 : _currentPage;
-    if (pageIdx >= _pages!.length) return null;
-
-    final page = _pages![pageIdx];
-    if (page.actIndex == null || page.sceneIndex == null) return null;
-    return (actIndex: page.actIndex!, sceneIndex: page.sceneIndex!);
-  }
-
-  Future<void> _regenCurrentScene() async {
-    final meta = _getCurrentSceneMeta();
-    if (meta == null) return;
-
-    final repo = Provider.of<StoryRepository>(context, listen: false);
-    final pipeline = Provider.of<StoryPipelineService>(context, listen: false);
-    final project = repo.getById(widget.projectId);
-    if (project == null) return;
-
-    final scene = project.scenes[meta.actIndex]?[meta.sceneIndex];
-    if (scene == null) return;
-
-    // Confirm
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(ctx),
-        title: Text(
-          'Rewrite Scene?',
-          style: TextStyle(color: AppColors.textPrimary(ctx)),
-        ),
-        content: Text(
-          'This will regenerate all prose for "${scene.title}". The page will update automatically when done.',
-          style: TextStyle(color: AppColors.textSecondary(ctx)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: Text(
-              'Rewrite',
-              style: TextStyle(color: AppColors.porchAmberOf(ctx)),
-            ),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
-
-    rebuildState(() => _isRegenerating = true);
-
-    // Clear prose for this scene
-    final sId = '${meta.actIndex}-${meta.sceneIndex}';
-    final beats = project.beats[sId] ?? [];
-    for (int b = 0; b < beats.length; b++) {
-      project.prose.remove('$sId-$b');
-    }
-    await repo.saveProject(project);
-
-    try {
-      await pipeline.regenerateSceneProse(
-        project,
-        meta.actIndex,
-        meta.sceneIndex,
-      );
-      if (mounted) {
-        // Force page rebuild
-        _pages = null;
-        _lastConstraints = null;
-        rebuildState(() => _isRegenerating = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('✅ "${scene.title}" rewritten!'),
-            backgroundColor: AppColors.surfaceOf(context),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        rebuildState(() => _isRegenerating = false);
-        showAiErrorSnackBar(context, e);
-      }
-    }
-  }
-
   /// Assemble the full story text for export.
   String _assembleFullText(StoryProject project) {
     final buffer = StringBuffer();
@@ -173,7 +78,8 @@ extension _StoryReaderActions on _StoryReaderPageState {
         '${project.title.replaceAll(RegExp(r'[^\w\s]'), '').replaceAll(' ', '_')}.txt';
 
     try {
-      final outputPath = await PickerPrefs.saveFile(
+      final outputPath = await GuardedPicker.saveFile(
+        context,
         category: PickerPrefs.catExport,
         bytes: Uint8List.fromList(utf8.encode(text)),
         dialogTitle: 'Export Story',

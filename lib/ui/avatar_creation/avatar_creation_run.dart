@@ -72,32 +72,26 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
       _fail('The expression pack needs a portrait to build from.');
       return;
     }
-    final normalized = normalizePackBase(base);
+    String? refused;
+    final normalized = await preparePackBase(
+      base,
+      onRefused: (r) => refused = r.message,
+    );
+    if (_disposed) return;
     if (normalized == null) {
-      _fail('The portrait image could not be decoded.');
+      _fail(refused ?? 'The portrait image could not be decoded.');
       return;
     }
-    if (backend == ImageGenBackend.remote) {
-      final account = resolveImageStudioRemoteAccount(
-        imageRemoteApiUrl: storage.imageGenSettings.imageRemoteApiUrl,
-        chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
-        keyFor: storage.backendSettings.remoteApiKeyFor,
-      );
-      await sanitizeRemoteImageSlot(
-        image: storage.imageGenSettings,
-        hostUrl: account.url,
-        editScoped: true,
-      );
-      if (_disposed) return;
-      if (!packEditModeNow) {
-        _fail(kRemoteLocalCheckpointMessage);
-        return;
-      }
-    }
-    final editMode = await ImageReferenceResolver.packEditModeForGeneration(
-      storage.imageGenSettings,
-    );
+    packBaseConverted = normalized.converted;
+    // The same decision as Studio's pack dialog: a ComfyUI Edit graph that is
+    // not ready, or a remote API without an edit model, stops with the reason.
+    final plan = await planExpressionPack(storage);
     if (_disposed || _cancelRequested) return;
+    if (!plan.canStart) {
+      _fail(plan.refusal!);
+      return;
+    }
+    final editMode = plan.edit;
     _activePackEditMode = editMode;
     if (editMode) {
       // Explicit stage: the swap itself is graceful (the model rides each
@@ -109,39 +103,34 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
     final emotions = missingEmotions;
     if (emotions.isEmpty) return;
 
-    final s = ExpressionPackSession(
+    final flight = await beginExpressionPack(
+      imageGen: imageGen,
+      plan: plan,
+      promptRules: packPromptRules,
       emotions: emotions,
       basePrompt: '${promptController.text.trim()}, $kExpressionFraming',
       negativePrompt: storage.imageGenSettings.imageGenNegativePrompt,
       denoise: kCreatorPackDenoise,
-      editMode: editMode,
-      generate:
-          ({
-            required String prompt,
-            required String negativePrompt,
-            required int seed,
-            required double denoise,
-          }) async {
-            final bytes = await imageGen.generateImage(
-              prompt: prompt,
-              negativePrompt: negativePrompt,
-              size: '${normalized.width}x${normalized.height}',
-              referenceImage: normalized.bytes,
-              seed: seed,
-              denoise: denoise,
-              intent: editMode ? StudioIntent.edit : StudioIntent.create,
-              editStrength: editMode ? denoise : null,
-            );
-            if (bytes == null) {
-              final why = imageGen.statusMessage.trim();
-              if (why.isNotEmpty) throw Exception(why);
-            }
-            return bytes;
-          },
+      size: '${normalized.width}x${normalized.height}',
+      baseImage: normalized.bytes,
+      characterName: 'Character creator',
+      onCancelled: () {
+        _cancelRequested = true;
+      },
     );
+    if (_disposed) return;
+    final s = flight.session;
+    if (s == null) {
+      _fail(
+        flight.busy
+            ? kAlreadyGeneratingMessage
+            : (flight.error ?? 'The expression pack could not start.'),
+      );
+      return;
+    }
     _replaceSession(s);
     _setStage(AvatarRunStage.pack);
-    await s.run();
+    await flight.done;
     if (_disposed) return;
 
     if (qcEnabled && s.doneCount > 0 && !_cancelRequested) {
@@ -229,6 +218,7 @@ extension _AvatarCreationRunSteps on AvatarCreationController {
 
   void _replaceSession(ExpressionPackSession s) {
     session?.removeListener(_notify);
+    if (session != null) expressionPackBoard.release(session!);
     session?.dispose();
     session = s;
     s.addListener(_notify);

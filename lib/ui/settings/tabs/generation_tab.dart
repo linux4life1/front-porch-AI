@@ -218,19 +218,22 @@ class _GenerationTabState extends State<GenerationTab> {
             isInteger: true,
           ),
           // Context size — wider range for remote backends.
-          SliderSetting(
-            label: 'Context Size',
-            value: storage.backendSettings.contextSize.toDouble().clamp(
-              512,
-              isRemote ? 500000.0 : 131072.0,
+          PresetContextLock(
+            locked: storage.backendSettings.presetOwnsContext,
+            child: SliderSetting(
+              label: 'Context Size',
+              value: storage.backendSettings.contextSize.toDouble().clamp(
+                512,
+                isRemote ? 500000.0 : 131072.0,
+              ),
+              min: 512,
+              max: isRemote ? 500000.0 : 131072.0,
+              onChanged: (val) =>
+                  storage.backendSettings.setContextSize(val.toInt()),
+              divisions: isRemote ? null : ((131072 - 512) ~/ 512),
+              showInput: true,
+              isInteger: true,
             ),
-            min: 512,
-            max: isRemote ? 500000.0 : 131072.0,
-            onChanged: (val) =>
-                storage.backendSettings.setContextSize(val.toInt()),
-            divisions: isRemote ? null : ((131072 - 512) ~/ 512),
-            showInput: true,
-            isInteger: true,
           ),
           const SizedBox(height: 24),
 

@@ -32,9 +32,11 @@ class WebStoryRoutes {
     router.get('/api/stories/status', _status);
     router.get('/api/stories/voices', _voices);
     router.get('/api/stories/archetypes', _archetypes);
+    router.get('/api/stories/chat-sources', _chatSources);
     router.get('/api/stories/<id>', _get);
     router.post('/api/stories/<id>/run', _run);
     router.post('/api/stories/<id>/delete', _delete);
+    router.post('/api/stories/<id>/reading-position', _readingPosition);
     router.get('/api/stories/<id>/export', _export);
     router.get('/api/stories/<id>/chat-preview', _chatPreview);
     router.post('/api/stories/<id>', _save);
@@ -56,6 +58,9 @@ class WebStoryRoutes {
 
   shelf.Response _voices(shelf.Request r) =>
       JsonResponse.ok({'voices': _facade.voices()});
+
+  Future<shelf.Response> _chatSources(shelf.Request r) async =>
+      JsonResponse.ok({'chats': await _facade.chatSources()});
 
   shelf.Response _archetypes(shelf.Request r) {
     final n = int.tryParse(r.url.queryParameters['count'] ?? '') ?? 6;
@@ -86,6 +91,24 @@ class WebStoryRoutes {
     return JsonResponse.ok({'status': 'ok'});
   }
 
+  Future<shelf.Response> _readingPosition(shelf.Request r, String id) async {
+    final body = await _json(r);
+    final page = body['page'];
+    final mode = body['mode'];
+    final scroll = body['scroll'];
+    if (page is! int && mode is! String && scroll is! num) {
+      return JsonResponse.badRequest('page, mode or scroll is required');
+    }
+    final ok = await _facade.saveReadingPosition(
+      id,
+      page is int ? page : null,
+      mode: mode is String ? mode : null,
+      scroll: scroll is num ? scroll.toDouble() : null,
+    );
+    if (!ok) return JsonResponse.error(404, 'Story not found');
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
   Future<shelf.Response> _run(shelf.Request r, String id) async {
     final body = await _json(r);
     final stage = body['stage']?.toString();
@@ -99,6 +122,7 @@ class WebStoryRoutes {
       actIndex: asInt('actIndex'),
       sceneIndex: asInt('sceneIndex'),
       beatIndex: asInt('beatIndex'),
+      args: body,
     );
     if (!ok) {
       return JsonResponse.error(

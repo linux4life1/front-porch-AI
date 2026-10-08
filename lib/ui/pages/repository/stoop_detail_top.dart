@@ -16,7 +16,7 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Hub `.hub-detail-top`: square art beside name, creator, and the **full**
+/// Hub `.hub-detail-top`: the whole card image beside name, creator, and the **full**
 /// listing summary — not a 260px banner with the blurb painted onto the image.
 class StoopDetailTop extends StatelessWidget {
   const StoopDetailTop({
@@ -94,6 +94,9 @@ class StoopDetailTop extends StatelessWidget {
     );
   }
 
+  // Whole card image at its own height, like the hub's .hub-detail-img
+  // (width-fitted, nothing cropped). The avatar's placeholder keeps a
+  // portrait box while loading.
   Widget _art(BuildContext context) {
     return ClipRRect(
       borderRadius: BorderRadius.circular(14),
@@ -101,9 +104,11 @@ class StoopDetailTop extends StatelessWidget {
         decoration: BoxDecoration(
           border: Border.all(color: stoopBorderHi(context)),
         ),
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: StoopAvatar(assetId: detail.primaryAssetId),
+        child: StoopAvatar(
+          assetId: detail.primaryAssetId,
+          width: double.infinity,
+          fit: BoxFit.fitWidth,
+          thumb: false,
         ),
       ),
     );

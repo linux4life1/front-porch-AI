@@ -17,10 +17,16 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/xai/xai.dart';
+
+part 'backend_facade.local_model.dart';
 
 /// Web adapter for local-backend lifecycle, local-model switching, and the
 /// HuggingFace model browser/downloader. Reuses [LLMProvider]'s managed-backend
@@ -34,6 +40,14 @@ class BackendFacade {
   final ModelManager _models;
   final HardwareService? _hardware;
 
+  // The local model card: the model's header as last read, and a pending
+  // reload after the context changed.
+  ({String path, GGUFModelInfo? info, int? bytes})? _cardModel;
+  Timer? _cardReload;
+
+  /// Unofficial SuperGrok sign-in, relayed by `XaiRoutes`.
+  SuperGrokAuth get superGrok => _llm.superGrok;
+
   /// Live backend status for the web Models page (read-only).
   Map<String, dynamic> status() {
     final k = _llm.koboldService;
@@ -43,7 +57,8 @@ class BackendFacade {
       'isLocal': _llm.isLocal,
       'running': k.isRunning,
       'starting': k.isStarting,
-      'modelReady': k.modelReady,
+      // What the status line shows, from the one rule the desktop uses.
+      'phase': k.phase.name,
       'statusMessage': k.modelLoadingStatus,
       'loadedModel': _loadedModelName(),
       // The active REMOTE model id (additive; '' on local). loadedModel above
@@ -62,6 +77,10 @@ class BackendFacade {
       'engineProgress': engine.downloadProgress,
       'engineStatusMessage': engine.isDownloading ? engine.statusMessage : '',
       'engineError': engine.error ?? '',
+      // An Intel Mac cannot run KoboldCpp (additive). The phone hides its
+      // KoboldCpp cards and says kIntelMacLocalUnsupported, as the desktop
+      // hides its KoboldCpp section.
+      'localUnsupported': engine.isIntelMac,
       // Remote live ping (additive). Green "Ready" on the web strip is
       // isReachable, not "a key is saved".
       'isReady': _llm.activeService.isReady,
@@ -78,9 +97,16 @@ class BackendFacade {
   }
 
   /// Restart the managed local backend with the current model + stored flags.
-  Future<void> restart() async {
+  /// Why it was not started, in plain words, or null. Asked before anything
+  /// is stopped, as the desktop's buttons do: a model or preset that cannot
+  /// be used leaves the running engine alone.
+  Future<String?> restart() async {
+    if (_llm.hasManagedProcess) {
+      final problem = await koboldLaunchProblem(_storage);
+      if (problem != null) return problem;
+    }
     await _llm.stopAllManagedProcesses();
-    await _llm.ensureManagedBackendIsRunning();
+    return (await _llm.ensureManagedBackendIsRunning())?.refusal;
   }
 
   Future<void> stop() => _llm.stopAllManagedProcesses();
@@ -104,13 +130,25 @@ class BackendFacade {
   }
 
   /// Switch the loaded local model and restart the backend so it takes effect.
-  /// Reuses the stored launch flags (no GPU config is exposed). Returns false if
-  /// the path isn't a known local model.
-  Future<bool> switchModel(String path) async {
+  /// Like the desktop picker, the model brings its own preset or none: the
+  /// previous model's preset used to stay active, so a bigger model started
+  /// with the smaller one's context and layers. Returns false if the path
+  /// isn't a known local model. When KoboldCpp could not load it (the running
+  /// one) or was not started (a stopped one), [onRefused] is given the reason
+  /// in plain words.
+  Future<bool> switchModel(
+    String path, {
+    void Function(String words)? onRefused,
+  }) async {
     final known = _models.localModels.any((m) => m.path == path);
     if (!known) return false;
-    await _storage.backendSettings.setLastUsedModelPath(path);
-    await restart();
+    await selectKoboldModel(_storage, path);
+    // A running KoboldCpp loads the new model in place, as on the desktop;
+    // a stopped one is started.
+    final refusal = _llm.koboldService.isProcessRunning
+        ? (await _llm.reloadChatKobold())?.refusal
+        : await restart();
+    if (refusal != null) onRefused?.call(refusal);
     return true;
   }
 
@@ -352,6 +390,11 @@ class BackendFacade {
       'hasMetal': h.hasMetal,
       'isSharedMemory': h.isSharedMemory,
       'detecting': _hardware?.isDetecting ?? false,
+      // Automatic unless someone set a layer count on the computer.
+      'gpuLayersManual': _storage.backendSettings.gpuLayersManual,
+      'gpuLayers': _storage.backendSettings.gpuLayers,
+      // The count in use before the move to Automatic, until acknowledged.
+      'gpuLayersRetired': _storage.backendSettings.retiredGpuLayers,
     };
   }
 

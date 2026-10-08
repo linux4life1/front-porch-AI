@@ -68,9 +68,11 @@ extension _HomePageDialogs on _HomePageState {
     );
   }
 
-  /// Mass delete for the select-mode bar: resolve the selection ids (the
-  /// imagePath-basename scheme _toggleSelect writes) back to cards, gather any
-  /// selected groups, then run the shared severe-confirm purge on both.
+  /// Mass delete for the select-mode bar: resolve the selection ids (each
+  /// card's stableGroupId, the key LibrarySelection holds: the image's
+  /// basename, or a cleaned-up name when there is no image) back to cards,
+  /// gather any selected groups, then run the shared severe-confirm purge on
+  /// both.
   Future<void> _massDeleteSelected(Set<String> ids) async {
     final repo = Provider.of<CharacterRepository>(context, listen: false);
     final groupRepo = Provider.of<GroupChatRepository>(context, listen: false);
@@ -81,7 +83,7 @@ extension _HomePageDialogs on _HomePageState {
       return ids.contains(id);
     }).toList();
     final groups = groupRepo.groups
-        .where((g) => _selectedGroupIds.contains(g.id))
+        .where((g) => _selection.groupIds.contains(g.id))
         .toList();
     if (cards.isEmpty && groups.isEmpty) return;
 
@@ -91,13 +93,19 @@ extension _HomePageDialogs on _HomePageState {
         : cards.isEmpty
         ? 'Group${groups.length == 1 ? '' : 's'}'
         : 'Items';
+    // Picks a later search or folder change hid are still in the selection
+    // (#347), so the warning says how many of them are out of sight.
+    final hidden = _selectionTally().hidden;
+    final hiddenNote = hidden > 0
+        ? ' ($hidden of them hidden by your search or folder)'
+        : '';
     await _runMassDelete(
       cards,
       groups: groups,
       title: 'Delete $total $what?',
       message:
           'This will PERMANENTLY delete the $total selected '
-          'item${total == 1 ? '' : 's'} — character cards, image files, '
+          'item${total == 1 ? '' : 's'}$hiddenNote — character cards, image files, '
           'chat histories, any linked worlds, and group chats (a deleted '
           'group does NOT delete its member characters, but its chats are '
           'gone). There is no undo and no recycle bin.',

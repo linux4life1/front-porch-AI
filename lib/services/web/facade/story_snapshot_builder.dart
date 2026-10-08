@@ -46,7 +46,9 @@ class StorySnapshotBuilder {
   }) {
     final snapshots = <Map<String, String>>[];
 
-    if (project.useChatHistory && project.chatHistoryCharacterIds.isNotEmpty) {
+    // Cast picked from the library gets its card whether or not a chat is
+    // canon — the desktop draft does the same.
+    if (project.chatHistoryCharacterIds.isNotEmpty) {
       final selected = project.chatHistoryCharacterIds.toSet();
       final priorRoles = _rolesFromPrevious(previous);
       var assignedProtagonist =

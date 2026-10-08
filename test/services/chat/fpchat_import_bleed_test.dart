@@ -16,6 +16,7 @@ import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/fpchat_codec.dart';
 import 'package:front_porch_ai/services/chat/fpchat_format.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -113,14 +114,15 @@ void main() {
   test('transcript import zeros arousal + cooldown (Phase 0 NSFW)', () async {
     await chat.startFreshChatWith(character: mistyCard(), personaId: personaId);
 
+    // 2026-10-06: the refractory counts story minutes (3 of 5 turns is 45 of
+    // 75 min); the reset contract under test is unchanged.
     chat.nsfwService.loadNsfwScalars(
       nsfwCooldownEnabled: true,
       arousalLevel: 80,
-      cooldownTurnsRemaining: 3,
-      cooldownTurnsTotal: 5,
+      refractory: const Refractory(minutes: 45, total: 75, opened: true),
     );
     expect(chat.nsfwService.arousalLevel, 80);
-    expect(chat.nsfwService.cooldownTurnsRemaining, 3);
+    expect(chat.nsfwService.refractoryMinutesRemaining, 45);
 
     await chat.importChatPackage(stTranscriptBytes());
 
@@ -130,12 +132,12 @@ void main() {
       reason: 'arousal must not bleed from prior chat into imported session',
     );
     expect(
-      chat.nsfwService.cooldownTurnsRemaining,
+      chat.nsfwService.refractoryMinutesRemaining,
       0,
       reason: 'cooldown remaining must zero (resetRuntimeArousalAndCooldown)',
     );
     expect(
-      chat.nsfwService.cooldownTurnsTotal,
+      chat.nsfwService.refractoryMinutesTotal,
       0,
       reason: 'cooldown total must zero (resetRuntimeArousalAndData)',
     );

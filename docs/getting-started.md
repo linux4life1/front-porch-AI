@@ -47,7 +47,7 @@ Front Porch AI runs on a wide range of hardware. A gaming PC is great; a modest 
 
 | | Minimum | Recommended |
 |---|---|---|
-| **Operating system** | Windows 10, macOS 12 Monterey, or a recent Linux distro | The latest stable release of your OS |
+| **Operating system** | Windows 10, macOS 13.3 Ventura, or a recent Linux distro | The latest stable release of your OS |
 | **Memory (RAM)** | 8 GB | 16 GB or more |
 | **Graphics card** | Optional — the app can run on your CPU alone | A GPU with 8 GB+ of VRAM (its own memory), or an Apple Silicon Mac |
 | **Disk space** | 10 GB free | 50 GB+ if you want room for several AI models and voices |

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 class ExportPersonaDialog extends StatefulWidget {
@@ -36,7 +37,8 @@ class _ExportPersonaDialogState extends State<ExportPersonaDialog> {
         ? widget.personas.map((p) => p.id).toList()
         : [_selectedPersonaId!];
 
-    String? outputFile = await PickerPrefs.saveFromBuilder(
+    String? outputFile = await GuardedPicker.saveFromBuilder(
+      context,
       category: PickerPrefs.catExport,
       dialogTitle: 'Export Personas',
       fileName: defaultName,
@@ -46,7 +48,6 @@ class _ExportPersonaDialogState extends State<ExportPersonaDialog> {
     );
 
     if (outputFile != null) {
-
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(

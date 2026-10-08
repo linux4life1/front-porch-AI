@@ -35,9 +35,81 @@ class WebChargenRoutes {
     router.post('/api/chargen/enhance-chats', _enhanceChats);
     router.post('/api/chargen/lore/urls', _loreUrls);
     router.post('/api/chargen/lore/file', _loreFile);
+    // The creator's Greetings step (#370). Rewrite/add start a run and
+    // answer at once; the text arrives over the hub (chargen_greeting_*).
+    router.post('/api/chargen/greeting', _greeting);
+    router.post('/api/chargen/greeting/add', _greetingAdd);
+    router.post('/api/chargen/greeting/delete', _greetingDelete);
+    router.post('/api/chargen/greeting/stop', _greetingStop);
+    router.get('/api/chargen/greeting/status', _greetingStatus);
   }
 
   final ChargenFacade _facade;
+
+  Future<Map<String, dynamic>> _json(shelf.Request r) async {
+    try {
+      return await RequestBody.readJsonMap(r);
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  /// A facade answer as a response: its `status` and `error` when refused.
+  shelf.Response _answer(Map<String, dynamic> result, Object Function() ok) {
+    if (result['ok'] == true) return JsonResponse.ok(ok());
+    return JsonResponse.error(
+      (result['status'] as int?) ?? 400,
+      result['error']?.toString() ?? 'Bad request',
+    );
+  }
+
+  /// Body: `{characterId, index, direction?}`; index 0 is the first message.
+  Future<shelf.Response> _greeting(shelf.Request r) async {
+    final result = _facade.startGreeting(await _json(r));
+    return _answer(
+      result,
+      () => {'status': 'started', 'index': result['index']},
+    );
+  }
+
+  /// Body: `{characterId}`. Writes a new alternate, up to the cap.
+  Future<shelf.Response> _greetingAdd(shelf.Request r) async {
+    final result = _facade.startGreeting(await _json(r), add: true);
+    return _answer(
+      result,
+      () => {'status': 'started', 'index': result['index']},
+    );
+  }
+
+  /// Body: `{characterId, index}` (index 1 and up). Returns the greetings.
+  Future<shelf.Response> _greetingDelete(shelf.Request r) async {
+    final body = await _json(r);
+    final raw = body['index'];
+    final result = await _facade.deleteGreeting(
+      body['characterId']?.toString().trim() ?? '',
+      raw is num ? raw.toInt() : int.tryParse('$raw') ?? -1,
+    );
+    return _answer(
+      result,
+      () => {
+        'firstMessage': result['firstMessage'],
+        'alternateGreetings': result['alternateGreetings'],
+      },
+    );
+  }
+
+  /// `?characterId=`: `{writing}` is the greeting being written, or null.
+  shelf.Response _greetingStatus(shelf.Request r) => JsonResponse.ok({
+    'writing': _facade.writingGreeting(
+      r.url.queryParameters['characterId']?.trim() ?? '',
+    ),
+  });
+
+  /// Body: `{characterId}`. `{stopped}` is false when nothing was running.
+  Future<shelf.Response> _greetingStop(shelf.Request r) async {
+    final id = (await _json(r))['characterId']?.toString().trim() ?? '';
+    return JsonResponse.ok({'stopped': _facade.stopGreeting(id)});
+  }
 
   shelf.Response _status(shelf.Request r) =>
       JsonResponse.ok({'available': _facade.available});
@@ -51,7 +123,10 @@ class WebChargenRoutes {
     }
     final result = _facade.startCreate(body);
     if (result['ok'] != true) {
-      return JsonResponse.error(400, result['error']?.toString() ?? 'Bad request');
+      return JsonResponse.error(
+        400,
+        result['error']?.toString() ?? 'Bad request',
+      );
     }
     return JsonResponse.ok({'status': 'started'});
   }
@@ -123,8 +198,16 @@ class WebChargenRoutes {
     }
     final raw = body['urls'];
     final urls = raw is List
-        ? raw.map((e) => e.toString().trim()).where((s) => s.isNotEmpty).toList()
-        : raw.toString().split(',').map((e) => e.trim()).where((s) => s.isNotEmpty).toList();
+        ? raw
+              .map((e) => e.toString().trim())
+              .where((s) => s.isNotEmpty)
+              .toList()
+        : raw
+              .toString()
+              .split(',')
+              .map((e) => e.trim())
+              .where((s) => s.isNotEmpty)
+              .toList();
     if (urls.isEmpty) return JsonResponse.badRequest('No URLs provided');
     return JsonResponse.ok(await _facade.extractLoreFromUrls(urls));
   }
@@ -134,7 +217,10 @@ class WebChargenRoutes {
     final filename = r.url.queryParameters['filename'] ?? 'lore.txt';
     final List<int> bytes;
     try {
-      bytes = await RequestBody.readBytes(r, maxBytes: RequestBody.uploadMaxBytes);
+      bytes = await RequestBody.readBytes(
+        r,
+        maxBytes: RequestBody.uploadMaxBytes,
+      );
     } catch (_) {
       return JsonResponse.error(413, 'File too large');
     }

@@ -18,6 +18,11 @@
 
 import 'dart:io';
 
+// A leaf, not kobold.dart: the barrel loops back through storage_service.dart.
+import 'package:front_porch_ai/services/kobold/kcpps_codec.dart';
+
+import 'chat_context_fields.dart';
+import 'kobold_launch_fields.dart';
 import 'settings_base.dart';
 import 'preset_settings.dart'; // for parseKcppsFile (static)
 import 'remote_api_key_vault.dart';
@@ -28,7 +33,12 @@ import 'worker_backend_settings.dart';
 ///
 /// Lifted Stage 7. kcppsHasModel + context override from active preset logic
 /// preserved exactly.
-class BackendSettings with SettingsBase, WorkerBackendFields {
+class BackendSettings
+    with
+        SettingsBase,
+        WorkerBackendFields,
+        KoboldLaunchFields,
+        ChatContextFields {
   String _backendType = 'kobold'; // 'kobold' or 'openRouter'
   bool _backendChoiceDone = false; // first-launch engine choice answered
   String _remoteApiKey = '';
@@ -55,28 +65,27 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   bool? _useMetal;
   bool? _useRocm;
   bool _flashAttentionEnabled = true;
-  bool _mlockEnabled =
-      !( /* platform default computed at load if needed, but we persist */ false);
+  bool _mlockEnabled = false; // was on everywhere; pins the model in RAM
   int _blasBatchSize = 512;
   int _gpuId = 0;
   int _gpuLayers = 0;
-  // 16384 (was 8192): modern models all serve 16k+, and the 2048-token
-  // generation reserve (generation_settings.dart) plus lorebooks/journal
-  // left an 8k window tight on chat history. Users with a saved value
-  // keep theirs; this only seeds fresh installs.
-  int _contextSize = 16384;
-  int _kvQuantizationLevel = 0;
 
+  @override
   String get backendType => _backendType;
 
   /// Key for the *active* URL's vault slot. Image Studio, chat, and Check
   /// Connection must all read this — never a leftover parked on another host.
-  String get remoteApiKey => _remoteApiKeys.keyFor(_remoteApiUrl);
+  String get remoteApiKey => remoteApiKeyFor(_remoteApiUrl);
   String get remoteApiUrl => _remoteApiUrl;
   String get remoteModelName => _remoteModelName;
 
-  /// Key stored for [url], independent of the currently selected host.
-  String remoteApiKeyFor(String url) => _remoteApiKeys.keyFor(url);
+  /// Signed-in bearer for [url] (SuperGrok on api.x.ai). Wins over the
+  /// saved key and is never written into the vault.
+  String? Function(String url)? bearerOverlay;
+
+  /// Key for [url], independent of the currently selected host.
+  String remoteApiKeyFor(String url) =>
+      bearerOverlay?.call(url) ?? _remoteApiKeys.keyFor(url);
 
   /// Normalized URLs that have a non-empty saved key (web placeholder).
   List<String> get remoteApiUrlsWithKeys => _remoteApiKeys.urlsWithKeys;
@@ -89,36 +98,42 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   bool get autostartBackend => _autostartBackend;
   bool get autostartOnChatOpen => _autostartOnChatOpen;
   String? get lastUsedModelPath => _lastUsedModelPath;
+  @override
   String? get activeKcppsPath => _activeKcppsPath;
   bool get kcppsHasModel => _kcppsHasModel;
 
-  /// Model path referenced by parsed .kcpps JSON — `model_param` preferred,
-  /// `model` fallback. Null when neither is a non-empty string. Single source
-  /// for the extraction that load(), setActiveKcppsPath(), and the getters
-  /// below all previously duplicated inline.
-  static String? _kcppsModelPathOf(Map<String, dynamic>? parsed) {
-    if (parsed == null) return null;
-    final param = parsed['model_param'];
-    if (param is String && param.trim().isNotEmpty) return param.trim();
-    final model = parsed['model'];
-    if (model is String && model.trim().isNotEmpty) return model.trim();
-    return null;
+  /// Model path referenced by parsed .kcpps JSON, or null when it names
+  /// none. The rule is [kcppsModelOf], the one a launch uses, so what
+  /// Settings shows is what loads.
+  static String? _kcppsModelPathOf(
+    Map<String, dynamic>? parsed, [
+    String? dir,
+  ]) {
+    final model = parsed == null ? '' : kcppsModelOf(parsed, engineDir: dir);
+    return model.isEmpty ? null : model;
   }
+
+  /// The folder KoboldCpp runs in: a preset's relative model path is
+  /// relative to it. Set by the storage service.
+  String Function()? engineFolder;
 
   /// Model path referenced by the ACTIVE .kcpps preset, or null when no
   /// preset is active / the preset carries no model key. Lets callers (e.g.
   /// the vision-capability resolver) interrogate the GGUF a preset owns even
   /// though lastUsedModelPath stays empty in preset mode.
-  String? get kcppsModelPath =>
-      _kcppsModelPathOf(PresetSettings.parseKcppsFile(_activeKcppsPath));
+  String? get kcppsModelPath => _kcppsModelPathOf(
+    PresetSettings.parseKcppsFile(_activeKcppsPath),
+    engineFolder?.call(),
+  );
 
   /// Vision projector (mmproj) path referenced by the ACTIVE .kcpps preset,
   /// or null. KoboldCpp loads this itself from --config, so the app never
   /// passes it on the command line — but capability detection must honor it.
   String? get kcppsMmprojPath {
-    final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
-    final v = parsed?['mmproj'];
-    return v is String && v.trim().isNotEmpty ? v.trim() : null;
+    final v = PresetSettings.parseKcppsFile(_activeKcppsPath)?['mmproj'];
+    return v is String && v.trim().isNotEmpty
+        ? kcppsPathIn(v.trim(), engineFolder?.call())
+        : null;
   }
 
   /// Returns whether the model file referenced in the active .kcpps preset exists on disk.
@@ -137,18 +152,6 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   int get blasBatchSize => _blasBatchSize;
   int get gpuId => _gpuId;
   int get gpuLayers => _gpuLayers;
-
-  /// True once the gpu_layers pref has ever been written — i.e. the user (or
-  /// an explicit auto-configure) has made a GPU-offload choice. A VALUE of 0
-  /// is not that signal: 0 is a deliberate CPU-only choice, and the low-VRAM
-  /// layer solver legitimately recommends 0. The Settings page's silent
-  /// first-run auto-config gates on this instead of `gpuLayers == 0`, which
-  /// re-ran it on every visit for CPU users and clobbered their saved
-  /// context size.
-  bool get gpuLayersConfigured => prefs?.containsKey(k('gpu_layers')) ?? false;
-
-  int get contextSize => _contextSize;
-  int get kvQuantizationLevel => _kvQuantizationLevel;
 
   void load() {
     _backendType = prefs?.getString(k('backend_type')) ?? 'kobold';
@@ -216,9 +219,6 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
     // Restore the kcppsHasModel flag and context size from the persisted preset path
     final parsed = PresetSettings.parseKcppsFile(_activeKcppsPath);
     _kcppsHasModel = _kcppsModelPathOf(parsed) != null;
-    if (parsed != null && parsed['contextsize'] is int) {
-      _contextSize = parsed['contextsize'] as int;
-    }
 
     _backendChoiceDone = prefs?.getBool(k('backend_choice_done')) ?? false;
 
@@ -234,15 +234,15 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
     _blasBatchSize = prefs?.getInt(k('blas_batch_size')) ?? _blasBatchSize;
     _gpuId = prefs?.getInt(k('gpu_id')) ?? _gpuId;
     _gpuLayers = prefs?.getInt(k('gpu_layers')) ?? _gpuLayers;
-    _contextSize = prefs?.getInt(k('context_size')) ?? _contextSize;
-    _kvQuantizationLevel =
-        prefs?.getInt(k('kv_quantization_level')) ?? _kvQuantizationLevel;
+    loadChatContext(_contextOf(parsed));
     loadWorkerBackend();
+    loadKoboldLaunch();
   }
 
   /// Write a key into [url]'s vault slot without changing the live mouth
   /// host. Worker settings reuse the same per-host keys.
   Future<void> setRemoteApiKeyFor(String url, String value) async {
+    if (value == bearerOverlay?.call(url)) return;
     _remoteApiKeys.put(url, value);
     if (normalizeRemoteApiUrl(url) == normalizeRemoteApiUrl(_remoteApiUrl)) {
       _remoteApiKey = value;
@@ -308,6 +308,7 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   }
 
   Future<void> setRemoteApiKey(String value) async {
+    if (value == bearerOverlay?.call(_remoteApiUrl)) return;
     _remoteApiKey = value;
     _remoteApiKeys.put(_remoteApiUrl, value);
     await prefs?.setString(k('remote_api_key'), value);
@@ -387,15 +388,19 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
     notify();
   }
 
+  /// The one way chat's preset changes, on the desktop and on the phone; the
+  /// context follows it ([followPresetContext]).
   Future<void> setActiveKcppsPath(String? value) async {
+    final hadPreset = _activeKcppsPath?.trim().isNotEmpty ?? false;
     _activeKcppsPath = value;
-    // Parse synchronously so _kcppsHasModel and _contextSize are accurate in the same notifyListeners call.
+    // Parse synchronously so _kcppsHasModel and the context are accurate in the same notifyListeners call.
     final parsed = PresetSettings.parseKcppsFile(value);
     _kcppsHasModel = _kcppsModelPathOf(parsed) != null;
-    if (parsed != null && parsed['contextsize'] is int) {
-      _contextSize = parsed['contextsize'] as int;
-      await prefs?.setInt(k('context_size'), _contextSize);
-    }
+    await followPresetContext(
+      hadPreset: hadPreset,
+      hasPreset: value?.trim().isNotEmpty ?? false,
+      presetContext: _contextOf(parsed),
+    );
     if (value != null) {
       await prefs?.setString(k('active_kcpps_path'), value);
     } else {
@@ -447,6 +452,8 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
   Future<void> setFlashAttentionEnabled(bool value) async {
     _flashAttentionEnabled = value;
     await prefs?.setBool(k('flash_attention_enabled'), value);
+    // Switching it back on is asking ROCm to try it again.
+    if (value) await retryRocmFlashAttention();
     notify();
   }
 
@@ -474,15 +481,9 @@ class BackendSettings with SettingsBase, WorkerBackendFields {
     notify();
   }
 
-  Future<void> setContextSize(int value) async {
-    _contextSize = value;
-    await prefs?.setInt(k('context_size'), value);
-    notify();
-  }
-
-  Future<void> setKvQuantizationLevel(int value) async {
-    _kvQuantizationLevel = value;
-    await prefs?.setInt(k('kv_quantization_level'), value);
-    notify();
+  /// The context a parsed preset sets, or null when it sets none.
+  static int? _contextOf(Map<String, dynamic>? preset) {
+    final context = preset?['contextsize'];
+    return context is int ? context : null;
   }
 }

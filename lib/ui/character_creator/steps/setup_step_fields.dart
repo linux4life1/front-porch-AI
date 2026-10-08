@@ -42,6 +42,21 @@ extension SetupStepFields on SetupStep {
       listen: false,
     );
 
+    // Kept the way Settings keeps it, for the model a launch will load, and
+    // shown from what is kept. A preset that names a model on this computer
+    // owns the choice of model.
+    Future<void> choosePreset(String? path) async {
+      await chooseKoboldPreset(storage, path);
+      // The preset's context, or the user's own back: the box shows it.
+      state.contextSizeController.text = storage.backendSettings.contextSize
+          .toString();
+      if (storage.backendSettings.kcppsHasModel &&
+          storage.backendSettings.kcppsModelFileExists) {
+        state.selectedLocalModelPath = '';
+      }
+      state.notify();
+    }
+
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -51,24 +66,9 @@ extension SetupStepFields on SetupStep {
             storage: storage,
             localPresets: state.localPresets,
             hint: 'Optional \u2014 select a .kcpps preset',
-            onChanged: (val) {
-              storage.backendSettings.setActiveKcppsPath(val);
-              if (val != null &&
-                  storage.backendSettings.kcppsHasModel &&
-                  storage.backendSettings.kcppsModelFileExists) {
-                state.selectedLocalModelPath = '';
-                state.notify();
-              }
-            },
-            onExternalClear: () =>
-                storage.backendSettings.setActiveKcppsPath(null),
-            onBrowsePicked: (_) {
-              if (storage.backendSettings.kcppsHasModel &&
-                  storage.backendSettings.kcppsModelFileExists) {
-                state.selectedLocalModelPath = '';
-                state.notify();
-              }
-            },
+            onChanged: choosePreset,
+            onExternalClear: () => choosePreset(null),
+            onBrowsePicked: choosePreset,
             onModelStatusChanged: (_) => state.notify(),
           ),
           const SizedBox(height: 16),
@@ -109,33 +109,42 @@ extension SetupStepFields on SetupStep {
                   ),
           ),
           const SizedBox(height: 16),
+          GpuLayersField(
+            dense: true,
+            manual: storage.backendSettings.gpuLayersManual,
+            retiredLayers: storage.backendSettings.retiredGpuLayers,
+            onDismissRetired: () {
+              storage.backendSettings.dismissGpuLayersNote();
+              state.notify();
+            },
+            controller: state.gpuLayersController,
+            onManualChanged: (v) {
+              storage.backendSettings.setGpuLayersManual(v);
+              state.notify();
+            },
+            onLayersChanged: (v) {
+              final val = int.tryParse(v);
+              if (val != null) storage.backendSettings.setGpuLayers(val);
+            },
+          ),
+          const SizedBox(height: 12),
           Row(
             children: [
               Expanded(
-                child: _buildSettingsTextField(
-                  context,
-                  label: 'GPU Layers',
-                  controller: state.gpuLayersController,
-                  isNumber: true,
-                  onChanged: (v) {
-                    final val = int.tryParse(v);
-                    if (val != null) storage.backendSettings.setGpuLayers(val);
-                  },
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildSettingsTextField(
-                  context,
-                  label: 'Context Size',
-                  controller: state.contextSizeController,
-                  isNumber: true,
-                  onChanged: (v) {
-                    final val = int.tryParse(v);
-                    if (val != null) {
-                      storage.backendSettings.setContextSize(val);
-                    }
-                  },
+                child: PresetContextLock(
+                  locked: storage.backendSettings.presetOwnsContext,
+                  child: _buildSettingsTextField(
+                    context,
+                    label: 'Context Size',
+                    controller: state.contextSizeController,
+                    isNumber: true,
+                    onChanged: (v) {
+                      final val = int.tryParse(v);
+                      if (val != null) {
+                        storage.backendSettings.setContextSize(val);
+                      }
+                    },
+                  ),
                 ),
               ),
             ],
@@ -152,43 +161,12 @@ extension SetupStepFields on SetupStep {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<int>(
-                    value: storage.backendSettings.kvQuantizationLevel,
-                    isExpanded: true,
-                    dropdownColor: AppColors.surfaceContainerOf(context),
-                    style: TextStyle(
-                      color: AppColors.textPrimary(context),
-                      fontSize: 13,
-                    ),
-                    onChanged: (val) {
-                      if (val != null) {
-                        storage.backendSettings.setKvQuantizationLevel(val);
-                        state.notify();
-                      }
-                    },
-                    items: const [
-                      DropdownMenuItem(
-                        value: 0,
-                        child: Text('0 - None (FP16)'),
-                      ),
-                      DropdownMenuItem(value: 1, child: Text('1 - 8-Bit Q8')),
-                      DropdownMenuItem(value: 2, child: Text('2 - 4-Bit Q4')),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              TextButton.icon(
-                onPressed: () => _applyAutoConfigure(context, state, storage),
-                icon: const Icon(Icons.auto_fix_high, color: Colors.amber),
-                label: const Text(
-                  'Auto-Configure',
-                  style: TextStyle(color: Colors.amber),
+                child: KvQuantPicker(
+                  value: storage.backendSettings.kvQuant,
+                  onChanged: (val) {
+                    storage.backendSettings.setKvQuant(val);
+                    state.notify();
+                  },
                 ),
               ),
             ],

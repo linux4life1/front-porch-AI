@@ -97,6 +97,7 @@ extension ChatServiceRealismDance on ChatService {
     // to run it BEFORE the scalar load below (the map write flows into the
     // load). 1:1 keeps its original sendMessage tick.
     if (_activeGroup != null && !_observerMode) {
+      _stampGroupUserTurnBaseline(charId);
       _applyMoodDecay();
     }
 
@@ -111,6 +112,9 @@ extension ChatServiceRealismDance on ChatService {
             );
       _pendingRealismMetadata ??= {};
       _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurn;
+      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
+        _memberForWrite(charId).needsWearCarry,
+      );
       _loadGroupRealismIntoScalars(charId);
     } else if (_activeGroup != null) {
       // Group speaker (observer mode or needs-off): load this speaker's persisted
@@ -118,15 +122,14 @@ extension ChatServiceRealismDance on ChatService {
       _loadGroupRealismIntoScalars(charId);
     }
 
-    // Per-speaker refractory tick (group only — the 1:1 host ticks in
-    // sendMessage, which is now gated to 1:1). Must run AFTER this speaker's
-    // scalars are loaded; the old pre-pick site in sendMessage ticked the
-    // previous speaker's loaded scalars and the tick was lost on load, so
-    // group cooldowns never counted down. Saved back to the per-char map
-    // immediately (like the needs decay write above) so a cancelled eval
-    // can't lose the tick.
+    // Clock off: the reply's refractory quarter hour, group only (the 1:1
+    // host ticks in sendMessage). Every member ticks, the speaker on the
+    // scalars just loaded and the rest on their own entries; the old pre-pick
+    // site in sendMessage hit the previous speaker's scalars and lost the
+    // tick on load. Saved back to the per-char map immediately (like the
+    // needs decay write above) so a cancelled eval can't lose the tick.
     if (_activeGroup != null && !_observerMode) {
-      _nsfwService.decrementCooldownIfActive();
+      _tickRefractoryPerReply(loadedId: charId);
       _nsfwService.saveNsfwScalarsToGroup(charId);
     }
     // 1:1 host: the scalar fields ALREADY hold this character's loaded + post-decay

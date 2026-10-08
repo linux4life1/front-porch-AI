@@ -32,6 +32,12 @@ class AutomatedConfigStep extends StatelessWidget {
     state.notify();
   }
 
+  /// Typing: redraw at once as before; only the save waits for a pause.
+  void _saveSoon() {
+    state.scheduleSave();
+    state.notify();
+  }
+
   @override
   Widget build(BuildContext context) {
     final amber = AppColors.resolve(
@@ -111,13 +117,13 @@ class AutomatedConfigStep extends StatelessWidget {
                       );
                     },
                     tooltip: 'Generate a random character name',
-                    onChanged: (_) => _save(),
+                    onChanged: (_) => _saveSoon(),
                   ),
                   const SizedBox(height: 16),
                   AgeGenderRow(
                     ageController: state.ageController,
                     genderController: state.sexController,
-                    onChanged: _save,
+                    onChanged: _saveSoon,
                   ),
                   const SizedBox(height: 16),
                   const CreatorInputLabel('Personality Keywords'),

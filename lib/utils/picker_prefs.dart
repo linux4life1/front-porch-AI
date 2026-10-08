@@ -344,10 +344,20 @@ class PickerPrefs {
     return FilePickerResult([file]);
   }
 
+  static final RegExp _unsafeNameChars = RegExp(r'[<>:"/\\|?*\x00-\x1F]');
+
+  /// [name] with each character Windows refuses in a file name replaced by
+  /// `_`. windows_file_picker checks the suggested name inside its dialog
+  /// isolate; a refused character throws there, nothing is sent back, and
+  /// the save window never opens (a card named "Dr. Who: Reborn").
+  static String _safeFileName(String name) =>
+      name.replaceAll(_unsafeNameChars, '_');
+
   /// Save [bytes] through the native dialog. file_picker writes those
   /// bytes itself (Windows/Linux/macOS `writeAsBytes` after the dialog).
   /// [bytes] is required and must be non-empty — a dummy `Uint8List(0)`
-  /// truncates/wipes the chosen file.
+  /// truncates/wipes the chosen file. The suggested [fileName] is made
+  /// safe for Windows first.
   static Future<String?> saveFile({
     required String category,
     required Uint8List bytes,
@@ -364,13 +374,14 @@ class PickerPrefs {
         'file_picker writes these bytes; empty would wipe the chosen file',
       );
     }
+    final suggested = fileName == null ? null : _safeFileName(fileName);
     final override = testSaveFileOverride;
     if (override != null) {
       return override(
         category: category,
         bytes: bytes,
         dialogTitle: dialogTitle,
-        fileName: fileName,
+        fileName: suggested,
         type: type,
         allowedExtensions: allowedExtensions,
       );
@@ -383,7 +394,7 @@ class PickerPrefs {
         initialDirectory: initialDirectory,
         real: () => FilePicker.saveFile(
           dialogTitle: dialogTitle,
-          fileName: fileName ?? 'untitled',
+          fileName: suggested ?? 'untitled',
           bytes: bytes,
           initialDirectory: initialDirectory,
           type: type,
@@ -403,6 +414,8 @@ class PickerPrefs {
 
   /// Path-then-write exporters: write to a temp file, then pass the real
   /// bytes to [saveFile] so the plugin writes the chosen path. Never a dummy.
+  /// The name is made safe before it becomes a path, so a slash in a
+  /// character's name is kept as `_` instead of cutting the name short.
   static Future<String?> saveFromBuilder({
     required String category,
     required Future<void> Function(String tempPath) writeTemp,
@@ -412,8 +425,9 @@ class PickerPrefs {
     List<String>? allowedExtensions,
     bool lockParentWindow = false,
   }) async {
+    final safeName = _safeFileName(fileName);
     final dir = await Directory.systemTemp.createTemp('fpai_export_');
-    final tempPath = p.join(dir.path, p.basename(fileName));
+    final tempPath = p.join(dir.path, safeName);
     try {
       await writeTemp(tempPath);
       final bytes = await File(tempPath).readAsBytes();
@@ -421,7 +435,7 @@ class PickerPrefs {
         category: category,
         bytes: bytes,
         dialogTitle: dialogTitle,
-        fileName: fileName,
+        fileName: safeName,
         type: type,
         allowedExtensions: allowedExtensions,
         lockParentWindow: lockParentWindow,

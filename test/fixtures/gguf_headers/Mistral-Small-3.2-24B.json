@@ -1,0 +1,31 @@
+{
+ "source": "bartowski/mistralai_Mistral-Small-3.2-24B-Instruct-2506-GGUF/mistralai_Mistral-Small-3.2-24B-Instruct-2506-Q4_K_M.gguf (first 32 MB, 2026-10-04)",
+ "real_file_bytes": 14333915264,
+ "real_data_start": 7889024,
+ "fixture_file_bytes": 14326050208,
+ "truth": {
+  "arch": "llama",
+  "n_layer": 40,
+  "n_tensors": 363,
+  "bytes": {
+   "total": 14326026240,
+   "blocks": 13398016000,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 377487360,
+   "output": 550502400,
+   "other": 20480
+  },
+  "mb": {
+   "total": 13662,
+   "blocks": 12777,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 360,
+   "output": 525,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 13302,
+   "gpu_all_layers": 13302
+  }
+ }
+}

@@ -117,6 +117,7 @@ class IdentityChipLists extends StatelessWidget {
     this.onCarryingChanged,
     this.pocketsEnabled,
     this.onPocketsEnabledChanged,
+    this.wardrobeNotice,
   });
 
   final List<String>? ambitions;
@@ -169,6 +170,10 @@ class IdentityChipLists extends StatelessWidget {
   /// as an orphan under Details / Optional Features.
   final bool? pocketsEnabled;
   final ValueChanged<bool>? onPocketsEnabledChanged;
+
+  /// Shown right above the Wearing / Carrying panel (the AI creator's
+  /// "the first message changed" hint). Only with that panel.
+  final Widget? wardrobeNotice;
 
   static Widget _header(IconData icon, String text, Color color) => Row(
     children: [
@@ -353,6 +358,10 @@ class IdentityChipLists extends StatelessWidget {
         // Toggle + starting kit live on this panel. A lone enable pair
         // without Wearing / Carrying is ignored so Details cannot grow
         // another orphan section.
+        if (hasWardrobe && wardrobeNotice != null) ...[
+          wardrobeNotice!,
+          const SizedBox(height: 14),
+        ],
         if (hasWardrobe)
           WardrobeChipSection(
             worn: worn!,

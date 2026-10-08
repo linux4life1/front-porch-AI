@@ -19,21 +19,13 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
+import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-import 'prompt_workspace.dart';
-import 'reference_image_picker.dart';
-import 'generation_panel.dart';
-import 'result_view.dart';
-import 'generation_history.dart';
-import 'mode_info_card.dart';
-import 'style_preview.dart';
-import 'studio_helpers.dart';
-import 'subject_picker.dart';
-import 'settings_panel.dart';
+import 'studio_widgets.dart';
 
 /// Presentational shell for the Image Studio: the dialog frame, header, subject
 /// picker, style/reference/prompt canvas, generate/result/history, and the
@@ -49,30 +41,20 @@ class StudioView extends StatelessWidget {
     this.groupShotActive = false,
     this.onPickGroupMember,
     this.onPickGroupShot,
-    required this.selectedStyle,
-    required this.paradigm,
     required this.prompt,
-    required this.negative,
     required this.referenceBytes,
     required this.currentImageBytes,
     required this.error,
-    required this.isCrafting,
-    required this.isGenerating,
+    this.generating = false,
+    this.crafting = false,
     required this.saving,
     required this.isBusy,
-    required this.llmAvailable,
-    required this.configured,
-    required this.builder,
-    required this.ctx,
     required this.history,
     required this.onClose,
     required this.onSelectSubject,
-    required this.onStyleChanged,
-    required this.onParadigmChanged,
     required this.onPickReference,
     required this.onClearReference,
     required this.onPromptChanged,
-    required this.onNegativeChanged,
     required this.onCraftLlm,
     this.onExpressionPack,
     required this.onGenerate,
@@ -86,40 +68,36 @@ class StudioView extends StatelessWidget {
     this.modeTabs,
     this.editBody,
     this.showEdit = false,
+    this.workspaceIndex,
+    this.expressionBody,
+    this.draftBusy = false,
   });
 
   final ImageGenMode activeMode;
   final String? characterName;
-  final List<({String name, String description, String? dbId})>
-  groupCharacters;
+  final List<({String name, String description, String? dbId})> groupCharacters;
   final bool groupShotActive;
   final ValueChanged<int>? onPickGroupMember;
   final VoidCallback? onPickGroupShot;
-  final String selectedStyle;
-  final String paradigm;
   final String prompt;
-  final String negative;
   final Uint8List? referenceBytes;
   final Uint8List? currentImageBytes;
   final String error;
-  final bool isCrafting;
-  final bool isGenerating;
+  final bool generating;
+
+  /// "Write it for me" is running.
+  final bool crafting;
   final bool saving;
   final bool isBusy;
-  final bool llmAvailable;
-  final bool configured;
-  final ImagePromptBuilder builder;
-  final ImageGenContext ctx;
   final List<({String prompt, Uint8List bytes, String style})> history;
 
   final VoidCallback onClose;
   final ValueChanged<ImageGenMode> onSelectSubject;
-  final ValueChanged<String> onStyleChanged;
-  final ValueChanged<String> onParadigmChanged;
   final VoidCallback onPickReference;
   final VoidCallback onClearReference;
   final ValueChanged<String> onPromptChanged;
-  final ValueChanged<String> onNegativeChanged;
+
+  /// The LLM prompt writer behind "Write it for me".
   final VoidCallback onCraftLlm;
 
   /// Non-null only when the active subject can take an Expression pack (a
@@ -132,7 +110,8 @@ class StudioView extends StatelessWidget {
   final VoidCallback onEditRegen;
   final VoidCallback? onSendToChat;
   final VoidCallback? onSaveToGallery;
-  final ValueChanged<({String prompt, Uint8List bytes, String style})> onRestore;
+  final ValueChanged<({String prompt, Uint8List bytes, String style})>
+  onRestore;
 
   /// The Create | Edit tab bar, rendered under the header (null = no tabs).
   final Widget? modeTabs;
@@ -142,22 +121,19 @@ class StudioView extends StatelessWidget {
 
   /// True when the Edit tab is active.
   final bool showEdit;
+  final int? workspaceIndex;
+  final Widget? expressionBody;
+  final bool draftBusy;
 
   @override
   Widget build(BuildContext context) {
-    final view = currentImageBytes != null && error.isEmpty
-        ? 'result'
-        : (isCrafting || isGenerating)
-        ? 'generating'
-        : 'workspace';
-
     return Dialog(
       backgroundColor: AppColors.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      insetPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+      insetPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          maxWidth: 720,
+          maxWidth: 1040,
           maxHeight: MediaQuery.of(context).size.height * 0.94,
         ),
         child: Column(
@@ -166,132 +142,124 @@ class StudioView extends StatelessWidget {
             _header(context),
             ?modeTabs,
             Flexible(
-              child: IndexedStack(
-                index: showEdit ? 1 : 0,
-                children: [
-                  SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    SubjectPicker(
-                      selected: activeMode,
-                      characterName: characterName,
-                      groupCharacters: groupCharacters,
-                      onChanged: isBusy ? null : onSelectSubject,
-                      onPickGroupMember: isBusy ? null : onPickGroupMember,
-                      onPickGroupShot: isBusy ? null : onPickGroupShot,
-                    ),
-                    if (groupShotActive) ...[
-                      const SizedBox(height: 8),
-                      _groupShotCaveat(context),
-                    ],
-                    const SizedBox(height: 12),
-                    ModeInfoCard(mode: activeMode),
-                    if (onExpressionPack != null &&
-                        activeMode == ImageGenMode.characterPortrait) ...[
-                      const SizedBox(height: 12),
-                      OutlinedButton.icon(
-                        onPressed: isBusy ? null : onExpressionPack,
-                        icon: Icon(
-                          Icons.theater_comedy,
-                          size: 16,
-                          color: AppColors.iconSecondary(context),
-                        ),
-                        label: Text(
-                          'Expression pack…',
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: AppColors.textSecondary(context),
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          side: BorderSide(color: AppColors.borderOf(context)),
-                        ),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final desk = _desk(context);
+                  final wide = constraints.maxWidth >= 700;
+                  final create = wide
+                      ? Padding(padding: const EdgeInsets.all(20), child: desk)
+                      : SingleChildScrollView(
+                          padding: const EdgeInsets.all(20),
+                          child: desk,
+                        );
+                  return IndexedStack(
+                    sizing: StackFit.expand,
+                    index: workspaceIndex ?? (showEdit ? 1 : 0),
+                    children: [
+                      ExcludeFocus(
+                        excluding: (workspaceIndex ?? (showEdit ? 1 : 0)) != 0,
+                        child: create,
                       ),
+                      ExcludeFocus(
+                        excluding: (workspaceIndex ?? (showEdit ? 1 : 0)) != 1,
+                        child: editBody ?? const SizedBox.shrink(),
+                      ),
+                      if (expressionBody != null)
+                        ExcludeFocus(
+                          excluding: workspaceIndex != 2,
+                          child: expressionBody!,
+                        ),
                     ],
-                    const SizedBox(height: 12),
-                    // Generation Settings live above the style box so they're
-                    // visible without scrolling; the fold-out stays collapsible.
-                    StudioSettingsPanel(initiallyExpanded: !configured),
-                    const SizedBox(height: 12),
-                    StylePreview(
-                      selectedStyle: selectedStyle,
-                      paradigm: paradigm,
-                      builder: builder,
-                      onStyleChanged: isBusy ? null : onStyleChanged,
-                      onParadigmChanged: isBusy ? null : onParadigmChanged,
-                    ),
-                    const SizedBox(height: 12),
-                    ReferenceImagePicker(
-                      referenceBytes: referenceBytes,
-                      isBusy: isBusy,
-                      onPick: onPickReference,
-                      onClear: onClearReference,
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: view == 'workspace'
-                          ? PromptWorkspace(
-                              key: const ValueKey('workspace'),
-                              prompt: prompt,
-                              negative: negative,
-                              ctx: ctx,
-                              builder: builder,
-                              paradigm: paradigm,
-                              llmAvailable: llmAvailable,
-                              isBusy: isBusy,
-                              onPromptChanged: onPromptChanged,
-                              onNegativeChanged: onNegativeChanged,
-                              onCraftLlm: onCraftLlm,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    GenerationPanel(
-                      onGenerate: isBusy ? null : onGenerate,
-                      isGenerating: isGenerating,
-                      isCrafting: isCrafting,
-                      error: error,
-                      promptIsSane: prompt.trim().isNotEmpty,
-                    ),
-                    const SizedBox(height: 12),
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 220),
-                      child: view == 'result'
-                          ? ResultView(
-                              key: const ValueKey('result'),
-                              imageBytes: currentImageBytes!,
-                              hasAccept: hasAcceptAction(activeMode),
-                              acceptLabel: getAcceptLabel(activeMode),
-                              isSaving: saving,
-                              onSave: onSave,
-                              onAccept: onAccept,
-                              onVariations: onVariations,
-                              onEditRegen: onEditRegen,
-                              onSendToChat: onSendToChat,
-                              onSaveToGallery: onSaveToGallery,
-                            )
-                          : const SizedBox.shrink(),
-                    ),
-                    if (history.isNotEmpty) ...[
-                      const SizedBox(height: 16),
-                      GenerationHistory(entries: history, onRestore: onRestore),
-                    ],
-                  ],
-                ),
-              ),
-                  editBody ?? const SizedBox.shrink(),
-                ],
+                  );
+                },
               ),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _desk(BuildContext context) {
+    return StudioDeskFrame(
+      subject: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SubjectPicker(
+            selected: activeMode,
+            characterName: characterName,
+            groupCharacters: groupCharacters,
+            onChanged: draftBusy ? null : onSelectSubject,
+            onPickGroupMember: draftBusy ? null : onPickGroupMember,
+            onPickGroupShot: draftBusy ? null : onPickGroupShot,
+          ),
+          if (groupShotActive) ...[
+            const SizedBox(height: 8),
+            _groupShotCaveat(context),
+          ],
+        ],
+      ),
+      prompt: prompt,
+      onPromptChanged: draftBusy ? null : onPromptChanged,
+      onCraft: draftBusy ? null : onCraftLlm,
+      crafting: crafting,
+      well: kStudioCreateWell,
+      packNote:
+          context.watch<StorageService>().imageGenSettings.imageGenBackend ==
+                  'comfyui' ||
+              ImageReferenceResolver.packEditMode(
+                context.watch<StorageService>().imageGenSettings,
+              )
+          ? 'Pack uses the Edit model and workflow.'
+          : kStudioCreatePack,
+      showPack: onExpressionPack != null,
+      onExpressionPack: onExpressionPack,
+      picture: ReferenceImagePicker(
+        referenceBytes: referenceBytes,
+        isBusy: draftBusy,
+        onPick: onPickReference,
+        onClear: onClearReference,
+      ),
+      output: _result(context),
+      stove: StudioDesk(
+        editMode: false,
+        showGenerate: true,
+        onGenerate: isBusy ? null : onGenerate,
+        errorText: error,
+        generating: generating,
+      ),
+    );
+  }
+
+  Widget? _result(BuildContext context) {
+    final showImage = currentImageBytes != null && error.isEmpty;
+    if (!showImage && history.isEmpty) return null;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnimatedSwitcher(
+          duration: const Duration(milliseconds: 220),
+          child: showImage
+              ? ResultView(
+                  key: const ValueKey('result'),
+                  imageBytes: currentImageBytes!,
+                  hasAccept: hasAcceptAction(activeMode),
+                  acceptLabel: getAcceptLabel(activeMode),
+                  isSaving: saving,
+                  onSave: onSave,
+                  onAccept: onAccept,
+                  onVariations: isBusy ? null : onVariations,
+                  onEditRegen: onEditRegen,
+                  onSendToChat: onSendToChat,
+                  onSaveToGallery: onSaveToGallery,
+                )
+              : const SizedBox.shrink(),
+        ),
+        if (history.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          GenerationHistory(entries: history, onRestore: onRestore),
+        ],
+      ],
     );
   }
 

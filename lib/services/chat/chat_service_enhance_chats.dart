@@ -18,8 +18,8 @@
 
 part of '../chat_service.dart';
 
-/// AI Enhance's "bring your chats along" step: copy every 1:1 chat of the
-/// BASE character onto the freshly saved "(Enhanced)" copy.
+/// Moving a character's 1:1 chats as `.fpchat` packages: AI Enhance's
+/// "bring your chats along" step, and `.porch` character files.
 ///
 /// Deliberately a round-trip through the `.fpchat` exporter/importer
 /// (maintainer direction, 2026-08-13) rather than a hand-rolled row copier:
@@ -29,6 +29,73 @@ part of '../chat_service.dart';
 /// RAG backfill re-embeds the copied history — a second implementation of
 /// any of that would be exactly the parallel path the project bans.
 extension ChatServiceEnhanceChats on ChatService {
+  /// True while a `.porch` job holds the shared chat.
+  bool get isMovingChats => _isMovingChats;
+
+  /// Claims the shared chat for one `.porch` job; false while another job
+  /// holds it. Every true must be paired with [endMovingChats].
+  bool tryBeginMovingChats() {
+    if (_isMovingChats) return false;
+    _isMovingChats = true;
+    return true;
+  }
+
+  void endMovingChats() => _isMovingChats = false;
+
+  /// Every 1:1 chat of [card] as an `.fpchat` package, newest first.
+  ///
+  /// The exporter reads the open chat, so this opens each one in turn.
+  /// Throws [ChatImportBusy] when a turn is live: switching chats must never
+  /// happen under a reply that is still streaming or settling.
+  Future<List<Uint8List>> exportChatPackagesOf(CharacterCard card) async {
+    if (_isTurnBusy) throw ChatImportBusy();
+    final sessions = await getSessionsForId(card.stableGroupId);
+    if (sessions.isEmpty) return const [];
+    // Kept in memory: each package is bounded by the codec's own unpacked
+    // ceiling, and a typical character has a handful of chats.
+    final packages = <Uint8List>[];
+    await setActiveCharacter(card);
+    for (final s in sessions) {
+      await loadSession(s['id'] as String);
+      final bytes = await exportToFpchat();
+      if (bytes != null) packages.add(bytes);
+    }
+    return packages;
+  }
+
+  /// Restores [packages] (newest first, as [exportChatPackagesOf] lists
+  /// them) onto [card] as new chats, oldest first, so the newest is the one
+  /// left open. The packages name the exporting card, so the mismatch
+  /// callback answers "continue": [card] IS that character, and the point is
+  /// keeping the stamps. Returns how many came back with their full state.
+  Future<int> importChatPackagesOnto(
+    CharacterCard card,
+    List<Uint8List> packages, {
+    void Function(int done, int total)? onProgress,
+  }) async {
+    if (packages.isEmpty) return 0;
+    final hadChats = (await getSessionsForId(card.stableGroupId)).isNotEmpty;
+    await setActiveCharacter(card);
+    // A card with no chats opens on a greeting chat it saves on the spot.
+    // Here that is only a side effect of opening the card to restore into
+    // it, so it goes once the restored chats are in; otherwise it stays as an
+    // extra "New Conversation" beside them.
+    final opening = hadChats ? null : _currentSessionId;
+    var restored = 0;
+    for (final bytes in packages.reversed) {
+      final result = await importChatPackage(
+        bytes,
+        onCharacterMismatch: (_, _) async => true,
+      );
+      if (result.fullRestore) restored++;
+      onProgress?.call(restored, packages.length);
+    }
+    if (opening != null && opening != _currentSessionId) {
+      await deleteSession(opening, startReplacement: false);
+    }
+    return restored;
+  }
+
   /// Copies every chat of [from] onto [to]; returns how many were copied.
   ///
   /// Two phases with ONE active-card flip each way: export every session
@@ -57,31 +124,9 @@ extension ChatServiceEnhanceChats on ChatService {
     if (from.dbId != null && from.dbId == to.dbId) {
       throw ArgumentError('copyChatsForEnhance needs two different characters');
     }
-    final sessions = await getSessionsForId(from.stableGroupId);
-    if (sessions.isEmpty) return 0;
-
-    // Phase 1 — export under the base card. Newest-first as listed; kept in
-    // memory (each package is independently bounded by the codec's own
-    // uncompressed ceiling, and a typical character has a handful of chats).
-    final packages = <Uint8List>[];
-    await setActiveCharacter(from);
-    for (final s in sessions) {
-      await loadSession(s['id'] as String);
-      final bytes = await exportToFpchat();
-      if (bytes != null) packages.add(bytes);
-    }
-
-    // Phase 2 — import under the enhanced card, oldest-first (see doc).
-    await setActiveCharacter(to);
-    var copied = 0;
-    for (final bytes in packages.reversed) {
-      final result = await importChatPackage(
-        bytes,
-        onCharacterMismatch: (_, _) async => true,
-      );
-      if (result.fullRestore) copied++;
-      onProgress?.call(copied, packages.length);
-    }
-    return copied;
+    // Phase 1 — export under the base card; phase 2 — import under the
+    // enhanced card, oldest first (see doc).
+    final packages = await exportChatPackagesOf(from);
+    return importChatPackagesOnto(to, packages, onProgress: onProgress);
   }
 }

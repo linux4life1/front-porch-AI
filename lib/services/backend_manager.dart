@@ -16,18 +16,27 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:front_porch_ai/services/kobold_binary_version.dart';
+import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/update_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 part 'backend_manager.download.dart';
+part 'backend_manager.gate.dart';
+
+/// Said wherever the app would offer KoboldCpp on an Intel Mac, which cannot
+/// run it: the desktop's Backend tab and the phone's Models page (its own
+/// copy in web_ui/src/backendOptions.ts says the same).
+const String kIntelMacLocalUnsupported =
+    'Local inference is not supported on Intel Macs. Only Remote API mode is '
+    'available.';
 
 class BackendManager extends ChangeNotifier {
   final StorageService _storageService;
@@ -43,7 +52,15 @@ class BackendManager extends ChangeNotifier {
   int? _remoteAssetSize;
   bool _isCheckingVersion = false;
   String? _versionError;
-  String _arch = 'x64';
+
+  /// The processor as `uname -m` names it (`arm64` on Apple Silicon), null
+  /// until it has answered: unknown is never taken for an Intel Mac.
+  String? _arch;
+  final Completer<void> _archRead = Completer<void>();
+
+  /// Done once the first look for the engine file and its record is over;
+  /// the start-up gate reads [backendPath] only after this.
+  final Completer<void> _engineChecked = Completer<void>();
   bool _useRocm = false;
   bool _hasCuda = false;
   // Detected once. When the CPU lacks AVX2 (older/low-end PCs), KoboldCpp's
@@ -61,6 +78,10 @@ class BackendManager extends ChangeNotifier {
   double get downloadProgress => _downloadProgress;
   String? get backendPath => _backendPath;
   String? get error => _error;
+
+  /// Where this machine's engine is downloaded from. A test serves its own.
+  @visibleForTesting
+  String get engineDownloadUrl => _getDownloadUrl();
   String get statusMessage => _statusMessage;
   String? get localVersion => _localVersion;
   int? get localSize => _localSize;
@@ -87,9 +108,26 @@ class BackendManager extends ChangeNotifier {
     return 'v$_localVersion, ${_formatFileSize(_localSize!)}';
   }
 
-  bool get isIntelMac => Platform.isMacOS && _arch != 'arm64';
+  /// KoboldCpp cannot run here: the app says [kIntelMacLocalUnsupported].
+  /// False until the processor is known; listeners hear when it is.
+  bool get isIntelMac => _onMac && _intelCpu;
 
-  BackendManager(this._storageService) {
+  bool get _intelCpu => _arch != null && _arch != 'arm64';
+
+  /// Done once the processor is known, or could not be read. What depends
+  /// on it (which engine to download, whether it can run) waits for this.
+  Future<void> get architectureKnown => _archRead.future;
+
+  final bool _onMac;
+  final Future<String?> Function() _readArch;
+
+  /// [onMac] and [readArch] stand in for the machine in tests.
+  BackendManager(
+    this._storageService, {
+    @visibleForTesting bool? onMac,
+    @visibleForTesting Future<String?> Function()? readArch,
+  }) : _onMac = onMac ?? Platform.isMacOS,
+       _readArch = readArch ?? _uname {
     _init();
     _storageService.addListener(_onStorageChanged); // React to path changes
   }
@@ -112,8 +150,18 @@ class BackendManager extends ChangeNotifier {
 
   @override // IMPORTANT
   void dispose() {
+    _disposed = true;
     _storageService.removeListener(_onStorageChanged);
     super.dispose();
+  }
+
+  bool _disposed = false;
+
+  /// Its start-up reads (the processor, the engine file) can finish after
+  /// it is gone; nobody is left to tell then.
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
   }
 
   Future<void> _init() async {
@@ -123,14 +171,16 @@ class BackendManager extends ChangeNotifier {
         '(${_getExecutableName()})',
       );
     }
-    if (Platform.isMacOS) {
-      try {
-        final result = await Process.run('uname', ['-m']);
-        if (result.exitCode == 0 &&
-            result.stdout.toString().trim() == 'arm64') {
-          _arch = 'arm64';
-        }
-      } catch (_) {}
+    if (_onMac && !_archRead.isCompleted) {
+      final arch = await _readArch();
+      if (!_archRead.isCompleted) {
+        _arch = arch;
+        _archRead.complete();
+        // The desktop's KoboldCpp section and the phone's status follow it.
+        if (_intelCpu) notifyListeners();
+      }
+    } else if (!_archRead.isCompleted) {
+      _archRead.complete();
     }
     // Detect GPU acceleration availability on Linux
     if (Platform.isLinux) {
@@ -150,12 +200,17 @@ class BackendManager extends ChangeNotifier {
       _useRocm = _storageService.backendSettings.useRocm == true;
       print('AG_DEBUG: ROCm binary (user opt-in): $_useRocm');
     }
+    // Only a look that had the data root counts: the first pass can start
+    // before the storage has one and report no engine, and the root can
+    // arrive during that look, so what it had is taken before it begins.
+    final looked = _storageService.rootPath != null;
     await checkBackendAvailability();
     if (_storageService.rootPath != null) {
       final v = await KoboldBinaryVersion.read(_storageService.binDir.path);
       _localVersion = v.version;
       _localSize = v.size;
     }
+    if (looked && !_engineChecked.isCompleted) _engineChecked.complete();
     if (UpdateService.isSupported) {
       final prefs = await SharedPreferences.getInstance();
       if (prefs.getBool('update_auto_check') ?? true) {
@@ -281,6 +336,7 @@ class BackendManager extends ChangeNotifier {
   /// Progress rides the existing [isDownloading]/[downloadProgress]/
   /// [statusMessage] notifier fields — callers just fire and forget.
   Future<void> ensureEngineInstalled() async {
+    await architectureKnown;
     if (_isDownloading || _backendPath != null || isIntelMac) return;
     await _storageService.initialized;
     final backendType = _storageService.backendSettings.backendType;
@@ -322,4 +378,15 @@ class BackendManager extends ChangeNotifier {
       );
     }
   }
+}
+
+/// The processor, as `uname -m` names it; null when it cannot be read.
+Future<String?> _uname() async {
+  try {
+    final result = await Process.run('uname', ['-m']);
+    if (result.exitCode == 0) return result.stdout.toString().trim();
+  } on Object catch (e) {
+    debugPrint('[Backend] the processor could not be read: $e');
+  }
+  return null;
 }

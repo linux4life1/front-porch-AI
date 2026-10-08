@@ -47,6 +47,13 @@ int APIENTRY wWinMain(_In_ HINSTANCE instance, _In_opt_ HINSTANCE prev,
 
   project.set_dart_entrypoint_arguments(std::move(command_line_arguments));
 
+  // Draw with Skia. Impeller smears and ghosts text while a local model is
+  // working the GPU (seen on macOS and on Windows; flutter/flutter#193927),
+  // and Skia was the renderer before Flutter 3.47. Remove this line to try
+  // Impeller again once that issue is fixed. macOS has the same switch in
+  // Runner/Info.plist and Linux in runner/my_application.cc.
+  project.set_impeller_switch(flutter::ImpellerSwitch::Disabled);
+
   FlutterWindow window(project);
   Win32Window::Point origin(10, 10);
   Win32Window::Size size(1280, 720);

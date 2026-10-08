@@ -23,6 +23,9 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'sidebar_tokens.dart';
 
+/// Under a settled answer that was kept from an earlier run.
+const _savedDetail = 'Saved from an earlier test. Tap to ask again.';
+
 /// Sidebar pill answering "does my model support tool calling?" at a glance —
 /// green when the model speaks the tools protocol, amber when it doesn't
 /// (evals fall back to text mode; everything still works), neutral until
@@ -38,7 +41,9 @@ class ToolCallingPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final testing = chatService.isTestingToolSupport;
     final support = chatService.toolCallSupport;
-    final preferText = chatService.toolSupportJson['preferText'] == true;
+    final json = chatService.toolSupportJson;
+    final preferText = json['preferText'] == true;
+    final saved = json['saved'] == true;
     final paused = chatService.toolCallingPaused;
 
     final Color accent;
@@ -66,12 +71,16 @@ class ToolCallingPill extends StatelessWidget {
           accent = AppColors.bondHighOf(context);
           icon = Icons.check_circle;
           label = 'Tool calling: supported';
-          detail = 'Realism, Journal & Growth use native tool calls';
+          detail = saved
+              ? _savedDetail
+              : 'Realism, Journal & Growth use native tool calls';
         case ToolCallSupport.unsupported:
           accent = AppColors.taskAccentOf(context);
           icon = Icons.build_circle_outlined;
           label = 'Tool calling: not supported';
-          detail = 'This model uses the text fallback — still works';
+          detail = saved
+              ? _savedDetail
+              : 'This model uses the text fallback — still works';
         case ToolCallSupport.untested:
           accent = AppColors.textTertiary(context);
           icon = Icons.help_outline;

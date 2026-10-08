@@ -1,0 +1,42 @@
+{
+ "baseModel": "SD 1.5",
+ "downloadUrl": "https://civitai.com/api/download/models/128713",
+ "files": [
+  {
+   "downloadUrl": "https://civitai.com/api/download/models/128713?fileId=93211",
+   "hashes": {
+    "AutoV1": "9D40847D",
+    "AutoV2": "879DB523C3",
+    "BLAKE3": "771C807DB56DBFC33FEDA5638D920F6C507DB971DA44772EE44A08DC38C3B437",
+    "CRC32": "6A63EC60",
+    "SHA256": "879DB523C30D3B9017143D56705015E15A2CB5628762C11D086FED9538ABD7FD",
+    "SHA256_12": "879DB523C30D"
+   },
+   "id": 93211,
+   "metadata": {
+    "format": "SafeTensor",
+    "fp": "fp16",
+    "size": "pruned"
+   },
+   "name": "dreamshaper_8.safetensors",
+   "pickleScanMessage": "No Pickle imports",
+   "pickleScanResult": "Success",
+   "primary": true,
+   "scannedAt": "2023-07-29T16:06:30.357",
+   "sizeKB": 2082642.474609375,
+   "type": "Model",
+   "virusScanMessage": null,
+   "virusScanResult": "Success"
+  }
+ ],
+ "id": 128713,
+ "model": {
+  "name": "DreamShaper",
+  "nsfw": false,
+  "poi": false,
+  "type": "Checkpoint"
+ },
+ "modelId": 4384,
+ "name": "8",
+ "nsfwLevel": 11
+}

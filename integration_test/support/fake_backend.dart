@@ -27,6 +27,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'fake_backend_studio.dart';
+
 class FakeBackendServer {
   FakeBackendServer._(this._server, this.replyPieces, this.chatChunkDelay);
 
@@ -246,6 +248,13 @@ class FakeBackendServer {
             'Has started saving the porch swing for their favorite guest.'
             '</ring>',
       ]);
+      return;
+    }
+    // ── Studio story stages (fake_backend_studio.dart) ─────────────────
+    final studio = studioStoryReply(lastContent);
+    if (studio != null) {
+      storyStagesServed.add(studio.stage);
+      await _streamSse(req, studio.pieces);
       return;
     }
     // ── Story pipeline stages ──────────────────────────────────────────
@@ -545,7 +554,14 @@ class FakeBackendServer {
     List<String> pieces, {
     Duration delay = Duration.zero,
   }) async {
-    req.response.headers.set('Content-Type', 'text/event-stream');
+    // UTF-8 on the wire: HttpResponse writes Latin-1 by default and throws
+    // on an em dash or a curly quote, which killed the whole canned reply
+    // (the client saw an empty stream) the first time a Studio reply used one.
+    req.response.headers.contentType = ContentType(
+      'text',
+      'event-stream',
+      charset: 'utf-8',
+    );
     // MANDATORY for a real stream, and flush() alone is NOT enough: Dart's
     // HttpResponse buffers output by default and only hands the buffer to the
     // socket when the response CLOSES, so every "paced" chunk below arrived at

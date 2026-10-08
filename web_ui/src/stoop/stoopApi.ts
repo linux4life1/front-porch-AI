@@ -444,8 +444,13 @@ export const stoop = {
     (await call<{ message: StoopMessage }>('POST', '/api/stoop/me/messages', { body }))
       .message,
 
-  /** Authenticated avatar URL — the server attaches the remembered token. */
-  assetUrl: (assetId: string) => `/api/stoop/assets/${encodeURIComponent(assetId)}`,
+  /**
+   * Authenticated avatar URL — the server attaches the remembered token.
+   * `thumb` (the default) is the postcard WebP the hub shows on tiles; the
+   * card page asks for the original.
+   */
+  assetUrl: (assetId: string, opts: { thumb?: boolean } = {}) =>
+    `/api/stoop/assets/${encodeURIComponent(assetId)}${opts.thumb === false ? '' : '?v=thumb'}`,
 };
 
 /** Human messages for the upstream machine codes the UI commonly hits. */
@@ -457,7 +462,6 @@ export function stoopErrorText(e: unknown): string {
     // on. Surface the real reason; it is the only breadcrumb a remote user
     // can copy into a bug report.
     const detail = e instanceof Error ? e.message : '';
-    // eslint-disable-next-line no-console
     console.error('[Stoop] request failed', e);
     return detail
       ? `Something went wrong: ${detail}`

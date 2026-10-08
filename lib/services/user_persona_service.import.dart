@@ -126,7 +126,7 @@ extension UserPersonaServiceImport on UserPersonaService {
           final title = descEntry?['title'] as String? ?? '';
 
           final newPersona = UserPersona(
-            id: DateTime.now().millisecondsSinceEpoch.toString(),
+            id: _newPersonaId(),
             title: title,
             name: name,
             persona: personaText,
@@ -135,9 +135,6 @@ extension UserPersonaServiceImport on UserPersonaService {
 
           await _addImportedPersona(newPersona);
           firstImported ??= newPersona;
-
-          // Small delay to ensure unique IDs
-          await Future.delayed(const Duration(milliseconds: 2));
         }
 
         if (firstImported != null) {
@@ -228,7 +225,7 @@ extension UserPersonaServiceImport on UserPersonaService {
       if (name.isEmpty) name = 'Imported Persona';
 
       final newPersona = UserPersona(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: _newPersonaId(),
         title: title,
         name: name,
         persona: personaText,
@@ -252,7 +249,7 @@ extension UserPersonaServiceImport on UserPersonaService {
       toInsert = p.copyWith(title: p.title, name: p.name, persona: p.persona);
       // Generate new ID since copyWith preserves original
       toInsert = UserPersona(
-        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        id: _newPersonaId(),
         title: p.title,
         name: p.name,
         persona: p.persona,

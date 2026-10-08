@@ -180,7 +180,9 @@ extension ChatServiceGenerationRag on ChatService {
           // reference stale events as if they're current ("going back in
           // time") — so the percentage is ALSO capped absolutely: 10% of a
           // 32k context is 3,200 tokens, past the documented failure line.
-          final contextSize = _storageService.backendSettings.contextSize;
+          final contextSize = _storageService.backendSettings.promptContext(
+            _storageService.backendSettings.contextSize,
+          );
           final budgetFraction = _activeGroup != null
               ? (groupMemoryBudgetPercent / 100.0)
               : 0.10;

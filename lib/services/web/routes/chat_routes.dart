@@ -251,6 +251,8 @@ class WebChatRoutes {
     if (text.trim().isEmpty && image == null) {
       return JsonResponse.badRequest('text is required');
     }
+    final testing = _facade.sendRefusal(text, withImage: image != null);
+    if (testing != null) return JsonResponse.badRequest(testing);
     final lookupBlock = _facade.lookupCommandBlock(text);
     if (lookupBlock != null) return JsonResponse.badRequest(lookupBlock);
     _facade.send(text, imageBytes: image);

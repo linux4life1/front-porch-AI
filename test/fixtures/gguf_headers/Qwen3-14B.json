@@ -1,0 +1,31 @@
+{
+ "source": "Qwen_Qwen3-14B-Q5_K_M.gguf (header read from a local copy, 2026-10-03)",
+ "real_file_bytes": 10514570272,
+ "real_data_start": 5959712,
+ "fixture_file_bytes": 10508637952,
+ "truth": {
+  "arch": "qwen3",
+  "n_layer": 40,
+  "n_tensors": 443,
+  "bytes": {
+   "total": 10508610560,
+   "blocks": 9335644160,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 534814720,
+   "output": 638131200,
+   "other": 20480
+  },
+  "mb": {
+   "total": 10022,
+   "blocks": 8903,
+   "expert": 0,
+   "shared_expert": 0,
+   "token_embd": 510,
+   "output": 609,
+   "other": 0,
+   "gpu_when_experts_on_cpu": 9512,
+   "gpu_all_layers": 9512
+  }
+ }
+}

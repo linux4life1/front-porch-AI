@@ -66,6 +66,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
   if (deps.chatPackageFacade != null) {
     WebChatPackageRoutes(deps.chatPackageFacade!, router);
   }
+  if (deps.porchFacade != null) WebPorchRoutes(deps.porchFacade!, router);
   if (deps.chatToolsFacade != null) {
     WebChatToolsRoutes(deps.chatToolsFacade!, router);
   }
@@ -88,8 +89,20 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
       image: deps.imageFacade,
     );
   }
+  if (deps.backendFacade != null) {
+    WebSpeedTestRoutes(deps.backendFacade!, router);
+    XaiRoutes(
+      router,
+      auth: deps.auth,
+      superGrok: deps.backendFacade!.superGrok,
+    );
+  }
   if (deps.voiceFacade != null) WebVoiceRoutes(deps.voiceFacade!, router);
-  if (deps.storyFacade != null) WebStoryRoutes(deps.storyFacade!, router);
+  if (deps.storyFacade != null) {
+    // Studio first: its fixed paths must beat the `<id>` params below.
+    WebStoryStudioRoutes(deps.storyFacade!, router);
+    WebStoryRoutes(deps.storyFacade!, router);
+  }
   if (deps.storyExportFacade != null) {
     WebStoryExportRoutes(deps.storyExportFacade!, router);
   }

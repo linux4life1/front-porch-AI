@@ -49,6 +49,13 @@
   flex-shrink: 0;
 }
 @keyframes send-held-spin { to { transform: rotate(360deg); } }
+/* Why the host's KoboldCpp did not start, above the box that says
+   "No API connection". */
+.api-hint-banner {
+  padding: 8px 16px; font-size: 12px; font-weight: 500; white-space: pre-line;
+  color: var(--danger); background: var(--surface);
+  border-top: 1px solid var(--border);
+}
 .chat-input {
   display: flex; gap: 8px; align-items: flex-end;
   padding: 10px; border-top: 1px solid var(--border); background: var(--surface);

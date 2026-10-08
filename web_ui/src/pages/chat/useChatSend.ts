@@ -7,7 +7,9 @@
 import { useCallback, useState } from 'react';
 import { api } from '../../api/client';
 import { type ChatThemeOverrides, type Message } from '../../components/chatTypes';
+import { joinMessageEdit } from '../../components/messageEdit';
 import { postChatSend } from '../chatSend';
+import { describeActionFailure } from './chatActionError';
 
 export function useChatSend(refresh: () => Promise<void>) {
   // A send that never reached the desktop: the exact text the user typed (the
@@ -50,6 +52,14 @@ export function useChatSend(refresh: () => Promise<void>) {
     await sendMessage(failed.text);
   };
 
+  // A transcript action the desktop refused or never received. Shown as a
+  // dismissible banner; before this, the rejected tap simply did nothing.
+  const [actionError, setActionError] = useState<string | null>(null);
+  const failed = useCallback((what: string, e: unknown) => {
+    console.warn(`[chat] ${what} failed`, e);
+    setActionError(describeActionFailure(what, e));
+  }, []);
+
   // The transcript handlers are useCallback-stable so token/processing WS
   // frames (which re-render this page many times a second during a turn)
   // never invalidate the memoized transcript rows — see TranscriptRows.
@@ -63,16 +73,24 @@ export function useChatSend(refresh: () => Promise<void>) {
     if (trimmed) body.critique = trimmed;
     if (query && lookup?.source === 'web') body.webQuery = query;
     if (query && lookup?.source === 'wiki') body.wikiQuery = query;
-    await api.post(
-      '/api/chat/regenerate',
-      Object.keys(body).length ? body : undefined,
-    );
-    await refresh();
-  }, [refresh]);
+    try {
+      await api.post(
+        '/api/chat/regenerate',
+        Object.keys(body).length ? body : undefined,
+      );
+      await refresh();
+    } catch (e) {
+      failed('regenerate that reply', e);
+    }
+  }, [refresh, failed]);
   const continueGen = useCallback(async () => {
-    await api.post('/api/chat/continue');
-    await refresh();
-  }, [refresh]);
+    try {
+      await api.post('/api/chat/continue');
+      await refresh();
+    } catch (e) {
+      failed('continue that reply', e);
+    }
+  }, [refresh, failed]);
   const fork = useCallback(async (index: number) => {
     if (
       !window.confirm(
@@ -81,22 +99,30 @@ export function useChatSend(refresh: () => Promise<void>) {
     ) {
       return;
     }
-    await api.post('/api/chat/fork', { index });
-    await refresh();
-  }, [refresh]);
+    try {
+      await api.post('/api/chat/fork', { index });
+      await refresh();
+    } catch (e) {
+      failed('branch the chat from there', e);
+    }
+  }, [refresh, failed]);
   const swipe = useCallback(async (
     messageIndex: number,
     direction: number,
     critique?: string,
   ) => {
     const trimmed = (critique ?? '').trim();
-    await api.post('/api/chat/swipe', {
-      messageIndex,
-      direction,
-      ...(trimmed ? { critique: trimmed } : {}),
-    });
-    await refresh();
-  }, [refresh]);
+    try {
+      await api.post('/api/chat/swipe', {
+        messageIndex,
+        direction,
+        ...(trimmed ? { critique: trimmed } : {}),
+      });
+      await refresh();
+    } catch (e) {
+      failed('swipe that reply', e);
+    }
+  }, [refresh, failed]);
   const del = useCallback(async (index: number) => {
     if (
       !window.confirm(
@@ -105,26 +131,46 @@ export function useChatSend(refresh: () => Promise<void>) {
     ) {
       return;
     }
-    await api.post('/api/chat/delete', { index });
-    await refresh();
-  }, [refresh]);
+    try {
+      await api.post('/api/chat/delete', { index });
+      await refresh();
+    } catch (e) {
+      failed('delete that message', e);
+    }
+  }, [refresh, failed]);
+  // `text` arrives think-stripped; rejoin the reasoning so the editor shows
+  // it and Save does not erase it from the stored message.
   const beginEdit = useCallback((m: Message) => {
-    setEditTarget({ index: m.index, text: m.text });
+    setEditTarget({ index: m.index, text: joinMessageEdit(m.thinkingContent ?? '', m.text) });
   }, []);
+  // The editor stays open until the desktop has the new text: on failure this
+  // throws a plain-English Error the modal shows above the user's draft.
   const saveEdit = async (text: string) => {
     if (!editTarget) return;
-    const index = editTarget.index;
+    try {
+      await api.post('/api/chat/edit', { index: editTarget.index, text });
+    } catch (e) {
+      console.warn('[chat] edit failed', e);
+      throw new Error(describeActionFailure('save your edit', e));
+    }
     setEditTarget(null);
-    await api.post('/api/chat/edit', { index, text });
     await refresh();
   };
   const saveAuthorNote = async (note: string, strength: number) => {
-    await api.post('/api/chat/author-note', { authorNote: note, strength });
-    await refresh();
+    try {
+      await api.post('/api/chat/author-note', { authorNote: note, strength });
+      await refresh();
+    } catch (e) {
+      failed("save the author's note", e);
+    }
   };
   const saveTheme = async (overrides: ChatThemeOverrides) => {
-    await api.post('/api/chat/theme-overrides', overrides);
-    await refresh();
+    try {
+      await api.post('/api/chat/theme-overrides', overrides);
+      await refresh();
+    } catch (e) {
+      failed('save the chat theme', e);
+    }
   };
 
   // Director redo: reprocess a message's Needs deltas with a written critique
@@ -142,13 +188,20 @@ export function useChatSend(refresh: () => Promise<void>) {
     setReprocessIndex(null);
   };
   const revertNeeds = useCallback(async (index: number) => {
-    await api.post('/api/chat/revert-needs-reprocess', { index });
-    await refresh();
-  }, [refresh]);
+    try {
+      await api.post('/api/chat/revert-needs-reprocess', { index });
+      await refresh();
+    } catch (e) {
+      failed('undo that redo', e);
+    }
+  }, [refresh, failed]);
 
   return {
     sendError,
     setSendError,
+    actionError,
+    setActionError,
+    reportActionFailure: failed,
     editTarget,
     setEditTarget,
     reprocessIndex,

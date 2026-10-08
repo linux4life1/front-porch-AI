@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Single-need progress bar with icon, label, critical coloring, and optional reason tooltip.
+/// Single-need progress bar with icon, label, band coloring, and optional reason tooltip.
 ///
 /// Used both for the full 7-need grid in the expanded speaker view (1:1 parity) and
 /// for the mini urgency strip in compact group member cards.
@@ -39,6 +39,18 @@ class NeedsBar extends StatelessWidget {
     this.mini = false,
     this.showLabel = true,
   });
+
+  /// The band a need's colour follows, on every bar and chip: red from
+  /// [needCriticalThreshold] down, amber from [needUrgentThreshold] down, and
+  /// null above, where the caller keeps its own colour. The web twin is
+  /// `needTone` in web_ui/src/components/needTone.ts.
+  static Color? bandColorOf(BuildContext context, int value) {
+    if (value <= needCriticalThreshold) {
+      return AppColors.negativeAccentOf(context);
+    }
+    if (value <= needUrgentThreshold) return AppColors.porchAmberOf(context);
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,9 +94,7 @@ class NeedsBar extends StatelessWidget {
         color = Colors.grey;
     }
 
-    final effectiveColor = isCritical
-        ? AppColors.negativeAccentOf(context)
-        : color;
+    final effectiveColor = bandColorOf(context, value) ?? color;
 
     if (mini) {
       return Row(

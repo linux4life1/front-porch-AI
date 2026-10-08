@@ -18,6 +18,14 @@
 
 part of 'story_reader_page.dart';
 
+// The book is a physical prop: paper, ink and the gutter shadow keep their
+// colours in every app theme (theme-keep: book prop).
+const _paperEdge = Color(0xFFF0E5CC); // theme-keep: book prop
+const _paperMid = Color(0xFFFAF3E8); // theme-keep: book prop
+const _paperInner = Color(0xFFF5ECD7); // theme-keep: book prop
+const _gutterShadow = Color(0x26000000); // theme-keep: book prop
+const _pageEdgeShade = Color(0x14795548); // theme-keep: book prop
+
 /// Pure page-content rendering for [_StoryReaderPageState]: the end cover,
 /// the two-page spread / single-page paper container (with binding-shadow
 /// and page-edge effects), and the per-[_PageType] content builders (title,
@@ -90,10 +98,10 @@ extension _StoryReaderPageBuilders on _StoryReaderPageState {
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: isLeftSpread
-              ? const [Color(0xFFF0E5CC), Color(0xFFFAF3E8), Color(0xFFF5ECD7)]
+              ? const [_paperEdge, _paperMid, _paperInner]
               : isRightSpread
-              ? const [Color(0xFFF5ECD7), Color(0xFFFAF3E8), Color(0xFFF0E5CC)]
-              : const [Color(0xFFF0E5CC), Color(0xFFFAF3E8), Color(0xFFF0E5CC)],
+              ? const [_paperInner, _paperMid, _paperEdge]
+              : const [_paperEdge, _paperMid, _paperEdge],
           stops: const [0.0, 0.5, 1.0],
         ),
         borderRadius: BorderRadius.horizontal(
@@ -120,12 +128,7 @@ extension _StoryReaderPageBuilders on _StoryReaderPageState {
                     gradient: LinearGradient(
                       begin: Alignment.centerRight,
                       end: Alignment.centerLeft,
-                      colors: [
-                        Colors.black.withValues(
-                          alpha: 0.15,
-                        ), // theme-keep: book prop
-                        Colors.transparent,
-                      ],
+                      colors: [_gutterShadow, Colors.transparent],
                     ),
                   ),
                 ),
@@ -141,12 +144,7 @@ extension _StoryReaderPageBuilders on _StoryReaderPageState {
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      colors: [
-                        Colors.black.withValues(
-                          alpha: 0.15,
-                        ), // theme-keep: book prop
-                        Colors.transparent,
-                      ],
+                      colors: [_gutterShadow, Colors.transparent],
                     ),
                   ),
                 ),
@@ -164,12 +162,7 @@ extension _StoryReaderPageBuilders on _StoryReaderPageState {
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      colors: [
-                        Colors.brown.withValues(
-                          alpha: 0.08,
-                        ), // theme-keep: book prop
-                        Colors.transparent,
-                      ],
+                      colors: [_pageEdgeShade, Colors.transparent],
                     ),
                   ),
                 ),

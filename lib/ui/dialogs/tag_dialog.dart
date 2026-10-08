@@ -46,6 +46,7 @@ class TagDialog extends StatefulWidget {
 class _TagDialogState extends State<TagDialog> {
   late List<String> _tags;
   final _controller = TextEditingController();
+  final _tagsScroll = ScrollController();
   List<String> _suggestions = [];
 
   @override
@@ -57,6 +58,7 @@ class _TagDialogState extends State<TagDialog> {
   @override
   void dispose() {
     _controller.dispose();
+    _tagsScroll.dispose();
     super.dispose();
   }
 
@@ -98,11 +100,16 @@ class _TagDialogState extends State<TagDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // A card can carry dozens of imported tags. The dialog stops at most of
+    // the screen and the chips scroll inside it, so the input and the
+    // buttons are always on screen.
+    final maxHeight = MediaQuery.sizeOf(context).height * 0.85;
     return Dialog(
       backgroundColor: const Color(0xFF1F2937),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 450,
+        constraints: BoxConstraints(maxHeight: maxHeight),
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -135,35 +142,47 @@ class _TagDialogState extends State<TagDialog> {
             ),
             const SizedBox(height: 16),
 
-            // Current tags
+            // Current tags: a scrolling region that yields to the input and
+            // the buttons when the list is long. The scrollbar paints only
+            // when there is something to scroll, so a short list lays out
+            // exactly as before.
             if (_tags.isNotEmpty) ...[
-              Wrap(
-                spacing: 8,
-                runSpacing: 8,
-                children: _tags
-                    .map(
-                      (tag) => Chip(
-                        label: Text(
-                          tag,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 13,
-                          ),
-                        ),
-                        backgroundColor: const Color(0xFF374151),
-                        deleteIcon: const Icon(
-                          Icons.close,
-                          size: 16,
-                          color: Colors.white54,
-                        ),
-                        onDeleted: () => _removeTag(tag),
-                        side: BorderSide.none,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                    )
-                    .toList(),
+              Flexible(
+                child: Scrollbar(
+                  controller: _tagsScroll,
+                  thumbVisibility: true,
+                  child: SingleChildScrollView(
+                    controller: _tagsScroll,
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: _tags
+                          .map(
+                            (tag) => Chip(
+                              label: Text(
+                                tag,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 13,
+                                ),
+                              ),
+                              backgroundColor: const Color(0xFF374151),
+                              deleteIcon: const Icon(
+                                Icons.close,
+                                size: 16,
+                                color: Colors.white54,
+                              ),
+                              onDeleted: () => _removeTag(tag),
+                              side: BorderSide.none,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                          )
+                          .toList(),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(height: 16),
             ],
@@ -192,36 +211,40 @@ class _TagDialogState extends State<TagDialog> {
               },
             ),
 
-            // Autocomplete suggestions
+            // Autocomplete suggestions. Flexible too, so a short window with
+            // a long tag list and suggestions open shares the height instead
+            // of overflowing.
             if (_suggestions.isNotEmpty) ...[
               const SizedBox(height: 4),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 150),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF374151),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ListView.builder(
-                  shrinkWrap: true,
-                  itemCount: _suggestions.length,
-                  itemBuilder: (context, index) {
-                    return ListTile(
-                      dense: true,
-                      title: Text(
-                        _suggestions[index],
-                        style: const TextStyle(
-                          color: Colors.white70,
-                          fontSize: 13,
+              Flexible(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 150),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF374151),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: _suggestions.length,
+                    itemBuilder: (context, index) {
+                      return ListTile(
+                        dense: true,
+                        title: Text(
+                          _suggestions[index],
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 13,
+                          ),
                         ),
-                      ),
-                      leading: const Icon(
-                        Icons.label,
-                        size: 16,
-                        color: Colors.white38,
-                      ),
-                      onTap: () => _addTag(_suggestions[index]),
-                    );
-                  },
+                        leading: const Icon(
+                          Icons.label,
+                          size: 16,
+                          color: Colors.white38,
+                        ),
+                        onTap: () => _addTag(_suggestions[index]),
+                      );
+                    },
+                  ),
                 ),
               ),
             ],

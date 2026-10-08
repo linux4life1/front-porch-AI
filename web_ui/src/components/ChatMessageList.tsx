@@ -6,7 +6,7 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useLayoutEffect, useRef, useState, type RefObject } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
@@ -66,7 +66,14 @@ function genStatusLabel(s: GenStatus): { label: string; fraction: number | null 
     ? `${fmtExact(estTokens)} / ${fmtExact(s.promptTotal as number)} tokens`
     : '';
   if (s.busyWith) {
-    const pass = s.busyWith === 'journal' ? 'journal pass' : 'growth pass';
+    // The chat's own passes come as names; what has the engine (the speed
+    // test in the preset editor) comes already in words.
+    const pass =
+      s.busyWith === 'journal'
+        ? 'journal pass'
+        : s.busyWith === 'growth'
+          ? 'growth pass'
+          : s.busyWith;
     if (hasLive) {
       const stage =
         (s.genTotal ?? 0) > 0
@@ -124,6 +131,9 @@ type TranscriptProps = {
   greetCount?: number;
   greetingIndex?: number;
   onVariantPicked?: () => void;
+  onActionFailed?: (what: string, e: unknown) => void;
+  /** Fired when a generated chat image finishes loading (late height). */
+  onChatImageLoad?: () => void;
 };
 
 // Memoized separately from the live streaming tail: token/processing WS
@@ -151,6 +161,8 @@ const TranscriptRows = memo(function TranscriptRows({
   greetCount,
   greetingIndex,
   onVariantPicked,
+  onActionFailed,
+  onChatImageLoad,
 }: TranscriptProps) {
   const userHasReplied = messages.some((m) => m.isUser);
   return (
@@ -171,6 +183,9 @@ const TranscriptRows = memo(function TranscriptRows({
         return (
           <div key={m.rowKey ?? m.index} className="msg-row">
             {multiCast && speaker && <span className="msg-speaker">{speaker.name}</span>}
+            <span className={m.isUser ? 'msg-number user' : 'msg-number'}>
+              #{(m.position ?? m.index) + 1}
+            </span>
             {m.hasThinking && m.thinkingContent && (
               <details className="thinking">
                 <summary>💭 Thoughts</summary>
@@ -187,6 +202,7 @@ const TranscriptRows = memo(function TranscriptRows({
                   alt={m.imagePrompt || 'generated image'}
                   title={m.imagePrompt}
                   loading="lazy"
+                  onLoad={onChatImageLoad}
                 />
               )}
               {m.text ? (
@@ -226,6 +242,7 @@ const TranscriptRows = memo(function TranscriptRows({
               onEdit={() => onBeginEdit(m)}
               onDelete={() => onDelete(m.index)}
               onVariantPicked={onVariantPicked}
+              onActionFailed={onActionFailed}
             />
           </div>
         );
@@ -251,6 +268,9 @@ export function ChatMessageList({
   followStreamingReplies?: boolean;
 }) {
   const pinnedOpen = useRef<string | null>(null);
+  const stickToLatest = useRef(false);
+  const selfScroll = useRef(false);
+  const contentRef = useRef<HTMLDivElement>(null);
   const prevTip = useRef('');
   const prevLen = useRef(0);
   const prevHeight = useRef(0);
@@ -278,7 +298,28 @@ export function ChatMessageList({
   trackedFull.current = full.length;
   spanTip.current = fullTip;
   spanSession.current = sessionId ?? null;
-  const visible = full.slice(spanRef.current.start, spanRef.current.end);
+  // Memoized so token frames (which re-render this list) hand TranscriptRows
+  // the same array — a fresh slice each frame defeated its memo.
+  const { start: spanStart, end: spanEnd } = spanRef.current;
+  const visible = useMemo(() => full.slice(spanStart, spanEnd), [full, spanStart, spanEnd]);
+  const pinSelf = useCallback((el: HTMLDivElement) => {
+    selfScroll.current = true;
+    try {
+      pinTranscriptToLatest(el);
+    } finally {
+      selfScroll.current = false;
+    }
+  }, []);
+  const repinIfStuck = useCallback(() => {
+    const el = scrollRef.current;
+    if (!el || !stickToLatest.current) return;
+    if (streaming && !followStreamingReplies) {
+      stickToLatest.current = false;
+      return;
+    }
+    const max = Math.max(0, el.scrollHeight - el.clientHeight);
+    if (el.scrollTop < max - 1) pinSelf(el);
+  }, [followStreamingReplies, pinSelf, scrollRef, streaming]);
   useLayoutEffect(() => {
     const el = scrollRef.current;
     const nextTip = transcriptTipKey(visible);
@@ -291,39 +332,95 @@ export function ChatMessageList({
       nextTip,
     });
     if (kind === 'open' && el) {
-      pinTranscriptToLatest(el);
+      stickToLatest.current = true;
+      pinSelf(el);
       pinnedOpen.current = sessionId ?? null;
     } else if (kind === 'prepend' && el) {
-      holdTranscriptAfterPrepend(el, prevHeight.current);
+      stickToLatest.current = false;
+      selfScroll.current = true;
+      try {
+        holdTranscriptAfterPrepend(el, prevHeight.current);
+      } finally {
+        selfScroll.current = false;
+      }
     } else if (el) {
-      followTranscriptWhileStreaming(el, {
-        followEnabled: followStreamingReplies,
-        generating: !!streaming,
-        previousHeight: prevHeight.current,
-      });
+      selfScroll.current = true;
+      try {
+        followTranscriptWhileStreaming(el, {
+          followEnabled: followStreamingReplies,
+          generating: !!streaming,
+          previousHeight: prevHeight.current,
+        });
+      } finally {
+        selfScroll.current = false;
+      }
     }
     prevLen.current = visible.length;
     prevTip.current = nextTip;
     prevHeight.current = el?.scrollHeight ?? 0;
     settled.current = true;
-  }, [sessionId, visible, scrollRef, streaming, followStreamingReplies]);
+  }, [sessionId, visible, scrollRef, streaming, followStreamingReplies, pinSelf]);
+  // The streaming bubble sits outside contentRef, so a follow-off reply
+  // never resizes that node and nothing else drops the open stick. Clear
+  // it before the observer can pin the landed message to the bottom.
+  useLayoutEffect(() => {
+    if (streaming && !followStreamingReplies) stickToLatest.current = false;
+  }, [streaming, followStreamingReplies]);
+  // Stable for TranscriptRows: repinIfStuck changes with `streaming`.
+  const repinRef = useRef(repinIfStuck);
+  repinRef.current = repinIfStuck;
+  const onChatImageLoad = useCallback(() => repinRef.current(), []);
+  useLayoutEffect(() => {
+    const content = contentRef.current;
+    if (!content || typeof ResizeObserver === 'undefined') return;
+    const obs = new ResizeObserver(() => {
+      repinIfStuck();
+    });
+    obs.observe(content);
+    return () => obs.disconnect();
+  }, [repinIfStuck]);
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el || !settled.current) return;
+    if (!selfScroll.current && stickToLatest.current) {
+      const max = Math.max(0, el.scrollHeight - el.clientHeight);
+      if (el.scrollTop < max - 1) stickToLatest.current = false;
+    }
     const atTop = el.scrollTop <= 64;
     const enteredTop = atTop && !wasNearTop.current;
     nearTop.current = atTop;
     wasNearTop.current = atTop;
     if (!enteredTop) return;
+    // The prepend hold is new height minus this. A Thought opened or an
+    // image decoded since the last render would otherwise count too.
+    prevHeight.current = el.scrollHeight;
     if (revealOlderSpan(spanRef.current, trackedFull.current)) {
       bump((n) => n + 1);
       return;
     }
     onScroll?.();
   };
+  // A tap that opens a Thought, or a wheel inside its own box, never
+  // scrolls the list, so it would otherwise leave the open stick armed.
+  const readerTookOver = () => {
+    stickToLatest.current = false;
+  };
   return (
-    <div className="chat-messages" ref={scrollRef} onScroll={handleScroll}>
-      <TranscriptRows {...transcript} messages={visible} />
+    <div
+      className="chat-messages"
+      ref={scrollRef}
+      onScroll={handleScroll}
+      onPointerDown={readerTookOver}
+      onWheel={readerTookOver}
+      onTouchStart={readerTookOver}
+    >
+      <div ref={contentRef}>
+        <TranscriptRows
+          {...transcript}
+          messages={visible}
+          onChatImageLoad={onChatImageLoad}
+        />
+      </div>
       {streaming && (() => {
         // Separate a (possibly still-open) <think> block so reasoning streams
         // into a muted "thinking…" area and the reply shows below — mirrors how

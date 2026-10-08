@@ -31,9 +31,14 @@ import 'package:hashlib/hashlib.dart';
 /// Hashing/verification run in a background isolate ([Isolate.run]) so a ~64 MB
 /// Argon2 pass never janks the Flutter UI thread during login.
 class PasswordHasher {
+  /// [security] is the cost of new hashes. Verifying reads the cost stored in
+  /// each hash, so tests of the login flow can hash cheaply and still run
+  /// every step; the app always uses [defaultSecurity].
+  const PasswordHasher({this.security = defaultSecurity});
+
   /// Tuned for a single desktop host (OWASP-ish, second-factor optional):
   /// 64 MiB memory, 3 iterations, 4 lanes, 32-byte output.
-  static const Argon2Security _security = Argon2Security(
+  static const Argon2Security defaultSecurity = Argon2Security(
     'fpa',
     m: 65536,
     t: 3,
@@ -42,17 +47,20 @@ class PasswordHasher {
   static const int _hashLength = 32;
   static const int _saltBytes = 16;
 
+  final Argon2Security security;
+
   /// Produce a PHC-encoded Argon2id hash for [password].
   Future<String> hash(String password) {
     final rng = Random.secure();
     final salt = List<int>.generate(_saltBytes, (_) => rng.nextInt(256));
     final pwBytes = utf8.encode(password);
+    final cost = security;
     return Isolate.run(() {
       return argon2id(
         pwBytes,
         salt,
         hashLength: _hashLength,
-        security: _security,
+        security: cost,
       ).encoded();
     });
   }

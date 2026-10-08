@@ -102,8 +102,18 @@ extension BackporchApiCatalog on BackporchApi {
 
   /// The authenticated URL for a card asset (avatar). Load with an Authorization
   /// header — assets are served only to signed-in users, never publicly.
-  String assetUrl(String assetId) => '$baseUrl/assets/$assetId/raw';
+  /// [thumb] asks for the postcard-sized WebP the hub uses for tiles.
+  String assetUrl(String assetId, {bool thumb = false}) =>
+      '$baseUrl${stoopAssetPath(assetId, thumb: thumb)}';
+}
 
+/// Server path for a card asset. [thumb] is the postcard-sized WebP the hub
+/// shows on tiles (`?v=thumb`); without it the server returns the original.
+/// One builder so the desktop client and the web relay ask for the same URL.
+String stoopAssetPath(String assetId, {bool thumb = false}) =>
+    '/assets/${Uri.encodeComponent(assetId)}/raw${thumb ? '?v=thumb' : ''}';
+
+extension BackporchApiCatalogBrowse on BackporchApi {
   /// Browse approved cards. [sort] is `newest`|`top`|`downloads`; [type] is
   /// `solo`|`group`|`all`. [q] supports `@creator`, `#tag`, or a name.
   Future<StoopBrowsePage> browse({
@@ -161,13 +171,18 @@ extension BackporchApiCatalog on BackporchApi {
     return _post('/characters/$id/download', const {}, token: accessToken);
   }
 
-  /// Fetch a card asset's raw bytes (the avatar), for embedding on import.
-  Future<Uint8List> assetBytes(String accessToken, String assetId) async {
+  /// Fetch a card asset's bytes: the original (for embedding on import, the
+  /// card page) or the postcard [thumb] the grids show.
+  Future<Uint8List> assetBytes(
+    String accessToken,
+    String assetId, {
+    bool thumb = false,
+  }) async {
     final client = http.Client();
     try {
       final res = await client
           .get(
-            Uri.parse(assetUrl(assetId)),
+            Uri.parse(assetUrl(assetId, thumb: thumb)),
             headers: {'Authorization': 'Bearer $accessToken'},
           )
           .timeout(const Duration(seconds: 30));

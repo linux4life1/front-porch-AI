@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:convert';
 import 'package:flutter/widgets.dart';
@@ -33,10 +34,16 @@ part 'hardware_service.nvidia.dart';
 part 'hardware_service.apple.dart';
 part 'hardware_service.linux.dart';
 part 'hardware_service.windows.dart';
+part 'hardware_service.free.dart';
 
 class HardwareService extends ChangeNotifier {
   HardwareInfo? _hardwareInfo;
   bool _isDetecting = false;
+
+  /// Free memory read the last time this app's KoboldCpp was not running:
+  /// what a model has to load into. Set by the launch and by the preset
+  /// editor; null until one of them has read it.
+  FreeMemoryMb? freeBeforeEngine;
 
   /// The detected hardware, with [testVramOverrideMb] applied when set.
   /// Applied at the READ because detection assigns `_hardwareInfo` several
@@ -53,6 +60,33 @@ class HardwareService extends ChangeNotifier {
   }
 
   bool get isDetecting => _isDetecting;
+
+  bool _detectedOnce = false;
+
+  /// The detected hardware, waiting for the first detection to answer when
+  /// nothing is known yet (a first run has no cached answer). Null when
+  /// detection found nothing or [timeout] ran out.
+  Future<HardwareInfo?> whenKnown({
+    Duration timeout = const Duration(seconds: 20),
+  }) async {
+    bool settled() => _hardwareInfo != null || _detectedOnce || _disposed;
+    if (!settled()) {
+      final done = Completer<void>();
+      void check() {
+        if (settled() && !done.isCompleted) done.complete();
+      }
+
+      addListener(check);
+      try {
+        await done.future.timeout(timeout);
+      } on TimeoutException {
+        // Still unknown: the caller goes on without it.
+      } finally {
+        removeListener(check);
+      }
+    }
+    return hardwareInfo;
+  }
 
   /// True when this machine can only run local models on the CPU, slowly.
   ///
@@ -164,6 +198,7 @@ class HardwareService extends ChangeNotifier {
       print('Hardware detection failed: $e');
     } finally {
       _isDetecting = false;
+      _detectedOnce = true;
       if (!_disposed) notifyListeners();
       StartupTrace.mark(
         'HardwareService.detectHardware DONE in '

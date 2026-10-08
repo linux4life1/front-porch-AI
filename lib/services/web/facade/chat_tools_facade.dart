@@ -115,7 +115,11 @@ class ChatToolsFacade {
         'cooldownEnabled': _chat.activeGroup != null
             ? _chat.isGroupNsfwEnabled
             : nsfw.nsfwCooldownEnabled,
-        'cooldownTurnsRemaining': nsfw.cooldownTurnsRemaining,
+        // The desktop chip's own words, ready-made, so the phone cannot
+        // drift from them (story minutes, or replies with the clock off).
+        'refractoryMinutesRemaining': nsfw.refractoryMinutesRemaining,
+        'refractoryClockRunning': nsfw.clockRunning,
+        'refractoryLabel': nsfw.refractoryWords.chip,
         // Arousal is per-character: scope to the focused member in a group;
         // the host scalar otherwise. (Tier name is only derivable for the host
         // scalar, so members show the raw level.)

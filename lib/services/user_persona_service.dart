@@ -25,6 +25,29 @@ import 'package:front_porch_ai/database/database.dart';
 part 'user_persona_service.model.dart';
 part 'user_persona_service.import.dart';
 
+int _lastPersonaId = 0;
+
+/// A new persona id: a millisecond timestamp, as ids always were, but never
+/// one already handed out or stored. Two personas made in the same
+/// millisecond (the first-run default and one created right after it, or
+/// two from one file) would otherwise share an id and fail the table's
+/// unique key. Every new persona id comes from here.
+String _newPersonaId() {
+  final now = DateTime.now().millisecondsSinceEpoch;
+  _lastPersonaId = now > _lastPersonaId ? now : _lastPersonaId + 1;
+  return '$_lastPersonaId';
+}
+
+/// Raises [_newPersonaId]'s floor to every numeric id in [ids]: a library's
+/// ids can run ahead of this computer's clock (made on another machine, or
+/// the clock set back).
+void _notePersonaIds(Iterable<String> ids) {
+  for (final id in ids) {
+    final value = int.tryParse(id);
+    if (value != null && value > _lastPersonaId) _lastPersonaId = value;
+  }
+}
+
 class UserPersonaService extends ChangeNotifier {
   AppDatabase _db;
   List<UserPersona> _personas = [];
@@ -81,11 +104,16 @@ class UserPersonaService extends ChangeNotifier {
 
   Future<void> _loadPersonas() async {
     try {
-      final dbPersonas = await _db.getAllPersonas();
+      // One read, as before: deleted rows keep their ids, so they raise the
+      // id floor too, then drop out of the list. A second query here delayed
+      // the load into a create or import already under way.
+      final stored = await _db.select(_db.personas).get();
+      _notePersonaIds(stored.map((row) => row.id));
+      final dbPersonas = stored.where((row) => row.deletedAt == null).toList();
 
       if (dbPersonas.isEmpty) {
         // Create default persona
-        final defaultId = DateTime.now().millisecondsSinceEpoch.toString();
+        final defaultId = _newPersonaId();
         await _db.insertPersona(
           PersonasCompanion.insert(
             id: defaultId,
@@ -131,7 +159,7 @@ class UserPersonaService extends ChangeNotifier {
     String? avatarPath, {
     String birthday = '',
   }) async {
-    final id = DateTime.now().millisecondsSinceEpoch.toString();
+    final id = _newPersonaId();
 
     await _db.insertPersona(
       PersonasCompanion.insert(

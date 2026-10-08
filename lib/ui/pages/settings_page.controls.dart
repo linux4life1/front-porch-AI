@@ -24,6 +24,35 @@ part of 'settings_page.dart';
 /// the page's private launch state, so behavior is identical to when they
 /// lived inline. AppColors exclusive.
 extension _SettingsLaunchControls on _SettingsPageState {
+  /// A new chat model or preset goes into a running KoboldCpp at once: a
+  /// reload by name, a restart only when that is not acted on. When it was
+  /// not loaded, the reason is said the way a Start says its own, and the
+  /// model dropdown follows the stored choice again.
+  void _reloadChatIfRunning() {
+    final llm = context.read<LLMProvider>();
+    if (!llm.koboldService.isProcessRunning) return;
+    // Taken before the wait: the page may be gone when it ends.
+    final messenger = ScaffoldMessenger.of(context);
+    unawaited(
+      llm
+          .reloadChatKobold()
+          .then((result) {
+            final words = result?.message;
+            if (words != null) {
+              messenger.showSnackBar(SnackBar(content: Text(words)));
+            }
+            // A model that was not loaded was not kept either: the stored
+            // choice is back on what runs, and the dropdown names it again.
+            if (result?.refusal != null && mounted) {
+              rebuildState(() => _selectedModelPath = null);
+            }
+          })
+          .catchError(
+            (Object e) => debugPrint('[Settings] chat reload failed: $e'),
+          ),
+    );
+  }
+
   /// Apply GPU defaults based on detected hardware info.
   void _applyHardwareDefaults(HardwareInfo hw) {
     final storage = Provider.of<StorageService>(context, listen: false);
@@ -141,23 +170,11 @@ extension _SettingsLaunchControls on _SettingsPageState {
     _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
-
-    // Trigger silent autoconfig on load ONLY when GPU offload has never been
-    // configured at all (the pref has never been written). The old guard was
-    // `gpuLayers == 0`, which is NOT that signal: 0 is a deliberate CPU-only
-    // choice, and the low-VRAM solver legitimately recommends 0 — so CPU and
-    // low-VRAM users got silently re-configured on every visit.
-    if (_selectedModelPath != null &&
-        !storage.backendSettings.gpuLayersConfigured) {
-      // Warm before the silent auto-config so the solver gets good data on first run
-      final modelManager = Provider.of<ModelManager>(context, listen: false);
-      modelManager.getModelArchitectureInfo(_selectedModelPath!);
-      _applyAutoConfiguration(silent: true);
-    }
   }
 
   Future<void> _pickStoragePath() async {
-    String? selectedDirectory = await PickerPrefs.getDirectoryPath(
+    String? selectedDirectory = await GuardedPicker.getDirectoryPath(
+      context,
       category: PickerPrefs.catDirectory,
     );
     if (selectedDirectory != null) {
@@ -207,174 +224,6 @@ extension _SettingsLaunchControls on _SettingsPageState {
     }
   }
 
-  void _applyAutoConfiguration({bool silent = false}) {
-    final hardware = Provider.of<HardwareService>(
-      context,
-      listen: false,
-    ).hardwareInfo;
-    if (hardware == null) {
-      if (!silent) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Hardware not detected yet.')),
-        );
-      }
-      return;
-    }
-
-    if (silent) {
-      _runOptimization(hardware.vramMb, hardware, silent: true);
-    } else {
-      final vramController = TextEditingController(
-        text: hardware.vramMb.toString(),
-      );
-      showDialog(
-        context: context,
-        builder: (context) => AlertDialog(
-          backgroundColor: AppColors.cardOf(context),
-          title: Text(
-            'Auto-Configuration',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Confirm your System VRAM (MB):',
-                style: TextStyle(color: AppColors.textSecondary(context)),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: vramController,
-                keyboardType: TextInputType.number,
-                style: TextStyle(color: AppColors.textPrimary(context)),
-                decoration: InputDecoration(
-                  filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Note: Some systems report incorrect VRAM (e.g. 4095MB for >4GB cards). Adjust if necessary.',
-                style: TextStyle(
-                  color: AppColors.textTertiary(context),
-                  fontSize: 10,
-                ),
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                final adjustedVram =
-                    int.tryParse(vramController.text) ?? hardware.vramMb;
-                Navigator.pop(context);
-                _runOptimization(adjustedVram, hardware, silent: false);
-              },
-              child: const Text('Apply'),
-            ),
-          ],
-        ),
-      );
-    }
-  }
-
-  void _runOptimization(
-    int vramMb,
-    HardwareInfo hardware, {
-    required bool silent,
-  }) {
-    // Create temp hardware info with adjusted VRAM
-    final adjustedHw = HardwareInfo(
-      gpuName: hardware.gpuName,
-      vramMb: vramMb,
-      ramMb: hardware.ramMb,
-      vendor: hardware.vendor,
-    );
-
-    // Attempt to estimate model size from selected model
-    int modelSize = 5000;
-    if (_selectedModelPath != null) {
-      try {
-        final file = File(_selectedModelPath!);
-        if (file.existsSync()) {
-          modelSize = (file.lengthSync() / (1024 * 1024)).round();
-        }
-      } catch (e) {
-        debugPrint('Error getting file size: $e');
-      }
-    }
-
-    // Respect user's context size — pass it to the optimizer so only GPU layers adjust
-    final userContext = int.tryParse(_contextSizeController.text);
-
-    int? kvBytesPerToken;
-    if (_selectedModelPath != null && mounted) {
-      final modelManager = Provider.of<ModelManager>(context, listen: false);
-      kvBytesPerToken = modelManager.getCachedKvBytesPerToken(
-        _selectedModelPath!,
-      );
-    }
-
-    final suggestion = OptimizationService.calculateSettings(
-      adjustedHw,
-      modelSizeMb: modelSize,
-      requestedContextSize: userContext,
-      kvBytesPerToken: kvBytesPerToken,
-      kvQuantizationLevel: Provider.of<StorageService>(
-        context,
-        listen: false,
-      ).backendSettings.kvQuantizationLevel,
-    );
-
-    // Persist settings to storage so they survive app restart
-    final storage = Provider.of<StorageService>(context, listen: false);
-    storage.backendSettings.setGpuLayers(suggestion.gpuLayers);
-    storage.backendSettings.setContextSize(suggestion.contextSize);
-
-    rebuildState(() {
-      _gpuLayersController.text = suggestion.gpuLayers.toString();
-      _contextSizeController.text = suggestion.contextSize.toString();
-      // If user has Mac, suggest Metal
-      if (Platform.isMacOS) {
-        _useMetal = true;
-        _useVulkan = false;
-        _useCublas = false;
-        storage.backendSettings.setUseMetal(true);
-        storage.backendSettings.setUseVulkan(false);
-        storage.backendSettings.setUseCublas(false);
-      }
-      // If user has Nvidia, suggest Cublas instead of Vulkan usually
-      else if (hardware.vendor == 'Nvidia') {
-        _useCublas = true;
-        _useVulkan = false;
-        _useMetal = false;
-        storage.backendSettings.setUseCublas(true);
-        storage.backendSettings.setUseVulkan(false);
-      } else {
-        _useCublas = false;
-        _useMetal = false;
-      }
-    });
-
-    if (!silent) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text(suggestion.reasoning)));
-    }
-  }
-
-  void _autoConfigure() {
-    _applyAutoConfiguration(silent: false);
-  }
-
   Future<void> _toggleManagedBackend(BuildContext context) async {
     final koboldService = Provider.of<KoboldService>(context, listen: false);
     final backendManager = Provider.of<BackendManager>(context, listen: false);
@@ -401,65 +250,37 @@ extension _SettingsLaunchControls on _SettingsPageState {
     }
     final storage = Provider.of<StorageService>(context, listen: false);
 
-    final presetOwnsModel = storage.backendSettings.kcppsHasModel;
-
-    if (!presetOwnsModel) {
-      if (_selectedModelPath == null) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Please select a model.')));
-        return;
-      }
-      // Same validation KoboldService runs before spawning the process — used
-      // here purely so the reason lands in a snackbar the moment the user hits
-      // the button, instead of only in the backend log. A bare existsSync()
-      // used to guard this spot, which is exactly the check that says "yes"
-      // for a OneDrive placeholder KoboldCpp then cannot open (issue #137).
-      final problem = await ModelFileCheck.validate(_selectedModelPath!);
-      if (problem != null) {
-        if (!context.mounted) return;
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text(problem)));
-        return;
-      }
-    }
-
-    final gpuLayers = int.tryParse(_gpuLayersController.text) ?? 0;
-    final contextSize = int.tryParse(_contextSizeController.text) ?? 16384;
-
-    storage.backendSettings.setGpuLayers(gpuLayers);
-    storage.backendSettings.setContextSize(contextSize);
-    storage.backendSettings.setUseCublas(_useCublas);
-    storage.backendSettings.setUseVulkan(_useVulkan);
-    storage.backendSettings.setUseMetal(_useMetal);
-    storage.backendSettings.setUseRocm(_useRocm);
-
-    final effectiveModel = presetOwnsModel ? '' : _selectedModelPath!;
-    // Record the GGUF we are actually launching. This scalar is the app's only
-    // memory of the running model — the system-role probe's cache key, the
-    // auto-restart path, "Restart Backend" and the web UI's "loaded" marker all
-    // read it. The Backend tab auto-picks the first model when nothing was
-    // chosen, so without this the user launches model A while every consumer
-    // still points at model B. (A preset that owns its model supplies the path
-    // itself, so that branch leaves the scalar alone — same as the twin in
-    // model_settings_dialog.local_actions.dart.)
-    if (!presetOwnsModel) {
-      await storage.backendSettings.setLastUsedModelPath(_selectedModelPath);
-    }
-    await koboldService.startKobold(
-      backendManager.backendPath!,
-      effectiveModel,
-      kcppsPath: storage.backendSettings.activeKcppsPath,
-      mmprojPath: _selectedModelPath != null
-          ? storage.presetSettings.modelMmprojMap[_selectedModelPath!]
-          : null,
-      gpuLayers: gpuLayers,
-      contextSize: contextSize,
-      useVulkan: _useVulkan,
-      useCublas: _useCublas,
-      useMetal: _useMetal,
-      useRocm: _useRocm,
+    // The same check the launch runs (model chosen, model readable, preset
+    // readable), done here so the reason lands in a snackbar the moment the
+    // button is pressed. It reads the model file rather than asking whether
+    // it exists: a OneDrive placeholder "exists" and KoboldCpp still cannot
+    // open it (issue #137).
+    final problem = await koboldLaunchProblem(
+      storage,
+      pickedModel: _selectedModelPath,
     );
+    if (problem != null) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(problem)));
+      return;
+    }
+
+    // Nothing is written here: every control saves as it changes, and the
+    // launch reads storage. This page's copy of the context, layers and
+    // switches can be older than storage (the Local model card, the phone and
+    // "Reset to Automatic" write it directly), so writing it back undoes them.
+    final result = await koboldService.launch(
+      backendManager.backendPath!,
+      pickedModel: _selectedModelPath,
+    );
+    // Why nothing started, or how the model was chosen when that needs
+    // saying (a preset from another computer, a preset whose file is gone).
+    if (result.message != null && context.mounted) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(result.message!)));
+    }
   }
 }

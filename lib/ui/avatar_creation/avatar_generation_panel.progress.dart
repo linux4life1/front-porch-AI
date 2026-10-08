@@ -359,6 +359,17 @@ extension _AvatarGenerationPanelProgress on _AvatarGenerationPanelState {
               'portrait)',
           activeLabel: 'Expression pack $done / $total$current',
         ),
+        if (_c.packBaseConverted)
+          Padding(
+            padding: const EdgeInsets.only(left: 22, top: 2, bottom: 2),
+            child: Text(
+              kPackConvertedNote,
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 11,
+              ),
+            ),
+          ),
         if (active && total > 0)
           Padding(
             padding: const EdgeInsets.only(left: 22, top: 2, bottom: 2),

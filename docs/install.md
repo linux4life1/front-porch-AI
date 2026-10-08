@@ -33,7 +33,7 @@ A few things the installer quietly handles for you:
 
 ## macOS
 
-Needs **macOS 12 Monterey** or newer (Flutter 3.47's floor). Catalina and Big Sur will not run it.
+Needs **macOS 13.3 Ventura** or newer (the bundled ONNX runtime is built for 13.3). Monterey and older will not run it.
 
 1. Download `Front_Porch_AI.pkg` from the [Releases page](https://github.com/linux4life1/front-porch-AI/releases). It's the only macOS download — there's no `.dmg` any more.
 2. Double-click it and follow the installer. It places **Front Porch AI** in your **Applications** folder for you.
@@ -166,7 +166,7 @@ Everything below is for people who want to hack on the app. Regular users can st
 
 **Prerequisites**
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) **3.47.0** — the exact version CI builds and tests with. The project needs Dart 3.10.8 or newer. macOS **12 Monterey** is the floor.
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) **3.47.0** — the exact version CI builds and tests with. The project needs Dart 3.10.8 or newer. macOS **13.3 Ventura** is the floor.
 - Git
 
 That's the whole list — voice, speech-to-text, character expressions and memory embeddings all run **in-process** via libraries that ship with the app's packages. No Rust and no Python toolchain to set up. (The language model itself is the exception, and always has been: KoboldCpp is a separate local server that the app downloads, then starts and stops for you from the UI.)
