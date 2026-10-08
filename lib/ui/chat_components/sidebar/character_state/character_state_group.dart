@@ -246,13 +246,11 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
               ),
             ],
           ],
-          // Needs answers to its own switch, not the Realism header. Sitting
-          // inside that branch hid the bars on a brand-new 1:1 whose Porch
-          // Life Realism default is still off while Needs (card + chat gear)
-          // was already on — the same dead-switch class Ambitions/Pockets
-          // were lifted out of.
+          // The bars show while Needs run: the gate (Realism, this chat's
+          // Needs switch, the Porch Life one), not the stored switch, or
+          // they sit frozen with Needs off and read as live.
           if (!widget.isGroup &&
-              chat.needsSimEnabled &&
+              chat.needsActive &&
               chat.needsSimulation.vector.isNotEmpty) ...[
             const SizedBox(height: 10),
             Text(

@@ -7,8 +7,8 @@
 //
 // Cause: sessions.needs_sim_enabled defaults FALSE and hydrate used to
 // trust only that column. Card + Porch Life are AND-ed at new-chat seed,
-// not on load. Sidebar bars require chat.needsSimEnabled &&
-// vector.isNotEmpty. A lived-in 1:1 that never flipped the column (no
+// not on load. Sidebar bars require chat.needsActive (since 2026-10-08;
+// the stored switch before) && vector.isNotEmpty. A lived-in 1:1 that never flipped the column (no
 // saved vector) still promotes ON when card + Porch Life ask for Needs.
 //
 // The chat-gear switch must stick both ways. Explicit OFF keeps the
@@ -270,9 +270,10 @@ void main() {
   }
 
   bool sidebarWouldShowBars() {
-    // Mirrors character_state_group.dart 1:1 gate. Realism is NOT
-    // part of it — bars answer to the Needs switch.
-    return chat!.needsSimEnabled && chat!.needsSimulation.vector.isNotEmpty;
+    // Mirrors character_state_group.dart 1:1 gate: the Needs gate
+    // (Realism, this chat's Needs, Porch Life Needs), not the stored
+    // switch (maintainer, 2026-10-08).
+    return chat!.needsActive && chat!.needsSimulation.vector.isNotEmpty;
   }
 
   String wornNeedsVectorJson({int hunger = 71}) => jsonEncode({
@@ -616,6 +617,11 @@ void main() {
             'Needs is its own switch — a brand-new chat must seed '
             'bars even when the Realism header stays off',
       );
+      // Flipped 2026-10-08: seeded is not shown. Needs need Realism (the
+      // maintainer's rule), so with it off no Needs run and the bars hide
+      // rather than sit frozen; they show, as seeded, once Realism is on.
+      expect(sidebarWouldShowBars(), isFalse);
+      await c.setRealismEnabled(true);
       expect(sidebarWouldShowBars(), isTrue);
     },
   );

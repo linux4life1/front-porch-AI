@@ -139,13 +139,15 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     final fixationLife = isRealism
         ? chat.getFixationLifespanForGroupCharacter(widget.character)
         : null;
-    final needs = isRealism
+    // Needs bars follow the Needs gate, as in the 1:1 sidebar.
+    final needsOn = isRealism && chat.needsActive;
+    final needs = needsOn
         ? visibleNeedsFor(
             chat.getNeedsForGroupCharacter(widget.character),
             widget.character,
           )
         : const <String, int>{};
-    final topNeeds = isRealism
+    final topNeeds = needsOn
         ? chat.getTopUrgentNeedsForGroupCharacter(widget.character, count: 2)
         : const <(String, int)>[];
     // Hoisted: both of these were called twice further down (ambitions guard +

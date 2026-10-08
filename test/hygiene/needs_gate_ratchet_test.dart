@@ -21,8 +21,10 @@
 // where it means "this chat keeps Needs state", not "run Needs now": the
 // files below, each with its reason. Anywhere else in the ChatService
 // library, a condition on it is a Needs pass that bypassed the gate. The
-// public `needsSimEnabled` is the same switch for the UI and the web
-// facades to show; a leaf service must not run from it either.
+// public `needsSimEnabled` is the same switch, for the Needs toggle to
+// show its position; a leaf service must not run from it, and the bars
+// (desktop sidebar, the phone's feed) show from `needsActive`, or they sit
+// frozen with Needs off and read as live (maintainer, 2026-10-08).
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -113,18 +115,14 @@ void main() {
     );
   });
 
-  test('a leaf service does not run Needs from the public switch', () {
-    // Leaves that read the public switch as a condition, and why that is
-    // right: showing is not running, and a card's own `needsSimEnabled`
-    // is a seed.
-    const showsOrSeeds = <String, String>{
-      'lib/services/web/facade/chat_realism_read.dart':
-          'shows the bars the desktop sidebar shows (display parity)',
-    };
+  test('a leaf service does not run Needs, and the UI does not show the '
+      'bars, from the public switch', () {
+    // Files that read the public switch as a condition, and why that is
+    // right (a card's own `needsSimEnabled` is a seed). None today.
+    const seeds = <String, String>{};
     final problems = <String>[];
-    for (final path in dartFiles('lib/services')) {
-      if (path.startsWith('lib/services/chat/') ||
-          showsOrSeeds.containsKey(path)) {
+    for (final path in [...dartFiles('lib/services'), ...dartFiles('lib/ui')]) {
+      if (path.startsWith('lib/services/chat/') || seeds.containsKey(path)) {
         continue;
       }
       for (final hit in DartSource.read(path).hits(_publicSwitchAsCondition)) {
@@ -135,10 +133,11 @@ void main() {
       problems,
       isEmpty,
       reason:
-          'needsSimEnabled is the chat\'s switch, for showing. Needs run '
-          'behind _needsActive in $_pass; give the leaf a callback from '
-          'there. If the line shows state or reads a card\'s seed, add the '
-          'file to showsOrSeeds with its reason.\n${problems.join('\n')}',
+          'needsSimEnabled is the chat\'s switch, for its toggle. Needs run '
+          'behind _needsActive in $_pass; give a leaf a callback from '
+          'there, and show the bars from needsActive. If the line reads a '
+          'card\'s seed, add the file to seeds with its reason.'
+          '\n${problems.join('\n')}',
     );
   });
 

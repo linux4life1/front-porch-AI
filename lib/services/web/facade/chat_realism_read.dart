@@ -87,8 +87,8 @@ class ChatRealismRead {
         // getNeedsForGroupCharacter always returns a full vector while group
         // realism is active, so without this a member would still show needs
         // bars after Needs is toggled off — 1:1↔group display parity.
-        'needsEnabled': _chat.needsSimEnabled,
-        'needs': _chat.needsSimEnabled
+        'needsEnabled': _chat.needsActive,
+        'needs': _chat.needsActive
             ? visibleNeedsFor(_chat.getNeedsForGroupCharacter(card), card)
             : const <String, int>{},
         // The bands the bars colour by, from the engine, so the phone and
@@ -134,8 +134,11 @@ class ChatRealismRead {
       'mood': _chat.moodLabel,
       'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
       'fixation': rel.activeFixation,
-      'needsEnabled': _chat.needsSimEnabled,
-      'needs': _chat.needsSimEnabled
+      // The bars show while Needs run (the gate, not the chat's stored
+      // switch): with Realism or either Needs switch off they would sit
+      // frozen and read as live.
+      'needsEnabled': _chat.needsActive,
+      'needs': _chat.needsActive
           ? visibleNeedsFor(_chat.needsSimulation.vector, _chat.activeCharacter)
           : <String, int>{},
       'needsUrgentAt': NeedsSimulation.needUrgentThreshold,

@@ -250,10 +250,16 @@ Reprocess Needs all read it. The stored per-chat switch
 seeding the bars when a chat opens or a member joins, saving them with
 the session, rewinding a regen or a delete to the stamp it has — because
 those are not runs: a chat with the engine off keeps its bars where they
-were, and finds them again when the engine comes back.
+were, and finds them again when the engine comes back. Kept is not shown:
+the bars (the desktop sidebar, a group member's card, the phone's feed)
+show from the public `needsActive`, so with any of the three off they
+hide rather than sit frozen and read as live (the maintainer's ruling,
+2026-10-08). Realism does not need Needs: with Needs off, bond, trust and
+mood still run and show.
 `test/hygiene/needs_gate_ratchet_test.dart` holds that line: the gate is
-defined once, and a condition on the stored switch outside the named
-state-and-rewind files fails the build.
+defined once, a condition on the stored switch outside the named
+state-and-rewind files fails the build, and so does the UI showing the
+bars from the public switch.
 
 ## What you will see, and what does not change
 
