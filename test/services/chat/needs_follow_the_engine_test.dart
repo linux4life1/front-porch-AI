@@ -195,6 +195,11 @@ void main() {
         reason: 'the global switch off takes effect on the next turn',
       );
       expect(lastBot().activeMetadata?.containsKey('needs_time_wear'), isFalse);
+      expect(
+        lastBot().activeMetadata?.containsKey('needs_pre_turn_vector'),
+        isFalse,
+        reason: 'no stamp either: nothing for a regen to rewind',
+      );
 
       await storage!.realismSettings.setNeedsSimDefault(true);
       await chat!.sendMessage('Back on.');
