@@ -63,10 +63,13 @@ const _stateAndRewinds = <String, String>{
       'reads the bars into the realism snapshot',
 };
 
-/// [name] used as a condition: in an `if (…)`, beside `&&` / `||` (on
-/// either line of a wrapped condition), or before `?`.
+/// [name] used as a condition: in an `if` / `while` / `assert` head,
+/// beside `&&` / `||` (on either line of a wrapped condition), or before
+/// `?`.
 RegExp _asCondition(String name) => RegExp(
-  'if \\([^;{\\n]*$name\\b|$name\\s*(?:&&|\\|\\||\\?)|(?:&&|\\|\\|)\\s*!?$name\\b',
+  '(?:if|while|assert)\\s*\\([^;{\\n]*$name\\b'
+  '|$name\\s*(?:&&|\\|\\||\\?)'
+  '|(?:&&|\\|\\|)\\s*!?$name\\b',
 );
 
 /// Inside the library the switch is read as the field or as the bare
@@ -109,12 +112,17 @@ void main() {
   });
 
   test('a leaf service does not run Needs from the public switch', () {
-    // The web facade shows the bars the desktop sidebar shows, from the
-    // same switch: display parity, not a run.
-    const shows = {'lib/services/web/facade/chat_realism_read.dart'};
+    // Leaves that read the public switch as a condition, and why that is
+    // right: showing is not running, and a card's own `needsSimEnabled`
+    // is a seed.
+    const showsOrSeeds = <String, String>{
+      'lib/services/web/facade/chat_realism_read.dart':
+          'shows the bars the desktop sidebar shows (display parity)',
+    };
     final problems = <String>[];
     for (final path in dartFiles('lib/services')) {
-      if (path.startsWith('lib/services/chat/') || shows.contains(path)) {
+      if (path.startsWith('lib/services/chat/') ||
+          showsOrSeeds.containsKey(path)) {
         continue;
       }
       for (final hit in DartSource.read(path).hits(_publicSwitchAsCondition)) {
@@ -127,7 +135,8 @@ void main() {
       reason:
           'needsSimEnabled is the chat\'s switch, for showing. Needs run '
           'behind _needsActive in $_pass; give the leaf a callback from '
-          'there.\n${problems.join('\n')}',
+          'there. If the line shows state or reads a card\'s seed, add the '
+          'file to showsOrSeeds with its reason.\n${problems.join('\n')}',
     );
   });
 
