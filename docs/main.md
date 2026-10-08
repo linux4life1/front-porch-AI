@@ -2,6 +2,40 @@
 
 These notes feed the in-app "Update Available" dialog for stable releases on `main`.
 
+## v1.5.0 — Revenge of the Kobold
+
+The engine room got rebuilt while you were chatting. Kobold insists you update.
+
+- 🧠 **KoboldCpp, rebuilt so it just works.** Pick a model and go: KoboldCpp fits it to your graphics card by itself (GPU Layers is now **Automatic**), auto mode picks the batch size, and a plain **Local model** card in Settings shows what's loaded, lets you set the context, and says whether it fits, with a one-tap fix when it doesn't. Presets have a real editor (create, edit, rename, duplicate, delete, a plain-words summary, and a load estimate worked out from the model file itself). Switching models reloads KoboldCpp in place instead of restarting it, and an **Unload when idle** setting frees your graphics card after a quiet spell. The phone's Models page has the same card and preset picker.
+
+- ⚡ **Replies start fast and stay fast.** A chat's place in KoboldCpp's memory now survives the Realism, Needs and memory checks between replies, so the next reply reads only what's new instead of the whole chat again. And the Local model card can **find the fastest settings for your computer**: it tries a few ways of running your model, keeps the quickest as a preset, and tells you how much sooner replies come.
+
+- 🛟 **When KoboldCpp can't, you're told why, and nothing else breaks.** Out of graphics memory, an unreadable model file, a preset that can't run: a plain sentence on the computer and the phone, naming the largest context that fits when memory is the problem, and your working model stays up. ROCm cards get flash attention, with a safety net if the first reply dies. KoboldCpp older than 1.112 is refused instead of crashing.
+
+- 🔁 **The app keeps KoboldCpp current.** At start, a KoboldCpp too old to run gets a box that updates it right there, or removes it if you use another backend. A newer release gets a gentler box you can put off for three days. Nothing shows if you don't use KoboldCpp.
+
+- 🍽️ **Needs keep time with the story.** Hunger, bladder and energy wear down at a steady rate per hour of story time (each character's Pace still sets how fast) instead of the AI guessing a number; a skip never empties a bar, and sleep is something the story shows, so an all-nighter wakes up worn out. Characters bring a need up later and more gently, the bars turn amber at 40 and red at 25, and the chip under a reply shows the time and the scene apart (`1 hr 20 min · lunch`). The Refractory countdown after a climax runs on the story clock too.
+
+- 📚 **Porch Stories Studio.** A second story engine beside Quick: it interviews your cast, double-checks every planning step, writes beat by beat with a continuity check, and patches only the line that slipped. A story made from a chat uses that chat's Journal and Growth Rings and stays true to how it played; a faithful retelling takes its genre, mood and length from the chat. Rewrite arc, a search box in Start from a chat, a run log that says where the time went, and Stories and Waifu Coder now take the whole window.
+
+- 🎭 **An Expressions workspace in Image Studio, with prompt rules.** Expression packs get their own tab with their own description, source picture and target character; a stopped pack keeps its results until you re-roll, continue, import or reset it. Prompt rules put your words before and after every expression prompt, or find and replace inside it, saved as your defaults or for one pack, with the effective prompt shown before you start. Packs now start from the character's current portrait. On the phone too.
+
+- 🖼️ **The Image Studio desk.** Create and Edit share one desk: connection, model, LoRAs, size and the advanced knobs in one place, with a readiness line that says what's missing. ComfyUI fixes on top: boxed-up subgraphs keep your settings, Reroute nodes survive a convert, saved Edit workflows get the real prompt and keep the Qwen strength you set, GGUF loaders are found on Comfy Desktop (and a server that already has them is asked once), and a half-finished comparison is skipped instead of shown broken.
+
+- 🗂️ **A library you can grab.** Draw a box over the grid to pick cards, Shift-click a range, Ctrl-click one, then drag the whole pick into a folder or onto the folder path at the top. Select all and Select none, folders that follow your sort, a search that knows Everywhere from Top level only, and a tag window that scrolls. Export a whole character as a `.porch` file, or a set as a `.porchpack`, and import them back. Desktop for now.
+
+- 🔢 **Chat reads better.** Every message has a number, from #1, and Journal and Growth Rings memories match them. Your messages are laid out like the character's, on the left; a switch in Settings → General puts them back on the right. Reading old messages no longer snaps you down, Thoughts stay out of the bubble, Generate reply at your own line scores it like a normal send, suggested actions stay with the message they were made for, imported and Enhanced chats keep their replies, and a brand-new chat starts as your default persona.
+
+- 🪄 **The AI Character Creator has a Greetings step**, on desktop and phone: edit each greeting, rewrite it with one line of steering, delete an alternate or add one. Typing in the creator no longer lags on Windows.
+
+- 📱 **The phone catches up.** Editing a message works again, and keeps its Thinking; taps that fail say why instead of doing nothing; a broken screen offers Reload or Back to library; the model button in a chat switches model and provider; long chats stay smooth while a reply streams; Japanese, Chinese and Korean keyboards no longer send mid-word; Stoop cards show the whole picture and load their thumbnails faster.
+
+- 🤖 **xAI is a chat backend.** Pick it in Settings → Backend and sign in with SuperGrok to use your subscription allowance (unofficial, at your own risk), or use an API key as before.
+
+- 🪟 **Desktop fixes you'll feel.** Windows no longer opens as a blank white window until you resize it. Text no longer smears or ghosts on any desktop while a local model works the graphics card (the app draws with its older renderer again). A file window that fails says so, with Try again, and exporting something whose name has a `:` or `?` opens the save window on Windows instead of waiting forever.
+
+- 🍎 **Mac: macOS 13.3 Ventura is now the floor.** The memory-search runtime the app ships is built for it, so Monterey could never load it; nothing changes on Ventura and newer. Intel Macs can't run local models, and the phone's Settings now say so and offer the API path.
+
 ## v1.4.1 — KB5069420: Cumulative Porch Update
 
 Round two. Restart not required.

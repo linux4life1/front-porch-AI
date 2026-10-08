@@ -15,15 +15,16 @@
 
 **A local-first AI companion for character chat & roleplay — Windows, macOS, and Linux.** Runs fully offline with local LLMs (KoboldCpp, oMLX, LM Studio, …), driven by a living **Realism Engine** (emotion, trust, needs, memory, pockets) with built-in **TTS and image generation** — and supports remote APIs like OpenRouter, Nano-GPT, and OpenAI with no lock-in when you want them. Open-source (**AGPL-3.0**). Built as a home for people who lost theirs when Backyard AI killed its desktop app.
 
-> ### 🩹 New in 1.4.1 — KB5069420: Cumulative Porch Update
-> Round two. Restart not required.
+> ### 🧠 New in 1.5.0 — Revenge of the Kobold
+> The engine room got rebuilt while you were chatting. Kobold insists you update.
 >
-> - **Needs follow the story clock.** Bars move with the time the scene says passed, not with every message.
-> - **Tell the character exactly what to look up.** `/search -- the name` or `/wiki -- the name`, or force a Web or Wiki lookup from the regenerate box.
-> - **Export a lorebook your way**, and **bring a character's lore into your Worlds.**
-> - **Stoop: report a real person.**
+> - **KoboldCpp, rebuilt so it just works.** Fits your model to your graphics card by itself, a plain Local model card, a real preset editor, model switches that reload in place, and a speed test that keeps the fastest settings. Replies start fast and stay fast.
+> - **When KoboldCpp can't, you're told why**, and at start the app offers to update an old one (or remove it).
+> - **Needs keep time with the story**, and the Refractory countdown runs on the story clock.
+> - **Porch Stories Studio**, an **Expressions workspace with prompt rules**, the **Image Studio desk**, and **a library you can grab** (box select, drag a whole pick into a folder, `.porch` export).
+> - **The phone catches up**, **xAI is a chat backend**, and macOS 13.3 Ventura is the new floor on the Mac.
 >
-> Plus Windows pickers that no longer hang, Image Studio LoRA and ComfyUI fixes, and a pile of chat fixes. The in-app What's New has the full list.
+> Plus message numbers, your messages on the left (or the right), a Greetings step in the AI creator, no more white window on Windows, and text that no longer smears while a model runs. The in-app What's New has all fifteen.
 
 ## 🕯️ Why Does This Exist?
 
