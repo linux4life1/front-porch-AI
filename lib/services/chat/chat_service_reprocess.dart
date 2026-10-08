@@ -319,7 +319,7 @@ extension ChatServiceReprocess on ChatService {
         // (and deleting the regenerated reply under-refunds by it — caught by
         // regen_chip_attach_test: the original showed a hygiene chip, the
         // regen didn't).
-        if (_needsSimEnabled && _needsSimulation.vector.isNotEmpty) {
+        if (_needsActive && _needsSimulation.vector.isNotEmpty) {
           _pendingRealismMetadata ??= {};
           _pendingRealismMetadata!['needs_pre_turn_vector'] =
               Map<String, int>.from(_needsSimulation.vector);

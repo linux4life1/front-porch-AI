@@ -114,7 +114,7 @@ extension ChatServiceIdleAutonomous on ChatService {
 
     // Capture pre-AFK needs vector so the needs delta chip has a baseline.
     // Soft group speakers skip Needs — do not park a leftover vector.
-    if (_needsSimEnabled &&
+    if (_needsActive &&
         _needsSimulation.vector.isNotEmpty &&
         (afkSpeaker == null || !_speakerIsSoft(afkSpeaker))) {
       _pendingRealismMetadata ??= {};
@@ -180,7 +180,7 @@ extension ChatServiceIdleAutonomous on ChatService {
         ? '${_timeService.timeOfDay} (Day ${_timeService.dayCount})'
         : '';
 
-    if (!_needsSimEnabled || _needsSimulation.vector.isEmpty) {
+    if (!_needsActive || _needsSimulation.vector.isEmpty) {
       final preamble = timeAdvancing
           ? '*${AfkFlavor.timePhrase(pace)} It is now $timeStr.\n\n'
           : '*A while has passed.\n\n';

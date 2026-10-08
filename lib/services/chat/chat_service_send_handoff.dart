@@ -115,22 +115,9 @@ extension ChatServiceSendHandoff on ChatService {
     // regenerateLastMessage() and the post-generation delta computation
     // can use the same delta-revert mechanism the classic realism fields
     // (bond/trust/arousal) use.
-    Map<String, int>? preTurnVector;
-    // Needs follow the engine (_needsActive): with it off nothing wears, so
-    // there is nothing for a regen to rewind and no stamp to leave.
-    if (addressedGuest == null &&
-        _activeGroup == null &&
-        _needsActive &&
-        _needsSimulation.vector.isNotEmpty) {
-      preTurnVector = Map<String, int>.from(_needsSimulation.vector);
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
-      // The carried fraction rewinds with the bars, so a regen charges the
-      // beat exactly once more, not from a reset carry.
-      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
-        _needsSimulation.wearCarry,
-      );
-    }
+    // The Needs pass stamps the body before this beat (and nothing, with
+    // Needs off); regen and the chip read the stamp from the reply.
+    if (addressedGuest == null && _activeGroup == null) _needsStampPreTurn();
     if (_realismActiveThisMode && addressedGuest == null) {
       // 1:1 only. Group per-speaker stamp lives in the realism dance —
       // writing it here used the last loaded (full) member's vector, then
@@ -341,7 +328,7 @@ extension ChatServiceSendHandoff on ChatService {
   /// Mutated in place: a user bubble's swipeMetadata[0] aliases [metadata].
   void _stampUserTurnBaseline(ChatMessage userMsg) {
     if (!userMsg.isUser) return;
-    if (!_realismActiveThisMode && !_needsSimEnabled) return;
+    if (!_realismActiveThisMode && !_needsActive) return;
     final meta = userMsg.metadata ??= <String, dynamic>{};
     if (meta[kRealismPreTurn] is Map) return;
     meta[kRealismPreTurn] = _captureRealismState(

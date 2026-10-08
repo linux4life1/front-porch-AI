@@ -104,18 +104,7 @@ extension ChatServiceRealismDance on ChatService {
     // Group: stamp the body as it is now. Wear happens after the clock,
     // for everyone who is present, not as a per-send tick on the speaker.
     if (_activeGroup != null && !_observerMode && _needsActive) {
-      final currentForSpeaker = _getGroupNeeds(charId);
-      final preTurn = currentForSpeaker.isNotEmpty
-          ? Map<String, int>.from(currentForSpeaker)
-          : NeedsSimulation.baselinesFromExtensions(
-              speaker.frontPorchExtensions,
-            );
-      _pendingRealismMetadata ??= {};
-      _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurn;
-      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
-        _memberForWrite(charId).needsWearCarry,
-      );
-      _loadGroupRealismIntoScalars(charId);
+      _needsStampPreTurn(groupSpeaker: speaker);
     } else if (_activeGroup != null) {
       // Group speaker (observer mode or needs-off): load this speaker's persisted
       // group realism state into the scalar fields the eval will read and mutate.
@@ -258,7 +247,7 @@ extension ChatServiceRealismDance on ChatService {
         preTurn: preTurnVector,
       );
 
-      if (_needsSimEnabled) {
+      if (_needsActive) {
         final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(
           preTurnVector ?? const <String, int>{},
         );

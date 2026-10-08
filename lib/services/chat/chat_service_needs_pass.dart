@@ -1,14 +1,27 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Clock beat bookkeeping. After the clock commits, every present body
-// wears the beat's story minutes at fixed rates (needs_wear.dart); the
-// scene eval then scores events on top. Continue does not invent a second
-// beat, and a clock that is off records no minutes, so nothing wears.
+// The Needs pass: the one place Needs run from, behind one gate.
+//
+// Disabled means disabled. [_needsActive] is the gate (the Realism engine,
+// this chat's Needs switch, the global Needs switch read live), and every
+// way Needs run reads it: the pre-turn stamp, the prompt lines and the
+// judge (wired to it in chat_service_wiring_*), the clock's wear, the chip
+// under the reply, Reprocess Needs. Off, none of them run and nothing of
+// Needs is written. What this file does not gate on [_needsActive] is
+// state and rewinds: the bars seeded from a card or a session (the
+// chat's stored switch), and regen / delete undoing a stamp a reply
+// already carries, which came from wear that happened.
+// test/hygiene/needs_gate_ratchet_test.dart keeps new Needs code here.
+//
+// The wear: after the clock commits, every present body wears the beat's
+// story minutes at fixed rates (needs_wear.dart); the scene eval then
+// scores events on top. Continue does not invent a second beat, and a
+// clock that is off records no minutes, so nothing wears.
 
 part of '../chat_service.dart';
 
-extension ChatServiceBodyWear on ChatService {
+extension ChatServiceNeedsPass on ChatService {
   /// After the clock commits: wear every present body for the beat's
   /// minutes at that character's pace, with the skip floors off-screen and
   /// the one-warning-turn stop on-screen. What the speaker lost goes to the
@@ -27,6 +40,42 @@ extension ChatServiceBodyWear on ChatService {
       _realismEnabled &&
       _needsSimEnabled &&
       _storageService.realismSettings.needsSimDefault;
+
+  /// The pre-turn stamp: the body as it is before this reply, with the
+  /// carried fraction, on the pending map, so regen and the chip rewind to
+  /// the turn's base. 1:1 stamps the live vector; a group stamps the
+  /// speaker's own bars (or the card's baselines on a first turn) and that
+  /// member's carry, and loads the speaker into the scalars. Returns the
+  /// vector stamped, or null when nothing was.
+  Map<String, int>? _needsStampPreTurn({CharacterCard? groupSpeaker}) {
+    if (!_needsActive) return null;
+    if (groupSpeaker == null) {
+      if (_needsSimulation.vector.isEmpty) return null;
+      final preTurnVector = Map<String, int>.from(_needsSimulation.vector);
+      _pendingRealismMetadata ??= {};
+      _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurnVector;
+      // The carried fraction rewinds with the bars, so a regen charges the
+      // beat exactly once more, not from a reset carry.
+      _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
+        _needsSimulation.wearCarry,
+      );
+      return preTurnVector;
+    }
+    final charId = _getCharacterIdFromCard(groupSpeaker);
+    final currentForSpeaker = _getGroupNeeds(charId);
+    final preTurn = currentForSpeaker.isNotEmpty
+        ? Map<String, int>.from(currentForSpeaker)
+        : NeedsSimulation.baselinesFromExtensions(
+            groupSpeaker.frontPorchExtensions,
+          );
+    _pendingRealismMetadata ??= {};
+    _pendingRealismMetadata!['needs_pre_turn_vector'] = preTurn;
+    _pendingRealismMetadata![kNeedsPreTurnCarry] = Map<String, double>.from(
+      _memberForWrite(charId).needsWearCarry,
+    );
+    _loadGroupRealismIntoScalars(charId);
+    return preTurn;
+  }
 
   void _wearBodiesAfterClock(_GenTurn t) {
     if (!_needsActive) return;
@@ -290,6 +339,105 @@ extension ChatServiceBodyWear on ChatService {
       if (entry.key == speakerId) continue;
       _setGroupNeeds(entry.key, Map<String, int>.from(entry.value));
     }
+  }
+
+  Map<String, int> _coerceNeedsVector(dynamic src) {
+    if (src == null) return const {};
+    if (src is Map<String, int>) return Map<String, int>.from(src);
+    if (src is Map) {
+      final out = <String, int>{};
+      src.forEach((k, v) {
+        final key = k.toString();
+        if (v is num) {
+          out[key] = v.toInt();
+        } else if (v is int) {
+          out[key] = v;
+        }
+      });
+      return out;
+    }
+    return const {};
+  }
+
+  /// Compute + attach this message's needs-delta chips (`needs_deltas`) from the
+  /// speaker's pre-turn baseline to their post-turn (decay + impact) needs.
+  ///
+  /// Called from `_generateResponse` so EVERY generated turn gets chips — 1:1
+  /// host, group first responder, group auto-advance (`triggerNextCharacter`),
+  /// and `/speak` alike. The old block lived only in `sendMessage`, so any group
+  /// speaker after the first (who reaches `_generateResponse` by another door)
+  /// showed no needs chips even though their needs were simulated correctly.
+  ///
+  /// Baseline is the message's own `needs_pre_turn_vector` — stamped per-speaker
+  /// (1:1 in `sendMessage` pre-tick; group in the realism dance pre-decay) — with
+  /// the `realism_state` snapshot's needs vector as a fallback. No-op when there
+  /// is no baseline or no net change (`message_bubble` hides zero-delta needs).
+  ///
+  /// Deliberately a pure in-memory mutator with NO save of its own. It used to
+  /// end in `_saveChat()`, and because it is the LAST thing the post-generation
+  /// block does, that made it the accidental persist for the whole phase — one
+  /// that never ran when Needs was off, silently costing the spatial stance
+  /// (and anything else written after the phase's first save) its trip to
+  /// disk. The persist now lives at the end of the block in
+  /// `chat_service_generation_postgen.dart`, where it covers every pass rather
+  /// than one feature's slice.
+  void _attachNeedsDeltaChipToLastMessage() {
+    if (!_needsActive || _messages.isEmpty) return;
+    var preVec = _coerceNeedsVector(
+      _messages.last.activeMetadata?['needs_pre_turn_vector'],
+    );
+    if (preVec.isEmpty) {
+      preVec = _coerceNeedsVector(
+        (_messages.last.activeMetadata?['realism_state']
+            as Map<String, dynamic>?)?['needs']?['vector'],
+      );
+    }
+    if (preVec.isEmpty) return;
+    final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(preVec);
+    final senderCard = (_activeGroup != null && !_observerMode)
+        ? resolveGroupSpeakerForMessage(_groupCharacters, _messages.last) ??
+              _activeCharacter
+        : _activeCharacter;
+    needsDeltas.removeWhere(
+      (key, _) => !visibleNeedsFor({key: 1}, senderCard).containsKey(key),
+    );
+    final wear = _pendingRealismMetadata?['needs_time_wear'];
+    final passed = _timeService.bodyTimeLabel;
+    if (wear is Map && passed != null && passed.isNotEmpty) {
+      for (final entry in needsDeltas.entries) {
+        final row = entry.value;
+        if (row is! Map) continue;
+        final worn = wear[entry.key];
+        final delta = row['delta'];
+        if (worn is! int || worn >= 0 || delta is! int || delta >= 0) continue;
+        final scene = row['reason'];
+        row['reason'] =
+            (scene is String && scene.isNotEmpty && scene != 'Natural decay')
+            ? '$passed · $scene'
+            : passed;
+      }
+    }
+    final meta = Map<String, dynamic>.from(
+      _messages.last.activeMetadata ?? const {},
+    );
+    if (needsDeltas.isEmpty) {
+      // Write the swipe slot. A short no-action turn must still prove
+      // Needs ran — bars stay put, this chip is the receipt.
+      meta[kNeedsUnaffectedMeta] = true;
+      meta.remove('needs_deltas');
+      _messages.last.activeMetadata = meta;
+      debugPrint(
+        '[Realism:Needs] Chip: no needs affected for ${_messages.last.sender}',
+      );
+      return;
+    }
+    meta.remove(kNeedsUnaffectedMeta);
+    meta['needs_deltas'] = needsDeltas;
+    _messages.last.activeMetadata = meta;
+    debugPrint(
+      '[Realism:Needs] Chip: ${needsDeltas.length} need delta(s) attached for '
+      '${_messages.last.sender}',
+    );
   }
 }
 

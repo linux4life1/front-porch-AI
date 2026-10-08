@@ -266,7 +266,7 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     // Keep realism_state['needs'] aligned with manual corrections so swipe
     // navigation and regen do not resurrect a stale pre-reprocess vector.
-    if (_needsSimEnabled && updatedMeta['realism_state'] is Map) {
+    if (_needsActive && updatedMeta['realism_state'] is Map) {
       final postReprocessVector = Map<String, int>.from(
         _needsSimulation.vector,
       );
@@ -412,7 +412,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     // turn, not the correction, and dropping it would let the next reprocess
     // re-derive a baseline from the (already post-impact) realism_state.
     updated['needs_pre_impact'] = baseline;
-    if (_needsSimEnabled && updated['realism_state'] is Map) {
+    if (_needsActive && updated['realism_state'] is Map) {
       final postRevertVector = Map<String, int>.from(_needsSimulation.vector);
       final rs = Map<String, dynamic>.from(updated['realism_state'] as Map);
       final needsSnap = <String, dynamic>{'vector': postRevertVector};
