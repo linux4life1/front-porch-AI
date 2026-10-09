@@ -28,6 +28,9 @@ import 'package:shared_preferences/shared_preferences.dart';
 part 'world_repository_attach.dart';
 part 'world_repository_purge.dart';
 
+/// What a person sees when they try to save a world with no name.
+const kWorldNameRequired = 'Give your world a name.';
+
 class WorldRepository extends ChangeNotifier {
   final StorageService _storageService;
   AppDatabase _db;
@@ -204,7 +207,10 @@ class WorldRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Throws [StateError] ([kWorldNameRequired]) for a blank name: a nameless
+  /// world shows as "?" and cannot be told apart in any picker.
   Future<void> saveWorld(model.World world) async {
+    if (world.name.trim().isEmpty) throw StateError(kWorldNameRequired);
     if (world.id.isEmpty) {
       world.id = _uuid.v4();
     }
@@ -220,6 +226,7 @@ class WorldRepository extends ChangeNotifier {
     if (existing != null) {
       await _db.updateWorld(_toCompanion(world));
     } else {
+      world.name = world.name.trim();
       // Name collision on create → auto-rename (Keep both).
       final taken = await _db.getWorldByName(world.name);
       if (taken != null && taken.id != world.id) {
@@ -270,6 +277,8 @@ class WorldRepository extends ChangeNotifier {
     // Fresh local identity; remember provenance.
     world.sourceId ??= world.id.isNotEmpty ? world.id : null;
     world.id = _uuid.v4();
+    // A file with no name imports as "Imported World" (uniqueWorldName), so
+    // saveWorld's blank-name refusal never blocks an import.
     world.name = uniqueWorldName(
       world.name,
       (n) => _worlds.any((w) => w.name == n),

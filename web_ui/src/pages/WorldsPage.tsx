@@ -489,6 +489,11 @@ export function WorldsPage() {
             entries={edit.entries}
             onChange={(entries) => setEdit({ ...edit, entries })}
           />
+          {!edit.name.trim() && (
+            <p className="muted small" data-testid="place-name-hint">
+              Give your place a name.
+            </p>
+          )}
           <div className="wizard-nav">
             <button type="button" onClick={() => setEdit(null)}>
               Cancel

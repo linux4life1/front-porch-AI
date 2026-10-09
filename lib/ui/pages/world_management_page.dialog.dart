@@ -50,6 +50,8 @@ class _WorldDraft {
 
   final TextEditingController nameController;
   final TextEditingController descController;
+  // Shown under the name field after a save with no name.
+  String? nameError;
   // Climate default for chats that attach this place (Living Worlds).
   String? customBiomeJson;
   String? selectedBiomeId;
@@ -218,13 +220,19 @@ extension _WorldDialogFrame on _WorldManagementPageState {
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
                             onPressed: () async {
+                              final newName = draft.nameController.text.trim();
+                              if (newName.isEmpty) {
+                                setDialogState(
+                                  () => draft.nameError = kWorldNameRequired,
+                                );
+                                return;
+                              }
                               final newWorld =
                                   world ??
                                   World(
                                     name: '',
                                     lorebook: Lorebook(entries: []),
                                   );
-                              final newName = draft.nameController.text.trim();
                               // Renames update the display name only — attachments
                               // use stable world UUIDs (Living Worlds phase 0).
                               if (world != null && newName != world.name) {

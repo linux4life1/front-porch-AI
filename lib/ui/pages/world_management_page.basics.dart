@@ -166,8 +166,14 @@ extension _WorldBasicsSection on _WorldManagementPageState {
           TextField(
             controller: draft.nameController,
             style: TextStyle(color: AppColors.textPrimary(ctx)),
+            onChanged: (_) {
+              if (draft.nameError != null) {
+                setDialogState(() => draft.nameError = null);
+              }
+            },
             decoration: InputDecoration(
               labelText: 'World Name',
+              errorText: draft.nameError,
               labelStyle: TextStyle(color: AppColors.textSecondary(ctx)),
               hintText: 'Enter a name for this world',
               hintStyle: TextStyle(color: AppColors.textTertiary(ctx)),

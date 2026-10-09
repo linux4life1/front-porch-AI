@@ -22,6 +22,9 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
+/// The web calls worlds "places"; same rule as the desktop dialog.
+const kPlaceNameRequired = 'Give your place a name.';
+
 /// World (shared lorebook) CRUD endpoints for the web authoring UI.
 class WebWorldRoutes {
   WebWorldRoutes(this._facade, Router router) {
@@ -126,6 +129,9 @@ class WebWorldRoutes {
       body = await RequestBody.readJsonMap(request);
     } catch (_) {
       return JsonResponse.badRequest('Invalid JSON body');
+    }
+    if ((body['name']?.toString().trim() ?? '').isEmpty) {
+      return JsonResponse.badRequest(kPlaceNameRequired);
     }
     final ok = await _facade.save(body);
     if (!ok) return JsonResponse.badRequest('name is required');
