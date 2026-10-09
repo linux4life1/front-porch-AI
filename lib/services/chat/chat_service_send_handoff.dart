@@ -452,19 +452,24 @@ extension ChatServiceSendHandoff on ChatService {
   /// Stamp-less 1:1 user line (sent before stamps existed): rewind only the
   /// scored registers to the last accepted reply. Needs and pockets were
   /// already refunded by the delete that left this line trailing.
-  void _rewindRelationshipToLastAcceptedReply() {
+  bool _rewindRelationshipToLastAcceptedReply() {
     for (var i = _messages.length - 2; i >= 0; i--) {
       final m = _messages[i];
       if (m.isUser || m.sender == 'System') continue;
       final state = m.activeMetadata?['realism_state'];
       if (state is! Map) continue;
-      final s = Map<String, dynamic>.from(state);
-      _relationshipService.restoreFromMessageState(s);
-      _characterEmotion = s['characterEmotion'] as String? ?? _characterEmotion;
-      _emotionIntensity = s['emotionIntensity'] as String? ?? _emotionIntensity;
-      _nsfwService.restoreNsfwFromRealismState(s);
-      return;
+      _restoreScoredRegisters(Map<String, dynamic>.from(state));
+      return true;
     }
+    return false;
+  }
+
+  /// Bond/trust/feelings, mood and arousal from one realism stamp.
+  void _restoreScoredRegisters(Map<String, dynamic> s) {
+    _relationshipService.restoreFromMessageState(s);
+    _characterEmotion = s['characterEmotion'] as String? ?? _characterEmotion;
+    _emotionIntensity = s['emotionIntensity'] as String? ?? _emotionIntensity;
+    _nsfwService.restoreNsfwFromRealismState(s);
   }
 
   ChatMessage _realismStampCarrier(Map stamp) => ChatMessage(

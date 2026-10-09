@@ -58,6 +58,11 @@ mixin ChatServiceFieldBag {
   /// "Check now" (forceCheckCompletion) never records — a regen must not
   /// undo a user-triggered check. Scoped by try/finally; no reset needed.
   bool _objectiveTurnOpsArmed = false;
+
+  /// The reply the post-reply clock pass belongs to, set only around that
+  /// pass. Planner writes made there (a new today quest, a finished one's
+  /// card) record onto THIS reply, so deleting or regenerating it undoes them.
+  ChatMessage? _objectiveTurnReply;
   int _messagesSinceLastCheck = 0;
   // God-side runtime flag mirroring objective_proposal's get/setIsChecking
   // (early guard in the completion check). Must be defensively zeroed on

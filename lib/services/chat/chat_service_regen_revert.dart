@@ -405,4 +405,32 @@ extension ChatServiceRegenRevert on ChatService {
       // The group rotation is put back by regenerateLastMessage's finally.
     }
   }
+
+  /// Delete's realism time travel: back to the new last message's stamp.
+  /// A 1:1 tail delete of a scored reply leaves the user line last, which
+  /// carries no reply stamp, so the deleted reply's mood and bond used to
+  /// stand. Rewind the scored registers the way regen does: to the last
+  /// accepted reply, else the line's pre-turn stamp. Needs, pockets and the
+  /// clock keep their own delete rewinds, which run after this. Groups
+  /// rewind the deleted speaker's own entry in the caller.
+  void _restoreRealismAfterDelete(
+    ChatMessage deleted, {
+    required bool wasTail,
+  }) {
+    if (_messages.isEmpty) return;
+    final last = _messages.last;
+    final scoredReplyGone =
+        wasTail &&
+        _activeGroup == null &&
+        last.isUser &&
+        deleted.activeMetadata?['realism_state'] is Map &&
+        !_isGuestAuthoredMessage(deleted);
+    if (!scoredReplyGone) {
+      _restoreRealismStateForSpeaker(last, restoreClock: false);
+      return;
+    }
+    if (_rewindRelationshipToLastAcceptedReply()) return;
+    final stamp = last.metadata?[kRealismPreTurn];
+    if (stamp is Map) _restoreScoredRegisters(Map<String, dynamic>.from(stamp));
+  }
 }

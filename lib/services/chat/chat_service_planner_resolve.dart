@@ -60,6 +60,10 @@ extension ChatServicePlannerResolve on ChatService {
   Future<void> _deactivateTodayObjective() async {
     final id = _todayObjectiveId;
     if (id == null) return;
+    // Before the first await: the turn window may close behind it.
+    if (_inObjectiveTurn) {
+      _recordObjectiveTurnOp({'op': 'deactivated', 'id': id});
+    }
     _todayObjectiveId = null;
     _todayObjectiveText = null;
     await _persistTodayObjectiveId(null);
@@ -115,6 +119,7 @@ extension ChatServicePlannerResolve on ChatService {
   Future<void> _onTodayObjectiveCompleted(Objective obj) async {
     if (!_isHeldTodayObjective(obj)) return;
     final held = todaySentence ?? obj.objective;
+    _recordTodayPointerOp();
     _todayObjectiveId = null;
     _todayObjectiveText = null;
     setTodaySentence(null);
@@ -133,6 +138,8 @@ extension ChatServicePlannerResolve on ChatService {
     final line = held?.trim();
     if (line == null || line.isEmpty) return;
     if (!_storageService.realismSettings.plannerEnabled) return;
+    // Taken now, while the turn that resolved the line is still running.
+    final cite = _objectiveTurnCite();
     _nudgePlannerMood(fate);
     if (fate == PlannerTodayFate.abandoned) return;
     final sessionId = _currentSessionId;
@@ -144,6 +151,7 @@ extension ChatServicePlannerResolve on ChatService {
       content: line,
       category: 'moment',
       kind: 'today',
+      sourcePositions: cite,
       storyDay: _timeService.dayCount,
       storyClock: _timeService.storyClockIso,
       emotionLabel: _characterEmotion.isEmpty ? null : _characterEmotion,

@@ -141,22 +141,72 @@ extension ChatServiceObjectiveCompletion on ChatService {
   /// leaves always start from getPendingRealismMetadata(), so the list
   /// survives their read-mutate-set pattern).
   void _recordObjectiveTurnOp(Map<String, dynamic> op) {
-    _pendingRealismMetadata ??= {};
-    final list =
-        (_pendingRealismMetadata!['objective_turn_ops'] ??= <dynamic>[])
-            as List;
+    // Post-reply pass: the reply already exists and the pending metadata
+    // has been handed over, so the op goes straight onto the reply.
+    final reply = _objectiveTurnReply;
+    final Map<String, dynamic> target = reply != null
+        ? (reply.activeMetadata ??= <String, dynamic>{})
+        : (_pendingRealismMetadata ??= <String, dynamic>{});
+    final list = (target['objective_turn_ops'] ??= <dynamic>[]) as List;
     list.add(op);
+  }
+
+  /// A turn's own objective work is running: the pre-reply completion
+  /// check, or the post-reply clock pass. User actions (Check now, the
+  /// today X, a clock nudge) run outside both and never record.
+  bool get _inObjectiveTurn =>
+      _objectiveTurnOpsArmed || _objectiveTurnReply != null;
+
+  /// Receipt for a Journal card the turn writes: the reply being written
+  /// (pre-reply check) or just written (post-reply pass). Deleting,
+  /// regenerating or editing that reply then takes the card with it.
+  /// Outside a turn the card cites nothing.
+  List<int> _objectiveTurnCite() {
+    final base = _history.basePosition;
+    final reply = _objectiveTurnReply;
+    if (reply != null) {
+      final i = _messages.lastIndexWhere((m) => identical(m, reply));
+      return i < 0 ? const [] : [persistMessagePosition(base: base, index: i)];
+    }
+    if (_objectiveTurnOpsArmed) {
+      return [persistMessagePosition(base: base, index: _messages.length)];
+    }
+    return const [];
+  }
+
+  /// Record where the today line stood before the turn moves it, so the
+  /// rewind can hand the sidebar back the line it showed.
+  void _recordTodayPointerOp() {
+    if (!_inObjectiveTurn) return;
+    _recordObjectiveTurnOp({
+      'op': 'today',
+      'id': _todayObjectiveId,
+      'text': _todayObjectiveText,
+      'sentence': todaySentence,
+    });
+  }
+
+  Future<void> _revertTodayPointer(Map entry) async {
+    _todayObjectiveId = entry['id'] as String?;
+    _todayObjectiveText = entry['text'] as String?;
+    setTodaySentence(entry['sentence'] as String?);
+    await _persistTodayObjectiveId(_todayObjectiveId);
   }
 
   /// Invert the rejected message's recorded objective ops (reverse order):
   /// created → deleted, tasks_changed → pre-mutation JSON restored,
-  /// deactivated/evicted → reactivated, demoted → primary restored. Blind
+  /// deactivated/evicted → reactivated, demoted → primary restored, today →
+  /// the held today line put back. Blind
   /// id-addressed updates: a row deleted since (e.g. chat cleanup) no-ops.
   Future<void> _revertObjectiveTurnOps(ChatMessage rejectedMsg) async {
     final raw = rejectedMsg.activeMetadata?['objective_turn_ops'];
     if (raw is! List || raw.isEmpty) return;
     for (final entry in raw.reversed) {
       if (entry is! Map) continue;
+      if (entry['op'] == 'today') {
+        await _revertTodayPointer(entry);
+        continue;
+      }
       final id = entry['id'] as String?;
       if (id == null || id.isEmpty) continue;
       try {

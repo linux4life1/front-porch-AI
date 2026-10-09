@@ -294,6 +294,17 @@ extension ChatServiceGenerationPostGen on ChatService {
   /// Scene Guests carry no Realism/Needs but the clock is chat-scoped, so
   /// they tick time-only (no Today rewrite).
   Future<void> _maybeAdvanceStoryClockAfterReply(_GenTurn t) async {
+    // The planner's today line moves here (and a day that rolls retires it):
+    // those writes belong to this reply and rewind with it.
+    _objectiveTurnReply = t.streamTarget.isUser ? null : t.streamTarget;
+    try {
+      await _advanceStoryClockAfterReply(t);
+    } finally {
+      _objectiveTurnReply = null;
+    }
+  }
+
+  Future<void> _advanceStoryClockAfterReply(_GenTurn t) async {
     final porch = _storageService.realismSettings.passageOfTimeDefault;
     debugPrint(
       '[Clock] running=$_clockRunning '

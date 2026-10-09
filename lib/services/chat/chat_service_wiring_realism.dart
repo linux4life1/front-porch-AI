@@ -37,6 +37,7 @@ extension ChatServiceWiringRealism on ChatService {
         _requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
       onStoryDayChanged: () {
+        _recordTodayPointerOp();
         final held = todaySentence;
         setTodaySentence(null);
         return () async {
@@ -48,6 +49,7 @@ extension ChatServiceWiringRealism on ChatService {
           _storageService.realismSettings.passageOfTimeDefault,
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
       onTodayEval: (line) {
+        _recordTodayPointerOp();
         if (line.isEmpty) {
           abandonToday();
           return Future<void>.value();

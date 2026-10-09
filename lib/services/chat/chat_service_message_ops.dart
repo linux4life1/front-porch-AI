@@ -295,9 +295,7 @@ extension ChatServiceMessageOps on ChatService {
       // Clock is the new visible tip's after — tail and non-tail.
       // The streaming tail's snapshot is the turn still in flight.
       // Restoring it would rewind the speaker who is generating.
-      if (_messages.isNotEmpty && !duringTurn) {
-        _restoreRealismStateForSpeaker(_messages.last, restoreClock: false);
-      }
+      if (!duringTurn) _restoreRealismAfterDelete(deleted, wasTail: wasTail);
 
       // Group: also roll back the DELETED speaker's OWN _groupRealism entry to
       // their previous stamped turn — otherwise that member's bond/trust/needs

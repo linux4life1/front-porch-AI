@@ -333,6 +333,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       onObjectiveStale: (obj) {
         if (!_isHeldTodayObjective(obj)) return;
         final held = todaySentence ?? obj.objective;
+        _recordTodayPointerOp();
         _todayObjectiveId = null;
         _todayObjectiveText = null;
         setTodaySentence(null);
