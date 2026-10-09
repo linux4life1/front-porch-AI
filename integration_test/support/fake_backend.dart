@@ -80,6 +80,14 @@ class FakeBackendServer {
   Map<String, int> reprocessDeltas = const {};
   int reprocessRequests = 0;
 
+  /// When set, any eval that asks for `relationship_delta` (the bond/trust
+  /// judge and the fused one-shot) is answered with exactly this text and no
+  /// JSON. Prose is a model ignoring the format; an empty string is the
+  /// empty reply the one-shot logs as "Failed — no JSON". Set it back to
+  /// null to let the next turn score normally.
+  String? feelingsJudgeAnswer;
+  int feelingsJudgeAnswersServed = 0;
+
   /// Body of the most recent NON-eval chat completion — lets the test prove
   /// the user's message actually reached the outbound prompt.
   String lastChatBody = '';
@@ -444,6 +452,13 @@ class FakeBackendServer {
           for (final e in reprocessDeltas.entries) '${e.key}_delta': e.value,
         }),
       ]);
+      return;
+    }
+
+    final feelingsAnswer = feelingsJudgeAnswer;
+    if (feelingsAnswer != null && lastContent.contains('relationship_delta')) {
+      feelingsJudgeAnswersServed++;
+      await _streamSse(req, [feelingsAnswer]);
       return;
     }
 

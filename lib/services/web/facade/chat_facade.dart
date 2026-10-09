@@ -24,7 +24,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show kNeedsUnaffectedMeta;
+    show kFeelingsUnscoredMeta, kNeedsUnaffectedMeta;
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
     show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
@@ -171,7 +171,15 @@ class ChatFacade {
         (md['time_skip_to'] is String &&
             (md['time_skip_to'] as String).isNotEmpty) ||
         md['realism_verification'] is Map;
-    if (scored) {
+    // The judge ran and could not be read: one "not scored" chip, never a
+    // made-up "unchanged". Same rule as the desktop bubble.
+    final unscored =
+        md[kFeelingsUnscoredMeta] == true &&
+        !out.containsKey('bondDelta') &&
+        !out.containsKey('trustDelta');
+    if (unscored) {
+      out['feelingsUnscored'] = true;
+    } else if (scored) {
       out.putIfAbsent('bondDelta', () => 0);
       out.putIfAbsent('trustDelta', () => 0);
     }

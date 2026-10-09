@@ -54,6 +54,12 @@ extension _BubbleRealism on _MessageBubbleState {
     final toolOk = toolReceipt?['ok'] == true;
     final needsDeltas = metadata['needs_deltas'] as Map<String, dynamic>?;
     final needsUnaffected = metadata[kNeedsUnaffectedMeta] == true;
+    // The judge ran and its answer could not be read. One plain chip says so
+    // instead of "unchanged", which would claim a score nobody gave.
+    final feelingsUnscored =
+        metadata[kFeelingsUnscoredMeta] == true &&
+        !bondRecorded &&
+        !trustRecorded;
 
     // Pockets & Wardrobe receipts, read BEFORE the early return below: Pockets
     // answers to its own switch and runs with the Realism Engine off, so a
@@ -89,13 +95,14 @@ extension _BubbleRealism on _MessageBubbleState {
         verifStatus.isNotEmpty ||
         bondRecorded ||
         trustRecorded;
-    final showBond = bondRecorded || realismTouched;
-    final showTrust = trustRecorded || realismTouched;
+    final showBond = !feelingsUnscored && (bondRecorded || realismTouched);
+    final showTrust = !feelingsUnscored && (trustRecorded || realismTouched);
     final bondUnchanged = !bondRecorded || bondDelta == 0;
     final trustUnchanged = !trustRecorded || trustDelta == 0;
 
     if ((needsDeltas == null || needsDeltas.isEmpty) &&
         !needsUnaffected &&
+        !feelingsUnscored &&
         !showBond &&
         emotionLabel.isEmpty &&
         arousalDelta == 0 &&
@@ -240,6 +247,30 @@ extension _BubbleRealism on _MessageBubbleState {
               ),
             ),
           ],
+        ),
+      );
+    }
+
+    if (feelingsUnscored) {
+      final amber = AppColors.porchAmberOf(context);
+      chips.add(
+        maybeTooltip(
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.help_outline, size: 11, color: amber),
+              const SizedBox(width: 4),
+              Text(
+                kFeelingsUnscoredLabel,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: amber,
+                ),
+              ),
+            ],
+          ),
+          kFeelingsUnscoredTip,
         ),
       );
     }

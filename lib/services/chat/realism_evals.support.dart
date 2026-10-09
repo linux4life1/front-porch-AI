@@ -254,6 +254,25 @@ extension _RealismEvalSupport on RealismEvals {
     }
   }
 
+  /// The bond/trust judge ran and gave nothing readable. Drops any bond/trust
+  /// keys already pending (a greeting baseline's, say) so this reply cannot
+  /// show someone else's score, and stamps [kFeelingsUnscoredMeta]. A
+  /// cancelled turn is thrown away, so it is left alone.
+  void _markFeelingsUnscored() {
+    if (isEvalCancelled()) return;
+    final pending = getPendingRealismMetadata() ?? {};
+    for (final key in const [
+      'bond_delta',
+      'trust_delta',
+      'bond_reason',
+      'trust_reason',
+    ]) {
+      pending.remove(key);
+    }
+    pending[kFeelingsUnscoredMeta] = true;
+    setPendingRealismMetadata(pending);
+  }
+
   /// Parses relationship/trust (+ arousal when this call owns it) fields from
   /// an eval JSON text, applies the side effects (score/trust deltas to services,
   /// arousal to nsfwService), populates pending metadata for chips/reasons using
@@ -321,9 +340,28 @@ extension _RealismEvalSupport on RealismEvals {
       }
     }
 
+    // Neither field in the answer (prose, a refusal) means nothing was
+    // scored. Writing 0/0 here drew "Bond unchanged" for that turn.
+    if (relDelta == null && trDelta == null) {
+      _markFeelingsUnscored();
+      if (arousalDelta != 0) {
+        final pending = getPendingRealismMetadata() ?? {};
+        pending['arousal_delta'] = arousalDelta;
+        setPendingRealismMetadata(pending);
+      }
+      return (
+        bondDelta: 0,
+        trustDelta: 0,
+        arousalDelta: arousalDelta,
+        bondReason: '',
+        trustReason: '',
+      );
+    }
+
     // Always keep both deltas, including 0. A missing chip reads as "the
     // judge never ran." Revert still ignores a 0. Arousal stays nonzero-only.
     var pending = getPendingRealismMetadata() ?? {};
+    pending.remove(kFeelingsUnscoredMeta);
     pending['bond_delta'] = bondDelta;
     pending['trust_delta'] = trustDelta;
     if (arousalDelta != 0) pending['arousal_delta'] = arousalDelta;

@@ -81,6 +81,7 @@ extension RealismEvalCalls on RealismEvals {
     // downstream parse — and any Director re-fire — actually expects).
     final prompt = buildPrompt(toolsMode: false);
 
+    var parsed = false;
     try {
       debugPrint('[Realism] Evaluating relationship dynamic...');
       final raw = await _fireEval(
@@ -89,7 +90,11 @@ extension RealismEvalCalls on RealismEvals {
         buildPrompt: buildPrompt,
         onChunk: onChunk,
       );
-      if (raw == null) return;
+      if (raw == null) {
+        debugPrint('[Realism:Relationship] Failed — no answer');
+        _markFeelingsUnscored();
+        return;
+      }
 
       final searchText = stripThinkBlocks(raw);
       final text = searchText.isNotEmpty ? searchText : raw;
@@ -124,6 +129,7 @@ extension RealismEvalCalls on RealismEvals {
         effectiveText,
         applyArousal: false,
       );
+      parsed = true;
 
       debugPrint(
         '[Realism:Relationship] Bond: ${res.bondDelta} (${res.bondReason.isNotEmpty ? res.bondReason : 'no reason'}) | Trust: ${res.trustDelta} (${res.trustReason.isNotEmpty ? res.trustReason : 'no reason'})',
@@ -133,6 +139,7 @@ extension RealismEvalCalls on RealismEvals {
       );
     } catch (e) {
       debugPrint('[Realism:Relationship] Failed: $e');
+      if (!parsed) _markFeelingsUnscored();
     }
   }
 

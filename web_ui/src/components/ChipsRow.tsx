@@ -36,6 +36,9 @@ export function ChipsRow({
   const signed = (n: number) => (n >= 0 ? `+${n}` : `${n}`);
 
   const realism: Pill[] = [];
+  // Desktop twin: message_bubble.realism.dart + kFeelingsUnscoredLabel/Tip.
+  const unscored = !!chips.feelingsUnscored && chips.bondDelta == null && chips.trustDelta == null;
+  if (unscored) realism.push({ key: 'unscored', label: 'Feelings not scored this time', cls: 'time', reason: "The model's answer couldn't be read, so bond and trust stayed where they were. Regenerate this reply to try again." });
   if (chips.bondDelta != null) realism.push({ key: 'bond', label: chips.bondDelta === 0 ? 'Bond unchanged' : `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : chips.bondDelta < 0 ? 'down' : 'time', reason: chips.bondReason });
   if (chips.trustDelta != null) realism.push({ key: 'trust', label: chips.trustDelta === 0 ? 'Trust unchanged' : `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : chips.trustDelta < 0 ? 'down' : 'time', reason: chips.trustReason });
   if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });

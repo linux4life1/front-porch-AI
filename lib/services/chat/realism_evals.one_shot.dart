@@ -93,6 +93,7 @@ extension RealismEvalOneShot on RealismEvals {
     final prompt = buildPrompt(toolsMode: false);
 
     final sw = Stopwatch()..start();
+    var parsed = false;
     try {
       debugPrint('[Realism:OneShot] Evaluating (fused call)...');
       // Tools-first with a forced retry, then tight no-headroom text that
@@ -124,6 +125,7 @@ extension RealismEvalOneShot on RealismEvals {
         debugPrint(
           '[Realism:OneShot] Failed — no JSON (${sw.elapsedMilliseconds} ms)',
         );
+        _markFeelingsUnscored();
         return;
       }
 
@@ -169,6 +171,7 @@ extension RealismEvalOneShot on RealismEvals {
       // arousal_delta, and this is its single application (the inline emotion
       // parse below deliberately does not touch arousal).
       _parseAndApplyRelationshipDeltas(textForOneShot, applyArousal: true);
+      parsed = true;
 
       // ── Autonomous Objective ──
       // (All parses below use textForOneShot — the Director-corrected text.
@@ -281,6 +284,7 @@ extension RealismEvalOneShot on RealismEvals {
         '[Realism:OneShot] Failed: $e — falling back to dual-call on next turn '
         '(${sw.elapsedMilliseconds} ms)',
       );
+      if (!parsed) _markFeelingsUnscored();
     }
   }
 }

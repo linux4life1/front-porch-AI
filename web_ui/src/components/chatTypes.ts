@@ -26,6 +26,8 @@ export interface Chips {
   needsDeltas?: Record<string, number | { delta: number; reason?: string }>;
   /** Short no-action turn: Needs ran, bars did not move. */
   needsUnaffected?: boolean;
+  /** The bond/trust judge ran but its answer could not be read. */
+  feelingsUnscored?: boolean;
   needsReprocessable?: boolean;
   needsRevertable?: boolean;
   /** Enabled need keys for this speaker, from the desktop resolver. */

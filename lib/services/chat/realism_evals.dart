@@ -53,6 +53,17 @@ part 'realism_evals.support.dart';
 part 'realism_evals.calls.dart';
 part 'realism_evals.one_shot.dart';
 
+/// Stamped on a reply when the bond/trust judge ran but its answer could not
+/// be read. Without it the bubble showed "Bond unchanged" for a turn nobody
+/// scored. A readable answer (even a zero) removes it.
+const String kFeelingsUnscoredMeta = 'feelings_unscored';
+
+/// Copy on the chip and its hover. Keep in lockstep with `web_ui` ChipsRow.
+const String kFeelingsUnscoredLabel = 'Feelings not scored this time';
+const String kFeelingsUnscoredTip =
+    "The model's answer couldn't be read, so bond and trust stayed where "
+    'they were. Regenerate this reply to try again.';
+
 /// The five realism evaluation calls (relationship, emotional state,
 /// physical state, narrative, one-shot): prompt builders, orchestration,
 /// parse, and apply. One-shot must match the multi-call path for the
