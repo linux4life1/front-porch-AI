@@ -32,6 +32,7 @@ extension ChatServiceImpersonate on ChatService {
     if (await _abortIfBackendDown()) return;
 
     _isGenerating = true;
+    _generationPhase = GenerationPhase.impersonating;
     _cancelRequested = false;
     notifyListeners();
 
@@ -331,6 +332,7 @@ extension ChatServiceImpersonate on ChatService {
       debugPrint('[ChatService] Impersonate error: $e');
     } finally {
       _isGenerating = false;
+      _generationPhase = GenerationPhase.idle;
       notifyListeners();
     }
   }

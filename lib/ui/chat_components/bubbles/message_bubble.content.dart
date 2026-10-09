@@ -28,12 +28,15 @@ extension _BubbleContent on _MessageBubbleState {
   /// Live "Thinking…" belongs to the bubble that is streaming. A later
   /// group speaker keeps [ChatService.isGenerating] true, and an earlier
   /// think that never recorded a duration would otherwise count the
-  /// whole time that next reply takes.
+  /// whole time that next reply takes. Impersonate writes into the input
+  /// box, so no bubble is streaming while it runs.
   bool get _liveThinkHere {
     if (widget.isGenerating != null) return widget.isGenerating!;
     final chat = widget.chatService;
     if (chat == null) return true;
-    return chat.isGenerating && index == chat.messages.length - 1;
+    return chat.isGenerating &&
+        chat.generationPhase != GenerationPhase.impersonating &&
+        index == chat.messages.length - 1;
   }
 
   List<Widget> _thoughtAndBodyChildren(

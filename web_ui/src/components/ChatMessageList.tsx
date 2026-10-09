@@ -49,6 +49,8 @@ function fmtExact(n: number): string {
 /// Mirror of the desktop status-bar wording so both surfaces tell the same
 /// truth about the wait.
 function genStatusLabel(s: GenStatus): { label: string; fraction: number | null } {
+  // Impersonate writes the user's line into the composer, not a reply.
+  if (s.phase === 'impersonating') return { label: 'Writing your reply…', fraction: null };
   // Backend queue depth is a neutral fact — never attributed (may be
   // someone waiting on us).
   const queueNote =

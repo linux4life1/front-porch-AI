@@ -95,6 +95,12 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
         Icons.bolt_rounded,
         true,
       ),
+      GenerationPhase.impersonating => (
+        'Writing your reply…',
+        AppColors.porchAmberOf(context),
+        Icons.auto_fix_high,
+        false,
+      ),
       GenerationPhase.idle => (
         'Idle',
         AppColors.textTertiary(context),

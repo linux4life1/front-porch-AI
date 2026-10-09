@@ -45,6 +45,10 @@ enum GenerationPhase {
 
   /// Tokens are actively being generated and displayed to the user.
   generating,
+
+  /// Impersonate is writing the user's next line into the input box. No
+  /// bubble is streaming, so nothing on a bubble may read as live.
+  impersonating,
 }
 
 class ChatMessage {

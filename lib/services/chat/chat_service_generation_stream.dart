@@ -449,6 +449,9 @@ extension ChatServiceGenerationStream on ChatService {
     // "Thinking…" for that whole reply. Record the time on this message.
     void sealThinkClock() {
       final started = _thinkStartTime;
+      // The live start is this stream's alone. Left on the message, a later
+      // swipe, Continue or Impersonate would time "Thinking" from it.
+      streamTarget.thinkingStartTime = null;
       if (started == null || streamTarget.thinkingDurationMs > 0) return;
       final ms = DateTime.now().difference(started).inMilliseconds;
       streamTarget.thinkingDurationMs = ms <= 0 ? 1 : ms;
