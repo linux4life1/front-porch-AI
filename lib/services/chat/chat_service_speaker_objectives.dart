@@ -32,7 +32,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
       chatId: _currentSessionId,
     );
     _activeObjectives = objs.where((o) => o.active).toList();
-    _rebindTodayObjectiveFromDb();
+    await _rebindTodayObjectiveFromDb();
     notifyListeners();
   }
 
@@ -140,7 +140,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     );
 
     _activeObjectives = objs.where((o) => o.active).toList();
-    _rebindTodayObjectiveFromDb();
+    await _rebindTodayObjectiveFromDb();
     notifyListeners();
   }
 

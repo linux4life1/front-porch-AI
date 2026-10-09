@@ -32,6 +32,14 @@ extension ChatServiceObjectives on ChatService {
 
   /// Load the active objectives for the current session from DB.
   Future<void> _loadActiveObjectives() async {
+    if (_activeCharacter == null &&
+        _activeGroup != null &&
+        _currentSessionId != null) {
+      // A group has no active character between turns. Its lists load per
+      // speaker, and the today line belongs to the chat: never "no chat".
+      await _loadObjectivesForCurrentSpeaker();
+      return;
+    }
     if (_activeCharacter == null || _currentSessionId == null) {
       _activeObjectives = [];
       _messagesSinceLastCheck = 0;
@@ -62,7 +70,7 @@ extension ChatServiceObjectives on ChatService {
       );
       _activeObjectives = [];
     }
-    _rebindTodayObjectiveFromDb();
+    await _rebindTodayObjectiveFromDb();
     notifyListeners(); // Central _disposed guard in ChatService overrides now protects this (and all other) post-async notify sites. Per-site try/catch removed (deletion part of rec 2 task); see god _disposed + notify override + setActiveCharacter:2205 comment.
   }
 
@@ -220,6 +228,13 @@ extension ChatServiceObjectives on ChatService {
     if (goal.trim().isEmpty || _currentSessionId == null) return null;
     CharacterCard? target;
     if (_activeGroup != null) {
+      // The line comes from the reply just written, so it is that
+      // speaker's. Director turns run without the speaker stand-in, and by
+      // then the turn order already names the next member.
+      final replyId = _messages.reversed
+          .where((m) => !m.isUser && m.sender != 'System')
+          .firstOrNull
+          ?.characterId;
       final currentIsGroupMember =
           _activeCharacter != null &&
           _groupCharacters.any(
@@ -227,9 +242,13 @@ extension ChatServiceObjectives on ChatService {
                 _getCharacterIdFromCard(c) ==
                 _getCharacterIdFromCard(_activeCharacter!),
           );
-      target = currentIsGroupMember
-          ? _activeCharacter
-          : (nextCharacter ?? _groupCharacters.firstOrNull);
+      target =
+          _groupCharacters
+              .where((c) => _getCharacterIdFromCard(c) == replyId)
+              .firstOrNull ??
+          (currentIsGroupMember
+              ? _activeCharacter
+              : (nextCharacter ?? _groupCharacters.firstOrNull));
     } else {
       target = _activeCharacter;
     }

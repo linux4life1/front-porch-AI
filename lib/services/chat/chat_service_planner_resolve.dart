@@ -39,16 +39,35 @@ extension ChatServicePlannerResolve on ChatService {
     );
   }
 
+  /// The held today row while it is still active, found by id. The loaded
+  /// list is checked first; in a group the row sits on the member whose
+  /// turn wrote it, which is often not the list on screen, so the chat's
+  /// rows are asked next.
+  Future<Objective?> _heldTodayRow() async {
+    final id = _todayObjectiveId;
+    final sid = _currentSessionId;
+    if (id == null) return null;
+    final listed = _activeObjectives.where((o) => o.id == id).firstOrNull;
+    if (listed != null || sid == null) return listed;
+    try {
+      return await (_db.select(_db.objectives)..where(
+            (o) =>
+                o.id.equals(id) & o.chatId.equals(sid) & o.active.equals(true),
+          ))
+          .getSingleOrNull();
+    } catch (e) {
+      debugPrint('[Planner] Could not read the held today row: $e');
+      return null;
+    }
+  }
+
   /// Rebind by the persisted session id. Never guess among secondaries.
-  void _rebindTodayObjectiveFromDb() {
+  Future<void> _rebindTodayObjectiveFromDb() async {
     final id = _todayObjectiveId;
     if (id == null) return;
-    final live = _activeObjectives.where((o) => o.id == id).firstOrNull;
-    if (live == null) {
-      // Chat-scoped hold lives on another member's list. Keep the
-      // pointer so the next upsert/day-ate still finds the row.
-      return;
-    }
+    final live = await _heldTodayRow();
+    // Not found: keep the pointer so the next upsert/day-ate still sees it.
+    if (live == null || _todayObjectiveId != id) return;
     _todayObjectiveText = live.objective;
     if (_todaySentence == null) setTodaySentence(live.objective);
   }
@@ -81,7 +100,7 @@ extension ChatServicePlannerResolve on ChatService {
     if (trimmed.isEmpty || _currentSessionId == null) return;
     final heldId = _todayObjectiveId;
     if (heldId != null) {
-      final held = _activeObjectives.where((o) => o.id == heldId).firstOrNull;
+      final held = await _heldTodayRow();
       if (held != null && held.objective == trimmed) {
         _todayObjectiveText = trimmed;
         await _persistTodayObjectiveId(heldId);
