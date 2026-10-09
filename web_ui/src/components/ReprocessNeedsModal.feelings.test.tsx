@@ -8,9 +8,10 @@
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
-import { createElement } from 'react';
+import { createElement, createRef } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '../api/client';
+import { ChatMessageList } from './ChatMessageList';
 import { ChipsRow } from './ChipsRow';
 import {
   CHOICE_FEELINGS,
@@ -132,6 +133,42 @@ describe('Manual Reprocess: Needs or Feelings', () => {
     draw(true);
     expect(reprocess()).toBeDefined();
     draw(false);
+    expect(reprocess()).toBeUndefined();
+  });
+
+  it('while the turn is settling (a re-score running), the transcript offers no Manual Reprocess', () => {
+    const noop = vi.fn();
+    const draw = (settling: boolean) =>
+      act(() => {
+        root.render(
+          createElement(ChatMessageList, {
+            messages: [{ index: 0, text: 'Evening.', sender: 'Mara', isUser: false, chips: { feelingsReprocessable: true, feelingsSpeaker: 'Mara', bondDelta: 2 } }],
+            castById: new Map(),
+            multiCast: false,
+            lastIndex: 0,
+            busy: false,
+            settling,
+            canSpeak: false,
+            onBeginEdit: noop,
+            onSwipe: noop,
+            onRegenerate: noop,
+            onContinue: noop,
+            onFork: noop,
+            onDelete: noop,
+            onReprocess: noop,
+            onRevert: noop,
+            streaming: '',
+            followStreamingReplies: true,
+            genStatus: null,
+            scrollRef: createRef<HTMLDivElement>(),
+            sessionId: 's1',
+          }),
+        );
+      });
+    const reprocess = () => buttons().find((b) => (b.textContent ?? '').includes('Manual Reprocess'));
+    draw(false);
+    expect(reprocess()).toBeDefined();
+    draw(true);
     expect(reprocess()).toBeUndefined();
   });
 

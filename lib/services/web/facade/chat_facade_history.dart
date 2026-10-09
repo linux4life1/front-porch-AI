@@ -69,12 +69,12 @@ extension ChatFacadeHistory on ChatFacade {
   }
 
   /// Manual Reprocess → Feelings: the Realism judges asked again about the
-  /// line the last reply answers. False when it is not on offer or the
-  /// model's answer could not be read (the reply then keeps what it had).
-  Future<bool> reprocessFeelings(int index) async {
-    final ok = await _chat.reprocessFeelings(index);
+  /// line the last reply answers. The route tells a refusal (not on offer
+  /// right now) apart from an answer that could not be read.
+  Future<FeelingsRescore> reprocessFeelings(int index) async {
+    final result = await _chat.reprocessFeelings(index);
     _notify();
-    return ok;
+    return result;
   }
 
   /// Restore a message's Needs deltas + live state from the pre-reprocess stash.

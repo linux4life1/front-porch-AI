@@ -313,6 +313,7 @@ export function ChatPage() {
           multiCast={multiCast}
           lastIndex={lastIndex}
           busy={state.isGenerating}
+          settling={!!state.isSettlingTurn}
           streaming={streaming}
           followStreamingReplies={followStreamingReplies}
           genStatus={state.isGenerating ? genStatus : null}

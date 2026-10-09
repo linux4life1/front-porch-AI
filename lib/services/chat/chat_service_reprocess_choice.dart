@@ -71,7 +71,7 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
   /// who already answered that line once before this reply.
   String? reprocessFeelingsTargetFor(int index) {
     if (index < 0 || index != messages.length - 1) return null;
-    if (isGenerating || !realismEnabled) return null;
+    if (isGenerating || isEvaluatingRealism || !realismEnabled) return null;
     final inGroup = activeGroup != null;
     if (inGroup && observerMode) return null;
     final msg = messages[index];
@@ -116,6 +116,9 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
           : m.sender == msg.sender;
       if (same) return null;
     }
+    // Last, so golden doubles (which lack it) never get here: a turn still
+    // settling — a re-score among them — cannot be re-scored.
+    if (isSettlingTurn) return null;
     return card.name;
   }
 }
@@ -150,6 +153,20 @@ const List<String> _kJudgedMetaKeys = [
   kFeelingsUnscoredMeta,
 ];
 
+/// What Manual Reprocess → Feelings did.
+enum FeelingsRescore {
+  /// The judges answered; the reply carries the new score.
+  scored,
+
+  /// Not on offer right now (not the last reply, Realism off, a turn still
+  /// running, no record to rewind to). Nothing ran.
+  refused,
+
+  /// The judges ran but nothing readable came back, or the pass failed. The
+  /// reply keeps what it had.
+  unreadable,
+}
+
 /// Manual Reprocess → Feelings: ask the Realism judges again about the user
 /// line the LAST reply answers, without touching the reply's text or the
 /// clock.
@@ -161,11 +178,12 @@ const List<String> _kJudgedMetaKeys = [
 /// three calls, tools first). What the judges do not own stays as the turn
 /// left it: needs, clock, pockets, posture, the decay cadence and the
 /// group's hidden feelings, a climax's arousal reset, and the turn's quests.
-/// A pass that cannot read an answer puts everything back and returns false.
+/// A pass that cannot read an answer, or fails, puts everything back.
 extension ChatServiceFeelingsRescore on ChatService {
-  Future<bool> reprocessFeelings(int index) async {
-    if (_isTurnBusy || !_realismActiveThisMode) return false;
-    if (reprocessFeelingsTargetFor(index) == null) return false;
+  Future<FeelingsRescore> reprocessFeelings(int index) async {
+    const refused = FeelingsRescore.refused;
+    if (_isTurnBusy || !_realismActiveThisMode) return refused;
+    if (reprocessFeelingsTargetFor(index) == null) return refused;
     final msg = _messages[index];
     final userMsg =
         _messages[_messages.lastIndexWhere((m) => m.isUser, index - 1)];
@@ -173,24 +191,27 @@ extension ChatServiceFeelingsRescore on ChatService {
     final speaker = inGroup
         ? _resolveGroupSpeakerForMessage(msg)
         : _activeCharacter;
-    if (speaker == null) return false;
+    if (speaker == null) return refused;
     final sid = inGroup ? _getCharacterIdFromCard(speaker) : '';
     final userMeta = userMsg.metadata ?? const <String, dynamic>{};
     final bySpeaker = userMeta[kRealismPreTurnBySpeaker];
     final rawStamp = !inGroup
         ? userMeta[kRealismPreTurn]
         : (bySpeaker is Map ? bySpeaker[sid] : null);
-    if (rawStamp is! Map) return false;
+    if (rawStamp is! Map) return refused;
 
     final preActive = _activeCharacter;
     final prePin = _turnSpeakerIdForRealism;
     final preObjectives = _activeObjectives;
+    // Both held for the whole pass: settling keeps every mutation out, and
+    // "evaluating" is what the bubble can read to hide the pill meanwhile.
     _isPostGenerating = true;
+    _isEvaluatingRealism = true;
     _clearPostGenAbortFlags();
     notifyListeners();
-    var ok = false;
+    var result = FeelingsRescore.unreadable;
     try {
-      ok = await _withWorkerLane(
+      final ok = await _withWorkerLane(
         () => _rescoreFeelingsHeld(
           msg,
           index: index,
@@ -199,6 +220,10 @@ extension ChatServiceFeelingsRescore on ChatService {
           stamp: Map<String, dynamic>.from(rawStamp),
         ),
       );
+      if (ok) result = FeelingsRescore.scored;
+    } catch (e, st) {
+      // _rescoreFeelingsHeld already put the registers back.
+      debugPrint('[Realism:Rescore] failed, reply kept as it was: $e\n$st');
     } finally {
       _rescoringFeelings = false;
       _rescoreCrossings.clear();
@@ -214,7 +239,7 @@ extension ChatServiceFeelingsRescore on ChatService {
     }
     await _saveChat();
     notifyListeners();
-    return ok;
+    return result;
   }
 
   Future<bool> _rescoreFeelingsHeld(
@@ -243,6 +268,37 @@ extension ChatServiceFeelingsRescore on ChatService {
       'trust': _relationshipService.trustTier,
     };
 
+    try {
+      return await _rescoreFromSnapshot(
+        msg,
+        index: index,
+        speaker: speaker,
+        stamp: stamp,
+        now: now,
+        nowCadence: nowCadence,
+        nowTiers: nowTiers,
+        groupSid: groupSid,
+      );
+    } catch (_) {
+      // Whatever threw, the snapshot goes back before anything is saved.
+      _putJudgedRegisters(now, now['arousalLevel'], groupSid);
+      rethrow;
+    }
+  }
+
+  /// Everything after the snapshot: rewind, judges, keep or put back. The
+  /// reply's metadata is written last, so a throw before it leaves the reply
+  /// untouched.
+  Future<bool> _rescoreFromSnapshot(
+    ChatMessage msg, {
+    required int index,
+    required CharacterCard speaker,
+    required Map<String, dynamic> stamp,
+    required Map<String, dynamic> now,
+    required Map<String, dynamic> nowCadence,
+    required Map<String, int> nowTiers,
+    required String? groupSid,
+  }) async {
     // Rewind to where the judges stood when the line was first scored.
     _putJudgedRegisters(
       {
@@ -253,7 +309,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       groupSid,
     );
     _applyMoodDecay();
-    if (inGroup) _loadGroupRealismIntoScalars(sid);
+    if (groupSid != null) _loadGroupRealismIntoScalars(groupSid);
     // Posture is written after the reply; the one-shot judge read the
     // position the turn began in.
     final stanceBefore =
@@ -332,17 +388,17 @@ extension ChatServiceFeelingsRescore on ChatService {
       for (final k in [..._kJudgedRegisters, 'arousalLevel'])
         if (live.containsKey(k)) k: live[k],
     };
+    // Our Story cards only for a tier the old score had not already reached,
+    // cited at the reply (a length one past its index).
+    for (final c in _rescoreCrossings) {
+      if (c.newTier != nowTiers[c.axis]) {
+        _plantTierCrossing(c, citeLength: index + 1);
+      }
+    }
     // In place: the reply's metadata and its swipe slot share one map.
     msg.activeMetadata!
       ..clear()
       ..addAll(meta);
-
-    // Our Story cards only for a tier the old score had not already reached.
-    for (final c in _rescoreCrossings) {
-      if (c.newTier != nowTiers[c.axis]) {
-        _plantTierCrossing(c, citeLength: index);
-      }
-    }
     debugPrint(
       '[Realism:Rescore] ${speaker.name}: bond ${meta['bond_delta']} '
       'trust ${meta['trust_delta']} mood $_characterEmotion',

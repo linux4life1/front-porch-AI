@@ -19,6 +19,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/services.dart' show FeelingsRescore;
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
@@ -426,15 +427,18 @@ class WebChatRoutes {
     final body = await _json(request);
     final index = body['index'];
     if (index is! int) return JsonResponse.badRequest('index is required');
-    final ok = await _facade.reprocessFeelings(index);
-    if (!ok) {
-      return JsonResponse.error(
+    return switch (await _facade.reprocessFeelings(index)) {
+      FeelingsRescore.scored => JsonResponse.ok({'status': 'ok'}),
+      FeelingsRescore.refused => JsonResponse.error(
+        409,
+        "This reply can't be scored again right now.",
+      ),
+      FeelingsRescore.unreadable => JsonResponse.error(
         409,
         "The model's answer couldn't be read, so this reply keeps the "
         'feelings it had. You can try again.',
-      );
-    }
-    return JsonResponse.ok({'status': 'ok'});
+      ),
+    };
   }
 
   Future<shelf.Response> _revertNeedsReprocess(shelf.Request request) async {

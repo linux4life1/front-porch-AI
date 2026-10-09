@@ -23,6 +23,7 @@
 // scores the line exactly once, and a re-score that cannot read an answer
 // leaves the reply as it was. Real ChatService, real HTTP to the fake backend.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -36,6 +37,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
     show kFeelingsUnscoredMeta;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
+import 'package:front_porch_ai/utils/utils.dart' show StableGroupId;
 
 import '../../../integration_test/support/fake_backend.dart';
 
@@ -158,7 +160,7 @@ void main() {
       final clock = chat.timeService.storyClockIso;
 
       backend.feelingsJudgeAnswer = null;
-      expect(await chat.reprocessFeelings(last()), isTrue);
+      expect(await chat.reprocessFeelings(last()), FeelingsRescore.scored);
       await _drain();
       expectScoredOnce('the re-score read the judge');
       expect(chat.relationshipService.affectionScore, bond0 + 13);
@@ -173,7 +175,7 @@ void main() {
       expect(chips['trustDelta'], 1);
       expect(chips['feelingsUnscored'], isNull);
 
-      expect(await chat.reprocessFeelings(last()), isTrue);
+      expect(await chat.reprocessFeelings(last()), FeelingsRescore.scored);
       await _drain();
       expectScoredOnce('second pass');
       expect(
@@ -208,7 +210,7 @@ void main() {
       final asked = List<String>.of(backend.feelingsJudgePrompts);
       expect(asked, isNotEmpty);
 
-      expect(await chat.reprocessFeelings(last()), isTrue);
+      expect(await chat.reprocessFeelings(last()), FeelingsRescore.scored);
       await _drain();
       expect(
         backend.feelingsJudgePrompts.skip(asked.length).first,
@@ -230,7 +232,7 @@ void main() {
     expectScoredOnce('baseline');
 
     backend.feelingsJudgeAnswer = _prose;
-    expect(await chat.reprocessFeelings(last()), isFalse);
+    expect(await chat.reprocessFeelings(last()), FeelingsRescore.unreadable);
     await _drain();
     expectScoredOnce('the old score stands');
     expect(chat.relationshipService.affectionScore, bond0 + 13);
@@ -240,9 +242,43 @@ void main() {
     await _drain();
     expect(lastMeta()[kFeelingsUnscoredMeta], isTrue);
     final bond1 = chat.relationshipService.affectionScore;
-    expect(await chat.reprocessFeelings(last()), isFalse);
+    expect(await chat.reprocessFeelings(last()), FeelingsRescore.unreadable);
     expect(lastMeta()[kFeelingsUnscoredMeta], isTrue, reason: 'still says so');
     expect(chat.relationshipService.affectionScore, bond1);
+  }, timeout: const Timeout(Duration(minutes: 2)));
+
+  test('a re-score that crosses a bond tier files its Our Story card at '
+      'the reply, not the line before it', () async {
+    await storage.realismSettings.setOneShotMode(OneShotMode.off);
+    await oneToOne();
+    backend.feelingsJudgeAnswer = _prose;
+    await chat.sendMessage('I bring you a cup of tea.');
+    await _drain();
+    final ownerId = chat.activeCharacter!.stableGroupId;
+    Future<List<List<dynamic>>> milestoneCites() async => [
+      for (final c in await chat.journalStore.cardsFor(
+        chat.currentSessionId!,
+        ownerId,
+      ))
+        if ((jsonDecode(c.metadata ?? '{}') as Map)['kind'] == 'milestone')
+          jsonDecode(c.sourceMessageIds ?? '[]') as List<dynamic>,
+    ];
+    expect(await milestoneCites(), isEmpty, reason: 'baseline: not scored');
+
+    backend.feelingsJudgeAnswer = null;
+    expect(await chat.reprocessFeelings(last()), FeelingsRescore.scored);
+    for (var i = 0; i < 5; i++) {
+      await _drain();
+    }
+    expect(
+      await milestoneCites(),
+      [
+        [last()],
+      ],
+      reason:
+          '0 → 13 crosses into the first bond tier; the card cites the '
+          'reply the score is on',
+    );
   }, timeout: const Timeout(Duration(minutes: 2)));
 
   test('only the last reply, and not with Realism off', () async {
@@ -254,12 +290,12 @@ void main() {
     await chat.sendMessage('And a biscuit.');
     await _drain();
     expect(chat.reprocessFeelingsTargetFor(first), isNull);
-    expect(await chat.reprocessFeelings(first), isFalse);
+    expect(await chat.reprocessFeelings(first), FeelingsRescore.refused);
     expect(chat.reprocessFeelingsTargetFor(last()), isNotNull);
 
     await chat.setRealismEnabled(false);
     expect(chat.reprocessFeelingsTargetFor(last()), isNull);
-    expect(await chat.reprocessFeelings(last()), isFalse);
+    expect(await chat.reprocessFeelings(last()), FeelingsRescore.refused);
     expect(phoneChips()['feelingsReprocessable'], isNull);
   }, timeout: const Timeout(Duration(minutes: 2)));
 
@@ -304,7 +340,7 @@ void main() {
 
     backend.feelingsJudgeAnswer = null;
     expect(chat.reprocessFeelingsTargetFor(last()), 'Ada');
-    expect(await chat.reprocessFeelings(last()), isTrue);
+    expect(await chat.reprocessFeelings(last()), FeelingsRescore.scored);
     await _drain();
     expectScoredOnce("Ada's re-score");
     expect(chat.getAffectionForGroupCharacter(ada()), adaBond0 + 13);
@@ -315,7 +351,7 @@ void main() {
       reason: "Bea did not speak; her entry is not Ada's",
     );
 
-    expect(await chat.reprocessFeelings(last()), isTrue);
+    expect(await chat.reprocessFeelings(last()), FeelingsRescore.scored);
     await _drain();
     expect(
       chat.getAffectionForGroupCharacter(ada()),

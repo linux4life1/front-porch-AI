@@ -125,7 +125,11 @@ extension _BubbleRealismLayout on _MessageBubbleState {
     if (chat == null ||
         index != chat.messages.length - 1 ||
         message.isUser ||
-        chat.isGenerating) {
+        chat.isGenerating ||
+        // The judges are running (a Feelings re-score holds this for its
+        // whole pass). The settling half of the turn is gated in the
+        // resolvers, which golden doubles never reach.
+        chat.isEvaluatingRealism) {
       return const <Widget>[];
     }
     final meta = message.activeMetadata;

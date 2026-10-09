@@ -51,6 +51,7 @@ const kReprocessFeelingsDone = 'Feelings scored again for this reply.';
 const kReprocessFeelingsFailed =
     "The model's answer couldn't be read, so this reply keeps the feelings "
     'it had. You can try again.';
+const kReprocessFeelingsRefused = "This reply can't be scored again right now.";
 
 String reprocessFeelingsIntro(String name) =>
     'Ask the model again how $name feels about your last message. This '
@@ -102,13 +103,17 @@ void showReprocessNeedsDialog(BuildContext context, int index) {
         );
       },
       onSubmitFeelings: () async {
-        var success = false;
+        var result = FeelingsRescore.unreadable;
         try {
-          success = await chatService.reprocessFeelings(index);
+          result = await chatService.reprocessFeelings(index);
         } catch (e) {
           debugPrint('[Realism:Rescore] error: $e');
         }
-        say(success ? kReprocessFeelingsDone : kReprocessFeelingsFailed);
+        say(switch (result) {
+          FeelingsRescore.scored => kReprocessFeelingsDone,
+          FeelingsRescore.refused => kReprocessFeelingsRefused,
+          FeelingsRescore.unreadable => kReprocessFeelingsFailed,
+        });
       },
     ),
   );
