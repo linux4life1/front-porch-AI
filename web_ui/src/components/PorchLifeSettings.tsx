@@ -478,7 +478,7 @@ export function PorchLifeSettings() {
           label="Temperatures in °F"
           need="needs"
           dependsOn="Story Weather"
-          satisfied={weatherOn}
+          satisfied={timeOn && weatherOn}
           blurb={'Display only — characters always experience weather in words ("coat-and-gloves cold"), never numbers.'}
           value={st.weatherFahrenheit}
           onChange={(v) => set('weatherFahrenheit', v)}
@@ -610,7 +610,7 @@ export function PorchLifeSettings() {
           icon="🎲"
           label="Chaos Mode"
           need="alone"
-          blurb="Pressure builds quietly as a scene goes on, and every so often something happens that neither of you planned — a knock at the door, a spilled drink, weather turning. The 2026-08-07 audit confirmed it runs perfectly well with the Realism Engine off; it was only ever filed next to it. Switching it on here turns it on for new chats and groups; each chat can still overrule it in the sidebar."
+          blurb="Pressure builds quietly as a scene goes on, and every so often something happens that neither of you planned — a knock at the door, a spilled drink, weather turning. It works with or without the Realism Engine. Switching it on here turns it on for new chats and groups; each chat can still overrule it in the sidebar."
           value={st.chaosModeDefault}
           onChange={(v) => set('chaosModeDefault', v)}
         />
@@ -690,7 +690,7 @@ export function PorchLifeSettings() {
             need="needs"
             dependsOn="Realism's arousal"
             satisfied={engineOn}
-            blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it."
+            blurb="Desire builds through a scene and settles afterwards instead of resetting — so intimacy keeps a believable rhythm and a character is not instantly ready to go again. The engine is what scores desire, so this cannot run without it. Uses one short extra AI request per reply to notice a climax, so it costs a little more on a paid API."
             value={st.nsfwCooldownDefault}
             onChange={(v) => set('nsfwCooldownDefault', v)}
           />

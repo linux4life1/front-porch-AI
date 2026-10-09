@@ -108,6 +108,8 @@ extension _GroupWizardCastSteps on _CreateGroupChatPageState {
                 final c = _members[i];
                 final id = _stableId(c);
                 final voice = _characterVoices[id] ?? c.ttsVoice ?? '';
+                // {{char}} / {{user}} resolved, as the library grid shows it.
+                final desc = c.formattedDescription;
                 return Card(
                   key: ValueKey(id),
                   margin: const EdgeInsets.only(bottom: 8),
@@ -115,7 +117,7 @@ extension _GroupWizardCastSteps on _CreateGroupChatPageState {
                     leading: _avatar(c, radius: 22),
                     title: Text(c.name),
                     subtitle: Text(
-                      '${c.description.isNotEmpty ? c.description.substring(0, c.description.length.clamp(0, 60)) : "No description"}...',
+                      '${desc.isNotEmpty ? desc.substring(0, desc.length.clamp(0, 60)) : "No description"}...',
                     ),
                     trailing: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -162,7 +164,6 @@ extension _GroupWizardCastSteps on _CreateGroupChatPageState {
       ),
     );
   }
-
 
   Widget _avatar(CharacterCard c, {double radius = 20}) {
     return CircleAvatar(

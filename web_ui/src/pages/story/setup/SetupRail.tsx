@@ -12,6 +12,22 @@ const lengthLabel = (key: string) => TARGET_LENGTHS.find((t) => t.key === key)?.
 /** "Same as chat · Kimi K2.6" → "Kimi K2.6". */
 const shortLabel = (label: string) => label.split(' · ').pop() ?? label;
 
+/**
+ * The rail's Shape line: "Novel · 80k · third person, close". The length label
+ * already names the form (Novella / Novel / Epic), so only an audio drama is
+ * called out. Desktop twin: storyShapeSummary in setup_rail.dart.
+ */
+export function shapeSummary(d: Draft): string {
+  return [
+    lengthLabel(d.proseLength),
+    ...(d.storyFormat === 'audioDrama' ? ['audio drama'] : []),
+    (POV_LABELS[d.pov] ?? d.pov).toLowerCase(),
+    ...(d.genres.length > 0 ? [d.genres.join(', ').toLowerCase()] : []),
+    ...(d.moods.length > 0 ? [d.moods.join(', ').toLowerCase()] : []),
+    ...(d.writingStyle ? [d.writingStyle.toLowerCase()] : []),
+  ].join(' · ');
+}
+
 /** One summary row per line of the rail: [key, value (null when not filled in yet), the step it belongs to]. */
 function summaryRows(
   d: Draft,
@@ -27,14 +43,7 @@ function summaryRows(
     }),
     ...(d.includePersona ? [`you as ${personaName} (${d.personaRole.toLowerCase()})`] : []),
   ];
-  const shape = [
-    lengthLabel(d.proseLength),
-    d.storyFormat === 'audioDrama' ? 'audio drama' : 'novel',
-    (POV_LABELS[d.pov] ?? d.pov).toLowerCase(),
-    ...(d.genres.length > 0 ? [d.genres.join(', ').toLowerCase()] : []),
-    ...(d.moods.length > 0 ? [d.moods.join(', ').toLowerCase()] : []),
-    ...(d.writingStyle ? [d.writingStyle.toLowerCase()] : []),
-  ].join(' · ');
+  const shape = shapeSummary(d);
   const lanes = JOBS.map(({ job }) => shortLabel(laneLabels[job] ?? fallbackLaneLabel(d.lanes[job]))).join(' / ');
   const studio = d.engineMode === 'studio';
   const engine = [

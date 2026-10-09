@@ -25,6 +25,20 @@ import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
+/// The rail's Shape line: "Novel · 80k · third person, close". The length
+/// label already names the form (Novella / Novel / Epic), so only an audio
+/// drama is called out. Web twin: `shapeSummary` in SetupRail.tsx.
+String storyShapeSummary(StorySetupDraft draft) => [
+  storyLengthOptions[draft.proseLength] ?? draft.proseLength,
+  if (draft.storyFormat == StoryFormat.audioDrama) 'audio drama',
+  (storyPovOptions[draft.pov] ?? draft.pov).toLowerCase(),
+  if (draft.selectedGenres.isNotEmpty)
+    draft.selectedGenres.join(', ').toLowerCase(),
+  if (draft.selectedMoods.isNotEmpty)
+    draft.selectedMoods.join(', ').toLowerCase(),
+  if (draft.writingStyle.isNotEmpty) draft.writingStyle.toLowerCase(),
+].join(' · ');
+
 /// "Your story so far": the summary rail beside the steps (sketch I), or
 /// the phone's final "Ready?" page when [asPage].
 class SetupRail extends StatelessWidget {
@@ -54,16 +68,7 @@ class SetupRail extends StatelessWidget {
       if (draft.includeUserPersona)
         'you as ${persona.name} (${draft.userPersonaRole.toLowerCase()})',
     ];
-    final shape = [
-      storyLengthOptions[draft.proseLength] ?? draft.proseLength,
-      draft.storyFormat == StoryFormat.audioDrama ? 'audio drama' : 'novel',
-      (storyPovOptions[draft.pov] ?? draft.pov).toLowerCase(),
-      if (draft.selectedGenres.isNotEmpty)
-        draft.selectedGenres.join(', ').toLowerCase(),
-      if (draft.selectedMoods.isNotEmpty)
-        draft.selectedMoods.join(', ').toLowerCase(),
-      if (draft.writingStyle.isNotEmpty) draft.writingStyle.toLowerCase(),
-    ].join(' · ');
+    final shape = storyShapeSummary(draft);
     String short(StoryLaneChoice c) {
       final label = storyLaneLabel(storage, llm, c);
       return label.split(' · ').last;

@@ -48,7 +48,8 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
   final Map<String, Map<String, int>> _needsBaselines = {};
 
   // Pace (sloth/normal/fast) and which needs are off — same card-ext contract
-  // as 1:1 editors. Wear follows the clock; there is no per-turn tick here.
+  // as 1:1 editors. How needs wear (clock on, or per reply with it off) is
+  // the Needs pass's job; the clock-off line under the switch says which.
   final Map<String, String> _needsPace = {};
   final Map<String, List<String>> _needsOff = {};
 
@@ -263,7 +264,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             ),
             const SizedBox(height: 6),
             Text(
-              'Starting values, Pace, and which needs are on for Needs Simulation in this group. Wear follows the clock.',
+              'Starting values, Pace, and which needs are on for Needs Simulation in this group.',
               style: TextStyle(
                 fontSize: 12,
                 color: AppColors.textSecondary(context),
@@ -389,7 +390,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             ),
             const SizedBox(height: 4),
             Text(
-              'Starting values, Pace (Sloth / Normal / Fast), and which needs are on. Wear follows the clock, not a per-send tick. Each member has their own Pace.',
+              'Starting values, Pace (Sloth / Normal / Fast), and which needs are on. Each member has their own Pace.',
               style: TextStyle(
                 fontSize: 11,
                 color: AppColors.textSecondary(context),

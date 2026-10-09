@@ -137,7 +137,7 @@ class PorchLifeTab extends StatelessWidget {
               label: 'Temperatures in °F',
               need: FeatureNeed.needs,
               dependsOn: 'Story Weather',
-              satisfied: weatherOn,
+              satisfied: timeOn && weatherOn,
               blurb:
                   'Display only — characters always experience weather in '
                   'words ("coat-and-gloves cold"), never numbers.',
@@ -320,11 +320,10 @@ class PorchLifeTab extends StatelessWidget {
               blurb:
                   'Pressure builds quietly as a scene goes on, and every so '
                   'often something happens that neither of you planned — a '
-                  'knock at the door, a spilled drink, weather turning. The '
-                  '2026-08-07 audit confirmed it runs perfectly well with the '
-                  'Realism Engine off; it was only ever filed next to it. '
-                  'Switching it on here turns it on for new chats and groups; '
-                  'each chat can still overrule it in the sidebar.',
+                  'knock at the door, a spilled drink, weather turning. It '
+                  'works with or without the Realism Engine. Switching it on '
+                  'here turns it on for new chats and groups; each chat can '
+                  'still overrule it in the sidebar.',
               value: realism.chaosModeDefault,
               onChanged: realism.setChaosModeDefault,
             ),
@@ -378,9 +377,9 @@ class PorchLifeTab extends StatelessWidget {
                     'instead of resetting — so intimacy keeps a believable '
                     'rhythm and a character is not instantly ready to go '
                     'again. The engine is what scores desire, so this cannot '
-                    'run without it — and nothing else, despite what it used '
-                    'to do. Uses one short extra AI request per reply to '
-                    'notice a climax, so it costs a little more on a paid API.',
+                    'run without it. Uses one short extra AI request per reply '
+                    'to notice a climax, so it costs a little more on a paid '
+                    'API.',
                 value: storage.realismSettings.nsfwCooldownDefault,
                 onChanged: storage.realismSettings.setNsfwCooldownDefault,
               ),
