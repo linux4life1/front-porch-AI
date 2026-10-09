@@ -20,6 +20,8 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import 'package:front_porch_ai/services/reasoning_effort.dart';
+
 /// Live ping state for a remote OpenAI-compatible backend.
 ///
 /// [unknown] is "configured, not yet probed" — must not render as the green
@@ -76,8 +78,7 @@ Future<RemotePingResult> pingRemoteModels({
   if (apiUrl.isEmpty) {
     return const RemotePingResult(ok: false, message: 'API URL is empty.');
   }
-  final isLocal = apiUrl.contains('localhost') || apiUrl.contains('127.0.0.1');
-  if (apiKey.isEmpty && !isLocal) {
+  if (apiKey.isEmpty && !isLocalRemoteUrl(apiUrl)) {
     return const RemotePingResult(ok: false, message: 'API key is empty.');
   }
 

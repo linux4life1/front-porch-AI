@@ -221,6 +221,13 @@ class LLMProvider extends ChangeNotifier {
   /// (one KoboldCpp generation slot).
   bool get isLocal => _activeBackend == BackendType.kobold;
 
+  /// Whether the chat model runs on the user's own machine or network:
+  /// KoboldCpp, oMLX, or a Custom / LM Studio URL at a local address
+  /// (127.0.0.1 is a loopback, so it is local). Not [isLocal], which means
+  /// the managed KoboldCpp only.
+  bool get modelIsLocal =>
+      backendLaneIsLocal(_activeBackend.name, _openRouterService.apiUrl);
+
   /// Whether the active backend manages a local subprocess.
   bool get hasManagedProcess => _activeBackend == BackendType.kobold;
 

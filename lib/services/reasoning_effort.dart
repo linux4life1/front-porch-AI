@@ -5,6 +5,8 @@
 // remote model actually accepts. The chip row is that model's kitchen
 // menu — not a fixed Low/Medium/High card we then remap.
 
+import 'dart:io' show InternetAddress;
+
 import 'package:flutter/foundation.dart';
 
 /// Fallback chips when we have not yet learned this model's menu.
@@ -75,16 +77,16 @@ void endReasoningEffortCatalogBatch() {
   }
 }
 
-/// Loopback / RFC1918 / Tailscale CGNAT / .local — do not poke these.
+/// Whether [url] points at this machine or the home network: loopback
+/// (`localhost`, all of 127.0.0.0/8, `::1`, `0.0.0.0`), RFC1918, Tailscale
+/// CGNAT, `.local`. The one test of "is this URL local" — a key-less server
+/// is fine there, and a model there is the user's own (One-Shot Auto).
 bool isLocalRemoteUrl(String url) {
   final host = (Uri.tryParse(url)?.host ?? '').toLowerCase();
   if (host.isEmpty) return false;
-  if (host == 'localhost' ||
-      host == '127.0.0.1' ||
-      host == '0.0.0.0' ||
-      host == '::1') {
-    return true;
-  }
+  if (host == 'localhost' || host == '0.0.0.0') return true;
+  final ip = InternetAddress.tryParse(host);
+  if (ip != null && ip.isLoopback) return true;
   if (host.endsWith('.local')) return true;
   if (host.startsWith('192.168.') || host.startsWith('10.')) return true;
   if (RegExp(r'^172\.(1[6-9]|2\d|3[0-1])\.').hasMatch(host)) return true;

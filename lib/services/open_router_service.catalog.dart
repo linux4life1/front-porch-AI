@@ -35,8 +35,7 @@ extension OpenRouterServiceCatalog on OpenRouterService {
     final url = apiUrl ?? _apiUrl;
     final key = apiKey ?? _apiKey;
     if (url.isEmpty) return [];
-    final isLocal = url.contains('localhost') || url.contains('127.0.0.1');
-    if (key.isEmpty && !isLocal) return [];
+    if (key.isEmpty && !isLocalRemoteUrl(url)) return [];
 
     // Same seam as [refreshReachability]: tests inject a MockClient so
     // this never hits the network (flutter test HttpOverrides is a

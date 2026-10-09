@@ -170,7 +170,7 @@ extension ChatServiceAccessors on ChatService {
   /// retroactive baseline scan, so all three paths flip together.
   bool get _oneShotActive => resolveOneShotMode(
     mode: _storageService.realismSettings.oneShotMode,
-    isLocal: _mouthIsLocal,
+    isLocal: _mouthModelIsLocal,
     toolSupport: _toolProbe.supportFor(_evalBackendIdentity),
     // A live voice call upgrades Off to Auto's fuse-where-safe rule — one
     // eval call instead of three before the character can speak.

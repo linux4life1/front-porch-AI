@@ -227,10 +227,9 @@ class _SettingsPageState extends State<SettingsPage> {
       storage.backendSettings.remoteApiUrl,
     );
     // Allow empty API key for local backends (LM Studio, vLLM, etc.)
-    final isLocal =
-        apiUrl.contains('localhost') || apiUrl.contains('127.0.0.1');
     if (apiUrl.isEmpty) return; // No API URL configured
-    if (storage.backendSettings.remoteApiKey.isEmpty && !isLocal) {
+    if (storage.backendSettings.remoteApiKey.isEmpty &&
+        !isLocalRemoteUrl(apiUrl)) {
       return; // no API configured
     }
 

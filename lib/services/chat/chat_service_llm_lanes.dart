@@ -35,6 +35,13 @@ extension ChatServiceLlmLanes on ChatService {
       ? testIsLocalOverride
       : (_llmProvider?.isLocal ?? true);
 
+  /// Whether the spoken-reply model is the user's own (see
+  /// [LLMProvider.modelIsLocal]); a test double says so through
+  /// [testIsLocalOverride].
+  bool get _mouthModelIsLocal => testLlmServiceOverride != null
+      ? testIsLocalOverride
+      : (_llmProvider?.modelIsLocal ?? true);
+
   bool get _sideLaneIsKobold {
     if (testWorkerLlmServiceOverride != null) return false;
     if (testLlmServiceOverride != null) return testIsLocalOverride;
@@ -67,6 +74,13 @@ extension ChatServiceLlmLanes on ChatService {
 
   @visibleForTesting
   String get debugEvalBackendIdentity => _evalBackendIdentity;
+
+  @visibleForTesting
+  bool get debugOneShotActive => _oneShotActive;
+
+  @visibleForTesting
+  void debugMarkEvalToolsSupported() =>
+      _toolProbe.markSupported(_evalBackendIdentity);
 
   @visibleForTesting
   Future<String?> debugFireSideLaneEval(String prompt) =>
