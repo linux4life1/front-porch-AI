@@ -216,13 +216,18 @@ class _ModelManagerPageState extends State<ModelManagerPage>
       ),
       body: Column(
         children: [
+          // Clips the tabs' ink (focus boxes) to the tab body; on the
+          // Scaffold it showed through the transparent tab bar.
           Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildMyModelsTab(modelManager, availableVram),
-                _buildSearchTab(modelManager, availableVram),
-              ],
+            child: Material(
+              type: MaterialType.transparency,
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  _buildMyModelsTab(modelManager, availableVram),
+                  _buildSearchTab(modelManager, availableVram),
+                ],
+              ),
             ),
           ),
           // Download queue panel at bottom

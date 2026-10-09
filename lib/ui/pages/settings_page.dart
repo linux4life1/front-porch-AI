@@ -312,27 +312,33 @@ class _SettingsPageState extends State<SettingsPage> {
                 ],
               ),
             ),
-            body: TabBarView(
-              children: [
-                GeneralTab(systemPromptController: _systemPromptController),
-                const PorchLifeTab(),
-                GenerationTab(
-                  bannedPhrasesController: _bannedPhrasesController,
-                ),
-                VoiceMediaTab(
-                  dragCallBuffer: _dragCallBuffer,
-                  onDragCallBufferChanged: (v) =>
-                      setState(() => _dragCallBuffer = v),
-                  availableModels: _availableModels,
-                ),
-                // Builder defers these two until their tab actually mounts:
-                // both are method calls that subscribe to services and build
-                // their full trees, so evaluating them inline meant every
-                // settings notify re-ran ALL five tabs' construction even
-                // with a different tab visible.
-                Builder(builder: (context) => _backendTab()),
-                Builder(builder: (context) => _buildAdvancedTab(context)),
-              ],
+            // The tabs' ink (a picked dropdown's focus box) lands on this
+            // Material, which clips it to the tab body. On the Scaffold it
+            // showed through the transparent tab bar when scrolled up.
+            body: Material(
+              type: MaterialType.transparency,
+              child: TabBarView(
+                children: [
+                  GeneralTab(systemPromptController: _systemPromptController),
+                  const PorchLifeTab(),
+                  GenerationTab(
+                    bannedPhrasesController: _bannedPhrasesController,
+                  ),
+                  VoiceMediaTab(
+                    dragCallBuffer: _dragCallBuffer,
+                    onDragCallBufferChanged: (v) =>
+                        setState(() => _dragCallBuffer = v),
+                    availableModels: _availableModels,
+                  ),
+                  // Builder defers these two until their tab actually mounts:
+                  // both are method calls that subscribe to services and build
+                  // their full trees, so evaluating them inline meant every
+                  // settings notify re-ran ALL five tabs' construction even
+                  // with a different tab visible.
+                  Builder(builder: (context) => _backendTab()),
+                  Builder(builder: (context) => _buildAdvancedTab(context)),
+                ],
+              ),
             ),
           ),
         ),

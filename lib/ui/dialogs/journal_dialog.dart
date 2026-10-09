@@ -215,51 +215,56 @@ class _JournalDialogState extends State<JournalDialog> {
                         const Tab(height: 34, text: 'Our Story'),
                       ],
                     ),
+                    // Clips the tabs' ink (focus boxes) to the tab body;
+                    // on the dialog's Material it showed through the tab bar.
                     Expanded(
-                      child: TabBarView(
-                        children: [
-                          _loading
-                              ? Center(
-                                  child: CircularProgressIndicator(
-                                    color: accent,
+                      child: Material(
+                        type: MaterialType.transparency,
+                        child: TabBarView(
+                          children: [
+                            _loading
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                      color: accent,
+                                    ),
+                                  )
+                                : _diaryCards.isEmpty
+                                ? _emptyState(context)
+                                : _cardList(
+                                    context,
+                                    userName,
+                                    // Emotional diary only — item cards live
+                                    // on the Belongings tab (not buried at
+                                    // the bottom of this list).
+                                    categories: kJournalDisplayCategories
+                                        .where((c) => c != 'item')
+                                        .toList(),
                                   ),
-                                )
-                              : _diaryCards.isEmpty
-                              ? _emptyState(context)
-                              : _cardList(
-                                  context,
-                                  userName,
-                                  // Emotional diary only — item cards live
-                                  // on the Belongings tab (not buried at
-                                  // the bottom of this list).
-                                  categories: kJournalDisplayCategories
-                                      .where((c) => c != 'item')
-                                      .toList(),
-                                ),
-                          JournalPromisesTab(
-                            chat: _chat,
-                            ownerId: _ownerId,
-                            ownerName: widget.ownerName,
-                          ),
-                          _loading
-                              ? Center(
-                                  child: CircularProgressIndicator(
-                                    color: accent,
+                            JournalPromisesTab(
+                              chat: _chat,
+                              ownerId: _ownerId,
+                              ownerName: widget.ownerName,
+                            ),
+                            _loading
+                                ? Center(
+                                    child: CircularProgressIndicator(
+                                      color: accent,
+                                    ),
+                                  )
+                                : _belongingsCount == 0
+                                ? _emptyBelongings(context)
+                                : _cardList(
+                                    context,
+                                    userName,
+                                    categories: const ['item'],
                                   ),
-                                )
-                              : _belongingsCount == 0
-                              ? _emptyBelongings(context)
-                              : _cardList(
-                                  context,
-                                  userName,
-                                  categories: const ['item'],
-                                ),
-                          JournalTimelineTab(
-                            chat: _chat,
-                            ownerId: _ownerId,
-                            onJumpToMessage: widget.onJumpToMessage,
-                          ),
-                        ],
+                            JournalTimelineTab(
+                              chat: _chat,
+                              ownerId: _ownerId,
+                              onJumpToMessage: widget.onJumpToMessage,
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ],
