@@ -8,7 +8,9 @@
 // editor's slider stopped at 16,384 at the bottom and 262,144 at the top: an
 // 8k model was offered 32k to 131k on the card as if they were fine, and a
 // 262k model was cut short. The size in use is always offered, and a model
-// made for less than 16,384 tokens gets a plain warning.
+// made for less than 16,384 tokens gets a plain warning. Since 2026-10-09
+// the usual sizes start at 16,384: the app never suggests less (maintainer
+// ruling); only the size in use, or a short model's own length, can be.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
@@ -18,7 +20,6 @@ void main() {
     'the choices go up to what the model was made for, past 131,072 too',
     () {
       expect(koboldContextChoices(current: 16384, modelMax: 262144), [
-        8192,
         16384,
         32768,
         65536,
@@ -30,7 +31,6 @@ void main() {
         1024000,
       );
       expect(koboldContextChoices(current: 16384, modelMax: 40960), [
-        8192,
         16384,
         32768,
         40960,
@@ -47,7 +47,6 @@ void main() {
 
   test('a model that does not say keeps the usual sizes', () {
     expect(koboldContextChoices(current: 16384, modelMax: null), [
-      8192,
       16384,
       32768,
       65536,

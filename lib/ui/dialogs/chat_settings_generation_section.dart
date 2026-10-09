@@ -219,6 +219,10 @@ class ChatSettingsGenerationSection extends StatelessWidget {
             },
           ),
         ),
+        ContextSizeWarnings(
+          contextSize: gen.resolveContextSize(storage),
+          maxOutput: gen.resolveMaxLength(storage),
+        ),
         const SizedBox(height: 16),
         Row(
           children: [

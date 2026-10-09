@@ -48,6 +48,27 @@ export interface GenSettings {
 export const CONTEXT_LOCKED =
   'Context size is controlled by the active .kcpps preset and cannot be edited here.';
 
+/** The host's floor when it does not send one (an older host). */
+export const CONTEXT_FLOOR = 16384;
+
+/** Said under a context set below the floor: the desktop's own words. */
+export const CONTEXT_FLOOR_WORDS =
+  '16,384 or more. Below that is not recommended or supported: ' +
+  'characters remember very little of the chat.';
+
+const tokens = (n: number) => n.toLocaleString('en-US');
+
+/** Said when the longest reply allowed takes up the whole context (the
+ *  desktop's koboldReplyFillsContextWarning); null while it leaves room. */
+export function replyFillsContextWarning(context: number, maxOutput: number): string | null {
+  if (context <= 0 || maxOutput < context) return null;
+  return (
+    `Max output tokens (${tokens(maxOutput)}) takes up the whole context ` +
+    `(${tokens(context)} tokens), leaving no room for the character or the ` +
+    'chat. Lower it, or raise the context.'
+  );
+}
+
 export function SliderField({
   label,
   value,
@@ -102,6 +123,7 @@ export function GenerationSettingsFields({
   remoteModelName,
   contextSize,
   contextLocked,
+  contextFloor = CONTEXT_FLOOR,
   generation,
   systemPrompt,
   bannedPhrases,
@@ -121,6 +143,8 @@ export function GenerationSettingsFields({
   contextSize: number;
   /** A preset in use sets the context (KoboldCpp only): the slider is locked. */
   contextLocked?: boolean;
+  /** Below this the context is warned about (the host's kKoboldContextFloor). */
+  contextFloor?: number;
   generation: GenSettings;
   systemPrompt?: string;
   bannedPhrases?: string[];
@@ -135,6 +159,7 @@ export function GenerationSettingsFields({
   patchGen: (p: Partial<GenSettings>) => void;
 }) {
   const g = generation;
+  const replyFills = replyFillsContextWarning(contextSize, g.maxLength);
   return (
     <section className="card">
       <h3>Generation</h3>
@@ -184,6 +209,12 @@ export function GenerationSettingsFields({
         disabled={contextLocked}
         onChange={(v) => patch({ contextSize: Math.round(v) })} />
       {contextLocked && <p className="muted small">{CONTEXT_LOCKED}</p>}
+      {contextSize > 0 && contextSize < contextFloor && (
+        <div className="cpu-warn" data-testid="context-floor-warning">{CONTEXT_FLOOR_WORDS}</div>
+      )}
+      {replyFills && (
+        <div className="cpu-warn" data-testid="context-reply-warning">{replyFills}</div>
+      )}
       <label className="row-label">
         <span>Dynamic temperature</span>
         <input

@@ -233,6 +233,13 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
                             ),
                           ],
                         ),
+                        ValueListenableBuilder<TextEditingValue>(
+                          valueListenable: _contextSizeController,
+                          builder: (context, value, _) => ContextSizeWarnings(
+                            contextSize: int.tryParse(value.text),
+                            maxOutput: storage.generationSettings.maxLength,
+                          ),
+                        ),
                         const SizedBox(height: 12),
                         Row(
                           children: [

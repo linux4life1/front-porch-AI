@@ -12,6 +12,11 @@
 // "the author's machine" is offered 262,144 as well, and on that 6 GB card
 // it is too big, like 131,072. Its expected verdicts gain that one entry;
 // the other five and the most that works well (65,536) are unchanged.
+//
+// Changed 2026-10-09: no size below 16,384 is offered any more (the
+// maintainer's ruling: the app never suggests less), so 8,192 is no longer
+// among the choices and has no verdict here. A size below the floor in use
+// is still said to be not supported (kobold_status_card_test.dart).
 
 import 'dart:convert';
 import 'dart:io';
@@ -186,7 +191,6 @@ void main() {
         largest: (l) => most = l,
       );
       expect(o, {
-        8192: KoboldContextOutcome.tooSmall,
         16384: KoboldContextOutcome.likeNow,
         32768: KoboldContextOutcome.likeNow,
         65536: KoboldContextOutcome.slower,
@@ -198,7 +202,7 @@ void main() {
 
     test('only sizes the model was made for are offered', () {
       final o = outcomes(_fit('Qwen3-14B', KoboldMemoryBackend.vulkan), _amd16);
-      expect(o.keys, [8192, 16384, 32768]);
+      expect(o.keys, [16384, 32768]);
       expect(o[32768], KoboldContextOutcome.littleSlower);
     });
 

@@ -129,7 +129,9 @@ void main() {
       expect(auto['context'], 16384);
       expect(auto['largestGood'], 65536);
       final verdicts = auto['verdicts'] as Map;
-      expect(verdicts['8192']['title'], 'Not recommended or supported.');
+      // Nothing below 16,384 is offered to the phone (maintainer ruling).
+      expect(auto['choices'], [16384, 32768, 65536, 131072, 262144]);
+      expect(verdicts.containsKey('8192'), isFalse);
       expect(verdicts['16384']['title'], 'Works like now.');
       expect(verdicts['131072']['outcome'], 'tooBig');
       expect(

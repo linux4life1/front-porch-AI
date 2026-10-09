@@ -85,8 +85,7 @@ class KcppsChatLengthSection extends StatelessWidget {
               ],
             ),
             Text(
-              '16,384 or more. Below that is not recommended or supported: '
-              'characters remember very little of the chat.',
+              kKoboldContextFloorWords,
               style: keText(
                 context,
                 size: 12,

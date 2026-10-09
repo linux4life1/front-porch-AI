@@ -42,6 +42,10 @@ extension SettingsFacadeRead on SettingsFacade {
       'remoteConfigured': _llm.openRouterService.isConfigured,
       'remoteReachability': _llm.openRouterService.reachability.name,
       'contextSize': b.contextSize,
+      // Below this the context is warned about, as on the desktop.
+      // Additive: an older PWA ignores it, a newer one on an older host
+      // falls back to the same number.
+      'contextFloor': kKoboldContextFloor,
       // KoboldCpp frees the graphics memory after this many idle minutes
       // (0: never). Additive: an older PWA ignores both keys.
       'koboldIdleUnloadMinutes': b.idleUnloadMinutes,

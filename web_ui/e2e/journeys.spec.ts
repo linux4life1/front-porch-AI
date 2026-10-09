@@ -478,7 +478,15 @@ test.describe('the Local model card', () => {
     await expect(speedTest).toBeDisabled();
     await expect(card.getByTestId('speed-test-unavailable')).toHaveText('Start the model first, then run the test.');
 
-    await card.getByRole('button', { name: '8,192', exact: true }).click();
+    // Nothing below 16,384 is offered (the app never suggests less). A smaller
+    // size set some other way is still shown as the one in use, and warned
+    // about; 16,384 then puts it back.
+    await expect(card.getByRole('button', { name: '16,384', exact: true })).toBeVisible();
+    await expect(card.getByRole('button', { name: '8,192', exact: true })).toHaveCount(0);
+    const small = await page.request.post('/api/backend/local-model/context', { data: { context: 8192 } });
+    expect(small.ok(), `POST /api/backend/local-model/context 8192: ${small.status()}`).toBe(true);
+    await openRoute(page, '/models');
+    await expect(card.getByRole('button', { name: '8,192', exact: true })).toBeVisible();
     await expect(verdict).toContainText('Not recommended or supported.');
     await card.getByRole('button', { name: '16,384', exact: true }).click();
     await expect(verdict).toContainText('Works like now.');

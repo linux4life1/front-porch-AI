@@ -149,6 +149,13 @@ extension SetupStepFields on SetupStep {
               ),
             ],
           ),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: state.contextSizeController,
+            builder: (context, value, _) => ContextSizeWarnings(
+              contextSize: int.tryParse(value.text),
+              maxOutput: storage.generationSettings.maxLength,
+            ),
+          ),
           const SizedBox(height: 12),
           Row(
             children: [

@@ -175,10 +175,14 @@ void main() {
     await settle(tester, () => storage.backendSettings.contextSize == 131072);
   });
 
+  // No chip below 16,384 is offered any more (maintainer ruling): a smaller
+  // size comes from a box elsewhere (the preset editor, Advanced), and the
+  // card still shows it as the size in use, warned about.
   testWidgets('below 16,384 is allowed, and warned about', (tester) async {
     await mount(tester);
-    await tester.tap(find.text('8,192'));
-    await settle(tester, () => storage.backendSettings.contextSize == 8192);
+    expect(find.text('8,192'), findsNothing);
+    await tester.runAsync(() => storage.backendSettings.setContextSize(8192));
+    await settle(tester, () => find.text('8,192').evaluate().isNotEmpty);
     expect(
       find.textContaining('Not recommended or supported.'),
       findsOneWidget,

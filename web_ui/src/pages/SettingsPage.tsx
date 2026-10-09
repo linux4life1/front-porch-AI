@@ -48,6 +48,8 @@ interface Settings {
   remoteConfigured?: boolean;
   remoteReachability?: 'unknown' | 'checking' | 'reachable' | 'unreachable';
   contextSize: number;
+  /** Below this the context is warned about. Absent on older hosts. */
+  contextFloor?: number;
   reasoningEnabled: boolean;
   reasoningEffort: string;
   reasoningMandatory?: boolean;
@@ -495,6 +497,7 @@ export function SettingsPage() {
         isLocal={s.isLocal}
         remoteModelName={s.remoteModelName}
         contextSize={s.contextSize}
+        contextFloor={s.contextFloor}
         contextLocked={presetOwnsContext(s.backend, s.activeKcppsPath)}
         generation={s.generation}
         systemPrompt={s.systemPrompt}

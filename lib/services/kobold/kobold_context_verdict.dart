@@ -13,8 +13,25 @@ import 'kobold_fit.dart';
 /// suggests less.
 const int kKoboldContextFloor = 16384;
 
-/// The context sizes offered in auto mode.
-const List<int> kKoboldContextChoices = [8192, 16384, 32768, 65536, 131072];
+/// The context sizes the app offers (the Local model card, the Advanced
+/// tab's chips): none below [kKoboldContextFloor].
+const List<int> kKoboldContextChoices = [16384, 32768, 65536, 131072];
+
+/// Said beside a context control: the floor, and why.
+const String kKoboldContextFloorWords =
+    '16,384 or more. Below that is not recommended or supported: '
+    'characters remember very little of the chat.';
+
+/// Said when the longest reply allowed ([maxOutput]) would take up the whole
+/// [context]; null while it leaves room.
+String? koboldReplyFillsContextWarning({
+  required int context,
+  required int maxOutput,
+}) => context <= 0 || maxOutput < context
+    ? null
+    : 'Max output tokens (${koboldTokens(maxOutput)}) takes up the whole '
+          'context (${koboldTokens(context)} tokens), leaving no room for the '
+          'character or the chat. Lower it, or raise the context.';
 
 /// The smallest and largest context the phone may set, in tokens.
 const int kKoboldContextMin = 512;

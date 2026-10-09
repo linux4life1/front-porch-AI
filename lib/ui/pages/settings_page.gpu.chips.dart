@@ -109,9 +109,11 @@ extension _SettingsGpuChips on _SettingsPageState {
     StorageService storageService,
     Color accent,
   ) {
-    final currentVal = int.tryParse(_contextSizeController.text) ?? 16384;
-    // Map context size to slider position.
-    final presets = [512, 1024, 2048, 4096, 8192, 16384, 32768, 65536, 131072];
+    final currentVal =
+        int.tryParse(_contextSizeController.text) ?? kKoboldContextFloor;
+    // Map context size to slider position. Nothing below 16,384 is offered;
+    // a smaller number can still be typed in the box, and is warned about.
+    const presets = kKoboldContextChoices;
     int closestIdx = 0;
     int closestDist = (presets[0] - currentVal).abs();
     for (int i = 1; i < presets.length; i++) {
@@ -152,11 +154,9 @@ extension _SettingsGpuChips on _SettingsPageState {
         Wrap(
           spacing: 6,
           runSpacing: 4,
-          children: [512, 2048, 4096, 8192, 16384, 32768, 65536, 131072].map((
-            size,
-          ) {
+          children: presets.map((size) {
             final isSelected = currentVal == size;
-            final label = size >= 1024 ? '${size ~/ 1024}K' : '$size';
+            final label = '${size ~/ 1024}K';
             return ChoiceChip(
               label: Text(
                 label,
@@ -185,6 +185,10 @@ extension _SettingsGpuChips on _SettingsPageState {
               },
             );
           }).toList(),
+        ),
+        ContextSizeWarnings(
+          contextSize: int.tryParse(_contextSizeController.text),
+          maxOutput: storageService.generationSettings.maxLength,
         ),
       ],
     );

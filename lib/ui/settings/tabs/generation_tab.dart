@@ -235,6 +235,10 @@ class _GenerationTabState extends State<GenerationTab> {
               isInteger: true,
             ),
           ),
+          ContextSizeWarnings(
+            contextSize: storage.backendSettings.contextSize,
+            maxOutput: storage.generationSettings.maxLength,
+          ),
           const SizedBox(height: 24),
 
           // ── Model transport ────────────────────────────────────────────
