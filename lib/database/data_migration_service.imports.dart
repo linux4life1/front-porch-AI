@@ -411,15 +411,7 @@ extension _DataMigrationImports on DataMigrationService {
     final jsonList = prefs.getStringList('user_personas');
 
     if (jsonList == null || jsonList.isEmpty) {
-      // Create default persona
-      await _db.insertPersona(
-        PersonasCompanion.insert(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          name: Value(prefs.getString('user_name') ?? 'User'),
-          persona: Value(prefs.getString('user_persona') ?? ''),
-          isActive: const Value(true),
-        ),
-      );
+      await _migrateLegacyPersonaFields(prefs);
       return;
     }
 
@@ -443,5 +435,53 @@ extension _DataMigrationImports on DataMigrationService {
         debugPrint('DB_MIGRATION: Failed to import persona: $e');
       }
     }
+  }
+
+  /// The pre-list persona prefs, `user_name` and `user_persona`. The persona
+  /// service seeds the default "User" on an empty library by itself, and this
+  /// migration runs on every new install, so it must add a persona only to
+  /// carry real old data, and never beside one already there: either way a
+  /// new install showed two "User" personas from its second launch on.
+  Future<void> _migrateLegacyPersonaFields(SharedPreferences prefs) async {
+    final name = prefs.getString('user_name') ?? '';
+    final description = prefs.getString('user_persona') ?? '';
+    if (name.trim().isEmpty && description.trim().isEmpty) return;
+    final carriedName = name.trim().isEmpty ? 'User' : name;
+
+    final live = await _db.getAllPersonas();
+    if (live.isEmpty) {
+      await _db.insertPersona(
+        PersonasCompanion.insert(
+          id: DateTime.now().millisecondsSinceEpoch.toString(),
+          name: Value(carriedName),
+          persona: Value(description),
+          isActive: const Value(true),
+        ),
+      );
+      return;
+    }
+
+    // The service's seed got here first. Put the old name on it while it is
+    // still the untouched seed; anything else was written by the user.
+    final seed = live.length == 1 ? live.single : null;
+    final untouched =
+        seed != null &&
+        seed.name == 'User' &&
+        seed.title.isEmpty &&
+        seed.persona.isEmpty &&
+        seed.avatarPath == null &&
+        seed.birthday == null;
+    if (!untouched) {
+      debugPrint(
+        'DB_MIGRATION: Old persona name not carried: the library already '
+        'has its own persona',
+      );
+      return;
+    }
+    await _db.updatePersona(
+      seed
+          .toCompanion(false)
+          .copyWith(name: Value(carriedName), persona: Value(description)),
+    );
   }
 }
