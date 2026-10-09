@@ -26,6 +26,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/eval_traffic.dart';
 import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
     show recentExchange;
+import 'package:front_porch_ai/services/chat/objective_check_skip.dart';
 import 'package:front_porch_ai/services/chat/objective_eval_tools.dart';
 import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
@@ -224,22 +225,16 @@ class ObjectiveProposal {
   /// force-completed path is gone — stale is never treated as achievement.
   final ObjectiveStaleTracker _staleTracker = ObjectiveStaleTracker();
 
-  /// The running check's request, so the overlay's Skip can call it off.
-  LlmRequestCancel? _checkCancel;
+  final ObjectiveCheckSkip _skip = ObjectiveCheckSkip();
 
-  /// Skip the running check: its request is called off and nothing it would
-  /// have decided is applied; the turn goes on. False when none is running.
-  bool skipCheck() {
-    final cancel = _checkCancel;
-    if (cancel == null || cancel.isCancelled) return false;
-    cancel.cancel();
-    return true;
-  }
+  /// The overlay's Skip: the running check's request is called off and none
+  /// of its verdicts apply, unless it is already applying them.
+  ObjectiveSkip skipCheck() => _skip.skip();
 
   Future<void> checkTaskCompletionInBackground() async {
     if (getIsCheckingCompletion() || getActiveObjectives().isEmpty) return;
     setIsCheckingCompletion(true);
-    final cancel = _checkCancel = LlmRequestCancel();
+    final cancel = _skip.begin();
 
     var anyCompleted = false;
     try {
@@ -259,6 +254,7 @@ class ObjectiveProposal {
       // main quest; also self-heals quests stuck from before that fix.)
       final pending = <(dynamic obj, List<dynamic> tasks, String? task)>[];
       for (final obj in getActiveObjectives()) {
+        if (cancel.isCancelled) return;
         final tasks = tasksForObjective(obj);
         final currentTask = currentOpenTaskDescription(tasks);
         if (currentTask == null && tasks.isNotEmpty) {
@@ -315,7 +311,14 @@ class ObjectiveProposal {
           toolsMode: toolsMode,
         ),
       );
-      // Skip answers at once, whatever the request is doing.
+      // Skip answers at once, whatever the request is doing. The abandoned
+      // request then ends in the abort's error: logged, never left unhandled.
+      unawaited(
+        verdicts.then<void>(
+          (_) {},
+          onError: (Object e) => debugPrint('[Objective] Check ended: $e'),
+        ),
+      );
       final responseText = await Future.any<String?>([
         verdicts,
         cancel.whenCancelled.then((_) => null),
@@ -340,6 +343,8 @@ class ObjectiveProposal {
         return;
       }
 
+      // The last moment a skip stops everything; after it, all apply.
+      if (!_skip.startApplying(cancel)) return;
       final threshold = normalizeObjectiveStaleThreshold(
         getObjectiveStaleThresholdN?.call(),
       );
@@ -372,7 +377,7 @@ class ObjectiveProposal {
     } catch (e) {
       debugPrint('[Objective] Completion check failed: $e');
     } finally {
-      if (identical(_checkCancel, cancel)) _checkCancel = null;
+      _skip.end(cancel);
       setIsCheckingCompletion(false);
       // A completed step is a story beat worth journaling — flag it once
       // (post-generation consumer; see onObjectiveCompleted doc).

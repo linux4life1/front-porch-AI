@@ -48,8 +48,16 @@ extension ChatServiceObjectiveCompletion on ChatService {
   /// awaits the check, which now returns). Turn ops it recorded before the
   /// call (a quest whose steps were all done) stay, so regen still undoes them.
   void _skipObjectiveCheckImpl() {
-    if (!_objectiveProposal.skipCheck()) return;
-    _setGuestStatus('Goal check skipped. Your goals stay as they were.');
+    switch (_objectiveProposal.skipCheck()) {
+      case ObjectiveSkip.notRunning:
+        return;
+      case ObjectiveSkip.skipped:
+        _setGuestStatus('Goal check skipped. Your goals stay as they were.');
+      case ObjectiveSkip.tooLate:
+        _setGuestStatus(
+          'Too late to skip: the goal check already had its answer.',
+        );
+    }
   }
 
   /// Synchronous version — awaits the check. Used pre-generation.

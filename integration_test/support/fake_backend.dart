@@ -74,6 +74,10 @@ class FakeBackendServer {
   /// it answers; a client that hangs up meanwhile is counted.
   Completer<void>? holdObjectiveCheck;
 
+  /// With [holdObjectiveCheck]: send the verdict first and hold only the
+  /// stream's end, so the app has the answer but not yet a finished reply.
+  bool objectiveCheckAnswerFirst = false;
+
   /// Completes on the first goal-check request that reaches the hold.
   Completer<void> objectiveCheckHeld = Completer<void>();
 
@@ -659,23 +663,31 @@ class FakeBackendServer {
     }
 
     socket.listen((_) {}, onDone: leave, onError: leave, cancelOnError: true);
+    void writePieces() {
+      for (final piece in pieces) {
+        socket.write(
+          'data: ${jsonEncode({
+            'choices': [
+              {
+                'delta': {'content': piece},
+              },
+            ],
+          })}\n\n',
+        );
+      }
+    }
+
+    if (objectiveCheckAnswerFirst) {
+      writePieces();
+      await socket.flush();
+    }
     if (!objectiveCheckHeld.isCompleted) objectiveCheckHeld.complete();
     await Future.any([hold, gone.future]);
     if (gone.isCompleted) {
       socket.destroy();
       return false;
     }
-    for (final piece in pieces) {
-      socket.write(
-        'data: ${jsonEncode({
-          'choices': [
-            {
-              'delta': {'content': piece},
-            },
-          ],
-        })}\n\n',
-      );
-    }
+    if (!objectiveCheckAnswerFirst) writePieces();
     socket.write('data: [DONE]\n\n');
     await socket.close();
     return true;
