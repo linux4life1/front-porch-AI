@@ -137,6 +137,7 @@ extension ChatServiceReprocess on ChatService {
       _restoreCapturedThroughReader();
       rethrow;
     } finally {
+      _groupManager?.endRegeneration();
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
       _applyTipClock();
@@ -238,11 +239,10 @@ extension ChatServiceReprocess on ChatService {
         }
       }
 
-      // In group mode, force the turn manager to the *original* speaker of the
-      // removed message before generation. This prevents regen from picking a
-      // different character (the core of the "speaker changed after regen" bug).
+      // In group mode the original speaker re-speaks. The rotation is held
+      // and put back by regenerateLastMessage's finally, success or not.
       if (regenSpeakerCard != null) {
-        _groupManager?.setNextSpeaker(regenSpeakerCard);
+        _groupManager?.beginRegeneration(regenSpeakerCard);
       }
 
       // Roll back objective mutations recorded for the rejected turn (eval

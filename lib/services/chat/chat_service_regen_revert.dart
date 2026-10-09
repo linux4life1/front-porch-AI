@@ -402,18 +402,7 @@ extension ChatServiceRegenRevert on ChatService {
       _timeService.clearCapturedClock();
       await _saveChat();
       notifyListeners();
-
-      // In group mode, advance the turn pointer past the regenerated speaker
-      // so the next natural generation continues the correct rotation instead
-      // of repeating the same character.
-      if (_activeGroup != null) {
-        // Same resolution rule: advancing past the WRONG member would make
-        // the next natural turn repeat a character or skip one.
-        final originalSpeaker = _resolveGroupSpeakerForMessage(lastMsg);
-        if (originalSpeaker != null) {
-          _groupManager?.advanceAfterRegeneration(originalSpeaker);
-        }
-      }
+      // The group rotation is put back by regenerateLastMessage's finally.
     }
   }
 }

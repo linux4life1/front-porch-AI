@@ -18,6 +18,7 @@ class GroupTurnManager extends ChangeNotifier {
   List<CharacterCard> _characters = [];
   int _turnIndex = 0;
   String? _forcedNextSpeakerId;
+  ({int index, String? forcedId, String regenId})? _regenHold;
   bool _observerMode = false;
   bool _autoPlayActive = false;
 
@@ -120,11 +121,41 @@ class GroupTurnManager extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Force [character] to re-speak the reply being regenerated, remembering
+  /// the rotation so [endRegeneration] can put it back: a regen redoes a
+  /// turn, it does not take one.
+  void beginRegeneration(CharacterCard character) {
+    if (!isActive) return;
+    final before = (index: _turnIndex, forcedId: _forcedNextSpeakerId);
+    setNextSpeaker(character);
+    final regenId = _forcedNextSpeakerId;
+    if (regenId == null) return;
+    _regenHold ??= (
+      index: before.index,
+      forcedId: before.forcedId,
+      regenId: regenId,
+    );
+  }
+
+  /// Put the rotation back as [beginRegeneration] found it, whether the
+  /// regen succeeded or not. A speaker picked during the regen stands.
+  void endRegeneration() {
+    final hold = _regenHold;
+    _regenHold = null;
+    if (hold == null || _forcedNextSpeakerId != hold.regenId) return;
+    _turnIndex = _characters.isEmpty ? 0 : hold.index % _characters.length;
+    _forcedNextSpeakerId = _characters.any((c) => _getId(c) == hold.forcedId)
+        ? hold.forcedId
+        : null;
+    notifyListeners();
+  }
+
   /// Resets the round-robin pointer and any forced speaker.
   /// Used when a new greeting is sent or the conversation is reset.
   void resetTurnState() {
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _regenHold = null;
     notifyListeners();
   }
 
@@ -140,6 +171,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = List.of(resolvedCharacters);
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _regenHold = null;
     _observerMode = startInDirectorMode;
     _autoPlayActive = false;
     notifyListeners();
@@ -151,6 +183,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = [];
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _regenHold = null;
     _observerMode = false;
     _autoPlayActive = false;
     notifyListeners();
