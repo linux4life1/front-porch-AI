@@ -66,7 +66,9 @@ extension _GroupWizardCommit on _CreateGroupChatPageState {
     // reuses generalized duplicateCharacter for copy+ V2 embed into groups/<id>/avatars/).
     // No new private methods. Library untouched (sole bridge remains explicit "Separate...").
     final storage = Provider.of<StorageService>(context, listen: false);
-    final database = Provider.of<db.AppDatabase>(context, listen: false);
+    // The live database, not the startup snapshot `Provider<AppDatabase>`
+    // holds: a backup restore closes that one.
+    final database = liveDatabase(context);
     for (final source in _members) {
       final mid = const Uuid().v4();
       final avDir = Directory(

@@ -30,7 +30,9 @@ extension _EditGroupDetailsTab on _EditGroupPageState {
   // preserves the member's group state (realism/needs, avatar) by writing just
   // the content columns.
   Future<void> _editMember(CharacterCard member, String memberId) async {
-    final database = Provider.of<db.AppDatabase>(context, listen: false);
+    // The live database, not the startup snapshot `Provider<AppDatabase>`
+    // holds: a backup restore closes that one.
+    final database = liveDatabase(context);
     final edited = await Navigator.of(context).push<CharacterCard>(
       MaterialPageRoute(
         builder: (_) => EditCharacterPage(
