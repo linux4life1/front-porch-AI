@@ -69,21 +69,25 @@ extension ChatServiceGenerationPlanRegister on ChatService {
     // trigger/untrigger rewrote byte 1 of the prompt, so local backends
     // re-prefills the whole transcript. After history, the sticky prefix
     // stays put — same class of move as memories / recap / journal.
-    plan.add(id: 'lore.before', label: 'Lorebook', text: t.loreBefore);
     // Growth, scenario fade, and keyword lore around the card used to sit
     // in the system head. A ring, a fade step, or a trigger rewrote the
     // cached prefix and the whole transcript was re-read. They sit after
     // history now, same seat as lore.before. Growth is not a state-zone
     // member: Continue still sees it.
-    plan.add(id: 'growth', label: 'Character Growth', text: t.growthBlock);
-    plan.add(id: 'lore.after', label: 'Lorebook', text: t.loreAfter);
-    plan.add(
-      id: 'scenario',
-      label: 'Scenario',
-      text: ScenarioFade.wrapForChat(t.scenario, _messages),
-    );
-    plan.add(id: 'lore.ex_top', label: 'Lorebook', text: t.loreExTop);
-    plan.add(id: 'lore.ex_bottom', label: 'Lorebook', text: t.loreExBottom);
+    final afterHistory = openOwnLines([
+      t.loreBefore,
+      t.growthBlock,
+      t.loreAfter,
+      ScenarioFade.wrapForChat(t.scenario, _messages),
+      t.loreExTop,
+      t.loreExBottom,
+    ]);
+    plan.add(id: 'lore.before', label: 'Lorebook', text: afterHistory[0]);
+    plan.add(id: 'growth', label: 'Character Growth', text: afterHistory[1]);
+    plan.add(id: 'lore.after', label: 'Lorebook', text: afterHistory[2]);
+    plan.add(id: 'scenario', label: 'Scenario', text: afterHistory[3]);
+    plan.add(id: 'lore.ex_top', label: 'Lorebook', text: afterHistory[4]);
+    plan.add(id: 'lore.ex_bottom', label: 'Lorebook', text: afterHistory[5]);
     // Retrieved memories sit AFTER the transcript (Phase 3, measured):
     // retrieval changes this block every turn, and a changing block
     // BEFORE the history rewrote the prompt's middle each turn — a full

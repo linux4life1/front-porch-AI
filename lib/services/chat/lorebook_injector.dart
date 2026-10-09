@@ -30,11 +30,7 @@ class LoreDepthEntry {
   final int depth;
   final int? role;
   final String content;
-  const LoreDepthEntry({
-    required this.depth,
-    required this.content,
-    this.role,
-  });
+  const LoreDepthEntry({required this.depth, required this.content, this.role});
 }
 
 /// Max messages-from-end @depth lore may sit (release-audit L1, 2026-08-11).
@@ -59,8 +55,9 @@ List<String> spliceDepthLore(
   if (depthLore.isEmpty) return lines;
   final atFromEnd = <int, List<String>>{};
   for (final d in depthLore) {
-    final maxFromEnd =
-        lines.length < kDepthLoreMaxFromEnd ? lines.length : kDepthLoreMaxFromEnd;
+    final maxFromEnd = lines.length < kDepthLoreMaxFromEnd
+        ? lines.length
+        : kDepthLoreMaxFromEnd;
     final clamped = d.depth > maxFromEnd ? maxFromEnd : d.depth;
     atFromEnd.putIfAbsent(clamped, () => []).add(d.content);
   }
@@ -87,6 +84,9 @@ class LoreInjectionResult {
   /// Display names of entries dropped by the token budget.
   final List<String> overflowDropped;
 
+  /// "Name (source)" of every entry this result injects, for the turn log.
+  final List<String> injected;
+
   /// The effective lore budget (min of percent-of-context and the cap) this
   /// result was built under — the sidebar meter's denominator.
   final int budgetTokens;
@@ -100,6 +100,7 @@ class LoreInjectionResult {
     this.examplesBottom = '',
     this.depthEntries = const [],
     this.overflowDropped = const [],
+    this.injected = const [],
     this.budgetTokens = 0,
   });
 
@@ -107,7 +108,8 @@ class LoreInjectionResult {
   /// accounting; the real tokenizer still governs history budgeting because
   /// these strings land inside the fixed content that gets counted there).
   int get approxTokens {
-    var chars = beforeChar.length +
+    var chars =
+        beforeChar.length +
         afterChar.length +
         authorNoteTop.length +
         authorNoteBottom.length +
@@ -233,9 +235,8 @@ class LorebookInjector {
     }
 
     // Weighted random, deterministic while the active membership holds.
-    final membershipKey = (members.map((m) => loreEntryHash(m.entry)).toList()
-          ..sort())
-        .join(',');
+    final membershipKey =
+        (members.map((m) => loreEntryHash(m.entry)).toList()..sort()).join(',');
     final rng = Random(fnv1a32('$sessionSeed|$groupName|$membershipKey'));
     final totalWeight = members.fold<int>(
       0,
@@ -345,6 +346,10 @@ class LorebookInjector {
           ),
       ],
       overflowDropped: overflow,
+      injected: [
+        for (final ref in included)
+          '${ref.entry.displayName} (${ref.sourceLabel})',
+      ],
       budgetTokens: effectiveBudget,
     );
   }

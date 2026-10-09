@@ -128,8 +128,7 @@ class PromptPlan {
     return s;
   }
 
-  PromptSection section(String id) =>
-      _sections.firstWhere((s) => s.id == id);
+  PromptSection section(String id) => _sections.firstWhere((s) => s.id == id);
 
   String _join(bool Function(PromptSection) where) =>
       _sections.where(where).map((s) => s.text).join();
@@ -175,4 +174,22 @@ class PromptPlan {
     }
     return byLabel;
   }
+}
+
+/// History ends mid-line (a `join('\n')`), and the blocks that sit right
+/// after it (keyword lore, growth, scenario) do not all open with a newline.
+/// Each non-empty block gets one when the text before it left the line open,
+/// so lore never runs on from the last sentence of the transcript.
+List<String> openOwnLines(List<String> blocks) {
+  var lineOpen = true;
+  final out = <String>[];
+  for (final b in blocks) {
+    if (b.isEmpty) {
+      out.add(b);
+      continue;
+    }
+    out.add(lineOpen && !b.startsWith('\n') ? '\n$b' : b);
+    lineOpen = !b.endsWith('\n');
+  }
+  return out;
 }

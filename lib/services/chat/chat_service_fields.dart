@@ -393,6 +393,7 @@ mixin ChatServiceFieldBag {
   // same as editing semantics elsewhere).
   Lorebook? _cachedGroupBook;
   String? _cachedGroupBookJson;
+  bool _groupLorebookUnreadable = false;
 
   /// Living Worlds: Primary Setting + Lore slots for the open session.
   /// Loaded on session open; group template seeds new chats.

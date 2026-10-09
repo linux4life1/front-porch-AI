@@ -101,6 +101,7 @@ extension ChatFacadeState on ChatFacade {
       addEntries(activeChar!.lorebook!.entries, '');
     }
     if (_chat.isGroupMode) {
+      addEntries(_chat.groupLorebookEntries, 'Group');
       for (final ch in _chat.groupCharacters) {
         if (ch.lorebook != null) addEntries(ch.lorebook!.entries, ch.name);
       }
@@ -166,6 +167,9 @@ extension ChatFacadeState on ChatFacade {
       }(),
       'userPersonaName': _personas?.persona.name ?? 'User',
       'lorebook': lorebook,
+      // Additive: the group's stored lorebook could not be read (the
+      // desktop sidebar's note).
+      'groupLorebookUnreadable': _chat.groupLorebookUnreadable,
       // Living Worlds — places attached to this session (ids).
       'chatWorldIds': _chat.chatWorldIds,
       // Lore token meter (desktop sidebar parity): last generation's lore

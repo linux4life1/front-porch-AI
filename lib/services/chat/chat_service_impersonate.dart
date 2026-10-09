@@ -199,20 +199,25 @@ extension ChatServiceImpersonate on ChatService {
       plan.add(id: 'examples', inSystem: true, text: mesExampleBlock);
       plan.add(id: 'start', text: '<START>\n');
       plan.add(id: 'history', text: '', counted: false);
-      plan.add(id: 'lore.before', text: loreBefore);
-      plan.add(id: 'growth', text: growthBlock);
-      plan.add(id: 'lore.after', text: loreAfter);
-      plan.add(
-        id: 'scenario',
-        text: ScenarioFade.wrapScenario(
+      final afterHistory = openOwnLines([
+        loreBefore,
+        growthBlock,
+        loreAfter,
+        ScenarioFade.wrapScenario(
           scenario,
           ScenarioFade.strengthForUserMessageCount(
             _messages.where((m) => m.isUser).length,
           ),
         ),
-      );
-      plan.add(id: 'lore.ex_top', text: loreExTop);
-      plan.add(id: 'lore.ex_bottom', text: loreExBottom);
+        loreExTop,
+        loreExBottom,
+      ]);
+      plan.add(id: 'lore.before', text: afterHistory[0]);
+      plan.add(id: 'growth', text: afterHistory[1]);
+      plan.add(id: 'lore.after', text: afterHistory[2]);
+      plan.add(id: 'scenario', text: afterHistory[3]);
+      plan.add(id: 'lore.ex_top', text: afterHistory[4]);
+      plan.add(id: 'lore.ex_bottom', text: afterHistory[5]);
       plan.add(id: 'post_history', text: postHistoryBlock);
       plan.add(id: 'lore.an_top', text: loreAnTop);
       plan.add(id: 'author_note', text: authorNoteBlock);

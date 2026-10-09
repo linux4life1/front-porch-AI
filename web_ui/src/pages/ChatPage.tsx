@@ -187,6 +187,7 @@ export function ChatPage() {
       realism={realismForPanel}
       focusedIsLiteGuest={focusedIsLiteGuest}
       lorebook={state.lorebook}
+      groupLorebookUnreadable={state.groupLorebookUnreadable}
       loreTokens={state.loreTokens}
       loreBudget={state.loreBudget}
       loreOverflow={state.loreOverflow}

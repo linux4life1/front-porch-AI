@@ -88,6 +88,10 @@ extension ChatServiceGenerationBlocks on ChatService {
     _lastLoreOverflow = loreInjection.overflowDropped;
     _lastLoreTokens = loreInjection.approxTokens;
     _lastLoreBudget = loreInjection.budgetTokens;
+    debugPrint(
+      '[Lorebook] injected for ${t.speakingCharacter.name}: '
+      '${loreInjection.injected.isEmpty ? 'none' : loreInjection.injected.join(', ')}',
+    );
     if (loreInjection.overflowDropped.isNotEmpty) {
       debugPrint(
         '[Lorebook] ⚠ budget overflow — dropped: '

@@ -24,6 +24,12 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import '../sidebar_tokens.dart';
 
+/// Shown when the group's stored lorebook cannot be read (the phone says
+/// the same words).
+const kGroupLorebookUnreadableSidebarNote =
+    "This group's lorebook couldn't be read, so its entries aren't being "
+    'used. Open Group Settings, Lorebook & Worlds, to bring it back.';
+
 /// Trigger-state dot color: gray = enabled but idle (or an inclusion-group
 /// loser this turn — idle is calm, not an error), blue = constant (always
 /// injected), green = keyword-triggered. [injected] is the post-group-filter
@@ -39,11 +45,7 @@ Widget? loreTimerPill(BuildContext context, ChatService chat, LorebookEntry e) {
   final len = chat.messages.length;
   final sticky = chat.loreTimedEffects.stickyRemaining(e, len);
   if (sticky > 0) {
-    return _pill(
-      context,
-      'sticky $sticky',
-      AppColors.bondHighOf(context),
-    );
+    return _pill(context, 'sticky $sticky', AppColors.bondHighOf(context));
   }
   final cooldown = chat.loreTimedEffects.cooldownRemaining(e, len);
   if (cooldown > 0) {
@@ -65,7 +67,11 @@ Widget _pill(BuildContext context, String text, Color color) {
     ),
     child: Text(
       text,
-      style: TextStyle(fontSize: 9.5, fontWeight: FontWeight.w700, color: color),
+      style: TextStyle(
+        fontSize: 9.5,
+        fontWeight: FontWeight.w700,
+        color: color,
+      ),
     ),
   );
 }
@@ -157,8 +163,9 @@ class LoreTokenMeter extends StatelessWidget {
             child: LinearProgressIndicator(
               value: frac,
               minHeight: 4,
-              backgroundColor:
-                  AppColors.borderOf(context).withValues(alpha: 0.25),
+              backgroundColor: AppColors.borderOf(
+                context,
+              ).withValues(alpha: 0.25),
               valueColor: AlwaysStoppedAnimation(color),
             ),
           ),
@@ -166,7 +173,7 @@ class LoreTokenMeter extends StatelessWidget {
           Text(
             overflowed
                 ? 'lore in prompt: $used / $budget tokens — '
-                    '${chat.lastLoreOverflow.length} dropped'
+                      '${chat.lastLoreOverflow.length} dropped'
                 : 'lore in prompt: $used / $budget tokens',
             style: TextStyle(
               fontSize: 10,
@@ -372,6 +379,17 @@ class GroupLorebookSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               LoreTokenMeter(chat: chatService),
+              if (chatService.groupLorebookUnreadable)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: Text(
+                    kGroupLorebookUnreadableSidebarNote,
+                    style: TextStyle(
+                      color: AppColors.porchAmberOf(context),
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
               if (activeEntries.isEmpty)
                 Text(
                   'No active lorebook entries.',

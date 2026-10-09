@@ -158,6 +158,8 @@
 /* Constant (always-injected) entries: blue dot — desktop sidebar parity. */
 .lore.const .lore-dot { background: var(--bond-mid); }
 .lore.const { color: var(--text); }
+/* Unreadable group lorebook note (desktop sidebar's amber note). */
+.lore-unreadable { color: var(--porch-amber); margin: 0 0 8px; }
 
 /* Lore token meter (desktop sidebar parity). */
 .lore-meter { display: flex; flex-direction: column; gap: 3px; margin: 4px 0 8px; }

@@ -101,15 +101,19 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
 
   @override
   Widget build(BuildContext context) {
+    // The surface colour and border live on the Dialog's own Material: a
+    // coloured box between it and the tabs hides every ListTile's ink and
+    // background (Flutter asserts on each tile).
     return Dialog(
-      child: Container(
+      backgroundColor: AppColors.surfaceOf(context),
+      clipBehavior: Clip.antiAlias,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: AppColors.borderOf(context)),
+      ),
+      child: SizedBox(
         width: 720,
         height: 620,
-        decoration: BoxDecoration(
-          color: AppColors.surfaceOf(context),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppColors.borderOf(context)),
-        ),
         child: Column(
           children: [
             // Header

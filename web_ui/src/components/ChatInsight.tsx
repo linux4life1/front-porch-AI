@@ -17,9 +17,15 @@ import { LookSwiper } from './ChatAvatar';
 import { type Realism, type LoreEntry, NEED_LABELS } from './chatTypes';
 import { NeedBar, StatBar } from './StatBar';
 
+/** Same words as the desktop sidebar's note. */
+const GROUP_LOREBOOK_UNREADABLE_NOTE =
+  "This group's lorebook couldn't be read, so its entries aren't being used. " +
+  'Open Group Settings, Lorebook & Worlds, on the computer to bring it back.';
+
 export function ChatInsight({
   realism,
   lorebook,
+  groupLorebookUnreadable,
   authorNote,
   authorNoteDepth,
   onSaveAuthorNote,
@@ -45,6 +51,8 @@ export function ChatInsight({
   /** Focused cast member is a lightweight scene guest with no realism state. */
   focusedIsLiteGuest?: boolean;
   lorebook?: LoreEntry[];
+  /** The group's stored lorebook could not be read — say so, as desktop does. */
+  groupLorebookUnreadable?: boolean;
   authorNote: string;
   authorNoteDepth: number;
   onSaveAuthorNote: (note: string, strength: number) => void;
@@ -226,6 +234,11 @@ export function ChatInsight({
             {(loreOverflow?.length ?? 0) > 0 ? ` — ${loreOverflow!.length} dropped` : ''}
           </span>
         </div>
+      )}
+      {groupLorebookUnreadable && (
+        <p className="small lore-unreadable" role="status">
+          {GROUP_LOREBOOK_UNREADABLE_NOTE}
+        </p>
       )}
       {lorebook && lorebook.length > 0 ? (
         <ul className="lore-list">

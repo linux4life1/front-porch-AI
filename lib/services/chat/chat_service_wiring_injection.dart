@@ -115,25 +115,36 @@ extension ChatServiceWiringInjection on ChatService {
   // String-compare invalidation: editing the book in group settings replaces
   // the JSON string, which re-parses (and intentionally clears trigger state,
   // same as editing semantics elsewhere).
+  // An unreadable book is logged once per stored string and flagged for the
+  // sidebar and the phone; it is never quietly read as an empty book.
   Lorebook? get _activeGroupLorebook {
     final raw = _activeGroup?.groupLorebook ?? '';
-    if (raw.isEmpty) {
-      _cachedGroupBook = null;
-      _cachedGroupBookJson = null;
-      return null;
-    }
     if (_cachedGroupBookJson != raw) {
-      try {
-        _cachedGroupBook = Lorebook.fromJson(
-          jsonDecode(raw) as Map<String, dynamic>,
-        );
-      } catch (_) {
-        _cachedGroupBook = Lorebook(entries: []);
-      }
       _cachedGroupBookJson = raw;
+      _groupLorebookUnreadable = false;
+      try {
+        _cachedGroupBook = parseGroupLorebookJson(raw);
+      } catch (e) {
+        _cachedGroupBook = null;
+        _groupLorebookUnreadable = true;
+        debugPrint(
+          '[Lorebook] group "${_activeGroup?.name}" lorebook could not be '
+          'read; its entries are left out: $e',
+        );
+      }
     }
     return _cachedGroupBook;
   }
+
+  /// True when the active group's stored lorebook could not be read, so none
+  /// of its entries are in play.
+  bool get groupLorebookUnreadable =>
+      _activeGroupLorebook == null && _groupLorebookUnreadable;
+
+  /// The live group-lorebook entries (the instances the scanner marks), for
+  /// the phone's lore list.
+  List<LorebookEntry> get groupLorebookEntries =>
+      _activeGroupLorebook?.entries ?? const [];
 
   Future<void> _reloadChatWorldIds() async {
     final sid = _currentSessionId;

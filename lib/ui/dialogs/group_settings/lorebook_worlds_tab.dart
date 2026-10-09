@@ -13,6 +13,11 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 
+const _kUnreadableNote =
+    "This group's lorebook couldn't be read, so its entries aren't being "
+    'used. Bring it back with Import JSON, or add new entries here (they '
+    'replace the unreadable lorebook).';
+
 class GroupLorebookWorldsTab extends StatefulWidget {
   final ChatService chatService;
   final GroupChatRepository? groupRepo;
@@ -31,6 +36,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   bool _inheritCharacterLorebooks = true;
   List<String> _worldIds = [];
   List<LorebookEntry> _groupLoreEntries = [];
+  bool _bookUnreadable = false;
 
   List<World> _allWorlds = [];
 
@@ -55,17 +61,13 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     _worldIds = List<String>.from(g.worldIds);
 
     _groupLoreEntries = [];
-    if (g.groupLorebook.isNotEmpty) {
-      try {
-        final decoded = jsonDecode(g.groupLorebook);
-        if (decoded is Map<String, dynamic>) {
-          final lb = Lorebook.fromJson(decoded);
-          _groupLoreEntries = List<LorebookEntry>.from(lb.entries);
-        }
-      } catch (_) {
-        // Corrupt or legacy plain-text — start fresh
-        _groupLoreEntries = [];
-      }
+    _bookUnreadable = false;
+    try {
+      final lb = parseGroupLorebookJson(g.groupLorebook);
+      if (lb != null) _groupLoreEntries = List<LorebookEntry>.from(lb.entries);
+    } catch (e) {
+      debugPrint('[GroupSettings] group lorebook could not be read: $e');
+      _bookUnreadable = true;
     }
   }
 
@@ -88,6 +90,10 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     if (g == null) return;
     g.inheritCharacterLorebooks = _inheritCharacterLorebooks;
     g.worldIds = List<String>.from(_worldIds);
+    // An unreadable book stays as stored until the user adds entries here;
+    // a world chip or the inherit switch must not wipe it.
+    if (_bookUnreadable && _groupLoreEntries.isEmpty) return;
+    if (_bookUnreadable) setState(() => _bookUnreadable = false);
     g.groupLorebook = _groupLoreEntries.isEmpty
         ? ''
         : jsonEncode(Lorebook(entries: _groupLoreEntries).toJson());
@@ -328,6 +334,17 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                 ),
                 const SizedBox(height: 12),
 
+                if (_bookUnreadable)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Text(
+                      _kUnreadableNote,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.porchAmberOf(context),
+                      ),
+                    ),
+                  ),
                 if (_groupLoreEntries.isEmpty)
                   Container(
                     padding: const EdgeInsets.all(16),
@@ -355,22 +372,30 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                     final contentPreview = e.content.length > 140
                         ? '${e.content.substring(0, 137)}...'
                         : e.content;
+                    final named = e.name.trim().isNotEmpty;
+                    final subStyle = TextStyle(
+                      fontSize: 12,
+                      color: AppColors.textSecondary(context),
+                    );
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        color: AppColors.cardOf(context),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: AppColors.borderOf(
-                            context,
-                          ).withValues(alpha: 0.3),
-                        ),
-                      ),
+                    // tileColor + shape, not a coloured box around the
+                    // tile: a ListTile paints on the Material above it, so
+                    // a DecoratedBox in between hides its ink (assertion).
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
                       child: ListTile(
                         dense: true,
+                        tileColor: AppColors.cardOf(context),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                          side: BorderSide(
+                            color: AppColors.borderOf(
+                              context,
+                            ).withValues(alpha: 0.3),
+                          ),
+                        ),
                         title: Text(
-                          keyPreview,
+                          named ? e.name.trim() : keyPreview,
                           style: const TextStyle(
                             fontWeight: FontWeight.w600,
                             fontSize: 13,
@@ -378,14 +403,23 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                         ),
                         subtitle: Padding(
                           padding: const EdgeInsets.only(top: 4),
-                          child: Text(
-                            contentPreview,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: AppColors.textSecondary(context),
-                            ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (named)
+                                Text(
+                                  keyPreview,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: subStyle,
+                                ),
+                              Text(
+                                contentPreview,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: subStyle,
+                              ),
+                            ],
                           ),
                         ),
                         trailing: Row(

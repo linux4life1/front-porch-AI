@@ -33,6 +33,8 @@ export interface ChatState {
   groupId?: string | null;
   realism?: Realism;
   lorebook?: LoreEntry[];
+  /** The group's stored lorebook could not be read (its entries are unused). */
+  groupLorebookUnreadable?: boolean;
   loreTokens?: number;
   loreBudget?: number;
   loreOverflow?: string[];

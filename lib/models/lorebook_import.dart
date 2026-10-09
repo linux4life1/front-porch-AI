@@ -43,6 +43,18 @@ Lorebook cloneLorebook(Lorebook source) => Lorebook(
   extensions: Map<String, dynamic>.from(source.extensions),
 );
 
+/// Read a group's stored lorebook column. Empty means no book (null).
+/// Anything else must be a lorebook object or this throws, so a caller can
+/// say the book could not be read instead of quietly treating it as empty.
+Lorebook? parseGroupLorebookJson(String raw) {
+  if (raw.trim().isEmpty) return null;
+  final decoded = jsonDecode(raw);
+  if (decoded is! Map<String, dynamic>) {
+    throw const FormatException('not a lorebook object');
+  }
+  return Lorebook.fromJson(decoded);
+}
+
 /// Append [incoming] to a group's stored lorebook JSON and return the new JSON.
 /// An empty or unreadable column starts a fresh book rather than throwing —
 /// a group whose lore never loaded should still be able to receive an import.
