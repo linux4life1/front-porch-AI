@@ -55,6 +55,12 @@ mixin ChatServiceGroupRealismFields {
   /// pre-pick window keeps its prior nextCharacter-based behaviour).
   String? _turnSpeakerIdForRealism;
 
+  /// True while Manual Reprocess → Feelings runs the judges again. They may
+  /// not start quests then, and tier crossings wait in [_rescoreCrossings]
+  /// until the new score is kept (see chat_service_reprocess_choice.dart).
+  bool _rescoringFeelings = false;
+  final List<TierCrossing> _rescoreCrossings = [];
+
   /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
   final _toolProbe = ToolTransportProbe();
 }

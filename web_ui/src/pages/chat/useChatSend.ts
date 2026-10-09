@@ -187,6 +187,14 @@ export function useChatSend(refresh: () => Promise<void>) {
     await refresh();
     setReprocessIndex(null);
   };
+  // The other Manual Reprocess choice: score the reply's feelings again.
+  // Throws on failure (409 carries the plain-words reason) for the modal.
+  const submitReprocessFeelings = async () => {
+    if (reprocessIndex === null) return;
+    await api.post('/api/chat/reprocess-feelings', { index: reprocessIndex });
+    await refresh();
+    setReprocessIndex(null);
+  };
   const revertNeeds = useCallback(async (index: number) => {
     try {
       await api.post('/api/chat/revert-needs-reprocess', { index });
@@ -218,6 +226,7 @@ export function useChatSend(refresh: () => Promise<void>) {
     saveAuthorNote,
     saveTheme,
     submitReprocess,
+    submitReprocessFeelings,
     revertNeeds,
   };
 }

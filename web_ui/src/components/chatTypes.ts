@@ -29,6 +29,10 @@ export interface Chips {
   /** The bond/trust judge ran but its answer could not be read. */
   feelingsUnscored?: boolean;
   needsReprocessable?: boolean;
+  /** Manual Reprocess can score this reply's feelings again (desktop resolver). */
+  feelingsReprocessable?: boolean;
+  /** Display name of the speaker a Feelings re-score would score. */
+  feelingsSpeaker?: string;
   needsRevertable?: boolean;
   /** Enabled need keys for this speaker, from the desktop resolver. */
   enabledNeeds?: string[];

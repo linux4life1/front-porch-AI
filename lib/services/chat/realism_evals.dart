@@ -62,7 +62,8 @@ const String kFeelingsUnscoredMeta = 'feelings_unscored';
 const String kFeelingsUnscoredLabel = 'Feelings not scored this time';
 const String kFeelingsUnscoredTip =
     "The model's answer couldn't be read, so bond and trust stayed where "
-    'they were. Regenerate this reply to try again.';
+    'they were. To try again and keep this reply, tap Manual Reprocess and '
+    'pick Feelings.';
 
 /// The five realism evaluation calls (relationship, emotional state,
 /// physical state, narrative, one-shot): prompt builders, orchestration,

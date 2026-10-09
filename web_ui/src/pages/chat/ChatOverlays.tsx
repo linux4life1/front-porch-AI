@@ -29,6 +29,7 @@ export function ChatOverlays(props: {
   reprocessIndex: number | null;
   messages: Message[];
   onSubmitReprocess: (critique: string, onlyNeeds: string[]) => Promise<void>;
+  onSubmitReprocessFeelings: () => Promise<void>;
   onCloseReprocess: () => void;
   chance: { event: string; revealed: boolean } | null;
   onReveal: () => void;
@@ -50,13 +51,14 @@ export function ChatOverlays(props: {
     reprocessIndex,
     messages,
     onSubmitReprocess,
+    onSubmitReprocessFeelings,
     onCloseReprocess,
     chance,
     onReveal,
     onAccept,
     imagePromptReview,
   } = props;
-  const { enabledNeeds, speaker, speakerName } = useReprocessNeeds(
+  const { enabledNeeds, speaker, speakerName, feelingsSpeaker } = useReprocessNeeds(
     reprocessIndex,
     messages,
   );
@@ -92,7 +94,9 @@ export function ChatOverlays(props: {
           enabledNeeds={enabledNeeds}
           speaker={speaker}
           speakerName={speakerName}
+          feelingsSpeaker={feelingsSpeaker}
           onSubmit={onSubmitReprocess}
+          onSubmitFeelings={onSubmitReprocessFeelings}
           onClose={onCloseReprocess}
         />
       )}

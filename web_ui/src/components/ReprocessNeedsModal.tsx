@@ -24,29 +24,65 @@ function needTitle(need: string): string {
 
 const NOTHING = "There's nothing to reprocess for this message.";
 
+// The Feelings choice. Desktop twin: reprocess_needs_dialog.dart constants.
+export const CHOICE_PROMPT = 'What should be redone?';
+export const CHOICE_NEEDS = 'Needs';
+export const CHOICE_FEELINGS = 'Feelings (bond, trust, mood)';
+export const FEELINGS_BUTTON = 'Score again';
+export const feelingsIntro = (name: string) =>
+  `Ask the model again how ${name} feels about your last message. This reply's bond, trust and mood are replaced, not added on top. The reply itself stays as it is.`;
+
 export function ReprocessNeedsModal({
   enabledNeeds,
   speaker,
   speakerName,
+  feelingsSpeaker,
   onSubmit,
+  onSubmitFeelings,
   onClose,
 }: {
   /** Enabled keys from the facade resolver — never re-derived here. */
   enabledNeeds: string[];
   speaker?: string;
   speakerName?: string;
+  /** Set when the facade resolver offers a Feelings re-score; absent hides it. */
+  feelingsSpeaker?: string;
   /** Resolves on success (the parent then unmounts this modal); throws on failure. */
   onSubmit: (critique: string, onlyNeeds: string[]) => Promise<void>;
+  /** Same contract as onSubmit, for the Feelings re-score. */
+  onSubmitFeelings?: () => Promise<void>;
   onClose: () => void;
 }) {
   const [critique, setCritique] = useState('');
   const [onlyNeeds, setOnlyNeeds] = useState<string[]>([]);
+  const [picked, setPicked] = useState<'needs' | 'feelings' | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
   const name = (speakerName || speaker || '').trim();
   const oneEnabled = enabledNeeds.length === 1;
-  const zeroEnabled = enabledNeeds.length === 0;
+  const needsOk = enabledNeeds.length > 0;
+  const feelingsOk = feelingsSpeaker !== undefined && !!onSubmitFeelings;
+  const choice =
+    picked === 'needs' && needsOk ? 'needs'
+      : picked === 'feelings' && feelingsOk ? 'feelings'
+        : needsOk ? 'needs'
+          : feelingsOk ? 'feelings'
+            : null;
+  const zeroEnabled = choice === null;
+  const feelings = choice === 'feelings';
+
+  const submitFeelings = async () => {
+    if (!onSubmitFeelings) return;
+    setBusy(true);
+    setError('');
+    try {
+      await onSubmitFeelings();
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Reprocess failed');
+      setBusy(false);
+    }
+  };
 
   const toggleNeed = (need: string) =>
     setOnlyNeeds((prev) =>
@@ -73,13 +109,35 @@ export function ReprocessNeedsModal({
     <div className="drawer-backdrop center" onClick={() => !busy && onClose()}>
       <div className="modal reprocess-modal" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
-          <span>Reprocess Needs</span>
+          <span>{feelings ? 'Reprocess Feelings' : 'Reprocess Needs'}</span>
           {!zeroEnabled && (
             <button className="link-btn" onClick={onClose} disabled={busy}>Close</button>
           )}
         </div>
+        {needsOk && feelingsOk && (
+          <>
+            <p className="reprocess-scope-title">{CHOICE_PROMPT}</p>
+            <div className="reprocess-needs" role="radiogroup">
+              {(['needs', 'feelings'] as const).map((c) => (
+                <button
+                  key={c}
+                  type="button"
+                  role="radio"
+                  className={`need-chip${choice === c ? ' on' : ''}`}
+                  aria-checked={choice === c}
+                  onClick={() => setPicked(c)}
+                  disabled={busy}
+                >
+                  {c === 'needs' ? CHOICE_NEEDS : CHOICE_FEELINGS}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
         {zeroEnabled ? (
           <p className="muted small">{NOTHING}</p>
+        ) : feelings ? (
+          <p className="muted small">{feelingsIntro(feelingsSpeaker || name || 'them')}</p>
         ) : (
           <>
             <p className="muted small">{INTRO}</p>
@@ -125,9 +183,15 @@ export function ReprocessNeedsModal({
           ) : (
             <>
               <button onClick={onClose} disabled={busy}>Cancel</button>
-              <button className="primary" onClick={submit} disabled={busy || !critique.trim()}>
-                {busy ? 'Reprocessing…' : 'Reprocess'}
-              </button>
+              {feelings ? (
+                <button className="primary" onClick={submitFeelings} disabled={busy}>
+                  {busy ? 'Scoring…' : FEELINGS_BUTTON}
+                </button>
+              ) : (
+                <button className="primary" onClick={submit} disabled={busy || !critique.trim()}>
+                  {busy ? 'Reprocessing…' : 'Reprocess'}
+                </button>
+              )}
             </>
           )}
         </div>

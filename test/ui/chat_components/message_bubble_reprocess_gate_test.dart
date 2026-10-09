@@ -103,28 +103,46 @@ void main() {
     },
   );
 
-  testWidgets('D3 zero needs enabled on the card -> pill hidden', (
-    tester,
-  ) async {
+  // D3/D4 used to expect the pill hidden. Manual Reprocess now also offers
+  // Feelings, which Realism (still on in both) keeps on offer, so the pill
+  // stays and what these pin is that Needs is no longer offered. D5 pins the
+  // hidden pill: Realism off, neither choice.
+  testWidgets('D3 zero needs enabled on the card -> Needs not offered, pill '
+      'stays for Feelings', (tester) async {
     await _withHarness(tester, (h) async {
-      await tester.runAsync(
+      final i = await tester.runAsync(
         () => h.oneToOneWithStampedReply(needsCard('Mara')),
       );
       h.chat.activeCharacter!.frontPorchExtensions!.needsOff = List<String>.of(
         kAllNeeds,
       );
       await _pumpLastBubble(tester, h);
-      expect(find.text(_pill), findsNothing);
+      expect(h.chat.reprocessNeedsTargetFor(i!), isNull);
+      expect(h.chat.reprocessFeelingsTargetFor(i), 'Mara');
+      expect(find.text(_pill), findsOneWidget);
     });
   });
 
-  testWidgets('D4 Needs switched off after the reply was stamped -> pill '
-      'hidden', (tester) async {
+  testWidgets('D4 Needs switched off after the reply was stamped -> Needs '
+      'not offered, pill stays for Feelings', (tester) async {
+    await _withHarness(tester, (h) async {
+      final i = await tester.runAsync(
+        () => h.oneToOneWithStampedReply(needsCard('Mara')),
+      );
+      await tester.runAsync(() => h.chat.setNeedsSimEnabled(false));
+      await _pumpLastBubble(tester, h);
+      expect(h.chat.reprocessNeedsTargetFor(i!), isNull);
+      expect(h.chat.reprocessFeelingsTargetFor(i), 'Mara');
+      expect(find.text(_pill), findsOneWidget);
+    });
+  });
+
+  testWidgets('D5 Realism switched off -> pill hidden', (tester) async {
     await _withHarness(tester, (h) async {
       await tester.runAsync(
         () => h.oneToOneWithStampedReply(needsCard('Mara')),
       );
-      await tester.runAsync(() => h.chat.setNeedsSimEnabled(false));
+      await tester.runAsync(() => h.chat.setRealismEnabled(false));
       await _pumpLastBubble(tester, h);
       expect(find.text(_pill), findsNothing);
     });

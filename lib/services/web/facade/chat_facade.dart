@@ -224,6 +224,12 @@ class ChatFacade {
       out['enabledNeeds'] = target.enabled;
       out['needsSpeaker'] = target.speaker;
     }
+    // The other Manual Reprocess choice: score the reply's feelings again.
+    final feelingsSpeaker = _chat.reprocessFeelingsTargetFor(index);
+    if (feelingsSpeaker != null) {
+      out['feelingsReprocessable'] = true;
+      out['feelingsSpeaker'] = feelingsSpeaker;
+    }
     if (_chat.needsActive && md['needs_deltas_pre_reprocess'] is Map) {
       out['needsRevertable'] = true;
     }

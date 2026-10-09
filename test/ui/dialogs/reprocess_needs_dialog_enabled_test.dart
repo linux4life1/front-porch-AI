@@ -89,6 +89,17 @@ void _expectNullState() {
   expect(dialogButtons, findsOneWidget);
 }
 
+/// Needs not on offer, Realism on: the sheet offers Feelings and only it.
+void _expectFeelingsOnly() {
+  expect(find.text(kReprocessFeelingsTitle), findsOneWidget);
+  expect(find.text(kReprocessChoiceNeeds), findsNothing);
+  expect(find.text('Reprocess'), findsNothing);
+  expect(find.byType(TextField), findsNothing);
+  expect(find.byType(FilterChip), findsNothing);
+  expect(find.text('Cancel'), findsOneWidget);
+  expect(find.text(kReprocessFeelingsButton), findsOneWidget);
+}
+
 Future<void> _pumpLastBubble(WidgetTester tester, ReprocessHarness h) async {
   final tts = FakeTtsService();
   addTearDown(tts.dispose);
@@ -214,8 +225,12 @@ void main() {
     });
   });
 
-  testWidgets('C4 card now has every need off (stale open): the one null '
-      'string, Close only', (tester) async {
+  // C4/C7 used to expect the null state here. Manual Reprocess now also
+  // offers Feelings, which Realism (still on in both) keeps on offer, so
+  // what these pin is that Needs is no longer offered; the null state moved
+  // to C8, where Realism is off and neither choice exists.
+  testWidgets('C4 card now has every need off (stale open): Needs is not '
+      'offered, only Feelings', (tester) async {
     await _withHarness(tester, (h) async {
       final i = await tester.runAsync(
         () => h.oneToOneWithStampedReply(needsCard('Mara')),
@@ -224,12 +239,25 @@ void main() {
         kAllNeeds,
       );
       await _openDialog(tester, h, i!);
+      _expectFeelingsOnly();
+    });
+  });
+
+  testWidgets('C8 Realism off: the one null string, Close only', (
+    tester,
+  ) async {
+    await _withHarness(tester, (h) async {
+      final i = await tester.runAsync(
+        () => h.oneToOneWithStampedReply(needsCard('Mara')),
+      );
+      await tester.runAsync(() => h.chat.setRealismEnabled(false));
+      await _openDialog(tester, h, i!);
       _expectNullState();
     });
   });
 
   testWidgets('C7 Needs switched off after the pill rendered: tapping the '
-      'stale pill opens the one null string, Close only', (tester) async {
+      'stale pill offers Feelings only', (tester) async {
     await _withHarness(tester, (h) async {
       await tester.runAsync(
         () => h.oneToOneWithStampedReply(needsCard('Mara')),
@@ -241,7 +269,7 @@ void main() {
       await tester.runAsync(() => h.chat.setNeedsSimEnabled(false));
       await tester.tap(find.text('Manual Reprocess'), warnIfMissed: false);
       await tester.pumpAndSettle();
-      _expectNullState();
+      _expectFeelingsOnly();
     });
   });
 

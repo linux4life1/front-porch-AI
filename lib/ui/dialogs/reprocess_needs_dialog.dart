@@ -41,17 +41,43 @@ String reprocessNeedsOneEnabledLine(String need, String name) {
 const kReprocessNeedsNothing =
     'There\'s nothing to reprocess for this message.';
 
-/// "Reprocess Needs Deltas" — critique a message's Needs outcome and have the
-/// Realism Director re-evaluate it.
+// The Feelings choice. Keep in lockstep with web_ui ReprocessNeedsModal.
+const kReprocessChoicePrompt = 'What should be redone?';
+const kReprocessChoiceNeeds = 'Needs';
+const kReprocessChoiceFeelings = 'Feelings (bond, trust, mood)';
+const kReprocessFeelingsTitle = 'Reprocess Feelings';
+const kReprocessFeelingsButton = 'Score again';
+const kReprocessFeelingsDone = 'Feelings scored again for this reply.';
+const kReprocessFeelingsFailed =
+    "The model's answer couldn't be read, so this reply keeps the feelings "
+    'it had. You can try again.';
+
+String reprocessFeelingsIntro(String name) =>
+    'Ask the model again how $name feels about your last message. This '
+    "reply's bond, trust and mood are replaced, not added on top. The reply "
+    'itself stays as it is.';
+
+enum ReprocessChoice { needs, feelings }
+
+/// "Manual Reprocess" — redo a reply's Needs (critique the outcome and have
+/// the Realism Director re-evaluate it) or its Feelings (the Realism judges
+/// asked again about the user's line).
 ///
-/// The chips list only the speaker's enabled needs. Nothing selected means
-/// every need shown here; ticking narrows the pass so the rest keep the
-/// deltas they already had. Reads [ChatService.reprocessNeedsTargetFor] when
-/// it opens so a stale sheet sees a flip off.
+/// The Needs chips list only the speaker's enabled needs. Nothing selected
+/// means every need shown here; ticking narrows the pass so the rest keep
+/// the deltas they already had. Both targets are read when the dialog
+/// builds, so a stale sheet sees a flip off.
 void showReprocessNeedsDialog(BuildContext context, int index) {
   final chatService = Provider.of<ChatService>(context, listen: false);
   final host = context;
   final messenger = ScaffoldMessenger.of(context);
+  void say(String text) {
+    if (!host.mounted) return;
+    messenger.showSnackBar(
+      SnackBar(content: Text(text), duration: const Duration(seconds: 3)),
+    );
+  }
+
   showDialog(
     context: context,
     builder: (context) => ReprocessNeedsDialog(
@@ -67,36 +93,42 @@ void showReprocessNeedsDialog(BuildContext context, int index) {
         } catch (e) {
           debugPrint('[Realism:Needs] reprocess error: $e');
         }
-        if (host.mounted) {
-          messenger.showSnackBar(
-            SnackBar(
-              content: Text(
-                success
-                    ? (scope.isEmpty
-                          ? 'Needs deltas reprocessed with your critique.'
-                          : 'Reprocessed ${scope.join(', ')} with your critique.')
-                    : 'Reprocess received no response from the model. Original deltas preserved.',
-              ),
-              duration: const Duration(seconds: 3),
-            ),
-          );
+        say(
+          success
+              ? (scope.isEmpty
+                    ? 'Needs deltas reprocessed with your critique.'
+                    : 'Reprocessed ${scope.join(', ')} with your critique.')
+              : 'Reprocess received no response from the model. Original deltas preserved.',
+        );
+      },
+      onSubmitFeelings: () async {
+        var success = false;
+        try {
+          success = await chatService.reprocessFeelings(index);
+        } catch (e) {
+          debugPrint('[Realism:Rescore] error: $e');
         }
+        say(success ? kReprocessFeelingsDone : kReprocessFeelingsFailed);
       },
     ),
   );
 }
 
-/// The Reprocess Needs sheet. [showReprocessNeedsDialog] hosts this; tests
-/// pump it with a [ChatService] so the resolver is a fresh read.
+/// The Manual Reprocess sheet. [showReprocessNeedsDialog] hosts this; tests
+/// pump it with a [ChatService] so the resolvers are a fresh read.
 class ReprocessNeedsDialog extends StatefulWidget {
   const ReprocessNeedsDialog({
     super.key,
     required this.index,
     required this.onSubmit,
+    this.onSubmitFeelings,
   });
 
   final int index;
   final Future<void> Function(String critique, Set<String> onlyNeeds) onSubmit;
+
+  /// Null hides the Feelings choice.
+  final Future<void> Function()? onSubmitFeelings;
 
   @override
   State<ReprocessNeedsDialog> createState() => _ReprocessNeedsDialogState();
@@ -105,6 +137,7 @@ class ReprocessNeedsDialog extends StatefulWidget {
 class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
   final _controller = TextEditingController();
   final _selected = <String>{};
+  ReprocessChoice? _picked;
 
   @override
   void dispose() {
@@ -125,20 +158,39 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
     await widget.onSubmit(text, scope);
   }
 
+  Future<void> _submitFeelings() async {
+    Navigator.of(context).pop();
+    await widget.onSubmitFeelings?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final chat = Provider.of<ChatService>(context);
     final target = chat.reprocessNeedsTargetFor(widget.index);
     final enabled = target?.enabled ?? const <String>[];
     _selected.removeWhere((need) => !enabled.contains(need));
-    final empty = target == null || enabled.isEmpty;
+    final needsOk = target != null && enabled.isNotEmpty;
+    final feelingsName = widget.onSubmitFeelings == null
+        ? null
+        : chat.reprocessFeelingsTargetFor(widget.index);
+    final feelingsOk = feelingsName != null;
+    final choice = switch (_picked) {
+      ReprocessChoice.needs when needsOk => ReprocessChoice.needs,
+      ReprocessChoice.feelings when feelingsOk => ReprocessChoice.feelings,
+      _ when needsOk => ReprocessChoice.needs,
+      _ when feelingsOk => ReprocessChoice.feelings,
+      _ => null,
+    };
+    final feelings = choice == ReprocessChoice.feelings;
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
-      title: const Text('Reprocess Needs Deltas'),
+      title: Text(
+        feelings ? kReprocessFeelingsTitle : 'Reprocess Needs Deltas',
+      ),
       content: SizedBox(
         width: 500,
         child: SingleChildScrollView(
-          child: empty
+          child: choice == null
               ? Text(
                   kReprocessNeedsNothing,
                   style: TextStyle(
@@ -146,27 +198,92 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
                     fontSize: 13,
                   ),
                 )
-              : _enabledBody(context, target.enabled, target.speaker),
+              : Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (needsOk && feelingsOk) _choiceRow(context, choice),
+                    if (feelings)
+                      Text(
+                        reprocessFeelingsIntro(feelingsName!),
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                          fontSize: 13,
+                        ),
+                      )
+                    else
+                      _enabledBody(context, target!.enabled, target.speaker),
+                  ],
+                ),
         ),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(
-            empty ? 'Close' : 'Cancel',
+            choice == null ? 'Close' : 'Cancel',
             style: TextStyle(color: AppColors.textTertiary(context)),
           ),
         ),
-        if (!empty)
+        if (choice != null)
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
               foregroundColor: AppColors.onChaosAccent,
             ),
-            onPressed: () => _submit(),
-            child: const Text('Reprocess'),
+            onPressed: () => feelings ? _submitFeelings() : _submit(),
+            child: Text(feelings ? kReprocessFeelingsButton : 'Reprocess'),
           ),
       ],
+    );
+  }
+
+  Widget _choiceRow(BuildContext context, ReprocessChoice choice) {
+    Widget option(ReprocessChoice value, String label) {
+      final on = choice == value;
+      return ChoiceChip(
+        label: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            color: on
+                ? AppColors.onChaosAccent
+                : AppColors.textSecondary(context),
+          ),
+        ),
+        selected: on,
+        showCheckmark: false,
+        backgroundColor: AppColors.surfaceContainerOf(context),
+        selectedColor: AppColors.porchAmberOf(context),
+        side: BorderSide(color: AppColors.borderOf(context)),
+        onSelected: (_) => setState(() => _picked = value),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            kReprocessChoicePrompt,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              option(ReprocessChoice.needs, kReprocessChoiceNeeds),
+              option(ReprocessChoice.feelings, kReprocessChoiceFeelings),
+            ],
+          ),
+        ],
+      ),
     );
   }
 

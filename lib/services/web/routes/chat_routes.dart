@@ -60,6 +60,7 @@ class WebChatRoutes {
     router.post('/api/chat/image-review', _imageReview);
     router.post('/api/chat/tool-test', _toolTest);
     router.post('/api/chat/reprocess-needs', _reprocessNeeds);
+    router.post('/api/chat/reprocess-feelings', _reprocessFeelings);
     router.post('/api/chat/revert-needs-reprocess', _revertNeedsReprocess);
     router.post('/api/chat/author-note', _authorNote);
     router.post('/api/chat/theme-overrides', _setThemeOverrides);
@@ -418,6 +419,21 @@ class WebChatRoutes {
       onlyNeeds: onlyNeeds,
     );
     if (!ok) return JsonResponse.error(409, 'Message cannot be reprocessed');
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _reprocessFeelings(shelf.Request request) async {
+    final body = await _json(request);
+    final index = body['index'];
+    if (index is! int) return JsonResponse.badRequest('index is required');
+    final ok = await _facade.reprocessFeelings(index);
+    if (!ok) {
+      return JsonResponse.error(
+        409,
+        "The model's answer couldn't be read, so this reply keeps the "
+        'feelings it had. You can try again.',
+      );
+    }
     return JsonResponse.ok({'status': 'ok'});
   }
 

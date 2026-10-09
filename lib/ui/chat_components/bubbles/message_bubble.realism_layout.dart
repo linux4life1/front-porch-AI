@@ -129,9 +129,13 @@ extension _BubbleRealismLayout on _MessageBubbleState {
       return const <Widget>[];
     }
     final meta = message.activeMetadata;
-    // Resolver is the one gate: Needs off, zero enabled, or an unresolved
-    // group speaker hide the chip even if a stale needs snapshot is stamped.
-    final canReprocess = chat.reprocessNeedsTargetFor(index) != null;
+    // The resolvers are the one gate: the pill shows when either choice is
+    // on offer — Needs (off, zero enabled, or an unresolved group speaker
+    // hide it even if a stale needs snapshot is stamped) or Feelings (the
+    // last reply with Realism on for this chat).
+    final canReprocess =
+        chat.reprocessNeedsTargetFor(index) != null ||
+        chat.reprocessFeelingsTargetFor(index) != null;
     // Revert is offered only when a pre-reprocess stash exists on this (last) msg
     final canRevert =
         chat.needsActive &&
@@ -143,7 +147,7 @@ extension _BubbleRealismLayout on _MessageBubbleState {
       if (canReprocess) ...[
         const SizedBox(height: 6),
         Tooltip(
-          message: 'Reprocess Needs with critique',
+          message: 'Redo the Needs or the Feelings for this reply',
           preferBelow: false,
           textStyle: const TextStyle(fontSize: 12, color: Colors.white),
           decoration: BoxDecoration(

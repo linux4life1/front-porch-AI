@@ -38,7 +38,7 @@ export function ChipsRow({
   const realism: Pill[] = [];
   // Desktop twin: message_bubble.realism.dart + kFeelingsUnscoredLabel/Tip.
   const unscored = !!chips.feelingsUnscored && chips.bondDelta == null && chips.trustDelta == null;
-  if (unscored) realism.push({ key: 'unscored', label: 'Feelings not scored this time', cls: 'time', reason: "The model's answer couldn't be read, so bond and trust stayed where they were. Regenerate this reply to try again." });
+  if (unscored) realism.push({ key: 'unscored', label: 'Feelings not scored this time', cls: 'time', reason: "The model's answer couldn't be read, so bond and trust stayed where they were. To try again and keep this reply, tap Manual Reprocess and pick Feelings." });
   if (chips.bondDelta != null) realism.push({ key: 'bond', label: chips.bondDelta === 0 ? 'Bond unchanged' : `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : chips.bondDelta < 0 ? 'down' : 'time', reason: chips.bondReason });
   if (chips.trustDelta != null) realism.push({ key: 'trust', label: chips.trustDelta === 0 ? 'Trust unchanged' : `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : chips.trustDelta < 0 ? 'down' : 'time', reason: chips.trustReason });
   if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
@@ -63,7 +63,8 @@ export function ChipsRow({
     needs.push({ key: 'unaffected', label: 'No needs affected', cls: 'time' });
   }
 
-  const showReprocess = isLast && !busy && !!chips.needsReprocessable;
+  // Either Manual Reprocess choice keeps the button: Needs or Feelings.
+  const showReprocess = isLast && !busy && (!!chips.needsReprocessable || !!chips.feelingsReprocessable);
   const showRevert = isLast && !busy && !!chips.needsRevertable;
   if (realism.length === 0 && needs.length === 0 && !showReprocess && !showRevert) return null;
 
@@ -96,7 +97,7 @@ export function ChipsRow({
       {(showReprocess || showRevert) && (
         <div className="needs-reprocess-row">
           {showReprocess && (
-            <button type="button" className="btn-reprocess" onClick={onReprocess} title="Reprocess Needs with your critique">
+            <button type="button" className="btn-reprocess" onClick={onReprocess} title="Redo the Needs or the Feelings for this reply">
               ✍ Manual Reprocess
             </button>
           )}

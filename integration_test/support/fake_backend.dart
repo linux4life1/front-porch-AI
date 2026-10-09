@@ -88,6 +88,10 @@ class FakeBackendServer {
   String? feelingsJudgeAnswer;
   int feelingsJudgeAnswersServed = 0;
 
+  /// Every prompt that asked for `relationship_delta`, in order, so a suite
+  /// can prove a re-score asked the judge exactly what the send asked.
+  final List<String> feelingsJudgePrompts = [];
+
   /// Body of the most recent NON-eval chat completion — lets the test prove
   /// the user's message actually reached the outbound prompt.
   String lastChatBody = '';
@@ -455,6 +459,9 @@ class FakeBackendServer {
       return;
     }
 
+    if (lastContent.contains('relationship_delta')) {
+      feelingsJudgePrompts.add(lastContent);
+    }
     final feelingsAnswer = feelingsJudgeAnswer;
     if (feelingsAnswer != null && lastContent.contains('relationship_delta')) {
       feelingsJudgeAnswersServed++;

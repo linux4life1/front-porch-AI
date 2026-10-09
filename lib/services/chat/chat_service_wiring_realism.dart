@@ -194,26 +194,36 @@ extension ChatServiceWiringRealism on ChatService {
       // Living Time §7 v1.5: bond/trust tier crossings → "Our Story" cards.
       // Fire-and-forget; plant never throws. Owner is the current speaker.
       onTierCrossing: (crossing) {
-        final sessionId = _currentSessionId;
-        if (sessionId == null) return;
-        final charId = _getCurrentSpeakerIdForRealism();
-        if (charId.isEmpty) return;
-        unawaited(
-          RelationshipMilestones.plant(
-            store: _journalStore,
-            sessionId: sessionId,
-            characterId: charId,
-            crossing: crossing,
-            sourcePositions: persistTipCite(
-              base: _history.basePosition,
-              length: _messages.length,
-            ),
-            storyDay: _timeService.dayCount,
-            storyClock: _timeService.storyClockIso,
-            maxCards: _storageService.memorySettings.journalMaxCards,
-          ),
-        );
+        // A Feelings re-score holds its crossings until its score is kept.
+        if (_rescoringFeelings) {
+          _rescoreCrossings.add(crossing);
+          return;
+        }
+        _plantTierCrossing(crossing, citeLength: _messages.length);
       },
+    );
+  }
+
+  /// [citeLength] is the transcript length the reply being scored lands at.
+  void _plantTierCrossing(TierCrossing crossing, {required int citeLength}) {
+    final sessionId = _currentSessionId;
+    if (sessionId == null) return;
+    final charId = _getCurrentSpeakerIdForRealism();
+    if (charId.isEmpty) return;
+    unawaited(
+      RelationshipMilestones.plant(
+        store: _journalStore,
+        sessionId: sessionId,
+        characterId: charId,
+        crossing: crossing,
+        sourcePositions: persistTipCite(
+          base: _history.basePosition,
+          length: citeLength,
+        ),
+        storyDay: _timeService.dayCount,
+        storyClock: _timeService.storyClockIso,
+        maxCards: _storageService.memorySettings.journalMaxCards,
+      ),
     );
   }
 
