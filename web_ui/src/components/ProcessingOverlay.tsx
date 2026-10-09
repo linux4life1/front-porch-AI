@@ -26,7 +26,17 @@ export const NO_PROCESSING: Processing = {
   text: '',
 };
 
-export function ProcessingOverlay({ p, onCancel }: { p: Processing; onCancel: () => void }) {
+export function ProcessingOverlay({
+  p,
+  onCancel,
+  onSkipObjective,
+}: {
+  p: Processing;
+  onCancel: () => void;
+  // Stops only the goal check; the reply still comes (desktop twin:
+  // objective_check_overlay.dart).
+  onSkipObjective: () => void;
+}) {
   const streamRef = useRef<HTMLPreElement>(null);
   // Keep the live stream scrolled to the newest text.
   useEffect(() => {
@@ -84,6 +94,9 @@ export function ProcessingOverlay({ p, onCancel }: { p: Processing; onCancel: ()
 
         {realismMode && (
           <button type="button" className="proc-cancel" onClick={onCancel}>Stop this reply</button>
+        )}
+        {!realismMode && p.objective && (
+          <button type="button" className="proc-skip" onClick={onSkipObjective}>Skip goal check</button>
         )}
       </div>
     </div>

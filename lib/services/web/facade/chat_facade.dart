@@ -374,6 +374,13 @@ class ChatFacade {
     _notify();
   }
 
+  /// The goal-check overlay's "Skip goal check" (mirrors the desktop button):
+  /// stops only that check; the reply still comes.
+  void skipObjectiveCheck() {
+    _chat.skipObjectiveCheck();
+    _notify();
+  }
+
   void regenerate({String? critique, String? webQuery, String? wikiQuery}) {
     withoutCity96Ask(
       () => _chat.regenerateLastMessage(

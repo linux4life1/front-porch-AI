@@ -253,6 +253,7 @@ extension ChatServiceWiringEvals on ChatService {
           stopSequences: const [],
           toolChoice: spec.toolChoice,
           onChunk: spec.onChunk,
+          cancel: spec.cancel,
           backendIdentity: id,
           stillWantTools: () => _toolProbe.shouldPostAfterIdle(id),
         ),

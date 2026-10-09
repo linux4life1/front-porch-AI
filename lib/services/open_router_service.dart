@@ -219,6 +219,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     final client = httpClientFactory?.call() ?? http.Client();
     final owned = httpClientFactory == null;
     _activeClients.add(client);
+    _closeWhenCancelled(params, client);
     // Only wrap reasoning in <think> tags when the app explicitly requested it.
     // Some models (e.g. Qwen on LM Studio) send the entire response as
     // reasoning_content even when reasoning wasn't requested — wrapping those
@@ -424,6 +425,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     );
     final client = http.Client();
     _activeClients.add(client);
+    _closeWhenCancelled(params, client);
     try {
       final response = await postOpenAiCompletions(
         apiUrl: _apiUrl,
@@ -442,6 +444,14 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       _activeClients.remove(client);
       client.close();
     }
+  }
+
+  /// The caller of [params] called its request off: only that call closes,
+  /// and only while it is still open.
+  void _closeWhenCancelled(GenerationParams params, http.Client client) {
+    params.cancel?.whenCancelled.then((_) {
+      if (_activeClients.remove(client)) client.close();
+    });
   }
 
   @override

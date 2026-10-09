@@ -24,6 +24,7 @@
 // is the user chat turn and streams [replyPieces] as multiple SSE chunks
 // (proving the incremental decode path).
 
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -62,6 +63,22 @@ class FakeBackendServer {
 
   /// Objective task-generation requests served (numbered-list format).
   int objectiveTaskRequests = 0;
+
+  /// Goal-check (objective completion) requests received.
+  int objectiveCheckRequests = 0;
+
+  /// The goal check's verdict text.
+  String objectiveCheckVerdict = '1: NO';
+
+  /// When set, a goal-check request stays open until this completes before
+  /// it answers; a client that hangs up meanwhile is counted.
+  Completer<void>? holdObjectiveCheck;
+
+  /// Completes on the first goal-check request that reaches the hold.
+  Completer<void> objectiveCheckHeld = Completer<void>();
+
+  /// Goal-check requests whose client hung up while held.
+  int objectiveChecksHungUp = 0;
 
   /// Story pipeline stages served, in order (architect / acts / scenes /
   /// beats / prose) — the story suite asserts the exact sequence.
@@ -439,7 +456,15 @@ class FakeBackendServer {
     }
     if (lastContent.contains('Evaluate EACH item below') ||
         lastContent.contains('report_objective_verdicts')) {
-      await _streamSse(req, ['1: NO']);
+      objectiveCheckRequests++;
+      final hold = holdObjectiveCheck;
+      if (hold == null) {
+        await _streamSse(req, [objectiveCheckVerdict]);
+      } else if (!await _streamHeldSse(req, [
+        objectiveCheckVerdict,
+      ], hold.future)) {
+        objectiveChecksHungUp++;
+      }
       return;
     }
 
@@ -608,6 +633,52 @@ class FakeBackendServer {
     }
     req.response.write('data: [DONE]\n\n');
     await req.response.flush();
+  }
+
+  /// Answers [req] with [pieces] once [hold] completes, keeping the
+  /// connection open meanwhile. False when the client hung up first. The
+  /// socket is read directly: a write to a dead HttpResponse neither fails
+  /// nor finishes, so only the socket's end says the client left.
+  Future<bool> _streamHeldSse(
+    HttpRequest req,
+    List<String> pieces,
+    Future<void> hold,
+  ) async {
+    final res = req.response
+      ..persistentConnection = false
+      ..headers.contentType = ContentType(
+        'text',
+        'event-stream',
+        charset: 'utf-8',
+      )
+      ..headers.chunkedTransferEncoding = false;
+    final socket = await res.detachSocket();
+    final gone = Completer<void>();
+    void leave([Object? _]) {
+      if (!gone.isCompleted) gone.complete();
+    }
+
+    socket.listen((_) {}, onDone: leave, onError: leave, cancelOnError: true);
+    if (!objectiveCheckHeld.isCompleted) objectiveCheckHeld.complete();
+    await Future.any([hold, gone.future]);
+    if (gone.isCompleted) {
+      socket.destroy();
+      return false;
+    }
+    for (final piece in pieces) {
+      socket.write(
+        'data: ${jsonEncode({
+          'choices': [
+            {
+              'delta': {'content': piece},
+            },
+          ],
+        })}\n\n',
+      );
+    }
+    socket.write('data: [DONE]\n\n');
+    await socket.close();
+    return true;
   }
 
   Future<void> close() => _server.close(force: true);

@@ -77,6 +77,7 @@ extension KoboldServiceRequests on KoboldService {
     http.Client? mine;
     return _runSerialized<LlmToolResponse?>(() async {
       if (params.stillWantTools?.call() == false) return null;
+      if (params.cancel?.isCancelled ?? false) return null;
       return postOpenAiChatWithTools(
         _baseUrl,
         params,
@@ -87,6 +88,7 @@ extension KoboldServiceRequests on KoboldService {
         registerClient: (client) {
           mine = client;
           _requests.wire.hold(client);
+          _cutWhenCancelled(params, client);
         },
         onDone: () => _requests.wire.release(mine),
       );
@@ -164,7 +166,9 @@ extension KoboldServiceRequests on KoboldService {
     final chat = reply && params.images?.isNotEmpty != true
         ? params.kvChat
         : null;
-    bool wanted() => params.stillWant?.call() ?? true;
+    bool wanted() =>
+        (params.stillWant?.call() ?? true) &&
+        !(params.cancel?.isCancelled ?? false);
     final waiting = reply ? _Waiting(params.stillWant) : null;
     if (waiting != null) _requests.waiting.add(waiting);
     // _idleRequestStart began, and has an _idleRequestEnd to match.
@@ -215,6 +219,7 @@ extension KoboldServiceRequests on KoboldService {
           sent = true;
           mine = client;
           _requests.wire.hold(client);
+          _cutWhenCancelled(params, client);
         },
         onDone: () => _requests.wire.release(mine),
       ).handleError((Object error, StackTrace stack) {
@@ -259,6 +264,15 @@ extension KoboldServiceRequests on KoboldService {
     // Server-side abort, not awaited so the UI never blocks: KoboldCpp stops
     // even with the socket gone, and drains before the next request.
     _postAbort();
+  }
+
+  /// The caller of [params] called its request off: the call is cut, and the
+  /// engine told to stop, only while that call is still the one on the wire,
+  /// so a pass that went ahead of it is never touched.
+  void _cutWhenCancelled(GenerationParams params, http.Client client) {
+    params.cancel?.whenCancelled.then((_) {
+      if (_requests.wire.holds(client)) _abortGeneration();
+    });
   }
 
   /// A cancelled turn's replies that still wait leave the line at once. The

@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
+import 'package:front_porch_ai/services/llm_service.dart'
+    show LlmRequestCancel, LlmToolResponse;
 
 /// Eval-sized `GenerationParams.maxLength` for scalar `report_*` tool
 /// calls. Frozen for the tools-transport work: a relationship object is
@@ -57,6 +58,9 @@ class ToolEvalSpec {
   final double repeatPenalty;
   final void Function(String chunk)? onChunk;
 
+  /// Calls this one request off (see [LlmRequestCancel]). Null: not cancellable.
+  final LlmRequestCancel? cancel;
+
   const ToolEvalSpec({
     required this.prompt,
     required this.tools,
@@ -64,6 +68,7 @@ class ToolEvalSpec {
     this.maxLength = kProseToolMaxTokens,
     this.repeatPenalty = kProseToolRepeatPenalty,
     this.onChunk,
+    this.cancel,
   });
 }
 

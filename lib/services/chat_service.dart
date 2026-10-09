@@ -180,12 +180,12 @@ class ChatService extends ChangeNotifier
   List<Objective> get secondaryObjectives =>
       _activeObjectives.where((o) => !o.isPrimary).toList();
 
-  /// Whether a completion check is currently running.
-  ///
+  /// Whether a completion check is running, and the overlay's Skip for it.
   /// Kept in the class body (not the objectives extension) because
-  /// [FakeChatService] overrides it in golden tests — extension members are
+  /// [FakeChatService] overrides them in tests — extension members are
   /// statically dispatched and cannot be overridden.
   bool get isCheckingCompletion => _isCheckingCompletion;
+  void skipObjectiveCheck() => _skipObjectiveCheckImpl();
 
   /// Web-facade fakes override this; body in chat_service_accessors.dart.
   Future<void> addGeneratedImageMessage(

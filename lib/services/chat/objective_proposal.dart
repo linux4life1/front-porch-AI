@@ -64,7 +64,8 @@ class ObjectiveProposal {
   final Future<void> Function(String objectiveId, String tasksJson)
   saveObjectiveTasks;
   final Future<void> Function(String objectiveId) deactivateObjective;
-  final Future<void> Function(Objective, String) markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
+  final Future<void> Function(Objective, String)
+  markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
   /// Durable `stale: true` on the current open task. Never sets completed.
   final Future<void> Function(Objective, String)? markTaskStale;
 
@@ -223,9 +224,22 @@ class ObjectiveProposal {
   /// force-completed path is gone — stale is never treated as achievement.
   final ObjectiveStaleTracker _staleTracker = ObjectiveStaleTracker();
 
+  /// The running check's request, so the overlay's Skip can call it off.
+  LlmRequestCancel? _checkCancel;
+
+  /// Skip the running check: its request is called off and nothing it would
+  /// have decided is applied; the turn goes on. False when none is running.
+  bool skipCheck() {
+    final cancel = _checkCancel;
+    if (cancel == null || cancel.isCancelled) return false;
+    cancel.cancel();
+    return true;
+  }
+
   Future<void> checkTaskCompletionInBackground() async {
     if (getIsCheckingCompletion() || getActiveObjectives().isEmpty) return;
     setIsCheckingCompletion(true);
+    final cancel = _checkCancel = LlmRequestCancel();
 
     var anyCompleted = false;
     try {
@@ -268,7 +282,7 @@ class ObjectiveProposal {
         }
         pending.add((obj, tasks, currentTask));
       }
-      if (pending.isEmpty) return;
+      if (pending.isEmpty || cancel.isCancelled) return;
 
       // ONE batched call for every objective (was one FULL LLM round-trip
       // per objective, each re-paying prefill on the same 8-message context —
@@ -287,7 +301,8 @@ class ObjectiveProposal {
       }
       // Tools first (same fireStructuredEval fork as TimeService), text
       // scrape as the floor. Unparsed / confused still counts as NO.
-      final responseText = await _fireObjectiveEval(
+      final verdicts = _fireObjectiveEval(
+        cancel: cancel,
         debugLabel: kObjectiveVerdictsTool,
         tools: kObjectiveVerdictsEvalTools,
         toolName: kObjectiveVerdictsTool,
@@ -300,6 +315,15 @@ class ObjectiveProposal {
           toolsMode: toolsMode,
         ),
       );
+      // Skip answers at once, whatever the request is doing.
+      final responseText = await Future.any<String?>([
+        verdicts,
+        cancel.whenCancelled.then((_) => null),
+      ]);
+      if (responseText == null || cancel.isCancelled) {
+        debugPrint('[Objective] Check skipped — objectives left as they were');
+        return;
+      }
       final rawPreview = responseText.replaceAll('\n', ' / ');
       debugPrint(
         '[Objective] Batched verdicts raw: '
@@ -348,6 +372,7 @@ class ObjectiveProposal {
     } catch (e) {
       debugPrint('[Objective] Completion check failed: $e');
     } finally {
+      if (identical(_checkCancel, cancel)) _checkCancel = null;
       setIsCheckingCompletion(false);
       // A completed step is a story beat worth journaling — flag it once
       // (post-generation consumer; see onObjectiveCompleted doc).
@@ -414,6 +439,7 @@ class ObjectiveProposal {
     required double temperature,
     required String Function({required bool toolsMode}) buildPrompt,
     bool reasoningOff = false,
+    LlmRequestCancel? cancel,
   }) async {
     Future<String?> fireText(
       String prompt, {
@@ -429,6 +455,7 @@ class ObjectiveProposal {
         reasoningMaxTokens: reasoningOff ? 0 : null,
         mandatoryReasoningHeadroom: true,
         stopSequences: const [],
+        cancel: cancel,
       );
       final trafficWatch = Stopwatch()..start();
       var responseText = '';
@@ -458,6 +485,8 @@ class ObjectiveProposal {
             toolChoice: toolName,
             maxLength: 2000,
             getPreferTextEvals: getPreferTextEvals,
+            cancel: cancel,
+            isCancelled: () => cancel?.isCancelled ?? false,
           )
         : await fireText(buildPrompt(toolsMode: false));
     return stripThinkBlocks(raw ?? '');

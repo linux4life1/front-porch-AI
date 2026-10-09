@@ -279,7 +279,7 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
 
                         // ── Body ──────────────────────────────────────────────
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(28, 20, 28, 28),
+                          padding: const EdgeInsets.fromLTRB(28, 20, 28, 16),
                           child: AnimatedBuilder(
                             animation: _pulse,
                             builder: (_, _) => Text(
@@ -291,6 +291,23 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                                   alpha: 0.22 + 0.12 * _pulse.value,
                                 ),
                                 height: 1.65,
+                              ),
+                            ),
+                          ),
+                        ),
+                        // Stops only this check; the reply still comes.
+                        Padding(
+                          padding: const EdgeInsets.fromLTRB(28, 0, 28, 24),
+                          child: OutlinedButton.icon(
+                            onPressed: widget.chatService.skipObjectiveCheck,
+                            icon: const Icon(Icons.skip_next, size: 18),
+                            label: const Text('Skip goal check'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.formMasterAccent,
+                              side: BorderSide(
+                                color: AppColors.formMasterAccent.withValues(
+                                  alpha: 0.6,
+                                ),
                               ),
                             ),
                           ),

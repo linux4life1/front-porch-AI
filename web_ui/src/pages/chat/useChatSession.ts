@@ -303,6 +303,14 @@ export function useChatSession() {
     await refresh();
   };
 
+  // Stops only the goal check; the reply still comes.
+  const skipObjectiveCheck = () => {
+    setProcessing(NO_PROCESSING);
+    api.post('/api/chat/skip-objective-check').catch((e: unknown) => {
+      console.warn('Skip goal check failed', e);
+    });
+  };
+
   // ── Conversations drawer ────────────────────────────────────────
   const openSessions = async () => {
     setShowSessions(true);
@@ -382,6 +390,7 @@ export function useChatSession() {
     acceptFate,
     cancelRealism,
     dismissStoppedReply,
+    skipObjectiveCheck,
     openSessions,
     loadSession,
     newChat,

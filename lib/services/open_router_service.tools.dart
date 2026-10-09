@@ -195,6 +195,7 @@ extension OpenRouterServiceTools on OpenRouterService {
     if (!isReady) return null;
     final client = httpClientFactory?.call() ?? http.Client();
     _activeClients.add(client);
+    _closeWhenCancelled(params, client);
     try {
       if (isOpenRouterApiUrl(_apiUrl)) {
         return await runOpenRouterNativeTools(

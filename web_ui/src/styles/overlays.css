@@ -47,6 +47,12 @@
   background: rgba(255, 82, 82, 0.14); color: var(--danger); border: 1px solid rgba(255, 82, 82, 0.4);
 }
 .proc-cancel:hover { background: rgba(255, 82, 82, 0.24); }
+.proc-skip {
+  align-self: flex-start; font-size: 0.72rem; padding: 4px 12px; border-radius: 999px; cursor: pointer;
+  background: color-mix(in srgb, var(--porch-amber) 12%, transparent); color: var(--porch-amber);
+  border: 1px solid color-mix(in srgb, var(--porch-amber) 55%, transparent);
+}
+.proc-skip:hover { background: color-mix(in srgb, var(--porch-amber) 22%, transparent); }
 @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
 
 /* ── Chance Time (chaos) reveal modal — the web/mobile counterpart to the

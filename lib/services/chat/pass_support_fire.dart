@@ -165,6 +165,7 @@ Future<String?> fireStructuredEval({
   })
   fireTextEval,
   bool Function()? isCancelled,
+  LlmRequestCancel? cancel,
   void Function(String)? onChunk,
   String? toolChoice,
   int maxLength = kScalarToolMaxTokens,
@@ -185,6 +186,7 @@ Future<String?> fireStructuredEval({
           maxLength: maxLength,
           repeatPenalty: repeatPenalty,
           onChunk: onChunk,
+          cancel: cancel,
         ),
       );
       if (isCancelled?.call() ?? false) return null;

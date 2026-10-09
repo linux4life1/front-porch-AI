@@ -20,6 +20,22 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
+/// One caller's handle on its own request. [cancel] closes that request's
+/// connection and nobody else's on the same backend; a request still waiting
+/// for its turn at KoboldCpp is never sent.
+class LlmRequestCancel {
+  final Completer<void> _done = Completer<void>();
+
+  bool get isCancelled => _done.isCompleted;
+
+  /// Completes when [cancel] is called.
+  Future<void> get whenCancelled => _done.future;
+
+  void cancel() {
+    if (!_done.isCompleted) _done.complete();
+  }
+}
+
 /// Generation parameters shared across all LLM backends.
 class GenerationParams {
   final String prompt;
@@ -114,6 +130,10 @@ class GenerationParams {
   /// reader's subscription, so a reply that waits has to ask.
   final bool Function()? stillWant;
 
+  /// Calls this one request off (see [LlmRequestCancel]). Null: only the
+  /// backend-wide [LLMService.abortGeneration] can stop it.
+  final LlmRequestCancel? cancel;
+
   /// Probe identity (`backend|endpoint|model|path`). Style retry and skip/pause
   /// key on the same string [ChatService] uses.
   final String backendIdentity;
@@ -158,6 +178,7 @@ class GenerationParams {
     this.onChunk,
     this.stillWantTools,
     this.stillWant,
+    this.cancel,
     this.backendIdentity = '',
     this.chatMessages,
     this.kvChat,

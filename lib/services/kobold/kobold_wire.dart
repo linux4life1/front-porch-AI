@@ -18,6 +18,9 @@ class KoboldWire {
     if (identical(_held, client)) _held = null;
   }
 
+  /// Whether [client] is still the call on the wire.
+  bool holds(http.Client client) => identical(_held, client);
+
   /// Closes the call on the wire, if there is one.
   void cut() {
     _held?.close();

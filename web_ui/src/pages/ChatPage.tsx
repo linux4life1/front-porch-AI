@@ -38,7 +38,7 @@ export function ChatPage() {
     opening, state, loadError, streaming, chance, imageProg, genStatus,
     processing, showSessions, setShowSessions, sessions, loadingSessions,
     toolsBump, voice, impersonateFill, scrollRef, onTranscriptScroll, refresh, stop, revealFate,
-    acceptFate, cancelRealism, dismissStoppedReply, openSessions, loadSession, newChat,
+    acceptFate, cancelRealism, dismissStoppedReply, skipObjectiveCheck, openSessions, loadSession, newChat,
   } = session;
   const {
     sendError, setSendError, actionError, setActionError, reportActionFailure,
@@ -340,7 +340,7 @@ export function ChatPage() {
           onActionFailed={reportActionFailure}
         />
 
-        <ProcessingOverlay p={processing} onCancel={cancelRealism} />
+        <ProcessingOverlay p={processing} onCancel={cancelRealism} onSkipObjective={skipObjectiveCheck} />
 
         {imageProg && (
           <div className="image-progress-card">
