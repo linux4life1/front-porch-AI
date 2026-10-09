@@ -59,6 +59,7 @@ export 'kobold_memory_rules.dart';
 export 'kobold_placement.dart';
 export 'smart_cache_estimate.dart';
 export 'free_memory_parsers.dart';
+export 'linux_gpu_parsers.dart';
 export 'relative_time.dart';
 export 'wav_utils.dart';
 export 'world_colors.dart';

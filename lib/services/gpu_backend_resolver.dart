@@ -18,6 +18,8 @@
 
 import 'dart:io';
 
+import 'package:front_porch_ai/utils/utils.dart';
+
 /// Which GPU acceleration path KoboldCpp should use.
 enum GpuBackend { cuda, rocm, vulkan, metal, cpu }
 
@@ -30,8 +32,8 @@ enum GpuBackend { cuda, rocm, vulkan, metal, cpu }
 /// - Otherwise AUTOMATIC: Metal on macOS, CUDA when the NVIDIA driver
 ///   answers, **Vulkan for everything else with a GPU** (AMD and Intel),
 ///   CPU when no GPU is usable.
-/// - **ROCm is never auto-selected.** `rocminfo` succeeding only proves the
-///   runtime is installed, not that KoboldCpp's hipblas kernels support the
+/// - **ROCm is never auto-selected.** The driver offering compute
+///   (`/dev/kfd`) does not prove KoboldCpp's hipblas kernels support the
 ///   user's gfx architecture; consumer RDNA cards additionally need
 ///   HSA_OVERRIDE_GFX_VERSION. Vulkan is within a few percent of hipblas on
 ///   consumer cards with none of that fragility, so ROCm is an explicit
@@ -150,27 +152,63 @@ class GpuBackendResolver {
     return matches.last;
   }
 
-  /// Environment additions for launching KoboldCpp with ROCm: runs
-  /// rocminfo, finds the gfx arch, and sets HSA_OVERRIDE_GFX_VERSION when
-  /// the arch needs one. Never overrides a value the user already exported
-  /// themselves. Returns {} on any failure — launching without the
-  /// override is exactly what happened before.
+  /// The gfx arch the driver's compute topology reports (each GPU node's
+  /// `gfx_target_version` under [nodesRoot]), the highest when several, as
+  /// [gfxFromRocminfo] picks. Null when the driver lists none.
+  static Future<String?> gfxFromKfdTopology([
+    String nodesRoot = '/sys/class/kfd/kfd/topology/nodes',
+  ]) async {
+    final nodes = Directory(nodesRoot);
+    if (!await nodes.exists()) return null;
+    final found = <String>{};
+    await for (final node in nodes.list()) {
+      final props = File('${node.path}/properties');
+      if (!await props.exists()) continue;
+      final v = kfdGfxTargetVersion(await props.readAsString());
+      final gfx = v == null ? null : gfxFromKfdTargetVersion(v);
+      if (gfx != null) found.add(gfx);
+    }
+    if (found.isEmpty) return null;
+    return (found.toList()..sort()).last;
+  }
+
+  /// The gfx arch from rocminfo when it is installed, else from the
+  /// driver's own topology: KoboldCpp's ROCm build carries its runtime, so
+  /// most machines that run it have no rocminfo.
+  static Future<String?> _detectGfx() async {
+    try {
+      final res = await Process.run('rocminfo', []);
+      if (res.exitCode == 0) {
+        final gfx = gfxFromRocminfo(res.stdout.toString());
+        if (gfx != null) return gfx;
+      }
+    } on ProcessException {
+      // Not installed: the topology below answers.
+    }
+    return gfxFromKfdTopology();
+  }
+
+  /// Environment additions for launching KoboldCpp with ROCm: finds the
+  /// gfx arch and sets HSA_OVERRIDE_GFX_VERSION when the arch needs one.
+  /// Never overrides a value the user already exported themselves. Returns
+  /// {} on any failure — launching without the override is exactly what
+  /// happened before.
   static Future<Map<String, String>> rocmEnvironment() async {
     if (!Platform.isLinux) return const {};
     if (Platform.environment.containsKey('HSA_OVERRIDE_GFX_VERSION')) {
       return const {};
     }
     try {
-      final res = await Process.run('rocminfo', []);
-      if (res.exitCode != 0) return const {};
-      final gfx = gfxFromRocminfo(res.stdout.toString());
+      final gfx = await _detectGfx();
       if (gfx == null) return const {};
       final override = hsaOverrideForGfx(gfx);
       if (override == null) return const {};
       // ignore: avoid_print
       print('[ROCm] $gfx needs HSA_OVERRIDE_GFX_VERSION=$override — set');
       return {'HSA_OVERRIDE_GFX_VERSION': override};
-    } catch (_) {
+    } catch (e) {
+      // ignore: avoid_print
+      print('[ROCm] gfx arch not read, launching without an override: $e');
       return const {};
     }
   }

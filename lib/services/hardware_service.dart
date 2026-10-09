@@ -35,6 +35,7 @@ part 'hardware_service.apple.dart';
 part 'hardware_service.linux.dart';
 part 'hardware_service.windows.dart';
 part 'hardware_service.free.dart';
+part 'hardware_service.linux_gpu.dart';
 
 class HardwareService extends ChangeNotifier {
   HardwareInfo? _hardwareInfo;
@@ -298,21 +299,9 @@ class HardwareService extends ChangeNotifier {
       if (res != null) _hasCuda = true;
     }
 
-    // ROCm runtime presence — Linux only, and purely ADVISORY: it enables
-    // the expert opt-in chip in Settings and the guidance dialog. It never
-    // selects the backend (see GpuBackendResolver). rocminfo succeeding
-    // proves the runtime is installed, not that koboldcpp's hipblas
-    // kernels support this card.
-    //
-    // Windows is deliberately always false: the old check keyed on
-    // amdhip64.dll, which ships with EVERY standard Adrenalin driver, and
-    // the mainline Windows koboldcpp.exe has no hipblas backend at all —
-    // Windows AMD users belong on Vulkan.
-    if (Platform.isLinux) {
-      try {
-        final res = await Process.run('rocminfo', []);
-        if (res.exitCode == 0) _hasRocm = true;
-      } catch (_) {}
-    }
+    // ROCm is set by the Linux detection: an AMD card whose driver offers
+    // compute (/dev/kfd). It only enables the opt-in chip; it never selects
+    // the backend (see GpuBackendResolver). Windows is always false: the
+    // Windows KoboldCpp has no ROCm build, so AMD cards there run Vulkan.
   }
 }

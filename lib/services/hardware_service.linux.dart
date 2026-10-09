@@ -22,13 +22,8 @@ part of 'hardware_service.dart';
 /// distro-family probe the backend downloader keys off.
 extension HardwareServiceLinux on HardwareService {
   Future<void> _detectLinux() async {
-    String gpuName = 'Unknown GPU';
-    int vramMb = 0;
     var cardCount = 1;
-    var amdCards = 0;
-    int? smallestCardMb;
     int ramMb = 0;
-    String vendor = 'Unknown';
 
     // Detect Linux distro
     final distro = await _detectLinuxDistro();
@@ -52,39 +47,25 @@ extension HardwareServiceLinux on HardwareService {
       print('Linux RAM detection error: $e');
     }
 
-    // Detect GPU & VRAM
-    // Try lspci first for name. On systems with both an iGPU (VGA compatible
-    // controller) and a discrete NVIDIA card (often listed as "3D controller"
-    // because NVIDIA Optimus/hybrid setups don't expose a VGA BAR), we prefer
-    // the discrete GPU — the iGPU is irrelevant for LLM inference.
+    // Detect GPU & VRAM: from the driver's own files, so it works without
+    // lspci; lspci, when installed, only names the card better.
+    String? lspciOut;
     try {
       final lspci = await Process.run('lspci', []);
-      if (lspci.exitCode == 0) {
-        final lines = lspci.stdout.toString().split('\n');
-        String? vgaCandidate;
-        String? threeDCandidate;
-        for (final line in lines) {
-          if (line.contains('VGA') || line.contains('Display controller')) {
-            vgaCandidate ??= line;
-          } else if (line.contains('3D controller')) {
-            threeDCandidate ??= line;
-          }
-        }
-        // Prefer the 3D controller entry when present — on hybrid laptops this
-        // is the discrete NVIDIA/AMD GPU, while the VGA entry is the Intel iGPU.
-        final gpuLine = threeDCandidate ?? vgaCandidate;
-        if (gpuLine != null) {
-          gpuName = gpuLine.substring(gpuLine.indexOf(':') + 1).trim();
-          // Clean up name
-          gpuName = gpuName.replaceAll(RegExp(r'\[.*?\]'), '').trim();
-        }
-      }
+      if (lspci.exitCode == 0) lspciOut = lspci.stdout.toString();
     } catch (e) {
-      print('Linux GPU match error: $e');
+      debugPrint('[Hardware] lspci did not run: $e');
     }
-
-    // Determine vendor
-    vendor = _vendorFromName(gpuName);
+    final gpu = await readLinuxGpu(lspci: lspciOut);
+    var gpuName = gpu.name;
+    final vendor = gpu.vendor;
+    var vramMb = gpu.vramMb;
+    var smallestCardMb = gpu.smallestCardMb;
+    if (vendor == 'AMD') cardCount = gpu.cardCount;
+    // ROCm runs through AMD's compute device, which KoboldCpp's ROCm build
+    // opens with the runtime it carries: no separate ROCm install needed.
+    _hasRocm = vendor == 'AMD' && gpu.hasKfd;
+    final rocmAccess = _hasRocm && await kfdAccessible();
 
     // nvidia-smi is authoritative for NVIDIA cards — it gives both the
     // marketing name (e.g. "NVIDIA GeForce RTX 5060 Ti") and accurate VRAM,
@@ -103,26 +84,8 @@ extension HardwareServiceLinux on HardwareService {
         if (parsed.cards > 0) cardCount = parsed.cards;
         smallestCardMb = parsed.smallestMb;
       }
-    } else if (vendor == 'AMD') {
-      // Try sysfs for AMD VRAM (amdgpu driver exposes this)
-      try {
-        for (final card in await amdDrmCards()) {
-          final vramBytes = int.tryParse(card.total) ?? 0;
-          final cardVramMb = (vramBytes / (1024 * 1024)).round();
-          if (cardVramMb > vramMb) vramMb = cardVramMb;
-          if (cardVramMb > 0) {
-            amdCards++;
-            if (smallestCardMb == null || cardVramMb < smallestCardMb) {
-              smallestCardMb = cardVramMb;
-            }
-          }
-        }
-      } catch (e) {
-        print('AMD VRAM sysfs detection error: $e');
-      }
     }
 
-    if (amdCards > 0) cardCount = amdCards;
     _hardwareInfo = HardwareInfo(
       gpuName: gpuName,
       vramMb: vramMb,
@@ -130,6 +93,7 @@ extension HardwareServiceLinux on HardwareService {
       vendor: vendor,
       hasCuda: _hasCuda,
       hasRocm: _hasRocm,
+      rocmAccess: rocmAccess,
       hasMetal: false,
       linuxDistro: distro,
       cardCount: cardCount,

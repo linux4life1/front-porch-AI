@@ -35,6 +35,11 @@ class HardwareInfo {
   final String vendor; // 'Nvidia', 'AMD', 'Intel', 'Unknown'
   final bool hasCuda;
   final bool hasRocm;
+
+  /// This account may open the compute device ROCm runs through (Linux:
+  /// `/dev/kfd`, usually through the `render` group). Only read when
+  /// [hasRocm].
+  final bool rocmAccess;
   final bool hasMetal;
   final bool isSharedMemory; // Intel ARC iGPU, AMD APU, etc.
   final String
@@ -47,12 +52,14 @@ class HardwareInfo {
     required this.vendor,
     this.hasCuda = false,
     this.hasRocm = false,
+    bool? rocmAccess,
     this.hasMetal = false,
     this.isSharedMemory = false,
     this.linuxDistro = 'unknown',
     this.cardCount = 1,
     int? smallestCardMb,
-  }) : smallestCardMb = smallestCardMb ?? vramMb;
+  }) : smallestCardMb = smallestCardMb ?? vramMb,
+       rocmAccess = rocmAccess ?? hasRocm;
 
   /// Graphics cards of the detected vendor: KoboldCpp spreads a model over
   /// all of them when a preset names no card.
@@ -73,6 +80,7 @@ class HardwareInfo {
     'vendor': vendor,
     'hasCuda': hasCuda,
     'hasRocm': hasRocm,
+    'rocmAccess': rocmAccess,
     'hasMetal': hasMetal,
     'isSharedMemory': isSharedMemory,
     'linuxDistro': linuxDistro,
@@ -93,6 +101,7 @@ class HardwareInfo {
       vendor: json['vendor'] as String? ?? 'Unknown',
       hasCuda: json['hasCuda'] as bool? ?? false,
       hasRocm: json['hasRocm'] as bool? ?? false,
+      rocmAccess: json['rocmAccess'] as bool?,
       hasMetal: json['hasMetal'] as bool? ?? false,
       isSharedMemory: json['isSharedMemory'] as bool? ?? false,
       linuxDistro: json['linuxDistro'] as String? ?? 'unknown',
