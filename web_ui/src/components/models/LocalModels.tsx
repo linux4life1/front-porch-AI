@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../../api/client';
+import { describeActionFailure } from '../../pages/chat/chatActionError';
 import { type LocalModelFile, type ModelSwitch, fmtSize } from './types';
 
 export function LocalModels({
@@ -30,6 +31,19 @@ export function LocalModels({
     void load();
     api.get<{ path: string }>('/api/backend/models-folder').then((r) => setFolder(r.path)).catch(() => {});
   }, []);
+
+  // The host scans the models folder on every list request, so a file copied
+  // in while the app runs shows up here (the desktop's Backend tab has the same
+  // Rescan). A second tap while one is on its way is ignored.
+  const [rescanning, setRescanning] = useState(false);
+  const rescan = () => {
+    if (rescanning) return;
+    setRescanning(true);
+    api.get<{ models: LocalModelFile[] }>('/api/backend/models')
+      .then((r) => setModels(r.models))
+      .catch((e) => onError(describeActionFailure('look for new models', e)))
+      .finally(() => setRescanning(false));
+  };
 
   const use = (m: LocalModelFile) => {
     if (!window.confirm(`Switch to "${m.name}"? This restarts the backend (~30s).`)) return;
@@ -55,7 +69,10 @@ export function LocalModels({
 
   return (
     <section className="card">
-      <h3>Installed models</h3>
+      <div className="card-head">
+        <h3>Installed models</h3>
+        <button className="ghost" onClick={rescan}>Rescan</button>
+      </div>
       {folder && <p className="muted small mono-path">{folder}</p>}
       {models.length === 0 ? (
         <p className="muted">No local models found.</p>

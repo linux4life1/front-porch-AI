@@ -354,10 +354,9 @@ class _SettingsPageState extends State<SettingsPage> {
     final storageService = Provider.of<StorageService>(context);
     final modelManager = Provider.of<ModelManager>(context);
 
-    // Auto-select a model if none selected and models exist: the last-used
-    // one when the scan has it (the Local model card names that one), else the
-    // first. Skip when a kcpps preset with a valid model is active (use
-    // "Managed by kcpps").
+    // Start on the last-used model when the scan has it (the Local model card
+    // names that one); otherwise nothing is chosen and the list says so. Skip
+    // when a kcpps preset with a valid model is active ("Managed by kcpps").
     final kcppsModelExists = _kcppsModelExists.of(
       storageService.backendSettings.kcppsModelPath,
     );

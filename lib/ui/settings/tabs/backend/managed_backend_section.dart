@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -217,10 +218,8 @@ class ManagedBackendSection extends StatelessWidget {
           },
         ),
         const SizedBox(height: 24),
-        const SectionHeader('Model Selection'),
-        const SizedBox(height: 16),
-        ModelSelector(
-          models: modelManager.models,
+        _ModelSelection(
+          models: modelManager,
           selectedModelPath: selectedModelPath,
           showManagedByKcpps:
               storageService.backendSettings.kcppsHasModel && kcppsModelExists,
@@ -310,6 +309,68 @@ class ManagedBackendSection extends StatelessWidget {
         const SizedBox(height: 8),
         Consumer<KoboldService>(
           builder: (context, ks, child) => LogView(logs: ks.logs),
+        ),
+      ],
+    );
+  }
+}
+
+/// The Model Selection header and list. The models folder is scanned again
+/// each time this appears (opening the Backend tab), and on Rescan, so a GGUF
+/// copied in while the app runs shows up without visiting Manage Models.
+class _ModelSelection extends StatefulWidget {
+  const _ModelSelection({
+    required this.models,
+    required this.selectedModelPath,
+    required this.showManagedByKcpps,
+    required this.onChanged,
+  });
+
+  final ModelManager models;
+  final String? selectedModelPath;
+  final bool showManagedByKcpps;
+  final ValueChanged<String?> onChanged;
+
+  @override
+  State<_ModelSelection> createState() => _ModelSelectionState();
+}
+
+class _ModelSelectionState extends State<_ModelSelection> {
+  @override
+  void initState() {
+    super.initState();
+    unawaited(widget.models.refreshModels());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            const SectionHeader('Model Selection'),
+            TextButton.icon(
+              key: const ValueKey('model-rescan'),
+              onPressed: () => unawaited(widget.models.refreshModels()),
+              icon: const Icon(Icons.refresh, size: 14),
+              label: const Text('Rescan', style: TextStyle(fontSize: 12)),
+              style: TextButton.styleFrom(
+                foregroundColor: AppColors.textTertiary(context),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 0),
+                minimumSize: Size.zero,
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ModelSelector(
+          models: widget.models.models,
+          selectedModelPath: widget.selectedModelPath,
+          showManagedByKcpps: widget.showManagedByKcpps,
+          onChanged: widget.onChanged,
         ),
       ],
     );

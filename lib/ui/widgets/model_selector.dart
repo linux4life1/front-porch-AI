@@ -4,15 +4,15 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The model a model list starts on when none is chosen yet: the last-used one
-/// when [models] has it (the Local model card names that one), otherwise the
-/// first. Null when there are no models.
+/// when [models] has it (the Local model card names that one). Null otherwise,
+/// so the list says "Choose a model" instead of showing a file the user never
+/// picked as if it were chosen.
 String? modelListStart(List<FileSystemEntity> models, String? lastUsed) {
-  final paths = [for (final m in models) m.path];
-  if (paths.isEmpty) return null;
-  return paths.firstWhere(
-    (m) => lastUsed != null && path_lib.equals(m, lastUsed),
-    orElse: () => paths.first,
-  );
+  if (lastUsed == null) return null;
+  for (final m in models) {
+    if (path_lib.equals(m.path, lastUsed)) return m.path;
+  }
+  return null;
 }
 
 /// A dropdown for selecting a model file with "Managed by kcpps" support.
@@ -81,17 +81,13 @@ class ModelSelector extends StatelessWidget {
       );
     }
 
-    String currentValue;
-    if (showManagedByKcpps && selectedModelPath == null) {
-      currentValue = '';
-    } else if (selectedModelPath != null &&
-        items.any((i) => i.value == selectedModelPath)) {
-      currentValue = selectedModelPath!;
-    } else if (items.isNotEmpty) {
-      currentValue = items.first.value ?? _managedSentinel;
-    } else {
-      currentValue = _managedSentinel;
-    }
+    // Nothing chosen shows the hint, never the first file: the Local model
+    // card says "No model chosen" then, and Start would load what is shown.
+    final String? currentValue = selectedModelPath != null
+        ? path_lib.normalize(selectedModelPath!)
+        : showManagedByKcpps
+        ? _managedSentinel
+        : null;
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -102,6 +98,10 @@ class ModelSelector extends StatelessWidget {
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: currentValue,
+          hint: Text(
+            'Choose a model',
+            style: TextStyle(color: AppColors.textSecondary(context)),
+          ),
           isExpanded: true,
           dropdownColor: colors,
           style:

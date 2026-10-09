@@ -93,6 +93,9 @@ void main() {
 
     final storage = FakeStorageService();
     storage.backendSettings.setBackendType('local');
+    // The model in use, so the list starts on it: an unused list starts on
+    // nothing ("Choose a model"), never on the first file.
+    storage.backendSettings.setLastUsedModelPath(model.path);
     if (preset != null) {
       storage.backendSettings.setActiveKcppsPath(preset!.path);
     }

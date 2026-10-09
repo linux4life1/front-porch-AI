@@ -30,7 +30,7 @@ extension _ModelSettingsLocalSection on _ModelSettingsDialogState {
     final modelManager = Provider.of<ModelManager>(context);
     final hardwareService = Provider.of<HardwareService>(context);
     final koboldService = Provider.of<KoboldService>(context);
-    // Auto-select first model if none selected and models exist.
+    // Start on the last-used model when the scan has it, else nothing chosen.
     // Skip when a kcpps preset with a valid model is active (use "Managed by kcpps").
     // Gate the exists memo on kcppsHasModel — same short-circuit the old
     // `kcppsHasModel && kcppsModelFileExists` used — so a rebuild without a

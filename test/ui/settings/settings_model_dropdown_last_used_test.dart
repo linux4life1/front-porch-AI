@@ -64,7 +64,9 @@ void main() {
   });
 
   testWidgets('a last-used model that is not in the folder leaves the '
-      'dropdown on the first model, and Start still works', (tester) async {
+      'dropdown on no model, and Start works once one is picked', (
+    tester,
+  ) async {
     final rig = await mountSettings(
       tester,
       lastUsedIsB: false,
@@ -75,7 +77,14 @@ void main() {
     await openTab(tester, 'Backend');
     await settle(tester);
 
-    expect(tester.widget<DropdownButton<String>>(modelDropdown()).value, rig.a);
+    expect(
+      tester.widget<DropdownButton<String>>(modelDropdown()).value,
+      isNull,
+      reason: 'the first file was never chosen, so it must not show as picked',
+    );
+    expect(find.text('Choose a model'), findsOneWidget);
+
+    await pickFromDropdown(tester, modelDropdown(), p.basename(rig.a));
     final start = tester.widget<ElevatedButton>(
       find.ancestor(
         of: find.text('Start Backend'),
