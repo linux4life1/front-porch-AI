@@ -62,7 +62,10 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
     );
   }
   if (deps.chargenFacade != null) WebChargenRoutes(deps.chargenFacade!, router);
-  if (deps.chatFacade != null) WebChatRoutes(deps.chatFacade!, router);
+  if (deps.chatFacade != null) {
+    WebChatRoutes(deps.chatFacade!, router);
+    WebChatOverlayRoutes(deps.chatFacade!, router);
+  }
   if (deps.chatPackageFacade != null) {
     WebChatPackageRoutes(deps.chatPackageFacade!, router);
   }

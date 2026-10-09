@@ -48,9 +48,6 @@ class WebChatRoutes {
     router.post('/api/chat/chance-time/spin', _spinChanceTime);
     router.post('/api/chat/stop', _stop);
     router.post('/api/chat/regenerate', _regenerate);
-    router.post('/api/chat/cancel-realism', _cancelRealism);
-    router.post('/api/chat/stopped-reply/dismiss', _dismissStoppedReply);
-    router.post('/api/chat/skip-objective-check', _skipObjectiveCheck);
     router.post('/api/chat/continue', _continue);
     router.post('/api/chat/fork', _fork);
     router.post('/api/chat/impersonate', _impersonate);
@@ -292,21 +289,6 @@ class WebChatRoutes {
       webQuery: body['webQuery']?.toString(),
       wikiQuery: body['wikiQuery']?.toString(),
     );
-    return JsonResponse.ok({'status': 'ok'});
-  }
-
-  shelf.Response _cancelRealism(shelf.Request request) {
-    _facade.cancelRealismEval();
-    return JsonResponse.ok({'status': 'ok'});
-  }
-
-  shelf.Response _dismissStoppedReply(shelf.Request request) {
-    _facade.dismissStoppedReplyNotice();
-    return JsonResponse.ok({'status': 'ok'});
-  }
-
-  shelf.Response _skipObjectiveCheck(shelf.Request request) {
-    _facade.skipObjectiveCheck();
     return JsonResponse.ok({'status': 'ok'});
   }
 

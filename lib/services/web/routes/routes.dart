@@ -8,6 +8,7 @@ export 'auth_routes.dart';
 export 'backend_routes.dart';
 export 'character_routes.dart';
 export 'chargen_routes.dart';
+export 'chat_overlay_routes.dart';
 export 'chat_package_routes.dart';
 export 'chat_routes.dart';
 export 'chat_tools_routes.dart';

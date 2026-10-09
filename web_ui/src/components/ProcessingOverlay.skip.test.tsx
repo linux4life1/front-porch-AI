@@ -78,7 +78,7 @@ describe('ProcessingOverlay Skip goal check', () => {
       active: true,
       objective: true,
     });
-    expect(button('Cancel Realism')).toBeUndefined();
+    expect(button('Stop this reply')).toBeUndefined();
     act(() => button('Skip goal check')!.click());
     expect(onSkipObjective).toHaveBeenCalledTimes(1);
     expect(onCancel).not.toHaveBeenCalled();
@@ -87,7 +87,7 @@ describe('ProcessingOverlay Skip goal check', () => {
   it('the Realism overlay has no Skip goal check', () => {
     renderOverlay({ ...NO_PROCESSING, active: true, realism: true, objective: true });
     expect(button('Skip goal check')).toBeUndefined();
-    expect(button('Cancel Realism')).toBeDefined();
+    expect(button('Stop this reply')).toBeDefined();
   });
 
   it('skipping posts the skip route and closes the overlay', async () => {
