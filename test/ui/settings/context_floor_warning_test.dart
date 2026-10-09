@@ -11,8 +11,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/chat_settings_generation_section.dart';
 
+import '../../golden/support/fakes.dart';
+import '../../golden/support/fakes_storage.dart';
 import '../../helpers/settings_page_harness.dart';
 
 void main() {
@@ -91,6 +95,89 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a saved 8,192 is not replaced by a touch on the slider; '
+      'picking a chip replaces it', (tester) async {
+    final rig = await mountSettings(
+      tester,
+      lastUsedIsB: false,
+      before: (rig) => rig.store.backendSettings.setContextSize(8192),
+    );
+    await openTab(tester, 'Advanced');
+    final slider = find.byWidgetPredicate(
+      (w) =>
+          w is Slider &&
+          w.divisions == kKoboldContextChoices.length - 1 &&
+          w.max == kKoboldContextChoices.length - 1,
+    );
+    expect(slider, findsOneWidget);
+    expect(
+      tester
+          .widgetList<ChoiceChip>(
+            find.descendant(
+              of: contextCard(),
+              matching: find.byType(ChoiceChip),
+            ),
+          )
+          .where((c) => c.selected),
+      isEmpty,
+      reason: 'no chip says 8,192',
+    );
+
+    await tester.ensureVisible(slider);
+    await tester.tap(slider, warnIfMissed: false);
+    await tester.drag(slider, const Offset(200, 0), warnIfMissed: false);
+    await settle(tester);
+
+    expect(rig.store.backendSettings.contextSize, 8192);
+    expect(tester.widget<TextField>(contextBox()).controller!.text, '8192');
+
+    await tapVisible(
+      tester,
+      find.descendant(of: contextCard(), matching: find.text('32K')),
+    );
+    await settle(tester);
+    expect(rig.store.backendSettings.contextSize, 32768);
+    expect(tester.widget<Slider>(slider).onChanged, isNotNull);
+  });
+
+  group('chat settings', () {
+    Future<void> show(WidgetTester tester, {required bool hideOutput}) async {
+      final storage = FakeStorageService();
+      addTearDown(storage.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: ChatSettingsGenerationSection(
+                gen: ChatGenerationSettings()
+                  ..contextSize = 16384
+                  ..maxLength = 16384,
+                storage: storage,
+                llmProvider: FakeLLMProvider(),
+                isRemote: true,
+                hideOutputTokenLimits: hideOutput,
+                onChanged: () {},
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+    }
+
+    testWidgets('a max output as big as the context is warned about where '
+        'Max Output Tokens is shown', (tester) async {
+      await show(tester, hideOutput: false);
+      expect(replyWarning(), findsOneWidget);
+    });
+
+    testWidgets('and not where it is hidden (Waifu Coder)', (tester) async {
+      await show(tester, hideOutput: true);
+      expect(find.text('Max Output Tokens'), findsNothing);
+      expect(replyWarning(), findsNothing);
+    });
   });
 
   test('the reply warning stays quiet while the reply leaves room', () {

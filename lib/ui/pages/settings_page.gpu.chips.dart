@@ -114,6 +114,11 @@ extension _SettingsGpuChips on _SettingsPageState {
     // Map context size to slider position. Nothing below 16,384 is offered;
     // a smaller number can still be typed in the box, and is warned about.
     const presets = kKoboldContextChoices;
+    // A size that is not one of them (8,192 saved from before, or typed) has
+    // no place on the slider: it is shown greyed out, and nothing is saved
+    // until a chip is picked, so a stray touch never replaces the user's
+    // number. While dragging, the box already holds a preset.
+    final onScale = presets.contains(currentVal);
     int closestIdx = 0;
     int closestDist = (presets[0] - currentVal).abs();
     for (int i = 1; i < presets.length; i++) {
@@ -138,10 +143,13 @@ extension _SettingsGpuChips on _SettingsPageState {
             min: 0,
             max: (presets.length - 1).toDouble(),
             divisions: presets.length - 1,
-            onChanged: (val) {
-              rebuildState(() => _dragContextSize = val);
-              _contextSizeController.text = presets[val.round()].toString();
-            },
+            onChanged: onScale
+                ? (val) {
+                    rebuildState(() => _dragContextSize = val);
+                    _contextSizeController.text = presets[val.round()]
+                        .toString();
+                  }
+                : null,
             onChangeEnd: (val) {
               _dragContextSize = null;
               final newSize = presets[val.round()];
