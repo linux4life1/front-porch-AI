@@ -194,8 +194,15 @@ extension ChatServiceWiringEvals on ChatService {
     }
   }
 
-  Future<LlmToolResponse?> _fireToolEvalUnheld(ToolEvalSpec spec) async {
-    final service = _sideLaneLlm;
+  /// [via] and [identity] send it to another model than the side lane's (the
+  /// chat model while a helper holds the lane); null keeps the side lane.
+  Future<LlmToolResponse?> _fireToolEvalUnheld(
+    ToolEvalSpec spec, {
+    LLMService? via,
+    String? identity,
+  }) async {
+    final service = via ?? _sideLaneLlm;
+    final id = identity ?? _evalBackendIdentity;
     // [EvalTraffic]: label from the named choice, never tools.first — after
     // kJudgeEvalTools that would always be report_relationship.
     final trafficWatch = Stopwatch()..start();
@@ -246,9 +253,8 @@ extension ChatServiceWiringEvals on ChatService {
           stopSequences: const [],
           toolChoice: spec.toolChoice,
           onChunk: spec.onChunk,
-          backendIdentity: _evalBackendIdentity,
-          stillWantTools: () =>
-              _toolProbe.shouldPostAfterIdle(_evalBackendIdentity),
+          backendIdentity: id,
+          stillWantTools: () => _toolProbe.shouldPostAfterIdle(id),
         ),
         spec.tools,
       ).timeout(timeout);
@@ -440,26 +446,6 @@ extension ChatServiceWiringEvals on ChatService {
 
   /// Re-probe the current backend+model's tool support (pill tap).
   Future<void> testToolCalling() => _toolSupportTester.test(force: true);
-
-  /// The pill's verdict for the model a studio wizard runs on: the chat model
-  /// on the active backend, or [remoteModel] when the wizard picked another
-  /// one. Not [checkable] while the tester asks about a different model (a
-  /// helper lane, or that other pick): the verdict is then only what the
-  /// shared probe already knows.
-  StudioToolCheck studioToolCheck({String remoteModel = ''}) {
-    final id = _mouthEvalIdentity(remoteModel: remoteModel);
-    final checkable = id == _evalBackendIdentity;
-    return (
-      support: _toolProbe.supportFor(id),
-      testing: checkable && _toolSupportTester.isTesting,
-      checkable: checkable,
-      backendReady: _mouthLlm.isReady,
-    );
-  }
-
-  /// Start the pill's automatic test if this model has none yet — the same
-  /// path a backend switch takes; a no-op once it has asked.
-  void checkToolSupportSoon() => _toolSupportTester.onBackendMaybeChanged();
 
   bool get toolCallingPaused =>
       _toolProbe.isPausedUntilPing(_evalBackendIdentity);

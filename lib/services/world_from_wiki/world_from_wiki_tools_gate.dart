@@ -20,21 +20,17 @@ enum WorldToolsGate {
 
   /// The model was asked and did not answer with a tool call.
   failed,
-
-  /// The check is busy with another model (a helper model, or chat's own
-  /// when the wizard picked a different one), so this one cannot be asked.
-  otherModel,
 }
 
 /// One rule for desktop and the phone relay.
 WorldToolsGate worldFromWikiToolsGate(StudioToolCheck check) {
-  if (check.support == ToolCallSupport.supported) return WorldToolsGate.ready;
   if (check.testing) return WorldToolsGate.checking;
   if (check.support == ToolCallSupport.unsupported) {
     return WorldToolsGate.failed;
   }
+  // A model that passed earlier and has since stopped cannot run the wizard.
   if (!check.backendReady) return WorldToolsGate.notRunning;
-  if (!check.checkable) return WorldToolsGate.otherModel;
+  if (check.support == ToolCallSupport.supported) return WorldToolsGate.ready;
   return WorldToolsGate.notChecked;
 }
 
@@ -59,11 +55,6 @@ String? worldFromWikiToolsCopy(WorldToolsGate gate, {bool onPhone = false}) {
           'correctly, so it can\'t be used for World from Wiki. Pick a '
           'different model (for example Qwen 3 or Gemma 4) and it will be '
           'tested again.';
-    case WorldToolsGate.otherModel:
-      return "This model hasn't been checked for tools yet, and the app can "
-          'only check the model your chats use right now. Make it your chat '
-          'model (${onPhone ? 'in Settings' : 'pick it again above'}), and '
-          'the check runs by itself.';
   }
 }
 

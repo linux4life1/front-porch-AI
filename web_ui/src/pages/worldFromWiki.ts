@@ -11,8 +11,7 @@ export type WorldToolsGate =
   | 'checking'
   | 'notRunning'
   | 'notChecked'
-  | 'failed'
-  | 'otherModel';
+  | 'failed';
 
 const TOOLS_GATES: readonly WorldToolsGate[] = [
   'ready',
@@ -20,7 +19,6 @@ const TOOLS_GATES: readonly WorldToolsGate[] = [
   'notRunning',
   'notChecked',
   'failed',
-  'otherModel',
 ];
 
 /** Older hosts sent only `toolsAdvertised`; an unknown name is not ready. */
@@ -44,8 +42,6 @@ export function worldToolsCopy(gate: WorldToolsGate): string | null {
       return "This model hasn't been checked for tools yet. Press Check now and it takes a few seconds.";
     case 'failed':
       return "This model was tested and didn't answer the tool-calling check correctly, so it can't be used for World from Wiki. Pick a different model (for example Qwen 3 or Gemma 4) and it will be tested again.";
-    case 'otherModel':
-      return "This model hasn't been checked for tools yet, and the app can only check the model your chats use right now. Make it your chat model (in Settings), and the check runs by itself.";
   }
 }
 

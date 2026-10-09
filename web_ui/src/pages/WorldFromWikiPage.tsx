@@ -89,7 +89,7 @@ export function WorldFromWikiPage() {
   const retestTools = async () => {
     setRetesting(true);
     try {
-      await api.post('/api/chat/tool-test');
+      await api.post('/api/worlds/from-wiki/tool-test');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not check the model');
     } finally {

@@ -18,6 +18,22 @@
 
 part of '../chat_service.dart';
 
+/// The model a studio wizard runs on: null [llm] is the chat model, and a
+/// non-empty [remoteModel] is the wizard's own remote pick.
+class _StudioToolTarget {
+  LLMService? llm;
+  String remoteModel = '';
+}
+
+/// The tool check a studio wizard asks about its own model (see
+/// [ChatServiceLlmLanes.toolCheckFor]). Made on first use.
+final Expando<ToolSupportTester> _studioToolTesterOf = Expando(
+  'studioToolTester',
+);
+final Expando<_StudioToolTarget> _studioToolTargetOf = Expando(
+  'studioToolTarget',
+);
+
 /// Mouth (spoken reply) vs worker (evals / clerk / journal / growth).
 extension ChatServiceLlmLanes on ChatService {
   LLMService get _mouthLlm =>
@@ -133,4 +149,58 @@ extension ChatServiceLlmLanes on ChatService {
       } catch (_) {}
     }
   }
+
+  /// The tool-calling verdict for the one model a studio wizard runs on, from
+  /// chat's own check (the same ping, filed in the same store the pill
+  /// reads). Asks that model when nothing has yet. [via] is the wizard's own
+  /// remote pick and [remoteModel] its name; both left out mean the chat
+  /// model.
+  StudioToolCheck toolCheckFor({LLMService? via, String remoteModel = ''}) {
+    final tester = _studioToolTesterFor(via, remoteModel)
+      ..onBackendMaybeChanged();
+    return (
+      support: _toolProbe.supportFor(_studioToolIdentity),
+      testing: tester.isTesting,
+      backendReady: _studioToolLlm.isReady,
+    );
+  }
+
+  /// Ask the wizard's model again now (its "Check now").
+  Future<void> retestToolsFor({LLMService? via, String remoteModel = ''}) =>
+      _studioToolTesterFor(via, remoteModel).test(force: true);
+
+  _StudioToolTarget get _studioToolTarget =>
+      _studioToolTargetOf[this] ??= _StudioToolTarget();
+
+  LLMService get _studioToolLlm => _studioToolTarget.llm ?? _mouthLlm;
+
+  String get _studioToolIdentity =>
+      _mouthEvalIdentity(remoteModel: _studioToolTarget.remoteModel);
+
+  ToolSupportTester _studioToolTesterFor(LLMService? via, String remoteModel) {
+    _studioToolTarget
+      ..llm = via
+      ..remoteModel = remoteModel;
+    return _studioToolTesterOf[this] ??= ToolSupportTester(
+      probe: _toolProbe,
+      fireToolEval: (ToolEvalSpec spec) => _fireToolEvalUnheld(
+        spec,
+        via: _studioToolLlm,
+        identity: _studioToolIdentity,
+      ),
+      getBackendIdentity: () => _studioToolIdentity,
+      isBackendReady: () => _studioToolLlm.isReady,
+      // A running local engine whose model nobody has confirmed: an answer
+      // would be filed under the wrong model (see [_localModelPath]).
+      modelKnown: () =>
+          _studioToolTarget.llm != null ||
+          !(_mouthIsLocal &&
+              _koboldService.isProcessRunning &&
+              (_localModelPath ?? '').isEmpty),
+      isBusy: () => _isGenerating || (_llmProvider?.gpuSwapBusy ?? false),
+      onNotify: notifyListeners,
+    );
+  }
+
+  void _disposeStudioToolTester() => _studioToolTesterOf[this]?.dispose();
 }

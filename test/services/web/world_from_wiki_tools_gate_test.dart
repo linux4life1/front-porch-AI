@@ -5,8 +5,9 @@
 // tools, and the host answers from chat's own tool check (the sidebar's Tool
 // calling pill), not from the model's file name: not running yet, checking,
 // tested and failed, or passed. Scout refuses with the same plain words until
-// the check passed. With a helper model taking chat's checks, the chat model
-// (the one the wizard runs on) is not the one being checked, and it says so.
+// the check passed. A helper model configured for chat changes nothing: the
+// wizard's model is asked by the same ping, and the helper's answer is never
+// borrowed for it.
 //
 // The real facade, chat service, provider, tester and probe run; only the
 // models that answer the tool-calling question are scripted, and their answer
@@ -184,19 +185,60 @@ void main() {
     );
   });
 
-  test('a helper model takes chat\'s checks: the chat model is not the one '
-      'checked, and a "yes" for the helper does not open the wizard', () async {
+  test('with a helper model configured, the wizard\'s own model is asked '
+      'and a tool call opens the wizard', () async {
     final helper = _Model('Helper')..ready = true;
     chat.testWorkerLlmServiceOverride = helper;
     model.ready = true;
+    // The sidebar pill (which checks the helper) says "no".
+    helper.answer.complete(_prose);
+    await chat.testToolCalling();
+    expect(chat.toolCallSupport, ToolCallSupport.unsupported);
+
     await facade.status();
     await _settle();
-    helper.answer.complete(_calls);
+    expect(model.asked, 1, reason: "the wizard's model itself was asked");
+    expect(await gate(), 'checking');
+    model.answer.complete(_calls);
     await _settle();
 
-    expect(helper.asked, 1);
-    expect(model.asked, 0);
+    expect(await gate(), 'ready', reason: "the helper's no is not borrowed");
+  });
+
+  test('with a helper model configured, Check now asks the wizard\'s model '
+      'again', () async {
+    final helper = _Model('Helper')..ready = true;
+    chat.testWorkerLlmServiceOverride = helper;
+    model.ready = true;
+    // The sidebar pill (which checks the helper) says "yes".
+    helper.answer.complete(_calls);
+    await chat.testToolCalling();
     expect(chat.toolCallSupport, ToolCallSupport.supported);
-    expect(await gate(), 'otherModel');
+
+    await facade.status();
+    await _settle();
+    model.answer.complete(_prose);
+    await _settle();
+    expect(await gate(), 'failed', reason: "the helper's yes is not borrowed");
+
+    model.answer = Completer()..complete(_calls);
+    final after = await facade.testTools();
+
+    expect(model.asked, 2);
+    expect(after['toolsGate'], 'ready');
+  });
+
+  test('a model that passed and has since stopped is not ready', () async {
+    model.ready = true;
+    await facade.status();
+    await _settle();
+    model.answer.complete(_calls);
+    await _settle();
+    expect(await gate(), 'ready');
+
+    model.ready = false;
+
+    expect(chat.toolCallSupport, ToolCallSupport.supported);
+    expect(await gate(), 'notRunning');
   });
 }

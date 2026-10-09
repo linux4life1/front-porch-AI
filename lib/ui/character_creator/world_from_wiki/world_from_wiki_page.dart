@@ -30,22 +30,16 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
   }
 
   /// Chat's tool check moved (started, answered) or the backend changed.
-  void _readToolsGate({bool askNow = false}) {
-    if (!mounted) return;
-    worldState.refreshToolsGate(
-      chat: _chat,
-      llm: _llm,
-      creator: creatorState,
-      askNow: askNow,
-    );
+  void _readToolsGate() {
+    if (!mounted || worldState.currentStep != 0) return;
+    worldState.refreshToolsGate(chat: _chat, llm: _llm, creator: creatorState);
   }
 
   void _onToolCheck() => _readToolsGate();
 
   void _onCreator() {
     _tick();
-    if (!mounted || worldState.currentStep != 0) return;
-    _readToolsGate(askNow: true);
+    _readToolsGate();
   }
 
   @override
@@ -82,7 +76,7 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
           worldState.wikiUrl = saved.first;
         }
       } catch (_) {}
-      _readToolsGate(askNow: true);
+      _readToolsGate();
     });
   }
 
@@ -314,7 +308,11 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
           if (worldFromWikiToolsCanRetest(gate))
             TextButton(
               key: const Key('world-from-wiki-tools-retest'),
-              onPressed: _chat.testToolCalling,
+              onPressed: () => worldState.retestTools(
+                chat: _chat,
+                llm: _llm,
+                creator: creatorState,
+              ),
               child: const Text('Check now'),
             ),
         ],

@@ -455,6 +455,7 @@ extension ChatServiceAccessors on ChatService {
     _llmProvider?.removeListener(_onBackendIdentity);
     _toolProbe.removeListener(notifyListeners);
     _toolSupportTester.dispose();
+    _disposeStudioToolTester();
     unawaited(_deletedChats?.cancel());
   }
 

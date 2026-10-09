@@ -173,10 +173,12 @@ void main() {
     await tester.pump();
   }
 
-  /// The model came up: what the backend's own ready notice does for chat.
+  /// The model came up and the Setup step redrew, which is when the page
+  /// reads the tool check again.
   Future<void> modelStarts(WidgetTester tester) async {
     model.ready = true;
-    chat.checkToolSupportSoon();
+    final dynamic page = tester.state(find.byType(WorldFromWikiPage));
+    page.creatorState.notify();
     await tester.pump();
     await tester.pump();
   }

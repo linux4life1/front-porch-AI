@@ -81,25 +81,46 @@ class WorldFromWikiState extends ChangeNotifier {
     descController.dispose();
   }
 
-  /// Read chat's tool check for the model this wizard runs on: the running
-  /// local engine, or the remote model picked on Setup. [askNow] starts the
-  /// check when nothing has asked this model yet (the backend-switch path).
+  /// Read chat's tool check for the model this wizard runs on (the running
+  /// local engine, or the remote model picked on Setup); it asks that model
+  /// when nothing has yet.
   void refreshToolsGate({
     required ChatService chat,
     required LLMProvider llm,
     required CreatorState creator,
-    bool askNow = false,
   }) {
-    if (askNow) chat.checkToolSupportSoon();
     final next = worldFromWikiToolsGate(
-      chat.studioToolCheck(
-        remoteModel: llm.hasManagedProcess ? '' : creator.selectedModelId,
+      chat.toolCheckFor(
+        via: _wizardLlm(llm, creator),
+        remoteModel: _wizardRemoteModel(llm, creator),
       ),
     );
     if (next == toolsGate) return;
     toolsGate = next;
     notify();
   }
+
+  /// "Check now": ask the wizard's model again.
+  Future<void> retestTools({
+    required ChatService chat,
+    required LLMProvider llm,
+    required CreatorState creator,
+  }) => chat.retestToolsFor(
+    via: _wizardLlm(llm, creator),
+    remoteModel: _wizardRemoteModel(llm, creator),
+  );
+
+  /// The Setup step's own remote pick; empty when it is chat's model.
+  String _wizardRemoteModel(LLMProvider llm, CreatorState creator) {
+    if (llm.hasManagedProcess) return '';
+    final pick = creator.selectedModelId;
+    return pick == llm.openRouterService.modelName ? '' : pick;
+  }
+
+  /// The service scout and write use for that pick (see [_llm]); null for
+  /// chat's own model.
+  LLMService? _wizardLlm(LLMProvider llm, CreatorState creator) =>
+      _wizardRemoteModel(llm, creator).isEmpty ? null : _llm(llm, creator);
 
   WikiSearchService _wiki() {
     final url = wikiUrl;

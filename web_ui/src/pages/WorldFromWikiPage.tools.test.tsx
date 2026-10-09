@@ -95,7 +95,7 @@ describe('World from Wiki tools gate on the phone', () => {
     await act(async () => {
       retest()!.click();
     });
-    expect(post).toHaveBeenCalledWith('/api/chat/tool-test');
+    expect(post).toHaveBeenCalledWith('/api/worlds/from-wiki/tool-test');
   });
 
   it('unlocks Scout with no explanation once the check passed', async () => {

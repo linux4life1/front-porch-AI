@@ -219,16 +219,18 @@ void main() {
     WorldToolsGate gate(
       ToolCallSupport support, {
       bool testing = false,
-      bool checkable = true,
       bool ready = true,
     }) => worldFromWikiToolsGate((
       support: support,
       testing: testing,
-      checkable: checkable,
       backendReady: ready,
     ));
 
     expect(gate(ToolCallSupport.supported), WorldToolsGate.ready);
+    expect(
+      gate(ToolCallSupport.supported, ready: false),
+      WorldToolsGate.notRunning,
+    );
     expect(
       gate(ToolCallSupport.untested, testing: true),
       WorldToolsGate.checking,
@@ -237,10 +239,6 @@ void main() {
     expect(
       gate(ToolCallSupport.untested, ready: false),
       WorldToolsGate.notRunning,
-    );
-    expect(
-      gate(ToolCallSupport.untested, checkable: false),
-      WorldToolsGate.otherModel,
     );
     expect(gate(ToolCallSupport.untested), WorldToolsGate.notChecked);
     for (final g in WorldToolsGate.values) {

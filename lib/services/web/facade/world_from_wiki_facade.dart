@@ -28,7 +28,6 @@ class WorldFromWikiFacade {
   bool get available => _llm.activeService.isReady;
 
   Future<Map<String, dynamic>> status() async {
-    _chat.checkToolSupportSoon();
     final gate = _toolsGate();
     return {
       'available': available,
@@ -36,6 +35,12 @@ class WorldFromWikiFacade {
       'toolsGate': gate.name,
       'savedWikis': _storage.webSearchSettings.savedWikiUrls,
     };
+  }
+
+  /// The wizard's "Check now": ask the chat model again, then report.
+  Future<Map<String, dynamic>> testTools() async {
+    await _chat.retestToolsFor();
+    return status();
   }
 
   Future<Map<String, dynamic>> scout(Map<String, dynamic> body) async {
@@ -152,6 +157,5 @@ class WorldFromWikiFacade {
     }
   }
 
-  WorldToolsGate _toolsGate() =>
-      worldFromWikiToolsGate(_chat.studioToolCheck());
+  WorldToolsGate _toolsGate() => worldFromWikiToolsGate(_chat.toolCheckFor());
 }

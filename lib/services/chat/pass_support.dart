@@ -88,11 +88,10 @@ List<CharacterCard> resolvePassOwners({
 enum ToolCallSupport { untested, supported, unsupported }
 
 /// The tool-calling verdict a studio wizard reads (see
-/// `ChatService.studioToolCheck`).
+/// `ChatService.toolCheckFor`).
 typedef StudioToolCheck = ({
   ToolCallSupport support,
   bool testing,
-  bool checkable,
   bool backendReady,
 });
 

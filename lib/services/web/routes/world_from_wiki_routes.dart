@@ -13,12 +13,16 @@ class WebWorldFromWikiRoutes {
     router.post('/api/worlds/from-wiki/scout', _scout);
     router.post('/api/worlds/from-wiki/write', _write);
     router.post('/api/worlds/from-wiki/abort', _abort);
+    router.post('/api/worlds/from-wiki/tool-test', _toolTest);
   }
 
   final WorldFromWikiFacade _facade;
 
   Future<shelf.Response> _status(shelf.Request r) async =>
       JsonResponse.ok(await _facade.status());
+
+  Future<shelf.Response> _toolTest(shelf.Request r) async =>
+      JsonResponse.ok(await _facade.testTools());
 
   Future<shelf.Response> _scout(shelf.Request r) async {
     Map<String, dynamic> body;
