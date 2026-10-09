@@ -3,10 +3,7 @@
 
 import 'dart:async';
 
-import 'package:path/path.dart' as p;
-
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
@@ -15,12 +12,15 @@ import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki.dart';
 
 /// Web twin of the desktop World-from-wiki wizard. Scout is request/response.
 /// Write reports over the hub; save is the existing POST /api/worlds.
+/// The tools gate is chat's own tool check on the chat model, which is the
+/// model scout and write run on here.
 class WorldFromWikiFacade {
-  WorldFromWikiFacade(this._llm, this._storage, this._hub);
+  WorldFromWikiFacade(this._llm, this._storage, this._hub, this._chat);
 
   final LLMProvider _llm;
   final StorageService _storage;
   final StreamHub? _hub;
+  final ChatService _chat;
 
   WorldFromWikiEngine? _live;
   bool _writing = false;
@@ -28,9 +28,12 @@ class WorldFromWikiFacade {
   bool get available => _llm.activeService.isReady;
 
   Future<Map<String, dynamic>> status() async {
+    _chat.checkToolSupportSoon();
+    final gate = _toolsGate();
     return {
       'available': available,
-      'toolsAdvertised': await _toolsOk(),
+      'toolsAdvertised': gate == WorldToolsGate.ready,
+      'toolsGate': gate.name,
       'savedWikis': _storage.webSearchSettings.savedWikiUrls,
     };
   }
@@ -40,8 +43,12 @@ class WorldFromWikiFacade {
     if (parseWikiBaseUrl(wikiUrl) == null) {
       return {'ok': false, 'error': 'wikiUrl is required'};
     }
-    if (!await _toolsOk()) {
-      return {'ok': false, 'error': kWorldFromWikiToolsCopy};
+    final gate = _toolsGate();
+    if (gate != WorldToolsGate.ready) {
+      return {
+        'ok': false,
+        'error': worldFromWikiToolsCopy(gate, onPhone: true),
+      };
     }
     final svc = _llm.activeService;
     if (!svc.isReady) {
@@ -101,10 +108,11 @@ class WorldFromWikiFacade {
       },
     );
     try {
-      if (!await _toolsOk()) {
+      final gate = _toolsGate();
+      if (gate != WorldToolsGate.ready) {
         _hub?.broadcast({
           'event': 'world_wiki_error',
-          'error': kWorldFromWikiToolsCopy,
+          'error': worldFromWikiToolsCopy(gate, onPhone: true),
         });
         return;
       }
@@ -144,28 +152,6 @@ class WorldFromWikiFacade {
     }
   }
 
-  Future<bool> _toolsOk() async {
-    if (_llm.hasManagedProcess) {
-      return worldFromWikiToolsOk(
-        isLocalBackend: true,
-        modelId: p.basename(_storage.backendSettings.lastUsedModelPath ?? ''),
-      );
-    }
-    final remote = _llm.openRouterService;
-    ModelApiCapabilities? caps;
-    try {
-      caps = await VisionSupportResolver.instance.capabilitiesForRemote(
-        apiUrl: remote.apiUrl,
-        apiKey: remote.apiKey,
-        modelName: remote.modelName,
-      );
-    } catch (_) {
-      caps = null;
-    }
-    return worldFromWikiToolsOk(
-      remoteCaps: caps,
-      isLocalBackend: caps == null,
-      modelId: remote.modelName,
-    );
-  }
+  WorldToolsGate _toolsGate() =>
+      worldFromWikiToolsGate(_chat.studioToolCheck());
 }

@@ -22,24 +22,42 @@ class WorldFromWikiPage extends StatefulWidget {
 class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
   late final CreatorState creatorState = CreatorState();
   late final WorldFromWikiState worldState = WorldFromWikiState();
+  late final ChatService _chat;
+  late final LLMProvider _llm;
 
   void _tick() {
     if (mounted) setState(() {});
   }
 
+  /// Chat's tool check moved (started, answered) or the backend changed.
+  void _readToolsGate({bool askNow = false}) {
+    if (!mounted) return;
+    worldState.refreshToolsGate(
+      chat: _chat,
+      llm: _llm,
+      creator: creatorState,
+      askNow: askNow,
+    );
+  }
+
+  void _onToolCheck() => _readToolsGate();
+
   void _onCreator() {
     _tick();
     if (!mounted || worldState.currentStep != 0) return;
-    final llm = Provider.of<LLMProvider>(context, listen: false);
-    worldState.refreshToolsGate(llm: llm, creator: creatorState);
+    _readToolsGate(askNow: true);
   }
 
   @override
   void initState() {
     super.initState();
+    _chat = Provider.of<ChatService>(context, listen: false);
+    _llm = Provider.of<LLMProvider>(context, listen: false);
     creatorState.loadSavedState();
     creatorState.addListener(_onCreator);
     worldState.addListener(_tick);
+    _chat.addListener(_onToolCheck);
+    _llm.addListener(_onToolCheck);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
       try {
@@ -63,13 +81,15 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
         if (worldState.wikiUrl.isEmpty && saved.isNotEmpty) {
           worldState.wikiUrl = saved.first;
         }
-        worldState.refreshToolsGate(llm: llm, creator: creatorState);
       } catch (_) {}
+      _readToolsGate(askNow: true);
     });
   }
 
   @override
   void dispose() {
+    _chat.removeListener(_onToolCheck);
+    _llm.removeListener(_onToolCheck);
     creatorState.removeListener(_onCreator);
     worldState.removeListener(_tick);
     creatorState.disposeControllers();
@@ -162,7 +182,7 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
     switch (step) {
       case 0:
         nextLabel = 'Next: Book';
-        onNext = worldState.toolsAdvertised
+        onNext = worldState.toolsReady
             ? () {
                 worldState.currentStep = 1;
                 worldState.notify();
@@ -262,6 +282,46 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
     );
   }
 
+  /// Why Next is locked, in plain words, and the pill's "ask again" when the
+  /// model is running but nothing has asked it yet.
+  Widget _toolsBanner(BuildContext context) {
+    final gate = worldState.toolsGate;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      child: Row(
+        children: [
+          if (gate == WorldToolsGate.checking) ...[
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: AppColors.porchAmberOf(context),
+              ),
+            ),
+            const SizedBox(width: 10),
+          ],
+          Expanded(
+            child: Text(
+              worldFromWikiToolsCopy(gate) ?? '',
+              key: const Key('world-from-wiki-tools-copy'),
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                height: 1.4,
+              ),
+            ),
+          ),
+          if (worldFromWikiToolsCanRetest(gate))
+            TextButton(
+              key: const Key('world-from-wiki-tools-retest'),
+              onPressed: _chat.testToolCalling,
+              child: const Text('Check now'),
+            ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -302,18 +362,8 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
       ),
       body: Column(
         children: [
-          if (worldState.currentStep == 0 && !worldState.toolsAdvertised)
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
-              child: Text(
-                kWorldFromWikiToolsCopy,
-                key: const Key('world-from-wiki-tools-copy'),
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  height: 1.4,
-                ),
-              ),
-            ),
+          if (worldState.currentStep == 0 && !worldState.toolsReady)
+            _toolsBanner(context),
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 280),

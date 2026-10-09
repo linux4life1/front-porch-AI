@@ -4,7 +4,7 @@
 // World from wiki — web twin of the desktop studio wizard. Scout proposes a
 // shelf; write runs on the Dart host; save is POST /api/worlds.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
@@ -12,19 +12,25 @@ import { StepIndicator } from '../components/StepIndicator';
 import type { LoreEntry } from '../components/LoreEntriesEditor';
 import {
   WORLD_FROM_WIKI_STEPS,
-  WORLD_FROM_WIKI_TOOLS_COPY,
   canOpenWorldFromWikiPreview,
   jumpWorldFromWikiStep,
   parseProposedCards,
+  parseWorldToolsGate,
   signedCards,
+  worldToolsCanRetest,
+  worldToolsCopy,
   type ProposedWorldCard,
 } from './worldFromWiki';
 
 type Status = {
   available: boolean;
   toolsAdvertised: boolean;
+  toolsGate?: string;
   savedWikis: string[];
 };
+
+/** How often the Setup step asks again while the tool check is not done. */
+const TOOLS_POLL_MS = 3000;
 
 export function WorldFromWikiPage() {
   const navigate = useNavigate();
@@ -51,17 +57,46 @@ export function WorldFromWikiPage() {
     tokenBudget: 2800,
   });
 
+  const loadStatus = useCallback(
+    () =>
+      api
+        .get<Status>('/api/worlds/from-wiki/status')
+        .then((r) => {
+          setStatus(r);
+          setWikiUrl((cur) => cur || r.savedWikis[0] || '');
+        })
+        .catch(() =>
+          setStatus({ available: false, toolsAdvertised: false, savedWikis: [] }),
+        ),
+    [],
+  );
+
   useEffect(() => {
-    api
-      .get<Status>('/api/worlds/from-wiki/status')
-      .then((r) => {
-        setStatus(r);
-        setWikiUrl((cur) => cur || r.savedWikis[0] || '');
-      })
-      .catch(() =>
-        setStatus({ available: false, toolsAdvertised: false, savedWikis: [] }),
-      );
-  }, []);
+    void loadStatus();
+  }, [loadStatus]);
+
+  const toolsGate = parseWorldToolsGate(status?.toolsGate, status?.toolsAdvertised);
+  const toolsOk = toolsGate === 'ready';
+
+  // The check runs on the host (chat's tool check); follow it until it lands.
+  useEffect(() => {
+    if (step !== 0 || toolsOk || status == null) return;
+    const id = window.setTimeout(() => void loadStatus(), TOOLS_POLL_MS);
+    return () => window.clearTimeout(id);
+  }, [step, toolsOk, status, loadStatus]);
+
+  const [retesting, setRetesting] = useState(false);
+  const retestTools = async () => {
+    setRetesting(true);
+    try {
+      await api.post('/api/chat/tool-test');
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Could not check the model');
+    } finally {
+      setRetesting(false);
+      void loadStatus();
+    }
+  };
 
   useEffect(() => {
     const socket = new ChatSocket((e) => {
@@ -189,7 +224,7 @@ export function WorldFromWikiPage() {
     }
   };
 
-  const toolsOk = status?.toolsAdvertised === true;
+  const toolsCopy = worldToolsCopy(toolsGate);
   const available = status?.available !== false;
 
   return (
@@ -214,8 +249,20 @@ export function WorldFromWikiPage() {
       {!available && (
         <p className="muted">No LLM backend is ready — start or connect a model first.</p>
       )}
-      {!toolsOk && (
-        <p className="muted" data-testid="world-from-wiki-tools-copy">{WORLD_FROM_WIKI_TOOLS_COPY}</p>
+      {status != null && toolsCopy && (
+        <div className="muted" data-testid="world-from-wiki-tools-copy">
+          <p>{toolsCopy}</p>
+          {worldToolsCanRetest(toolsGate) && (
+            <button
+              type="button"
+              data-testid="world-from-wiki-tools-retest"
+              disabled={retesting}
+              onClick={() => void retestTools()}
+            >
+              {retesting ? 'Checking…' : 'Check now'}
+            </button>
+          )}
+        </div>
       )}
 
       <div className="wizard-body">

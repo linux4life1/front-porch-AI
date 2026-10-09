@@ -11,7 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -216,35 +215,40 @@ void main() {
     expect(uri.queryParameters['srlimit'], '3');
   });
 
-  test('tools-incapable model is blocked', () {
+  test('tools gate follows chat\'s tool check, never the file name', () {
+    WorldToolsGate gate(
+      ToolCallSupport support, {
+      bool testing = false,
+      bool checkable = true,
+      bool ready = true,
+    }) => worldFromWikiToolsGate((
+      support: support,
+      testing: testing,
+      checkable: checkable,
+      backendReady: ready,
+    ));
+
+    expect(gate(ToolCallSupport.supported), WorldToolsGate.ready);
     expect(
-      worldFromWikiToolsOk(
-        remoteCaps: const ModelApiCapabilities(advertisesTools: false),
-        isLocalBackend: false,
-      ),
-      isFalse,
+      gate(ToolCallSupport.untested, testing: true),
+      WorldToolsGate.checking,
+    );
+    expect(gate(ToolCallSupport.unsupported), WorldToolsGate.failed);
+    expect(
+      gate(ToolCallSupport.untested, ready: false),
+      WorldToolsGate.notRunning,
     );
     expect(
-      worldFromWikiToolsOk(
-        remoteCaps: const ModelApiCapabilities(
-          toolCalling: true,
-          advertisesTools: true,
-        ),
-        isLocalBackend: false,
-      ),
-      isTrue,
+      gate(ToolCallSupport.untested, checkable: false),
+      WorldToolsGate.otherModel,
     );
-    expect(
-      worldFromWikiToolsOk(isLocalBackend: true, modelId: 'mythomax.gguf'),
-      isFalse,
-    );
-    expect(
-      worldFromWikiToolsOk(
-        isLocalBackend: true,
-        modelId: 'Qwen2.5-27B-Instruct.gguf',
-      ),
-      isTrue,
-    );
+    expect(gate(ToolCallSupport.untested), WorldToolsGate.notChecked);
+    for (final g in WorldToolsGate.values) {
+      final copy = worldFromWikiToolsCopy(g);
+      expect(copy == null, g == WorldToolsGate.ready, reason: g.name);
+    }
+    expect(worldFromWikiToolsCanRetest(WorldToolsGate.notChecked), isTrue);
+    expect(worldFromWikiToolsCanRetest(WorldToolsGate.failed), isFalse);
   });
 
   test('climate off writes no biome json; recursion is on', () {

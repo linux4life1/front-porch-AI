@@ -161,8 +161,8 @@ extension WebServerHostWiring on WebServerHost {
           )
         : null;
 
-    final worldFromWikiFacade = _llmProvider != null
-        ? WorldFromWikiFacade(_llmProvider!, _storage, streamHub)
+    final worldFromWikiFacade = (_llmProvider != null && chatService != null)
+        ? WorldFromWikiFacade(_llmProvider!, _storage, streamHub, chatService)
         : null;
 
     final backendFacade = (_llmProvider != null && _modelManager != null)

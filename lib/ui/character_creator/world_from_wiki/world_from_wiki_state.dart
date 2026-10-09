@@ -4,10 +4,8 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -24,7 +22,7 @@ class WorldFromWikiState extends ChangeNotifier {
   String wikiUrl = '';
   bool lorebooksOn = true;
   bool climateEnabled = false;
-  bool toolsAdvertised = false;
+  WorldToolsGate toolsGate = WorldToolsGate.notRunning;
   bool scouting = false;
   bool writing = false;
   String status = '';
@@ -47,6 +45,9 @@ class WorldFromWikiState extends ChangeNotifier {
   void notify() => notifyListeners();
 
   bool get busy => scouting || writing;
+
+  /// Chat's tool check passed for this wizard's model.
+  bool get toolsReady => toolsGate == WorldToolsGate.ready;
 
   bool get canSave => worldFromWikiCanSave(
     aborted: engine?.aborted ?? false,
@@ -80,36 +81,23 @@ class WorldFromWikiState extends ChangeNotifier {
     descController.dispose();
   }
 
-  Future<void> refreshToolsGate({
+  /// Read chat's tool check for the model this wizard runs on: the running
+  /// local engine, or the remote model picked on Setup. [askNow] starts the
+  /// check when nothing has asked this model yet (the backend-switch path).
+  void refreshToolsGate({
+    required ChatService chat,
     required LLMProvider llm,
     required CreatorState creator,
-  }) async {
-    if (llm.hasManagedProcess) {
-      toolsAdvertised = worldFromWikiToolsOk(
-        isLocalBackend: true,
-        modelId: p.basename(creator.selectedLocalModelPath),
-      );
-    } else {
-      final remote = llm.openRouterService;
-      final modelId = creator.selectedModelId.isEmpty
-          ? remote.modelName
-          : creator.selectedModelId;
-      ModelApiCapabilities? caps;
-      try {
-        caps = await VisionSupportResolver.instance.capabilitiesForRemote(
-          apiUrl: remote.apiUrl,
-          apiKey: remote.apiKey,
-          modelName: modelId,
-        );
-      } catch (_) {
-        caps = null;
-      }
-      toolsAdvertised = worldFromWikiToolsOk(
-        remoteCaps: caps,
-        isLocalBackend: caps == null,
-        modelId: modelId,
-      );
-    }
+    bool askNow = false,
+  }) {
+    if (askNow) chat.checkToolSupportSoon();
+    final next = worldFromWikiToolsGate(
+      chat.studioToolCheck(
+        remoteModel: llm.hasManagedProcess ? '' : creator.selectedModelId,
+      ),
+    );
+    if (next == toolsGate) return;
+    toolsGate = next;
     notify();
   }
 
@@ -136,8 +124,8 @@ class WorldFromWikiState extends ChangeNotifier {
       notify();
       return;
     }
-    if (!toolsAdvertised) {
-      error = kWorldFromWikiToolsCopy;
+    if (!toolsReady) {
+      error = worldFromWikiToolsCopy(toolsGate);
       notify();
       return;
     }
@@ -189,8 +177,8 @@ class WorldFromWikiState extends ChangeNotifier {
     required LLMProvider llm,
     required CreatorState creator,
   }) async {
-    if (!toolsAdvertised) {
-      error = kWorldFromWikiToolsCopy;
+    if (!toolsReady) {
+      error = worldFromWikiToolsCopy(toolsGate);
       notify();
       return;
     }

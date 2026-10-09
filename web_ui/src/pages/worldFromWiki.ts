@@ -5,8 +5,54 @@
 
 export const WORLD_FROM_WIKI_STEPS = ['Book', 'Review', 'Write', 'Preview'];
 
-export const WORLD_FROM_WIKI_TOOLS_COPY =
-  'Pick a tool-calling model (Qwen 27B, etc.). This wizard needs tools — it will not dump the wiki into one prompt.';
+/** Chat's own tool check for the chat model, as the host reports it. */
+export type WorldToolsGate =
+  | 'ready'
+  | 'checking'
+  | 'notRunning'
+  | 'notChecked'
+  | 'failed'
+  | 'otherModel';
+
+const TOOLS_GATES: readonly WorldToolsGate[] = [
+  'ready',
+  'checking',
+  'notRunning',
+  'notChecked',
+  'failed',
+  'otherModel',
+];
+
+/** Older hosts sent only `toolsAdvertised`; an unknown name is not ready. */
+export function parseWorldToolsGate(raw: unknown, toolsAdvertised?: unknown): WorldToolsGate {
+  if (typeof raw === 'string' && (TOOLS_GATES as readonly string[]).includes(raw)) {
+    return raw as WorldToolsGate;
+  }
+  return toolsAdvertised === true ? 'ready' : 'notChecked';
+}
+
+/** Same words as the desktop wizard (its phone wording). Null = may run. */
+export function worldToolsCopy(gate: WorldToolsGate): string | null {
+  switch (gate) {
+    case 'ready':
+      return null;
+    case 'checking':
+      return 'Checking whether this model can use tools…';
+    case 'notRunning':
+      return 'This wizard needs a model that can use tools, and the app checks that by asking the model itself, so it has to be running first. Start it on the Models page (or connect your online provider), and the check runs by itself.';
+    case 'notChecked':
+      return "This model hasn't been checked for tools yet. Press Check now and it takes a few seconds.";
+    case 'failed':
+      return "This model was tested and didn't answer the tool-calling check correctly, so it can't be used for World from Wiki. Pick a different model (for example Qwen 3 or Gemma 4) and it will be tested again.";
+    case 'otherModel':
+      return "This model hasn't been checked for tools yet, and the app can only check the model your chats use right now. Make it your chat model (in Settings), and the check runs by itself.";
+  }
+}
+
+/** The pill's "ask again", offered only when nothing has asked the model. */
+export function worldToolsCanRetest(gate: WorldToolsGate): boolean {
+  return gate === 'notChecked';
+}
 
 export type WorldCraftRole = 'era' | 'hub' | 'leaf' | 'crown';
 

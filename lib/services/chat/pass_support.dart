@@ -87,6 +87,15 @@ List<CharacterCard> resolvePassOwners({
 /// A backend identity's native tool-calling verdict, as observed this run.
 enum ToolCallSupport { untested, supported, unsupported }
 
+/// The tool-calling verdict a studio wizard reads (see
+/// `ChatService.studioToolCheck`).
+typedef StudioToolCheck = ({
+  ToolCallSupport support,
+  bool testing,
+  bool checkable,
+  bool backendReady,
+});
+
 /// Stable identity for eval transport capability state.
 ///
 /// The endpoint component keeps two OpenAI-compatible providers with the same

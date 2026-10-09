@@ -291,6 +291,12 @@ extension ChatServiceWiringEvals on ChatService {
         modelKey: _workerNamedByEngine ? _localModelKeyNow : null,
       );
     }
+    return _mouthEvalIdentity();
+  }
+
+  /// The chat model's identity. [remoteModel] names another model on the same
+  /// remote host (a studio wizard's own pick); empty means chat's own.
+  String _mouthEvalIdentity({String remoteModel = ''}) {
     final service = _mouthLlm;
     final remoteApiUrl = service is LlmApiEndpoint
         ? (service as LlmApiEndpoint).apiUrl
@@ -307,7 +313,9 @@ extension ChatServiceWiringEvals on ChatService {
       remoteApiUrl: remoteApiUrl,
       remoteModelName: local
           ? ''
-          : _storageService.backendSettings.remoteModelName,
+          : (remoteModel.isNotEmpty
+                ? remoteModel
+                : _storageService.backendSettings.remoteModelName),
       modelPath: local ? _localModelKeyNow : null,
     );
   }
@@ -432,6 +440,26 @@ extension ChatServiceWiringEvals on ChatService {
 
   /// Re-probe the current backend+model's tool support (pill tap).
   Future<void> testToolCalling() => _toolSupportTester.test(force: true);
+
+  /// The pill's verdict for the model a studio wizard runs on: the chat model
+  /// on the active backend, or [remoteModel] when the wizard picked another
+  /// one. Not [checkable] while the tester asks about a different model (a
+  /// helper lane, or that other pick): the verdict is then only what the
+  /// shared probe already knows.
+  StudioToolCheck studioToolCheck({String remoteModel = ''}) {
+    final id = _mouthEvalIdentity(remoteModel: remoteModel);
+    final checkable = id == _evalBackendIdentity;
+    return (
+      support: _toolProbe.supportFor(id),
+      testing: checkable && _toolSupportTester.isTesting,
+      checkable: checkable,
+      backendReady: _mouthLlm.isReady,
+    );
+  }
+
+  /// Start the pill's automatic test if this model has none yet — the same
+  /// path a backend switch takes; a no-op once it has asked.
+  void checkToolSupportSoon() => _toolSupportTester.onBackendMaybeChanged();
 
   bool get toolCallingPaused =>
       _toolProbe.isPausedUntilPing(_evalBackendIdentity);
