@@ -50,6 +50,7 @@ export 'overlays/generation_status_bar.dart';
 export 'widgets/cast_roster_chip.dart';
 export 'widgets/chat_image_attachment.dart';
 export 'widgets/composer_drop_zone.dart';
+export 'widgets/director_turn_buttons.dart';
 export 'widgets/eval_pill.dart';
 export 'widgets/generating_image_bubble.dart';
 export 'widgets/look_chevrons.dart';

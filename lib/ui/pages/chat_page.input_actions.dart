@@ -379,44 +379,22 @@ extension _ChatPageInputActions on _ChatPageState {
           );
         },
       ),
-      // Auto-play button (observer mode only)
-      if (chatService.isGroupMode &&
-          chatService.observerMode &&
-          !chatService.isGenerating)
-        Tooltip(
-          message: chatService.autoPlayActive
-              ? 'Pause auto-chat'
-              : 'Start auto-chat',
-          child: IconButton(
-            icon: Icon(
-              chatService.autoPlayActive
-                  ? Icons.pause_circle_filled
-                  : Icons.play_circle_filled,
-              color: chatService.autoPlayActive
-                  ? Colors.orangeAccent
-                  : Colors.amberAccent,
-            ),
-            onPressed: () {
-              if (chatService.autoPlayActive) {
-                chatService.stopAutoPlay();
-              } else {
-                chatService.startAutoPlay();
-              }
-            },
-          ),
-        ),
-      // Next Character button (group mode only, not in auto-play)
-      if (chatService.isGroupMode &&
-          !chatService.isGenerating &&
-          !chatService.autoPlayActive)
-        Tooltip(
-          message: chatService.nextCharacter != null
+      // Auto-play (Director Mode) + Next Character; Next stays greyed out
+      // while auto-play runs so Pause lands where Play was.
+      if (chatService.isGroupMode && !chatService.isGenerating)
+        DirectorTurnButtons(
+          showAutoPlay: chatService.observerMode,
+          autoPlayActive: chatService.autoPlayActive,
+          nextTooltip: chatService.nextCharacter != null
               ? 'Next: ${chatService.nextCharacter!.name}'
               : 'Trigger next character',
-          child: IconButton(
-            icon: const Icon(Icons.group, color: Colors.purpleAccent),
-            onPressed: () => chatService.triggerNextCharacter(),
-          ),
+          onToggleAutoPlay: chatService.autoPlayActive
+              ? chatService.stopAutoPlay
+              : chatService.startAutoPlay,
+          onNextCharacter: chatService.triggerNextCharacter,
+          playColor: Colors.amberAccent,
+          pauseColor: Colors.orangeAccent,
+          nextColor: Colors.purpleAccent,
         ),
       // Generate reply button (1:1 only) — shown when the AI is
       // "up next", i.e. the last message is the user's (e.g. the
