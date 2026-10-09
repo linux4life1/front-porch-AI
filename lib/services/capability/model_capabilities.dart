@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:front_porch_ai/utils/gguf_vision.dart';
 
 /// Where a vision verdict came from. Higher-quality signals (metadata, embedded
@@ -268,4 +270,23 @@ ModelApiCapabilities? omlxCapabilitiesFromStatusEntry(
     default:
       return null;
   }
+}
+
+/// Vision verdict from the raw body of KoboldCpp's `GET /api/extra/version`,
+/// or null when the body is not KoboldCpp's (another server's page, not
+/// JSON, or no boolean `vision` field) and the caller must fall through.
+///
+/// KoboldCpp answers an image probe 200 while silently dropping the image
+/// when no projector (mmproj) is loaded, so its own `vision` flag is the
+/// only signal that says whether pixels will be seen.
+ModelApiCapabilities? koboldCapabilitiesFromVersionBody(String body) {
+  final Object? json;
+  try {
+    json = jsonDecode(body);
+  } on FormatException {
+    return null; // Not JSON, so not KoboldCpp.
+  }
+  if (json is! Map || json['result'] != 'KoboldCpp') return null;
+  final vision = json['vision'];
+  return vision is bool ? ModelApiCapabilities(vision: vision) : null;
 }

@@ -36,9 +36,10 @@ import 'package:front_porch_ai/utils/gguf_vision.dart';
 ///    projector, or multimodal-arch + configured mmproj.
 ///  - OpenRouter: `architecture.input_modalities` from `/models`.
 ///  - Nano-GPT: `capabilities.vision` from `/models?detailed=true`.
+///  - KoboldCpp (as a remote URL): `vision` from `/api/extra/version`.
 ///  - LM Studio: `type == "vlm"` / `capabilities` from `/api/v0/models`.
 ///  - oMLX: `engine_type == "vlm"` from `/v1/models/status`.
-///    (Both extension endpoints are tried opportunistically on every
+///    (These extension endpoints are tried opportunistically on every
 ///    non-metadata host; other servers 404 them in milliseconds and fall
 ///    through.)
 ///  - Generic OpenAI-compatible / unknown: a runtime image probe.
@@ -161,6 +162,14 @@ class VisionSupportResolver {
     // (the probe can't be either of those). Servers without the extension
     // 404 it in milliseconds and fall through.
     if (!isCapabilityMetadataProviderUrl(apiUrl)) {
+      // KoboldCpp: /api/extra/version carries `vision`. Its probe answers
+      // 200 and drops the image when no mmproj is loaded, so this decides.
+      final kobold = await _koboldVersionVision(apiUrl, apiKey);
+      if (kobold != null) {
+        _remoteCache[key] = kobold;
+        return kobold;
+      }
+
       // LM Studio: /api/v0/models, `type: "vlm"` is exactly how LM Studio
       // decides to show its own eye icon. Only trusted when the entry
       // actually carries the discriminating field.
@@ -368,6 +377,33 @@ class VisionSupportResolver {
       return null;
     } catch (e) {
       debugPrint('[VisionResolver] metadata fetch failed ($uri): $e');
+      return null;
+    } finally {
+      client.close();
+    }
+  }
+
+  /// KoboldCpp's own vision flag from `/api/extra/version` at the server
+  /// root, or null when that host is not KoboldCpp or does not answer.
+  Future<VisionSupport?> _koboldVersionVision(
+    String apiUrl,
+    String apiKey,
+  ) async {
+    final uri = originEndpointUri(apiUrl, 'api/extra/version');
+    if (uri == null) return null;
+    final client = httpClientFactory();
+    try {
+      final response = await client
+          .get(
+            uri,
+            headers: {if (apiKey.isNotEmpty) 'Authorization': 'Bearer $apiKey'},
+          )
+          .timeout(const Duration(seconds: 6));
+      if (response.statusCode != 200) return null;
+      final caps = koboldCapabilitiesFromVersionBody(response.body);
+      return caps == null ? null : VisionSupport.fromApi(caps);
+    } catch (e) {
+      debugPrint('[VisionResolver] KoboldCpp version check failed ($uri): $e');
       return null;
     } finally {
       client.close();
