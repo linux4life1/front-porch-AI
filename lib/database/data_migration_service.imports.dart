@@ -280,6 +280,10 @@ extension _DataMigrationImports on DataMigrationService {
             firstMessage: Value(json['first_message'] ?? ''),
             scenario: Value(json['scenario'] ?? ''),
             systemPrompt: Value(json['system_prompt'] ?? ''),
+            // Explicit: an older library's SQL default would say "inherit".
+            inheritCharacterLorebooks: Value(
+              json['inherit_character_lorebooks'] == true,
+            ),
           ),
         );
         debugPrint('DB_MIGRATION: Imported group: ${json['name']}');

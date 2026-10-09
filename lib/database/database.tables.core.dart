@@ -310,8 +310,11 @@ class Groups extends Table {
   TextColumn get worldIds => text().withDefault(
     const Constant('[]'),
   )(); // JSON array of world IDs for scoping
+  // New groups do not inherit member lorebooks unless the user turns it on.
+  // Libraries created before this keep their own SQL default (the ladder's
+  // ADD COLUMN); every app write sets the value explicitly.
   BoolColumn get inheritCharacterLorebooks =>
-      boolean().withDefault(const Constant(true))();
+      boolean().withDefault(const Constant(false))();
 
   /// Immutable creation-time baseline realism/needs seed for this group definition.
   /// JSON shape is identical to defaultMemberRealismState and sessions.group_realism_state.

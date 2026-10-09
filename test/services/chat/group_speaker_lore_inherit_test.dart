@@ -122,7 +122,13 @@ void main() {
       ),
     );
     await chat.setActiveGroup(
-      GroupChat(id: 'grp-lore', name: 'The Cast'),
+      // Inherit on: this suite pins which member book a turn inherits
+      // (new groups default to off).
+      GroupChat(
+        id: 'grp-lore',
+        name: 'The Cast',
+        inheritCharacterLorebooks: true,
+      ),
       groupRepo: GroupChatRepository(storage, db),
     );
   }

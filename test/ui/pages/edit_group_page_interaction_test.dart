@@ -64,6 +64,9 @@ void main() {
       stableId: 'Porch_Regulars_123',
       systemPrompt: 'Keep it cozy.',
       firstMessage: 'Evening, all.',
+      // Starts on so the tab's flip below is a real change (new groups
+      // default to off).
+      inheritCharacterLorebooks: true,
     );
 
     final groups = _RecordingGroups();

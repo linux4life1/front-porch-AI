@@ -108,7 +108,7 @@ class GroupCard {
     this.groupLorebook,
     List<String>? worldIds,
     List<String>? worldNames,
-    this.inheritCharacterLorebooks = true,
+    this.inheritCharacterLorebooks = false,
     this.chaosModeEnabled = false,
     this.chaosNsfwEnabled = false,
     this.baselineRealismState = '{}',
@@ -249,7 +249,10 @@ class GroupCard {
       groupLorebook: json['group_lorebook']?.toString(),
       worldIds: worldIds,
       worldNames: worldNames,
-      inheritCharacterLorebooks: flag(json['inherit_character_lorebooks'], true),
+      inheritCharacterLorebooks: flag(
+        json['inherit_character_lorebooks'],
+        false,
+      ),
       chaosModeEnabled: flag(json['chaos_mode_enabled'], false),
       chaosNsfwEnabled: flag(json['chaos_nsfw_enabled'], false),
       baselineRealismState: json['baseline_realism_state']?.toString() ?? '{}',
@@ -259,7 +262,9 @@ class GroupCard {
           ? (json['member_objectives'] as Map).map(
               (k, v) => MapEntry(
                 k.toString(),
-                list(v).whereType<Map>().map(Map<String, dynamic>.from).toList(),
+                list(
+                  v,
+                ).whereType<Map>().map(Map<String, dynamic>.from).toList(),
               ),
             )
           : const {},

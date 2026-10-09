@@ -5870,7 +5870,7 @@ class $GroupsTable extends Groups with TableInfo<$GroupsTable, Group> {
         defaultConstraints: GeneratedColumn.constraintIsAlways(
           'CHECK ("inherit_character_lorebooks" IN (0, 1))',
         ),
-        defaultValue: const Constant(true),
+        defaultValue: const Constant(false),
       );
   static const VerificationMeta _baselineRealismStateMeta =
       const VerificationMeta('baselineRealismState');

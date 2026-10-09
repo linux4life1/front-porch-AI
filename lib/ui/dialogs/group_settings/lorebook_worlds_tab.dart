@@ -33,7 +33,7 @@ class GroupLorebookWorldsTab extends StatefulWidget {
 }
 
 class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
-  bool _inheritCharacterLorebooks = true;
+  bool _inheritCharacterLorebooks = false;
   List<String> _worldIds = [];
   List<LorebookEntry> _groupLoreEntries = [];
   bool _bookUnreadable = false;
@@ -51,7 +51,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
     final g = widget.chatService.activeGroup;
 
     if (g == null) {
-      _inheritCharacterLorebooks = true;
+      _inheritCharacterLorebooks = false;
       _worldIds = [];
       _groupLoreEntries = [];
       return;

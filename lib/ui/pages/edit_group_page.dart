@@ -106,7 +106,7 @@ class _EditGroupPageState extends State<EditGroupPage>
 
   final List<LorebookEntry> _groupLoreEntries = [];
   final List<String> _worldIds = [];
-  bool _inheritCharacterLorebooks = true;
+  bool _inheritCharacterLorebooks = false;
 
   // Preserved on edit (baseline is immutable per spec; default seeds passed through)
   String _baselineRealismState = '{}';

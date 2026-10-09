@@ -89,7 +89,7 @@ void main() {
       );
       expect(g.autoAdvance, isFalse);
       expect(g.directorMode, isFalse);
-      expect(g.inheritCharacterLorebooks, isTrue, reason: 'default is on');
+      expect(g.inheritCharacterLorebooks, isFalse, reason: 'default is off');
       expect(g.chaosModeEnabled, isFalse);
       expect(g.chaosNsfwEnabled, isFalse);
     });

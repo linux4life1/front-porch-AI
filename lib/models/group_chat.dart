@@ -129,7 +129,7 @@ class GroupChat {
     Map<String, String>? characterSystemPrompts,
     this.worldIds = const [],
     this.groupLorebook = '',
-    this.inheritCharacterLorebooks = true,
+    this.inheritCharacterLorebooks = false,
     this.chaosModeEnabled = false,
     this.chaosNsfwEnabled = false,
   }) : characterSystemPrompts = characterSystemPrompts ?? {};
@@ -217,7 +217,7 @@ class GroupChat {
       characterSystemPrompts: charPrompts,
       worldIds: worldIdsList,
       groupLorebook: json['group_lorebook'] ?? '',
-      inheritCharacterLorebooks: json['inherit_character_lorebooks'] ?? true,
+      inheritCharacterLorebooks: json['inherit_character_lorebooks'] ?? false,
       chaosModeEnabled: json['chaos_mode_enabled'] ?? false,
       chaosNsfwEnabled: json['chaos_nsfw_enabled'] ?? false,
     );
