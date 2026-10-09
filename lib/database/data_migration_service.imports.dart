@@ -280,9 +280,11 @@ extension _DataMigrationImports on DataMigrationService {
             firstMessage: Value(json['first_message'] ?? ''),
             scenario: Value(json['scenario'] ?? ''),
             systemPrompt: Value(json['system_prompt'] ?? ''),
-            // Explicit: an older library's SQL default would say "inherit".
+            // These are existing groups: one saved before the field existed
+            // always inherited, so a missing key keeps it on (only NEW
+            // groups default off).
             inheritCharacterLorebooks: Value(
-              json['inherit_character_lorebooks'] == true,
+              json['inherit_character_lorebooks'] as bool? ?? true,
             ),
           ),
         );

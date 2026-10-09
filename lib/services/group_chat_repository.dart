@@ -77,8 +77,8 @@ class GroupChatRepository extends ChangeNotifier {
         } catch (_) {}
 
         // Construct GroupChat using *real column values* from the v31 schema additions.
-        // Old groups receive the DB column defaults (false, '', '[]', true, '{}') which
-        // preserve previous behavior and require no one-time promotion logic here.
+        // Old groups kept the defaults their columns were added with (inherit was
+        // added as 1); every app write since sets each value explicitly.
         _groups.add(
           GroupChat(
             id: g.id,

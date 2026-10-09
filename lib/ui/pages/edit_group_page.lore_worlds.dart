@@ -27,6 +27,11 @@ part of 'edit_group_page.dart';
 /// directly). The `Provider.of<WorldRepository>(context)` call at the top
 /// stays a LISTENING read (no `listen: false`) exactly as before — hoisting
 /// it to the shell's build() would widen the rebuild scope to the whole page.
+/// Shown on the Lore & Worlds tab when the stored group lorebook can't be read.
+const kEditGroupUnreadableLoreNote =
+    "This group's lorebook couldn't be read, so its entries aren't being "
+    'used. New entries you add here can replace it; Save asks first.';
+
 extension _EditGroupLoreWorldsTab on _EditGroupPageState {
   Widget _buildLoreWorldsTab() {
     final worldRepo = Provider.of<WorldRepository>(context);
@@ -144,6 +149,14 @@ extension _EditGroupLoreWorldsTab on _EditGroupPageState {
             ],
           ),
           const SizedBox(height: 8),
+          if (_bookUnreadable)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                kEditGroupUnreadableLoreNote,
+                style: TextStyle(color: AppColors.porchAmberOf(context)),
+              ),
+            ),
           if (_groupLoreEntries.isEmpty)
             Text(
               'No group lore entries yet. These take highest priority in prompts.',
@@ -367,5 +380,34 @@ extension _EditGroupLoreWorldsTab on _EditGroupPageState {
         ],
       ),
     );
+  }
+
+  /// Whether Save keeps the stored (unreadable) lorebook text: true keeps it,
+  /// false writes the entries on screen, null cancels the save. A readable
+  /// book is always written from the screen; an unreadable one is replaced
+  /// only when the user, asked here, says so.
+  Future<bool?> _keepUnreadableLorebook() async {
+    if (!_bookUnreadable) return false;
+    if (_groupLoreEntries.isEmpty) return true;
+    final replace = await showWarmDialog<bool>(
+      context,
+      title: 'Replace the old lorebook?',
+      icon: Icons.menu_book,
+      content: const WarmDialogText(
+        "This group's old lorebook couldn't be read. Saving the entries you "
+        'added replaces it for good. Keep it to save your other changes and '
+        'leave the old lorebook as it is.',
+      ),
+      actions: [
+        warmDialogCancel(context, label: 'Keep old lorebook', value: false),
+        warmDialogConfirm(
+          context,
+          label: 'Replace it',
+          onPressed: () => Navigator.of(context).pop(true),
+        ),
+      ],
+    );
+    if (replace == null) return null;
+    return !replace;
   }
 }
