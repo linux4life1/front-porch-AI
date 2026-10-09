@@ -297,24 +297,21 @@ extension LLMProviderWorker on LLMProvider {
       return null;
     }
 
-    if (_backendManager.backendPath == null) {
-      await _backendManager.checkBackendAvailability();
-      if (_backendManager.backendPath == null) {
-        unawaited(_backendManager.ensureEngineInstalled());
-        return const KoboldLaunchResult.refused(
-          'The AI engine is not installed yet.',
-        );
-      }
+    // Looked for again: the build on disk must be the one the acceleration
+    // choice needs, whatever changed since the last look.
+    final engine = await _backendManager.engineForStart();
+    if (engine == null) {
+      unawaited(_backendManager.ensureEngineInstalled());
+      return const KoboldLaunchResult.refused(
+        'The AI engine is not installed yet.',
+      );
     }
 
     try {
       if (!forGpuSwap) {
         // Chat entry: the same rule as every other start.
         if (!resolveKoboldLaunch(_storageService).canLaunch) return null;
-        return await _koboldService.launch(
-          _backendManager.backendPath!,
-          port: _koboldService.port,
-        );
+        return await _koboldService.launch(engine, port: _koboldService.port);
       }
       // A swap names its own model and preset.
       if (requested.isEmpty && kcpps.isEmpty) {
@@ -335,7 +332,7 @@ extension LLMProviderWorker on LLMProvider {
               normalizeLocalModelPath(chat.modelPath) &&
           chatKcpps.contains(normalizeLocalModelPath(kcpps));
       return await _koboldService.startKobold(
-        _backendManager.backendPath!,
+        engine,
         requested,
         kcppsPath: kcpps.isEmpty ? null : kcpps,
         port: _koboldService.port,

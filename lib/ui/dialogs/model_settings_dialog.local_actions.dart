@@ -66,7 +66,10 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     final koboldService = Provider.of<KoboldService>(context, listen: false);
     final backendManager = Provider.of<BackendManager>(context, listen: false);
 
-    if (backendManager.backendPath == null) {
+    // Looked for again: the build on disk must be the one the choice needs.
+    final engine = await backendManager.engineForStart();
+    if (!mounted) return;
+    if (engine == null) {
       // Not an error state anymore: kick the background acquisition (no-op
       // when already downloading) and point at the corner chip's progress.
       backendManager.ensureEngineInstalled();
@@ -124,7 +127,7 @@ extension _ModelSettingsLocalActions on _ModelSettingsDialogState {
     // whose file is gone is cleared by the launch, which then goes ahead
     // and says so.
     final result = await koboldService.launch(
-      backendManager.backendPath!,
+      engine,
       pickedModel: _selectedModelPath,
     );
     if (mounted) navigator.pop();

@@ -118,7 +118,15 @@ class SetupService extends ChangeNotifier {
         _currentStep = SetupStep.startingBackend;
         notifyListeners();
 
-        await _koboldService.launch(_backendManager.backendPath!);
+        // Looked for again after the wait: the engine files can change. The
+        // look awaits, so whether the user started one meanwhile is asked
+        // again after it.
+        final engine = await _backendManager.engineForStart();
+        if (engine == null) {
+          debugPrint('[Setup] autostart skipped: the engine is gone');
+        } else if (!_koboldService.isRunning) {
+          await _koboldService.launch(engine);
+        }
 
         _currentStep = SetupStep.complete;
         notifyListeners();

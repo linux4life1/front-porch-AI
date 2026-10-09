@@ -52,6 +52,9 @@ class FakeBackendManager extends ChangeNotifier implements BackendManager {
   String? get backendPath => installedPath;
 
   @override
+  Future<String?> engineForStart() async => installedPath;
+
+  @override
   Future<void> checkBackendAvailability() async {}
 
   @override

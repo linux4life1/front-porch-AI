@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as path;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:front_porch_ai/services/gpu_backend_resolver.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/update_service.dart';
@@ -61,7 +62,6 @@ class BackendManager extends ChangeNotifier {
   /// Done once the first look for the engine file and its record is over;
   /// the start-up gate reads [backendPath] only after this.
   final Completer<void> _engineChecked = Completer<void>();
-  bool _useRocm = false;
   bool _hasCuda = false;
   // Detected once. When the CPU lacks AVX2 (older/low-end PCs), KoboldCpp's
   // standard + nocuda builds crash on launch, so we fetch its `oldpc` build
@@ -73,6 +73,26 @@ class BackendManager extends ChangeNotifier {
   final bool _hasAvx2 = cpuHasAvx2();
 
   bool get useRocm => _useRocm;
+
+  /// The ROCm choice, read live: the build to fetch and run follows it.
+  /// ROCm is an explicit opt-in only (see GpuBackendResolver's policy).
+  bool get _useRocm =>
+      _onLinux && _storageService.backendSettings.useRocm == true;
+
+  /// What the chosen acceleration needs the engine build to carry. The
+  /// vendor only tells Vulkan from CPU, which every build runs.
+  GpuBackend get _neededBackend {
+    final b = _storageService.backendSettings;
+    return GpuBackendResolver.resolve(
+      userCublas: b.useCublas,
+      userVulkan: b.useVulkan,
+      userRocm: b.useRocm,
+      userMetal: b.useMetal,
+      hasCuda: _hasCuda,
+      vendor: 'Unknown',
+      onMac: _onMac,
+    );
+  }
 
   bool get isDownloading => _isDownloading;
   double get downloadProgress => _downloadProgress;
@@ -119,33 +139,66 @@ class BackendManager extends ChangeNotifier {
   Future<void> get architectureKnown => _archRead.future;
 
   final bool _onMac;
+  final bool _onLinux;
   final Future<String?> Function() _readArch;
 
-  /// [onMac] and [readArch] stand in for the machine in tests.
+  /// [onMac], [onLinux] and [readArch] stand in for the machine in tests.
   BackendManager(
     this._storageService, {
     @visibleForTesting bool? onMac,
+    @visibleForTesting bool? onLinux,
     @visibleForTesting Future<String?> Function()? readArch,
   }) : _onMac = onMac ?? Platform.isMacOS,
+       _onLinux = onLinux ?? Platform.isLinux,
        _readArch = readArch ?? _uname {
     _init();
     _storageService.addListener(_onStorageChanged); // React to path changes
+    unawaited(_storageService.initialized.then((_) => _settingsLoaded()));
   }
 
   // StorageService notifies on EVERY settings mutation (any slider, any
   // toggle) — but _init spawns processes (uname / nvidia-smi) and re-reads
   // the binary version from disk, so re-running it per notify made flipping
   // an unrelated switch spawn a process. Only the inputs _init actually
-  // reads matter: the data root (bin dir) and the ROCm opt-in.
+  // reads matter: the data root (bin dir) and the acceleration the engine
+  // build has to carry.
   String? _lastInitRoot;
-  bool? _lastInitUseRocm;
+  GpuBackend? _lastWish;
+  bool _loaded = false;
   void _onStorageChanged() {
     final root = _storageService.rootPath;
-    final useRocm = _storageService.backendSettings.useRocm == true;
-    if (root == _lastInitRoot && useRocm == _lastInitUseRocm) return;
+    final wish = _neededBackend;
+    if (root == _lastInitRoot && wish == _lastWish) return;
+    // ROCm chosen while the app runs fetches its build at once. A choice
+    // read with the settings at start-up does not: start-up never
+    // downloads on its own.
+    final pickedRocm =
+        _loaded && wish == GpuBackend.rocm && _lastWish != GpuBackend.rocm;
     _lastInitRoot = root;
-    _lastInitUseRocm = useRocm;
-    _init();
+    _lastWish = wish;
+    unawaited(_init().then((_) => pickedRocm ? _fetchChosenEngine() : null));
+  }
+
+  /// The settings as saved are in: what they ask for is the baseline a
+  /// later choice is told apart from.
+  void _settingsLoaded() {
+    if (_disposed) return;
+    final root = _storageService.rootPath;
+    final wish = _neededBackend;
+    final changed = root != _lastInitRoot || wish != _lastWish;
+    _lastInitRoot = root;
+    _lastWish = wish;
+    _loaded = true;
+    if (changed) unawaited(_init());
+  }
+
+  /// The build the choice needs, when it is not on disk: after any download
+  /// already running (never a second one at once).
+  Future<void> _fetchChosenEngine() async {
+    await awaitDownload();
+    if (_disposed) return;
+    await checkBackendAvailability();
+    if (_backendPath == null) await ensureEngineInstalled();
   }
 
   @override // IMPORTANT
@@ -183,7 +236,7 @@ class BackendManager extends ChangeNotifier {
       _archRead.complete();
     }
     // Detect GPU acceleration availability on Linux
-    if (Platform.isLinux) {
+    if (_onLinux) {
       // Check for NVIDIA/CUDA
       try {
         final cudaRes = await Process.run('nvidia-smi', []);
@@ -193,11 +246,6 @@ class BackendManager extends ChangeNotifier {
         _hasCuda = false;
         print('AG_DEBUG: CUDA not found (nvidia-smi not available)');
       }
-      // ROCm is an explicit expert opt-in ONLY (see GpuBackendResolver's
-      // policy note) — rocminfo succeeding is not proof koboldcpp's hipblas
-      // kernels support the card, and auto-selecting it used to hand AMD
-      // users a broken binary while their launch flags said Vulkan.
-      _useRocm = _storageService.backendSettings.useRocm == true;
       print('AG_DEBUG: ROCm binary (user opt-in): $_useRocm');
     }
     // Only a look that had the data root counts: the first pass can start
@@ -220,39 +268,43 @@ class BackendManager extends ChangeNotifier {
     // Portable builds: auto-check skipped (manual button still works)
   }
 
+  /// The engine file a start runs: the build this machine downloads, or on
+  /// Linux a build already on disk that carries the chosen acceleration (a
+  /// ROCm choice never runs on a build without ROCm). Null: none is there.
+  Future<File?> _findEngine() async {
+    final binDir = _storageService.binDir.path;
+    final wanted = _getExecutableName();
+    if (!_onLinux) {
+      final file = File(path.join(binDir, wanted));
+      return await file.exists() ? file : null;
+    }
+    final onDisk = <String>[
+      for (final name in {wanted, ...kLinuxEngineBuilds.keys})
+        if (await File(path.join(binDir, name)).exists()) name,
+    ];
+    final pick = linuxEngineFor(
+      wanted: wanted,
+      backend: _neededBackend,
+      onDisk: onDisk,
+      avx2: _hasAvx2,
+    );
+    return pick == null ? null : File(path.join(binDir, pick));
+  }
+
+  /// The engine a start runs, looked for again now: files can change while
+  /// the app is open (a download, a removed build, another choice), so a
+  /// start never trusts the last look.
+  Future<String?> engineForStart() async {
+    if (_storageService.rootPath == null) return backendPath;
+    final found = await _findEngine();
+    if (found?.path != _backendPath) await checkBackendAvailability();
+    return backendPath;
+  }
+
   Future<void> checkBackendAvailability() async {
     if (_storageService.rootPath == null) return;
 
-    final binDir = _storageService.binDir;
-    final executableName = _getExecutableName();
-    final file = File(path.join(binDir.path, executableName));
-
-    // Also check for other variants (user may have switched GPU acceleration)
-    final altNames = <String>[];
-    if (Platform.isLinux) {
-      for (final name in [
-        'koboldcpp-linux-x64',
-        'koboldcpp-linux-x64-rocm',
-        'koboldcpp-linux-x64-nocuda',
-        'koboldcpp-linux-x64-oldpc',
-      ]) {
-        if (name != executableName) altNames.add(name);
-      }
-    }
-
-    File? foundFile;
-    if (await file.exists()) {
-      foundFile = file;
-    } else {
-      for (final altName in altNames) {
-        final altFile = File(path.join(binDir.path, altName));
-        if (await altFile.exists()) {
-          foundFile = altFile;
-          break;
-        }
-      }
-    }
-
+    final foundFile = await _findEngine();
     if (foundFile != null) {
       _backendPath = foundFile.path;
       _statusMessage = 'Ready';
@@ -287,7 +339,7 @@ class BackendManager extends ChangeNotifier {
         // (what koboldai.org/cpplinuxrocm serves), never in releases/latest
         // — version-checking it against latest lied about what was
         // installed.
-        final releasePath = (Platform.isLinux && _useRocm)
+        final releasePath = _useRocm
             ? 'releases/tags/rocm-rolling'
             : 'releases/latest';
         final response = await client

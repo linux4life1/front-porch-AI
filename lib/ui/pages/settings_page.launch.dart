@@ -46,10 +46,14 @@ extension _SettingsLaunchOptions on _SettingsPageState {
     final messenger = ScaffoldMessenger.of(ctx);
 
     // Checked before anything is stopped, so a model or preset that cannot
-    // be used leaves the running engine alone.
+    // be used, or an engine build the choice cannot run on (looked for
+    // again; it downloads), leaves the running engine alone.
     final problem = await koboldLaunchProblem(storage);
-    if (problem != null) {
-      messenger.showSnackBar(SnackBar(content: Text(problem)));
+    final engine = await backendManager.engineForStart();
+    if (problem != null || engine == null) {
+      if (engine == null) backendManager.ensureEngineInstalled();
+      final why = problem ?? 'The AI engine is downloading (see the corner).';
+      messenger.showSnackBar(SnackBar(content: Text(why)));
       return;
     }
 
@@ -58,7 +62,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
       await koboldService.stopKobold();
       await Future.delayed(const Duration(seconds: 1));
     }
-    final result = await koboldService.launch(backendManager.backendPath!);
+    final result = await koboldService.launch(engine);
     messenger.showSnackBar(
       SnackBar(
         content: Text(

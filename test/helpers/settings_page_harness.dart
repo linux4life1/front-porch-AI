@@ -146,6 +146,8 @@ class ReadyBackendManager extends ChangeNotifier implements BackendManager {
   @override
   String? get backendPath => exe;
   @override
+  Future<String?> engineForStart() async => exe;
+  @override
   bool get isIntelMac => false;
   @override
   String? get error => null;

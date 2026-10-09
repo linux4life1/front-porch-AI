@@ -78,6 +78,9 @@ class _Engine extends ChangeNotifier implements BackendManager {
   final String? backendPath;
 
   @override
+  Future<String?> engineForStart() async => backendPath;
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 

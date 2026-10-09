@@ -39,6 +39,9 @@ class _Engine extends ChangeNotifier implements BackendManager {
   String? get backendPath => '/engine/koboldcpp';
 
   @override
+  Future<String?> engineForStart() async => backendPath;
+
+  @override
   bool get isDownloading => false;
 
   @override

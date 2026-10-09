@@ -119,8 +119,9 @@ extension CreatorStateModels on CreatorState {
     try {
       // Checked before anything is stopped, as the desktop's buttons do: a
       // missing engine, or a model or preset that cannot be used, leaves the
-      // running one alone.
-      final execPath = backendManager.backendPath;
+      // running one alone. The engine is looked for again: the build on
+      // disk must be the one the acceleration choice needs.
+      final execPath = await backendManager.engineForStart();
       final problem = execPath == null
           ? 'Error: Backend executable not found'
           : await koboldLaunchProblem(storage, pickedModel: modelPath);
