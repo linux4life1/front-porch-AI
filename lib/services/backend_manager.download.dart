@@ -49,8 +49,12 @@ extension BackendManagerDownload on BackendManager {
         : 'Initializing download...';
     notify();
 
-    // Ensure we have remote version info for accurate version file
-    if (_remoteVersion == null) await checkForUpdates();
+    // The record must name this build's release: a lookup taken for another
+    // build (Vulkan before ROCm was picked) would label ROCm with its version.
+    if (_remoteFor != _getExecutableName()) {
+      await awaitVersionCheck();
+      if (_remoteFor != _getExecutableName()) await checkForUpdates();
+    }
 
     try {
       print('AG_DEBUG: Starting download process...');
@@ -198,7 +202,7 @@ extension BackendManagerDownload on BackendManager {
       // Only now does the complete binary become the live executable.
       await BackendManager.swapStagedBinary(file, savePath);
 
-      if (_remoteVersion != null) {
+      if (_remoteVersion != null && _remoteFor == executableName) {
         await KoboldBinaryVersion.write(
           _storageService.binDir.path,
           version: _remoteVersion!,

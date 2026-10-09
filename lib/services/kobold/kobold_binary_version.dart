@@ -69,31 +69,70 @@ class KoboldBinaryVersion {
     }
   }
 
+  /// Every build recorded in [binDir]. Linux keeps more than one build side
+  /// by side (the ROCm build beside the Vulkan one), each with its own
+  /// version, so the record holds one entry per build, told apart by size.
+  /// A record written by an older app is a single entry.
+  static Future<List<({String version, int size})>> _builds(
+    String binDir,
+  ) async {
+    final file = File(p.join(binDir, fileName));
+    try {
+      if (!await file.exists()) return const [];
+      final json = jsonDecode(await file.readAsString());
+      final list = json['builds'] is List ? json['builds'] as List : [json];
+      return [
+        for (final b in list)
+          if (b is Map && b['version'] is String && b['size'] is int)
+            (version: b['version'] as String, size: b['size'] as int),
+      ];
+    } catch (e) {
+      debugPrint('[Kobold] the engine version record could not be read: $e');
+      return const [];
+    }
+  }
+
   /// The version of the engine at [executablePath], when the record next to
   /// it was written for this binary (its size says so); else null. A record
   /// left from another engine would refuse a current one as too old.
   static Future<String?> versionFor(String executablePath) async {
-    final rec = await read(p.dirname(executablePath));
-    if (rec.version == null || rec.size == null) return null;
+    final builds = await _builds(p.dirname(executablePath));
+    if (builds.isEmpty) return null;
+    final int length;
     try {
       final f = File(executablePath);
-      if (!await f.exists() || await f.length() != rec.size) return null;
+      if (!await f.exists()) return null;
+      length = await f.length();
     } on FileSystemException catch (e) {
       debugPrint('[Kobold] the engine file could not be read: $e');
       return null;
     }
-    return rec.version;
+    for (final b in builds.reversed) {
+      if (b.size == length) return b.version;
+    }
+    return null;
   }
 
-  /// Writes version + size to {binDir}/.koboldcpp_version.
+  /// Records [version] for the build of [size] bytes in
+  /// {binDir}/.koboldcpp_version, keeping the other builds' entries. The
+  /// top-level fields name the newest write, as older apps read them.
   static Future<void> write(
     String binDir, {
     required String version,
     required int size,
   }) async {
     final file = File(p.join(binDir, fileName));
+    final builds = [
+      for (final b in await _builds(binDir))
+        if (b.size != size) {'version': b.version, 'size': b.size},
+      {'version': version, 'size': size},
+    ];
     try {
-      await file.writeAsString(jsonEncode({'version': version, 'size': size}));
-    } catch (_) {}
+      await file.writeAsString(
+        jsonEncode({'version': version, 'size': size, 'builds': builds}),
+      );
+    } catch (e) {
+      debugPrint('[Kobold] the engine version record was not written: $e');
+    }
   }
 }

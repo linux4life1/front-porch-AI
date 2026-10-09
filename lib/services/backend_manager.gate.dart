@@ -137,6 +137,7 @@ extension BackendManagerGate on BackendManager {
   void seedRemoteVersion(String version, {int? assetSize}) {
     _remoteVersion = version;
     _remoteAssetSize = assetSize;
+    _remoteFor = _getExecutableName();
     notifyListeners();
   }
 

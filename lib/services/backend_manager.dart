@@ -51,6 +51,9 @@ class BackendManager extends ChangeNotifier {
   int? _localSize;
   String? _remoteVersion;
   int? _remoteAssetSize;
+  // The build the remote lookup was for: the ROCm build has its own
+  // release, so a lookup for another build says nothing about it.
+  String? _remoteFor;
   bool _isCheckingVersion = false;
   String? _versionError;
 
@@ -111,6 +114,13 @@ class BackendManager extends ChangeNotifier {
   String? get versionError => _versionError;
 
   bool get isUpdateAvailable {
+    if (_remoteFor != null && _remoteFor != _getExecutableName()) return false;
+    // The ROCm build's release is rebuilt in place under one name, and the
+    // engine reports its own version once it runs, so only a different
+    // file on the release says it changed.
+    if (_remoteVersion != null && _remoteVersion!.startsWith('rocm-rolling')) {
+      return _remoteAssetSize != null && _localSize != _remoteAssetSize;
+    }
     if (_localVersion == null) return true;
     if (_remoteVersion == null) return false;
     if (_localVersion != _remoteVersion) return true;
@@ -124,8 +134,13 @@ class BackendManager extends ChangeNotifier {
 
   String get localVersionDisplay {
     if (_localVersion == null) return '';
-    if (_localSize == null) return 'v$_localVersion';
-    return 'v$_localVersion, ${_formatFileSize(_localSize!)}';
+    // A numbered release reads "v1.122.1"; the ROCm build's rolling name
+    // reads as it is.
+    final v = RegExp(r'^\d').hasMatch(_localVersion!)
+        ? 'v$_localVersion'
+        : _localVersion!;
+    if (_localSize == null) return v;
+    return '$v, ${_formatFileSize(_localSize!)}';
   }
 
   /// KoboldCpp cannot run here: the app says [kIntelMacLocalUnsupported].
@@ -253,11 +268,7 @@ class BackendManager extends ChangeNotifier {
     // arrive during that look, so what it had is taken before it begins.
     final looked = _storageService.rootPath != null;
     await checkBackendAvailability();
-    if (_storageService.rootPath != null) {
-      final v = await KoboldBinaryVersion.read(_storageService.binDir.path);
-      _localVersion = v.version;
-      _localSize = v.size;
-    }
+    if (_storageService.rootPath != null) await _readLocalVersion();
     if (looked && !_engineChecked.isCompleted) _engineChecked.complete();
     if (UpdateService.isSupported) {
       final prefs = await SharedPreferences.getInstance();
@@ -301,6 +312,23 @@ class BackendManager extends ChangeNotifier {
     return backendPath;
   }
 
+  /// The version and size of the build in use, from its own entry in the
+  /// record: another build's entry would show its version for this one.
+  Future<void> _readLocalVersion() async {
+    final exe = _backendPath;
+    _localVersion = exe == null
+        ? null
+        : await KoboldBinaryVersion.versionFor(exe);
+    try {
+      _localSize = exe != null && await File(exe).exists()
+          ? await File(exe).length()
+          : null;
+    } on FileSystemException catch (e) {
+      debugPrint('[Kobold] the engine file could not be read: $e');
+      _localSize = null;
+    }
+  }
+
   Future<void> checkBackendAvailability() async {
     if (_storageService.rootPath == null) return;
 
@@ -308,9 +336,7 @@ class BackendManager extends ChangeNotifier {
     if (foundFile != null) {
       _backendPath = foundFile.path;
       _statusMessage = 'Ready';
-      final v = await KoboldBinaryVersion.read(_storageService.binDir.path);
-      _localVersion = v.version;
-      _localSize = v.size;
+      await _readLocalVersion();
       // On Linux/Mac, ensure executable permission
       if (!Platform.isWindows) {
         await Process.run('chmod', ['+x', _backendPath!]);
@@ -354,6 +380,8 @@ class BackendManager extends ChangeNotifier {
           final tag = (body['tag_name'] as String?) ?? '';
           _remoteVersion = tag.replaceFirst(RegExp(r'^[vV]'), '');
           final exeName = _getExecutableName();
+          _remoteFor = exeName;
+          _remoteAssetSize = null;
           for (final a in (body['assets'] as List?) ?? []) {
             if (a['name'] == exeName) {
               _remoteAssetSize = a['size'] as int?;
