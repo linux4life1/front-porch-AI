@@ -153,6 +153,11 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
         const SingleActivator(LogicalKeyboardKey.escape): _cancel,
         SingleActivator(LogicalKeyboardKey.enter, meta: isMac, control: !isMac):
             _save,
+        SingleActivator(
+          LogicalKeyboardKey.numpadEnter,
+          meta: isMac,
+          control: !isMac,
+        ): _save,
       },
       child: Focus(
         autofocus: true,

@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -178,6 +179,23 @@ class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
   @override
   Widget build(BuildContext context) {
     final tint = AppColors.porchAmberOf(context);
+    final isMac = Theme.of(context).platform == TargetPlatform.macOS;
+    // Plain Enter stays a new line in the note; the chord regenerates.
+    return CallbackShortcuts(
+      bindings: {
+        SingleActivator(LogicalKeyboardKey.enter, meta: isMac, control: !isMac):
+            _pop,
+        SingleActivator(
+          LogicalKeyboardKey.numpadEnter,
+          meta: isMac,
+          control: !isMac,
+        ): _pop,
+      },
+      child: _buildDialog(context, tint, isMac ? '⌘↵' : 'Ctrl+Enter'),
+    );
+  }
+
+  Widget _buildDialog(BuildContext context, Color tint, String chord) {
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
       shape: RoundedRectangleBorder(
@@ -228,6 +246,14 @@ class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
         ),
       ),
       actions: [
+        Text(
+          chord,
+          key: const Key('regen-critique-chord'),
+          style: TextStyle(
+            color: AppColors.textTertiary(context),
+            fontSize: 11,
+          ),
+        ),
         warmDialogCancel(context),
         warmDialogConfirm(
           context,
