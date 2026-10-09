@@ -75,8 +75,9 @@ extension _SettingsLaunchControls on _SettingsPageState {
         }
       }
     }
-    // MacOS Logic: Default to Metal if not set
-    else if (Platform.isMacOS) {
+    // Mac Logic: Default to Metal if not set. Detection reports Metal on
+    // every Mac and nowhere else.
+    else if (hw.hasMetal) {
       if (storage.backendSettings.useMetal == null) {
         storage.backendSettings.setUseMetal(true);
         storage.backendSettings.setUseVulkan(false);
@@ -98,63 +99,22 @@ extension _SettingsLaunchControls on _SettingsPageState {
         }
       }
     }
-    // Non-NVIDIA/Non-Mac Logic: Default to ROCm if available, else Vulkan
+    // Everything else (AMD, Intel, no card): nothing is written. A choice
+    // nobody made stays automatic (all four unset), which runs Vulkan on an
+    // AMD or Intel card at each launch; ROCm is only ever picked by hand.
     else {
-      if (storage.backendSettings.useVulkan == null &&
-          storage.backendSettings.useRocm == null) {
-        // First run: auto-detect best GPU backend
-        if (hw.vendor == 'AMD' && Platform.isLinux && hw.hasRocm) {
-          storage.backendSettings.setUseRocm(true);
-          storage.backendSettings.setUseVulkan(false);
-          storage.backendSettings.setUseCublas(false);
-          storage.backendSettings.setUseMetal(false);
-          _useRocm = true;
-          _useVulkan = false;
-          _useCublas = false;
-          _useMetal = false;
-        } else {
-          storage.backendSettings.setUseVulkan(true);
-          storage.backendSettings.setUseCublas(false);
-          storage.backendSettings.setUseMetal(false);
-          storage.backendSettings.setUseRocm(false);
-          _useVulkan = true;
-          _useCublas = false;
-          _useMetal = false;
-          _useRocm = false;
-        }
-        changed = true;
-      } else {
-        _useVulkan = storage.backendSettings.useVulkan ?? false;
-        if (storage.backendSettings.useCublas != null) {
-          _useCublas = storage.backendSettings.useCublas!;
-        }
-        if (storage.backendSettings.useMetal != null) {
-          _useMetal = storage.backendSettings.useMetal!;
-        }
-        if (storage.backendSettings.useRocm != null) {
-          _useRocm = storage.backendSettings.useRocm!;
-        }
-      }
+      final bs = storage.backendSettings;
+      _useVulkan = bs.useVulkan == true;
+      _useCublas = bs.useCublas == true;
+      _useMetal = bs.useMetal == true;
+      _useRocm = bs.useRocm == true;
     }
 
     if (changed) {
       rebuildState(() {});
-      final String msg;
-      if (hw.vendor == 'Nvidia') {
-        msg = 'NVIDIA GPU detected: CuBLAS enabled.';
-      } else if (Platform.isMacOS) {
-        msg = 'Apple Silicon detected: Metal enabled.';
-      } else if (hw.vendor == 'AMD' && Platform.isLinux && hw.hasRocm) {
-        msg = 'AMD GPU detected: ROCm enabled for native GPU acceleration.';
-      } else if (hw.vendor == 'AMD' &&
-          Platform.isLinux &&
-          hw.hasRocm == false) {
-        msg =
-            'AMD GPU detected: Vulkan enabled. Install ROCm for better performance.';
-        showRocmGuidanceDialog(context, hw.linuxDistro);
-      } else {
-        msg = 'Non-NVIDIA GPU detected: Vulkan enabled.';
-      }
+      final msg = hw.vendor == 'Nvidia'
+          ? 'NVIDIA GPU detected: CuBLAS enabled.'
+          : 'Apple Silicon detected: Metal enabled.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
     } else {
       // Just update UI to match loaded persistence
@@ -233,7 +193,10 @@ extension _SettingsLaunchControls on _SettingsPageState {
       return;
     }
 
-    if (backendManager.backendPath == null) {
+    // Looked for again: the build on disk must be the one the choice needs.
+    final engine = await backendManager.engineForStart();
+    if (!context.mounted) return;
+    if (engine == null) {
       // Not an error state anymore: kick the background acquisition (no-op
       // when already downloading) and point at the corner chip's progress.
       backendManager.ensureEngineInstalled();
@@ -272,7 +235,7 @@ extension _SettingsLaunchControls on _SettingsPageState {
     // switches can be older than storage (the Local model card, the phone and
     // "Reset to Automatic" write it directly), so writing it back undoes them.
     final result = await koboldService.launch(
-      backendManager.backendPath!,
+      engine,
       pickedModel: _selectedModelPath,
     );
     // Why nothing started, or how the model was chosen when that needs

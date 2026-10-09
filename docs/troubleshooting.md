@@ -390,7 +390,7 @@ sudo usermod -aG render,video $USER
 
 Log out and back in, then relaunch the app.
 
-**ROCm is deliberately never chosen automatically** — "ROCm is installed" and "ROCm works with this card" are different questions, and guessing wrong means the engine crashes at launch instead of just being slower. It's an expert opt-in under Settings → Advanced → Hardware & GPU → **Advanced: manual backend override**. If the app detects an AMD card on Linux without ROCm while auto-configuring, it pops up distro-specific installation instructions so you can decide for yourself.
+**ROCm is deliberately never chosen automatically** — "the driver offers ROCm" and "ROCm works with this card" are different questions, and guessing wrong means the engine crashes at launch instead of just being slower. It's an opt-in under Settings → Advanced → Hardware & GPU → **Advanced: manual backend override**. You don't need to install ROCm yourself: picking it downloads KoboldCpp's ROCm build, which brings its own, and the status shows the download. If the chip is greyed out, or the app says your account can't use the card yet, **Why can't I use ROCm?** next to it says what to do.
 
 ### macOS: "damaged" warning, and Intel Macs
 

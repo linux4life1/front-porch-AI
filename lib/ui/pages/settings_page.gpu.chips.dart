@@ -43,6 +43,8 @@ extension _SettingsGpuChips on _SettingsPageState {
       userMetal: bs.useMetal,
       hasCuda: hw?.hasCuda ?? false,
       vendor: hw?.vendor ?? 'Unknown',
+      // Detection reports Metal on every Mac and nowhere else.
+      onMac: hw?.hasMetal,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,6 +211,8 @@ extension _SettingsGpuChips on _SettingsPageState {
       ss.backendSettings.setUseMetal(metal);
     }
 
+    final hw = hardwareService.hardwareInfo;
+
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -229,14 +233,20 @@ extension _SettingsGpuChips on _SettingsPageState {
           },
         ),
         Tooltip(
-          message: hardwareService.hardwareInfo?.hasRocm == true
-              ? 'Use ROCm for native AMD GPU acceleration'
-              : 'Requires ROCm installation (AMD GPU)',
+          message: hw?.hasRocm == true
+              ? 'Use ROCm on this AMD card (its engine downloads when picked)'
+              : 'Needs an AMD card whose Linux driver offers ROCm',
           child: FilterChip(
             label: const Text('Use ROCm (AMD)'),
             selected: _useRocm,
-            onSelected: hardwareService.hardwareInfo?.hasRocm == true
+            onSelected: hw?.hasRocm == true
                 ? (val) {
+                    // The driver offers it but this account may not use it:
+                    // say how, rather than pick something that cannot run.
+                    if (val && !hw!.rocmAccess) {
+                      showRocmHelpDialog(context, driverReady: true);
+                      return;
+                    }
                     rebuildState(() {
                       _useRocm = val;
                       if (val) {
@@ -247,12 +257,23 @@ extension _SettingsGpuChips on _SettingsPageState {
                     });
                     selectBackend(rocm: val);
                   }
-                : null, // Disabled if ROCm not installed
-            avatar: hardwareService.hardwareInfo?.hasRocm == true
+                : null, // Disabled when the driver offers no ROCm
+            avatar: hw?.hasRocm == true
                 ? null
                 : const Icon(Icons.block, size: 16),
           ),
         ),
+        // Only where something can be done: an AMD card on Linux whose
+        // driver offers no ROCm, or one this account may not use yet.
+        if (hw != null &&
+            hw.vendor == 'AMD' &&
+            Platform.isLinux &&
+            (!hw.hasRocm || !hw.rocmAccess))
+          TextButton(
+            onPressed: () =>
+                showRocmHelpDialog(context, driverReady: hw.hasRocm),
+            child: const Text('Why can\'t I use ROCm?'),
+          ),
         Tooltip(
           message: hardwareService.hardwareInfo?.vendor == 'Nvidia'
               ? 'Use CUDA (NVIDIA only)'
