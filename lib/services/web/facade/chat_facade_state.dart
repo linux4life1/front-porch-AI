@@ -193,6 +193,14 @@ extension ChatFacadeState on ChatFacade {
         'isError': _chat.guestActivityIsError,
         'busy': _chat.isGuestBusy,
       },
+      // A reply stopped from the Realism overlay. Stays until the chat moves
+      // on (a send, Try again, another chat) or it is dismissed. Additive.
+      'stoppedReply': _chat.stoppedReplyNotice == null
+          ? null
+          : {
+              'notice': _chat.stoppedReplyNotice,
+              'canRetry': _chat.canRetryStoppedReply,
+            },
       'pendingDetection': _chat.pendingGuestDetection?.name,
       'pendingPicker': _chat.pendingGuestPickerFilter == null
           ? null

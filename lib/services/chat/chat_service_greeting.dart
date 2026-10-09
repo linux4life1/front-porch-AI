@@ -322,6 +322,8 @@ extension ChatServiceGreeting on ChatService {
     _greetingEvalGen++;
     await cancelRealismEval();
     _realismEvalCancelled = false;
+    // A switch or new opening is not the user stopping a reply.
+    _stoppedReplyAnchor = null;
   }
 
   /// Cycle the first message through alternate greetings.

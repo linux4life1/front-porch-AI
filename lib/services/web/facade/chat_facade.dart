@@ -347,10 +347,16 @@ class ChatFacade {
   /// opens via the chance_time WS edge (isAwaitingChanceTime).
   bool requestChanceTimeSpin() => _chat.requestManualChanceTime();
 
-  /// Escape hatch for the realism-processing overlay's "Cancel Realism" button —
-  /// aborts an in-flight Realism eval (mirrors the desktop overlay action).
+  /// The realism-processing overlay's "Stop this reply" button — aborts an
+  /// in-flight Realism eval and the reply (mirrors the desktop overlay).
   void cancelRealismEval() {
     _chat.cancelRealismEval();
+    _notify();
+  }
+
+  /// The stopped-reply notice's dismiss (desktop's ✕ twin).
+  void dismissStoppedReplyNotice() {
+    _chat.dismissStoppedReplyNotice();
     _notify();
   }
 

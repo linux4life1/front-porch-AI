@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Dismissible banners above the transcript: an import result, a send that
-// never reached the desktop (with its text and a one-tap retry), and a
-// transcript action the desktop refused.
+// never reached the desktop (with its text and a one-tap retry), a
+// transcript action the desktop refused, and a reply the user stopped from
+// the Realism overlay (with Try again; it stays until the chat moves on).
 
 type SendError = { text: string; message: string; retrying: boolean };
 
@@ -34,6 +35,9 @@ export function ChatNotices({
   onDismissSendError,
   actionError,
   onDismissActionError,
+  stoppedReply = null,
+  onRetryStopped = () => {},
+  onDismissStopped = () => {},
 }: {
   importNotice: string;
   onDismissImport: () => void;
@@ -42,6 +46,9 @@ export function ChatNotices({
   onDismissSendError: () => void;
   actionError: string | null;
   onDismissActionError: () => void;
+  stoppedReply?: { notice: string; canRetry: boolean } | null;
+  onRetryStopped?: () => void;
+  onDismissStopped?: () => void;
 }) {
   return (
     <>
@@ -65,6 +72,16 @@ export function ChatNotices({
           >
             {sendError.retrying ? 'Sending…' : 'Try again'}
           </button>
+        </Notice>
+      )}
+      {stoppedReply && (
+        <Notice onDismiss={onDismissStopped}>
+          <p>{stoppedReply.notice}</p>
+          {stoppedReply.canRetry && (
+            <button type="button" className="link-btn" onClick={onRetryStopped}>
+              Try again
+            </button>
+          )}
         </Notice>
       )}
       {actionError && (

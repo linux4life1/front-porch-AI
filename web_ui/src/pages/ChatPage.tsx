@@ -38,7 +38,7 @@ export function ChatPage() {
     opening, state, loadError, streaming, chance, imageProg, genStatus,
     processing, showSessions, setShowSessions, sessions, loadingSessions,
     toolsBump, voice, impersonateFill, scrollRef, onTranscriptScroll, refresh, stop, revealFate,
-    acceptFate, cancelRealism, openSessions, loadSession, newChat,
+    acceptFate, cancelRealism, dismissStoppedReply, openSessions, loadSession, newChat,
   } = session;
   const {
     sendError, setSendError, actionError, setActionError, reportActionFailure,
@@ -283,6 +283,9 @@ export function ChatPage() {
           onDismissSendError={() => setSendError(null)}
           actionError={actionError}
           onDismissActionError={() => setActionError(null)}
+          stoppedReply={state.stoppedReply ?? null}
+          onRetryStopped={() => void regenerate()}
+          onDismissStopped={() => void dismissStoppedReply()}
         />
         {state.absencePhrase && state.sessionId && !absenceDismissed.has(state.sessionId) && (
           <div className="absence-banner">

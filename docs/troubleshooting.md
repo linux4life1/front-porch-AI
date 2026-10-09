@@ -201,7 +201,7 @@ Some local models struggle with the Realism Engine's short background questions 
 
 The conversation itself keeps working even when evaluations fail — you just lose that turn's state updates.
 
-**If an evaluation gets stuck**, the processing panel has a red **Cancel Realism** button. Pressing it aborts the evaluation and returns you to the chat; nothing is damaged.
+**If an evaluation gets stuck**, the processing panel has a red **Stop this reply** button. Pressing it stops the evaluation and the reply with it; a note above the message box offers **Try again**. Nothing is damaged.
 
 ---
 

@@ -364,6 +364,19 @@ extension ChatServiceSendHandoff on ChatService {
     String? webQuery,
     String? wikiQuery,
   }) async {
+    _stoppedReplyAnchor = null;
+    _answeringUnansweredLine = true;
+    try {
+      await _answerTrailingUserTurn(webQuery: webQuery, wikiQuery: wikiQuery);
+    } finally {
+      _answeringUnansweredLine = false;
+    }
+  }
+
+  Future<void> _answerTrailingUserTurn({
+    String? webQuery,
+    String? wikiQuery,
+  }) async {
     final userMsg = _messages.last;
     final baseAt = _messages.length;
     _rewindToUserTurnBaseline(userMsg);

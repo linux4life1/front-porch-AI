@@ -294,6 +294,14 @@ export function useChatSession() {
     setProcessing(NO_PROCESSING);
     void api.post('/api/chat/cancel-realism').catch(() => {});
   };
+  const dismissStoppedReply = async () => {
+    try {
+      await api.post('/api/chat/stopped-reply/dismiss');
+    } catch (e) {
+      console.warn('[chat] dismiss stopped-reply notice failed', e);
+    }
+    await refresh();
+  };
 
   // ── Conversations drawer ────────────────────────────────────────
   const openSessions = async () => {
@@ -373,6 +381,7 @@ export function useChatSession() {
     revealFate,
     acceptFate,
     cancelRealism,
+    dismissStoppedReply,
     openSessions,
     loadSession,
     newChat,

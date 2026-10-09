@@ -34,6 +34,15 @@ mixin ChatServiceFieldBag {
   String? _pendingForcedWebQuery;
   String? _pendingForcedWikiQuery;
 
+  /// The last message when the user stopped a reply from the Realism
+  /// overlay. The "you stopped this reply" notice shows while it is still
+  /// the chat's last message (same anchor rule as the suggestions below).
+  ChatMessage? _stoppedReplyAnchor;
+
+  /// True while Try again (regenerate on a trailing user line) runs. That
+  /// regen holds `_isPostGenerating`, but no reply exists to keep.
+  bool _answeringUnansweredLine = false;
+
   // Action suggestions
   List<String> _suggestedActions = [];
   bool _isGeneratingActions = false;

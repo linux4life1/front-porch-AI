@@ -46,6 +46,7 @@ export 'overlays/rag_setup_dialog.dart';
 export 'overlays/realism_processing_overlay.dart';
 export 'overlays/objective_check_overlay.dart';
 export 'overlays/generation_status_bar.dart';
+export 'overlays/stopped_reply_notice.dart';
 
 export 'widgets/cast_roster_chip.dart';
 export 'widgets/chat_image_attachment.dart';

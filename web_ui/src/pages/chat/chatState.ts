@@ -47,6 +47,9 @@ export interface ChatState {
   summary?: string;
   cast?: CastMember[];
   guestActivity?: { status: string | null; isError: boolean; busy: boolean };
+  // A reply stopped from the Realism overlay (additive). Stays until the chat
+  // moves on or it is dismissed via POST /api/chat/stopped-reply/dismiss.
+  stoppedReply?: { notice: string; canRetry: boolean } | null;
   pendingDetection?: string | null;
   pendingPicker?: { filter: string; full: boolean } | null;
   // Chaos "Chance Time" park state: while pending, the engine is frozen waiting

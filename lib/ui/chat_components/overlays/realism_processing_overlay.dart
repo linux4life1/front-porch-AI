@@ -414,7 +414,7 @@ class RealismProcessingOverlayState extends State<RealismProcessingOverlay>
                                         backgroundColor: Colors.redAccent,
                                       ),
                                       child: const Text(
-                                        'Cancel Realism',
+                                        'Stop this reply',
                                         style: TextStyle(color: Colors.white),
                                       ),
                                     ),

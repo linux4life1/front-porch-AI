@@ -227,6 +227,9 @@ extension _ChatPageInput on _ChatPageState {
             ),
           ),
 
+        // A reply the user stopped from the Realism overlay: stays put.
+        StoppedReplyNotice(chatService: chatService),
+
         // ── Scene Guest activity banner ──────────────────────────────────
         // One inline status line for the /create · /join · detection flow that
         // updates in place (Creating → Entering → ✓ joined) and auto-clears.

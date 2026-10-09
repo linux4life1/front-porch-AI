@@ -479,12 +479,9 @@ extension ChatServiceMessageOps on ChatService {
     // Regen holds _isPostGenerating from the first revert through
     // post-gen. Cancel during the pre-reply judges is still a regen:
     // the popped reply is put back. Do not require !_isEvaluatingRealism.
-    final replyKept = _isPostGenerating;
-    _setGuestStatus(
-      replyKept
-          ? 'Reply kept. Scene time and needs weren\'t updated.'
-          : 'Realism evaluation cancelled — no reply was generated. '
-                'Regenerate (or send again) to retry.',
+    // No reply: a notice that stays until the chat moves on (not a timer).
+    _noteStoppedReply(
+      replyKept: _isPostGenerating && !_answeringUnansweredLine,
     );
 
     debugPrint('[Realism] Realism eval cancel requested');

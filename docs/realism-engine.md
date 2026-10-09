@@ -67,7 +67,7 @@ Three things change on screen when the Realism Engine is active:
 
 - **Chips under replies.** When something meaningful shifts — bond up, trust down, a mood change, a time skip, a need moving — small chips appear under the character's message showing exactly what moved and by how much. Chips with a small ℹ️ carry the character's own one-line reason; hover to read it. Quiet turns produce few or no chips; that's by design.
 - **The sidebar.** The chat sidebar is a stack of cards: **📝 Author's Note**, **🎭 Character State** (mood, the Short-Term Bond / Long-Term Bond / Trust / Lust bars, fixation, needs grid, the story clock and date, weather, ambitions), **📖 Journal & Memory**, **🎯 Objectives**, and **🎲 Story Tools** (Chaos Mode, lorebooks, places, and more).
-- **A brief processing overlay.** After a reply, you may see a short "thinking" overlay while the engine runs its check-ins. There's a **Cancel Realism** button if you'd rather skip it — interrupting is always safe.
+- **A brief processing overlay.** After a reply, you may see a short "thinking" overlay while the engine runs its check-ins. Its **Stop this reply** button stops the whole reply, not just the check-ins: no reply is written, and a note above the message box offers **Try again**. Stopping is always safe.
 
 ![A chat with the Realism sidebar and message chips visible](screenshots/chat.png)
 
@@ -285,7 +285,7 @@ Smaller local models occasionally produce sloppy realism updates — numbers tha
 The engine's check-ins are small and quick compared to the main reply, but they're real work — here's how to keep things snappy:
 
 - **One-Shot Eval** (in the Character State gear) folds four separate check-ins into a single combined call. It tracks the same things with noticeably less waiting — the go-to choice on slower machines and pay-per-token remote APIs. Very small models occasionally handle the combined question less gracefully than the separate ones; if your results get flaky, switch it back off.
-- **Cancel anytime.** The processing overlay has a **Cancel Realism** button, and interrupting an evaluation never corrupts anything.
+- **Stop anytime.** The processing overlay has a **Stop this reply** button. It stops the reply too (a note offers **Try again**), and stopping never corrupts anything.
 - **Toggle per chat.** Want a quick, lightweight conversation? Flip the Character State switch off in that chat — or, in a group, **Realism Engine for this group** in Group Settings → Realism — and realism costs nothing at all.
 - **Tool calling helps.** A pill at the top of the sidebar reports whether the current model can answer the engine's questions with native tool calls. When it can, the answers come back cleanly structured; when it can't, the app falls back to plain text — which still works, just a little less reliably. It retests itself when you switch models or backends, and you can tap it to retest now.
 - The engine's notes to the model add only a few hundred tokens and are always counted inside your context budget — they will never push your conversation history out of the window.

@@ -83,7 +83,7 @@ export function ProcessingOverlay({ p, onCancel }: { p: Processing; onCancel: ()
         ) : null}
 
         {realismMode && (
-          <button type="button" className="proc-cancel" onClick={onCancel}>Cancel Realism</button>
+          <button type="button" className="proc-cancel" onClick={onCancel}>Stop this reply</button>
         )}
       </div>
     </div>

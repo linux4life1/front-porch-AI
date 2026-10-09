@@ -155,6 +155,39 @@ extension ChatServiceSceneGuest on ChatService {
     }
   }
 
+  /// The Realism overlay's Stop button ended the turn. A kept reply gets the
+  /// short status line; a turn left with no reply gets [stoppedReplyNotice],
+  /// which stays until the chat moves on. A greeting read (no turn) gets
+  /// neither.
+  void _noteStoppedReply({required bool replyKept}) {
+    if (replyKept) {
+      _setGuestStatus('Reply kept. Scene time and needs weren\'t updated.');
+    } else if (_isEvaluatingRealism && _messages.isNotEmpty) {
+      _stoppedReplyAnchor = _messages.last;
+    }
+  }
+
+  /// Plain words for a reply the user stopped before it was written; null
+  /// when there is none. Gone once anything follows the line it was stopped
+  /// on, another chat opens, Try again starts, or the user dismisses it.
+  String? get stoppedReplyNotice {
+    final anchor = _stoppedReplyAnchor;
+    if (anchor == null || _messages.isEmpty) return null;
+    if (!identical(_messages.last, anchor)) return null;
+    return 'You stopped this reply before it was written.';
+  }
+
+  /// Try again regenerates the trailing user line, so it is offered only
+  /// while the chat still ends on one.
+  bool get canRetryStoppedReply =>
+      stoppedReplyNotice != null && _messages.last.isUser;
+
+  void dismissStoppedReplyNotice() {
+    if (_stoppedReplyAnchor == null) return;
+    _stoppedReplyAnchor = null;
+    notifyListeners();
+  }
+
   /// Clear the transient Scene Guest banner/busy/evict state. Called at every
   /// scene-guest reset site (context switch / new chat / group) and on dispose
   /// so nothing leaks across chats. Does not notify (callers already do).
