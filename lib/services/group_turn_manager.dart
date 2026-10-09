@@ -109,9 +109,9 @@ class GroupTurnManager extends ChangeNotifier {
   }
 
   /// Advance the round-robin turn pointer (if applicable) as if the given
-  /// character has just completed their turn. Used after a regeneration to
-  /// ensure the next natural speaker is the correct subsequent character
-  /// rather than repeating the regenerated speaker.
+  /// character has just completed their turn (an entrance, or a member
+  /// skipped as away). Not for regenerations: [beginRegeneration] and
+  /// [endRegeneration] hold and put back the rotation there.
   /// Safe no-op for random turn order or non-round-robin groups.
   void advanceAfterRegeneration(CharacterCard character) {
     if (!isActive || _characters.isEmpty) return;
