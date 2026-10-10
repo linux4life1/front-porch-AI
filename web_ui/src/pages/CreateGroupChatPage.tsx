@@ -94,7 +94,12 @@ export function CreateGroupChatPage() {
           <div className="cg-config">
             <label className="cg-field">
               <span className="cg-field-label">Group name</span>
-              <input value={name} onChange={(e) => setTypedName(e.target.value)} placeholder="Name this group" />
+              <input
+                value={name}
+                // Clearing the box hands the name back to the roster.
+                onChange={(e) => setTypedName(e.target.value.trim() === '' ? null : e.target.value)}
+                placeholder="Name this group"
+              />
             </label>
             <label className="cg-field">
               <span className="cg-field-label">Turn order</span>

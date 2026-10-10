@@ -90,3 +90,19 @@ it('follows the roster until a name is typed', () => {
   click('Next');
   expect(nameBox().value).toBe('Porch Regulars');
 });
+
+it('clearing the name box goes back to the roster name', () => {
+  click('Juniper');
+  click('Marlow');
+  click('Next');
+  type(nameBox(), 'Porch Regulars');
+  expect(nameBox().value).toBe('Porch Regulars');
+
+  type(nameBox(), '');
+  expect(nameBox().value).toBe('Juniper & Marlow');
+
+  click('Back');
+  click('Ivy');
+  click('Next');
+  expect(nameBox().value).toBe('Juniper, Marlow & Ivy');
+});
