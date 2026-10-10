@@ -130,7 +130,9 @@ input, textarea, select, .search {
   width: 100%; background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
 }
-input[type='checkbox'] { width: auto; }
+/* On/off boxes tick in porch amber, like every desktop switch (the browser
+   default is its own blue). */
+input[type='checkbox'] { width: auto; accent-color: var(--accent); }
 .row-label {
   display: flex; align-items: center; justify-content: space-between;
   margin: 12px 0; color: var(--text);
