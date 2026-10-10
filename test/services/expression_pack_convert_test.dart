@@ -238,6 +238,10 @@ void main() {
     test(
       'only one conversion runs at a time, the rest wait their turn',
       () async {
+        // An isolate is counted from its spawn until it has exited. The exit
+        // is heard through onExit (the listener given at spawn), not a
+        // listener added after: a dying isolate tells its listeners one by
+        // one, so a late one can hear it after the next isolate has spawned.
         var running = 0;
         var mostAtOnce = 0;
         final all = await Future.wait([
@@ -245,17 +249,16 @@ void main() {
             convertPackBase(
               Uint8List(8),
               entry: _briefEntry,
-              onSpawn: (isolate) {
+              onSpawn: (_) {
                 running++;
                 mostAtOnce = running > mostAtOnce ? running : mostAtOnce;
-                final port = ReceivePort();
-                isolate.addOnExitListener(port.sendPort);
-                port.first.then((_) => running--);
               },
+              onExit: () => running--,
             ),
         ]);
         expect(all.map((c) => c.refusal?.message), ['done', 'done', 'done']);
         expect(mostAtOnce, 1);
+        expect(running, 0);
       },
     );
 
