@@ -347,15 +347,17 @@ extension _BubbleActions on _MessageBubbleState {
                   runSpacing: 6,
                   children: actions.map((action) {
                     // A tap puts the idea in the message box to edit before
-                    // Send; holding it sends at once. Outside a chat page
-                    // (no message box) a tap still sends.
+                    // Send; holding it sends at once (through the box, which
+                    // takes back a copy a tap left there). Outside a chat
+                    // page (no message box) a tap still sends.
                     final composer = ComposerDraftScope.maybeOf(context);
-                    void sendNow() => chatService.sendMessage(action);
                     final pill = InkWell(
                       onTap: composer == null
-                          ? sendNow
+                          ? () => chatService.sendMessage(action)
                           : () => composer.put(action),
-                      onLongPress: composer == null ? null : sendNow,
+                      onLongPress: composer == null
+                          ? null
+                          : () => composer.send(action),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.symmetric(

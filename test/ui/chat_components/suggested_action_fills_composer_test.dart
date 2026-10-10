@@ -28,10 +28,14 @@ class _ChatWithIdeas extends FakeChatService {
   List<String> get suggestedActions => const [_idea];
 }
 
+// The pill, not the message box once it holds the same words.
+Finder get _pill =>
+    find.byTooltip('Click to put it in your message box. Hold to send it now.');
+
 void main() {
   setupPathProviderMock();
 
-  Future<(TextEditingController, FocusNode)> pumpChat(
+  Future<(TextEditingController, FocusNode, List<String>)> pumpChat(
     WidgetTester tester, {
     String draft = '',
   }) async {
@@ -51,6 +55,7 @@ void main() {
     addTearDown(box.dispose);
     final focus = FocusNode();
     addTearDown(focus.dispose);
+    final sent = <String>[];
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -68,6 +73,7 @@ void main() {
                 ComposerDraftScope(
                   controller: box,
                   focusNode: focus,
+                  onSend: sent.add,
                   child: SizedBox(
                     width: 680,
                     child: MessageBubble(
@@ -85,16 +91,16 @@ void main() {
       ),
     );
     await tester.pump();
-    return (box, focus);
+    return (box, focus, sent);
   }
 
   testWidgets('tapping a suggestion fills the message box, does not send', (
     tester,
   ) async {
-    final (box, focus) = await pumpChat(tester);
+    final (box, focus, sent) = await pumpChat(tester);
     expect(find.text(_idea), findsOneWidget);
 
-    await tester.tap(find.text(_idea));
+    await tester.tap(_pill);
     await tester.pump();
 
     // FakeChatService cannot send (the real send would throw here), so a
@@ -103,15 +109,61 @@ void main() {
     expect(box.text, _idea);
     expect(box.selection, const TextSelection.collapsed(offset: _idea.length));
     expect(focus.hasFocus, isTrue);
+    expect(sent, isEmpty);
   });
 
   testWidgets('a half-typed draft is kept; the suggestion goes after it', (
     tester,
   ) async {
-    final (box, _) = await pumpChat(tester, draft: 'Sure,');
-    await tester.tap(find.text(_idea));
+    final (box, _, _) = await pumpChat(tester, draft: 'Sure,');
+    await tester.tap(_pill);
     await tester.pump();
     expect(tester.takeException(), isNull);
     expect(box.text, 'Sure, $_idea');
+  });
+
+  testWidgets('tapping the same suggestion twice puts it in once', (
+    tester,
+  ) async {
+    final (box, _, _) = await pumpChat(tester);
+    await tester.tap(_pill);
+    await tester.pump();
+    await tester.tap(_pill);
+    await tester.pump();
+    expect(box.text, _idea);
+  });
+
+  testWidgets('tap then hold: sent once, and the box is emptied', (
+    tester,
+  ) async {
+    final (box, _, sent) = await pumpChat(tester);
+    await tester.tap(_pill);
+    await tester.pump();
+    await tester.longPress(_pill);
+    await tester.pump();
+    // The old hold called the service directly; the fake cannot send, so
+    // that path throws here.
+    expect(tester.takeException(), isNull);
+    expect(sent, [_idea]);
+    expect(box.text, isEmpty, reason: 'a second Send must not resend it');
+  });
+
+  testWidgets('hold with a typed draft: the draft stays in the box', (
+    tester,
+  ) async {
+    final (box, _, sent) = await pumpChat(tester, draft: 'Sure,');
+    await tester.longPress(_pill);
+    await tester.pump();
+    expect(sent, [_idea]);
+    expect(box.text, 'Sure,');
+
+    // Tapped onto the draft first, then held: only the suggestion leaves.
+    await tester.tap(_pill);
+    await tester.pump();
+    expect(box.text, 'Sure, $_idea');
+    await tester.longPress(_pill);
+    await tester.pump();
+    expect(sent, [_idea, _idea]);
+    expect(box.text, 'Sure,');
   });
 }
