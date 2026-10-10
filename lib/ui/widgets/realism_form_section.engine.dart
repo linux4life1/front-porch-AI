@@ -332,11 +332,15 @@ extension RealismFormEngine on RealismFormSection {
                 ),
                 // Compact sliders for the 2 tunables (shown in forms including group per-member when toggle visible).
                 // 1-5 range; onChanged provided by caller (pages, group seed); defaults safe if not.
+                // With Verification off they only tune a switched-off pass:
+                // disabled and dimmed, values kept for when it comes back on.
                 const SizedBox(height: 8),
                 Text(
                   'Max reprocess passes: $realismVerificationMaxReprocesses',
                   style: TextStyle(
-                    color: AppColors.textSecondary(context),
+                    color: realismVerificationEnabled
+                        ? AppColors.textSecondary(context)
+                        : AppColors.textTertiary(context),
                     fontSize: 11,
                   ),
                 ),
@@ -346,14 +350,19 @@ extension RealismFormEngine on RealismFormSection {
                   max: 5,
                   divisions: 4,
                   label: '$realismVerificationMaxReprocesses',
-                  onChanged: (d) => onRealismVerificationMaxReprocessesChanged
-                      ?.call(d.round()),
+                  onChanged: realismVerificationEnabled
+                      ? (d) => onRealismVerificationMaxReprocessesChanged?.call(
+                          d.round(),
+                        )
+                      : null,
                 ),
                 const SizedBox(height: 4),
                 Text(
                   'Strictness (1=lenient … 5=strict): $realismVerificationStrictness',
                   style: TextStyle(
-                    color: AppColors.textSecondary(context),
+                    color: realismVerificationEnabled
+                        ? AppColors.textSecondary(context)
+                        : AppColors.textTertiary(context),
                     fontSize: 11,
                   ),
                 ),
@@ -363,8 +372,11 @@ extension RealismFormEngine on RealismFormSection {
                   max: 5,
                   divisions: 4,
                   label: '$realismVerificationStrictness',
-                  onChanged: (d) =>
-                      onRealismVerificationStrictnessChanged?.call(d.round()),
+                  onChanged: realismVerificationEnabled
+                      ? (d) => onRealismVerificationStrictnessChanged?.call(
+                          d.round(),
+                        )
+                      : null,
                 ),
               ],
             ],
