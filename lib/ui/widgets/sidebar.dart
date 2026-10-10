@@ -24,9 +24,26 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
+import 'package:front_porch_ai/ui/widgets/sidebar_width.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
+
+  /// Every nav label below; the sidebar widens until the longest fits.
+  static const labels = [
+    'Home',
+    'The Stoop',
+    'AI Character Creator',
+    'Create Character',
+    'Create Group Chat',
+    'Manage Models',
+    'Settings',
+    'User Persona',
+    'Worlds',
+    'Backups & Restore',
+    'Join the Discord',
+    'Buy Me a Coffee ☕',
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +51,8 @@ class Sidebar extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Container(
-      width: 250,
+      // Grows with Reading Size so labels are not cut to "Create Charac…".
+      width: sidebarWidthFor(context, labels),
       color: AppColors.backgroundOf(context),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

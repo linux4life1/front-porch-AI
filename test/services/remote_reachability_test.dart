@@ -10,10 +10,18 @@ import 'package:front_porch_ai/services/services.dart';
 void main() {
   group('remoteBackendStatusLabel', () {
     test('unconfigured is never Ready', () {
+      // A server that answered before a model was picked is connected (it
+      // used to read the red "Not configured" beside "Found 1 model").
+      final answered = remoteBackendStatusLabel(
+        configured: false,
+        reachability: RemoteReachability.reachable,
+      );
+      expect(answered, isNot('Ready'));
+      expect(answered, 'Connected — pick a model');
       expect(
         remoteBackendStatusLabel(
           configured: false,
-          reachability: RemoteReachability.reachable,
+          reachability: RemoteReachability.unknown,
         ),
         'Not configured',
       );

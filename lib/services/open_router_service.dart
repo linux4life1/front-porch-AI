@@ -61,7 +61,10 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   String get apiKey => _apiKey;
   String get modelName => _modelName;
   RemoteReachability get reachability => _health.reachability;
-  bool get isReachable => _health.isReachable;
+
+  /// Live-ready: a model is chosen and the server answered. A server that
+  /// answered with no model chosen is [reachability] reachable only.
+  bool get isReachable => isConfigured && _health.isReachable;
   bool get isCheckingReachability => _health.isChecking;
 
   /// Local backends (oMLX, LM Studio, llama.cpp, vLLM on LAN / Tailscale)
@@ -135,17 +138,24 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       _modelName = modelName;
       changed = true;
     }
-    if (endpointChanged || !isConfigured) {
-      _health.reset();
-    }
+    // Only a new host or key makes the last answer stale. Picking or
+    // clearing the model keeps it, so "connected, pick a model" turns
+    // Ready on the pick without a second check.
+    if (endpointChanged) _health.reset();
     if (changed) _emit();
     return changed;
   }
 
-  /// Live `GET /models` against the configured endpoint. Stamps
+  /// Live `GET /models` against the live host, model chosen or not. Stamps
   /// [reachability] (and therefore [isReady] / [isReachable]).
   Future<void> refreshReachability() =>
-      _health.ping(apiUrl: _apiUrl, apiKey: _apiKey, configured: isConfigured);
+      _health.ping(apiUrl: _apiUrl, apiKey: _apiKey);
+
+  /// [apiUrl] answered with [apiKey] (a model list, the phone's Check
+  /// Connection). When that is the live endpoint, its status shows it.
+  void noteReachable({required String apiUrl, required String apiKey}) {
+    if (apiUrl == _apiUrl && apiKey == _apiKey) _health.markReachable();
+  }
 
   /// Test whether the API connection is working.
   /// Returns a human-readable status message.
@@ -157,7 +167,6 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       _health.testConnection(
         liveUrl: _apiUrl,
         liveKey: _apiKey,
-        configured: isConfigured,
         apiUrl: apiUrl,
         apiKey: apiKey,
       );

@@ -28,6 +28,7 @@ import { VoiceMediaSettings } from '../components/VoiceMediaSettings';
 import { WorkerBackendCard } from '../components/WorkerBackendCard';
 import { SuperGrokCard } from '../components/SuperGrokCard';
 import { urlHasStoredApiKey } from '../remoteApiKeys';
+import { remoteReachabilityLabel } from './remoteReachability';
 import { BACKEND_OPTIONS, INTEL_MAC_LOCAL_UNSUPPORTED, backendOptionId } from '../backendOptions';
 import { presetOwnsContext } from '../presetOwnsContext';
 import { useLocalUnsupported } from '../hooks/useLocalUnsupported';
@@ -93,23 +94,6 @@ interface LegacyModels {
 
 const fmtBytes = (b: number) =>
   b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round(b / 1024 ** 2)} MB`;
-
-function remoteReachabilityLabel(
-  configured: boolean,
-  reachability?: string,
-): { text: string; tone: 'ok' | 'busy' | 'down' | 'configured' } {
-  if (!configured) return { text: 'Not configured', tone: 'down' };
-  switch (reachability) {
-    case 'checking':
-      return { text: 'Checking…', tone: 'busy' };
-    case 'reachable':
-      return { text: 'Ready', tone: 'ok' };
-    case 'unreachable':
-      return { text: 'Configured but unreachable', tone: 'down' };
-    default:
-      return { text: 'Configured', tone: 'configured' };
-  }
-}
 
 function RemoteReachabilityBadge({
   configured,

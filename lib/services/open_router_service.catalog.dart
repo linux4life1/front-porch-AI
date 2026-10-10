@@ -56,6 +56,10 @@ extension OpenRouterServiceCatalog on OpenRouterService {
         return [];
       }
 
+      // The server answered: the live one's status dot shows it, model
+      // chosen or not.
+      noteReachable(apiUrl: url, apiKey: key);
+
       final body = jsonDecode(response.body);
       debugPrint('[OpenRouter] Response keys: ${body.keys.toList()}');
       // Handle both OpenAI format ('data') and LM Studio format ('models')

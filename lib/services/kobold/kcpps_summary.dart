@@ -82,6 +82,10 @@ String kvQuantWords(KvQuant q) => switch (q) {
   KvQuant.q4_0 => '4-bit',
 };
 
+/// Said wherever the graphics card's memory could not be read (0 MB). A
+/// fit against an unknown size is no fit: no bigger/smaller verdict.
+const kGraphicsMemoryUnknown = 'Graphics memory not detected — fit unknown';
+
 /// 32 as "32 MB", 1024 as "1 GB".
 String koboldMemoryWords(int mb) => mb >= 1024 && mb % 1024 == 0
     ? '${mb ~/ 1024} GB'

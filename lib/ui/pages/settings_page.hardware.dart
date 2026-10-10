@@ -117,8 +117,10 @@ extension _SettingsHardware on _SettingsPageState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                '${koboldMemoryWords(hw.vramMb)} of graphics memory'
-                '${hw.isSharedMemory ? ', shared with the system' : ''}.',
+                hw.vramMb <= 0
+                    ? '$kGraphicsMemoryUnknown.'
+                    : '${koboldMemoryWords(hw.vramMb)} of graphics memory'
+                          '${hw.isSharedMemory ? ', shared with the system' : ''}.',
                 style: TextStyle(
                   fontSize: 13,
                   color: AppColors.textSecondary(context),

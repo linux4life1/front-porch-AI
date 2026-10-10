@@ -19,6 +19,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -58,7 +59,8 @@ class _LocalModelCardState extends State<LocalModelCard> {
   @override
   Widget build(BuildContext context) {
     final vramUsage = widget.model.estimatedVramMb;
-    final usagePercent = widget.availableVramMb > 0
+    final vramKnown = widget.availableVramMb > 0;
+    final usagePercent = vramKnown
         ? (vramUsage / widget.availableVramMb).clamp(0.0, 1.0)
         : 0.0;
 
@@ -175,36 +177,49 @@ class _LocalModelCardState extends State<LocalModelCard> {
                       ),
                       const SizedBox(height: 8),
 
-                      // VRAM usage bar
-                      Container(
-                        height: 4,
-                        decoration: BoxDecoration(
-                          color: AppColors.resolve(
-                            context,
-                            Colors.white.withValues(alpha: 0.1),
-                            AppColors.borderOf(context).withValues(alpha: 0.3),
+                      // VRAM usage bar. An undetected card (0 MB) gets no
+                      // bar and no percentage: 0% of nothing is no verdict.
+                      if (!vramKnown)
+                        Text(
+                          kGraphicsMemoryUnknown,
+                          style: TextStyle(
+                            color: AppColors.textTertiary(context),
+                            fontSize: 10,
                           ),
-                          borderRadius: BorderRadius.circular(2),
                         ),
-                        child: FractionallySizedBox(
-                          alignment: Alignment.centerLeft,
-                          widthFactor: usagePercent,
-                          child: Container(
-                            decoration: BoxDecoration(
-                              color: _getUsageColor(usagePercent),
-                              borderRadius: BorderRadius.circular(2),
+                      if (vramKnown) ...[
+                        Container(
+                          height: 4,
+                          decoration: BoxDecoration(
+                            color: AppColors.resolve(
+                              context,
+                              Colors.white.withValues(alpha: 0.1),
+                              AppColors.borderOf(
+                                context,
+                              ).withValues(alpha: 0.3),
+                            ),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                          child: FractionallySizedBox(
+                            alignment: Alignment.centerLeft,
+                            widthFactor: usagePercent,
+                            child: Container(
+                              decoration: BoxDecoration(
+                                color: _getUsageColor(usagePercent),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
                             ),
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${(usagePercent * 100).toStringAsFixed(0)}% of available VRAM',
-                        style: TextStyle(
-                          color: AppColors.textTertiary(context),
-                          fontSize: 10,
+                        const SizedBox(height: 4),
+                        Text(
+                          '${(usagePercent * 100).toStringAsFixed(0)}% of available VRAM',
+                          style: TextStyle(
+                            color: AppColors.textTertiary(context),
+                            fontSize: 10,
+                          ),
                         ),
-                      ),
+                      ],
                     ],
                   ),
                 ),

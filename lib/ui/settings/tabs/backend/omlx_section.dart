@@ -96,7 +96,8 @@ class _OmlxSectionState extends State<OmlxSection> {
                                   content: Text(
                                     models.isEmpty
                                         ? 'No models found. Make sure oMLX is running and has models loaded.'
-                                        : 'Found ${models.length} available models.',
+                                        : 'Found ${models.length} '
+                                              'model${models.length == 1 ? '' : 's'}.',
                                   ),
                                 ),
                               );
