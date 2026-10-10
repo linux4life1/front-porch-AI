@@ -56,6 +56,7 @@ part 'chat_page.scene_dialogs.dart';
 part 'chat_page.session_dialogs.dart';
 part 'chat_page.input_actions.dart';
 part 'chat_page.input_bar.dart';
+part 'chat_page.regen_shortcut.dart';
 part 'chat_page.sidebar.dart';
 part 'chat_page.sidebar_widgets.dart';
 part 'chat_page.speakers.dart';
@@ -142,6 +143,9 @@ class _ChatPageState extends State<ChatPage> {
   /// the Generate-reply button tooltip so keyboard users can discover it.
   String get _regenShortcutLabel => Platform.isMacOS ? '⌘R' : 'Ctrl+R';
 
+  /// Held so dispose removes the same handler initState added.
+  late final KeyEventCallback _regenKeys = _onRegenShortcut;
+
   @override
   void initState() {
     super.initState();
@@ -159,39 +163,10 @@ class _ChatPageState extends State<ChatPage> {
           _sendCurrentMessage(chatService);
           return KeyEventResult.handled;
         }
-        // ⌘R (macOS) / Ctrl+R — (re)generate the last AI reply. If the previous
-        // reply was deleted, regenerateLastMessage() generates a fresh one from
-        // the trailing user prompt instead (it handles both). Mirrors the
-        // Generate-reply toolbar button / bubble regen for keyboard users.
-        if (event is KeyDownEvent &&
-            event.logicalKey == LogicalKeyboardKey.keyR &&
-            (Platform.isMacOS
-                ? HardwareKeyboard.instance.isMetaPressed
-                : HardwareKeyboard.instance.isControlPressed)) {
-          final chatService = Provider.of<ChatService>(context, listen: false);
-          if (!chatService.isGenerating && !chatService.isGuestBusy) {
-            final last = chatService.messages.isEmpty
-                ? null
-                : chatService.messages.last;
-            if (last != null &&
-                !last.isUser &&
-                last != chatService.messages.first) {
-              unawaited(
-                promptLookupRegen(
-                  context,
-                  chatService,
-                  chatService.regenerateLastMessage,
-                ),
-              );
-            } else {
-              chatService.regenerateLastMessage();
-            }
-          }
-          return KeyEventResult.handled;
-        }
         return KeyEventResult.ignored;
       },
     );
+    HardwareKeyboard.instance.addHandler(_regenKeys);
 
     // Listen for TTS errors (e.g. ElevenLabs quota exceeded) and show a snackbar.
     final tts = Provider.of<TtsService>(context, listen: false);
@@ -351,6 +326,7 @@ class _ChatPageState extends State<ChatPage> {
 
   @override
   void dispose() {
+    HardwareKeyboard.instance.removeHandler(_regenKeys);
     _chatService?.pauseDynamicResponses();
     _chatService?.chatScreenClosed();
     _ttsService?.removeListener(_onTtsChanged);
