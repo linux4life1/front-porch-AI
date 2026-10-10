@@ -226,11 +226,8 @@ extension _GroupWizardReviewStep on _CreateGroupChatPageState {
           ElevatedButton.icon(
             onPressed: () => _createGroup(enterChat: true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.resolve(
-                context,
-                const Color(0xFF7C3AED),
-                const Color(0xFF6D28D9),
-              ),
+              backgroundColor: AppColors.porchAmberOf(context),
+              foregroundColor: AppColors.onChaosAccent,
               minimumSize: const Size.fromHeight(52),
             ),
             icon: const Icon(Icons.check),
@@ -288,11 +285,7 @@ extension _GroupWizardReviewStep on _CreateGroupChatPageState {
     final dotColor = !available
         ? AppColors.surfaceContainerOf(context).withValues(alpha: 0.5)
         : (isActive
-              ? AppColors.resolve(
-                  context,
-                  const Color(0xFF7C3AED),
-                  const Color(0xFF6D28D9),
-                )
+              ? AppColors.porchAmberOf(context)
               : AppColors.surfaceContainerOf(context));
 
     final borderColor = isCurrent
@@ -413,12 +406,8 @@ extension _GroupWizardReviewStep on _CreateGroupChatPageState {
                 ),
                 label: Text(nextText, style: const TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.resolve(
-                    context,
-                    const Color(0xFF7C3AED),
-                    const Color(0xFF6D28D9),
-                  ),
-                  foregroundColor: Colors.white,
+                  backgroundColor: AppColors.porchAmberOf(context),
+                  foregroundColor: AppColors.onChaosAccent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
