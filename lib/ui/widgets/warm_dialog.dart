@@ -178,11 +178,15 @@ Widget warmDialogConfirm(
   final bg = destructive
       ? AppColors.negativeAccentOf(context)
       : (accent ?? AppColors.porchAmberOf(context));
+  // Dark ink on a bright fill (dark mode's amber), white on a deep one.
+  final onBright = ThemeData.estimateBrightnessForColor(bg) == Brightness.light;
   return ElevatedButton(
     key: key,
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
-      foregroundColor: AppColors.resolve(context, Colors.white, Colors.white),
+      foregroundColor: onBright
+          ? AppColors.onChaosAccent
+          : AppColors.resolve(context, Colors.white, Colors.white),
     ),
     onPressed: onPressed,
     child: Text(label),
