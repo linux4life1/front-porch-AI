@@ -177,17 +177,15 @@ extension RealismEvalOneShot on RealismEvals {
       // (All parses below use textForOneShot — the Director-corrected text.
       // Parsing the raw pre-verification text silently discarded corrections
       // for everything except the relationship deltas.)
-      final objectiveMatch = RegExp(
-        r'"proposed_objective"\s*:\s*"([^"]+)"',
-      ).firstMatch(textForOneShot);
+      final proposed = evalJsonString(textForOneShot, 'proposed_objective');
       // Objectives off ⇒ the character does not get to start new quests. Same
       // gate, same source of truth as the four-call twin in
       // realism_evals.support.dart — without it, one-shot (the DEFAULT fused
       // mode on a tool-capable remote backend) kept growing quests behind the
       // switch's back and fired an unrequested task-generation call.
       final objectivesOn = getObjectivesEnabled?.call() ?? true;
-      if (objectivesOn && objectiveMatch != null) {
-        final newObj = objectiveMatch.group(1)!.trim();
+      if (objectivesOn && proposed != null) {
+        final newObj = proposed.trim();
         if (newObj.toLowerCase() != 'none' && newObj.isNotEmpty) {
           // Avoid setting the exact same goal if it's already active
           final active = getActiveObjectives();
@@ -252,22 +250,17 @@ extension RealismEvalOneShot on RealismEvals {
       // compares 'stance' across the two paths and would catch a relapse.
 
       relationshipService.updateFixationFromEvalResult(
-        (RegExp(
-              r'"fixation_topic"\s*:\s*"([^"]+)"',
-            ).firstMatch(textForOneShot)?.group(1) ??
-            ''),
+        evalJsonString(textForOneShot, 'fixation_topic') ?? '',
         isOneShot: true,
       );
 
       // Clock decide is post-generation (time-only eval after the reply).
       // Applying minutes from this fused JSON would double-advance.
 
-      final reasonMatch = RegExp(
-        r'"reason"\s*:\s*"([^"]*)"',
-      ).firstMatch(textForOneShot);
+      final reason = evalJsonString(textForOneShot, 'reason');
       debugPrint(
         '[Realism:OneShot] Done — Emotion: ${getCharacterEmotion()} (${getEmotionIntensity()}), '
-        'Time: ${timeService.timeOfDay}, Reason: ${reasonMatch?.group(1) ?? 'unknown'} '
+        'Time: ${timeService.timeOfDay}, Reason: ${reason ?? 'unknown'} '
         '(${sw.elapsedMilliseconds} ms)',
       );
 

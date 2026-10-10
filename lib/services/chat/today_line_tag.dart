@@ -4,6 +4,8 @@
 // Leftover [today: …] strip (never shown in the bubble) plus the scene-time
 // eval field parser. Today's sentence is a realism-engine eval, not a tag.
 
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
+
 /// Parses and strips `[today: …]` from a model reply.
 class TodayLineTag {
   TodayLineTag._();
@@ -38,11 +40,7 @@ class TodayLineTag {
     final hasKey = RegExp(r'"today_sentence"\s*:').hasMatch(raw);
     final String value;
     if (hasKey) {
-      value =
-          RegExp(
-            r'"today_sentence"\s*:\s*"([^"]*)"',
-          ).firstMatch(raw)?.group(1) ??
-          '';
+      value = evalJsonString(raw, 'today_sentence') ?? '';
     } else if (raw.trim().startsWith('{')) {
       return null;
     } else {

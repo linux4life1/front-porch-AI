@@ -150,14 +150,13 @@ extension ChatServiceRealismEvals on ChatService {
       final verdictMatch = RegExp(
         r'"verdict"\s*:\s*"([^"]+)"',
       ).firstMatch(text);
-      final reasonMatch = RegExp(r'"reason"\s*:\s*"([^"]*)"').firstMatch(text);
 
       final recovery = (_extractJsonInt(text, 'trust_recovery') ?? 0).clamp(
         0,
         60,
       );
       final verdict = verdictMatch?.group(1) ?? 'rejected';
-      final reason = reasonMatch?.group(1) ?? '';
+      final reason = evalJsonString(text, 'reason') ?? '';
 
       if (recovery > 0) {
         _relationshipService.applyTrustDelta(recovery);

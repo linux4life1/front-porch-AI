@@ -20,6 +20,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/expression_pack_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -147,23 +148,14 @@ String _qcPrompt() =>
 /// JSON in prose more often than not. same_person + a non-empty named
 /// expression → a verdict; anything else → null (unparsed).
 PackQcVerdict? _parseVerdict(String reply, String targetEmotion) {
-  final m = RegExp(
-    r'"same_person"\s*:\s*(true|false)',
-  ).firstMatch(reply);
+  final m = RegExp(r'"same_person"\s*:\s*(true|false)').firstMatch(reply);
   final samePerson = m != null ? (m.group(1) == 'true') : null;
   final observed =
-      RegExp(r'"expression"\s*:\s*"([^"]*)"')
-          .firstMatch(reply)
-          ?.group(1)
-          ?.trim()
-          .toLowerCase() ??
-      '';
+      evalJsonString(reply, 'expression')?.trim().toLowerCase() ?? '';
   if (samePerson == null || observed.isEmpty) return null;
 
   final matches = _observedMatchesTarget(observed, targetEmotion);
-  final flawRaw =
-      RegExp(r'"flaw"\s*:\s*"([^"]*)"').firstMatch(reply)?.group(1)?.trim() ??
-      '';
+  final flawRaw = evalJsonString(reply, 'flaw')?.trim() ?? '';
   final flaw = flawRaw.toLowerCase() == 'none' ? '' : flawRaw;
   return PackQcVerdict(
     samePerson: samePerson,

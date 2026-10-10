@@ -207,7 +207,7 @@ extension RealismVerificationRules on RealismVerification {
           false,
           'fixation w/o obsessive',
           raw.replaceAll(
-            RegExp('"fixation_topic"\\s*:\\s*"[^"]*"'),
+            evalJsonStringPattern('fixation_topic'),
             '"fixation_topic": "none"',
           ),
         );
@@ -250,7 +250,7 @@ extension RealismVerificationRules on RealismVerification {
           numericInten != null
               ? _correctedJson(raw, 'emotion_intensity', 1)
               : raw.replaceAll(
-                  RegExp('"emotion_intensity"\\s*:\\s*"[^"]*"'),
+                  evalJsonStringPattern('emotion_intensity'),
                   '"emotion_intensity": "mild"',
                 ),
         );
@@ -381,8 +381,8 @@ extension RealismVerificationRules on RealismVerification {
   }
 
   String? _extractJsonString(String r, String k) {
-    final m = RegExp('"$k"\\s*:\\s*"([^"]*)"', dotAll: true).firstMatch(r);
-    if (m != null) return m.group(1)?.trim();
+    final quoted = evalJsonString(r, k);
+    if (quoted != null) return quoted.trim();
     final m2 = RegExp('"$k"\\s*:\\s*([^,}\\]]+)', dotAll: true).firstMatch(r);
     return m2?.group(1)?.trim().replaceAll('"', '');
   }

@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
     show recentExchange, recentExchangeThroughLastUser;
 import 'package:front_porch_ai/services/chat/relationship_service.dart';

@@ -22,6 +22,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
 
@@ -202,10 +203,7 @@ class NeedsImpactEvaluator {
       final deltas = _parseNeedDeltas(effectiveText);
       _boundDeltas(deltas);
 
-      final reasonMatch = RegExp(
-        r'"reason"\s*:\s*"([^"]*)"',
-      ).firstMatch(effectiveText);
-      final reason = reasonMatch?.group(1)?.trim();
+      final reason = evalJsonString(effectiveText, 'reason')?.trim();
 
       final impact = NeedsImpact(
         deltas: deltas,
@@ -350,10 +348,7 @@ class NeedsImpactEvaluator {
           ? deltas
           : (Map<String, int>.from(oldDeltas)..addAll(deltas));
 
-      final reasonMatch = RegExp(
-        r'"reason"\s*:\s*"([^"]*)"',
-      ).firstMatch(effectiveText);
-      final reason = reasonMatch?.group(1)?.trim();
+      final reason = evalJsonString(effectiveText, 'reason')?.trim();
 
       final impact = NeedsImpact(
         deltas: effective,

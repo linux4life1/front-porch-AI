@@ -101,22 +101,14 @@ extension _RealismEvalSupport on RealismEvals {
       }
     } catch (_) {}
     if (fixationRaw.isEmpty) {
-      final m = RegExp(
-        '"fixation_topic"\\s*:\\s*"([^"]*)"',
-        dotAll: true,
-      ).firstMatch(text);
-      fixationRaw = m?.group(1)?.trim() ?? '';
+      fixationRaw = evalJsonString(text, 'fixation_topic')?.trim() ?? '';
     }
     relationshipService.updateFixationFromEvalResult(
       fixationRaw.isNotEmpty ? fixationRaw : '',
     );
 
     if (objectiveRaw.isEmpty) {
-      final m2 = RegExp(
-        '"proposed_objective"\\s*:\\s*"([^"]*)"',
-        dotAll: true,
-      ).firstMatch(text);
-      objectiveRaw = m2?.group(1)?.trim() ?? '';
+      objectiveRaw = evalJsonString(text, 'proposed_objective')?.trim() ?? '';
     }
     if (servesRaw.isEmpty) {
       // Same regex floor the other two fields get. Unquoted is allowed here
@@ -369,10 +361,7 @@ extension _RealismEvalSupport on RealismEvals {
 
     // Reasons (for hover tooltips on chips). Always extract; set if present
     // and not the sentinel "none".
-    final bondReasonMatch = RegExp(
-      r'"bond_reason"\s*:\s*"([^"]*)"',
-    ).firstMatch(text);
-    final rawBondReason = bondReasonMatch?.group(1)?.trim() ?? '';
+    final rawBondReason = evalJsonString(text, 'bond_reason')?.trim() ?? '';
     final bondReason = rawBondReason.toLowerCase() == 'none'
         ? ''
         : rawBondReason;
@@ -382,10 +371,7 @@ extension _RealismEvalSupport on RealismEvals {
       setPendingRealismMetadata(pending);
     }
 
-    final trustReasonMatch = RegExp(
-      r'"trust_reason"\s*:\s*"([^"]*)"',
-    ).firstMatch(text);
-    final rawTrustReason = trustReasonMatch?.group(1)?.trim() ?? '';
+    final rawTrustReason = evalJsonString(text, 'trust_reason')?.trim() ?? '';
     final trustReason = rawTrustReason.toLowerCase() == 'none'
         ? ''
         : rawTrustReason;
