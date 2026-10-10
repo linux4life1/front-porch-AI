@@ -112,7 +112,7 @@ class SetupBackendPicker extends StatelessWidget {
           ),
           if (remoteKind == RemoteProviderKind.custom) ...[
             const SizedBox(height: 10),
-            _customUrlField(context, storage, llmProvider),
+            _CustomUrlField(state: state, storage: storage, llm: llmProvider),
           ],
           const SizedBox(height: 6),
           Text(
@@ -129,17 +129,76 @@ class SetupBackendPicker extends StatelessWidget {
     );
   }
 
-  /// Custom has no fixed address, so it carries the same address box as
-  /// Model Settings. Changing it drops the old host's model list so the
-  /// picker fetches from the new server.
-  Widget _customUrlField(
-    BuildContext context,
-    StorageService storage,
-    LLMProvider llmProvider,
-  ) {
-    return TextFormField(
+  Widget _inputLabel(BuildContext context, String text) {
+    return Text(
+      text,
+      style: TextStyle(
+        fontSize: 12,
+        color: AppColors.textSecondary(context),
+        fontWeight: FontWeight.w500,
+      ),
+    );
+  }
+}
+
+/// Custom has no fixed address, so it carries the same address box as Model
+/// Settings. Typing stays in the box; the address is saved when the user
+/// presses Enter or leaves the box, then the model list is fetched from the
+/// new server (the old host's list is dropped first).
+class _CustomUrlField extends StatefulWidget {
+  const _CustomUrlField({
+    required this.state,
+    required this.storage,
+    required this.llm,
+  });
+
+  final CreatorState state;
+  final StorageService storage;
+  final LLMProvider llm;
+
+  @override
+  State<_CustomUrlField> createState() => _CustomUrlFieldState();
+}
+
+class _CustomUrlFieldState extends State<_CustomUrlField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.storage.backendSettings.remoteApiUrl,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _commit();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Enter and leaving the box both land here; an address already saved is
+  /// not written (or fetched) twice.
+  Future<void> _commit() async {
+    final url = _controller.text.trim();
+    final settings = widget.storage.backendSettings;
+    if (url == settings.remoteApiUrl) return;
+    widget.state.availableModels = [];
+    await settings.setRemoteApiUrl(url);
+    await widget.state.loadAvailableModels(widget.llm);
+    widget.state.notify();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
       key: const ValueKey('creator-custom-url'),
-      initialValue: storage.backendSettings.remoteApiUrl,
+      controller: _controller,
+      focusNode: _focus,
       style: TextStyle(color: AppColors.textPrimary(context)),
       decoration: InputDecoration(
         labelText: 'Server address',
@@ -152,25 +211,7 @@ class SetupBackendPicker extends StatelessWidget {
           borderSide: BorderSide.none,
         ),
       ),
-      onChanged: (value) {
-        state.availableModels = [];
-        storage.backendSettings.setRemoteApiUrl(value.trim());
-      },
-      onFieldSubmitted: (_) async {
-        await state.loadAvailableModels(llmProvider);
-        state.notify();
-      },
-    );
-  }
-
-  Widget _inputLabel(BuildContext context, String text) {
-    return Text(
-      text,
-      style: TextStyle(
-        fontSize: 12,
-        color: AppColors.textSecondary(context),
-        fontWeight: FontWeight.w500,
-      ),
+      onSubmitted: (_) => _commit(),
     );
   }
 }

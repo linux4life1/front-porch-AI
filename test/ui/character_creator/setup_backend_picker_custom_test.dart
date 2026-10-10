@@ -58,7 +58,7 @@ Future<StorageService> _storageAt(WidgetTester tester, String url) async {
   return storage;
 }
 
-Future<void> _pump(WidgetTester tester, StorageService storage) async {
+Future<CreatorState> _pump(WidgetTester tester, StorageService storage) async {
   final llm = _Llm();
   addTearDown(llm.dispose);
   final state = CreatorState();
@@ -77,6 +77,7 @@ Future<void> _pump(WidgetTester tester, StorageService storage) async {
     ),
   );
   await tester.pump();
+  return state;
 }
 
 /// A lit pill draws its label in the on-amber ink.
@@ -102,7 +103,7 @@ void main() {
       expect(_lit(tester, other), isFalse, reason: other);
     }
     expect(
-      find.widgetWithText(TextFormField, _customUrl),
+      find.widgetWithText(TextField, _customUrl),
       findsOneWidget,
       reason: 'the address box shows the server in use',
     );
@@ -112,7 +113,7 @@ void main() {
     tester,
   ) async {
     final storage = await _storageAt(tester, kOpenRouterApiV1);
-    await _pump(tester, storage);
+    final state = await _pump(tester, storage);
 
     expect(_lit(tester, 'OpenRouter'), isTrue);
     expect(find.byKey(const ValueKey('creator-custom-url')), findsNothing);
@@ -128,13 +129,34 @@ void main() {
     final box = find.byKey(const ValueKey('creator-custom-url'));
     expect(box, findsOneWidget);
 
-    await tester.enterText(box, _customUrl);
-    await tester.runAsync(() async {
-      await Future<void>.delayed(const Duration(milliseconds: 80));
-    });
-    await tester.pump();
+    Future<void> settle() async {
+      await tester.runAsync(() async {
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+      });
+      await tester.pump();
+    }
 
+    // Typing stays in the box: nothing is saved or fetched per keystroke.
+    final before = storage.backendSettings.remoteApiUrl;
+    state.selectedModelId = 'stale-model';
+    await tester.enterText(box, _customUrl);
+    await settle();
+    expect(storage.backendSettings.remoteApiUrl, before);
+    expect(state.selectedModelId, 'stale-model', reason: 'no fetch yet');
+
+    // Leaving the box saves the address and fetches the new server's list.
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle();
     expect(storage.backendSettings.remoteApiUrl, _customUrl);
+    expect(state.selectedModelId, '', reason: 'the model list was reloaded');
     expect(_lit(tester, 'Custom'), isTrue);
+
+    // Back in and out with no change: no second save or fetch.
+    state.selectedModelId = 'picked-after-fetch';
+    await tester.tap(box);
+    await settle();
+    FocusManager.instance.primaryFocus?.unfocus();
+    await settle();
+    expect(state.selectedModelId, 'picked-after-fetch');
   });
 }
