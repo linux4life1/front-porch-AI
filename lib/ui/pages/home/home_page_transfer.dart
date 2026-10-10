@@ -126,7 +126,12 @@ extension _HomePageTransfer on _HomePageState {
     ScaffoldMessenger.of(context).showSnackBar(
       result.failCount > 0
           ? SnackBar(
-              content: Text(msg),
+              content: Text(
+                msg,
+                style: TextStyle(
+                  color: Theme.of(context).colorScheme.onPrimary,
+                ),
+              ),
               backgroundColor: AppColors.porchAmberOf(context),
             )
           : porchSnackBar(context, msg),
