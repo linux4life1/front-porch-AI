@@ -277,7 +277,12 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getObjectiveStaleThresholdN: () =>
           _storageService.realismSettings.objectiveStaleThreshold,
       getIsCheckingCompletion: () => _isCheckingCompletion,
-      setIsCheckingCompletion: (v) => _isCheckingCompletion = v,
+      // Every flip notifies: the web relay pushes the phone's goal-check
+      // overlay (and its Skip) from it. The pre-reply check had no notify.
+      setIsCheckingCompletion: (v) {
+        _isCheckingCompletion = v;
+        notifyListeners();
+      },
       onNotify: notifyListeners,
       fireToolEval: _fireToolEval,
       probe: _toolProbe,
