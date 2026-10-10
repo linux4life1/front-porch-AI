@@ -292,6 +292,8 @@ extension _BubbleHeader on _MessageBubbleState {
         if (!message.isUser)
           CircleAvatar(
             radius: 16,
+            // The Home card's no-portrait look; a real portrait covers it.
+            backgroundColor: AppColors.surfaceContainerOf(context),
             // No portrait, or only the flat placeholder a character made
             // without one carries: the person icon.
             child: RealPortrait(
@@ -302,10 +304,14 @@ extension _BubbleHeader on _MessageBubbleState {
                   width: 32,
                   height: 32,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, _, _) => const Icon(Icons.person),
+                  errorBuilder: (_, _, _) => Icon(
+                    Icons.person,
+                    color: AppColors.iconSecondary(context),
+                  ),
                 ),
               ),
-              noPortrait: (_) => const Icon(Icons.person),
+              noPortrait: (_) =>
+                  Icon(Icons.person, color: AppColors.iconSecondary(context)),
             ),
           )
         else if (boundToChat)

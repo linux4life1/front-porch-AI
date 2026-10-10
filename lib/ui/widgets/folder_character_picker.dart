@@ -409,9 +409,15 @@ class _CharacterTile extends StatelessWidget {
                 // (blank circle) instead of surfacing a decode exception.
                 onBackgroundImageError: (_, _) {},
               ),
-              noPortrait: (_) => const CircleAvatar(
+              // The Home card's no-portrait look.
+              noPortrait: (_) => CircleAvatar(
                 radius: 18,
-                child: Icon(Icons.person, size: 16),
+                backgroundColor: AppColors.surfaceContainerOf(context),
+                child: Icon(
+                  Icons.person,
+                  size: 16,
+                  color: AppColors.iconSecondary(context),
+                ),
               ),
             ),
             const SizedBox(width: 8),

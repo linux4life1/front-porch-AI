@@ -96,11 +96,8 @@ class CharacterPortrait extends StatelessWidget {
       key: const ValueKey('portrait-fallback'),
       width: size,
       height: size,
-      color: AppColors.resolve(
-        context,
-        Colors.black26,
-        Colors.black.withValues(alpha: 0.1),
-      ),
+      // The Home card's no-portrait look.
+      color: AppColors.surfaceContainerOf(context),
       child: Icon(
         Icons.person,
         color: AppColors.iconSecondary(context),

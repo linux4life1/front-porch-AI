@@ -45,7 +45,10 @@ extension _ChatPageSidebarHost on _ChatPageState {
           backgroundImage: FileImage(file),
           onBackgroundImageError: (_, _) {},
         ),
-        noPortrait: (_) => const CircleAvatar(child: Icon(Icons.person)),
+        noPortrait: (_) => CircleAvatar(
+          backgroundColor: AppColors.surfaceContainerOf(context),
+          child: Icon(Icons.person, color: AppColors.iconSecondary(context)),
+        ),
       );
     } else {
       final shown = cast.length.clamp(0, 4);
@@ -99,12 +102,15 @@ extension _ChatPageSidebarHost on _ChatPageState {
                               ),
                               noPortrait: (_) => CircleAvatar(
                                 radius: 16,
-                                backgroundColor: color,
+                                backgroundColor: AppColors.surfaceContainerOf(
+                                  context,
+                                ),
                                 child: Text(
                                   card.name.isNotEmpty ? card.name[0] : '?',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
+                                    color: AppColors.textSecondary(context),
                                   ),
                                 ),
                               ),

@@ -172,9 +172,15 @@ extension _GroupWizardCastSteps on _CreateGroupChatPageState {
       file: c.imagePath != null ? File(c.imagePath!) : null,
       portrait: (_, file) =>
           CircleAvatar(radius: radius, backgroundImage: FileImage(file)),
+      // The Home card's no-portrait look.
       noPortrait: (_) => CircleAvatar(
         radius: radius,
-        child: Icon(Icons.person, size: radius * 0.9),
+        backgroundColor: AppColors.surfaceContainerOf(context),
+        child: Icon(
+          Icons.person,
+          size: radius * 0.9,
+          color: AppColors.iconSecondary(context),
+        ),
       ),
     );
   }

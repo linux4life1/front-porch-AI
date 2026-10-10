@@ -13,15 +13,16 @@ extension _GroupPromptEditors on _GroupPromptEngineeringTabState {
       backgroundColor: _charColor(index),
       backgroundImage: FileImage(file),
     ),
+    // The Home card's no-portrait look.
     noPortrait: (_) => CircleAvatar(
       radius: 16,
-      backgroundColor: _charColor(index),
+      backgroundColor: AppColors.surfaceContainerOf(context),
       child: Text(
         c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 12,
           fontWeight: FontWeight.bold,
-          color: Colors.white,
+          color: AppColors.textSecondary(context),
         ),
       ),
     ),
