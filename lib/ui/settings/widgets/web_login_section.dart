@@ -48,13 +48,31 @@ class _WebLoginSectionState extends State<WebLoginSection> {
   @override
   void initState() {
     super.initState();
+    // A login made (or changed) from a phone lands here without a reopen.
+    widget.auth.accountChanges.addListener(_refresh);
     _refresh();
+  }
+
+  @override
+  void didUpdateWidget(WebLoginSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.auth, widget.auth)) return;
+    oldWidget.auth.accountChanges.removeListener(_refresh);
+    widget.auth.accountChanges.addListener(_refresh);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    widget.auth.accountChanges.removeListener(_refresh);
+    super.dispose();
   }
 
   Future<void> _refresh() async {
     final info = await widget.auth.accountInfo();
-    final token =
-        info == null ? await widget.auth.setupTokenForDesktop() : null;
+    final token = info == null
+        ? await widget.auth.setupTokenForDesktop()
+        : null;
     if (mounted) {
       setState(() {
         _info = info;
@@ -104,9 +122,7 @@ class _WebLoginSectionState extends State<WebLoginSection> {
     await _refresh();
     messenger.showSnackBar(
       const SnackBar(
-        content: Text(
-          'Web login reset — create a new one from the browser.',
-        ),
+        content: Text('Web login reset — create a new one from the browser.'),
       ),
     );
   }

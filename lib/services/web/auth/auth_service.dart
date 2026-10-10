@@ -20,6 +20,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:drift/drift.dart' show Variable;
+import 'package:flutter/foundation.dart' show ValueNotifier;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/web/auth/auth_types.dart';
@@ -66,6 +67,12 @@ class AuthService {
   /// One-time token for non-local first-run setup. Never served over HTTP —
   /// desktop Settings shows it while setup is open.
   String? _setupToken;
+
+  /// Ticks when the account is created or removed, or its username or 2FA
+  /// changes, so desktop Settings redraws a login made from a phone.
+  final ValueNotifier<int> accountChanges = ValueNotifier<int>(0);
+
+  void _accountChanged() => accountChanges.value++;
 
   // ── Account lifecycle ───────────────────────────────────────────────────
 
@@ -130,6 +137,7 @@ class AuthService {
       ],
     );
     _setupToken = null;
+    _accountChanged();
     return SetupStatus.success;
   }
 
@@ -241,6 +249,7 @@ class AuthService {
       ],
     );
     _limiter.recordSuccess(creds.username);
+    _accountChanged();
     return CredentialChangeStatus.success;
   }
 
@@ -260,6 +269,7 @@ class AuthService {
       'DELETE FROM web_auth_credentials WHERE id = ?',
       [_accountId],
     );
+    _accountChanged();
   }
 
   // ── TOTP enrollment ───────────────────────────────────────────────────────
@@ -342,6 +352,7 @@ class AuthService {
     );
     _pendingTotpSecret = null;
     _limiter.recordSuccess(creds.username);
+    _accountChanged();
     return TotpConfirmResult(
       CredentialChangeStatus.success,
       recoveryCodes: recovery,
@@ -368,6 +379,7 @@ class AuthService {
       [DateTime.now().millisecondsSinceEpoch ~/ 1000, _accountId],
     );
     _limiter.recordSuccess(creds.username);
+    _accountChanged();
     return CredentialChangeStatus.success;
   }
 
