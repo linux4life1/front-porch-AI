@@ -48,13 +48,9 @@ class CastRosterChip extends StatelessWidget {
     this.onPromote,
   });
 
-  Widget _initial(BuildContext context) => Text(
+  Widget _initial() => Text(
     name.isNotEmpty ? name[0] : '?',
-    style: TextStyle(
-      fontSize: 12,
-      fontWeight: FontWeight.bold,
-      color: AppColors.textSecondary(context),
-    ),
+    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
   );
 
   @override
@@ -76,9 +72,7 @@ class CastRosterChip extends StatelessWidget {
               ),
               child: CircleAvatar(
                 radius: 16,
-                // The Home card's no-portrait look; a real portrait covers
-                // it. The focus ring keeps the member's colour.
-                backgroundColor: AppColors.surfaceContainerOf(context),
+                backgroundColor: color,
                 // No portrait, or only the flat placeholder a character
                 // made without one carries: the initial.
                 child: RealPortrait(
@@ -89,10 +83,10 @@ class CastRosterChip extends StatelessWidget {
                       width: 32,
                       height: 32,
                       fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _initial(context),
+                      errorBuilder: (_, _, _) => _initial(),
                     ),
                   ),
-                  noPortrait: _initial,
+                  noPortrait: (_) => _initial(),
                 ),
               ),
             ),

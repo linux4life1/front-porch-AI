@@ -102,15 +102,12 @@ extension _ChatPageSidebarHost on _ChatPageState {
                               ),
                               noPortrait: (_) => CircleAvatar(
                                 radius: 16,
-                                backgroundColor: AppColors.surfaceContainerOf(
-                                  context,
-                                ),
+                                backgroundColor: color,
                                 child: Text(
                                   card.name.isNotEmpty ? card.name[0] : '?',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.bold,
-                                    color: AppColors.textSecondary(context),
                                   ),
                                 ),
                               ),

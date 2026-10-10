@@ -103,11 +103,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
   Widget _avatarLetter() {
     return Text(
       widget.character.name.isNotEmpty ? widget.character.name[0] : '?',
-      style: TextStyle(
-        fontWeight: FontWeight.bold,
-        fontSize: 13,
-        color: AppColors.textSecondary(context),
-      ),
+      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
     );
   }
 
@@ -319,11 +315,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                         ),
                         child: CircleAvatar(
                           radius: widget.isExpanded ? 18 : 16,
-                          // The Home card's no-portrait look; a real
-                          // portrait covers it.
-                          backgroundColor: AppColors.surfaceContainerOf(
-                            context,
-                          ),
+                          backgroundColor: widget.avatarColor,
                           // No portrait, or only the flat placeholder a
                           // character made without one carries: the letter.
                           child: RealPortrait(

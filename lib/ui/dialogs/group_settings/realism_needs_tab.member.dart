@@ -38,16 +38,15 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
               backgroundColor: groupCharAccentColor(index),
               backgroundImage: FileImage(file),
             ),
-            // The Home card's no-portrait look.
             noPortrait: (_) => CircleAvatar(
               radius: 16,
-              backgroundColor: AppColors.surfaceContainerOf(context),
+              backgroundColor: groupCharAccentColor(index),
               child: Text(
                 char.name.isNotEmpty ? char.name[0].toUpperCase() : '?',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textSecondary(context),
+                  color: Colors.white,
                 ),
               ),
             ),
