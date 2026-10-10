@@ -320,6 +320,45 @@ extension ChatServiceRegenRevert on ChatService {
     return true;
   }
 
+  /// A failed turn ends `user -> System banner`, or `user -> empty reply ->
+  /// banner` when it failed after its bubble was attached (a server error on
+  /// the stream). Neither is a reply to regenerate, so regenerate was a
+  /// silent no-op. Drop them, leaving the user line to be answered again.
+  /// Only with that unanswered user line behind them: every System banner
+  /// (generation error, backend-down, failed entrance) is discardable only
+  /// then; a banner after a real reply stays.
+  ///
+  /// Returns the failed reply's group member, who answers again: their pick
+  /// already moved the rotation on, so a fresh pick would skip them.
+  Future<CharacterCard?> _dropFailedTurnLeftovers() async {
+    final n = _messages.length;
+    if (n < 2 || _messages.last.isUser || _messages.last.sender != 'System') {
+      return null;
+    }
+    final ghost = _isFailedReplyGhost(_messages[n - 2])
+        ? _messages[n - 2]
+        : null;
+    final userAt = n - (ghost == null ? 2 : 3);
+    if (userAt < 0 || !_messages[userAt].isUser) return null;
+    _messages.removeRange(userAt + 1, n);
+    // Its quests have no reply to ride on; the retry proposes them again.
+    if (ghost != null) await _revertObjectiveTurnOps(ghost);
+    await _saveChat(replaceAll: true);
+    if (ghost == null || _activeGroup == null) return null;
+    return _resolveGroupSpeakerForMessage(ghost);
+  }
+
+  /// The bubble a failed turn attached before any text: no text or thinking,
+  /// one swipe, no image. The host's or a member's only; a Scene Guest's is
+  /// left alone (the retry answers the user line as the host).
+  bool _isFailedReplyGhost(ChatMessage m) =>
+      !m.isUser &&
+      m.sender != 'System' &&
+      m.text.trim().isEmpty &&
+      m.swipes.length == 1 &&
+      m.activeMetadata?['is_generated_image'] != true &&
+      !_isGuestAuthoredMessage(m);
+
   Future<void> _mergeOrRestoreRegenSwipe({
     required ChatMessage lastMsg,
     required CharacterCard? regenGuest,

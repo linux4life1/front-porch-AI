@@ -363,20 +363,22 @@ extension ChatServiceSendHandoff on ChatService {
   Future<void> _generateFromTrailingUserTurn({
     String? webQuery,
     String? wikiQuery,
+    CharacterCard? forceSpeaker,
   }) async {
     _stoppedReplyAnchor = null;
     _answeringUnansweredLine = true;
     try {
-      await _answerTrailingUserTurn(webQuery: webQuery, wikiQuery: wikiQuery);
+      await _answerTrailingUserTurn(webQuery, wikiQuery, forceSpeaker);
     } finally {
       _answeringUnansweredLine = false;
     }
   }
 
-  Future<void> _answerTrailingUserTurn({
+  Future<void> _answerTrailingUserTurn(
     String? webQuery,
     String? wikiQuery,
-  }) async {
+    CharacterCard? forceSpeaker,
+  ) async {
     final userMsg = _messages.last;
     final baseAt = _messages.length;
     _rewindToUserTurnBaseline(userMsg);
@@ -414,6 +416,7 @@ extension ChatServiceSendHandoff on ChatService {
       await _generateResponse(
         GenerationMode.normal,
         directUserSend: true,
+        forceSpeaker: forceSpeaker,
         skipSpeakerEval: groupLegacy,
       );
     }

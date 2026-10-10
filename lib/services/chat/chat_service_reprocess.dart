@@ -157,26 +157,10 @@ extension ChatServiceReprocess on ChatService {
     // restore it; see _abortIfBackendDown).
     if (await _abortIfBackendDown()) return;
 
-    // A failed turn leaves `user -> System(error banner)`, and that matched
-    // NEITHER branch below: not a character message (the first), not a user
-    // message (the second). So regenerate was a silent no-op after any failed
-    // generation, and the only recovery a user could find was to copy their
-    // own text out, delete the message, and retype it.
-    //
-    // Drop the banner when a USER turn is sitting directly behind it — the
-    // "last message is a user turn" branch below then regenerates from that
-    // prompt, which is precisely the intent. The test is structural rather
-    // than tagged by producer because that is what makes it safe: all three
-    // System banners (generation error, backend-down, failed entrance) are
-    // only discardable when there is an unanswered user turn behind them. A
-    // banner following a CHARACTER message is left alone.
-    if (_messages.length >= 2 &&
-        !_messages.last.isUser &&
-        _messages.last.sender == 'System' &&
-        _messages[_messages.length - 2].isUser) {
-      _messages.removeLast();
-      await _saveChat(replaceAll: true);
-    }
+    // A failed turn's banner (and empty bubble) go; the user line behind
+    // them is then answered by the last branch below, as the member who
+    // failed. Without this, regenerate after any failure did nothing.
+    final failedSpeaker = await _dropFailedTurnLeftovers();
 
     // Check if the last message is from the character. Narration banners
     // (dreams, Chance Time) carry a character-name sender but must never be
@@ -488,9 +472,12 @@ extension ChatServiceReprocess on ChatService {
       );
     } else if (_messages.last.isUser) {
       // No reply to swipe: rewind to the user line's stamp and score it again.
+      // A failed member is forced, not picked: the rotation already moved
+      // past them, and a pick would move it again.
       await _generateFromTrailingUserTurn(
         webQuery: webQuery,
         wikiQuery: wikiQuery,
+        forceSpeaker: failedSpeaker,
       );
     }
   }
