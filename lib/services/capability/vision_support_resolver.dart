@@ -80,6 +80,18 @@ class VisionSupportResolver {
     _capsCache.clear();
   }
 
+  /// Forget one remote model's verdict and ask again: "Check again" after the
+  /// server restarts with (or without) a vision projector under the same name.
+  Future<VisionSupport> recheckRemote({
+    required String apiUrl,
+    required String apiKey,
+    required String modelName,
+  }) {
+    _remoteCache.remove('$apiUrl::$modelName');
+    _capsCache.remove('$apiUrl::$modelName');
+    return resolveRemote(apiUrl: apiUrl, apiKey: apiKey, modelName: modelName);
+  }
+
   /// Raw `/models` capabilities (vision + tool calling) for a remote model,
   /// fetched once and cached. Answers ONLY for capability-metadata providers
   /// (OpenRouter / Nano-GPT) — any other host returns null immediately, so
