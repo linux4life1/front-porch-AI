@@ -177,31 +177,36 @@ extension _ChatPageOverlays on _ChatPageState {
                 ),
               ),
             ],
-            ChatMessageList(
-              key: _transcriptListKey,
-              sessionId: chatService.currentSessionId,
-              messages: messages,
-              controller: _scrollController,
-              window: _transcriptWindow,
-              onNeedOlderHistory: chatService.hasOlderHistory
-                  ? () => chatService.loadOlderHistory()
-                  : null,
-              replyStreaming: chatService.isGenerating,
-              followStreamingReplies:
-                  storageService.uiSettings.followStreamingReplies,
-              resolveSpeaker: (msg) => _resolveSpeaker(chatService, msg),
-              characterFor: (msg) => isGroup && !msg.isUser
-                  ? resolveGroupSpeakerForMessage(
-                      chatService.groupCharacters,
-                      msg,
-                    )
-                  : character,
-              chatService: chatService,
-              bubbleKeyOf: _bubbleKeyFor,
-              jumpFlash: _jumpFlashMessage,
-              generatingImage: chatService.isGeneratingChatImage,
-              externalImagesAllowed: _externalImagesAllowed,
-              onRequestImagePermission: _requestExternalImagePermission,
+            // Suggested-action pills fill the message box instead of sending.
+            ComposerDraftScope(
+              controller: _controller,
+              focusNode: _chatFocusNode,
+              child: ChatMessageList(
+                key: _transcriptListKey,
+                sessionId: chatService.currentSessionId,
+                messages: messages,
+                controller: _scrollController,
+                window: _transcriptWindow,
+                onNeedOlderHistory: chatService.hasOlderHistory
+                    ? () => chatService.loadOlderHistory()
+                    : null,
+                replyStreaming: chatService.isGenerating,
+                followStreamingReplies:
+                    storageService.uiSettings.followStreamingReplies,
+                resolveSpeaker: (msg) => _resolveSpeaker(chatService, msg),
+                characterFor: (msg) => isGroup && !msg.isUser
+                    ? resolveGroupSpeakerForMessage(
+                        chatService.groupCharacters,
+                        msg,
+                      )
+                    : character,
+                chatService: chatService,
+                bubbleKeyOf: _bubbleKeyFor,
+                jumpFlash: _jumpFlashMessage,
+                generatingImage: chatService.isGeneratingChatImage,
+                externalImagesAllowed: _externalImagesAllowed,
+                onRequestImagePermission: _requestExternalImagePermission,
+              ),
             ),
           ],
         );
