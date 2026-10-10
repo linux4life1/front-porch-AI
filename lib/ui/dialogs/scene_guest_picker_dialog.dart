@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Modal character picker for the `/join` flow — choose an existing library
 /// character to bring into the current 1:1 chat as a Scene Guest (Lite NPC).
@@ -79,13 +80,13 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
   // Memoized per open dialog: _avatar runs per character row per rebuild,
   // and this dialog rebuilds on every search keystroke — N existsSync per
   // keypress is the io-lint bug class.
-  final Map<String, ImageProvider?> _avatarCache = {};
+  final Map<String, File?> _avatarCache = {};
 
-  ImageProvider? _avatar(CharacterCard c) {
+  File? _avatar(CharacterCard c) {
     return _avatarCache.putIfAbsent(c.name, () {
       final file = widget.resolveImage(c);
       return (file != null && file.existsSync()) // io-ok: memoized per dialog
-          ? FileImage(file)
+          ? file
           : null;
     });
   }
@@ -173,19 +174,26 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
                               padding: const EdgeInsets.all(10),
                               child: Row(
                                 children: [
-                                  CircleAvatar(
-                                    radius: 20,
-                                    backgroundColor:
-                                        AppColors.surfaceContainerOf(context),
-                                    backgroundImage: image,
-                                    child: image == null
-                                        ? Icon(
-                                            Icons.person,
-                                            size: 20,
-                                            color:
-                                                AppColors.iconSecondary(context),
-                                          )
-                                        : null,
+                                  // A character made without a portrait shows
+                                  // the person icon, not its flat card colour.
+                                  RealPortrait(
+                                    file: image,
+                                    portrait: (_, file) => CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor:
+                                          AppColors.surfaceContainerOf(context),
+                                      backgroundImage: FileImage(file),
+                                    ),
+                                    noPortrait: (_) => CircleAvatar(
+                                      radius: 20,
+                                      backgroundColor:
+                                          AppColors.surfaceContainerOf(context),
+                                      child: Icon(
+                                        Icons.person,
+                                        size: 20,
+                                        color: AppColors.iconSecondary(context),
+                                      ),
+                                    ),
                                   ),
                                   const SizedBox(width: 12),
                                   Expanded(
@@ -198,16 +206,18 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
                                           maxLines: 1,
                                           overflow: TextOverflow.ellipsis,
                                           style: TextStyle(
-                                            color:
-                                                AppColors.textPrimary(context),
+                                            color: AppColors.textPrimary(
+                                              context,
+                                            ),
                                             fontWeight: FontWeight.w600,
                                             fontSize: 14,
                                           ),
                                         ),
                                         if (desc.isNotEmpty)
                                           Padding(
-                                            padding:
-                                                const EdgeInsets.only(top: 2),
+                                            padding: const EdgeInsets.only(
+                                              top: 2,
+                                            ),
                                             child: Text(
                                               desc,
                                               maxLines: 1,

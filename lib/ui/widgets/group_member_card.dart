@@ -29,11 +29,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
 import 'package:front_porch_ai/ui/pages/pages.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/tier_colors.dart';
-import 'package:front_porch_ai/ui/widgets/realism_progress_row.dart';
-import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
-import 'package:front_porch_ai/ui/widgets/fixation_chip.dart';
-import 'package:front_porch_ai/ui/widgets/group_member_chips.dart';
-import 'package:front_porch_ai/ui/widgets/real_portrait.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 

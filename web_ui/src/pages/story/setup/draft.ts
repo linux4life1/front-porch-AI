@@ -23,6 +23,8 @@ export interface CharacterRow {
   id: string;
   name: string;
   hasAvatar?: boolean;
+  /** Only the flat no-portrait colour; the avatar shows initials instead. */
+  placeholderPortrait?: boolean;
   avatarVersion?: number;
 }
 

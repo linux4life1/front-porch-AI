@@ -27,6 +27,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
     show AmbitionServedChip;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 part 'group_objectives_dialog.card.dart';
 part 'group_objectives_dialog.prompts.dart';
@@ -209,16 +210,28 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                               width: 2,
                             ),
                           ),
-                          child: CircleAvatar(
-                            radius: 20,
-                            backgroundImage: ch.imagePath != null
-                                ? FileImage(
-                                    File(ch.imagePath!),
-                                  ) // safe in context of app
+                          // A character made without a portrait shows its
+                          // initial, not its flat card colour.
+                          child: RealPortrait(
+                            file: ch.imagePath != null
+                                ? File(ch.imagePath!)
                                 : null,
-                            child: ch.imagePath == null
-                                ? Text(ch.name[0])
-                                : null,
+                            portrait: (_, file) => CircleAvatar(
+                              radius: 20,
+                              backgroundImage: FileImage(file),
+                            ),
+                            noPortrait: (_) => CircleAvatar(
+                              radius: 20,
+                              backgroundColor: AppColors.surfaceContainerOf(
+                                context,
+                              ),
+                              child: Text(
+                                ch.name[0],
+                                style: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
+                              ),
+                            ),
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -272,8 +285,9 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                                 color: AppColors.cardOf(context),
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
-                                  color: AppColors.borderOf(context)
-                                      .withValues(alpha: 0.2),
+                                  color: AppColors.borderOf(
+                                    context,
+                                  ).withValues(alpha: 0.2),
                                 ),
                               ),
                               child: const Text(

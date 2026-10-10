@@ -24,7 +24,7 @@ import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/real_portrait.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// What a folder-aware pick surface shows at one (folder, query) position.
 /// Computed by [buildFolderPickView] — the ONE set of folder-browsing rules

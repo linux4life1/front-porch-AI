@@ -12,6 +12,8 @@ interface PickChar {
   id: string;
   name: string;
   hasAvatar: boolean;
+  /** Only the flat no-portrait colour (from /api/characters); draw the initial. */
+  placeholderPortrait?: boolean;
   avatarVersion?: number;
 }
 
@@ -61,7 +63,7 @@ export function CharacterPicker({
           {filtered.map((c) => (
             <button key={c.id} className="char-card" onClick={() => onPick(c.name, full)}>
               <div className="char-avatar">
-                {c.hasAvatar ? (
+                {c.hasAvatar && !c.placeholderPortrait ? (
                   <img
                     src={api.avatarUrl(`/api/characters/${c.id}/avatar`, 256, c.avatarVersion)}
                     alt=""

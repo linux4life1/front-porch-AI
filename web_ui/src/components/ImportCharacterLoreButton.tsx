@@ -18,6 +18,8 @@ interface ListedCharacter {
   id: string;
   name: string;
   hasAvatar?: boolean;
+  /** Only the flat no-portrait colour (from /api/characters); draw the initial. */
+  placeholderPortrait?: boolean;
   avatarVersion?: number;
 }
 
@@ -142,7 +144,7 @@ function ImportCharacterLoreModal({
               style={{ display: 'flex', alignItems: 'center', gap: 10, textAlign: 'left' }}
             >
               <span className="char-avatar compact">
-                {card.hasAvatar ? (
+                {card.hasAvatar && !card.placeholderPortrait ? (
                   <img
                     src={api.avatarUrl(`/api/characters/${card.id}/avatar`, 96, card.avatarVersion)}
                     alt=""

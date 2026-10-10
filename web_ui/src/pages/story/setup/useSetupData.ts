@@ -9,7 +9,7 @@ import type { CharacterRow } from './draft';
 
 /** The portrait thumbnail for a library character, or undefined when it has none (the avatar shows initials). */
 export function characterAvatar(c: CharacterRow): string | undefined {
-  return c.hasAvatar === false ? undefined : api.avatarUrl(`/api/characters/${c.id}/avatar`, 96, c.avatarVersion);
+  return c.hasAvatar === false || c.placeholderPortrait ? undefined : api.avatarUrl(`/api/characters/${c.id}/avatar`, 96, c.avatarVersion);
 }
 
 export async function loadCharacters(): Promise<CharacterRow[]> {

@@ -13,7 +13,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/real_portrait.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// An avatar montage that adapts to the cast size so no blank slots are left:
 /// 1 fills the square, 2 sit side-by-side (full height), 3 form an inverted

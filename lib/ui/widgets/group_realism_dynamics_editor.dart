@@ -16,6 +16,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/relationship_scale.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -206,29 +207,33 @@ class _GroupRealismDynamicsEditorState
   // row and once per source×target pair, and EVERY relationship-slider drag
   // frame rebuilds the whole editor — N existsSync per frame is the io-lint
   // bug class (same shape as scene_guest_picker_dialog's cache).
-  final Map<String, ImageProvider?> _avatarCache = {};
+  final Map<String, File?> _avatarCache = {};
 
   Widget _avatar(GroupRealismMember m, double radius) {
     final path = m.avatarPath;
-    final image = (path == null || path.isEmpty)
+    final file = (path == null || path.isEmpty)
         ? null
         : _avatarCache.putIfAbsent(
             path,
             () =>
                 File(path)
                     .existsSync() // io-ok: memoized per editor
-                ? FileImage(File(path))
+                ? File(path)
                 : null,
           );
-    if (image != null) {
-      return CircleAvatar(radius: radius, backgroundImage: image);
-    }
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: AppColors.surfaceContainerOf(context),
-      child: Text(
-        m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-        style: TextStyle(color: AppColors.textPrimary(context)),
+    // A member made without a portrait shows its initial, not its flat
+    // card colour.
+    return RealPortrait(
+      file: file,
+      portrait: (_, f) =>
+          CircleAvatar(radius: radius, backgroundImage: FileImage(f)),
+      noPortrait: (_) => CircleAvatar(
+        radius: radius,
+        backgroundColor: AppColors.surfaceContainerOf(context),
+        child: Text(
+          m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
+          style: TextStyle(color: AppColors.textPrimary(context)),
+        ),
       ),
     );
   }

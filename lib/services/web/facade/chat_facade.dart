@@ -156,8 +156,9 @@ class ChatFacade {
     final ids = <String>{};
     final unknown = <Future<bool>>[];
     final epoch = _characters.coverEpoch;
+    final library = isGroup ? const <String, CharacterCard>{} : _castLibrary();
     for (final p in _chat.cast) {
-      final file = _castAvatarFile(p.card, isGroup);
+      final file = _castAvatarFile(p.card, isGroup, library);
       if (file == null) continue;
       final known = PlaceholderPortraitProbe.known(file, version: epoch);
       if (known == true) ids.add(p.id);
@@ -175,15 +176,35 @@ class ChatFacade {
 
   /// The file the cast entry's `avatarUrl` serves: a group member's private
   /// copy, else the library card's (★-aware) cover.
-  File? _castAvatarFile(CharacterCard card, bool isGroup) {
+  File? _castAvatarFile(
+    CharacterCard card,
+    bool isGroup,
+    Map<String, CharacterCard> library,
+  ) {
     if (isGroup) {
       final path = card.imagePath;
       return path == null || path.isEmpty ? null : File(path);
     }
-    final library = _characters.characters
-        .where((c) => c.dbId != null && c.dbId == card.dbId)
-        .firstOrNull;
-    return _characters.coverImageFileFor(library ?? card);
+    return _characters.coverImageFileFor(library[card.dbId] ?? card);
+  }
+
+  /// The cast's library cards by dbId, from one pass over the library per
+  /// state build (stopping once every cast member is found).
+  Map<String, CharacterCard> _castLibrary() {
+    final wanted = {
+      for (final p in _chat.cast)
+        if (p.card.dbId != null) p.card.dbId!,
+    };
+    final found = <String, CharacterCard>{};
+    if (wanted.isEmpty) return found;
+    for (final c in _characters.characters) {
+      final id = c.dbId;
+      if (id != null && wanted.contains(id)) {
+        found[id] = c;
+        if (found.length == wanted.length) break;
+      }
+    }
+    return found;
   }
 
   /// Realism for a single cast participant (focus-scoped sidebar). Delegates to

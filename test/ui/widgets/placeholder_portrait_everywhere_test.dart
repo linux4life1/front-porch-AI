@@ -20,6 +20,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -285,4 +286,71 @@ void main() {
       expect(find.byIcon(Icons.person), findsOneWidget);
     },
   );
+
+  testWidgets('the /join scene guest picker shows the person icon', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 1000));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SceneGuestPickerDialog(
+            characters: [
+              CharacterCard(name: 'Juniper', imagePath: placeholder.path),
+              CharacterCard(name: 'Marlow', imagePath: real.path),
+            ],
+            resolveImage: (c) => File(c.imagePath!),
+          ),
+        ),
+      ),
+    );
+    // Cold: neither row draws its picture before the probe answers.
+    expect(_circlesShowing(tester, placeholder), 0);
+    expect(_circlesShowing(tester, real), 0);
+
+    await _letProbesFinish(tester);
+    expect(_circlesShowing(tester, real), 1);
+    expect(_circlesShowing(tester, placeholder), 0);
+    expect(find.byIcon(Icons.person), findsOneWidget);
+  });
+
+  testWidgets('the group goals dialog member row shows the initial', (
+    tester,
+  ) async {
+    // The member row has a known layout overflow (see the dialog's golden).
+    final previous = FlutterError.onError;
+    FlutterError.onError = (details) {
+      if (details.exceptionAsString().contains('overflowed')) return;
+      previous?.call(details);
+    };
+    addTearDown(() => FlutterError.onError = previous);
+    final chat = FakeChatService();
+    addTearDown(chat.dispose);
+    final members = [
+      CharacterCard(name: 'Juniper', imagePath: placeholder.path),
+      CharacterCard(name: 'Marlow', imagePath: real.path),
+    ];
+    await tester.binding.setSurfaceSize(const Size(640, 700));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: GroupObjectivesDialog(
+            chatService: chat,
+            groupCharacters: members,
+            initialCharacter: members.first,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(_circlesShowing(tester, placeholder), 0);
+    expect(_circlesShowing(tester, real), 0);
+
+    await _letProbesFinish(tester);
+    expect(_circlesShowing(tester, real), 1);
+    expect(_circlesShowing(tester, placeholder), 0);
+    expect(find.text('J'), findsOneWidget);
+  });
 }
