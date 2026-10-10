@@ -58,7 +58,8 @@ part 'realism_evals.one_shot.dart';
 /// scored. A readable answer (even a zero) removes it.
 const String kFeelingsUnscoredMeta = 'feelings_unscored';
 
-/// Copy on the chip and its hover. Keep in lockstep with `web_ui` ChipsRow.
+/// Copy on the chip and its hover. The phone's ChipsRow gets both from the
+/// chip feed (`chat_facade.dart`) and keeps a copy only as a fallback.
 const String kFeelingsUnscoredLabel = 'Feelings not scored this time';
 const String kFeelingsUnscoredTip =
     "The model's answer couldn't be read, so bond and trust stayed where "

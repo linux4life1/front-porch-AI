@@ -28,6 +28,9 @@ export interface Chips {
   needsUnaffected?: boolean;
   /** The bond/trust judge ran but its answer could not be read. */
   feelingsUnscored?: boolean;
+  /** Chip text and tip for feelingsUnscored, from the desktop's constants. */
+  feelingsUnscoredLabel?: string;
+  feelingsUnscoredTip?: string;
   needsReprocessable?: boolean;
   /** Manual Reprocess can score this reply's feelings again (desktop resolver). */
   feelingsReprocessable?: boolean;
