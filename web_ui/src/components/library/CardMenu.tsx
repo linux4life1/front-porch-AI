@@ -6,7 +6,7 @@
 // page owns a single open-menu state and renders this once, so there is
 // exactly one menu implementation.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react';
 
 export interface CardMenuItem {
   label: string;
@@ -44,21 +44,23 @@ export function CardMenu({ menu, onClose }: { menu: MenuState; onClose: () => vo
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
-      const items = [...(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
-      if (items.length === 0) return;
-      e.preventDefault();
-      const at = items.indexOf(document.activeElement as HTMLButtonElement);
-      const step = e.key === 'ArrowDown' ? 1 : -1;
-      items[(at + step + items.length) % items.length].focus();
+      if (e.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
+
+  // Arrows only while focus is in the menu (handled on the menu itself), so
+  // a field outside keeps its own arrow keys while the menu is open.
+  const onMenuKey = (e: ReactKeyboardEvent<HTMLDivElement>) => {
+    if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return;
+    const items = [...(listRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])];
+    if (items.length === 0) return;
+    e.preventDefault();
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    const step = e.key === 'ArrowDown' ? 1 : -1;
+    items[(at + step + items.length) % items.length].focus();
+  };
 
   return (
     <div
@@ -74,6 +76,7 @@ export function CardMenu({ menu, onClose }: { menu: MenuState; onClose: () => vo
         className="card-menu"
         style={{ left: pos.left, top: pos.top, width: WIDTH }}
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={onMenuKey}
         role="menu"
       >
         {menu.items.map((it, i) => (

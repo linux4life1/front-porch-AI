@@ -6,7 +6,7 @@
 // model chip, Stats, Conversations and a ⋯ menu holding Edit, Persona and
 // Theme (the library's own popover menu, so it looks and closes the same way).
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { SmartImg } from '../../components/ChatAvatar';
 import type { CastMember } from '../../components/CastBar';
 import { CardMenu, type CardMenuItem, type MenuState } from '../../components/library/CardMenu';
@@ -45,6 +45,12 @@ export function ChatHeader({
 }) {
   const [menu, setMenu] = useState<MenuState | null>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
+
+  // Turning the phone to a wide layout drops the ⋯; its open menu goes too,
+  // or turning back would re-show it at the old spot.
+  useEffect(() => {
+    if (!isPhone) setMenu(null);
+  }, [isPhone]);
 
   const closeMenu = () => {
     setMenu(null);

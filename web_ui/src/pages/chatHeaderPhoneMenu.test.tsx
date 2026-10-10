@@ -174,6 +174,22 @@ describe('phone chat header', () => {
   });
 });
 
+describe('phone header turned wide and back', () => {
+  it('does not bring back a menu left open before the turn', async () => {
+    await render(390);
+    openMore();
+    expect(menuItems()).toHaveLength(3);
+    for (const width of [1280, 390]) {
+      (window as { innerWidth: number }).innerWidth = width;
+      act(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
+    expect(header().querySelector('button[aria-haspopup="menu"]')).not.toBeNull();
+    expect(menuItems()).toHaveLength(0);
+  });
+});
+
 describe('wide chat header', () => {
   it('keeps every button in the row and has no ⋯', async () => {
     await render(1280);
