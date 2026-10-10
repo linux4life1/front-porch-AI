@@ -233,13 +233,9 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
         ),
         title: Row(
           children: [
-            Icon(
+            const Icon(
               Icons.group_add,
-              color: AppColors.resolve(
-                context,
-                AppColors.logLoading,
-                AppColors.userBubble,
-              ),
+              color: AppColors.formMasterAccent,
               size: 22,
             ),
             const SizedBox(width: 10),
