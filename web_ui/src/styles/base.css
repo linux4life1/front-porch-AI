@@ -130,7 +130,9 @@ input, textarea, select, .search {
   width: 100%; background: var(--bg); color: var(--text);
   border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
 }
-input[type='checkbox'] { width: auto; }
+/* On/off boxes tick in porch amber, like every desktop switch (the browser
+   default is its own blue). */
+input[type='checkbox'] { width: auto; accent-color: var(--accent); }
 /* Every slider wears the porch amber, not the browser's default blue.
    :where() keeps this at zero specificity, so a screen that colours its own
    sliders (Porch Stories' .s-range, light or dark) still wins. */
