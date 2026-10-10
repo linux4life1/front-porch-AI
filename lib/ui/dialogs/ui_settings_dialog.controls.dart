@@ -18,16 +18,9 @@
 
 part of 'ui_settings_dialog.dart';
 
-/// Ink that stays legible over an arbitrary user-picked swatch color (the
-/// color-picker swatches and the current-color chip can be any hue, so no
-/// fixed chrome color can guarantee contrast).
-Color _swatchInk(Color bg) =>
-    ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
-    ? Colors.white
-    : Colors.black87; // theme-keep: contrast over a user-chosen color
-
 /// Appearance controls (avatar-lock toggle, generic slider) and the Chat
-/// Colors row + its "Select Color" picker dialog for [UiSettingsDialog].
+/// Colors row (its "Select Color" picker is the shared [showColorPicker]) for
+/// [UiSettingsDialog].
 /// Extracted verbatim from UiSettingsDialog; direct state access preserves
 /// behavior.
 extension _UiSettingsControlsSection on _UiSettingsDialogState {
@@ -136,141 +129,12 @@ extension _UiSettingsControlsSection on _UiSettingsDialogState {
               border: Border.all(color: AppColors.borderOf(context), width: 1),
             ),
             child: IconButton(
-              icon: Icon(Icons.color_lens, size: 20, color: _swatchInk(color)),
-              onPressed: () => _showColorPicker(context, color, onChanged),
+              icon: Icon(Icons.color_lens, size: 20, color: swatchInkOn(color)),
+              onPressed: () => showColorPicker(context, color, onChanged),
             ),
           ),
         ],
       ),
     );
-  }
-
-  Future<void> _showColorPicker(
-    BuildContext context,
-    Color initialColor,
-    void Function(Color) onChanged,
-  ) async {
-    // theme-keep: user-pickable swatch palette, not chrome
-    const presetColors = [
-      Color(0xFF3B82F6),
-      Color(0xFF10B981),
-      Color(0xFFF59E0B),
-      Color(0xFFEF4444),
-      Color(0xFF8B5CF6),
-      Color(0xFFEC4899),
-      Color(0xFF14B8A6),
-      Color(0xFFF97316),
-      Color(0xFF6366F1),
-      Color(0xFF06B6D4),
-      Color(0xFF10B981),
-      Color(0xFF84CC16),
-    ];
-
-    Color selectedColor = initialColor;
-    void Function(void Function())? setStateCallback;
-
-    final picked = await showDialog<Color>(
-      context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) {
-          setStateCallback = setState;
-          return AlertDialog(
-            title: const Text('Select Color'),
-            content: SizedBox(
-              width: 380,
-              child: SingleChildScrollView(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        'Quick Select',
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: AppColors.textSecondary(context),
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: presetColors
-                          .map(
-                            (color) => GestureDetector(
-                              onTap: () => Navigator.pop(context, color),
-                              child: Container(
-                                width: 36,
-                                height: 36,
-                                decoration: BoxDecoration(
-                                  color: color,
-                                  borderRadius: BorderRadius.circular(8),
-                                  border: Border.all(
-                                    color: color == selectedColor
-                                        ? AppColors.formMasterAccent
-                                        : AppColors.borderOf(context),
-                                    width: 2,
-                                  ),
-                                ),
-                                child: color == selectedColor
-                                    ? Icon(
-                                        Icons.check,
-                                        size: 18,
-                                        color: _swatchInk(color),
-                                      )
-                                    : null,
-                              ),
-                            ),
-                          )
-                          .toList(),
-                    ),
-                    const SizedBox(height: 12),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: ColorPicker(
-                        color: selectedColor,
-                        onColorChanged: (color) {
-                          selectedColor = color;
-                          setStateCallback?.call(() {});
-                        },
-                        wheelDiameter: 160,
-                        pickersEnabled: const <ColorPickerType, bool>{
-                          ColorPickerType.wheel: true,
-                        },
-                        showColorCode: true,
-                        colorCodeHasColor: true,
-                        copyPasteBehavior: const ColorPickerCopyPasteBehavior(
-                          copyButton: true,
-                          pasteButton: true,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                  ],
-                ),
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.pop(context, selectedColor),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
-                ),
-                child: const Text('OK'),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-    if (picked != null) {
-      onChanged(picked);
-    }
   }
 }

@@ -43,7 +43,7 @@ export function ChatPage() {
   const {
     sendError, setSendError, actionError, setActionError, reportActionFailure,
     editTarget, setEditTarget, reprocessIndex, setReprocessIndex, sendMessage, retrySend, regenerate, continueGen, fork,
-    swipe, del, beginEdit, saveEdit, saveAuthorNote, saveTheme,
+    swipe, del, pendingConfirm, confirmPending, cancelPending, beginEdit, saveEdit, saveAuthorNote, saveTheme,
     submitReprocess, submitReprocessFeelings, revertNeeds,
   } = send;
 
@@ -487,6 +487,9 @@ export function ChatPage() {
         onReveal={revealFate}
         onAccept={acceptFate}
         imagePromptReview={state.imagePromptReview}
+        pendingConfirm={pendingConfirm}
+        onConfirmPending={confirmPending}
+        onCancelPending={cancelPending}
       />
     </div>
   );

@@ -98,7 +98,7 @@
 .sel-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 
 /* ── Library dialogs: confirm message + move-to-folder picker ──────────── */
-.dialog-msg { margin: 0; line-height: 1.5; }
+.dialog-msg { margin: 0; line-height: 1.5; white-space: pre-line; }
 .move-list { display: flex; flex-direction: column; gap: 4px; max-height: 50vh; overflow-y: auto; }
 .move-row {
   display: flex; align-items: center; gap: 8px; text-align: left; width: 100%;

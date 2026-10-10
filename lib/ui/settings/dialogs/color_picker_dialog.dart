@@ -20,8 +20,21 @@ import 'package:flutter/material.dart';
 import 'package:flex_color_picker/flex_color_picker.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Color picker using [AppColors.presetColors].
+/// Ink that stays legible over an arbitrary user-picked swatch (the swatches
+/// and the current-color chips can be any hue, so no chrome color can
+/// guarantee contrast).
+Color swatchInkOn(Color bg) =>
+    ThemeData.estimateBrightnessForColor(bg) == Brightness.dark
+    // theme-keep: contrast over a user-chosen color
+    ? Colors.white
+    // theme-keep: contrast over a user-chosen color
+    : Colors.black87;
+
+/// The one "Select Color" picker (Settings > Chat Appearance and the chat's
+/// UI settings): [AppColors.presetColors] quick picks plus a color wheel, in
+/// the warm-porch dialog.
 Future<void> showColorPicker(
   BuildContext context,
   Color initialColor,
@@ -30,109 +43,96 @@ Future<void> showColorPicker(
   Color selectedColor = initialColor;
   void Function(void Function())? setStateCallback;
 
-  final picked = await showDialog<Color>(
-    context: context,
+  final picked = await showWarmDialogOf<Color>(
+    context,
     builder: (context) => StatefulBuilder(
       builder: (context, setState) {
         setStateCallback = setState;
-        return AlertDialog(
-          backgroundColor: AppColors.cardOf(context),
-          title: Text(
-            'Select Color',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          content: SizedBox(
-            width: 380,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Preset colors row
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Text(
-                      'Quick Select',
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary(context),
-                        fontWeight: FontWeight.w500,
-                      ),
+        return WarmDialog(
+          title: 'Select Color',
+          icon: Icons.palette_outlined,
+          accent: AppColors.porchAmberOf(context),
+          width: 380,
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Preset colors row
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Quick Select',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary(context),
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: AppColors.presetColors
-                        .map(
-                          (color) => GestureDetector(
-                            onTap: () => Navigator.pop(context, color),
-                            child: Container(
-                              width: 36,
-                              height: 36,
-                              decoration: BoxDecoration(
-                                color: color,
-                                borderRadius: BorderRadius.circular(8),
-                                border: Border.all(
-                                  color: color == selectedColor
-                                      ? AppColors.userBubble
-                                      : AppColors.textTertiary(context),
-                                  width: 2,
-                                ),
+                ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: AppColors.presetColors
+                      .map(
+                        (color) => GestureDetector(
+                          onTap: () => Navigator.pop(context, color),
+                          child: Container(
+                            width: 36,
+                            height: 36,
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(
+                                color: color == selectedColor
+                                    ? AppColors.porchAmberOf(context)
+                                    : AppColors.borderOf(context),
+                                width: 2,
                               ),
-                              child: color == selectedColor
-                                  ? Icon(
-                                      Icons.check,
-                                      size: 18,
-                                      color: AppColors.textPrimary(context),
-                                    )
-                                  : null,
                             ),
+                            child: color == selectedColor
+                                ? Icon(
+                                    Icons.check,
+                                    size: 18,
+                                    color: swatchInkOn(color),
+                                  )
+                                : null,
                           ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 12),
-                  // Color picker - use wheel picker for full color spectrum
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: ColorPicker(
-                      color: selectedColor,
-                      onColorChanged: (color) {
-                        selectedColor = color;
-                        setStateCallback?.call(() {});
-                      },
-                      wheelDiameter: 160,
-                      pickersEnabled: const <ColorPickerType, bool>{
-                        ColorPickerType.wheel: true,
-                      },
-                      showColorCode: true,
-                      colorCodeHasColor: true,
-                      copyPasteBehavior: const ColorPickerCopyPasteBehavior(
-                        copyButton: true,
-                        pasteButton: true,
-                      ),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 12),
+                // Color picker - use wheel picker for full color spectrum
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: ColorPicker(
+                    color: selectedColor,
+                    onColorChanged: (color) {
+                      selectedColor = color;
+                      setStateCallback?.call(() {});
+                    },
+                    wheelDiameter: 160,
+                    pickersEnabled: const <ColorPickerType, bool>{
+                      ColorPickerType.wheel: true,
+                    },
+                    showColorCode: true,
+                    colorCodeHasColor: true,
+                    copyPasteBehavior: const ColorPickerCopyPasteBehavior(
+                      copyButton: true,
+                      pasteButton: true,
                     ),
                   ),
-                  const SizedBox(height: 16),
-                ],
-              ),
+                ),
+                const SizedBox(height: 16),
+              ],
             ),
           ),
           actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: Text(
-                'Cancel',
-                style: TextStyle(color: AppColors.textSecondary(context)),
-              ),
-            ),
-            ElevatedButton(
+            warmDialogCancel(context),
+            warmDialogConfirm(
+              context,
+              label: 'OK',
               onPressed: () => Navigator.pop(context, selectedColor),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.userBubble,
-                foregroundColor: AppColors.textPrimary(context),
-              ),
-              child: const Text('OK'),
             ),
           ],
         );

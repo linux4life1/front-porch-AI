@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:front_porch_ai/ui/dialogs/web_access/web_access_internet_step.dart';
 import 'package:front_porch_ai/ui/dialogs/web_access/web_access_widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// How the user intends to reach the web interface — drives the guidance.
 enum WebAccessMode { thisPc, lan, internet }
@@ -34,10 +35,10 @@ enum WebAccessMode { thisPc, lan, internet }
 class WebAccessSetupDialog extends StatefulWidget {
   const WebAccessSetupDialog({super.key});
 
-  static Future<void> show(BuildContext context) => showDialog(
-        context: context,
-        builder: (_) => const WebAccessSetupDialog(),
-      );
+  static Future<void> show(BuildContext context) => showWarmDialogOf<void>(
+    context,
+    builder: (_) => const WebAccessSetupDialog(),
+  );
 
   @override
   State<WebAccessSetupDialog> createState() => _WebAccessSetupDialogState();
@@ -48,9 +49,16 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // Two steps with a back arrow do not fit WarmDialog's fixed title, so the
+    // shell is a plain Dialog wearing WarmDialog's radius and hairline.
     return Dialog(
       backgroundColor: AppColors.surfaceOf(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(
+          color: AppColors.borderOf(context).withValues(alpha: 0.6),
+        ),
+      ),
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 520, maxHeight: 640),
         child: Padding(
@@ -129,7 +137,7 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
         side: BorderSide(color: AppColors.borderOf(context)),
       ),
       child: ListTile(
-        leading: Icon(icon, color: AppColors.userBubble),
+        leading: Icon(icon, color: AppColors.porchAmberOf(context)),
         title: Text(
           title,
           style: TextStyle(
@@ -141,7 +149,10 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
           subtitle,
           style: TextStyle(color: AppColors.textSecondary(context)),
         ),
-        trailing: Icon(Icons.chevron_right, color: AppColors.iconSecondary(context)),
+        trailing: Icon(
+          Icons.chevron_right,
+          color: AppColors.iconSecondary(context),
+        ),
         onTap: () => setState(() => _mode = mode),
       ),
     );
@@ -156,7 +167,10 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
         Row(
           children: [
             IconButton(
-              icon: Icon(Icons.arrow_back, color: AppColors.iconSecondary(context)),
+              icon: Icon(
+                Icons.arrow_back,
+                color: AppColors.iconSecondary(context),
+              ),
               onPressed: () => setState(() => _mode = null),
             ),
             Expanded(
@@ -185,7 +199,7 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
         Align(
           alignment: Alignment.centerRight,
           child: FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: AppColors.userBubble),
+            style: webAccessFilledStyle(context),
             onPressed: () => Navigator.of(context).pop(),
             child: const Text('Done'),
           ),
@@ -195,10 +209,10 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
   }
 
   String _titleFor(WebAccessMode m) => switch (m) {
-        WebAccessMode.thisPc => 'On this computer',
-        WebAccessMode.lan => 'On your home Wi-Fi',
-        WebAccessMode.internet => 'Over the internet',
-      };
+    WebAccessMode.thisPc => 'On this computer',
+    WebAccessMode.lan => 'On your home Wi-Fi',
+    WebAccessMode.internet => 'Over the internet',
+  };
 
   Widget _thisPcGuide(BuildContext context) {
     final port = context.read<WebServerHost>().port;
@@ -215,7 +229,10 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
         Text(
           'localhost is treated as secure, so you can install it as an app right '
           'from this PC. The first visit asks you to create your login.',
-          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 13,
+          ),
         ),
       ],
     );
@@ -231,7 +248,8 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
           WebBanner(
             color: AppColors.logWarn,
             icon: Icons.lock_open,
-            text: 'LAN access is off. Turn it on so other devices on your Wi-Fi '
+            text:
+                'LAN access is off. Turn it on so other devices on your Wi-Fi '
                 'can connect, then this PC will show its network address.',
             actionLabel: 'Allow LAN access',
             onAction: () async {
@@ -256,9 +274,10 @@ class _WebAccessSetupDialogState extends State<WebAccessSetupDialog> {
         ],
         const SizedBox(height: 12),
         WebBanner(
-          color: AppColors.userBubble,
+          color: AppColors.porchAmberOf(context),
           icon: Icons.info_outline,
-          text: 'Home Wi-Fi uses plain HTTP, so it works in a browser tab but '
+          text:
+              'Home Wi-Fi uses plain HTTP, so it works in a browser tab but '
               'can\'t be installed as an app. To install it on a phone (or reach '
               'it away from home), use Tailscale.',
           actionLabel: 'Set up Tailscale instead',
