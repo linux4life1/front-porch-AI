@@ -229,11 +229,7 @@ extension _GroupWizardCastSteps on _CreateGroupChatPageState {
             ),
             value: _autoAdvance,
             onChanged: (v) => rebuildState(() => _autoAdvance = v),
-            activeThumbColor: AppColors.resolve(
-              context,
-              const Color(0xFF7C3AED),
-              const Color(0xFF6D28D9),
-            ),
+            activeTrackColor: AppColors.porchAmberOf(context),
           ),
           SwitchListTile(
             title: Row(

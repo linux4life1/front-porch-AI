@@ -61,7 +61,8 @@ class DynamicMacrosToggle extends StatelessWidget {
         ),
         Switch(
           value: value,
-          activeTrackColor: accentColor,
+          // Switches are porch amber app-wide; [accentColor] tints the icon.
+          activeTrackColor: AppColors.porchAmberOf(context),
           onChanged: onChanged,
         ),
       ],

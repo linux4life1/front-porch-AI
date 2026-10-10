@@ -38,7 +38,8 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
   Color _globalUserTextColor = Colors.white;
   Color _globalAiBubbleColor = const Color(0xFF374151);
   Color _globalAiTextColor = Colors.white;
-  Color _globalDialogueColor = Colors.amberAccent;
+  static const Color _defaultDarkDialogueColor = Colors.amberAccent;
+  Color _globalDialogueColor = _defaultDarkDialogueColor;
   Color _globalActionColor = const Color(0xFF90CAF9);
 
   // Global chat font family
@@ -88,6 +89,13 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
       _isDark ? _globalAiTextColor : _lightAiTextColor;
   Color get globalDialogueColor =>
       _isDark ? _globalDialogueColor : _lightDialogueColor;
+
+  /// True once the user picked their own dialogue colour for this mode in
+  /// Chat Appearance (the user bubble keeps a picked colour as is).
+  bool get globalDialogueColorChosen =>
+      globalDialogueColor.toARGB32() !=
+      (_isDark ? _defaultDarkDialogueColor : AppColors.dialogueLight)
+          .toARGB32();
   Color get globalActionColor =>
       _isDark ? _globalActionColor : _lightActionColor;
   bool get isDark => _isDark;

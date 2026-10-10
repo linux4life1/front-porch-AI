@@ -24,6 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 

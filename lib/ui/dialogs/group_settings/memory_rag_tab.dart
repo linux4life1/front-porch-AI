@@ -175,7 +175,7 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                       const Spacer(),
                       Switch(
                         value: _groupRagEnabled,
-                        activeTrackColor: Colors.purpleAccent,
+                        activeTrackColor: AppColors.porchAmberOf(context),
                         onChanged: _toggleGroupRag,
                       ),
                     ],

@@ -61,7 +61,7 @@ class ImageGenEnableSection extends StatelessWidget {
                             ? Icons.auto_awesome
                             : Icons.auto_awesome_outlined,
                         color: enabled
-                            ? AppColors.presetColors[6] // teal accent
+                            ? AppColors.porchAmberOf(context)
                             : AppColors.textTertiary(context),
                         size: 20,
                       ),
@@ -90,7 +90,7 @@ class ImageGenEnableSection extends StatelessWidget {
                         value: enabled,
                         onChanged: (val) =>
                             storage.imageGenSettings.setImageGenEnabled(val),
-                        activeTrackColor: AppColors.presetColors[6],
+                        activeTrackColor: AppColors.porchAmberOf(context),
                       ),
                     ],
                   ),

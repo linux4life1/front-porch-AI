@@ -128,7 +128,9 @@ class SummarySectionState extends State<SummarySection> {
                       value: enabled,
                       onChanged: (val) =>
                           storage.memorySettings.setJournalEnabled(val),
-                      activeTrackColor: accent,
+                      // Switches are porch amber app-wide; the sage accent
+                      // stays on the section chrome.
+                      activeTrackColor: AppColors.porchAmberOf(context),
                     ),
                   ),
                 ),
@@ -378,7 +380,7 @@ class SummarySectionState extends State<SummarySection> {
                           child: FittedBox(
                             child: Switch(
                               value: storage.memorySettings.journalReviewFirst,
-                              activeThumbColor: accent,
+                              activeTrackColor: AppColors.porchAmberOf(context),
                               onChanged: (val) => storage.memorySettings
                                   .setJournalReviewFirst(val),
                             ),
@@ -414,7 +416,7 @@ class SummarySectionState extends State<SummarySection> {
                               value: storage
                                   .memorySettings
                                   .importLlmertaPorchMemories,
-                              activeThumbColor: accent,
+                              activeTrackColor: AppColors.porchAmberOf(context),
                               onChanged: (val) => storage.memorySettings
                                   .setImportLlmertaPorchMemories(val),
                             ),

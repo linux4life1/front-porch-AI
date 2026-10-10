@@ -158,7 +158,9 @@ class _MemoryPanelState extends State<MemoryPanel> {
                     }
                   }
                 },
-                activeTrackColor: accent,
+                // Switches are porch amber app-wide; the sage accent stays
+                // on the section chrome.
+                activeTrackColor: AppColors.porchAmberOf(context),
               ),
             ),
           ),
