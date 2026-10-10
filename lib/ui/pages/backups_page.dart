@@ -72,7 +72,11 @@ class _BackupsPageState extends State<BackupsPage> {
   }
 
   Widget _disabledNotice(BuildContext context, ThemeData theme) {
-    final accent = AppColors.resolve(context, Colors.amber, Colors.amber.shade800);
+    final accent = AppColors.resolve(
+      context,
+      Colors.amber,
+      Colors.amber.shade800,
+    );
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -97,7 +101,10 @@ class _BackupsPageState extends State<BackupsPage> {
             'confusion between nightly and stable databases. Backups will be '
             're-enabled once $stableVersionBase goes stable.',
             textAlign: TextAlign.center,
-            style: theme.textTheme.bodySmall?.copyWith(color: accent, height: 1.5),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: accent,
+              height: 1.5,
+            ),
           ),
         ],
       ),
@@ -146,7 +153,9 @@ class _BackupsPageState extends State<BackupsPage> {
                   if (snapshot.connectionState == ConnectionState.waiting) {
                     return const Padding(
                       padding: EdgeInsets.all(16),
-                      child: Center(child: CircularProgressIndicator(strokeWidth: 2)),
+                      child: Center(
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
                     );
                   }
                   final backups = snapshot.data ?? [];
@@ -164,7 +173,9 @@ class _BackupsPageState extends State<BackupsPage> {
                     );
                   }
                   return Column(
-                    children: backups.map((b) => _backupTile(context, theme, b)).toList(),
+                    children: backups
+                        .map((b) => _backupTile(context, theme, b))
+                        .toList(),
                   );
                 },
               ),
@@ -207,10 +218,17 @@ class _BackupsPageState extends State<BackupsPage> {
         children: [
           TextButton(
             onPressed: () => _confirmRestore(context, backup.path),
-            child: const Text('Restore', style: TextStyle(color: Colors.amberAccent)),
+            child: Text(
+              'Restore',
+              style: TextStyle(color: AppColors.porchAmberOf(context)),
+            ),
           ),
           IconButton(
-            icon: const Icon(Icons.delete_outline, size: 20, color: Colors.redAccent),
+            icon: const Icon(
+              Icons.delete_outline,
+              size: 20,
+              color: Colors.redAccent,
+            ),
             tooltip: 'Delete backup',
             onPressed: () => _confirmDelete(context, backup, timeStr, sizeMb),
           ),
@@ -256,7 +274,10 @@ class _BackupsPageState extends State<BackupsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textTertiary(ctx))),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textTertiary(ctx)),
+            ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.of(ctx).pop(true),
@@ -274,14 +295,14 @@ class _BackupsPageState extends State<BackupsPage> {
       await backup.delete();
       if (!mounted) return;
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Backup deleted')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Backup deleted')));
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Delete failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Delete failed: $e')));
     }
   }
 
@@ -292,9 +313,16 @@ class _BackupsPageState extends State<BackupsPage> {
         backgroundColor: AppColors.surfaceOf(ctx),
         title: Row(
           children: [
-            const Icon(Icons.warning_amber_rounded, color: Colors.amberAccent, size: 28),
+            const Icon(
+              Icons.warning_amber_rounded,
+              color: Colors.amberAccent,
+              size: 28,
+            ),
             const SizedBox(width: 12),
-            Text('Restore Backup?', style: TextStyle(color: AppColors.textPrimary(ctx))),
+            Text(
+              'Restore Backup?',
+              style: TextStyle(color: AppColors.textPrimary(ctx)),
+            ),
           ],
         ),
         content: Text(
@@ -306,7 +334,10 @@ class _BackupsPageState extends State<BackupsPage> {
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: Text('Cancel', style: TextStyle(color: AppColors.textTertiary(ctx))),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textTertiary(ctx)),
+            ),
           ),
           ElevatedButton(
             onPressed: () => _restore(ctx, backupPath),
@@ -345,9 +376,9 @@ class _BackupsPageState extends State<BackupsPage> {
       );
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Restore failed: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Restore failed: $e')));
     }
   }
 }
