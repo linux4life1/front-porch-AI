@@ -4,6 +4,29 @@
 part of 'prompt_engineering_tab.dart';
 
 extension _GroupPromptEditors on _GroupPromptEngineeringTabState {
+  /// The member's portrait, or its initial when it has none (or only the
+  /// flat placeholder a character made without a portrait carries).
+  Widget _memberAvatar(CharacterCard c, int index) => RealPortrait(
+    file: c.imagePath != null ? File(c.imagePath!) : null,
+    portrait: (_, file) => CircleAvatar(
+      radius: 16,
+      backgroundColor: _charColor(index),
+      backgroundImage: FileImage(file),
+    ),
+    noPortrait: (_) => CircleAvatar(
+      radius: 16,
+      backgroundColor: _charColor(index),
+      child: Text(
+        c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
+        style: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.bold,
+          color: Colors.white,
+        ),
+      ),
+    ),
+  );
+
   Widget _buildCharacterNoteEditor(CharacterCard c, int index) {
     final noteCtrl = _getOrCreateNoteController(c);
     final strength = _perCharStrengths.putIfAbsent(
@@ -25,23 +48,7 @@ extension _GroupPromptEditors on _GroupPromptEngineeringTabState {
           // Header: avatar + name
           Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: _charColor(index),
-                backgroundImage: c.imagePath != null
-                    ? FileImage(File(c.imagePath!))
-                    : null,
-                child: c.imagePath == null
-                    ? Text(
-                        c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
+              _memberAvatar(c, index),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
@@ -181,23 +188,7 @@ extension _GroupPromptEditors on _GroupPromptEngineeringTabState {
           // Header: avatar + name
           Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: _charColor(index),
-                backgroundImage: c.imagePath != null
-                    ? FileImage(File(c.imagePath!))
-                    : null,
-                child: c.imagePath == null
-                    ? Text(
-                        c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
-              ),
+              _memberAvatar(c, index),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

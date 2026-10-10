@@ -24,6 +24,7 @@ import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/real_portrait.dart';
 
 /// What a folder-aware pick surface shows at one (folder, query) position.
 /// Computed by [buildFolderPickView] — the ONE set of folder-browsing rules
@@ -114,13 +115,11 @@ FolderPickView buildFolderPickView({
           groups.where((g) => groupIds.contains(g.id)).length;
     }
 
-    folders =
-        folderService.getSubfolders(folderId).where((f) {
-            final n = eligibleIn(f);
-            if (n > 0) counts[f.id] = n;
-            return n > 0;
-          }).toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
+    folders = folderService.getSubfolders(folderId).where((f) {
+      final n = eligibleIn(f);
+      if (n > 0) counts[f.id] = n;
+      return n > 0;
+    }).toList()..sort((a, b) => a.name.compareTo(b.name));
   }
 
   visibleCharacters.sort((a, b) => a.name.compareTo(b.name));
@@ -399,15 +398,21 @@ class _CharacterTile extends StatelessWidget {
         ),
         child: Row(
           children: [
-            CircleAvatar(
-              radius: 18,
-              backgroundImage: imageFile != null ? FileImage(imageFile) : null,
-              // A card whose portrait file went missing still renders (blank
-              // circle) instead of surfacing a decode exception.
-              onBackgroundImageError: imageFile != null ? (_, _) {} : null,
-              child: imageFile == null
-                  ? const Icon(Icons.person, size: 16)
-                  : null,
+            // A character made without a portrait shows the person icon, not
+            // its flat coloured card picture.
+            RealPortrait(
+              file: imageFile,
+              portrait: (_, file) => CircleAvatar(
+                radius: 18,
+                backgroundImage: FileImage(file),
+                // A card whose portrait file went missing still renders
+                // (blank circle) instead of surfacing a decode exception.
+                onBackgroundImageError: (_, _) {},
+              ),
+              noPortrait: (_) => const CircleAvatar(
+                radius: 18,
+                child: Icon(Icons.person, size: 16),
+              ),
             ),
             const SizedBox(width: 8),
             Expanded(

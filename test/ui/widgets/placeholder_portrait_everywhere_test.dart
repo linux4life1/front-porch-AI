@@ -15,9 +15,31 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import 'package:provider/provider.dart';
+
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+
+import '../../golden/support/fakes.dart';
+import '../../golden/support/fakes_storage.dart';
+
+/// Every character sits at the library root.
+class _RootOnlyFolders extends FakeFolderService {
+  @override
+  CharacterFolder? getFolderForCharacter(String imagePath) => null;
+}
+
+/// Circles drawing [file] as their picture.
+int _circlesShowing(WidgetTester tester, File file) => tester
+    .widgetList<CircleAvatar>(find.byType(CircleAvatar))
+    .where(
+      (c) =>
+          c.backgroundImage is FileImage &&
+          (c.backgroundImage! as FileImage).file.path == file.path,
+    )
+    .length;
 
 /// A real photo at the placeholder's exact size: one of the app's own
 /// background pictures, cropped.
@@ -89,6 +111,64 @@ void main() {
     expect(pictures, hasLength(1));
     final provider = pictures.single.image!.image as ResizeImage;
     expect((provider.imageProvider as FileImage).file.path, real.path);
+    expect(find.byIcon(Icons.person), findsOneWidget);
+  });
+
+  testWidgets('the Create Group Chat picker and roster show the person icon', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repo = FakeCharacterRepository([
+      CharacterCard(name: 'Juniper', imagePath: placeholder.path),
+      CharacterCard(name: 'Marlow', imagePath: real.path),
+    ]);
+    final chat = FakeChatService();
+    final storage = FakeStorageService();
+    final worlds = FakeWorldRepository();
+    final folders = _RootOnlyFolders();
+    final groups = FakeGroupChatRepository();
+    final llm = FakeLLMProvider();
+    final tts = FakeTtsService();
+    for (final s in [repo, chat, storage, worlds, folders, groups, llm, tts]) {
+      addTearDown(s.dispose);
+    }
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<FolderService>.value(value: folders),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+          ChangeNotifierProvider<LLMProvider>.value(value: llm),
+          ChangeNotifierProvider<TtsService>.value(value: tts),
+        ],
+        child: const MaterialApp(home: CreateGroupChatPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Cold: no circle in the picker draws a picture yet.
+    expect(_circlesShowing(tester, placeholder), 0);
+    expect(_circlesShowing(tester, real), 0);
+
+    await _letProbesFinish(tester);
+    // Marlow's portrait; Juniper keeps the person icon, never her flat box.
+    expect(_circlesShowing(tester, real), 1);
+    expect(_circlesShowing(tester, placeholder), 0);
+    expect(find.byIcon(Icons.person), findsOneWidget);
+
+    // Both join the roster, which draws them the same way.
+    for (final name in ['Juniper', 'Marlow']) {
+      await tester.tap(find.text(name).first);
+      await tester.pumpAndSettle();
+    }
+    expect(find.text('Current Roster (2)'), findsOneWidget);
+    expect(_circlesShowing(tester, real), 1);
+    expect(_circlesShowing(tester, placeholder), 0);
     expect(find.byIcon(Icons.person), findsOneWidget);
   });
 }

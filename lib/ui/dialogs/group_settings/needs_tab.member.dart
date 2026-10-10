@@ -25,22 +25,26 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
           // Avatar + name + reset
           Row(
             children: [
-              CircleAvatar(
-                radius: 16,
-                backgroundColor: groupCharAccentColor(index),
-                backgroundImage: char.imagePath != null
-                    ? FileImage(File(char.imagePath!))
-                    : null,
-                child: char.imagePath == null
-                    ? Text(
-                        char.name.isNotEmpty ? char.name[0].toUpperCase() : '?',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      )
-                    : null,
+              // No portrait (or only the flat placeholder): the initial.
+              RealPortrait(
+                file: char.imagePath != null ? File(char.imagePath!) : null,
+                portrait: (_, file) => CircleAvatar(
+                  radius: 16,
+                  backgroundColor: groupCharAccentColor(index),
+                  backgroundImage: FileImage(file),
+                ),
+                noPortrait: (_) => CircleAvatar(
+                  radius: 16,
+                  backgroundColor: groupCharAccentColor(index),
+                  child: Text(
+                    char.name.isNotEmpty ? char.name[0].toUpperCase() : '?',
+                    style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
