@@ -74,7 +74,8 @@ class NsfwToggle extends StatelessWidget {
           ),
           Switch(
             value: value,
-            activeTrackColor: accentColor,
+            // Switches are porch amber app-wide; [accentColor] tints the card.
+            activeTrackColor: AppColors.porchAmberOf(context),
             onChanged: onChanged,
           ),
         ],

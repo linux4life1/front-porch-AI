@@ -133,7 +133,7 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
                       ),
                       Switch(
                         value: _realismEnabled,
-                        activeThumbColor: Colors.tealAccent,
+                        activeTrackColor: AppColors.porchAmberOf(context),
                         onChanged: _updateRealism,
                       ),
                     ],
@@ -192,7 +192,7 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
                       ),
                       Switch(
                         value: _nsfwEnhancementsEnabled,
-                        activeThumbColor: const Color(0xFFFF6B9D),
+                        activeTrackColor: AppColors.porchAmberOf(context),
                         onChanged: _updateNsfwEnhancements,
                       ),
                     ],

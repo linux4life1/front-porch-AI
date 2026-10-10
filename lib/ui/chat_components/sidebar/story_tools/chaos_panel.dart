@@ -116,7 +116,7 @@ class ChaosPanel extends StatelessWidget {
                 child: Switch(
                   value: chat.chaosNsfwEnabled,
                   onChanged: (v) => chat.setChaosNsfwEnabled(v),
-                  activeThumbColor: AppColors.lustAccentOf(context),
+                  activeTrackColor: AppColors.porchAmberOf(context),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),

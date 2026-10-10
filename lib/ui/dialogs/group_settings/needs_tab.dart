@@ -336,7 +336,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                       ),
                       Switch(
                         value: _needsSimEnabled,
-                        activeThumbColor: Colors.tealAccent,
+                        activeTrackColor: AppColors.porchAmberOf(context),
                         onChanged: _updateNeedsSim,
                       ),
                     ],

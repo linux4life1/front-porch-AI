@@ -145,11 +145,7 @@ extension _GroupWizardRealismStep on _CreateGroupChatPageState {
                     ),
                     Switch(
                       value: _realismEnabled,
-                      activeThumbColor: AppColors.resolve(
-                        context,
-                        Colors.tealAccent,
-                        Colors.teal.shade700,
-                      ),
+                      activeTrackColor: AppColors.porchAmberOf(context),
                       onChanged: (v) => rebuildState(() => _realismEnabled = v),
                     ),
                   ],
@@ -208,11 +204,7 @@ extension _GroupWizardRealismStep on _CreateGroupChatPageState {
                       ),
                       Switch(
                         value: _needsSimEnabled,
-                        activeThumbColor: AppColors.resolve(
-                          context,
-                          Colors.tealAccent,
-                          Colors.teal.shade700,
-                        ),
+                        activeTrackColor: AppColors.porchAmberOf(context),
                         onChanged: (v) =>
                             rebuildState(() => _needsSimEnabled = v),
                       ),

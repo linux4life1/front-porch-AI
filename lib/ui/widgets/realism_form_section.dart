@@ -246,7 +246,7 @@ class RealismFormSection extends StatelessWidget {
     required ValueChanged<bool> onChanged,
     required BuildContext context,
   }) {
-    final onColor = AppColors.verifiedAccentOf(context);
+    final onColor = AppColors.porchAmberOf(context);
     return Row(
       children: [
         Icon(

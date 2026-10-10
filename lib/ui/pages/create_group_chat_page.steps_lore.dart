@@ -153,10 +153,7 @@ extension _GroupWizardLoreStep on _CreateGroupChatPageState {
                                 entry.enabled = val;
                               });
                             },
-                            activeTrackColor: _loreEnabledAccent.withValues(
-                              alpha: 0.5,
-                            ),
-                            activeThumbColor: _loreEnabledAccent,
+                            activeTrackColor: AppColors.porchAmberOf(context),
                             materialTapTargetSize:
                                 MaterialTapTargetSize.shrinkWrap,
                           ),

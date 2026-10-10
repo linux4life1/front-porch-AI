@@ -76,7 +76,8 @@ class ReasoningToggle extends StatelessWidget {
             Switch(
               value: enabled,
               onChanged: onChanged,
-              activeThumbColor: accentColor,
+              // Switches are porch amber app-wide; [accentColor] tints the card.
+              activeTrackColor: AppColors.porchAmberOf(context),
             ),
           ],
         ),

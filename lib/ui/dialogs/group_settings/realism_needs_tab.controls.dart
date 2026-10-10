@@ -185,7 +185,7 @@ extension _GroupRealismNeedsControls on _GroupRealismNeedsTabState {
               height: 24,
               child: Switch(
                 value: _chaosNsfwEnabled,
-                activeThumbColor: const Color(0xFFFF6B9D),
+                activeTrackColor: AppColors.porchAmberOf(context),
                 onChanged: _updateChaosNsfw,
               ),
             ),
