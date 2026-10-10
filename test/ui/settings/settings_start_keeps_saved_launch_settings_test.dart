@@ -93,7 +93,18 @@ void main() {
   testWidgets('Reset to Automatic, then Start, stays automatic', (
     tester,
   ) async {
-    final rig = await mountSettings(tester, lastUsedIsB: false);
+    // A pick the user made: a first visit no longer saves one by itself.
+    final rig = await mountSettings(
+      tester,
+      lastUsedIsB: false,
+      before: (rig) async {
+        final b = rig.store.backendSettings;
+        await b.setUseCublas(true);
+        await b.setUseVulkan(false);
+        await b.setUseMetal(false);
+        await b.setUseRocm(false);
+      },
+    );
     await openTab(tester, 'Advanced');
     await tapVisible(tester, find.text('Reset to Automatic'));
     await settle(tester);
