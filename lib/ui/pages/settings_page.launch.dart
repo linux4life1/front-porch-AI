@@ -425,7 +425,10 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                 listen: false,
               );
               final storage = Provider.of<StorageService>(ctx, listen: false);
+              // Chat on another backend: the options do not reach it, so no
+              // Start button and no "pick a model" blame.
               final canRestart =
+                  launchOptionsApply(storage) &&
                   backendManager.backendPath != null &&
                   _launchModelExists(storage.backendSettings.lastUsedModelPath);
 
@@ -433,27 +436,9 @@ extension _SettingsLaunchOptions on _SettingsPageState {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   if (!canRestart)
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: accent.withValues(alpha: 0.07),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: accent.withValues(alpha: 0.2),
-                        ),
-                      ),
-                      child: Row(
-                        children: [
-                          Icon(Icons.info_outline, color: accent, size: 14),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Text(
-                              'No model loaded yet. Select a model on the Backend tab first.',
-                              style: TextStyle(fontSize: 11, color: accent),
-                            ),
-                          ),
-                        ],
-                      ),
+                    LaunchOptionsNotice(
+                      text: launchOptionsNoticeText(storage),
+                      accent: accent,
                     ),
                   if (canRestart)
                     ElevatedButton.icon(
