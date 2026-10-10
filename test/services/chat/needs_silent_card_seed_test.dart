@@ -131,6 +131,44 @@ void main() {
     });
   });
 
+  group('reopening a chat saved with Needs off and no bars', () {
+    // The chat was started while the Porch Life switch was off, so its row
+    // says off with no saved bars: the stale row the hydrate promotion is
+    // for. With the switch back on, a card that asks gets Needs on reopen;
+    // a silent card must too, and a card that chose off must not.
+    Future<CharacterCard> savedOffThenReopen(FrontPorchExtensions ext) async {
+      await boot(needsGlobal: false);
+      final c = card('Carmen', ext);
+      final other = card('Other', FrontPorchExtensions());
+      await repo!.addCharacter(c);
+      await repo!.addCharacter(other);
+      await chat!.setActiveCharacter(c);
+      final sid = chat!.currentSessionId;
+      expect(sid, isNotNull, reason: 'opening saves the greeting chat');
+      final row = await db!.getSessionById(sid!);
+      expect(row?.needsSimEnabled, isFalse);
+      expect(row?.needsVector ?? '', isEmpty);
+
+      await storage!.realismSettings.setNeedsSimDefault(true);
+      await chat!.setActiveCharacter(other);
+      await chat!.setActiveCharacter(c);
+      expect(chat!.currentSessionId, sid, reason: 'the saved chat reopened');
+      return c;
+    }
+
+    test('a silent card is promoted to Needs on', () async {
+      await savedOffThenReopen(FrontPorchExtensions(realismEnabled: true));
+      expectNeedsOn('hydrate treats a silent card as asking when global on');
+    });
+
+    test('a card that chose off stays off', () async {
+      await savedOffThenReopen(
+        FrontPorchExtensions(realismEnabled: true, needsSimEnabled: false),
+      );
+      expect(chat!.needsSimEnabled, isFalse);
+    });
+  });
+
   test('New Chat with a silent card follows the global switch', () async {
     await boot();
     final carmen = card('Carmen', FrontPorchExtensions(realismEnabled: true));

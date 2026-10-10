@@ -170,6 +170,11 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   bool _realismPassageOfTime = true;
   bool _realismChaosMode = false;
   bool _realismNeedsSim = false;
+
+  /// For a card that says nothing about Needs: the Porch Life value the
+  /// switch opened on. Save keeps the card silent unless the switch moved
+  /// off it. Null when the card made its own choice.
+  bool? _needsSimShownForSilent;
   bool _realismPocketsEnabled = true;
   bool _realismEnjoysLowHygiene = false;
 
@@ -270,7 +275,11 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _realismNsfwCooldown = ext.nsfwCooldownEnabled;
       _realismPassageOfTime = ext.passageOfTimeEnabled;
       _realismChaosMode = ext.chaosModeEnabled;
-      _realismNeedsSim = ext.needsSimChoice ?? _porchLifeNeedsDefault();
+      if (ext.needsSimChoice == null) {
+        _realismNeedsSim = _needsSimShownForSilent = _porchLifeNeedsDefault();
+      } else {
+        _realismNeedsSim = ext.needsSimChoice!;
+      }
       _realismPocketsEnabled = ext.pocketsEnabled;
       _realismEnjoysLowHygiene = ext.enjoysLowHygiene;
       _realismCurrentTask = ext.currentTask;
@@ -289,7 +298,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _needsBaselineHygiene = ext.needsBaselineHygiene;
       _needsBaselineComfort = ext.needsBaselineComfort;
     } else {
-      _realismNeedsSim = _porchLifeNeedsDefault();
+      _realismNeedsSim = _needsSimShownForSilent = _porchLifeNeedsDefault();
     }
     _ambitions = List<String>.from(
       widget.character.frontPorchExtensions?.ambitions ?? const [],
@@ -346,8 +355,9 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   }
 
   /// A card that says nothing about Needs starts its chats with the Porch
-  /// Life Needs switch, so the editor's switch shows that, and Save writes
-  /// it. Without the StorageService above (widget goldens) the switch's own
+  /// Life Needs switch, so the editor's switch shows that; Save writes a
+  /// choice only if the user moves it (see [_needsSimShownForSilent]).
+  /// Without the StorageService above (widget goldens) the switch's own
   /// default, on, is the answer.
   bool _porchLifeNeedsDefault() {
     try {

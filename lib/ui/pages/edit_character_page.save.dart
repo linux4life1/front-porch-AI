@@ -107,7 +107,11 @@ extension _EditCharacterSave on _EditCharacterPageState {
         nsfwCooldownEnabled: _realismNsfwCooldown,
         passageOfTimeEnabled: _realismPassageOfTime,
         chaosModeEnabled: _realismChaosMode,
-        needsSimEnabled: _realismNeedsSim,
+        // Null keeps a silent card silent (copyWith keeps the base's null)
+        // unless the switch moved off the Porch Life value it showed.
+        needsSimEnabled: _realismNeedsSim == _needsSimShownForSilent
+            ? null
+            : _realismNeedsSim,
         pocketsEnabled: _realismPocketsEnabled,
         enjoysLowHygiene: _realismEnjoysLowHygiene,
         ambitions: [

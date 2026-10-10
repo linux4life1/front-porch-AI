@@ -66,7 +66,10 @@ class FrontPorchExtensions {
   /// false the card did not have.
   bool? needsSimChoice;
 
-  /// The choice as a plain switch: false when the card says nothing.
+  /// True only when the card explicitly asks for Needs. Not "does this card
+  /// get Needs": a silent card reads false here yet follows the Porch Life
+  /// switch, so anything deciding whether a chat runs Needs reads
+  /// [needsSimChoice] (ChatService `_seedNeedsSim`).
   bool get needsSimEnabled => needsSimChoice ?? false;
   set needsSimEnabled(bool value) => needsSimChoice = value;
 
