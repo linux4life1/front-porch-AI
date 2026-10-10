@@ -37,8 +37,9 @@ LLMService? _liveStudioLlm(
   if (toast) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: const Text(
+        content: Text(
           'LLM not ready for smart crafting (using static quality)',
+          style: TextStyle(color: AppColors.textPrimary(context)),
         ),
         backgroundColor: AppColors.surfaceContainerOf(context),
       ),
