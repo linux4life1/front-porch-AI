@@ -20,7 +20,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// A single tile in the unified Avatar Gallery — used for the portrait, gallery
 /// avatars, and expression images alike. Pure presentation: every action is a
@@ -136,7 +137,7 @@ class AvatarTile extends StatelessWidget {
               gaplessPlayback: false,
               // Gallery tiles are small — decode at tile size, not source
               // size, so a big gallery doesn't thrash the image cache.
-              cacheWidth: 384,
+              cacheWidth: kPortraitGalleryDecodeWidth,
               errorBuilder: (_, _, _) => Container(
                 color: AppColors.surfaceContainerOf(context),
                 child: Icon(
@@ -162,7 +163,9 @@ class AvatarTile extends StatelessWidget {
               left: 5,
               child: _circleButton(
                 icon: starred ? Icons.star_rounded : Icons.star_border_rounded,
-                tooltip: starred ? 'Canonical avatar' : 'Set as canonical avatar',
+                tooltip: starred
+                    ? 'Canonical avatar'
+                    : 'Set as canonical avatar',
                 onTap: onStar,
                 bg: starred ? AppColors.formMasterAccent : scrim,
                 fg: onScrim,

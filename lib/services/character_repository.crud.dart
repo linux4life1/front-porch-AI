@@ -191,6 +191,7 @@ extension CharacterRepositoryCrud on CharacterRepository {
       // Overwrite the existing file with updated data (now using a guaranteed
       // absolute path that lands in the correct Characters/ directory).
       await v2Service.saveCardAsPng(card, fsPath, fsPath);
+      await evictPortraitImage(File(fsPath));
 
       // Update in database — store basename only for cross-platform portability
       if (card.dbId != null) {
@@ -309,6 +310,7 @@ extension CharacterRepositoryCrud on CharacterRepository {
         ? imagePath
         : _resolveImagePath(imagePath);
     card.imagePath = fsPath;
+    await evictPortraitImage(File(fsPath));
     await _db.updateCharacterImagePath(id, _toBasename(fsPath));
 
     final index = _characters.indexWhere((candidate) => candidate.dbId == id);

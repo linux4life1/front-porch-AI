@@ -12,7 +12,8 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// An avatar montage that adapts to the cast size so no blank slots are left:
 /// 1 fills the square, 2 sit side-by-side (full height), 3 form an inverted
@@ -33,21 +34,25 @@ class GroupAvatarMontage extends StatelessWidget {
     required this.side,
   });
 
-  Widget _cell(BuildContext context, File? img, double w, double h) => Container(
-    width: w,
-    height: h,
-    decoration: BoxDecoration(
-      color: AppColors.surfaceContainerOf(context),
-      borderRadius: BorderRadius.circular(6),
-      image: img != null
-          // Montage cells are tiny (quarter of a tile); decode small.
-          ? DecorationImage(
-              image: ResizeImage(FileImage(img), width: 256),
-              fit: BoxFit.cover,
-            )
-          : null,
-    ),
-  );
+  Widget _cell(BuildContext context, File? img, double w, double h) =>
+      Container(
+        width: w,
+        height: h,
+        decoration: BoxDecoration(
+          color: AppColors.surfaceContainerOf(context),
+          borderRadius: BorderRadius.circular(6),
+          image: img != null
+              // Montage cells are tiny (quarter of a tile); decode small.
+              ? DecorationImage(
+                  image: ResizeImage(
+                    FileImage(img),
+                    width: kPortraitMontageDecodeWidth,
+                  ),
+                  fit: BoxFit.cover,
+                )
+              : null,
+        ),
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -95,14 +100,22 @@ class GroupAvatarMontage extends StatelessWidget {
     Widget tile(int i) => _cell(context, i < n ? images[i] : null, half, half);
     Widget row(int a, int b) => Row(
       mainAxisSize: MainAxisSize.min,
-      children: [tile(a), const SizedBox(width: gap), tile(b)],
+      children: [
+        tile(a),
+        const SizedBox(width: gap),
+        tile(b),
+      ],
     );
     return SizedBox(
       width: side,
       height: side,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [row(0, 1), const SizedBox(height: gap), row(2, 3)],
+        children: [
+          row(0, 1),
+          const SizedBox(height: gap),
+          row(2, 3),
+        ],
       ),
     );
   }

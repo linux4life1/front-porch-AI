@@ -21,11 +21,9 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
+import 'package:front_porch_ai/ui/pages/home/cards/cards.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart'
     show kFolderDragHoldDelay;
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -96,7 +94,7 @@ class CharacterGridCard extends StatelessWidget {
       // ~4 MB decoded EACH, which thrashed the 100 MB image cache on any
       // decent-sized library and forced re-decodes on every scroll. 512px
       // covers the largest tile at 2x DPR at a quarter of the memory.
-      cacheWidth: 512,
+      cacheWidth: kPortraitGridDecodeWidth,
       errorBuilder: (_, _, _) => Container(
         color: AppColors.surfaceContainerOf(context),
         child: Icon(

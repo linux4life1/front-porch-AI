@@ -32,7 +32,7 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 // so the grouped-avatar map names the row type through a prefix.
 import 'package:front_porch_ai/database/database.dart' as rows show AvatarImage;
 import 'package:front_porch_ai/utils/utils.dart'
-    show StartupTrace, stableGroupIdFrom;
+    show StartupTrace, stableGroupIdFrom, evictPortraitImage;
 
 part 'character_repository.crud.dart';
 part 'character_repository.import.dart';

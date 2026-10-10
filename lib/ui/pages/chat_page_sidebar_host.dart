@@ -30,6 +30,7 @@ extension _ChatPageSidebarHost on _ChatPageState {
     BuildContext context,
     ChatService chatService,
   ) {
+    final portraitVersion = context.watch<CharacterRepository>().coverEpoch;
     final cast = chatService.cast;
     final group = chatService.activeGroup;
     final isMulti = cast.length > 1;
@@ -39,6 +40,7 @@ extension _ChatPageSidebarHost on _ChatPageState {
       final card = cast.isNotEmpty ? cast.first.card : null;
       final cover = card == null ? null : _coverFor(chatService, card);
       avatars = CircleAvatar(
+        key: ValueKey((cover?.path, portraitVersion)),
         backgroundImage: cover != null ? FileImage(cover) : null,
         onBackgroundImageError: cover != null ? (_, _) {} : null,
         child: cover == null ? const Icon(Icons.person) : null,
@@ -83,6 +85,7 @@ extension _ChatPageSidebarHost on _ChatPageState {
                           builder: (_) {
                             final cover = _coverFor(chatService, card);
                             return CircleAvatar(
+                              key: ValueKey((cover?.path, portraitVersion)),
                               radius: 16,
                               backgroundColor:
                                   _ChatPageState._groupCharacterColor(i),
