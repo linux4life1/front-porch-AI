@@ -44,6 +44,7 @@ export 'realism_form_section.dart';
 export 'styled_dropdown.dart';
 export 'styled_text_controller.dart';
 export 'sidebar.dart';
+export 'sidebar_width.dart';
 export 'model_selector.dart';
 export 'kcpps_selector.dart';
 export 'preset_context_lock.dart';
