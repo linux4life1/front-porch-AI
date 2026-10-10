@@ -127,7 +127,8 @@ class RealismProcessingOverlayState extends State<RealismProcessingOverlay>
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
-              color: AppColors.backgroundOf(context).withValues(alpha: 0.55),
+              // A dark dim in both themes so the panel keeps the focus.
+              color: Colors.black.withValues(alpha: 0.55),
               child: Center(
                 child: ConstrainedBox(
                   constraints: const BoxConstraints(
