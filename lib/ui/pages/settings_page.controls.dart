@@ -53,83 +53,25 @@ extension _SettingsLaunchControls on _SettingsPageState {
     );
   }
 
-  /// Apply GPU defaults based on detected hardware info.
-  void _applyHardwareDefaults(HardwareInfo hw) {
+  /// Shows the saved launch settings once the card is known. Nothing is
+  /// written: a choice nobody made stays automatic (all four switches unset),
+  /// which each launch resolves from the card (CUDA on NVIDIA, Metal on a
+  /// Mac, Vulkan on AMD or Intel; ROCm only ever by hand), and the
+  /// Acceleration line says "Automatic". Only a pick in the override is
+  /// saved, so a fresh install never reads "Manual".
+  void _showSavedLaunchSettings() {
     final storage = Provider.of<StorageService>(context, listen: false);
-    bool changed = false;
-
-    // NVIDIA Logic: Default to CuBLAS if not set
-    if (hw.vendor == 'Nvidia') {
-      if (storage.backendSettings.useCublas == null) {
-        storage.backendSettings.setUseCublas(true);
-        storage.backendSettings.setUseVulkan(false);
-        _useCublas = true;
-        _useVulkan = false;
-        changed = true;
-      } else {
-        _useCublas = storage.backendSettings.useCublas!;
-        if (storage.backendSettings.useVulkan != null) {
-          _useVulkan = storage.backendSettings.useVulkan!;
-        } else if (_useCublas) {
-          _useVulkan = false;
-        }
-      }
-    }
-    // Mac Logic: Default to Metal if not set. Detection reports Metal on
-    // every Mac and nowhere else.
-    else if (hw.hasMetal) {
-      if (storage.backendSettings.useMetal == null) {
-        storage.backendSettings.setUseMetal(true);
-        storage.backendSettings.setUseVulkan(false);
-        storage.backendSettings.setUseCublas(false);
-        _useMetal = true;
-        _useVulkan = false;
-        _useCublas = false;
-        changed = true;
-      } else {
-        _useMetal = storage.backendSettings.useMetal!;
-        if (storage.backendSettings.useVulkan != null) {
-          _useVulkan = storage.backendSettings.useVulkan!;
-        }
-        if (storage.backendSettings.useCublas != null) {
-          _useCublas = storage.backendSettings.useCublas!;
-        }
-        if (storage.backendSettings.useRocm != null) {
-          _useRocm = storage.backendSettings.useRocm!;
-        }
-      }
-    }
-    // Everything else (AMD, Intel, no card): nothing is written. A choice
-    // nobody made stays automatic (all four unset), which runs Vulkan on an
-    // AMD or Intel card at each launch; ROCm is only ever picked by hand.
-    else {
-      final bs = storage.backendSettings;
+    final bs = storage.backendSettings;
+    rebuildState(() {
       _useVulkan = bs.useVulkan == true;
       _useCublas = bs.useCublas == true;
       _useMetal = bs.useMetal == true;
       _useRocm = bs.useRocm == true;
-    }
-
-    if (changed) {
-      rebuildState(() {});
-      final msg = hw.vendor == 'Nvidia'
-          ? 'NVIDIA GPU detected: CuBLAS enabled.'
-          : 'Apple Silicon detected: Metal enabled.';
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-    } else {
-      // Just update UI to match loaded persistence
-      rebuildState(() {});
-    }
-
-    // Mirror the persisted settings into the UI controllers FIRST. The silent
-    // auto-config below reads the context field as the user's wish, and it
-    // used to run against the controllers' construction defaults ('16384') —
-    // and because it PERSISTS its result, every Settings visit silently
-    // overwrote a custom context limit ("my context size doesn't survive a
-    // restart", field-reported).
-    _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
-    _contextSizeController.text = storage.backendSettings.contextSize
-        .toString();
+      // The saved values, never the controllers' construction defaults
+      // ('16384'): a custom context limit must survive a visit.
+      _gpuLayersController.text = bs.gpuLayers.toString();
+      _contextSizeController.text = bs.contextSize.toString();
+    });
   }
 
   Future<void> _pickStoragePath() async {

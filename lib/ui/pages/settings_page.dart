@@ -156,13 +156,13 @@ class _SettingsPageState extends State<SettingsPage> {
 
     // Sync local state with storage
     final storage = Provider.of<StorageService>(context, listen: false);
-    // Default to false if null, logic below handles the "first run" auto-enable
+    // Unset (automatic) shows as no chip picked; nothing is ever saved here.
     _useCublas = storage.backendSettings.useCublas == true;
     _useVulkan = storage.backendSettings.useVulkan == true;
     _useMetal = storage.backendSettings.useMetal == true;
     _useRocm = storage.backendSettings.useRocm == true;
     // Mirror the persisted launch values into the controllers HERE, not only
-    // inside _applyHardwareDefaults: that runs only once HardwareService has
+    // inside _showSavedLaunchSettings: that runs only once HardwareService has
     // detected a GPU, and detection failures leave hardwareInfo null forever,
     // which would leave the Advanced tab showing the construction
     // placeholders ('0' / '16384') instead of the user's saved settings.
@@ -170,7 +170,7 @@ class _SettingsPageState extends State<SettingsPage> {
     _contextSizeController.text = storage.backendSettings.contextSize
         .toString();
     _savedContext = storage.backendSettings.contextSize;
-    // Apply hardware-based defaults once hardware info is available.
+    // Show the saved launch settings again once hardware info is available.
     // HardwareService.detectHardware() is already called in its constructor,
     // so we just use the cached result. If detection is still in progress,
     // listen for changes.
@@ -182,7 +182,7 @@ class _SettingsPageState extends State<SettingsPage> {
       );
 
       if (hardwareService.hardwareInfo != null) {
-        _applyHardwareDefaults(hardwareService.hardwareInfo!);
+        _showSavedLaunchSettings();
       } else {
         // Detection still in progress — listen for completion
         void listener() {
@@ -190,7 +190,7 @@ class _SettingsPageState extends State<SettingsPage> {
           if (!hardwareService.isDetecting &&
               hardwareService.hardwareInfo != null) {
             hardwareService.removeListener(listener);
-            _applyHardwareDefaults(hardwareService.hardwareInfo!);
+            _showSavedLaunchSettings();
           }
         }
 
