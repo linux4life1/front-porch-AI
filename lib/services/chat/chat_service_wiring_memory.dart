@@ -341,7 +341,10 @@ extension ChatServiceWiringMemory on ChatService {
         }
         _groupManager?.setNextSpeaker(member);
         await _generateResponse(GenerationMode.normal, forceSpeaker: member);
+        // forceSpeaker skips the pick, so close the turn here: the rotation
+        // carries on after [member] instead of handing them the next one.
         _groupManager?.clearForcedSpeaker();
+        _groupManager?.advanceAfterRegeneration(member);
       },
       isGroupTurnOrderRandom: () => isGroupTurnOrderRandom,
       setGroupTurnOrder: (random, customOrder) =>
