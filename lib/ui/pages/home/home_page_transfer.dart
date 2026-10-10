@@ -124,12 +124,12 @@ extension _HomePageTransfer on _HomePageState {
         ? 'Partially imported group "${result.groupName}": ${result.successCount} member(s) succeeded, ${result.failCount} failed. The group shell was created with the successful members only (their data + private avatars are fully usable; use "Separate to my library" to extract any as solo characters).'
         : 'Imported group "${result.groupName}" with ${result.successCount} members!';
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(msg),
-        backgroundColor: result.failCount > 0
-            ? AppColors.porchAmberOf(context)
-            : AppColors.surfaceContainerOf(context),
-      ),
+      result.failCount > 0
+          ? SnackBar(
+              content: Text(msg),
+              backgroundColor: AppColors.porchAmberOf(context),
+            )
+          : porchSnackBar(context, msg),
     );
   }
 
@@ -178,12 +178,7 @@ extension _HomePageTransfer on _HomePageState {
       final msg = extracted == 1
           ? 'Extracted 1 character as an individual.'
           : 'Extracted $extracted characters as individuals.';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(msg),
-          backgroundColor: AppColors.surfaceContainerOf(context),
-        ),
-      );
+      ScaffoldMessenger.of(context).showSnackBar(porchSnackBar(context, msg));
     }
   }
 

@@ -305,24 +305,7 @@ extension _EditCharacterSave on _EditCharacterPageState {
           Navigator.pop(context, widget.character);
         } else {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Row(
-                children: [
-                  Icon(
-                    Icons.check_circle,
-                    color: AppColors.textPrimary(context),
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  const Text('Character updated successfully!'),
-                ],
-              ),
-              backgroundColor: AppColors.cardOf(context),
-              behavior: SnackBarBehavior.floating,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
-            ),
+            porchSnackBar(context, 'Character updated successfully!'),
           );
           Navigator.pop(context);
         }
