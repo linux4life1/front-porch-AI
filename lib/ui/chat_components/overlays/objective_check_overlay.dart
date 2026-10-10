@@ -72,40 +72,16 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
 
   @override
   Widget build(BuildContext context) {
-    const accentColor = Colors.greenAccent;
-    const accentColorDim = Color(0xFF16A34A);
+    // Warm porch in both modes, matching the Realism overlay it follows.
+    final accentColor = AppColors.porchAmberOf(context);
 
     final pills = <EvalPill>[
-      EvalPill(
-        label: 'Objective',
-        icon: Icons.flag,
-        color: AppColors.resolve(
-          context,
-          Colors.greenAccent,
-          AppColors.resolve(
-            context,
-            const Color(0xFF16A34A),
-            const Color(0xFF15803D),
-          ),
-        ),
-      ),
-      EvalPill(
-        label: 'Progress',
-        icon: Icons.trending_up,
-        color: AppColors.resolve(
-          context,
-          Colors.tealAccent,
-          const Color(0xFF0D9488),
-        ),
-      ),
+      EvalPill(label: 'Objective', icon: Icons.flag, color: accentColor),
+      EvalPill(label: 'Progress', icon: Icons.trending_up, color: accentColor),
       EvalPill(
         label: 'Completion',
         icon: Icons.check_circle_outline,
-        color: AppColors.resolve(
-          context,
-          Colors.lightGreenAccent,
-          const Color(0xFF4ADE80),
-        ),
+        color: accentColor,
       ),
     ];
 
@@ -117,6 +93,7 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
           child: BackdropFilter(
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
+              // A dark dim in both themes so the panel keeps the focus.
               color: Colors.black.withValues(alpha: 0.55),
               child: Center(
                 child: ConstrainedBox(
@@ -127,29 +104,19 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                   child: Container(
                     margin: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [
-                          const Color(0xFF0F1729).withValues(alpha: 0.97),
-                          const Color(0xFF080D1A).withValues(alpha: 0.99),
-                        ],
-                      ),
+                      color: AppColors.surfaceOf(context),
                       borderRadius: BorderRadius.circular(24),
                       border: Border.all(
-                        color: accentColor.withValues(alpha: 0.18),
+                        color: accentColor.withValues(alpha: 0.35),
                         width: 1.5,
                       ),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.7),
+                          color: Colors.black.withValues(
+                            alpha: AppColors.isLight(context) ? 0.18 : 0.6,
+                          ),
                           blurRadius: 60,
                           offset: const Offset(0, 24),
-                        ),
-                        BoxShadow(
-                          color: accentColorDim.withValues(alpha: 0.12),
-                          blurRadius: 80,
-                          spreadRadius: -10,
                         ),
                       ],
                     ),
@@ -162,7 +129,7 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                           decoration: BoxDecoration(
                             border: Border(
                               bottom: BorderSide(
-                                color: accentColor.withValues(alpha: 0.1),
+                                color: accentColor.withValues(alpha: 0.2),
                               ),
                             ),
                           ),
@@ -179,15 +146,15 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                                     gradient: RadialGradient(
                                       colors: [
                                         accentColor.withValues(
-                                          alpha: 0.45 + 0.2 * _pulse.value,
+                                          alpha: 0.3 + 0.15 * _pulse.value,
                                         ),
-                                        accentColorDim.withValues(alpha: 0.06),
+                                        accentColor.withValues(alpha: 0.04),
                                       ],
                                     ),
                                     boxShadow: [
                                       BoxShadow(
                                         color: accentColor.withValues(
-                                          alpha: 0.2 + 0.18 * _pulse.value,
+                                          alpha: 0.12 + 0.1 * _pulse.value,
                                         ),
                                         blurRadius: 20 + 12 * _pulse.value,
                                         spreadRadius: 2,
@@ -213,7 +180,7 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                                           ),
                                         ),
                                       ),
-                                      const Icon(
+                                      Icon(
                                         Icons.flag,
                                         color: accentColor,
                                         size: 22,
@@ -223,7 +190,7 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                                 ),
                               ),
                               const SizedBox(width: 16),
-                              const Expanded(
+                              Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
@@ -232,16 +199,16 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                                       style: TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.w700,
-                                        color: Colors.white,
+                                        color: AppColors.textPrimary(context),
                                         letterSpacing: 0.3,
                                       ),
                                     ),
-                                    SizedBox(height: 4),
+                                    const SizedBox(height: 4),
                                     Text(
                                       'Evaluating objective & task completion',
                                       style: TextStyle(
                                         fontSize: 11.5,
-                                        color: Colors.white38,
+                                        color: AppColors.textSecondary(context),
                                         letterSpacing: 0.2,
                                       ),
                                     ),
@@ -287,9 +254,9 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                               textAlign: TextAlign.center,
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.white.withValues(
-                                  alpha: 0.22 + 0.12 * _pulse.value,
-                                ),
+                                color: AppColors.textPrimary(
+                                  context,
+                                ).withValues(alpha: 0.35 + 0.15 * _pulse.value),
                                 height: 1.65,
                               ),
                             ),
@@ -303,11 +270,9 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
                             icon: const Icon(Icons.skip_next, size: 18),
                             label: const Text('Skip goal check'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: AppColors.formMasterAccent,
+                              foregroundColor: accentColor,
                               side: BorderSide(
-                                color: AppColors.formMasterAccent.withValues(
-                                  alpha: 0.6,
-                                ),
+                                color: accentColor.withValues(alpha: 0.6),
                               ),
                             ),
                           ),

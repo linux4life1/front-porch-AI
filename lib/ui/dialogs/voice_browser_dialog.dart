@@ -60,22 +60,29 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
     }
   }
 
-  String _genderLabel(String gender) {
-    switch (gender) {
-      case 'Male':
-        return '♂ Male';
-      case 'Female':
-        return '♀ Female';
-      default:
-        return '⚬ Unknown';
-    }
+  /// Detail line: no gender when unknown, no empty brackets without a country.
+  String _voiceDetails(PiperVoice voice) {
+    final gender = switch (voice.gender) {
+      'Male' => '♂ Male',
+      'Female' => '♀ Female',
+      _ => null,
+    };
+    final place = voice.countryEnglish.isEmpty
+        ? voice.languageEnglish
+        : '${voice.languageEnglish} (${voice.countryEnglish})';
+    return [place, ?gender, voice.quality, voice.sizeLabel].join(' • ');
   }
 
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1F2937),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      backgroundColor: AppColors.surfaceOf(context),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(
+          color: AppColors.borderOf(context).withValues(alpha: 0.6),
+        ),
+      ),
       child: SizedBox(
         width: 900,
         height: 700,
@@ -83,7 +90,7 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
           children: [
             _buildHeader(),
             _buildFilters(),
-            const Divider(height: 1, color: Colors.white10),
+            Divider(height: 1, color: AppColors.hairlineOf(context, 0.1)),
             Expanded(child: _buildVoiceList()),
           ],
         ),
@@ -91,25 +98,49 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
     );
   }
 
+  /// Search box and dropdown look, shared so all three match the theme.
+  InputDecoration _fieldDecoration({
+    String? hintText,
+    String? labelText,
+    Widget? prefixIcon,
+  }) {
+    return InputDecoration(
+      hintText: hintText,
+      hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+      labelText: labelText,
+      labelStyle: TextStyle(
+        color: AppColors.textSecondary(context),
+        fontSize: 12,
+      ),
+      prefixIcon: prefixIcon,
+      filled: true,
+      fillColor: AppColors.sunkenSurfaceOf(context),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
+      ),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    );
+  }
+
   Widget _buildHeader() {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-      decoration: const BoxDecoration(
-        border: Border(bottom: BorderSide(color: Colors.white10)),
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: AppColors.hairlineOf(context, 0.1)),
+        ),
       ),
       child: Row(
         children: [
-          const Icon(
-            Icons.record_voice_over,
-            color: AppColors.formMasterAccent,
-          ),
+          Icon(Icons.record_voice_over, color: AppColors.porchAmberOf(context)),
           const SizedBox(width: 12),
-          const Text(
+          Text(
             'Voice Model Browser',
             style: TextStyle(
               fontSize: 20,
               fontWeight: FontWeight.bold,
-              color: Colors.white,
+              color: AppColors.textPrimary(context),
             ),
           ),
           const Spacer(),
@@ -120,7 +151,7 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            icon: const Icon(Icons.close, color: Colors.white54),
+            icon: Icon(Icons.close, color: AppColors.iconSecondary(context)),
             onPressed: () => Navigator.pop(context),
           ),
         ],
@@ -149,20 +180,12 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
               Expanded(
                 flex: 3,
                 child: TextField(
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
+                  style: TextStyle(color: AppColors.textPrimary(context)),
+                  decoration: _fieldDecoration(
                     hintText: 'Search voices...',
-                    hintStyle: const TextStyle(color: Colors.white30),
-                    prefixIcon: const Icon(Icons.search, color: Colors.white30),
-                    filled: true,
-                    fillColor: Colors.black26,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
+                    prefixIcon: Icon(
+                      Icons.search,
+                      color: AppColors.textTertiary(context),
                     ),
                   ),
                   onChanged: (val) =>
@@ -175,25 +198,9 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
                 flex: 2,
                 child: DropdownButtonFormField<String>(
                   initialValue: _selectedLanguage,
-                  dropdownColor: const Color(0xFF374151),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Language',
-                    labelStyle: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
-                    ),
-                    filled: true,
-                    fillColor: Colors.black26,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
+                  dropdownColor: AppColors.surfaceContainerOf(context),
+                  style: TextStyle(color: AppColors.textPrimary(context)),
+                  decoration: _fieldDecoration(labelText: 'Language'),
                   items: langList
                       .map(
                         (l) => DropdownMenuItem(
@@ -212,25 +219,9 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
                 width: 120,
                 child: DropdownButtonFormField<String>(
                   initialValue: _selectedQuality,
-                  dropdownColor: const Color(0xFF374151),
-                  style: const TextStyle(color: Colors.white),
-                  decoration: InputDecoration(
-                    labelText: 'Quality',
-                    labelStyle: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 12,
-                    ),
-                    filled: true,
-                    fillColor: Colors.black26,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide.none,
-                    ),
-                    contentPadding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                  ),
+                  dropdownColor: AppColors.surfaceContainerOf(context),
+                  style: TextStyle(color: AppColors.textPrimary(context)),
+                  decoration: _fieldDecoration(labelText: 'Quality'),
                   items: qualList
                       .map((q) => DropdownMenuItem(value: q, child: Text(q)))
                       .toList(),
@@ -249,15 +240,15 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
     return Consumer<VoiceManager>(
       builder: (context, vm, _) {
         if (vm.isLoadingCatalog) {
-          return const Center(
+          return Center(
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(),
-                SizedBox(height: 16),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
                 Text(
                   'Loading voice catalog...',
-                  style: TextStyle(color: Colors.white54),
+                  style: TextStyle(color: AppColors.textSecondary(context)),
                 ),
               ],
             ),
@@ -269,11 +260,15 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.cloud_off, size: 48, color: Colors.white24),
+                Icon(
+                  Icons.cloud_off,
+                  size: 48,
+                  color: AppColors.textTertiary(context),
+                ),
                 const SizedBox(height: 12),
-                const Text(
+                Text(
                   'Could not load voice catalog',
-                  style: TextStyle(color: Colors.white54),
+                  style: TextStyle(color: AppColors.textSecondary(context)),
                 ),
                 const SizedBox(height: 12),
                 ElevatedButton.icon(
@@ -342,10 +337,18 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
             final isDownloading = vm.isDownloading(voice.key);
             final progress = vm.getDownloadProgress(voice.key);
 
+            // Installed rows keep a green "ready" tint over the theme surface.
+            final rowAccent = isInstalled
+                ? AppColors.bondHighOf(context)
+                : AppColors.porchAmberOf(context);
+            final rowSurface = AppColors.surfaceContainerOf(context);
             return Card(
               color: isInstalled
-                  ? const Color(0xFF1a3a2a)
-                  : const Color(0xFF374151),
+                  ? Color.alphaBlend(
+                      rowAccent.withValues(alpha: 0.12),
+                      rowSurface,
+                    )
+                  : rowSurface,
               margin: const EdgeInsets.only(bottom: 6),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(10),
@@ -356,27 +359,26 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
                   vertical: 4,
                 ),
                 leading: CircleAvatar(
-                  backgroundColor: isInstalled
-                      ? Colors.green.withValues(alpha: 0.2)
-                      : AppColors.formMasterAccent.withValues(alpha: 0.2),
+                  backgroundColor: rowAccent.withValues(alpha: 0.2),
                   child: Icon(
                     isInstalled ? Icons.check_circle : Icons.record_voice_over,
-                    color: isInstalled
-                        ? Colors.greenAccent
-                        : AppColors.formMasterAccent,
+                    color: rowAccent,
                     size: 20,
                   ),
                 ),
                 title: Text(
                   voice.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
                     fontWeight: FontWeight.w600,
                   ),
                 ),
                 subtitle: Text(
-                  '${voice.languageEnglish} (${voice.countryEnglish}) • ${_genderLabel(voice.gender)} • ${voice.quality} • ${voice.sizeLabel}',
-                  style: const TextStyle(color: Colors.white54, fontSize: 12),
+                  _voiceDetails(voice),
+                  style: TextStyle(
+                    color: AppColors.textSecondary(context),
+                    fontSize: 12,
+                  ),
                 ),
                 trailing: _buildTrailingActions(
                   voice,
@@ -409,16 +411,19 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
             Expanded(
               child: LinearProgressIndicator(
                 value: progress,
-                backgroundColor: Colors.white12,
-                valueColor: const AlwaysStoppedAnimation(
-                  AppColors.formMasterAccent,
+                backgroundColor: AppColors.hairlineOf(context, 0.12),
+                valueColor: AlwaysStoppedAnimation(
+                  AppColors.porchAmberOf(context),
                 ),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               '${(progress * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 12,
+              ),
             ),
           ],
         ),
@@ -431,9 +436,9 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
         if (isInstalled) ...[
           // Preview button
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.play_arrow,
-              color: Colors.greenAccent,
+              color: AppColors.bondHighOf(context),
               size: 20,
             ),
             tooltip: 'Preview',
@@ -458,9 +463,9 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
           ),
           // Delete button
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.delete_outline,
-              color: Colors.redAccent,
+              color: AppColors.negativeAccentOf(context),
               size: 20,
             ),
             tooltip: 'Delete',
