@@ -38,6 +38,8 @@ class RemoteReadyBadge extends StatelessWidget {
     final live = service.isReachable;
     final checking = service.reachability == RemoteReachability.checking;
     final unreachable = service.reachability == RemoteReachability.unreachable;
+    // Answered, no model chosen yet: amber, never the red "Not configured".
+    final connected = service.reachability == RemoteReachability.reachable;
     final Color color;
     if (live) {
       color = AppColors.resolve(
@@ -45,7 +47,7 @@ class RemoteReadyBadge extends StatelessWidget {
         AppColors.logReady,
         AppColors.bondHighLight,
       );
-    } else if (checking || service.isConfigured) {
+    } else if (checking || connected || service.isConfigured) {
       color = unreachable
           ? AppColors.negativeAccentOf(context)
           : AppColors.porchAmberOf(context);

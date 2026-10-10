@@ -34,12 +34,17 @@ enum RemoteReachability { unknown, checking, reachable, unreachable }
 const kSkipRemoteAutoPing = bool.fromEnvironment('FLUTTER_TEST');
 
 /// User-facing status for Settings / the engine card. Green "Ready" is
-/// reserved for a successful ping.
+/// reserved for a successful ping. A server that answered before a model
+/// was chosen is connected, not "Not configured".
 String remoteBackendStatusLabel({
   required bool configured,
   required RemoteReachability reachability,
 }) {
-  if (!configured) return 'Not configured';
+  if (!configured) {
+    return reachability == RemoteReachability.reachable
+        ? 'Connected — pick a model'
+        : 'Not configured';
+  }
   return switch (reachability) {
     RemoteReachability.unknown => 'Configured',
     RemoteReachability.checking => 'Checking…',
@@ -126,6 +131,9 @@ class RemoteApiHealth {
 
   void reset() => _set(RemoteReachability.unknown);
 
+  /// A model list came back from the live endpoint: it answers.
+  void markReachable() => _set(RemoteReachability.reachable);
+
   void _set(RemoteReachability next) {
     if (reachability == next) return;
     reachability = next;
@@ -164,11 +172,11 @@ class RemoteApiHealth {
   }
 
   /// Check [apiUrl]/[apiKey] (else the live pair). Stamps live reachability
-  /// only when the probe targets the live endpoint.
+  /// only when the probe targets the live endpoint, model chosen or not, so
+  /// the status dot agrees with what Check Connection just said.
   Future<String> testConnection({
     required String liveUrl,
     required String liveKey,
-    required bool configured,
     String? apiUrl,
     String? apiKey,
   }) async {
@@ -182,8 +190,7 @@ class RemoteApiHealth {
         apiKey: key,
         client: client,
       );
-      final testingLive = url == liveUrl && key == liveKey;
-      if (testingLive && configured) {
+      if (url == liveUrl && key == liveKey) {
         _set(
           result.ok
               ? RemoteReachability.reachable

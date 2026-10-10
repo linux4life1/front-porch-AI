@@ -259,7 +259,8 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
         content: Text(
           models.isEmpty
               ? 'No models found. Check your API URL and key.'
-              : 'Found ${models.length} available models.',
+              : 'Found ${models.length} '
+                    'model${models.length == 1 ? '' : 's'}.',
         ),
       ),
     );

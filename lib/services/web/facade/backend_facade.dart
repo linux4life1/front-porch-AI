@@ -334,7 +334,13 @@ class BackendFacade {
       return 'Connection refused: URL is not a public http(s) address.';
     }
     final svc = OpenRouterService(apiUrl: c.url, apiKey: c.key);
-    return svc.testConnection();
+    final message = await svc.testConnection();
+    // A check of the saved host that answered turns its status dot from
+    // "Not configured" to connected, as Check Connection does on the desktop.
+    if (svc.reachability == RemoteReachability.reachable) {
+      _llm.openRouterService.noteReachable(apiUrl: c.url, apiKey: c.key);
+    }
+    return message;
   }
 
   bool pauseDownload(String taskId) =>
