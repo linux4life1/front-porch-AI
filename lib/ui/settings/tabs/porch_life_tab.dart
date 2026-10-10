@@ -53,8 +53,9 @@ import 'porch_life_mcp_web_card.dart';
 ///
 /// Needs got its global switch here (`needsSimDefault`, 2026-08-07): it had
 /// none at all, so the tab had nothing to show for the app's most visible
-/// simulation. It AND-gates the card's own setting — default true, so nothing
-/// changes until a user deliberately turns it off.
+/// simulation. It decides for a card that says nothing about Needs and
+/// AND-gates a card that does (an explicit false on the card still wins).
+/// Default true.
 ///
 /// Dependency truths per the maintainer: Needs and Afterglow genuinely REQUIRE
 /// the engine.

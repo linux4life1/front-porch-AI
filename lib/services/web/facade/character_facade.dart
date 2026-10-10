@@ -379,7 +379,12 @@ class CharacterFacade {
         'lorebook': _normalizeLorebook(c.lorebook),
         'ttsVoice': c.ttsVoice,
         'imagePath': c.imagePath,
-        'realism': ext != null ? frontPorchToJson(ext) : null,
+        'realism': ext != null
+            ? frontPorchToJson(
+                ext,
+                needsSimWhenSilent: _storage.realismSettings.needsSimDefault,
+              )
+            : null,
         'narrativePerspective': voice.perspective,
         'narrativeTense': voice.tense,
         'sex': voice.sex,

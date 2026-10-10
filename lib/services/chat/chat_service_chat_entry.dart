@@ -360,11 +360,10 @@ extension ChatServiceChatEntry on ChatService {
                   _storageService.realismSettings.chaosModeDefault,
               false,
             );
-            // AND-gated by the global Needs switch (Porch Life tab): the card
-            // asks, the global setting can veto. Default true = no change.
-            _needsSimEnabled =
-                ext.needsSimEnabled &&
-                _storageService.realismSettings.needsSimDefault;
+            // The Porch Life Needs switch decides for a card that says
+            // nothing (imported Chub/SillyTavern cards) and can veto a card
+            // that asks. A card's explicit false still wins.
+            _needsSimEnabled = _seedNeedsSim(ext.needsSimChoice);
             // Objectives seed from the GLOBAL switch only — deliberately no card
             // extension. A per-character default would change the card JSON
             // shape, which ripples to The Stoop and every external reader, and
@@ -400,9 +399,10 @@ extension ChatServiceChatEntry on ChatService {
             // on, open a card you just downloaded, nothing happens.
             //
             // Only the GLOBAL feature switches are applied — the pure
-            // OR-overrides plus the Needs AND-gate. Deliberately NOT the numeric
-            // seeds (bond, trust, day, needs baselines): a plain card has no
-            // opinion about those, and the defaults are already in place.
+            // OR-overrides plus Needs, which a silent card leaves to the
+            // Porch Life switch. Deliberately NOT the numeric seeds (bond,
+            // trust, day, needs baselines): a plain card has no opinion about
+            // those, and the defaults are already in place.
             //
             // `_currentSessionId == null` is the load-bearing part, and the first
             // draft of this fix got it wrong by reusing a default-constructed
@@ -424,9 +424,8 @@ extension ChatServiceChatEntry on ChatService {
               _storageService.realismSettings.chaosModeDefault,
               false,
             );
-            _needsSimEnabled =
-                _needsSimEnabled &&
-                _storageService.realismSettings.needsSimDefault;
+            _needsSimEnabled = _seedNeedsSim(null);
+            if (_needsSimEnabled) _needsSimulation.initializeFresh();
             _objectivesEnabled =
                 _storageService.realismSettings.objectivesEnabled;
           }

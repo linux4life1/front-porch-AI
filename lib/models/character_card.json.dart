@@ -84,7 +84,8 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
         'nsfw_cooldown_enabled': nsfwCooldownEnabled,
         'passage_of_time_enabled': passageOfTimeEnabled,
         'chaos_mode_enabled': chaosModeEnabled,
-        'needs_sim_enabled': needsSimEnabled,
+        // Omit when the card never chose, so the Porch Life switch decides.
+        'needs_sim_enabled': ?needsSimChoice,
         // Omit when on (the default) so old cards stay byte-identical.
         if (!pocketsEnabled) 'pockets_enabled': false,
         'enjoys_low_hygiene': enjoysLowHygiene,
@@ -219,7 +220,7 @@ extension FrontPorchExtensionsJson on FrontPorchExtensions {
       nsfwCooldownEnabled: nsfwCooldownEnabled ?? this.nsfwCooldownEnabled,
       passageOfTimeEnabled: passageOfTimeEnabled ?? this.passageOfTimeEnabled,
       chaosModeEnabled: chaosModeEnabled ?? this.chaosModeEnabled,
-      needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
+      needsSimEnabled: needsSimEnabled ?? needsSimChoice,
       pocketsEnabled: pocketsEnabled ?? this.pocketsEnabled,
       enjoysLowHygiene: enjoysLowHygiene ?? this.enjoysLowHygiene,
       ambitions: ambitions ?? this.ambitions,

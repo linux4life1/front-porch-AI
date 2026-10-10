@@ -86,8 +86,19 @@ extension CharacterFacadeImport on CharacterFacade {
     // the current extensions as the base, so editing realism never wipes needs
     // (or chat-appearance) state and vice-versa. Matches the desktop save path
     // which always rebuilds extensions; the realismEnabled flag only gates use.
+    // The phone always posts the Needs switch. For a card that says nothing,
+    // it showed the Porch Life value (detail's needsSimWhenSilent); posting
+    // that same value back is not a choice, so the card stays silent — the
+    // desktop editor's rule.
+    final silent = card.frontPorchExtensions?.needsSimChoice == null;
+    final realismFields =
+        silent &&
+            fields['needsSimEnabled'] ==
+                _storage.realismSettings.needsSimDefault
+        ? (Map<String, dynamic>.of(fields)..remove('needsSimEnabled'))
+        : fields;
     card.frontPorchExtensions = frontPorchFromFields(
-      fields,
+      realismFields,
       base: card.frontPorchExtensions,
     );
 
