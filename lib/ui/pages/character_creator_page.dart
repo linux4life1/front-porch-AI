@@ -18,7 +18,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/mode_select_step.dart';
@@ -133,9 +135,15 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
   /// Persist the finished character, then show a result SnackBar and close the
   /// wizard on success. The engine returns the outcome (it has no context); the
   /// page owns the messaging and navigation.
+  ///
+  /// The wizard is pushed over whichever page the sidebar was showing, so a
+  /// bare pop lands there (User Personas, Settings...). Like the manual
+  /// creator's Done, it switches the main screen to Home first, where the new
+  /// character now sits.
   Future<void> _saveAndFinish() async {
     final repo = Provider.of<CharacterRepository>(context, listen: false);
     final storage = Provider.of<StorageService>(context, listen: false);
+    final appState = Provider.of<AppState>(context, listen: false);
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final name = creatorState.generatedCard?.name ?? 'Character';
@@ -143,16 +151,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     final ok = await creatorState.saveCharacter(repo: repo, storage: storage);
     if (!mounted) return;
     if (ok) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '$name created successfully!',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          backgroundColor: AppColors.surfaceContainerOf(context),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      messenger.showSnackBar(characterCreatedSnackBar(context, name));
+      // Already on Home: leave it as it is (a second setIndex(0) would
+      // read as a Home re-tap and close the open folder).
+      if (appState.selectedIndex != 0) appState.setIndex(0);
       navigator.pop();
     } else {
       messenger.showSnackBar(

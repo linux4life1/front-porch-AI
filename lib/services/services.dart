@@ -73,6 +73,7 @@ export 'backend_manager.dart';
 export 'opencode/opencode.dart';
 export 'open_router_service.dart';
 export 'openrouter_structured_eval.dart';
+export 'placeholder_portrait_probe.dart';
 export 'remote_reachability.dart';
 export 'reasoning_effort.dart';
 export 'reasoning_effort_probe.dart';

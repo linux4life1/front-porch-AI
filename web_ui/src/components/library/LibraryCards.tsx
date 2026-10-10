@@ -44,7 +44,7 @@ export function CharacterCard({
     >
       <button className="lib-open" onClick={() => (selecting ? onToggleSelect() : onOpen())}>
         <div className="lib-art">
-          {char.hasAvatar ? (
+          {char.hasAvatar && !char.placeholderPortrait ? (
             <img
               src={api.avatarUrl(`/api/characters/${char.id}/avatar`, 400, char.avatarVersion)}
               alt=""

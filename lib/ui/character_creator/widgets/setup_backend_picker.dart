@@ -15,8 +15,8 @@ import 'package:front_porch_ai/ui/settings/widgets/remote_provider_apply.dart';
 import 'package:front_porch_ai/ui/settings/widgets/remote_provider_bar.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Kobold / Remote API / oMLX chips, plus OpenRouter vs Nano-GPT vs LM Studio
-/// when the remote door is open. Shared by AI Character Creator and World
+/// Kobold / Remote API / oMLX chips, plus OpenRouter / Nano-GPT / xAI /
+/// LM Studio / Custom when the remote door is open. Shared by AI Character Creator and World
 /// from Wiki (same Setup step).
 class SetupBackendPicker extends StatelessWidget {
   const SetupBackendPicker({super.key, required this.state});
@@ -110,9 +110,15 @@ class SetupBackendPicker extends StatelessWidget {
               state.notify();
             },
           ),
+          if (remoteKind == RemoteProviderKind.custom) ...[
+            const SizedBox(height: 10),
+            _CustomUrlField(state: state, storage: storage, llm: llmProvider),
+          ],
           const SizedBox(height: 6),
           Text(
-            'Each provider keeps its own key. Pick a model after you switch.',
+            remoteKind == RemoteProviderKind.custom
+                ? "Type your server's address, then pick a model."
+                : 'Each provider keeps its own key. Pick a model after you switch.',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textTertiary(context),
@@ -131,6 +137,81 @@ class SetupBackendPicker extends StatelessWidget {
         color: AppColors.textSecondary(context),
         fontWeight: FontWeight.w500,
       ),
+    );
+  }
+}
+
+/// Custom has no fixed address, so it carries the same address box as Model
+/// Settings. Typing stays in the box; the address is saved when the user
+/// presses Enter or leaves the box, then the model list is fetched from the
+/// new server (the old host's list is dropped first).
+class _CustomUrlField extends StatefulWidget {
+  const _CustomUrlField({
+    required this.state,
+    required this.storage,
+    required this.llm,
+  });
+
+  final CreatorState state;
+  final StorageService storage;
+  final LLMProvider llm;
+
+  @override
+  State<_CustomUrlField> createState() => _CustomUrlFieldState();
+}
+
+class _CustomUrlFieldState extends State<_CustomUrlField> {
+  late final TextEditingController _controller = TextEditingController(
+    text: widget.storage.backendSettings.remoteApiUrl,
+  );
+  final FocusNode _focus = FocusNode();
+
+  @override
+  void initState() {
+    super.initState();
+    _focus.addListener(() {
+      if (!_focus.hasFocus) _commit();
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  /// Enter and leaving the box both land here; an address already saved is
+  /// not written (or fetched) twice.
+  Future<void> _commit() async {
+    final url = _controller.text.trim();
+    final settings = widget.storage.backendSettings;
+    if (url == settings.remoteApiUrl) return;
+    widget.state.availableModels = [];
+    await settings.setRemoteApiUrl(url);
+    await widget.state.loadAvailableModels(widget.llm);
+    widget.state.notify();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return TextField(
+      key: const ValueKey('creator-custom-url'),
+      controller: _controller,
+      focusNode: _focus,
+      style: TextStyle(color: AppColors.textPrimary(context)),
+      decoration: InputDecoration(
+        labelText: 'Server address',
+        hintText: 'https://your-server.example/v1',
+        labelStyle: TextStyle(color: AppColors.textSecondary(context)),
+        filled: true,
+        fillColor: AppColors.surfaceContainerOf(context),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+          borderSide: BorderSide.none,
+        ),
+      ),
+      onSubmitted: (_) => _commit(),
     );
   }
 }

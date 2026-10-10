@@ -27,6 +27,9 @@ export interface LibChar {
   name: string;
   tags: string[];
   hasAvatar: boolean;
+  /** The picture is only the flat colour a card made without a portrait
+   *  carries; the grid draws its placeholder instead. Absent on older apps. */
+  placeholderPortrait?: boolean;
   /** Avatar file mtime — cache-busts the thumbnail URL when the picture changes. */
   avatarVersion?: number;
   messageCount: number;

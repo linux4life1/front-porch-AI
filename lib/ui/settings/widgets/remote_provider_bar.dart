@@ -39,7 +39,8 @@ class RemoteProviderBar extends StatelessWidget {
   final bool showOmlx;
   final bool koboldEnabled;
 
-  /// OpenRouter / Nano-GPT / xAI / LM Studio only — wizard Setup, not Model Settings.
+  /// OpenRouter / Nano-GPT / xAI / LM Studio / Custom only — wizard Setup,
+  /// not Model Settings.
   final bool remoteHostsOnly;
 
   /// Worker "Off" — no host pill is highlighted.
@@ -60,6 +61,7 @@ class RemoteProviderBar extends StatelessWidget {
     (RemoteProviderKind.nanoGpt, 'Nano-GPT'),
     (RemoteProviderKind.xai, 'xAI'),
     (RemoteProviderKind.lmStudio, 'LM Studio'),
+    (RemoteProviderKind.custom, 'Custom'),
   ];
 
   @override

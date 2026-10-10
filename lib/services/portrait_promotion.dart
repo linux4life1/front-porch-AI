@@ -24,6 +24,7 @@ import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/placeholder_portrait_probe.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Deletes a character's canonical portrait by PROMOTING a gallery look in
@@ -190,29 +191,7 @@ Future<bool> isPlaceholderPortrait(
   try {
     final file = storage.resolveCharacterImage(card.imagePath!);
     final decoded = img.decodeImage(await file.readAsBytes());
-    if (decoded == null) return false;
-    // V2 / group-import synthesizer always emits this exact size.
-    if (decoded.width != 400 || decoded.height != 600) return false;
-    // 5×5 grid of samples — all identical RGB ⇒ solid placeholder.
-    int? r0, g0, b0;
-    for (final yf in const [0.0, 0.25, 0.5, 0.75, 1.0]) {
-      for (final xf in const [0.0, 0.25, 0.5, 0.75, 1.0]) {
-        final x = (xf * (decoded.width - 1)).round();
-        final y = (yf * (decoded.height - 1)).round();
-        final px = decoded.getPixel(x, y);
-        final r = px.r.toInt();
-        final g = px.g.toInt();
-        final b = px.b.toInt();
-        if (r0 == null) {
-          r0 = r;
-          g0 = g;
-          b0 = b;
-        } else if (r != r0 || g != g0 || b != b0) {
-          return false;
-        }
-      }
-    }
-    return true;
+    return decoded != null && isSolidPlaceholderImage(decoded);
   } catch (_) {
     return false;
   }

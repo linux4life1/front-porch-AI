@@ -56,9 +56,7 @@ extension _GroupWizardRoster on _CreateGroupChatPageState {
         seed['relationships'] ??= <String, int>{};
       }
 
-      if (_nameController.text.trim().isEmpty) {
-        _nameController.text = _members.map((c) => c.name).join(' & ');
-      }
+      _followRosterInGroupName();
       _updateEstimates();
     });
   }
@@ -78,9 +76,7 @@ extension _GroupWizardRoster on _CreateGroupChatPageState {
         }
       }
 
-      if (_members.isNotEmpty && _nameController.text.trim().isEmpty) {
-        _nameController.text = _members.map((c) => c.name).join(' & ');
-      }
+      _followRosterInGroupName();
     });
   }
 
@@ -90,7 +86,17 @@ extension _GroupWizardRoster on _CreateGroupChatPageState {
     rebuildState(() {
       final moved = _members.removeAt(oldIndex);
       _members.insert(newIndex, moved);
+      _followRosterInGroupName();
     });
+  }
+
+  /// Names the group after every member ("Juniper & Marlow") until the user
+  /// types a name of their own; a typed name is never overwritten.
+  void _followRosterInGroupName() {
+    final current = _nameController.text.trim();
+    if (current.isNotEmpty && current != _autoGroupName) return;
+    _autoGroupName = defaultGroupName([for (final c in _members) c.name]);
+    _nameController.text = _autoGroupName;
   }
 
   void _setVoice(String charId, String? voiceId) {
