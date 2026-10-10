@@ -335,7 +335,12 @@ void main() {
       await storage.backendSettings.setBackendType('openRouter');
       // A local model and a preset for the "Local model" journey; chat stays
       // on the stand-in backend.
-      await seedLocalModel(storage, _repoRoot());
+      await seedLocalModel(
+        storage,
+        _repoRoot(),
+        // ignore: use_build_context_synchronously — root MainLayout element.
+        hardware: Provider.of<HardwareService>(ctx, listen: false),
+      );
       // A preset the host will not start KoboldCpp from (it asks for a list of
       // programs to run and a public tunnel), for the journey that picks it on
       // the phone and is refused. It names no model, so nothing else follows it.

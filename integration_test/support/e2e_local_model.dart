@@ -13,7 +13,19 @@ import 'package:front_porch_ai/services/services.dart';
 /// real size (a sparse file, so nothing is written), chosen as the local
 /// model, and a preset in the engine folder that names it. [repo] is the
 /// checkout, where the fixtures are.
-Future<void> seedLocalModel(StorageService storage, Directory repo) async {
+///
+/// The card's verdicts weigh the context against the free memory read on
+/// the machine running the suite, so [hardware] is given a reading with
+/// room for the model at 65,536 tokens: a busy graphics card (another
+/// program holding most of it) would otherwise call that size too big and
+/// ask before keeping it, and a journey would pass on one machine and not
+/// on another. Nothing here loads the model, so no reading is taken again.
+Future<void> seedLocalModel(
+  StorageService storage,
+  Directory repo, {
+  required HardwareService hardware,
+}) async {
+  hardware.freeBeforeEngine = (graphics: 12288, system: 32768);
   final fixture = p.join(
     repo.path,
     'test',
