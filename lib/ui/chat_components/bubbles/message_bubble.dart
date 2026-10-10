@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import '../widgets/composer_draft_scope.dart';
 import '../widgets/inline_chat_image.dart';
 import '../widgets/regen_critique_field.dart';
 import 'live_thought_body.dart';
