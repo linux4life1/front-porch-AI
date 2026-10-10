@@ -283,6 +283,9 @@ extension WebServerHostStreams on WebServerHost {
     }
 
     _libraryListener = onLibraryChanged;
+    // Background portrait probes that find a no-portrait placeholder ask for
+    // one refetch through the same debounce.
+    characterFacade.onPlaceholderPortraitsFound = onLibraryChanged;
     _characterRepository?.addListener(onLibraryChanged);
     _folderService?.addListener(onLibraryChanged);
     _groupChatRepository?.addListener(onLibraryChanged);

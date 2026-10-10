@@ -6,9 +6,10 @@
 // to show that flat box (blue for "Juniper"); a character with no picture at
 // all showed the person icon. Both now show the person icon on the desktop,
 // and the phone's library is told (placeholderPortrait) so it draws its
-// initial.
-// Real portraits, including a real 400×600 one, are left alone.
+// initial. Real portraits, including a real 400×600 one, are left alone,
+// and most of them are turned away by the chunk headers without a decode.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -34,17 +35,37 @@ void _mockPathProvider(Directory root) {
       });
 }
 
-/// A real picture at the placeholder's exact size: a gradient, so the
-/// samples differ.
+/// A real photo at the placeholder's exact size (most imported cards are
+/// 400×600): one of the app's own background pictures, cropped.
 File _realPortrait400x600(String path) {
-  final image = img.Image(width: 400, height: 600);
-  for (var y = 0; y < 600; y++) {
-    for (var x = 0; x < 400; x++) {
-      image.setPixelRgb(x, y, x % 256, y % 256, 120);
-    }
-  }
-  return File(path)..writeAsBytesSync(img.encodePng(image));
+  final photo = img.decodeImage(
+    File('assets/backgrounds/beach.png').readAsBytesSync(),
+  )!;
+  final portrait = img.copyResizeCropSquare(photo, size: 600);
+  final cropped = img.copyCrop(portrait, x: 100, y: 0, width: 400, height: 600);
+  return File(path)..writeAsBytesSync(img.encodePng(cropped));
 }
+
+Widget _card(File file) => MaterialApp(
+  home: Scaffold(
+    body: SizedBox(
+      width: 220,
+      height: 320,
+      child: CharacterGridCard(
+        character: CharacterCard(name: 'Juniper', imagePath: file.path),
+        activeFolderId: null,
+        messageCountCache: const {},
+        isSelecting: false,
+        isOrganizing: false,
+        selectedCharacterIds: const {},
+        onTapCharacter: (_) async {},
+        onToggleSelect: (_) {},
+        onContextMenuAction: (_, _) {},
+        onResolveCharImage: (_) => file,
+      ),
+    ),
+  ),
+);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -98,30 +119,34 @@ void main() {
     },
   );
 
+  test('a real 400×600 portrait is turned away before any decode', () async {
+    // The header gate reads chunk headers only: the placeholder's pixel data
+    // is a few KB (its big card-data chunk is skipped), a photo's is not.
+    expect(
+      await PlaceholderPortraitProbe.mightBeFlatPlaceholder(placeholder),
+      isTrue,
+    );
+    expect(
+      await PlaceholderPortraitProbe.mightBeFlatPlaceholder(real),
+      isFalse,
+    );
+  });
+
+  testWidgets('a cold card never paints the flat colour first', (tester) async {
+    // Nothing probed yet: the first frame must not draw the picture, for a
+    // placeholder or a real portrait, until the probe has answered.
+    await tester.pumpWidget(_card(placeholder));
+    expect(find.byType(Image), findsNothing);
+    expect(find.byIcon(Icons.person), findsOneWidget);
+
+    await tester.pumpWidget(_card(real));
+    expect(find.byType(Image), findsNothing);
+    expect(find.byIcon(Icons.person), findsOneWidget);
+  });
+
   testWidgets(
     'Home shows the person icon for a card with only the placeholder',
     (tester) async {
-      Widget card(File file) => MaterialApp(
-        home: Scaffold(
-          body: SizedBox(
-            width: 220,
-            height: 320,
-            child: CharacterGridCard(
-              character: CharacterCard(name: 'Juniper', imagePath: file.path),
-              activeFolderId: null,
-              messageCountCache: const {},
-              isSelecting: false,
-              isOrganizing: false,
-              selectedCharacterIds: const {},
-              onTapCharacter: (_) async {},
-              onToggleSelect: (_) {},
-              onContextMenuAction: (_, _) {},
-              onResolveCharImage: (_) => file,
-            ),
-          ),
-        ),
-      );
-
       // Probe on real time first (file reads and the decode isolate do not
       // run under the widget test's fake clock); the card then paints from
       // the cached answer, as it does on every rebuild after the first.
@@ -130,49 +155,73 @@ void main() {
         await PlaceholderPortraitProbe.check(real, version: 0);
       });
 
-      await tester.pumpWidget(card(placeholder));
+      await tester.pumpWidget(_card(placeholder));
       await tester.pump();
       expect(find.byIcon(Icons.person), findsOneWidget);
       expect(find.byType(Image), findsNothing);
 
-      await tester.pumpWidget(card(real));
+      await tester.pumpWidget(_card(real));
       await tester.pump();
       expect(find.byType(Image), findsOneWidget);
       expect(find.byIcon(Icons.person), findsNothing);
     },
   );
 
-  test('the phone library flags a placeholder picture', () async {
-    SharedPreferences.setMockInitialValues(const {});
-    _mockPathProvider(root);
-    final db = AppDatabase.forTesting();
-    addTearDown(db.close);
-    final storage = StorageService();
-    await storage.initialized;
-    addTearDown(storage.dispose);
-    final dir = storage.charactersDir..createSync(recursive: true);
-    placeholder.copySync(p.join(dir.path, 'Juniper_1.png'));
-    real.copySync(p.join(dir.path, 'Marlow_1.png'));
-    for (final (id, name, file) in [
-      ('c1', 'Juniper', 'Juniper_1.png'),
-      ('c2', 'Marlow', 'Marlow_1.png'),
-    ]) {
-      await db.insertCharacter(
-        CharactersCompanion(
-          id: Value(id),
-          name: Value(name),
-          imagePath: Value(file),
-        ),
-      );
-    }
+  test(
+    'the phone library never waits on a probe, then refetches once',
+    () async {
+      SharedPreferences.setMockInitialValues(const {});
+      _mockPathProvider(root);
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      final storage = StorageService();
+      await storage.initialized;
+      addTearDown(storage.dispose);
+      final dir = storage.charactersDir..createSync(recursive: true);
+      placeholder.copySync(p.join(dir.path, 'Juniper_1.png'));
+      real.copySync(p.join(dir.path, 'Marlow_1.png'));
+      for (final (id, name, file) in [
+        ('c1', 'Juniper', 'Juniper_1.png'),
+        ('c2', 'Marlow', 'Marlow_1.png'),
+      ]) {
+        await db.insertCharacter(
+          CharactersCompanion(
+            id: Value(id),
+            name: Value(name),
+            imagePath: Value(file),
+          ),
+        );
+      }
 
-    final rows = await CharacterFacade(db, storage, null, null, null).list();
-    Map<String, dynamic> row(String name) =>
-        rows.firstWhere((r) => r['name'] == name);
-    // Both still have a card file; only the placeholder is flagged.
-    expect(row('Juniper')['hasAvatar'], isTrue);
-    expect(row('Juniper')['placeholderPortrait'], isTrue);
-    expect(row('Marlow')['hasAvatar'], isTrue);
-    expect(row('Marlow')['placeholderPortrait'], isFalse);
-  });
+      final facade = CharacterFacade(db, storage, null, null, null);
+      var refreshes = 0;
+      final found = Completer<void>();
+      facade.onPlaceholderPortraitsFound = () {
+        refreshes++;
+        if (!found.isCompleted) found.complete();
+      };
+
+      Map<String, dynamic> row(List<Map<String, dynamic>> rows, String name) =>
+          rows.firstWhere((r) => r['name'] == name);
+
+      // Cold: the list answers at once, counting the unknown picture as real.
+      final cold = await facade.list();
+      expect(row(cold, 'Juniper')['placeholderPortrait'], isFalse);
+      expect(refreshes, 0);
+
+      // The background probe finds the placeholder and asks for a refetch.
+      await found.future.timeout(const Duration(seconds: 10));
+      final warm = await facade.list();
+      // Both still have a card file; only the placeholder is flagged.
+      expect(row(warm, 'Juniper')['hasAvatar'], isTrue);
+      expect(row(warm, 'Juniper')['placeholderPortrait'], isTrue);
+      expect(row(warm, 'Marlow')['hasAvatar'], isTrue);
+      expect(row(warm, 'Marlow')['placeholderPortrait'], isFalse);
+
+      // Everything is known now: no further refetch requests.
+      await facade.list();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(refreshes, 1);
+    },
+  );
 }

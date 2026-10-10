@@ -46,8 +46,9 @@ bool isSolidPlaceholderImage(img.Image decoded) {
 /// caller's cache epoch or the file's mtime) because a real portrait later
 /// overwrites the placeholder in place, under the same path.
 ///
-/// Only a PNG whose header says 400×600 is decoded, off the UI isolate; every
-/// other picture is answered from its first 24 bytes.
+/// Only a PNG whose header says 400×600 and whose pixel data is tiny is
+/// decoded, off the UI isolate; every other picture is answered from its
+/// chunk headers ([mightBeFlatPlaceholder]).
 class PlaceholderPortraitProbe {
   PlaceholderPortraitProbe._();
 
@@ -77,7 +78,7 @@ class PlaceholderPortraitProbe {
     try {
       // A missing file paints the picture widget's own fallback.
       if (!await file.exists()) return false;
-      if (!await _headerSaysPlaceholderSize(file)) return false;
+      if (!await mightBeFlatPlaceholder(file)) return false;
       final bytes = await file.readAsBytes();
       return await Isolate.run(() {
         final decoded = img.decodeImage(bytes);
@@ -90,8 +91,14 @@ class PlaceholderPortraitProbe {
     }
   }
 
-  /// PNG signature, then the IHDR chunk's big-endian width and height.
-  static Future<bool> _headerSaysPlaceholderSize(File file) async {
+  /// The cheap gate before any decode, read from chunk headers only: a PNG
+  /// whose IHDR says 400×600 and whose pixel data (the summed IDAT chunk
+  /// lengths) is tiny, as one flat colour compresses to a few KB. Card
+  /// metadata chunks (`chara`) are skipped, not counted. A real 400×600
+  /// portrait (most imported cards are that size) fails here without being
+  /// decoded.
+  @visibleForTesting
+  static Future<bool> mightBeFlatPlaceholder(File file) async {
     final raf = await file.open();
     try {
       final head = await raf.read(24);
@@ -100,17 +107,40 @@ class PlaceholderPortraitProbe {
       for (var i = 0; i < sig.length; i++) {
         if (head[i] != sig[i]) return false;
       }
-      int u32(int at) =>
-          (head[at] << 24) |
-          (head[at + 1] << 16) |
-          (head[at + 2] << 8) |
-          head[at + 3];
-      return u32(16) == kPlaceholderPortraitWidth &&
-          u32(20) == kPlaceholderPortraitHeight;
+      if (_u32(head, 16) != kPlaceholderPortraitWidth ||
+          _u32(head, 20) != kPlaceholderPortraitHeight) {
+        return false;
+      }
+      // Walk chunk headers: length(4) type(4) data(length) crc(4).
+      var at = 8;
+      var imageBytes = 0;
+      final fileLength = await raf.length();
+      while (at + 8 <= fileLength) {
+        await raf.setPosition(at);
+        final chunk = await raf.read(8);
+        if (chunk.length < 8) break;
+        final length = _u32(chunk, 0);
+        final type = String.fromCharCodes(chunk.sublist(4, 8));
+        if (type == 'IDAT') {
+          imageBytes += length;
+          if (imageBytes > _kFlatImageDataMaxBytes) return false;
+        } else if (type == 'IEND') {
+          break;
+        }
+        at += 12 + length;
+      }
+      return imageBytes > 0;
     } finally {
       await raf.close();
     }
   }
+
+  /// A flat 400×600 colour is ~1-2 KB of pixel data; a real portrait at that
+  /// size is tens to hundreds of KB.
+  static const int _kFlatImageDataMaxBytes = 16 * 1024;
+
+  static int _u32(List<int> b, int at) =>
+      (b[at] << 24) | (b[at + 1] << 16) | (b[at + 2] << 8) | b[at + 3];
 
   @visibleForTesting
   static void clearCache() {

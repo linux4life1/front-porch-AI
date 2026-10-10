@@ -149,7 +149,7 @@ class CharacterFacade {
       if (id != null) byDbId[id] = card;
     }
 
-    final placeholderIds = await _placeholderPortraitIds(characters, byDbId);
+    final placeholderIds = _placeholderPortraitIds(characters, byDbId);
 
     return characters
         .map(
@@ -174,16 +174,25 @@ class CharacterFacade {
         .toList();
   }
 
+  /// Called (once per batch) when background probes find a no-portrait
+  /// placeholder the last list did not know about. The web host wires it to
+  /// its debounced `library_changed` broadcast so browsers refetch.
+  void Function()? onPlaceholderPortraitsFound;
+
   /// Ids whose picture is only the flat coloured placeholder a card made
   /// without a portrait carries. The grid shows their initial, as for a card
-  /// with no picture at all. Probes are cached per file and version, so a
-  /// repeat list costs a map lookup per character.
-  Future<Set<String>> _placeholderPortraitIds(
+  /// with no picture at all.
+  ///
+  /// Never blocks the list (it is refetched on every library change and
+  /// search keystroke): it answers from the probe cache, counts an unknown
+  /// picture as real, and probes the unknown ones in the background. When
+  /// those find a placeholder, [onPlaceholderPortraitsFound] fires once.
+  Set<String> _placeholderPortraitIds(
     List<Character> characters,
     Map<String, CharacterCard> byDbId,
-  ) async {
+  ) {
     final ids = <String>{};
-    final probes = <Future<void>>[];
+    final unknown = <Future<bool>>[];
     for (final c in characters) {
       final imagePath = c.imagePath;
       if (imagePath == null || imagePath.isEmpty) continue;
@@ -193,13 +202,17 @@ class CharacterFacade {
       final file =
           (hydrated == null ? null : _repo?.coverImageFileFor(hydrated)) ??
           File(p.join(_storage.charactersDir.path, p.basename(imagePath)));
-      probes.add(
-        PlaceholderPortraitProbe.check(file, version: version).then((yes) {
-          if (yes) ids.add(c.id);
-        }),
-      );
+      final known = PlaceholderPortraitProbe.known(file, version: version);
+      if (known == true) ids.add(c.id);
+      if (known == null) {
+        unknown.add(PlaceholderPortraitProbe.check(file, version: version));
+      }
     }
-    await Future.wait(probes);
+    if (unknown.isNotEmpty) {
+      Future.wait(unknown).then((found) {
+        if (found.contains(true)) onPlaceholderPortraitsFound?.call();
+      });
+    }
     return ids;
   }
 

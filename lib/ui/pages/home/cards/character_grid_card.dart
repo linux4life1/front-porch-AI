@@ -96,8 +96,10 @@ class CharacterGridCard extends StatelessWidget {
 
   /// A card made without a portrait still carries a flat coloured picture
   /// (the card file needs one); it gets the person icon like a card with no
-  /// picture at all. The probe is cached, so this paints the icon straight
-  /// away once known.
+  /// picture at all. Until the probe has answered, the icon stands in too, so
+  /// the flat colour never flashes up first; the picture is drawn only once
+  /// the probe says it is real. Answers are cached, so a known card paints
+  /// its final face on the first frame.
   Widget _coverImage(BuildContext context, File file, {required double size}) {
     return FutureBuilder<bool>(
       future: PlaceholderPortraitProbe.check(file, version: imageCacheEpoch),
@@ -105,9 +107,9 @@ class CharacterGridCard extends StatelessWidget {
         file,
         version: imageCacheEpoch,
       ),
-      builder: (context, placeholder) => placeholder.data == true
-          ? _noPortrait(context, size)
-          : _portraitImage(context, file, size: size),
+      builder: (context, placeholder) => placeholder.data == false
+          ? _portraitImage(context, file, size: size)
+          : _noPortrait(context, size),
     );
   }
 
