@@ -184,6 +184,7 @@ extension KcppsEditorFit on KcppsEditorController {
     if (hw == null || !hasCard) return '';
     String gb(int mb) => (mb / 1024).toStringAsFixed(mb % 1024 == 0 ? 0 : 1);
     final freeMb = free?.graphics;
+    if (freeMb == null && hw.vramMb <= 0) return kGraphicsMemoryUnknown;
     if (unified) {
       return '${gb(freeMb ?? hw.vramMb)} GB the graphics may use, of '
           '${gb(hw.ramMb)} GB';

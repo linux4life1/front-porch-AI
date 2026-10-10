@@ -203,6 +203,11 @@ class KoboldStatusFacts {
     if (!onCard) {
       return 'There is no graphics card it can use, so replies come slowly.';
     }
+    // A card of unknown size: every model would read "much bigger" than 0.
+    if (m.totalGraphicsMb <= 0) {
+      return "Your graphics card's memory could not be read, so how fast "
+          'replies come is unknown.';
+    }
     if (m.unified) {
       return l.cardMb <= m.graphicsMb
           ? "The model fits in this Mac's memory, so replies come quickly."
