@@ -54,8 +54,8 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
               children: [
                 Text(
                   char.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -202,16 +202,14 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
                               borderSide: BorderSide.none,
                             ),
                           ),
-                          style: const TextStyle(fontSize: 11),
+                          style: TextStyle(
+                            fontSize: 11,
+                            color: AppColors.textPrimary(context),
+                          ),
                           items: emotionIntensities
                               .map(
-                                (e) => DropdownMenuItem(
-                                  value: e,
-                                  child: Text(
-                                    e,
-                                    style: const TextStyle(fontSize: 11),
-                                  ),
-                                ),
+                                (e) =>
+                                    DropdownMenuItem(value: e, child: Text(e)),
                               )
                               .toList(),
                           onChanged: (v) {

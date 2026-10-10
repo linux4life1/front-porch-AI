@@ -46,8 +46,8 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
               Expanded(
                 child: Text(
                   char.name,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),

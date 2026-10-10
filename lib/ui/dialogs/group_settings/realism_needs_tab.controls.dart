@@ -57,15 +57,18 @@ extension _GroupRealismNeedsControls on _GroupRealismNeedsTabState {
                   borderSide: BorderSide.none,
                 ),
               ),
-              style: const TextStyle(fontSize: 12),
-              items: ['morning', 'afternoon', 'evening', 'night']
-                  .map(
-                    (e) => DropdownMenuItem(
-                      value: e,
-                      child: Text(e, style: const TextStyle(fontSize: 12)),
-                    ),
-                  )
-                  .toList(),
+              // A dropdown's style replaces the theme's text style, so the
+              // ink must be set here or the value paints white on paper.
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textPrimary(context),
+              ),
+              items: [
+                'morning',
+                'afternoon',
+                'evening',
+                'night',
+              ].map((e) => DropdownMenuItem(value: e, child: Text(e))).toList(),
               onChanged: (v) {
                 if (v != null) _updateGroupTimeOfDay(v);
               },
