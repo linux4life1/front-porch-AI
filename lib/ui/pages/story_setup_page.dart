@@ -49,6 +49,10 @@ class _StorySetupPageState extends State<StorySetupPage> {
   String? _projectId;
   bool _saving = false;
 
+  /// True while a Next/Create is in flight; a second tap is ignored so a
+  /// double click cannot skip a step or finish the story twice.
+  bool _advancing = false;
+
   static const _stepLabels = ['Idea', 'Cast', 'Shape', 'Engine'];
 
   /// Decided once at load: an existing, finished story is being edited; a
@@ -155,7 +159,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
             steps: _stepLabels,
             current: _step,
             onTap: (i) {
-              if (i <= _reached) setState(() => _step = i);
+              if (i <= _reached && !_advancing) setState(() => _step = i);
             },
           ),
       ],
@@ -196,7 +200,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
           StoryButton.ghost(
             _step == 0 ? 'Cancel' : 'Back',
             key: const ValueKey('story-setup-back'),
-            onPressed: _step == 0 ? _leave : _back,
+            onPressed: _advancing ? null : (_step == 0 ? _leave : _back),
           ),
           const Spacer(),
           if (_narrow) ...[
@@ -213,7 +217,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
           StoryButton.primary(
             next,
             key: const ValueKey('story-setup-next'),
-            onPressed: _saving ? null : _next,
+            onPressed: _saving || _advancing ? null : _next,
           ),
         ],
       ),
@@ -222,12 +226,12 @@ class _StorySetupPageState extends State<StorySetupPage> {
 
   void _changed() => setState(() {});
 
-  Future<void> _back() async {
+  Future<void> _back() => _oneAtATime(() async {
     await _save(step: _step - 1);
     if (mounted) setState(() => _step--);
-  }
+  });
 
-  Future<void> _leave() async {
+  Future<void> _leave() => _oneAtATime(() async {
     // Nothing typed yet: nothing to keep.
     if (_projectId == null) {
       Navigator.of(context).pop();
@@ -235,25 +239,48 @@ class _StorySetupPageState extends State<StorySetupPage> {
     }
     await _save(step: _step);
     if (mounted) Navigator.of(context).pop();
-  }
+  });
 
   Future<void> _next() async {
+    if (_advancing) return;
     if (_step == 0 && _draft.conceptController.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Say what the story is first.')),
       );
       return;
     }
-    if (_step < _stepCount - 1) {
-      await _save(step: _step + 1);
-      if (!mounted) return;
-      setState(() {
-        _step++;
-        if (_step > _reached) _reached = _step;
-      });
-      return;
+    await _oneAtATime(() async {
+      if (_step < _stepCount - 1) {
+        await _save(step: _step + 1);
+        if (!mounted) return;
+        setState(() {
+          _step++;
+          if (_step > _reached) _reached = _step;
+        });
+        return;
+      }
+      await _finish();
+    });
+  }
+
+  /// Back, Cancel, Next and Create each save before they move, so a second
+  /// tap while one is saving is ignored: it would move twice or finish twice.
+  Future<void> _oneAtATime(Future<void> Function() move) async {
+    if (_advancing) return;
+    _setAdvancing(true);
+    try {
+      await move();
+    } finally {
+      _setAdvancing(false);
     }
-    await _finish();
+  }
+
+  void _setAdvancing(bool value) {
+    if (mounted) {
+      setState(() => _advancing = value);
+    } else {
+      _advancing = value;
+    }
   }
 
   /// Create the row on the first Next; save the draft after every step.
@@ -280,8 +307,9 @@ class _StorySetupPageState extends State<StorySetupPage> {
   Future<void> _finish() async {
     final editing = _editing;
     await _save(step: _stepLabels.length);
+    if (!mounted) return;
     final project = _project;
-    if (project == null || !mounted) return;
+    if (project == null) return;
     project.setupStep = null;
     await Provider.of<StoryRepository>(
       context,
