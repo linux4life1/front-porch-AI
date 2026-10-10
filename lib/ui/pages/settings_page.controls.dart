@@ -139,22 +139,17 @@ extension _SettingsLaunchControls on _SettingsPageState {
     );
     if (selectedDirectory != null) {
       if (mounted) {
-        // Close the current database so the file can be moved.
-        await AppDatabase.closeAndReset();
-        if (!mounted) return;
-        final refusal = await Provider.of<StorageService>(
-          context,
-          listen: false,
-        ).setRootPath(selectedDirectory);
-        if (!mounted) return;
-        // Reopen from the new location and re-point every service that holds a
-        // DB reference. Shared with the stable-DB import and backup restore —
-        // this used to be a hand-maintained second copy that silently missed
-        // whatever the other one gained. No image cleanup: the move carries the
-        // same characters, so nothing here is orphaned. On a REFUSAL the root
-        // is unchanged, but the rebind must still run — the database was
-        // closed above and needs reopening from the old location.
-        await reopenAndRebindDatabase(context);
+        final refusal =
+            await Provider.of<StorageService>(
+              context,
+              listen: false,
+            ).setRootPath(
+              selectedDirectory,
+              beforeMove: AppDatabase.closeAndReset,
+              afterMove: () async {
+                if (mounted) await reopenAndRebindDatabase(context);
+              },
+            );
         if (!mounted) return;
         if (refusal != null) {
           // The move was refused (destination already has data, or a copy

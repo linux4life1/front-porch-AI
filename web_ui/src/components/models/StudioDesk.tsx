@@ -35,6 +35,8 @@ export interface GenerateRequest {
 
 export interface StudioDeskProps {
   cfg: ImageConfig;
+  configurationOnly?: boolean;
+  configurationMode?: Mode;
   /** The computer's answer to a pick: the config as it is now. */
   onConfig: (next: ImageConfig) => void;
   /** Saves part of the config. Resolves false when the computer refused it. */
@@ -88,7 +90,7 @@ export function StudioDesk(props: StudioDeskProps) {
     cfg.comfyUrl, cfg.localUrl, cfg.drawThingsHost, cfg.drawThingsPort,
     cfg.comfyCreateUploadedTitle, cfg.comfyEditUploadedTitle,
   ]);
-  const configMode = tab === 'pack' ? cfg.packConfigMode ?? (cfg.backend === 'a1111' ? 'create' : 'edit') : mode;
+  const configMode = props.configurationMode ?? (tab === 'pack' ? cfg.packConfigMode ?? (cfg.backend === 'a1111' ? 'create' : 'edit') : mode);
   const { onConfigMode, onSharedBusy } = props;
   useEffect(() => onConfigMode?.(configMode), [configMode, onConfigMode]);
   const globalGeneration = useSharedGeneration(props.busy === true || packBusy);
@@ -188,8 +190,8 @@ export function StudioDesk(props: StudioDeskProps) {
   });
 
   return (
-    <section className="studio-desk">
-      <div role="tablist" aria-label="Image Studio workspace" className="fp-workspace-tabs">
+    <section className={`studio-desk${props.configurationOnly ? ' fp-config-only' : ''}`}>
+      {!props.configurationOnly && <div role="tablist" aria-label="Image Studio workspace" className="fp-workspace-tabs">
         {(['create', 'edit', 'pack'] as const).map((value) => (
           <button key={value} id={`studio-tab-${value}`} type="button" role="tab"
             aria-selected={tab === value} aria-pressed={tab === value}
@@ -216,9 +218,9 @@ export function StudioDesk(props: StudioDeskProps) {
             {value === 'pack' ? 'Expression pack' : value === 'create' ? 'Create' : 'Edit'}
           </button>
         ))}
-      </div>
+      </div>}
       <div className="fp-desk-body">
-        <div className="fp-desk-rail" id="studio-image-panel" role="tabpanel"
+        {!props.configurationOnly && <div className="fp-desk-rail" id="studio-image-panel" role="tabpanel"
           aria-labelledby={`studio-tab-${mode}`} hidden={tab === 'pack'}>
         <DeskRail
           mode={mode}
@@ -231,8 +233,8 @@ export function StudioDesk(props: StudioDeskProps) {
           lastSaved={props.lastSaved ?? null}
           onNote={setNote}
         />
-        </div>
-        {packVisited ? <div className="fp-desk-rail" id="studio-pack-panel" role="tabpanel"
+        </div>}
+        {packVisited && !props.configurationOnly ? <div className="fp-desk-rail" id="studio-pack-panel" role="tabpanel"
           aria-labelledby="studio-tab-pack" hidden={tab !== 'pack'}>
           <PackPanel lastSaved={props.lastSaved ?? null}
             sharedBusy={props.busy === true || (globalBusy ?? cfg.isGenerating) === true}
@@ -279,8 +281,8 @@ export function StudioDesk(props: StudioDeskProps) {
             </div>
           ) : null}
           <p>{line}</p>
-          {needsPicture ? <p>Pick a picture to edit.</p> : null}
-          {tab !== 'pack' ? <button
+          {!props.configurationOnly && needsPicture ? <p>Pick a picture to edit.</p> : null}
+          {!props.configurationOnly && tab !== 'pack' ? <button
             type="button"
             disabled={!ready || props.busy === true || globalBusy === true || packBusy || needsPicture || !props.prompt.trim()}
             onClick={() => props.onGenerate({ mode, picture })}

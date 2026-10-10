@@ -88,6 +88,16 @@ class CharacterRepository extends ChangeNotifier {
     }
   }
 
+  Future<CharacterCard?> getActiveCharacterCardById(String id) async {
+    try {
+      final row = await _db.getCharacterById(id);
+      if (row.deletedAt != null) return null;
+      return await getCharacterCardById(id);
+    } catch (_) {
+      return null;
+    }
+  }
+
   CharacterRepository(this._db, this._storage) {
     loadCharacters();
   }

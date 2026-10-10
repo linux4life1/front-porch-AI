@@ -37,6 +37,7 @@ part 'image_facade_pack.dart';
 part 'image_facade_pack_workspace.dart';
 part 'image_facade_pack_rules.dart';
 part 'image_facade_ready.dart';
+part 'image_facade_batches.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
 /// Draw Things ↔ remote API) and generate an image. Reuses [ImageGenService]

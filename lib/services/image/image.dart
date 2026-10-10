@@ -62,3 +62,8 @@ export 'expression_pack_board.dart';
 export 'expression_pack_flight.dart';
 export 'image_server_url.dart';
 export 'image_submit_error.dart';
+export 'image_batch_job.dart';
+export 'image_batch_pixels.dart';
+export 'image_batch_service.dart';
+export 'studio_model_roots.dart';
+export 'image_batch_prompts.dart';

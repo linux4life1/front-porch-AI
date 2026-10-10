@@ -66,6 +66,12 @@ class Sidebar extends StatelessWidget {
                     isSelected: appState.selectedIndex == 0,
                     onTap: () => appState.setIndex(0),
                   ),
+                  _SidebarItem(
+                    icon: Icons.collections_outlined,
+                    label: 'Images',
+                    isSelected: appState.selectedIndex == 6,
+                    onTap: () => appState.setIndex(6),
+                  ),
                   // The Stoop (community character hub) — a flagship destination, so it
                   // sits right under Home.
                   InkWell(

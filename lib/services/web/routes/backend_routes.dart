@@ -19,12 +19,10 @@
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
-import 'package:front_porch_ai/services/image/studio_model_roots.dart';
+import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
-import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
-import 'package:front_porch_ai/services/web/routes/expression_pack_routes.dart';
-import 'package:front_porch_ai/services/web/routes/image_desk_routes.dart';
+import 'package:front_porch_ai/services/web/routes/routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
@@ -84,6 +82,7 @@ class WebBackendRoutes {
       router.get('/api/image/models', _imageRemoteModels);
       ImageDeskRoutes(router, deps: _deps, image: image);
       ExpressionPackRoutes(router, image: image);
+      ImageBatchRoutes(router, image: image);
       CivitaiRoutes(
         router,
         auth: _deps.auth,

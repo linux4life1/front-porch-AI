@@ -61,8 +61,9 @@ extension CharacterRepositoryMedia on CharacterRepository {
     String characterId,
     String characterName,
     Uint8List imageBytes,
-    String? label,
-  ) async {
+    String? label, {
+    String? mediaId,
+  }) async {
     try {
       debugPrint(
         '[CharacterRepository] addAvatar: started, characterId=$characterId, label=$label',
@@ -76,14 +77,18 @@ extension CharacterRepositoryMedia on CharacterRepository {
       if (!await avatarDir.exists()) {
         await avatarDir.create(recursive: true);
       }
-      final filename = 'avatar_${DateTime.now().millisecondsSinceEpoch}.png';
+      if (mediaId != null && await _db.getAvatarById(mediaId) != null) {
+        return mediaId;
+      }
+      final filename =
+          'avatar_${mediaId ?? DateTime.now().millisecondsSinceEpoch}.png';
       final filePath = p.join(avatarDir.path, filename);
       debugPrint('[CharacterRepository] addAvatar: writing file=$filePath');
       await File(filePath).writeAsBytes(imageBytes);
       debugPrint('[CharacterRepository] addAvatar: file written');
 
       final displayOrder = await _db.countAvatarsForCharacter(characterId);
-      final avatarId = const Uuid().v4();
+      final avatarId = mediaId ?? const Uuid().v4();
       debugPrint(
         '[CharacterRepository] addAvatar: inserting DB record, filename=$filename, displayOrder=$displayOrder',
       );
@@ -114,14 +119,16 @@ extension CharacterRepositoryMedia on CharacterRepository {
   Future<String> addLook(
     String characterId,
     String characterName,
-    Uint8List imageBytes,
-  ) async {
+    Uint8List imageBytes, {
+    bool bootstrapMissingPortrait = true,
+    String? mediaId,
+  }) async {
     // First real image on a missing/placeholder portrait becomes the portrait
     // alone. Writing a look *and* overwriting the portrait produced a dupe
     // (same face twice in the gallery) and left home stuck on the placeholder
     // until a ★ click forced a different cover path.
     final card = await getCharacterCardById(characterId);
-    if (card != null) {
+    if (card != null && bootstrapMissingPortrait) {
       final needsPortrait =
           !hasUsablePortrait(card, _storage) ||
           await isPlaceholderPortrait(card, _storage);
@@ -136,6 +143,9 @@ extension CharacterRepositoryMedia on CharacterRepository {
       }
     }
 
+    if (mediaId != null && await _db.getAvatarById(mediaId) != null) {
+      return mediaId;
+    }
     final safeName = characterName
         .replaceAll(RegExp(r'[^\w\s\-]'), '')
         .replaceAll(' ', '_');
@@ -145,11 +155,12 @@ extension CharacterRepositoryMedia on CharacterRepository {
     if (!await looksDir.exists()) {
       await looksDir.create(recursive: true);
     }
-    final filename = 'look_${DateTime.now().millisecondsSinceEpoch}.png';
+    final filename =
+        'look_${mediaId ?? DateTime.now().millisecondsSinceEpoch}.png';
     await File(p.join(looksDir.path, filename)).writeAsBytes(imageBytes);
 
     final displayOrder = await _db.countAvatarsForCharacter(characterId);
-    final avatarId = const Uuid().v4();
+    final avatarId = mediaId ?? const Uuid().v4();
     await _db.insertAvatar(
       AvatarImagesCompanion(
         id: Value(avatarId),

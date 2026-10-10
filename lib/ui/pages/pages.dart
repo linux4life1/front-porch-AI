@@ -11,6 +11,7 @@ export 'create_group_chat_page.dart';
 export 'edit_character_page.dart';
 export 'edit_group_page.dart';
 export 'home_page.dart';
+export 'image_batches_page.dart';
 export 'import_lorebook_page.dart';
 export 'model_manager_page.dart';
 export 'repository_page.dart';

@@ -72,6 +72,8 @@ class StorageService extends ChangeNotifier {
   AppDirectories get directories =>
       AppDirectories(rootPath: _rootPath, customModelsPath: _customModelsPath);
 
+  final rootRelocation = RootRelocationGate();
+
   String? get rootPath => _rootPath;
   String? get customModelsPath => _customModelsPath;
   Directory get binDir => _binDir ?? Directory(_rootPath ?? '');
@@ -371,7 +373,20 @@ class StorageService extends ChangeNotifier {
 
   /// Change the root installation directory and relocate all data files.
   /// Returns null on success, or a human-readable reason on refusal.
-  Future<String?> setRootPath(String pathStr) async {
+  Future<String?> setRootPath(
+    String pathStr, {
+    Future<void> Function()? beforeMove,
+    Future<void> Function()? afterMove,
+  }) => rootRelocation.move(() async {
+    try {
+      await beforeMove?.call();
+      return await _relocateRoot(pathStr);
+    } finally {
+      await afterMove?.call();
+    }
+  });
+
+  Future<String?> _relocateRoot(String pathStr) async {
     final oldRoot = _rootPath;
     if (oldRoot == pathStr) return null;
 
