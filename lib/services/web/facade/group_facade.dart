@@ -56,6 +56,7 @@ class GroupFacade {
   /// can render a tile with stacked member avatars.
   Future<List<Map<String, dynamic>>> list() async {
     final result = <Map<String, dynamic>>[];
+    final unknown = <Future<bool>>[];
     for (final g in _groups.groups) {
       final members = await _groups.getMembersForGroup(g.id);
       result.add({
@@ -64,20 +65,58 @@ class GroupFacade {
         // Same ''-at-root convention as the character list's folderId.
         'folderId': folders?.getFolderForGroup(g.id)?.id ?? '',
         'memberCount': members.length,
-        'members': members
-            .map(
-              (m) => {
-                'id': m.id,
-                'name': m.name,
-                'hasAvatar':
-                    m.avatarFilename != null && m.avatarFilename!.isNotEmpty,
-                'avatarVersion': _memberAvatarVersion(g.id, m.avatarFilename),
-              },
-            )
-            .toList(),
+        'members': members.map((m) {
+          final version = _memberAvatarVersion(g.id, m.avatarFilename);
+          return {
+            'id': m.id,
+            'name': m.name,
+            'hasAvatar':
+                m.avatarFilename != null && m.avatarFilename!.isNotEmpty,
+            // The picture is only the flat no-portrait colour: the tile draws
+            // the member's initial instead (additive field).
+            'placeholderPortrait': _placeholderPortrait(
+              g.id,
+              m.avatarFilename,
+              version,
+              unknown,
+            ),
+            'avatarVersion': version,
+          };
+        }).toList(),
+      });
+    }
+    if (unknown.isNotEmpty) {
+      Future.wait(unknown).then((found) {
+        if (found.contains(true)) onPlaceholderPortraitsFound?.call();
       });
     }
     return result;
+  }
+
+  /// Called (once per list) when background probes find a no-portrait
+  /// placeholder the list did not know about; the web host wires it to the
+  /// library's debounced `library_changed` broadcast so browsers refetch.
+  void Function()? onPlaceholderPortraitsFound;
+
+  /// Whether a member's picture is the flat placeholder a character made
+  /// without a portrait carries. Never blocks the list: answers from the
+  /// probe cache, counts an unknown picture as real and adds its probe to
+  /// [unknown] to run in the background.
+  bool _placeholderPortrait(
+    String groupId,
+    String? filename,
+    int version,
+    List<Future<bool>> unknown,
+  ) {
+    if (filename == null || filename.isEmpty || version == 0) return false;
+    final file = File(
+      p.join(_storage.groupsDir.path, groupId, 'avatars', filename),
+    );
+    final known = PlaceholderPortraitProbe.known(file, version: version);
+    if (known == null) {
+      unknown.add(PlaceholderPortraitProbe.check(file, version: version));
+    }
+    return known ?? false;
   }
 
   /// The member avatar file's modified-time (ms), used by the web UI as a

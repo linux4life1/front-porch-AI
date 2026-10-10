@@ -136,6 +136,10 @@ extension WebServerHostWiring on WebServerHost {
             _folderService,
           )
         : null;
+    // A member picture found to be the no-portrait placeholder asks for one
+    // library refetch, through the same debounce as the character list.
+    groupFacade?.onPlaceholderPortraitsFound =
+        characterFacade.onPlaceholderPortraitsFound;
 
     final settingsFacade = _llmProvider != null
         ? SettingsFacade(_storage, _llmProvider!, chat: _chatService)

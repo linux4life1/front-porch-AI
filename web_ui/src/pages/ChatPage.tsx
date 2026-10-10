@@ -199,6 +199,7 @@ export function ChatPage() {
       isGroup={state.isGroupMode ?? false}
       focusedIsHost={focused?.isHost ?? !state.isGroupMode}
       focusedAvatarUrl={focused?.avatarUrl}
+      focusedPlaceholderPortrait={focused?.placeholderPortrait}
       toolsKey={toolsBump}
       focusedId={focusedId}
       groupId={state.groupId ?? null}

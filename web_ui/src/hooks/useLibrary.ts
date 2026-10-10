@@ -44,6 +44,9 @@ export interface LibGroupMember {
   id: string;
   name: string;
   hasAvatar: boolean;
+  /** The member's picture is only the flat no-portrait colour; the tile
+   *  draws the initial instead. Absent on older apps. */
+  placeholderPortrait?: boolean;
   /** Avatar file mtime — cache-busts the thumbnail URL when the picture changes. */
   avatarVersion?: number;
 }

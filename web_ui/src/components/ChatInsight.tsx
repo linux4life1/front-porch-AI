@@ -35,6 +35,7 @@ export function ChatInsight({
   focusedIsHost,
   focusedIsLiteGuest,
   focusedAvatarUrl,
+  focusedPlaceholderPortrait,
   toolsKey,
   focusedId,
   groupId,
@@ -61,6 +62,8 @@ export function ChatInsight({
   isGroup: boolean;
   focusedIsHost: boolean;
   focusedAvatarUrl?: string;
+  /** The focused character's picture is only the flat no-portrait colour. */
+  focusedPlaceholderPortrait?: boolean;
   toolsKey: number;
   focusedId: string | null;
   groupId: string | null;
@@ -127,10 +130,12 @@ export function ChatInsight({
         <LookSwiper
           characterId={characterId}
           basePrimary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
-          baseFallback={`/api/characters/${characterId}/avatar`}
+          baseFallback={
+            focusedPlaceholderPortrait ? undefined : `/api/characters/${characterId}/avatar`
+          }
           mood={realism.mood || realism.emotion}
         />
-      ) : focusedAvatarUrl ? (
+      ) : focusedAvatarUrl && !focusedPlaceholderPortrait ? (
         <LookSwiper
           characterId={characterId}
           basePrimary={focusedAvatarUrl}

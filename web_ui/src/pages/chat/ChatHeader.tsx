@@ -89,13 +89,21 @@ export function ChatHeader({
               👥
             </span>
           ) : focused.isHost ? (
+            // A mood picture still shows; the flat no-portrait colour does not.
             <SmartImg
               primary={`/api/chat/expression-avatar?v=${encodeURIComponent(expressionLabel ?? '')}`}
-              fallback={`/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`}
+              fallback={
+                focused.placeholderPortrait
+                  ? undefined
+                  : `/api/characters/${focused.dbId ?? characterId ?? ''}/avatar`
+              }
               className="chat-header-avatar"
             />
           ) : (
-            <SmartImg primary={focused.avatarUrl ?? ''} className="chat-header-avatar" />
+            <SmartImg
+              primary={focused.placeholderPortrait ? '' : focused.avatarUrl ?? ''}
+              className="chat-header-avatar"
+            />
           ))}
         <span className="chat-title">{title}</span>
       </div>

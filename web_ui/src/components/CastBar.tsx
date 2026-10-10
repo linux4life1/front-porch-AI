@@ -19,6 +19,9 @@ export interface CastMember {
   isNext: boolean;
   hasAvatar: boolean;
   avatarUrl: string;
+  /** The picture is only the flat colour a character made without a portrait
+   *  carries; draw no picture for it. Absent on older apps. */
+  placeholderPortrait?: boolean;
 }
 
 export function CastBar({

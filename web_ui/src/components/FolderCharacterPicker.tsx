@@ -19,6 +19,8 @@ export interface PickerChar {
   id: string;
   name: string;
   hasAvatar: boolean;
+  /** Only the flat no-portrait colour (from /api/characters); draw the initial. */
+  placeholderPortrait?: boolean;
   avatarVersion?: number;
   /** Owning folder id, '' at the root. */
   folderId: string;
@@ -123,7 +125,7 @@ export function FolderCharacterPicker({
             className={`grp-card${selected.includes(c.id) ? ' on' : ''}`}
             onClick={() => onToggle(c.id)}
           >
-            {c.hasAvatar ? (
+            {c.hasAvatar && !c.placeholderPortrait ? (
               <img
                 src={api.avatarUrl(`/api/characters/${c.id}/avatar`, 256, c.avatarVersion)}
                 alt={c.name}
