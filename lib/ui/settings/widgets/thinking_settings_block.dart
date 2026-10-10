@@ -45,6 +45,18 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
   /// (reopen, model change) asks again.
   final Set<String> _unread = {};
 
+  /// A local server that did not answer may still be starting, and the
+  /// resolver never caches that miss: ask again a few times while this
+  /// stays open. Never for a hosted provider — each of its asks is a paid
+  /// request.
+  static const _kRetryDelays = [
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 15),
+  ];
+  Timer? _retry;
+  int _retries = 0;
+
   @override
   void initState() {
     super.initState();
@@ -61,6 +73,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
   @override
   void dispose() {
     kReasoningEffortCatalogTick.removeListener(_onCatalog);
+    _retry?.cancel();
     super.dispose();
   }
 
@@ -93,8 +106,12 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     }
   }
 
-  void _kickProbe() {
+  void _kickProbe({bool retry = false}) {
     if (!mounted) return;
+    if (!retry) {
+      _retry?.cancel();
+      _retries = 0;
+    }
     final storage = _storage;
     if (storage == null) return;
     // Local (managed KoboldCpp): the capability is in the loaded GGUF's chat
@@ -122,6 +139,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
           modelName: model,
           apiKey: storage.backendSettings.remoteApiKey,
         ),
+        retry: retry,
       );
       return;
     }
@@ -139,6 +157,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
           modelName: model,
           apiKey: storage.backendSettings.remoteApiKey,
         ),
+        retry: retry,
       );
       return;
     }
@@ -155,9 +174,10 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
 
   /// Wait for one read, then redraw. A read that answered redraws through
   /// the catalog tick; this catches the one that did not, so the line
-  /// settles on "couldn't read" instead of reading forever.
-  void _watch(String model, Future<Object?> read) {
-    _unread.remove(model);
+  /// settles on "couldn't read" instead of reading forever. A [retry]
+  /// keeps that line up while it asks, and an answer replaces it.
+  void _watch(String model, Future<Object?> read, {bool retry = false}) {
+    if (!retry) _unread.remove(model);
     unawaited(() async {
       try {
         await read;
@@ -165,9 +185,19 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
         debugPrint('[Thinking] reading $model\'s thinking mode failed: $e');
       }
       if (!mounted) return;
+      final missed = _stillReading(model);
       setState(() {
-        if (_stillReading(model)) _unread.add(model);
+        if (missed) {
+          _unread.add(model);
+        } else {
+          _unread.remove(model);
+        }
       });
+      final local = _isOmlx || _isLocalRemote;
+      if (!missed || !local || model != widget.modelId) return;
+      if (_retries >= _kRetryDelays.length) return;
+      _retry?.cancel();
+      _retry = Timer(_kRetryDelays[_retries++], () => _kickProbe(retry: true));
     }());
   }
 

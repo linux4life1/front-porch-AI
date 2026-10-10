@@ -8,7 +8,9 @@
 // not have.
 
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -145,4 +147,105 @@ void main() {
       findsOneWidget,
     );
   });
+
+  testWidgets('a server that was still starting is asked again, and its '
+      'answer replaces "couldn\'t read"', (tester) async {
+    const model = 'qwen3-8b';
+    // LM Studio's models folder with the model's GGUF (a Qwen3-style
+    // template: thinking switches on and off).
+    final lms = Directory.systemTemp.createTempSync('fpai_lms_retry_');
+    addTearDown(() {
+      lmStudioModelsRootOverride = null;
+      lms.deleteSync(recursive: true);
+    });
+    final pub = Directory('${lms.path}/lmstudio-community')..createSync();
+    File('${pub.path}/Qwen3-8B-Q4_K_M.gguf').writeAsBytesSync(
+      _ggufWithTemplate(
+        '{%- if enable_thinking is defined and enable_thinking is false %}'
+        '<think>\n\n</think>\n\n{%- endif %}',
+      ),
+    );
+    lmStudioModelsRootOverride = lms.path;
+
+    // First ask: not up yet (404). After that: LM Studio's real listing.
+    var hits = 0;
+    void serve(HttpRequest req) {
+      hits++;
+      req.response.headers.contentType = ContentType.json;
+      if (hits == 1) {
+        req.response
+          ..statusCode = HttpStatus.notFound
+          ..write(_llamaCpp404);
+      } else {
+        req.response.write(
+          '{"data":[{"id":"qwen3-8b","object":"model","type":"llm",'
+          '"publisher":"lmstudio-community","arch":"qwen3",'
+          '"compatibility_type":"gguf","quantization":"Q4_K_M",'
+          '"state":"not-loaded","max_context_length":32768}],'
+          '"object":"list"}',
+        );
+      }
+      unawaited(req.response.close());
+    }
+
+    final server = (await tester.runAsync(() async {
+      final s = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
+      s.listen(serve);
+      return s;
+    }))!;
+    addTearDown(() => tester.runAsync(() => server.close(force: true)));
+    final storage = (await tester.runAsync(makeGoldenStorage))!;
+    final apiUrl = 'http://127.0.0.1:${server.port}/v1';
+    await tester.runAsync(
+      () => storage.backendSettings.setRemoteApiUrl(apiUrl),
+    );
+
+    late Future<ThinkingSupport?> read;
+    await tester.runAsync(() async {
+      read = ReasoningSupportResolver.instance.resolveLmStudio(
+        apiUrl: apiUrl,
+        modelName: model,
+      );
+    });
+    await pumpBlock(tester, storage, model);
+    await tester.runAsync(() => read);
+    await tester.pump();
+    await tester.pump();
+    final unread = find.textContaining('Couldn\'t read this model');
+    expect(unread, findsOneWidget);
+
+    // The retry comes on its own; while it runs the line stays put.
+    await tester.pump(const Duration(seconds: 10));
+    expect(find.textContaining('Reading this model'), findsNothing);
+    final answer = find.textContaining('thinks on or off only');
+    for (var i = 0; i < 300 && answer.evaluate().isEmpty; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 20)),
+      );
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+
+    expect(hits, 2);
+    expect(answer, findsOneWidget);
+    expect(unread, findsNothing);
+  });
+}
+
+/// A GGUF header carrying only `tokenizer.chat_template` (GGUF v3).
+Uint8List _ggufWithTemplate(String template) {
+  Uint8List u32(int v) => Uint8List(4)..buffer.asUint32List()[0] = v;
+  Uint8List u64(int v) => Uint8List(8)..buffer.asUint64List()[0] = v;
+  final key = utf8.encode('tokenizer.chat_template');
+  final val = utf8.encode(template);
+  return (BytesBuilder()
+        ..add(utf8.encode('GGUF'))
+        ..add(u32(3))
+        ..add(u64(0)) // tensors
+        ..add(u64(1)) // metadata entries
+        ..add(u64(key.length))
+        ..add(key)
+        ..add(u32(8)) // string
+        ..add(u64(val.length))
+        ..add(val))
+      .takeBytes();
 }
