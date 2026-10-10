@@ -102,6 +102,7 @@ export function ChatOverlays(props: {
       {editTarget && (
         <MessageEditModal
           initialText={editTarget.text}
+          showThinking={!messages.find((m) => m.index === editTarget.index)?.isUser}
           onCancel={onCancelEdit}
           onSave={onSaveEdit}
         />
