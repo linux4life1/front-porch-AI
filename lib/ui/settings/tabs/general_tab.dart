@@ -64,6 +64,12 @@ class GeneralTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
     final theme = Theme.of(context);
+    final shownPrompt = storageService.presetSettings.savedPrompts
+        .where(
+          (p) => p['content'] == storageService.generationSettings.systemPrompt,
+        )
+        .map((p) => p['name'])
+        .firstOrNull;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -350,7 +356,11 @@ class GeneralTab extends StatelessWidget {
             children: [
               Expanded(
                 child: DropdownButtonFormField<String>(
-                  initialValue: null,
+                  // Shows the saved prompt whose text is in the box, else
+                  // the hint: a preset chip or a hand edit must not leave
+                  // the last pick's name on show. The key re-seeds it.
+                  key: ValueKey(shownPrompt),
+                  initialValue: shownPrompt,
                   isExpanded: true,
                   hint: const Text(
                     'Load saved prompt...',
