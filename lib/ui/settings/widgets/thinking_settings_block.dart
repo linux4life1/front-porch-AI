@@ -39,6 +39,24 @@ class ThinkingSettingsBlock extends StatefulWidget {
 }
 
 class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
+  /// Models whose last read finished with no answer (a server without the
+  /// route, one that is down, a timeout). They show a plain "couldn't read"
+  /// line instead of a "Reading…" line that would never end; the next kick
+  /// (reopen, model change) asks again.
+  final Set<String> _unread = {};
+
+  /// A local server that did not answer may still be starting, and the
+  /// resolver never caches that miss: ask again a few times while this
+  /// stays open. Never for a hosted provider — each of its asks is a paid
+  /// request.
+  static const _kRetryDelays = [
+    Duration(seconds: 5),
+    Duration(seconds: 10),
+    Duration(seconds: 15),
+  ];
+  Timer? _retry;
+  int _retries = 0;
+
   @override
   void initState() {
     super.initState();
@@ -55,6 +73,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
   @override
   void dispose() {
     kReasoningEffortCatalogTick.removeListener(_onCatalog);
+    _retry?.cancel();
     super.dispose();
   }
 
@@ -87,8 +106,12 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     }
   }
 
-  void _kickProbe() {
+  void _kickProbe({bool retry = false}) {
     if (!mounted) return;
+    if (!retry) {
+      _retry?.cancel();
+      _retries = 0;
+    }
     final storage = _storage;
     if (storage == null) return;
     // Local (managed KoboldCpp): the capability is in the loaded GGUF's chat
@@ -109,12 +132,14 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
       final model = widget.modelId;
       if (model.isEmpty) return;
       if (ReasoningSupportResolver.instance.isResolved(model)) return;
-      unawaited(
+      _watch(
+        model,
         ReasoningSupportResolver.instance.resolveOmlx(
           apiUrl: 'http://localhost:8000/v1',
           modelName: model,
           apiKey: storage.backendSettings.remoteApiKey,
         ),
+        retry: retry,
       );
       return;
     }
@@ -125,21 +150,68 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
       final model = widget.modelId;
       if (model.isEmpty) return;
       if (ReasoningSupportResolver.instance.isResolved(model)) return;
-      unawaited(
+      _watch(
+        model,
         ReasoningSupportResolver.instance.resolveLmStudio(
           apiUrl: storage.backendSettings.remoteApiUrl,
           modelName: model,
           apiKey: storage.backendSettings.remoteApiKey,
         ),
+        retry: retry,
       );
       return;
     }
     if (widget.modelId.isEmpty) return;
-    kickReasoningEffortProbe(
-      model: widget.modelId,
-      apiUrl: storage.backendSettings.remoteApiUrl,
-      apiKey: storage.backendSettings.remoteApiKey,
+    _watch(
+      widget.modelId,
+      probeReasoningEfforts(
+        model: widget.modelId,
+        apiUrl: storage.backendSettings.remoteApiUrl,
+        apiKey: storage.backendSettings.remoteApiKey,
+      ),
     );
+  }
+
+  /// Wait for one read, then redraw. A read that answered redraws through
+  /// the catalog tick; this catches the one that did not, so the line
+  /// settles on "couldn't read" instead of reading forever. A [retry]
+  /// keeps that line up while it asks, and an answer replaces it.
+  void _watch(String model, Future<Object?> read, {bool retry = false}) {
+    if (!retry) _unread.remove(model);
+    unawaited(() async {
+      try {
+        await read;
+      } catch (e) {
+        debugPrint('[Thinking] reading $model\'s thinking mode failed: $e');
+      }
+      if (!mounted) return;
+      final missed = _stillReading(model);
+      setState(() {
+        if (missed) {
+          _unread.add(model);
+        } else {
+          _unread.remove(model);
+        }
+      });
+      final local = _isOmlx || _isLocalRemote;
+      if (!missed || !local || model != widget.modelId) return;
+      if (_retries >= _kRetryDelays.length) return;
+      _retry?.cancel();
+      _retry = Timer(_kRetryDelays[_retries++], () => _kickProbe(retry: true));
+    }());
+  }
+
+  /// True while [model]'s thinking mode has not been learned yet.
+  bool _stillReading(String model) {
+    if (model.isEmpty) return false;
+    if (_isOmlx || _isLocalRemote) {
+      return !ReasoningSupportResolver.instance.isResolved(model);
+    }
+    return !_isLocal &&
+        reasoningEffortMenuPending(
+          model,
+          apiUrl: _storage?.backendSettings.remoteApiUrl ?? '',
+        );
   }
 
   /// The .gguf whose thinking template we should read. In .kcpps preset
@@ -189,14 +261,9 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     final thinkingOn = local
         ? widget.enabled
         : reasoningEffortThinkingOn(widget.modelId, widget.enabled);
-    final pending = (_isOmlx || _isLocalRemote)
-        ? widget.modelId.isNotEmpty &&
-              !ReasoningSupportResolver.instance.isResolved(widget.modelId)
-        : !local &&
-              reasoningEffortMenuPending(
-                widget.modelId,
-                apiUrl: _storage?.backendSettings.remoteApiUrl ?? '',
-              );
+    final unanswered = _stillReading(widget.modelId);
+    final unread = unanswered && _unread.contains(widget.modelId);
+    final pending = unanswered && !unread;
     // A model whose template has no thinking machinery at all: the switch and
     // the chips would both be no-ops, so say that instead of implying they work.
     final localCannotThink = templateSupport == ThinkingSupport.none;
@@ -275,6 +342,19 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
               (_isOmlx || _isLocalRemote)
                   ? 'Reading this model\'s thinking mode…'
                   : 'Asking this provider which thinking levels it accepts…',
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ),
+        if (unread)
+          Padding(
+            padding: EdgeInsets.only(top: widget.compact ? 2 : 4),
+            child: Text(
+              'Couldn\'t read this model\'s thinking mode, so it simply '
+              'follows the Request thinking switch as you set it.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 12,

@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/piper_import_voice_button.dart';
+import 'package:front_porch_ai/ui/dialogs/voice_browser_order.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Dialog for browsing, downloading, and managing Piper TTS voice models.
@@ -35,6 +36,7 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
   String _selectedLanguage = 'All';
   String _selectedQuality = 'All';
   Set<String> _installedVoices = {};
+  Set<String> _installedAtOpen = const {};
   bool _initialLoaded = false;
 
   @override
@@ -55,6 +57,7 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
     if (mounted) {
       setState(() {
         _installedVoices = installed.toSet();
+        _installedAtOpen = installed.toSet();
         _initialLoaded = true;
       });
     }
@@ -323,15 +326,7 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
           return true;
         }).toList();
 
-        // Sort: installed first, then by language, then by name
-        filtered.sort((a, b) {
-          final aInstalled = _installedVoices.contains(a.key);
-          final bInstalled = _installedVoices.contains(b.key);
-          if (aInstalled != bInstalled) return aInstalled ? -1 : 1;
-          final langCompare = a.languageEnglish.compareTo(b.languageEnglish);
-          if (langCompare != 0) return langCompare;
-          return a.name.compareTo(b.name);
-        });
+        sortVoiceRows(filtered, _installedAtOpen);
 
         return ListView.builder(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),

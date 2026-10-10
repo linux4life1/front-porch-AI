@@ -204,6 +204,21 @@ class VoiceManager extends ChangeNotifier {
     }
   }
 
+  /// The catalog for naming installed voices without a network call: the
+  /// one already fetched, else the browser's copy on disk, else empty.
+  /// Never fills [catalog] itself, so the browser still fetches a fresh one.
+  Future<List<PiperVoice>> catalogForLabels() async {
+    if (_catalog.isNotEmpty) return _catalog;
+    try {
+      final cacheFile = File(p.join((await voicesDir).path, 'catalog.json'));
+      if (!await cacheFile.exists()) return const [];
+      return _parseCatalog(await cacheFile.readAsString());
+    } catch (e) {
+      debugPrint('Voice catalog copy unreadable: $e');
+      return const [];
+    }
+  }
+
   /// Parses voices.json. Malformed entries are skipped instead of losing
   /// the whole catalog; a non-JSON body (CDN error page) yields [].
   /// Shared by the network fetch and the on-disk cache fallback.
@@ -364,7 +379,6 @@ class VoiceManager extends ChangeNotifier {
     notifyListeners();
     return key;
   }
-
 
   /// Delete an installed voice: the config, any legacy rhasspy `.onnx`,
   /// and the sherpa model bundle.

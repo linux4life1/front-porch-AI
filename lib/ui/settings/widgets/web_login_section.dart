@@ -48,14 +48,37 @@ class _WebLoginSectionState extends State<WebLoginSection> {
   @override
   void initState() {
     super.initState();
+    // A login made (or changed) from a phone lands here without a reopen.
+    widget.auth.accountChanges.addListener(_refresh);
     _refresh();
   }
 
+  @override
+  void didUpdateWidget(WebLoginSection oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (identical(oldWidget.auth, widget.auth)) return;
+    oldWidget.auth.accountChanges.removeListener(_refresh);
+    widget.auth.accountChanges.addListener(_refresh);
+    _refresh();
+  }
+
+  @override
+  void dispose() {
+    widget.auth.accountChanges.removeListener(_refresh);
+    super.dispose();
+  }
+
+  /// Bumped per refresh: only the newest read may draw, so a read begun
+  /// before the phone made the login cannot land late and undo it.
+  int _refreshGen = 0;
+
   Future<void> _refresh() async {
+    final gen = ++_refreshGen;
     final info = await widget.auth.accountInfo();
-    final token =
-        info == null ? await widget.auth.setupTokenForDesktop() : null;
-    if (mounted) {
+    final token = info == null
+        ? await widget.auth.setupTokenForDesktop()
+        : null;
+    if (mounted && gen == _refreshGen) {
       setState(() {
         _info = info;
         _setupToken = token;
@@ -104,9 +127,7 @@ class _WebLoginSectionState extends State<WebLoginSection> {
     await _refresh();
     messenger.showSnackBar(
       const SnackBar(
-        content: Text(
-          'Web login reset — create a new one from the browser.',
-        ),
+        content: Text('Web login reset — create a new one from the browser.'),
       ),
     );
   }
