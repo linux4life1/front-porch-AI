@@ -284,6 +284,9 @@ class GeneralTab extends StatelessWidget {
                       ? storageService.uiSettings.globalChatFontFamily
                       : '',
                   isExpanded: true,
+                  // The button keeps focus after a pick; the theme's grey
+                  // focus wash then sat over the chosen font for good.
+                  focusColor: Colors.transparent,
                   dropdownColor: AppColors.cardOf(context),
                   style: TextStyle(
                     color: AppColors.textPrimary(context),
@@ -440,8 +443,9 @@ class GeneralTab extends StatelessWidget {
             onChanged: (val) =>
                 storageService.generationSettings.setSystemPrompt(val),
           ),
-
+          const SizedBox(height: 24),
           const SectionHeader('About & License'),
+          const SizedBox(height: 8),
           _buildAboutSection(context),
         ],
       ),
