@@ -173,15 +173,18 @@ PackConversion _answer(Object? message) {
 /// returned and it is the only copy.
 ///
 /// One conversion runs at a time in this process (a decode can take most of a
-/// gigabyte, and this runs before a pack's own lock); others wait their turn,
-/// and the timeout counts from when their isolate starts.
+/// gigabyte, and this runs before a pack's own lock); others wait until its
+/// isolate has exited, and the timeout counts from when their isolate starts.
 ///
-/// [entry] and [onSpawn] are for tests.
+/// [entry], [onSpawn] and [onExit] are for tests. [onExit] is called when
+/// this function hears the isolate exit, which is the moment the next turn
+/// may start; a listener added later may hear it after the next spawn.
 Future<PackConversion> convertPackBase(
   Uint8List raw, {
   Duration timeout = kPackConvertTimeout,
   @visibleForTesting PackConvertEntry entry = packConvertEntry,
   @visibleForTesting void Function(Isolate isolate)? onSpawn,
+  @visibleForTesting void Function()? onExit,
 }) {
   final previous = _turn;
   // The turn is shared by everything in the process, so it belongs to no
@@ -189,17 +192,22 @@ Future<PackConversion> convertPackBase(
   final done = Zone.root.run(() => Completer<void>());
   _turn = done.future;
   return previous
-      .then((_) => _convert(raw, timeout, entry, onSpawn))
+      .then((_) => _convert(raw, timeout, entry, onSpawn, onExit))
       .whenComplete(done.complete);
 }
 
 Future<void> _turn = Future<void>.value();
+
+/// How long a killed isolate is waited for before the next turn goes ahead
+/// anyway (a kill lands between Dart steps, so this is normally instant).
+const Duration _exitWait = Duration(seconds: 2);
 
 Future<PackConversion> _convert(
   Uint8List raw,
   Duration timeout,
   PackConvertEntry entry,
   void Function(Isolate isolate)? onSpawn,
+  void Function()? onExit,
 ) async {
   if (raw.length > kMaxConvertBytes) {
     return const PackConversion.refused(
@@ -213,13 +221,18 @@ Future<PackConversion> _convert(
   final failed = ReceivePort();
   final exited = ReceivePort();
   final answer = Completer<PackConversion>();
+  final gone = Completer<void>();
   void settle(PackConversion c) {
     if (!answer.isCompleted) answer.complete(c);
   }
 
   reply.listen((m) => settle(_answer(m)));
   failed.listen((_) => settle(const PackConversion.refused(_notPicture)));
-  exited.listen((_) => settle(const PackConversion.refused(_notPicture)));
+  exited.listen((_) {
+    onExit?.call();
+    if (!gone.isCompleted) gone.complete();
+    settle(const PackConversion.refused(_notPicture));
+  });
   Isolate? isolate;
   try {
     isolate = await Isolate.spawn(
@@ -238,7 +251,18 @@ Future<PackConversion> _convert(
     debugPrint('[ExpressionPack] picture conversion failed: $e');
     return const PackConversion.refused(_notPicture);
   } finally {
-    isolate?.kill(priority: Isolate.immediate);
+    if (isolate != null) {
+      // An answer comes before the isolate is gone, and a kill only asks it
+      // to stop; the turn is held until it has exited, so its decode is
+      // freed before the next one starts.
+      isolate.kill(priority: Isolate.immediate);
+      await gone.future.timeout(
+        _exitWait,
+        onTimeout: () => debugPrint(
+          '[ExpressionPack] a conversion isolate did not exit in time',
+        ),
+      );
+    }
     reply.close();
     failed.close();
     exited.close();

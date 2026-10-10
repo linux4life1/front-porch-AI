@@ -312,10 +312,11 @@ class BackendManager extends ChangeNotifier {
     return backendPath;
   }
 
-  /// The version and size of the build in use, from its own entry in the
-  /// record: another build's entry would show its version for this one.
-  Future<void> _readLocalVersion() async {
-    final exe = _backendPath;
+  /// The version and size of the build at [exe] (the one in use when not
+  /// given), from its own entry in the record: another build's entry would
+  /// show its version for this one.
+  Future<void> _readLocalVersion([String? exe]) async {
+    exe ??= _backendPath;
     _localVersion = exe == null
         ? null
         : await KoboldBinaryVersion.versionFor(exe);
@@ -334,17 +335,20 @@ class BackendManager extends ChangeNotifier {
 
     final foundFile = await _findEngine();
     if (foundFile != null) {
-      _backendPath = foundFile.path;
+      // This look's own file: another look can run during the awaits below
+      // (a settings change re-runs it) and replace or clear _backendPath.
+      final exe = foundFile.path;
+      _backendPath = exe;
       _statusMessage = 'Ready';
-      await _readLocalVersion();
+      await _readLocalVersion(exe);
       // On Linux/Mac, ensure executable permission
       if (!Platform.isWindows) {
-        await Process.run('chmod', ['+x', _backendPath!]);
+        await Process.run('chmod', ['+x', exe]);
       }
       // On macOS, clear quarantine attribute that sandbox sets on downloaded binaries
       if (Platform.isMacOS) {
-        await Process.run('xattr', ['-cr', _backendPath!]);
-        print('AG_DEBUG: Cleared quarantine on $_backendPath');
+        await Process.run('xattr', ['-cr', exe]);
+        print('AG_DEBUG: Cleared quarantine on $exe');
       }
     } else {
       _backendPath = null;

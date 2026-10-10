@@ -24,7 +24,12 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show kFeelingsUnscoredMeta, kNeedsUnaffectedMeta;
+    show
+        kFeelingsUnscoredLabel,
+        kFeelingsUnscoredMeta,
+        kFeelingsUnscoredTip,
+        kNeedsUnaffectedMeta,
+        RealismVerification;
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
     show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
@@ -161,16 +166,16 @@ class ChatFacade {
     if (arousal is int && arousal != 0) out['arousalDelta'] = arousal;
     // A scored reply with no stored bond/trust is a dropped zero. The
     // bubble says "unchanged" instead of looking like the judge never ran.
+    // Same list as the desktop bubble's realismTouched: the clock is not on
+    // it, since Passage of Time runs with the engine off.
+    final needs = md['needs_deltas'];
+    final verif = md[RealismVerification.kMetaKey];
     final scored =
         (md['emotion_label'] is String &&
             (md['emotion_label'] as String).isNotEmpty) ||
-        md['needs_deltas'] is Map ||
+        (needs is Map && needs.isNotEmpty) ||
         md[kNeedsUnaffectedMeta] == true ||
-        (md['time_passed'] is String &&
-            (md['time_passed'] as String).isNotEmpty) ||
-        (md['time_skip_to'] is String &&
-            (md['time_skip_to'] as String).isNotEmpty) ||
-        md['realism_verification'] is Map;
+        (verif is Map && (verif['status'] as String? ?? '').trim().isNotEmpty);
     // The judge ran and could not be read: one "not scored" chip, never a
     // made-up "unchanged". Same rule as the desktop bubble.
     final unscored =
@@ -179,6 +184,8 @@ class ChatFacade {
         !out.containsKey('trustDelta');
     if (unscored) {
       out['feelingsUnscored'] = true;
+      out['feelingsUnscoredLabel'] = kFeelingsUnscoredLabel;
+      out['feelingsUnscoredTip'] = kFeelingsUnscoredTip;
     } else if (scored) {
       out.putIfAbsent('bondDelta', () => 0);
       out.putIfAbsent('trustDelta', () => 0);
@@ -194,7 +201,6 @@ class ChatFacade {
       final v = md[entry.key];
       if (v is String && v.isNotEmpty) out[entry.value] = v;
     }
-    final needs = md['needs_deltas'];
     if (needs is Map) {
       final nz = <String, dynamic>{};
       needs.forEach((k, v) {

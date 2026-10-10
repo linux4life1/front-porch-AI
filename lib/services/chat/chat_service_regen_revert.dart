@@ -364,6 +364,8 @@ extension ChatServiceRegenRevert on ChatService {
       final newMetadata = _messages.last.activeMetadata != null
           ? Map<String, dynamic>.from(_messages.last.activeMetadata!)
           : null;
+      // This swipe's own "Thought for Ns", timed while it streamed.
+      final newThinkingMs = _messages.last.thinkingDurationMs;
       final tempBefore = _messages.last.metadata?['pockets_before'];
       _messages.removeLast();
       if (tempBefore is Map) {
@@ -375,6 +377,7 @@ extension ChatServiceRegenRevert on ChatService {
         lastMsg.swipeDurations.add(0);
       }
       final newSwipeIndex = lastMsg.swipes.length - 1;
+      lastMsg.swipeDurations[newSwipeIndex] = newThinkingMs;
       if (preservedRejectedMeta != null && rejectedSwipeIndex >= 0) {
         while (lastMsg.swipeMetadata.length <= rejectedSwipeIndex) {
           lastMsg.swipeMetadata.add(null);
