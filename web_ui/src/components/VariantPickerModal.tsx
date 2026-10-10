@@ -17,7 +17,7 @@ interface VariantRow {
   tokenCount?: number;
   current: boolean;
   kind?: string;
-  /** Desktop's row label ("Original", "Regen 1", "Greet"); older apps omit it. */
+  /** Desktop's row label ("Original", "Regen", "Greet"); older apps omit it. */
   label?: string;
 }
 

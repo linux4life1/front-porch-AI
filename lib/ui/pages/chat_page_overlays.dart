@@ -181,6 +181,7 @@ extension _ChatPageOverlays on _ChatPageState {
             ComposerDraftScope(
               controller: _controller,
               focusNode: _chatFocusNode,
+              onSend: (text) => chatService.sendMessage(text),
               child: ChatMessageList(
                 key: _transcriptListKey,
                 sessionId: chatService.currentSessionId,
