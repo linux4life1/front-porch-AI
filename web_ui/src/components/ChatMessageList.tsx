@@ -11,7 +11,9 @@ import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
   holdTranscriptAfterPrepend,
+  isTranscriptPrepend,
   pinTranscriptToLatest,
+  transcriptHeadKey,
   transcriptTipKey,
 } from '../pages/chat/transcriptAutoScroll';
 import { applyTranscriptSpan, revealOlderSpan, type TranscriptSpan } from '../pages/chat/transcriptWindow';
@@ -277,21 +279,32 @@ export function ChatMessageList({
   const selfScroll = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
   const prevTip = useRef('');
+  const prevHead = useRef<string | undefined>(undefined);
   const prevLen = useRef(0);
   const prevHeight = useRef(0);
   const spanRef = useRef<TranscriptSpan>({ start: 0, end: 0 });
   const trackedFull = useRef(0);
   const spanSession = useRef<string | null | undefined>(undefined);
   const spanTip = useRef('');
+  const spanHead = useRef<string | undefined>(undefined);
   const nearTop = useRef(false);
   const wasNearTop = useRef(false);
   const settled = useRef(false);
   const [, bump] = useState(0);
   const full = transcript.messages;
   const fullTip = transcriptTipKey(full);
+  const fullHead = transcriptHeadKey(full);
   const opened = spanSession.current !== sessionId || trackedFull.current === 0;
   const prepended =
-    !opened && full.length > trackedFull.current && fullTip === spanTip.current;
+    !opened &&
+    isTranscriptPrepend({
+      prevLen: trackedFull.current,
+      prevTip: spanTip.current,
+      nextLen: full.length,
+      nextTip: fullTip,
+      prevHead: spanHead.current,
+      nextHead: fullHead,
+    });
   applyTranscriptSpan(spanRef.current, {
     previousLength: trackedFull.current,
     nextLength: full.length,
@@ -302,6 +315,7 @@ export function ChatMessageList({
   if (opened) settled.current = false;
   trackedFull.current = full.length;
   spanTip.current = fullTip;
+  spanHead.current = fullHead;
   spanSession.current = sessionId ?? null;
   // Memoized so token frames (which re-render this list) hand TranscriptRows
   // the same array — a fresh slice each frame defeated its memo.
@@ -328,6 +342,7 @@ export function ChatMessageList({
   useLayoutEffect(() => {
     const el = scrollRef.current;
     const nextTip = transcriptTipKey(visible);
+    const nextHead = transcriptHeadKey(visible);
     const kind = classifyTranscriptGrowth({
       sessionId,
       prevSession: pinnedOpen.current,
@@ -335,6 +350,8 @@ export function ChatMessageList({
       prevTip: prevTip.current,
       nextLen: visible.length,
       nextTip,
+      prevHead: prevHead.current,
+      nextHead,
     });
     if (kind === 'open' && el) {
       stickToLatest.current = true;
@@ -362,6 +379,7 @@ export function ChatMessageList({
     }
     prevLen.current = visible.length;
     prevTip.current = nextTip;
+    prevHead.current = nextHead;
     prevHeight.current = el?.scrollHeight ?? 0;
     settled.current = true;
   }, [sessionId, visible, scrollRef, streaming, followStreamingReplies, pinSelf]);

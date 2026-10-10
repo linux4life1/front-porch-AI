@@ -106,9 +106,11 @@ class _ChatMessageListState extends State<ChatMessageList> {
   String? _prevSession;
   String? _spanSession;
   String _spanTip = '';
+  String? _spanHead;
   int _prevLen = 0;
   int _trackedFull = 0;
   String _prevTip = '';
+  String? _prevHead;
   double _maxAtLastFrame = 0;
   TranscriptGrowth? _pending;
   bool _openSettled = false;
@@ -164,8 +166,18 @@ class _ChatMessageListState extends State<ChatMessageList> {
   void _applyWindow() {
     final next = widget.messages.length;
     final tip = transcriptTipKey(widget.messages);
+    final head = transcriptHeadKey(widget.messages);
     final opened = widget.sessionId != _spanSession || _trackedFull == 0;
-    final prepended = !opened && next > _trackedFull && tip == _spanTip;
+    final prepended =
+        !opened &&
+        isTranscriptPrepend(
+          prevLen: _trackedFull,
+          prevTip: _spanTip,
+          nextLen: next,
+          nextTip: tip,
+          prevHead: _spanHead,
+          nextHead: head,
+        );
     _window.apply(
       previousLength: _trackedFull,
       nextLength: next,
@@ -181,6 +193,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
     }
     _trackedFull = next;
     _spanTip = tip;
+    _spanHead = head;
     _spanSession = widget.sessionId;
   }
 
@@ -206,6 +219,7 @@ class _ChatMessageListState extends State<ChatMessageList> {
         ? widget.messages
         : widget.messages.sublist(start, end);
     final tip = transcriptTipKey(visible);
+    final head = transcriptHeadKey(visible);
     final kind = classifyTranscriptGrowth(
       sessionId: widget.sessionId,
       prevSession: _prevSession,
@@ -213,10 +227,13 @@ class _ChatMessageListState extends State<ChatMessageList> {
       prevTip: _prevTip,
       nextLen: visible.length,
       nextTip: tip,
+      prevHead: _prevHead,
+      nextHead: head,
     );
     _prevSession = widget.sessionId;
     _prevLen = visible.length;
     _prevTip = tip;
+    _prevHead = head;
     if (kind != TranscriptGrowth.other) _pending = kind;
     final c0 = _controller;
     if (kind == TranscriptGrowth.prepend && c0 != null) _anchors.capture(c0);

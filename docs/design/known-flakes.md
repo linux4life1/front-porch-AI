@@ -44,11 +44,19 @@ dependencies" never ran a test.
   seen once after the refractory change; the wait around the reload is the
   suspect if it recurs.
 - **E2E `message_actions_test`** (macOS, then Linux): "the bubble … was not
-  reachable by scrolling the chat list". Fixed at the cause in #403: the
-  harness's pointer drags moved the transcript by nothing, so an older
-  bubble the virtualized list had not built stayed unbuilt; the reveal now
-  moves the list through its own ScrollPosition. The failure message
-  names what was on screen, so a recurrence is evidence.
+  reachable by scrolling the chat list", with only the last three of five
+  bubbles built. #403 made the reveal step the list's own ScrollPosition,
+  which was needed but not the cause; it came back on 2026-10-10. The
+  cause was in the app: the fake backend's two replies are word for word
+  the same, and when the second line and its reply landed between two
+  rebuilds, the transcript window took them for older history loaded
+  above (same last line, longer list) and slid its mounted rows down by
+  two. The greeting and the first line left the list, and three short
+  rows do not scroll, so nothing could bring them back. Fixed in
+  `isTranscriptPrepend` (desktop `transcript_auto_scroll.dart`, phone
+  `transcriptAutoScroll.ts`): rows added with the oldest row unchanged are
+  an append. Pinned by `transcript_same_reply_append_test.dart` and
+  `ChatMessageList.repeatReply.test.tsx`.
 - **`test/services/auth_service_test.dart` TOTP enrolment**: a 30 s limit
   under a loaded runner; passes alone.
 - **`test/services/chat/start_fresh_chat_test.dart` "an empty persona id

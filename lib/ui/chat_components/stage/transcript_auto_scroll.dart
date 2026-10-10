@@ -30,11 +30,30 @@ void applyTranscriptAutoScroll(
 
 enum TranscriptGrowth { open, prepend, other }
 
-String transcriptTipKey(List<ChatMessage> messages) {
-  if (messages.isEmpty) return '';
-  final tip = messages.last;
-  return '${tip.sender}\u0000${tip.text}';
-}
+String transcriptTipKey(List<ChatMessage> messages) =>
+    messages.isEmpty ? '' : _rowKey(messages.last);
+
+/// The oldest row's key. A prepend changes it; an append never does.
+String transcriptHeadKey(List<ChatMessage> messages) =>
+    messages.isEmpty ? '' : _rowKey(messages.first);
+
+String _rowKey(ChatMessage m) => '${m.sender}\u0000${m.text}';
+
+/// Same tip on a longer list reads as older rows above, unless the head
+/// is known and unchanged: then the rows were added below, and the tip
+/// matches only because the new last line repeats the old one.
+bool isTranscriptPrepend({
+  required int prevLen,
+  required String prevTip,
+  required int nextLen,
+  required String nextTip,
+  String? prevHead,
+  String? nextHead,
+}) =>
+    nextLen > prevLen &&
+    nextTip.isNotEmpty &&
+    nextTip == prevTip &&
+    (prevHead == null || nextHead == null || nextHead != prevHead);
 
 TranscriptGrowth classifyTranscriptGrowth({
   String? sessionId,
@@ -43,13 +62,22 @@ TranscriptGrowth classifyTranscriptGrowth({
   required String prevTip,
   required int nextLen,
   required String nextTip,
+  String? prevHead,
+  String? nextHead,
 }) {
   if (nextLen <= 0) return TranscriptGrowth.other;
   if (prevLen <= 0) return TranscriptGrowth.open;
   if (sessionId != null && sessionId != prevSession) {
     return TranscriptGrowth.open;
   }
-  if (nextLen > prevLen && nextTip.isNotEmpty && nextTip == prevTip) {
+  if (isTranscriptPrepend(
+    prevLen: prevLen,
+    prevTip: prevTip,
+    nextLen: nextLen,
+    nextTip: nextTip,
+    prevHead: prevHead,
+    nextHead: nextHead,
+  )) {
     return TranscriptGrowth.prepend;
   }
   return TranscriptGrowth.other;

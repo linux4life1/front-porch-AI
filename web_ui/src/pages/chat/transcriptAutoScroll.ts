@@ -38,6 +38,37 @@ export function transcriptTipKey(
   return tip ? `${tip.sender}\0${tip.text}` : '';
 }
 
+/** The oldest row's key. A prepend changes it; an append never does. */
+export function transcriptHeadKey(
+  messages: { sender: string; text: string }[],
+): string {
+  const head = messages.length > 0 ? messages[0] : undefined;
+  return head ? `${head.sender}\0${head.text}` : '';
+}
+
+/**
+ * Same tip on a longer list reads as older rows above, unless the head is
+ * known and unchanged: then the rows were added below, and the tip matches
+ * only because the new last line repeats the old one.
+ */
+export function isTranscriptPrepend(args: {
+  prevLen: number;
+  prevTip: string;
+  nextLen: number;
+  nextTip: string;
+  prevHead?: string;
+  nextHead?: string;
+}): boolean {
+  return (
+    args.nextLen > args.prevLen &&
+    args.nextTip !== '' &&
+    args.nextTip === args.prevTip &&
+    (args.prevHead === undefined ||
+      args.nextHead === undefined ||
+      args.nextHead !== args.prevHead)
+  );
+}
+
 /** Stick-if-at-bottom while a reply is streaming. applyTranscriptAutoScroll stays a no-op. */
 export function followTranscriptWhileStreaming(
   el: TranscriptEl | null,
@@ -66,18 +97,14 @@ export function classifyTranscriptGrowth(args: {
   prevTip: string;
   nextLen: number;
   nextTip: string;
+  prevHead?: string;
+  nextHead?: string;
 }): 'open' | 'prepend' | 'other' {
   if (args.nextLen <= 0) return 'other';
   if (args.prevLen <= 0) return 'open';
   if (args.sessionId != null && args.sessionId !== args.prevSession) {
     return 'open';
   }
-  if (
-    args.nextLen > args.prevLen &&
-    args.nextTip !== '' &&
-    args.nextTip === args.prevTip
-  ) {
-    return 'prepend';
-  }
+  if (isTranscriptPrepend(args)) return 'prepend';
   return 'other';
 }
