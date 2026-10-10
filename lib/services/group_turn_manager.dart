@@ -143,9 +143,19 @@ class GroupTurnManager extends ChangeNotifier {
     final hold = _regenHold;
     _regenHold = null;
     if (hold == null || _forcedNextSpeakerId != hold.regenId) return;
-    _turnIndex = _characters.isEmpty ? 0 : hold.index % _characters.length;
-    _forcedNextSpeakerId = _characters.any((c) => _getId(c) == hold.forcedId)
-        ? hold.forcedId
+    restoreRotation((index: hold.index, forcedId: hold.forcedId));
+  }
+
+  /// Where the rotation stands, for [restoreRotation].
+  ({int index, String? forcedId}) get rotation =>
+      (index: _turnIndex, forcedId: _forcedNextSpeakerId);
+
+  /// Put back a [rotation] taken before a pick whose turn wrote no reply
+  /// (stopped, refused or failed): that member is still up next.
+  void restoreRotation(({int index, String? forcedId}) r) {
+    _turnIndex = _characters.isEmpty ? 0 : r.index % _characters.length;
+    _forcedNextSpeakerId = _characters.any((c) => _getId(c) == r.forcedId)
+        ? r.forcedId
         : null;
     notifyListeners();
   }
