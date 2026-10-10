@@ -68,12 +68,17 @@ class _WebLoginSectionState extends State<WebLoginSection> {
     super.dispose();
   }
 
+  /// Bumped per refresh: only the newest read may draw, so a read begun
+  /// before the phone made the login cannot land late and undo it.
+  int _refreshGen = 0;
+
   Future<void> _refresh() async {
+    final gen = ++_refreshGen;
     final info = await widget.auth.accountInfo();
     final token = info == null
         ? await widget.auth.setupTokenForDesktop()
         : null;
-    if (mounted) {
+    if (mounted && gen == _refreshGen) {
       setState(() {
         _info = info;
         _setupToken = token;
