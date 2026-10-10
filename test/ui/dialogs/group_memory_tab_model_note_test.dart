@@ -12,6 +12,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -114,5 +115,49 @@ void main() {
     expect(chat.groupRagEnabled, isFalse);
     expect(warning, findsNothing);
     expect(find.text('Download model (~550 MB)'), findsNothing);
+  });
+
+  testWidgets('a memory model on disk that will not start says memory '
+      'search isn\'t running and offers Retry', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(900, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.runAsync(boot);
+    addTearDown(() => tester.runAsync(() => disposeChatThenCloseDb(chat, db)));
+    final root = storage.rootPath;
+    expect(root, isNotNull);
+
+    // A model file of the right size that is not a model: what a torn
+    // download leaves behind. Sparse, so it costs no real disk.
+    final embeddings = EmbeddingService(storage);
+    await tester.runAsync(() async {
+      final dir = Directory(p.join(root!, 'models', 'embeddings', 'nomic-v1_5'))
+        ..createSync(recursive: true);
+      final raf = File(
+        p.join(dir.path, 'model.onnx'),
+      ).openSync(mode: FileMode.write);
+      raf.truncateSync(101 * 1024 * 1024);
+      raf.closeSync();
+      File(p.join(dir.path, 'tokenizer.json')).writeAsStringSync('{}');
+      await embeddings.checkAvailability().timeout(const Duration(seconds: 60));
+    });
+    expect(embeddings.modelOnDisk, isTrue);
+    expect(embeddings.isAvailable, isFalse);
+    expect(embeddings.lastEngineError, isNotNull, reason: 'the engine failed');
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<EmbeddingService>.value(
+        value: embeddings,
+        child: MaterialApp(
+          home: Scaffold(
+            body: GroupMemoryRAGTab(chatService: chat, groupRepo: repo),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+
+    expect(find.textContaining('isn\'t running'), findsOneWidget);
+    expect(find.text('Retry setup'), findsOneWidget);
   });
 }
