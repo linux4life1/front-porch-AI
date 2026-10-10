@@ -129,7 +129,7 @@ extension _HomePageTransfer on _HomePageState {
               content: Text(
                 msg,
                 style: TextStyle(
-                  color: Theme.of(context).colorScheme.onPrimary,
+                  color: AppColors.inkOn(AppColors.porchAmberOf(context)),
                 ),
               ),
               backgroundColor: AppColors.porchAmberOf(context),
