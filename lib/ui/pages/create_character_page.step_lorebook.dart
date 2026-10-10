@@ -82,10 +82,12 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                 Container(
                   padding: const EdgeInsets.all(40),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color: AppColors.cardOf(context),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: Colors.white.withValues(alpha: 0.08),
+                      color: AppColors.borderOf(
+                        context,
+                      ).withValues(alpha: 0.45),
                     ),
                   ),
                   child: Center(
@@ -94,17 +96,23 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                         Icon(
                           Icons.menu_book_outlined,
                           size: 48,
-                          color: Colors.white.withValues(alpha: 0.15),
+                          color: AppColors.hairlineOf(context, 0.15),
                         ),
                         const SizedBox(height: 12),
-                        const Text(
+                        Text(
                           'No lorebook entries yet',
-                          style: TextStyle(color: Colors.white38, fontSize: 15),
+                          style: TextStyle(
+                            color: AppColors.textTertiary(context),
+                            fontSize: 15,
+                          ),
                         ),
                         const SizedBox(height: 4),
-                        const Text(
+                        Text(
                           'Add entries to inject context-aware world lore into conversations.',
-                          style: TextStyle(color: Colors.white24, fontSize: 12),
+                          style: TextStyle(
+                            color: AppColors.textTertiary(context),
+                            fontSize: 12,
+                          ),
                         ),
                       ],
                     ),
@@ -130,12 +138,12 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           width: 1.5,
           color: entry.constant
-              ? Colors.amberAccent.withValues(alpha: 0.3)
+              ? AppColors.porchAmberOf(context).withValues(alpha: 0.3)
               : entry.enabled
               ? AppColors.formMasterAccent.withValues(alpha: 0.2)
               : AppColors.borderOf(context).withValues(alpha: 0.5),
@@ -150,17 +158,19 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                 Icons.menu_book,
                 size: 14,
                 color: entry.constant
-                    ? Colors.amberAccent
+                    ? AppColors.porchAmberOf(context)
                     : entry.enabled
                     ? AppColors.formMasterAccent
-                    : Colors.white38,
+                    : AppColors.textTertiary(context),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   entry.displayName,
                   style: TextStyle(
-                    color: entry.enabled ? Colors.white : Colors.white38,
+                    color: entry.enabled
+                        ? AppColors.textPrimary(context)
+                        : AppColors.textTertiary(context),
                     fontWeight: FontWeight.w600,
                     fontSize: 13,
                   ),
@@ -173,13 +183,15 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.amberAccent.withValues(alpha: 0.15),
+                    color: AppColors.porchAmberOf(
+                      context,
+                    ).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(4),
                   ),
-                  child: const Text(
+                  child: Text(
                     'Always Active',
                     style: TextStyle(
-                      color: Colors.amberAccent,
+                      color: AppColors.porchAmberOf(context),
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
@@ -226,10 +238,10 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
               ),
               IconButton(
                 onPressed: () => _editLorebookEntry(index),
-                icon: const Icon(
+                icon: Icon(
                   Icons.edit_outlined,
                   size: 16,
-                  color: Colors.white38,
+                  color: AppColors.textTertiary(context),
                 ),
                 tooltip: 'Edit entry',
                 visualDensity: VisualDensity.compact,
@@ -238,10 +250,10 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
               ),
               IconButton(
                 onPressed: () => _deleteLorebookEntry(index),
-                icon: const Icon(
+                icon: Icon(
                   Icons.delete_outline,
                   size: 16,
-                  color: Colors.redAccent,
+                  color: AppColors.negativeAccentOf(context),
                 ),
                 tooltip: 'Delete entry',
                 visualDensity: VisualDensity.compact,
@@ -263,13 +275,13 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: AppColors.hairlineOf(context, 0.05),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
                         k.trim(),
-                        style: const TextStyle(
-                          color: Colors.white54,
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
                           fontSize: 10,
                         ),
                       ),
