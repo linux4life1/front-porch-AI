@@ -17,6 +17,8 @@ interface VariantRow {
   tokenCount?: number;
   current: boolean;
   kind?: string;
+  /** Desktop's row label ("Original", "Regen 1", "Greet"); older apps omit it. */
+  label?: string;
 }
 
 export function variantKindLabel(kind?: string): string {
@@ -133,7 +135,7 @@ export function VariantPickerModal({
                           )}
                         </span>
                         <span className="variant-card-meta">
-                          {variantKindLabel(v.kind ?? payload.kind)} · {v.charCount} characters · {tokens}t
+                          {v.label ?? variantKindLabel(v.kind ?? payload.kind)} · {v.charCount} characters · {tokens}t
                         </span>
                         <span
                           className="variant-card-tools"
