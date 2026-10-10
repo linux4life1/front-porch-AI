@@ -37,7 +37,10 @@ import '../../golden/support/fakes.dart';
 void main() {
   setupPathProviderMock();
 
-  Future<void> pumpBubbles(WidgetTester tester) async {
+  /// With [nested], the chat sits on a page pushed inside a nested Navigator
+  /// (over a 'Chat list' page) while the dialog opens on the root one, so a
+  /// button that pops with the bubble's context closes the chat, not itself.
+  Future<void> pumpBubbles(WidgetTester tester, {bool nested = false}) async {
     await tester.binding.setSurfaceSize(const Size(800, 700));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     SharedPreferences.setMockInitialValues({});
@@ -58,28 +61,65 @@ void main() {
       sender: 'Carmen',
       isUser: false,
     );
+    final chatPage = Scaffold(
+      body: ListView(
+        children: [
+          MessageBubble(message: banner, index: 0, chatService: chat),
+          MessageBubble(message: reply, index: 1, chatService: chat),
+        ],
+      ),
+    );
     await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: MultiProvider(
-            providers: [
-              ChangeNotifierProvider<StorageService>.value(value: storage),
-              ChangeNotifierProvider<TtsService>.value(value: tts),
-              ChangeNotifierProvider<ChatService>.value(value: chat),
-              ChangeNotifierProvider<UserPersonaService>.value(
-                value: FakeUserPersonaService(),
-              ),
-            ],
-            child: ListView(
-              children: [
-                MessageBubble(message: banner, index: 0, chatService: chat),
-                MessageBubble(message: reply, index: 1, chatService: chat),
-              ],
-            ),
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<TtsService>.value(value: tts),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<UserPersonaService>.value(
+            value: FakeUserPersonaService(),
           ),
+        ],
+        child: MaterialApp(
+          home: nested
+              ? Navigator(
+                  onGenerateInitialRoutes: (_, _) => [
+                    MaterialPageRoute<void>(
+                      builder: (_) => const Scaffold(body: Text('Chat list')),
+                    ),
+                    MaterialPageRoute<void>(builder: (_) => chatPage),
+                  ],
+                )
+              : chatPage,
         ),
       ),
     );
+    await tester.pumpAndSettle();
+  }
+
+  for (final (opener, title) in [
+    ('banner long-press', 'Delete Message'),
+    ('fork icon', 'Fork Conversation'),
+  ]) {
+    testWidgets('under a nested Navigator, $title Cancel closes only the '
+        'dialog', (tester) async {
+      await pumpBubbles(tester, nested: true);
+      if (title == 'Delete Message') {
+        await tester.longPress(find.textContaining('A raccoon steals the pie'));
+      } else {
+        await tester.tap(find.byIcon(Icons.call_split).first);
+      }
+      await tester.pumpAndSettle();
+      expect(find.text(title), findsOneWidget, reason: 'opened by $opener');
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.text(title), findsNothing, reason: 'the dialog closes');
+      expect(
+        find.textContaining('A raccoon steals the pie'),
+        findsOneWidget,
+        reason: 'the chat page must still be open',
+      );
+    });
   }
 
   testWidgets('Delete Message is a warm destructive confirm; Cancel closes '

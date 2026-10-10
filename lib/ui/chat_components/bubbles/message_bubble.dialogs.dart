@@ -88,9 +88,24 @@ extension _BubbleDialogs on _MessageBubbleState {
     );
   }
 
-  void _showDeleteConfirmation(BuildContext context, int index) {
+  /// The two buttons of a yes/no confirm. Each pops with the dialog's own
+  /// context (a Builder inside the dialog), so a bubble under a nested
+  /// Navigator closes the dialog, never the chat page behind it.
+  List<Widget> _confirmActions(String label, {bool destructive = false}) => [
+    Builder(builder: (ctx) => warmDialogCancel(ctx, value: false)),
+    Builder(
+      builder: (ctx) => warmDialogConfirm(
+        ctx,
+        label: label,
+        destructive: destructive,
+        onPressed: () => Navigator.of(ctx).pop(true),
+      ),
+    ),
+  ];
+
+  Future<void> _showDeleteConfirmation(BuildContext context, int index) async {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    showWarmDialog<void>(
+    final yes = await showWarmDialog<bool>(
       context,
       title: 'Delete Message',
       icon: Icons.warning_amber_rounded,
@@ -98,26 +113,14 @@ extension _BubbleDialogs on _MessageBubbleState {
       content: const WarmDialogText(
         'This can\'t be undone. Are you sure you want to delete this message?',
       ),
-      actions: [
-        warmDialogCancel(context),
-        warmDialogConfirm(
-          context,
-          label: 'Delete',
-          destructive: true,
-          // Pop before deleting: `context` is this bubble's, and the delete
-          // can rebuild the list out from under it.
-          onPressed: () {
-            Navigator.of(context).pop();
-            chatService.deleteMessage(index);
-          },
-        ),
-      ],
+      actions: _confirmActions('Delete', destructive: true),
     );
+    if (yes == true) chatService.deleteMessage(index);
   }
 
-  void _showForkConfirmation(BuildContext context, int index) {
+  Future<void> _showForkConfirmation(BuildContext context, int index) async {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    showWarmDialog<void>(
+    final yes = await showWarmDialog<bool>(
       context,
       title: 'Fork Conversation',
       icon: Icons.call_split,
@@ -125,27 +128,17 @@ extension _BubbleDialogs on _MessageBubbleState {
       content: WarmDialogText(
         'Create a new branch from message #${index + 1}?\n\nThe current chat will remain unchanged. A new conversation will be created with messages up to this point.',
       ),
-      actions: [
-        warmDialogCancel(context),
-        warmDialogConfirm(
-          context,
-          label: 'Fork',
-          onPressed: () {
-            Navigator.of(context).pop();
-            chatService.forkFromMessage(index);
-            if (mounted) {
-              ScaffoldMessenger.of(this.context).showSnackBar(
-                const SnackBar(
-                  content: Text(
-                    'Conversation forked! You are now on the new branch.',
-                  ),
-                ),
-              );
-            }
-          },
-        ),
-      ],
+      actions: _confirmActions('Fork'),
     );
+    if (yes != true) return;
+    chatService.forkFromMessage(index);
+    if (mounted) {
+      ScaffoldMessenger.of(this.context).showSnackBar(
+        const SnackBar(
+          content: Text('Conversation forked! You are now on the new branch.'),
+        ),
+      );
+    }
   }
 
   Future<void> _showEditDialog(BuildContext context, int index) async {
