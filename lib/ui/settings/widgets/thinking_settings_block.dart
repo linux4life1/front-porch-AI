@@ -39,6 +39,12 @@ class ThinkingSettingsBlock extends StatefulWidget {
 }
 
 class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
+  /// Models whose last read finished with no answer (a server without the
+  /// route, one that is down, a timeout). They show a plain "couldn't read"
+  /// line instead of a "Reading…" line that would never end; the next kick
+  /// (reopen, model change) asks again.
+  final Set<String> _unread = {};
+
   @override
   void initState() {
     super.initState();
@@ -109,7 +115,8 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
       final model = widget.modelId;
       if (model.isEmpty) return;
       if (ReasoningSupportResolver.instance.isResolved(model)) return;
-      unawaited(
+      _watch(
+        model,
         ReasoningSupportResolver.instance.resolveOmlx(
           apiUrl: 'http://localhost:8000/v1',
           modelName: model,
@@ -125,7 +132,8 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
       final model = widget.modelId;
       if (model.isEmpty) return;
       if (ReasoningSupportResolver.instance.isResolved(model)) return;
-      unawaited(
+      _watch(
+        model,
         ReasoningSupportResolver.instance.resolveLmStudio(
           apiUrl: storage.backendSettings.remoteApiUrl,
           modelName: model,
@@ -135,11 +143,45 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
       return;
     }
     if (widget.modelId.isEmpty) return;
-    kickReasoningEffortProbe(
-      model: widget.modelId,
-      apiUrl: storage.backendSettings.remoteApiUrl,
-      apiKey: storage.backendSettings.remoteApiKey,
+    _watch(
+      widget.modelId,
+      probeReasoningEfforts(
+        model: widget.modelId,
+        apiUrl: storage.backendSettings.remoteApiUrl,
+        apiKey: storage.backendSettings.remoteApiKey,
+      ),
     );
+  }
+
+  /// Wait for one read, then redraw. A read that answered redraws through
+  /// the catalog tick; this catches the one that did not, so the line
+  /// settles on "couldn't read" instead of reading forever.
+  void _watch(String model, Future<Object?> read) {
+    _unread.remove(model);
+    unawaited(() async {
+      try {
+        await read;
+      } catch (e) {
+        debugPrint('[Thinking] reading $model\'s thinking mode failed: $e');
+      }
+      if (!mounted) return;
+      setState(() {
+        if (_stillReading(model)) _unread.add(model);
+      });
+    }());
+  }
+
+  /// True while [model]'s thinking mode has not been learned yet.
+  bool _stillReading(String model) {
+    if (model.isEmpty) return false;
+    if (_isOmlx || _isLocalRemote) {
+      return !ReasoningSupportResolver.instance.isResolved(model);
+    }
+    return !_isLocal &&
+        reasoningEffortMenuPending(
+          model,
+          apiUrl: _storage?.backendSettings.remoteApiUrl ?? '',
+        );
   }
 
   /// The .gguf whose thinking template we should read. In .kcpps preset
@@ -189,14 +231,9 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
     final thinkingOn = local
         ? widget.enabled
         : reasoningEffortThinkingOn(widget.modelId, widget.enabled);
-    final pending = (_isOmlx || _isLocalRemote)
-        ? widget.modelId.isNotEmpty &&
-              !ReasoningSupportResolver.instance.isResolved(widget.modelId)
-        : !local &&
-              reasoningEffortMenuPending(
-                widget.modelId,
-                apiUrl: _storage?.backendSettings.remoteApiUrl ?? '',
-              );
+    final unanswered = _stillReading(widget.modelId);
+    final unread = unanswered && _unread.contains(widget.modelId);
+    final pending = unanswered && !unread;
     // A model whose template has no thinking machinery at all: the switch and
     // the chips would both be no-ops, so say that instead of implying they work.
     final localCannotThink = templateSupport == ThinkingSupport.none;
@@ -275,6 +312,19 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
               (_isOmlx || _isLocalRemote)
                   ? 'Reading this model\'s thinking mode…'
                   : 'Asking this provider which thinking levels it accepts…',
+              style: TextStyle(
+                color: AppColors.textTertiary(context),
+                fontSize: 12,
+                height: 1.35,
+              ),
+            ),
+          ),
+        if (unread)
+          Padding(
+            padding: EdgeInsets.only(top: widget.compact ? 2 : 4),
+            child: Text(
+              'Couldn\'t read this model\'s thinking mode, so it simply '
+              'follows the Request thinking switch as you set it.',
               style: TextStyle(
                 color: AppColors.textTertiary(context),
                 fontSize: 12,
