@@ -131,6 +131,7 @@ extension ChatServiceGenerationStream on ChatService {
         swipeMetadata: initialMetadata != null ? [initialMetadata] : null,
       );
       _messages.add(t.streamTarget);
+      t.replyLanded = true;
       _pendingRealismMetadata = null;
     }
     // RAG receipt (rag_injection.dart): stamped here — the same single

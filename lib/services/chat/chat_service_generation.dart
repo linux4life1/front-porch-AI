@@ -73,6 +73,11 @@ class _GenTurn {
 
   // ── entry / speaker pick (shell) ──
   late CharacterCard speakingCharacter;
+
+  /// The group rotation before this turn picked its speaker. Put back when
+  /// the turn ends before its reply bubble lands ([replyLanded]).
+  ({int index, String? forcedId})? rotationBeforePick;
+  bool replyLanded = false;
   late String userName;
   // Track original model for call mode swap/restore. Deliberately survives
   // outside the try/catch (H5): set in the request phase, read by the
@@ -275,6 +280,9 @@ extension ChatServiceGeneration on ChatService {
             fromUserSend: false,
           );
         }
+        if (forceSpeaker == null) {
+          t.rotationBeforePick = _groupManager?.rotation;
+        }
         speakingCharacter = forceSpeaker ?? _pickPresentGroupSpeaker();
       } else {
         speakingCharacter = _activeCharacter!;
@@ -312,6 +320,7 @@ extension ChatServiceGeneration on ChatService {
         debugPrint(
           '[Presence] skip-turn ${speakingCharacter.name} — banner, no reply',
         );
+        t.rotationBeforePick = null; // the skip is that member's turn
         _isGenerating = false;
         _generationPhase = GenerationPhase.idle;
         await _saveChat();
@@ -449,6 +458,12 @@ extension ChatServiceGeneration on ChatService {
       // turn's pre-pick window (e.g. _applyMoodDecay) keeps its prior
       // nextCharacter-based behaviour instead of seeing a stale speaker.
       _turnSpeakerIdForRealism = null;
+      // Stopped, refused or failed before the reply landed: the picked
+      // member never spoke, so Try again (or the next send) is theirs.
+      final rotation = t.rotationBeforePick;
+      if (rotation != null && !t.replyLanded) {
+        _groupManager?.restoreRotation(rotation);
+      }
       _awayPulse.finishTurn();
       // Settling over, on EVERY exit — restore the CALLER's hold (regen keeps
       // it raised across its swipe-merge); a latched flag would wedge input.
