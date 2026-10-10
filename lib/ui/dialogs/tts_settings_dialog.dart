@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
+import 'package:front_porch_ai/ui/dialogs/piper_voice_label.dart';
 import 'package:front_porch_ai/ui/dialogs/voice_browser_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -45,6 +46,7 @@ class TtsSettingsDialog extends StatefulWidget {
 
 class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
   List<String> _installedPiperVoices = [];
+  List<PiperVoice> _piperCatalog = const [];
   final _apiKeyController = TextEditingController();
   final _baseUrlController = TextEditingController();
   final _modelController = TextEditingController();
@@ -82,7 +84,15 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
   Future<void> _loadInstalledVoices() async {
     final vm = Provider.of<VoiceManager>(context, listen: false);
     final voices = await vm.listInstalledVoices();
-    if (mounted) setState(() => _installedPiperVoices = voices);
+    // Names for the Default Voice list, read only when there is one to name.
+    final catalog = voices.isEmpty
+        ? const <PiperVoice>[]
+        : await vm.catalogForLabels();
+    if (!mounted) return;
+    setState(() {
+      _installedPiperVoices = voices;
+      _piperCatalog = catalog;
+    });
   }
 
   @override

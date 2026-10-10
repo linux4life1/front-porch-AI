@@ -72,7 +72,10 @@ extension _TtsPiperSection on _TtsSettingsDialogState {
                   .map(
                     (v) => DropdownMenuItem(
                       value: v,
-                      child: Text(v, overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        piperVoiceLabel(v, _piperCatalog),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   )
                   .toList(),
