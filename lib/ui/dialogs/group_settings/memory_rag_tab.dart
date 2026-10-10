@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/memory_rag_model_note.dart';
 
 class GroupMemoryRAGTab extends StatefulWidget {
   final ChatService chatService;
@@ -180,6 +181,7 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                       ),
                     ],
                   ),
+                  if (_groupRagEnabled) const GroupRagModelNote(),
                   if (!_groupRagEnabled)
                     Padding(
                       padding: EdgeInsets.only(left: 26, top: 2, bottom: 8),
@@ -275,7 +277,9 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
 
                   const SizedBox(height: 4),
                   Text(
-                    'Note: Global embedding window size (messages per chunk) lives in main Settings → Memory (RAG). Per-group override would be a future extension.',
+                    'How much of a moment each memory keeps is set in a '
+                    'one-on-one chat\'s sidebar, under Memory (RAG), and '
+                    'applies to every chat.',
                     style: TextStyle(
                       fontSize: 10,
                       color: AppColors.textTertiary(context),
