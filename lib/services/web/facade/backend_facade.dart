@@ -262,6 +262,11 @@ class BackendFacade {
     if (c == null) return [];
     final svc = OpenRouterService(apiUrl: c.url, apiKey: c.key);
     final models = await svc.fetchAvailableModels();
+    // The saved host answered with a list: its status dot says connected,
+    // as the desktop's Refresh Models does.
+    if (models.isNotEmpty) {
+      _llm.openRouterService.noteReachable(apiUrl: c.url, apiKey: c.key);
+    }
     return models
         .map(
           (m) => {

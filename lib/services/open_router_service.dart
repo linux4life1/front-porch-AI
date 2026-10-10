@@ -146,10 +146,10 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
     return changed;
   }
 
-  /// Live `GET /models` against the configured endpoint. Stamps
+  /// Live `GET /models` against the live host, model chosen or not. Stamps
   /// [reachability] (and therefore [isReady] / [isReachable]).
   Future<void> refreshReachability() =>
-      _health.ping(apiUrl: _apiUrl, apiKey: _apiKey, configured: isConfigured);
+      _health.ping(apiUrl: _apiUrl, apiKey: _apiKey);
 
   /// [apiUrl] answered with [apiKey] (a model list, the phone's Check
   /// Connection). When that is the live endpoint, its status shows it.

@@ -140,13 +140,13 @@ class RemoteApiHealth {
     onChanged?.call();
   }
 
-  /// Live `GET /models`. Stamps [reachability] from the response.
-  Future<void> ping({
-    required String apiUrl,
-    required String apiKey,
-    required bool configured,
-  }) async {
-    if (!configured) {
+  /// Live `GET /models`. Stamps [reachability] from the response. A host
+  /// with no model chosen is still probed, so a later ping keeps (or
+  /// corrects) what Check Connection found; only with nothing to ask (no
+  /// host, or a cloud host with no key) is the state unknown.
+  Future<void> ping({required String apiUrl, required String apiKey}) async {
+    if (apiUrl.isEmpty || (apiKey.isEmpty && !isLocalRemoteUrl(apiUrl))) {
+      ++_pingGen;
       _set(RemoteReachability.unknown);
       return;
     }

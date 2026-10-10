@@ -64,6 +64,22 @@ Future<void> _pumpSidebar(
 }
 
 void _expectEveryLabelWhole(WidgetTester tester) {
+  // The width is measured from Sidebar.labels: a row added to the menu but
+  // not to that list would not be measured, so the two must match.
+  final rendered = tester
+      .widgetList<Text>(
+        find.descendant(
+          of: find.descendant(
+            of: find.byType(Sidebar),
+            matching: find.byType(SingleChildScrollView),
+          ),
+          matching: find.byType(Text),
+        ),
+      )
+      .map((t) => t.data)
+      .toList();
+  expect(rendered, Sidebar.labels, reason: 'nav rows and Sidebar.labels');
+
   for (final label in Sidebar.labels) {
     final text = find.descendant(
       of: find.byType(Sidebar),

@@ -124,6 +124,46 @@ void main() {
     expect(_label(live), 'Connected — pick a model');
   });
 
+  test('a later ping keeps a host with no model connected', () async {
+    final svc = OpenRouterService(apiUrl: apiUrl, apiKey: '', modelName: '');
+    await svc.testConnection();
+    expect(_label(svc), 'Connected — pick a model');
+
+    // What the app's own refresh runs (LLMProvider._maybePingRemote).
+    await svc.refreshReachability();
+    expect(_label(svc), 'Connected — pick a model');
+
+    // Ping alone finds it too, and a dead host is not "connected".
+    final fresh = OpenRouterService(apiUrl: apiUrl, apiKey: '', modelName: '');
+    await fresh.refreshReachability();
+    expect(_label(fresh), 'Connected — pick a model');
+    await server.close(force: true);
+    await fresh.refreshReachability();
+    expect(fresh.reachability, RemoteReachability.unreachable);
+    expect(_label(fresh), 'Not configured');
+  });
+
+  test(
+    'the phone\'s Refresh Models marks the saved server connected',
+    () async {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('plugins.flutter.io/path_provider'),
+            (call) async => Directory.systemTemp.createTempSync('fpai_').path,
+          );
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      await storage.backendSettings.setRemoteApiUrl(apiUrl);
+
+      final live = OpenRouterService(apiUrl: apiUrl, apiKey: '', modelName: '');
+      final facade = BackendFacade(_Llm(live), storage, FakeModelManager());
+      final models = await facade.remoteModels();
+      expect(models.map((m) => m['id']), [_model]);
+      expect(_label(live), 'Connected — pick a model');
+    },
+  );
+
   testWidgets('the dot is not red once the server answered', (tester) async {
     final svc = OpenRouterService(apiUrl: apiUrl, apiKey: '', modelName: '');
     await tester.runAsync(() => svc.testConnection());
