@@ -228,6 +228,14 @@ class LLMProvider extends ChangeNotifier {
   bool get modelIsLocal =>
       backendLaneIsLocal(_activeBackend.name, _openRouterService.apiUrl);
 
+  /// [modelIsLocal] for the helper model, by the rule the helper pairing
+  /// uses. It answers only while [workerService] is on.
+  bool get workerModelIsLocal {
+    final type = _storageService.workerBackendType;
+    final url = _storageService.workerRemoteApiUrl;
+    return backendLaneIsLocal(type, resolvedLaneApiUrl(type, url));
+  }
+
   /// Whether the active backend manages a local subprocess.
   bool get hasManagedProcess => _activeBackend == BackendType.kobold;
 
