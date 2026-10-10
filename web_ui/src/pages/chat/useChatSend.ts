@@ -11,6 +11,12 @@ import { joinMessageEdit } from '../../components/messageEdit';
 import { postChatSend } from '../chatSend';
 import { describeActionFailure } from './chatActionError';
 
+/** A transcript change waiting on the user's yes (see ChatOverlays). */
+export interface PendingConfirm {
+  kind: 'delete' | 'fork';
+  index: number;
+}
+
 export function useChatSend(refresh: () => Promise<void>) {
   // A send that never reached the desktop: the exact text the user typed (the
   // composer already threw its copy away) plus a plain-English reason.
@@ -91,21 +97,25 @@ export function useChatSend(refresh: () => Promise<void>) {
       failed('continue that reply', e);
     }
   }, [refresh, failed]);
-  const fork = useCallback(async (index: number) => {
-    if (
-      !window.confirm(
-        `Create a new branch from message #${index + 1}?\n\nThe current chat will remain unchanged. A new conversation will be created with messages up to this point.`,
-      )
-    ) {
-      return;
-    }
+  // Delete and Fork ask first, in the page's warm confirm (the desktop's
+  // warm dialog), not the browser's stock window.confirm. Nothing posts until
+  // the user agrees; the page renders `pendingConfirm`.
+  const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm | null>(null);
+  const fork = useCallback((index: number) => setPendingConfirm({ kind: 'fork', index }), []);
+  const del = useCallback((index: number) => setPendingConfirm({ kind: 'delete', index }), []);
+  const cancelPending = useCallback(() => setPendingConfirm(null), []);
+  const confirmPending = useCallback(async () => {
+    const asked = pendingConfirm;
+    setPendingConfirm(null);
+    if (!asked) return;
+    const { kind, index } = asked;
     try {
-      await api.post('/api/chat/fork', { index });
+      await api.post(kind === 'delete' ? '/api/chat/delete' : '/api/chat/fork', { index });
       await refresh();
     } catch (e) {
-      failed('branch the chat from there', e);
+      failed(kind === 'delete' ? 'delete that message' : 'branch the chat from there', e);
     }
-  }, [refresh, failed]);
+  }, [pendingConfirm, refresh, failed]);
   const swipe = useCallback(async (
     messageIndex: number,
     direction: number,
@@ -121,21 +131,6 @@ export function useChatSend(refresh: () => Promise<void>) {
       await refresh();
     } catch (e) {
       failed('swipe that reply', e);
-    }
-  }, [refresh, failed]);
-  const del = useCallback(async (index: number) => {
-    if (
-      !window.confirm(
-        "This can't be undone. Are you sure you want to delete this message?",
-      )
-    ) {
-      return;
-    }
-    try {
-      await api.post('/api/chat/delete', { index });
-      await refresh();
-    } catch (e) {
-      failed('delete that message', e);
     }
   }, [refresh, failed]);
   // `text` arrives think-stripped; rejoin the reasoning so the editor shows
@@ -221,6 +216,9 @@ export function useChatSend(refresh: () => Promise<void>) {
     fork,
     swipe,
     del,
+    pendingConfirm,
+    confirmPending,
+    cancelPending,
     beginEdit,
     saveEdit,
     saveAuthorNote,

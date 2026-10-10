@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../widgets/inline_chat_image.dart';
 import '../widgets/regen_critique_field.dart';

@@ -43,15 +43,15 @@ extension _BubbleDialogs on _MessageBubbleState {
           decoration: BoxDecoration(
             color: AppColors.resolve(
               context,
-              const Color(0xFFFFD166).withValues(alpha: 0.12),
-              const Color(0xFFF59E0B).withValues(alpha: 0.18),
+              AppColors.chaosAccent.withValues(alpha: 0.12),
+              AppColors.porchAmber.withValues(alpha: 0.18),
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
               color: AppColors.resolve(
                 context,
-                const Color(0xFFFFD166).withValues(alpha: 0.35),
-                const Color(0xFFF59E0B).withValues(alpha: 0.4),
+                AppColors.chaosAccent.withValues(alpha: 0.35),
+                AppColors.porchAmber.withValues(alpha: 0.4),
               ),
             ),
           ),
@@ -72,8 +72,8 @@ extension _BubbleDialogs on _MessageBubbleState {
                         fontWeight: FontWeight.w600,
                         color: AppColors.resolve(
                           context,
-                          const Color(0xFFFFD166),
-                          const Color(0xFFB45309),
+                          AppColors.chaosAccent,
+                          AppColors.porchAmberLight,
                         ),
                         fontStyle: FontStyle.italic,
                       ),
@@ -90,82 +90,61 @@ extension _BubbleDialogs on _MessageBubbleState {
 
   void _showDeleteConfirmation(BuildContext context, int index) {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: const Text('Delete Message'),
-        content: const Text(
-          'This can\'t be undone. Are you sure you want to delete this message?',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary(context)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              chatService.deleteMessage(index);
-              Navigator.of(context).pop();
-            },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          ),
-        ],
+    showWarmDialog<void>(
+      context,
+      title: 'Delete Message',
+      icon: Icons.warning_amber_rounded,
+      destructive: true,
+      content: const WarmDialogText(
+        'This can\'t be undone. Are you sure you want to delete this message?',
       ),
+      actions: [
+        warmDialogCancel(context),
+        warmDialogConfirm(
+          context,
+          label: 'Delete',
+          destructive: true,
+          // Pop before deleting: `context` is this bubble's, and the delete
+          // can rebuild the list out from under it.
+          onPressed: () {
+            Navigator.of(context).pop();
+            chatService.deleteMessage(index);
+          },
+        ),
+      ],
     );
   }
 
   void _showForkConfirmation(BuildContext context, int index) {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(context),
-        title: Row(
-          children: const [
-            Icon(Icons.call_split, color: AppColors.formMasterAccent, size: 22),
-            SizedBox(width: 8),
-            Text('Fork Conversation'),
-          ],
-        ),
-        content: Text(
-          'Create a new branch from message #${index + 1}?\n\nThe current chat will remain unchanged. A new conversation will be created with messages up to this point.',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textSecondary(context)),
-            ),
-          ),
-          ElevatedButton.icon(
-            onPressed: () {
-              Navigator.of(context).pop();
-              chatService.forkFromMessage(index);
-              if (mounted) {
-                ScaffoldMessenger.of(this.context).showSnackBar(
-                  const SnackBar(
-                    content: Text(
-                      'Conversation forked! You are now on the new branch.',
-                    ),
-                  ),
-                );
-              }
-            },
-            icon: Icon(Icons.call_split, size: 18),
-            label: const Text('Fork'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
-            ),
-          ),
-        ],
+    showWarmDialog<void>(
+      context,
+      title: 'Fork Conversation',
+      icon: Icons.call_split,
+      accent: AppColors.porchAmberOf(context),
+      content: WarmDialogText(
+        'Create a new branch from message #${index + 1}?\n\nThe current chat will remain unchanged. A new conversation will be created with messages up to this point.',
       ),
+      actions: [
+        warmDialogCancel(context),
+        warmDialogConfirm(
+          context,
+          label: 'Fork',
+          onPressed: () {
+            Navigator.of(context).pop();
+            chatService.forkFromMessage(index);
+            if (mounted) {
+              ScaffoldMessenger.of(this.context).showSnackBar(
+                const SnackBar(
+                  content: Text(
+                    'Conversation forked! You are now on the new branch.',
+                  ),
+                ),
+              );
+            }
+          },
+        ),
+      ],
     );
   }
 

@@ -177,11 +177,13 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect.poll(async () => (await bubble.innerText()).length).toBeGreaterThan(before);
   });
 
-  test('delete the last reply after confirming', async ({ page, acceptConfirms }) => {
+  test('delete the last reply after confirming', async ({ page }) => {
     await openPorchChat(page);
     const n = await rows(page).count();
-    acceptConfirms(true);
     await action(lastRow(page), 'Delete').click();
+    // The page's warm confirm (no longer the browser's window.confirm).
+    const confirm = page.locator('.drawer-backdrop .modal').filter({ hasText: 'Delete Message' });
+    await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
     await expect(rows(page)).toHaveCount(n - 1);
   });
 
