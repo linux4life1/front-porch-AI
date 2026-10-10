@@ -168,7 +168,7 @@ class _GenerationTabState extends State<GenerationTab> {
             children: [
               Text(
                 'Dynamic Temperature',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(color: AppColors.textPrimary(context)),
               ),
               const Spacer(),
               Switch(
@@ -257,7 +257,7 @@ class _GenerationTabState extends State<GenerationTab> {
             children: [
               Text(
                 'Native tool calling',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(color: AppColors.textPrimary(context)),
               ),
               const Spacer(),
               Switch(
@@ -289,7 +289,7 @@ class _GenerationTabState extends State<GenerationTab> {
             children: [
               Text(
                 'Smooth Output Buffer',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(color: AppColors.textPrimary(context)),
               ),
               const Spacer(),
               Switch(
@@ -360,7 +360,7 @@ class _GenerationTabState extends State<GenerationTab> {
             children: [
               Text(
                 'Enable Output Sanitizer',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(color: AppColors.textPrimary(context)),
               ),
               const Spacer(),
               Switch(
@@ -381,9 +381,7 @@ class _GenerationTabState extends State<GenerationTab> {
                     children: [
                       Text(
                         'Sanitise Existing History',
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                        ),
+                        style: TextStyle(color: AppColors.textPrimary(context)),
                       ),
                       Text(
                         'When enabled, opening a chat will permanently '
