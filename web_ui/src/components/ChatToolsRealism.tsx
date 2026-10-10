@@ -128,7 +128,7 @@ export function ChatToolsNsfw({ t, toggle }: { t: ToolsState; toggle: ToolsToggl
     <details className="tool-section">
       <summary>NSFW</summary>
       <div className="tool-body">
-        <div className="stat-line"><span>Arousal</span><span className="muted">{t.nsfw.arousalTier} · {t.nsfw.arousalLevel}</span></div>
+        <div className="stat-line"><span>Lust</span><span className="muted">{t.nsfw.arousalTier} · {t.nsfw.arousalLevel}</span></div>
         <Toggle label={t.group ? 'NSFW Enhancements (all members)' : 'NSFW Enhancements'} value={t.nsfw.cooldownEnabled} onChange={(v) => toggle('nsfwCooldown', v)} />
         {t.nsfw.cooldownEnabled && t.nsfw.refractoryMinutesRemaining > 0 && (
           <div className="stat-line"><span className="muted">{t.nsfw.refractoryLabel}</span></div>
