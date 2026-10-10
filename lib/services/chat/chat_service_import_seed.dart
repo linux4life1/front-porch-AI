@@ -82,9 +82,7 @@ extension ChatServiceImportSeed on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         false,
       );
-      _needsSimEnabled =
-          extSeed.needsSimEnabled &&
-          _storageService.realismSettings.needsSimDefault;
+      _needsSimEnabled = _seedNeedsSim(extSeed.needsSimChoice);
       _objectivesEnabled = _storageService.realismSettings.objectivesEnabled;
       _enjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {

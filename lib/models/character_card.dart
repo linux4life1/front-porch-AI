@@ -57,7 +57,19 @@ class FrontPorchExtensions {
   bool nsfwCooldownEnabled;
   bool passageOfTimeEnabled; // sub-toggle for automatic time advancement
   bool chaosModeEnabled;
-  bool needsSimEnabled; // per-character default for the needs simulation toggle
+
+  /// The card's own Needs choice; null when the card says nothing (no
+  /// `needs_sim_enabled` key, e.g. an imported Chub or SillyTavern card).
+  /// A silent card lets the Porch Life Needs switch decide when a chat
+  /// starts (maintainer ruling 2026-10-10); an explicit false still wins.
+  /// Kept null through copyWith and toJson so a re-save never invents a
+  /// false the card did not have.
+  bool? needsSimChoice;
+
+  /// The choice as a plain switch: false when the card says nothing.
+  bool get needsSimEnabled => needsSimChoice ?? false;
+  set needsSimEnabled(bool value) => needsSimChoice = value;
+
   /// Per-character Pockets & Wardrobe. AND-gated with the Porch Life global
   /// (`realismSettings.pocketsEnabled`). Missing / null JSON treats as **on**
   /// so old cards keep running when the global is on. Explicit false disables
@@ -211,7 +223,7 @@ class FrontPorchExtensions {
     this.nsfwCooldownEnabled = false,
     this.passageOfTimeEnabled = true, // defaults to on when realism is enabled
     this.chaosModeEnabled = false,
-    this.needsSimEnabled = false,
+    bool? needsSimEnabled,
     this.pocketsEnabled = true,
     this.enjoysLowHygiene = false,
     // Never mutated in place — always replaced wholesale (copyWith/editor),
@@ -267,7 +279,8 @@ class FrontPorchExtensions {
     this.stableId,
     this.tier,
     this.favoriteAvatarId,
-  }) : needsOff = List<String>.from(needsOff ?? const []);
+  }) : needsSimChoice = needsSimEnabled,
+       needsOff = List<String>.from(needsOff ?? const []);
 
   factory FrontPorchExtensions.fromJson(
     Map<String, dynamic> json, {
@@ -297,7 +310,7 @@ class FrontPorchExtensions {
       nsfwCooldownEnabled: realism['nsfw_cooldown_enabled'] as bool? ?? false,
       passageOfTimeEnabled: realism['passage_of_time_enabled'] as bool? ?? true,
       chaosModeEnabled: realism['chaos_mode_enabled'] as bool? ?? false,
-      needsSimEnabled: realism['needs_sim_enabled'] as bool? ?? false,
+      needsSimEnabled: realism['needs_sim_enabled'] as bool?,
       pocketsEnabled: realism['pockets_enabled'] as bool? ?? true,
       enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
       ambitions: _phrases(realism['ambitions']),

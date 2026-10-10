@@ -174,10 +174,8 @@ extension ChatServiceSessionManage on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         false,
       );
-      // AND-gated by the global Needs switch (see chat_entry twin).
-      _needsSimEnabled =
-          extSeed.needsSimEnabled &&
-          _storageService.realismSettings.needsSimDefault;
+      // A silent card follows the Porch Life Needs switch (chat_entry twin).
+      _needsSimEnabled = _seedNeedsSim(extSeed.needsSimChoice);
       _enjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         // Fresh chat / new session: seed from card baselines (falls back to
@@ -294,11 +292,14 @@ extension ChatServiceSessionManage on ChatService {
           // session row, and every reload read it back — blank needs grids and
           // no decay for the rest of that conversation, while first entry into
           // the same group worked. The 1:1 branch re-seeds from the card for
-          // the same reason.
-          _needsSimEnabled = _groupRealism.values.any((state) {
-            final n = state.needs;
-            return n != null && n.isNotEmpty;
-          });
+          // the same reason. AND-gated by the Porch Life Needs switch, as
+          // group entry and the group import are.
+          _needsSimEnabled =
+              _storageService.realismSettings.needsSimDefault &&
+              _groupRealism.values.any((state) {
+                final n = state.needs;
+                return n != null && n.isNotEmpty;
+              });
           if (_needsSimEnabled) {
             // Placeholder vector only — the first per-speaker
             // _loadGroupRealismIntoScalars replaces it with that member's own

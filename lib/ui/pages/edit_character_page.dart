@@ -270,7 +270,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _realismNsfwCooldown = ext.nsfwCooldownEnabled;
       _realismPassageOfTime = ext.passageOfTimeEnabled;
       _realismChaosMode = ext.chaosModeEnabled;
-      _realismNeedsSim = ext.needsSimEnabled;
+      _realismNeedsSim = ext.needsSimChoice ?? _porchLifeNeedsDefault();
       _realismPocketsEnabled = ext.pocketsEnabled;
       _realismEnjoysLowHygiene = ext.enjoysLowHygiene;
       _realismCurrentTask = ext.currentTask;
@@ -288,6 +288,8 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       _needsBaselineFun = ext.needsBaselineFun;
       _needsBaselineHygiene = ext.needsBaselineHygiene;
       _needsBaselineComfort = ext.needsBaselineComfort;
+    } else {
+      _realismNeedsSim = _porchLifeNeedsDefault();
     }
     _ambitions = List<String>.from(
       widget.character.frontPorchExtensions?.ambitions ?? const [],
@@ -341,6 +343,21 @@ class _EditCharacterPageState extends State<EditCharacterPage>
       c.addListener(_updateTokenCount);
     }
     _updateTokenCount();
+  }
+
+  /// A card that says nothing about Needs starts its chats with the Porch
+  /// Life Needs switch, so the editor's switch shows that, and Save writes
+  /// it. Without the StorageService above (widget goldens) the switch's own
+  /// default, on, is the answer.
+  bool _porchLifeNeedsDefault() {
+    try {
+      return Provider.of<StorageService>(
+        context,
+        listen: false,
+      ).realismSettings.needsSimDefault;
+    } on ProviderNotFoundException {
+      return true;
+    }
   }
 
   @override

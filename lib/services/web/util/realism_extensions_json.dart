@@ -215,7 +215,11 @@ FrontPorchExtensions frontPorchFromFields(
     ),
 
     // Needs Simulation.
-    needsSimEnabled: asBool('needsSimEnabled', b.needsSimEnabled),
+    // Absent keeps the base's choice, silence included, so a partial edit
+    // never stamps a false the card did not have.
+    needsSimEnabled: fields['needsSimEnabled'] is bool
+        ? fields['needsSimEnabled'] as bool
+        : b.needsSimChoice,
     pocketsEnabled: asBool('pocketsEnabled', b.pocketsEnabled),
     enjoysLowHygiene: asBool('enjoysLowHygiene', b.enjoysLowHygiene),
     needsPace: (fields['needsPace'] as String?) ?? b.needsPace,
@@ -232,7 +236,13 @@ FrontPorchExtensions frontPorchFromFields(
 
 /// Flatten a [FrontPorchExtensions] to the web JSON shape consumed by the
 /// React Realism/Needs form sections (the inverse of [frontPorchFromFields]).
-Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
+///
+/// A card that says nothing about Needs shows [needsSimWhenSilent]: the
+/// Porch Life Needs switch, which is what its chats start with.
+Map<String, dynamic> frontPorchToJson(
+  FrontPorchExtensions e, {
+  bool needsSimWhenSilent = false,
+}) => {
   'realismEnabled': e.realismEnabled,
   'shortTermBond': e.shortTermBond,
   'longTermBond': e.longTermBond,
@@ -261,7 +271,7 @@ Map<String, dynamic> frontPorchToJson(FrontPorchExtensions e) => {
   'realismVerificationMaxReprocesses': e.realismVerificationMaxReprocesses,
   'realismVerificationStrictness': e.realismVerificationStrictness,
   'realismNeedsDirectorAuthority': e.realismNeedsDirectorAuthority,
-  'needsSimEnabled': e.needsSimEnabled,
+  'needsSimEnabled': e.needsSimChoice ?? needsSimWhenSilent,
   'pocketsEnabled': e.pocketsEnabled,
   'enjoysLowHygiene': e.enjoysLowHygiene,
   'needsPace': e.needsPace,
