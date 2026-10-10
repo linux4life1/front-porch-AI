@@ -100,8 +100,9 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                   color: AppColors.taskAccentOf(context).withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(6),
                   border: Border.all(
-                    color: AppColors.taskAccentOf(context)
-                        .withValues(alpha: 0.3),
+                    color: AppColors.taskAccentOf(
+                      context,
+                    ).withValues(alpha: 0.3),
                   ),
                 ),
                 child: Row(
@@ -166,7 +167,7 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                     height: 24,
                     child: Switch(
                       value: chatService.objectiveNsfwTasks,
-                      activeThumbColor: AppColors.lustAccentOf(context),
+                      activeTrackColor: AppColors.porchAmberOf(context),
                       onChanged: (v) =>
                           setState(() => chatService.objectiveNsfwTasks = v),
                     ),
@@ -333,8 +334,9 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                             enabledThumbRadius: 5,
                           ),
                           activeTrackColor: AppColors.textTertiary(context),
-                          inactiveTrackColor: AppColors.borderOf(context)
-                              .withValues(alpha: 0.2),
+                          inactiveTrackColor: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.2),
                           thumbColor: AppColors.textSecondary(context),
                           overlayShape: SliderComponentShape.noOverlay,
                         ),
