@@ -108,7 +108,6 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
                         -300,
                         300,
                         char.name,
-                        groupCharAccentColor(index),
                         (v) => _updateEditShortTermBond(char, v.round()),
                       ),
                       _sliderRow(
@@ -117,7 +116,6 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
                         -300,
                         300,
                         char.name,
-                        groupCharAccentColor(index),
                         (v) => _updateEditLongTermBond(char, v.round()),
                       ),
                       _sliderRow(
@@ -126,7 +124,6 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
                         -100,
                         100,
                         char.name,
-                        groupCharAccentColor(index),
                         (v) => _updateEditTrustLevel(char, v.round()),
                       ),
                     ],
@@ -376,9 +373,12 @@ extension _GroupRealismNeedsMemberCard on _GroupRealismNeedsTabState {
               minimumSize: const Size(0, 32),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            child: const Text(
+            child: Text(
               'Reset',
-              style: TextStyle(fontSize: 12, color: Colors.tealAccent),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.porchAmberOf(context),
+              ),
             ),
           ),
         ],

@@ -10,7 +10,6 @@ extension _GroupRealismNeedsToggles on _GroupRealismNeedsTabState {
     int min,
     int max,
     String tierName,
-    Color color,
     ValueChanged<int> onChanged,
   ) {
     return Padding(
@@ -49,7 +48,10 @@ extension _GroupRealismNeedsToggles on _GroupRealismNeedsTabState {
             width: 40,
             child: Text(
               value.toString(),
-              style: TextStyle(fontSize: 10, color: color),
+              style: TextStyle(
+                fontSize: 10,
+                color: AppColors.textPrimary(context),
+              ),
               textAlign: TextAlign.right,
             ),
           ),

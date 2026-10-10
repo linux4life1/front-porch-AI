@@ -18,11 +18,7 @@ extension _GroupRealismNeedsControls on _GroupRealismNeedsTabState {
           Icon(
             Icons.schedule,
             size: 18,
-            color: AppColors.resolve(
-              context,
-              Colors.lightBlueAccent,
-              Colors.lightBlueAccent,
-            ),
+            color: AppColors.porchAmberOf(context),
           ),
           const SizedBox(width: 8),
           const Expanded(

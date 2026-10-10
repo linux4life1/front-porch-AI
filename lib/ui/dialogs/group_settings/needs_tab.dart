@@ -249,7 +249,11 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             // Header
             Row(
               children: [
-                Icon(Icons.battery_std, color: Colors.tealAccent, size: 20),
+                Icon(
+                  Icons.battery_std,
+                  color: AppColors.porchAmberOf(context),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -319,10 +323,10 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.battery_std,
                         size: 18,
-                        color: Colors.tealAccent,
+                        color: AppColors.porchAmberOf(context),
                       ),
                       const SizedBox(width: 8),
                       const Expanded(
@@ -359,10 +363,10 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
             // Per-character starting values, Pace, and per-need on/off
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.people_alt,
                   size: 18,
-                  color: Colors.tealAccent,
+                  color: AppColors.porchAmberOf(context),
                 ),
                 const SizedBox(width: 8),
                 const Expanded(
@@ -383,7 +387,10 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                   ),
                   child: Text(
                     'Reset ALL',
-                    style: TextStyle(fontSize: 11, color: Colors.tealAccent),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.porchAmberOf(context),
+                    ),
                   ),
                 ),
               ],

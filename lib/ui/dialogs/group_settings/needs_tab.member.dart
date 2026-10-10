@@ -64,9 +64,12 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
                   minimumSize: const Size(0, 32),
                   tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
-                child: const Text(
+                child: Text(
                   'Reset',
-                  style: TextStyle(fontSize: 12, color: Colors.tealAccent),
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.porchAmberOf(context),
+                  ),
                 ),
               ),
             ],
@@ -162,7 +165,7 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
               Icon(
                 Icons.water_drop_outlined,
                 size: 14,
-                color: Colors.tealAccent,
+                color: AppColors.porchAmberOf(context),
               ),
               const SizedBox(width: 6),
               Expanded(
@@ -242,9 +245,9 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
         const SizedBox(height: 2),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: Colors.tealAccent,
+            activeTrackColor: AppColors.porchAmberOf(context),
             inactiveTrackColor: AppColors.borderOf(context),
-            thumbColor: Colors.tealAccent,
+            thumbColor: AppColors.porchAmberOf(context),
             trackHeight: 2,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 5),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 10),

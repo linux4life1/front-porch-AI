@@ -28,9 +28,9 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
             // Header
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.theater_comedy,
-                  color: Colors.tealAccent,
+                  color: AppColors.porchAmberOf(context),
                   size: 20,
                 ),
                 const SizedBox(width: 8),
@@ -116,10 +116,10 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.auto_awesome,
                         size: 18,
-                        color: Colors.tealAccent,
+                        color: AppColors.porchAmberOf(context),
                       ),
                       const SizedBox(width: 8),
                       const Expanded(
@@ -245,10 +245,10 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
             // Per-character baselines / reset section
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.people_alt,
                   size: 18,
-                  color: Colors.tealAccent,
+                  color: AppColors.porchAmberOf(context),
                 ),
                 const SizedBox(width: 8),
                 const Expanded(
@@ -269,7 +269,10 @@ extension _GroupRealismNeedsView on _GroupRealismNeedsTabState {
                   ),
                   child: Text(
                     'Reset ALL',
-                    style: TextStyle(fontSize: 11, color: Colors.tealAccent),
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.porchAmberOf(context),
+                    ),
                   ),
                 ),
               ],
