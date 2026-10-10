@@ -71,6 +71,7 @@ export 'needs_bar.dart';
 export 'needs_clock_off_note.dart';
 export 'fixation_chip.dart';
 export 'group_avatar_montage.dart';
+export 'real_portrait.dart';
 export 'group_member_card.dart';
 export 'group_member_chips.dart';
 export 'banned_phrases_editor.dart';
