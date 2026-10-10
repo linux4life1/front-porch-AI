@@ -24,6 +24,9 @@
    to BOTH bubbles (desktop colors user + AI alike); the user can recolor the user
    bubble / text in Settings → Chat colors so the highlight stays legible. */
 .bubble .dlg { color: var(--dialogue); }
+/* Inside your own bubble the default tint is re-tinted to read on that
+   bubble's colour (chatColors.ts userBubbleDialogueColor). */
+.bubble.user .dlg { color: var(--chat-user-dialogue, var(--dialogue)); }
 .bubble .act { color: var(--action); font-style: italic; }
 .bubble .act.bold { font-weight: 700; font-style: normal; }
 .chat-composer-wrap { width: 100%; }
