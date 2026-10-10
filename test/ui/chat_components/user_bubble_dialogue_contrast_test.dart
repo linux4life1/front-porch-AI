@@ -22,8 +22,6 @@
 // real StorageService; the quote's span colour is read off the rendered
 // text and measured against the bubble colour the settings resolve to.
 
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -32,7 +30,6 @@ import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
@@ -65,17 +62,20 @@ Future<StorageService> _pump(
   required bool isUser,
   Color? dialogue,
 }) async {
-  SharedPreferences.setMockInitialValues({});
-  final storage = StorageService();
+  // Fully initialised first: a load still in flight would reset the colours
+  // below to stock and the test would measure against the wrong bubble.
+  final storage = (await tester.runAsync(makeGoldenStorage))!;
   addTearDown(storage.dispose);
   // Light mode with the user's own green bubble and dark text (Chat
   // Appearance), the dialogue tint left at its default unless [dialogue].
-  unawaited(storage.uiSettings.setIsDark(false));
-  unawaited(storage.uiSettings.setGlobalUserBubbleColor(_emerald));
-  unawaited(storage.uiSettings.setGlobalUserTextColor(_darkInk));
-  if (dialogue != null) {
-    unawaited(storage.uiSettings.setGlobalDialogueColor(dialogue));
-  }
+  await tester.runAsync(() async {
+    await storage.uiSettings.setIsDark(false);
+    await storage.uiSettings.setGlobalUserBubbleColor(_emerald);
+    await storage.uiSettings.setGlobalUserTextColor(_darkInk);
+    if (dialogue != null) {
+      await storage.uiSettings.setGlobalDialogueColor(dialogue);
+    }
+  });
   final msg = ChatMessage(
     text: 'I sit down. $_quote I say, smiling.',
     sender: isUser ? 'User' : 'Carmen',
