@@ -33,6 +33,7 @@ import 'package:front_porch_ai/ui/widgets/realism_progress_row.dart';
 import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 import 'package:front_porch_ai/ui/widgets/fixation_chip.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_chips.dart';
+import 'package:front_porch_ai/ui/widgets/real_portrait.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -315,17 +316,21 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                         child: CircleAvatar(
                           radius: widget.isExpanded ? 18 : 16,
                           backgroundColor: widget.avatarColor,
-                          child: !_hasAvatarFile
-                              ? _avatarLetter()
-                              : ClipOval(
-                                  child: Image.file(
-                                    widget.avatarFile!,
-                                    width: widget.isExpanded ? 36 : 32,
-                                    height: widget.isExpanded ? 36 : 32,
-                                    fit: BoxFit.cover,
-                                    errorBuilder: (_, _, _) => _avatarLetter(),
-                                  ),
-                                ),
+                          // No portrait, or only the flat placeholder a
+                          // character made without one carries: the letter.
+                          child: RealPortrait(
+                            file: _hasAvatarFile ? widget.avatarFile : null,
+                            portrait: (_, file) => ClipOval(
+                              child: Image.file(
+                                file,
+                                width: widget.isExpanded ? 36 : 32,
+                                height: widget.isExpanded ? 36 : 32,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) => _avatarLetter(),
+                              ),
+                            ),
+                            noPortrait: (_) => _avatarLetter(),
+                          ),
                         ),
                       ),
                       const SizedBox(width: 8),

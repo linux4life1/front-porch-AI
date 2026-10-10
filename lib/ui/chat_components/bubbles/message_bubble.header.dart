@@ -292,17 +292,21 @@ extension _BubbleHeader on _MessageBubbleState {
         if (!message.isUser)
           CircleAvatar(
             radius: 16,
-            child: characterImage == null
-                ? const Icon(Icons.person)
-                : ClipOval(
-                    child: Image.file(
-                      characterImage!,
-                      width: 32,
-                      height: 32,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => const Icon(Icons.person),
-                    ),
-                  ),
+            // No portrait, or only the flat placeholder a character made
+            // without one carries: the person icon.
+            child: RealPortrait(
+              file: characterImage,
+              portrait: (_, file) => ClipOval(
+                child: Image.file(
+                  file,
+                  width: 32,
+                  height: 32,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, _, _) => const Icon(Icons.person),
+                ),
+              ),
+              noPortrait: (_) => const Icon(Icons.person),
+            ),
           )
         else if (boundToChat)
           Consumer<UserPersonaService>(

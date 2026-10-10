@@ -19,9 +19,12 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
 
@@ -30,6 +33,13 @@ class _RootOnlyFolders extends FakeFolderService {
   @override
   CharacterFolder? getFolderForCharacter(String imagePath) => null;
 }
+
+/// [Image] widgets drawing [file].
+int _imagesShowing(WidgetTester tester, File file) => tester
+    .widgetList<Image>(find.byType(Image))
+    .where((i) => i.image is FileImage)
+    .where((i) => (i.image as FileImage).file.path == file.path)
+    .length;
 
 /// Circles drawing [file] as their picture.
 int _circlesShowing(WidgetTester tester, File file) => tester
@@ -76,6 +86,8 @@ Iterable<BoxDecoration> _pictureCells(WidgetTester tester) => tester
     .where((d) => d.image != null);
 
 void main() {
+  setupPathProviderMock();
+
   late Directory root;
   late File placeholder;
   late File real;
@@ -171,4 +183,106 @@ void main() {
     expect(_circlesShowing(tester, placeholder), 0);
     expect(find.byIcon(Icons.person), findsOneWidget);
   });
+
+  testWidgets('the chat sidebar portrait, cast strip and member card', (
+    tester,
+  ) async {
+    final chat = FakeChatService(realismEnabled: false);
+    addTearDown(chat.dispose);
+    Widget member(String name, File file) => GroupMemberCard(
+      character: CharacterCard(name: name),
+      chatService: chat,
+      avatarColor: AppColors.formMasterAccent,
+      isNextSpeaker: false,
+      isExpanded: false,
+      onTap: () {},
+      avatarFile: file,
+    );
+    Widget chip(String name, File file) => CastRosterChip(
+      name: name,
+      color: AppColors.formMasterAccent,
+      isFocused: false,
+      isLite: false,
+      imageFile: file,
+      onFocus: () {},
+    );
+    await tester.binding.setSurfaceSize(const Size(900, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      _host(
+        SingleChildScrollView(
+          child: Column(
+            children: [
+              for (final (name, file) in [
+                ('Juniper', placeholder),
+                ('Marlow', real),
+              ]) ...[
+                CharacterPortrait(file: file, size: 120),
+                chip(name, file),
+                SizedBox(width: 320, child: member(name, file)),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+    // Cold: no picture is drawn before the probe answers.
+    expect(_imagesShowing(tester, placeholder), 0);
+    expect(_imagesShowing(tester, real), 0);
+
+    await _letProbesFinish(tester);
+    expect(_imagesShowing(tester, real), 3);
+    expect(_imagesShowing(tester, placeholder), 0);
+    // Juniper: the sidebar's person tile, her initial on the chip and card.
+    expect(find.byIcon(Icons.person), findsOneWidget);
+    expect(find.text('J'), findsNWidgets(2));
+  });
+
+  testWidgets(
+    'a chat bubble shows the person icon beside the reply',
+    timeout: const Timeout(Duration(minutes: 1)),
+    (tester) async {
+      final storage = (await tester.runAsync(makeGoldenStorage))!;
+      addTearDown(storage.dispose);
+      final chat = FakeChatService();
+      addTearDown(chat.dispose);
+      final tts = FakeTtsService();
+      addTearDown(tts.dispose);
+      Widget bubble(String name, File file) => MessageBubble(
+        message: ChatMessage(text: 'Evening.', sender: name, isUser: false),
+        index: 0,
+        chatService: chat,
+        characterImage: file,
+      );
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: MultiProvider(
+              providers: [
+                ChangeNotifierProvider<StorageService>.value(value: storage),
+                ChangeNotifierProvider<TtsService>.value(value: tts),
+                ChangeNotifierProvider<ChatService>.value(value: chat),
+                ChangeNotifierProvider<UserPersonaService>.value(
+                  value: FakeUserPersonaService(),
+                ),
+              ],
+              child: ListView(
+                children: [
+                  bubble('Juniper', placeholder),
+                  bubble('Marlow', real),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      expect(_imagesShowing(tester, placeholder), 0);
+      expect(_imagesShowing(tester, real), 0);
+
+      await _letProbesFinish(tester);
+      expect(_imagesShowing(tester, real), 1);
+      expect(_imagesShowing(tester, placeholder), 0);
+      expect(find.byIcon(Icons.person), findsOneWidget);
+    },
+  );
 }

@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// One face in the desktop cast strip. Soft guests carry the amber GUEST
 /// mark and the **only** Promote control (member card / Lite NPC banner
@@ -47,6 +48,11 @@ class CastRosterChip extends StatelessWidget {
     this.onPromote,
   });
 
+  Widget _initial() => Text(
+    name.isNotEmpty ? name[0] : '?',
+    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+  );
+
   @override
   Widget build(BuildContext context) {
     return InkWell(
@@ -67,29 +73,21 @@ class CastRosterChip extends StatelessWidget {
               child: CircleAvatar(
                 radius: 16,
                 backgroundColor: color,
-                child: imageFile == null
-                    ? Text(
-                        name.isNotEmpty ? name[0] : '?',
-                        style: const TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      )
-                    : ClipOval(
-                        child: Image.file(
-                          imageFile!,
-                          width: 32,
-                          height: 32,
-                          fit: BoxFit.cover,
-                          errorBuilder: (_, _, _) => Text(
-                            name.isNotEmpty ? name[0] : '?',
-                            style: const TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ),
+                // No portrait, or only the flat placeholder a character
+                // made without one carries: the initial.
+                child: RealPortrait(
+                  file: imageFile,
+                  portrait: (_, file) => ClipOval(
+                    child: Image.file(
+                      file,
+                      width: 32,
+                      height: 32,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, _, _) => _initial(),
+                    ),
+                  ),
+                  noPortrait: (_) => _initial(),
+                ),
               ),
             ),
             const SizedBox(height: 2),
