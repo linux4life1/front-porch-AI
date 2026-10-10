@@ -161,13 +161,17 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         SnackBar(
           content: Text(
             creatorState.engineError ?? 'Failed to save character.',
-            style: TextStyle(color: AppColors.textPrimary(context)),
+            // Dark ink on dark mode's bright red, white on light mode's deep
+            // red: theme text ink was dark on dark red in light mode.
+            style: TextStyle(
+              color: AppColors.resolve(
+                context,
+                AppColors.onChaosAccent,
+                Colors.white,
+              ),
+            ),
           ),
-          backgroundColor: AppColors.resolve(
-            context,
-            Colors.red.shade800,
-            Colors.red.shade700,
-          ),
+          backgroundColor: AppColors.negativeAccentOf(context),
           behavior: SnackBarBehavior.floating,
         ),
       );
