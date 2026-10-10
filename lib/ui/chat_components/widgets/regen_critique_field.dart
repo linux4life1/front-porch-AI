@@ -180,10 +180,13 @@ class _RegenCritiqueDialogState extends State<_RegenCritiqueDialog> {
   Widget build(BuildContext context) {
     final tint = AppColors.porchAmberOf(context);
     final isMac = Theme.of(context).platform == TargetPlatform.macOS;
-    // Plain Enter stays a new line in the note; the chord regenerates.
+    // Plain Enter stays a new line in the note; the chord regenerates. The
+    // regenerate shortcut that opened the dialog, pressed again, does too.
     return CallbackShortcuts(
       bindings: {
         SingleActivator(LogicalKeyboardKey.enter, meta: isMac, control: !isMac):
+            _pop,
+        SingleActivator(LogicalKeyboardKey.keyR, meta: isMac, control: !isMac):
             _pop,
         SingleActivator(
           LogicalKeyboardKey.numpadEnter,
