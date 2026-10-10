@@ -21,7 +21,8 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
-import 'package:flex_color_picker/flex_color_picker.dart';
+import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'background_settings_dialog.dart';
 
 part 'ui_settings_dialog.theme.dart';
@@ -319,8 +320,8 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => showDialog(
-                    context: context,
+                  onPressed: () => showWarmDialogOf<void>(
+                    context,
                     builder: (ctx) => const BackgroundSettingsDialog(),
                   ),
                   icon: const Icon(Icons.image, size: 18),
