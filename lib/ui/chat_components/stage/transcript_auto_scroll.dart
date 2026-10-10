@@ -33,9 +33,11 @@ enum TranscriptGrowth { open, prepend, other }
 String transcriptTipKey(List<ChatMessage> messages) =>
     messages.isEmpty ? '' : _rowKey(messages.last);
 
-/// The oldest row's key. A prepend changes it; an append never does.
+/// The oldest row's identity. A prepend puts a new message object first; an
+/// append never does. Identity, not text: an older page can start with the
+/// same words as the old first row.
 String transcriptHeadKey(List<ChatMessage> messages) =>
-    messages.isEmpty ? '' : _rowKey(messages.first);
+    messages.isEmpty ? '' : '${identityHashCode(messages.first)}';
 
 String _rowKey(ChatMessage m) => '${m.sender}\u0000${m.text}';
 

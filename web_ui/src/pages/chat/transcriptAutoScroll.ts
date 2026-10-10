@@ -38,12 +38,19 @@ export function transcriptTipKey(
   return tip ? `${tip.sender}\0${tip.text}` : '';
 }
 
-/** The oldest row's key. A prepend changes it; an append never does. */
+/**
+ * The oldest row's key. A prepend changes it; an append never does. The
+ * row's stable id when the server sent one (an older page can start with
+ * the same words as the old first row); its text otherwise.
+ */
 export function transcriptHeadKey(
-  messages: { sender: string; text: string }[],
+  messages: { sender: string; text: string; rowKey?: number }[],
 ): string {
   const head = messages.length > 0 ? messages[0] : undefined;
-  return head ? `${head.sender}\0${head.text}` : '';
+  if (!head) return '';
+  return head.rowKey !== undefined
+    ? `#${head.rowKey}`
+    : `${head.sender}\0${head.text}`;
 }
 
 /**
