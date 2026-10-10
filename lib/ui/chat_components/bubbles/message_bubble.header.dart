@@ -87,7 +87,13 @@ extension _BubbleHeader on _MessageBubbleState {
                   color:
                       widget.senderColor ??
                       theme.accent ??
-                      storage?.uiSettings.getDialogueColor(character) ??
+                      // Your own name sits on your bubble: same readable
+                      // tint as the quotes in it.
+                      (message.isUser
+                          ? storage?.uiSettings.userBubbleDialogueColorFor(
+                              character,
+                            )
+                          : storage?.uiSettings.getDialogueColor(character)) ??
                       AppColors.textPrimary(context),
                 ),
               );

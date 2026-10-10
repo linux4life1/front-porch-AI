@@ -22,6 +22,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'external_image_widget.dart';
@@ -155,11 +156,18 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
             themePreset: widget.themePreset,
             themeOverrides: widget.themeOverrides,
           );
-    final dialogueColor = storageService.uiSettings.getDialogueColor(
-      character,
-      themePreset: widget.themePreset,
-      themeOverrides: widget.themeOverrides,
-    );
+    // Quotes in the user's own bubble must read on that bubble's colour.
+    final dialogueColor = widget.isUser
+        ? storageService.uiSettings.userBubbleDialogueColorFor(
+            character,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
+          )
+        : storageService.uiSettings.getDialogueColor(
+            character,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
+          );
     final actionColor = storageService.uiSettings.getActionColor(
       character,
       themePreset: widget.themePreset,
