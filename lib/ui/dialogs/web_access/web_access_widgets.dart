@@ -28,6 +28,17 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 Future<void> launchWebAccessUrl(String url) =>
     launchUrl(Uri.parse(url), mode: LaunchMode.externalApplication);
 
+/// The guides' solid action button: porch amber, with the theme's ink for it
+/// (dark on the bright dark-mode amber, light on the deep light-mode amber).
+ButtonStyle webAccessFilledStyle(
+  BuildContext context, {
+  EdgeInsetsGeometry? padding,
+}) => FilledButton.styleFrom(
+  backgroundColor: AppColors.porchAmberOf(context),
+  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+  padding: padding,
+);
+
 /// A selectable URL with a one-tap copy button.
 class WebUrlBox extends StatefulWidget {
   const WebUrlBox({super.key, required this.url});
@@ -64,7 +75,7 @@ class _WebUrlBoxState extends State<WebUrlBox> {
             child: SelectableText(
               widget.url,
               style: TextStyle(
-                color: AppColors.userBubble,
+                color: AppColors.porchAmberOf(context),
                 fontWeight: FontWeight.w600,
                 fontSize: 15,
               ),
@@ -86,7 +97,12 @@ class _WebUrlBoxState extends State<WebUrlBox> {
 /// with dark modules regardless of the app theme — the one place we don't
 /// follow AppColors, because theming it would break scanning.
 class WebQrCode extends StatelessWidget {
-  const WebQrCode({super.key, required this.data, this.size = 168, this.caption});
+  const WebQrCode({
+    super.key,
+    required this.data,
+    this.size = 168,
+    this.caption,
+  });
   final String data;
   final double size;
   final String? caption;
@@ -167,7 +183,7 @@ class _TailscaleInstallButtonState extends State<TailscaleInstallButton> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FilledButton.icon(
-          style: FilledButton.styleFrom(backgroundColor: AppColors.userBubble),
+          style: webAccessFilledStyle(context),
           onPressed: _busy ? null : _install,
           icon: _busy
               ? const SizedBox(
@@ -191,20 +207,23 @@ class _TailscaleInstallButtonState extends State<TailscaleInstallButton> {
       case TailscaleInstallOutcome.installed:
         return WebDetectRow(
           ok: true,
-          okText: 'Tailscale is installed! Now sign in below (or tap Re-check).',
+          okText:
+              'Tailscale is installed! Now sign in below (or tap Re-check).',
         );
       case TailscaleInstallOutcome.launchedInstaller:
         return WebDetectRow(
           ok: true,
           warn: true,
-          okText: 'The Tailscale installer opened. Finish it (approve the admin '
+          okText:
+              'The Tailscale installer opened. Finish it (approve the admin '
               'prompt), then tap Re-check above.',
         );
       case TailscaleInstallOutcome.openedDownloadPage:
         return WebDetectRow(
           ok: false,
           warn: true,
-          badText: 'I opened the Tailscale download page. Install it, then tap '
+          badText:
+              'I opened the Tailscale download page. Install it, then tap '
               'Re-check above.',
         );
       case TailscaleInstallOutcome.needsManualCommand:
@@ -226,7 +245,8 @@ class _TailscaleInstallButtonState extends State<TailscaleInstallButton> {
       case TailscaleInstallOutcome.failed:
         return WebDetectRow(
           ok: false,
-          badText: 'Couldn\'t start the installer automatically. Use the '
+          badText:
+              'Couldn\'t start the installer automatically. Use the '
               'download button below instead.',
         );
     }
@@ -253,7 +273,11 @@ class PhoneInstallCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.phone_iphone, size: 18, color: AppColors.userBubble),
+              Icon(
+                Icons.phone_iphone,
+                size: 18,
+                color: AppColors.porchAmberOf(context),
+              ),
               const SizedBox(width: 8),
               Text(
                 'Install Tailscale on your phone',
@@ -398,8 +422,11 @@ class WebDetectRow extends StatelessWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(ok ? Icons.check_circle : Icons.error_outline,
-                color: color, size: 18),
+            Icon(
+              ok ? Icons.check_circle : Icons.error_outline,
+              color: color,
+              size: 18,
+            ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(

@@ -110,7 +110,10 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
           'A free, private network for your devices. It gives this PC a real '
           'HTTPS address with no browser warnings — so you can install the app '
           'on your phone and reach it from anywhere.',
-          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 13,
+          ),
         ),
         const SizedBox(height: 12),
         FutureBuilder<_TsDetect>(
@@ -142,7 +145,8 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
           children: [
             WebDetectRow(
               ok: false,
-              badText: 'Tailscale isn\'t installed on this computer yet. I can '
+              badText:
+                  'Tailscale isn\'t installed on this computer yet. I can '
                   'install it for you — you\'ll just approve your system\'s '
                   'admin prompt.',
             ),
@@ -169,15 +173,15 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
             WebDetectRow(
               ok: false,
               warn: true,
-              badText: 'Tailscale is installed but not signed in on this PC. '
+              badText:
+                  'Tailscale is installed but not signed in on this PC. '
                   'I can open the sign-in page for you.',
             ),
             const SizedBox(height: 8),
             Align(
               alignment: Alignment.centerLeft,
               child: FilledButton.icon(
-                style:
-                    FilledButton.styleFrom(backgroundColor: AppColors.userBubble),
+                style: webAccessFilledStyle(context),
                 onPressed: _busy ? null : _signIn,
                 icon: _busy
                     ? const SizedBox(
@@ -203,7 +207,8 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
         return WebDetectRow(
           ok: false,
           warn: true,
-          badText: 'Tailscale is installed but turned off. Open the Tailscale '
+          badText:
+              'Tailscale is installed but turned off. Open the Tailscale '
               'app and connect this PC, then tap Re-check.',
         );
       case _TsDetect.ready:
@@ -225,8 +230,8 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
         SizedBox(
           width: double.infinity,
           child: FilledButton.icon(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.userBubble,
+            style: webAccessFilledStyle(
+              context,
               padding: const EdgeInsets.symmetric(vertical: 14),
             ),
             onPressed: _busy ? null : () => _runSetup(restart: true),
@@ -267,15 +272,19 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
             WebDetectRow(
               ok: false,
               warn: true,
-              badText: 'Couldn\'t finish automatic setup. Make sure Tailscale '
+              badText:
+                  'Couldn\'t finish automatic setup. Make sure Tailscale '
                   'is connected on this PC, then try again.',
               actionLabel: 'Try again',
               onAction: _busy ? null : () => _runSetup(restart: true),
             ),
             if (r.portUrl != null) ...[
               const SizedBox(height: 12),
-              _addressBlock(context, r.portUrl!,
-                  'Meanwhile, this address works on your tailnet:'),
+              _addressBlock(
+                context,
+                r.portUrl!,
+                'Meanwhile, this address works on your tailnet:',
+              ),
             ],
           ],
         );
@@ -293,10 +302,12 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
           okText: r.reachable
               ? 'You\'re live and secure! Scan to open it on your phone.'
               : 'Secure HTTPS is on — the certificate may take a few seconds. '
-                  'If the phone can\'t reach it yet, wait, then Re-verify.',
+                    'If the phone can\'t reach it yet, wait, then Re-verify.',
         ),
         const SizedBox(height: 12),
-        Center(child: WebQrCode(data: url, caption: 'Scan with your phone')),
+        Center(
+          child: WebQrCode(data: url, caption: 'Scan with your phone'),
+        ),
         const SizedBox(height: 12),
         WebUrlBox(url: url),
         if (!r.reachable) ...[
@@ -323,23 +334,32 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (r.portUrl != null)
-          _addressBlock(context, r.portUrl!,
-              'This address works on your devices right now:'),
+          _addressBlock(
+            context,
+            r.portUrl!,
+            'This address works on your devices right now:',
+          ),
         const SizedBox(height: 12),
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: AppColors.userBubble.withValues(alpha: 0.10),
+            color: AppColors.porchAmberOf(context).withValues(alpha: 0.10),
             borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.userBubble.withValues(alpha: 0.4)),
+            border: Border.all(
+              color: AppColors.porchAmberOf(context).withValues(alpha: 0.4),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 children: [
-                  Icon(Icons.lock, size: 18, color: AppColors.userBubble),
+                  Icon(
+                    Icons.lock,
+                    size: 18,
+                    color: AppColors.porchAmberOf(context),
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -370,8 +390,7 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
               Row(
                 children: [
                   FilledButton.icon(
-                    style: FilledButton.styleFrom(
-                        backgroundColor: AppColors.userBubble),
+                    style: webAccessFilledStyle(context),
                     onPressed: () =>
                         launchWebAccessUrl(TailscaleProvider.enableHttpsUrl),
                     icon: const Icon(Icons.open_in_new, size: 18),
@@ -405,10 +424,15 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
       children: [
         Text(
           lead,
-          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 13,
+          ),
         ),
         const SizedBox(height: 8),
-        Center(child: WebQrCode(data: url, caption: 'Scan with your phone')),
+        Center(
+          child: WebQrCode(data: url, caption: 'Scan with your phone'),
+        ),
         const SizedBox(height: 10),
         WebUrlBox(url: url),
       ],
@@ -430,7 +454,10 @@ class _InternetAccessStepState extends State<InternetAccessStep> {
         Text(
           'A quick public link. Easy to start, but the free URL changes each '
           'time. Finish ngrok setup on the Remote Access page in the web app.',
-          style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
+          style: TextStyle(
+            color: AppColors.textSecondary(context),
+            fontSize: 13,
+          ),
         ),
         const SizedBox(height: 8),
         WebDetectRow(
