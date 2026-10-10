@@ -42,10 +42,13 @@ void main() {
   CharacterRepository? repo;
   ChatService? chat;
 
-  Future<void> boot({bool needsGlobal = true}) async {
+  Future<void> boot({
+    bool needsGlobal = true,
+    bool realismGlobal = true,
+  }) async {
     SharedPreferences.setMockInitialValues({
       'update_auto_check': false,
-      'realism_default': true,
+      'realism_default': realismGlobal,
       'needs_sim_default': needsGlobal,
       'passage_of_time_default': true,
     });
@@ -101,6 +104,31 @@ void main() {
       expectNeedsOn('the plain-card branch seeded Needs from the global');
     });
 
+    test(
+      'a silent card in a chat whose Realism is off gets no Needs',
+      () async {
+        await boot(realismGlobal: false);
+        final quiet = card(
+          'Quinn',
+          FrontPorchExtensions(realismEnabled: false),
+        );
+        final plain = card('Plain', null);
+        await repo!.addCharacter(quiet);
+        await repo!.addCharacter(plain);
+        for (final c in [quiet, plain]) {
+          await chat!.setActiveCharacter(c);
+          expect(chat!.realismEnabled, isFalse);
+          expect(
+            chat!.needsSimEnabled,
+            isFalse,
+            reason: '${c.name}: Needs seeded on where it cannot run',
+          );
+        }
+        await chat!.startNewChat();
+        expect(chat!.needsSimEnabled, isFalse, reason: 'New Chat, Realism off');
+      },
+    );
+
     test('an explicit false on the card still wins', () async {
       await boot();
       final no = card(
@@ -136,8 +164,11 @@ void main() {
     // says off with no saved bars: the stale row the hydrate promotion is
     // for. With the switch back on, a card that asks gets Needs on reopen;
     // a silent card must too, and a card that chose off must not.
-    Future<CharacterCard> savedOffThenReopen(FrontPorchExtensions ext) async {
-      await boot(needsGlobal: false);
+    Future<CharacterCard> savedOffThenReopen(
+      FrontPorchExtensions ext, {
+      bool realismGlobal = true,
+    }) async {
+      await boot(needsGlobal: false, realismGlobal: realismGlobal);
       final c = card('Carmen', ext);
       final other = card('Other', FrontPorchExtensions());
       await repo!.addCharacter(c);
@@ -160,6 +191,32 @@ void main() {
       await savedOffThenReopen(FrontPorchExtensions(realismEnabled: true));
       expectNeedsOn('hydrate treats a silent card as asking when global on');
     });
+
+    test('a silent card in a Realism-off chat stays off', () async {
+      // Needs need Realism: promoting here would only flip a stored switch
+      // in an old chat (the v1.4 upgrade library has exactly this chat).
+      await savedOffThenReopen(
+        FrontPorchExtensions(realismEnabled: false),
+        realismGlobal: false,
+      );
+      expect(chat!.realismEnabled, isFalse);
+      expect(
+        chat!.needsSimEnabled,
+        isFalse,
+        reason: 'a Realism-off chat with a silent card was promoted to Needs',
+      );
+    });
+
+    test(
+      'a card that chose on is promoted as before, Realism or not',
+      () async {
+        await savedOffThenReopen(
+          FrontPorchExtensions(realismEnabled: false, needsSimEnabled: true),
+          realismGlobal: false,
+        );
+        expect(chat!.needsSimEnabled, isTrue, reason: 'old rule unchanged');
+      },
+    );
 
     test('a card that chose off stays off', () async {
       await savedOffThenReopen(

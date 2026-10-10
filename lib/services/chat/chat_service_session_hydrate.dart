@@ -229,8 +229,9 @@ extension ChatServiceSessionHydrate on ChatService {
     );
     final nv = s.needsVector;
     final hasSavedNeeds = nv is String && nv.isNotEmpty;
-    // A card that says nothing asks for Needs when Porch Life does (the
-    // seed rule, _seedNeedsSim); an explicit false does not.
+    // A card that says nothing asks for Needs when Porch Life does and this
+    // chat's Realism (hydrated above) is on — the seed rule, _seedNeedsSim.
+    // An explicit card choice is read as before.
     final cardWantsNeeds =
         _activeGroup == null &&
         _seedNeedsSim(_activeCharacter?.frontPorchExtensions?.needsSimChoice);
