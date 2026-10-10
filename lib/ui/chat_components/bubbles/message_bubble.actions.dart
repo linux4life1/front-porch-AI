@@ -346,8 +346,18 @@ extension _BubbleActions on _MessageBubbleState {
                   spacing: 6,
                   runSpacing: 6,
                   children: actions.map((action) {
-                    return InkWell(
-                      onTap: () => chatService.sendMessage(action),
+                    // A tap puts the idea in the message box to edit before
+                    // Send; holding it sends at once (through the box, which
+                    // takes back a copy a tap left there). Outside a chat
+                    // page (no message box) a tap still sends.
+                    final composer = ComposerDraftScope.maybeOf(context);
+                    final pill = InkWell(
+                      onTap: composer == null
+                          ? () => chatService.sendMessage(action)
+                          : () => composer.put(action),
+                      onLongPress: composer == null
+                          ? null
+                          : () => composer.send(action),
                       borderRadius: BorderRadius.circular(16),
                       child: Container(
                         padding: const EdgeInsets.symmetric(
@@ -369,6 +379,16 @@ extension _BubbleActions on _MessageBubbleState {
                           ),
                         ),
                       ),
+                    );
+                    if (composer == null) return pill;
+                    return Tooltip(
+                      message:
+                          'Click to put it in your message box. '
+                          'Hold to send it now.',
+                      // Hover only: a long-press trigger would fight the
+                      // pill's own hold-to-send.
+                      triggerMode: TooltipTriggerMode.manual,
+                      child: pill,
                     );
                   }).toList(),
                 ),

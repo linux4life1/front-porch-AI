@@ -257,7 +257,7 @@ class _VariantCard extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '${variantKindLabel(variant.kind)} · '
+                      '${variant.label} · '
                       '${variant.charCount} characters · '
                       '${variant.tokenCount}t',
                       overflow: TextOverflow.ellipsis,

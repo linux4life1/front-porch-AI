@@ -35,6 +35,7 @@ Update this file when you add or retire a suite.
 | `theme_interaction_test` | Theme presets leave bubble controls hit-testable |
 | `settings_persistence_test` | Settings survive reopen + reload |
 | `message_actions_test` | Edit / regenerate / delete-with-needs-refund via real bubble controls |
+| `suggested_action_composer_test` | Suggest actions: a pill tap fills the message box (no send); holding it sends |
 | `swipe_fork_cancel_test` | Swipe chevrons, cancel-mid-regen put-back, fork branch |
 | `web_server_test` | PWA shell, anon 401, setup→cookie→state over real HTTP |
 | `web_ui/browser_test` | **Web UI in real browsers** (Playwright, WebKit phone + Chromium desktop) against the booted app: `web_ui/e2e/sweep.spec.ts` taps every safe control on every screen (fails on covered / tap-through controls, dialogs a finger can't close, phone sideways scroll, broken pictures, console errors, failing `/api`); `web_ui/e2e/journeys.spec.ts` signs in, chats, edits (#330), regenerates + swipes, continues, deletes, switches chats, persists a setting. Own CI job `web-e2e` (not in the e2e-smoke matrix — lives in a subdirectory). `FPAI_E2E_HOLD=1` keeps the sandboxed app serving for `npm run e2e` iteration. |

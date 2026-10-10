@@ -27,15 +27,20 @@ function coarsePointer(): boolean {
 
 export function MessageEditModal({
   initialText,
+  showThinking = true,
   onCancel,
   onSave,
 }: {
   initialText: string;
+  /** False for the user's own messages: no Thinking section unless the
+   *  stored text already carries some (never dropped on save). */
+  showThinking?: boolean;
   onCancel: () => void;
   /** Rejects with a user-facing message when the desktop didn't take it. */
   onSave: (text: string) => Promise<void>;
 }) {
   const initial = useMemo(() => splitMessageForEdit(initialText), [initialText]);
+  const thinkingShown = showThinking || initial.thinking.length > 0;
   const [thinking, setThinking] = useState(initial.thinking);
   const [body, setBody] = useState(initial.body);
   const [thinkingOpen, setThinkingOpen] = useState(initial.thinking.length > 0);
@@ -165,20 +170,22 @@ export function MessageEditModal({
           </p>
         )}
 
-        <button
-          type="button"
-          className="msg-edit-think-toggle"
-          onClick={() => setThinkingOpen((v) => !v)}
-        >
-          <span>{thinkingOpen ? '▾' : '▸'} 💭 Thinking</span>
-          {thinking.trim() ? (
-            <span className="msg-edit-think-badge">{thinking.trim().length} chars</span>
-          ) : (
-            <span className="muted small">Edit model reasoning (no tags needed)</span>
-          )}
-        </button>
+        {thinkingShown && (
+          <button
+            type="button"
+            className="msg-edit-think-toggle"
+            onClick={() => setThinkingOpen((v) => !v)}
+          >
+            <span>{thinkingOpen ? '▾' : '▸'} 💭 Thinking</span>
+            {thinking.trim() ? (
+              <span className="msg-edit-think-badge">{thinking.trim().length} chars</span>
+            ) : (
+              <span className="muted small">Edit model reasoning (no tags needed)</span>
+            )}
+          </button>
+        )}
         <div className="msg-edit-scroll">
-          {thinkingOpen && (
+          {thinkingShown && thinkingOpen && (
             <textarea
               className="msg-edit-thinking"
               value={thinking}

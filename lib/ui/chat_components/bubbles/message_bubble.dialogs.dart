@@ -174,6 +174,7 @@ extension _BubbleDialogs on _MessageBubbleState {
     final result = await showMessageEditDialog(
       context: context,
       initialText: message.text,
+      showThinking: !message.isUser,
     );
     if (result != null) {
       chatService.editMessage(index, result);
