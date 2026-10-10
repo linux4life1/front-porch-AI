@@ -62,6 +62,13 @@ String variantKindLabel(VariantKind kind) => switch (kind) {
   VariantKind.regen => 'Regen',
 };
 
+/// Per-row picker label. The first regen swipe is the reply as first
+/// written ("Original"); later ones stay "Regen" (the card's #N numbers them).
+String variantRowLabel(VariantKind kind, int index) =>
+    kind == VariantKind.regen && index == 0
+    ? 'Original'
+    : variantKindLabel(kind);
+
 /// One row in the shared greet/swipe picker.
 class VariantOption {
   final int index;
@@ -82,6 +89,8 @@ class VariantOption {
     this.kind = VariantKind.regen,
   });
 
+  String get label => variantRowLabel(kind, index);
+
   Map<String, dynamic> toJson() => {
     'index': index,
     'snippet': snippet,
@@ -90,11 +99,14 @@ class VariantOption {
     'tokenCount': tokenCount,
     'current': isCurrent,
     'kind': kind.name,
+    'label': label,
   };
 }
 
 /// Build picker rows from the full variant texts. [currentIndex] is clamped
 /// so a stale swipe cursor never marks two rows (or none) as current.
+/// Counts cover the visible text only: hidden thinking is not part of what
+/// the reader sees in the bubble.
 List<VariantOption> buildVariantOptions(
   List<String> texts,
   int currentIndex, {
@@ -104,16 +116,26 @@ List<VariantOption> buildVariantOptions(
   final current = currentIndex.clamp(0, texts.length - 1);
   return [
     for (var i = 0; i < texts.length; i++)
-      VariantOption(
-        index: i,
-        snippet: variantSnippet(texts[i]),
-        text: variantDisplayText(texts[i]),
-        charCount: texts[i].length,
-        tokenCount: variantApproxTokens(texts[i].length),
-        isCurrent: i == current,
-        kind: kind,
-      ),
+      _option(texts[i], i, isCurrent: i == current, kind: kind),
   ];
+}
+
+VariantOption _option(
+  String raw,
+  int index, {
+  required bool isCurrent,
+  required VariantKind kind,
+}) {
+  final shown = variantDisplayText(raw);
+  return VariantOption(
+    index: index,
+    snippet: variantSnippet(raw),
+    text: shown,
+    charCount: shown.length,
+    tokenCount: variantApproxTokens(shown.length),
+    isCurrent: isCurrent,
+    kind: kind,
+  );
 }
 
 /// First greet keeps the card's starting emotion. Alternative greets get
@@ -123,8 +145,7 @@ bool shouldReadRoomForGreeting(
   int index, {
   bool hasAuthoredSeed = false,
   bool firstMesEmpty = false,
-}) =>
-    (index > 0 || firstMesEmpty) && !hasAuthoredSeed;
+}) => (index > 0 || firstMesEmpty) && !hasAuthoredSeed;
 
 /// Opening-message picker shows card greets only while the chat is still
 /// the opening (no user reply yet) and that message has no stored regen
