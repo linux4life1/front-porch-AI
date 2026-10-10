@@ -191,7 +191,7 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
             Provider.of<StorageService>(context, listen: false),
           ),
           update: (context, storage, previous) =>
-              previous ?? CharacterRepository(db, storage),
+              previous ?? openCharacterRepository(db, storage),
         ),
         ChangeNotifierProvider(create: (context) => UserPersonaService(db)),
         // GroupChatRepository early (before ChatService) so the DI wiring in ChatService

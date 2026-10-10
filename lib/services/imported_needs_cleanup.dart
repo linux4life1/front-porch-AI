@@ -22,7 +22,6 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:flutter/foundation.dart';
-import 'package:image/image.dart' as img;
 
 import 'package:front_porch_ai/database/database.dart' show AppDatabase;
 import 'package:front_porch_ai/models/models.dart';
@@ -87,10 +86,11 @@ class ImportedNeedsCleanupResult {
   final int skipped;
 }
 
-/// Clears the importer's Needs "no" from every library card that carries it:
-/// the card's PNG is re-saved through [V2CardService] with no Needs choice,
-/// and nothing else in it changes. A card whose PNG cannot be read or
-/// written is skipped and logged, never deleted. The PNG work runs on a
+/// Clears the importer's Needs "no" from every library card that carries it.
+/// Only the `needs_sim_enabled` key leaves the card's `chara` text; the rest
+/// of the PNG, pixels included, stays byte for byte. A card whose settings
+/// did not load is read from its PNG here. A card that cannot be read or
+/// written is skipped and logged, never deleted. The file work runs on a
 /// background isolate; each file is replaced in one rename, so a quit midway
 /// leaves every card either untouched or cleared.
 Future<ImportedNeedsCleanupResult> clearImportedNeedsStamps(
@@ -98,7 +98,9 @@ Future<ImportedNeedsCleanupResult> clearImportedNeedsStamps(
 ) async {
   final paths = [
     for (final c in repo.characters)
-      if (c.imagePath != null && isImporterNeedsStamp(c.frontPorchExtensions))
+      if (c.imagePath != null &&
+          (c.frontPorchExtensions == null ||
+              isImporterNeedsStamp(c.frontPorchExtensions)))
         c.imagePath!,
   ];
   if (paths.isEmpty) return const ImportedNeedsCleanupResult(cleared: 0);
@@ -162,10 +164,15 @@ Future<ImportedNeedsCleanupResult?> runImportedNeedsCleanupOnce(
       return null;
     }
     final result = await clearImportedNeedsStamps(repo);
-    await storage.realismSettings.markImportedNeedsStampCleared();
+    // Done only when every card was looked at; a skipped card is tried
+    // again next launch.
+    if (result.skipped == 0) {
+      await storage.realismSettings.markImportedNeedsStampCleared();
+    }
     debugPrint(
       '[ImportedNeeds] ${result.cleared} imported card(s) now follow the '
-      'Porch Life Needs switch; ${result.skipped} skipped',
+      'Porch Life Needs switch; ${result.skipped} skipped'
+      '${result.skipped == 0 ? '' : ', trying those next launch'}',
     );
     return result;
   } catch (e) {
@@ -199,27 +206,38 @@ Future<_FilesOutcome> _clearStampsInFiles(List<String> paths) async {
   return (cleared: cleared, skipped: skipped);
 }
 
-/// Null when cleared, '' when the file no longer carries the stamp, or the
-/// reason it was skipped.
+/// Null when cleared, '' when the card carries no stamp, or the reason it
+/// was skipped.
 Future<String?> _clearStampInFile(String path) async {
   final file = File(path);
   final before = await file.stat();
   final bytes = await file.readAsBytes();
   final chara = PngMetadataUtils.extractTextChunk(bytes, 'chara');
-  if (chara == null) return 'no card data in the PNG';
-  final card = V2CardService().parseCardJson(
-    utf8.decode(base64Decode(chara)),
-    imagePath: path,
-  );
-  if (card == null) return 'card data could not be read';
+  if (chara == null) {
+    // A readable PNG with no card data has no stamp to clear.
+    return _isPng(bytes) ? '' : 'not a readable PNG';
+  }
+  final json = utf8.decode(base64Decode(chara));
+  final payload = jsonDecode(json);
+  final card = V2CardService().parseCardJson(json);
+  if (card == null || payload is! Map) return 'card data could not be read';
   if (!isImporterNeedsStamp(card.frontPorchExtensions)) return '';
-  // The save falls back to a placeholder portrait when the pixels do not
-  // decode; that would replace the picture, so such a card is left alone.
-  if (img.decodeImage(bytes) == null) return 'portrait could not be read';
 
-  card.frontPorchExtensions!.needsSimChoice = null;
+  // Same lookup as parseCardJson: the V2 envelope's data, or a flat card.
+  // Only the one key changes; the card is not rebuilt from the model.
+  final data = payload['data'] is Map ? payload['data'] as Map : payload;
+  final extensions = data['extensions'] as Map;
+  final realism = (extensions['front_porch'] as Map)['realism_engine'] as Map;
+  realism.remove('needs_sim_enabled');
+  final updated = PngMetadataUtils.replaceTextChunk(
+    bytes,
+    'chara',
+    base64Encode(utf8.encode(jsonEncode(payload))),
+  );
+  if (updated == null) return 'card data is not in a plain text chunk';
+
   final tmp = File('$path.needs-clear.tmp');
-  await V2CardService().saveCardAsPng(card, tmp.path, path);
+  await tmp.writeAsBytes(updated, flush: true);
   final now = await file.stat();
   if (now.modified != before.modified || now.size != before.size) {
     await tmp.delete();
@@ -227,4 +245,13 @@ Future<String?> _clearStampInFile(String path) async {
   }
   await tmp.rename(path);
   return null;
+}
+
+bool _isPng(List<int> bytes) {
+  const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+  if (bytes.length < signature.length) return false;
+  for (var i = 0; i < signature.length; i++) {
+    if (bytes[i] != signature[i]) return false;
+  }
+  return true;
 }

@@ -86,8 +86,9 @@ void main() {
   /// (its `toJson` wrote the explicit false).
   Future<CharacterCard> importedTheOldWay(
     CharacterRepository repo,
-    String name,
-  ) async {
+    String name, {
+    bool largePortrait = false,
+  }) async {
     final src = p.join(
       Directory.systemTemp.createTempSync('fpai_chub_').path,
       '$name.png',
@@ -113,6 +114,25 @@ void main() {
       imported.imagePath!,
       imported.imagePath!,
     );
+    if (largePortrait) {
+      // The importer shrinks a big picture today; a card from before that,
+      // or one copied into the folder by hand, keeps its full size. Same
+      // card data, written around a 2100 x 2200 portrait.
+      final chara = PngMetadataUtils.extractTextChunk(
+        File(imported.imagePath!).readAsBytesSync(),
+        'chara',
+      )!;
+      final big = img.Image(width: 2100, height: 2200);
+      for (final px in big) {
+        px
+          ..r = px.x % 251
+          ..g = px.y % 241
+          ..b = (px.x * px.y) % 239;
+      }
+      File(imported.imagePath!).writeAsBytesSync(
+        PngMetadataUtils.encodeWithTextChunk(big, 'chara', chara),
+      );
+    }
     expect(
       _realism(imported.imagePath!)['needs_sim_enabled'],
       isFalse,
@@ -160,11 +180,15 @@ void main() {
     'switch after the next launch; app-made cards keep their choice',
     () async {
       final (storage0, repo0) = await oldAppLaunch();
-      final river = await importedTheOldWay(repo0, 'River');
+      final river = await importedTheOldWay(
+        repo0,
+        'River',
+        largePortrait: true,
+      );
       final dina = await madeInTheApp(storage0, repo0, 'Dina', needs: false);
       final otto = await madeInTheApp(storage0, repo0, 'Otto', needs: true);
       final riverBefore = _payload(river.imagePath!);
-      final riverPixels = _pixels(river.imagePath!);
+      final riverChunks = _otherChunks(river.imagePath!);
       final dinaBytes = File(dina.imagePath!).readAsBytesSync();
       final ottoBytes = File(otto.imagePath!).readAsBytesSync();
       final dinaTime = File(dina.imagePath!).lastModifiedSync();
@@ -182,7 +206,13 @@ void main() {
       expect(result.skipped, 0);
       _realismOf(riverBefore).remove('needs_sim_enabled');
       expect(jsonEncode(after), jsonEncode(riverBefore));
-      expect(_pixels(river.imagePath!), riverPixels, reason: 'same portrait');
+      expect(
+        _otherChunks(river.imagePath!),
+        riverChunks,
+        reason: 'the portrait was re-encoded, not left as it was',
+      );
+      final picture = img.decodePng(File(river.imagePath!).readAsBytesSync())!;
+      expect([picture.width, picture.height], [2100, 2200]);
       expect(after['data']['creator'], 'someone_on_chub');
 
       // In memory, without another reload.
@@ -264,45 +294,80 @@ void main() {
     expect(named(repo, 'River').frontPorchExtensions!.needsSimChoice, isNull);
   });
 
-  test(
-    'a card whose PNG cannot be read is skipped and left where it is',
-    () async {
-      final (_, repo) = await oldAppLaunch();
-      final noData = await importedTheOldWay(repo, 'Garbled');
-      final noPixels = await importedTheOldWay(repo, 'Cropped');
-      final good = await importedTheOldWay(repo, 'River');
-      // The library has loaded them; then the files go bad on disk.
-      File(noData.imagePath!).writeAsBytesSync(utf8.encode('not a png'));
-      final full = File(noPixels.imagePath!).readAsBytesSync();
-      final idat = _indexOf(full, ascii.encode('IDAT'));
-      File(noPixels.imagePath!).writeAsBytesSync(full.sublist(0, idat - 4));
-      expect(
-        await V2CardService().readCard(noPixels.imagePath!),
-        isNotNull,
-        reason: 'fixture: card data still reads, only the portrait is gone',
-      );
-      final garbled = File(noData.imagePath!).readAsBytesSync();
-      final cropped = File(noPixels.imagePath!).readAsBytesSync();
+  test('a card that could not be read keeps the clean-up coming back until '
+      'it is cleared; a picture with no card data does not', () async {
+    final (storage0, repo0) = await oldAppLaunch();
+    final river = await importedTheOldWay(repo0, 'River');
+    final bare = p.join(storage0.charactersDir.path, 'Bare_1.png');
+    File(bare).writeAsBytesSync(img.encodePng(img.Image(width: 8, height: 8)));
+    await repo0.addCharacter(CharacterCard(name: 'Bare', imagePath: bare));
 
-      final result = await clearImportedNeedsStamps(repo);
+    // River's file is away at launch (a sync folder still filling, a
+    // locked disk): the library loads it with no settings.
+    final away = '${river.imagePath!}.away';
+    File(river.imagePath!).renameSync(away);
+    final (repo1, first) = await launch();
+    expect(named(repo1, 'River').frontPorchExtensions, isNull);
+    expect(first!.skipped, 1);
+    expect(first.cleared, 0);
 
-      expect(result.cleared, 1);
-      expect(result.skipped, 2);
-      expect(File(noData.imagePath!).readAsBytesSync(), garbled);
-      expect(File(noPixels.imagePath!).readAsBytesSync(), cropped);
-      expect(
-        _realism(good.imagePath!).containsKey('needs_sim_enabled'),
-        isFalse,
-      );
-      expect(
-        Directory(
-          p.dirname(good.imagePath!),
-        ).listSync().where((f) => f.path.endsWith('.tmp')),
-        isEmpty,
-        reason: 'no half-written file is left behind',
-      );
-    },
-  );
+    File(away).renameSync(river.imagePath!);
+    final (repo2, second) = await launch();
+    expect(
+      second,
+      isNotNull,
+      reason: 'the skipped card set the once-only flag anyway',
+    );
+    expect(second!.cleared, 1);
+    expect(second.skipped, 0);
+    expect(
+      _realism(river.imagePath!).containsKey('needs_sim_enabled'),
+      isFalse,
+    );
+    expect(named(repo2, 'River').frontPorchExtensions!.needsSimChoice, isNull);
+
+    final (_, third) = await launch();
+    expect(third, isNull, reason: 'everything handled, so it is done');
+  });
+
+  test('a card whose PNG cannot be read is skipped and left where it is; a '
+      'damaged picture keeps every byte but the card text', () async {
+    final (_, repo) = await oldAppLaunch();
+    final noData = await importedTheOldWay(repo, 'Garbled');
+    final noPixels = await importedTheOldWay(repo, 'Cropped');
+    final good = await importedTheOldWay(repo, 'River');
+    // The library has loaded them; then the files go bad on disk.
+    File(noData.imagePath!).writeAsBytesSync(utf8.encode('not a png'));
+    final full = File(noPixels.imagePath!).readAsBytesSync();
+    final idat = _indexOf(full, ascii.encode('IDAT'));
+    File(noPixels.imagePath!).writeAsBytesSync(full.sublist(0, idat - 4));
+    expect(
+      await V2CardService().readCard(noPixels.imagePath!),
+      isNotNull,
+      reason: 'fixture: card data still reads, only the portrait is gone',
+    );
+    final garbled = File(noData.imagePath!).readAsBytesSync();
+    final croppedChunks = _otherChunks(noPixels.imagePath!);
+
+    final result = await clearImportedNeedsStamps(repo);
+
+    expect(result.cleared, 2);
+    expect(result.skipped, 1);
+    expect(File(noData.imagePath!).readAsBytesSync(), garbled);
+    expect(_otherChunks(noPixels.imagePath!), croppedChunks);
+    expect(
+      _realism(noPixels.imagePath!).containsKey('needs_sim_enabled'),
+      isFalse,
+    );
+    expect(_realism(good.imagePath!).containsKey('needs_sim_enabled'), isFalse);
+    expect(
+      Directory(
+        p.dirname(good.imagePath!),
+      ).listSync().where((f) => f.path.endsWith('.tmp')),
+      isEmpty,
+      reason: 'no half-written file is left behind',
+    );
+  });
 }
 
 Map<String, dynamic> _payload(String path) {
@@ -319,8 +384,25 @@ Map<String, dynamic> _realismOf(Map<String, dynamic> payload) =>
 
 Map<String, dynamic> _realism(String path) => _realismOf(_payload(path));
 
-List<int> _pixels(String path) =>
-    img.decodeImage(File(path).readAsBytesSync())!.getBytes();
+/// Every chunk but the card's `chara` text, raw (length, type, data, CRC),
+/// in file order. Stops at a cut-off chunk.
+List<List<int>> _otherChunks(String path) {
+  final bytes = File(path).readAsBytesSync();
+  final chunks = <List<int>>[bytes.sublist(0, 8)];
+  var offset = 8;
+  while (offset + 12 <= bytes.length) {
+    final length = ByteData.sublistView(bytes, offset, offset + 4).getUint32(0);
+    final end = offset + 12 + length;
+    if (end > bytes.length) break;
+    final chunk = bytes.sublist(offset, end);
+    final isChara =
+        ascii.decode(chunk.sublist(4, 8)) == 'tEXt' &&
+        latin1.decode(chunk.sublist(8, 14)) == 'chara\u0000';
+    if (!isChara) chunks.add(chunk);
+    offset = end;
+  }
+  return chunks;
+}
 
 int _indexOf(List<int> haystack, List<int> needle) {
   for (var i = 0; i <= haystack.length - needle.length; i++) {

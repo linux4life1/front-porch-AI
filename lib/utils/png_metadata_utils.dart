@@ -18,7 +18,9 @@
 
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
+import 'package:archive/archive.dart' show getCrc32;
 import 'package:image/image.dart' as img;
 
 /// Shared PNG tEXt / iTXt chunk utilities for character cards and group cards.
@@ -80,11 +82,7 @@ class PngMetadataUtils {
   /// Decodes ONE tEXt/iTXt chunk's payload, returning its text when the chunk
   /// carries [keyword]. Shared by the in-memory walker above and the seeking
   /// file walker below so the two can never disagree about how a chunk decodes.
-  static String? _parseTextChunk(
-    List<int> data,
-    String type,
-    String keyword,
-  ) {
+  static String? _parseTextChunk(List<int> data, String type, String keyword) {
     final nullIndex = data.indexOf(0);
     if (nullIndex == -1) return null;
     final chunkKeyword = String.fromCharCodes(data.sublist(0, nullIndex));
@@ -194,4 +192,59 @@ class PngMetadataUtils {
     image.textData![keyword] = text;
     return img.encodePng(image);
   }
+
+  /// Replaces the text of the first tEXt/iTXt chunk carrying [keyword] — the
+  /// chunk [extractTextChunk] reads — without decoding the image: every other
+  /// chunk, IDAT included, is copied byte for byte and in order. Returns null
+  /// when that chunk is missing, is iTXt, or the PNG is malformed. [text] is
+  /// Latin-1 (base64 card data), as tEXt requires.
+  static Uint8List? replaceTextChunk(
+    List<int> bytes,
+    String keyword,
+    String text,
+  ) {
+    const signature = [137, 80, 78, 71, 13, 10, 26, 10];
+    if (bytes.length < 8) return null;
+    for (var i = 0; i < 8; i++) {
+      if (bytes[i] != signature[i]) return null;
+    }
+    var offset = 8;
+    while (offset + 12 <= bytes.length) {
+      final length =
+          (bytes[offset] << 24) |
+          (bytes[offset + 1] << 16) |
+          (bytes[offset + 2] << 8) |
+          bytes[offset + 3];
+      final type = String.fromCharCodes(bytes.sublist(offset + 4, offset + 8));
+      final dataStart = offset + 8;
+      final next = dataStart + length + 4;
+      if (next > bytes.length) return null;
+      if (type == 'tEXt' || type == 'iTXt') {
+        final data = bytes.sublist(dataStart, dataStart + length);
+        if (_parseTextChunk(data, type, keyword) != null) {
+          if (type == 'iTXt') return null;
+          final body = [...latin1.encode(keyword), 0, ...latin1.encode(text)];
+          final typed = [...ascii.encode('tEXt'), ...body];
+          final crc = getCrc32(typed);
+          return Uint8List.fromList([
+            ...bytes.sublist(0, offset),
+            ..._u32(body.length),
+            ...typed,
+            ..._u32(crc),
+            ...bytes.sublist(next),
+          ]);
+        }
+      }
+      if (type == 'IEND') return null;
+      offset = next;
+    }
+    return null;
+  }
+
+  static List<int> _u32(int v) => [
+    (v >> 24) & 0xff,
+    (v >> 16) & 0xff,
+    (v >> 8) & 0xff,
+    v & 0xff,
+  ];
 }
