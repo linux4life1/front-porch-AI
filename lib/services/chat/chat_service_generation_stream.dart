@@ -40,7 +40,6 @@ extension ChatServiceGenerationStream on ChatService {
     _displayedTokenCount = 0;
     _tokenTimestamps.clear();
     bool streamDone = false;
-    DateTime? _thinkStartTime;
     bool _thinkStarted = false;
     bool _thinkEnded = false;
 
@@ -279,9 +278,9 @@ extension ChatServiceGenerationStream on ChatService {
           .toLowerCase();
       if (!_thinkStarted && tailLower.contains('<think>')) {
         _thinkStarted = true;
-        _thinkStartTime = DateTime.now();
+        final startedAt = t.thinkStartedAt = DateTime.now();
         _generationPhase = GenerationPhase.thinking;
-        streamTarget.thinkingStartTime = _thinkStartTime.millisecondsSinceEpoch;
+        streamTarget.thinkingStartTime = startedAt.millisecondsSinceEpoch;
       }
       final closeIdxInTail = (_thinkStarted && !_thinkEnded)
           ? tailLower.indexOf('</think>')
@@ -328,9 +327,10 @@ extension ChatServiceGenerationStream on ChatService {
         _generationPhase = bufferEnabled
             ? GenerationPhase.buffering
             : GenerationPhase.generating;
-        if (_thinkStartTime != null) {
+        final startedAt = t.thinkStartedAt;
+        if (startedAt != null) {
           streamTarget.thinkingDurationMs = DateTime.now()
-              .difference(_thinkStartTime)
+              .difference(startedAt)
               .inMilliseconds;
           // Keep thinkingStartTime for fallback display logic in UI
         }
@@ -444,19 +444,6 @@ extension ChatServiceGenerationStream on ChatService {
       _drainTimer = null;
     }
 
-    // A think that never closed leaves duration at 0. The next group
-    // speaker keeps isGenerating true, and this bubble would say
-    // "Thinking…" for that whole reply. Record the time on this message.
-    void sealThinkClock() {
-      final started = _thinkStartTime;
-      // The live start is this stream's alone. Left on the message, a later
-      // swipe, Continue or Impersonate would time "Thinking" from it.
-      streamTarget.thinkingStartTime = null;
-      if (started == null || streamTarget.thinkingDurationMs > 0) return;
-      final ms = DateTime.now().difference(started).inMilliseconds;
-      streamTarget.thinkingDurationMs = ms <= 0 ? 1 : ms;
-    }
-
     // User cancel (stream-loop break above, or Stop during the drain):
     // halt the turn HERE — no finalize, no lorebook scan, no post-turn
     // evals on an aborted reply. Mirrors the catch path's treatAsCancel:
@@ -485,14 +472,14 @@ extension ChatServiceGenerationStream on ChatService {
           modelName: t.originalModelName,
         );
       }
-      sealThinkClock();
+      t.sealThinkClock();
       final closed = closeOpenThink(streamTarget.text);
       if (closed != streamTarget.text) streamTarget.text = closed;
       await _saveChat();
       notifyListeners();
       return true;
     }
-    sealThinkClock();
+    t.sealThinkClock();
     return false;
   }
 }

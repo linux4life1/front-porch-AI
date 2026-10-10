@@ -156,6 +156,22 @@ class _GenTurn {
   String accumulatedResponse = '';
   late ChatMessage streamTarget;
 
+  /// When this stream's `<think>` opened; null until it does.
+  DateTime? thinkStartedAt;
+
+  /// Ends this stream's think clock on [streamTarget], on every exit (done,
+  /// Stop, throw). A think that never closed records the time spent so far,
+  /// or the next group speaker's turn shows "Thinking…" on this bubble. The
+  /// live start is this stream's alone: left on the message, a later swipe,
+  /// Continue or Impersonate would time "Thinking" from it.
+  void sealThinkClock() {
+    streamTarget.thinkingStartTime = null;
+    final started = thinkStartedAt;
+    if (started == null || streamTarget.thinkingDurationMs > 0) return;
+    final ms = DateTime.now().difference(started).inMilliseconds;
+    streamTarget.thinkingDurationMs = ms <= 0 ? 1 : ms;
+  }
+
   /// Pre-Continue body of the message being extended. Empty for non-Continue
   /// modes. [accumulatedResponse] is only the NEW tokens; the stream phase
   /// paints `glueContinueText(continuePrefix, tokens)` for display, and
@@ -376,6 +392,8 @@ extension ChatServiceGeneration on ChatService {
       await _finalizeGenerationTurn(t);
     } catch (e) {
       _restoreCapturedThroughReader();
+      // A stream that threw mid-think must not leave its live start behind.
+      if (t.thinkStartedAt != null) t.sealThinkClock();
       final wasCancelled = _cancelRequested;
       _drainTimer?.cancel();
       _drainTimer = null;

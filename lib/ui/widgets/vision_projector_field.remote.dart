@@ -93,15 +93,19 @@ class _RemoteVisionPillState extends State<RemoteVisionPill> {
     }
   }
 
-  Future<void> _resolve() async {
+  /// [again] drops the cached verdict first, so a server restarted with a
+  /// different vision setup under the same URL and model name is asked anew.
+  Future<void> _resolve({bool again = false}) async {
     setState(() {
       _loading = true;
     });
-    final support = await VisionSupportResolver.instance.resolveRemote(
-      apiUrl: widget.apiUrl,
-      apiKey: widget.apiKey,
-      modelName: widget.modelName,
-    );
+    final resolver = VisionSupportResolver.instance;
+    final support =
+        await (again ? resolver.recheckRemote : resolver.resolveRemote)(
+          apiUrl: widget.apiUrl,
+          apiKey: widget.apiKey,
+          modelName: widget.modelName,
+        );
     if (!mounted) return;
     setState(() {
       _support = support;
@@ -137,14 +141,27 @@ class _RemoteVisionPillState extends State<RemoteVisionPill> {
       );
     }
 
+    // Not yet requested (generic backend) → offer a manual check. After any
+    // verdict, a firm one included, the button asks again with the cached
+    // verdict dropped: a server restarted with a vision projector under the
+    // same URL and model name would otherwise read "none" until app restart.
     final support = _support;
-    if (support != null && support.source != VisionSource.unknown) {
-      return visionStatusPill(context, support);
-    }
-
-    // Not yet requested (generic backend), or the last check was
-    // inconclusive (server unreachable / model still loading) → offer a
-    // manual check. Unknown verdicts are never cached, so retrying re-probes.
+    final firm = support != null && support.source != VisionSource.unknown;
+    final button = TextButton.icon(
+      onPressed: support == null ? _resolve : () => _resolve(again: true),
+      icon: Icon(
+        Icons.visibility_outlined,
+        size: 16,
+        color: AppColors.iconSecondary(context),
+      ),
+      label: Text(
+        support == null
+            ? 'Check vision support'
+            : (firm ? 'Check again' : 'Retry check'),
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary(context)),
+      ),
+      style: TextButton.styleFrom(padding: EdgeInsets.zero),
+    );
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -152,22 +169,15 @@ class _RemoteVisionPillState extends State<RemoteVisionPill> {
           visionStatusPill(context, support),
           const SizedBox(width: 8),
         ],
-        TextButton.icon(
-          onPressed: _resolve,
-          icon: Icon(
-            Icons.visibility_outlined,
-            size: 16,
-            color: AppColors.iconSecondary(context),
-          ),
-          label: Text(
-            support == null ? 'Check vision support' : 'Retry check',
-            style: TextStyle(
-              fontSize: 12,
-              color: AppColors.textSecondary(context),
-            ),
-          ),
-          style: TextButton.styleFrom(padding: EdgeInsets.zero),
-        ),
+        if (firm)
+          Tooltip(
+            message:
+                'Ask the server again, for example after restarting it '
+                'with a different model or vision file.',
+            child: button,
+          )
+        else
+          button,
       ],
     );
   }
