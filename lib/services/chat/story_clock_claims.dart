@@ -90,8 +90,11 @@ final _spokenInPeriod = RegExp(
   caseSensitive: false,
 );
 
+/// No "at": "serving cinnamon rolls at dawn" / "we ride at dawn" is a
+/// schedule, the same lead [_notPresent] refuses before a numbered hour.
+/// It took a regenerated 9:00 AM reply back to 6:00 AM.
 final _bareDawn = RegExp(
-  r"\b(?:at|it's|it is|in the)\s+dawn\b",
+  r"\b(?:it's|it is|in the)\s+dawn\b",
   caseSensitive: false,
 );
 
