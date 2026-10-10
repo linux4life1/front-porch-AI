@@ -193,6 +193,50 @@ void main() {
     expect(repo.projects.single.setupStep, 2);
   });
 
+  final back = find.byKey(const ValueKey('story-setup-back'));
+
+  testWidgets('a double tap on Back goes back exactly one step', (
+    tester,
+  ) async {
+    await pumpSetup(tester, 2); // resumes on Shape
+    expect(find.byKey(const ValueKey('story-setup-step-2')), findsOneWidget);
+
+    repo.holdNextSave();
+    await tester.tap(back);
+    await tester.tap(back);
+    repo.releaseHeldSave();
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('story-setup-step-1')),
+      findsOneWidget,
+      reason: 'one double tap on Shape\'s Back must land on Cast, not Idea',
+    );
+    expect(repo.saves, 1);
+    expect(repo.projects.single.setupStep, 1);
+  });
+
+  testWidgets('Back while Next is still saving is ignored', (tester) async {
+    await pumpSetup(tester, 1); // resumes on Cast
+
+    repo.holdNextSave();
+    await tester.tap(next);
+    await tester.tap(back);
+    repo.releaseHeldSave();
+    await tester.pump();
+    await tester.pump();
+
+    expect(tester.takeException(), isNull);
+    expect(
+      find.byKey(const ValueKey('story-setup-step-2')),
+      findsOneWidget,
+      reason: 'the page shows the step that was saved',
+    );
+    expect(repo.projects.single.setupStep, 2);
+  });
+
   testWidgets('a double tap on Create finishes the story once, no crash', (
     tester,
   ) async {

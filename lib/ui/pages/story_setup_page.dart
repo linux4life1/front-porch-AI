@@ -159,7 +159,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
             steps: _stepLabels,
             current: _step,
             onTap: (i) {
-              if (i <= _reached) setState(() => _step = i);
+              if (i <= _reached && !_advancing) setState(() => _step = i);
             },
           ),
       ],
@@ -200,7 +200,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
           StoryButton.ghost(
             _step == 0 ? 'Cancel' : 'Back',
             key: const ValueKey('story-setup-back'),
-            onPressed: _step == 0 ? _leave : _back,
+            onPressed: _advancing ? null : (_step == 0 ? _leave : _back),
           ),
           const Spacer(),
           if (_narrow) ...[
@@ -226,12 +226,12 @@ class _StorySetupPageState extends State<StorySetupPage> {
 
   void _changed() => setState(() {});
 
-  Future<void> _back() async {
+  Future<void> _back() => _oneAtATime(() async {
     await _save(step: _step - 1);
     if (mounted) setState(() => _step--);
-  }
+  });
 
-  Future<void> _leave() async {
+  Future<void> _leave() => _oneAtATime(() async {
     // Nothing typed yet: nothing to keep.
     if (_projectId == null) {
       Navigator.of(context).pop();
@@ -239,7 +239,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
     }
     await _save(step: _step);
     if (mounted) Navigator.of(context).pop();
-  }
+  });
 
   Future<void> _next() async {
     if (_advancing) return;
@@ -249,8 +249,7 @@ class _StorySetupPageState extends State<StorySetupPage> {
       );
       return;
     }
-    _setAdvancing(true);
-    try {
+    await _oneAtATime(() async {
       if (_step < _stepCount - 1) {
         await _save(step: _step + 1);
         if (!mounted) return;
@@ -261,6 +260,16 @@ class _StorySetupPageState extends State<StorySetupPage> {
         return;
       }
       await _finish();
+    });
+  }
+
+  /// Back, Cancel, Next and Create each save before they move, so a second
+  /// tap while one is saving is ignored: it would move twice or finish twice.
+  Future<void> _oneAtATime(Future<void> Function() move) async {
+    if (_advancing) return;
+    _setAdvancing(true);
+    try {
+      await move();
     } finally {
       _setAdvancing(false);
     }
