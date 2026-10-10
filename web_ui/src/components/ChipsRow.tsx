@@ -42,7 +42,7 @@ export function ChipsRow({
   if (unscored) realism.push({ key: 'unscored', label: chips.feelingsUnscoredLabel || 'Feelings not scored this time', cls: 'time', reason: chips.feelingsUnscoredTip || "The model's answer couldn't be read, so bond and trust stayed where they were. To try again and keep this reply, tap Manual Reprocess and pick Feelings." });
   if (chips.bondDelta != null) realism.push({ key: 'bond', label: chips.bondDelta === 0 ? 'Bond unchanged' : `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : chips.bondDelta < 0 ? 'down' : 'time', reason: chips.bondReason });
   if (chips.trustDelta != null) realism.push({ key: 'trust', label: chips.trustDelta === 0 ? 'Trust unchanged' : `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : chips.trustDelta < 0 ? 'down' : 'time', reason: chips.trustReason });
-  if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Arousal ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
+  if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Lust ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down' });
   if (chips.emotionLabel) realism.push({ key: 'mood', label: chips.emotionLabel, cls: 'mood' });
   if (chips.timePassed) realism.push({ key: 'passed', label: `⏱ ${chips.timePassed}`, cls: 'time' });
   if (chips.timeSkipTo) realism.push({ key: 'time', label: `⏱ ${chips.timeSkipTo}`, cls: 'time' });

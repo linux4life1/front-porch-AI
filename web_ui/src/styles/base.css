@@ -131,6 +131,10 @@ input, textarea, select, .search {
   border: 1px solid var(--border); border-radius: 10px; padding: 10px 12px;
 }
 input[type='checkbox'] { width: auto; }
+/* Every slider wears the porch amber, not the browser's default blue.
+   :where() keeps this at zero specificity, so a screen that colours its own
+   sliders (Porch Stories' .s-range, light or dark) still wins. */
+:where(input[type='range']) { accent-color: var(--accent); }
 .row-label {
   display: flex; align-items: center; justify-content: space-between;
   margin: 12px 0; color: var(--text);
