@@ -58,6 +58,19 @@ extension ChatServiceLlmLanes on ChatService {
       ? testIsLocalOverride
       : (_llmProvider?.modelIsLocal ?? true);
 
+  /// Whether the model that runs the Realism evals is the user's own: the
+  /// helper while its lane is on, else the chat model. One-Shot Auto reads
+  /// it, beside the same lane's tool verdict ([_evalBackendIdentity]).
+  bool get _evalModelIsLocal {
+    if (!_workerLaneActive) return _mouthModelIsLocal;
+    final worker = testWorkerLlmServiceOverride;
+    if (worker == null) return _llmProvider?.workerModelIsLocal ?? true;
+    return backendLaneIsLocal(
+      worker is KoboldService ? 'kobold' : 'openRouter',
+      worker is LlmApiEndpoint ? (worker as LlmApiEndpoint).apiUrl : '',
+    );
+  }
+
   bool get _sideLaneIsKobold {
     if (testWorkerLlmServiceOverride != null) return false;
     if (testLlmServiceOverride != null) return testIsLocalOverride;

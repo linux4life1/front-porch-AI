@@ -165,12 +165,13 @@ extension ChatServiceAccessors on ChatService {
 
   /// The one-shot decision for THIS turn — the tri-state setting resolved
   /// against the live backend (pure policy in resolveOneShotMode; the
-  /// probe verdict and locality are the only inputs storage can't know).
+  /// probe verdict and locality are the only inputs storage can't know; both
+  /// describe the model that runs the evals, the helper when one is on).
   /// Consulted by the pre-generation dance, the regen replay, and the
   /// retroactive baseline scan, so all three paths flip together.
   bool get _oneShotActive => resolveOneShotMode(
     mode: _storageService.realismSettings.oneShotMode,
-    isLocal: _mouthModelIsLocal,
+    isLocal: _evalModelIsLocal,
     toolSupport: _toolProbe.supportFor(_evalBackendIdentity),
     // A live voice call upgrades Off to Auto's fuse-where-safe rule — one
     // eval call instead of three before the character can speak.
