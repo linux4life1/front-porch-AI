@@ -179,19 +179,9 @@ extension _CreateCharacterSave on _CreateCharacterPageState {
   /// Final step's "Done": back to home and reset the wizard for a fresh run.
   void _finishAndClose() {
     final name = _savedCard?.name ?? 'Character';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: AppColors.logReady, size: 20),
-            const SizedBox(width: 8),
-            Text('$name created successfully!'),
-          ],
-        ),
-        backgroundColor: AppColors.surfaceContainerOf(context),
-        behavior: SnackBarBehavior.floating,
-      ),
-    );
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(characterCreatedSnackBar(context, name));
     // CreateCharacterPage lives as a tab in MainLayout (not pushed as a
     // route), so Navigator.pop() would pop the entire scaffold → black
     // screen. Instead navigate back to the home tab and reset the form.

@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/mode_select_step.dart';
@@ -150,16 +151,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     final ok = await creatorState.saveCharacter(repo: repo, storage: storage);
     if (!mounted) return;
     if (ok) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text(
-            '$name created successfully!',
-            style: TextStyle(color: AppColors.textPrimary(context)),
-          ),
-          backgroundColor: AppColors.surfaceContainerOf(context),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
+      messenger.showSnackBar(characterCreatedSnackBar(context, name));
       // Already on Home: leave it as it is (a second setIndex(0) would
       // read as a Home re-tap and close the open folder).
       if (appState.selectedIndex != 0) appState.setIndex(0);

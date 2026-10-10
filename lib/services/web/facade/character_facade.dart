@@ -149,6 +149,8 @@ class CharacterFacade {
       if (id != null) byDbId[id] = card;
     }
 
+    final placeholderIds = await _placeholderPortraitIds(characters, byDbId);
+
     return characters
         .map(
           (c) => {
@@ -161,12 +163,44 @@ class CharacterFacade {
             // small over a slow uplink.
             'tags': _jsonList(c.tags),
             'hasAvatar': c.imagePath != null && c.imagePath!.isNotEmpty,
+            // The picture is only the flat no-portrait colour: the library
+            // grid draws its placeholder instead (additive field).
+            'placeholderPortrait': placeholderIds.contains(c.id),
             'avatarVersion': _avatarVersion(c.imagePath, c.id, byDbId),
             'folderId': c.folderId ?? '',
             'messageCount': msgCounts[c.id] ?? 0,
           },
         )
         .toList();
+  }
+
+  /// Ids whose picture is only the flat coloured placeholder a card made
+  /// without a portrait carries. The grid shows their initial, as for a card
+  /// with no picture at all. Probes are cached per file and version, so a
+  /// repeat list costs a map lookup per character.
+  Future<Set<String>> _placeholderPortraitIds(
+    List<Character> characters,
+    Map<String, CharacterCard> byDbId,
+  ) async {
+    final ids = <String>{};
+    final probes = <Future<void>>[];
+    for (final c in characters) {
+      final imagePath = c.imagePath;
+      if (imagePath == null || imagePath.isEmpty) continue;
+      final version = _avatarVersion(imagePath, c.id, byDbId);
+      if (version == 0) continue; // nothing on disk to look at
+      final hydrated = byDbId[c.id];
+      final file =
+          (hydrated == null ? null : _repo?.coverImageFileFor(hydrated)) ??
+          File(p.join(_storage.charactersDir.path, p.basename(imagePath)));
+      probes.add(
+        PlaceholderPortraitProbe.check(file, version: version).then((yes) {
+          if (yes) ids.add(c.id);
+        }),
+      );
+    }
+    await Future.wait(probes);
+    return ids;
   }
 
   /// The avatar's cache-busting version token for the thumbnail URL

@@ -21,6 +21,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
@@ -83,7 +84,38 @@ class CharacterGridCard extends StatelessWidget {
   /// Delegates to the canonical stable group ID.
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
 
+  /// The person icon a card shows when it has no portrait of its own.
+  Widget _noPortrait(BuildContext context, double size) => Container(
+    color: AppColors.surfaceContainerOf(context),
+    child: Icon(
+      Icons.person,
+      size: size,
+      color: AppColors.iconSecondary(context),
+    ),
+  );
+
+  /// A card made without a portrait still carries a flat coloured picture
+  /// (the card file needs one); it gets the person icon like a card with no
+  /// picture at all. The probe is cached, so this paints the icon straight
+  /// away once known.
   Widget _coverImage(BuildContext context, File file, {required double size}) {
+    return FutureBuilder<bool>(
+      future: PlaceholderPortraitProbe.check(file, version: imageCacheEpoch),
+      initialData: PlaceholderPortraitProbe.known(
+        file,
+        version: imageCacheEpoch,
+      ),
+      builder: (context, placeholder) => placeholder.data == true
+          ? _noPortrait(context, size)
+          : _portraitImage(context, file, size: size),
+    );
+  }
+
+  Widget _portraitImage(
+    BuildContext context,
+    File file, {
+    required double size,
+  }) {
     return Image.file(
       file,
       key: ValueKey(
@@ -97,14 +129,7 @@ class CharacterGridCard extends StatelessWidget {
       // decent-sized library and forced re-decodes on every scroll. 512px
       // covers the largest tile at 2x DPR at a quarter of the memory.
       cacheWidth: 512,
-      errorBuilder: (_, _, _) => Container(
-        color: AppColors.surfaceContainerOf(context),
-        child: Icon(
-          Icons.person,
-          size: size,
-          color: AppColors.iconSecondary(context),
-        ),
-      ),
+      errorBuilder: (_, _, _) => _noPortrait(context, size),
     );
   }
 
