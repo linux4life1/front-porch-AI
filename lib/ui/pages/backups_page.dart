@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Local database Backups & Restore.
 ///
@@ -72,11 +73,7 @@ class _BackupsPageState extends State<BackupsPage> {
   }
 
   Widget _disabledNotice(BuildContext context, ThemeData theme) {
-    final accent = AppColors.resolve(
-      context,
-      Colors.amber,
-      Colors.amber.shade800,
-    );
+    final accent = AppColors.porchAmberOf(context);
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -135,13 +132,13 @@ class _BackupsPageState extends State<BackupsPage> {
             children: [
               SizedBox(
                 width: double.infinity,
-                child: OutlinedButton.icon(
+                child: FilledButton.icon(
                   onPressed: _createBackup,
                   icon: const Icon(Icons.backup, size: 18),
                   label: const Text('Create Backup Now'),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.formMasterAccent,
-                    side: const BorderSide(color: AppColors.formMasterAccent),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),
@@ -196,10 +193,10 @@ class _BackupsPageState extends State<BackupsPage> {
     return ListTile(
       dense: true,
       contentPadding: EdgeInsets.zero,
-      leading: const Icon(
+      leading: Icon(
         Icons.storage,
         size: 20,
-        color: AppColors.formMasterAccent,
+        color: AppColors.porchAmberOf(context),
       ),
       title: Text(
         timeStr,
@@ -224,10 +221,10 @@ class _BackupsPageState extends State<BackupsPage> {
             ),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.delete_outline,
               size: 20,
-              color: Colors.redAccent,
+              color: AppColors.negativeAccentOf(context),
             ),
             tooltip: 'Delete backup',
             onPressed: () => _confirmDelete(context, backup, timeStr, sizeMb),
@@ -259,36 +256,26 @@ class _BackupsPageState extends State<BackupsPage> {
     String timeStr,
     String sizeMb,
   ) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(ctx),
-        title: Text(
-          'Delete Backup?',
-          style: TextStyle(color: AppColors.textPrimary(ctx)),
-        ),
-        content: Text(
-          'Delete backup from $timeStr ($sizeMb MB)?\n\nThis cannot be undone.',
-          style: TextStyle(color: AppColors.textSecondary(ctx), height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textTertiary(ctx)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Delete'),
-          ),
-        ],
+    // The buttons pop with the dialog's own context (Builder): the page's
+    // context can belong to a different navigator than the dialog's.
+    final confirmed = await showWarmDialog<bool>(
+      context,
+      title: 'Delete Backup?',
+      destructive: true,
+      content: WarmDialogText(
+        'Delete backup from $timeStr ($sizeMb MB)?\n\nThis cannot be undone.',
       ),
+      actions: [
+        Builder(builder: (ctx) => warmDialogCancel(ctx, value: false)),
+        Builder(
+          builder: (ctx) => warmDialogConfirm(
+            ctx,
+            label: 'Delete',
+            destructive: true,
+            onPressed: () => Navigator.of(ctx).pop(true),
+          ),
+        ),
+      ],
     );
     if (confirmed != true) return;
     try {
@@ -307,48 +294,26 @@ class _BackupsPageState extends State<BackupsPage> {
   }
 
   void _confirmRestore(BuildContext context, String backupPath) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(ctx),
-        title: Row(
-          children: [
-            const Icon(
-              Icons.warning_amber_rounded,
-              color: Colors.amberAccent,
-              size: 28,
-            ),
-            const SizedBox(width: 12),
-            Text(
-              'Restore Backup?',
-              style: TextStyle(color: AppColors.textPrimary(ctx)),
-            ),
-          ],
-        ),
-        content: Text(
-          'This will replace your current database with the backup. '
-          'All changes made after this backup was created will be lost.\n\n'
-          'Your library reloads in place, so you should not need to restart.',
-          style: TextStyle(color: AppColors.textSecondary(ctx), height: 1.5),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(
-              'Cancel',
-              style: TextStyle(color: AppColors.textTertiary(ctx)),
-            ),
-          ),
-          ElevatedButton(
-            onPressed: () => _restore(ctx, backupPath),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.amberAccent,
-              foregroundColor: Colors.black87,
-            ),
-            child: const Text('Restore'),
-          ),
-        ],
+    showWarmDialog<void>(
+      context,
+      title: 'Restore Backup?',
+      icon: Icons.warning_amber_rounded,
+      accent: AppColors.porchAmberOf(context),
+      content: const WarmDialogText(
+        'This will replace your current database with the backup. '
+        'All changes made after this backup was created will be lost.\n\n'
+        'Your library reloads in place, so you should not need to restart.',
       ),
+      actions: [
+        Builder(builder: (ctx) => warmDialogCancel(ctx)),
+        Builder(
+          builder: (ctx) => warmDialogConfirm(
+            ctx,
+            label: 'Restore',
+            onPressed: () => _restore(ctx, backupPath),
+          ),
+        ),
+      ],
     );
   }
 
