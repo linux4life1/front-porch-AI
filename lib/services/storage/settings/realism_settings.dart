@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
 import 'settings_base.dart';
 
 part 'realism_settings.load.dart';
+part 'realism_settings.import_stamp.dart';
 
 /// How the pre-generation realism judges are fused (eval review Tier-1 §3.4,
 /// maintainer-approved 2026-08-10). [auto] — the default — uses the fused

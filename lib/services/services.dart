@@ -47,6 +47,7 @@ export 'storage_service.dart';
 // objects themselves are reached through StorageService instances.
 export 'storage/settings/realism_settings.dart' show OneShotMode;
 export 'character_repository.dart';
+export 'imported_needs_cleanup.dart';
 export 'group_chat_repository.dart';
 export 'group_card_service.dart';
 export 'group_card_exporter.dart';

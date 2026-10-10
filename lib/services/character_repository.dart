@@ -62,6 +62,16 @@ class CharacterRepository extends ChangeNotifier {
   List<CharacterCard> get characters => List.unmodifiable(_characters);
   bool get isLoading => _isLoading;
 
+  /// The library load in flight, or a finished future when none is. Waits
+  /// without starting another pass (a second [loadCharacters] would).
+  Future<void> get whenLoaded => _loadInFlight ?? Future<void>.value();
+
+  /// True when the last load pass read the library: no database error, and
+  /// the storage root was known when the portraits were read (without it
+  /// they resolve under the wrong folder, so cards have no settings).
+  bool get libraryLoaded => _libraryLoaded;
+  bool _libraryLoaded = false;
+
   /// All unique tags across all characters (for autocomplete)
   List<String> get allTags {
     final tags = <String>{};
@@ -175,6 +185,8 @@ class CharacterRepository extends ChangeNotifier {
         debugPrint('[CharacterRepository] Failed to load avatar images: $e');
       }
 
+      // Taken where the portraits start to resolve against the root.
+      final hadRoot = _storage.rootPath != null;
       for (final c in dbChars) {
         final card = _characterFromRow(c);
 
@@ -256,7 +268,9 @@ class CharacterRepository extends ChangeNotifier {
           'data: ${noCardDataNames.join(", ")}',
         );
       }
+      _libraryLoaded = hadRoot;
     } catch (e) {
+      _libraryLoaded = false;
       debugPrint('[CharacterRepository] Error loading characters from DB: $e');
     } finally {
       _isLoading = false;

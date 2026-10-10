@@ -186,7 +186,7 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
           dispose: (_, s) => s.dispose(),
         ),
         ChangeNotifierProxyProvider<StorageService, CharacterRepository>(
-          create: (context) => CharacterRepository(
+          create: (context) => openCharacterRepository(
             db,
             Provider.of<StorageService>(context, listen: false),
           ),
