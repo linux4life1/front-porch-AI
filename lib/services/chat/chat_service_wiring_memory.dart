@@ -340,11 +340,22 @@ extension ChatServiceWiringMemory on ChatService {
           return;
         }
         _groupManager?.setNextSpeaker(member);
+        final tipBefore = _messages.lastOrNull;
         await _generateResponse(GenerationMode.normal, forceSpeaker: member);
-        // forceSpeaker skips the pick, so close the turn here: the rotation
-        // carries on after [member] instead of handing them the next one.
-        _groupManager?.clearForcedSpeaker();
-        _groupManager?.advanceAfterRegeneration(member);
+        // forceSpeaker skips the pick, so close the turn here once the
+        // member's reply landed: the rotation carries on after them. A
+        // refused or failed turn keeps them up next for the retry.
+        final tip = _messages.lastOrNull;
+        final said = tip == null || identical(tip, tipBefore) || tip.isUser
+            ? null
+            : _resolveGroupSpeakerForMessage(tip);
+        final spoke =
+            said != null &&
+            _getCharacterIdFromCard(said) == _getCharacterIdFromCard(member);
+        if (spoke) {
+          _groupManager?.clearForcedSpeaker();
+          _groupManager?.advanceAfterRegeneration(member);
+        }
       },
       isGroupTurnOrderRandom: () => isGroupTurnOrderRandom,
       setGroupTurnOrder: (random, customOrder) =>

@@ -162,6 +162,29 @@ void main() {
     expect(chat.messages.last.sender, 'Ada');
   }, timeout: const Timeout(Duration(minutes: 2)));
 
+  test(
+    '/speak that fails: the member is still up next for the retry',
+    () async {
+      await enterGroup();
+      backend.failChatCompletionContaining = 'Cy keeps the porch';
+      await chat.sendMessage('/speak Cy');
+      await _drain();
+      expect(backend.chatFailuresServed, 1, reason: 'the turn did fail');
+      expect(
+        chat.messages.where((m) => m.sender == 'Cy' && m.text.isNotEmpty),
+        isEmpty,
+        reason: 'only the empty bubble the failed stream left',
+      );
+      expect(chat.nextCharacter?.name, 'Cy', reason: 'Next: still Cy');
+
+      await chat.sendMessage('Go on, Cy.');
+      await _drain();
+      expect(chat.messages.last.sender, 'Cy', reason: 'the retry gives Cy');
+      expect(chat.nextCharacter?.name, 'Ada');
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
   test('/exit: the member after the leaver still gets the next turn', () async {
     await enterGroup();
     await chat.sendMessage('Evening, all.');

@@ -118,6 +118,7 @@ class GroupTurnManager extends ChangeNotifier {
   /// Safe no-op for random turn order or non-round-robin groups.
   void advanceAfterRegeneration(CharacterCard character) {
     if (!isActive || _characters.isEmpty) return;
+    if (_group!.turnOrder != TurnOrder.roundRobin) return;
     final idx = _characters.indexWhere((c) => c.name == character.name);
     if (idx < 0) return;
     _turnIndex = (idx + 1) % _characters.length;
