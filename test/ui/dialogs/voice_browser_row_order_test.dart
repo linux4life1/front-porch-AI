@@ -65,14 +65,22 @@ void main() {
     await tester.binding.setSurfaceSize(const Size(1000, 800));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     SharedPreferences.setMockInitialValues({});
-    // The 120 px Quality filter overflows by a few pixels around "medium"
-    // in the test font. That layout is not what this test is about, so only
-    // that overflow report is set aside; every other error still fails it.
+    // The 120 px Quality filter's selected item (a 64 px row inside the
+    // dropdown) overflows to the right around "medium" in the test font.
+    // That layout is not what this test is about, so only that one report
+    // is set aside; any other overflow or error still fails the test.
     final reportError = FlutterError.onError;
+    bool isQualityFilterOverflow(FlutterErrorDetails d) {
+      final text = d.toString();
+      return d.exceptionAsString().contains('RenderFlex overflowed by') &&
+          d.exceptionAsString().contains('on the right') &&
+          text.contains('DropdownButtonFormField<String>') &&
+          text.contains('voice_browser_dialog.dart') &&
+          text.contains('constraints: BoxConstraints(w=64.0');
+    }
+
     FlutterError.onError = (details) {
-      if (details.exceptionAsString().contains('RenderFlex overflowed')) {
-        return;
-      }
+      if (isQualityFilterOverflow(details)) return;
       reportError?.call(details);
     };
     addTearDown(() => FlutterError.onError = reportError);
