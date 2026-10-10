@@ -287,14 +287,15 @@ class _RepositoryAuthViewState extends State<RepositoryAuthView> {
                   ),
                 ],
                 const SizedBox(height: 12),
-                _field('Password', _password, hint: '••••••••', obscure: true),
+                _field(
+                  'Password',
+                  _password,
+                  hint: _isSignup ? 'At least 8 characters' : 'Your password',
+                  obscure: true,
+                ),
                 if (_twoFactorRequired && !_isSignup) ...[
                   const SizedBox(height: 12),
-                  _field(
-                    'Authenticator code',
-                    _totp,
-                    hint: '123456',
-                  ),
+                  _field('Authenticator code', _totp, hint: '123456'),
                 ],
                 if (_isSignup) ...[const SizedBox(height: 12), _dobField()],
                 if (_error != null) ...[
