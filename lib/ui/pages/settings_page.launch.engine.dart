@@ -19,7 +19,7 @@
 part of 'settings_page.dart';
 
 /// The top of Advanced Launch Options: what a preset already sets, the
-/// acceleration backend, the KV cache, flash attention and memory lock.
+/// acceleration backend, flash attention and memory lock.
 /// These are what auto mode launches with; a preset is launched as written.
 extension _SettingsLaunchEngine on _SettingsPageState {
   List<Widget> _buildLaunchEngineRows(
@@ -106,7 +106,6 @@ extension _SettingsLaunchEngine on _SettingsPageState {
       ],
       _buildAccelerationSection(context, Provider.of<HardwareService>(context)),
       const SizedBox(height: 4),
-      _buildKvCacheRow(context, storage),
       const SizedBox(height: 12),
       Divider(color: AppColors.borderOf(context), height: 1),
       const SizedBox(height: 12),

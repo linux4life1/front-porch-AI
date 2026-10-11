@@ -2,10 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // Settings → Advanced kept a second copy of what the Backend tab's Local
-// model card and the Model Settings dialog already set: the card's name and
-// memory, the context, and GPU layers. They are gone; the launch settings
-// only Advanced has (acceleration and the KV cache) moved into Advanced
-// Launch Options. The Generation tab's Min Output Tokens was never sent to
+// model card, the Model Settings dialog and the preset editor already set:
+// the card's name and memory, the context, GPU layers and the KV cache.
+// They are gone; acceleration moved into Advanced Launch Options. The Generation tab's Min Output Tokens was never sent to
 // any backend, so it is gone too. The real Settings page.
 
 import 'package:flutter/material.dart';
@@ -14,8 +13,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../helpers/settings_page_harness.dart';
 
 void main() {
-  testWidgets('Advanced has no Hardware & GPU copy; acceleration and the KV '
-      'cache are in Advanced Launch Options', (tester) async {
+  testWidgets('Advanced has no Hardware & GPU copy and no KV cache; '
+      'acceleration is in Advanced Launch Options', (tester) async {
     await mountSettings(tester, lastUsedIsB: false);
     await openTab(tester, 'Advanced');
 
@@ -31,7 +30,9 @@ void main() {
     await settle(tester);
 
     expect(find.textContaining('Acceleration:'), findsOneWidget);
-    expect(find.byKey(const ValueKey('kv-quant-picker')), findsOneWidget);
+    // The KV cache is set in the preset editor and the Model Settings
+    // dialog.
+    expect(find.byKey(const ValueKey('kv-quant-picker')), findsNothing);
     expect(find.text('Flash Attention'), findsOneWidget);
   });
 

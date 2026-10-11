@@ -18,7 +18,7 @@
 
 part of 'settings_page.dart';
 
-/// Acceleration and the KV cache row of Advanced Launch Options.
+/// Acceleration in Advanced Launch Options.
 extension _SettingsGpuChips on _SettingsPageState {
   /// Acceleration is always worked out from the card (CUDA on NVIDIA, Metal
   /// on a Mac, Vulkan on AMD or Intel). The one choice left is ROCm, which
@@ -118,41 +118,6 @@ extension _SettingsGpuChips on _SettingsPageState {
                   rebuildState(() {});
                 }
               : null,
-        ),
-      ],
-    );
-  }
-
-  /// The cache type auto mode launches with. A preset names its own.
-  Widget _buildKvCacheRow(BuildContext context, StorageService storage) {
-    return Row(
-      children: [
-        Text(
-          'KV Cache Quantization:',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary(context),
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: KvQuantPicker(
-            value: storage.backendSettings.kvQuant,
-            onChanged: (val) {
-              storage.backendSettings.setKvQuant(val);
-              rebuildState(() {});
-            },
-          ),
-        ),
-        const SizedBox(width: 8),
-        Tooltip(
-          message:
-              'Quantizes the context window to save significant VRAM with minimal quality loss. Note: KoboldCPP dynamically disables Context Shifting when this is active.',
-          child: Icon(
-            Icons.info_outline,
-            size: 16,
-            color: AppColors.porchAmberOf(context).withValues(alpha: 0.6),
-          ),
         ),
       ],
     );
