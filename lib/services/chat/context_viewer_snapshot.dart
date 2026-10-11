@@ -134,6 +134,9 @@ class ContextBudgetStore {
 
   bool get isEmpty => budget.isEmpty;
 
+  /// The last real send, even while the view shows a live estimate.
+  ContextViewerSnapshot? get lastSend => _lastSendSticky;
+
   void clear() {
     budget = {};
     sections = const {};

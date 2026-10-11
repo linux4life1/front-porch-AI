@@ -47,7 +47,10 @@ int waifuIdleRequestTokens(WaifuSession session, {int mcpToolCount = 0}) {
           session.coworker,
           pathMode: session.pathMode,
         );
-  final speech = [for (final m in session.transcript) m.text].join('\n');
+  final speech = [
+    for (final m in session.transcript)
+      if (m.kind != WaifuMsgKind.stage) m.text,
+  ].join('\n');
   return waifuOpenCodePromptEstimate(
     systemPrompt: sys,
     speech: speech,

@@ -142,6 +142,9 @@ const kWaifuToolsUnsupported =
     'This model cannot do $kWaifuCoderName. Tool calling is unsupported. '
     'Sit down is blocked — pick a tool-fluent backend in Settings.';
 
+const kWaifuPhotosUnsupported =
+    'Photos are not in this OpenCode version — the text still went through.';
+
 const kWaifuUndoNeedsTurn =
     'Undo uses OpenCode revert after a finished turn — nothing to revert yet.';
 

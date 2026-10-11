@@ -68,6 +68,8 @@ Map<String, dynamic> _coworkerMap(CharacterCard c) => {
   'systemPrompt': c.systemPrompt,
   'mesExample': c.mesExample,
   if (c.imagePath != null) 'imagePath': c.imagePath,
+  // Lets a resumed session find its library card after a rename.
+  if (c.dbId != null) 'dbId': c.dbId,
 };
 
 CharacterCard _coworkerFrom(Map map) => CharacterCard(
@@ -77,6 +79,7 @@ CharacterCard _coworkerFrom(Map map) => CharacterCard(
   systemPrompt: map['systemPrompt']?.toString() ?? '',
   mesExample: map['mesExample']?.toString() ?? '',
   imagePath: map['imagePath']?.toString(),
+  dbId: _nonEmpty(map['dbId']),
 );
 
 String? _nonEmpty(Object? raw) {
@@ -213,6 +216,7 @@ class WaifuStore {
           if (m.toolPath != null) 'toolPath': m.toolPath,
           if (m.toolCallId != null) 'toolCallId': m.toolCallId,
           if (m.toolArgs != null) 'toolArgs': m.toolArgs,
+          if (m.detail != null) 'detail': m.detail,
         },
     ],
   };
@@ -341,6 +345,7 @@ class WaifuStore {
               toolArgs: e['toolArgs'] is Map
                   ? Map<String, dynamic>.from(e['toolArgs'] as Map)
                   : null,
+              detail: e['detail']?.toString(),
             ),
           );
         }

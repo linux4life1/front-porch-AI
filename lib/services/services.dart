@@ -85,6 +85,7 @@ export 'reasoning_effort_store.dart';
 // for the consolidated eval/impact layer; direct import also supported).
 export 'chat/needs_impact_evaluator.dart';
 export 'chat/context_viewer_snapshot.dart';
+export 'chat/reply_context.dart';
 export 'chat/token_alternatives.dart';
 
 // TTS / STT / media

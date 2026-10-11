@@ -177,6 +177,17 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect.poll(async () => (await bubble.innerText()).length).toBeGreaterThan(before);
   });
 
+  test('inspect the prompt behind a reply', async ({ page }) => {
+    await openPorchChat(page);
+    await action(lastRow(page), 'Inspect prompt').click();
+    const modal = page.locator('.ctxb-modal');
+    await expect(modal).toContainText('This reply');
+    await expect(modal).toContainText(/Total: \d+ \/ \d+ tokens/);
+    await expect(modal.getByRole('button', { name: 'Refresh' })).toHaveCount(0);
+    await modal.getByRole('button', { name: 'Close' }).click();
+    await expect(modal).toBeHidden();
+  });
+
   test('delete the last reply after confirming', async ({ page }) => {
     await openPorchChat(page);
     const n = await rows(page).count();

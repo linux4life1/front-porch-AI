@@ -92,15 +92,9 @@ void main() {
     expect(kSdCreatePreset.id, 'sd');
   });
 
-  test('web Comfy family control still sends the sd id', () {
-    final page = File(
-      'web_ui/src/components/models/ImageGen.tsx',
-    ).readAsStringSync();
-    // The phone's page renders the desk, which is where the graph is chosen,
-    // and a server that names no Create graph is given the sd one.
-    expect(page.contains('<StudioDesk'), isTrue);
-    expect(page.contains("comfyCreateWorkflowId ?? 'sd'"), isTrue);
-    expect(page.contains('<ComfyCreateFields'), isFalse);
+  test('the sd graph the phone falls back to is a desktop preset', () {
+    // The phone side (no graph named → sd) is driven through the real desk in
+    // web_ui/src/components/models/ImageGen.test.tsx.
     expect(kComfyCreatePresets.map((p) => p.id), contains('sd'));
   });
 

@@ -5,7 +5,8 @@
 // what the model was actually sent last turn, section by section, with the
 // REAL text behind every row (capped + scrollable so Chat History can't
 // blow the modal up) and a copy button. Reopening a chat restores the last
-// saved send; Refresh builds a live estimate.
+// saved send; Refresh builds a live estimate. With `messageIndex` it shows the
+// prompt that produced that one reply instead (no Refresh).
 
 import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
@@ -35,12 +36,14 @@ interface Budget {
   contextLimit: number;
   source?: string;
   assembledAt?: string | null;
+  textPruned?: boolean;
   sections: BudgetSection[];
 }
 
 function sourceLabel(source?: string): string {
   if (source === 'lastSend') return 'Last send';
   if (source === 'estimate') return 'Estimate (now)';
+  if (source === 'reply') return 'This reply';
   return '';
 }
 
@@ -51,7 +54,14 @@ function fmtTime(iso?: string | null): string {
   return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
-export function ContextBudgetModal({ onClose }: { onClose: () => void }) {
+export function ContextBudgetModal({
+  onClose,
+  messageIndex,
+}: {
+  onClose: () => void;
+  messageIndex?: number;
+}) {
+  const forReply = messageIndex !== undefined;
   const [budget, setBudget] = useState<Budget | null>(null);
   const [failed, setFailed] = useState(false);
   const [openLabel, setOpenLabel] = useState<string | null>(null);
@@ -61,10 +71,14 @@ export function ContextBudgetModal({ onClose }: { onClose: () => void }) {
   const load = useCallback(() => {
     setFailed(false);
     return api
-      .get<Budget>('/api/chat/context-budget')
+      .get<Budget>(
+        forReply
+          ? `/api/chat/context-budget?index=${messageIndex}`
+          : '/api/chat/context-budget',
+      )
       .then(setBudget)
       .catch(() => setFailed(true));
-  }, []);
+  }, [forReply, messageIndex]);
 
   useEffect(() => {
     void load();
@@ -115,14 +129,16 @@ export function ContextBudgetModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button
-              className="link-btn"
-              onClick={() => void refresh()}
-              disabled={refreshing}
-              title="Refresh estimate from this chat"
-            >
-              {refreshing ? '…' : 'Refresh'}
-            </button>
+            {!forReply && (
+              <button
+                className="link-btn"
+                onClick={() => void refresh()}
+                disabled={refreshing}
+                title="Refresh estimate from this chat"
+              >
+                {refreshing ? '…' : 'Refresh'}
+              </button>
+            )}
             <button className="link-btn" onClick={onClose}>Close</button>
           </div>
         </div>
@@ -155,6 +171,11 @@ export function ContextBudgetModal({ onClose }: { onClose: () => void }) {
                 }}
               />
             </div>
+            {budget?.textPruned && (
+              <p className="muted" style={{ fontSize: 11 }}>
+                Only the token counts are kept for older replies.
+              </p>
+            )}
             <div className="ctxb-stack">
               {sections.map((s) => (
                 <div
@@ -195,7 +216,10 @@ export function ContextBudgetModal({ onClose }: { onClose: () => void }) {
                       </button>
                       <div className="ctxb-text">
                         <pre>
-                          {s.text || '(Empty in this snapshot.)'}
+                          {s.text ||
+                            (budget?.textPruned
+                              ? '(Not kept for older replies.)'
+                              : '(Empty in this snapshot.)')}
                         </pre>
                       </div>
                     </div>

@@ -17,6 +17,28 @@ extension ChatServiceContextBudget on ChatService {
     await _db.setContextBudgetJson(sessionId, json);
   }
 
+  /// Records the send that produced [target] on its shown swipe. A Continue
+  /// extends a reply whose prompt is already recorded, so it keeps that one.
+  void _stampReplyContext(ChatMessage target, {required bool continuing}) {
+    if (target.isUser) return;
+    if (continuing && target.activeMetadata?[kReplyContextKey] != null) {
+      return;
+    }
+    final send = _contextBudget.lastSend;
+    if (send == null || send.isEmpty) return;
+    target.activeMetadata ??= {};
+    target.activeMetadata![kReplyContextKey] = send.toJson();
+    trimReplyContextTexts(_messages);
+  }
+
+  /// The prompt record of the reply at [index], or null when none was kept.
+  ContextViewerSnapshot? replyContextSnapshot(int index) {
+    if (index < 0 || index >= _messages.length) return null;
+    final m = _messages[index];
+    if (m.isUser) return null;
+    return replyContextOf(m);
+  }
+
   /// Live estimate from the open chat (no model call). Context Viewer refresh.
   Future<void> _estimateContextBudgetNow() async {
     if (_activeCharacter == null && _activeGroup == null) return;

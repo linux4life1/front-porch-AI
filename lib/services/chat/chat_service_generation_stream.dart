@@ -157,6 +157,10 @@ extension ChatServiceGenerationStream on ChatService {
       t.streamTarget.activeMetadata ??= {};
       t.streamTarget.activeMetadata!['tool_receipt'] = t.toolReceipt;
     }
+    _stampReplyContext(
+      t.streamTarget,
+      continuing: t.mode == GenerationMode.continue_,
+    );
     final streamTarget = t.streamTarget;
 
     // Helper to update the visible message from buffer. Incremental: only
