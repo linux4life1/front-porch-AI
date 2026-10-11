@@ -47,8 +47,9 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                         borderRadius: BorderRadius.circular(20),
                         color: AppColors.cardOf(context),
                         border: Border.all(
-                          color: AppColors.borderOf(context)
-                              .withValues(alpha: 0.45),
+                          color: AppColors.borderOf(
+                            context,
+                          ).withValues(alpha: 0.45),
                         ),
                         image: cover != null
                             ? DecorationImage(
@@ -86,6 +87,19 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                 },
               ),
               const SizedBox(height: 20),
+
+              CharacterStatsSection(
+                characterId: widget.character.dbId,
+                wrap: (content) => Padding(
+                  padding: const EdgeInsets.only(bottom: 20),
+                  child: _sectionCard(
+                    icon: Icons.insights_outlined,
+                    title: 'Your chats together',
+                    color: AppColors.porchAmberOf(context),
+                    children: [content],
+                  ),
+                ),
+              ),
 
               // ── Identity Section ──
               _sectionCard(

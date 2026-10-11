@@ -175,3 +175,13 @@
 .macro-modal .macro-area .macro-input { min-height: 50vh; }
 .lore-edit .macro-field { margin: 0; }
 
+
+/* ── Character editor: "Your chats together" ─────────────────── */
+.char-stats-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+.char-stat {
+  flex: 1 1 130px; max-width: 180px; padding: 8px 12px;
+  background: var(--surface-2); border-radius: 10px;
+}
+.char-stat-value { font-size: 1rem; font-weight: 600; color: var(--text); }
+.char-stat-label { font-size: 0.78rem; color: var(--muted); }
+.char-stats-note { font-size: 0.75rem; color: var(--muted); margin: 8px 0 0; }
