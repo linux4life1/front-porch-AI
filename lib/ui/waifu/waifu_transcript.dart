@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_coworker_face.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_stage_lines.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_tool_log.dart';
 
 /// Session transcript column. Extracted so [WaifuPage] stays under the cap.
@@ -48,10 +49,22 @@ class WaifuTranscript extends StatelessWidget {
         ),
       );
     }
-    final visible = [
-      for (final m in session.transcript)
-        if (m.kind == WaifuMsgKind.user || m.kind == WaifuMsgKind.assistant) m,
-    ];
+    final visible = <WaifuMessage>[];
+    // Stage rows ride under the bubble they follow; any before the first
+    // bubble sit above it.
+    final before = <WaifuMessage>[];
+    final after = <List<WaifuMessage>>[];
+    for (final m in session.transcript) {
+      if (m.kind == WaifuMsgKind.user || m.kind == WaifuMsgKind.assistant) {
+        visible.add(m);
+        after.add([]);
+      } else if (m.kind == WaifuMsgKind.stage) {
+        (after.isEmpty ? before : after.last).add(m);
+      }
+    }
+    if (visible.isEmpty) {
+      return Center(child: WaifuStageLines(lines: before));
+    }
     final chats = [for (final m in visible) m.toChatMessage(coworker)];
     var follow = true;
     try {
@@ -75,12 +88,24 @@ class WaifuTranscript extends StatelessWidget {
       // a tool-chip rebuild wiped the pin, so it could not be closed.
       // Tool rows sit below the bubble so a long Thought does not
       // push the live actions off the newest edge.
+      aboveBubble: (msg, index) => index == 0 && before.isNotEmpty
+          ? WaifuStageLines(lines: before)
+          : null,
       belowBubble: (msg, index) {
-        if (msg.isUser) return null;
         if (index < 0 || index >= visible.length) return null;
-        final chips = visible[index].chips;
-        if (chips.isEmpty) return null;
-        return WaifuToolLog(chips: chips);
+        final chips = msg.isUser
+            ? const <WaifuToolChip>[]
+            : visible[index].chips;
+        final stage = after[index];
+        if (chips.isEmpty && stage.isEmpty) return null;
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (chips.isNotEmpty) WaifuToolLog(chips: chips),
+            if (stage.isNotEmpty) WaifuStageLines(lines: stage),
+          ],
+        );
       },
     );
   }

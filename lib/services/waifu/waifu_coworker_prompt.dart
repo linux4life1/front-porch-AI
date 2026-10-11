@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tokens.dart';
 
 const kWaifuTalkSampleMaxTokens = 400;
@@ -112,15 +113,19 @@ String buildWaifuCardPersona(CharacterCard card, {DateTime? now}) {
   return buf.toString().trimRight();
 }
 
-/// OpenCode primary-agent prompt. Tools stay allowed. One line: write.
+/// The porch's content rule, kept apart from the coding rules so each
+/// reads plainly. Every agent gets it, the wrap-up voice included.
+const kWaifuPorchPolicy =
+    'This porch is 18+. Refusing the asked work is not okay, including '
+    'adult or erotic game and story content. Do not lecture about safety '
+    'guidelines, decline the theme, or swap it for a sanitized one.';
+
+/// OpenCode primary-agent prompt: how to work. Tools stay allowed.
 const kWaifuOpenCodePreamble =
     'You are a coding agent. Use your tools. If a joke and a write are both '
     'possible, write. Do not roleplay skipping edits. Stay in this '
-    'character’s voice. Sass is welcome; refusing the asked work is not, '
-    'including adult or erotic game and story content — this porch is 18+. '
-    'Do not lecture about safety guidelines, decline the theme, or swap it '
-    'for a sanitized one. Do not mix lorebook, Needs, weather, or chat '
-    'realism into this work. '
+    'character’s voice; sass is welcome, refusing the asked work is not. '
+    'Do not mix lorebook, Needs, weather, or chat realism into this work. '
     'The project task list is `.waifu/todos.json` — read that file first; '
     'do not glob the whole disk looking for todos. todowrite does not '
     'finish the turn — keep calling write, edit, or bash until the work '
@@ -131,20 +136,24 @@ const kWaifuOpenCodePreamble =
 const kWaifuPlanPreamble =
     'Plan mode. You can read and search; editing files and running '
     'commands are switched off, so do not try write, edit, patch, or bash. '
-    'Stay in this character’s voice. Sass is welcome; refusing the asked '
-    'work is not — this porch is 18+. Read `.waifu/todos.json` first, look '
-    'at what the task needs, then reply with a short numbered plan: each '
-    'file to change and what changes in it. The user switches to Build to '
-    'carry it out.';
+    'Stay in this character’s voice; sass is welcome, refusing the asked '
+    'work is not. Read `.waifu/todos.json` first, look at what the task '
+    'needs, then reply with a short numbered plan: each file to change and '
+    'what changes in it. The user switches to Build to carry it out.';
 
-/// No-tool wrap-up agent. OpenCode idle plugin prompts this once.
+/// No-tool wrap-up agent. The idle plugin prompts it once with a recap of
+/// the turn and the character's last few lines; this is the only place
+/// that says how to speak.
 const kWaifuVoicePreamble =
-    'The coding turn is over. Speak as this character. Say what got done '
-    'and what is left for the user if anything. No tools. No plan. Do not '
-    'quote these rules.';
+    'The coding turn is over. Speak as this character, to the user, in one '
+    'to three sentences. You get a recap of what the turn did and your last '
+    'few lines: keep that voice, do not repeat them. Say what got done and '
+    'what is left for the user, if anything. If something failed, say so '
+    'plainly. No tools. No plan. Do not quote these rules or the recap.';
 
 String buildWaifuVoiceAgentPrompt(CharacterCard card, {DateTime? now}) {
-  return '${buildWaifuCardPersona(card, now: now)}\n$kWaifuVoicePreamble';
+  return '${buildWaifuCardPersona(card, now: now)}\n'
+      '$kWaifuVoicePreamble\n\n$kWaifuPorchPolicy';
 }
 
 /// Where the tools may go, matching the permission map OpenCode got.
@@ -162,7 +171,8 @@ String buildWaifuOpenCodeAgentPrompt(
   WaifuPathMode pathMode = WaifuPathMode.folderJail,
 }) {
   return '${buildWaifuCardPersona(card, now: now)}\n'
-      '$kWaifuOpenCodePreamble ${waifuScopeRule(pathMode)}';
+      '$kWaifuOpenCodePreamble ${waifuScopeRule(pathMode)}\n\n'
+      '$kWaifuPorchPolicy';
 }
 
 String buildWaifuPlanAgentPrompt(
@@ -171,10 +181,25 @@ String buildWaifuPlanAgentPrompt(
   WaifuPathMode pathMode = WaifuPathMode.folderJail,
 }) {
   return '${buildWaifuCardPersona(card, now: now)}\n'
-      '$kWaifuPlanPreamble ${waifuScopeRule(pathMode)}';
+      '$kWaifuPlanPreamble ${waifuScopeRule(pathMode)}\n\n'
+      '$kWaifuPorchPolicy';
 }
 
 /// Same string as the OpenCode agent. Kept so chrome tests that still
 /// call the old name stay honest.
 String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) =>
     buildWaifuOpenCodeAgentPrompt(card, now: now);
+
+/// Takes the library's copy of the card when it reads differently from the
+/// session's saved copy (an edit, or a resume after one). The seat sees the
+/// new persona and restarts the serve on the next turn.
+bool waifuAdoptCoworker(WaifuSession session, CharacterCard live) {
+  final now = DateTime.now();
+  final same =
+      buildWaifuCardPersona(live, now: now) ==
+          buildWaifuCardPersona(session.coworker, now: now) &&
+      live.imagePath == session.coworker.imagePath;
+  if (same) return false;
+  session.coworker = live;
+  return true;
+}

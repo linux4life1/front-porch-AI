@@ -34,3 +34,22 @@ class WaifuAskRequest {
 }
 
 typedef WaifuAskFn = Future<WaifuAskDecision> Function(WaifuAskRequest request);
+
+/// "Mira wants to run a command": the ask told as her request, with the
+/// full command or path shown under it, never trimmed.
+String waifuAskHeadline(String name, WaifuAskRequest request) {
+  final tool = request.toolName.trim();
+  if (request.doomLoop) return '$name keeps reaching for $tool';
+  return switch (tool.toLowerCase()) {
+    'bash' => '$name wants to run a command',
+    'edit' ||
+    'write' ||
+    'patch' ||
+    'multiedit' => '$name wants to change files',
+    'read' => '$name wants to read a file',
+    'external_directory' => '$name wants to work outside the project folder',
+    'webfetch' || 'websearch' => '$name wants to look something up online',
+    'task' => '$name wants to hand off a side task',
+    _ => '$name wants to use $tool',
+  };
+}

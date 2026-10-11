@@ -22,7 +22,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_opencode.dart';
 import 'package:front_porch_ai/services/waifu/waifu_opencode_seat.dart';
@@ -31,12 +30,10 @@ import 'package:front_porch_ai/services/waifu/waifu_question.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_speech.dart';
+import 'package:front_porch_ai/services/waifu/waifu_stage.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tool_rows.dart';
-
-const kWaifuPhotosUnsupported =
-    'Photos are not in this OpenCode version — the text still went through.';
 
 /// OpenCode client facade. Send records the user line first, then forwards.
 class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
@@ -129,7 +126,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
     if (client == null || sid == null || session.running) return;
     mid ??= waifuTurnStartAssistantId(await client.listMessages(sid));
     if (mid == null || mid.isEmpty) {
-      session.transcript.add(const WaifuMessage.assistant(kWaifuUndoNeedsTurn));
+      session.transcript.add(_stage.nothingToUndo());
       _emit();
       return;
     }
@@ -137,11 +134,9 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
       await client.revert(sessionId: sid, messageId: mid);
       _lastAssistantMessageId = mid;
       _canRedo = true;
-      session.transcript.add(
-        const WaifuMessage.assistant('Reverted the last OpenCode turn.'),
-      );
+      session.transcript.add(_stage.reverted());
     } catch (e) {
-      session.transcript.add(WaifuMessage.assistant('$e'));
+      session.transcript.add(_stage.snag(e));
     }
     _emit();
     await store?.saveLast(session);
@@ -154,11 +149,9 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
     try {
       await client.unrevert(sid);
       _canRedo = false;
-      session.transcript.add(
-        const WaifuMessage.assistant('Restored the reverted OpenCode turn.'),
-      );
+      session.transcript.add(_stage.restored());
     } catch (e) {
-      session.transcript.add(WaifuMessage.assistant('$e'));
+      session.transcript.add(_stage.snag(e));
     }
     _emit();
     await store?.saveLast(session);
@@ -192,7 +185,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
       // The banner already says so; the turn must not run regardless.
       session.transcript
         ..add(WaifuMessage.user(text, imagePath: imagePath))
-        ..add(const WaifuMessage.assistant(kWaifuToolsUnsupported));
+        ..add(_stage.noTools());
       _emit();
       await store?.saveLast(session);
       return;
@@ -214,7 +207,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
         await (hold == null ? turn() : hold(turn));
       } on LlmToolTransportException catch (e) {
         // The model could not be loaded back; the words say what to do.
-        session.transcript.add(WaifuMessage.assistant(e.message));
+        session.transcript.add(_stage.cannotReachModel(e.message));
       }
       await store?.saveLast(session);
     } finally {
@@ -240,7 +233,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
       );
     }
     if (session.running) {
-      session.transcript.add(const WaifuMessage.assistant('Stopped.'));
+      session.transcript.add(_stage.stopped());
     }
     _emit();
   }
@@ -265,17 +258,18 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
         rethrow;
       } catch (_) {
         if (imagePng == null) rethrow;
-        session.transcript.add(
-          const WaifuMessage.assistant(kWaifuPhotosUnsupported),
-        );
+        session.transcript.add(_stage.noPhotos());
         await pump(null);
+      }
+      if (!_aborted && !waifuTurnSpoke(session.transcript, orNarrated: true)) {
+        session.transcript.add(_stage.quietFinish());
       }
     } on OpenCodeStreamClosed catch (e) {
       // The serve is gone. Next send sits down again and resumes the session.
       seat.drop();
-      session.transcript.add(WaifuMessage.assistant('$e'));
+      session.transcript.add(_stage.lostLine(e));
     } catch (e) {
-      session.transcript.add(WaifuMessage.assistant('$e'));
+      session.transcript.add(_stage.snag(e));
     }
   }
 
@@ -408,7 +402,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
 
   @override
   void onError(String message) {
-    session.transcript.add(WaifuMessage.assistant(message));
+    session.transcript.add(_stage.snag(message));
     _emit();
   }
 
@@ -433,7 +427,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
           await onAsk?.call(
             WaifuAskRequest(
               toolName: ask.permission,
-              summary: ask.patterns.join(', '),
+              summary: ask.patterns.join('\n'),
             ),
           ) ??
           WaifuAskDecision.deny;
@@ -449,6 +443,8 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
       response: response,
     );
   }
+
+  WaifuStage get _stage => WaifuStage.of(session);
 
   void _emit() => onChanged?.call();
 }
