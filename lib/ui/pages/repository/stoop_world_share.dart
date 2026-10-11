@@ -11,8 +11,7 @@
 // Sharing Places (worlds) to The Stoop — the upload wizard's Places section
 // and the publish call. Worlds ride the same card endpoints as `type: 'WORLD'`
 // (payload = the .fpworld envelope, cover image attached as the card avatar)
-// and go through the SAME moderation pipeline as characters. Gated behind
-// [kStoopWorldsLive] until the backend accepts the new type.
+// and go through the SAME moderation pipeline as characters.
 
 import 'dart:typed_data';
 
@@ -128,9 +127,8 @@ Widget stoopWorldCoverPreview(
   );
 }
 
-/// The upload wizard's Places section. While [kStoopWorldsLive] is false it
-/// renders a "coming soon" banner; once live it lists the user's shareable
-/// places (those with a cover image) for selection.
+/// The upload wizard's Places section: lists the user's shareable places
+/// (those with a cover image) for selection.
 class StoopWorldsPickSection extends StatefulWidget {
   final String query;
   final String? selectedWorldId;
@@ -156,20 +154,6 @@ class _StoopWorldsPickSectionState extends State<StoopWorldsPickSection> {
 
   @override
   Widget build(BuildContext context) {
-    if (!kStoopWorldsLive) {
-      // Tagged, not hidden: the section announces itself so users know world
-      // sharing is on the way. No tiles until the backend accepts WORLD cards.
-      if (widget.query.isNotEmpty) return const SizedBox.shrink();
-      return _noticeBanner(
-        context,
-        badge: 'COMING SOON',
-        body:
-            'Soon you’ll be able to share your worlds here — portable '
-            '.fpworld places with their lore, climate, traits, and cover '
-            'art. Shared places go through the same moderator review as '
-            'characters before anyone sees them.',
-      );
-    }
     final places = context.read<WorldRepository>().placeWorlds;
     // A place can only be shared with cover art — it's what moderators review
     // and what every Stoop tile displays.

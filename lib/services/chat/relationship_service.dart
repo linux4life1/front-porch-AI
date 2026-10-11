@@ -64,10 +64,9 @@ const int kLongTermCheckEvery = 3;
 /// UI-coordination / prompt injection related surfaces (_getRelationshipInjection,
 /// _getTrustBehaviorInjection, pendingRealismMetadata writes, some mood counter,
 /// _groupRealism map itself) stay in ChatService (to be thinned in step 8+).
-/// @Deprecated shims on ChatService preserve the public surface (affectionScore,
-/// relationshipTier, trustLevel, trustTier, activeFixation, fixationLifespan,
-/// short/longTerm*Score/Tier + progress getters + tierName getters + inter-char
-/// public methods) for callers and tests.
+/// ChatService forwards the public surface (affectionScore, relationshipTier,
+/// trustLevel, trustTier, activeFixation, fixationLifespan, short/longTerm
+/// scores and tiers, tier names, inter-char methods) for callers and tests.
 ///
 /// Reset helpers (resetForFreshChat, seedFromCardV2OrExt, loadScalars,
 /// loadRelationshipScalarsForSpeaker, saveRelationshipScalarsToGroup) support
@@ -226,7 +225,7 @@ class RelationshipService {
     this.onTierCrossing,
   });
 
-  // ── Public surface (for @Deprecated shims in ChatService + direct test/UI callers) ──────
+  // ── Public surface (ChatService forwarders + direct test/UI callers) ──────
 
   int get affectionScore => _affectionScore;
   int get relationshipTier => _relationshipTier;

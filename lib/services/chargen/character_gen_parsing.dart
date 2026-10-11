@@ -56,7 +56,7 @@ extension GenParsing on CharacterGenService {
 
     // Strategy 2: Fix newlines inside strings
     try {
-      String fixed = _fixJsonNewlines(jsonStr);
+      String fixed = JsonSanitizer.escapeControlCharsInStrings(jsonStr);
       fixed = fixed
           .replaceAll(RegExp(r',\s*}'), '}')
           .replaceAll(RegExp(r',\s*]'), ']');
@@ -123,7 +123,7 @@ extension GenParsing on CharacterGenService {
           final arrStr = raw.substring(arrStart, arrEnd + 1);
           try {
             // Fix newlines and attempt parse
-            final fixed = _fixJsonNewlines(
+            final fixed = JsonSanitizer.escapeControlCharsInStrings(
               arrStr,
             ).replaceAll(RegExp(r',\s*]'), ']');
             result[key] = json.decode(fixed);
@@ -280,37 +280,6 @@ extension GenParsing on CharacterGenService {
     }
 
     return card;
-  }
-
-  /// Fix literal newlines/tabs inside JSON string values.
-  String _fixJsonNewlines(String input) {
-    final buf = StringBuffer();
-    bool inString = false;
-    for (int i = 0; i < input.length; i++) {
-      final ch = input[i];
-
-      if (ch == '"' && (i == 0 || input[i - 1] != '\\')) {
-        inString = !inString;
-        buf.write(ch);
-      } else if (inString) {
-        switch (ch) {
-          case '\n':
-            buf.write('\\n');
-            break;
-          case '\r':
-            buf.write('\\r');
-            break;
-          case '\t':
-            buf.write('\\t');
-            break;
-          default:
-            buf.write(ch);
-        }
-      } else {
-        buf.write(ch);
-      }
-    }
-    return buf.toString();
   }
 
   /// Safely extract a String from a JSON map.

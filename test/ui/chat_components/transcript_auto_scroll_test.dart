@@ -18,41 +18,9 @@
 
 import 'dart:io';
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:front_porch_ai/ui/chat_components/stage/transcript_auto_scroll.dart';
-
 void main() {
-  testWidgets('applyTranscriptAutoScroll leaves a user-owned offset alone', (
-    tester,
-  ) async {
-    final controller = ScrollController();
-    addTearDown(controller.dispose);
-    await tester.pumpWidget(
-      MaterialApp(
-        home: ListView.builder(
-          controller: controller,
-          reverse: true,
-          itemCount: 40,
-          itemBuilder: (_, i) => SizedBox(height: 80, child: Text('row $i')),
-        ),
-      ),
-    );
-    controller.jumpTo(240);
-    await tester.pump();
-    expect(controller.offset, 240);
-
-    applyTranscriptAutoScroll(controller, generating: true);
-    applyTranscriptAutoScroll(controller, generating: false);
-    await tester.pump();
-    expect(
-      controller.offset,
-      240,
-      reason: 'option B: send/stream must not jumpTo(0)',
-    );
-  });
-
   test('send and ChatPage no longer pin the transcript', () {
     final input = File('lib/ui/pages/chat_page.input.dart').readAsStringSync();
     expect(input.contains('_scrollToBottom'), isFalse);

@@ -114,6 +114,7 @@ extension ChatServiceCastShrink on ChatService {
     final Pockets? solePockets = _groupRealism[soleId]?.pockets;
     final bool soleChaosEnabled = _chaosModeService.chaosModeEnabled;
     final int soleChaosPressure = _chaosModeService.chaosPressure;
+    final bool soleChaosNsfw = _chaosModeService.chaosNsfwEnabled;
     final String soleAuthorNote = _groupAuthorNotes[soleId] ?? '';
     final int soleAuthorStrength = _groupAuthorNoteStrengths[soleId] ?? 4;
     // Any undistilled legacy evolved text (pre-rings growth) moves from the
@@ -227,6 +228,7 @@ extension ChatServiceCastShrink on ChatService {
     _chaosModeService.loadScalars(
       modeEnabled: soleChaosEnabled,
       pressure: soleChaosPressure,
+      nsfwEnabled: soleChaosNsfw,
     );
     _authorNote = soleAuthorNote;
     _authorNoteStrength = soleAuthorStrength;
@@ -314,6 +316,7 @@ extension ChatServiceCastShrink on ChatService {
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,
       pressure: state['chaosPressure'] as int? ?? 0,
+      nsfwEnabled: state['chaosNsfwEnabled'] as bool?,
     );
 
     // Live pockets, regardless of realism — collapse writes `_pockets =

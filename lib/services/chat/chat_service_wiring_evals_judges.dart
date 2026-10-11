@@ -17,9 +17,9 @@ extension ChatServiceWiringEvalJudges on ChatService {
         repeatPenalty: kScalarEvalRepeatPenalty,
         label: 'director',
       ),
-      stripThinkBlocks: _stripThinkBlocks,
-      extractJsonInt: _extractJsonInt,
-      extractJsonBool: _extractJsonBool,
+      stripThinkBlocks: stripEvalThinkBlocks,
+      extractJsonInt: evalJsonInt,
+      extractJsonBool: evalJsonBool,
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
@@ -110,7 +110,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
           onGuardAbort: () => aborted = true,
           stopWhen: (acc) =>
               usableEvalJsonText(
-                _stripThinkBlocks(acc),
+                stripEvalThinkBlocks(acc),
                 tools: kOneShotEvalTools,
                 toolChoice: kOneShotTool,
                 callToText: (resp) =>
@@ -131,9 +131,9 @@ extension ChatServiceWiringEvalJudges on ChatService {
           _isCancellingRealismEval ||
           _realismEvalCancelled ||
           _isStaleGreetingEval(),
-      stripThinkBlocks: _stripThinkBlocks,
-      extractJsonInt: _extractJsonInt,
-      extractJsonBool: _extractJsonBool,
+      stripThinkBlocks: stripEvalThinkBlocks,
+      extractJsonInt: evalJsonInt,
+      extractJsonBool: evalJsonBool,
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
@@ -241,7 +241,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
 
   ObjectiveProposal _buildObjectiveProposal() {
     return ObjectiveProposal(
-      stripThinkBlocks: _stripThinkBlocks,
+      stripThinkBlocks: stripEvalThinkBlocks,
       getLlmService: () => _sideLaneLlm,
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,

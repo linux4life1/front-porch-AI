@@ -65,6 +65,7 @@ extension ChatServiceGroupMembership on ChatService {
       'passageOfTimeEnabled': _timeService.passageOfTimeEnabled,
       'chaosModeEnabled': _chaosModeService.chaosModeEnabled,
       'chaosPressure': _chaosModeService.chaosPressure,
+      'chaosNsfwEnabled': _chaosModeService.chaosNsfwEnabled,
       'authorNote': _authorNote,
       'authorNoteStrength': _authorNoteStrength,
       // Live kit, regardless of realism — collapse copies this back onto

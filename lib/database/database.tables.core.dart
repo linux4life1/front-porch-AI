@@ -169,6 +169,9 @@ class Sessions extends Table {
   IntColumn get chaosPressure => integer().withDefault(
     const Constant(0),
   )(); // 0-100 escalating trigger chance
+  // v56: the 1:1 spicy switch. Groups keep theirs on the group row.
+  BoolColumn get chaosNsfwEnabled =>
+      boolean().withDefault(const Constant(false))();
 
   // Sims/Needs Simulation (clean port on 0.9.8)
   BoolColumn get needsSimEnabled =>

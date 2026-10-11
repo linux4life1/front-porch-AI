@@ -22,8 +22,6 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/backporch/stoop_card.dart'
-    show kStoopWorldsLive;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_world_share.dart';
@@ -81,11 +79,7 @@ class _StoopPickStepState extends State<StoopPickStep> {
         .where((c) => c.imagePath != null && c.imagePath!.isNotEmpty)
         .toList();
     final allGroups = context.read<GroupChatRepository>().groups;
-    // Places join the empty-check only once world sharing is live; while
-    // coming-soon the banner alone shouldn't suppress the "nothing" hint.
-    final hasWorlds =
-        kStoopWorldsLive &&
-        context.read<WorldRepository>().placeWorlds.isNotEmpty;
+    final hasWorlds = context.read<WorldRepository>().placeWorlds.isNotEmpty;
     if (allCards.isEmpty && allGroups.isEmpty && !hasWorlds) {
       return _centeredHint(
         Icons.person_off_outlined,
@@ -167,8 +161,7 @@ class _StoopPickStepState extends State<StoopPickStep> {
         // Places aren't foldered — the section belongs to the top level (and
         // stays reachable through search, which escapes any folder).
         if (_folderId == null || !browsing) ...[
-          if ((view.characters.isNotEmpty || view.groups.isNotEmpty) &&
-              kStoopWorldsLive)
+          if (view.characters.isNotEmpty || view.groups.isNotEmpty)
             const SizedBox(height: 16),
           StoopWorldsPickSection(
             query: _query,

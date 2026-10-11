@@ -345,12 +345,7 @@ extension ChatServiceSend on ChatService {
       if (_clockRunning) {
         final before = _timeService.clock;
         await _timeService.detectOocTimeSkip(outbound);
-        final after = _timeService.clock;
-        if (after != before &&
-            isNightSkip(stripQuotedSpeech(outbound).toLowerCase())) {
-          _applyNightSkipRestore();
-        }
-        await _maybeMintEpisodeCrumbs(before, after);
+        await _maybeMintEpisodeCrumbs(before, _timeService.clock);
       }
 
       // ── Direct-address turn routing (both cast surfaces) ─────────────────
@@ -375,7 +370,7 @@ extension ChatServiceSend on ChatService {
           _chanceTimePendingTrigger = true;
           // Pre-pick the one event the web/mobile reveal modal shows + accepts
           // (the desktop spins its own wheel instead — same pool, same accept).
-          final webWheel = _chaosModeService.spinWheelEvents();
+          final webWheel = spinWheelEvents();
           _webChanceTimeEvent = webWheel.isNotEmpty
               ? webWheel.first
               : 'Fate intervenes in an unexpected way.';

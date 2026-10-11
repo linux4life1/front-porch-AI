@@ -91,7 +91,10 @@ PackConversion convertPackBaseNow(Uint8List raw) {
 }
 
 PackConversion _webp(Uint8List raw) {
-  final decoder = img.WebPDecoder();
+  // The library's own pixel cap is off: it refuses an oversized header with a
+  // bare exception (read as "not a picture", 400), and [_budget] below is the
+  // stricter cap that names the size and answers 413 before any decode.
+  final decoder = img.WebPDecoder()..maxPixels = 0;
   // The header is read by the decoder itself (the last picture chunk wins,
   // and a lossy picture's size is 16 bits a side), so this is the size it
   // allocates for.

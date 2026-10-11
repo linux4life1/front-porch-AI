@@ -283,6 +283,7 @@ extension ChatServiceSessionStateSave on ChatService {
         withUser: drift.Value(_relationshipService.withUser),
         chaosModeEnabled: drift.Value(_chaosModeService.chaosModeEnabled),
         chaosPressure: drift.Value(_chaosModeService.chaosPressure),
+        chaosNsfwEnabled: drift.Value(_chaosModeService.chaosNsfwEnabled),
         trustRepairPending: drift.Value(
           _relationshipService.pendingTrustRepair,
         ),

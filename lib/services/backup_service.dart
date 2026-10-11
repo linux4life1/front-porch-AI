@@ -106,7 +106,9 @@ class BackupService {
       try {
         final partial = File(backupPath);
         if (await partial.exists()) await partial.delete();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Backup] Could not remove partial backup: $e');
+      }
       return null;
     }
     debugPrint('[Backup] Created backup: $backupPath');
@@ -130,7 +132,8 @@ class BackupService {
         return bStat.modified.compareTo(aStat.modified);
       });
       return files;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[Backup] Could not list backups: $e');
       return [];
     }
   }
@@ -152,12 +155,15 @@ class BackupService {
     // Replace with backup
     await backupFile.copy(dbPath);
     // Remove stale WAL/SHM
-    try {
-      await File('$dbPath-wal').delete();
-    } catch (_) {}
-    try {
-      await File('$dbPath-shm').delete();
-    } catch (_) {}
+    for (final suffix in const ['-wal', '-shm']) {
+      try {
+        await File('$dbPath$suffix').delete();
+      } on PathNotFoundException {
+        // Nothing stale to remove.
+      } catch (e) {
+        debugPrint('[Backup] Could not remove stale $suffix file: $e');
+      }
+    }
 
     debugPrint('[Backup] Restored backup from: $backupPath');
   }

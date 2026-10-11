@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// One-time cleanup offer for model files only the retired Python engines
 /// could read (old Whisper CT2 exports, the legacy Kokoro pair, rhasspy
@@ -67,13 +68,10 @@ class _LegacyCleanupCardState extends State<LegacyCleanupCard> {
       destructive: true,
       content: Text(
         'This permanently deletes '
-        '${LegacyModelCleanup.formatBytes(total)} of model files that '
+        '${formatBytes(total)} of model files that '
         'only the old speech engines could use. Your voices and settings '
         'are unaffected — the new engines have their own models.',
-        style: TextStyle(
-          color: AppColors.textSecondary(context),
-          fontSize: 13,
-        ),
+        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
       ),
       actions: [
         TextButton(
@@ -98,9 +96,7 @@ class _LegacyCleanupCardState extends State<LegacyCleanupCard> {
     setState(() => _working = false);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(
-          'Freed ${LegacyModelCleanup.formatBytes(freed)} of disk space',
-        ),
+        content: Text('Freed ${formatBytes(freed)} of disk space'),
         duration: const Duration(seconds: 3),
       ),
     );
@@ -143,7 +139,7 @@ class _LegacyCleanupCardState extends State<LegacyCleanupCard> {
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Text(
                     '• ${g.label} — '
-                    '${LegacyModelCleanup.formatBytes(g.bytes)}',
+                    '${formatBytes(g.bytes)}',
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 13,
@@ -165,9 +161,7 @@ class _LegacyCleanupCardState extends State<LegacyCleanupCard> {
                           ),
                         )
                       : const Icon(Icons.cleaning_services_outlined, size: 16),
-                  label: Text(
-                    'Reclaim ${LegacyModelCleanup.formatBytes(total)}',
-                  ),
+                  label: Text('Reclaim ${formatBytes(total)}'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.formMasterAccent,
                     foregroundColor: AppColors.onChaosAccent,

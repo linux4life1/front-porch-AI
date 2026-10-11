@@ -80,6 +80,8 @@ extension ChatServiceWiringRealism on ChatService {
         _pendingRealismMetadata![key] = value;
         _requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
+      isAdultAllowed: () => _storageService.realismSettings.adultThemesEnabled,
+      getFrequency: () => _storageService.realismSettings.chaosFrequency,
     );
   }
 

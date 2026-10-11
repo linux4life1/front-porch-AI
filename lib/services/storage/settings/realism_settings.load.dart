@@ -36,6 +36,9 @@ extension RealismSettingsLoad on RealismSettings {
     _intimateAgencyEnabled =
         prefs?.getBool(k('intimate_agency_enabled')) ?? false;
     _chaosModeDefault = prefs?.getBool(k('chaos_mode_default')) ?? false;
+    _chaosFrequency = ChaosFrequency.fromName(
+      prefs?.getString(k('chaos_frequency')),
+    );
     _sceneGuestDetectionEnabled =
         prefs?.getBool(k('scene_guest_detection_enabled')) ?? true;
     _pocketTransfersEnabled =

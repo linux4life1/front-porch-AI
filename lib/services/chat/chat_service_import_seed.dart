@@ -213,6 +213,7 @@ extension ChatServiceImportSeed on ChatService {
       'story_start_date': _timeService.storyStartDateIso,
       'chaos_mode_enabled': _chaosModeService.chaosModeEnabled,
       'chaos_pressure': _chaosModeService.chaosPressure,
+      'chaos_nsfw_enabled': _chaosModeService.chaosNsfwEnabled,
       'needs_vector': Map<String, int>.from(_needsSimulation.vector),
       if (_pockets != null) 'pockets': _pockets!.toJson(),
       if (_activeGroup != null)
@@ -338,7 +339,7 @@ extension ChatServiceImportSeed on ChatService {
     if (head['chaos_mode_enabled'] is bool) {
       _chaosModeService.seedFromGroupOrExt(
         head['chaos_mode_enabled'] as bool,
-        false,
+        head['chaos_nsfw_enabled'] == true,
       );
     }
     final pressure = (head['chaos_pressure'] as num?)?.toInt();

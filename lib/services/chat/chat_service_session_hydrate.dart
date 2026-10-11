@@ -315,6 +315,8 @@ extension ChatServiceSessionHydrate on ChatService {
     _chaosModeService.loadScalars(
       modeEnabled: s.chaosModeEnabled,
       pressure: s.chaosPressure,
+      // A group's spicy switch lives on the group row (seeded on entry).
+      nsfwEnabled: _activeGroup == null ? s.chaosNsfwEnabled : null,
     );
     debugPrint(
       '[ChatService] session scalars hydrated: arousal=${_nsfwService.arousalLevel}, fixation=${_relationshipService.activeFixation}/${_relationshipService.fixationLifespan}',

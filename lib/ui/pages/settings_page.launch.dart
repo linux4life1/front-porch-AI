@@ -18,8 +18,9 @@
 
 part of 'settings_page.dart';
 
-/// Collapsible "Advanced Launch Options" of the Advanced tab: Flash Attention,
-/// mlock, GPU ID, BLAS batch size, and the restart-backend action. Extracted
+/// Collapsible "Advanced Launch Options" of the Advanced tab: the engine rows
+/// (settings_page.launch.engine.dart), GPU ID, BLAS batch size, idle unload,
+/// recent chats, and the restart-backend action. Extracted
 /// from the inline _buildAdvancedLaunchOptions/_Body; direct state access
 /// preserves behavior. Warm-porch amber accent (was a teal-green literal).
 extension _SettingsLaunchOptions on _SettingsPageState {
@@ -145,74 +146,6 @@ extension _SettingsLaunchOptions on _SettingsPageState {
     StorageService storage,
     Color accent,
   ) {
-    Widget toggle({
-      required String label,
-      required String tooltip,
-      required bool value,
-      required ValueChanged<bool> onChanged,
-      bool recommended = false,
-    }) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 13,
-                          color: AppColors.textPrimary(context),
-                        ),
-                      ),
-                      if (recommended) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 5,
-                            vertical: 1,
-                          ),
-                          decoration: BoxDecoration(
-                            color: accent.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'RECOMMENDED',
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: accent,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    tooltip,
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: AppColors.textTertiary(context),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Switch(
-              value: value,
-              onChanged: onChanged,
-              activeTrackColor: accent,
-            ),
-          ],
-        ),
-      );
-    }
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       child: Column(
@@ -220,39 +153,7 @@ extension _SettingsLaunchOptions on _SettingsPageState {
         children: [
           Divider(color: AppColors.borderOf(context), height: 1),
           const SizedBox(height: 12),
-          toggle(
-            label: 'Flash Attention',
-            tooltip:
-                'Faster attention math, and less memory. ~20–40% speed boost on RTX/Apple Silicon. AMD (ROCm) follows this switch too: if KoboldCpp stops while answering with it on, the app turns it off and starts again. Gemma 4 on Vulkan always runs without it.',
-            value: storage.backendSettings.flashAttentionEnabled,
-            recommended: true,
-            onChanged: (v) =>
-                storage.backendSettings.setFlashAttentionEnabled(v),
-          ),
-          // Switched off, it still runs with a compressed cache.
-          if (!storage.backendSettings.flashAttentionEnabled &&
-              storage.backendSettings.kvQuant.needsFlashAttention)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 4),
-              child: Text(
-                kKoboldCompressedTurnsFlashOn,
-                key: const ValueKey('flash-attention-compressed-note'),
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                  color: accent,
-                ),
-              ),
-            ),
-          toggle(
-            label: 'Lock Weights in RAM (mlock)',
-            tooltip: Platform.isLinux
-                ? 'Prevents paging to disk. Requires root or ulimit ‑l unlimited on Linux — off by default.'
-                : 'Prevents OS from paging model weights to disk. Avoids catastrophic slowdown under memory pressure.',
-            value: storage.backendSettings.mlockEnabled,
-            recommended: !Platform.isLinux,
-            onChanged: (v) => storage.backendSettings.setMlockEnabled(v),
-          ),
+          ..._buildLaunchEngineRows(context, storage, accent),
           const SizedBox(height: 12),
           Divider(color: AppColors.borderOf(context), height: 1),
           const SizedBox(height: 12),
