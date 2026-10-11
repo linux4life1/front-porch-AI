@@ -80,6 +80,8 @@ const Map<String, String> kDeletedSymbols = {
   'encodeWorldRefList': 'callers jsonEncode at the write site',
   'applyTranscriptAutoScroll': 'a no-op; the transcript never pins on send',
   'kStoopWorldsLive': 'worlds are live on the Stoop; no flag',
+  'beginUserTurnClock': 'the post-reply clock pass ticks every speaker',
+  '_clockMovedThisUserTurn': 'ditto',
   'DbReunificationService': 'pre-0.9 libraries were merged long ago',
   'purgeAllBackups': 'pruneBackups keeps the rolling retention',
 };
