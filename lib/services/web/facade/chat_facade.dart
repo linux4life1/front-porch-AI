@@ -462,6 +462,20 @@ class ChatFacade {
     _notify();
   }
 
+  /// The words the model weighed in reply [index] (KoboldCpp only).
+  Map<String, dynamic> tokenAlternatives(int index) =>
+      _chat.tokenAlternativesJson(index);
+
+  /// Rewrites reply [index] from [place] with [word]; null once started,
+  /// otherwise why it cannot.
+  String? pickTokenAlternative(int index, int place, String word) {
+    final pick = _chat.tokenAltPick(index, place, word);
+    if (pick.at == null) return pick.refusal;
+    withoutCity96Ask(() => _chat.rewriteFromAlternative(index, pick.at!, word));
+    _notify();
+    return null;
+  }
+
   String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);
 
   /// Why a message cannot be sent now (the speed test has the engine), as

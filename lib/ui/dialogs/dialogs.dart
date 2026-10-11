@@ -11,6 +11,7 @@ export 'chat_settings_generation_section.dart';
 export 'city96_loader_dialog.dart';
 export 'chat_to_story_dialog.dart';
 export 'context_viewer_dialog.dart';
+export 'token_alternatives_dialog.dart';
 export 'data_bank_dialog.dart';
 export 'database_cleanup_dialog.dart';
 export 'export_persona_dialog.dart';
