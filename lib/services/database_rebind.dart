@@ -128,8 +128,8 @@ Future<AppDatabase?> reopenAndRebindDatabase(
     // this reload, the next _saveChat upserts the pre-swap messages back into
     // the swapped database — a user who restored a 10-message snapshot while
     // a 20-message chat was open silently un-restored that conversation the
-    // moment they sent one more line (1.3 sweep, 2026-08-15). Reunification
-    // already did this; import/move/restore now do too.
+    // moment they sent one more line (1.3 sweep, 2026-08-15). Import, move
+    // and restore all reload here.
     await chatService.reloadCurrentSession();
     return newDb;
   } catch (e) {

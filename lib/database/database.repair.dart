@@ -484,7 +484,7 @@ extension AppDatabaseMaintenance on AppDatabase {
     }
   }
 
-  /// Public helper so that direct-open paths (reunification, certain test or recovery
+  /// Public helper so that direct-open paths (certain test or recovery
   /// scenarios) can explicitly ensure the schema matches before using group or objective
   /// features. The primary AppDatabase.instance() path calls the repair automatically.
   Future<void> ensureSchemaIsRepaired() => _repairMissingSchemaColumns();
