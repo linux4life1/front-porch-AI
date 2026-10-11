@@ -42,6 +42,7 @@ export 'waifu_session_chrome.dart';
 export 'waifu_session_scope.dart';
 export 'waifu_sidebar.dart';
 export 'waifu_stage_lines.dart';
+export 'waifu_status_line.dart';
 export 'waifu_transcript.dart';
 export 'waifu_question_dialog.dart';
 export 'waifu_todo_list.dart';

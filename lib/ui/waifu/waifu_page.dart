@@ -36,6 +36,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_status_line.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_whole_disk_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
@@ -366,6 +367,7 @@ class _WaifuPageState extends State<WaifuPage> {
                 ))
                   WaifuWorkStrip(
                     record: session.lastWrite ?? session.turnWrites.last,
+                    name: WaifuStage.of(session).name,
                     writes: session.turnWrites,
                     verifiedPaths: session.turnVerifyPaths,
                     onClose: () => setState(() {
@@ -374,6 +376,7 @@ class _WaifuPageState extends State<WaifuPage> {
                       session.turnVerifyPaths.clear();
                     }),
                   ),
+                WaifuStatusLine(session: session),
                 WaifuComposer(
                   controller: _composer,
                   session: session,

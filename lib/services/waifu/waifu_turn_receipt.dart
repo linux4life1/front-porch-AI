@@ -31,12 +31,16 @@ List<String> waifuTurnTouchedPaths(Iterable<WaifuWriteRecord> writes) {
   return out;
 }
 
-/// Single-file keeps the old "Last write:" line so existing chrome stays.
-String waifuTurnReceiptHeadline(Iterable<WaifuWriteRecord> writes) {
+/// "Mira changed lib/a.dart" or "Mira changed 3 files": the turn's
+/// receipt, told with the coworker's name.
+String waifuTurnReceiptHeadline(
+  Iterable<WaifuWriteRecord> writes, {
+  required String name,
+}) {
   final paths = waifuTurnTouchedPaths(writes);
   if (paths.isEmpty) return '';
-  if (paths.length == 1) return 'Last write: ${paths.single}';
-  return '${paths.length} files this turn';
+  if (paths.length == 1) return '$name changed ${paths.single}';
+  return '$name changed ${paths.length} files';
 }
 
 String waifuTurnVerifyLine(Iterable<String> paths) {
