@@ -5,7 +5,8 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/macro_resolver.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show ChaosCategory, ChaosModeService;
 import 'package:front_porch_ai/ui/widgets/chance_time/chance_time.dart';
 
 part 'chance_time_overlay.view.dart';
@@ -39,6 +40,7 @@ class _ChanceTimeOverlayState extends State<ChanceTimeOverlay>
   double _targetAngle = 0;
   String? _charName;
   _EventCategory? _category;
+  ChaosCategory? _kind;
 
   // Segment colours (Mario Party palette)
   static const List<Color> _segmentColors = [
@@ -110,145 +112,36 @@ class _ChanceTimeOverlayState extends State<ChanceTimeOverlay>
     _spinController.reset();
     _spinController.duration = const Duration(milliseconds: 3800);
     _spinController.forward().whenComplete(() {
-      final cat = _categorize(_segments[_landedIndex]);
+      final kind = ChaosModeService.categoryOf(_segments[_landedIndex]);
       setState(() {
         _spinning = false;
         _landed = true;
-        _category = cat;
+        _kind = kind;
+        _category = _effectFor(kind);
       });
       _revealController.forward(from: 0);
     });
   }
 
-  // ── Category detection ─────────────────────────────────────────────────────
+  // ── Category ───────────────────────────────────────────────────────────────
 
-  static const _fortuneKeywords = [
-    'found something valuable',
-    'mistaken for someone important',
-    'crowd of admirers',
-    'turned up in the most unexpected',
-    'unexpected compliment',
-    'hidden stash',
-    'pulled off something impressive',
-    'stranger just paid',
-    'arrived somewhere late',
-    'won something',
-    'beautiful view',
-    'accidentally said the perfect',
-    'best hair',
-    'turned completely around',
-    'shortcut or trick',
-    'best seat',
-    'weather turned',
-    'ran into someone',
-    'animal has taken',
-    'made a guess',
-    'overheard something',
-    'arrived to help',
-    'offered more than they asked',
-    'kindness',
-    'well-rested',
-    'best portion',
-    'accomplished something',
-    'charming today',
-    'rooting for them',
-    'unexpected credit',
-  ];
-  static const _misfortuneKeywords = [
-    'urgently needs to use the restroom',
-    'stepped in something extremely unpleasant',
-    'sneezed violently',
-    'sat in something wet',
-    'hiccups',
-    'bit their tongue',
-    'something in their teeth',
-    'ripped in an extremely inconvenient',
-    'knocked something over',
-    'tripped',
-    'involuntary sound',
-    'extremely itchy somewhere',
-    'spilled something on themselves',
-    'stomach is making alarming sounds',
-    'said goodbye to someone and then walked',
-    'confidently greeted someone who has no idea',
-    'waved back at someone who was not',
-    'laughed at something completely inappropriate',
-    'walked into something',
-    'piece of hair or debris',
-    'mark on their face',
-    'squeaking piece',
-    'yawned enormously',
-    'sent a message and immediately regretted',
-    'pretend they remember',
-    'hands are completely full',
-    'dropped something and it rolled',
-    'something in their eye',
-    'nodding along',
-    'pronouncing something wrong',
-    'sneezing fit',
-    'direct and sustained eye contact',
-    'reached for something',
-    'fell asleep briefly',
-    'confident prediction',
-    'forgot where it was going',
-    'uncooperative hair',
-    'involuntary noise while trying to lift',
-    'regretted the food choice',
-    'footwear issue',
-    'mispronounced repeatedly',
-    'backwards or inside-out',
-  ];
-  static const _chaosKeywords = [
-    'bird flew directly',
-    'loud and disruptive noise',
-    'fell over on its own',
-    'unexpected center of a very enthusiastic',
-    'animal has decided',
-    'unusual outfit',
-    'make noise',
-    'gust of wind',
-    'extremely large insect',
-    'lighting wherever',
-    'crowd has formed',
-    'very loud and very one-sided story',
-    'enthusiastic child',
-    'cooking or burning nearby',
-    'broken in a way that is more funny',
-    'uninvited guest or creature',
-    'spontaneously rearranged',
-    'recruit',
-    'loud and personal argument',
-    'small and ridiculous has escalated',
-    'animal is doing exactly what it should not',
-    'accidentally started a trend',
-    'performing something unsolicited',
-    'synchronized into something inexplicably musical',
-    'delivery or package',
-    'definitely fixed has become unfixed',
-    'squeak, rattle, or wobble',
-    'very long and intricate process',
-    'every seat, surface',
-    'counting on to work fine',
-  ];
+  /// The reveal effect for a category: the wheel has four animations, and the
+  /// newer kinds borrow the closest one while keeping their own label.
+  static _EventCategory _effectFor(ChaosCategory c) => switch (c) {
+    ChaosCategory.fortune => _EventCategory.fortune,
+    ChaosCategory.misfortune ||
+    ChaosCategory.slapstick ||
+    ChaosCategory.needs => _EventCategory.misfortune,
+    ChaosCategory.chaos || ChaosCategory.weather => _EventCategory.chaos,
+    ChaosCategory.wildCard ||
+    ChaosCategory.social ||
+    ChaosCategory.plotHook ||
+    ChaosCategory.spicy => _EventCategory.wildCard,
+  };
 
-  _EventCategory _categorize(String event) {
-    final lower = event.toLowerCase();
-    for (final k in _fortuneKeywords) {
-      if (lower.contains(k)) return _EventCategory.fortune;
-    }
-    for (final k in _misfortuneKeywords) {
-      if (lower.contains(k)) return _EventCategory.misfortune;
-    }
-    for (final k in _chaosKeywords) {
-      if (lower.contains(k)) return _EventCategory.chaos;
-    }
-    return _EventCategory.wildCard;
-  }
-
-  String _displayEvent(String raw) => MacroResolver().resolve(
-    raw,
-    MacroContext(characterName: _charName ?? 'Character', userName: ''),
-  );
+  String _displayEvent(String raw) => context
+      .read<ChatService>()
+      .resolveChanceTimeEvent(raw, _charName ?? 'Character');
 
   @override
   Widget build(BuildContext context) {

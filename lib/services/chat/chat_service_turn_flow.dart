@@ -258,7 +258,7 @@ extension ChatServiceTurnFlow on ChatService {
     if (!_chaosModeService.chaosModeEnabled) return false;
     if (_chaosModeService.hasPendingChaosEvent) return false;
     if (_webChanceTimeEvent != null) return false;
-    final wheel = _chaosModeService.spinWheelEvents();
+    final wheel = spinWheelEvents();
     if (wheel.isEmpty) return false;
     _webChanceTimeEvent = wheel.first;
     notifyListeners();
@@ -271,10 +271,11 @@ extension ChatServiceTurnFlow on ChatService {
   String get chanceTimeSpeakerName =>
       nextCharacter?.name ?? activeCharacter?.name ?? 'Character';
 
-  /// The pre-picked pending event with `{{char}}` resolved, for the web reveal
+  /// The pre-picked pending event with its placeholders resolved, for the web reveal
   /// modal. Null when nothing is parked.
-  String? get webChanceTimeDisplay =>
-      _webChanceTimeEvent?.replaceAll('{{char}}', chanceTimeSpeakerName);
+  String? get webChanceTimeDisplay => _webChanceTimeEvent == null
+      ? null
+      : resolveChanceTimeEvent(_webChanceTimeEvent!, chanceTimeSpeakerName);
 
   /// Web/mobile "Accept Your Fate": applies the pre-picked pending event using
   /// the same attribution the desktop wheel uses, then lets generation resume.

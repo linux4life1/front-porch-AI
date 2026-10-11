@@ -70,11 +70,9 @@ void main() {
       // Indirect via check behavior + state; direct formula is internal but growth path covers.
       final chaos = createTestChaos(enabled: true, initialPressure: 0);
       // After 1 tick: pressure=5, effective=10
-      final fired = chaos.checkAndTickChaosPressure();
+      chaos.checkAndTickChaosPressure();
+      // Whether it fires is a random roll; the pressure step is not.
       expect(chaos.chaosPressure, ChaosModeService.growthPerTurn);
-      // We cannot assert the boolean fires reliably (time-based roll), but pressure advanced.
-      // The formula is exercised in the implementation; see also integration runs.
-      expect(fired, isA<bool>());
     });
 
     test('checkAndTick does nothing and returns false when disabled', () {

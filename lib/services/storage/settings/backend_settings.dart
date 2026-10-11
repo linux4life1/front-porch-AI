@@ -222,10 +222,13 @@ class BackendSettings
 
     _backendChoiceDone = prefs?.getBool(k('backend_choice_done')) ?? false;
 
-    _useCublas = prefs?.getBool(k('use_cublas'));
-    _useVulkan = prefs?.getBool(k('use_vulkan'));
-    _useMetal = prefs?.getBool(k('use_metal'));
-    _useRocm = prefs?.getBool(k('use_rocm'));
+    // Acceleration is automatic; ROCm is the only choice left. A forced
+    // CUDA, Vulkan, Metal or CPU-only pick from before is dropped.
+    _useRocm = prefs?.getBool(k('use_rocm')) == true ? true : null;
+    _useCublas = _useVulkan = _useMetal = null;
+    for (final key in ['use_cublas', 'use_vulkan', 'use_metal', 'use_rocm']) {
+      if (key != 'use_rocm' || _useRocm == null) prefs?.remove(k(key));
+    }
     _flashAttentionEnabled =
         prefs?.getBool(k('flash_attention_enabled')) ?? _flashAttentionEnabled;
     _mlockEnabled = prefs?.getBool(k('mlock_enabled')) ?? _mlockEnabled;

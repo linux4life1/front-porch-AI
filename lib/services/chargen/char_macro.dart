@@ -17,7 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/utils/reasoning_markers.dart';
+
+// Chargen callers and tests reach the fuzzy stripper through this library.
+export 'package:front_porch_ai/utils/think_tags.dart' show stripThinkBlocks;
 
 /// Pure, deterministic post-generation normalization helpers for AI-generated
 /// character cards.
@@ -69,27 +71,6 @@ void applyCharMacroToCard(CharacterCard card, String name) {
   card.alternateGreetings = card.alternateGreetings
       .map((g) => applyCharMacro(g, name))
       .toList();
-}
-
-/// Strip `<think>`…`</think>` reasoning blocks (fuzzy — models misspell the tag
-/// at high temperature) so callers can tell whether a stream actually produced
-/// content or only "thought". Handles both completed blocks and an unterminated
-/// `<think>` prefix that runs to the end of the stream.
-///
-/// The fuzzy alternation is why this is not `utils/think_tags.dart`'s
-/// `stripThinkTags`: character generation runs hot enough that `<thnk>` and
-/// `<tink>` show up, and a missed tag here means misspelled reasoning is saved
-/// into a card field. Widening the shared helper instead would change what the
-/// chat bubble, TTS and the expression classifier consider speech, so the two
-/// stay separate on purpose.
-String stripThinkBlocks(String raw) {
-  raw = canonicalizeReasoning(raw);
-  const open = r'<(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
-  const close = r'</(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
-  return raw
-      .replaceAll(RegExp('$open[\\s\\S]*?$close', caseSensitive: false), '')
-      .replaceAll(RegExp('$open[\\s\\S]*\$', caseSensitive: false), '')
-      .trim();
 }
 
 /// A SINGLE-brace `{roll…}` / `{pick…}` / `{random…}` / `{dice…}` that is NOT

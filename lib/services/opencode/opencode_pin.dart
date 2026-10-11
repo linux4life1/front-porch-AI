@@ -19,6 +19,8 @@
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:crypto/crypto.dart';
+
 /// Honesty copy when GitHub has not told us the zip size yet.
 const kOpenCodeDownloadMegabytes = 44;
 
@@ -26,9 +28,36 @@ const kOpenCodeGitHubOwner = 'anomalyco';
 const kOpenCodeGitHubRepo = 'opencode';
 const kOpenCodeVersionFileName = '.opencode_version';
 
-const kOpenCodeGitHubLatestUrl =
-    'https://api.github.com/repos/$kOpenCodeGitHubOwner/$kOpenCodeGitHubRepo/'
-    'releases/latest';
+/// The OpenCode release Waifu Coder is built and tested against. The voice
+/// plugin, SSE parsing and permission maps depend on its behaviour, so
+/// Porch installs this one, not whatever GitHub calls latest.
+const kOpenCodePinnedVersion = '1.18.30';
+
+/// SHA-256 of each [kOpenCodePinnedVersion] release asset. A download that
+/// does not match is refused before it is unpacked.
+const kOpenCodePinnedSha256 = {
+  'opencode-darwin-arm64.zip':
+      'a5e43d6887386efc7d68ce49ae28e3bbdfdee3dfd1d7169b612c3ce67e53b1e8',
+  'opencode-darwin-x64.zip':
+      '7453007e58ff122401438d95ccb24334874b5908dcaee77883f96c23395d5710',
+  'opencode-linux-x64.tar.gz':
+      '55007246858165496ff85ba1c2b648f7421e8e2013bf4189a680c9ff8e699d17',
+  'opencode-linux-arm64.tar.gz':
+      '4111a55c2a02c0fac314bd51e9a2330280e6d29d2b85b9554fff6d62612566ed',
+  'opencode-windows-x64.zip':
+      'c8c0e0d05ac3dac544a0edfad8de9eb244bf46c6c7a131c38619d40fcf31bd1f',
+  'opencode-windows-arm64.zip':
+      '35d6ff7d80aff5ade71ac06fc32dd89357b5b0bac050fc6db41ecf0929cea560',
+};
+
+const kOpenCodePinnedBytes = {
+  'opencode-darwin-arm64.zip': 46240880,
+  'opencode-darwin-x64.zip': 48433468,
+  'opencode-linux-x64.tar.gz': 60557284,
+  'opencode-linux-arm64.tar.gz': 60366998,
+  'opencode-windows-x64.zip': 60686185,
+  'opencode-windows-arm64.zip': 58842155,
+};
 
 const kOpenCodeGitHubLatestDownloadBase =
     'https://github.com/$kOpenCodeGitHubOwner/$kOpenCodeGitHubRepo/'
@@ -67,6 +96,51 @@ String openCodeDownloadUrl({
       'releases/download/v$version/$asset';
 }
 
+/// The release asset for [version], or GitHub latest when it is unknown.
+Uri openCodeReleaseDownloadUri(String? version, {String? os, String? arch}) {
+  if (version == null || version.isEmpty) {
+    return openCodeLatestDownloadUri(os: os, arch: arch);
+  }
+  return Uri.parse(
+    openCodeDownloadUrl(
+      version: version,
+      os: os ?? openCodeCurrentOs(),
+      arch: arch ?? openCodeCurrentArch(),
+    ),
+  );
+}
+
+/// The manager's default version lookup: always the pinned release.
+Future<({String tag, int? assetBytes})?> openCodePinnedLookup() async {
+  final asset = openCodeReleaseAssetName(
+    os: openCodeCurrentOs(),
+    arch: openCodeCurrentArch(),
+  );
+  return (tag: kOpenCodePinnedVersion, assetBytes: kOpenCodePinnedBytes[asset]);
+}
+
+/// Throws when [bytes] claim to be the pinned release but do not match its
+/// checksum. Other versions only reach here through an injected lookup.
+void openCodeVerifyDownload({
+  required String? version,
+  required List<int> bytes,
+  String? os,
+  String? arch,
+}) {
+  if (version != kOpenCodePinnedVersion) return;
+  final asset = openCodeReleaseAssetName(
+    os: os ?? openCodeCurrentOs(),
+    arch: arch ?? openCodeCurrentArch(),
+  );
+  final want = kOpenCodePinnedSha256[asset];
+  final got = sha256.convert(bytes).toString();
+  if (want == null || got != want) {
+    throw StateError(
+      'OpenCode $version download for $asset failed its checksum check',
+    );
+  }
+}
+
 /// Same shape as Kobold: `releases/latest/download/<asset>`.
 Uri openCodeLatestDownloadUri({String? os, String? arch}) {
   final asset = openCodeReleaseAssetName(
@@ -93,7 +167,7 @@ bool openCodeLooksLikeUserConfigPath(String path) {
   return false;
 }
 
-/// Settings / Waifu honesty: on-disk vs GitHub latest. Tap installs latest.
+/// Settings / Waifu honesty: on-disk vs the version Porch installs.
 String openCodeUpgradeHonesty({
   required String? installed,
   String? remote,
@@ -101,7 +175,7 @@ String openCodeUpgradeHonesty({
 }) {
   final remoteBit = (remote == null || remote.isEmpty)
       ? ''
-      : ' GitHub latest is $remote.';
+      : ' Porch uses $remote.';
   if (installed == null || installed.isEmpty) {
     return 'OpenCode is not in the closet yet (~${megabytes}MB).'
         '$remoteBit Homebrew is not used.';

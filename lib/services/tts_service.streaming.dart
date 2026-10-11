@@ -149,7 +149,7 @@ extension TtsServiceStreamingAndHeadless on TtsService {
               if (_isPiperEngine) {
                 wavFile = await _piperGenerateWav(voice, sanitized, idx, speed);
               } else {
-                kDebugPrint(
+                debugPrint(
                   '[TtsService] Streaming: generating audio for chunk (len=${sanitized.length})',
                 );
                 wavFile = await engine.generateAudio(sanitized, voice, speed);

@@ -18,6 +18,7 @@
 
 import 'dart:convert';
 
+import 'package:front_porch_ai/services/chat/chaos/chaos_frequency.dart';
 import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
     show normalizeObjectiveStaleThreshold;
 
@@ -144,6 +145,9 @@ class RealismSettings with SettingsBase {
   /// The per-chat sidebar switch still wins for an individual story.
   bool _chaosModeDefault = false;
 
+  /// How often Chance Time pops on its own (Porch Life, under Chaos Mode).
+  ChaosFrequency _chaosFrequency = ChaosFrequency.normal;
+
   /// Hand-offs between characters in a group (Pockets). Off by default and
   /// gated on Pockets, because it asks the model for something strictly harder
   /// than the rest of the record: not just WHAT changed but WHO now has it. A
@@ -226,6 +230,7 @@ class RealismSettings with SettingsBase {
 
   /// See [_chaosModeDefault]. Depends on nothing.
   bool get chaosModeDefault => _chaosModeDefault;
+  ChaosFrequency get chaosFrequency => _chaosFrequency;
 
   /// See [_sceneGuestDetectionEnabled]. Depends on nothing; default ON.
   bool get sceneGuestDetectionEnabled => _sceneGuestDetectionEnabled;
@@ -453,6 +458,12 @@ class RealismSettings with SettingsBase {
   Future<void> setChaosModeDefault(bool value) async {
     _chaosModeDefault = value;
     await prefs?.setBool(k('chaos_mode_default'), value);
+    notify();
+  }
+
+  Future<void> setChaosFrequency(ChaosFrequency value) async {
+    _chaosFrequency = value;
+    await prefs?.setString(k('chaos_frequency'), value.name);
     notify();
   }
 

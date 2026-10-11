@@ -37,7 +37,9 @@ class ChaosPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = chat.chaosModeService.chaosModeEnabled;
+    final chaos = chat.chaosModeService;
+    final freq = chaos.frequency;
+    final enabled = chaos.chaosModeEnabled;
     final pressureColor = Color.lerp(
       AppColors.chaosCalmOf(context),
       AppColors.chaosHotOf(context),
@@ -96,33 +98,36 @@ class ChaosPanel extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 10),
-          // NSFW spicy events toggle
-          Row(
-            children: [
-              const Text('🌶️', style: TextStyle(fontSize: 12)),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  'Include spicy events',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: AppColors.textSecondary(context),
-                    fontWeight: FontWeight.w500,
+          // Spicy events toggle — 18+ only. With 18+ themes off the row is
+          // simply not there (adult events are filtered either way).
+          if (chaos.adultAllowed) ...[
+            Row(
+              children: [
+                const Text('🌶️', style: TextStyle(fontSize: 12)),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    'Include spicy events',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.textSecondary(context),
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
                 ),
-              ),
-              SizedBox(
-                height: 24,
-                child: Switch(
-                  value: chat.chaosNsfwEnabled,
-                  onChanged: (v) => chat.setChaosNsfwEnabled(v),
-                  activeTrackColor: AppColors.porchAmberOf(context),
-                  materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                SizedBox(
+                  height: 24,
+                  child: Switch(
+                    value: chat.chaosNsfwEnabled,
+                    onChanged: (v) => chat.setChaosNsfwEnabled(v),
+                    activeTrackColor: AppColors.porchAmberOf(context),
+                    materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 10),
+              ],
+            ),
+            const SizedBox(height: 10),
+          ],
           GestureDetector(
             onTap: chat.chaosModeService.hasPendingChaosEvent
                 ? null
@@ -191,7 +196,12 @@ class ChaosPanel extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Auto-triggers grow more likely each turn.\nBase: 5% · +5% per turn · cap: 100%',
+            chaos.cooldownTurns > 0
+                ? 'Settling down: no events for ${chaos.cooldownTurns} more '
+                      '${chaos.cooldownTurns == 1 ? 'message' : 'messages'}.'
+                : 'Auto-triggers grow more likely each turn.\n'
+                      'Base: ${freq.base}% · +${freq.growth}% per turn · '
+                      'cap: 100%',
             style: TextStyle(
               fontSize: 9,
               color: AppColors.textTertiary(context),

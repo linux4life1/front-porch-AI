@@ -116,14 +116,20 @@ class _WaifuPageState extends State<WaifuPage> {
         } else if (llm.activeBackend == BackendType.openRouter) {
           apiUrl = llm.openRouterService.apiUrl;
         }
-      } catch (_) {}
+      } on ProviderNotFoundException {
+        // No LLM provider in this tree: use the Porch context size.
+      }
       widget.session.contextBudget = waifuResolveContextBudget(
         porchContextSize: widget.session.genSettings.resolveContextSize(
           storage,
         ),
         apiUrl: apiUrl,
       );
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No storage in this tree: keep the session's current budget.
+    } catch (e) {
+      debugPrint('[Waifu] Context budget not resolved: $e');
+    }
   }
 
   void _onGenSettings(ChatGenerationSettings next) {
@@ -139,7 +145,10 @@ class _WaifuPageState extends State<WaifuPage> {
     try {
       final storage = Provider.of<StorageService>(context, listen: false);
       return waifuLoadedToolCardCount(storage.toolsDir);
-    } catch (_) {
+    } on ProviderNotFoundException {
+      return 0;
+    } catch (e) {
+      debugPrint('[Waifu] Tool card count failed: $e');
       return 0;
     }
   }
@@ -151,7 +160,9 @@ class _WaifuPageState extends State<WaifuPage> {
         knownUnsupported: chat.toolCallSupport.name == 'unsupported',
         paused: chat.toolCallingPaused,
       );
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No ChatService in this tree: leave toolsSupported as it was.
+    }
   }
 
   void _onThemeChanged() {
@@ -172,10 +183,12 @@ class _WaifuPageState extends State<WaifuPage> {
     OpenCodeManager? oc;
     try {
       oc = Provider.of<OpenCodeManager>(context, listen: false);
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // OpenCode is optional; the harness falls back to the LLM provider.
+    }
     try {
       provider = Provider.of<LLMProvider>(context, listen: false);
-    } catch (_) {
+    } on ProviderNotFoundException {
       if (oc == null) return null;
     }
     return _created = waifuBindSessionHarness(
@@ -191,7 +204,7 @@ class _WaifuPageState extends State<WaifuPage> {
       skillsDirOf: () {
         try {
           return Provider.of<StorageService>(context, listen: false).skillsDir;
-        } catch (_) {
+        } on ProviderNotFoundException {
           return null;
         }
       },
@@ -257,7 +270,9 @@ class _WaifuPageState extends State<WaifuPage> {
       if (root != null && root.isNotEmpty) {
         dir = p.join(waifuStoreDirectory(root), 'lang');
       }
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No storage in this tree: keep languages beside the session folder.
+    }
     return widget.session.langs = WaifuLangRuntime(directory: dir);
   }
 

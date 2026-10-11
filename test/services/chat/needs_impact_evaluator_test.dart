@@ -213,242 +213,123 @@ void main() {
       expect(saves, isEmpty);
     });
 
-    test('error path in impact call does not crash', () async {
+    // A real 1:1 turn: an active character, so the evaluator gets past its
+    // "no character, no group" gate and the model's deltas reach the vector.
+    NeedsImpactEvaluator activeEval(
+      String? reply, {
+      bool authority = false,
+      Future<VerificationResult> Function({
+        required String evalKind,
+        required String rawOutput,
+        required String sceneResponse,
+        Map<String, dynamic>? preState,
+        CharacterCard? activeChar,
+        GroupChat? activeGroup,
+        List<ChatMessage>? recentMessages,
+        String? promptText,
+        Map<String, String>? injections,
+        int? strictnessOverride,
+        int? maxPassesOverride,
+      })?
+      verifyFn,
+      CharacterCard? card,
+    }) {
       final e = createTestEvaluator(
-        impactCallFn:
-            (r, {onChunk, strength = 1, userCritique, previousDeltas}) async =>
-                null, // was throw for error path (adjusted for type)
+        sim: sim,
+        activeCharFn: () => card ?? CharacterCard(name: 'Ada'),
+        authorityFn: () => authority,
+        verifyFn: verifyFn,
+        impactCallFn: (r, {onChunk, userCritique, previousDeltas}) async =>
+            reply,
       );
-      await e.evaluateAndApply('some response');
-      // no throw
-    });
-
-    // Legacy shape coverage only (post table/modifiers/buffer removal; straight model deltas + Director authority)
-    test(
-      'pure romance scene (legacy activities/intensity JSON tolerated; deltas from model only)',
-      () async {
-        final localNotifies = <String>[];
-        final localSaves = <String>[];
-        final localSim = NeedsSimulation(
-          onNotify: () => localNotifies.add('notify'),
-          onSaveChat: () async => localSaves.add('save'),
-          getTimeOfDay: () => 'morning',
-          getRealismEnabled: () => true,
-          getObserverMode: () => false,
-          getCurrentSpeakerIdForRealism: () => 'char-1',
-          getIsGroupNonObserverMode: () => false,
-          getGroupNeeds: (_) => {},
-
-          setGroupNeeds: (_, _) {},
-          getEnjoysLowHygiene: () => false,
-          getNeedsSimEnabled: () => true,
-        );
-        final e = createTestEvaluator(
-          sim: localSim,
-          saves: localSaves,
-          notifies: localNotifies,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["sexual_nonclimax"], "intensity": 5, '
-                  '"fun_delta": 12, "social_delta": 7, "energy_delta": 3, "hunger_delta": -1, "hygiene_delta": -8, '
-                  '"reason": "kissing", "is_climax": false}', // legacy keys for parse tolerance test; leaf uses deltas+reason
-        );
-        await e.evaluateAndApply('they kissed passionately on the bed');
-        // Path exercised (no crash). on* observed via local wiring.
-      },
-    );
-
-    test(
-      'sex with creampie (legacy shape; explicit mess hygiene via model delta only)',
-      () async {
-        final localNotifies = <String>[];
-        final localSaves = <String>[];
-        final localSim = NeedsSimulation(
-          onNotify: () => localNotifies.add('notify'),
-          onSaveChat: () async => localSaves.add('save'),
-          getTimeOfDay: () => 'morning',
-          getRealismEnabled: () => true,
-          getObserverMode: () => false,
-          getCurrentSpeakerIdForRealism: () => 'char-1',
-          getIsGroupNonObserverMode: () => false,
-          getGroupNeeds: (_) => {},
-
-          setGroupNeeds: (_, _) {},
-          getEnjoysLowHygiene: () => false,
-          getNeedsSimEnabled: () => true,
-        );
-        final e = createTestEvaluator(
-          sim: localSim,
-          saves: localSaves,
-          notifies: localNotifies,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["sexual_climax"], "intensity": 8, '
-                  '"fun_delta": 16, "social_delta": 9, "energy_delta": 0, "hunger_delta": -2, "hygiene_delta": -20, '
-                  '"reason": "creampie in bed", "is_climax": true, "orgasm_intensity": 8}', // legacy for coverage; deltas authoritative
-        );
-        await e.evaluateAndApply('he came inside her hard on the sheets');
-        // Path exercised. Hygiene delta from model (post removal of modifier halves etc).
-      },
-    );
-
-    test('ate a full meal -> hunger positive (straight model delta)', () async {
-      final localNotifies = <String>[];
-      final localSaves = <String>[];
-      final localSim = NeedsSimulation(
-        onNotify: () => localNotifies.add('notify'),
-        onSaveChat: () async => localSaves.add('save'),
-        getTimeOfDay: () => 'morning',
-        getRealismEnabled: () => true,
-        getObserverMode: () => false,
-        getCurrentSpeakerIdForRealism: () => 'char-1',
-        getIsGroupNonObserverMode: () => false,
-        getGroupNeeds: (_) => {},
-
-        setGroupNeeds: (_, _) {},
-        getEnjoysLowHygiene: () => false,
-        getNeedsSimEnabled: () => true,
-      );
-      final e = createTestEvaluator(
-        sim: localSim,
-        saves: localSaves,
-        notifies: localNotifies,
-        impactCallFn:
-            (r, {onChunk, strength = 1, userCritique, previousDeltas}) async =>
-                '{"activities": ["ate"], "intensity": 7, '
-                '"hunger_delta": 22, "fun_delta": 6, "energy_delta": 5, '
-                '"reason": "dinner"}', // activities for legacy parse coverage only
-      );
-      await e.evaluateAndApply('she ate a full dinner with wine');
-      // Path exercised.
-    });
-
-    test('fulfillment in impact applies restore', () async {
-      final localNotifies = <String>[];
-      final localSaves = <String>[];
-      final localSim = NeedsSimulation(
-        onNotify: () => localNotifies.add('notify'),
-        onSaveChat: () async => localSaves.add('save'),
-        getTimeOfDay: () => 'morning',
-        getRealismEnabled: () => true,
-        getObserverMode: () => false,
-        getCurrentSpeakerIdForRealism: () => 'char-1',
-        getIsGroupNonObserverMode: () => false,
-        getGroupNeeds: (_) => {},
-
-        setGroupNeeds: (_, _) {},
-        getEnjoysLowHygiene: () => false,
-        getNeedsSimEnabled: () => true,
-      );
-      final e = createTestEvaluator(
-        sim: localSim,
-        saves: localSaves,
-        notifies: localNotifies,
-        impactCallFn:
-            (r, {onChunk, strength = 1, userCritique, previousDeltas}) async =>
-                '{"fulfillment": {"hunger": true}, "reason": "fed"}', // legacy fulfillment shape for coverage
-      );
-      localSim.restoreFromSnapshot({
-        'vector': {'hunger': 30},
+      sim.restoreFromSnapshot({
+        'vector': {for (final k in NeedsSimulation.needKeys) k: 50},
       });
-      await e.evaluateAndApply('she fed me the soup');
-      // Restore via fulfillment map (heuristic parse for singular "fulfillment" in test JSON) may not trigger in this isolation (regex/extract timing); assert no crash. Full restore + matrix in sim_test; fulfillment coverage in other bodies.
+      return e;
+    }
+
+    test('applies the model deltas to the active character', () async {
+      final e = activeEval(
+        '{"fun_delta": 12, "social_delta": 7, "energy_delta": 3, '
+        '"hunger_delta": -1, "hygiene_delta": -8, "reason": "kissing"}',
+      );
+      await e.evaluateAndApply('they kissed on the porch swing');
+      expect(sim.vector['fun'], 62);
+      expect(sim.vector['social'], 57);
+      expect(sim.vector['energy'], 53);
+      expect(sim.vector['hunger'], 49);
+      expect(sim.vector['hygiene'], 42);
+      expect(sim.vector['bladder'], 50, reason: 'untouched need stays put');
+    });
+
+    test('legacy activity keys are ignored; only *_delta keys apply', () async {
+      final e = activeEval(
+        '{"activities": ["sexual_nonclimax"], "intensity": 5, '
+        '"is_climax": false, "fun_delta": 4}',
+      );
+      await e.evaluateAndApply('a quiet evening');
+      expect(sim.vector['fun'], 54);
+      expect(sim.vector['energy'], 50);
+    });
+
+    test('a nested needs_impact wrapper still applies', () async {
+      final e = activeEval('{"needs_impact": {"hunger_delta": 20}}');
+      await e.evaluateAndApply('she ate a full meal');
+      expect(sim.vector['hunger'], 70);
+    });
+
+    test('a failed impact call leaves every need unchanged', () async {
+      final e = activeEval(null);
+      await e.evaluateAndApply('some response');
+      expect(sim.vector.values.toSet(), {50});
+    });
+
+    test('no active character or group: nothing is applied', () async {
+      final e = createTestEvaluator(
+        sim: sim,
+        impactCallFn: (r, {onChunk, userCritique, previousDeltas}) async =>
+            '{"hunger_delta": 20}',
+      );
+      sim.restoreFromSnapshot({
+        'vector': {for (final k in NeedsSimulation.needKeys) k: 50},
+      });
+      await e.evaluateAndApply('she ate a full meal');
+      expect(sim.vector['hunger'], 50);
     });
 
     test(
-      'legacy parse coverage: climax shape with is_climax/crash (post buffer removal; simple model+Director only)',
+      'a verifier error under authority falls back to the model deltas',
       () async {
-        final e = createTestEvaluator(
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["sexual_climax"], "intensity": 9, '
-                  '"crashTurns": 5, "is_climax": true}', // legacy keys tolerated in JSON; leaf only uses *_delta + reason
+        final e = activeEval(
+          '{"hunger_delta": 10}',
+          authority: true,
+          card: CharacterCard(
+            name: 'Ada',
+            frontPorchExtensions: FrontPorchExtensions(
+              realismVerificationEnabled: true,
+            ),
+          ),
+          verifyFn:
+              ({
+                required evalKind,
+                required rawOutput,
+                required sceneResponse,
+                preState,
+                activeChar,
+                activeGroup,
+                recentMessages,
+                promptText,
+                injections,
+                strictnessOverride,
+                maxPassesOverride,
+              }) async => throw StateError('verifier down'),
         );
-        await e.evaluateAndApply('intense climax');
-        // path exercised (no crash in leaf); actual crash/afterglow removed with buffers.
+        await e.evaluateAndApply('she had a snack');
+        expect(sim.vector['hunger'], 60);
       },
     );
 
     // (vestigial "more edges for count" + noop placeholder tests deleted as part of task per virulent thinning + "deletion part of task"; authority matrix tests added below for 15-25+ post-del.)
-
-    test(
-      'enjoys low hygiene cb wired to sim (evaluator itself uses straight model deltas; inversion/hygiene effects in sim tick or daily checks)',
-      () async {
-        final e = createTestEvaluator(
-          enjoysFn: () => true,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["bathed"], "intensity": 5, "hygiene_delta": 25}',
-        );
-        await e.evaluateAndApply('bathed');
-        // cb passed through to sim_ in factory; impact path is model deltas only.
-      },
-    );
-
-    test(
-      'romance scene model deltas (post table/mod removal; straight from effective)',
-      () async {
-        final e = createTestEvaluator(
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["sexual_nonclimax"], "intensity": 4, '
-                  '"energy_delta": 0, "hunger_delta": -1, "hygiene_delta": 0}',
-        );
-        await e.evaluateAndApply('heavy petting no food words');
-        // saves exercised if change.
-      },
-    );
-
-    // --- New tests for authority thin path + legacy + verifier + group + reason + parity (post del) ---
-    test(
-      'straight model deltas (no Director authority) when authorityFn false (or card verif off)',
-      () async {
-        final e = createTestEvaluator(
-          enjoysFn: () => true,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"activities": ["bathed"], "intensity": 5, "hygiene_delta": 25}',
-        );
-        await e.evaluateAndApply('bathed');
-        // straight path (no verify branch); authority off by default in factory.
-      },
-    );
 
     test(
       'authority true + verifier corrected trusts deltas (Director authority path)',
@@ -518,215 +399,6 @@ void main() {
         expect(h['reason'], 'Director: creampie+urination relief');
         expect(b['reason'], 'Director: creampie+urination relief');
         // _lastSceneReason zeroed on resets (see sim + god keep-sync hygiene); legacy afterglow fields in correctedRaw are parse-only coverage (post buffer removal).
-      },
-    );
-
-    test(
-      'none after (no verify or authority off) falls back gracefully (straight model path)',
-      () async {
-        final e = createTestEvaluator(
-          verifyFn: null,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async => '{"reason": "none"}',
-        );
-        await e.evaluateAndApply('fluffy talk no acts');
-      },
-    );
-
-    test(
-      'group per-speaker authority decision via cbs (different per-speaker card flags; god impersonation dance)',
-      () async {
-        final gn = <String, Map<String, int>>{};
-        final e = createTestEvaluator(
-          groupNonObsFn: () => true,
-          speakerFn: () => 'char-2',
-          groupNeeds: gn,
-          activeCharFn: () => CharacterCard(
-            name: 'char-2',
-            frontPorchExtensions: FrontPorchExtensions(
-              realismEnabled: true,
-              needsSimEnabled: true,
-              realismNeedsDirectorAuthority: true,
-            ),
-          ),
-          authorityFn: () =>
-              true, // mirrors god's live closure after _loadGroupRealismIntoScalars + temp impersonate
-          verifyFn:
-              null, // card verif may be off, but authorityFn exercises the read under group cbs (exercises god thin _runPostGenNeedsChecks dispatch for per-speaker)
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async => '{}',
-        );
-        await e.evaluateAndApply('group scene for speaker 2');
-      },
-    );
-
-    test(
-      'reason preference from model (Director supplied when authority+verif branch taken)',
-      () async {
-        final e = createTestEvaluator(
-          verifyFn: null,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"fun_delta": 10, "reason": "intense release per scene"}',
-        );
-        await e.evaluateAndApply('climax described');
-      },
-    );
-
-    test('1:1 vs group parity for deltas (cbs dispatch)', () async {
-      final e1 = createTestEvaluator(
-        verifyFn: null,
-        impactCallFn:
-            (r, {onChunk, strength = 1, userCritique, previousDeltas}) async =>
-                '{"bladder_delta": -20}',
-      );
-      await e1.evaluateAndApply('peed');
-    });
-
-    test(
-      'error in verifier under authority falls back to raw parse (no crash; thin path error handling)',
-      () async {
-        final e = createTestEvaluator(
-          verifyFn:
-              ({
-                required evalKind,
-                required rawOutput,
-                required sceneResponse,
-                Map<String, dynamic>? preState,
-                CharacterCard? activeChar,
-                GroupChat? activeGroup,
-                List<ChatMessage>? recentMessages,
-                String? promptText,
-                Map<String, String>? injections,
-                int? strictnessOverride,
-                int? maxPassesOverride,
-              }) async => throw Exception('verifier boom'),
-          authorityFn: () => true,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async => '{"bladder_delta": 0}',
-        );
-        await e.evaluateAndApply('scene');
-      },
-    );
-
-    test(
-      'after max passes with no corrected still produces impact (fallback to model; legacy is_climax shape)',
-      () async {
-        final e = createTestEvaluator(
-          verifyFn: null,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async => '{"is_climax": true}', // minimal legacy for coverage
-        );
-        await e.evaluateAndApply('climax no deltas from model');
-      },
-    );
-
-    test(
-      'impersonation for group speaker affects authority read (card per char; exercises god _load + dance + thin)',
-      () async {
-        final e = createTestEvaluator(
-          groupNonObsFn: () => true,
-          activeCharFn: () => CharacterCard(
-            name: 'speaker',
-            frontPorchExtensions: FrontPorchExtensions(
-              realismEnabled: true,
-              needsSimEnabled: true,
-              realismNeedsDirectorAuthority: true,
-            ),
-          ),
-          authorityFn: () =>
-              true, // god's cb after impersonation + _loadGroupRealismIntoScalars + _runPostGenNeedsChecks thin
-          verifyFn: null,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async => '{}',
-        );
-        await e.evaluateAndApply('group speaker turn');
-      },
-    );
-
-    test(
-      'chip reason from model (Director when authority branch) ends in impact.reason',
-      () async {
-        final e = createTestEvaluator(
-          verifyFn: null,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"comfort_delta": 2, "reason": "Director corrected low energy scene"}',
-        );
-        await e.evaluateAndApply('tired after');
-      },
-    );
-
-    test(
-      'authority true + card verif flag false (skips verify path when cb null or flag off; straight model)',
-      () async {
-        final cardWithVerifOff = CharacterCard(
-          name: 'c',
-          frontPorchExtensions: FrontPorchExtensions(
-            realismEnabled: true,
-            needsSimEnabled: true,
-            realismVerificationEnabled: false,
-            realismNeedsDirectorAuthority: true,
-          ),
-        );
-        final e = createTestEvaluator(
-          activeCharFn: () => cardWithVerifOff,
-          authorityFn: () => true,
-          verifyFn:
-              null, // exercises the ! (verify && authority && cardVerif) guard
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async => '{"hunger_delta": 4}',
-        );
-        await e.evaluateAndApply('eat scene');
-        // no crash + straight model path taken (verif not provided)
       },
     );
 
@@ -801,25 +473,6 @@ void main() {
       },
     );
 
-    test(
-      'nested needs_impact shape still extracts via _extractInt (tolerant for wrapper)',
-      () async {
-        final e = createTestEvaluator(
-          verifyFn: null,
-          impactCallFn:
-              (
-                r, {
-                onChunk,
-                strength = 1,
-                userCritique,
-                previousDeltas,
-              }) async =>
-                  '{"needs_impact": {"bladder_delta": -2}, "reason": "nested"}',
-        );
-        // current _extract falls to bare or _delta; this documents the shape (direct parse in effective covers common cases)
-        await e.evaluateAndApply('nested wrapper from model');
-      },
-    );
     // Additional bodies for authority+verif=false edge, group per-member roundtrip (create seed->member row->card->cb), nested; live grep post will reflect.
 
     // ── NEW: manual reprocessWithUserCritique dedicated tests (8+ bodies, post cleanup) ──

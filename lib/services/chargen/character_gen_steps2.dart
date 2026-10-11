@@ -184,7 +184,7 @@ Output ONLY the JSON:''';
         data = json.decode(cleaned) as Map<String, dynamic>;
       } catch (_) {
         // Try newline fix
-        final fixed = _fixJsonNewlines(
+        final fixed = JsonSanitizer.escapeControlCharsInStrings(
           cleaned,
         ).replaceAll(RegExp(r',\s*}'), '}').replaceAll(RegExp(r',\s*]'), ']');
         data = json.decode(fixed) as Map<String, dynamic>;

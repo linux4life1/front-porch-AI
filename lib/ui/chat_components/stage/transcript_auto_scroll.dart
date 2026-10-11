@@ -20,14 +20,6 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 
-void applyTranscriptAutoScroll(
-  ScrollController controller, {
-  required bool generating,
-}) {
-  // Option B: never pin to newest on send or stream. Do not rewrite
-  // offset on every layout — that was the hold that bucked idle scrub.
-}
-
 enum TranscriptGrowth { open, prepend, other }
 
 String transcriptTipKey(List<ChatMessage> messages) =>
@@ -109,7 +101,6 @@ void holdTranscriptAfterPrepend(
 }
 
 /// Stick-if-at-bottom while a reply is streaming on a forward list.
-/// [applyTranscriptAutoScroll] stays a no-op — Rawhide tests call it.
 bool followTranscriptWhileStreaming(
   ScrollController? controller, {
   required bool followEnabled,

@@ -46,6 +46,7 @@ interface PorchLifeState {
   pocketTransfersEnabled: boolean;
   intimateAgencyEnabled: boolean;
   chaosModeDefault: boolean;
+  chaosFrequency: 'rare' | 'normal' | 'wild';
   webSearchDefault: boolean;
   hasSearchApiKey?: boolean;
   wikiBaseUrl?: string;
@@ -81,6 +82,7 @@ const DEFAULTS: PorchLifeState = {
   pocketTransfersEnabled: false,
   intimateAgencyEnabled: false,
   chaosModeDefault: false,
+  chaosFrequency: 'normal',
   webSearchDefault: false,
   hasSearchApiKey: false,
   wikiBaseUrl: '',
@@ -613,7 +615,28 @@ export function PorchLifeSettings() {
           blurb="Pressure builds quietly as a scene goes on, and every so often something happens that neither of you planned — a knock at the door, a spilled drink, weather turning. It works with or without the Realism Engine. Switching it on here turns it on for new chats and groups; each chat can still overrule it in the sidebar."
           value={st.chaosModeDefault}
           onChange={(v) => set('chaosModeDefault', v)}
-        />
+          showChildWhenOff
+        >
+          <label className="pl-substitch">
+            <span className="pl-sub-body">
+              <span className="pl-sub-label">How often</span>
+              <span className="pl-sub-blurb">
+                How often Chance Time pops on its own: Rare is about one event every twelve messages,
+                Normal one every six or seven, Wild one every three. After an event there is a short
+                breather before pressure builds again.
+              </span>
+            </span>
+            <select
+              aria-label="How often"
+              value={st.chaosFrequency}
+              onChange={(e) => set('chaosFrequency', e.target.value as PorchLifeState['chaosFrequency'])}
+            >
+              <option value="rare">Rare</option>
+              <option value="normal">Normal</option>
+              <option value="wild">Wild</option>
+            </select>
+          </label>
+        </FeatureRow>
         <FeatureRow
           icon="🕰️"
           label="Welcome-back recap"

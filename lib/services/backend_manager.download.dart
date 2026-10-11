@@ -261,15 +261,6 @@ extension BackendManagerDownload on BackendManager {
     return '${d.inSeconds}s';
   }
 
-  String _formatFileSize(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-  }
-
   String _getExecutableName() {
     if (Platform.isWindows) {
       // No AVX2 → the oldpc build is the only one that will run.

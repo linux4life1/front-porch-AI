@@ -199,10 +199,14 @@ class _MyAppState extends State<MyApp> with WindowListener {
       try {
         final db = await AppDatabase.instance();
         await db.purgeSoftDeletes();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Startup] Soft-delete purge failed: $e');
+      }
       try {
         await DataMigrationService.cleanupLegacyFiles();
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[Startup] Legacy file cleanup failed: $e');
+      }
     });
   }
 
@@ -372,7 +376,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     );
                     final tts = Provider.of<TtsService>(context, listen: false);
                     chatService.setTtsService(tts);
-                  } catch (_) {}
+                  } catch (e) {
+                    debugPrint('[Startup] TTS not wired into chat: $e');
+                  }
                   // Wire ExpressionClassifierService into ChatService
                   try {
                     final chatService = Provider.of<ChatService>(
@@ -384,7 +390,11 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       listen: false,
                     );
                     chatService.setExpressionClassifierService(classifier);
-                  } catch (_) {}
+                  } catch (e) {
+                    debugPrint(
+                      '[Startup] Expression classifier not wired into chat: $e',
+                    );
+                  }
                   // Wire ImageGenService into ChatService for Scene Guest
                   // background portraits (previously done in the legacy web
                   // server provider's create, removed at cutover).
@@ -396,9 +406,11 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     chatService.setImageGenService(
                       Provider.of<ImageGenService>(context, listen: false),
                     );
-                  } catch (_) {}
+                  } catch (e) {
+                    debugPrint('[Startup] Image gen not wired into chat: $e');
+                  }
                   // Wire UpdateService shutdown callback so child processes
-                  // (KoboldCPP, web server, embedding sidecar) are stopped
+                  // (KoboldCPP, web server) are stopped
                   // before exit(0) in installNow(), which bypasses onWindowClose.
                   try {
                     final updateService = Provider.of<UpdateService>(
@@ -414,16 +426,26 @@ class _MyAppState extends State<MyApp> with WindowListener {
                         if (kobold.isRunning || kobold.isStarting) {
                           await kobold.stopKobold();
                         }
-                      } catch (_) {}
+                      } catch (e) {
+                        debugPrint(
+                          '[Update] Kobold stop before exit failed: $e',
+                        );
+                      }
                       try {
                         final webServer = Provider.of<WebServerHost>(
                           context,
                           listen: false,
                         );
                         if (webServer.isRunning) await webServer.stop();
-                      } catch (_) {}
+                      } catch (e) {
+                        debugPrint(
+                          '[Update] Web server stop before exit failed: $e',
+                        );
+                      }
                     });
-                  } catch (_) {}
+                  } catch (e) {
+                    debugPrint('[Startup] Update shutdown hook not wired: $e');
+                  }
                 });
               }
 

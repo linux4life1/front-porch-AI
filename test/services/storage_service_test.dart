@@ -172,7 +172,6 @@ void main() {
           svc.generationSettings.setSystemPrompt(p);
         });
         expect(svc.generationSettings.systemPrompt, contains('Hello {{char}}'));
-        expect(svc.sttSettings.callBufferSentences, isA<int>());
       },
     );
   });

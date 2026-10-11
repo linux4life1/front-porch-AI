@@ -206,17 +206,6 @@ class _GenerationTabState extends State<GenerationTab> {
             showInput: true,
             isInteger: true,
           ),
-          SliderSetting(
-            label: 'Min Output Tokens',
-            value: storage.generationSettings.minLength.toDouble(),
-            min: 0,
-            max: 512,
-            onChanged: (val) =>
-                storage.generationSettings.setMinLength(val.toInt()),
-            divisions: 512,
-            showInput: true,
-            isInteger: true,
-          ),
           // Context size — wider range for remote backends.
           PresetContextLock(
             locked: storage.backendSettings.presetOwnsContext,
