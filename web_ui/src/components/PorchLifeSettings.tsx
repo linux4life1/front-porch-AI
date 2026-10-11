@@ -621,8 +621,9 @@ export function PorchLifeSettings() {
             <span className="pl-sub-body">
               <span className="pl-sub-label">How often</span>
               <span className="pl-sub-blurb">
-                How often Chance Time pops on its own. After an event there is a short breather before
-                pressure builds again.
+                How often Chance Time pops on its own: Rare is about one event every twelve messages,
+                Normal one every six or seven, Wild one every three. After an event there is a short
+                breather before pressure builds again.
               </span>
             </span>
             <select
@@ -630,9 +631,9 @@ export function PorchLifeSettings() {
               value={st.chaosFrequency}
               onChange={(e) => set('chaosFrequency', e.target.value as PorchLifeState['chaosFrequency'])}
             >
-              <option value="rare">Rare — about one event every twelve messages</option>
-              <option value="normal">Normal — about one every six or seven</option>
-              <option value="wild">Wild — about one every three</option>
+              <option value="rare">Rare</option>
+              <option value="normal">Normal</option>
+              <option value="wild">Wild</option>
             </select>
           </label>
         </FeatureRow>
