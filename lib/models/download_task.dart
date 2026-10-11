@@ -172,9 +172,6 @@ class DownloadTask {
   /// Human-readable progress string (e.g., "45.2%").
   String get progressDisplay => '${(progress * 100).toStringAsFixed(1)}%';
 
-  /// Human-readable downloaded size.
-  String get downloadedDisplay => _formatBytes(bytesDownloaded);
-
   /// Human-readable total size.
   String get totalDisplay => _formatBytes(totalBytes);
 

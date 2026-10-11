@@ -262,6 +262,10 @@ class WaifuSession {
   bool mcpOptIn;
   bool preserveThinking;
 
+  /// OpenCode's own session, so a relaunch resumes the model's history
+  /// instead of starting a stranger behind the same transcript.
+  String? openCodeSessionId;
+
   /// Sit-down / live probe. False fail-closes the loop — no silent coding.
   bool toolsSupported;
   ChatThemeOverrides themeOverrides;
@@ -272,6 +276,4 @@ class WaifuSession {
   /// True when [tokensUsed] came from the last API `usage` block.
   bool tokensFromApi = false;
   int compactPasses = 0;
-
-  List<WaifuToolChip> get toolChips => [for (final m in transcript) ...m.chips];
 }

@@ -79,9 +79,6 @@ class JournalPhysics {
   /// so only a card the conversation is clearly REACHING FOR expands.
   static const double kMinExpandSimilarity = 0.45;
 
-  /// At most one card expands per turn (the moment being asked about).
-  static const int kMaxExpandedCards = 1;
-
   /// Per-source-message and total character budgets for the excerpt.
   static const int kExpandPerMessageChars = 400;
   static const int kExpandTotalChars = 1000;
@@ -150,17 +147,6 @@ class JournalPhysics {
     try {
       final decoded = jsonDecode(raw);
       return decoded is Map ? decoded['owner'] as String? : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  static String? birthdayIsoOf(JournalMemoryData card) {
-    final raw = card.metadata;
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      return decoded is Map ? decoded['iso'] as String? : null;
     } catch (_) {
       return null;
     }

@@ -73,13 +73,6 @@ class LocalModelInfo {
   /// This is approximately equal to the file size for GGUF models.
   int get estimatedVramMb => sizeBytes ~/ (1024 * 1024);
 
-  /// Estimated VRAM needed including KV cache for a given context size.
-  int estimatedVramWithKv(int contextSize) {
-    final baseVram = estimatedVramMb * 1024 * 1024; // Convert to bytes
-    final kvVram = (kvBytesPerToken ?? _estimateKvBytes()) * contextSize;
-    return (baseVram + kvVram) ~/ (1024 * 1024); // Convert back to MB
-  }
-
   /// Creates a LocalModelInfo from a FileSystemEntity.
   /// Parses metadata from the filename without reading the file.
   factory LocalModelInfo.fromEntity(FileSystemEntity entity) {
@@ -105,34 +98,6 @@ class LocalModelInfo {
     this.architecture,
     this.kvBytesPerToken,
   }) : quantType = QuantType.fromFilename(filename);
-
-  /// Creates an updated copy with new KV bytes per token.
-  LocalModelInfo withKvBytes(int? bytesPerToken) {
-    return LocalModelInfo(
-      path: path,
-      filename: filename,
-      sizeBytes: sizeBytes,
-      modified: modified,
-      paramCountB: paramCountB,
-      architecture: architecture,
-      kvBytesPerToken: bytesPerToken,
-    );
-  }
-
-  /// Estimates KV cache bytes per token based on architecture heuristics.
-  /// Used when GGUF header hasn't been parsed yet.
-  int _estimateKvBytes() {
-    // Rough estimates based on common architectures
-    // These are FP16 values; actual KV cache may be quantized
-    if (paramCountB != null) {
-      // Very rough estimate: larger models tend to have larger hidden dims
-      if (paramCountB! >= 70) return 4096; // 70B class
-      if (paramCountB! >= 13) return 2048; // 13B class
-      if (paramCountB! >= 7) return 1024; // 7-8B class
-      if (paramCountB! >= 3) return 512; // 3B class
-    }
-    return 1024; // Default estimate for 7B-class model
-  }
 
   @override
   bool operator ==(Object other) {

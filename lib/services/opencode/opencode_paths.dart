@@ -18,7 +18,6 @@
 
 import 'dart:io';
 
-import 'package:front_porch_ai/services/opencode/opencode_pin.dart';
 import 'package:path/path.dart' as p;
 
 /// App-support closet for the managed OpenCode copy. Sibling of
@@ -34,8 +33,6 @@ class OpenCodeCloset {
   String get binaryName => Platform.isWindows ? 'opencode.exe' : 'opencode';
 
   String get binaryPath => p.join(binDir, binaryName);
-
-  String get versionFilePath => p.join(binDir, kOpenCodeVersionFileName);
 
   String get configDir => p.join(binDir, 'config');
 

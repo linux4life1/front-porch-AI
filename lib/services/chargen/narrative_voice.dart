@@ -93,9 +93,6 @@ class NarrativeVoice {
   bool get isFirst => perspective == NarrativePerspective.first;
   bool get isPast => tense == NarrativeTense.past;
 
-  String get perspectiveLabel => isFirst ? 'First person' : 'Third person';
-  String get tenseLabel => isPast ? 'Past' : 'Present';
-
   static NarrativePerspective parsePerspective(String? raw) {
     switch ((raw ?? '').trim().toLowerCase()) {
       case 'third':

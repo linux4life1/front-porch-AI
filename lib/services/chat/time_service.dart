@@ -239,28 +239,15 @@ class TimeService {
   }
 
   String? todayLine;
-  int? _todayLineDayCount;
 
   void clearTodayLine() {
     todayLine = null;
-    _todayLineDayCount = null;
   }
 
   Future<void> _ifDayChanged(int dayBefore) async {
     if (dayCount == dayBefore) return;
     clearTodayLine();
     await onStoryDayChanged?.call();
-  }
-
-  String? get visibleTodayLine {
-    final line = todayLine?.trim();
-    if (line == null || line.isEmpty) return null;
-    if (_todayLineDayCount != null && _todayLineDayCount != dayCount) {
-      todayLine = null;
-      _todayLineDayCount = null;
-      return null;
-    }
-    return line;
   }
 
   // Tools transport for the scene-time and posture evals (nullable — tests and
@@ -460,7 +447,6 @@ class TimeService {
     // would ask the loader to patch a row this service no longer describes.
     _canonicalClockWasSynthesised = false;
     todayLine = null;
-    _todayLineDayCount = null;
     _clearCapturedClock();
   }
 

@@ -43,6 +43,7 @@ class OpenCodeToolEvent extends OpenCodeBusEvent {
     required this.ok,
     this.pending = false,
     this.callId = '',
+    this.messageId = '',
   });
   final String sessionId;
   final String name;
@@ -50,6 +51,7 @@ class OpenCodeToolEvent extends OpenCodeBusEvent {
   final bool ok;
   final bool pending;
   final String callId;
+  final String messageId;
 }
 
 class OpenCodeSessionIdle extends OpenCodeBusEvent {
@@ -143,6 +145,12 @@ abstract class OpenCodeEventSink {
   void onTokens({required int promptTokens, required int outputTokens});
 }
 
+/// Optional sink side: the assistant message a tool part belongs to, so a
+/// tool-only coding step still has an id to revert to.
+abstract interface class OpenCodeToolMessageSink {
+  void onToolMessage(String messageId);
+}
+
 void dispatchOpenCodeEvent(OpenCodeBusEvent event, OpenCodeEventSink sink) {
   switch (event) {
     case OpenCodeTextDelta(:final delta, :final messageId, :final thinking):
@@ -150,6 +158,10 @@ void dispatchOpenCodeEvent(OpenCodeBusEvent event, OpenCodeEventSink sink) {
         sink.onTextDelta(delta, messageId: messageId, thinking: thinking);
       }
     case OpenCodeToolEvent():
+      if (sink case final OpenCodeToolMessageSink m
+          when event.messageId.isNotEmpty) {
+        m.onToolMessage(event.messageId);
+      }
       sink.onTool(
         name: event.name,
         detail: event.detail,
@@ -394,6 +406,8 @@ OpenCodeToolEvent? _toolFromPart(Map<String, dynamic> map) {
     ok: ok,
     pending: pending,
     callId: part['callID']?.toString() ?? '',
+    messageId:
+        part['messageID']?.toString() ?? map['messageID']?.toString() ?? '',
   );
 }
 
