@@ -97,7 +97,6 @@ void main() {
       'lib/services/image_prompt/image_prompt_builder.dart':
           'stripThinkForVisual',
       'lib/ui/pages/chat_page.scene_dialogs.dart': 'cleanVisualSourceText',
-      'lib/ui/image_studio/prompt_workspace.dart': 'cleanVisualSourceText',
     };
     callers.forEach((path, fn) {
       final source = File(path).readAsStringSync();

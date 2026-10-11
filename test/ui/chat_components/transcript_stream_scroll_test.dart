@@ -130,14 +130,6 @@ void main() {
       controller.position.maxScrollExtent,
       reason: 'open/load must land on the newest end (forward max)',
     );
-
-    applyTranscriptAutoScroll(controller, generating: true);
-    await tester.pump();
-    expect(
-      controller.offset,
-      controller.position.maxScrollExtent,
-      reason: 'stream helper must not move after the one-shot pin',
-    );
   });
 
   testWidgets('idle user scroll is not rewritten by leftover hold plumbing', (

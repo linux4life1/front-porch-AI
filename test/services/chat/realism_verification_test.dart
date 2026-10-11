@@ -136,9 +136,9 @@ void main() {
           rawOutput: '{"relationship_delta": 99}',
           sceneResponse: 'a normal turn',
         );
-        // Impl rule may or may not trigger depending on extract in this env; accept either for gate hygiene (core path exercised in other tests).
-        expect(r.status, anyOf('corrected', 'accepted'));
-        expect(r.passes, anyOf(0, greaterThanOrEqualTo(0)));
+        expect(r.status, 'corrected');
+        expect(r.passes, 1);
+        expect(r.correctedRaw, isNot(contains('99')));
       },
     );
 
@@ -280,8 +280,8 @@ void main() {
           strictnessOverride: 4,
         );
         // Specificity: full latent passed, result produced (bundle used internally for rules; reprocess not triggered here as input clean).
-        expect(r.status, isNotEmpty);
-        expect(r.passes, isA<int>());
+        expect(r.status, 'accepted');
+        expect(r.passes, 0);
       },
     );
 
@@ -450,8 +450,11 @@ void main() {
         // Even if the particular re-fire in this run kept old or default, the important thing is the path + phase + that when the stub supplies them they can appear.
         // Stronger: the reprocess was exercised and we got a result with the fields the stub provided in at least one configuration.
         expect(phases.any((s) => s.contains('true:')), true);
-        // The test surface exercises the full latent + reprocess for narrative kind.
-        expect(r.passes, greaterThanOrEqualTo(0));
+        // 99 is out of range, so both allowed passes run and the result is
+        // a correction, not the raw value.
+        expect(r.status, 'corrected');
+        expect(r.passes, 2);
+        expect(r.correctedRaw, isNot(contains('99')));
       },
     );
 

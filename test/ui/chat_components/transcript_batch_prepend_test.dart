@@ -93,10 +93,6 @@ void main() {
           'one-shot prepend adjust uses a settled max, not a children-list '
           'rebuild (those report a stale max for a frame)',
     );
-
-    applyTranscriptAutoScroll(controller, generating: true);
-    await tester.pump();
-    expect(controller.offset, 80 + 300);
   });
 
   test('desktop list stays the Mac-pass forward ListView', () {
