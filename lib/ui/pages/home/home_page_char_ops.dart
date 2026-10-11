@@ -299,24 +299,28 @@ extension _HomePageCharOps on _HomePageState {
       builder: (dialogCtx) {
         return StatefulBuilder(
           builder: (ctx, setDialogState) {
-            // Start the import on first build.
+            // Start the import after the first build, never inside it: an
+            // import notifies the repository before its first await, and a
+            // notify during build throws.
             if (!started) {
               started = true;
-              runImport(
-                    isCancelled: () => cancelled,
-                    onProgress: (current, total, name, error) {
-                      if (ctx.mounted) {
-                        setDialogState(() {
-                          currentCount = current;
-                          currentName = name;
-                          if (error == null) {
-                            importedCount++;
-                          } else {
-                            failedCount++;
-                          }
-                        });
-                      }
-                    },
+              Future.microtask(
+                    () => runImport(
+                      isCancelled: () => cancelled,
+                      onProgress: (current, total, name, error) {
+                        if (ctx.mounted) {
+                          setDialogState(() {
+                            currentCount = current;
+                            currentName = name;
+                            if (error == null) {
+                              importedCount++;
+                            } else {
+                              failedCount++;
+                            }
+                          });
+                        }
+                      },
+                    ),
                   )
                   .then((_) {
                     if (ctx.mounted) Navigator.of(ctx).pop();
