@@ -24,8 +24,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-import 'package:front_porch_ai/services/kobold/kobold.dart';
-
 import '../../helpers/settings_page_harness.dart';
 
 void main() {
@@ -37,14 +35,24 @@ void main() {
       () => FocusManager.instance.highlightStrategy =
           FocusHighlightStrategy.automatic,
     );
-    await mountSettings(tester, lastUsedIsB: false);
-    // A window short enough that the Advanced tab scrolls.
+    await mountSettings(
+      tester,
+      lastUsedIsB: false,
+      before: (rig) => rig.store.expressionSettings.setExpressionEnabled(true),
+    );
+    // A window short enough that the tab scrolls.
     await tester.binding.setSurfaceSize(const Size(1400, 700));
     await tester.pump();
-    await openTab(tester, 'Advanced');
+    await openTab(tester, 'Voice & Media');
 
-    final picker = find.byKey(const ValueKey('kv-quant-picker'));
-    await pickFromDropdown(tester, picker, KvQuant.q8_0.label);
+    // The expression classification picker. (It was the Advanced tab's KV
+    // cache picker, which is now only in the preset editor and the dialog.)
+    final picker = find.byWidgetPredicate(
+      (w) =>
+          w is DropdownButton<String> &&
+          (w.items?.any((i) => i.value == 'onnx') ?? false),
+    );
+    await pickFromDropdown(tester, picker, 'Manual Only');
 
     final ink = find.descendant(of: picker, matching: find.byType(InkWell));
     final focused = FocusManager.instance.primaryFocus?.context;
@@ -57,11 +65,12 @@ void main() {
       reason: 'the dropdown no longer holds keyboard focus after a pick',
     );
 
-    // Scroll the dropdown up until it sits just above the tab body, where
-    // the tab bar is.
+    // Scroll the dropdown up until its top half sits above the tab body,
+    // where the tab bar is (a dense dropdown is shorter than 30 px).
     final tabBar = tester.getRect(find.byType(TabBar));
     final position = Scrollable.of(tester.element(picker)).position;
-    final dy = tester.getRect(ink).top - (tabBar.bottom - 30);
+    final half = tester.getRect(ink).height / 2;
+    final dy = tester.getRect(ink).top - (tabBar.bottom - half);
     position.jumpTo(position.pixels + dy);
     await tester.pump();
     expect(

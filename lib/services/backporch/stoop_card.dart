@@ -12,22 +12,6 @@ import 'package:front_porch_ai/models/models.dart';
 
 import 'backporch_user.dart';
 
-/// Worlds on The Stoop — client readiness flag.
-///
-/// Portable places (.fpworld packages) ride the SAME card endpoints as a third
-/// `type: 'WORLD'` whose `card` payload is the .fpworld envelope
-/// (`encodeFpWorld` / `decodeFpWorld` in `models/fp_world_package.dart`), with
-/// the place's cover image attached as the card avatar — so worlds get browse,
-/// search, votes, downloads, creator pages, AND the exact moderation pipeline
-/// characters already go through (PENDING → mod review → APPROVED before
-/// anyone can see them). This keeps the backend change purely additive (one
-/// new enum value; no new endpoints), per the mixed-fleet API contract.
-///
-/// The backend does not accept `WORLD` yet. The Dart client is fully wired —
-/// upload, browse, download + auto-import — behind this flag; flip it to true
-/// when the backend ships. While false, the UI shows Worlds as "coming soon".
-const bool kStoopWorldsLive = true;
-
 /// The mixed-view opt-in the API expects when a caller understands worlds.
 /// Sent on list endpoints only; `type=all` deliberately still means
 /// solo+group server-side so already-shipped apps never receive a WORLD item.

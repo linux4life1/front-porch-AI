@@ -53,27 +53,6 @@ extension _SettingsLaunchControls on _SettingsPageState {
     );
   }
 
-  /// Shows the saved launch settings once the card is known. Nothing is
-  /// written: a choice nobody made stays automatic (all four switches unset),
-  /// which each launch resolves from the card (CUDA on NVIDIA, Metal on a
-  /// Mac, Vulkan on AMD or Intel; ROCm only ever by hand), and the
-  /// Acceleration line says "Automatic". Only a pick in the override is
-  /// saved, so a fresh install never reads "Manual".
-  void _showSavedLaunchSettings() {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    final bs = storage.backendSettings;
-    rebuildState(() {
-      _useVulkan = bs.useVulkan == true;
-      _useCublas = bs.useCublas == true;
-      _useMetal = bs.useMetal == true;
-      _useRocm = bs.useRocm == true;
-      // The saved values, never the controllers' construction defaults
-      // ('16384'): a custom context limit must survive a visit.
-      _gpuLayersController.text = bs.gpuLayers.toString();
-      _contextSizeController.text = bs.contextSize.toString();
-    });
-  }
-
   Future<void> _pickStoragePath() async {
     String? selectedDirectory = await GuardedPicker.getDirectoryPath(
       context,

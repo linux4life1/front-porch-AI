@@ -108,7 +108,7 @@ class ExpressionService {
     this.getBackendIdentity,
   });
 
-  // ── Public surface (for @Deprecated shims in ChatService + direct test/UI callers) ──────
+  // ── Public surface (ChatService forwarders + direct test/UI callers) ──────
 
   String? get manualExpressionLabel => _manualExpressionLabel;
 

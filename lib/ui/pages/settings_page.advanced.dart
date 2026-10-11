@@ -23,11 +23,7 @@ part of 'settings_page.dart';
 extension _SettingsAdvancedTab on _SettingsPageState {
   Widget _buildAdvancedTab(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
-    final hardwareService = Provider.of<HardwareService>(context);
-    final llmProvider = Provider.of<LLMProvider>(context);
     final theme = Theme.of(context);
-    // The one rule every place that sets the context follows.
-    final presetOwnsContext = storageService.backendSettings.presetOwnsContext;
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24.0),
@@ -72,14 +68,6 @@ extension _SettingsAdvancedTab on _SettingsPageState {
           const SectionHeader('Web Server'),
           const SizedBox(height: 8),
           _buildWebServerSection(context),
-          const SizedBox(height: 24),
-          _buildHardwareGpuSection(
-            context,
-            storageService,
-            hardwareService,
-            llmProvider,
-            presetOwnsContext,
-          ),
           const SizedBox(height: 24),
           _buildAdvancedLaunchOptions(context, storageService),
           const SizedBox(height: 24),

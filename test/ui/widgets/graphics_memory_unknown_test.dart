@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // When the graphics card's memory could not be read (0 MB), Manage Models
-// said "0% of available VRAM" for every model, Settings said "0 MB of
-// graphics memory", and the Local model card told every model it was "much
+// said "0% of available VRAM" for every model, and the Local model card told every model it was "much
 // bigger than your graphics card", all against a card of size zero. Unknown
 // is now said as unknown, with no bigger/smaller verdict. The estimate's
 // maths is untouched: only the unknown case changes.
@@ -20,7 +19,6 @@ import 'package:front_porch_ai/ui/widgets/local_model_card.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/fakes_storage.dart';
-import '../../helpers/settings_page_harness.dart';
 
 const _dir = 'test/fixtures/gguf_headers';
 
@@ -84,14 +82,5 @@ void main() {
     );
     expect(find.textContaining('of available VRAM'), findsNothing);
     expect(find.text(kGraphicsMemoryUnknown), findsOneWidget);
-  });
-
-  testWidgets('Settings names the memory as not detected, not 0 MB', (
-    tester,
-  ) async {
-    await mountSettings(tester, lastUsedIsB: false, hardware: _undetected);
-    await openTab(tester, 'Advanced');
-    expect(find.text('0 MB of graphics memory.'), findsNothing);
-    expect(find.text('$kGraphicsMemoryUnknown.'), findsOneWidget);
   });
 }

@@ -82,42 +82,37 @@ void main() {
     });
   });
 
-  // The card holds the cache setting too. A preset launch runs the file as
-  // written and never reads the app's cache setting, so the card is locked
-  // whole, and its words name both.
+  // The Advanced tab has no context of its own (the Local model card and the
+  // Generation tab set it). Its launch options are not read for chat while a
+  // preset runs, and the section says so above them.
   group('Settings → Advanced', () {
-    Finder card() => find.text('Context Window');
-    Finder cache() => find.byType(KvQuantPicker);
-    Finder banner() => find.byKey(const ValueKey('preset-owns-context'));
+    Finder note() => find.byKey(const ValueKey('preset-owns-launch-options'));
 
-    testWidgets('KoboldCpp with a preset: the context and the cache are '
-        'locked, and the words say both', (tester) async {
+    testWidgets('KoboldCpp with a preset: the launch options say the preset '
+        'sets them for chat, and no context box is offered', (tester) async {
       await mountSettings(
         tester,
         lastUsedIsB: false,
         before: _withPreset('kobold'),
       );
-      await openTab(tester, 'Advanced');
+      await openLaunchOptions(tester);
 
-      final words = tester.widget<Text>(banner()).data!;
-      expect(words, contains('Context size'));
-      expect(words.toLowerCase(), contains('kv cache'));
-      expect(_closed(tester, card()), isTrue);
-      expect(_closed(tester, cache()), isTrue);
+      expect(note(), findsOneWidget);
+      expect(find.text(kPresetOwnsLaunchOptions), findsOneWidget);
+      expect(find.text('Context Window'), findsNothing);
     });
 
-    testWidgets('a preset left chosen on a remote backend: the context is '
-        'the user\'s', (tester) async {
+    testWidgets('a preset left chosen on a remote backend: nothing is said', (
+      tester,
+    ) async {
       await mountSettings(
         tester,
         lastUsedIsB: false,
         before: _withPreset('openRouter'),
       );
-      await openTab(tester, 'Advanced');
+      await openLaunchOptions(tester);
 
-      expect(banner(), findsNothing);
-      expect(_closed(tester, card()), isFalse);
-      expect(_closed(tester, cache()), isFalse);
+      expect(note(), findsNothing);
     });
   });
 

@@ -47,33 +47,24 @@ void main() {
       tester,
     ) async {
       final rig = await mountSettings(tester, lastUsedIsB: false, hardware: hw);
-      await openTab(tester, 'Advanced');
+      await openLaunchOptions(tester);
       expect(_switches(rig), [null, null, null, null]);
       expect(find.textContaining('enabled'), findsNothing, reason: 'a toast');
       expect(find.text('Acceleration: Automatic — $shown'), findsOneWidget);
     });
   }
 
-  testWidgets('a choice the user made stays theirs after a visit', (
+  testWidgets('ROCm, switched on before, stays on after a visit', (
     tester,
   ) async {
     final rig = await mountSettings(
       tester,
       lastUsedIsB: false,
       hardware: _rtx,
-      before: (rig) async {
-        final b = rig.store.backendSettings;
-        await b.setUseCublas(false);
-        await b.setUseVulkan(true);
-        await b.setUseMetal(false);
-        await b.setUseRocm(false);
-      },
+      before: (rig) => rig.store.backendSettings.setUseRocm(true),
     );
-    await openTab(tester, 'Advanced');
-    expect(_switches(rig), [false, true, false, false]);
-    expect(
-      find.text('Acceleration: Manual — Vulkan (Nvidia GPU detected)'),
-      findsOneWidget,
-    );
+    await openLaunchOptions(tester);
+    expect(_switches(rig), [null, null, null, true]);
+    expect(find.text('Acceleration: ROCm (AMD)'), findsOneWidget);
   });
 }
