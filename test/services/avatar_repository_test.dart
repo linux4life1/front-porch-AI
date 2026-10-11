@@ -99,7 +99,10 @@ void main() {
       //      refractory_opened — the refractory in story minutes (2026-10-06).
       //      The ladder step and the once-only turns × 15 read are guarded by
       //      test/services/chat/refractory_legacy_load_test.dart.
-      expect(db.schemaVersion, 55);
+      // v56: sessions.chaos_nsfw_enabled — the 1:1 Chaos spicy switch, which
+      //      was never saved before. Guarded by
+      //      test/services/chat/chaos/chaos_spicy_persist_test.dart.
+      expect(db.schemaVersion, 56);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
