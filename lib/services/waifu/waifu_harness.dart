@@ -424,7 +424,7 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
           await onAsk?.call(
             WaifuAskRequest(
               toolName: ask.permission,
-              summary: ask.patterns.join(', '),
+              summary: ask.patterns.join('\n'),
             ),
           ) ??
           WaifuAskDecision.deny;

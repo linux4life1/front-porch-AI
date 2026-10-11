@@ -217,7 +217,11 @@ class _WaifuPageState extends State<WaifuPage> {
     final result = await showDialog<WaifuAskDecision>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WaifuAskDialog(request: request),
+      builder: (_) => WaifuAskDialog(
+        request: request,
+        name: WaifuStage.of(widget.session).name,
+        portrait: waifuCoworkerFace(context, widget.session.coworker),
+      ),
     );
     return result ?? WaifuAskDecision.deny;
   }
@@ -227,7 +231,11 @@ class _WaifuPageState extends State<WaifuPage> {
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WaifuQuestionDialog(request: request),
+      builder: (_) => WaifuQuestionDialog(
+        request: request,
+        name: WaifuStage.of(widget.session).name,
+        portrait: waifuCoworkerFace(context, widget.session.coworker),
+      ),
     );
     return result ?? '';
   }

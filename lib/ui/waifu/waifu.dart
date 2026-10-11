@@ -25,6 +25,7 @@ export 'waifu_context_bar.dart';
 export 'waifu_stop_bar.dart';
 export 'waifu_coworker_face.dart';
 export 'waifu_delete_session_dialog.dart';
+export 'waifu_dialog_face.dart';
 export 'waifu_home_atmosphere.dart';
 export 'waifu_home_view.dart';
 export 'waifu_new_porch_card.dart';
