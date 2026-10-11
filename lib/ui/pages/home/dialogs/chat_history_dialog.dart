@@ -22,8 +22,9 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// The one Chat History list — folder-icon menu and Home right-click both
-/// open this. Do not clone a second list.
+/// The one Manage Chats list — folder-icon menu and Home right-click both
+/// open this. Do not clone a second list. [onNewChat] runs after the dialog
+/// closes; Start New Chat is always offered, even with zero or one chat.
 Future<void> showChatHistoryDialog({
   required BuildContext context,
   required ChatService chatService,
@@ -31,6 +32,7 @@ Future<void> showChatHistoryDialog({
   bool startReplacement = true,
   bool closeOnDeleteCurrent = true,
   Future<void> Function(String sessionId)? onOpen,
+  required Future<void> Function() onNewChat,
 }) async {
   final load = loadSessions ?? chatService.getSessions;
   final sessions = await load();
@@ -49,11 +51,12 @@ Future<void> showChatHistoryDialog({
         await chatService.updateSessionDescription(id, desc);
       },
       closeOnDeleteCurrent: closeOnDeleteCurrent,
+      onNewChat: onNewChat,
     ),
   );
 }
 
-/// Extracted Chat History AlertDialog (look, title, trash, empty copy).
+/// Extracted Manage Chats AlertDialog (look, title, trash, empty copy).
 class ChatHistoryDialog extends StatefulWidget {
   const ChatHistoryDialog({
     super.key,
@@ -64,6 +67,7 @@ class ChatHistoryDialog extends StatefulWidget {
     required this.onDelete,
     required this.onSaveMeta,
     this.closeOnDeleteCurrent = false,
+    required this.onNewChat,
   });
 
   final List<Map<String, dynamic>> initialSessions;
@@ -74,6 +78,7 @@ class ChatHistoryDialog extends StatefulWidget {
   final Future<void> Function(String id, String name, String description)
   onSaveMeta;
   final bool closeOnDeleteCurrent;
+  final Future<void> Function() onNewChat;
 
   @override
   State<ChatHistoryDialog> createState() => _ChatHistoryDialogState();
@@ -91,16 +96,39 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
   Widget build(BuildContext context) {
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
-      title: const Text('Chat History'),
+      title: const Text('Manage Chats'),
       content: SizedBox(
         width: 420,
         height: 350,
-        child: _sessions.isEmpty
-            ? const Center(child: Text('No previous chats found.'))
-            : ListView.builder(
-                itemCount: _sessions.length,
-                itemBuilder: (context, index) => _row(_sessions[index]),
+        child: Column(
+          children: [
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  widget.onNewChat();
+                },
+                icon: const Icon(Icons.add, size: 18),
+                label: const Text('Start New Chat'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: AppColors.porchTerracottaOf(context),
+                  side: BorderSide(color: AppColors.porchTerracottaOf(context)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                ),
               ),
+            ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _sessions.isEmpty
+                  ? const Center(child: Text('No previous chats found.'))
+                  : ListView.builder(
+                      itemCount: _sessions.length,
+                      itemBuilder: (context, index) => _row(_sessions[index]),
+                    ),
+            ),
+          ],
+        ),
       ),
       actions: [
         TextButton(

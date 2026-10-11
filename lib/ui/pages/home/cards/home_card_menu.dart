@@ -73,7 +73,7 @@ List<PopupMenuItem<String>> characterCardMenuItems(
       context,
       value: 'chat_history',
       icon: Icons.history,
-      label: 'Chat History',
+      label: 'Manage Chats',
     ),
     homeCardMenuItem(
       context,
@@ -162,7 +162,7 @@ List<PopupMenuItem<String>> groupCardMenuItems(
       context,
       value: 'chat_history',
       icon: Icons.history,
-      label: 'Chat History',
+      label: 'Manage Chats',
     ),
     homeCardMenuItem(
       context,

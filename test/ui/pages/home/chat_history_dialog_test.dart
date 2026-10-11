@@ -34,11 +34,12 @@ void main() {
           onOpen: (_) async {},
           onDelete: (_) async {},
           onSaveMeta: (_, _, _) async {},
+          onNewChat: () async {},
         ),
       ),
     );
 
-    expect(find.text('Chat History'), findsOneWidget);
+    expect(find.text('Manage Chats'), findsOneWidget);
     expect(find.text('Adventure in the forest'), findsOneWidget);
     expect(find.text('Coffee on the porch'), findsOneWidget);
     expect(find.text('No previous chats found.'), findsNothing);
@@ -53,6 +54,7 @@ void main() {
           onOpen: (_) async {},
           onDelete: (_) async {},
           onSaveMeta: (_, _, _) async {},
+          onNewChat: () async {},
         ),
       ),
     );
@@ -73,6 +75,7 @@ void main() {
           onOpen: (_) async {},
           onDelete: (_) async {},
           onSaveMeta: (_, _, _) async {},
+          onNewChat: () async {},
         ),
       ),
     );
