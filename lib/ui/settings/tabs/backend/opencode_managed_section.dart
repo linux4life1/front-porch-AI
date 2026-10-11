@@ -24,7 +24,7 @@ import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Waifu Coder's managed OpenCode — same shape as the Kobold download row.
-/// Tap installs GitHub latest into the closet. Never Homebrew.
+/// Tap installs the pinned OpenCode release into the closet. Never Homebrew.
 class OpenCodeManagedSection extends StatefulWidget {
   const OpenCodeManagedSection({super.key});
 
