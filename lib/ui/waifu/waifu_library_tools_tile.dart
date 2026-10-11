@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
@@ -40,9 +41,10 @@ class WaifuLibraryToolsTile extends StatelessWidget {
     String skillsPath = 'skills';
     try {
       final storage = Provider.of<StorageService>(context, listen: false);
-      if (storage.rootPath != null) {
-        toolsPath = '${storage.rootPath}/tools';
-        skillsPath = '${storage.rootPath}/skills';
+      final root = storage.rootPath;
+      if (root != null) {
+        toolsPath = p.join(root, 'tools');
+        skillsPath = p.join(root, 'skills');
       }
     } catch (_) {}
     return Padding(
@@ -62,7 +64,7 @@ class WaifuLibraryToolsTile extends StatelessWidget {
             ),
             subtitle: Text(
               'Same JSON recipe cards as character chat, from $toolsPath. '
-              'Takes effect at the next sit-down.',
+              'Takes effect on your next message.',
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 12,
@@ -74,8 +76,8 @@ class WaifuLibraryToolsTile extends StatelessWidget {
             padding: const EdgeInsets.only(left: 12, right: 4, bottom: 4),
             child: Text(
               'Waifu-only skills live in $skillsPath as '
-              '<name>/SKILL.md folders. Chat does not load them. Skill '
-              'permission follows Ask, or Allow in Yolo.',
+              '<name>/SKILL.md folders. Chat does not load them. Using a '
+              'skill asks first, except in Yolo.',
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 12,

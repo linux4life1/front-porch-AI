@@ -99,21 +99,43 @@ Future<void> writeWaifuOpenCodeConfig({
   await writeOpenCodeVoicePluginFile(closet);
   return writeOpenCodeConfigFile(
     closet,
-    buildOpenCodeConfigMap(
-      agentPrompt: buildWaifuOpenCodeAgentPrompt(coworker),
-      voicePrompt: buildWaifuVoiceAgentPrompt(coworker),
-      pluginPath: openCodeVoicePluginSpec(closet),
-      baseUrl: backend.baseUrl,
-      apiKey: backend.apiKey,
-      modelId: backend.modelId,
-      permission: openCodePermissionMap(
-        folderJail: pathMode == WaifuPathMode.folderJail,
-        yolo: mode == WaifuMode.yolo,
-      ),
-      defaultAgent: 'waifu',
+    buildWaifuOpenCodeConfigMap(
+      closet: closet,
+      coworker: coworker,
+      backend: backend,
+      pathMode: pathMode,
+      mode: mode,
       mcp: mcp,
-      skills: skillsDir == null ? null : openCodeSkillsConfig(skillsDir),
+      skillsDir: skillsDir,
     ),
+  );
+}
+
+/// Both coding agents are written every time; the prompt names the agent,
+/// so a Plan/Build switch needs no restart. Yolo is answered in Dart.
+Map<String, dynamic> buildWaifuOpenCodeConfigMap({
+  required OpenCodeCloset closet,
+  required CharacterCard coworker,
+  required OpenCodePorchBackend backend,
+  required WaifuPathMode pathMode,
+  required WaifuMode mode,
+  Map<String, dynamic>? mcp,
+  Directory? skillsDir,
+}) {
+  final jailed = pathMode == WaifuPathMode.folderJail;
+  return buildOpenCodeConfigMap(
+    agentPrompt: buildWaifuOpenCodeAgentPrompt(coworker, pathMode: pathMode),
+    planPrompt: buildWaifuPlanAgentPrompt(coworker, pathMode: pathMode),
+    voicePrompt: buildWaifuVoiceAgentPrompt(coworker),
+    pluginPath: openCodeVoicePluginSpec(closet),
+    baseUrl: backend.baseUrl,
+    apiKey: backend.apiKey,
+    modelId: backend.modelId,
+    permission: openCodePermissionMap(folderJail: jailed, yolo: false),
+    planPermission: openCodePlanPermissionMap(folderJail: jailed),
+    defaultAgent: openCodeAgentForMode(mode),
+    mcp: mcp,
+    skills: skillsDir == null ? null : openCodeSkillsConfig(skillsDir),
   );
 }
 
@@ -181,20 +203,14 @@ Future<void> waifuRetargetOpenCode({
     skillsDir: skillsDir,
   );
   await client.patchConfig(
-    buildOpenCodeConfigMap(
-      agentPrompt: buildWaifuOpenCodeAgentPrompt(coworker),
-      voicePrompt: buildWaifuVoiceAgentPrompt(coworker),
-      pluginPath: openCodeVoicePluginSpec(closet),
-      baseUrl: backend.baseUrl,
-      apiKey: backend.apiKey,
-      modelId: backend.modelId,
-      permission: openCodePermissionMap(
-        folderJail: pathMode == WaifuPathMode.folderJail,
-        yolo: mode == WaifuMode.yolo,
-      ),
-      defaultAgent: 'waifu',
+    buildWaifuOpenCodeConfigMap(
+      closet: closet,
+      coworker: coworker,
+      backend: backend,
+      pathMode: pathMode,
+      mode: mode,
       mcp: mcp,
-      skills: skillsDir == null ? null : openCodeSkillsConfig(skillsDir),
+      skillsDir: skillsDir,
     ),
   );
 }
