@@ -18,7 +18,8 @@
 
 import 'dart:async';
 import 'dart:io';
-import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/waifu/waifu_honesty.dart';
@@ -31,13 +32,14 @@ import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 import 'package:front_porch_ai/services/waifu/waifu_speech.dart';
 import 'package:front_porch_ai/services/waifu/waifu_store.dart';
 import 'package:front_porch_ai/services/waifu/waifu_todos.dart';
+import 'package:front_porch_ai/services/waifu/waifu_tool_rows.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tools_mcp.dart';
 
 const kWaifuPhotosUnsupported =
     'Photos are not in this OpenCode version — the text still went through.';
 
 /// OpenCode client facade. Send records the user line first, then forwards.
-class WaifuHarness implements OpenCodeEventSink {
+class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
   WaifuHarness({
     required this.session,
     this.manager,
@@ -78,6 +80,11 @@ class WaifuHarness implements OpenCodeEventSink {
   bool _aborted = false;
   int? _liveIndex;
   String? _lastAssistantMessageId;
+
+  /// First OpenCode message of this turn's coding pass (else of the turn).
+  /// Revert removes that message and everything after it: the whole turn.
+  String? _turnCodingId;
+  String? _turnFirstId;
   var _canRedo = false;
   var _voicePass = true;
   final _think = WaifuThinkGate();
@@ -105,9 +112,9 @@ class WaifuHarness implements OpenCodeEventSink {
   Future<void> undo() async {
     final client = _client;
     final sid = _sessionId;
-    var mid = _lastAssistantMessageId;
+    var mid = _turnCodingId ?? _turnFirstId ?? _lastAssistantMessageId;
     if (client == null || sid == null || session.running) return;
-    mid ??= await _lastAssistantId(client, sid);
+    mid ??= waifuTurnStartAssistantId(await client.listMessages(sid));
     if (mid == null || mid.isEmpty) {
       session.transcript.add(const WaifuMessage.assistant(kWaifuUndoNeedsTurn));
       _emit();
@@ -171,6 +178,8 @@ class WaifuHarness implements OpenCodeEventSink {
     _aborted = false;
     _liveIndex = null;
     _canRedo = false;
+    _turnCodingId = null;
+    _turnFirstId = null;
     beginCodingPass();
     session.running = true;
     session.transcript.add(WaifuMessage.user(text, imagePath: imagePath));
@@ -202,7 +211,11 @@ class WaifuHarness implements OpenCodeEventSink {
     final id = _sessionId;
     final client = _client;
     if (id != null && client != null) {
-      unawaited(client.abort(id));
+      unawaited(
+        client.abort(id).catchError((Object e) {
+          debugPrint('[waifu] OpenCode abort failed: $e');
+        }),
+      );
     }
     if (session.running) {
       session.transcript.add(const WaifuMessage.assistant('Stopped.'));
@@ -212,36 +225,35 @@ class WaifuHarness implements OpenCodeEventSink {
 
   Future<void> _forward(String text, {Uint8List? imagePng}) async {
     final client = await _ensureClient();
-    if (client == null || _sessionId == null) return;
+    final sid = _sessionId;
+    if (client == null || sid == null) return;
+    Future<void> pump(Uint8List? png) => client.promptAndPump(
+      sessionId: sid,
+      parts: openCodePromptParts(text: text, imagePng: png),
+      agent: openCodeAgentForMode(session.mode),
+      providerID: kOpenCodePorchProvider,
+      modelID: _openCodeModelSlot,
+      sink: this,
+    );
     try {
-      await client.promptAndPump(
-        sessionId: _sessionId!,
-        parts: openCodePromptParts(text: text, imagePng: imagePng),
-        agent: openCodeAgentForMode(session.mode),
-        providerID: kOpenCodePorchProvider,
-        modelID: _openCodeModelSlot,
-        sink: this,
-      );
-    } catch (e) {
-      if (imagePng != null) {
+      try {
+        await pump(imagePng);
+      } on OpenCodeStreamClosed {
+        rethrow;
+      } catch (_) {
+        if (imagePng == null) rethrow;
         session.transcript.add(
           const WaifuMessage.assistant(kWaifuPhotosUnsupported),
         );
-        try {
-          await client.promptAndPump(
-            sessionId: _sessionId!,
-            parts: openCodePromptParts(text: text),
-            agent: openCodeAgentForMode(session.mode),
-            providerID: kOpenCodePorchProvider,
-            modelID: _openCodeModelSlot,
-            sink: this,
-          );
-        } catch (e2) {
-          session.transcript.add(WaifuMessage.assistant('$e2'));
-        }
-      } else {
-        session.transcript.add(WaifuMessage.assistant('$e'));
+        await pump(null);
       }
+    } on OpenCodeStreamClosed catch (e) {
+      // The serve is gone. Next send sits down again and resumes the session.
+      _client = null;
+      _sessionId = null;
+      session.transcript.add(WaifuMessage.assistant('$e'));
+    } catch (e) {
+      session.transcript.add(WaifuMessage.assistant('$e'));
     }
   }
 
@@ -291,8 +303,10 @@ class WaifuHarness implements OpenCodeEventSink {
         mcpConfigOf: mcpConfigOf,
       ),
       skillsDir: skillsDirOf?.call(),
+      resumeSessionId: session.openCodeSessionId,
     );
     _sessionId = info.id;
+    session.openCodeSessionId = info.id;
     _seatedBackend = back;
     _client ??= OpenCodeClient(
       baseUri: mgr.baseUri,
@@ -309,7 +323,7 @@ class WaifuHarness implements OpenCodeEventSink {
     String messageId = '',
     bool thinking = false,
   }) {
-    if (messageId.isNotEmpty) _lastAssistantMessageId = messageId;
+    if (messageId.isNotEmpty) onToolMessage(messageId);
     if (delta.isEmpty) return;
     if (thinking && waifuThinkingNoise(delta)) return;
     final asThink = waifuDeltaGoesToThought(
@@ -326,6 +340,13 @@ class WaifuHarness implements OpenCodeEventSink {
   }
 
   @override
+  void onToolMessage(String messageId) {
+    _lastAssistantMessageId = messageId;
+    _turnFirstId ??= messageId;
+    if (!_voicePass) _turnCodingId ??= messageId;
+  }
+
+  @override
   void onTool({
     required String name,
     required String detail,
@@ -333,35 +354,25 @@ class WaifuHarness implements OpenCodeEventSink {
     bool pending = false,
     String callId = '',
   }) {
-    session.transcript.add(
-      WaifuMessage.tool(name: name, output: detail, ok: pending ? true : ok),
+    waifuUpsertToolRow(
+      session.transcript,
+      name: name,
+      detail: detail,
+      ok: ok,
+      pending: pending,
+      callId: callId,
     );
-    _ensureLiveAssistant(thinking: false);
-    final idx = _liveIndex;
-    if (idx != null) {
-      final cur = session.transcript[idx];
-      final chips = [...cur.chips];
-      var i = -1;
-      if (callId.isNotEmpty) {
-        i = chips.indexWhere((c) => c.callId == callId);
-      }
-      if (i < 0) {
-        i = chips.indexWhere((c) => c.pending && c.name == name);
-      }
-      final chip = WaifuToolChip(
+    final idx = _ensureLiveAssistant(thinking: false);
+    session.transcript[idx] = waifuWithToolChip(
+      session.transcript[idx],
+      WaifuToolChip(
         name: name,
         detail: detail,
         ok: ok,
         pending: pending,
         callId: callId,
-      );
-      if (i >= 0) {
-        chips[i] = chip;
-      } else {
-        chips.add(chip);
-      }
-      session.transcript[idx] = cur.copyWith(chips: chips);
-    }
+      ),
+    );
     _emit();
   }
 
@@ -475,14 +486,6 @@ class WaifuHarness implements OpenCodeEventSink {
       permissionId: ask.permissionId,
       response: response,
     );
-  }
-
-  Future<String?> _lastAssistantId(OpenCodeClient client, String sid) async {
-    final msgs = await client.listMessages(sid);
-    for (final m in msgs.reversed) {
-      if (m.role == 'assistant' && m.id.isNotEmpty) return m.id;
-    }
-    return null;
   }
 
   void _emit() => onChanged?.call();

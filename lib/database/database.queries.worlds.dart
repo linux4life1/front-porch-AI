@@ -12,9 +12,6 @@ extension AppDatabaseWorldQueries on AppDatabase {
   Future<List<World>> getAllWorlds() =>
       (select(worlds)..where((w) => w.deletedAt.isNull())).get();
 
-  Stream<List<World>> watchAllWorlds() =>
-      (select(worlds)..where((w) => w.deletedAt.isNull())).watch();
-
   Future<String> insertWorld(WorldsCompanion world) async {
     final id = world.id.present ? world.id.value : _uuid.v4();
     world = world.copyWith(id: Value(id));
@@ -39,9 +36,9 @@ extension AppDatabaseWorldQueries on AppDatabase {
       (select(worlds)..where((w) => w.name.equals(name) & w.deletedAt.isNull()))
           .getSingleOrNull();
 
-  Future<World?> getWorldById(String id) =>
-      (select(worlds)..where((w) => w.id.equals(id) & w.deletedAt.isNull()))
-          .getSingleOrNull();
+  Future<World?> getWorldById(String id) => (select(
+    worlds,
+  )..where((w) => w.id.equals(id) & w.deletedAt.isNull())).getSingleOrNull();
 
   // ── Chat worlds / biome spans (Living Worlds) ───────────────────────
 
@@ -53,10 +50,11 @@ extension AppDatabaseWorldQueries on AppDatabase {
 
   /// Setting + Lore attachments for a chat.
   Future<ChatPlaceSlots> getChatWorldAttachments(String chatId) async {
-    final rows = await (select(chatWorlds)
-          ..where((t) => t.chatId.equals(chatId))
-          ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
-        .get();
+    final rows =
+        await (select(chatWorlds)
+              ..where((t) => t.chatId.equals(chatId))
+              ..orderBy([(t) => OrderingTerm.asc(t.sortOrder)]))
+            .get();
     String? primaryId;
     final loreIds = <String>[];
     for (final r in rows) {
@@ -81,8 +79,9 @@ extension AppDatabaseWorldQueries on AppDatabase {
       for (final id in loreIds)
         if (id.isNotEmpty && id != primaryId) id,
     ];
-    final primary =
-        (primaryId != null && primaryId.isNotEmpty) ? primaryId : null;
+    final primary = (primaryId != null && primaryId.isNotEmpty)
+        ? primaryId
+        : null;
     await transaction(() async {
       await (delete(chatWorlds)..where((t) => t.chatId.equals(chatId))).go();
       if (primary != null) {
@@ -118,9 +117,9 @@ extension AppDatabaseWorldQueries on AppDatabase {
     // Resolve climate flags for partition (seed / backfill path).
     final climateOn = <String>{};
     if (worldIds.isNotEmpty) {
-      final worlds = await (select(this.worlds)
-            ..where((w) => w.id.isIn(worldIds)))
-          .get();
+      final worlds = await (select(
+        this.worlds,
+      )..where((w) => w.id.isIn(worldIds))).get();
       for (final w in worlds) {
         if (w.climateEnabled) climateOn.add(w.id);
       }
@@ -171,10 +170,10 @@ extension AppDatabaseWorldQueries on AppDatabase {
       final raw = row.data['world_ids']?.toString() ?? '[]';
       final next = _filterWorldRefJson(raw, ids: ids, names: names);
       if (next == null) continue;
-      await customStatement(
-        'UPDATE groups SET world_ids = ? WHERE id = ?',
-        [next, id],
-      );
+      await customStatement('UPDATE groups SET world_ids = ? WHERE id = ?', [
+        next,
+        id,
+      ]);
       touched++;
     }
     if (touched > 0) await bumpSyncVersion();

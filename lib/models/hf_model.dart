@@ -201,9 +201,6 @@ class HFModelFile {
   /// Architecture name if detectable from filename (e.g., "llama", "mistral").
   final String? architecture;
 
-  /// The HuggingFace API URL for this specific file (for metadata).
-  String get hfApiUrl => 'https://huggingface.co/$repoId/raw/main/$filename';
-
   /// File size in megabytes (rounded to 1 decimal).
   double get sizeMb => (sizeBytes / (1024 * 1024));
 
@@ -325,9 +322,6 @@ class HFModel {
 
   /// Whether this model has a pipeline tag (indicates it's ready to use).
   final bool hasPipelineTag;
-
-  /// URL to the model card on HuggingFace.
-  String get hfUrl => 'https://huggingface.co/$id';
 
   /// List of available GGUF files for this model.
   /// Populated after calling [fetchFiles].

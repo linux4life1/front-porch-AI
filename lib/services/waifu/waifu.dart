@@ -39,5 +39,6 @@ export 'waifu_speech.dart';
 export 'waifu_store.dart';
 export 'waifu_todos.dart';
 export 'waifu_tokens.dart';
+export 'waifu_tool_rows.dart';
 export 'waifu_tools_mcp.dart';
 export 'waifu_turn_receipt.dart';

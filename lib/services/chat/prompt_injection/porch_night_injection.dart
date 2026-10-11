@@ -61,8 +61,7 @@ class PorchNightInjection {
       'or outcomes not listed):',
     );
     for (final b in taken) {
-      final emotion =
-          b.emotion.trim().isEmpty ? 'charged' : b.emotion.trim();
+      final emotion = b.emotion.trim().isEmpty ? 'charged' : b.emotion.trim();
       final content = b.content.trim();
       if (content.isEmpty) continue;
       lines.writeln('- ($emotion) $content');
@@ -99,8 +98,6 @@ class PorchNightAckState {
 
   /// diaryCharacterId → journal card ids that still need porchAckPending cleared.
   final Map<String, List<String>> _cardIdsByDiary = {};
-
-  bool get hasAnyPending => _pending.isNotEmpty;
 
   /// True when this diary owner has a live force-ack block armed.
   bool isArmed(String diaryCharacterId) =>
@@ -152,11 +149,5 @@ class PorchNightAckState {
       _cardIdsByDiary.remove(diaryId);
       _shown.remove(diaryId);
     }
-  }
-
-  void clearAll() {
-    _pending.clear();
-    _shown.clear();
-    _cardIdsByDiary.clear();
   }
 }

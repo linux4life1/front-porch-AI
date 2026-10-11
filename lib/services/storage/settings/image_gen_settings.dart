@@ -164,10 +164,6 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String get comfyEditUploadedWorkflow => _comfyEditUploadedWorkflow;
   String get comfyEditUploadedTitle => _comfyEditUploadedTitle;
 
-  /// The user's chosen file for a preset's model slot, or null if unpicked.
-  String? comfyEditModelChoice(String presetId, String token) =>
-      _comfyEditModelChoices['$presetId/$token'];
-
   String get comfyCreateWorkflowId => _comfyCreateWorkflowId;
   Map<String, String> get comfyCreateModelChoices =>
       Map.unmodifiable(_comfyCreateModelChoices);

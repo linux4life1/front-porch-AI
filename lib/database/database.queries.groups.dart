@@ -12,9 +12,6 @@ extension AppDatabaseGroupQueries on AppDatabase {
   Future<List<Group>> getAllGroups() =>
       (select(groups)..where((g) => g.deletedAt.isNull())).get();
 
-  Stream<List<Group>> watchAllGroups() =>
-      (select(groups)..where((g) => g.deletedAt.isNull())).watch();
-
   Future<Group?> getGroupById(String id) =>
       (select(groups)..where((g) => g.id.equals(id))).getSingleOrNull();
 
@@ -109,14 +106,6 @@ extension AppDatabaseGroupQueries on AppDatabase {
     await bumpSyncVersion();
   }
 
-  Future<int> deleteGroupMembersForGroup(String groupId) async {
-    final count = await (delete(
-      groupMembers,
-    )..where((m) => m.groupId.equals(groupId))).go();
-    await bumpSyncVersion();
-    return count;
-  }
-
   /// Delete a single group member row by its instance id (the UUID primary key).
   /// Used when one character is removed from a group (not full-group teardown).
   Future<int> deleteGroupMember(String memberId) async {
@@ -157,11 +146,6 @@ extension AppDatabaseGroupQueries on AppDatabase {
 
   Future<List<Persona>> getAllPersonas() =>
       (select(personas)..where((p) => p.deletedAt.isNull())).get();
-
-  Future<Persona?> getActivePersona() =>
-      (select(personas)
-            ..where((p) => p.isActive.equals(true) & p.deletedAt.isNull()))
-          .getSingleOrNull();
 
   Future<int> insertPersona(PersonasCompanion persona) async {
     final result = await into(personas).insert(persona);

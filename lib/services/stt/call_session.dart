@@ -177,11 +177,6 @@ class CallSession extends ChangeNotifier {
 
   // ---- Turn flow ----
 
-  /// The overlay calls this when the LLM starts working on the reply.
-  void notifyThinking() {
-    if (_inCall) _setStatus(CallStatus.thinking);
-  }
-
   /// The overlay calls this when the first spoken sentence is on its way.
   /// Status only — resume is NEVER derived from this (rule 1).
   void notifySpeaking() {

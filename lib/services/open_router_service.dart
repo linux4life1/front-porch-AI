@@ -65,7 +65,6 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   /// Live-ready: a model is chosen and the server answered. A server that
   /// answered with no model chosen is [reachability] reachable only.
   bool get isReachable => isConfigured && _health.isReachable;
-  bool get isCheckingReachability => _health.isChecking;
 
   /// Local backends (oMLX, LM Studio, llama.cpp, vLLM on LAN / Tailscale)
   /// are usable without an API key. Same predicate the effort probe uses so

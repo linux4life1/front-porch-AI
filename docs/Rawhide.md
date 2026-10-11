@@ -8,6 +8,7 @@ Last shipped nightly: `rawhide.20261006.fbe655b`. Everything below is unreleased
 ## Recent improvements (unreleased — ships in the next build)
 
 - 🔀 **See the words a reply nearly used (KoboldCpp)** — with a local KoboldCpp model, a reply now remembers where the model was unsure. The **Other words** button on the reply lists those places with the words it weighed and how likely each was. On the last reply, tap one to rewrite the reply from that word: everything before it stays, the model carries on from your pick, and the new take is added as a swipe, just like Regenerate. Other backends do not send this, so the button only appears on KoboldCpp replies. On the desktop and the phone.
+- 🧑‍💻 **Waifu Coder turns always finish** — a turn no longer spins forever if OpenCode stops mid-task or the wrap-up goes quiet; it ends and says so, and the next message starts OpenCode again. Speech with emoji, kaomoji or Japanese no longer loses words. Stop no longer gets a late wrap-up afterwards. Undo now takes back the whole turn, including the files it changed, instead of only the closing words. Each tool shows once in the log instead of once per step. And your coworker remembers the conversation after you restart the app.
 
 - 🖥️ **Sharper text while a model is running, on Windows and Linux too** — the app now draws with the same renderer it used before Flutter 3.47 on every desktop. The newer renderer smeared and ghosted text whenever the graphics card was busy with a local model; the Mac build switched last week, and Windows and Linux follow.
 

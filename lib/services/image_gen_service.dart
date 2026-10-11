@@ -349,10 +349,6 @@ class ImageGenService extends ChangeNotifier {
   Future<ComfyFileCatalog> fetchComfyCatalog(String baseUrl) =>
       _ensureComfyUi.fetchCatalog();
 
-  /// Live Comfy `/templates` Create list (empty when that install has none).
-  Future<List<ComfyTemplateEntry>> fetchComfyCreateTemplates(String baseUrl) =>
-      _ensureComfyUi.fetchCreateTemplates();
-
   /// ComfyUI LoRAs, enriched with base-model family. Names come from
   /// /object_info; the family is read per-LoRA from the embedded safetensors
   /// metadata via /view_metadata (authoritative), falling back to the file name
@@ -383,9 +379,6 @@ class ImageGenService extends ChangeNotifier {
 
   Future<List<String>> fetchComfySamplers(String baseUrl) =>
       _ensureComfyUi.fetchSamplers();
-
-  Future<List<String>> fetchComfySchedulers(String baseUrl) =>
-      _ensureComfyUi.fetchSchedulers();
 
   /// Fetch LoRAs from an A1111 / Forge / SD.Next server, enriched with
   /// base-model family.
