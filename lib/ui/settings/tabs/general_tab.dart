@@ -159,16 +159,25 @@ class GeneralTab extends StatelessWidget {
                         : () async {
                             final hasUpdate = await updateService
                                 .checkForUpdate();
-                            if (hasUpdate && context.mounted) {
+                            if (!context.mounted) return;
+                            if (hasUpdate) {
                               await UpdateDialog.show(context);
-                            } else if (context.mounted) {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('You are up to date.'),
-                                  duration: Duration(seconds: 2),
-                                ),
-                              );
+                              return;
                             }
+                            final error = updateService.checkError;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  error == null
+                                      ? 'You are up to date.'
+                                      : 'Update check failed ($error). '
+                                            'Try again later.',
+                                ),
+                                duration: Duration(
+                                  seconds: error == null ? 2 : 4,
+                                ),
+                              ),
+                            );
                           },
                     icon: isBusy
                         ? const SizedBox(
@@ -178,7 +187,11 @@ class GeneralTab extends StatelessWidget {
                           )
                         : const Icon(Icons.refresh, size: 18),
                     label: Text(
-                      isBusy ? 'Checking...' : 'Check for Updates Now',
+                      isBusy
+                          ? 'Checking...'
+                          : updateService.checkError != null
+                          ? 'Check failed, try again'
+                          : 'Check for Updates Now',
                     ),
                     style: OutlinedButton.styleFrom(
                       foregroundColor: AppColors.textSecondary(context),
