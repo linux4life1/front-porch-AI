@@ -12,6 +12,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { AvatarManager } from '../components/AvatarManager';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
+import { CharacterStatsCard } from '../components/CharacterStatsCard';
 import { MacroField } from '../components/MacroField';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
@@ -188,6 +189,7 @@ export function CharacterEditPage() {
           <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
         </div>
       </div>
+      <CharacterStatsCard characterId={c.id} />
       <label>
         Name
         <input value={c.name} onChange={(e) => setField('name', e.target.value)} />

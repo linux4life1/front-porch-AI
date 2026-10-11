@@ -29,7 +29,6 @@ import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/session_gen_overrides_heal.dart';
-import 'package:front_porch_ai/services/db_reunification_service.dart';
 import 'package:front_porch_ai/utils/character_id.dart';
 import 'package:front_porch_ai/models/chat_place_slots.dart';
 
@@ -183,24 +182,6 @@ class AppDatabase extends _$AppDatabase {
       }
     }
 
-    // For stable builds: reunify beta DB into production if both exist.
-    // This is a one-time operation on the first 0.9.0 stable launch.
-    // Steps 1-2 run here (backup + promote). Steps 3-5 (diff + import)
-    // run later in main.dart with a UI overlay. Guarded: a reunification I/O
-    // failure must not brick launch — retry next start on whatever DB opens.
-    try {
-      if (!isPreRelease &&
-          await DbReunificationService.needsReunification(dbDir)) {
-        debugPrint(
-          '[DB] Reunification needed — backing up and promoting beta DB',
-        );
-        await DbReunificationService.createBackups(dbDir);
-        await DbReunificationService.promoteBetaDb(dbDir);
-      }
-    } catch (e) {
-      debugPrint('[DB] Reunification failed (non-fatal, will retry): $e');
-    }
-
     _dbPath = file.path;
     _instance = AppDatabase._internal(
       NativeDatabase.createInBackground(
@@ -288,7 +269,8 @@ class AppDatabase extends _$AppDatabase {
     );
   }
 
-  /// Open a specific DB file for reunification (runs migrations, not a singleton).
+  /// Open a specific DB file directly (runs migrations, not a singleton).
+  /// Tests use this to open a fixture library without touching the singleton.
   factory AppDatabase.forReunification(File file) {
     return AppDatabase._internal(
       NativeDatabase.createInBackground(
