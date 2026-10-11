@@ -18,7 +18,8 @@
 
 part of 'settings_page.dart';
 
-/// Context slider, acceleration expander, and GPU backend chips.
+/// Acceleration expander, GPU backend chips and the KV cache row of
+/// Advanced Launch Options.
 extension _SettingsGpuChips on _SettingsPageState {
   /// Acceleration "just works": a status line showing what automatic mode
   /// resolved to, with the manual backend chips (Vulkan/ROCm/CUDA/Metal —
@@ -88,117 +89,58 @@ extension _SettingsGpuChips on _SettingsPageState {
               ),
           ],
         ),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text(
-              'Advanced: manual backend override',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textTertiary(context),
+        // Its own Material: the Launch Options card paints a background.
+        Material(
+          type: MaterialType.transparency,
+          child: Theme(
+            data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              title: Text(
+                'Advanced: manual backend override',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textTertiary(context),
+                ),
               ),
+              children: [_buildGpuBackendChips(context, hardwareService)],
             ),
-            children: [_buildGpuBackendChips(context, hardwareService)],
           ),
         ),
       ],
     );
   }
 
-  Widget _buildContextSlider(
-    BuildContext context,
-    StorageService storageService,
-    Color accent,
-  ) {
-    final currentVal =
-        int.tryParse(_contextSizeController.text) ?? kKoboldContextFloor;
-    // Map context size to slider position. Nothing below 16,384 is offered;
-    // a smaller number can still be typed in the box, and is warned about.
-    const presets = kKoboldContextChoices;
-    // A size that is not one of them (8,192 saved from before, or typed) has
-    // no place on the slider: it is shown greyed out, and nothing is saved
-    // until a chip is picked, so a stray touch never replaces the user's
-    // number. While dragging, the box already holds a preset.
-    final onScale = presets.contains(currentVal);
-    int closestIdx = 0;
-    int closestDist = (presets[0] - currentVal).abs();
-    for (int i = 1; i < presets.length; i++) {
-      final dist = (presets[i] - currentVal).abs();
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestIdx = i;
-      }
-    }
-
-    return Column(
+  /// The cache type auto mode launches with. A preset names its own.
+  Widget _buildKvCacheRow(BuildContext context, StorageService storage) {
+    return Row(
       children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: accent,
-            inactiveTrackColor: accent.withValues(alpha: 0.15),
-            thumbColor: accent,
-            overlayColor: accent.withValues(alpha: 0.2),
+        Text(
+          'KV Cache Quantization:',
+          style: TextStyle(
+            fontSize: 13,
+            color: AppColors.textSecondary(context),
           ),
-          child: Slider(
-            value: _dragContextSize ?? closestIdx.toDouble(),
-            min: 0,
-            max: (presets.length - 1).toDouble(),
-            divisions: presets.length - 1,
-            onChanged: onScale
-                ? (val) {
-                    rebuildState(() => _dragContextSize = val);
-                    _contextSizeController.text = presets[val.round()]
-                        .toString();
-                  }
-                : null,
-            onChangeEnd: (val) {
-              _dragContextSize = null;
-              final newSize = presets[val.round()];
-              _contextSizeController.text = newSize.toString();
-              storageService.backendSettings.setContextSize(newSize);
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: KvQuantPicker(
+            value: storage.backendSettings.kvQuant,
+            onChanged: (val) {
+              storage.backendSettings.setKvQuant(val);
               rebuildState(() {});
             },
           ),
         ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          children: presets.map((size) {
-            final isSelected = currentVal == size;
-            final label = '${size ~/ 1024}K';
-            return ChoiceChip(
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isSelected
-                      ? AppColors.onChaosAccent
-                      : AppColors.textTertiary(context),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              selected: isSelected,
-              selectedColor: accent,
-              backgroundColor: AppColors.textPrimary(
-                context,
-              ).withValues(alpha: 0.05),
-              side: BorderSide(
-                color: isSelected ? accent : AppColors.borderOf(context),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onSelected: (_) {
-                _contextSizeController.text = size.toString();
-                storageService.backendSettings.setContextSize(size);
-                rebuildState(() {});
-              },
-            );
-          }).toList(),
-        ),
-        ContextSizeWarnings(
-          contextSize: int.tryParse(_contextSizeController.text),
-          maxOutput: storageService.generationSettings.maxLength,
+        const SizedBox(width: 8),
+        Tooltip(
+          message:
+              'Quantizes the context window to save significant VRAM with minimal quality loss. Note: KoboldCPP dynamically disables Context Shifting when this is active.',
+          child: Icon(
+            Icons.info_outline,
+            size: 16,
+            color: AppColors.porchAmberOf(context).withValues(alpha: 0.6),
+          ),
         ),
       ],
     );

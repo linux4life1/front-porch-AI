@@ -105,7 +105,7 @@ void main() {
         await b.setUseRocm(false);
       },
     );
-    await openTab(tester, 'Advanced');
+    await openLaunchOptions(tester);
     await tapVisible(tester, find.text('Reset to Automatic'));
     await settle(tester);
     expect(switchesOf(rig), [null, null, null, null]);
@@ -152,7 +152,7 @@ void main() {
           lastUsedIsB: false,
           hardware: everything,
         );
-        await openTab(tester, 'Advanced');
+        await openLaunchOptions(tester);
         await tapVisible(
           tester,
           find.text('Advanced: manual backend override'),
@@ -190,37 +190,5 @@ void main() {
         expect(config.containsKey('usevulkan'), isFalse);
       });
     }
-  });
-
-  testWidgets('GPU layers typed on the Advanced tab are saved as typed', (
-    tester,
-  ) async {
-    final rig = await mountSettings(tester, lastUsedIsB: false);
-    final b = rig.store.backendSettings;
-    await openTab(tester, 'Advanced');
-    await tapVisible(
-      tester,
-      find.byKey(const ValueKey('gpu-layers-manual-switch')),
-    );
-    await settle(tester);
-    final field = find.byKey(const ValueKey('gpu-layers-number'));
-    await tester.ensureVisible(field);
-    await tester.enterText(field, '20');
-    await settle(tester);
-    expect(b.gpuLayers, 20, reason: 'typing does not save the layer count');
-
-    // Half-typed text that is not a number saves nothing.
-    await tester.enterText(field, '');
-    await settle(tester);
-    expect(b.gpuLayers, 20);
-
-    // The Advanced tab's own Start launches from what is saved.
-    await tapVisible(tester, find.text('Advanced Launch Options'));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
-    await settle(tester);
-    await tapVisible(tester, find.text('Start Backend'));
-    await settle(tester, () => rig.kobold.starts.isNotEmpty);
-    expect(rig.kobold.starts.single.layers, 20);
   });
 }

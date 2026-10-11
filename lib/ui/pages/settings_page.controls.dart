@@ -67,10 +67,6 @@ extension _SettingsLaunchControls on _SettingsPageState {
       _useCublas = bs.useCublas == true;
       _useMetal = bs.useMetal == true;
       _useRocm = bs.useRocm == true;
-      // The saved values, never the controllers' construction defaults
-      // ('16384'): a custom context limit must survive a visit.
-      _gpuLayersController.text = bs.gpuLayers.toString();
-      _contextSizeController.text = bs.contextSize.toString();
     });
   }
 

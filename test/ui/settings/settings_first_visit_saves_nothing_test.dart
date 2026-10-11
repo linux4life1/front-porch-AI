@@ -47,7 +47,7 @@ void main() {
       tester,
     ) async {
       final rig = await mountSettings(tester, lastUsedIsB: false, hardware: hw);
-      await openTab(tester, 'Advanced');
+      await openLaunchOptions(tester);
       expect(_switches(rig), [null, null, null, null]);
       expect(find.textContaining('enabled'), findsNothing, reason: 'a toast');
       expect(find.text('Acceleration: Automatic — $shown'), findsOneWidget);
@@ -69,7 +69,7 @@ void main() {
         await b.setUseRocm(false);
       },
     );
-    await openTab(tester, 'Advanced');
+    await openLaunchOptions(tester);
     expect(_switches(rig), [false, true, false, false]);
     expect(
       find.text('Acceleration: Manual — Vulkan (Nvidia GPU detected)'),

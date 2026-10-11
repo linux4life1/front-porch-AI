@@ -51,10 +51,9 @@ import 'package:front_porch_ai/utils/utils.dart';
 part 'settings_page.controls.dart';
 part 'settings_page.advanced.dart';
 part 'settings_page.advanced.web.dart';
-part 'settings_page.hardware.dart';
-part 'settings_page.gpu.dart';
 part 'settings_page.gpu.chips.dart';
 part 'settings_page.launch.dart';
+part 'settings_page.launch.engine.dart';
 
 /// Which OpenAI-compatible endpoint the Settings model list is fetched from.
 ///
@@ -83,12 +82,6 @@ class SettingsPage extends StatefulWidget {
 }
 
 class _SettingsPageState extends State<SettingsPage> {
-  final _gpuLayersController = TextEditingController(text: '0');
-  final _contextSizeController = TextEditingController(text: '16384');
-
-  /// The context the Context Window box was last brought in step with.
-  int? _savedContext;
-  double? _dragContextSize;
   double? _dragCallBuffer;
   final _apiController = TextEditingController();
   final _remoteApiUrlController = TextEditingController();
@@ -161,15 +154,6 @@ class _SettingsPageState extends State<SettingsPage> {
     _useVulkan = storage.backendSettings.useVulkan == true;
     _useMetal = storage.backendSettings.useMetal == true;
     _useRocm = storage.backendSettings.useRocm == true;
-    // Mirror the persisted launch values into the controllers HERE, not only
-    // inside _showSavedLaunchSettings: that runs only once HardwareService has
-    // detected a GPU, and detection failures leave hardwareInfo null forever,
-    // which would leave the Advanced tab showing the construction
-    // placeholders ('0' / '16384') instead of the user's saved settings.
-    _gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
-    _contextSizeController.text = storage.backendSettings.contextSize
-        .toString();
-    _savedContext = storage.backendSettings.contextSize;
     // Show the saved launch settings again once hardware info is available.
     // HardwareService.detectHardware() is already called in its constructor,
     // so we just use the cached result. If detection is still in progress,
@@ -265,8 +249,6 @@ class _SettingsPageState extends State<SettingsPage> {
 
   @override
   void dispose() {
-    _gpuLayersController.dispose();
-    _contextSizeController.dispose();
     _apiController.dispose();
     _remoteApiUrlController.dispose();
     _remoteApiKeyController.dispose();

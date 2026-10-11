@@ -41,7 +41,7 @@ void main() {
     // A window short enough that the Advanced tab scrolls.
     await tester.binding.setSurfaceSize(const Size(1400, 700));
     await tester.pump();
-    await openTab(tester, 'Advanced');
+    await openLaunchOptions(tester);
 
     final picker = find.byKey(const ValueKey('kv-quant-picker'));
     await pickFromDropdown(tester, picker, KvQuant.q8_0.label);

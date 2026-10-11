@@ -32,7 +32,7 @@ List<bool?> _switches(SettingsPageRig rig) {
 }
 
 Future<void> _openOverride(WidgetTester tester) async {
-  await openTab(tester, 'Advanced');
+  await openLaunchOptions(tester);
   await tapVisible(tester, find.text('Advanced: manual backend override'));
   await tester.pump(const Duration(milliseconds: 400));
   await settle(tester);
@@ -47,7 +47,7 @@ void main() {
       lastUsedIsB: false,
       hardware: _rx6900xt,
     );
-    await openTab(tester, 'Advanced');
+    await openLaunchOptions(tester);
     expect(_switches(rig), [null, null, null, null]);
     expect(find.textContaining('enabled'), findsNothing, reason: 'a toast');
     expect(

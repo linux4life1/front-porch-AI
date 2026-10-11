@@ -43,20 +43,6 @@ void main() {
     );
     final body = method!.group(0)!;
 
-    // Seeded here, not only inside _applyHardwareDefaults: that runs only
-    // once HardwareService reports a GPU.
-    expect(
-      body.contains(
-        '_gpuLayersController.text = storage.backendSettings.gpuLayers',
-      ),
-      isTrue,
-      reason: 'GPU layers must be seeded from storage before any launch',
-    );
-    expect(
-      body.contains('_contextSizeController.text'),
-      isTrue,
-      reason: 'context size must be seeded from storage before any launch',
-    );
     // ROCm is the acceleration flag that was missing; the other three pin the
     // rule rather than the single instance.
     for (final flag in ['_useRocm', '_useCublas', '_useVulkan', '_useMetal']) {
