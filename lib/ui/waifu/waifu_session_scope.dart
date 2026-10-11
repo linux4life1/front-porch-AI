@@ -41,7 +41,12 @@ WaifuStore? waifuStoreForContext(BuildContext context, {WaifuStore? injected}) {
 /// Sit-down estimate. OpenCode owns the real window; this is chrome only
 /// until a session.updated / GET session usage lands.
 int waifuIdleRequestTokens(WaifuSession session, {int mcpToolCount = 0}) {
-  final sys = buildWaifuOpenCodeAgentPrompt(session.coworker);
+  final sys = session.mode == WaifuMode.plan
+      ? buildWaifuPlanAgentPrompt(session.coworker, pathMode: session.pathMode)
+      : buildWaifuOpenCodeAgentPrompt(
+          session.coworker,
+          pathMode: session.pathMode,
+        );
   final speech = [for (final m in session.transcript) m.text].join('\n');
   return waifuOpenCodePromptEstimate(
     systemPrompt: sys,
@@ -110,7 +115,6 @@ WaifuHarness? waifuBindSessionHarness({
     onChanged: onChanged,
     onAsk: onAsk,
     onQuestion: onQuestion,
-    mcpOptIn: session.mcpOptIn,
     mcpConfigOf: mcpConfigOf,
     skillsDirOf: skillsDirOf,
   );
