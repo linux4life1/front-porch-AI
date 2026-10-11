@@ -22,6 +22,36 @@ part of 'message_bubble.dart';
 /// (with its long-press delete), and the delete / fork / edit
 /// confirmation dialogs invoked from the header row's icon buttons.
 extension _BubbleDialogs on _MessageBubbleState {
+  /// The Context Viewer for the prompt that produced the shown swipe.
+  void _showReplyContext(BuildContext context) {
+    final chat = widget.chatService;
+    final snap = replyContextOf(message);
+    if (chat == null || snap == null) return;
+    showWarmDialogOf<void>(
+      context,
+      builder: (_) => ContextViewerDialog(chatService: chat, snapshot: snap),
+    );
+  }
+
+  /// The words the model weighed in this reply; a pick rewrites the last
+  /// reply from that word (KoboldCpp only).
+  Future<void> _showTokenAlternatives(BuildContext context) async {
+    final chat = widget.chatService;
+    if (chat == null) return;
+    final places = chat.tokenAlternativesAt(index);
+    if (places.isEmpty) return;
+    final picked = await showWarmDialogOf<TokenAltPick>(
+      context,
+      builder: (_) => TokenAlternativesDialog(
+        body: tokenAltsBody(message.text),
+        places: places,
+        refusal: chat.tokenAltsPickRefusal(index),
+      ),
+    );
+    if (picked == null) return;
+    await chat.rewriteFromAlternative(index, picked.at, picked.word);
+  }
+
   /// The one centered narration banner (Chance Time 🎰, Dreams 🌙 — Living
   /// Time §1). Warm-porch amber tints, italic center text. Long-press
   /// deletes: banners return before the normal bubble's action row is ever

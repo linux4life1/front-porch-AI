@@ -78,6 +78,7 @@ extension ChatServiceGenerationStream on ChatService {
       // realism_state) must not stamp this bubble. Cancel paths null it;
       // do not merge it here.
     } else {
+      originalText = t.continuePrefix; // a rewrite's seed; else empty
       targetSender = t.mode == GenerationMode.normal
           ? t.speakingCharacter.name
           : _userPersonaService.persona.name;
@@ -156,6 +157,10 @@ extension ChatServiceGenerationStream on ChatService {
       t.streamTarget.activeMetadata ??= {};
       t.streamTarget.activeMetadata!['tool_receipt'] = t.toolReceipt;
     }
+    _stampReplyContext(
+      t.streamTarget,
+      continuing: t.mode == GenerationMode.continue_,
+    );
     final streamTarget = t.streamTarget;
 
     // Helper to update the visible message from buffer. Incremental: only
@@ -176,7 +181,7 @@ extension ChatServiceGenerationStream on ChatService {
       if (t.mode == GenerationMode.continue_) {
         displayText = glueContinueText(originalText, displayTokens);
       } else {
-        displayText = displayTokens.trimLeft();
+        displayText = (originalText + displayTokens).trimLeft();
       }
       // CRITICAL: Modify the captured stream target in place (never
       // _messages.last — the list can shift mid-turn) to preserve
