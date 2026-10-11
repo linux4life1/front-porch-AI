@@ -68,36 +68,42 @@ void main() {
     expect(await writeOpenCodeVoicePluginFile(closet), isFalse);
   });
 
-  test('ensureInstalled writes GitHub latest under the closet', () async {
-    final captured = <Uri>[];
-    final mgr = OpenCodeManager(
-      rootPath: root.path,
-      remoteLookup: _latestLookup,
-      downloader: (url, {onProgress}) async {
-        captured.add(url);
-        onProgress?.call(12, 12);
-        return utf8.encode('zip-bytes');
-      },
-      unpack: (bytes, dest) async {
-        expect(bytes, utf8.encode('zip-bytes'));
-        final bin = File(
-          p.join(dest.path, OpenCodeCloset(root.path).binaryName),
-        );
-        await bin.writeAsString('FAKE-OPENCODE');
-        return bin;
-      },
-    );
+  test(
+    'ensureInstalled downloads the looked-up release into the closet',
+    () async {
+      final captured = <Uri>[];
+      final mgr = OpenCodeManager(
+        rootPath: root.path,
+        remoteLookup: _latestLookup,
+        downloader: (url, {onProgress}) async {
+          captured.add(url);
+          onProgress?.call(12, 12);
+          return utf8.encode('zip-bytes');
+        },
+        unpack: (bytes, dest) async {
+          expect(bytes, utf8.encode('zip-bytes'));
+          final bin = File(
+            p.join(dest.path, OpenCodeCloset(root.path).binaryName),
+          );
+          await bin.writeAsString('FAKE-OPENCODE');
+          return bin;
+        },
+      );
 
-    await mgr.ensureInstalled();
+      await mgr.ensureInstalled();
 
-    expect(File(mgr.closet.binaryPath).readAsStringSync(), 'FAKE-OPENCODE');
-    expect(captured, hasLength(1));
-    expect(captured.single.toString(), contains('/releases/latest/download/'));
-    expect(openCodeLooksLikeBrewPath(mgr.closet.binaryPath), isFalse);
-    final stamped = await OpenCodeBinaryVersion.read(mgr.closet.binDir);
-    expect(stamped.version, _latestTag);
-    expect(mgr.isUpdateAvailable, isFalse);
-  });
+      expect(File(mgr.closet.binaryPath).readAsStringSync(), 'FAKE-OPENCODE');
+      expect(captured, hasLength(1));
+      expect(
+        captured.single.toString(),
+        contains('/releases/download/v$_latestTag/'),
+      );
+      expect(openCodeLooksLikeBrewPath(mgr.closet.binaryPath), isFalse);
+      final stamped = await OpenCodeBinaryVersion.read(mgr.closet.binDir);
+      expect(stamped.version, _latestTag);
+      expect(mgr.isUpdateAvailable, isFalse);
+    },
+  );
 
   test(
     'ensureInstalled does not re-download when a binary is already there',
