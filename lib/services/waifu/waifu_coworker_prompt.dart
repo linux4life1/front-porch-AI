@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
+import 'package:front_porch_ai/services/waifu/waifu_session.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tokens.dart';
 
 const kWaifuTalkSampleMaxTokens = 400;
@@ -182,3 +183,17 @@ String buildWaifuPlanAgentPrompt(
 /// call the old name stay honest.
 String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) =>
     buildWaifuOpenCodeAgentPrompt(card, now: now);
+
+/// Takes the library's copy of the card when it reads differently from the
+/// session's saved copy (an edit, or a resume after one). The seat sees the
+/// new persona and restarts the serve on the next turn.
+bool waifuAdoptCoworker(WaifuSession session, CharacterCard live) {
+  final now = DateTime.now();
+  final same =
+      buildWaifuCardPersona(live, now: now) ==
+          buildWaifuCardPersona(session.coworker, now: now) &&
+      live.imagePath == session.coworker.imagePath;
+  if (same) return false;
+  session.coworker = live;
+  return true;
+}

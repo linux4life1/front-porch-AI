@@ -249,7 +249,9 @@ class WaifuSession {
        todos = todos ?? WaifuTodos();
 
   final String folderRoot;
-  final CharacterCard coworker;
+
+  /// Replaced when the library card is edited, so her voice follows it.
+  CharacterCard coworker;
   WaifuMode mode;
   WaifuPathMode pathMode;
   String title;

@@ -78,6 +78,7 @@ class _WaifuPageState extends State<WaifuPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncToolsSupported(context);
+    _followLibraryCard();
     if (_parked) return;
     _parked = true;
     _resolveContextBudget();
@@ -131,6 +132,17 @@ class _WaifuPageState extends State<WaifuPage> {
     } catch (e) {
       debugPrint('[Waifu] Context budget not resolved: $e');
     }
+  }
+
+  /// Resume and card edits: her voice follows the library card.
+  void _followLibraryCard() {
+    final live = waifuLibraryCard(
+      context,
+      widget.session.coworker,
+      listen: true,
+    );
+    if (live == null || !waifuAdoptCoworker(widget.session, live)) return;
+    unawaited(_storeOf(context)?.saveLast(widget.session));
   }
 
   void _onGenSettings(ChatGenerationSettings next) {

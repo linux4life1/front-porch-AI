@@ -20,6 +20,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/waifu/waifu_coworker_prompt.dart';
 import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_opencode.dart';
 import 'package:front_porch_ai/services/waifu/waifu_session.dart';
@@ -29,22 +30,26 @@ import 'package:front_porch_ai/services/waifu/waifu_tools_mcp.dart';
 /// What the running serve was started with. Prompts, permission maps, MCP
 /// servers and plugins load only at serve start, so a change to any of
 /// these restarts the serve. Plan/Build/Yolo is not here: both agents are
-/// always written and Yolo is answered in Dart.
+/// always written and Yolo is answered in Dart. [persona] carries the card
+/// and today's date, so an edited card or a new day lands on the next turn.
 class WaifuSeatSignature {
   const WaifuSeatSignature({
     required this.backend,
     required this.pathMode,
     required this.mcpOptIn,
+    required this.persona,
   });
 
   final OpenCodePorchBackend backend;
   final WaifuPathMode pathMode;
   final bool mcpOptIn;
+  final String persona;
 
   bool sameAs(WaifuSeatSignature other) =>
       openCodeBackendSame(backend, other.backend) &&
       pathMode == other.pathMode &&
-      mcpOptIn == other.mcpOptIn;
+      mcpOptIn == other.mcpOptIn &&
+      persona == other.persona;
 }
 
 /// The harness's connection to managed OpenCode: one client, one OpenCode
@@ -59,10 +64,13 @@ class WaifuOpenCodeSeat {
     this.backendOf,
     this.mcpConfigOf,
     this.skillsDirOf,
-  }) : _client = client,
+    DateTime Function()? clock,
+  }) : _clock = clock ?? DateTime.now,
+       _client = client,
        _sessionId = sessionId,
-       _backend = backend,
-       _seated = backend == null ? null : _signatureFor(session, backend);
+       _backend = backend {
+    if (backend != null) _seated = _signatureFor(backend);
+  }
 
   final WaifuSession session;
   final OpenCodeManager? manager;
@@ -70,6 +78,7 @@ class WaifuOpenCodeSeat {
   final FutureOr<Map<String, dynamic>> Function()? mcpConfigOf;
   final Directory? Function()? skillsDirOf;
   final OpenCodePorchBackend? _backend;
+  final DateTime Function() _clock;
 
   OpenCodeClient? _client;
   String? _sessionId;
@@ -91,7 +100,7 @@ class WaifuOpenCodeSeat {
     final seated = _seated;
     final back = _liveBackend;
     if (seated == null || back == null) return false;
-    return !_signatureFor(session, back).sameAs(seated);
+    return !_signatureFor(back).sameAs(seated);
   }
 
   /// The serve went away. The next [ensure] sits down again and resumes.
@@ -136,7 +145,7 @@ class WaifuOpenCodeSeat {
     );
     _sessionId = info.id;
     session.openCodeSessionId = info.id;
-    _seated = _signatureFor(session, back);
+    _seated = _signatureFor(back);
     _client ??= OpenCodeClient(
       baseUri: mgr.baseUri,
       directory: session.folderRoot,
@@ -145,12 +154,11 @@ class WaifuOpenCodeSeat {
     return _client;
   }
 
-  static WaifuSeatSignature _signatureFor(
-    WaifuSession session,
-    OpenCodePorchBackend backend,
-  ) => WaifuSeatSignature(
-    backend: backend,
-    pathMode: session.pathMode,
-    mcpOptIn: session.mcpOptIn,
-  );
+  WaifuSeatSignature _signatureFor(OpenCodePorchBackend backend) =>
+      WaifuSeatSignature(
+        backend: backend,
+        pathMode: session.pathMode,
+        mcpOptIn: session.mcpOptIn,
+        persona: buildWaifuCardPersona(session.coworker, now: _clock()),
+      );
 }

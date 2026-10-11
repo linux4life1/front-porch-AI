@@ -24,22 +24,34 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 
+/// The library's live copy of [coworker]: by id, else by name. Null when
+/// the card is gone or no repository is in the tree. [listen] subscribes
+/// the caller so a card edit rebuilds it.
+CharacterCard? waifuLibraryCard(
+  BuildContext context,
+  CharacterCard coworker, {
+  bool listen = false,
+}) {
+  try {
+    final repo = Provider.of<CharacterRepository>(context, listen: listen);
+    for (final c in repo.characters) {
+      if (coworker.dbId != null && c.dbId != null && c.dbId == coworker.dbId) {
+        return c;
+      }
+      if (c.name == coworker.name) return c;
+    }
+  } on ProviderNotFoundException {
+    // Tests without the repository have no library to follow.
+  }
+  return null;
+}
+
 /// Same face chat / the home grid show: live library card ★ cover, else
 /// the portrait file. Session JSON is a thin copy and often has no path.
 File? waifuCoworkerFace(BuildContext context, CharacterCard coworker) {
-  var card = coworker;
+  final card = waifuLibraryCard(context, coworker) ?? coworker;
   try {
     final repo = Provider.of<CharacterRepository>(context, listen: false);
-    for (final c in repo.characters) {
-      if (coworker.dbId != null && c.dbId != null && c.dbId == coworker.dbId) {
-        card = c;
-        break;
-      }
-      if (c.name == coworker.name) {
-        card = c;
-        break;
-      }
-    }
     final cover = repo.coverImageFileFor(card);
     if (cover != null) return cover;
   } on ProviderNotFoundException {
