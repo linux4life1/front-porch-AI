@@ -422,24 +422,12 @@ extension ChatServiceGeneration on ChatService {
 
       // User-initiated cancel (or forced client close) — keep the partial response, no error message
       if (treatAsCancel) {
-        // Signal clean completion to SSE listeners
-        _tokenBroadcast.add('__DONE__');
-        if (_sentenceBuffer.trim().isNotEmpty) {
-          _sentenceBroadcast.add(_sentenceBuffer.trim());
-          _sentenceBuffer = '';
-        }
-        _sentenceBroadcast.add('__DONE__');
-
-        // Restore original model if swapped for call mode
-        if (t.originalModelName != null && _llmProvider != null) {
-          _llmProvider!.openRouterService.configure(
-            modelName: t.originalModelName,
-          );
-        }
-
-        // Save the partial response so regen/continue work
-        await _saveChat();
-        notifyListeners();
+        // A think-start stamp means the reply was being painted: close its
+        // thought like the stream-loop Stop does.
+        await _haltStoppedTurn(
+          t,
+          t.thinkStartedAt != null ? t.streamTarget : null,
+        );
         return;
       }
 
