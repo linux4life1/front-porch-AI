@@ -19,7 +19,7 @@
 import 'dart:convert';
 import 'dart:isolate';
 
-import 'package:drift/drift.dart' show Variable;
+import 'package:drift/drift.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/utils/think_tags.dart';
 
@@ -169,4 +169,17 @@ Future<CharacterStats> loadCharacterStats(
       lastChat: lastChat,
     ),
   );
+}
+
+/// The web editor's "Your chats together" payload, or null when [id] is not a
+/// library character. Same counts as the desktop Details tab.
+Future<Map<String, dynamic>?> characterStatsJson(
+  AppDatabase db,
+  String id,
+) async {
+  final exists = await (db.select(
+    db.characters,
+  )..where((c) => c.id.equals(id))).getSingleOrNull();
+  if (exists == null) return null;
+  return (await loadCharacterStats(db, id)).toJson();
 }

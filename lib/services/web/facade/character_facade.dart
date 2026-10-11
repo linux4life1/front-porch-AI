@@ -29,7 +29,6 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 
 part 'character_facade.import.dart';
 part 'character_facade.byaf.dart';
-part 'character_facade.stats.dart';
 
 /// Thin read adapter over the character store for the rewritten web server.
 ///
@@ -482,4 +481,7 @@ class CharacterFacade {
       return null;
     }
   }
+
+  /// "Your chats together" for the web character editor.
+  Future<Map<String, dynamic>?> stats(String id) => characterStatsJson(_db, id);
 }
