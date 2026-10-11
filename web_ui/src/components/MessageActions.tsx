@@ -9,6 +9,7 @@ import { FormEvent, KeyboardEvent, useState } from 'react';
 import { api } from '../api/client';
 import { type Message } from './chatTypes';
 import { ContextBudgetModal } from './ContextBudgetModal';
+import { TokenAlternativesModal } from './TokenAlternativesModal';
 import { SpeakButton } from './VoiceControls';
 import { VariantPickerModal } from './VariantPickerModal';
 
@@ -58,6 +59,7 @@ export function MessageActions({
   const idx = (m.swipeIndex ?? 0) + 1;
   const [picker, setPicker] = useState(false);
   const [inspecting, setInspecting] = useState(false);
+  const [otherWords, setOtherWords] = useState(false);
   const [critiqueOpen, setCritiqueOpen] = useState(false);
   const [draft, setDraft] = useState('');
   const [lookupQuery, setLookupQuery] = useState('');
@@ -160,6 +162,9 @@ export function MessageActions({
       {!m.isUser && m.hasContext && (
         <button className="icon-btn" title="Inspect prompt" onClick={() => setInspecting(true)}>📊</button>
       )}
+      {!m.isUser && m.hasTokenAlts && (
+        <button className="icon-btn" title="Other words" onClick={() => setOtherWords(true)}>🔀</button>
+      )}
       {m.sender !== 'System' && (
         <button className="icon-btn" title="Fork from here" disabled={busy} onClick={onFork}>⑂</button>
       )}
@@ -168,6 +173,9 @@ export function MessageActions({
       </div>
       {inspecting && (
         <ContextBudgetModal messageIndex={m.index} onClose={() => setInspecting(false)} />
+      )}
+      {otherWords && (
+        <TokenAlternativesModal messageIndex={m.index} onClose={() => setOtherWords(false)} />
       )}
       {picker && (
         <VariantPickerModal

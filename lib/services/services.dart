@@ -86,6 +86,7 @@ export 'reasoning_effort_store.dart';
 export 'chat/needs_impact_evaluator.dart';
 export 'chat/context_viewer_snapshot.dart';
 export 'chat/reply_context.dart';
+export 'chat/token_alternatives.dart';
 
 // TTS / STT / media
 export 'tts_service.dart';
