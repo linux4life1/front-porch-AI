@@ -60,7 +60,6 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
 import 'package:front_porch_ai/services/setup_service.dart';
-import 'package:front_porch_ai/services/db_reunification_service.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/audiobook_generator_service.dart';
@@ -80,7 +79,6 @@ part 'main.providers.dart';
 part 'main.lifecycle.dart';
 part 'main.recovery.dart';
 part 'main.migration.dart';
-part 'main.reunification.dart';
 
 /// Prefix SharedPreferences keys for beta builds so window state is
 /// isolated from the stable installation.  Unchanged for stable builds.
@@ -143,15 +141,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
   int _migrationCurrent = 0;
   int _migrationTotal = 1;
 
-  // Reunification overlay state
-  bool _isReunifying = false;
-  String _reunifyStep = '';
-  int _reunifyCurrent = 0;
-  final int _reunifyTotal = 5;
-  // Inline import choice (replaces showDialog to avoid MaterialLocalizations issue)
-  Completer<bool>? _importChoiceCompleter;
-  List<String> _importItems = [];
-
   // Track normal (non-maximized) window bounds for correct save/restore
   double _normalWidth = 1280;
   double _normalHeight = 720;
@@ -170,7 +159,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
         onExitRequested: _onAppExitRequested,
       );
     }
-    // Run migration after first frame, then reunification if needed
+    // Run migration after first frame
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       _mark('FIRST FRAME (user sees the app)');
       // First frame is up — arm the deferred overlays (see the home Stack).
@@ -193,7 +182,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
       // Show stable DB import dialog on first beta launch (before migration)
       await _showStableDbImportIfNeeded();
       await _runMigrationIfNeeded();
-      await _runReunificationIfNeeded();
       // Deferred idempotent maintenance (moved out of main()'s pre-window
       // path): purge month-old soft-deletes + pre-0.8.0 legacy JSON files.
       try {
@@ -211,8 +199,8 @@ class _MyAppState extends State<MyApp> with WindowListener {
   }
 
   /// setState bridge for the `_MyAppState` extensions split into
-  /// main.lifecycle.dart / main.recovery.dart / main.migration.dart /
-  /// main.reunification.dart — `setState` is `@protected`, so an extension
+  /// main.lifecycle.dart / main.recovery.dart / main.migration.dart —
+  /// `setState` is `@protected`, so an extension
   /// method calling it directly fails the analyzer's
   /// `invalid_use_of_protected_member` check. Same pattern as
   /// `settings_page.dart`'s `rebuildState` and `tts_service.dart`'s
@@ -479,7 +467,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     if (_overlaysArmed) const RemoteLockOverlay(),
                     if (_isDbCorrupt) _buildCorruptionOverlay(),
                     if (_isMigrating) _buildMigrationOverlay(),
-                    if (_isReunifying) _buildReunificationOverlay(),
                   ],
                 ),
               );

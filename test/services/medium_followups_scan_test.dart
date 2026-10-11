@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Source scans for the 1.3 medium follow-ups that are wiring, not math:
-// web Chaos SPIN NOW, Stoop Discussion fail-closed, reunification copies
-// group_members with the group row.
+// web Chaos SPIN NOW, Stoop Discussion fail-closed.
 
 import 'dart:io';
 
@@ -24,13 +23,5 @@ void main() {
     ).readAsStringSync();
     expect(src, contains('detail.commentsEnabled === true'));
     expect(src, contains('setEnabled(false)'));
-  });
-
-  test('reunification copies group_members with the group row', () {
-    final src = File(
-      'lib/services/db_reunification_service.dart',
-    ).readAsStringSync();
-    expect(src, contains('FROM group_members WHERE group_id'));
-    expect(src, contains("'group_members'"));
   });
 }
