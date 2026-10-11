@@ -63,7 +63,18 @@ export interface ToolsState {
     isGenerating: boolean;
     lastIndex: number;
   };
-  chaos: { enabled: boolean; nsfwEnabled: boolean; pressure: number; hasPendingEvent: boolean };
+  chaos: {
+    enabled: boolean;
+    nsfwEnabled: boolean;
+    pressure: number;
+    hasPendingEvent: boolean;
+    // Additive keys: an older app omits them, which reads as no 18+ row,
+    // Normal frequency and no cooldown.
+    adultAllowed?: boolean;
+    base?: number;
+    growth?: number;
+    cooldownTurns?: number;
+  };
   // refractoryLabel is the desktop chip's own text ("Refractory: about 45 min",
   // or "Refractory: 3 replies" with Passage of Time off), ready-made so the
   // phone cannot word it differently; '' when no refractory is running.

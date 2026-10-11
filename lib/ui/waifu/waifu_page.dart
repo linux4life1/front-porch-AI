@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
@@ -78,24 +79,7 @@ class _WaifuPageState extends State<WaifuPage> {
     _syncToolsSupported(context);
     if (_parked) return;
     _parked = true;
-    try {
-      final storage = Provider.of<StorageService>(context, listen: false);
-      String? apiUrl;
-      try {
-        final llm = Provider.of<LLMProvider>(context, listen: false);
-        if (llm.activeBackend == BackendType.omlx) {
-          apiUrl = 'http://localhost:8000/v1';
-        } else if (llm.activeBackend == BackendType.openRouter) {
-          apiUrl = llm.openRouterService.apiUrl;
-        }
-      } catch (_) {}
-      widget.session.contextBudget = waifuResolveContextBudget(
-        porchContextSize: widget.session.genSettings.resolveContextSize(
-          storage,
-        ),
-        apiUrl: apiUrl,
-      );
-    } catch (_) {}
+    _resolveContextBudget();
     waifuArmSessionMeter(
       session: widget.session,
       harness: _harnessOf(context),
@@ -121,12 +105,50 @@ class _WaifuPageState extends State<WaifuPage> {
     if (mounted) setState(() {});
   }
 
+  void _resolveContextBudget() {
+    try {
+      final storage = Provider.of<StorageService>(context, listen: false);
+      String? apiUrl;
+      try {
+        final llm = Provider.of<LLMProvider>(context, listen: false);
+        if (llm.activeBackend == BackendType.omlx) {
+          apiUrl = 'http://localhost:8000/v1';
+        } else if (llm.activeBackend == BackendType.openRouter) {
+          apiUrl = llm.openRouterService.apiUrl;
+        }
+      } on ProviderNotFoundException {
+        // No LLM provider in this tree: use the Porch context size.
+      }
+      widget.session.contextBudget = waifuResolveContextBudget(
+        porchContextSize: widget.session.genSettings.resolveContextSize(
+          storage,
+        ),
+        apiUrl: apiUrl,
+      );
+    } on ProviderNotFoundException {
+      // No storage in this tree: keep the session's current budget.
+    } catch (e) {
+      debugPrint('[Waifu] Context budget not resolved: $e');
+    }
+  }
+
+  void _onGenSettings(ChatGenerationSettings next) {
+    setState(() {
+      widget.session.genSettings = next;
+      _resolveContextBudget();
+    });
+    unawaited(_storeOf(context)?.saveLast(widget.session));
+  }
+
   int _libraryToolCount(BuildContext context) {
     if (!widget.session.mcpOptIn) return 0;
     try {
       final storage = Provider.of<StorageService>(context, listen: false);
       return waifuLoadedToolCardCount(storage.toolsDir);
-    } catch (_) {
+    } on ProviderNotFoundException {
+      return 0;
+    } catch (e) {
+      debugPrint('[Waifu] Tool card count failed: $e');
       return 0;
     }
   }
@@ -138,7 +160,9 @@ class _WaifuPageState extends State<WaifuPage> {
         knownUnsupported: chat.toolCallSupport.name == 'unsupported',
         paused: chat.toolCallingPaused,
       );
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No ChatService in this tree: leave toolsSupported as it was.
+    }
   }
 
   void _onThemeChanged() {
@@ -159,10 +183,12 @@ class _WaifuPageState extends State<WaifuPage> {
     OpenCodeManager? oc;
     try {
       oc = Provider.of<OpenCodeManager>(context, listen: false);
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // OpenCode is optional; the harness falls back to the LLM provider.
+    }
     try {
       provider = Provider.of<LLMProvider>(context, listen: false);
-    } catch (_) {
+    } on ProviderNotFoundException {
       if (oc == null) return null;
     }
     return _created = waifuBindSessionHarness(
@@ -178,7 +204,7 @@ class _WaifuPageState extends State<WaifuPage> {
       skillsDirOf: () {
         try {
           return Provider.of<StorageService>(context, listen: false).skillsDir;
-        } catch (_) {
+        } on ProviderNotFoundException {
           return null;
         }
       },
@@ -207,8 +233,15 @@ class _WaifuPageState extends State<WaifuPage> {
 
   Future<void> _setMode(WaifuMode mode) async {
     if (widget.session.mode == mode) return;
-    setState(() => widget.session.mode = mode);
-    (widget.harness ?? _created)?.refreshMeter();
+    final h = widget.harness ?? _created;
+    setState(() {
+      if (h != null) {
+        h.applyMode(mode);
+      } else {
+        widget.session.mode = mode;
+      }
+    });
+    await _storeOf(context)?.saveLast(widget.session);
   }
 
   Future<void> _setPathMode(WaifuPathMode next) async {
@@ -237,7 +270,9 @@ class _WaifuPageState extends State<WaifuPage> {
       if (root != null && root.isNotEmpty) {
         dir = p.join(waifuStoreDirectory(root), 'lang');
       }
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No storage in this tree: keep languages beside the session folder.
+    }
     return widget.session.langs = WaifuLangRuntime(directory: dir);
   }
 
@@ -377,14 +412,20 @@ class _WaifuPageState extends State<WaifuPage> {
                 unawaited(_storeOf(context)?.saveLast(session));
               },
               onToolsOptIn: (v) {
-                setState(() => session.mcpOptIn = v);
                 final h = widget.harness ?? _created;
-                if (h != null) h.mcpOptIn = v;
+                setState(() {
+                  if (h != null) {
+                    h.applyToolsOptIn(v);
+                  } else {
+                    session.mcpOptIn = v;
+                  }
+                });
                 if (!v) unawaited(releasePorchToolsMcp());
                 unawaited(_storeOf(context)?.saveLast(session));
               },
               harness: harness,
               onThemeChanged: _onThemeChanged,
+              onGenSettings: _onGenSettings,
               onCompact: harness == null
                   ? null
                   : () => unawaited(harness.compact()),

@@ -195,7 +195,7 @@ extension ChatServiceAccessorsLiving on ChatService {
   String get _realismEvalStreamTextCleanImpl =>
       identical(_realismEvalStreamText, _evalCleanSrc)
       ? _evalCleanOut!
-      : _evalCleanOut = _stripThinkBlocks(
+      : _evalCleanOut = stripEvalThinkBlocks(
           _evalCleanSrc = _realismEvalStreamText,
         );
 }

@@ -86,9 +86,18 @@ export function StoopAccountPage() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    stoop.myCharacters().then((r) => setMine(r.items)).catch(() => {});
-    stoop.myDownloads().then((r) => setDownloads(r.items)).catch(() => {});
-    stoop.myFollowing().then((r) => setFollowed(r.items)).catch(() => {});
+    stoop
+      .myCharacters()
+      .then((r) => setMine(r.items))
+      .catch((e) => console.warn('[stoop] my characters load failed', e));
+    stoop
+      .myDownloads()
+      .then((r) => setDownloads(r.items))
+      .catch((e) => console.warn('[stoop] my downloads load failed', e));
+    stoop
+      .myFollowing()
+      .then((r) => setFollowed(r.items))
+      .catch((e) => console.warn('[stoop] following load failed', e));
   }, []);
 
   if (!user) return null;

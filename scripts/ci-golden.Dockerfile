@@ -6,8 +6,8 @@
 #
 # Rebuild (from the repo root):
 #   docker build --platform linux/amd64 \
-#     --build-arg FLUTTER_VERSION=3.47.0 \
-#     -t fpai-golden:3.47.0 -f scripts/ci-golden.Dockerfile scripts
+#     --build-arg FLUTTER_VERSION=3.47.7 \
+#     -t fpai-golden:3.47.7 -f scripts/ci-golden.Dockerfile scripts
 #
 # Desktop/E2E deps (GTK, xvfb, ninja, gstreamer) are baked in so
 # `scripts/ci-local.sh e2e` does not re-apt on every run. Containers are
@@ -25,7 +25,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       libxkbcommon0 libxkbcommon-x11-0 \
       fonts-noto-core \
   && rm -rf /var/lib/apt/lists/*
-ARG FLUTTER_VERSION=3.47.0
+ARG FLUTTER_VERSION=3.47.7
 RUN curl -fsSL "https://storage.googleapis.com/flutter_infra_release/releases/stable/linux/flutter_linux_${FLUTTER_VERSION}-stable.tar.xz" \
       -o /tmp/flutter.tar.xz \
   && tar -xJf /tmp/flutter.tar.xz -C /opt \

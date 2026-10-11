@@ -114,7 +114,6 @@ void main() {
       'lib/ui/chat_components/stage/transcript_auto_scroll.dart',
     ).readAsStringSync();
     expect(helper.contains('heldTranscriptOffset'), isFalse);
-    expect(helper.contains('void applyTranscriptAutoScroll'), isTrue);
   });
 
   testWidgets(
@@ -190,14 +189,6 @@ void main() {
         isFalse,
       );
       expect(controller.offset, 80, reason: 'scrolled away stays put');
-
-      applyTranscriptAutoScroll(controller, generating: true);
-      await tester.pump();
-      expect(
-        controller.offset,
-        80,
-        reason: 'legacy applyTranscriptAutoScroll stays a no-op',
-      );
     },
   );
 }

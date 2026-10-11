@@ -12,7 +12,7 @@
 
 import 'dart:io';
 
-import 'package:front_porch_ai/services/kokoro_debug.dart';
+import 'package:flutter/foundation.dart';
 
 class OrderedAudioCollector {
   int _nextExpectedIndex = 0;
@@ -28,7 +28,7 @@ class OrderedAudioCollector {
   /// sequential order. The list may be empty if this chunk arrived early.
   List<File> submit(int originalIndex, File audioFile) {
     if (_seen.contains(originalIndex)) {
-      kDebugPrint(
+      debugPrint(
         '[OrderedCollector] Duplicate chunk #$originalIndex received and discarded.',
       );
       return const [];
@@ -47,18 +47,18 @@ class OrderedAudioCollector {
         // Drop the oldest buffered chunk to make room (oldest = smallest index)
         final oldestIndex = _buffer.keys.reduce((a, b) => a < b ? a : b);
         _buffer.remove(oldestIndex);
-        kDebugPrint(
+        debugPrint(
           '[OrderedCollector] Buffer full. Dropped oldest buffered chunk #$oldestIndex.',
         );
       }
       _buffer[originalIndex] = audioFile;
-      kDebugPrint(
+      debugPrint(
         '[OrderedCollector] Buffered future chunk #$originalIndex (next expected: $_nextExpectedIndex)',
       );
       return const [];
     } else {
       // Late chunk that we already passed — ignore
-      kDebugPrint(
+      debugPrint(
         '[OrderedCollector] Late chunk #$originalIndex received (already played past it).',
       );
       return const [];

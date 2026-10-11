@@ -211,16 +211,15 @@ extension _ChanceTimeOverlayView on _ChanceTimeOverlayState {
     final event = _displayEvent(_segments[_landedIndex]);
     final cat = _category ?? _EventCategory.wildCard;
 
-    final (catEmoji, catLabel, catColor) = switch (cat) {
-      _EventCategory.fortune => ('🎉', 'Fortune!', const Color(0xFF06D6A0)),
-      _EventCategory.misfortune => (
-        '💀',
-        'Misfortune',
-        const Color(0xFFE63946),
-      ),
-      _EventCategory.chaos => ('⚡', 'Chaos!', const Color(0xFFFFD166)),
-      _EventCategory.wildCard => ('🔮', 'Wild Card', const Color(0xFF9B5DE5)),
+    final catColor = switch (cat) {
+      _EventCategory.fortune => const Color(0xFF06D6A0),
+      _EventCategory.misfortune => const Color(0xFFE63946),
+      _EventCategory.chaos => const Color(0xFFFFD166),
+      _EventCategory.wildCard => const Color(0xFF9B5DE5),
     };
+    final kind = _kind ?? ChaosCategory.wildCard;
+    final catEmoji = kind.emoji;
+    final catLabel = kind.label;
 
     return Column(
       children: [
@@ -412,13 +411,7 @@ extension _ChanceTimeOverlayView on _ChanceTimeOverlayState {
                     ? (t / 0.4) * 1.2
                     : 1.2 - ((t - 0.4) / 0.6) * 0.2,
                 child: Text(
-                  cat == _EventCategory.fortune
-                      ? '🎉'
-                      : cat == _EventCategory.misfortune
-                      ? '💀'
-                      : cat == _EventCategory.chaos
-                      ? '⚡'
-                      : '🔮',
+                  (_kind ?? ChaosCategory.wildCard).emoji,
                   style: const TextStyle(fontSize: 36),
                 ),
               ),

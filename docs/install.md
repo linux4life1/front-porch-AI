@@ -166,7 +166,7 @@ Everything below is for people who want to hack on the app. Regular users can st
 
 **Prerequisites**
 
-- [Flutter SDK](https://docs.flutter.dev/get-started/install) **3.47.0** — the exact version CI builds and tests with. The project needs Dart 3.10.8 or newer. macOS **13.3 Ventura** is the floor.
+- [Flutter SDK](https://docs.flutter.dev/get-started/install) **3.47.7** — the exact version CI builds and tests with. The project needs Dart 3.10.8 or newer. macOS **13.3 Ventura** is the floor.
 - Git
 
 That's the whole list — voice, speech-to-text, character expressions and memory embeddings all run **in-process** via libraries that ship with the app's packages. No Rust and no Python toolchain to set up. (The language model itself is the exception, and always has been: KoboldCpp is a separate local server that the app downloads, then starts and stops for you from the UI.)

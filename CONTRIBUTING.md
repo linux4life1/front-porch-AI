@@ -49,7 +49,7 @@ PRs opened against the wrong branch will be asked to move.
 
 ### Prerequisites
 
-- **Flutter 3.47.0** (what CI uses). Dart SDK constraint `^3.10.8`.
+- **Flutter 3.47.7** (what CI uses). Dart SDK constraint `^3.10.8`.
   macOS **12 Monterey** is the floor.
 - [Git](https://git-scm.com/)
 - Windows 10+, macOS 12+, or Linux

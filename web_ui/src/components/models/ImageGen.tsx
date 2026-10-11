@@ -40,11 +40,11 @@ export function ImageGen({
     api
       .get<ImageConfig>('/api/image/config')
       .then((next) => live.current && setCfg(withGraphDefaults(next)))
-      .catch(() => {});
+      .catch((e) => console.warn('[image] config load failed', e));
     api
       .get<{ totpEnabled?: boolean }>('/api/auth/state')
       .then((st) => live.current && setTotpEnabled(!!st.totpEnabled))
-      .catch(() => {});
+      .catch((e) => console.warn('[image] auth state load failed', e));
     return () => {
       live.current = false;
     };
@@ -61,6 +61,7 @@ export function ImageGen({
       api
         .get<ImageConfig>('/api/image/config')
         .then((c) => !stop && setProgress(typeof c.genProgress === 'number' ? c.genProgress : null))
+        // Best-effort progress: the next tick asks again, so a miss is not logged.
         .catch(() => {});
     }, progressMs);
     return () => {
@@ -86,7 +87,10 @@ export function ImageGen({
       .catch((e: unknown) => {
         if (e instanceof ApiError && e.payload.totpRequired === true) setTotpEnabled(true);
         onError(e instanceof ApiError ? e.message : 'Save failed');
-        api.get<ImageConfig>('/api/image/config').then(setCfg).catch(() => {});
+        api
+          .get<ImageConfig>('/api/image/config')
+          .then(setCfg)
+          .catch((err) => console.warn('[image] config reload after failed save failed', err));
         return false;
       });
   };

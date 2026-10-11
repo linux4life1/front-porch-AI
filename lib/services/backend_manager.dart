@@ -140,7 +140,7 @@ class BackendManager extends ChangeNotifier {
         ? 'v$_localVersion'
         : _localVersion!;
     if (_localSize == null) return v;
-    return '$v, ${_formatFileSize(_localSize!)}';
+    return '$v, ${formatBytes(_localSize!)}';
   }
 
   /// KoboldCpp cannot run here: the app says [kIntelMacLocalUnsupported].

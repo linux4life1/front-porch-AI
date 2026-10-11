@@ -97,7 +97,7 @@ extension ChatServiceGenerationPostGen on ChatService {
       // provider, some thinking models still emit stray <think> text. Strip
       // from the NEW portion only — never re-strip the pre-continue body.
       if (t.mode == GenerationMode.continue_ || _callMode) {
-        newPart = _stripThinkBlocks(newPart);
+        newPart = stripEvalThinkBlocks(newPart);
       }
 
       // Close an open think on the PREFIX before glue — closing after

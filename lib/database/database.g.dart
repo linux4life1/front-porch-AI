@@ -1870,6 +1870,21 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(0),
   );
+  static const VerificationMeta _chaosNsfwEnabledMeta = const VerificationMeta(
+    'chaosNsfwEnabled',
+  );
+  @override
+  late final GeneratedColumn<bool> chaosNsfwEnabled = GeneratedColumn<bool>(
+    'chaos_nsfw_enabled',
+    aliasedName,
+    false,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("chaos_nsfw_enabled" IN (0, 1))',
+    ),
+    defaultValue: const Constant(false),
+  );
   static const VerificationMeta _needsSimEnabledMeta = const VerificationMeta(
     'needsSimEnabled',
   );
@@ -2144,6 +2159,7 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     trustRepairPending,
     chaosModeEnabled,
     chaosPressure,
+    chaosNsfwEnabled,
     needsSimEnabled,
     needsVector,
     pockets,
@@ -2547,6 +2563,15 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         ),
       );
     }
+    if (data.containsKey('chaos_nsfw_enabled')) {
+      context.handle(
+        _chaosNsfwEnabledMeta,
+        chaosNsfwEnabled.isAcceptableOrUnknown(
+          data['chaos_nsfw_enabled']!,
+          _chaosNsfwEnabledMeta,
+        ),
+      );
+    }
     if (data.containsKey('needs_sim_enabled')) {
       context.handle(
         _needsSimEnabledMeta,
@@ -2895,6 +2920,10 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.int,
         data['${effectivePrefix}chaos_pressure'],
       )!,
+      chaosNsfwEnabled: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}chaos_nsfw_enabled'],
+      )!,
       needsSimEnabled: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}needs_sim_enabled'],
@@ -3046,6 +3075,7 @@ class Session extends DataClass implements Insertable<Session> {
   final bool trustRepairPending;
   final bool chaosModeEnabled;
   final int chaosPressure;
+  final bool chaosNsfwEnabled;
   final bool needsSimEnabled;
   final String? needsVector;
 
@@ -3152,6 +3182,7 @@ class Session extends DataClass implements Insertable<Session> {
     required this.trustRepairPending,
     required this.chaosModeEnabled,
     required this.chaosPressure,
+    required this.chaosNsfwEnabled,
     required this.needsSimEnabled,
     this.needsVector,
     this.pockets,
@@ -3252,6 +3283,7 @@ class Session extends DataClass implements Insertable<Session> {
     map['trust_repair_pending'] = Variable<bool>(trustRepairPending);
     map['chaos_mode_enabled'] = Variable<bool>(chaosModeEnabled);
     map['chaos_pressure'] = Variable<int>(chaosPressure);
+    map['chaos_nsfw_enabled'] = Variable<bool>(chaosNsfwEnabled);
     map['needs_sim_enabled'] = Variable<bool>(needsSimEnabled);
     if (!nullToAbsent || needsVector != null) {
       map['needs_vector'] = Variable<String>(needsVector);
@@ -3368,6 +3400,7 @@ class Session extends DataClass implements Insertable<Session> {
       trustRepairPending: Value(trustRepairPending),
       chaosModeEnabled: Value(chaosModeEnabled),
       chaosPressure: Value(chaosPressure),
+      chaosNsfwEnabled: Value(chaosNsfwEnabled),
       needsSimEnabled: Value(needsSimEnabled),
       needsVector: needsVector == null && nullToAbsent
           ? const Value.absent()
@@ -3475,6 +3508,7 @@ class Session extends DataClass implements Insertable<Session> {
       trustRepairPending: serializer.fromJson<bool>(json['trustRepairPending']),
       chaosModeEnabled: serializer.fromJson<bool>(json['chaosModeEnabled']),
       chaosPressure: serializer.fromJson<int>(json['chaosPressure']),
+      chaosNsfwEnabled: serializer.fromJson<bool>(json['chaosNsfwEnabled']),
       needsSimEnabled: serializer.fromJson<bool>(json['needsSimEnabled']),
       needsVector: serializer.fromJson<String?>(json['needsVector']),
       pockets: serializer.fromJson<String?>(json['pockets']),
@@ -3563,6 +3597,7 @@ class Session extends DataClass implements Insertable<Session> {
       'trustRepairPending': serializer.toJson<bool>(trustRepairPending),
       'chaosModeEnabled': serializer.toJson<bool>(chaosModeEnabled),
       'chaosPressure': serializer.toJson<int>(chaosPressure),
+      'chaosNsfwEnabled': serializer.toJson<bool>(chaosNsfwEnabled),
       'needsSimEnabled': serializer.toJson<bool>(needsSimEnabled),
       'needsVector': serializer.toJson<String?>(needsVector),
       'pockets': serializer.toJson<String?>(pockets),
@@ -3633,6 +3668,7 @@ class Session extends DataClass implements Insertable<Session> {
     bool? trustRepairPending,
     bool? chaosModeEnabled,
     int? chaosPressure,
+    bool? chaosNsfwEnabled,
     bool? needsSimEnabled,
     Value<String?> needsVector = const Value.absent(),
     Value<String?> pockets = const Value.absent(),
@@ -3714,6 +3750,7 @@ class Session extends DataClass implements Insertable<Session> {
     trustRepairPending: trustRepairPending ?? this.trustRepairPending,
     chaosModeEnabled: chaosModeEnabled ?? this.chaosModeEnabled,
     chaosPressure: chaosPressure ?? this.chaosPressure,
+    chaosNsfwEnabled: chaosNsfwEnabled ?? this.chaosNsfwEnabled,
     needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
     needsVector: needsVector.present ? needsVector.value : this.needsVector,
     pockets: pockets.present ? pockets.value : this.pockets,
@@ -3868,6 +3905,9 @@ class Session extends DataClass implements Insertable<Session> {
       chaosPressure: data.chaosPressure.present
           ? data.chaosPressure.value
           : this.chaosPressure,
+      chaosNsfwEnabled: data.chaosNsfwEnabled.present
+          ? data.chaosNsfwEnabled.value
+          : this.chaosNsfwEnabled,
       needsSimEnabled: data.needsSimEnabled.present
           ? data.needsSimEnabled.value
           : this.needsSimEnabled,
@@ -3968,6 +4008,7 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('trustRepairPending: $trustRepairPending, ')
           ..write('chaosModeEnabled: $chaosModeEnabled, ')
           ..write('chaosPressure: $chaosPressure, ')
+          ..write('chaosNsfwEnabled: $chaosNsfwEnabled, ')
           ..write('needsSimEnabled: $needsSimEnabled, ')
           ..write('needsVector: $needsVector, ')
           ..write('pockets: $pockets, ')
@@ -4038,6 +4079,7 @@ class Session extends DataClass implements Insertable<Session> {
     trustRepairPending,
     chaosModeEnabled,
     chaosPressure,
+    chaosNsfwEnabled,
     needsSimEnabled,
     needsVector,
     pockets,
@@ -4107,6 +4149,7 @@ class Session extends DataClass implements Insertable<Session> {
           other.trustRepairPending == this.trustRepairPending &&
           other.chaosModeEnabled == this.chaosModeEnabled &&
           other.chaosPressure == this.chaosPressure &&
+          other.chaosNsfwEnabled == this.chaosNsfwEnabled &&
           other.needsSimEnabled == this.needsSimEnabled &&
           other.needsVector == this.needsVector &&
           other.pockets == this.pockets &&
@@ -4174,6 +4217,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<bool> trustRepairPending;
   final Value<bool> chaosModeEnabled;
   final Value<int> chaosPressure;
+  final Value<bool> chaosNsfwEnabled;
   final Value<bool> needsSimEnabled;
   final Value<String?> needsVector;
   final Value<String?> pockets;
@@ -4240,6 +4284,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.trustRepairPending = const Value.absent(),
     this.chaosModeEnabled = const Value.absent(),
     this.chaosPressure = const Value.absent(),
+    this.chaosNsfwEnabled = const Value.absent(),
     this.needsSimEnabled = const Value.absent(),
     this.needsVector = const Value.absent(),
     this.pockets = const Value.absent(),
@@ -4307,6 +4352,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.trustRepairPending = const Value.absent(),
     this.chaosModeEnabled = const Value.absent(),
     this.chaosPressure = const Value.absent(),
+    this.chaosNsfwEnabled = const Value.absent(),
     this.needsSimEnabled = const Value.absent(),
     this.needsVector = const Value.absent(),
     this.pockets = const Value.absent(),
@@ -4374,6 +4420,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<bool>? trustRepairPending,
     Expression<bool>? chaosModeEnabled,
     Expression<int>? chaosPressure,
+    Expression<bool>? chaosNsfwEnabled,
     Expression<bool>? needsSimEnabled,
     Expression<String>? needsVector,
     Expression<String>? pockets,
@@ -4451,6 +4498,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
         'trust_repair_pending': trustRepairPending,
       if (chaosModeEnabled != null) 'chaos_mode_enabled': chaosModeEnabled,
       if (chaosPressure != null) 'chaos_pressure': chaosPressure,
+      if (chaosNsfwEnabled != null) 'chaos_nsfw_enabled': chaosNsfwEnabled,
       if (needsSimEnabled != null) 'needs_sim_enabled': needsSimEnabled,
       if (needsVector != null) 'needs_vector': needsVector,
       if (pockets != null) 'pockets': pockets,
@@ -4523,6 +4571,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<bool>? trustRepairPending,
     Value<bool>? chaosModeEnabled,
     Value<int>? chaosPressure,
+    Value<bool>? chaosNsfwEnabled,
     Value<bool>? needsSimEnabled,
     Value<String?>? needsVector,
     Value<String?>? pockets,
@@ -4596,6 +4645,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       trustRepairPending: trustRepairPending ?? this.trustRepairPending,
       chaosModeEnabled: chaosModeEnabled ?? this.chaosModeEnabled,
       chaosPressure: chaosPressure ?? this.chaosPressure,
+      chaosNsfwEnabled: chaosNsfwEnabled ?? this.chaosNsfwEnabled,
       needsSimEnabled: needsSimEnabled ?? this.needsSimEnabled,
       needsVector: needsVector ?? this.needsVector,
       pockets: pockets ?? this.pockets,
@@ -4773,6 +4823,9 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     if (chaosPressure.present) {
       map['chaos_pressure'] = Variable<int>(chaosPressure.value);
     }
+    if (chaosNsfwEnabled.present) {
+      map['chaos_nsfw_enabled'] = Variable<bool>(chaosNsfwEnabled.value);
+    }
     if (needsSimEnabled.present) {
       map['needs_sim_enabled'] = Variable<bool>(needsSimEnabled.value);
     }
@@ -4890,6 +4943,7 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('trustRepairPending: $trustRepairPending, ')
           ..write('chaosModeEnabled: $chaosModeEnabled, ')
           ..write('chaosPressure: $chaosPressure, ')
+          ..write('chaosNsfwEnabled: $chaosNsfwEnabled, ')
           ..write('needsSimEnabled: $needsSimEnabled, ')
           ..write('needsVector: $needsVector, ')
           ..write('pockets: $pockets, ')

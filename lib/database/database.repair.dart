@@ -204,6 +204,7 @@ extension AppDatabaseMaintenance on AppDatabase {
         'start_day_of_week INTEGER NOT NULL DEFAULT 0',
         'chaos_mode_enabled INTEGER NOT NULL DEFAULT 0',
         'chaos_pressure INTEGER NOT NULL DEFAULT 0',
+        'chaos_nsfw_enabled INTEGER NOT NULL DEFAULT 0', // v56
         'generation_settings TEXT',
         'user_persona_id TEXT',
         'passage_of_time_enabled INTEGER NOT NULL DEFAULT 1',

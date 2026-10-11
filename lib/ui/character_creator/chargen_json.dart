@@ -18,7 +18,7 @@
 
 import 'dart:convert';
 
-import 'package:front_porch_ai/services/chargen/chargen.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// Robust extractor for chargen JSON values from LLM output. Handles markdown
 /// fences, literal newlines, unescaped quotes, and falls back to regex.
@@ -43,37 +43,9 @@ String? extractChargenValue(String raw, String key) {
 
   // 2) Escape literal newlines inside strings, drop trailing commas, retry.
   try {
-    String fixed = jsonStr.replaceAll('\r\n', '\\n').replaceAll('\r', '\\n');
-    final sb = StringBuffer();
-    bool inString = false;
-    bool escaped = false;
-    for (int i = 0; i < fixed.length; i++) {
-      final ch = fixed[i];
-      if (escaped) {
-        sb.write(ch);
-        escaped = false;
-        continue;
-      }
-      if (ch == '\\') {
-        sb.write(ch);
-        escaped = true;
-        continue;
-      }
-      if (ch == '"') {
-        inString = !inString;
-        sb.write(ch);
-        continue;
-      }
-      if (ch == '\n' && inString) {
-        sb.write('\\n');
-        continue;
-      }
-      sb.write(ch);
-    }
-    fixed = sb
-        .toString()
-        .replaceAll(RegExp(r',\s*}'), '}')
-        .replaceAll(RegExp(r',\s*]'), ']');
+    final fixed = JsonSanitizer.escapeControlCharsInStrings(
+      jsonStr,
+    ).replaceAll(RegExp(r',\s*}'), '}').replaceAll(RegExp(r',\s*]'), ']');
     final data = json.decode(fixed) as Map<String, dynamic>;
     final value = data[key]?.toString();
     if (value != null && value.isNotEmpty) return value;
