@@ -30,6 +30,7 @@ export 'waifu_jail.dart';
 export 'waifu_lang_catalog.dart';
 export 'waifu_lang_runtime.dart';
 export 'waifu_opencode.dart';
+export 'waifu_opencode_seat.dart';
 export 'waifu_permissions.dart';
 export 'waifu_question.dart';
 export 'waifu_session.dart';

@@ -88,6 +88,8 @@ Map<String, dynamic> buildOpenCodeConfigMap({
   Map<String, dynamic>? skills,
   String? voicePrompt,
   String? pluginPath,
+  String? planPrompt,
+  Map<String, dynamic>? planPermission,
 }) {
   final slot = modelId.isEmpty ? kOpenCodePorchModelSlot : modelId;
   final voice = openCodeVoicePermissionMap();
@@ -121,10 +123,11 @@ Map<String, dynamic> buildOpenCodeConfigMap({
         'permission': permission,
       },
       'plan': {
+        'description': 'Read-only planning',
         'mode': 'primary',
         'model': porchModel,
-        'prompt': agentPrompt,
-        'permission': permission,
+        'prompt': planPrompt ?? agentPrompt,
+        'permission': planPermission ?? permission,
       },
       if (voicePrompt != null && voicePrompt.isNotEmpty)
         'voice': {
@@ -151,6 +154,9 @@ Future<void> writeOpenCodeConfigFile(
   ).writeAsString(const JsonEncoder.withIndent('  ').convert(config));
 }
 
+/// Waifu Coder writes this with `yolo: false` for every mode. Yolo answers
+/// each ask in Dart instead, so a mode switch lands on the next tool call
+/// without restarting the serve.
 Map<String, dynamic> openCodePermissionMap({
   required bool folderJail,
   required bool yolo,
@@ -166,10 +172,38 @@ Map<String, dynamic> openCodePermissionMap({
     'skill': askOrAllow,
     'bash': {
       '*': askOrAllow,
-      'rm -rf *': 'deny',
-      'git push --force*': 'deny',
-      'git reset --hard*': 'deny',
+      for (final pattern in kOpenCodeBashDeny) pattern: 'deny',
     },
     'external_directory': folderJail ? 'deny' : askOrAllow,
+  };
+}
+
+/// Wipe and history-rewrite commands OpenCode refuses in every mode. A
+/// pattern list is a speed bump, not a sandbox; the honesty copy says so.
+const kOpenCodeBashDeny = [
+  'rm -rf *',
+  'rm -fr *',
+  'rm -r -f *',
+  'sudo *',
+  'git push --force*',
+  'git push -f*',
+  'git reset --hard*',
+  'git clean -f*',
+];
+
+/// Plan agent: reads and searches ask as in Build; edits, commands and
+/// subagents are refused, so Plan cannot touch the disk in any mode.
+Map<String, dynamic> openCodePlanPermissionMap({required bool folderJail}) {
+  return {
+    'read': 'ask',
+    'glob': 'ask',
+    'grep': 'ask',
+    'list': 'ask',
+    'todowrite': 'ask',
+    'skill': 'ask',
+    'edit': 'deny',
+    'bash': 'deny',
+    'task': 'deny',
+    'external_directory': folderJail ? 'deny' : 'ask',
   };
 }
