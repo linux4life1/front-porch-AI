@@ -56,6 +56,10 @@ export interface Message {
   swipeCount?: number;
   swipeIndex?: number;
   hasThinking?: boolean;
+  /** The reply kept the prompt that produced it (Inspect prompt). */
+  hasContext?: boolean;
+  /** KoboldCpp kept the words this reply nearly used (Other words). */
+  hasTokenAlts?: boolean;
   thinkingContent?: string;
   characterId?: string;
   /** Living Time §1 dream narration (additive — absent on older facades). */

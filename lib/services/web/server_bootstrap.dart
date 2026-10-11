@@ -65,6 +65,7 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
   if (deps.chatFacade != null) {
     WebChatRoutes(deps.chatFacade!, router);
     WebChatOverlayRoutes(deps.chatFacade!, router);
+    WebTokenAltsRoutes(deps.chatFacade!, router);
   }
   if (deps.chatPackageFacade != null) {
     WebChatPackageRoutes(deps.chatPackageFacade!, router);

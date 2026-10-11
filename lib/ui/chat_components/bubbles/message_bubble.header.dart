@@ -239,6 +239,38 @@ extension _BubbleHeader on _MessageBubbleState {
               );
             },
           ),
+        if (widget.chatService != null &&
+            !message.isUser &&
+            message.activeMetadata?[kReplyContextKey] is Map) ...[
+          IconButton(
+            icon: Icon(
+              Icons.analytics_outlined,
+              size: 16,
+              color: theme.accent ?? AppColors.textTertiary(context),
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Inspect prompt',
+            onPressed: () => _showReplyContext(context),
+          ),
+          const SizedBox(width: 8),
+        ],
+        if (widget.chatService != null &&
+            !message.isUser &&
+            message.activeMetadata?[kTokenAltsKey] is List) ...[
+          IconButton(
+            icon: Icon(
+              Icons.alt_route,
+              size: 16,
+              color: theme.accent ?? AppColors.textTertiary(context),
+            ),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            tooltip: 'Other words',
+            onPressed: () => _showTokenAlternatives(context),
+          ),
+          const SizedBox(width: 8),
+        ],
         if (widget.chatService != null && message.sender != 'System')
           IconButton(
             icon: Icon(

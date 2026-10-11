@@ -150,7 +150,9 @@ extension ChatServiceGenerationRequest on ChatService {
       bool? reasoningEnabled,
       int? reasoningMaxTokens,
     }) {
-      final callOrContinue = _callMode || t.mode == GenerationMode.continue_;
+      // A rewrite from a word also writes inside the answer: no thinking.
+      final callOrContinue =
+          _callMode || t.mode == GenerationMode.continue_ || _isSeeded(t);
       return GenerationParams(
         prompt: p,
         systemPrompt: systemPrompt ?? chatSystemPrompt,
@@ -191,6 +193,8 @@ extension ChatServiceGenerationRequest on ChatService {
         images: turnImages,
         kvChat: _kvChatKey,
         stillWant: () => !_cancelRequested,
+        chatMessages: _seededMessages(t, p),
+        onLogprobs: _logprobsSink(t),
       );
     }
 

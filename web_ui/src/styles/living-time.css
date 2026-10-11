@@ -430,3 +430,9 @@
   .variant-card-head { flex-wrap: wrap; }
   .variant-card-meta { margin-left: 0; width: 100%; order: 3; }
 }
+
+/* "Other words" (TokenAlternativesModal): one place per row, its words as chips. */
+.tokalt-place { padding: 8px 0; border-bottom: 1px solid var(--border); }
+.tokalt-words { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.tokalt-word { border: 1px solid var(--border); cursor: pointer; font-size: 0.8rem; color: var(--text); }
+.tokalt-word:disabled { cursor: default; opacity: 0.6; }

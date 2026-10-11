@@ -59,7 +59,7 @@ extension ChatServiceGenerationPostGen on ChatService {
     if (t.epoch == _generationEpoch &&
         emptySpeechAfterPregen(
           accumulated: t.accumulatedResponse,
-          isContinue: t.mode == GenerationMode.continue_,
+          isContinue: t.mode == GenerationMode.continue_ || _isSeeded(t),
         )) {
       debugPrint(
         '[GpuSwap] empty mouth stream after PRE-GEN attach — not success',
@@ -107,7 +107,7 @@ extension ChatServiceGenerationPostGen on ChatService {
           : '';
       String finalResponse = t.mode == GenerationMode.continue_
           ? glueContinueText(prefix, newPart)
-          : newPart.trim();
+          : (t.continuePrefix + newPart).trim(); // prefix: a rewrite's seed
 
       // Close a dangling think. Lift only a short closed think-only line.
       // A long reasoning dump stays tagged. An unclosed cut-off stays tagged.
@@ -158,6 +158,7 @@ extension ChatServiceGenerationPostGen on ChatService {
       if (finalResponse.isNotEmpty || t.mode == GenerationMode.continue_) {
         t.streamTarget.text = finalResponse;
       }
+      _stampTokenAlts(t);
 
       // Turn taken = durable, before lorebook/evals.
       await _saveChat();

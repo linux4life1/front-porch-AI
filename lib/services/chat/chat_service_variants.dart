@@ -183,3 +183,160 @@ extension ChatServiceVariants on ChatService {
     }
   }
 }
+
+/// Per-token probabilities a KoboldCpp reply sent, kept per turn.
+final _turnLogprobs = Expando<List<Object?>>('turnLogprobs');
+
+/// Token alternatives (KoboldCpp only, see token_alternatives.dart): capture
+/// a reply's word odds, keep the unsure places on its swipe, and rewrite the
+/// last reply from one of them as a new swipe.
+extension ChatServiceTokenAlts on ChatService {
+  /// A rewrite from a word: the reply starts with [_GenTurn.continuePrefix],
+  /// which KoboldCpp continues as a trailing assistant message.
+  bool _isSeeded(_GenTurn t) =>
+      t.mode == GenerationMode.normal && t.continuePrefix.isNotEmpty;
+
+  /// Hands the pending rewrite seed to the turn being planned.
+  void _applyRegenSeed(_GenTurn t) {
+    final seed = _regenSeed;
+    _regenSeed = null;
+    if (seed != null && t.mode == GenerationMode.normal) {
+      t.continuePrefix = seed;
+    }
+  }
+
+  List<Map<String, Object>>? _seededMessages(_GenTurn t, String prompt) =>
+      _isSeeded(t)
+      ? [
+          {'role': 'user', 'content': prompt},
+          {'role': 'assistant', 'content': t.continuePrefix},
+        ]
+      : null;
+
+  /// Asks for word odds on a normal reply from KoboldCpp, and nowhere else.
+  void Function(List<Object?>)? _logprobsSink(_GenTurn t) {
+    if (!_mouthIsLocal || t.mode != GenerationMode.normal || _callMode) {
+      return null;
+    }
+    return (tokens) => (_turnLogprobs[t] ??= []).addAll(tokens);
+  }
+
+  /// Keeps the unsure places of the finished reply on its swipe.
+  void _stampTokenAlts(_GenTurn t) {
+    final tokens = _turnLogprobs[t];
+    if (tokens == null || tokens.isEmpty) return;
+    final found = buildTokenAlternatives(
+      tokens,
+      tokenAltsBody(t.streamTarget.text),
+      from: _isSeeded(t) ? t.continuePrefix.length : 0,
+    );
+    if (found.isEmpty) return;
+    t.streamTarget.activeMetadata ??= {};
+    t.streamTarget.activeMetadata![kTokenAltsKey] = [
+      for (final a in found) a.toJson(),
+    ];
+  }
+
+  /// The places in reply [index] where the model weighed other words.
+  List<TokenAlternative> tokenAlternativesAt(int index) {
+    if (index < 0 || index >= _messages.length) return const [];
+    final m = _messages[index];
+    return m.isUser ? const [] : tokenAlternativesOf(m);
+  }
+
+  /// Why reply [index] cannot be rewritten from a word now; null when it can.
+  String? tokenAltsPickRefusal(int index) {
+    if (isGenerating || isSettlingTurn) return 'Wait for the reply to finish.';
+    if (index != _messages.length - 1) {
+      return 'Only the last reply can be rewritten from a word.';
+    }
+    if (!_mouthIsLocal) return 'Rewriting from a word needs KoboldCpp.';
+    return null;
+  }
+
+  /// Rewrites the last reply from [at], writing [pick] there: a new swipe
+  /// that keeps the reply's words up to that point. It runs as Regenerate
+  /// does (the turn is rewound and post-gen scores the whole new reply).
+  Future<bool> rewriteFromAlternative(
+    int index,
+    TokenAlternative at,
+    String pick,
+  ) async {
+    if (tokenAltsPickRefusal(index) != null) return false;
+    final msg = _messages[index];
+    final body = tokenAltsBody(msg.text);
+    if (!body.startsWith(at.token, at.offset)) return false;
+    final carried = [
+      for (final a in tokenAlternativesOf(msg))
+        if (a.offset < at.offset) a,
+    ];
+    final before = msg.swipes.length;
+    _regenSeed = tokenAltsSeed(body, at, pick);
+    try {
+      await regenerateLastMessage();
+    } finally {
+      _regenSeed = null;
+    }
+    if (_messages.isEmpty || !identical(_messages.last, msg)) return false;
+    if (msg.swipes.length <= before) return false;
+    // The words before the pick are unchanged, so their places still hold.
+    final now = tokenAltsBody(msg.text);
+    final kept = [
+      for (final a in carried)
+        if (now.startsWith(a.token, a.offset)) a.toJson(),
+    ];
+    if (kept.isNotEmpty) {
+      final fresh = msg.activeMetadata?[kTokenAltsKey];
+      msg.activeMetadata ??= {};
+      msg.activeMetadata![kTokenAltsKey] = [
+        ...kept,
+        if (fresh is List) ...fresh,
+      ];
+      await _saveChat();
+      notifyListeners();
+    }
+    return true;
+  }
+
+  /// Reply [index]'s places for the web: each with the words before it, and
+  /// whether a word can be picked now.
+  Map<String, dynamic> tokenAlternativesJson(int index) {
+    final places = tokenAlternativesAt(index);
+    final body = places.isEmpty ? '' : tokenAltsBody(_messages[index].text);
+    final refusal = tokenAltsPickRefusal(index);
+    return {
+      'canPick': refusal == null,
+      'refusal': ?refusal,
+      'places': [
+        for (final a in places)
+          {
+            'token': a.token,
+            'p': a.p,
+            'leadIn': tokenAltsLeadIn(body, a),
+            'alts': [
+              for (final w in a.alts) {'token': w.token, 'p': w.p},
+            ],
+          },
+      ],
+    };
+  }
+
+  /// The place a web pick names, or why it cannot be picked.
+  ({TokenAlternative? at, String? refusal}) tokenAltPick(
+    int index,
+    int place,
+    String word,
+  ) {
+    final refusal = tokenAltsPickRefusal(index);
+    if (refusal != null) return (at: null, refusal: refusal);
+    final places = tokenAlternativesAt(index);
+    if (place < 0 || place >= places.length) {
+      return (at: null, refusal: 'That word is no longer on offer.');
+    }
+    final at = places[place];
+    if (!at.alts.any((a) => a.token == word)) {
+      return (at: null, refusal: 'That word is no longer on offer.');
+    }
+    return (at: at, refusal: null);
+  }
+}

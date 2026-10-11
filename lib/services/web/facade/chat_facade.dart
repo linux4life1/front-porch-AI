@@ -85,14 +85,20 @@ class ChatFacade {
   /// Context Budget payload (desktop ContextViewerDialog parity): per-section
   /// token estimate + the REAL text each section contributed to the last
   /// assembled prompt. Additive endpoint — old clients simply never call it.
-  Map<String, dynamic> contextBudget() {
-    final texts = _chat.lastPromptSections;
+  /// The chat's last send, or with [index] the prompt record of that reply
+  /// (null when the reply has none).
+  Map<String, dynamic>? contextBudget({int? index}) {
+    final snap = index == null ? null : _chat.replyContextSnapshot(index);
+    if (index != null && snap == null) return null;
+    final texts = snap?.sections ?? _chat.lastPromptSections;
+    final at = snap != null ? snap.assembledAt : _chat.promptBudgetAssembledAt;
     return {
-      'contextLimit': _chat.contextSize,
-      'source': _chat.promptBudgetSource.name,
-      'assembledAt': _chat.promptBudgetAssembledAt?.toIso8601String(),
+      'contextLimit': snap?.contextLimit ?? _chat.contextSize,
+      'source': snap != null ? 'reply' : _chat.promptBudgetSource.name,
+      'assembledAt': at?.toIso8601String(),
+      if (snap != null) 'textPruned': snap.sections.isEmpty,
       'sections': [
-        for (final e in _chat.lastPromptBudget.entries)
+        for (final e in (snap?.budget ?? _chat.lastPromptBudget).entries)
           {'label': e.key, 'tokens': e.value, 'text': texts[e.key] ?? ''},
       ],
     };
@@ -101,7 +107,7 @@ class ChatFacade {
   /// Rebuild a live estimate from the open chat (no model call).
   Future<Map<String, dynamic>> refreshContextBudget() async {
     await _chat.estimateContextBudgetNow();
-    return contextBudget();
+    return contextBudget()!;
   }
 
   /// Re-probe the current backend+model's tool-calling support (the web
@@ -460,6 +466,20 @@ class ChatFacade {
       ),
     );
     _notify();
+  }
+
+  /// The words the model weighed in reply [index] (KoboldCpp only).
+  Map<String, dynamic> tokenAlternatives(int index) =>
+      _chat.tokenAlternativesJson(index);
+
+  /// Rewrites reply [index] from [place] with [word]; null once started,
+  /// otherwise why it cannot.
+  String? pickTokenAlternative(int index, int place, String word) {
+    final pick = _chat.tokenAltPick(index, place, word);
+    if (pick.at == null) return pick.refusal;
+    withoutCity96Ask(() => _chat.rewriteFromAlternative(index, pick.at!, word));
+    _notify();
+    return null;
   }
 
   String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);

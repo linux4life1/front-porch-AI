@@ -61,6 +61,10 @@ mixin ChatServiceGroupRealismFields {
   bool _rescoringFeelings = false;
   final List<TierCrossing> _rescoreCrossings = [];
 
+  /// A rewrite from a word waiting for its turn: the next normal reply
+  /// starts with this text (see chat_service_variants.dart).
+  String? _regenSeed;
+
   /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
   final _toolProbe = ToolTransportProbe();
 }

@@ -79,10 +79,27 @@ Map<String, dynamic> _chatPayload(
   final system = params.systemPrompt;
   final custom = params.chatMessages;
   if (custom != null && custom.isNotEmpty) {
-    if (system != null && system.isNotEmpty && !foldSystemIntoUser) {
-      messages.add({'role': 'system', 'content': system});
+    var list = custom;
+    if (system != null && system.isNotEmpty) {
+      if (!foldSystemIntoUser) {
+        messages.add({'role': 'system', 'content': system});
+      } else {
+        // No system role on this model: the system text rides the first user
+        // message, as it does on the single-message path below.
+        final first = list.indexWhere((m) => m['role'] == 'user');
+        if (first >= 0) {
+          list = [...list];
+          list[first] = {
+            ...list[first],
+            'content': foldSystemIntoUserContent(
+              system,
+              list[first]['content']!,
+            ),
+          };
+        }
+      }
     }
-    messages.addAll(attachOpenAiImagesToLastUser(custom, params.images));
+    messages.addAll(attachOpenAiImagesToLastUser(list, params.images));
   } else {
     var userContent = params.openAiUserContent;
     if (system != null && system.isNotEmpty) {
@@ -170,6 +187,10 @@ Map<String, dynamic> _chatPayload(
     // — the client-side trim hid it while the server generated on. The list
     // arrives priority-ordered (stop_sequences.dart).
     payload['stop'] = params.stopSequences!.take(kMaxLocalServerStops).toList();
+  }
+  if (params.onLogprobs != null) {
+    payload['logprobs'] = true;
+    payload['top_logprobs'] = kTopLogprobs;
   }
   return payload;
 }
@@ -365,6 +386,9 @@ Stream<String> streamOpenAiChat(
         try {
           final json = jsonDecode(data);
           final choice = json['choices']?[0];
+          // KoboldCpp streams a chat reply's logprobs in one final chunk.
+          final logprobs = choice?['logprobs']?['content'];
+          if (logprobs is List) params.onLogprobs?.call(logprobs);
           final delta = choice?['delta'];
           if (delta == null) continue;
           // Reasoning tokens first (jinja-mode Kobold uses reasoning_content;
