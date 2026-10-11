@@ -37,6 +37,10 @@ class LlmRequestCancel {
 }
 
 /// Generation parameters shared across all LLM backends.
+/// How many alternatives per token a [GenerationParams.onLogprobs] reply asks
+/// for. KoboldCpp caps this at 10.
+const kTopLogprobs = 5;
+
 class GenerationParams {
   final String prompt;
   final int maxLength;
@@ -148,6 +152,11 @@ class GenerationParams {
   /// carries it by mistake only costs speed.
   final String? kvChat;
 
+  /// When set, the reply asks for per-token probabilities (`logprobs`, with
+  /// [kTopLogprobs] alternatives each) and every `choices[0].logprobs.content`
+  /// list the server sends is handed here. Chat replies on KoboldCpp only.
+  final void Function(List<Object?> tokens)? onLogprobs;
+
   const GenerationParams({
     required this.prompt,
     this.maxLength = 200,
@@ -182,6 +191,7 @@ class GenerationParams {
     this.backendIdentity = '',
     this.chatMessages,
     this.kvChat,
+    this.onLogprobs,
   });
 
   /// Chat-completions `messages`. Null [chatMessages] is the historical
