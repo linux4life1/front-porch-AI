@@ -269,11 +269,17 @@ class WaifuSession {
   /// Sit-down / live probe. False fail-closes the loop — no silent coding.
   bool toolsSupported;
   ChatThemeOverrides themeOverrides;
-  final ChatGenerationSettings genSettings = ChatGenerationSettings();
+
+  /// Chat Settings for this project. Only the context size reaches Waifu
+  /// Coder today (the meter's budget); the rest is kept for the dialog.
+  ChatGenerationSettings genSettings = ChatGenerationSettings();
   int contextBudget = 8192;
   int tokensUsed = 0;
 
   /// True when [tokensUsed] came from the last API `usage` block.
   bool tokensFromApi = false;
   int compactPasses = 0;
+
+  /// Every tool chip in the transcript, oldest first.
+  List<WaifuToolChip> get toolChips => [for (final m in transcript) ...m.chips];
 }

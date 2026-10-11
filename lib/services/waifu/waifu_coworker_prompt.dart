@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/waifu/waifu_jail.dart';
 import 'package:front_porch_ai/services/waifu/waifu_tokens.dart';
 
 const kWaifuTalkSampleMaxTokens = 400;
@@ -123,7 +124,18 @@ const kWaifuOpenCodePreamble =
     'The project task list is `.waifu/todos.json` — read that file first; '
     'do not glob the whole disk looking for todos. todowrite does not '
     'finish the turn — keep calling write, edit, or bash until the work '
-    'is on disk. Stay under the session directory.';
+    'is on disk.';
+
+/// Plan agent: OpenCode denies edit and bash for it, so the prompt must not
+/// send the model after tools that will only bounce.
+const kWaifuPlanPreamble =
+    'Plan mode. You can read and search; editing files and running '
+    'commands are switched off, so do not try write, edit, patch, or bash. '
+    'Stay in this character’s voice. Sass is welcome; refusing the asked '
+    'work is not — this porch is 18+. Read `.waifu/todos.json` first, look '
+    'at what the task needs, then reply with a short numbered plan: each '
+    'file to change and what changes in it. The user switches to Build to '
+    'carry it out.';
 
 /// No-tool wrap-up agent. OpenCode idle plugin prompts this once.
 const kWaifuVoicePreamble =
@@ -135,8 +147,31 @@ String buildWaifuVoiceAgentPrompt(CharacterCard card, {DateTime? now}) {
   return '${buildWaifuCardPersona(card, now: now)}\n$kWaifuVoicePreamble';
 }
 
-String buildWaifuOpenCodeAgentPrompt(CharacterCard card, {DateTime? now}) {
-  return '${buildWaifuCardPersona(card, now: now)}\n$kWaifuOpenCodePreamble';
+/// Where the tools may go, matching the permission map OpenCode got.
+String waifuScopeRule(WaifuPathMode pathMode) => switch (pathMode) {
+  WaifuPathMode.folderJail =>
+    'Stay inside the project folder; paths outside it are refused.',
+  WaifuPathMode.wholeDisk =>
+    'Start in the project folder. You may read or change files elsewhere '
+        'when the task needs it.',
+};
+
+String buildWaifuOpenCodeAgentPrompt(
+  CharacterCard card, {
+  DateTime? now,
+  WaifuPathMode pathMode = WaifuPathMode.folderJail,
+}) {
+  return '${buildWaifuCardPersona(card, now: now)}\n'
+      '$kWaifuOpenCodePreamble ${waifuScopeRule(pathMode)}';
+}
+
+String buildWaifuPlanAgentPrompt(
+  CharacterCard card, {
+  DateTime? now,
+  WaifuPathMode pathMode = WaifuPathMode.folderJail,
+}) {
+  return '${buildWaifuCardPersona(card, now: now)}\n'
+      '$kWaifuPlanPreamble ${waifuScopeRule(pathMode)}';
 }
 
 /// Same string as the OpenCode agent. Kept so chrome tests that still
