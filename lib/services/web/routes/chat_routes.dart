@@ -76,8 +76,18 @@ class WebChatRoutes {
   shelf.Response _state(shelf.Request request) =>
       JsonResponse.ok(_facade.state());
 
-  shelf.Response _contextBudget(shelf.Request request) =>
-      JsonResponse.ok(_facade.contextBudget());
+  shelf.Response _contextBudget(shelf.Request request) {
+    final raw = request.url.queryParameters['index'];
+    final index = raw == null ? null : int.tryParse(raw);
+    if (raw != null && index == null) {
+      return JsonResponse.badRequest('index must be a number');
+    }
+    final body = _facade.contextBudget(index: index);
+    if (body == null) {
+      return JsonResponse.error(404, 'No prompt was kept for that reply');
+    }
+    return JsonResponse.ok(body);
+  }
 
   Future<shelf.Response> _refreshContextBudget(shelf.Request request) async =>
       JsonResponse.ok(await _facade.refreshContextBudget());

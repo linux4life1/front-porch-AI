@@ -62,6 +62,7 @@ extension ChatFacadeState on ChatFacade {
         'swipeCount': m.swipes.length,
         'swipeIndex': m.swipeIndex,
         'characterId': m.characterId,
+        if (!m.isUser && md?[kReplyContextKey] is Map) 'hasContext': true,
         'chips': ?chips,
         'image': ?imageName,
         'imagePrompt': ?imagePrompt,
