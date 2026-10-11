@@ -43,8 +43,6 @@ class OpenPromise {
     required this.party,
     required this.status,
   });
-
-  bool get isOpen => status == 'open';
 }
 
 /// Verdict from the tiny post-turn eval (pure parse target).

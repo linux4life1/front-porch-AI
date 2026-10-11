@@ -41,29 +41,4 @@ class WorldColors {
   static Color getColorForWorld(String worldId) {
     return PersonaColors.getColorForPersona(worldId);
   }
-
-  /// Get a CircleAvatar for a world with color-coding when no avatar exists.
-  ///
-  /// This method wraps PersonaColors.buildPersonaAvatar for semantic clarity
-  /// in the world management context. It displays either:
-  /// - The character's actual avatar if [avatarPath] is provided and valid
-  /// - A colored circle with an icon (globe) if no avatar exists
-  ///
-  /// [avatarPath] - Optional path to the character's avatar image.
-  /// [worldId] - The unique identifier for the world (determines color).
-  /// [radius] - The radius of the avatar circle.
-  /// [icon] - The icon to display when no avatar exists (default: globe).
-  static Widget buildWorldAvatar({
-    required String? avatarPath,
-    required String worldId,
-    required double radius,
-    IconData icon = Icons.public,
-  }) {
-    return PersonaColors.buildPersonaAvatar(
-      avatarPath: avatarPath,
-      personaId: worldId,
-      radius: radius,
-      icon: icon,
-    );
-  }
 }

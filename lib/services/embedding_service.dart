@@ -54,7 +54,6 @@ class EmbeddingService extends ChangeNotifier {
       'https://huggingface.co/nomic-ai/nomic-embed-text-v1.5/resolve/main';
 
   bool get isAvailable => _available;
-  String get activeSource => _available ? 'onnx' : 'none';
   int get dimensions => _dimensions;
 
   /// Last engine self-test / load failure (null when healthy). Surfaced in
@@ -64,22 +63,20 @@ class EmbeddingService extends ChangeNotifier {
   /// Whether the model files exist on disk (fastembed cache or the
   /// app-managed download dir) — drives the sidebar status line.
   bool get modelOnDisk =>
-      (_files ??= NativeEmbeddingEngine.resolveModelFiles(
-        _storage.rootPath,
-      )) !=
+      (_files ??= NativeEmbeddingEngine.resolveModelFiles(_storage.rootPath)) !=
       null;
 
   /// Compact status for the web tools panel (and any other remote surface).
   /// Additive fields only — never remove keys from an old reader.
   Map<String, dynamic> get statusSnapshot => {
-        'available': _available,
-        'modelOnDisk': modelOnDisk,
-        'settingUp': _settingUp,
-        'setupProgress': _setupProgress,
-        'setupStatus': _setupStatus,
-        'setupError': _setupError,
-        'lastEngineError': _lastEngineError,
-      };
+    'available': _available,
+    'modelOnDisk': modelOnDisk,
+    'settingUp': _settingUp,
+    'setupProgress': _setupProgress,
+    'setupStatus': _setupStatus,
+    'setupError': _setupError,
+    'lastEngineError': _lastEngineError,
+  };
 
   EmbeddingService(this._storage);
 
@@ -155,8 +152,10 @@ class EmbeddingService extends ChangeNotifier {
         );
         _files = NativeEmbeddingEngine.resolveModelFiles(_storage.rootPath);
         if (_files == null) {
-          throw StateError('download finished but the model files failed '
-              'verification');
+          throw StateError(
+            'download finished but the model files failed '
+            'verification',
+          );
         }
       }
 
@@ -310,17 +309,6 @@ class EmbeddingService extends ChangeNotifier {
       );
     }
     return null;
-  }
-
-  /// Batch embed multiple texts. Returns null entries for failures.
-  Future<List<List<double>?>> embedBatch(List<String> texts) async {
-    if (!_available) return List.filled(texts.length, null);
-
-    final results = <List<double>?>[];
-    for (final text in texts) {
-      results.add(await embed(text));
-    }
-    return results;
   }
 
   Future<List<double>> _nativeEmbed(String text) => _native.embed(

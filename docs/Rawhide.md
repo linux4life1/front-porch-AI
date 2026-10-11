@@ -8,6 +8,7 @@ Last shipped nightly: `rawhide.20261006.fbe655b`. Everything below is unreleased
 ## Recent improvements (unreleased — ships in the next build)
 
 - 📊 **See the prompt behind any reply** — each reply now has an Inspect prompt button that opens the Context Budget for the exact prompt that produced it, not only the latest one. Every reply keeps its token counts; the 20 newest also keep the full text of each section, so you can read and copy what the model was sent. A regenerated take has its own; Continue keeps the original. On the desktop and the phone.
+- 🧑‍💻 **Waifu Coder turns always finish** — a turn no longer spins forever if OpenCode stops mid-task or the wrap-up goes quiet; it ends and says so, and the next message starts OpenCode again. Speech with emoji, kaomoji or Japanese no longer loses words. Stop no longer gets a late wrap-up afterwards. Undo now takes back the whole turn, including the files it changed, instead of only the closing words. Each tool shows once in the log instead of once per step. And your coworker remembers the conversation after you restart the app.
 
 - 🖥️ **Sharper text while a model is running, on Windows and Linux too** — the app now draws with the same renderer it used before Flutter 3.47 on every desktop. The newer renderer smeared and ghosted text whenever the graphics card was busy with a local model; the Mac build switched last week, and Windows and Linux follow.
 

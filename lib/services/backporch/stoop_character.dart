@@ -56,7 +56,6 @@ class StoopCharacter {
     this.commentsEnabled = false,
   });
 
-  bool get isPending => status == 'PENDING';
   bool get isApproved => status == 'APPROVED';
   bool get isRejected => status == 'REJECTED' || status == 'TAKEN_DOWN';
 

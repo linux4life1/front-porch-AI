@@ -132,10 +132,6 @@ class ObjectiveApply {
       kind == ObjectiveApplyKind.completeOpenTask ||
       kind == ObjectiveApplyKind.completeOpenTaskAndAchieve ||
       kind == ObjectiveApplyKind.achieveTaskless;
-
-  bool get retiresStale =>
-      kind == ObjectiveApplyKind.staleOpenTaskAndRetire ||
-      kind == ObjectiveApplyKind.retireObjectiveStale;
 }
 
 /// Task-stale is immediate. Objective-stale uses [retireObjectiveNow]

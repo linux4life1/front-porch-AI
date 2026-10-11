@@ -44,7 +44,4 @@ class RemoteSetupResult {
 
   /// Whether the best available address was just verified to route back here.
   final bool reachable;
-
-  /// The address to surface first: HTTPS when available, else the port URL.
-  String? get primaryUrl => httpsUrl ?? portUrl;
 }

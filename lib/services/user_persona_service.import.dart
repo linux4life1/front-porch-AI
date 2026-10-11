@@ -33,41 +33,6 @@ extension UserPersonaServiceImport on UserPersonaService {
     await file.writeAsString(jsonEncode(data));
   }
 
-  /// Import personas from a JSON file (downloaded from cloud).
-  Future<void> _importFromFileImpl(String filePath) async {
-    final file = File(filePath);
-    if (!await file.exists()) return;
-    final content = await file.readAsString();
-    final data = jsonDecode(content) as Map<String, dynamic>;
-    final list = (data['personas'] as List?)
-        ?.map((e) => UserPersona.fromJson(e))
-        .toList();
-    if (list != null && list.isNotEmpty) {
-      // Clear existing personas from DB and re-import
-      for (final p in _personas) {
-        await _db.deletePersonaById(p.id);
-      }
-      _personas = list;
-      _defaultPersonaId = data['active_persona_id'] ?? _personas.first.id;
-      _activePersonaId = _defaultPersonaId;
-
-      for (final p in _personas) {
-        await _db.insertPersona(
-          PersonasCompanion.insert(
-            id: p.id,
-            title: Value(p.title),
-            name: Value(p.name),
-            persona: Value(p.persona),
-            avatarPath: Value(p.avatarPath),
-            birthday: Value(p.birthday.isEmpty ? null : p.birthday),
-            isActive: Value(p.id == _defaultPersonaId),
-          ),
-        );
-      }
-      notify();
-    }
-  }
-
   /// Import persona(s) from a JSON file.
   ///
   /// Supports multiple formats with auto-detection:

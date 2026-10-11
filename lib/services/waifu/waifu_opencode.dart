@@ -18,7 +18,8 @@
 
 import 'dart:convert';
 import 'dart:io';
-import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -116,7 +117,8 @@ Future<void> writeWaifuOpenCodeConfig({
   );
 }
 
-/// Sit-down handshake: write isolated config, start our serve, open a session.
+/// Sit-down handshake: write isolated config, start our serve, then resume
+/// [resumeSessionId] when this serve still has it, else open a new session.
 Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
   required OpenCodeManager manager,
   required OpenCodeClient Function(Uri base, String directory) clientOf,
@@ -127,6 +129,7 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
   required OpenCodePorchBackend backend,
   Map<String, dynamic>? mcp,
   Directory? skillsDir,
+  String? resumeSessionId,
 }) async {
   await writeWaifuOpenCodeConfig(
     closet: manager.closet,
@@ -142,6 +145,15 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
   await manager.stop();
   await manager.start(workingDirectory: folderRoot);
   final client = clientOf(manager.baseUri, folderRoot);
+  final resume = resumeSessionId;
+  if (resume != null && resume.isNotEmpty) {
+    try {
+      final known = await client.getSession(resume);
+      if (known != null) return known;
+    } catch (e) {
+      debugPrint('[waifu] could not resume OpenCode session $resume: $e');
+    }
+  }
   return client.createSession(
     title: coworker.name,
     agent: openCodeAgentForMode(mode),
@@ -185,4 +197,19 @@ Future<void> waifuRetargetOpenCode({
       skills: skillsDir == null ? null : openCodeSkillsConfig(skillsDir),
     ),
   );
+}
+
+/// First assistant message of the last coding turn in [messages] (oldest
+/// first). The voice wrap-up and the plugin's prompt for it are skipped, so
+/// a revert removes the coding work, not only the wrap-up.
+String? waifuTurnStartAssistantId(List<OpenCodeMessageInfo> messages) {
+  String? start;
+  for (final m in messages.reversed) {
+    if (m.role == 'assistant' && m.agent != 'voice') {
+      start = m.id;
+    } else if (start != null) {
+      break;
+    }
+  }
+  return start;
 }

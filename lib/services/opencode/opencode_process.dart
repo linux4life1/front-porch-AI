@@ -47,6 +47,7 @@ class OpenCodeProcessHandle {
     required void Function(ProcessSignal signal) kill,
     Future<int>? exitCode,
   }) : _kill = kill,
+       tracksExit = exitCode != null,
        exitCode = exitCode ?? Future<int>.value(0);
 
   factory OpenCodeProcessHandle.fake({
@@ -59,6 +60,9 @@ class OpenCodeProcessHandle {
   final int pid;
   final void Function(ProcessSignal signal) _kill;
   final Future<int> exitCode;
+
+  /// False for fakes: their [exitCode] is a placeholder, not a real exit.
+  final bool tracksExit;
 
   void kill([ProcessSignal signal = ProcessSignal.sigterm]) => _kill(signal);
 }

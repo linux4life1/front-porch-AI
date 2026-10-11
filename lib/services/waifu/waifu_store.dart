@@ -77,6 +77,11 @@ CharacterCard _coworkerFrom(Map map) => CharacterCard(
   imagePath: map['imagePath']?.toString(),
 );
 
+String? _nonEmpty(Object? raw) {
+  final s = raw?.toString().trim() ?? '';
+  return s.isEmpty ? null : s;
+}
+
 /// JSON under a data dir — not the chat `messages` / `sessions` tables.
 class WaifuStore {
   WaifuStore(this.directory);
@@ -168,6 +173,7 @@ class WaifuStore {
     'honestyAccepted': true,
     'mcpOptIn': session.mcpOptIn,
     'preserveThinking': session.preserveThinking,
+    'openCodeSessionId': ?session.openCodeSessionId,
     'toolsSupported': session.toolsSupported,
     'tokensUsed': session.tokensUsed,
     'contextBudget': session.contextBudget,
@@ -354,6 +360,7 @@ class WaifuStore {
             )
             ..tokensUsed = used < 0 ? 0 : used
             ..tokensFromApi = map['tokensFromApi'] == true
+            ..openCodeSessionId = _nonEmpty(map['openCodeSessionId'])
             ..compactPasses = (map['compactPasses'] as num?)?.toInt() ?? 0
             ..contextBudget = (budgetRaw != null && budgetRaw > 0)
                 ? budgetRaw
