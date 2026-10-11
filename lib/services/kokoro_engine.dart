@@ -17,13 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:front_porch_ai/services/engine_health.dart';
 import 'package:front_porch_ai/services/tts_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/kokoro_debug.dart';
 import 'package:front_porch_ai/services/tts/sherpa_kokoro_engine.dart';
 
 /// Kokoro TTS engine — high-quality local TTS, generated in-process by the
@@ -126,7 +126,7 @@ class KokoroEngine implements TtsEngine {
   /// avoid holding the large Kokoro model in memory for nothing.
   Future<void> ensureWorkersWarm() async {
     if (!_storageService.ttsSettings.ttsEnabled) {
-      kDebugPrint('[KokoroEngine] ensureWorkersWarm skipped (TTS disabled)');
+      debugPrint('[KokoroEngine] ensureWorkersWarm skipped (TTS disabled)');
       return;
     }
     final root = await _rootPath;

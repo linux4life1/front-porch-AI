@@ -110,20 +110,6 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
     final token = _token;
     if (token == null) return;
     final gen = ++_reqGen;
-    // Worlds are announced but not queryable until the backend accepts the
-    // WORLD type — show the coming-soon panel without hitting the server.
-    if (_type == 'world' && !kStoopWorldsLive) {
-      setState(() {
-        _grid.clear();
-        _picks = const [];
-        _following = const [];
-        _groups = const [];
-        _hasMore = false;
-        _loading = false;
-        _error = null;
-      });
-      return;
-    }
     setState(() {
       _loading = true;
       _error = null;
