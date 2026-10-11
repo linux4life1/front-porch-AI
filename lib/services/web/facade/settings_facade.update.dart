@@ -145,6 +145,12 @@ extension SettingsFacadeUpdate on SettingsFacade {
       if (chaos is bool) {
         await _storage.realismSettings.setChaosModeDefault(chaos);
       }
+      final chaosFreq = realism['chaosFrequency'];
+      if (chaosFreq is String) {
+        await _storage.realismSettings.setChaosFrequency(
+          ChaosFrequency.fromName(chaosFreq),
+        );
+      }
       final webSearch = realism['webSearchDefault'];
       if (webSearch is bool) {
         await _storage.webSearchSettings.setWebSearchDefault(webSearch);

@@ -84,7 +84,7 @@ extension _GroupWizardRealismStep on _CreateGroupChatPageState {
                     color: AppColors.textSecondary(context),
                   ),
                 ),
-                if (_chaosModeEnabled) ...[
+                if (_chaosModeEnabled && adultThemesEnabledOf(context)) ...[
                   const SizedBox(height: 10),
                   Row(
                     children: [

@@ -132,9 +132,9 @@ void main() {
     }
 
     final first = await hydrateOnce();
-    // 2026-10-06: v55 adds the refractory minute columns, so the ladder now
-    // ends at 55.
-    expect(first['_meta']!['user_version'], 55);
+    // 2026-10-11: v56 adds sessions.chaos_nsfw_enabled (the 1:1 Chaos spicy
+    // switch), so the ladder now ends at 56.
+    expect(first['_meta']!['user_version'], 56);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -159,7 +159,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 55);
+    expect(second['_meta']!['user_version'], 56);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);
