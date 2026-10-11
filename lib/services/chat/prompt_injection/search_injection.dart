@@ -41,8 +41,6 @@ class SearchInjection {
         'You do not know this. Do not invent. Say you don\'t know.';
   }
 
-  static String emptyResult(String query) => emptyResultFragment(query);
-
   static String resultFragment(String snippet) {
     final cleaned = clipSnippet(snippet).replaceAll(
       RegExp(

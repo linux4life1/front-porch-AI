@@ -14,9 +14,6 @@ extension ChatServiceSessionWindow on ChatService {
   bool get isBackfillingHistory => _history.isBackfilling;
   bool get hasOlderHistory => _history.hasMore;
 
-  Future<int> countSessionsForCharacterId(String characterId) =>
-      _db.countSessionsForCharacter(characterId);
-
   /// True when the picker must open. Uses the card's UUID internally —
   /// the home tap handler must not pass that UUID to [getSessionsForId].
   Future<bool> hasMultipleSavedSessions(CharacterCard card) async {

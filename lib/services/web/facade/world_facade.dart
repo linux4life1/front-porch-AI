@@ -183,17 +183,6 @@ class WorldFacade {
     return _worlds.fpWorldJson(w);
   }
 
-  /// Legacy ST world-info export (lore only).
-  Map<String, dynamic>? exportStWorld(String nameOrId) {
-    final w = _worlds.resolveWorld(nameOrId);
-    if (w == null) return null;
-    return encodeStWorldInfo(
-      w.lorebook,
-      name: w.name,
-      description: w.description,
-    );
-  }
-
   /// Chat session places (ids + names) + active climate for mid-chat override.
   Map<String, dynamic> chatPlaces() {
     final chat = _chat;

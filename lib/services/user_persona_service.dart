@@ -259,9 +259,6 @@ class UserPersonaService extends ChangeNotifier {
   /// Export all personas + active ID to a JSON file for cloud sync.
   Future<void> exportToFile(String filePath) => _exportToFileImpl(filePath);
 
-  /// Import personas from a JSON file (downloaded from cloud).
-  Future<void> importFromFile(String filePath) => _importFromFileImpl(filePath);
-
   /// Import persona(s) from a JSON file. Supports SillyTavern, native,
   /// TavernAI V2 / Backyard, and generic name+description payloads.
   Future<UserPersona?> importFromJsonFile(

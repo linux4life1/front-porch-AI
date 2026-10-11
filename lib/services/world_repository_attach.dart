@@ -75,39 +75,6 @@ extension WorldRepositoryAttach on WorldRepository {
     return true;
   }
 
-  Future<void> _attachWorldToChatImpl(
-    String chatId,
-    String worldId, {
-    bool? asPrimary,
-  }) async {
-    final slots = await getChatWorldAttachments(chatId);
-    if (slots.allIds.contains(worldId)) return;
-    final useAsSetting = asPrimary ?? !slots.hasPrimary;
-    if (useAsSetting) {
-      final lore = [
-        if (slots.primaryId != null) slots.primaryId!,
-        ...slots.loreIds,
-      ];
-      await setChatWorldAttachments(chatId, primaryId: worldId, loreIds: lore);
-    } else {
-      await setChatWorldAttachments(
-        chatId,
-        primaryId: slots.primaryId,
-        loreIds: [...slots.loreIds, worldId],
-      );
-    }
-  }
-
-  Future<void> _detachWorldFromChatImpl(String chatId, String worldId) async {
-    final slots = await getChatWorldAttachments(chatId);
-    final primary = slots.primaryId == worldId ? null : slots.primaryId;
-    final lore = [
-      for (final id in slots.loreIds)
-        if (id != worldId) id,
-    ];
-    await setChatWorldAttachments(chatId, primaryId: primary, loreIds: lore);
-  }
-
   Future<List<String>> _applyAddedCharacterWorldsToChatsImpl({
     required String characterId,
     required List<String> addedRefs,

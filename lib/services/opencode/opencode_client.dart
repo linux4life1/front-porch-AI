@@ -36,18 +36,41 @@ class OpenCodeSessionInfo {
 }
 
 class OpenCodeMessageInfo {
-  const OpenCodeMessageInfo({required this.id, required this.role});
+  const OpenCodeMessageInfo({
+    required this.id,
+    required this.role,
+    this.agent = '',
+  });
   final String id;
   final String role;
+  final String agent;
+}
+
+/// The `/event` stream ended before the coding pass went idle — the serve
+/// exited or dropped the connection.
+class OpenCodeStreamClosed implements Exception {
+  const OpenCodeStreamClosed();
+
+  @override
+  String toString() => 'OpenCode stopped before the turn finished.';
 }
 
 /// Thin HTTP client for `opencode serve`. Not a second agent.
 class OpenCodeClient {
-  OpenCodeClient({required this.baseUri, this.directory, this.clientFactory});
+  OpenCodeClient({
+    required this.baseUri,
+    this.directory,
+    this.clientFactory,
+    this.voiceSettle = const Duration(seconds: 90),
+  });
 
   final Uri baseUri;
   final String? directory;
   final http.Client Function()? clientFactory;
+
+  /// After coding idle: how long to wait for the voice wrap-up to start,
+  /// and then for each next voice event. Quiet that long ends the turn.
+  final Duration voiceSettle;
 
   http.Client _newClient() => clientFactory?.call() ?? http.Client();
 
@@ -92,6 +115,23 @@ class OpenCodeClient {
       return OpenCodeSessionInfo(
         id: json['id']?.toString() ?? '',
         title: json['title']?.toString() ?? title ?? '',
+      );
+    } finally {
+      client.close();
+    }
+  }
+
+  /// The stored session, or null when this serve does not know [id].
+  Future<OpenCodeSessionInfo?> getSession(String id) async {
+    final client = _newClient();
+    try {
+      final resp = await client.get(_uri('/session/$id'));
+      if (resp.statusCode < 200 || resp.statusCode >= 300) return null;
+      final json = jsonDecode(resp.body);
+      if (json is! Map || json['id']?.toString() != id) return null;
+      return OpenCodeSessionInfo(
+        id: id,
+        title: json['title']?.toString() ?? '',
       );
     } finally {
       client.close();
@@ -181,7 +221,11 @@ class OpenCodeClient {
         final id = map['id']?.toString() ?? '';
         if (id.isEmpty) continue;
         out.add(
-          OpenCodeMessageInfo(id: id, role: map['role']?.toString() ?? ''),
+          OpenCodeMessageInfo(
+            id: id,
+            role: map['role']?.toString() ?? '',
+            agent: map['agent']?.toString() ?? '',
+          ),
         );
       }
       return out;
@@ -269,7 +313,10 @@ class OpenCodeClient {
   }) async {
     final client = _newClient();
     final idle = Completer<void>();
-    StreamSubscription<List<int>>? sub;
+    // The stream can fail the turn while promptAsync is still in flight,
+    // before anything awaits it; the await below still sees the error.
+    idle.future.ignore();
+    StreamSubscription<String>? sub;
     Timer? settle;
     var codingIdle = false;
     var sawVoiceText = false;
@@ -279,9 +326,18 @@ class OpenCodeClient {
         ..headers['accept'] = 'text/event-stream';
       final streamed = await client.send(req);
       final parser = OpenCodeSseParser();
-      sub = streamed.stream.listen(
+      void armSettle() {
+        settle?.cancel();
+        settle = Timer(voiceSettle, () {
+          if (!idle.isCompleted) idle.complete();
+        });
+      }
+
+      // The decoder keeps a multi-byte character split across chunks.
+      final text = streamed.stream.transform(utf8.decoder);
+      sub = text.listen(
         (chunk) {
-          for (final event in parser.add(utf8.decode(chunk))) {
+          for (final event in parser.add(chunk)) {
             final sid = switch (event) {
               OpenCodeTextDelta(:final sessionId) => sessionId,
               OpenCodeToolEvent(:final sessionId) => sessionId,
@@ -301,7 +357,7 @@ class OpenCodeClient {
             // session.idle before voice text is a duplicate coding idle.
             if (event is OpenCodeTextDelta && codingIdle && !idle.isCompleted) {
               sawVoiceText = true;
-              settle?.cancel();
+              armSettle();
             }
             if (event is OpenCodeSessionIdle && !idle.isCompleted) {
               if (aborted) {
@@ -309,10 +365,7 @@ class OpenCodeClient {
                 idle.complete();
               } else if (!codingIdle) {
                 codingIdle = true;
-                settle?.cancel();
-                settle = Timer(const Duration(seconds: 90), () {
-                  if (!idle.isCompleted) idle.complete();
-                });
+                armSettle();
               } else if (sawVoiceText) {
                 settle?.cancel();
                 idle.complete();
@@ -322,6 +375,15 @@ class OpenCodeClient {
         },
         onError: (Object e, StackTrace st) {
           if (!idle.isCompleted) idle.completeError(e, st);
+        },
+        onDone: () {
+          if (idle.isCompleted) return;
+          // Work already on disk; only the wrap-up was lost.
+          if (codingIdle) {
+            idle.complete();
+          } else {
+            idle.completeError(const OpenCodeStreamClosed());
+          }
         },
       );
       await promptAsync(

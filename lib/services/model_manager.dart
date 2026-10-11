@@ -364,37 +364,6 @@ class ModelManager extends ChangeNotifier {
 
     return queries;
   }
-
-  // Legacy method - kept for backward compatibility
-  @Deprecated('Use queueDownload with HFModelFile instead')
-  Future<List<Map<String, dynamic>>> searchHFModelsLegacy(String query) async {
-    final models = await searchHFModels(query);
-    return models
-        .map(
-          (m) => {
-            'id': m.id,
-            'author': m.author,
-            'likes': m.likes,
-            'downloads': m.downloads,
-          },
-        )
-        .toList();
-  }
-
-  // Legacy method - kept for backward compatibility
-  @Deprecated('Use getModelFiles which returns HFModelFile instead')
-  Future<List<Map<String, String>>> getModelFilesLegacy(String repoId) async {
-    final files = await getModelFiles(repoId);
-    return files
-        .map(
-          (f) => {
-            'filename': f.filename,
-            'url': f.downloadUrl,
-            'size': f.sizeBytes.toString(),
-          },
-        )
-        .toList();
-  }
 }
 
 /// Isolate entry for the recursive .gguf scan (used via compute above).

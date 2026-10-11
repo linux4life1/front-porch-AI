@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
+
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
@@ -60,6 +61,7 @@ class UpdateService extends ChangeNotifier {
   String _releaseNotes = '';
   bool _updateAvailable = false;
   bool _checking = false;
+  String? _checkError;
   bool _downloading = false;
   bool _downloadComplete = false;
   double _downloadProgress = 0.0;
@@ -84,6 +86,13 @@ class UpdateService extends ChangeNotifier {
       : 'https://github.com/$_repoOwner/$_repoName/releases';
   bool get updateAvailable => _updateAvailable;
   bool get checking => _checking;
+
+  /// Why the last [checkForUpdate] could not reach a verdict (GitHub down,
+  /// rate-limited, offline, garbled reply), or null when it got one. A false
+  /// return from [checkForUpdate] only means "up to date" when this is null —
+  /// otherwise the UI must say the check failed, the way the KoboldCpp and
+  /// OpenCode updaters do, instead of claiming there is nothing newer.
+  String? get checkError => _checkError;
   bool get downloading => _downloading;
   bool get downloadComplete => _downloadComplete;
   double get downloadProgress => _downloadProgress;
@@ -114,7 +123,18 @@ class UpdateService extends ChangeNotifier {
   /// Whether this platform supports self-update.
   /// Windows: true when installed via the Inno Setup installer (.installed marker).
   /// Linux: true when running as an AppImage ($APPIMAGE env var is set).
+  /// Test seam: forces [isSupported] so [checkForUpdate] runs under test.
+  @visibleForTesting
+  static bool? debugIsSupportedOverride;
+
+  /// Test seam: points [checkForUpdate] at a local server instead of
+  /// api.github.com, so failure paths are pinned against real HTTP.
+  @visibleForTesting
+  static String? debugApiBaseOverride;
+
   static bool get isSupported {
+    final override = debugIsSupportedOverride;
+    if (override != null) return override;
     if (Platform.isWindows) {
       final exeDir = File(Platform.resolvedExecutable).parent.path;
       return File('$exeDir\\.installed').existsSync();
@@ -180,8 +200,11 @@ class UpdateService extends ChangeNotifier {
     if (!isSupported || _checking) return false;
 
     _checking = true;
+    _checkError = null;
     notifyListeners();
 
+    final client = http.Client();
+    final apiBase = debugApiBaseOverride ?? 'https://api.github.com';
     try {
       // Use the general /releases endpoint to find both stable and pre-releases.
       // GitHub's /releases/latest endpoint ignores everything marked as pre-release.
@@ -195,20 +218,33 @@ class UpdateService extends ChangeNotifier {
       // build that skipped one month of updates would simply stop being told
       // that updates exist. 100 turns "one month" into "a few months"; a
       // release cadence that ever outruns THAT needs real pagination here.
-      final response = await http.get(
-        Uri.parse(
-          'https://api.github.com/repos/$_repoOwner/$_repoName/releases'
-          '?per_page=100',
-        ),
-        headers: {'Accept': 'application/vnd.github.v3+json'},
-      );
+      //
+      // The timeout matches the KoboldCpp check: during a GitHub outage the
+      // request can hang rather than fail, which would leave the button
+      // stuck on "Checking..." indefinitely.
+      final response = await client
+          .get(
+            Uri.parse(
+              '$apiBase/repos/$_repoOwner/$_repoName/releases'
+              '?per_page=100',
+            ),
+            headers: {'Accept': 'application/vnd.github.v3+json'},
+          )
+          .timeout(const Duration(seconds: 15));
 
       if (response.statusCode != 200) {
         debugPrint('Update check failed: ${response.statusCode}');
+        _checkError = 'GitHub API: HTTP ${response.statusCode}';
         return false;
       }
 
-      final List<dynamic> allReleases = jsonDecode(response.body);
+      final decoded = jsonDecode(response.body);
+      if (decoded is! List) {
+        debugPrint('Update check failed: unexpected response shape');
+        _checkError = 'Unexpected response from GitHub';
+        return false;
+      }
+      final List<dynamic> allReleases = decoded;
       if (allReleases.isEmpty) return false;
 
       final targetRelease = selectTargetRelease(allReleases, isPreRelease);
@@ -232,7 +268,9 @@ class UpdateService extends ChangeNotifier {
       }
 
       if (installerUrl == null) {
-        debugPrint('No update asset ($targetAsset) found in release $originalTag');
+        debugPrint(
+          'No update asset ($targetAsset) found in release $originalTag',
+        );
         return false;
       }
 
@@ -249,8 +287,10 @@ class UpdateService extends ChangeNotifier {
       return _updateAvailable;
     } catch (e) {
       debugPrint('Update check error: $e');
+      _checkError = 'Could not check for updates';
       return false;
     } finally {
+      client.close();
       _checking = false;
       notifyListeners();
     }
@@ -261,7 +301,6 @@ class UpdateService extends ChangeNotifier {
   /// Download the installer to a temp directory.
   /// Does NOT run it — call installNow() or let installOnClose() handle it.
   Future<void> downloadUpdate() => _downloadUpdateImpl();
-
 
   /// Reject a download that cannot be a real installer: a truncated stream
   /// (received != Content-Length) or a body so small it is an error page,

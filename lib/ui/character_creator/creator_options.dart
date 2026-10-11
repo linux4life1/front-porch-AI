@@ -250,17 +250,6 @@ abstract final class CreatorOptions {
   ];
 
   // ── Greeting tones (one per generated greeting) ──
-  static const toneOptions = [
-    'Neutral',
-    'Friendly',
-    'Mysterious',
-    'Aggressive',
-    'Playful',
-    'Serious',
-    'Flirty',
-    'Cold',
-    'Nervous',
-  ];
 
   // ── Guided-mode suggestion chips (tap to append to a field) ──
   static const guidedBuildSuggestions = [

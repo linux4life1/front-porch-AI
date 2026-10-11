@@ -322,12 +322,6 @@ extension AppDatabaseChatQueries on AppDatabase {
     return count;
   }
 
-  Stream<List<Message>> watchMessagesForSession(String sessionId) =>
-      (select(messages)
-            ..where((m) => m.sessionId.equals(sessionId) & m.deletedAt.isNull())
-            ..orderBy([(m) => OrderingTerm.asc(m.position)]))
-          .watch();
-
   Future<int> insertMessage(MessagesCompanion message) async {
     if (!message.id.present) {
       message = message.copyWith(id: Value(_uuid.v4()));
@@ -378,12 +372,6 @@ extension AppDatabaseChatQueries on AppDatabase {
     final count = await (delete(
       messages,
     )..where((m) => m.sessionId.equals(sessionId))).go();
-    await bumpSyncVersion();
-    return count;
-  }
-
-  Future<int> deleteMessageById(String id) async {
-    final count = await (delete(messages)..where((m) => m.id.equals(id))).go();
     await bumpSyncVersion();
     return count;
   }

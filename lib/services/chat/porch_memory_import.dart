@@ -159,12 +159,6 @@ class PorchMemoryImportService {
     }
   }
 
-  /// Rebuild force-ack injection from cards still marked porchAckPending.
-  Future<void> armAckForSession({
-    required String sessionId,
-    required List<PorchDiaryTarget> targets,
-  }) => _armFromPendingCards(sessionId, targets);
-
   /// Clear force-ack only after the user **continues past** a turn that
   /// already showed the block (next [sendMessage]). Regen of the reacting
   /// AI message must still re-inject until then.
@@ -176,9 +170,7 @@ class PorchMemoryImportService {
       try {
         final card = await _findCardById(id);
         if (card == null) continue;
-        await journalStore.updateCardMetadata(card, {
-          'porchAckPending': false,
-        });
+        await journalStore.updateCardMetadata(card, {'porchAckPending': false});
       } catch (e) {
         debugPrint('[PorchMemories] clear ack meta failed $id: $e');
       }
@@ -287,10 +279,7 @@ class PorchMemoryImportService {
         town ??= _metaString(c, 'townName');
       }
 
-      final text = PorchNightInjection.build(
-        bullets: bullets,
-        townName: town,
-      );
+      final text = PorchNightInjection.build(bullets: bullets, townName: town);
       if (text.isEmpty) continue;
       ackState.arm(
         diaryCharacterId: t.diaryCharacterId,
