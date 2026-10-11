@@ -92,6 +92,13 @@ void main() {
 
     expect(rig.chat.isGenerating, isFalse, reason: 'the stream ran out');
     expect(backend.unexpectedPaths, isEmpty);
+    // Flutter's own disposed-controller assertion, so the check survives a
+    // reworded app log line.
+    expect(
+      logs.where((l) => l.contains('used after being disposed')),
+      isEmpty,
+      reason: "the closed page's input controller was written after dispose",
+    );
     expect(
       logs.where((l) => l.contains('Impersonate error')),
       isEmpty,
