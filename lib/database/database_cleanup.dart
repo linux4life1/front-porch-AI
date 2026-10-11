@@ -49,9 +49,6 @@ class CleanupResult {
     this.removedCounts = const {},
     this.fixedRefCounts = const {},
   });
-
-  int get totalRemoved => removedCounts.values.fold(0, (a, b) => a + b);
-  int get totalFixed => fixedRefCounts.values.fold(0, (a, b) => a + b);
 }
 
 /// Scans for and removes orphaned database records that accumulate when

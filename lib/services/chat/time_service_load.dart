@@ -70,7 +70,6 @@ extension TimeServiceLoad on TimeService {
         : StoryClock.representativeTime(current, timeOfDay);
     _turnsSinceClockMoved = 0;
     todayLine = null;
-    _todayLineDayCount = null;
     if (passageOfTimeEnabled != null) {
       _passageOfTimeEnabled = passageOfTimeEnabled;
       _clockGateSource = 'porch_life';

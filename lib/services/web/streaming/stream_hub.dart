@@ -59,8 +59,6 @@ class StreamHub {
   String? _pendingImpersonate;
   Timer? _impersonateFlush;
 
-  int get clientCount => _clients.length;
-
   /// Register a freshly-upgraded socket. The auth middleware has already
   /// validated the session cookie before the upgrade reaches here.
   void register(WebSocketChannel channel) {

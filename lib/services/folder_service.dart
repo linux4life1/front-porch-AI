@@ -122,10 +122,6 @@ class FolderService extends ChangeNotifier {
     }
   }
 
-  /// The path to the local folders JSON file (for cloud sync).
-  /// Returns null since folders now live in the DB.
-  String? get storagePath => null;
-
   Future<CharacterFolder> createFolder(String name, {String? parentId}) async {
     final newId = await _db.insertFolder(
       FoldersCompanion(name: Value(name), parentId: Value(parentId)),

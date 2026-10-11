@@ -111,11 +111,6 @@ class MemoryStoopCommentsClient implements StoopCommentsClient {
     }
   }
 
-  /// Record the card JSON `commentsEnabled` field for [cardId].
-  void setCardCommentsEnabled(String cardId, bool value) {
-    _cardCommentsEnabled[cardId] = value;
-  }
-
   /// Live discussion for [cardId]. Kill-switch / omitted opt-in is fail-closed
   /// when a store or per-card map is wired. Bare UI-test fakes (neither
   /// passed) stay on — those tests mount [StoopCardComments] only after the

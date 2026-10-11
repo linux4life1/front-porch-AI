@@ -19,7 +19,8 @@
 /// OpenCode 1.18 path plugin: default export `{ id, server }`.
 /// Coding idle starts the no-tool `voice` agent once. Claim the session
 /// before any await so a duplicate idle cannot prompt twice. promptAsync
-/// so the idle hook cannot deadlock.
+/// so the idle hook cannot deadlock. An aborted coding message gets no
+/// wrap-up, so a send right after Stop never sees a late voice turn.
 const kWaifuVoicePluginSource = r'''
 export default {
   id: "waifu-voice",
@@ -27,16 +28,24 @@ export default {
     const g = globalThis
     if (!g.__waifuVoiceWrapping) g.__waifuVoiceWrapping = new Set()
     const wrapping = g.__waifuVoiceWrapping
-    async function lastAssistantAgent(sessionID) {
+    async function lastAssistant(sessionID) {
       try {
         const res = await client.session.messages({ path: { id: sessionID } })
         const list = (res && res.data) || res || []
         for (let i = list.length - 1; i >= 0; i--) {
           const info = list[i].info || list[i]
-          if (info && info.role === "assistant") return info.agent || ""
+          if (info && info.role === "assistant") return info
         }
       } catch (_) {}
-      return ""
+      return null
+    }
+    async function lastAssistantAgent(sessionID) {
+      const info = await lastAssistant(sessionID)
+      if (!info) return ""
+      // Stop aborts the coding message. No wrap-up after the user said stop.
+      const err = info.error || {}
+      if (err.name === "MessageAbortedError") return "aborted"
+      return info.agent || ""
     }
     return {
       event: async ({ event }) => {
@@ -46,12 +55,12 @@ export default {
         if (!sessionID) return
         if (wrapping.has(sessionID)) {
           const agent = await lastAssistantAgent(sessionID)
-          if (agent === "voice") wrapping.delete(sessionID)
+          if (agent === "voice" || agent === "aborted") wrapping.delete(sessionID)
           return
         }
         wrapping.add(sessionID)
         const agent = await lastAssistantAgent(sessionID)
-        if (agent === "voice") {
+        if (agent === "voice" || agent === "aborted") {
           wrapping.delete(sessionID)
           return
         }

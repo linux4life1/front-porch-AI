@@ -256,12 +256,8 @@ class RelationshipService {
 
   int get longTermProgressTarget =>
       RelationshipTiers.bondScaleTarget(_longTermScore.abs());
-  int get longTermProgressBase =>
-      RelationshipTiers.bondScaleBase(_longTermScore.abs());
   double get longTermProgressPercent => bondScalePercent(_longTermScore);
 
-  int get trustProgressBase =>
-      RelationshipTiers.trustScaleBase(_trustLevel.abs());
   int get trustProgressTarget =>
       RelationshipTiers.trustScaleTarget(_trustLevel.abs());
   double get trustProgressPercent => trustScalePercent(_trustLevel);

@@ -9,18 +9,6 @@ part of 'database.dart';
 extension AppDatabaseLibraryQueries on AppDatabase {
   // ── Sync Meta Queries ────────────────────────────────────────────────
 
-  /// Get the current sync version (0 if no row exists yet).
-  Future<int> getSyncVersion() async {
-    try {
-      final rows = await customSelect(
-        'SELECT version FROM sync_meta WHERE id = 1',
-      ).get();
-      return rows.isNotEmpty ? rows.first.read<int>('version') : 0;
-    } catch (_) {
-      return 0;
-    }
-  }
-
   /// Increment the sync version counter. Call after every meaningful write.
   Future<void> bumpSyncVersion() async {
     await customUpdate(
@@ -77,9 +65,6 @@ extension AppDatabaseLibraryQueries on AppDatabase {
 
   Future<List<Character>> getAllCharacters() =>
       (select(characters)..where((c) => c.deletedAt.isNull())).get();
-
-  Stream<List<Character>> watchAllCharacters() =>
-      (select(characters)..where((c) => c.deletedAt.isNull())).watch();
 
   Future<Character> getCharacterById(String id) =>
       (select(characters)..where((c) => c.id.equals(id))).getSingle();

@@ -98,14 +98,6 @@ extension AppDatabaseMemoryQueries on AppDatabase {
     messageEmbeddings,
   )..where((e) => e.characterId.equals(characterId))).go();
 
-  /// Count total embeddings (for debug/settings display).
-  Future<int> countEmbeddings() async {
-    final result = await customSelect(
-      'SELECT COUNT(*) AS cnt FROM message_embeddings',
-    ).getSingle();
-    return result.read<int>('cnt');
-  }
-
   // ── Journal Queries ────────────────────────────────────────────────
   // The Journal: per-chat, per-character memory cards. No bumpSyncVersion,
   // matching the MessageEmbeddings precedent (derived, session-local data).
@@ -429,12 +421,6 @@ extension AppDatabaseMemoryQueries on AppDatabase {
             ..where((s) => s.deletedAt.isNull())
             ..orderBy([(s) => OrderingTerm.desc(s.updatedAt)]))
           .get();
-
-  Stream<List<StoryProject>> watchAllStoryProjects() =>
-      (select(storyProjects)
-            ..where((s) => s.deletedAt.isNull())
-            ..orderBy([(s) => OrderingTerm.desc(s.updatedAt)]))
-          .watch();
 
   Future<StoryProject?> getStoryProjectById(String id) =>
       (select(storyProjects)..where((s) => s.id.equals(id))).getSingleOrNull();
