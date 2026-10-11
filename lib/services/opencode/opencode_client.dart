@@ -313,6 +313,9 @@ class OpenCodeClient {
   }) async {
     final client = _newClient();
     final idle = Completer<void>();
+    // The stream can fail the turn while promptAsync is still in flight,
+    // before anything awaits it; the await below still sees the error.
+    idle.future.ignore();
     StreamSubscription<String>? sub;
     Timer? settle;
     var codingIdle = false;
