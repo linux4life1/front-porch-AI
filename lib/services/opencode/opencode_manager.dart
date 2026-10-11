@@ -281,7 +281,10 @@ class OpenCodeManager extends ChangeNotifier {
     if (openCodeLooksLikeBrewPath(req.executable)) {
       throw StateError('Refusing to spawn a brew OpenCode');
     }
-    _handle = await _spawn(req);
+    final handle = _handle = await _spawn(req);
+    if (handle.tracksExit) {
+      unawaited(handle.exitCode.then((code) => _onExit(handle, code)));
+    }
     _baseUri = Uri(scheme: 'http', host: '127.0.0.1', port: port);
     final ok = await _waitHealthy(_baseUri!);
     if (!ok) {
@@ -291,6 +294,16 @@ class OpenCodeManager extends ChangeNotifier {
     _workDir = cwd;
     _isRunning = true;
     _statusMessage = 'OpenCode listening on 127.0.0.1:$port';
+    notifyListeners();
+  }
+
+  /// A serve that dies on its own must not still read as running.
+  void _onExit(OpenCodeProcessHandle handle, int code) {
+    if (!identical(_handle, handle)) return;
+    _handle = null;
+    _isRunning = false;
+    _baseUri = null;
+    _statusMessage = 'OpenCode exited (code $code)';
     notifyListeners();
   }
 

@@ -262,6 +262,10 @@ class WaifuSession {
   bool mcpOptIn;
   bool preserveThinking;
 
+  /// OpenCode's own session, so a relaunch resumes the model's history
+  /// instead of starting a stranger behind the same transcript.
+  String? openCodeSessionId;
+
   /// Sit-down / live probe. False fail-closes the loop — no silent coding.
   bool toolsSupported;
   ChatThemeOverrides themeOverrides;
