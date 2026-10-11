@@ -230,20 +230,4 @@ class BackupService {
 
     return keep;
   }
-
-  /// Delete ALL backups. Used during major schema upgrades (e.g. 0.9.0
-  /// reunification) to prevent restoring old-schema backups that would corrupt
-  /// the database.
-  static Future<void> purgeAllBackups() async {
-    final backups = await listBackups();
-    for (final backup in backups) {
-      try {
-        await backup.delete();
-        debugPrint('[Backup] Purged old backup: ${backup.path}');
-      } catch (e) {
-        debugPrint('[Backup] Failed to purge: $e');
-      }
-    }
-    debugPrint('[Backup] Purged ${backups.length} old backups');
-  }
 }

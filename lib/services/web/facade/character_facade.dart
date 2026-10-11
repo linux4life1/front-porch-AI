@@ -481,4 +481,7 @@ class CharacterFacade {
       return null;
     }
   }
+
+  /// "Your chats together" for the web character editor.
+  Future<Map<String, dynamic>?> stats(String id) => characterStatsJson(_db, id);
 }

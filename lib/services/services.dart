@@ -31,6 +31,7 @@
 // Direct imports of individual service files remain fully supported and are
 // the correct choice when only one or two niche services are needed.
 
+export 'character_stats.dart';
 export 'desktop_spell_check_service.dart';
 export 'engine_health.dart';
 export 'expression_pack_base.dart';

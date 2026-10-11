@@ -28,6 +28,7 @@
 // import 'package:front_porch_ai/ui/widgets/widgets.dart';
 // ```
 
+export 'character_stats_section.dart';
 export 'chip_list_editor.dart';
 export 'gpu_layers_field.dart';
 export 'identity_chip_lists.dart';

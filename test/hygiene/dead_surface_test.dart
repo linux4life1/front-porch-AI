@@ -47,6 +47,10 @@ const List<String> kDeletedFiles = [
   // A no-op night-skip pass and a debug-print wrapper, both removed.
   'lib/services/chat/chat_service_night_skip.dart',
   'lib/services/kokoro_debug.dart',
+  // The pre-0.9 beta/stable library merge; every library is long past it.
+  'lib/main.reunification.dart',
+  'lib/services/db_reunification_service.dart',
+  'lib/services/db_reunification_insert.dart',
 ];
 
 /// Declarations deleted as unused, and what to reach for instead. Matched as
@@ -76,6 +80,8 @@ const Map<String, String> kDeletedSymbols = {
   'encodeWorldRefList': 'callers jsonEncode at the write site',
   'applyTranscriptAutoScroll': 'a no-op; the transcript never pins on send',
   'kStoopWorldsLive': 'worlds are live on the Stoop; no flag',
+  'DbReunificationService': 'pre-0.9 libraries were merged long ago',
+  'purgeAllBackups': 'pruneBackups keeps the rolling retention',
 };
 
 void main() {

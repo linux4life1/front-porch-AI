@@ -44,23 +44,23 @@ class WebSessionInfo {
   final String? ip;
 
   Map<String, Object?> toJson() => {
-        'id': id,
-        'createdAt': createdAt,
-        'lastSeenAt': lastSeenAt,
-        'expiresAt': expiresAt,
-        'userAgent': userAgent,
-        'ip': ip,
-      };
+    'id': id,
+    'createdAt': createdAt,
+    'lastSeenAt': lastSeenAt,
+    'expiresAt': expiresAt,
+    'userAgent': userAgent,
+    'ip': ip,
+  };
 }
 
 /// Persisted web-login sessions backed by the `web_auth_sessions` table.
 ///
 /// The raw cookie token never touches the database — only its SHA-256 — so a DB
 /// leak cannot be replayed as a live session. Uses raw SQL (the dominant style
-/// for service-level DB access in this codebase, e.g. db_reunification_service).
+/// for service-level DB access in this codebase).
 class SessionStore {
   SessionStore(this._db, {int Function()? nowMs})
-      : _nowMs = nowMs ?? (() => DateTime.now().millisecondsSinceEpoch);
+    : _nowMs = nowMs ?? (() => DateTime.now().millisecondsSinceEpoch);
 
   final AppDatabase _db;
   final int Function() _nowMs;
@@ -71,11 +71,7 @@ class SessionStore {
 
   /// Create a session for [userId] and return the RAW token to put in the
   /// cookie (only the hash is stored).
-  Future<String> create(
-    String userId, {
-    String? userAgent,
-    String? ip,
-  }) async {
+  Future<String> create(String userId, {String? userAgent, String? ip}) async {
     final rawToken = _generateToken();
     final now = _nowMs();
     await _db.customInsert(
@@ -102,10 +98,12 @@ class SessionStore {
     if (rawToken.isEmpty) return null;
     final hash = _hashToken(rawToken);
     final now = _nowMs();
-    final rows = await _db.customSelect(
-      'SELECT user_id, expires_at, revoked FROM web_auth_sessions WHERE token_hash = ? LIMIT 1',
-      variables: [Variable<String>(hash)],
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT user_id, expires_at, revoked FROM web_auth_sessions WHERE token_hash = ? LIMIT 1',
+          variables: [Variable<String>(hash)],
+        )
+        .get();
     if (rows.isEmpty) return null;
     final row = rows.first.data;
     if ((row['revoked'] as int? ?? 0) != 0) return null;
@@ -169,21 +167,25 @@ class SessionStore {
 
   /// Active (non-revoked, non-expired) sessions for [userId].
   Future<List<WebSessionInfo>> listActive(String userId) async {
-    final rows = await _db.customSelect(
-      'SELECT id, created_at, last_seen_at, expires_at, user_agent, ip '
-      'FROM web_auth_sessions WHERE user_id = ? AND revoked = 0 AND expires_at > ? '
-      'ORDER BY last_seen_at DESC',
-      variables: [Variable<String>(userId), Variable<int>(_nowMs())],
-    ).get();
+    final rows = await _db
+        .customSelect(
+          'SELECT id, created_at, last_seen_at, expires_at, user_agent, ip '
+          'FROM web_auth_sessions WHERE user_id = ? AND revoked = 0 AND expires_at > ? '
+          'ORDER BY last_seen_at DESC',
+          variables: [Variable<String>(userId), Variable<int>(_nowMs())],
+        )
+        .get();
     return rows
-        .map((r) => WebSessionInfo(
-              id: r.data['id'] as String,
-              createdAt: r.data['created_at'] as int? ?? 0,
-              lastSeenAt: r.data['last_seen_at'] as int? ?? 0,
-              expiresAt: r.data['expires_at'] as int? ?? 0,
-              userAgent: r.data['user_agent'] as String?,
-              ip: r.data['ip'] as String?,
-            ))
+        .map(
+          (r) => WebSessionInfo(
+            id: r.data['id'] as String,
+            createdAt: r.data['created_at'] as int? ?? 0,
+            lastSeenAt: r.data['last_seen_at'] as int? ?? 0,
+            expiresAt: r.data['expires_at'] as int? ?? 0,
+            userAgent: r.data['user_agent'] as String?,
+            ip: r.data['ip'] as String?,
+          ),
+        )
         .toList();
   }
 

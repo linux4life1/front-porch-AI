@@ -55,6 +55,7 @@ class WebCharacterRoutes {
     router.get('/api/chat/expression-avatar', _expressionAvatar);
     router.get('/api/characters/<id>/avatar', _avatar);
     router.get('/api/characters/<id>/detail', _detail);
+    router.get('/api/characters/<id>/stats', _stats);
     router.get('/api/characters/<id>/export.png', _exportPng);
     router.get('/api/characters/<id>/export.json', _exportJson);
     // Avatar management (specific sub-paths before the bare '<id>' POST).
@@ -91,8 +92,7 @@ class WebCharacterRoutes {
   /// - `collision=replace&replaceId=` — update that library card in place
   Future<shelf.Response> _import(shelf.Request request) async {
     final filename = request.url.queryParameters['filename'] ?? 'card.png';
-    final collision =
-        request.url.queryParameters['collision'] ?? 'keepBoth';
+    final collision = request.url.queryParameters['collision'] ?? 'keepBoth';
     final replaceId = request.url.queryParameters['replaceId'];
     final List<int> bytes;
     try {
@@ -114,11 +114,7 @@ class WebCharacterRoutes {
       return JsonResponse.error(422, 'Could not read that character card');
     }
     if (result['status'] == 'name_collision') {
-      return JsonResponse.error(
-        409,
-        'name_collision',
-        extra: result,
-      );
+      return JsonResponse.error(409, 'name_collision', extra: result);
     }
     return JsonResponse.ok(result);
   }
@@ -341,6 +337,12 @@ class WebCharacterRoutes {
     final detail = await _facade.detail(id);
     if (detail == null) return JsonResponse.error(404, 'Character not found');
     return JsonResponse.ok(detail);
+  }
+
+  Future<shelf.Response> _stats(shelf.Request request, String id) async {
+    final stats = await _facade.stats(id);
+    if (stats == null) return JsonResponse.error(404, 'Character not found');
+    return JsonResponse.ok(stats);
   }
 
   /// Edit an existing character's core fields, then return the fresh detail.
