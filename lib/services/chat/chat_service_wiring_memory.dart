@@ -88,7 +88,7 @@ extension ChatServiceWiringMemory on ChatService {
       getPassEpoch: () => _memoryPassEpoch,
       getReviewFirst: () => _storageService.memorySettings.journalReviewFirst,
       getBackendIdentity: () => _evalBackendIdentity,
-      stripThinkBlocks: _stripThinkBlocks,
+      stripThinkBlocks: stripEvalThinkBlocks,
       getSessionId: () => _currentSessionId,
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,
@@ -195,7 +195,7 @@ extension ChatServiceWiringMemory on ChatService {
       fireToolEval: _fireToolEval,
       getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       getPassEpoch: () => _memoryPassEpoch,
-      stripThinkBlocks: _stripThinkBlocks,
+      stripThinkBlocks: stripEvalThinkBlocks,
       getBackendIdentity: () => _evalBackendIdentity,
       getSessionId: () => _currentSessionId,
       getActiveCharacter: () => _activeCharacter,
@@ -412,8 +412,8 @@ extension ChatServiceWiringMemory on ChatService {
         repeatPenalty: kScalarEvalRepeatPenalty,
         label: 'guest_gate',
       ),
-      stripThinkBlocks: _stripThinkBlocks,
-      extractJsonBool: _extractJsonBool,
+      stripThinkBlocks: stripEvalThinkBlocks,
+      extractJsonBool: evalJsonBool,
       getHostName: () => _activeCharacter?.name ?? 'the character',
       isEnabled: () => autoChimeEnabled,
     );
@@ -449,7 +449,7 @@ extension ChatServiceWiringMemory on ChatService {
         repeatPenalty: kScalarEvalRepeatPenalty,
         label: 'cast',
       ),
-      stripThinkBlocks: _stripThinkBlocks,
+      stripThinkBlocks: stripEvalThinkBlocks,
       getHostName: () =>
           _activeCharacter?.name ??
           nextCharacter?.name ??

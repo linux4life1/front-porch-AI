@@ -19,6 +19,8 @@
 import 'dart:io';
 import 'package:uuid/uuid.dart';
 
+import 'package:front_porch_ai/utils/utils.dart';
+
 /// The current state of a download task in the queue.
 enum DownloadTaskState {
   /// Task is queued and waiting for a download slot.
@@ -173,7 +175,7 @@ class DownloadTask {
   String get progressDisplay => '${(progress * 100).toStringAsFixed(1)}%';
 
   /// Human-readable total size.
-  String get totalDisplay => _formatBytes(totalBytes);
+  String get totalDisplay => formatBytes(totalBytes);
 
   /// Human-readable speed (e.g., "12.5 MB/s").
   String get speedDisplay {
@@ -353,18 +355,6 @@ class DownloadTask {
       return 'bytes=$_resumeOffset-';
     }
     return null;
-  }
-
-  /// Formats bytes into a human-readable string.
-  static String _formatBytes(int bytes) {
-    if (bytes < 1024) {
-      return '$bytes B';
-    } else if (bytes < 1024 * 1024) {
-      return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    } else if (bytes < 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
-    }
-    return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(2)} GB';
   }
 
   /// Serializes this task to a map for persistence.

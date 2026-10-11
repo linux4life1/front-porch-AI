@@ -82,11 +82,7 @@ class LegacyModelCleanup {
     }
     if (kokoroPaths.isNotEmpty) {
       groups.add(
-        LegacyModelGroup(
-          'Old Kokoro speech model',
-          kokoroPaths,
-          kokoroBytes,
-        ),
+        LegacyModelGroup('Old Kokoro speech model', kokoroPaths, kokoroBytes),
       );
     }
 
@@ -101,9 +97,7 @@ class LegacyModelCleanup {
         bytes += await e.length();
       }
       if (paths.isNotEmpty) {
-        groups.add(
-          LegacyModelGroup('Old Piper voice files', paths, bytes),
-        );
+        groups.add(LegacyModelGroup('Old Piper voice files', paths, bytes));
       }
     }
 
@@ -143,22 +137,12 @@ class LegacyModelCleanup {
     if (e is Directory) {
       var total = 0;
       try {
-        await for (final child in e.list(
-          recursive: true,
-          followLinks: false,
-        )) {
+        await for (final child in e.list(recursive: true, followLinks: false)) {
           if (child is File) total += await child.length();
         }
       } catch (_) {}
       return total;
     }
     return 0;
-  }
-
-  static String formatBytes(int bytes) {
-    if (bytes >= 1024 * 1024 * 1024) {
-      return '${(bytes / (1024 * 1024 * 1024)).toStringAsFixed(1)} GB';
-    }
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(0)} MB';
   }
 }

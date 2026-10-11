@@ -55,15 +55,6 @@ extension ChatServiceRealismEvals on ChatService {
     ),
   );
 
-  String _stripThinkBlocks(String text) =>
-      _llmEvalEngine.stripThinkBlocks(text);
-
-  int? _extractJsonInt(String text, String key) =>
-      _llmEvalEngine.extractJsonInt(text, key);
-
-  bool? _extractJsonBool(String text, String key) =>
-      _llmEvalEngine.extractJsonBool(text, key);
-
   // KoboldCpp receives HTTP requests in wire order via loopback.
   // A small stagger prevents TCP timing from reordering concurrent
   // eval dispatches, ensuring KoboldCpp's FIFO queue (which serializes
@@ -145,16 +136,13 @@ extension ChatServiceRealismEvals on ChatService {
       );
       if (raw == null) return;
 
-      final text = _stripThinkBlocks(raw).trim();
+      final text = stripEvalThinkBlocks(raw).trim();
 
       final verdictMatch = RegExp(
         r'"verdict"\s*:\s*"([^"]+)"',
       ).firstMatch(text);
 
-      final recovery = (_extractJsonInt(text, 'trust_recovery') ?? 0).clamp(
-        0,
-        60,
-      );
+      final recovery = (evalJsonInt(text, 'trust_recovery') ?? 0).clamp(0, 60);
       final verdict = verdictMatch?.group(1) ?? 'rejected';
       final reason = evalJsonString(text, 'reason') ?? '';
 
