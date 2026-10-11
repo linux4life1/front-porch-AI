@@ -41,10 +41,10 @@ String waifuHonestyBody(WaifuPathMode pathMode) {
       'OpenCode does the coding: read, search, patch, write, bash, tests, and '
       'visible receipts. They work on disk while speaking as the card — not '
       'as a generic assistant.\n'
-      'Porch asks OpenCode to deny wipe-class bash and force-push. Secret-file '
-      'and wipe hard stops from the old Dart loop are **not** reimplemented '
-      'here — if OpenCode does not expose the same deny, that is a gap, not a '
-      'pretend fence. Guardrails are not a backup.\n'
+      'Porch tells OpenCode to refuse a short list of commands: '
+      '$kWaifuBashDenyNames. That list is easy to get around, and nothing '
+      'guards secret files: a gap, not a fence. Guardrails are not a '
+      'backup.\n'
       'A model can still be confidently wrong. **Never use it on a critical '
       'codebase**; keep a throwaway branch, a backup, and an eye on the '
       'receipts.';
@@ -70,15 +70,19 @@ const kWaifuHonestySkipped =
     'Honesty is already on file for this scope. You can still switch Jail '
     'or Disk.';
 
+/// OpenCode's bash deny list (opencode_config.dart), in words a reader knows.
+const kWaifuBashDenyNames = 'rm -rf, sudo, force-push, hard reset, git clean';
+
 String waifuYoloWarning(WaifuPathMode pathMode) {
   return switch (pathMode) {
     WaifuPathMode.folderJail =>
       'Yolo skips “are you sure?” on writes, commands, and repeats. The '
-          'folder jail still holds, and the wipe/secret hard stops stay awake.',
+          'folder jail still holds, and $kWaifuBashDenyNames are still '
+          'refused. Nothing guards secret files.',
     WaifuPathMode.wholeDisk =>
       'Yolo skips “are you sure?” — including repeats — and this coworker '
-          'can walk the whole disk. The wipe/secret hard stops stay awake; '
-          'your backup should too.',
+          'can walk the whole disk. Only $kWaifuBashDenyNames are refused, '
+          'and nothing guards secret files. Keep a backup.',
   };
 }
 

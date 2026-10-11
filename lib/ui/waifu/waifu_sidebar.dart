@@ -20,6 +20,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_context_bar.dart';
@@ -45,6 +46,7 @@ class WaifuSidebar extends StatelessWidget {
     this.harness,
     this.onThemeChanged,
     this.onCompact,
+    this.onGenSettings,
   });
 
   final WaifuSession session;
@@ -57,6 +59,9 @@ class WaifuSidebar extends StatelessWidget {
   WaifuTodos? get todos => harness?.todos;
   final VoidCallback? onThemeChanged;
   final VoidCallback? onCompact;
+
+  /// Chat Settings saved. The page persists them and re-sizes the meter.
+  final ValueChanged<ChatGenerationSettings>? onGenSettings;
 
   @override
   Widget build(BuildContext context) {
@@ -172,8 +177,10 @@ class WaifuSidebar extends StatelessWidget {
       case 'chat':
         showDialog<void>(
           context: context,
-          builder: (_) =>
-              ChatSettingsDialog(settings: session.genSettings, onSave: (_) {}),
+          builder: (_) => ChatSettingsDialog(
+            settings: session.genSettings,
+            onSave: (next) => onGenSettings?.call(next),
+          ),
         );
       case 'model':
         showDialog<void>(
