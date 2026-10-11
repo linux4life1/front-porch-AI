@@ -321,17 +321,6 @@ extension ChatServiceObjectives on ChatService {
     _messagesSinceLastCheck = 0;
   }
 
-  /// Update the injection depth for the active objective.
-  Future<void> updateObjectiveDepth(Objective obj, int depth) async {
-    await _db.updateObjective(
-      ObjectivesCompanion(
-        id: drift.Value(obj.id),
-        injectionDepth: drift.Value(depth),
-      ),
-    );
-    await _loadActiveObjectives();
-  }
-
   // ── Round-4b forwarder bodies (see chat_service_accessors.dart's banner
   // comment for why these stay one-line forwarders on the class body) ──
 

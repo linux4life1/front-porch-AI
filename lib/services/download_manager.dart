@@ -83,10 +83,6 @@ class DownloadManager extends ChangeNotifier {
   List<DownloadTask> get failedDownloads =>
       _queue.where((t) => t.state == DownloadTaskState.failed).toList();
 
-  /// Paused tasks.
-  List<DownloadTask> get pausedDownloads =>
-      _queue.where((t) => t.state == DownloadTaskState.paused).toList();
-
   /// Total progress across all active downloads (0.0 to 1.0).
   double get overallProgress {
     final active = activeDownloads;

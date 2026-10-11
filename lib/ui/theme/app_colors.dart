@@ -28,9 +28,6 @@ class AppColors {
   /// Default color for the AI's message bubbles.
   static const Color aiBubble = Color(0xFF374151);
 
-  /// Default color for the AI's message text.
-  static const Color aiText = Colors.white;
-
   /// Default color for quoted/dialogue text ("...").
   static const Color dialogue = Colors.amberAccent;
 

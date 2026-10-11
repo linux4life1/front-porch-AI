@@ -61,12 +61,6 @@ class BackupService {
     });
   }
 
-  /// Stop the automatic backup timer.
-  static void stopAutoBackup() {
-    _autoBackupTimer?.cancel();
-    _autoBackupTimer = null;
-  }
-
   /// Get the backup directory path (creates it if needed).
   static Future<Directory> _getBackupDir() async {
     final dbPath = AppDatabase.dbFilePath;
@@ -209,9 +203,7 @@ class BackupService {
     final keep = <String>{};
 
     // Recent tier — the newest maxBackups snapshots.
-    for (var i = 0;
-        i < backupsNewestFirst.length && i < maxBackups;
-        i++) {
+    for (var i = 0; i < backupsNewestFirst.length && i < maxBackups; i++) {
       keep.add(backupsNewestFirst[i].path);
     }
 

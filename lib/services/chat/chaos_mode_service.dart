@@ -398,8 +398,4 @@ class ChaosModeService {
   void markEventDelivered() {
     _chaosEventDelivered = true;
   }
-
-  void clearPendingChaosInjection() {
-    _pendingChaosInjection = null;
-  }
 }

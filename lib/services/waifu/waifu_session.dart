@@ -272,6 +272,4 @@ class WaifuSession {
   /// True when [tokensUsed] came from the last API `usage` block.
   bool tokensFromApi = false;
   int compactPasses = 0;
-
-  List<WaifuToolChip> get toolChips => [for (final m in transcript) ...m.chips];
 }

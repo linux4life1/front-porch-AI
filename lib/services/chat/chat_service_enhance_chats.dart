@@ -29,9 +29,6 @@ part of '../chat_service.dart';
 /// RAG backfill re-embeds the copied history — a second implementation of
 /// any of that would be exactly the parallel path the project bans.
 extension ChatServiceEnhanceChats on ChatService {
-  /// True while a `.porch` job holds the shared chat.
-  bool get isMovingChats => _isMovingChats;
-
   /// Claims the shared chat for one `.porch` job; false while another job
   /// holds it. Every true must be paired with [endMovingChats].
   bool tryBeginMovingChats() {

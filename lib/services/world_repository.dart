@@ -376,15 +376,6 @@ class WorldRepository extends ChangeNotifier {
     characterWorldRefs: characterWorldRefs,
   );
 
-  Future<void> attachWorldToChat(
-    String chatId,
-    String worldId, {
-    bool? asPrimary,
-  }) => _attachWorldToChatImpl(chatId, worldId, asPrimary: asPrimary);
-
-  Future<void> detachWorldFromChat(String chatId, String worldId) =>
-      _detachWorldFromChatImpl(chatId, worldId);
-
   /// Attach worlds newly added to a CHARACTER onto that character's existing
   /// chats that don't have any yet.
   ///

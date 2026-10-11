@@ -298,16 +298,6 @@ class ComfyUiService {
     return _runWorkflow(workflow, onProgress);
   }
 
-  /// Probe: the subset of [requiredNodes] this ComfyUI does NOT have. Empty = all
-  /// present (ready). `null` = couldn't tell (server/`/object_info` unreachable),
-  /// which the UI shows as "can't check" rather than a false "missing". Used to
-  /// gate a bundled edit preset before the user can run it.
-  Future<List<String>?> missingEditNodes(List<String> requiredNodes) async {
-    final info = await _objectInfo(fresh: true);
-    if (info == null) return null;
-    return requiredNodes.where((n) => !info.containsKey(n)).toList();
-  }
-
   /// Submit an already-built API-format graph (Create families / BYO).
   Future<Uint8List> runPromptGraph(
     Map<String, dynamic> workflow, {
