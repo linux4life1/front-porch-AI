@@ -209,7 +209,7 @@ flutter pub get
 flutter run
 ```
 
-CI Flutter is **3.47.0** (Dart `^3.10.8`). macOS **13.3 Ventura** is the floor (the bundled ONNX runtime is built for 13.3).
+CI Flutter is **3.47.7** (Dart `^3.10.8`). macOS **13.3 Ventura** is the floor (the bundled ONNX runtime is built for 13.3).
 
 There is **no Rust, no Python, no sidecar** to build. TTS, STT, embeddings, and expressions run in-process. KoboldCpp and Waifu Coder's OpenCode are process-managed the way a browser manages a helper — the app downloads a pinned build and starts it on localhost.
 

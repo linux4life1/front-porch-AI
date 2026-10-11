@@ -90,7 +90,7 @@ flutter build windows
 ./scripts/build-macos.sh
 ```
 
-CI Flutter is **3.47.0**. Dart SDK constraint is `^3.10.8`.
+CI Flutter is **3.47.7**. Dart SDK constraint is `^3.10.8`.
 
 ---
 

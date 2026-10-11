@@ -110,6 +110,12 @@ class ChatToolsFacade {
         'nsfwEnabled': chaos.chaosNsfwEnabled,
         'pressure': chaos.chaosPressure,
         'hasPendingEvent': chaos.hasPendingChaosEvent,
+        // Additive: the spicy row shows only with 18+ themes on, and the
+        // hint reads the Porch Life frequency and any cooldown.
+        'adultAllowed': chaos.adultAllowed,
+        'base': chaos.frequency.base,
+        'growth': chaos.frequency.growth,
+        'cooldownTurns': chaos.cooldownTurns,
       },
       'nsfw': {
         'cooldownEnabled': _chat.activeGroup != null

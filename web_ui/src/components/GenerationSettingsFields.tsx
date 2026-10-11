@@ -203,8 +203,6 @@ export function GenerationSettingsFields({
       )}
       <SliderField label="Max output tokens" value={g.maxLength} min={16} max={16384} step={16}
         onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
-      <SliderField label="Min output tokens" value={g.minLength} min={0} max={512} step={1}
-        onChange={(v) => patchGen({ minLength: Math.round(v) })} />
       <SliderField label="Context size" value={contextSize} min={512} max={500000} step={512}
         disabled={contextLocked}
         onChange={(v) => patch({ contextSize: Math.round(v) })} />

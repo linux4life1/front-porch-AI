@@ -390,6 +390,15 @@ Future<void> openTab(WidgetTester tester, String name) async {
   await settle(tester);
 }
 
+/// Opens the Advanced tab with Advanced Launch Options expanded: the
+/// acceleration override and the KV cache live there.
+Future<void> openLaunchOptions(WidgetTester tester) async {
+  await openTab(tester, 'Advanced');
+  await tapVisible(tester, find.text('Advanced Launch Options'));
+  await tester.pump(const Duration(milliseconds: 400));
+  await settle(tester);
+}
+
 Future<void> tapVisible(WidgetTester tester, Finder finder) async {
   await tester.ensureVisible(finder);
   await tester.pump();

@@ -46,10 +46,11 @@ class ChaosInjection {
     // choice, only to be moved after a measured A/B (spec §5b).
     return '\n[SCENE EVENT — CANON, happening this very moment:\n'
         '$event\n'
-        'Open the reply with $charName experiencing this event as it happens '
-        '— do not skip it, soften it to a near-miss, or save it for later. '
-        'Write $charName\'s immediate reaction in their own voice first, then '
-        'let the scene continue from its consequences. Never mention '
-        '"Chance Time", game mechanics, or systems.]\n';
+        'Open the reply with this event as it happens — do not skip it, '
+        'soften it to a near-miss, or save it for later. If a detail does not '
+        'fit this setting or era, swap it for the closest equivalent that '
+        'does. Write $charName\'s immediate reaction in their own voice '
+        'first, then let the scene continue from its consequences. Never '
+        'mention "Chance Time", game mechanics, or systems.]\n';
   }
 }

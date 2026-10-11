@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -59,6 +60,51 @@ class ObjectiveStaleThresholdPicker extends StatelessWidget {
           onChanged: (v) {
             if (v != null) {
               storage.realismSettings.setObjectiveStaleThreshold(v);
+            }
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// The "How often" dropdown under Chaos Mode. Shown even with the global
+/// switch off, because a single chat can still turn Chaos on in its sidebar.
+class ChaosFrequencyPicker extends StatelessWidget {
+  const ChaosFrequencyPicker({super.key, required this.storage});
+
+  final StorageService storage;
+
+  static String _describe(ChaosFrequency f) => switch (f) {
+    ChaosFrequency.rare => 'Rare — about one event every twelve messages',
+    ChaosFrequency.normal => 'Normal — about one every six or seven',
+    ChaosFrequency.wild => 'Wild — about one every three',
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'How often',
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 12,
+            ),
+          ),
+        ),
+        DropdownButton<ChaosFrequency>(
+          value: storage.realismSettings.chaosFrequency,
+          dropdownColor: AppColors.cardOf(context),
+          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12),
+          items: [
+            for (final f in ChaosFrequency.values)
+              DropdownMenuItem(value: f, child: Text(_describe(f))),
+          ],
+          onChanged: (v) {
+            if (v != null) {
+              storage.realismSettings.setChaosFrequency(v);
             }
           },
         ),

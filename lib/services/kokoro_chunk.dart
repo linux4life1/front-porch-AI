@@ -5,9 +5,10 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:path/path.dart' as p;
 
-import 'package:front_porch_ai/services/kokoro_debug.dart';
 //
 // The goal is to break user-provided text (especially long, stylized RP narration)
 // into small, safe pieces that `kokoro.create()` can handle reliably, while
@@ -76,7 +77,7 @@ class KokoroChunker {
     final chunks = <KokoroChunk>[];
     int chunkCounter = 0;
 
-    kDebugPrint(
+    debugPrint(
       '[KokoroChunker] Splitting text of length ${text.length} into chunks (max $maxChars chars)',
     );
 
@@ -96,11 +97,11 @@ class KokoroChunker {
           prefix: prefix,
         );
         if (trimmed.length < 25) {
-          kDebugPrint(
+          debugPrint(
             '[KokoroChunker] ⚠️  Very small chunk created #${chunk.originalIndex} (len=${trimmed.length}): "${_preview(trimmed)}"',
           );
         } else {
-          kDebugPrint(
+          debugPrint(
             '[KokoroChunker] Created chunk #${chunk.originalIndex} (len=${trimmed.length}): "${_preview(trimmed)}"',
           );
         }
@@ -120,11 +121,11 @@ class KokoroChunker {
               prefix: prefix,
             );
             if (sub.length < 25) {
-              kDebugPrint(
+              debugPrint(
                 '[KokoroChunker] ⚠️  Very small FORCED chunk #${chunk.originalIndex} (len=${sub.length}): "${_preview(sub)}"',
               );
             } else {
-              kDebugPrint(
+              debugPrint(
                 '[KokoroChunker] Created chunk #${chunk.originalIndex} (len=${sub.length}, FORCED): "${_preview(sub)}"',
               );
             }
@@ -134,7 +135,7 @@ class KokoroChunker {
       }
     }
 
-    kDebugPrint(
+    debugPrint(
       '[KokoroChunker] Finished splitting → produced ${chunks.length} chunks',
     );
     return chunks;
@@ -226,7 +227,7 @@ class KokoroChunker {
     int index = 0;
     int start = 0;
 
-    kDebugPrint(
+    debugPrint(
       '[KokoroChunker] Using smart fixed-character chunking (target $chunkSize chars) for verbatim mode',
     );
 
@@ -323,11 +324,11 @@ class KokoroChunker {
         );
 
         if (chunkText.length < 25) {
-          kDebugPrint(
+          debugPrint(
             '[KokoroChunker] ⚠️  Very small chunk created #${chunk.originalIndex} (len=${chunkText.length}): "${_preview(chunkText)}"',
           );
         } else {
-          kDebugPrint(
+          debugPrint(
             '[KokoroChunker] Created chunk #${chunk.originalIndex} (len=${chunkText.length}): "${_preview(chunkText)}"',
           );
         }
@@ -344,7 +345,7 @@ class KokoroChunker {
       }
     }
 
-    kDebugPrint(
+    debugPrint(
       '[KokoroChunker] Finished smart fixed-character splitting → produced ${chunks.length} chunks',
     );
     return chunks;

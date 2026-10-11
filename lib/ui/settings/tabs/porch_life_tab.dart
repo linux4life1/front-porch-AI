@@ -327,6 +327,8 @@ class PorchLifeTab extends StatelessWidget {
                   'still overrule it in the sidebar.',
               value: realism.chaosModeDefault,
               onChanged: realism.setChaosModeDefault,
+              showChildWhenOff: true,
+              child: ChaosFrequencyPicker(storage: storage),
             ),
             FeatureRow(
               icon: Icons.history,

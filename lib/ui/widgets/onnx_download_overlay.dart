@@ -19,6 +19,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// Glassmorphic overlay widget showing ONNX model download progress.
 ///
@@ -69,12 +70,6 @@ class _OnnxDownloadOverlayState extends State<OnnxDownloadOverlay> {
     }
     _lastDownloaded = progress.downloaded;
     _lastTimestamp = DateTime.now();
-  }
-
-  String _formatBytes(int bytes) {
-    if (bytes < 1024) return '$bytes B';
-    if (bytes < 1024 * 1024) return '${(bytes / 1024).toStringAsFixed(1)} KB';
-    return '${(bytes / (1024 * 1024)).toStringAsFixed(2)} MB';
   }
 
   String _formatETA(OnnxDownloadProgress progress) {
@@ -153,7 +148,7 @@ class _OnnxDownloadOverlayState extends State<OnnxDownloadOverlay> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        '${_formatBytes(progress.downloaded)} / ${_formatBytes(progress.total)}',
+                        '${formatBytes(progress.downloaded)} / ${formatBytes(progress.total)}',
                         style: TextStyle(
                           color: const Color(0xFF1DE9B6),
                           fontSize: 13,
@@ -173,7 +168,7 @@ class _OnnxDownloadOverlayState extends State<OnnxDownloadOverlay> {
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       Text(
-                        'Speed: ${_formatBytes(_currentSpeed.toInt())}/s',
+                        'Speed: ${formatBytes(_currentSpeed.toInt())}/s',
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.7),
                           fontSize: 12,

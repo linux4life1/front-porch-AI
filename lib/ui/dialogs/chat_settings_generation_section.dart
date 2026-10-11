@@ -184,21 +184,6 @@ class ChatSettingsGenerationSection extends StatelessWidget {
               onChanged();
             },
           ),
-          SliderWithInput(
-            label: 'Min Output Tokens',
-            value: gen.resolveMinLength(storage).toDouble(),
-            min: 0,
-            max: 512,
-            divisions: 512,
-            isInteger: true,
-            tooltip:
-                'Minimum tokens the AI must write before it can stop. Increase for longer responses.',
-            context: context,
-            onChanged: (val) {
-              gen.minLength = val.toInt();
-              onChanged();
-            },
-          ),
         ],
         PresetContextLock(
           locked: storage.backendSettings.presetOwnsContext,

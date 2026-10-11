@@ -274,6 +274,20 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         }
       }
     }
+    if (from < 56) {
+      // v55→v56: a 1:1 chat's Chaos "spicy events" switch was never saved, so
+      // it reset on every load. DEFAULT 0 matches what every existing chat
+      // already read back. Additive, so a downgrade keeps reading sessions.
+      try {
+        await customStatement(
+          'ALTER TABLE sessions ADD COLUMN '
+          'chaos_nsfw_enabled INTEGER NOT NULL DEFAULT 0',
+        );
+        debugPrint('[DB] v56: added sessions.chaos_nsfw_enabled');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

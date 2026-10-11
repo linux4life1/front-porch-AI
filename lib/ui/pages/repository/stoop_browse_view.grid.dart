@@ -9,26 +9,6 @@ part of 'stoop_browse_view.dart';
 
 extension _StoopBrowseViewGrid on _StoopBrowseViewState {
   Widget _content() {
-    if (_type == 'world' && !kStoopWorldsLive) {
-      // Keep the header (sort/type filters) so the panel isn't a dead end.
-      return CustomScrollView(
-        slivers: [
-          SliverToBoxAdapter(child: _browseHeader()),
-          SliverFillRemaining(
-            hasScrollBody: false,
-            child: stoopEmpty(
-              context,
-              glyph: '🏞️',
-              title: 'Worlds are coming soon to The Stoop',
-              body:
-                  'Soon you’ll be able to share and download portable places '
-                  '(.fpworld) — cover art, lore, climate, and traits included '
-                  '— moderated just like characters.',
-            ),
-          ),
-        ],
-      );
-    }
     if (_loading) return const StoopLamp(caption: 'Lighting the porch…');
     if (_error != null) {
       return stoopEmpty(

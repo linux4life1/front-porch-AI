@@ -18,11 +18,11 @@
 
 part of 'settings_page.dart';
 
-/// Context slider, acceleration expander, and GPU backend chips.
+/// Acceleration in Advanced Launch Options.
 extension _SettingsGpuChips on _SettingsPageState {
-  /// Acceleration "just works": a status line showing what automatic mode
-  /// resolved to, with the manual backend chips (Vulkan/ROCm/CUDA/Metal —
-  /// confusing to most users) tucked into a collapsed Advanced expander.
+  /// Acceleration is always worked out from the card (CUDA on NVIDIA, Metal
+  /// on a Mac, Vulkan on AMD or Intel). The one choice left is ROCm, which
+  /// is never picked by itself: a switch on an AMD card.
   Widget _buildAccelerationSection(
     BuildContext context,
     HardwareService hardwareService,
@@ -30,12 +30,7 @@ extension _SettingsGpuChips on _SettingsPageState {
     final storage = Provider.of<StorageService>(context, listen: false);
     final bs = storage.backendSettings;
     final hw = hardwareService.hardwareInfo;
-    final auto = GpuBackendResolver.isAutomatic(
-      userCublas: bs.useCublas,
-      userVulkan: bs.useVulkan,
-      userRocm: bs.useRocm,
-      userMetal: bs.useMetal,
-    );
+    final rocm = bs.useRocm == true;
     final backend = GpuBackendResolver.resolve(
       userCublas: bs.useCublas,
       userVulkan: bs.useVulkan,
@@ -46,23 +41,23 @@ extension _SettingsGpuChips on _SettingsPageState {
       // Detection reports Metal on every Mac and nowhere else.
       onMac: hw?.hasMetal,
     );
+    final amd = hw?.vendor == 'AMD';
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
             Icon(
-              auto ? Icons.auto_awesome : Icons.tune,
+              Icons.auto_awesome,
               size: 16,
               color: AppColors.porchAmberOf(context),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
-                auto
-                    ? 'Acceleration: Automatic — '
-                          '${GpuBackendResolver.describe(backend, hw?.vendor ?? 'Unknown')}'
-                    : 'Acceleration: Manual — '
+                rocm
+                    ? 'Acceleration: ROCm (AMD)'
+                    : 'Acceleration: Automatic — '
                           '${GpuBackendResolver.describe(backend, hw?.vendor ?? 'Unknown')}',
                 style: TextStyle(
                   fontSize: 13,
@@ -70,271 +65,59 @@ extension _SettingsGpuChips on _SettingsPageState {
                 ),
               ),
             ),
-            if (!auto)
-              TextButton(
-                onPressed: () {
-                  storage.backendSettings.setUseVulkan(null);
-                  storage.backendSettings.setUseRocm(null);
-                  storage.backendSettings.setUseCublas(null);
-                  storage.backendSettings.setUseMetal(null);
-                  rebuildState(() {
-                    _useVulkan = false;
-                    _useRocm = false;
-                    _useCublas = false;
-                    _useMetal = false;
-                  });
-                },
-                child: const Text('Reset to Automatic'),
-              ),
           ],
         ),
-        Theme(
-          data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-          child: ExpansionTile(
-            tilePadding: EdgeInsets.zero,
-            title: Text(
-              'Advanced: manual backend override',
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textTertiary(context),
-              ),
+        if (amd || rocm) _buildRocmRow(context, hw, rocm),
+      ],
+    );
+  }
+
+  /// "Use ROCm instead of Vulkan" on an AMD card. Off is automatic again.
+  Widget _buildRocmRow(BuildContext context, HardwareInfo? hw, bool on) {
+    final bs = Provider.of<StorageService>(
+      context,
+      listen: false,
+    ).backendSettings;
+    final offered = hw?.hasRocm == true;
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            offered
+                ? 'Use ROCm instead of Vulkan (its engine downloads when '
+                      'switched on)'
+                : 'ROCm needs a Linux driver that offers it',
+            style: TextStyle(
+              fontSize: 12,
+              color: AppColors.textTertiary(context),
             ),
-            children: [_buildGpuBackendChips(context, hardwareService)],
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContextSlider(
-    BuildContext context,
-    StorageService storageService,
-    Color accent,
-  ) {
-    final currentVal =
-        int.tryParse(_contextSizeController.text) ?? kKoboldContextFloor;
-    // Map context size to slider position. Nothing below 16,384 is offered;
-    // a smaller number can still be typed in the box, and is warned about.
-    const presets = kKoboldContextChoices;
-    // A size that is not one of them (8,192 saved from before, or typed) has
-    // no place on the slider: it is shown greyed out, and nothing is saved
-    // until a chip is picked, so a stray touch never replaces the user's
-    // number. While dragging, the box already holds a preset.
-    final onScale = presets.contains(currentVal);
-    int closestIdx = 0;
-    int closestDist = (presets[0] - currentVal).abs();
-    for (int i = 1; i < presets.length; i++) {
-      final dist = (presets[i] - currentVal).abs();
-      if (dist < closestDist) {
-        closestDist = dist;
-        closestIdx = i;
-      }
-    }
-
-    return Column(
-      children: [
-        SliderTheme(
-          data: SliderTheme.of(context).copyWith(
-            activeTrackColor: accent,
-            inactiveTrackColor: accent.withValues(alpha: 0.15),
-            thumbColor: accent,
-            overlayColor: accent.withValues(alpha: 0.2),
-          ),
-          child: Slider(
-            value: _dragContextSize ?? closestIdx.toDouble(),
-            min: 0,
-            max: (presets.length - 1).toDouble(),
-            divisions: presets.length - 1,
-            onChanged: onScale
-                ? (val) {
-                    rebuildState(() => _dragContextSize = val);
-                    _contextSizeController.text = presets[val.round()]
-                        .toString();
-                  }
-                : null,
-            onChangeEnd: (val) {
-              _dragContextSize = null;
-              final newSize = presets[val.round()];
-              _contextSizeController.text = newSize.toString();
-              storageService.backendSettings.setContextSize(newSize);
-              rebuildState(() {});
-            },
-          ),
-        ),
-        Wrap(
-          spacing: 6,
-          runSpacing: 4,
-          children: presets.map((size) {
-            final isSelected = currentVal == size;
-            final label = '${size ~/ 1024}K';
-            return ChoiceChip(
-              label: Text(
-                label,
-                style: TextStyle(
-                  fontSize: 11,
-                  color: isSelected
-                      ? AppColors.onChaosAccent
-                      : AppColors.textTertiary(context),
-                  fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                ),
-              ),
-              selected: isSelected,
-              selectedColor: accent,
-              backgroundColor: AppColors.textPrimary(
-                context,
-              ).withValues(alpha: 0.05),
-              side: BorderSide(
-                color: isSelected ? accent : AppColors.borderOf(context),
-              ),
-              padding: const EdgeInsets.symmetric(horizontal: 4),
-              materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              onSelected: (_) {
-                _contextSizeController.text = size.toString();
-                storageService.backendSettings.setContextSize(size);
-                rebuildState(() {});
-              },
-            );
-          }).toList(),
-        ),
-        ContextSizeWarnings(
-          contextSize: int.tryParse(_contextSizeController.text),
-          maxOutput: storageService.generationSettings.maxLength,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildGpuBackendChips(
-    BuildContext context,
-    HardwareService hardwareService,
-  ) {
-    // Saves all four switches, not only the one touched: all four off is "CPU
-    // only", while any left unset lets the launch pick a GPU on its own.
-    void selectBackend({
-      bool vulkan = false,
-      bool rocm = false,
-      bool cublas = false,
-      bool metal = false,
-    }) {
-      final ss = Provider.of<StorageService>(context, listen: false);
-      ss.backendSettings.setUseVulkan(vulkan);
-      ss.backendSettings.setUseRocm(rocm);
-      ss.backendSettings.setUseCublas(cublas);
-      ss.backendSettings.setUseMetal(metal);
-    }
-
-    final hw = hardwareService.hardwareInfo;
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        FilterChip(
-          label: const Text('Use Vulkan'),
-          selected: _useVulkan,
-          onSelected: (val) {
-            rebuildState(() {
-              _useVulkan = val;
-              if (val) {
-                _useCublas = false;
-                _useRocm = false;
-                _useMetal = false;
-              }
-            });
-            selectBackend(vulkan: val);
-          },
-        ),
-        Tooltip(
-          message: hw?.hasRocm == true
-              ? 'Use ROCm on this AMD card (its engine downloads when picked)'
-              : 'Needs an AMD card whose Linux driver offers ROCm',
-          child: FilterChip(
-            label: const Text('Use ROCm (AMD)'),
-            selected: _useRocm,
-            onSelected: hw?.hasRocm == true
-                ? (val) {
-                    // The driver offers it but this account may not use it:
-                    // say how, rather than pick something that cannot run.
-                    if (val && !hw!.rocmAccess) {
-                      showRocmHelpDialog(context, driverReady: true);
-                      return;
-                    }
-                    rebuildState(() {
-                      _useRocm = val;
-                      if (val) {
-                        _useVulkan = false;
-                        _useCublas = false;
-                        _useMetal = false;
-                      }
-                    });
-                    selectBackend(rocm: val);
-                  }
-                : null, // Disabled when the driver offers no ROCm
-            avatar: hw?.hasRocm == true
-                ? null
-                : const Icon(Icons.block, size: 16),
           ),
         ),
         // Only where something can be done: an AMD card on Linux whose
         // driver offers no ROCm, or one this account may not use yet.
-        if (hw != null &&
-            hw.vendor == 'AMD' &&
-            Platform.isLinux &&
-            (!hw.hasRocm || !hw.rocmAccess))
+        if (hw != null && Platform.isLinux && (!hw.hasRocm || !hw.rocmAccess))
           TextButton(
             onPressed: () =>
                 showRocmHelpDialog(context, driverReady: hw.hasRocm),
             child: const Text('Why can\'t I use ROCm?'),
           ),
-        Tooltip(
-          message: hardwareService.hardwareInfo?.vendor == 'Nvidia'
-              ? 'Use CUDA (NVIDIA only)'
-              : 'Requires NVIDIA GPU',
-          child: FilterChip(
-            label: const Text('Use CuBLAS (Nvidia)'),
-            selected: _useCublas,
-            onSelected: hardwareService.hardwareInfo?.vendor == 'Nvidia'
-                ? (val) {
-                    rebuildState(() {
-                      _useCublas = val;
-                      if (val) {
-                        _useVulkan = false;
-                        _useRocm = false;
-                        _useMetal = false;
-                      }
-                    });
-                    selectBackend(cublas: val);
+        Switch(
+          key: const ValueKey('use-rocm-switch'),
+          value: on,
+          activeTrackColor: AppColors.porchAmberOf(context),
+          // Left on from before with no ROCm now, it can still be turned off.
+          onChanged: offered || on
+              ? (val) async {
+                  // The driver offers it but this account may not use it:
+                  // say how, rather than pick something that cannot run.
+                  if (val && !hw!.rocmAccess) {
+                    showRocmHelpDialog(context, driverReady: true);
+                    return;
                   }
-                : null, // Disabled if not Nvidia
-            avatar: hardwareService.hardwareInfo?.vendor == 'Nvidia'
-                ? null
-                : const Icon(Icons.block, size: 16),
-          ),
-        ),
-        Tooltip(
-          message: hardwareService.hardwareInfo?.hasMetal == true
-              ? 'Use Metal (Apple Silicon/Mac)'
-              : 'Requires MacOS with Metal support',
-          child: FilterChip(
-            label: const Text('Use Metal (MacOS)'),
-            selected: _useMetal,
-            onSelected: hardwareService.hardwareInfo?.hasMetal == true
-                ? (val) {
-                    rebuildState(() {
-                      _useMetal = val;
-                      if (val) {
-                        _useVulkan = false;
-                        _useCublas = false;
-                        _useRocm = false;
-                      }
-                    });
-                    selectBackend(metal: val);
-                  }
-                : null, // Disabled if not MacOS/Metal
-            avatar: hardwareService.hardwareInfo?.hasMetal == true
-                ? null
-                : const Icon(Icons.block, size: 16),
-          ),
+                  await bs.setUseRocm(val ? true : null);
+                  rebuildState(() {});
+                }
+              : null,
         ),
       ],
     );

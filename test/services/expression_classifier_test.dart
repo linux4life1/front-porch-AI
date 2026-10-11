@@ -287,18 +287,6 @@ void main() {
       expect(service.downloadProgress, isNull);
     });
 
-    test('disposes active classifier', () async {
-      final storage = await createStorageService();
-      final service = ExpressionClassifierService(storage);
-
-      await service.ensureInitialized(
-        getCurrentEmotion: () => 'joy',
-        reclassify: (e) async => 'joy',
-      );
-
-      service.dispose();
-    });
-
     test('notifyListeners is called on ensureInitialized', () async {
       final storage = await createStorageService();
       final service = ExpressionClassifierService(storage);

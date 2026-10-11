@@ -122,6 +122,7 @@ extension SettingsFacadeRead on SettingsFacade {
         // default. Additive, as always — an older PWA ignores both keys.
         'intimateAgencyEnabled': _storage.realismSettings.intimateAgencyEnabled,
         'chaosModeDefault': _storage.realismSettings.chaosModeDefault,
+        'chaosFrequency': _storage.realismSettings.chaosFrequency.name,
         'webSearchDefault': _storage.webSearchSettings.webSearchDefault,
         'hasSearchApiKey': _storage.webSearchSettings.hasApiKey,
         'wikiBaseUrl': _storage.webSearchSettings.wikiBaseUrl,

@@ -340,23 +340,33 @@ class CharacterRepository extends ChangeNotifier {
     List<String> altGreetings = [];
     try {
       altGreetings = List<String>.from(jsonDecode(c.alternateGreetings));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint(
+        '[CharacterRepo] Unreadable alternate greetings on "${c.name}": $e',
+      );
+    }
 
     List<String> tags = [];
     try {
       tags = List<String>.from(jsonDecode(c.tags));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[CharacterRepo] Unreadable tags on "${c.name}": $e');
+    }
 
     List<String> worldNames = [];
     try {
       worldNames = List<String>.from(jsonDecode(c.worldNames));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[CharacterRepo] Unreadable world names on "${c.name}": $e');
+    }
 
     Lorebook? lorebook;
     if (c.lorebook != null) {
       try {
         lorebook = Lorebook.fromJson(jsonDecode(c.lorebook!));
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('[CharacterRepo] Unreadable lorebook on "${c.name}": $e');
+      }
     }
 
     final card = CharacterCard(

@@ -34,16 +34,6 @@ export interface StoopCreatorRef {
   verification?: 'gold' | 'blue' | 'silver' | null;
 }
 
-/**
- * Worlds on The Stoop — client readiness flag (mirrors the desktop's
- * kStoopWorldsLive). Portable places (.fpworld) ride the same card endpoints
- * as a third `type: 'WORLD'` (payload = the .fpworld envelope, cover image as
- * the card avatar) and go through the same moderation pipeline as characters.
- * The backend doesn't accept WORLD yet; while false the UI shows Worlds as
- * "coming soon". Flip together with the desktop flag when the backend ships.
- */
-export const STOOP_WORLDS_LIVE = true;
-
 export interface StoopCard {
   id: string;
   name: string;

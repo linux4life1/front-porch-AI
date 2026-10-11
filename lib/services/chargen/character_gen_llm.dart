@@ -128,63 +128,13 @@ extension GenLlm on CharacterGenService {
             }
           }
 
-          if (isJsonMode) {
-            // Strip think blocks (fuzzy — models misspell <think> at high temp)
-            final tOpen = r'<(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
-            final tClose =
-                r'</(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
-            final stripped = accumulated
-                .replaceAll(
-                  RegExp(tOpen + r'[\s\S]*?' + tClose, caseSensitive: false),
-                  '',
-                )
-                .replaceAll(
-                  RegExp(tOpen + r'[\s\S]*$', caseSensitive: false),
-                  '',
-                )
-                .trim();
-            if (stripped.startsWith('{')) {
-              int depth = 0;
-              bool inString = false;
-              bool complete = false;
-              for (int ci = 0; ci < stripped.length; ci++) {
-                final ch = stripped[ci];
-                if (ch == '"' && (ci == 0 || stripped[ci - 1] != '\\')) {
-                  inString = !inString;
-                } else if (!inString) {
-                  if (ch == '{') {
-                    // Skip doubled {{ (template markers like {{char}})
-                    if (ci + 1 < stripped.length && stripped[ci + 1] == '{') {
-                      ci++; // skip the second {
-                      continue;
-                    }
-                    depth++;
-                  } else if (ch == '}') {
-                    // Skip doubled }} (template markers like {{char}})
-                    if (ci + 1 < stripped.length && stripped[ci + 1] == '}') {
-                      ci++; // skip the second }
-                      continue;
-                    }
-                    depth--;
-                    if (depth == 0) {
-                      complete = true;
-                      break;
-                    }
-                  }
-                }
-              }
-              if (complete) break;
-            }
+          if (isJsonMode &&
+              JsonSanitizer.hasCompleteObject(stripThinkBlocks(accumulated))) {
+            break;
           }
 
           if (onProgress != null) {
-            String preview = accumulated;
-            // Fuzzy think-tag stripping for preview
-            final tO = r'<(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
-            final tC = r'</(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
-            preview = preview.replaceAll(RegExp(tO + r'[\s\S]*?' + tC), '');
-            preview = preview.replaceAll(RegExp(tO + r'[\s\S]*$'), '');
-            onProgress(preview.trim());
+            onProgress(stripThinkBlocks(accumulated));
           }
         }
 

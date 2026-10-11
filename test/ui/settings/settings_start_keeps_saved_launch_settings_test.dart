@@ -90,23 +90,25 @@ void main() {
     expect(rig.kobold.starts.single.context, 32768);
   });
 
-  testWidgets('Reset to Automatic, then Start, stays automatic', (
+  testWidgets('ROCm switched on, then off, then Start, is automatic', (
     tester,
   ) async {
-    // A pick the user made: a first visit no longer saves one by itself.
-    final rig = await mountSettings(
-      tester,
-      lastUsedIsB: false,
-      before: (rig) async {
-        final b = rig.store.backendSettings;
-        await b.setUseCublas(true);
-        await b.setUseVulkan(false);
-        await b.setUseMetal(false);
-        await b.setUseRocm(false);
-      },
+    final amd = HardwareInfo(
+      gpuName: 'AMD Radeon RX 6900 XT',
+      vramMb: 16368,
+      ramMb: 64000,
+      vendor: 'AMD',
+      hasRocm: true,
     );
-    await openTab(tester, 'Advanced');
-    await tapVisible(tester, find.text('Reset to Automatic'));
+    final rig = await mountSettings(tester, lastUsedIsB: false, hardware: amd);
+    await openLaunchOptions(tester);
+    final rocm = find.byKey(const ValueKey('use-rocm-switch'));
+    await tapVisible(tester, rocm);
+    await settle(tester);
+    expect(switchesOf(rig), [null, null, null, true]);
+    expect(find.text('Acceleration: ROCm (AMD)'), findsOneWidget);
+
+    await tapVisible(tester, rocm);
     await settle(tester);
     expect(switchesOf(rig), [null, null, null, null]);
 
@@ -120,107 +122,18 @@ void main() {
       null,
       null,
     ], reason: 'Start wrote four "off" switches, which is CPU only');
-    expect(resolvedOn(rig, nvidiaGtx1060), GpuBackend.cuda);
-    final config = await stagedConfigFor(tester, rig, nvidiaGtx1060);
-    expect(config.containsKey('usecuda'), isTrue, reason: 'no GPU was staged');
+    expect(resolvedOn(rig, amd), GpuBackend.vulkan);
+    final config = await stagedConfigFor(tester, rig, amd);
+    expect(config.containsKey('usevulkan'), isTrue, reason: 'no GPU staged');
   });
 
-  group('turning an acceleration switch off', () {
-    // One machine that offers all four switches, so each can be turned on
-    // and off.
-    final everything = HardwareInfo(
-      gpuName: 'NVIDIA GeForce RTX 4090',
-      vramMb: 24576,
-      ramMb: 65536,
-      vendor: 'Nvidia',
-      hasCuda: true,
-      hasRocm: true,
-      hasMetal: true,
-    );
-    const chips = {
-      'Use Vulkan': [false, true, false, false],
-      'Use ROCm (AMD)': [false, false, false, true],
-      'Use CuBLAS (Nvidia)': [true, false, false, false],
-      'Use Metal (MacOS)': [false, false, true, false],
-    };
-
-    for (final MapEntry(key: label, value: only) in chips.entries) {
-      testWidgets('"$label" on chooses it alone, off is CPU only through '
-          'Start', (tester) async {
-        final rig = await mountSettings(
-          tester,
-          lastUsedIsB: false,
-          hardware: everything,
-        );
-        await openTab(tester, 'Advanced');
-        await tapVisible(
-          tester,
-          find.text('Advanced: manual backend override'),
-        );
-        await tester.pump(const Duration(milliseconds: 400));
-        await settle(tester);
-
-        // Whatever the machine started on, this switch ends up chosen. A
-        // switch nobody has set reads as off.
-        final chip = find.widgetWithText(FilterChip, label);
-        if (!tester.widget<FilterChip>(chip).selected) {
-          await tapVisible(tester, chip);
-          await settle(tester);
-        }
-        expect(
-          [for (final on in switchesOf(rig)) on == true],
-          only,
-          reason: '"$label" on chooses it alone',
-        );
-
-        await tapVisible(tester, chip);
-        await settle(tester);
-        expect(
-          switchesOf(rig),
-          [false, false, false, false],
-          reason: '"$label" off means no acceleration: all four are saved off',
-        );
-
-        await openTab(tester, 'Backend');
-        await tapVisible(tester, find.text('Start Backend'));
-        await settle(tester, () => rig.kobold.starts.isNotEmpty);
-        expect(resolvedOn(rig, everything), GpuBackend.cpu);
-        final config = await stagedConfigFor(tester, rig, everything);
-        expect(config.containsKey('usecuda'), isFalse);
-        expect(config.containsKey('usevulkan'), isFalse);
-      });
-    }
-  });
-
-  testWidgets('GPU layers typed on the Advanced tab are saved as typed', (
+  testWidgets('no backend picker is offered, only ROCm on an AMD card', (
     tester,
   ) async {
-    final rig = await mountSettings(tester, lastUsedIsB: false);
-    final b = rig.store.backendSettings;
-    await openTab(tester, 'Advanced');
-    await tapVisible(
-      tester,
-      find.byKey(const ValueKey('gpu-layers-manual-switch')),
-    );
-    await settle(tester);
-    final field = find.byKey(const ValueKey('gpu-layers-number'));
-    await tester.ensureVisible(field);
-    await tester.enterText(field, '20');
-    await settle(tester);
-    expect(b.gpuLayers, 20, reason: 'typing does not save the layer count');
-
-    // Half-typed text that is not a number saves nothing.
-    await tester.enterText(field, '');
-    await settle(tester);
-    expect(b.gpuLayers, 20);
-
-    // The Advanced tab's own Start launches from what is saved.
-    await tapVisible(tester, find.text('Advanced Launch Options'));
-    await tester.pump(const Duration(milliseconds: 400));
-    await tester.pump(const Duration(milliseconds: 400));
-    await settle(tester);
-    await tapVisible(tester, find.text('Start Backend'));
-    await settle(tester, () => rig.kobold.starts.isNotEmpty);
-    expect(rig.kobold.starts.single.layers, 20);
+    await mountSettings(tester, lastUsedIsB: false);
+    await openLaunchOptions(tester);
+    expect(find.text('Advanced: manual backend override'), findsNothing);
+    expect(find.byType(FilterChip), findsNothing);
+    expect(find.byKey(const ValueKey('use-rocm-switch')), findsNothing);
   });
 }

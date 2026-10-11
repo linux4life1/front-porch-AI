@@ -62,12 +62,6 @@ export interface StoryLaneJson {
 /** The three jobs a story assigns a model to (`model_lanes` keys). */
 export type StoryJob = 'planning' | 'prose' | 'review';
 
-/** A quick-concept seed for the setup wizard (genre/style/concept). */
-export interface StoryArchetype {
-  label: string;
-  value: string;
-}
-
 /** A TTS voice for the per-character read-along picker. */
 export interface StoryVoice {
   id: string;

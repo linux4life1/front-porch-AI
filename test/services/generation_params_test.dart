@@ -250,13 +250,6 @@ void main() {
       expect(params.prompt, '');
     });
 
-    test('null prompt is not accepted (required field)', () {
-      // This test documents that prompt is a required positional parameter.
-      // The following would not compile:
-      // GenerationParams(prompt: null);
-      // GenerationParams();
-    });
-
     test('long prompt is preserved', () {
       final longPrompt = 'a' * 10000;
       final params = GenerationParams(prompt: longPrompt);

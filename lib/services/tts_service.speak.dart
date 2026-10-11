@@ -178,7 +178,7 @@ extension TtsServiceSpeak on TtsService {
             : _storageService.ttsSettings.ttsIgnoreAsterisks
             ? 'Ignore Asterisks'
             : 'Verbatim';
-        kDebugPrint(
+        debugPrint(
           '[TtsService] $engineName single full-text generation ($modeLabel mode)',
         );
 
@@ -337,7 +337,7 @@ extension TtsServiceSpeak on TtsService {
         );
         _audioCollector!.reset(); // Ensure clean state for new utterance
 
-        kDebugPrint(
+        debugPrint(
           '[TtsService] Starting parallel generation of ${sentences.length} sentences (concurrency=$maxConcurrency)',
         );
 

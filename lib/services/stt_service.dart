@@ -331,7 +331,9 @@ class SttService extends ChangeNotifier {
     try {
       final path = await _recorder.stop();
       if (path != null) _cleanupRecording(path);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('STT cancel failed: $e');
+    }
     _isRecording = false;
     notifyListeners();
   }
@@ -340,6 +342,7 @@ class SttService extends ChangeNotifier {
 
   void _startAmplitudeMonitor() {
     _stopAmplitudeMonitor();
+    var loggedAmplitudeError = false;
     _amplitudeTimer = Timer.periodic(const Duration(milliseconds: 100), (
       _,
     ) async {
@@ -351,7 +354,13 @@ class SttService extends ChangeNotifier {
         // Calibration sampling and silence auto-send live in the session.
         call.onAmplitude(_currentAmplitude);
         notifyListeners();
-      } catch (_) {}
+      } catch (e) {
+        // The timer fires every 100 ms; log the first failure only.
+        if (!loggedAmplitudeError) {
+          loggedAmplitudeError = true;
+          debugPrint('STT amplitude read failed: $e');
+        }
+      }
     });
   }
 
@@ -429,7 +438,9 @@ class SttService extends ChangeNotifier {
   void _cleanupRecording(String path) {
     try {
       File(path).deleteSync();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('STT could not delete recording $path: $e');
+    }
   }
 
   @override

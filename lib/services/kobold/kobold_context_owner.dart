@@ -22,12 +22,13 @@ const String kPresetOwnsContext =
     'Context size is controlled by the active .kcpps preset and cannot be '
     'edited here.';
 
-/// Said on the Advanced tab's context card, which holds the cache setting
-/// too. A preset is launched as it was written and the app's own cache
-/// setting is not read for it, so the preset sets both.
-const String kPresetOwnsContextAndCache =
-    'Context size and KV cache quantization are controlled by the active '
-    '.kcpps preset and cannot be edited here.';
+/// Said at the top of Advanced Launch Options while chat runs a preset. A
+/// preset is launched as it was written, so these settings are not read for
+/// chat; a model started without a preset (a helper or story model with
+/// none of its own) still runs with them.
+const String kPresetOwnsLaunchOptions =
+    'Chat runs the active .kcpps preset, which sets all of this for it. '
+    'These options only apply to a model started without a preset.';
 
 /// Whether the chosen preset sets chat's context: KoboldCpp is the backend
 /// ([backend], as stored: anything but `openRouter` and `omlx` is KoboldCpp)

@@ -3,9 +3,6 @@
 //
 // Pure helpers for Image Studio remote chips + searchable picker (web).
 
-export const kNanoGptApiV1 = 'https://nano-gpt.com/api/v1';
-export const kOpenRouterApiV1 = 'https://openrouter.ai/api/v1';
-
 export interface ImageRemoteHost {
   id: string;
   label: string;

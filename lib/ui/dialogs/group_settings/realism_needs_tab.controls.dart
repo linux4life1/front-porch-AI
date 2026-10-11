@@ -166,30 +166,31 @@ extension _GroupRealismNeedsControls on _GroupRealismNeedsTabState {
         ),
         const SizedBox(height: 8),
 
-        // NSFW spicy toggle
-        Row(
-          children: [
-            Text('🌶️', style: TextStyle(fontSize: 13)),
-            const SizedBox(width: 6),
-            Expanded(
-              child: Text(
-                'Include spicy/NSFW events',
-                style: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textSecondary(context),
+        // Spicy toggle — 18+ only; absent when 18+ themes is off.
+        if (cs.chaosModeService.adultAllowed)
+          Row(
+            children: [
+              Text('🌶️', style: TextStyle(fontSize: 13)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  'Include spicy/NSFW events',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textSecondary(context),
+                  ),
                 ),
               ),
-            ),
-            SizedBox(
-              height: 24,
-              child: Switch(
-                value: _chaosNsfwEnabled,
-                activeTrackColor: AppColors.porchAmberOf(context),
-                onChanged: _updateChaosNsfw,
+              SizedBox(
+                height: 24,
+                child: Switch(
+                  value: _chaosNsfwEnabled,
+                  activeTrackColor: AppColors.porchAmberOf(context),
+                  onChanged: _updateChaosNsfw,
+                ),
               ),
-            ),
-          ],
-        ),
+            ],
+          ),
       ],
     ];
   }

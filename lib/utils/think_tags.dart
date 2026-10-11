@@ -18,19 +18,6 @@
 
 import 'package:front_porch_ai/utils/reasoning_markers.dart';
 
-/// Strips reasoning-model think tags from user-visible prose (TTS input,
-/// emotion classification, etc.).
-///
-/// Handles the three leak shapes seen in the wild: complete
-/// `<think>...</think>` blocks, an unclosed `<think>` prefix running to the
-/// end (mid-stream text), and a bare orphan `</think>` left behind when the
-/// transport consumed the opening tag. For orphan closing tags only the tag
-/// itself is removed — wiping preceding prose would blank a legit message on
-/// a stray token.
-///
-/// Distinct from LlmEvalEngine.stripThinkBlocks, which is eval-plumbing with
-/// its own budget semantics; this one is for message text shown/spoken to
-/// the user.
 /// Close a dangling `<think>` so later Continue text cannot be swallowed
 /// into the thought block. No-op when tags already balance.
 String closeOpenThink(String text) {
@@ -83,6 +70,19 @@ bool looksLikeParkedSpeech(String thought) {
   return paragraphs.length <= 2;
 }
 
+/// Strips reasoning-model think tags from user-visible prose (TTS input,
+/// emotion classification, etc.).
+///
+/// Handles the three leak shapes seen in the wild: complete
+/// `<think>...</think>` blocks, an unclosed `<think>` prefix running to the
+/// end (mid-stream text), and a bare orphan `</think>` left behind when the
+/// transport consumed the opening tag. For orphan closing tags only the tag
+/// itself is removed — wiping preceding prose would blank a legit message on
+/// a stray token.
+///
+/// Distinct from LlmEvalEngine.stripThinkBlocks, which is eval-plumbing with
+/// its own budget semantics; this one is for message text shown/spoken to
+/// the user.
 String stripThinkTags(String text) {
   final source = canonicalizeReasoning(text);
   return source
@@ -142,4 +142,24 @@ String joinMessageEdit({required String thinking, required String body}) {
   if (t.isEmpty) return body;
   final prefix = '<think>\n$t\n</think>\n';
   return body.isEmpty ? prefix.trimRight() : '$prefix$body';
+}
+
+/// Strip `<think>`…`</think>` reasoning blocks (fuzzy — models misspell the tag
+/// at high temperature) from structured output: character generation, vision
+/// evals and `JsonSanitizer`. Handles both completed blocks and an
+/// unterminated `<think>` prefix that runs to the end of the stream.
+///
+/// The fuzzy alternation is why this is not [stripThinkTags]: generation runs
+/// hot enough that `<thnk>` and `<tink>` show up, and a missed tag means
+/// misspelled reasoning is saved into a card field. Widening [stripThinkTags]
+/// instead would change what the chat bubble, TTS and the expression
+/// classifier consider speech, so the two stay separate on purpose.
+String stripThinkBlocks(String raw) {
+  raw = canonicalizeReasoning(raw);
+  const open = r'<(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
+  const close = r'</(?:think|thinking|thnk|thik|tink|thin|hink|ink)>';
+  return raw
+      .replaceAll(RegExp('$open[\\s\\S]*?$close', caseSensitive: false), '')
+      .replaceAll(RegExp('$open[\\s\\S]*\$', caseSensitive: false), '')
+      .trim();
 }
