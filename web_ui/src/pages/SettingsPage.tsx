@@ -139,16 +139,19 @@ export function SettingsPage() {
         setSavedRemoteApiUrl(next.remoteApiUrl);
         setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       })
-      .catch(() => {});
+      .catch((e) => console.warn('[settings] load failed', e));
   const loadLegacy = () =>
-    api.get<LegacyModels>('/api/legacy-models').then(setLegacy).catch(() => {});
+    api
+      .get<LegacyModels>('/api/legacy-models')
+      .then(setLegacy)
+      .catch((e) => console.warn('[settings] legacy models load failed', e));
   useEffect(() => {
     void load();
     void loadLegacy();
     void api
       .get<{ totpEnabled?: boolean }>('/api/auth/state')
       .then((st) => setTotpEnabled(!!st.totpEnabled))
-      .catch(() => {});
+      .catch((e) => console.warn('[settings] auth state load failed', e));
   }, []);
   // An Intel Mac host cannot run KoboldCpp: greyed out in the Backend
   // picker, with the desktop's sentence beside it.
