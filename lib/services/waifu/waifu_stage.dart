@@ -69,8 +69,28 @@ class WaifuStage {
     detail: kWaifuPhotosUnsupported,
   );
 
+  /// The work landed but the wrap-up line never came.
+  WaifuMessage quietFinish() => WaifuMessage.stage(
+    '$name finishes up without a word.',
+    detail: 'The turn completed, but the wrap-up line did not arrive.',
+  );
+
   WaifuMessage noTools() => WaifuMessage.stage(
     '$name cannot pick up tools on this model.',
     detail: kWaifuToolsUnsupported,
   );
+}
+
+/// True when the coworker said anything since the last user line. With
+/// [orNarrated], a stage row (an error, a lost line) counts too, so a
+/// failed turn is not also told as a quiet finish.
+bool waifuTurnSpoke(List<WaifuMessage> transcript, {bool orNarrated = false}) {
+  for (final m in transcript.reversed) {
+    if (m.kind == WaifuMsgKind.user) return false;
+    if (orNarrated && m.kind == WaifuMsgKind.stage) return true;
+    if (m.kind == WaifuMsgKind.assistant && m.text.trim().isNotEmpty) {
+      return true;
+    }
+  }
+  return false;
 }

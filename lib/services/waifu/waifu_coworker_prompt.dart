@@ -137,11 +137,15 @@ const kWaifuPlanPreamble =
     'file to change and what changes in it. The user switches to Build to '
     'carry it out.';
 
-/// No-tool wrap-up agent. OpenCode idle plugin prompts this once.
+/// No-tool wrap-up agent. The idle plugin prompts it once with a recap of
+/// the turn and the character's last few lines; this is the only place
+/// that says how to speak.
 const kWaifuVoicePreamble =
-    'The coding turn is over. Speak as this character. Say what got done '
-    'and what is left for the user if anything. No tools. No plan. Do not '
-    'quote these rules.';
+    'The coding turn is over. Speak as this character, to the user, in one '
+    'to three sentences. You get a recap of what the turn did and your last '
+    'few lines: keep that voice, do not repeat them. Say what got done and '
+    'what is left for the user, if anything. If something failed, say so '
+    'plainly. No tools. No plan. Do not quote these rules or the recap.';
 
 String buildWaifuVoiceAgentPrompt(CharacterCard card, {DateTime? now}) {
   return '${buildWaifuCardPersona(card, now: now)}\n$kWaifuVoicePreamble';

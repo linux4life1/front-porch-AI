@@ -261,6 +261,9 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
         session.transcript.add(_stage.noPhotos());
         await pump(null);
       }
+      if (!_aborted && !waifuTurnSpoke(session.transcript, orNarrated: true)) {
+        session.transcript.add(_stage.quietFinish());
+      }
     } on OpenCodeStreamClosed catch (e) {
       // The serve is gone. Next send sits down again and resumes the session.
       seat.drop();
