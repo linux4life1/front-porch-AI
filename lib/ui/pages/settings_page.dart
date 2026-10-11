@@ -86,10 +86,6 @@ class _SettingsPageState extends State<SettingsPage> {
   final _apiController = TextEditingController();
   final _remoteApiUrlController = TextEditingController();
   final _remoteApiKeyController = TextEditingController();
-  bool _useVulkan = false;
-  bool _useCublas = false;
-  bool _useMetal = false;
-  bool _useRocm = false;
   String? _selectedModelPath;
   final TextEditingController _systemPromptController = TextEditingController();
   final TextEditingController _bannedPhrasesController =
@@ -147,40 +143,8 @@ class _SettingsPageState extends State<SettingsPage> {
       Provider.of<StorageService>(context, listen: false).backendSettings,
     );
 
-    // Sync local state with storage
-    final storage = Provider.of<StorageService>(context, listen: false);
-    // Unset (automatic) shows as no chip picked; nothing is ever saved here.
-    _useCublas = storage.backendSettings.useCublas == true;
-    _useVulkan = storage.backendSettings.useVulkan == true;
-    _useMetal = storage.backendSettings.useMetal == true;
-    _useRocm = storage.backendSettings.useRocm == true;
-    // Show the saved launch settings again once hardware info is available.
-    // HardwareService.detectHardware() is already called in its constructor,
-    // so we just use the cached result. If detection is still in progress,
-    // listen for changes.
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final hardwareService = Provider.of<HardwareService>(
-        context,
-        listen: false,
-      );
-
-      if (hardwareService.hardwareInfo != null) {
-        _showSavedLaunchSettings();
-      } else {
-        // Detection still in progress — listen for completion
-        void listener() {
-          if (!mounted) return;
-          if (!hardwareService.isDetecting &&
-              hardwareService.hardwareInfo != null) {
-            hardwareService.removeListener(listener);
-            _showSavedLaunchSettings();
-          }
-        }
-
-        hardwareService.addListener(listener);
-      }
-
       // Auto-fetch available models if API is configured
       _autoFetchModels();
 

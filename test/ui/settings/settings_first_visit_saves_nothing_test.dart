@@ -54,26 +54,17 @@ void main() {
     });
   }
 
-  testWidgets('a choice the user made stays theirs after a visit', (
+  testWidgets('ROCm, switched on before, stays on after a visit', (
     tester,
   ) async {
     final rig = await mountSettings(
       tester,
       lastUsedIsB: false,
       hardware: _rtx,
-      before: (rig) async {
-        final b = rig.store.backendSettings;
-        await b.setUseCublas(false);
-        await b.setUseVulkan(true);
-        await b.setUseMetal(false);
-        await b.setUseRocm(false);
-      },
+      before: (rig) => rig.store.backendSettings.setUseRocm(true),
     );
     await openLaunchOptions(tester);
-    expect(_switches(rig), [false, true, false, false]);
-    expect(
-      find.text('Acceleration: Manual — Vulkan (Nvidia GPU detected)'),
-      findsOneWidget,
-    );
+    expect(_switches(rig), [null, null, null, true]);
+    expect(find.text('Acceleration: ROCm (AMD)'), findsOneWidget);
   });
 }

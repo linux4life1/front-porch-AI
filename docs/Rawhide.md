@@ -7,6 +7,8 @@ Last shipped nightly: `rawhide.20261006.fbe655b`. Everything below is unreleased
 
 ## Recent improvements (unreleased — ships in the next build)
 
+- 🧹 **A tidier Advanced tab** — Settings → Advanced no longer repeats the context, GPU layers and graphics-card readout that the Backend tab's Local model card already shows. Acceleration is always picked for your card now (CUDA on NVIDIA, Metal on a Mac, Vulkan on AMD and Intel); the old backend picker is gone, and a choice it saved is dropped. AMD cards keep one switch, **Use ROCm instead of Vulkan**, in Advanced Launch Options. The Min Output Tokens slider is gone too: no backend ever received it.
+
 - 🖥️ **Sharper text while a model is running, on Windows and Linux too** — the app now draws with the same renderer it used before Flutter 3.47 on every desktop. The newer renderer smeared and ghosted text whenever the graphics card was busy with a local model; the Mac build switched last week, and Windows and Linux follow.
 
 - ⚡ **Find the fastest settings for your computer** — the Local model card (in Settings, and on the phone's Models page) has a new button that tries a few ways of running your model on your graphics card, one at a time, and keeps the fastest. It tells you how long it will take and asks first (a few minutes; chat waits while it runs, and Cancel puts everything back). When it is done it says how much sooner replies come, and the result is saved as a preset for that model, so it is used every time that model starts. NVIDIA cards also start a little faster now, before any test. Experts can time batch sizes for their own presets in the preset editor.
