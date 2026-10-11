@@ -345,12 +345,7 @@ extension ChatServiceSend on ChatService {
       if (_clockRunning) {
         final before = _timeService.clock;
         await _timeService.detectOocTimeSkip(outbound);
-        final after = _timeService.clock;
-        if (after != before &&
-            isNightSkip(stripQuotedSpeech(outbound).toLowerCase())) {
-          _applyNightSkipRestore();
-        }
-        await _maybeMintEpisodeCrumbs(before, after);
+        await _maybeMintEpisodeCrumbs(before, _timeService.clock);
       }
 
       // ── Direct-address turn routing (both cast surfaces) ─────────────────

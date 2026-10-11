@@ -191,18 +191,6 @@ Future<({AppDatabase db, bool needsMigration})?> _openDatabaseGuarded() async {
   // Soft-delete purge + legacy JSON cleanup are idempotent maintenance —
   // they moved to the post-first-frame block in _MyAppState.initState so
   // launch doesn't wait on them (they used to run before the window showed).
-
-  // TODO: Enable after verifying DatabaseCleanup behaves correctly in production
-  // try {
-  //   final report = await DatabaseCleanup.checkOrphans(db);
-  //   if (report.totalOrphans > 0 || report.totalBrokenRefs > 0) {
-  //     debugPrint('[DB] Found ${report.totalOrphans + report.totalBrokenRefs}'
-  //         ' orphaned records — running cleanup');
-  //     await DatabaseCleanup.cleanOrphans(db);
-  //   }
-  // } catch (e) {
-  //   debugPrint('[DB] Orphan cleanup failed: $e (non-fatal)');
-  // }
   return (db: db, needsMigration: needsMigration);
 }
 

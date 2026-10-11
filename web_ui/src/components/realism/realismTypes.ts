@@ -322,16 +322,6 @@ export function trustTier(level: number): string {
   return 'Absolute Distrust';
 }
 
-/** Decay-rate description (mirror needs_form_section.dart). */
-export function decayDescription(v: number): string {
-  if (v === 0) return `Static (0)`;
-  if (v <= 2) return `Very Slow (${v})`;
-  if (v <= 4) return `Slow (${v})`;
-  if (v <= 7) return `Normal (${v})`;
-  if (v <= 12) return `Fast (${v})`;
-  return `Very Fast (${v})`;
-}
-
 
 /** Drop empty greet rows and their paired seed slots together. */
 export function compactGreetingPairs(

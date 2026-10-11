@@ -52,7 +52,7 @@ import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
-import 'package:front_porch_ai/services/expression_classifier.dart'; // top-level for ExpressionClassifierService type in @Dep shim (pre-existing)
+import 'package:front_porch_ai/services/expression_classifier.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
@@ -114,7 +114,6 @@ part 'chat/chat_service_pockets_pass.dart';
 part 'chat/chat_service_item_cards.dart';
 part 'chat/chat_service_birthday.dart';
 part 'chat/chat_service_episode_crumbs.dart';
-part 'chat/chat_service_night_skip.dart';
 part 'chat/chat_service_reply_facts.dart';
 part 'chat/chat_service_mood.dart';
 part 'chat/chat_service_climax.dart';

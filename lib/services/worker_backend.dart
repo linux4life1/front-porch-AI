@@ -22,7 +22,7 @@ import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.da
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
-/// Worker fields without growing [StorageService] past the 1000-line ratchet.
+/// Worker fields without growing [StorageService] past the 500-line ratchet.
 extension WorkerBackendStorage on StorageService {
   String get workerBackendType => backendSettings.workerBackendType;
   Future<void> setWorkerBackendType(String v) =>
