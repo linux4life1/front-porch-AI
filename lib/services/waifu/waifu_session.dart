@@ -63,7 +63,9 @@ class WaifuWriteRecord {
   final String after;
 }
 
-enum WaifuMsgKind { user, assistant, tool, recap }
+/// [stage] is narration about the turn (stopped, reverted, an error), not
+/// a line the coworker said. It is painted apart and never spoken.
+enum WaifuMsgKind { user, assistant, tool, recap, stage }
 
 /// Kind from disk. [kindName] wins; else hidden recap; else isUser.
 /// Never sniffs message text — a typed `[Session compact]` stays a user line.
@@ -98,6 +100,7 @@ class WaifuMessage {
     this.toolPath,
     this.toolCallId,
     this.toolArgs,
+    this.detail,
   }) : kind =
            kind ??
            (hidden
@@ -126,6 +129,9 @@ class WaifuMessage {
 
   const WaifuMessage.recap(String text)
     : this(kind: WaifuMsgKind.recap, text: text);
+
+  const WaifuMessage.stage(String line, {String? detail})
+    : this(kind: WaifuMsgKind.stage, text: line, detail: detail);
 
   const WaifuMessage.tool({
     required String name,
@@ -157,6 +163,9 @@ class WaifuMessage {
   final String? toolCallId;
   final Map<String, dynamic>? toolArgs;
 
+  /// The plain technical line under a [WaifuMsgKind.stage] row.
+  final String? detail;
+
   bool get isUser => kind == WaifuMsgKind.user;
 
   /// Prompt-only (session recap). Not painted as a bubble.
@@ -183,6 +192,7 @@ class WaifuMessage {
       toolPath: toolPath,
       toolCallId: toolCallId,
       toolArgs: toolArgs,
+      detail: detail,
     );
   }
 
@@ -239,7 +249,9 @@ class WaifuSession {
        todos = todos ?? WaifuTodos();
 
   final String folderRoot;
-  final CharacterCard coworker;
+
+  /// Replaced when the library card is edited, so her voice follows it.
+  CharacterCard coworker;
   WaifuMode mode;
   WaifuPathMode pathMode;
   String title;

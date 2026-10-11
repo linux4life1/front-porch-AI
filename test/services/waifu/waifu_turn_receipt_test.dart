@@ -23,15 +23,21 @@ WaifuWriteRecord _rec(String path) =>
     WaifuWriteRecord(relativePath: path, before: '', after: 'x');
 
 void main() {
-  test('one file keeps the Last write headline', () {
+  test('one file names her and the path', () {
     final writes = [_rec('lib/a.dart')];
-    expect(waifuTurnReceiptHeadline(writes), 'Last write: lib/a.dart');
+    expect(
+      waifuTurnReceiptHeadline(writes, name: 'Mira'),
+      'Mira changed lib/a.dart',
+    );
     expect(waifuTurnTouchedPaths(writes), ['lib/a.dart']);
   });
 
   test('two files list both paths and a count headline', () {
     final writes = [_rec('lib/a.dart'), _rec('lib/b.dart'), _rec('lib/a.dart')];
-    expect(waifuTurnReceiptHeadline(writes), '2 files this turn');
+    expect(
+      waifuTurnReceiptHeadline(writes, name: 'Mira'),
+      'Mira changed 2 files',
+    );
     expect(waifuTurnTouchedPaths(writes), ['lib/a.dart', 'lib/b.dart']);
     expect(
       waifuTurnVerifyLine(['lib/a.dart', 'lib/b.dart']),
@@ -41,9 +47,6 @@ void main() {
 
   test('empty writes hide the strip unless lastWrite is set', () {
     expect(waifuTurnReceiptVisible(writes: const []), isFalse);
-    expect(
-      waifuTurnReceiptVisible(lastWrite: _rec('solo.dart')),
-      isTrue,
-    );
+    expect(waifuTurnReceiptVisible(lastWrite: _rec('solo.dart')), isTrue);
   });
 }

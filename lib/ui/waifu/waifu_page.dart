@@ -36,6 +36,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_sidebar.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_status_line.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_whole_disk_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
@@ -77,6 +78,7 @@ class _WaifuPageState extends State<WaifuPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _syncToolsSupported(context);
+    _followLibraryCard();
     if (_parked) return;
     _parked = true;
     _resolveContextBudget();
@@ -130,6 +132,17 @@ class _WaifuPageState extends State<WaifuPage> {
     } catch (e) {
       debugPrint('[Waifu] Context budget not resolved: $e');
     }
+  }
+
+  /// Resume and card edits: her voice follows the library card.
+  void _followLibraryCard() {
+    final live = waifuLibraryCard(
+      context,
+      widget.session.coworker,
+      listen: true,
+    );
+    if (live == null || !waifuAdoptCoworker(widget.session, live)) return;
+    unawaited(_storeOf(context)?.saveLast(widget.session));
   }
 
   void _onGenSettings(ChatGenerationSettings next) {
@@ -216,7 +229,11 @@ class _WaifuPageState extends State<WaifuPage> {
     final result = await showDialog<WaifuAskDecision>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WaifuAskDialog(request: request),
+      builder: (_) => WaifuAskDialog(
+        request: request,
+        name: WaifuStage.of(widget.session).name,
+        portrait: waifuCoworkerFace(context, widget.session.coworker),
+      ),
     );
     return result ?? WaifuAskDecision.deny;
   }
@@ -226,7 +243,11 @@ class _WaifuPageState extends State<WaifuPage> {
     final result = await showDialog<String>(
       context: context,
       barrierDismissible: false,
-      builder: (_) => WaifuQuestionDialog(request: request),
+      builder: (_) => WaifuQuestionDialog(
+        request: request,
+        name: WaifuStage.of(widget.session).name,
+        portrait: waifuCoworkerFace(context, widget.session.coworker),
+      ),
     );
     return result ?? '';
   }
@@ -366,6 +387,7 @@ class _WaifuPageState extends State<WaifuPage> {
                 ))
                   WaifuWorkStrip(
                     record: session.lastWrite ?? session.turnWrites.last,
+                    name: WaifuStage.of(session).name,
                     writes: session.turnWrites,
                     verifiedPaths: session.turnVerifyPaths,
                     onClose: () => setState(() {
@@ -374,6 +396,7 @@ class _WaifuPageState extends State<WaifuPage> {
                       session.turnVerifyPaths.clear();
                     }),
                   ),
+                WaifuStatusLine(session: session),
                 WaifuComposer(
                   controller: _composer,
                   session: session,

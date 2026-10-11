@@ -47,9 +47,11 @@ void main() {
 
   test('preamble does the asked 18+ work instead of a safety lecture', () {
     expect(kWaifuOpenCodePreamble, contains('refusing the asked work is not'));
-    expect(kWaifuOpenCodePreamble, contains('18+'));
-    expect(kWaifuOpenCodePreamble, contains('adult or erotic'));
-    expect(kWaifuOpenCodePreamble, contains('Do not lecture about safety'));
+    final prompt = buildWaifuOpenCodeAgentPrompt(CharacterCard(name: 'Mira'));
+    expect(prompt, contains(kWaifuPorchPolicy));
+    expect(kWaifuPorchPolicy, contains('18+'));
+    expect(kWaifuPorchPolicy, contains('adult or erotic'));
+    expect(kWaifuPorchPolicy, contains('Do not lecture about safety'));
     expect(kWaifuVoicePreamble, contains('Speak as this character'));
     expect(
       RegExp(r'\bshe\b', caseSensitive: false).hasMatch(kWaifuOpenCodePreamble),

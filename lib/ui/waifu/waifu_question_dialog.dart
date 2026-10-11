@@ -16,15 +16,25 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_dialog_face.dart';
 
 class WaifuQuestionDialog extends StatefulWidget {
-  const WaifuQuestionDialog({super.key, required this.request});
+  const WaifuQuestionDialog({
+    super.key,
+    required this.request,
+    required this.name,
+    this.portrait,
+  });
 
   final WaifuQuestionRequest request;
+  final String name;
+  final File? portrait;
 
   @override
   State<WaifuQuestionDialog> createState() => _WaifuQuestionDialogState();
@@ -51,15 +61,26 @@ class _WaifuQuestionDialogState extends State<WaifuQuestionDialog> {
     final canAnswer = _custom.text.trim().isNotEmpty;
     return AlertDialog(
       backgroundColor: AppColors.cardOf(context),
-      title: Text(
-        widget.request.prompt,
-        style: TextStyle(color: AppColors.textPrimary(context)),
+      title: WaifuDialogFace(
+        name: widget.name,
+        portrait: widget.portrait,
+        line: '${widget.name} has a question',
       ),
       content: SingleChildScrollView(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Text(
+              widget.request.prompt,
+              key: const Key('waifu-question-prompt'),
+              style: TextStyle(
+                fontSize: 15,
+                height: 1.35,
+                color: AppColors.textPrimary(context),
+              ),
+            ),
+            const SizedBox(height: 8),
             for (final choice in widget.request.choices)
               ListTile(
                 key: Key('waifu-question-$choice'),

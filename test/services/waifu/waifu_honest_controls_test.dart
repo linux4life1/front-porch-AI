@@ -218,7 +218,9 @@ void main() {
     final harness = WaifuHarness(session: session);
     await harness.send('build it');
     expect(session.running, isFalse);
-    expect(session.transcript.last.text, kWaifuToolsUnsupported);
+    final last = session.transcript.last;
+    expect(last.kind, WaifuMsgKind.stage);
+    expect(last.detail, kWaifuToolsUnsupported);
   });
 
   test('safety copy names only stops that exist', () {

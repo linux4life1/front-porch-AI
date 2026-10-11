@@ -455,37 +455,45 @@ extension ChatServiceGenerationStream on ChatService {
     // evals on an aborted reply. Mirrors the catch path's treatAsCancel:
     // keep the displayed partial so regen/continue work, save, signal done.
     if (_cancelRequested) {
-      _drainTimer?.cancel();
-      _drainTimer = null;
-      _tokenBuffer.clear();
-      _isGenerating = false;
-      _cancelRequested = false;
-      _generationProgress = 0.0;
-      _generationPhase = GenerationPhase.idle;
-      _prefillStartTime = null;
-      _prefillPromptTokens = 0;
-      _generationStartTime = null;
-      t.perfPoller?.cancel();
-      t.perfPoller = null;
-      _tokenBroadcast.add('__DONE__');
-      if (_sentenceBuffer.trim().isNotEmpty) {
-        _sentenceBroadcast.add(_sentenceBuffer.trim());
-        _sentenceBuffer = '';
-      }
-      _sentenceBroadcast.add('__DONE__');
-      if (t.originalModelName != null && _llmProvider != null) {
-        _llmProvider!.openRouterService.configure(
-          modelName: t.originalModelName,
-        );
-      }
-      t.sealThinkClock();
-      final closed = closeOpenThink(streamTarget.text);
-      if (closed != streamTarget.text) streamTarget.text = closed;
-      await _saveChat();
-      notifyListeners();
+      await _haltStoppedTurn(t, streamTarget);
       return true;
     }
     t.sealThinkClock();
     return false;
+  }
+
+  /// Ends a stopped turn: keeps the partial with its thought closed so regen
+  /// and Continue work, saves, and signals done. The stream-loop break and
+  /// the catch path's treatAsCancel both end here; [target] is null when the
+  /// throw came before any reply was painted.
+  Future<void> _haltStoppedTurn(_GenTurn t, ChatMessage? target) async {
+    _drainTimer?.cancel();
+    _drainTimer = null;
+    _tokenBuffer.clear();
+    _isGenerating = false;
+    _cancelRequested = false;
+    _generationProgress = 0.0;
+    _generationPhase = GenerationPhase.idle;
+    _prefillStartTime = null;
+    _prefillPromptTokens = 0;
+    _generationStartTime = null;
+    t.perfPoller?.cancel();
+    t.perfPoller = null;
+    _tokenBroadcast.add('__DONE__');
+    if (_sentenceBuffer.trim().isNotEmpty) {
+      _sentenceBroadcast.add(_sentenceBuffer.trim());
+      _sentenceBuffer = '';
+    }
+    _sentenceBroadcast.add('__DONE__');
+    if (t.originalModelName != null && _llmProvider != null) {
+      _llmProvider!.openRouterService.configure(modelName: t.originalModelName);
+    }
+    if (target != null) {
+      t.sealThinkClock();
+      final closed = closeOpenThink(target.text);
+      if (closed != target.text) target.text = closed;
+    }
+    await _saveChat();
+    notifyListeners();
   }
 }
