@@ -130,7 +130,7 @@ class _HomePageState extends State<HomePage> {
       if (!mounted) return;
       setState(() => _readViewPrefs(storage));
     });
-    _selection.addListener(_onSelectionChanged);
+    _selection.addListener(_selectionCb);
     Future.microtask(() => _refreshLastActivityCache());
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _maybeOpenChatFromEnv(),
@@ -155,15 +155,23 @@ class _HomePageState extends State<HomePage> {
   CharacterRepository? _charRepoListened;
   AppState? _appStateListened;
 
+  // The callbacks live in an extension, and each tear-off of an extension
+  // method is a new closure that never equals the last one, so
+  // removeListener(_onX) would remove nothing. Tear each off once.
+  late final VoidCallback _koboldCb = _onKoboldUpdate;
+  late final VoidCallback _charsCb = _onCharactersChanged;
+  late final VoidCallback _appStateCb = _onAppStateChanged;
+  late final VoidCallback _selectionCb = _onSelectionChanged;
+
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Listen for model-ready events from KoboldService
     try {
       final kobold = Provider.of<KoboldService>(context, listen: false);
-      _koboldListened?.removeListener(_onKoboldUpdate);
-      kobold.removeListener(_onKoboldUpdate);
-      kobold.addListener(_onKoboldUpdate);
+      _koboldListened?.removeListener(_koboldCb);
+      kobold.removeListener(_koboldCb);
+      kobold.addListener(_koboldCb);
       _koboldListened = kobold;
     } catch (_) {
       // KoboldService might not be in the provider tree
@@ -171,9 +179,9 @@ class _HomePageState extends State<HomePage> {
     // Listen for CharacterRepository changes to refresh cache after characters load
     try {
       final charRepo = Provider.of<CharacterRepository>(context, listen: false);
-      _charRepoListened?.removeListener(_onCharactersChanged);
-      charRepo.removeListener(_onCharactersChanged);
-      charRepo.addListener(_onCharactersChanged);
+      _charRepoListened?.removeListener(_charsCb);
+      charRepo.removeListener(_charsCb);
+      charRepo.addListener(_charsCb);
       _charRepoListened = charRepo;
     } catch (_) {}
     // Re-tapping the sidebar's Home entry bumps AppState.homeResetTick —
@@ -181,9 +189,9 @@ class _HomePageState extends State<HomePage> {
     try {
       final appState = Provider.of<AppState>(context, listen: false);
       _lastHomeResetTick ??= appState.homeResetTick;
-      _appStateListened?.removeListener(_onAppStateChanged);
-      appState.removeListener(_onAppStateChanged);
-      appState.addListener(_onAppStateChanged);
+      _appStateListened?.removeListener(_appStateCb);
+      appState.removeListener(_appStateCb);
+      appState.addListener(_appStateCb);
       _appStateListened = appState;
     } catch (_) {}
   }
@@ -196,13 +204,13 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     _activityRefreshDebounce?.cancel();
     _selection
-      ..removeListener(_onSelectionChanged)
+      ..removeListener(_selectionCb)
       ..dispose();
     _searchController.dispose();
     _gridScrollController.dispose();
-    _koboldListened?.removeListener(_onKoboldUpdate);
-    _charRepoListened?.removeListener(_onCharactersChanged);
-    _appStateListened?.removeListener(_onAppStateChanged);
+    _koboldListened?.removeListener(_koboldCb);
+    _charRepoListened?.removeListener(_charsCb);
+    _appStateListened?.removeListener(_appStateCb);
     // A remounted Home opens on Chats, so the sidebar comes back with it.
     _appStateListened?.setSidebarHidden(false, notify: false);
     super.dispose();

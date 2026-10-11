@@ -16,13 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// Four teardown/staleness contracts on pages that outlive their own async
-// work. Each subject is a private State behind the main.dart provider graph
-// (HomePage needs the DB-backed CharacterRepository, ChatPage needs the whole
-// ChatService), so there is no unit seam to pump — these read the call sites
-// directly, the same way home_tap_session_identity_test and
-// chaos_global_toggle_test do. They catch the exact regression (the guard
-// being deleted), not the general class.
+// Two teardown/staleness contracts still pinned on their call sites, because
+// neither has a seam a behavioural test may use:
+//  - STT needs the real microphone recorder and Whisper; the only SttService
+//    double would plant the transcript.
+//  - Stoop browse would need a fake Stoop server or canned JSON, which the
+//    no-stub rule forbids for new Stoop pins (CLAUDE.md "No stub tests").
+// The other contracts that lived here are now driven for real:
+// home/home_listener_teardown_test.dart, chat_impersonate_teardown_test.dart
+// and import_lorebook_world_name_gate_test.dart.
 
 import 'dart:io';
 
@@ -39,59 +41,11 @@ String _between(String src, String start, String end, {required String what}) {
 }
 
 void main() {
-  test('HomePage unsubscribes from every notifier it listened to', () {
-    // MainLayout swaps HomePage out of the tree on each sidebar navigation
-    // (a plain _pages[index] child, not an IndexedStack), so the State is
-    // disposed and recreated every time. KoboldService and
-    // CharacterRepository are app-scoped singletons: a listener that is
-    // never removed keeps a dead _HomePageState (and its caches) alive for
-    // the rest of the run, once per Home visit.
-    final src = _read('lib/ui/pages/home_page.dart');
-    final dispose = _between(
-      src,
-      'void dispose() {',
-      'super.dispose();',
-      what: 'the HomePage dispose',
-    );
-    for (final cb in [
-      '_onKoboldUpdate',
-      '_onCharactersChanged',
-      '_onAppStateChanged',
-    ]) {
-      expect(
-        dispose,
-        contains('removeListener($cb)'),
-        reason: 'HomePage.dispose no longer removes $cb — the listener '
-            'accumulates on an app-scoped notifier on every Home visit',
-      );
-    }
-    expect(
-      dispose.contains('Provider.of'),
-      isFalse,
-      reason: 'a Provider lookup in dispose runs against a defunct element '
-          '(it asserts in debug) — hold the notifier in a field instead',
-    );
-  });
-
-  test('Impersonate and STT do not write the input controller after the '
-      'ChatPage is gone', () {
-    // ChatService is app-scoped and impersonateUser keeps streaming after the
-    // page pops; the token callback writes _controller, which dispose()
-    // already disposed.
+  test('STT does not write the input controller after the ChatPage is '
+      'gone', () {
+    // Whisper keeps transcribing after the page pops; the result is written
+    // into _controller, which dispose() already disposed.
     final src = _read('lib/ui/pages/chat_page.input_actions.dart');
-    final onToken = _between(
-      src,
-      'onToken: (accumulated) {',
-      '_controller.text = accumulated;',
-      what: 'the impersonate token callback',
-    );
-    expect(
-      onToken,
-      contains('if (!mounted) return;'),
-      reason: 'the impersonate token callback writes a disposed controller '
-          'when the user leaves the chat mid-stream',
-    );
-
     final stt = _between(
       src,
       'stopRecordingAndTranscribe();',
@@ -101,26 +55,9 @@ void main() {
     expect(
       stt,
       contains('if (!mounted) return;'),
-      reason: 'the transcription lands on a disposed controller when the '
+      reason:
+          'the transcription lands on a disposed controller when the '
           'user leaves the chat while Whisper is still running',
-    );
-  });
-
-  test('Import Lorebook rebuilds its nav bar when the World name changes', () {
-    // _canProceed reads _worldNameCtrl.text, and it is only consulted while
-    // building the nav buttons — without a listener, clearing the name leaves
-    // the Import button enabled and creates a World named "".
-    final src = _read('lib/ui/pages/import_lorebook_page.dart');
-    expect(
-      src,
-      contains('_worldNameCtrl.addListener('),
-      reason: 'nothing rebuilds the Import button as the World name is typed '
-          'or cleared, so an empty name still imports',
-    );
-    expect(
-      src,
-      contains('_worldNameCtrl.removeListener('),
-      reason: 'the listener must come off before the controller is disposed',
     );
   });
 
@@ -142,7 +79,8 @@ void main() {
     expect(
       loadAll,
       contains('gen != _reqGen'),
-      reason: 'two overlapping _loadAlls race and the slower response wins, '
+      reason:
+          'two overlapping _loadAlls race and the slower response wins, '
           'leaving the grid showing a filter the chips no longer show',
     );
     final loadMore = _between(
@@ -154,7 +92,8 @@ void main() {
     expect(
       loadMore,
       contains('gen != _reqGen'),
-      reason: 'an in-flight page append lands on top of a newer filter, '
+      reason:
+          'an in-flight page append lands on top of a newer filter, '
           'mixing cards into the grid and skipping a page',
     );
   });
