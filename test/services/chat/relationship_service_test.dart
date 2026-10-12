@@ -386,7 +386,9 @@ void main() {
     );
 
     test(
-      'ensureInter early-returns with no side-effects when observer=true (cb exercised)',
+      // Director Mode keeps the cast's feelings for each other live, so the
+      // seed runs while directing too (it used to early-return).
+      'ensureInter seeds in Director Mode too (observer=true)',
       () {
         final inter = <String, Map<String, int>>{
           'char1': {'char2': 5},
@@ -401,8 +403,8 @@ void main() {
         );
         svc.ensureInterCharacterRelationshipsSeeded('char1');
         final rels = svc.getInterCharacterRelationships('char1');
-        expect(rels['char2'], 5); // unchanged, early return
-        expect(rels.containsKey('char3'), false); // no seed
+        expect(rels['char2'], 5); // preserved
+        expect(rels['char3'], 0); // seeded while directing
       },
     );
 

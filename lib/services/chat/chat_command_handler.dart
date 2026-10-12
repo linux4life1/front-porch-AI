@@ -238,6 +238,10 @@ class ChatCommandHandler {
 
     if (await _director?.tryHandle(command, args) ?? false) return true;
     switch (command) {
+      case 'director': // only when no DirectorCommands was wired in
+        _onSystemMessage('⚠ Director Mode isn\'t available here.');
+        return true;
+
       case 'expression-set':
       case 'expression':
         _setExpression(args.isNotEmpty ? args.toLowerCase() : null);
