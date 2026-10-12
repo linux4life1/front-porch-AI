@@ -1,16 +1,75 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-part of 'needs_tab.dart';
+import 'dart:io';
 
-extension _GroupNeedsMemberCard on _GroupNeedsTabState {
-  /// One member's needs card (verbatim from the old inline map closure).
-  Widget _buildMemberNeedsCard(MapEntry<int, CharacterCard> entry) {
-    final index = entry.key;
-    final char = entry.value;
-    final id = _getCharId(char);
-    final baselines = _needsBaselines[id] ?? {};
+import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 
+// Field name keys for the needs baselines map (and the card's needsOff list).
+const kGroupNeedHunger = 'hunger';
+const kGroupNeedBladder = 'bladder';
+const kGroupNeedEnergy = 'energy';
+const kGroupNeedSocial = 'social';
+const kGroupNeedFun = 'fun';
+const kGroupNeedHygiene = 'hygiene';
+const kGroupNeedComfort = 'comfort';
+
+const kGroupNeedFields = [
+  kGroupNeedHunger,
+  kGroupNeedBladder,
+  kGroupNeedEnergy,
+  kGroupNeedSocial,
+  kGroupNeedFun,
+  kGroupNeedHygiene,
+  kGroupNeedComfort,
+];
+
+const _kNeedLabels = [
+  ('Hunger', kGroupNeedHunger),
+  ('Bladder', kGroupNeedBladder),
+  ('Energy', kGroupNeedEnergy),
+  ('Social', kGroupNeedSocial),
+  ('Fun', kGroupNeedFun),
+  ('Hygiene', kGroupNeedHygiene),
+  ('Comfort', kGroupNeedComfort),
+];
+
+/// One member's card on the Group Settings Needs tab: starting values,
+/// per-need on/off, Pace, and "enjoys low hygiene".
+class GroupMemberNeedsCard extends StatelessWidget {
+  final int index;
+  final CharacterCard char;
+  final Map<String, int> baselines;
+  final List<String> needsOff;
+  final String pace;
+  final bool enjoysLowHygiene;
+  final void Function(String field, int value) onBaselineChanged;
+  final ValueChanged<List<String>> onNeedsOffChanged;
+  final ValueChanged<String> onPaceChanged;
+  final ValueChanged<bool> onEnjoysLowHygieneChanged;
+  final VoidCallback onReset;
+
+  const GroupMemberNeedsCard({
+    super.key,
+    required this.index,
+    required this.char,
+    required this.baselines,
+    required this.needsOff,
+    required this.pace,
+    required this.enjoysLowHygiene,
+    required this.onBaselineChanged,
+    required this.onNeedsOffChanged,
+    required this.onPaceChanged,
+    required this.onEnjoysLowHygieneChanged,
+    required this.onReset,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(10),
@@ -59,7 +118,7 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
                 ),
               ),
               TextButton(
-                onPressed: () => _resetCharacterNeeds(char),
+                onPressed: onReset,
                 style: TextButton.styleFrom(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
@@ -80,55 +139,14 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
           ),
           const SizedBox(height: 8),
 
-          _needsSlider(
-            'Hunger',
-            _kHunger,
-            baselines[_kHunger] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kHunger, v),
-            id,
-          ),
-          _needsSlider(
-            'Bladder',
-            _kBladder,
-            baselines[_kBladder] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kBladder, v),
-            id,
-          ),
-          _needsSlider(
-            'Energy',
-            _kEnergy,
-            baselines[_kEnergy] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kEnergy, v),
-            id,
-          ),
-          _needsSlider(
-            'Social',
-            _kSocial,
-            baselines[_kSocial] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kSocial, v),
-            id,
-          ),
-          _needsSlider(
-            'Fun',
-            _kFun,
-            baselines[_kFun] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kFun, v),
-            id,
-          ),
-          _needsSlider(
-            'Hygiene',
-            _kHygiene,
-            baselines[_kHygiene] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kHygiene, v),
-            id,
-          ),
-          _needsSlider(
-            'Comfort',
-            _kComfort,
-            baselines[_kComfort] ?? 80,
-            (v) => _updateNeedsBaseline(id, _kComfort, v),
-            id,
-          ),
+          for (final (label, key) in _kNeedLabels)
+            _needsSlider(
+              context,
+              label,
+              key,
+              baselines[key] ?? 80,
+              (v) => onBaselineChanged(key, v),
+            ),
 
           const SizedBox(height: 8),
           Divider(color: AppColors.borderOf(context), height: 1),
@@ -156,8 +174,8 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
               ButtonSegment(value: 'normal', label: Text('Normal')),
               ButtonSegment(value: 'fast', label: Text('Fast')),
             ],
-            selected: {_needsPace[id] ?? 'normal'},
-            onSelectionChanged: (next) => _updateNeedsPace(id, next.first),
+            selected: {pace},
+            onSelectionChanged: (next) => onPaceChanged(next.first),
           ),
           const SizedBox(height: 8),
           Divider(color: AppColors.borderOf(context), height: 1),
@@ -185,10 +203,10 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
                 height: 20,
                 width: 20,
                 child: Checkbox(
-                  value: _enjoysLowHygiene[id] ?? false,
+                  value: enjoysLowHygiene,
                   onChanged: (v) {
                     if (v != null) {
-                      _updateMemberEnjoysLowHygiene(char, v);
+                      onEnjoysLowHygieneChanged(v);
                     }
                   },
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
@@ -203,15 +221,15 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
   }
 
   Widget _needsSlider(
+    BuildContext context,
     String label,
     String needKey,
     int value,
     ValueChanged<int> onChanged,
-    String memberId,
   ) {
-    final off = _needsOff[memberId] ?? const <String>[];
+    final off = needsOff;
     final alive = !off.contains(needKey);
-    final baseline = Column(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
@@ -241,7 +259,7 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
                 } else if (!nextOff.contains(needKey)) {
                   nextOff.add(needKey);
                 }
-                _updateNeedsOff(memberId, nextOff);
+                onNeedsOffChanged(nextOff);
               },
             ),
           ],
@@ -266,7 +284,5 @@ extension _GroupNeedsMemberCard on _GroupNeedsTabState {
         ),
       ],
     );
-
-    return baseline;
   }
 }

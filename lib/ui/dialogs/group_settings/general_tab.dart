@@ -8,8 +8,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
-
-part 'general_tab.cards.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/general_tab/general_tab.dart';
 
 class GroupGeneralTab extends StatefulWidget {
   final ChatService chatService;
@@ -410,20 +409,24 @@ class GroupGeneralTabState extends State<GroupGeneralTab>
                 Row(
                   children: [
                     Expanded(
-                      child: _buildTurnStrategyCard(
-                        TurnOrder.roundRobin,
-                        'Round Robin',
-                        'Characters respond in a fixed repeating order. Predictable and fair.',
-                        Icons.repeat,
+                      child: GroupTurnStrategyCard(
+                        isSelected: _turnOrder == TurnOrder.roundRobin,
+                        label: 'Round Robin',
+                        onTap: () => _setTurnOrder(TurnOrder.roundRobin),
+                        description:
+                            'Characters respond in a fixed repeating order. Predictable and fair.',
+                        icon: Icons.repeat,
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: _buildTurnStrategyCard(
-                        TurnOrder.random,
-                        'Random',
-                        'Any eligible character may speak next. More spontaneous and lively.',
-                        Icons.shuffle,
+                      child: GroupTurnStrategyCard(
+                        isSelected: _turnOrder == TurnOrder.random,
+                        label: 'Random',
+                        onTap: () => _setTurnOrder(TurnOrder.random),
+                        description:
+                            'Any eligible character may speak next. More spontaneous and lively.',
+                        icon: Icons.shuffle,
                       ),
                     ),
                   ],
@@ -431,58 +434,24 @@ class GroupGeneralTabState extends State<GroupGeneralTab>
                 const SizedBox(height: 16),
 
                 // Auto-advance
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerOf(context),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: AppColors.borderOf(context)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        children: [
-                          Icon(
-                            Icons.play_circle_outline,
-                            size: 18,
-                            color: AppColors.iconSecondary(context),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Auto-advance',
-                            style: TextStyle(
-                              fontWeight: FontWeight.w600,
-                              fontSize: 13,
-                              color: AppColors.textPrimary(context),
-                            ),
-                          ),
-                          const Spacer(),
-                          Switch(
-                            value: _autoAdvance,
-                            activeTrackColor: AppColors.porchAmberOf(context),
-                            onChanged: _setAutoAdvance,
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 26),
-                        child: Text(
-                          'After a character finishes responding, automatically prompt the next speaker. Works with both turn orders and Director Mode.',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: AppColors.textTertiary(context),
-                            height: 1.3,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                GroupAutoAdvanceCard(
+                  value: _autoAdvance,
+                  onChanged: _setAutoAdvance,
                 ),
                 const SizedBox(height: 20),
 
-                ..._directorModeSection(),
+                GroupSectionHeader(
+                  'Director Mode Defaults',
+                  Icons.movie_creation_outlined,
+                  AppColors.porchAmberOf(context),
+                ),
+                const SizedBox(height: 8),
+                GroupDirectorModeDefaultCard(
+                  value: _directorModeDefault,
+                  onChanged: _setDirectorModeDefault,
+                ),
+                const SizedBox(height: 16),
+                const GroupGeneralStorageNote(),
               ],
             ),
           ),
