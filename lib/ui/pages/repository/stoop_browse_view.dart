@@ -9,21 +9,16 @@
 // (at your option) any later version.
 
 import 'dart:async';
-import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_browse/stoop_browse.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_detail_page.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_card_tile.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-
-part 'stoop_browse_view.grid.dart';
 
 /// The community browse experience, in the hub's porch-at-dusk dress:
 /// Mod's Picks (hero + pick row), a Following row, a Groups row, and the main
@@ -269,96 +264,101 @@ class _StoopBrowseViewState extends State<StoopBrowseView> {
             style: stoopDisplay(context, size: 19),
           ),
           const SizedBox(width: 2),
-          _typeChips(),
-          _sortMenu(),
+          StoopBrowseTypeChips(
+            type: _type,
+            onSelected: (value) {
+              setState(() => _type = value);
+              _loadAll();
+            },
+          ),
+          StoopBrowseSortMenu(
+            sort: _sort,
+            onSelected: (v) {
+              setState(() => _sort = v);
+              _loadAll();
+            },
+          ),
         ],
       ),
     );
   }
 
-  Widget _sortMenu() {
-    const labels = {'newest': 'Newest', 'top': 'Top', 'downloads': 'Downloads'};
-    return PopupMenuButton<String>(
-      initialValue: _sort,
-      color: stoopCard2(context),
-      onSelected: (v) {
-        setState(() => _sort = v);
-        _loadAll();
-      },
-      itemBuilder: (_) => labels.entries
-          .map(
-            (e) => PopupMenuItem(
-              value: e.key,
-              child: Text(
-                e.value,
-                style: TextStyle(color: stoopCream2(context)),
+  Widget _content() {
+    if (_loading) return const StoopLamp(caption: 'Lighting the porch…');
+    if (_error != null) {
+      return stoopEmpty(
+        context,
+        glyph: '🌙',
+        title: 'Couldn’t load The Stoop',
+        body: 'Check your connection and try again.',
+        action: OutlinedButton(
+          onPressed: _loadAll,
+          style: OutlinedButton.styleFrom(
+            foregroundColor: stoopCream2(context),
+            side: BorderSide(color: stoopBorderHi(context)),
+          ),
+          child: const Text('Retry'),
+        ),
+      );
+    }
+    final featured = _query.isEmpty && _picks.isNotEmpty ? _picks.first : null;
+    return RefreshIndicator(
+      color: AppColors.stoopAmber,
+      onRefresh: _loadAll,
+      child: CustomScrollView(
+        controller: _scroll,
+        slivers: [
+          if (featured != null) ...[
+            const SliverToBoxAdapter(
+              child: StoopBrowseSectionHead('⭐', 'MOD’S PICKS', topPad: 6),
+            ),
+            SliverToBoxAdapter(
+              child: StoopBrowseHero(
+                card: featured,
+                onOpen: () => _openCard(featured),
               ),
             ),
-          )
-          .toList(),
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(13, 7, 8, 7),
-        decoration: BoxDecoration(
-          color: stoopBg1(context),
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: stoopBorderHi(context)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              labels[_sort]!,
-              style: TextStyle(color: stoopCream2(context), fontSize: 13),
-            ),
-            Icon(Icons.arrow_drop_down, color: stoopMute(context), size: 20),
+            if (_picks.length > 1) _pickRow(_picks.skip(1).toList()),
           ],
-        ),
+          if (_following.isNotEmpty) ...[
+            const SliverToBoxAdapter(
+              child: StoopBrowseSectionHead('🪑', 'FROM CREATORS YOU FOLLOW'),
+            ),
+            _pickRow(_following),
+          ],
+          if (_groups.isNotEmpty) ...[
+            const SliverToBoxAdapter(
+              child: StoopBrowseSectionHead('👥', 'GROUPS'),
+            ),
+            _pickRow(_groups),
+          ],
+          SliverToBoxAdapter(child: _browseHeader()),
+          if (_grid.isEmpty)
+            SliverFillRemaining(
+              hasScrollBody: false,
+              child: stoopEmpty(
+                context,
+                glyph: '🏮',
+                title: 'Nothing on the porch',
+                body: _query.isEmpty
+                    ? 'No cards here yet — check back soon.'
+                    : 'No cards match “$_query”.',
+              ),
+            )
+          else
+            StoopBrowseGridSliver(cards: _grid, onOpen: _openCard),
+          if (_loadingMore)
+            const SliverToBoxAdapter(
+              child: Padding(padding: EdgeInsets.all(20), child: StoopLamp()),
+            ),
+        ],
       ),
     );
   }
 
-  // Hub filter chips (.hub-chip): quiet pills; the active one lights up on the
-  // amber gradient with dark ink.
-  Widget _typeChips() {
-    const types = [
-      ('all', 'All'),
-      ('solo', 'Singles'),
-      ('group', 'Groups'),
-      ('world', 'Worlds'),
-    ];
-    return Wrap(
-      spacing: 6,
-      children: [
-        for (final (value, label) in types)
-          _chip(label, _type == value, () {
-            setState(() => _type = value);
-            _loadAll();
-          }),
-      ],
-    );
-  }
-
-  Widget _chip(String label, bool on, VoidCallback onTap) {
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          gradient: on ? stoopAmberGradient : null,
-          color: on ? null : stoopBg1(context),
-          borderRadius: BorderRadius.circular(999),
-          border: on ? null : Border.all(color: stoopBorderHi(context)),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            color: on ? AppColors.stoopAmberInk : stoopCream2(context),
-            fontSize: 13,
-            fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-          ),
-        ),
-      ),
+  SliverToBoxAdapter _pickRow(List<StoopCard> cards) {
+    return SliverToBoxAdapter(
+      child: StoopBrowsePickRow(cards: cards, onOpen: _openCard),
     );
   }
 }

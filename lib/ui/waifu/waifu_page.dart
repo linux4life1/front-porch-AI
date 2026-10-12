@@ -31,6 +31,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_ask_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_coworker_face.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_language_help.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_photo_vision.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_question_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_composer.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_session_chrome.dart';
@@ -41,9 +42,6 @@ import 'package:front_porch_ai/ui/waifu/waifu_transcript.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_whole_disk_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_work_strip.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/services/capability/capability.dart';
-
-part 'waifu_page_image.dart';
 
 /// Waifu Coder session. Send forwards to managed OpenCode. No Continue, no regen.
 class WaifuPage extends StatefulWidget {
@@ -183,7 +181,26 @@ class _WaifuPageState extends State<WaifuPage> {
     _refresh();
   }
 
-  void rebuildState(VoidCallback fn) => setState(fn);
+  Future<void> _attachImage() async {
+    final bytes = await pickChatImageAttachment(context);
+    if (bytes == null || !mounted) return;
+    await _acceptImageBytes(bytes);
+  }
+
+  Future<void> _acceptImageBytes(Uint8List bytes) async {
+    setState(() {
+      _pendingImage = bytes;
+      _pendingVisionOk = null;
+      _pendingBlindReason = null;
+    });
+    final vision = await resolveWaifuPhotoVision(context);
+    if (vision == null) return;
+    if (!mounted || _pendingImage == null) return;
+    setState(() {
+      _pendingVisionOk = vision.supported;
+      _pendingBlindReason = vision.blindReason;
+    });
+  }
 
   WaifuStore? _storeOf(BuildContext context) =>
       waifuStoreForContext(context, injected: widget.store);
