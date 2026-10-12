@@ -4,7 +4,7 @@
 // Scroll mode (sketch P): one continuous column with a heading per chapter (a
 // scene with prose), resuming where the reader left off. A tap in the middle of
 // the screen hides the bars; the chapter buttons sit at the bottom, Read aloud
-// in the bar above. Web twin of story_reader_page.scroll.dart.
+// in the bar above. Web twin of story_reader/story_scroll_body.dart.
 //
 // The page scrolls inside the app's own container, not the window, so the
 // position is read from and written to that container.

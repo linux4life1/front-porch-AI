@@ -22,11 +22,10 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:front_porch_ai/ui/dialogs/image_crop/image_crop.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_overlay.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'image_crop_dialog.chrome.dart';
 
 /// Interactive image crop — blank-slate rewrite (2026-08-14) replacing the
 /// crop_your_image package after the Discord report; presets, fill choices,
@@ -106,10 +105,6 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
   }
 
   double get _minSizeSrc => 16.0.clamp(1.0, _imageSize!.shortestSide);
-
-  /// Public setState bridge for the chrome part-file extension (same
-  /// convention as settings_page.dart's parts — setState is @protected).
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   void _selectPreset(double? aspect, {bool circle = false}) {
     setState(() {
@@ -363,7 +358,15 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                     ),
                   ),
                 ),
-                if (_imageSize != null) _buildPresetRow(context),
+                if (_imageSize != null)
+                  CropPresetRow(
+                    aspect: _aspect,
+                    circle: _circle,
+                    fill: _fill,
+                    onSelectPreset: (aspect, circle) =>
+                        _selectPreset(aspect, circle: circle),
+                    onSelectFill: (fill) => setState(() => _fill = fill),
+                  ),
                 Expanded(
                   child: Container(
                     margin: const EdgeInsets.symmetric(
@@ -383,9 +386,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                                     child: SelectableText(
                                       _error!,
                                       style: TextStyle(
-                                        color: AppColors.textSecondary(
-                                          context,
-                                        ),
+                                        color: AppColors.textSecondary(context),
                                       ),
                                     ),
                                   )
@@ -407,86 +408,14 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                       ),
                     ),
                   ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border(
-                      top: BorderSide(color: AppColors.borderOf(context)),
-                    ),
-                  ),
-                  child: Row(
-                    children: [
-                      TextButton.icon(
-                        onPressed: (_isCropping || _imageSize == null)
-                            ? null
-                            : () => setState(
-                                () => _cropSrc = Offset.zero & _imageSize!,
-                              ),
-                        icon: Icon(
-                          Icons.restart_alt,
-                          size: 16,
-                          color: AppColors.porchAmberOf(context),
-                        ),
-                        label: Text(
-                          'Reset',
-                          style: TextStyle(
-                            color: AppColors.porchAmberOf(context),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Text(
-                        sizeReadout,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: AppColors.textTertiary(context),
-                          fontFeatures: const [ui.FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      const Spacer(),
-                      TextButton(
-                        onPressed: _isCropping
-                            ? null
-                            : () => Navigator.of(context).pop(null),
-                        child: Text(
-                          'Cancel',
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 16),
-                      ElevatedButton.icon(
-                        onPressed: (_isCropping || _imageSize == null)
-                            ? null
-                            : _onCropAndSave,
-                        icon: _isCropping
-                            ? const SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.onChaosAccent,
-                                ),
-                              )
-                            : const Icon(Icons.crop_sharp, size: 18),
-                        label: Text(
-                          _isCropping ? 'Cropping...' : 'Crop & Save',
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: AppColors.porchAmberOf(context),
-                          foregroundColor: AppColors.onChaosAccent,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 20,
-                            vertical: 12,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
+                CropFooterBar(
+                  isCropping: _isCropping,
+                  ready: _imageSize != null,
+                  sizeReadout: sizeReadout,
+                  onReset: () =>
+                      setState(() => _cropSrc = Offset.zero & _imageSize!),
+                  onCancel: () => Navigator.of(context).pop(null),
+                  onCropAndSave: _onCropAndSave,
                 ),
               ],
             ),

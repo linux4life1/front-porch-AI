@@ -21,13 +21,9 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
-import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
+import 'package:front_porch_ai/ui/dialogs/ui_settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'background_settings_dialog.dart';
-
-part 'ui_settings_dialog.theme.dart';
-part 'ui_settings_dialog.controls.dart';
-part 'ui_settings_dialog.updates.dart';
 
 class UiSettingsDialog extends StatefulWidget {
   final CharacterCard? character;
@@ -50,19 +46,12 @@ class UiSettingsDialog extends StatefulWidget {
 
 class _UiSettingsDialogState extends State<UiSettingsDialog> {
   late ValueNotifier<CharacterCard?> _characterNotifier;
-  final ScrollController _themeScrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _characterNotifier = ValueNotifier<CharacterCard?>(widget.character);
   }
-
-  /// Re-exposes the protected [setState] for the `part of` extensions
-  /// (`ui_settings_dialog.*.dart`), which hold the theme preset picker,
-  /// appearance/color controls, and persistence helpers but can't call a
-  /// State's protected members directly.
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   ChatThemeOverrides? _boundTheme;
 
@@ -77,7 +66,7 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
     if (widget.onThemeOverrides != null) {
       _boundTheme = next;
       widget.onThemeOverrides!(next);
-      rebuildState(() {});
+      setState(() {});
       return;
     }
     chat.sessionThemeOverrides = next;
@@ -86,7 +75,6 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   @override
   void dispose() {
     _characterNotifier.dispose();
-    _themeScrollController.dispose();
     super.dispose();
   }
 
@@ -155,13 +143,57 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                     ),
                   ),
                 ),
-              _buildPresetPicker(chatService),
+              ChatThemePresetPicker(
+                overrides: overrides,
+                onSelected: (next) => _commitTheme(chatService, next),
+              ),
 
               if (hasTheme) ...[
                 const SizedBox(height: 16),
-                _buildFontRow(overrides, activePreset, chatService),
-                _buildBorderStyleRow(overrides, activePreset, chatService),
-                _buildBorderColorRow(overrides, activePreset, chatService),
+                ChatThemeDropdownRow(
+                  label: 'Font',
+                  value: overrides.fontFamily ?? activePreset.defaultFontFamily,
+                  options: kChatThemeFontOptions,
+                  optionStyle: (f) => TextStyle(fontFamily: f),
+                  overridden: overrides.fontFamily != null,
+                  onChanged: (val) {
+                    overrides.fontFamily = val == activePreset.defaultFontFamily
+                        ? null
+                        : val;
+                    _commitTheme(chatService, overrides);
+                  },
+                  onReset: () {
+                    overrides.fontFamily = null;
+                    _commitTheme(chatService, overrides);
+                  },
+                ),
+                ChatThemeDropdownRow(
+                  label: 'Border',
+                  value:
+                      overrides.borderStyle ?? activePreset.defaultBorderStyle,
+                  options: kChatThemeBorderStyles,
+                  optionStyle: (_) => const TextStyle(fontSize: 12),
+                  overridden: overrides.borderStyle != null,
+                  onChanged: (val) {
+                    overrides.borderStyle =
+                        val == activePreset.defaultBorderStyle ? null : val;
+                    _commitTheme(chatService, overrides);
+                  },
+                  onReset: () {
+                    overrides.borderStyle = null;
+                    _commitTheme(chatService, overrides);
+                  },
+                ),
+                ChatColorRow(
+                  label: 'Border',
+                  color:
+                      overrides.resolvedBorderColor(activePreset) ??
+                      activePreset.defaultUserTextColor,
+                  onChanged: (color) {
+                    overrides.borderColor = chatColorToHex(color);
+                    _commitTheme(chatService, overrides);
+                  },
+                ),
               ],
 
               const SizedBox(height: 20),
@@ -175,29 +207,40 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildSlider(
-                'Bubble Opacity',
-                storageService.uiSettings.bubbleOpacity,
-                0.1,
-                1.0,
-                (val) => storageService.uiSettings.setBubbleOpacity(val),
+              UiSettingsSlider(
+                label: 'Bubble Opacity',
+                value: storageService.uiSettings.bubbleOpacity,
+                min: 0.1,
+                max: 1.0,
+                onChanged: (val) =>
+                    storageService.uiSettings.setBubbleOpacity(val),
                 divisions: 18,
               ),
               const SizedBox(height: 4),
-              _buildSlider(
-                'Reading Size',
-                storageService.uiSettings.textScale.clamp(
+              UiSettingsSlider(
+                label: 'Reading Size',
+                value: storageService.uiSettings.textScale.clamp(
                   kReadingScaleMin,
                   kReadingScaleMax,
                 ),
-                kReadingScaleMin,
-                kReadingScaleMax,
-                (val) => storageService.uiSettings.setTextScale(val),
+                min: kReadingScaleMin,
+                max: kReadingScaleMax,
+                onChanged: (val) => storageService.uiSettings.setTextScale(val),
                 divisions: 13,
               ),
               if (_characterNotifier.value != null) ...[
                 const SizedBox(height: 8),
-                _buildAvatarLockedToggle(context),
+                AvatarLockToggle(
+                  locked:
+                      _characterNotifier
+                          .value!
+                          .frontPorchExtensions
+                          ?.avatarLocked ??
+                      false,
+                  onChanged: (val) async {
+                    _updateAvatarLocked(context, val);
+                  },
+                ),
               ],
               const SizedBox(height: 20),
 
@@ -210,102 +253,21 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
                 ),
               ),
               const SizedBox(height: 12),
-              _buildColorRow(
-                context,
-                'User Bubble',
-                _themeAwareColor(
-                  chatService: chatService,
-                  themeColor: hasTheme
-                      ? overrides.resolvedUserBubbleColor(activePreset)
-                      : null,
-                  globalColor: storageService.uiSettings.globalUserBubbleColor,
-                  charColor: _characterNotifier
-                      .value
-                      ?.frontPorchExtensions
-                      ?.userBubbleColor,
+              for (final slot in ChatColorSlot.values)
+                ChatColorRow(
+                  label: slot.label,
+                  color: _themeAwareColor(
+                    chatService: chatService,
+                    themeColor: hasTheme
+                        ? slot.themeColor(overrides, activePreset)
+                        : null,
+                    globalColor: slot.globalColor(storageService),
+                    charColor: slot.characterColor(
+                      _characterNotifier.value?.frontPorchExtensions,
+                    ),
+                  ),
+                  onChanged: (color) => _updateChatColor(context, slot, color),
                 ),
-                (color) => _updateUserBubbleColor(context, color),
-              ),
-              _buildColorRow(
-                context,
-                'User Text',
-                _themeAwareColor(
-                  chatService: chatService,
-                  themeColor: hasTheme
-                      ? overrides.resolvedUserTextColor(activePreset)
-                      : null,
-                  globalColor: storageService.uiSettings.globalUserTextColor,
-                  charColor: _characterNotifier
-                      .value
-                      ?.frontPorchExtensions
-                      ?.userTextColor,
-                ),
-                (color) => _updateUserTextColor(context, color),
-              ),
-              _buildColorRow(
-                context,
-                'AI Bubble',
-                _themeAwareColor(
-                  chatService: chatService,
-                  themeColor: hasTheme
-                      ? overrides.resolvedAiBubbleColor(activePreset)
-                      : null,
-                  globalColor: storageService.uiSettings.globalAiBubbleColor,
-                  charColor: _characterNotifier
-                      .value
-                      ?.frontPorchExtensions
-                      ?.aiBubbleColor,
-                ),
-                (color) => _updateAiBubbleColor(context, color),
-              ),
-              _buildColorRow(
-                context,
-                'AI Text',
-                _themeAwareColor(
-                  chatService: chatService,
-                  themeColor: hasTheme
-                      ? overrides.resolvedAiTextColor(activePreset)
-                      : null,
-                  globalColor: storageService.uiSettings.globalAiTextColor,
-                  charColor: _characterNotifier
-                      .value
-                      ?.frontPorchExtensions
-                      ?.aiTextColor,
-                ),
-                (color) => _updateAiTextColor(context, color),
-              ),
-              _buildColorRow(
-                context,
-                'Dialogue (Quoted)',
-                _themeAwareColor(
-                  chatService: chatService,
-                  themeColor: hasTheme
-                      ? overrides.resolvedDialogueColor(activePreset)
-                      : null,
-                  globalColor: storageService.uiSettings.globalDialogueColor,
-                  charColor: _characterNotifier
-                      .value
-                      ?.frontPorchExtensions
-                      ?.dialogueColor,
-                ),
-                (color) => _updateDialogueColor(context, color),
-              ),
-              _buildColorRow(
-                context,
-                'Actions (*text*)',
-                _themeAwareColor(
-                  chatService: chatService,
-                  themeColor: hasTheme
-                      ? overrides.resolvedActionColor(activePreset)
-                      : null,
-                  globalColor: storageService.uiSettings.globalActionColor,
-                  charColor: _characterNotifier
-                      .value
-                      ?.frontPorchExtensions
-                      ?.actionColor,
-                ),
-                (color) => _updateActionColor(context, color),
-              ),
               const SizedBox(height: 20),
 
               // ── Chat Background ─────────────────────────────────────────
@@ -355,5 +317,59 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
     final overrides = _themeOf(chatService);
     if (overrides.hasTheme && themeColor != null) return themeColor;
     return charColor ?? globalColor;
+  }
+
+  /// When a theme is active, writes go to session theme overrides (or the
+  /// bound Waifu overrides when [UiSettingsDialog.onThemeOverrides] is set).
+  /// When no theme, writes go to per-character extensions or global prefs.
+  bool _hasActiveTheme(ChatService chatService) =>
+      _themeOf(chatService).hasTheme;
+
+  Future<void> _updateChatColor(
+    BuildContext context,
+    ChatColorSlot slot,
+    Color color,
+  ) async {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final chatService = Provider.of<ChatService>(context, listen: false);
+
+    if (_hasActiveTheme(chatService)) {
+      final o = _themeOf(chatService);
+      slot.writeTheme(o, chatColorToHex(color));
+      _commitTheme(chatService, o);
+      return;
+    }
+    final character = _characterNotifier.value;
+    if (character != null) {
+      await _updateCharacterExtension(
+        context,
+        (e) => slot.writeCharacter(e, color),
+      );
+    } else {
+      await slot.writeGlobal(storage, color);
+    }
+  }
+
+  Future<void> _updateAvatarLocked(BuildContext context, bool locked) =>
+      _updateCharacterExtension(
+        context,
+        (e) => e.copyWith(avatarLocked: locked),
+      );
+
+  Future<void> _updateCharacterExtension(
+    BuildContext context,
+    FrontPorchExtensions Function(FrontPorchExtensions) mutate,
+  ) async {
+    final character = _characterNotifier.value;
+    if (character == null) return;
+    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+    final updatedCharacter = await saveCharacterExtension(
+      charRepo,
+      character,
+      mutate,
+    );
+    setState(() {
+      _characterNotifier.value = updatedCharacter;
+    });
   }
 }

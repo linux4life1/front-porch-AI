@@ -3,7 +3,7 @@
 //
 // One scene on the Structure board (sketch N): number, lens, title with who /
 // where / what changes, tension, type, how much is written, and the ⋯ menu.
-// Web twin of _buildSceneRow in story_structure_page.tree.dart.
+// Web twin of StructureSceneRow in story_structure/structure_scene_row.dart.
 
 import type { StoryLens, StoryProject } from '../../../storyTypes';
 import { Chip } from '../StudioShell';

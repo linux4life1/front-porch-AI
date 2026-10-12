@@ -22,11 +22,10 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/ui/pages/story_structure/story_structure.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-
-part 'story_structure_page.tree.dart';
 
 /// Structure (sketch N): the act / sequence / scene board. Every scene row
 /// has a ⋯ menu for the things that used to be scattered. Lives inside the
@@ -50,8 +49,6 @@ class StoryStructurePage extends StatefulWidget {
 class _StoryStructurePageState extends State<StoryStructurePage> {
   /// Which acts are open; the first act opens by default.
   final Set<int> _open = {0};
-
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   @override
   Widget build(BuildContext context) {
@@ -80,7 +77,12 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
                       : () => _buildActs(project, pipeline),
                 )
               else
-                _buildStructureTree(project, pipeline),
+                StructureBoard(
+                  project: project,
+                  openActs: _open,
+                  running: pipeline.isRunning,
+                  actions: _boardActions(project, pipeline),
+                ),
             ],
           ),
         );
@@ -94,6 +96,24 @@ class _StoryStructurePageState extends State<StoryStructurePage> {
       },
     );
   }
+
+  StructureBoardActions _boardActions(
+    StoryProject p,
+    StoryPipelineService pipeline,
+  ) => StructureBoardActions(
+    onToggleAct: (a, open) =>
+        setState(() => open ? _open.remove(a) : _open.add(a)),
+    onEditAct: (a) => _editAct(p, a),
+    onGenerateAct: (a) => _generateFullAct(p, a, pipeline),
+    onPlanSequence: (number) => _planSequence(p, number, pipeline),
+    onOpenScene: (a, i) => widget.onOpenWriter?.call(a, i),
+    onWriteScene: (a, i) => _writeScene(p, a, i, pipeline),
+    onPlanBeats: (a, i) => _planBeats(p, a, i, pipeline),
+    onEditScene: (a, i) => _editScene(p, a, i),
+    onInsertAfter: (a, i) => _insertAfter(p, a, i),
+    onRewriteScene: (a, i) => _rewriteScene(p, a, i, pipeline),
+    onDeleteScene: (a, i) => _deleteScene(p, a, i),
+  );
 
   Widget _buildToolbar(StoryProject project, StoryPipelineService pipeline) {
     final running = pipeline.isRunning;

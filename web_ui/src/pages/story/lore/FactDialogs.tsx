@@ -3,7 +3,7 @@
 //
 // The continuity ledger's two dialogs (sketch T): Add / Edit a fact (a category
 // chip row and three fields) and "Retire from which scene?". Same titles and
-// hints as the desktop's lore_section.facts.dart.
+// hints as the desktop's story_studio/lore/continuity_fact_dialogs.dart.
 
 import { useState, type KeyboardEvent } from 'react';
 import type { ContinuityFact, StoryProject } from '../../../storyTypes';

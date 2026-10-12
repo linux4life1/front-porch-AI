@@ -4,7 +4,7 @@
 // The Write screen's own dialogs: Go to scene, edit a beat by hand, and the
 // Phrases-to-avoid list. (Rewrite with a note and Your own lens are the
 // shared FieldsDialog.) Same titles and notes as the desktop's showStoryDialog
-// calls in story_writer_page.*.dart.
+// calls in story_writer_page.dart and story_writer/.
 
 import { useState } from 'react';
 import type { SceneRef } from '../storyShape';

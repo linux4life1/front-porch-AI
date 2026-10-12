@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The words of every studio confirm (sketch V): what will happen and what is
-// lost. Same copy as the desktop's story_dashboard_page.actions.dart and
-// story_structure_page.dart, shared by the header, Overview and Structure.
+// lost. Same copy as the desktop's story_dashboard/story_studio_actions.dart
+// and story_structure_page.dart, shared by the header, Overview and Structure.
 
 import type { StoryProject } from '../../storyTypes';
 import {

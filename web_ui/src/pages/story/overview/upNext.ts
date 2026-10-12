@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // What the Overview's "Up next" card says and offers, decided from the story's
-// state alone. Web twin of _upNextCard in story_dashboard_page.overview.dart.
+// state alone. Web twin of StudioUpNextCard in
+// story_dashboard/studio_up_next_card.dart.
 
 import type { StoryProject } from '../../../storyTypes';
 import { beatsWritten, groupThousands, hasUnoutlined, nextUnfinished, orderedScenes, sceneLabel, wordCount } from '../storyShape';

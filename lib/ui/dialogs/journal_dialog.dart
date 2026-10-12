@@ -22,17 +22,14 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import 'package:front_porch_ai/ui/dialogs/journal/journal.dart';
+
 import 'journal_card_editor.dart';
-import 'journal_card_tile.dart';
 import 'journal_promises_tab.dart';
 import 'journal_timeline_tab.dart';
-
-part 'journal_dialog.cards.dart';
-part 'journal_dialog.actions.dart';
 
 /// The Journal — the full diary reader (docs/design/journal-memory.md §8
 /// phase 3). One character's memory cards for THIS chat, grouped by category,
@@ -90,13 +87,14 @@ class _JournalDialogState extends State<JournalDialog> {
 
   ChatService get _chat => widget.chatService;
 
-  /// Class door for the cards/actions part extensions — [setState] is
-  /// @protected and cannot be called from an extension.
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   /// One reader for the receipt column. The source-scan in
-  /// receipt_ids_test pins this library file (not the actions part).
+  /// receipt_ids_test pins this library file.
   List<int> _decodeReceipts(String? raw) => decodeReceiptIds(raw);
+
+  int get _belongingsCount => _cards.where((c) => c.category == 'item').length;
+
+  List<JournalMemoryData> get _diaryCards =>
+      _cards.where((c) => c.category != 'item').toList();
 
   @override
   void initState() {
@@ -143,7 +141,20 @@ class _JournalDialogState extends State<JournalDialog> {
                 const SizedBox(width: 8),
                 Expanded(
                   child: owners.length > 1
-                      ? _ownerDropdown(context, owners)
+                      ? JournalOwnerDropdown(
+                          owners: owners,
+                          ownerId: _ownerId,
+                          onChanged: (id) {
+                            setState(() {
+                              _ownerId = id;
+                              _ownerName = owners
+                                  .firstWhere((p) => p.id == id)
+                                  .name;
+                              _loading = true;
+                            });
+                            _load();
+                          },
+                        )
                       : Text(
                           "$_ownerName's Journal",
                           style: TextStyle(
@@ -229,9 +240,16 @@ class _JournalDialogState extends State<JournalDialog> {
                                     ),
                                   )
                                 : _diaryCards.isEmpty
-                                ? _emptyState(context)
+                                ? JournalEmptyNote(
+                                    message:
+                                        'No memories yet.\n\n$_ownerName '
+                                        'writes journal entries as you '
+                                        'chat — moments that mattered, things '
+                                        'learned about you, and promises '
+                                        'made, each stamped with how it felt. '
+                                        'You can also plant one yourself.',
+                                  )
                                 : _cardList(
-                                    context,
                                     userName,
                                     // Emotional diary only — item cards live
                                     // on the Belongings tab (not buried at
@@ -252,9 +270,17 @@ class _JournalDialogState extends State<JournalDialog> {
                                     ),
                                   )
                                 : _belongingsCount == 0
-                                ? _emptyBelongings(context)
+                                ? JournalEmptyNote(
+                                    message:
+                                        'No belongings notes yet.\n\nWhen '
+                                        '$_ownerName sets something down, '
+                                        'hands it over, or changes outfits, a '
+                                        'short placement memory lands here — '
+                                        'so "where are my keys?" has an '
+                                        'answer without scrolling the whole '
+                                        'diary.',
+                                  )
                                 : _cardList(
-                                    context,
                                     userName,
                                     categories: const ['item'],
                                   ),
@@ -275,5 +301,100 @@ class _JournalDialogState extends State<JournalDialog> {
         ),
       ),
     );
+  }
+
+  Widget _cardList(String userName, {required List<String> categories}) {
+    return JournalCardList(
+      cards: _cards,
+      categories: categories,
+      userName: userName,
+      storyStartDate: _chat.timeService.startDate,
+      onPinToggle: (card) async {
+        await _chat.journalStore.setPinned(card.id, !card.pinned);
+        await _load();
+      },
+      onEdit: (card) => _editCard(card, userName),
+      onDelete: _deleteCard,
+      onShowReceipts: _showReceipts,
+    );
+  }
+
+  Future<void> _plantMemory(String userName) async {
+    final draft = await JournalCardEditorDialog.show(
+      context,
+      title: 'Plant a memory in $_ownerName\'s journal',
+      userName: userName,
+    );
+    if (draft == null || !mounted) return;
+    final sessionId = _chat.currentSessionId;
+    if (sessionId == null) return;
+    final storage = Provider.of<StorageService>(context, listen: false);
+    await _chat.journalStore.addCard(
+      sessionId: sessionId,
+      characterId: _ownerId,
+      content: draft.content,
+      category: draft.category,
+      emotionLabel: draft.feeling,
+      storyDay: _chat.timeService.dayCount,
+      storyClock: _chat.timeService.storyClockIso,
+      maxCards: storage.memorySettings.journalMaxCards,
+    );
+    await _load();
+  }
+
+  Future<void> _editCard(JournalMemoryData card, String userName) async {
+    final draft = await JournalCardEditorDialog.show(
+      context,
+      title: 'Edit memory',
+      userName: userName,
+      showCategory: false,
+      initialContent: card.content,
+      initialFeeling: card.emotionLabel,
+    );
+    if (draft == null || !mounted) return;
+    await _chat.journalStore.reviseCard(
+      card,
+      content: draft.content,
+      feeling: draft.feeling,
+    );
+    await _load();
+  }
+
+  Future<void> _deleteCard(JournalMemoryData card) async {
+    final confirmed = await showRetireMemoryDialog(context, card.content);
+    if (confirmed != true || !mounted) return;
+    await _chat.journalStore.retireCard(card.id);
+    await _load();
+  }
+
+  /// Receipts: the original chat lines this memory was written from
+  /// (sourceMessageIds holds message positions — stable across saves, but a
+  /// heavily edited/deleted history can outdate them, hence the guards).
+  /// Tapping a line closes the receipts AND the journal, then asks the chat
+  /// page to scroll to that message.
+  Future<void> _showReceipts(JournalMemoryData card) async {
+    final positions = _decodeReceipts(card.sourceMessageIds);
+    final messages = _chat.messages;
+    final entries = [
+      for (final pos in positions)
+        if (pos >= 0 && pos < messages.length)
+          (
+            pos: pos,
+            line:
+                // Stored 0-based; bubbles count from #1.
+                '#${pos + 1}  ${messages[pos].sender}: '
+                '${messages[pos].displayText}',
+          ),
+    ];
+    final jump = widget.onJumpToMessage;
+    final jumpTo = await showJournalReceiptsDialog(
+      context,
+      entries: entries,
+      canJump: jump != null,
+    );
+    if (jumpTo == null || jump == null || !mounted) return;
+    // Close the journal itself so the chat is visible, THEN scroll.
+    Navigator.of(context).pop();
+    jump(jumpTo);
   }
 }

@@ -2,9 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The words and small decisions behind the Write screen, the same ones the
-// desktop's story_writer_page.*.dart make inline: the header subtitle, the
-// "Rewrite beat n" label, the phrase-list summary, the scene export. Kept pure
-// so the two surfaces can be compared line by line.
+// desktop's story_writer_page.dart and story_writer/ make inline: the header
+// subtitle, the "Rewrite beat n" label, the phrase-list summary, the scene
+// export. Kept pure so the two surfaces can be compared line by line.
 
 import type { StoryLens } from '../../../storyTypes';
 import type { ConfirmCopy } from '../confirmCopy';

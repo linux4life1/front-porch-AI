@@ -17,23 +17,19 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
-import 'dart:isolate';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:drift/drift.dart' as drift;
 import 'package:path/path.dart' as p;
-import 'package:syncfusion_flutter_pdf/pdf.dart';
 import 'package:front_porch_ai/database/database.dart';
 // embedding_service is not carried by the services barrel; services.dart is
 // here for liveDatabase().
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/data_bank/data_bank.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'data_bank_dialog_editor.dart';
-part 'data_bank_dialog_import.dart';
 
 /// Dialog for managing Data Bank entries (per-character knowledge base).
 /// Supports manual text entry and file import (txt, md, json, csv, pdf).
@@ -85,8 +81,6 @@ class _DataBankDialogState extends State<DataBankDialog> {
       _loading = false;
     });
   }
-
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   Future<void> _deleteEntry(String id) async {
     final db = liveDatabase(context);
@@ -147,6 +141,139 @@ class _DataBankDialogState extends State<DataBankDialog> {
     await _loadEntries();
     if (mounted) setState(() => _embedding = false);
   }
+
+  void _startEditing([DataBankEntry? entry]) {
+    setState(() {
+      _isEditing = true;
+      _editingId = entry?.id;
+      _titleController.text = entry?.title ?? '';
+      _contentController.text = entry?.content ?? '';
+    });
+  }
+
+  void _cancelEditing() {
+    setState(() {
+      _isEditing = false;
+      _editingId = null;
+      _titleController.clear();
+      _contentController.clear();
+    });
+  }
+
+  Future<void> _saveEntry() async {
+    final title = _titleController.text.trim();
+    final content = _contentController.text.trim();
+    if (title.isEmpty || content.isEmpty) return;
+
+    final db = liveDatabase(context);
+
+    if (_editingId != null) {
+      await db.updateDataBankEntry(
+        DataBankEntriesCompanion(
+          id: drift.Value(_editingId!),
+          title: drift.Value(title),
+          content: drift.Value(content),
+          embedding: const drift.Value(null),
+          dimensions: const drift.Value(0),
+        ),
+      );
+    } else {
+      await db.insertDataBankEntry(
+        DataBankEntriesCompanion(
+          characterId: drift.Value(widget.characterId),
+          title: drift.Value(title),
+          content: drift.Value(content),
+        ),
+      );
+    }
+
+    _cancelEditing();
+    await _loadEntries();
+  }
+
+  /// Pick a file and import its contents as Data Bank entries.
+  Future<void> _importFile() async {
+    final result = await GuardedPicker.pickFiles(
+      context,
+      category: PickerPrefs.catImport,
+      type: FileType.custom,
+      allowedExtensions: [
+        ...kDataBankTextExtensions,
+        ...kDataBankPdfExtensions,
+      ],
+      allowMultiple: false,
+    );
+
+    if (result == null || result.files.isEmpty) return;
+    final filePath = await PickerPrefs.localPathOrTemp(result.files.single);
+    if (filePath == null) return;
+
+    setState(() {
+      _importing = true;
+      _importStatus = 'Reading file...';
+    });
+
+    try {
+      final ext = p.extension(filePath).toLowerCase().replaceAll('.', '');
+      final fileName = p.basenameWithoutExtension(filePath);
+      String fullText;
+
+      if (kDataBankPdfExtensions.contains(ext)) {
+        // PDFs go through the Python sidecar server
+        setState(() => _importStatus = 'Extracting text from PDF...');
+        fullText = await extractDataBankPdfText(filePath);
+      } else {
+        // Text files read directly
+        fullText = await File(filePath).readAsString();
+      }
+
+      if (fullText.trim().isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('File contains no extractable text.')),
+          );
+        }
+        setState(() => _importing = false);
+        return;
+      }
+
+      // Chunk the text into ~500-word segments
+      setState(() => _importStatus = 'Chunking text...');
+      final chunks = chunkDataBankText(fullText, maxWords: 500);
+
+      // Insert each chunk as a Data Bank entry
+      final db = liveDatabase(context);
+      setState(() => _importStatus = 'Saving ${chunks.length} chunk(s)...');
+
+      for (int i = 0; i < chunks.length; i++) {
+        final chunkTitle = chunks.length == 1
+            ? fileName
+            : '$fileName (${i + 1}/${chunks.length})';
+        await db.insertDataBankEntry(
+          DataBankEntriesCompanion(
+            characterId: drift.Value(widget.characterId),
+            title: drift.Value(chunkTitle),
+            content: drift.Value(chunks[i]),
+          ),
+        );
+      }
+
+      debugPrint(
+        '[DataBank] Imported "$fileName": ${chunks.length} chunk(s), ${fullText.length} chars total',
+      );
+      await _loadEntries();
+    } catch (e) {
+      debugPrint('[DataBank] Import failed: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Import failed: $e')));
+      }
+    } finally {
+      if (mounted) setState(() => _importing = false);
+    }
+  }
+
   // ── Build ────────────────────────────────────────────────────────────
 
   @override
@@ -221,67 +348,23 @@ class _DataBankDialogState extends State<DataBankDialog> {
             const SizedBox(height: 12),
 
             if (_isEditing)
-              _buildEditForm()
+              DataBankEditForm(
+                titleController: _titleController,
+                contentController: _contentController,
+                isNew: _editingId == null,
+                onCancel: _cancelEditing,
+                onSave: _saveEntry,
+              )
             else ...[
               // Action bar
-              Row(
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => _startEditing(),
-                    icon: const Icon(Icons.add, size: 16),
-                    label: const Text('Add Entry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: _importing ? null : _importFile,
-                    icon: const Icon(Icons.file_upload, size: 16),
-                    label: const Text('Import File'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF374151),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      textStyle: const TextStyle(fontSize: 12),
-                    ),
-                  ),
-                  const Spacer(),
-                  if (unembedded > 0)
-                    ElevatedButton.icon(
-                      onPressed: _embedding ? null : _embedAll,
-                      icon: _embedding
-                          ? const SizedBox(
-                              width: 14,
-                              height: 14,
-                              child: CircularProgressIndicator(
-                                strokeWidth: 2,
-                                color: Colors.white,
-                              ),
-                            )
-                          : const Icon(Icons.memory, size: 16),
-                      label: Text(
-                        _embedding
-                            ? '$_embeddedCount/$unembedded'
-                            : 'Embed ($unembedded)',
-                      ),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF374151),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        textStyle: const TextStyle(fontSize: 12),
-                      ),
-                    ),
-                ],
+              DataBankToolbar(
+                importing: _importing,
+                embedding: _embedding,
+                embeddedCount: _embeddedCount,
+                unembedded: unembedded,
+                onAdd: () => _startEditing(),
+                onImport: _importFile,
+                onEmbed: _embedAll,
               ),
               const SizedBox(height: 4),
               const Text(
@@ -295,119 +378,15 @@ class _DataBankDialogState extends State<DataBankDialog> {
                 child: _loading
                     ? const Center(child: CircularProgressIndicator())
                     : _entries.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(
-                              Icons.library_books_outlined,
-                              size: 48,
-                              color: Colors.white12,
-                            ),
-                            const SizedBox(height: 12),
-                            const Text(
-                              'No entries yet',
-                              style: TextStyle(
-                                color: Colors.white30,
-                                fontSize: 14,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            const Text(
-                              'Add text or import files to build a knowledge base.\nRAG retrieves matching entries during conversations.',
-                              style: TextStyle(
-                                color: Colors.white24,
-                                fontSize: 11,
-                              ),
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      )
+                    ? const DataBankEmptyState()
                     : ListView.builder(
                         itemCount: _entries.length,
                         itemBuilder: (context, index) {
                           final entry = _entries[index];
-                          final hasEmbed =
-                              entry.embedding != null && entry.dimensions > 0;
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 6),
-                            padding: const EdgeInsets.all(10),
-                            decoration: BoxDecoration(
-                              color: Colors.white.withValues(alpha: 0.04),
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.white10),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Row(
-                                  children: [
-                                    Icon(
-                                      hasEmbed
-                                          ? Icons.check_circle
-                                          : Icons.circle_outlined,
-                                      size: 14,
-                                      color: hasEmbed
-                                          ? Colors.greenAccent
-                                          : Colors.white24,
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Expanded(
-                                      child: Text(
-                                        entry.title,
-                                        style: const TextStyle(
-                                          color: Colors.white,
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.w600,
-                                        ),
-                                        overflow: TextOverflow.ellipsis,
-                                      ),
-                                    ),
-                                    Text(
-                                      '${entry.content.split(RegExp(r'\\s+')).length}w',
-                                      style: const TextStyle(
-                                        fontSize: 9,
-                                        color: Colors.white24,
-                                      ),
-                                    ),
-                                    const SizedBox(width: 4),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.edit,
-                                        size: 14,
-                                        color: Colors.white38,
-                                      ),
-                                      onPressed: () => _startEditing(entry),
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                    ),
-                                    IconButton(
-                                      icon: const Icon(
-                                        Icons.delete,
-                                        size: 14,
-                                        color: Colors.redAccent,
-                                      ),
-                                      onPressed: () => _deleteEntry(entry.id),
-                                      constraints: const BoxConstraints(),
-                                      padding: const EdgeInsets.all(4),
-                                    ),
-                                  ],
-                                ),
-                                const SizedBox(height: 4),
-                                Text(
-                                  entry.content.length > 150
-                                      ? '${entry.content.substring(0, 150)}...'
-                                      : entry.content,
-                                  style: const TextStyle(
-                                    color: Colors.white38,
-                                    fontSize: 10,
-                                  ),
-                                  maxLines: 2,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ],
-                            ),
+                          return DataBankEntryTile(
+                            entry: entry,
+                            onEdit: () => _startEditing(entry),
+                            onDelete: () => _deleteEntry(entry.id),
                           );
                         },
                       ),

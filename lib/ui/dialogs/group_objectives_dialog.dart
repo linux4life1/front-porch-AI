@@ -16,21 +16,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
-    show AmbitionServedChip;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-part 'group_objectives_dialog.card.dart';
-part 'group_objectives_dialog.prompts.dart';
+import 'group_objectives/group_objectives.dart';
 
 /// Dedicated, group-aware objectives manager.
 ///
@@ -60,8 +55,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
   bool _loading = true;
 
   bool _generatingTasks = false;
-  bool _nsfw = false;
-  int _taskCount = 5;
+  final _generation = ObjectiveGenerationSettings();
   final _goalController = TextEditingController();
 
   @override
@@ -93,14 +87,6 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
   List<Objective> get _secondaries =>
       _objectives.where((o) => !o.isPrimary && o.active).toList();
 
-  List<Map<String, dynamic>> _tasksFor(Objective obj) {
-    try {
-      return (jsonDecode(obj.tasks) as List).cast<Map<String, dynamic>>();
-    } catch (_) {
-      return [];
-    }
-  }
-
   Future<void> _addObjective({required bool isPrimary}) async {
     final goal = _goalController.text.trim();
     if (goal.isEmpty) return;
@@ -117,11 +103,19 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
     setState(() => _generatingTasks = true);
     await widget.chatService.generateObjectiveTasks(
       obj,
-      taskCount: _taskCount,
-      nsfw: _nsfw,
+      taskCount: _generation.taskCount,
+      nsfw: _generation.nsfw,
     );
     await _loadForCurrent();
     if (mounted) setState(() => _generatingTasks = false);
+  }
+
+  Future<void> _promoteObjective(Objective obj) async {
+    // Promote IN PLACE (keeps id + task progress; the old
+    // setObjective-with-same-text pattern inserted a duplicate
+    // primary and left this side quest active).
+    await widget.chatService.promoteObjective(obj);
+    await _loadForCurrent();
   }
 
   Future<void> _toggleTask(Objective obj, int index) async {
@@ -146,6 +140,71 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
       _loading = true;
     });
     await _loadForCurrent();
+  }
+
+  Future<void> _showAddDialog({required bool isPrimary}) async {
+    final goal = await promptForObjectiveText(
+      context,
+      title: isPrimary ? 'New Primary Objective' : 'New Secondary Objective',
+      confirmLabel: 'Add',
+      hint: 'Goal description',
+    );
+    if (goal == null || !mounted) return;
+    await widget.chatService.setObjective(
+      goal,
+      isPrimary: isPrimary,
+      targetCharacter: _focused,
+    );
+    await _loadForCurrent();
+  }
+
+  void _showGenerateDialog() {
+    showGenerateObjectivesDialog(
+      context,
+      settings: _generation,
+      onGenerate: _generateObjectives,
+    );
+  }
+
+  Future<void> _generateObjectives() async {
+    // Generate one primary if none exists, plus one secondary
+    if (_primary == null) {
+      await widget.chatService.setObjective(
+        'A meaningful personal goal for this scene',
+        isPrimary: true,
+        targetCharacter: _focused,
+      );
+    }
+    if (_secondaries.length < kMaxSecondaryObjectives) {
+      await widget.chatService.setObjective(
+        'A secondary supporting goal',
+        isPrimary: false,
+        targetCharacter: _focused,
+      );
+    }
+    await _loadForCurrent();
+    // Optionally auto-generate tasks for the new ones
+    for (final o in _objectives.take(2)) {
+      await widget.chatService.generateObjectiveTasks(
+        o,
+        taskCount: _generation.taskCount,
+        nsfw: _generation.nsfw,
+      );
+    }
+    await _loadForCurrent();
+  }
+
+  Widget _buildObjectiveCard(Objective obj, {required bool isPrimary}) {
+    return GroupObjectiveCard(
+      objective: obj,
+      isPrimary: isPrimary,
+      generatingTasks: _generatingTasks,
+      onDelete: () => _clearObjective(obj),
+      onToggleTask: (i) => _toggleTask(obj, i),
+      onEditTask: (i, newText) => _updateTask(obj, i, newText),
+      onRegenerateTasks: () => _generateTasks(obj),
+      onPromote: () => _promoteObjective(obj),
+    );
   }
 
   @override

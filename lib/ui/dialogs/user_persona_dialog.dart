@@ -16,17 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/dialogs/user_persona/persona_edit_form.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'user_persona_dialog.edit_form.dart';
 
 class UserPersonaDialog extends StatefulWidget {
   const UserPersonaDialog({super.key});
@@ -141,7 +138,21 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
         width: 600,
         height: 500,
         padding: const EdgeInsets.all(24),
-        child: _isEditing ? _buildEditForm() : _buildList(),
+        child: _isEditing
+            ? PersonaEditForm(
+                formKey: _formKey,
+                isNew: _editingPersona == null,
+                titleController: _titleController,
+                nameController: _nameController,
+                personaController: _personaController,
+                avatarPath: _avatarPath,
+                birthday: _birthday,
+                onBirthdayChanged: _setBirthday,
+                onPickAvatar: _pickAvatar,
+                onCancel: _cancelEditing,
+                onSave: _savePersona,
+              )
+            : _buildList(),
       ),
     );
   }

@@ -3,7 +3,8 @@
 //
 // One act on the Structure board: the raised header (ACT I · title · status ·
 // ✎ · ▾), its description, then its sequences (Studio) or plain scene list
-// (Quick). Web twin of _buildAct / _buildSequence in story_structure_page.tree.dart.
+// (Quick). Web twin of StructureAct / StructureSequence in
+// story_structure/structure_board.dart.
 
 import type { StoryLens, StoryProject } from '../../../storyTypes';
 import { Chip } from '../StudioShell';
