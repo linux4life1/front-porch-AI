@@ -62,6 +62,26 @@ class DartSource {
 
   final _lineStarts = <int>[0];
   final _comments = <int, List<String>>{};
+  final _strings = <DartString>[];
+
+  /// Every string literal, in source order (one nested in an interpolation
+  /// comes after the literal around it).
+  List<DartString> get strings => List.unmodifiable(_strings);
+
+  /// Every function, method or constructor declaration (`name(` after a
+  /// type or a modifier), in source order. Only a `{` body is tracked: an
+  /// `=>` or abstract one has [DartFunction.body] null.
+  late final List<DartFunction> functions = _functions();
+
+  /// The block-bodied [functions] whose body holds [offset], outermost first.
+  List<DartFunction> enclosingFunctions(int offset) => [
+    for (final f in functions)
+      if (f.body case (
+        :final start,
+        :final end,
+      ) when start < offset && offset < end)
+        f,
+  ];
 
   /// Every match of [pattern] in the code, minus the ones [allow] excuses.
   List<RatchetHit> hits(RegExp pattern, {bool Function(Match m)? allow}) => [
@@ -205,6 +225,9 @@ class DartSource {
           final len = top.triple ? 3 : 1;
           blank(i, i + len);
           frames.removeLast();
+          _strings.add(
+            DartString(top.start, i + len, source.substring(top.content, i)),
+          );
           i += len;
         } else {
           blank(i, i + 1);
@@ -241,7 +264,15 @@ class DartSource {
         final triple = at(i + 1) == c && at(i + 2) == c;
         if (raw) blank(i - 1, i);
         blank(i, i + (triple ? 3 : 1));
-        frames.add(_StringFrame(c, triple: triple, raw: raw));
+        frames.add(
+          _StringFrame(
+            c,
+            triple: triple,
+            raw: raw,
+            start: raw ? i - 1 : i,
+            content: i + (triple ? 3 : 1),
+          ),
+        );
         i += triple ? 3 : 1;
         continue;
       }
@@ -254,16 +285,152 @@ class DartSource {
     }
     return String.fromCharCodes(out);
   }
+
+  /// Brace-depth walk of [code]: `name(` is a declaration when a type, a
+  /// modifier or `?` / `>` comes before it and it is not inside another
+  /// declaration's parameters; its body is the next `{` once those close,
+  /// unless `=>` or `;` comes first.
+  List<DartFunction> _functions() {
+    final found = <DartFunction>[];
+    final open = <(DartFunction, int)>[];
+    final n = code.length;
+    DartFunction? pending;
+    var paren = 0, depth = 0, i = 0;
+    while (i < n) {
+      final c = code.codeUnitAt(i);
+      if (_isIdentStart(c)) {
+        var j = i + 1;
+        while (j < n && _isIdent(code.codeUnitAt(j))) {
+          j++;
+        }
+        final name = code.substring(i, j);
+        var k = j;
+        while (k < n && _isSpace(code.codeUnitAt(k))) {
+          k++;
+        }
+        final call = k < n && code.codeUnitAt(k) == _lparen;
+        if (call &&
+            name != 'Function' &&
+            (pending == null || paren <= 0) &&
+            _isDeclaration(name, i)) {
+          found.add(pending = DartFunction._(name, i));
+          paren = 0;
+        }
+        i = call ? k : j;
+        continue;
+      }
+      if (c == _lparen && pending != null) paren++;
+      if (c == _rparen && pending != null) paren--;
+      if (c == _lbrace) {
+        depth++;
+        if (pending != null && paren <= 0) {
+          pending._bodyStart = i;
+          open.add((pending, depth));
+          pending = null;
+        }
+      }
+      if (c == _rbrace) {
+        depth--;
+        while (open.isNotEmpty && open.last.$2 > depth) {
+          open.removeLast().$1._bodyEnd = i + 1;
+        }
+      }
+      if (pending != null &&
+          paren <= 0 &&
+          (c == _semicolon ||
+              (c == _equals && i + 1 < n && code[i + 1] == '>'))) {
+        pending = null;
+      }
+      i++;
+    }
+    for (final (f, _) in open) {
+      f._bodyEnd = n;
+    }
+    return found;
+  }
+
+  bool _isDeclaration(String name, int start) {
+    if (_notDeclaration.contains(name)) return false;
+    var j = start - 1;
+    while (j >= 0 && _isSpace(code.codeUnitAt(j))) {
+      j--;
+    }
+    if (j < 0) return false;
+    final c = code.codeUnitAt(j);
+    if (c == _question || c == _gt) return true;
+    if (!_isIdent(c)) return false;
+    var s = j;
+    while (s > 0 && _isIdent(code.codeUnitAt(s - 1))) {
+      s--;
+    }
+    return !_notDeclaration.contains(code.substring(s, j + 1));
+  }
 }
+
+/// A string literal: [start] at its quote (or its `r`), [end] past the
+/// closing quote, [body] the source between the quotes as written.
+class DartString {
+  const DartString(this.start, this.end, this.body);
+
+  final int start;
+  final int end;
+  final String body;
+}
+
+/// A declaration found by [DartSource.functions].
+class DartFunction {
+  DartFunction._(this.name, this.nameOffset);
+
+  final String name;
+  final int nameOffset;
+  int _bodyStart = -1;
+  int _bodyEnd = -1;
+
+  /// The `{`…`}` body as offsets (end exclusive), or null without one.
+  ({int start, int end})? get body =>
+      _bodyStart < 0 ? null : (start: _bodyStart, end: _bodyEnd);
+
+  @override
+  String toString() => name;
+}
+
+/// Keywords that open a statement or expression, never a declaration name.
+const _notDeclaration = {
+  'await',
+  'return',
+  'yield',
+  'throw',
+  'if',
+  'while',
+  'for',
+  'switch',
+  'catch',
+  'assert',
+  'else',
+  'case',
+  'new',
+  'const',
+  'final',
+  'var',
+  'late',
+};
 
 abstract class _Frame {}
 
 class _StringFrame extends _Frame {
-  _StringFrame(this.quote, {required this.triple, required this.raw});
+  _StringFrame(
+    this.quote, {
+    required this.triple,
+    required this.raw,
+    required this.start,
+    required this.content,
+  });
 
   final int quote;
   final bool triple;
   final bool raw;
+  final int start;
+  final int content;
 }
 
 class _Interpolation extends _Frame {
@@ -277,6 +444,6 @@ bool _isIdent(int c) => _isIdentStart(c) || (c >= 48 && c <= 57);
 
 const _nl = 10, _space = 32, _dquote = 34, _dollar = 36, _quote = 39;
 const _lparen = 40, _rparen = 41, _star = 42, _comma = 44;
-const _slash = 47, _semicolon = 59;
+const _slash = 47, _semicolon = 59, _equals = 61, _gt = 62, _question = 63;
 const _lbracket = 91, _backslash = 92, _rbracket = 93, _r = 114;
 const _lbrace = 123, _rbrace = 125;
