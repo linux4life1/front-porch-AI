@@ -15,9 +15,12 @@
 // applies a regenerated directed turn; dropping the session key in
 // chat_service_session_state_save.dart loses Director Mode on reload.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/director/director.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../helpers/reprocess_needs_harness.dart';
 
@@ -150,6 +153,12 @@ void main() {
     () async {
       await h.groupWithTwoReplies(aOff: const []);
       h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+      // A third member, so one can leave while the user directs.
+      final nora = needsCard('Nora');
+      await h.repo.addCharacter(nora);
+      await h.chat.joinFull(nora);
+      await h.settleTurn();
+      expect(h.chat.groupCharacters, hasLength(3));
       await h.chat.sendMessage('/director');
       await h.settleTurn();
       await h.chat.sendMessage('/exit Bram');
@@ -230,5 +239,98 @@ void main() {
     await h.chat.loadSession(sid);
     await h.settleTurn();
     expect(h.chat.observerMode, isTrue);
+  });
+
+  test('while directing, the second-to-last character cannot leave', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+    await h.chat.sendMessage('/director');
+    await h.settleTurn();
+    expect(h.chat.canRemoveCastMember, isFalse);
+    final before = h.chat.messages.length;
+
+    await h.chat.sendMessage('/exit Bram');
+    await h.settleTurn();
+
+    expect(h.chat.groupCharacters.map((c) => c.name), contains('Bram'));
+    expect(h.chat.messages, hasLength(before), reason: 'no goodbye turn');
+    expect(h.chat.guestActivityStatus, contains('at least two characters'));
+    expect(h.chat.guestActivityIsError, isTrue);
+
+    // The next note is still a director's note in the same group.
+    h.chat.setNextCharacter(member('Ayla'));
+    await h.chat.sendMessage('The porch light flickers out.');
+    await h.settleTurn();
+    expect(h.chat.isGroupMode, isTrue);
+    expect(h.chat.observerMode, isTrue);
+    expect(
+      h.chat.messages[h.chat.messages.length - 2].characterId,
+      kDirectorCharacterId,
+    );
+  });
+
+  test('the open undo names the user until a note closes it, and a refusal '
+      'shows one warning sign', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    await h.chat.sendMessage('/director');
+    await h.settleTurn();
+    expect(h.chat.exitUndoIsUserStep, isTrue);
+    expect(h.chat.exitUndoName, isNotNull);
+    h.chat.consumeExitUndoOffer(); // the desktop SnackBar was shown
+    expect(h.chat.exitUndoName, isNotNull, reason: 'web still offers UNDO');
+
+    h.chat.setNextCharacter(member('Ayla'));
+    await h.chat.sendMessage('The porch light flickers out.');
+    await h.settleTurn();
+    expect(h.chat.exitUndoName, isNull);
+
+    await h.chat.sendMessage('/director');
+    await h.settleTurn();
+    expect(h.chat.guestActivityStatus, startsWith('You are already directing'));
+    await h.chat.sendMessage('/director sideways');
+    await h.settleTurn();
+    expect(h.chat.guestActivityStatus, startsWith('Use /director'));
+    expect(h.chat.guestActivityIsError, isTrue);
+  });
+
+  test('the auto-chat delay saves and applies to the running scene', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    await h.chat.setSavedDirectorDelay(4.5);
+    expect(h.chat.savedDirectorDelay, 4.5);
+    expect(h.chat.directorDelaySec, 4.5);
+  });
+
+  testWidgets('while directing, a member card keeps its state and marks '
+      'feelings toward the user as held', (tester) async {
+    // The harness's database answers in real time only, so the setup and
+    // the save that directing makes run outside the widget clock.
+    await tester.runAsync(() async {
+      await h.groupWithTwoReplies(aOff: const []);
+      h.chat.setObserverMode(true);
+      await h.settleTurn();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 320,
+              child: GroupMemberCard(
+                character: member('Ayla'),
+                chatService: h.chat,
+                avatarColor: AppColors.formMasterAccent,
+                isNextSpeaker: false,
+                isExpanded: true,
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('Held while you direct'), findsOneWidget);
+    expect(find.textContaining('Realism off'), findsNothing);
+    // Dispose here: the binding checks debugPrint is handed back.
+    await tester.runAsync(h.dispose);
   });
 }

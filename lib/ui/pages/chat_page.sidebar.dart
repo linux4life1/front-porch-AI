@@ -223,8 +223,24 @@ class ChatRightSidebar extends StatelessWidget {
               onFocus: onFocusParticipant,
             ),
 
-          // ── Director controls (group turn-taking) ──
-          if (isGroup) _DirectorControls(chatService: chatService),
+          // ── Director: step out to direct, or back in ──
+          if (isGroup || cast.length > 1)
+            Consumer<StorageService>(
+              builder: (context, storage, _) {
+                final delay = storage.ttsSettings.directorDelay;
+                chatService.directorDelaySec = delay;
+                return DirectorPanel(
+                  directing: chatService.observerMode,
+                  busy: chatService.isGenerating,
+                  delaySeconds: delay,
+                  onStepOut: () =>
+                      unawaited(chatService.sendMessage('/director')),
+                  onStepIn: () =>
+                      unawaited(chatService.sendMessage('/director off')),
+                  onDelayChanged: storage.ttsSettings.setDirectorDelay,
+                );
+              },
+            ),
 
           Expanded(
             child: SidebarBody(
@@ -309,130 +325,6 @@ class _ParticipantRoster extends StatelessWidget {
                 : null,
           );
         },
-      ),
-    );
-  }
-}
-
-/// Group turn-taking controls (Director Mode + response delay). Shown when
-/// the chat has scheduled speakers (a group).
-class _DirectorControls extends StatefulWidget {
-  const _DirectorControls({required this.chatService});
-
-  final ChatService chatService;
-
-  @override
-  State<_DirectorControls> createState() => _DirectorControlsState();
-}
-
-class _DirectorControlsState extends State<_DirectorControls> {
-  // Slider drag tracking — store live value during drag, null on release
-  double? _dragDirectorDelay;
-
-  @override
-  Widget build(BuildContext context) {
-    final chatService = widget.chatService;
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        border: Border(
-          bottom: BorderSide(
-            color: AppColors.borderOf(context).withValues(alpha: 0.35),
-          ),
-        ),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.movie_creation,
-                size: 16,
-                color: AppColors.iconSecondary(context),
-              ),
-              const SizedBox(width: 8),
-              Text(
-                'Director Mode',
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              Switch(
-                value: chatService.observerMode,
-                activeTrackColor: Colors.amberAccent,
-                onChanged: chatService.isGenerating
-                    ? null
-                    : (val) => chatService.setObserverMode(val),
-              ),
-            ],
-          ),
-          if (chatService.observerMode) ...[
-            Padding(
-              padding: const EdgeInsets.only(top: 2, bottom: 4),
-              child: Text(
-                'Characters chat autonomously. Use the input box to direct the scene.',
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.amberAccent.withValues(alpha: 0.7),
-                ),
-              ),
-            ),
-            Consumer<StorageService>(
-              builder: (context, storage, _) {
-                chatService.directorDelaySec =
-                    storage.ttsSettings.directorDelay;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        const Text(
-                          'Response Delay',
-                          style: TextStyle(color: Colors.white54, fontSize: 11),
-                        ),
-                        const Spacer(),
-                        Text(
-                          '${(_dragDirectorDelay ?? storage.ttsSettings.directorDelay).toStringAsFixed(1)}s',
-                          style: const TextStyle(
-                            color: Colors.amberAccent,
-                            fontSize: 11,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                    SliderTheme(
-                      data: SliderTheme.of(context).copyWith(
-                        trackHeight: 3,
-                        thumbShape: const RoundSliderThumbShape(
-                          enabledThumbRadius: 6,
-                        ),
-                      ),
-                      child: Slider(
-                        value:
-                            _dragDirectorDelay ??
-                            storage.ttsSettings.directorDelay,
-                        min: 0.5,
-                        max: 60.0,
-                        divisions: 119,
-                        activeColor: Colors.amberAccent,
-                        inactiveColor: Colors.white12,
-                        onChanged: (val) =>
-                            setState(() => _dragDirectorDelay = val),
-                        onChangeEnd: (val) {
-                          _dragDirectorDelay = null;
-                          storage.ttsSettings.setDirectorDelay(val);
-                        },
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ],
-        ],
       ),
     );
   }

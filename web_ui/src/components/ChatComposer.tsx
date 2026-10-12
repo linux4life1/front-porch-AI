@@ -68,6 +68,7 @@ export function ChatComposer({
   onImpersonate,
   apiReady = true,
   apiHint,
+  directing = false,
 }: {
   onSend: (text: string, imageBase64?: string) => void;
   onStop: () => void;
@@ -89,6 +90,8 @@ export function ChatComposer({
   /** Why the host's start of KoboldCpp was refused: said above the box while
    *  there is no connection (additive; the host may not send it). */
   apiHint?: string | null;
+  /** Director Mode: the line is a note to the cast, not the user speaking. */
+  directing?: boolean;
 }) {
   const [draft, setDraftState] = useState('');
   const setDraft = useCallback(
@@ -368,7 +371,7 @@ export function ChatComposer({
               send();
             }
           }}
-          placeholder={apiReady ? 'Message…' : 'No API connection'}
+          placeholder={!apiReady ? 'No API connection' : directing ? 'Direct the scene…' : 'Message…'}
           className={`composer-input${apiReady ? '' : ' no-api'}`}
           rows={1}
         />

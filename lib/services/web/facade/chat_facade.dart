@@ -233,6 +233,25 @@ class ChatFacade {
     _notify();
   }
 
+  /// The UNDO after an `/exit` or a step out to direct (the desktop
+  /// SnackBar's twin).
+  Future<void> undoLastExit() async {
+    await _chat.undoLastExit();
+    _notify();
+  }
+
+  /// Director Mode's auto-chat Play/Pause (the desktop input row's twin).
+  void setAutoPlay(bool on) {
+    on ? _chat.startAutoPlay() : _chat.stopAutoPlay();
+    _notify();
+  }
+
+  /// The auto-chat delay (the desktop Director panel slider's twin).
+  Future<void> setDirectorDelay(double seconds) async {
+    await _chat.setSavedDirectorDelay(seconds);
+    _notify();
+  }
+
   /// The stopped-reply notice's dismiss (desktop's ✕ twin).
   void dismissStoppedReplyNotice() {
     _chat.dismissStoppedReplyNotice();

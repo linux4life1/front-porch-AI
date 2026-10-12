@@ -6,14 +6,20 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_mcp_bind.dart';
 
 void main() {
-  test('OpenCode mcp map is empty — chat MCP servers are gone', () async {
+  testWidgets('OpenCode mcp map is empty — chat MCP servers are gone', (
+    tester,
+  ) async {
     expect(openCodeMcpFromServers(const []), isEmpty);
-    expect(await waifuOpenCodeMcpMap(_FakeContext(), optIn: true), isEmpty);
+    late BuildContext context;
+    await tester.pumpWidget(
+      Builder(
+        builder: (c) {
+          context = c;
+          return const SizedBox.shrink();
+        },
+      ),
+    );
+    // No StorageService in this tree, so there is no tools folder to read.
+    expect(await waifuOpenCodeMcpMap(context, optIn: true), isEmpty);
   });
-}
-
-/// waifuOpenCodeMcpMap no longer reads Provider; context is unused.
-class _FakeContext implements BuildContext {
-  @override
-  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

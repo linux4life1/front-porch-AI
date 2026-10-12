@@ -180,6 +180,37 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 }
 .cast-banner.error { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
 .cast-banner.detect { background: rgba(59, 130, 246, 0.14); color: var(--text); }
+/* Director Mode: the desktop sidebar's Director card, as one strip. */
+.director-strip {
+  margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  background: var(--surface-2); color: var(--muted);
+}
+.director-strip.directing {
+  color: var(--porch-amber); border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
+}
+.director-status { flex: 1; min-width: 0; font-weight: 600; }
+.director-delay {
+  flex-basis: 100%; display: flex; align-items: center; gap: 8px; color: var(--muted);
+}
+.director-delay input[type='range'] { flex: 1; min-width: 0; accent-color: var(--porch-amber); }
+.director-delay-value { color: var(--porch-amber); font-weight: 600; min-width: 3.5em; text-align: right; }
+.undo-bar {
+  margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  background: var(--surface-2); color: var(--text);
+}
+/* A director's note: a centred scene card, not the user's own bubble. */
+.msg-row .bubble.director-note {
+  align-self: center; max-width: min(560px, 92%); text-align: center;
+  background: color-mix(in srgb, var(--porch-amber) 12%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
+  color: var(--text); font-style: italic;
+}
+.director-note-label {
+  display: block; font-style: normal; font-size: 0.7rem; font-weight: 600;
+  color: var(--porch-amber); margin-bottom: 2px;
+}
 /* Sticky so the speaker stays visible while scrolling through a long group
    message — you never lose track of who's talking. The --bg background hides the
    message text scrolling underneath it. */

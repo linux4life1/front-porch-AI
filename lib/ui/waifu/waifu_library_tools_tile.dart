@@ -46,7 +46,9 @@ class WaifuLibraryToolsTile extends StatelessWidget {
         toolsPath = p.join(root, 'tools');
         skillsPath = p.join(root, 'skills');
       }
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No storage in this tree: show the folder names alone.
+    }
     return Padding(
       padding: const EdgeInsets.only(top: 8),
       child: Column(

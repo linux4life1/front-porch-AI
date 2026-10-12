@@ -56,7 +56,7 @@ Directory? _toolsDirOf(BuildContext? context) {
   if (context == null) return null;
   try {
     return Provider.of<StorageService>(context, listen: false).toolsDir;
-  } catch (_) {
+  } on ProviderNotFoundException {
     return null;
   }
 }

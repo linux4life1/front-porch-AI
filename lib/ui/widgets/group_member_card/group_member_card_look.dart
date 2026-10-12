@@ -119,10 +119,13 @@ class GroupMemberCardLook {
           ),
           if (isDirector) ...[
             const SizedBox(width: 6),
-            const Icon(
-              Icons.pause_circle_outline,
-              size: 12,
-              color: GroupMemberCardPalette.directorPaused,
+            const Tooltip(
+              message: 'Held while you direct',
+              child: Icon(
+                Icons.pause_circle_outline,
+                size: 12,
+                color: GroupMemberCardPalette.directorPaused,
+              ),
             ),
           ],
         ],

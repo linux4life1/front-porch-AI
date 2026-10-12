@@ -327,6 +327,10 @@ extension ChatServiceWiringMemory on ChatService {
       removeGroupMember: (member) async {
         final repo = _groupChatRepository;
         if (repo == null) return false;
+        if (!canRemoveCastMember) {
+          _setGuestStatus(kDirectorCastFloorNote, isError: true);
+          return true; // answered: the floor note says why
+        }
         // Narrate the member's goodbye + arm a deferred-deletion UNDO; the real
         // removal commits when the user continues (mirrors the Lite-NPC exit).
         return exitGroupMember(member, repo);

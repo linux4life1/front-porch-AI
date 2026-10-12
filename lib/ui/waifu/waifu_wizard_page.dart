@@ -138,7 +138,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
     if (widget.characters != null) return widget.characters!;
     try {
       return context.read<CharacterRepository>().characters;
-    } catch (_) {
+    } on ProviderNotFoundException {
       return const [];
     }
   }

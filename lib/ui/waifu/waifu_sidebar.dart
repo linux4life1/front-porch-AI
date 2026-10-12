@@ -44,7 +44,7 @@ class WaifuSidebar extends StatelessWidget {
     this.onPreserveThinking,
     this.onToolsOptIn,
     this.harness,
-    this.onThemeChanged,
+    this.onThemeOverrides,
     this.onCompact,
     this.onGenSettings,
   });
@@ -57,7 +57,7 @@ class WaifuSidebar extends StatelessWidget {
   final ValueChanged<bool>? onToolsOptIn;
   final WaifuHarness? harness;
   WaifuTodos? get todos => harness?.todos;
-  final VoidCallback? onThemeChanged;
+  final ValueChanged<ChatThemeOverrides>? onThemeOverrides;
   final VoidCallback? onCompact;
 
   /// Chat Settings saved. The page persists them and re-sizes the meter.
@@ -193,10 +193,7 @@ class WaifuSidebar extends StatelessWidget {
           builder: (_) => UiSettingsDialog(
             character: session.coworker,
             themeOverrides: session.themeOverrides,
-            onThemeOverrides: (next) {
-              session.themeOverrides = next;
-              onThemeChanged?.call();
-            },
+            onThemeOverrides: (next) => onThemeOverrides?.call(next),
           ),
         );
     }

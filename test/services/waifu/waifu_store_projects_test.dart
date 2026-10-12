@@ -83,4 +83,87 @@ void main() {
     expect(loaded!.coworker.name, 'Ada');
     expect(loaded.title, 'old A');
   });
+
+  group('saved sessions are never silently lost', () {
+    late Directory root;
+
+    setUp(() async {
+      root = await Directory.systemTemp.createTemp('waifu_store_safety_');
+    });
+
+    tearDown(() async {
+      if (await root.exists()) await root.delete(recursive: true);
+    });
+
+    String folder(String name) => p.join(root.path, 'work', name);
+
+    test('an unreadable task list does not block the session', () async {
+      final store = WaifuStore(p.join(root.path, 'waifu'));
+      final toy = folder('toy');
+      await store.saveLast(
+        WaifuSession(
+          folderRoot: toy,
+          coworker: CharacterCard(name: 'Iris'),
+        ),
+      );
+      await waifuTodosFile(toy).writeAsBytes([0xff, 0xfe, 0xc3]);
+      final back = await store.loadSession(toy);
+      expect(back, isNotNull);
+      expect(back!.todos.items, isEmpty);
+    });
+
+    test('a damaged session file is reported, not treated as empty', () async {
+      final store = WaifuStore(p.join(root.path, 'waifu'));
+      final toy = folder('toy');
+      await Directory(
+        p.join(store.directory, 'sessions'),
+      ).create(recursive: true);
+      await File(
+        p.join(store.directory, 'sessions', '${waifuSessionSlug(toy)}.json'),
+      ).writeAsString('{"folderRoot": "$toy", "transcript": [');
+      await expectLater(
+        store.loadSession(toy),
+        throwsA(isA<WaifuSessionUnreadable>()),
+      );
+      expect(await store.loadSession(folder('other')), isNull);
+    });
+
+    test('a damaged project list is kept beside the new one', () async {
+      final store = WaifuStore(p.join(root.path, 'waifu'));
+      await Directory(store.directory).create(recursive: true);
+      final index = File(p.join(store.directory, kWaifuProjectsFile));
+      await index.writeAsString('[{"folderRoot": "/old/project"');
+      expect(await store.listProjects(), isEmpty);
+      await store.saveLast(
+        WaifuSession(
+          folderRoot: folder('toy'),
+          coworker: CharacterCard(name: 'Iris'),
+        ),
+      );
+      final kept = File('${index.path}.unreadable');
+      expect(await kept.readAsString(), contains('/old/project'));
+      expect(await store.listProjects(), hasLength(1));
+    });
+
+    test('quick saves from separate stores keep every project', () async {
+      final dir = p.join(root.path, 'waifu');
+      await Future.wait([
+        for (var i = 0; i < 12; i++)
+          WaifuStore(dir).saveLast(
+            WaifuSession(
+              folderRoot: folder('p$i'),
+              coworker: CharacterCard(name: 'Iris'),
+            ),
+          ),
+      ]);
+      final projects = await WaifuStore(dir).listProjects();
+      expect(projects.map((x) => x.folderName).toSet(), {
+        for (var i = 0; i < 12; i++) 'p$i',
+      });
+      final leftovers = Directory(
+        dir,
+      ).listSync(recursive: true).where((e) => e.path.endsWith('.tmp'));
+      expect(leftovers, isEmpty);
+    });
+  });
 }

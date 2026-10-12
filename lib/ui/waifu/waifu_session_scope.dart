@@ -33,7 +33,7 @@ WaifuStore? waifuStoreForContext(BuildContext context, {WaifuStore? injected}) {
     final root = storage.rootPath;
     if (root == null || root.isEmpty) return null;
     return WaifuStore(waifuStoreDirectory(root));
-  } catch (_) {
+  } on ProviderNotFoundException {
     return null;
   }
 }
@@ -58,23 +58,6 @@ int waifuIdleRequestTokens(WaifuSession session, {int mcpToolCount = 0}) {
   );
 }
 
-/// Remeter then persist so sit-down is never saved as 0/N.
-void waifuArmSessionMeter({
-  required WaifuSession session,
-  WaifuHarness? harness,
-  WaifuStore? store,
-  int mcpToolCount = 0,
-}) {
-  if (session.tokensUsed == 0 && !session.tokensFromApi) {
-    session.tokensUsed = waifuIdleRequestTokens(
-      session,
-      mcpToolCount: mcpToolCount,
-    );
-  }
-  harness?.refreshMeter();
-  store?.saveLast(session);
-}
-
 /// Bind OpenCode manager + Porch backend. Null when neither is available.
 WaifuHarness? waifuBindSessionHarness({
   required WaifuSession session,
@@ -90,16 +73,15 @@ WaifuHarness? waifuBindSessionHarness({
   OpenCodePorchBackend? backend;
   OpenCodePorchBackend? Function()? backendOf;
   if (provider != null) {
-    try {
-      backend = openCodeBackendFromProvider(provider.activeService);
-    } catch (_) {}
     backendOf = () {
       try {
         return openCodeBackendFromProvider(provider.activeService);
-      } catch (_) {
+      } on StateError catch (e) {
+        debugPrint('[Waifu] No OpenCode backend for this model: $e');
         return null;
       }
     };
+    backend = backendOf();
   }
   if (manager == null && backend == null) return null;
   return WaifuHarness(

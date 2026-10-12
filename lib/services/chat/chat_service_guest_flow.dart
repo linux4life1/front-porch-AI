@@ -47,6 +47,7 @@ extension ChatServiceGuestFlow on ChatService {
     _sceneGuest.exitUndoGuest = null;
     _sceneGuest.exitUndoMessage = null;
     _sceneGuest.exitUndoOfferName = null;
+    _sceneGuest.exitUndoName = null;
     _sceneGuest.exitUndoUserStep = false;
     // A pending full-member exit that is cleared WITHOUT committing (context
     // switch / new chat) is simply cancelled: the member's row was never deleted,

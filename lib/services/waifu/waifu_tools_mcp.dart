@@ -266,7 +266,7 @@ class PorchToolsMcpHost {
     Object? decoded;
     try {
       decoded = jsonDecode(raw);
-    } catch (_) {
+    } on FormatException {
       response.statusCode = HttpStatus.badRequest;
       await response.close();
       return;

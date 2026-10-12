@@ -440,7 +440,7 @@ class ChatInputActionStrip {
               ? chatService.stopAutoPlay
               : chatService.startAutoPlay,
           onNextCharacter: chatService.triggerNextCharacter,
-          playColor: Colors.amberAccent,
+          playColor: AppColors.porchAmberOf(context),
           pauseColor: Colors.orangeAccent,
           nextColor: Colors.purpleAccent,
         ),
@@ -481,9 +481,7 @@ class ChatInputActionStrip {
                   chatService.observerMode ? Icons.movie_creation : Icons.send,
                   color: chatService.isGuestBusy
                       ? AppColors.iconSecondary(context)
-                      : (chatService.observerMode
-                            ? Colors.amberAccent
-                            : AppColors.porchAmberOf(context)),
+                      : AppColors.porchAmberOf(context),
                 ),
                 onPressed: chatService.isLoadingSession ? null : onSend,
               ),

@@ -17,9 +17,7 @@ void main() {
     expect(recap.kind, WaifuMsgKind.recap);
     expect(recap.hidden, isTrue);
     expect(recap.isUser, isFalse);
-    expect(waifuIsPromptRecap(recap), isTrue);
     expect(typed.kind, WaifuMsgKind.user);
-    expect(waifuIsPromptRecap(typed), isFalse);
   });
 
   test('load heals hidden recap but not a typed compact prefix', () async {
@@ -48,7 +46,6 @@ void main() {
     expect(loaded.transcript[0].isUser, isFalse);
     expect(loaded.transcript[1].kind, WaifuMsgKind.user);
     expect(loaded.transcript[1].isUser, isTrue);
-    expect(waifuIsPromptRecap(loaded.transcript[1]), isFalse);
     expect(loaded.transcript[2].kind, WaifuMsgKind.recap);
   });
 }

@@ -43,15 +43,6 @@ class OpenCodePorchBackend {
 bool openCodeBackendSame(OpenCodePorchBackend a, OpenCodePorchBackend b) =>
     a.baseUrl == b.baseUrl && a.apiKey == b.apiKey && a.modelId == b.modelId;
 
-/// True when a live Settings switch must retarget the same OpenCode session.
-bool waifuBackendNeedsReseat({
-  required OpenCodePorchBackend? seated,
-  required OpenCodePorchBackend? live,
-}) {
-  if (live == null || seated == null) return false;
-  return !openCodeBackendSame(seated, live);
-}
-
 OpenCodePorchBackend openCodeBackendFromProvider(LLMService svc) {
   if (svc is OpenRouterService) {
     return OpenCodePorchBackend(
@@ -179,39 +170,6 @@ Future<OpenCodeSessionInfo> waifuOpenCodeSitDown({
   return client.createSession(
     title: coworker.name,
     agent: openCodeAgentForMode(mode),
-  );
-}
-
-/// Point the live OpenCode serve at a new URL/model. Keeps the session.
-Future<void> waifuRetargetOpenCode({
-  required OpenCodeCloset closet,
-  required OpenCodeClient client,
-  required CharacterCard coworker,
-  required WaifuPathMode pathMode,
-  required WaifuMode mode,
-  required OpenCodePorchBackend backend,
-  Map<String, dynamic>? mcp,
-  Directory? skillsDir,
-}) async {
-  await writeWaifuOpenCodeConfig(
-    closet: closet,
-    coworker: coworker,
-    backend: backend,
-    pathMode: pathMode,
-    mode: mode,
-    mcp: mcp,
-    skillsDir: skillsDir,
-  );
-  await client.patchConfig(
-    buildWaifuOpenCodeConfigMap(
-      closet: closet,
-      coworker: coworker,
-      backend: backend,
-      pathMode: pathMode,
-      mode: mode,
-      mcp: mcp,
-      skillsDir: skillsDir,
-    ),
   );
 }
 

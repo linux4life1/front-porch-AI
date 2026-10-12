@@ -6,6 +6,7 @@
 
 import { type CastMember } from '../../components/CastBar';
 import { type ToolSupport } from '../../components/ToolCallingPill';
+import { type DirectorState, type ExitUndo } from '../../components/DirectorStrip';
 import {
   type ChatThemeOverrides,
   type LoreEntry,
@@ -49,6 +50,9 @@ export interface ChatState {
   summary?: string;
   cast?: CastMember[];
   guestActivity?: { status: string | null; isError: boolean; busy: boolean };
+  // Director Mode and the open /exit UNDO (additive; absent on older apps).
+  director?: DirectorState;
+  exitUndo?: ExitUndo | null;
   // A reply stopped from the Realism overlay (additive). Stays until the chat
   // moves on or it is dismissed via POST /api/chat/stopped-reply/dismiss.
   stoppedReply?: { notice: string; canRetry: boolean } | null;

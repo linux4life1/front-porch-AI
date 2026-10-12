@@ -8,7 +8,7 @@
 // is FPAI_REPLY.
 
 import { readFile } from 'node:fs/promises';
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { expect, openRoute, SERIAL, test } from './support/fixtures';
 
 const REPLY = process.env.FPAI_REPLY ?? '';
@@ -619,5 +619,86 @@ test.describe('the Local model card', () => {
     await picker.selectOption({ label: 'Long chats — 32k chat · fitted to the card · smart cache off' });
     await expect(card).toContainText('Uses your preset “Long chats”.');
     await expect(refused).toHaveCount(0);
+  });
+});
+
+test.describe.serial('Director Mode', { tag: SERIAL }, () => {
+  // Stepping out turns the 1:1 into a group card in the shared library, and
+  // the other project's specs then find two cards named Second Guest or Porch
+  // Tester. Whatever happened, the group this spec made goes again.
+  let groupsBefore: string[] = [];
+  const groupIds = async (request: APIRequestContext) =>
+    ((await (await request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map((g) => g.id);
+  test.beforeEach(async ({ request }) => {
+    groupsBefore = await groupIds(request);
+  });
+  test.afterEach(async ({ request }) => {
+    for (const id of await groupIds(request)) {
+      if (groupsBefore.includes(id)) continue;
+      const gone = await request.post(`/api/groups/${id}/delete`);
+      expect(gone.ok(), `removing the group this spec made: ${gone.status()}`).toBe(true);
+    }
+  });
+
+  test('step out of a scene to direct it, undo, direct a note, and step back in', async ({ page }) => {
+    // Second Guest's own chat, so the conversion leaves Porch Tester's alone.
+    await openRoute(page, '/');
+    await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await page.locator('.conversations-btn').click();
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+
+    const box = page.locator('textarea.composer-input');
+    const strip = page.locator('.director-strip');
+    await box.fill('/join Porch Tester');
+    await box.press('Enter');
+    // The join settles after the send returns; stepping out before it lands
+    // is refused as a busy turn.
+    await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re in the scene');
+
+    // Stepping out turns the 1:1 with a guest into a group, then directs it.
+    await strip.getByRole('button', { name: 'Step out to direct' }).click();
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re directing');
+    await expect(box).toHaveAttribute('placeholder', 'Direct the scene…');
+    const undo = page.locator('.undo-bar');
+    await expect(undo).toContainText('You stepped out to direct');
+    const before = await rows(page).count();
+    await undo.getByRole('button', { name: 'Undo' }).click();
+    await expect(strip).toContainText('You’re in the scene');
+    await expect(rows(page)).toHaveCount(before - 1); // the goodbye is gone
+
+    await strip.getByRole('button', { name: 'Step out to direct' }).click();
+    await waitIdle(page);
+    await expect(undo).toContainText('You stepped out to direct'); // offered again
+    // The auto-chat delay saves on the host when the slider is let go.
+    const delay = strip.getByLabel('Auto-chat delay in seconds');
+    const savedDelay = await delay.inputValue();
+    await delay.fill('4.5');
+    await delay.blur();
+    await expect
+      .poll(async () => {
+        const s = (await (await page.request.get('/api/chat/state')).json()) as {
+          director?: { delaySeconds?: number | null };
+        };
+        return s.director?.delaySeconds;
+      })
+      .toBe(4.5);
+    await page.request.post('/api/chat/director/delay', { data: { seconds: Number(savedDelay) } });
+    await box.fill('The porch light flickers out.');
+    await box.press('Enter');
+    await waitIdle(page);
+    const note = page.locator('.bubble.director-note', { hasText: 'The porch light flickers out.' });
+    await expect(note).toContainText('Director');
+    await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
+
+    await strip.getByRole('button', { name: 'Step back in' }).click();
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re in the scene');
+    await expect(box).toHaveAttribute('placeholder', 'Message…');
   });
 });

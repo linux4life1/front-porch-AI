@@ -151,7 +151,8 @@ class OpenCodeManager extends ChangeNotifier {
         _remoteVersion = hit.tag;
         _remoteAssetBytes = hit.assetBytes;
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[OpenCode] version check failed: $e');
       _versionError = 'Could not check GitHub';
     } finally {
       _isCheckingVersion = false;
@@ -223,7 +224,9 @@ class OpenCodeManager extends ChangeNotifier {
       }
       try {
         await unpack.delete(recursive: true);
-      } catch (_) {}
+      } on FileSystemException catch (e) {
+        debugPrint('[OpenCode] could not remove ${unpack.path}: $e');
+      }
       _downloadProgress = 1;
       _statusMessage = tag == null || tag.isEmpty
           ? 'OpenCode ready'
@@ -302,7 +305,7 @@ class OpenCodeManager extends ChangeNotifier {
       handle.kill(ProcessSignal.sigterm);
       try {
         await handle.exitCode.timeout(const Duration(seconds: 2));
-      } catch (_) {
+      } on TimeoutException {
         handle.kill(ProcessSignal.sigkill);
       }
     }
@@ -318,14 +321,20 @@ class OpenCodeManager extends ChangeNotifier {
     super.dispose();
   }
 
+  /// Refused connections are expected while the serve boots; only the
+  /// last error is worth logging.
   Future<bool> _waitHealthy(Uri base) async {
+    Object? last;
     for (var i = 0; i < 40; i++) {
       try {
         final h = await _healthGet(base);
         if (h.healthy) return true;
-      } catch (_) {}
+      } catch (e) {
+        last = e;
+      }
       await Future<void>.delayed(const Duration(milliseconds: 150));
     }
+    debugPrint('[OpenCode] serve never became healthy at $base: $last');
     return false;
   }
 

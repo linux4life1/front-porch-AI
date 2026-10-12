@@ -51,8 +51,6 @@ void main() {
       }
       expect(kWaifuOpenCodePreamble.toLowerCase(), isNot(contains('gym')));
       expect(kWaifuOpenCodePreamble.toLowerCase(), isNot(contains('belt')));
-      expect(kWaifuMcpOpenCodeHonesty, contains('OpenCode owns those tools'));
-      expect(kWaifuMcpOpenCodeHonesty.toLowerCase(), isNot(contains('gym')));
     },
   );
 

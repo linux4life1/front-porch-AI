@@ -226,6 +226,20 @@ class ChatStateSnapshot {
         'isError': _chat.guestActivityIsError,
         'busy': _chat.isGuestBusy,
       },
+      // Director Mode: the user off stage, auto-chat, and whether a member
+      // may leave (not the second-to-last while directing). Additive.
+      'director': {
+        'directing': _chat.observerMode,
+        'autoPlay': _chat.autoPlayActive,
+        // Asked only while directing, the one time the strip shows it.
+        'delaySeconds': _chat.observerMode ? _chat.savedDirectorDelay : null,
+        'canRemoveMember': !_chat.isGroupMode || _chat.canRemoveCastMember,
+      },
+      // The open /exit UNDO (a guest, a member, or the user stepping out to
+      // direct) until a send or a chat switch closes it. Additive nullable.
+      'exitUndo': _chat.exitUndoName == null
+          ? null
+          : {'name': _chat.exitUndoName, 'isUser': _chat.exitUndoIsUserStep},
       // A reply stopped from the Realism overlay. Stays until the chat moves
       // on (a send, Try again, another chat) or it is dismissed. Additive.
       'stoppedReply': _chat.stoppedReplyNotice == null

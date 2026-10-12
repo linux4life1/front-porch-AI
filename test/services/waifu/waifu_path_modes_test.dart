@@ -22,13 +22,5 @@ void main() {
       waifuYoloWarning(WaifuPathMode.wholeDisk),
       isNot(contains('stay inside this folder')),
     );
-    expect(
-      waifuMcpScopeWarning(WaifuPathMode.folderJail),
-      contains('folder jail covers'),
-    );
-    expect(
-      waifuMcpScopeWarning(WaifuPathMode.wholeDisk),
-      contains('Whole-disk access is already open'),
-    );
   });
 }

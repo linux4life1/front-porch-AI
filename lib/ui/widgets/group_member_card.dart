@@ -100,9 +100,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
   Widget build(BuildContext context) {
     final chat = widget.chatService;
     // Public getters — isGroupRealismActive reads a library-private field
-    // and cannot be faked. Same formula.
-    final isRealism =
-        chat.realismEnabled && chat.isGroupMode && !chat.observerMode;
+    // and cannot be faked. Same formula. Directing keeps it on: Needs and the
+    // cast's feelings run while you direct, and the card marks what is held.
+    final isRealism = chat.realismEnabled && chat.isGroupMode;
 
     // Resolve per-character state (only meaningful when realism is on)
     final emotion = isRealism
@@ -212,9 +212,12 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       ),
       padTop: false,
     );
+    // While the user directs, the cast is still live (Needs, the clock and
+    // their feelings for each other), so the card stays lit; only the feelings
+    // toward the user hold, marked by the pause icon beside the emotion.
     final isDirector = chat.observerMode;
-    // Away / At work uses the signed 0.45. Director 0.38 is only for With you.
-    final opacity = presence.dimCard ? 0.45 : (isDirector ? 0.38 : 1.0);
+    // Away / At work uses the signed 0.45.
+    final opacity = presence.dimCard ? 0.45 : 1.0;
 
     final ringColor = (emotion != null && isRealism)
         ? emotionRingColor(emotion)

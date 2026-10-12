@@ -209,6 +209,17 @@ extension ChatServiceGroupRead on ChatService {
     }
   }
 
+  /// The saved auto-chat delay both clients show (desktop Director panel,
+  /// web director strip).
+  double get savedDirectorDelay => _storageService.ttsSettings.directorDelay;
+
+  /// Saves the auto-chat delay and applies it to the running scene.
+  Future<void> setSavedDirectorDelay(double seconds) async {
+    await _storageService.ttsSettings.setDirectorDelay(seconds);
+    directorDelaySec = _storageService.ttsSettings.directorDelay;
+    notifyListeners();
+  }
+
   bool get autoPlayActive => _groupManager?.autoPlayActive ?? false;
 
   /// The character who will speak next in group mode.
