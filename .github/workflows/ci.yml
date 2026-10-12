@@ -2,12 +2,16 @@ name: CI
 
 # Push to Rawhide/main still runs the cheap gates (analyze, full-lint,
 # theme-lint, io-lint, web-tests) plus the unit/integration `test` suite
-# (four file shards behind one `test` check). The heavy matrix — e2e-smoke
-# (3 OS × 5 shards), widget goldens, and the live Stoop pin — already ran
-# on the PR that landed the commit. Re-queueing them on squash-merge starves
-# open PRs of macOS/golden runners. Those jobs therefore skip when github.event_name == 'push'
-# (`if: github.event_name != 'push'`, ANDed with any existing job `if:`).
-# pull_request and schedule keep the full suite.
+# (four file shards behind one `test` check). Widget goldens and the live
+# Stoop pin already ran on the PR that landed the commit, so they skip when
+# github.event_name == 'push' (`if: github.event_name != 'push'`, ANDed with
+# any existing job `if:`). Re-queueing them on squash-merge starves open PRs.
+#
+# e2e-smoke splits by OS instead (maintainer decision, 2026-10-12): a PR runs
+# the 5 Linux shards, a push to Rawhide/main runs the 10 macOS and Windows
+# shards, and the schedule runs all 15. The macOS queue was most of a PR's
+# wall time. The cost: a macOS- or Windows-only break shows up on Rawhide
+# right after merge, not on the PR.
 
 on:
   push:
@@ -279,29 +283,15 @@ jobs:
   e2e-smoke:
     name: E2E smoke (${{ matrix.device }} ${{ matrix.shard }}/5)
     needs: analyze
-    # Skip on branch push — see the file-header note. PR + schedule keep
-    # the full OS/shard matrix.
-    if: github.event_name != 'push'
+    # OS split by event — see the file-header note. No `include` mapping for
+    # the runner: an include entry naming a device absent from this event's
+    # list would ADD a shard-less job instead of matching nothing.
     strategy:
       fail-fast: false
       matrix:
-        device: [macos, windows, linux]
+        device: ${{ fromJSON(github.event_name == 'pull_request' && '["linux"]' || github.event_name == 'push' && '["macos","windows"]' || '["macos","windows","linux"]') }}
         shard: [1, 2, 3, 4, 5]
-        # These `include` entries match on `device`, so each one ADDS its keys
-        # to all five of that device's shard combinations rather than creating
-        # new jobs. 3 devices x 5 shards = 15 jobs.
-        include:
-          - device: macos
-            os: macos-latest
-            experimental: false
-          - device: windows
-            os: windows-latest
-            experimental: false
-          - device: linux
-            os: ubuntu-latest
-            experimental: false
-    runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
+    runs-on: ${{ matrix.device == 'macos' && 'macos-latest' || matrix.device == 'windows' && 'windows-latest' || 'ubuntu-latest' }}
     env:
       E2E_SHARDS: 5
       E2E_SHARD: ${{ matrix.shard }}
