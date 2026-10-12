@@ -48,6 +48,10 @@ class CharacterCreatorPage extends StatefulWidget {
 class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
   late final CreatorState creatorState = CreatorState();
 
+  /// Set once Save has written the card, so this page stops counting as
+  /// unsaved while it asks about the tab it is about to switch away from.
+  bool _saved = false;
+
   void _onCreatorStateChanged() {
     if (mounted) setState(() {});
   }
@@ -160,9 +164,14 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     if (!mounted) return;
     if (ok) {
       messenger.showSnackBar(characterCreatedSnackBar(context, name));
+      _saved = true;
       // Already on Home: leave it as it is (a second setIndex(0) would
-      // read as a Home re-tap and close the open folder).
-      if (appState.selectedIndex != 0) appState.setIndex(0);
+      // read as a Home re-tap and close the open folder). The tab underneath
+      // may hold its own unsaved draft; keeping it skips the switch.
+      if (appState.selectedIndex != 0 &&
+          await UnsavedChanges.instance.confirmLeave(context)) {
+        appState.setIndex(0);
+      }
       navigator.pop();
     } else {
       messenger.showSnackBar(
@@ -377,8 +386,15 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     );
   }
 
+  /// The typed inputs are kept in preferences; a generated character is
+  /// not, until Save.
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) => UnsavedChangesGuard(
+    isDirty: () => !_saved && creatorState.generatedCard != null,
+    child: _scaffold(context),
+  );
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
@@ -387,7 +403,7 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: creatorState.isGenerating
               ? null
-              : () => Navigator.of(context).pop(),
+              : () => Navigator.of(context).maybePop(),
         ),
         title: Row(
           children: [

@@ -185,11 +185,6 @@ String buildWaifuPlanAgentPrompt(
       '$kWaifuPorchPolicy';
 }
 
-/// Same string as the OpenCode agent. Kept so chrome tests that still
-/// call the old name stay honest.
-String buildWaifuCoworkerPrompt(CharacterCard card, {DateTime? now}) =>
-    buildWaifuOpenCodeAgentPrompt(card, now: now);
-
 /// Takes the library's copy of the card when it reads differently from the
 /// session's saved copy (an edit, or a resume after one). The seat sees the
 /// new persona and restarts the serve on the next turn.

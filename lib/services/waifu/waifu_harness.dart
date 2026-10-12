@@ -256,8 +256,9 @@ class WaifuHarness implements OpenCodeEventSink, OpenCodeToolMessageSink {
         await pump(imagePng);
       } on OpenCodeStreamClosed {
         rethrow;
-      } catch (_) {
+      } catch (e) {
         if (imagePng == null) rethrow;
+        debugPrint('[waifu] photo turn failed, retrying as text: $e');
         session.transcript.add(_stage.noPhotos());
         await pump(null);
       }

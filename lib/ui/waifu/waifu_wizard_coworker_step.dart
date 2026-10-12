@@ -138,10 +138,9 @@ class _WaifuWizardCoworkerStepState extends State<WaifuWizardCoworkerStep> {
                     itemCount: visible.length,
                     itemBuilder: (context, i) {
                       final card = visible[i];
+                      final picked = widget.selected;
                       final isSelected =
-                          identical(card, widget.selected) ||
-                          (widget.selected != null &&
-                              widget.selected!.name == card.name);
+                          picked != null && waifuSameCard(picked, card);
                       return _CoworkerPick(
                         card: card,
                         selected: isSelected,

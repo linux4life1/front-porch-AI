@@ -19,6 +19,8 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:front_porch_ai/services/opencode/opencode_pin.dart';
 import 'package:path/path.dart' as p;
 
@@ -30,7 +32,8 @@ class OpenCodeBinaryVersion {
       final json = jsonDecode(await file.readAsString());
       if (json is! Map) return (version: null, size: null);
       return (version: json['version'] as String?, size: json['size'] as int?);
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[OpenCode] unreadable ${file.path}: $e');
       return (version: null, size: null);
     }
   }

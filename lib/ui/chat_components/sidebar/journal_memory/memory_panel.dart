@@ -62,11 +62,14 @@ class _MemoryPanelState extends State<MemoryPanel> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // If Memory is on but the engine is idle (model missing / not loaded),
-    // start setup so the RagEngineCard can show a real progress bar.
+    // start setup so the RagEngineCard can show a real progress bar. After
+    // the frame: runSetup notifies synchronously, and this runs mid-build.
     final storage = Provider.of<StorageService>(context);
-    if (storage.memorySettings.ragEnabled) {
-      Provider.of<EmbeddingService>(context, listen: false).ensureReady();
-    }
+    if (!storage.memorySettings.ragEnabled) return;
+    final emb = Provider.of<EmbeddingService>(context, listen: false);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && storage.memorySettings.ragEnabled) emb.ensureReady();
+    });
   }
 
   /// Load current memorySources from DB

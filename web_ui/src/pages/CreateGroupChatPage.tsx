@@ -17,6 +17,7 @@ import {
   type PickerFolder,
 } from '../components/FolderCharacterPicker';
 import { defaultGroupName } from '../groupName';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 const STEPS = ['Members', 'Details'];
 
@@ -31,6 +32,9 @@ export function CreateGroupChatPage() {
   const [turnOrder, setTurnOrder] = useState<'roundRobin' | 'random'>('roundRobin');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const { prompt, leaveWithoutAsking } = useUnsavedChanges(
+    selected.length > 0 || typedName !== null || turnOrder !== 'roundRobin',
+  );
 
   useEffect(() => {
     api.get<PickerChar[]>('/api/characters?scope=allCharacters').then(setChars).catch(() => {});
@@ -59,6 +63,7 @@ export function CreateGroupChatPage() {
         memberIds: selected,
         turnOrder,
       });
+      leaveWithoutAsking();
       navigate('/chat?opening=1');
       await api.post('/api/chat/select-group', { groupId: r.id });
       navigate('/chat', { replace: true });
@@ -70,6 +75,7 @@ export function CreateGroupChatPage() {
 
   return (
     <div className="page wizard">
+      {prompt}
       <header className="page-head">
         <button className="ghost" onClick={() => navigate('/')}>← Library</button>
         <h2>👥 New Group</h2>

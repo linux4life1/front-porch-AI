@@ -76,12 +76,6 @@ bool waifuCanSitDown({
   return honestyAccepted && toolsSupported && hasFolder && hasCoworker;
 }
 
-/// Send / loop gate. Either side false is a hard stop — no silent coding.
-bool waifuCanUseTools({
-  required bool sessionToolsSupported,
-  required bool llmToolsSupported,
-}) => sessionToolsSupported && llmToolsSupported;
-
 /// Live ChatService / probe mapping. Untested stays open; known-no fails.
 bool waifuResolveToolsSupported({
   required bool knownUnsupported,

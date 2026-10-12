@@ -23,10 +23,11 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/waifu/waifu.dart';
 
-/// The library's live copy of [coworker]: by id, else by name. Null when
-/// the card is gone or no repository is in the tree. [listen] subscribes
-/// the caller so a card edit rebuilds it.
+/// The library's live copy of [coworker]. Null when the card is gone or
+/// no repository is in the tree. [listen] subscribes the caller so a card
+/// edit rebuilds it.
 CharacterCard? waifuLibraryCard(
   BuildContext context,
   CharacterCard coworker, {
@@ -34,16 +35,11 @@ CharacterCard? waifuLibraryCard(
 }) {
   try {
     final repo = Provider.of<CharacterRepository>(context, listen: listen);
-    for (final c in repo.characters) {
-      if (coworker.dbId != null && c.dbId != null && c.dbId == coworker.dbId) {
-        return c;
-      }
-      if (c.name == coworker.name) return c;
-    }
+    return waifuFindCard(repo.characters, coworker);
   } on ProviderNotFoundException {
     // Tests without the repository have no library to follow.
+    return null;
   }
-  return null;
 }
 
 /// Same face chat / the home grid show: live library card ★ cover, else

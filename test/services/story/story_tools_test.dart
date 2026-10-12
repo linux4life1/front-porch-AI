@@ -23,6 +23,8 @@
 // first, uses the call it gets back, and a host that refuses the tool gets
 // the tag prompt from then on instead of being asked again.
 
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -289,17 +291,25 @@ class _ToolLlm extends LLMService {
 }
 
 class _Harness {
-  _Harness(this.db, this.repo, this.pipeline);
+  _Harness(this.db, this.repo, this.pipeline, this.root);
   final AppDatabase db;
   final StoryRepository repo;
   final StoryPipelineService pipeline;
-  Future<void> dispose() => db.close();
+  final Directory root;
+  Future<void> dispose() async {
+    await db.close();
+    await root.delete(recursive: true);
+  }
 }
 
 Future<_Harness> _harness(LLMService llm) async {
   final db = AppDatabase.forTesting(sameIsolate: true);
   final repo = StoryRepository(db);
-  final storage = StorageService();
+  // A sandbox, not StorageService(): that constructor starts an unawaited
+  // _init() on the real prefs and documents folder, which can fail after
+  // the test has passed and fail it late.
+  final root = Directory.systemTemp.createTempSync('fpai_story_tools_');
+  final storage = StorageService.sandbox(root.path);
   final memory = MemoryService(EmbeddingService(storage), storage, db);
-  return _Harness(db, repo, StoryPipelineService(repo, llm, memory, db));
+  return _Harness(db, repo, StoryPipelineService(repo, llm, memory, db), root);
 }

@@ -23,12 +23,11 @@ import 'dart:math';
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
+import 'comfy_ui/comfy_ui.dart';
 import 'comfy_workflow.dart';
 import 'image/image.dart';
 
 export 'image/comfy_run_ledger.dart' show ComfyRunCancelled;
-
-part 'comfy_ui_service.catalog.dart';
 
 /// ComfyUI backend client (plain HTTP — no sidecar). The novice contract:
 /// ComfyUI runs on http://127.0.0.1:8188 out of the box, everything the UI
@@ -47,6 +46,8 @@ class ComfyUiService {
   String get _root => ensureHttpScheme(baseUrl);
 
   final ComfyRunLedger _runs = ComfyRunLedger();
+
+  late final ComfyCatalogReader _catalog = ComfyCatalogReader(_root);
 
   /// Stops what this client has running on the server: a queued prompt is
   /// taken off the queue, a running one is interrupted. The waiting call then
@@ -67,43 +68,16 @@ class ComfyUiService {
   /// connection failure). Shared by the A1111 paths in ImageGenService. Pure.
   static String ensureHttpScheme(String url) => normalizeImageServerUrl(url);
 
-  /// Known A1111-style → ComfyUI sampler name mappings, used when the stored
-  /// sampler (shared across backends) isn't already a ComfyUI-native name.
-  static const Map<String, String> _samplerAliases = {
-    'euler a': 'euler_ancestral',
-    'euler': 'euler',
-    'heun': 'heun',
-    'ddim': 'ddim',
-    'lcm': 'lcm',
-    'uni_pc': 'uni_pc',
-    'unipc': 'uni_pc',
-    'dpm++ 2m': 'dpmpp_2m',
-    'dpm++ 2m karras': 'dpmpp_2m',
-    'dpm++ sde': 'dpmpp_sde',
-    'dpm++ sde karras': 'dpmpp_sde',
-    'dpm++ 2m sde': 'dpmpp_2m_sde',
-    'dpm++ 2m sde karras': 'dpmpp_2m_sde',
-    'dpm++ 3m sde': 'dpmpp_3m_sde',
-  };
-
   /// Normalize a (possibly A1111-style) sampler name to one this ComfyUI
   /// server actually offers. Pure — unit-tested. Preference order: already
   /// valid → known alias → 'euler' → first available.
-  static String normalizeSampler(String stored, List<String> available) {
-    final s = stored.trim();
-    if (available.contains(s)) return s;
-    final alias = _samplerAliases[s.toLowerCase()];
-    if (alias != null && (available.isEmpty || available.contains(alias))) {
-      return alias;
-    }
-    if (available.contains('euler')) return 'euler';
-    return available.isNotEmpty ? available.first : 'euler';
-  }
+  static String normalizeSampler(String stored, List<String> available) =>
+      normalizeComfySampler(stored, available);
 
   /// A "Karras"-flavored A1111 sampler name maps to the karras scheduler in
   /// ComfyUI (the sampler and schedule are separate knobs there). Pure.
   static String schedulerFor(String storedSampler) =>
-      storedSampler.toLowerCase().contains('karras') ? 'karras' : 'normal';
+      comfySchedulerFor(storedSampler);
 
   /// Upload an image to ComfyUI's input folder (POST /upload/image, multipart)
   /// so a LoadImage node can reference it by name — the prerequisite for
@@ -142,21 +116,7 @@ class ComfyUiService {
     Map<String, dynamic> objectInfo,
     String nodeType,
     String inputName,
-  ) {
-    final node = objectInfo[nodeType];
-    if (node is! Map) return const [];
-    final input = node['input'];
-    if (input is! Map) return const [];
-    for (final section in ['required', 'optional']) {
-      final sec = input[section];
-      if (sec is! Map) continue;
-      final spec = sec[inputName];
-      if (spec is List && spec.isNotEmpty && spec.first is List) {
-        return (spec.first as List).map((e) => e.toString()).toList();
-      }
-    }
-    return const [];
-  }
+  ) => comfyOptionsFromObjectInfo(objectInfo, nodeType, inputName);
 
   /// True when the server answers GET /system_stats.
   Future<bool> testConnection() async {
@@ -190,7 +150,7 @@ class ComfyUiService {
   }
 
   Future<List<String>> fetchLoras() async {
-    final info = await _objectInfo(fresh: true);
+    final info = await _catalog.objectInfo(fresh: true);
     if (info == null) return const [];
     return optionsFromObjectInfo(info, 'LoraLoader', 'lora_name');
   }
@@ -202,9 +162,8 @@ class ComfyUiService {
   /// fall back to file-name detection, so this is strictly best-effort.
   Future<Map<String, dynamic>> fetchLoraMetadata(String filename) async {
     try {
-      final uri = Uri.parse(
-        '$_root/view_metadata/loras',
-      ).replace(queryParameters: {'filename': filename});
+      final uri = Uri.parse('$_root/view_metadata/loras')
+          .replace(queryParameters: {'filename': filename});
       final r = await http.get(uri).timeout(const Duration(seconds: 8));
       if (r.statusCode != 200 || r.body.isEmpty) return const {};
       final decoded = jsonDecode(r.body);
@@ -216,7 +175,7 @@ class ComfyUiService {
   }
 
   Future<List<String>> fetchSamplers() async {
-    final info = await _objectInfo();
+    final info = await _catalog.objectInfo();
     if (info == null) return const [];
     return optionsFromObjectInfo(info, 'KSampler', 'sampler_name');
   }
@@ -225,10 +184,59 @@ class ComfyUiService {
   /// karras / exponential / sgm_uniform / normal / etc. Read from the same
   /// /object_info payload as the samplers. Empty on any error.
   Future<List<String>> fetchSchedulers() async {
-    final info = await _objectInfo();
+    final info = await _catalog.objectInfo();
     if (info == null) return const [];
     return optionsFromObjectInfo(info, 'KSampler', 'scheduler');
   }
+
+  Future<List<String>> fetchModels() => _catalog.fetchModels();
+
+  /// Raw `/object_info`, or null when this ComfyUI cannot be read. Always a
+  /// new read, so a Ready line never rests on a list from before a download.
+  Future<Map<String, dynamic>?> fetchObjectInfo() =>
+      _catalog.objectInfo(fresh: true);
+
+  /// The node list a generate converts and posts with. A read from the last
+  /// two minutes is reused; a fresh [fetchObjectInfo] refreshes it.
+  Future<Map<String, dynamic>?> objectInfoForRun() => _catalog.objectInfo();
+
+  Future<ComfyFileCatalog> fetchCatalog() => _catalog.fetchCatalog();
+
+  /// [fetchCatalog], or null when the server did not answer (an empty
+  /// catalog is a server that answered with nothing installed).
+  Future<ComfyFileCatalog?> fetchCatalogIfUp() => _catalog.fetchCatalogIfUp();
+
+  /// The model files this ComfyUI offers for a loader slot.
+  Future<List<String>> fetchModelFilesFor(
+    String loaderClass,
+    String inputName,
+  ) => _catalog.fetchModelFilesFor(loaderClass, inputName);
+
+  /// Default frontend templates (ZIT / Qwen / Flux / …) when this Comfy
+  /// install serves `/templates/index.json`. Empty if the API isn't there.
+  Future<List<ComfyTemplateEntry>> fetchCreateTemplates() =>
+      _catalog.fetchCreateTemplates();
+
+  Future<List<ComfyTemplateEntry>> fetchEditTemplates() =>
+      _catalog.fetchEditTemplates();
+
+  /// Saved Desktop workflows (`user/default/workflows`). Empty on 404.
+  Future<List<ComfyTemplateEntry>> fetchUserWorkflows() =>
+      _catalog.fetchUserWorkflows();
+
+  /// UI or API JSON from the selected template source.
+  Future<Map<String, dynamic>?> fetchTemplateJson(
+    String name, {
+    bool preferUserdata = false,
+  }) => _catalog.fetchTemplateJson(name, preferUserdata: preferUserdata);
+
+  /// The live graph behind a Create or Edit workflow pick: a saved Desktop
+  /// workflow, one of Comfy's own templates, or a bundled family's template.
+  /// Null when the pick has none (a bundled preset without a template, an
+  /// uploaded graph) or this ComfyUI cannot serve it. Generate and the Ready
+  /// line both read it here, so they judge the same graph.
+  Future<Map<String, dynamic>?> fetchWorkflowTemplate(String workflowId) =>
+      _catalog.fetchWorkflowTemplate(workflowId);
 
   /// Generate one image: submit the workflow, poll /history until the prompt
   /// finishes, then download the first output image via /view. Throws with a
@@ -305,7 +313,7 @@ class ComfyUiService {
     String primaryFile = '',
     bool uploaded = false,
   }) async {
-    final posted = await _graphReadyToPost(
+    final posted = await _catalog.graphReadyToPost(
       workflow: workflow,
       primaryFile: primaryFile,
       uploaded: uploaded,
@@ -382,9 +390,9 @@ class ComfyUiService {
                 '(HTTP ${submit.statusCode}).',
       );
     }
-    final promptId =
-        (jsonDecode(submit.body) as Map<String, dynamic>)['prompt_id']
-            ?.toString();
+    final promptId = (jsonDecode(
+      submit.body,
+    ) as Map<String, dynamic>)['prompt_id']?.toString();
     if (promptId == null || promptId.isEmpty) {
       await _runs.submitted(_root, null);
       throw Exception('ComfyUI did not return a prompt_id');

@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { JournalReviewModal } from './JournalReviewModal';
 import { ExpandableText } from './ExpandableText';
+import { confirmDiscard, UnsavedPrompt } from '../hooks/useUnsavedChanges';
 
 export interface JournalCard {
   id: string;
@@ -48,17 +49,22 @@ function CardEditor({
   onSave: (text: string, category: string, feeling: string) => void;
   onClose: () => void;
 }) {
+  const startCategory = CATEGORIES.includes(initialCategory) ? initialCategory : 'moment';
   const [text, setText] = useState(initialText);
-  const [category, setCategory] = useState(
-    CATEGORIES.includes(initialCategory) ? initialCategory : 'moment',
-  );
+  const [category, setCategory] = useState(startCategory);
   const [feeling, setFeeling] = useState(initialFeeling);
+  const dirty =
+    text !== initialText || category !== startCategory || feeling !== initialFeeling;
+  const dismiss = () => {
+    if (confirmDiscard(dirty)) onClose();
+  };
   return (
-    <div className="drawer-backdrop center" onClick={onClose}>
+    <div className="drawer-backdrop center" onClick={dismiss}>
+      <UnsavedPrompt dirty={dirty} />
       <div className="modal growth-editor" onClick={(e) => e.stopPropagation()}>
         <div className="drawer-head">
           <span>{title}</span>
-          <button className="link-btn" onClick={onClose}>Close</button>
+          <button className="link-btn" onClick={dismiss}>Close</button>
         </div>
         <textarea
           rows={3}
@@ -90,7 +96,7 @@ function CardEditor({
           />
         </label>
         <div className="modal-actions">
-          <button onClick={onClose}>Cancel</button>
+          <button onClick={dismiss}>Cancel</button>
           <button
             className="primary"
             disabled={!text.trim()}

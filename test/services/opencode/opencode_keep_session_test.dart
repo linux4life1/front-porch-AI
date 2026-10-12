@@ -2,12 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
 
@@ -64,50 +61,6 @@ void main() {
       expect(hits.single.method, 'PATCH');
       expect(hits.single.url.path, '/config');
       expect(hits.any((r) => r.url.path == '/session'), isFalse);
-    },
-  );
-
-  test(
-    'retarget rewrites config in place and does not POST /session',
-    () async {
-      final dir = await Directory.systemTemp.createTemp('waifu_retarget_');
-      addTearDown(() async {
-        if (await dir.exists()) await dir.delete(recursive: true);
-      });
-      final hits = <http.Request>[];
-      final client = OpenCodeClient(
-        baseUri: Uri.parse('http://127.0.0.1:4096'),
-        directory: dir.path,
-        clientFactory: () => MockClient((req) async {
-          hits.add(req);
-          return http.Response('{}', 200);
-        }),
-      );
-      await waifuRetargetOpenCode(
-        closet: OpenCodeCloset(dir.path),
-        client: client,
-        coworker: CharacterCard(name: 'Mira'),
-        pathMode: WaifuPathMode.folderJail,
-        mode: WaifuMode.build,
-        backend: const OpenCodePorchBackend(
-          baseUrl: 'http://localhost:8000/v1',
-          apiKey: 'x',
-          modelId: 'mlx-community/Qwen',
-        ),
-      );
-      expect(
-        hits.any((r) => r.method == 'POST' && r.url.path == '/session'),
-        isFalse,
-      );
-      expect(
-        hits.any((r) => r.method == 'PATCH' && r.url.path == '/config'),
-        isTrue,
-      );
-      final raw = await File(
-        OpenCodeCloset(dir.path).configFilePath,
-      ).readAsString();
-      expect(raw, contains('localhost:8000'));
-      expect(raw, contains('mlx-community/Qwen'));
     },
   );
 }

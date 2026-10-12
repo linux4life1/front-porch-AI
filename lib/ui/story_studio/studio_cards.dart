@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 // Cards, dialogs and the small status pieces of the spec.
 
@@ -328,47 +329,62 @@ Future<bool> showStoryConfirm(
   return ok == true;
 }
 
-/// A studio dialog with arbitrary body and actions.
+/// [isDirty] for a story form: true once any of [fields] differs from the
+/// text it had when this was called.
+ValueGetter<bool> storyTextChanged(List<TextEditingController> fields) {
+  final start = [for (final f in fields) f.text];
+  return () => [
+    for (var i = 0; i < fields.length; i++) fields[i].text != start[i],
+  ].any((changed) => changed);
+}
+
+/// A studio dialog with arbitrary body and actions. A form passes [isDirty]
+/// so Escape, a click outside or a Cancel that uses `maybePop` asks before
+/// typed text is thrown away.
 Future<T?> showStoryDialog<T>(
   BuildContext context, {
   required String title,
   required Widget body,
   required List<Widget> Function(BuildContext ctx) actions,
   double width = 380,
+  ValueGetter<bool>? isDirty,
 }) => showDialog<T>(
   context: context,
   builder: (ctx) => StudioTheme(
-    child: Dialog(
-      backgroundColor: StudioColors.cardOf(ctx),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: StudioColors.lineOf(ctx)),
-      ),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: width),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: StudioType.ui(ctx, size: 15, weight: FontWeight.w700),
-              ),
-              const SizedBox(height: 10),
-              Flexible(child: SingleChildScrollView(child: body)),
-              const SizedBox(height: 14),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  for (final a in actions(ctx)) ...[
-                    const SizedBox(width: 8),
-                    a,
+    child: UnsavedChangesGuard(
+      isDirty: isDirty ?? () => false,
+      child: Dialog(
+        backgroundColor: StudioColors.cardOf(ctx),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: StudioColors.lineOf(ctx)),
+        ),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: width),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: StudioType.ui(ctx, size: 15, weight: FontWeight.w700),
+                ),
+                const SizedBox(height: 10),
+                Flexible(child: SingleChildScrollView(child: body)),
+                const SizedBox(height: 14),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    for (final a in actions(ctx)) ...[
+                      const SizedBox(width: 8),
+                      a,
+                    ],
                   ],
-                ],
-              ),
-            ],
+                ),
+              ],
+            ),
           ),
         ),
       ),

@@ -1,8 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Barrel for the Settings tabs. The voice_media_tab.*.dart files are `part of`
-// voice_media_tab.dart and must never be exported here.
+// Barrel for the Settings tabs.
 
 export 'backend_tab.dart';
 export 'general_tab.dart';

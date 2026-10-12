@@ -73,6 +73,8 @@ export interface ReadyFacts {
   kind?: string;
   message?: string;
   missingClass?: string;
+  /** The desktop's own line beside Generate: what is missing and how to fix it. */
+  line?: string;
   primary?: string;
   blockedLora?: string | null;
   loraFamily?: string;

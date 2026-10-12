@@ -7,17 +7,26 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { confirmDiscard, UnsavedPrompt } from '../hooks/useUnsavedChanges';
 import { LoreEntriesEditor, type LoreEntry } from './LoreEntriesEditor';
 
 export function ChatLorebookModal({ onClose }: { onClose: () => void }) {
   const [entries, setEntries] = useState<LoreEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [loaded, setLoaded] = useState('null');
+  const dirty = JSON.stringify(entries) !== loaded;
+  const dismiss = () => {
+    if (confirmDiscard(dirty)) onClose();
+  };
 
   useEffect(() => {
     api
       .get<{ entries: LoreEntry[] }>('/api/chat/lorebook')
-      .then((r) => setEntries(r.entries ?? []))
+      .then((r) => {
+        setEntries(r.entries ?? []);
+        setLoaded(JSON.stringify(r.entries ?? []));
+      })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'));
   }, []);
 
@@ -34,7 +43,8 @@ export function ChatLorebookModal({ onClose }: { onClose: () => void }) {
   };
 
   return (
-    <div className="drawer-backdrop center" onClick={onClose}>
+    <div className="drawer-backdrop center" onClick={dismiss}>
+      <UnsavedPrompt dirty={dirty} />
       <div className="modal lore-chat-modal" onClick={(e) => e.stopPropagation()}>
         <h3>This chat's lorebook</h3>
         <p className="muted small">
@@ -48,7 +58,7 @@ export function ChatLorebookModal({ onClose }: { onClose: () => void }) {
           <LoreEntriesEditor entries={entries} onChange={setEntries} />
         )}
         <div className="modal-actions">
-          <button className="ghost" onClick={onClose}>Cancel</button>
+          <button className="ghost" onClick={dismiss}>Cancel</button>
           <button onClick={save} disabled={saving || entries == null}>
             {saving ? 'Saving…' : 'Save'}
           </button>

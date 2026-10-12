@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -30,7 +32,62 @@ class CreateCharacterDraft {
     for (final c in allControllers) {
       c.addListener(updateTokenEstimate);
     }
+    _blank = fingerprint();
   }
+
+  late String _blank;
+
+  /// True once the wizard holds anything a blank one does not (and [reset]
+  /// makes it blank again).
+  bool get hasContent => fingerprint() != _blank;
+
+  String fingerprint() => jsonEncode([
+    for (final c in allControllers) c.text,
+    [for (final s in altGreetingSeeds) s?.toJson()],
+    [for (final e in lorebookEntries) e.toJson()],
+    tags,
+    realismEnabled,
+    realismTimeOfDay,
+    realismDayCount,
+    realismStoryStartDate,
+    realismStoryStartTime,
+    realismShortTermBond,
+    realismLongTermBond,
+    realismTrustLevel,
+    realismEmotion,
+    realismEmotionIntensity,
+    realismNsfwCooldown,
+    realismChaosMode,
+    realismNeedsSim,
+    realismPocketsEnabled,
+    realismEnjoysLowHygiene,
+    realismAmbitions,
+    realismPlanLines,
+    realismOccupation,
+    realismOccupationBrief,
+    realismBirthday,
+    realismHours,
+    realismWorkDays,
+    realismLikes,
+    realismDislikes,
+    realismIntimateInto,
+    realismIntimateNotInto,
+    realismWorn,
+    realismCarrying,
+    realismVerificationEnabled,
+    realismVerificationMaxReprocesses,
+    realismVerificationStrictness,
+    realismNeedsDirectorAuthority,
+    needsBaselineHunger,
+    needsBaselineBladder,
+    needsBaselineEnergy,
+    needsBaselineSocial,
+    needsBaselineFun,
+    needsBaselineHygiene,
+    needsBaselineComfort,
+    needsPace,
+    needsOff,
+  ]);
 
   bool _disposed = false;
 
@@ -135,6 +192,8 @@ class CreateCharacterDraft {
     realismBirthday = seed.birthday;
     portraitSourcePath = seed.portraitPath;
     updateTokenEstimate();
+    // The persona is where this draft starts, not an edit.
+    _blank = fingerprint();
   }
 
   // ── Token counter ──

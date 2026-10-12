@@ -83,9 +83,7 @@ String? journalFeelingLine(JournalMemoryData card) {
 String? journalWhenLine(JournalMemoryData card, DateTime storyStartDate) {
   final (day, _) = JournalStore.stampOf(card);
   if (day == null) return null;
-  final date = StoryClock.dateOnly(
-    storyStartDate,
-  ).add(Duration(days: day - 1));
+  final date = StoryClock.dateOnly(storyStartDate).add(Duration(days: day - 1));
   return 'Day $day · ${StoryClock.formatShortDate(date)}';
 }
 
@@ -148,6 +146,11 @@ class _JournalCardEditorDialogState extends State<JournalCardEditorDialog> {
     super.dispose();
   }
 
+  bool _isDirty() =>
+      _content.text.trim() != widget.initialContent.trim() ||
+      _category != widget.initialCategory ||
+      _feeling != widget.initialFeeling;
+
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.journalAccentOf(context);
@@ -164,124 +167,128 @@ class _JournalCardEditorDialogState extends State<JournalCardEditorDialog> {
       fontWeight: FontWeight.w500,
     );
 
-    return AlertDialog(
-      backgroundColor: AppColors.cardOf(context),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      title: Text(
-        widget.title,
-        style: TextStyle(fontSize: 16, color: AppColors.textPrimary(context)),
-      ),
-      content: SizedBox(
-        width: 380,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            AppTextField(
-              controller: _content,
-              autofocus: true,
-              minLines: 2,
-              maxLines: 5,
-              maxLength: kJournalMemoryMaxChars,
-              style: TextStyle(
-                fontSize: 13,
-                color: AppColors.textPrimary(context),
-              ),
-              decoration: InputDecoration(
-                hintText: 'One memory, in the character\'s own words — '
-                    '"Sam works nights at the hospital."',
-                hintStyle: TextStyle(
-                  fontSize: 12,
-                  color: AppColors.textTertiary(context),
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: AlertDialog(
+        backgroundColor: AppColors.cardOf(context),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        title: Text(
+          widget.title,
+          style: TextStyle(fontSize: 16, color: AppColors.textPrimary(context)),
+        ),
+        content: SizedBox(
+          width: 380,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              AppTextField(
+                controller: _content,
+                autofocus: true,
+                minLines: 2,
+                maxLines: 5,
+                maxLength: kJournalMemoryMaxChars,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: AppColors.textPrimary(context),
                 ),
-                filled: true,
-                fillColor: AppColors.surfaceContainerOf(context),
-                counterStyle: TextStyle(
-                  fontSize: 10,
-                  color: AppColors.textTertiary(context),
+                decoration: InputDecoration(
+                  hintText:
+                      'One memory, in the character\'s own words — '
+                      '"Sam works nights at the hospital."',
+                  hintStyle: TextStyle(
+                    fontSize: 12,
+                    color: AppColors.textTertiary(context),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.surfaceContainerOf(context),
+                  counterStyle: TextStyle(
+                    fontSize: 10,
+                    color: AppColors.textTertiary(context),
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.borderOf(context)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: AppColors.borderOf(context)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: BorderSide(color: accent),
+                  ),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.borderOf(context)),
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.borderOf(context)),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: accent),
-                ),
-              ),
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 10),
-            if (widget.showCategory) ...[
-              Text('Filed under', style: labelStyle),
-              const SizedBox(height: 4),
-              _dropdown<String>(
-                context,
-                value: _category,
-                items: [
-                  // The authorable set, plus 'item' ONLY when editing an
-                  // existing belongings card — without it the dropdown's
-                  // value is not among its items, which is a crash, not a
-                  // fallback. Hand-planting INTO 'item' stays impossible:
-                  // belongings cards are deterministic-only.
-                  for (final c in {
-                    ...kJournalCategories,
-                    if (_category == 'item') 'item',
-                  })
-                    DropdownMenuItem(
-                      value: c,
-                      child: Text(journalCategoryLabel(c, widget.userName)),
-                    ),
-                ],
-                onChanged: (v) => setState(() => _category = v ?? 'moment'),
+                onChanged: (_) => setState(() {}),
               ),
               const SizedBox(height: 10),
-            ],
-            Text('How it felt (optional)', style: labelStyle),
-            const SizedBox(height: 4),
-            _dropdown<String?>(
-              context,
-              value: _feeling,
-              items: [
-                for (final f in feelings)
-                  DropdownMenuItem(
-                    value: f,
-                    child: Text(
-                      f == null
-                          ? 'No particular feeling'
-                          : '${EmotionLabels.emoji[JournalPhysics.emotionFamily(f)] ?? ''} $f',
-                    ),
-                  ),
+              if (widget.showCategory) ...[
+                Text('Filed under', style: labelStyle),
+                const SizedBox(height: 4),
+                _dropdown<String>(
+                  context,
+                  value: _category,
+                  items: [
+                    // The authorable set, plus 'item' ONLY when editing an
+                    // existing belongings card — without it the dropdown's
+                    // value is not among its items, which is a crash, not a
+                    // fallback. Hand-planting INTO 'item' stays impossible:
+                    // belongings cards are deterministic-only.
+                    for (final c in {
+                      ...kJournalCategories,
+                      if (_category == 'item') 'item',
+                    })
+                      DropdownMenuItem(
+                        value: c,
+                        child: Text(journalCategoryLabel(c, widget.userName)),
+                      ),
+                  ],
+                  onChanged: (v) => setState(() => _category = v ?? 'moment'),
+                ),
+                const SizedBox(height: 10),
               ],
-              onChanged: (v) => setState(() => _feeling = v),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(
-            'Cancel',
-            style: TextStyle(color: AppColors.textSecondary(context)),
+              Text('How it felt (optional)', style: labelStyle),
+              const SizedBox(height: 4),
+              _dropdown<String?>(
+                context,
+                value: _feeling,
+                items: [
+                  for (final f in feelings)
+                    DropdownMenuItem(
+                      value: f,
+                      child: Text(
+                        f == null
+                            ? 'No particular feeling'
+                            : '${EmotionLabels.emoji[JournalPhysics.emotionFamily(f)] ?? ''} $f',
+                      ),
+                    ),
+                ],
+                onChanged: (v) => setState(() => _feeling = v),
+              ),
+            ],
           ),
         ),
-        FilledButton(
-          style: FilledButton.styleFrom(backgroundColor: accent),
-          onPressed: _content.text.trim().isEmpty
-              ? null
-              : () => Navigator.of(context).pop((
-                  content: _content.text.trim(),
-                  category: _category,
-                  feeling: _feeling,
-                )),
-          child: const Text('Save'),
-        ),
-      ],
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).maybePop(),
+            child: Text(
+              'Cancel',
+              style: TextStyle(color: AppColors.textSecondary(context)),
+            ),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(backgroundColor: accent),
+            onPressed: _content.text.trim().isEmpty
+                ? null
+                : () => Navigator.of(context).pop((
+                    content: _content.text.trim(),
+                    category: _category,
+                    feeling: _feeling,
+                  )),
+            child: const Text('Save'),
+          ),
+        ],
+      ),
     );
   }
 
@@ -303,10 +310,7 @@ class _JournalCardEditorDialogState extends State<JournalCardEditorDialog> {
           value: value,
           isExpanded: true,
           isDense: true,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textPrimary(context),
-          ),
+          style: TextStyle(fontSize: 12, color: AppColors.textPrimary(context)),
           dropdownColor: AppColors.surfaceContainerOf(context),
           padding: const EdgeInsets.symmetric(vertical: 8),
           items: items,

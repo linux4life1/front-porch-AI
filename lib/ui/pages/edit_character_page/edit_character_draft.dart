@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
@@ -207,7 +209,76 @@ class EditCharacterDraft {
       c.addListener(updateTokenCount);
     }
     updateTokenCount();
+    _start = fingerprint();
   }
+
+  late final String _start;
+
+  /// True once anything Save would write differs from what the editor opened
+  /// with. Moving a field and moving it back is not an edit.
+  bool get isDirty => fingerprint() != _start;
+
+  String fingerprint() => jsonEncode([
+    for (final c in [
+      nameController,
+      descriptionController,
+      personalityController,
+      scenarioController,
+      firstMessageController,
+      mesExampleController,
+      systemPromptController,
+      postHistoryController,
+      ...altGreetingControllers,
+    ])
+      c.text,
+    [for (final s in altGreetingSeeds) s?.toJson()],
+    [for (final e in loreEntries) e.toJson()],
+    selectedWorldNames,
+    tags,
+    ttsVoice,
+    ambitions,
+    planLines,
+    occupation,
+    occupationBrief,
+    hours,
+    workDays,
+    birthday,
+    likes,
+    dislikes,
+    intimateInto,
+    intimateNotInto,
+    worn,
+    carrying,
+    realismEnabled,
+    realismTimeOfDay,
+    realismDayCount,
+    realismStoryStartDate,
+    realismStoryStartTime,
+    realismShortTermBond,
+    realismLongTermBond,
+    realismTrustLevel,
+    realismEmotion,
+    realismEmotionIntensity,
+    realismNsfwCooldown,
+    realismPassageOfTime,
+    realismChaosMode,
+    realismNeedsSim,
+    realismPocketsEnabled,
+    realismEnjoysLowHygiene,
+    realismVerificationEnabled,
+    realismVerificationMaxReprocesses,
+    realismVerificationStrictness,
+    realismNeedsDirectorAuthority,
+    needsPace,
+    needsOff,
+    needsBaselineHunger,
+    needsBaselineBladder,
+    needsBaselineEnergy,
+    needsBaselineSocial,
+    needsBaselineFun,
+    needsBaselineHygiene,
+    needsBaselineComfort,
+  ]);
 
   void _seedRealism(
     FrontPorchExtensions ext,

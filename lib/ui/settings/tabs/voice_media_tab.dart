@@ -23,27 +23,14 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/tts_settings_dialog.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/settings/tabs/voice_media_tab/voice_media_tab.dart';
 
-part 'voice_media_tab.tts.dart';
-part 'voice_media_tab.stt.dart';
-part 'voice_media_tab.voice_call.dart';
-part 'voice_media_tab.expressions.dart';
+export 'package:front_porch_ai/ui/settings/tabs/voice_media_tab/voice_media_tab.dart'
+    show CallSystemPromptField;
 
-/// Voice & Media tab extracted from settings_page god file (Stage 5).
-/// Pure lift of _buildVoiceMediaTab + voice-specific helpers + onnx button.
-/// Shared local state (drag buffer, available models) passed via constructor
-/// to keep owning state in _SettingsPageState (per plan). AppColors used
-/// exclusively for all colors/surfaces/text/icons (no new hard-coded
-/// Color(0xFF...) or raw Colors.whiteXX/Colors.blackXX). Follows patterns
-/// from prior extractions (const, composition, no build side effects).
-///
-/// God-file split (this tab alone was 1,273 lines): the shell above stays
-/// here; the four section builders — Text-to-Speech, Voice Input (STT),
-/// the Voice Call sub-block, and Expression Images — live in the `part`
-/// files above as extensions on this same StatelessWidget so they can share
-/// its fields (dragCallBuffer/onDragCallBufferChanged/availableModels)
-/// without re-plumbing. No setState lives in this file (StatelessWidget),
-/// so unlike the settings_page shell there is no rebuildState bridge.
+/// Settings → Voice & Media. Shared drag state for the Voice Buffer slider
+/// (dragCallBuffer) and the remote model list are owned by the settings page
+/// and passed in. AppColors only for colors/surfaces/text/icons.
 class VoiceMediaTab extends StatelessWidget {
   const VoiceMediaTab({
     super.key,
@@ -60,7 +47,8 @@ class VoiceMediaTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
-    final modelManager = Provider.of<ModelManager>(context);
+    // Subscribed so the tab rebuilds when the model manager notifies.
+    Provider.of<ModelManager>(context);
     final llmProvider = Provider.of<LLMProvider>(context);
 
     return SingleChildScrollView(
@@ -68,14 +56,20 @@ class VoiceMediaTab extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildTtsSection(context, storageService),
-          _buildSttSection(context, storageService, modelManager, llmProvider),
+          _TtsSection(storageService),
+          VoiceMediaSttSection(
+            storageService: storageService,
+            llmProvider: llmProvider,
+            availableModels: availableModels,
+            dragCallBuffer: dragCallBuffer,
+            onDragCallBufferChanged: onDragCallBufferChanged,
+          ),
 
           // Self-hiding: renders nothing (header included) until the offline
           // vision helper is installed — the feature is offered only in chat.
           const PhotoUnderstandingCard(),
 
-          _buildExpressionSection(context),
+          const VoiceMediaExpressionSection(),
 
           const SizedBox(height: 24),
           const ImageGenEnableSection(),
@@ -83,6 +77,111 @@ class VoiceMediaTab extends StatelessWidget {
           const LegacyCleanupCard(),
         ],
       ),
+    );
+  }
+}
+
+/// Text-to-Speech section: engine name, enabled + active-voice subtitle, and
+/// the Configure button that opens [TtsSettingsDialog].
+class _TtsSection extends StatelessWidget {
+  const _TtsSection(this.storageService);
+
+  final StorageService storageService;
+
+  static String _engineDisplayName(String engineId) {
+    switch (engineId) {
+      case 'kokoro':
+        return 'Kokoro TTS';
+      case 'openai':
+        return 'OpenAI TTS';
+      case 'piper':
+        return 'Piper TTS';
+      default:
+        return 'TTS';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader('Text-to-Speech'),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: AppColors.cardOf(context),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                Icons.volume_up,
+                color: AppColors.porchAmberOf(context),
+                size: 20,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _engineDisplayName(storageService.ttsSettings.ttsEngine),
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    Text(
+                      storageService.ttsSettings.ttsEnabled
+                          ? () {
+                              final voiceKey =
+                                  storageService.ttsSettings.ttsVoiceModel;
+                              if (voiceKey.isEmpty) {
+                                return 'Enabled — Voice: Not set';
+                              }
+                              final ttsService = Provider.of<TtsService>(
+                                context,
+                                listen: false,
+                              );
+                              final match = ttsService.activeVoices.where(
+                                (v) => v.id == voiceKey,
+                              );
+                              final displayName = match.isNotEmpty
+                                  ? match.first.name
+                                  : voiceKey;
+                              return 'Enabled — Voice: $displayName';
+                            }()
+                          : 'Disabled',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.textSecondary(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              ElevatedButton.icon(
+                onPressed: () => showDialog(
+                  context: context,
+                  builder: (_) => TtsSettingsDialog(),
+                ),
+                icon: const Icon(Icons.settings, size: 16),
+                label: const Text('Configure'),
+                style: ElevatedButton.styleFrom(
+                  // Warm-porch: was AppColors.userBubble (cool-blue chrome
+                  // misuse of a chat-bubble constant); onChaosAccent keeps
+                  // the ink readable on the amber fill.
+                  backgroundColor: AppColors.formMasterAccent,
+                  foregroundColor: AppColors.onChaosAccent,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 8,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

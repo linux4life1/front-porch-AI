@@ -35,7 +35,7 @@ class _GreetingJob {
 /// The web twin of the desktop creator's Greetings step (#370): rewrite one
 /// greeting of a saved character (optionally steered), add one, delete an
 /// alternate, or stop the one being written. The model work is the same
-/// [GenGreeting.regenerateGreeting] the desktop calls. Starting returns at
+/// [CharacterGenService.regenerateGreeting] the desktop calls. Starting returns at
 /// once; the text streams over the hub as `chargen_greeting_progress`, then
 /// `chargen_greeting_done` (saved), `_error` or `_stopped`. A greeting is
 /// saved only when it is done, so Stop leaves the card as it was.

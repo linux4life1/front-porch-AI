@@ -12,7 +12,7 @@ the decisions that differ from upstream. Nothing was copied: upstream is one
 
 `StoryProject.engineMode` is `quick` (the original pipeline, untouched in
 shape) or `studio`. Every public `StoryPipelineService` operation dispatches
-on it (`story_pipeline_service.api.dart`), so the story pages and the web
+on it (`story_pipeline/story_pipeline_runner.dart`), so the story pages and the web
 facade call the same methods for both. Stories are still one JSON blob per
 row; every Studio field is additive and `StoryProject.normalize()` repairs
 invariants on load and save (scene ids, one sequence per act for Quick).
@@ -51,7 +51,7 @@ times over; the Engine step shows the real numbers.
 | Archivist (per scene) | review | facts, relationship moves, summary |
 | Sequence summary | review | once every scene of the sequence is written |
 
-`_agent()` (`story_pipeline_service.agent.dart`) is the loop: generate, gate
+`StoryAgent.run()` (`story_pipeline/story_agent.dart`) is the loop: generate, gate
 in code, review with a second call, feed the objection back, three tries, the
 last try always on the main model. A reviewer that rejects every try does not
 dead-end the story: the last structurally valid answer is used.

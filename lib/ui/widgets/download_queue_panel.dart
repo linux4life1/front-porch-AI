@@ -21,8 +21,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-
-part 'download_queue_panel.controls.dart';
+import 'package:front_porch_ai/ui/widgets/download_queue_panel/download_queue_panel.dart';
 
 /// Collapsible panel showing active downloads with controls.
 class DownloadQueuePanel extends StatefulWidget {
@@ -176,7 +175,7 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '${_formatSpeed(widget.overallSpeed)} • ${(widget.overallProgress * 100).toStringAsFixed(1)}% complete',
+                              '${formatDownloadSpeed(widget.overallSpeed)} • ${(widget.overallProgress * 100).toStringAsFixed(1)}% complete',
                               style: TextStyle(
                                 color: AppColors.textTertiary(context),
                                 fontSize: 10,
@@ -287,12 +286,12 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
             children: [
               // Status icon
               Icon(
-                _getStatusIcon(task.state),
+                downloadStatusIcon(task.state),
                 color:
                     (task.state == DownloadTaskState.pending ||
                         task.state == DownloadTaskState.cancelled)
                     ? AppColors.iconSecondary(context)
-                    : _getStatusColor(task.state),
+                    : downloadStatusColor(task.state),
                 size: 16,
               ),
               const SizedBox(width: 8),
@@ -320,8 +319,9 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                             (task.state == DownloadTaskState.pending ||
                                 task.state == DownloadTaskState.cancelled)
                             ? AppColors.textTertiary(context)
-                            : _getStatusColor(task.state)
-                                  .withValues(alpha: 0.7),
+                            : downloadStatusColor(
+                                task.state,
+                              ).withValues(alpha: 0.7),
                         fontSize: 10,
                       ),
                     ),
@@ -330,7 +330,12 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
               ),
 
               // Controls
-              _buildTaskControls(task),
+              DownloadTaskControls(
+                task: task,
+                onPause: widget.onPause,
+                onResume: widget.onResume,
+                onCancel: widget.onCancel,
+              ),
             ],
           ),
 
@@ -347,7 +352,7 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                 AppColors.borderOf(context).withValues(alpha: 0.3),
               ),
               valueColor: AlwaysStoppedAnimation<Color>(
-                _getStatusColor(task.state),
+                downloadStatusColor(task.state),
               ),
             ),
           ],

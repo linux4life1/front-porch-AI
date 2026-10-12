@@ -3,8 +3,7 @@
 
 /// Barrel for the chargen pure leaves. Added when AI Enhance made multiple
 /// files import 2+ siblings from this directory (the self-extending barrel
-/// rule). The `character_gen_*.dart` files are `part of`
-/// character_gen_service.dart and must NEVER be exported here.
+/// rule). The CharacterGenService stages live in `../character_gen/`.
 library;
 
 export 'char_macro.dart';

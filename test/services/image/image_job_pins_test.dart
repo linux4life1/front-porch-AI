@@ -158,7 +158,7 @@ void main() {
 
   test('generateImage dispatches every backend from the shared plan', () {
     final source = File(
-      'lib/services/image_gen_service.generate.dart',
+      'lib/services/image_gen/image_gen_job.dart',
     ).readAsStringSync();
     expect(source.contains('planImageJob'), isTrue);
     expect(source.contains('drawThingsGenerationKnobs'), isTrue);

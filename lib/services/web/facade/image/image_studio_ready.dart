@@ -147,6 +147,12 @@ class ImageStudioReady {
       'kind': ready.kind.name,
       if (ready.message != null) 'message': ready.message,
       if (ready.missingClass != null) 'missingClass': ready.missingClass,
+      // The words beside Generate, so the phone says what the desktop says.
+      'line': studioNotReadyLine(
+        readiness: ready,
+        backendName: studioBackendName(backend),
+        primaryFile: primary,
+      ),
       'primary': primary,
       'blockedLora': deskLoraBlocker(primary, loras),
       'loraFamily': family.name,

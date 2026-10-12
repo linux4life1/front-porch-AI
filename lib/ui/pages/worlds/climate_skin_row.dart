@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_editor_widgets.dart';
+import 'package:front_porch_ai/ui/pages/worlds/climate_skin_draft.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_emoji_picker.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -51,24 +52,23 @@ class SkinEditRow extends StatelessWidget {
   final ValueChanged<WeatherStance?> onStance;
 
   InputDecoration _dec(BuildContext context, String hint) => InputDecoration(
-        isDense: true,
-        hintText: hint,
-        counterText: '',
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-        hintStyle: TextStyle(
-          fontSize: 11.5,
-          color: AppColors.textTertiary(context),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(7),
-          borderSide: BorderSide(color: AppColors.porchAmberOf(context)),
-        ),
-      );
+    isDense: true,
+    hintText: hint,
+    counterText: '',
+    contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+    hintStyle: TextStyle(
+      fontSize: 11.5,
+      color: AppColors.textTertiary(context),
+    ),
+    enabledBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(7),
+      borderSide: BorderSide(color: AppColors.borderOf(context)),
+    ),
+    focusedBorder: OutlineInputBorder(
+      borderRadius: BorderRadius.circular(7),
+      borderSide: BorderSide(color: AppColors.porchAmberOf(context)),
+    ),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -106,9 +106,7 @@ class SkinEditRow extends StatelessWidget {
               // The mockup's emoji cell, as a picker: tap to choose from the
               // curated weird-weather set (or type any emoji inside it).
               Tooltip(
-                message: draft.active
-                    ? 'Pick an emoji'
-                    : 'Type a rename first',
+                message: draft.active ? 'Pick an emoji' : 'Type a rename first',
                 child: InkWell(
                   borderRadius: BorderRadius.circular(7),
                   onTap: draft.active

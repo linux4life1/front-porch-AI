@@ -20,6 +20,7 @@ import { useAdultThemes } from '../components/realism/useAdultThemes';
 import { usePassageOfTime } from '../components/realism/usePassageOfTime';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { type RealismValues, REALISM_DEFAULTS, compactGreetingPairs, inventoryToChips } from '../components/realism/realismTypes';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 interface Draft extends RealismValues {
   name: string;
@@ -63,15 +64,24 @@ export function CreateCharacterPage() {
   // "Make a Character" → Manual: start from a persona.
   const [params] = useSearchParams();
   const { seed: personaSeed, error: seedError } = usePersonaSeed(params);
+  const withSeed = (base: Draft): Draft =>
+    personaSeed
+      ? {
+          ...base,
+          name: personaSeed.name,
+          description: personaSeed.description,
+          birthday: personaSeed.birthday,
+        }
+      : base;
   useEffect(() => {
     if (!personaSeed) return;
-    setD((prev) => ({
-      ...prev,
-      name: personaSeed.name,
-      description: personaSeed.description,
-      birthday: personaSeed.birthday,
-    }));
+    setD(withSeed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [personaSeed]);
+  // A persona's seed is where the page starts, not an edit.
+  const { prompt, leaveWithoutAsking } = useUnsavedChanges(
+    JSON.stringify(d) !== JSON.stringify(withSeed(EMPTY)),
+  );
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setD({ ...d, [key]: value });
   const patch = (p: Partial<RealismValues>) => setD({ ...d, ...p });
@@ -89,6 +99,7 @@ export function CreateCharacterPage() {
         greetingSeeds: paired.seeds,
         ...(personaSeed?.hasPortrait ? { portraitPersonaId: personaSeed.personaId } : {}),
       });
+      leaveWithoutAsking();
       // Open the new character so creation is verifiable end-to-end.
       try {
         navigate('/chat?opening=1');
@@ -105,6 +116,7 @@ export function CreateCharacterPage() {
 
   return (
     <div className="page wizard">
+      {prompt}
       <div className="page-head">
         <h2>Create character</h2>
         <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>

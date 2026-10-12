@@ -16,149 +16,72 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-import 'dart:async';
-
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/services/story_pipeline/story_pipeline.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
-import 'package:front_porch_ai/services/open_router_service.dart';
-import 'package:front_porch_ai/services/story_stage_params.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
-import 'package:front_porch_ai/utils/utils.dart';
 
-part 'story_pipeline_service.acts.dart';
-part 'story_pipeline_service.agent.dart';
-part 'story_pipeline_service.api.dart';
-part 'story_pipeline_service.director.dart';
-part 'story_pipeline_service.director_apply.dart';
-part 'story_pipeline_service.distill.dart';
-part 'story_pipeline_service.llm.dart';
-part 'story_pipeline_service.planning.dart';
-part 'story_pipeline_service.prose.dart';
-part 'story_pipeline_service.studio_bible.dart';
-part 'story_pipeline_service.studio_memory.dart';
-part 'story_pipeline_service.studio_prose.dart';
-part 'story_pipeline_service.studio_structure.dart';
-
-/// Routes story jobs to the model each lane asks for: the worker model, or
-/// a host the story picked itself (any provider, any model).
-class StoryLanes {
-  const StoryLanes({
-    required this.worker,
-    required this.hold,
-    required this.host,
-  });
-
-  /// The live worker service, or null when none is configured.
-  final LLMService? Function() worker;
-
-  /// Runs [work] while holding the worker lane (so a shared GPU can swap).
-  final Future<T> Function<T>(Future<T> Function() work) hold;
-
-  /// The host for a lane's own choice, or null when it cannot be built.
-  final LaneHost? Function(StoryLaneChoice choice) host;
-}
+export 'package:front_porch_ai/services/story_pipeline/story_lanes.dart';
+export 'package:front_porch_ai/services/story_pipeline/story_studio_bible.dart'
+    show StoryPipelineStudioBible;
 
 /// Orchestrates the multi-agent AI novel-writing pipeline for Porch Stories.
 ///
 /// Each stage constructs a specialized prompt, calls the LLM via [LLMService],
 /// parses the structured JSON response, and updates the [StoryProject] state.
 /// Supports three prompt complexity tiers for different model capabilities.
+///
+/// The stages live in `story_pipeline/` as collaborators sharing one
+/// [StoryPipelineContext]; this class keeps the public API as forwarders so
+/// story pages, the web facade and test doubles see one surface.
 class StoryPipelineService extends ChangeNotifier {
-  final StoryRepository _repository;
-  final LLMService _llmService;
   final MemoryService
   _memoryService; // ignore: unused_field - Reserved for future story RAG / memory injection
-  AppDatabase _db;
 
   /// Run log and Director undo snapshots (side files, not the project blob).
   final StoryStudioStore store;
-  final StoryLanes? _lanes;
-  final StoryLoreIndex _loreIndex;
-
-  bool _isRunning = false;
-  String _currentStep = '';
-  String _statusMessage = '';
-  String _streamingText = '';
-  int _tokenCount = 0;
-
-  /// Nesting depth of public operations; see [_guard].
-  int _depth = 0;
-  bool _stopRequested = false;
-
-  /// The lane host whose model is resident right now (local swaps only).
-  LaneHost? _activeLaneHost;
-
-  /// Hosts that refused a native tool call this session; they get tags.
-  final Set<String> _toolsRefused = {};
+  late final StoryPipelineContext _ctx;
+  late final StoryPipelineRunner _run;
 
   /// True for the whole of an outermost operation, including the gaps between
-  /// its stages (each stage still clears `_isRunning` in its own `finally`).
-  bool get isRunning => _isRunning || _depth > 0;
-  bool get stopRequested => _stopRequested;
-  String get currentStep => _currentStep;
-  String get statusMessage => _statusMessage;
-  String get streamingText => _streamingText;
-  int get tokenCount => _tokenCount;
+  /// its stages (each stage still clears its own busy flag in `finally`).
+  bool get isRunning => _ctx.isRunning;
+  bool get stopRequested => _ctx.stopRequested;
+  String get currentStep => _ctx.currentStep;
+  String get statusMessage => _ctx.statusMessage;
+  String get streamingText => _ctx.streamingText;
+  int get tokenCount => _ctx.tokenCount;
 
   StoryPipelineService(
-    this._repository,
-    this._llmService,
+    StoryRepository repository,
+    LLMService llmService,
     this._memoryService,
-    this._db, {
+    AppDatabase db, {
     StoryStudioStore? store,
     StoryLanes? lanes,
     EmbeddingService? embeddings,
-  }) : store = store ?? StoryStudioStore(),
-       _lanes = lanes,
-       _loreIndex = StoryLoreIndex(embeddings) {
-    _repository.onDelete = this.store.deleteProject;
+  }) : store = store ?? StoryStudioStore() {
+    _ctx = StoryPipelineContext(
+      repository: repository,
+      llmService: llmService,
+      db: db,
+      store: this.store,
+      lanes: lanes,
+      loreIndex: StoryLoreIndex(embeddings),
+      notify: notifyListeners,
+    );
+    _run = StoryPipelineRunner(_ctx);
+    repository.onDelete = this.store.deleteProject;
   }
 
   /// Ask the running operation to stop at the next safe point. Everything
   /// already written stays saved.
-  void requestStop() {
-    if (!isRunning || _stopRequested) return;
-    _stopRequested = true;
-    _statusMessage = 'Stopping…';
-    _llmService.abortGeneration();
-    _lanes?.worker()?.abortGeneration();
-    notifyListeners();
-  }
-
-  /// Wraps every public operation. Tracks nesting so `isRunning` and the stop
-  /// request span the outermost call, and turns a user stop into a quiet
-  /// finish instead of an error.
-  Future<void> _guard(Future<void> Function() body) async {
-    _depth++;
-    try {
-      await body();
-    } on StoryStoppedException {
-      if (_depth > 1) rethrow;
-      _currentStep = 'Stopped';
-      _statusMessage = 'Stopped. Everything written so far is saved.';
-    } finally {
-      _depth--;
-      if (_depth == 0) {
-        _isRunning = false;
-        _stopRequested = false;
-        notifyListeners();
-        // Put the chat model back after the run, not after every call, so
-        // a run that alternates lanes swaps once per stage.
-        unawaited(
-          restoreLaneHosts().catchError(
-            (Object e) => debugPrint('[Story] lane restore failed: $e'),
-          ),
-        );
-      }
-    }
-  }
+  void requestStop() => _run.requestStop();
 
   /// Re-point at a reopened database (backup restore, storage move, stable-DB
   /// import) — same contract as StoryRepository.updateDatabase. Without this
@@ -166,108 +89,184 @@ class StoryPipelineService extends ChangeNotifier {
   /// notification happened to rebuild it, and Porch Stories looked empty (or
   /// threw) until then.
   void updateDatabase(AppDatabase db) {
-    _db = db;
+    _ctx.db = db;
   }
 
   /// Public method for the UI to preview what chat history will be imported.
   /// Always pulls full messages from the DB (not RAG embeddings which are windowed summaries).
-  Future<List<String>> getChatPreviewMessages(StoryProject project) async {
-    if (!project.useChatHistory || project.chatHistoryCharacterIds.isEmpty) {
-      return [];
-    }
-    final messages = <String>[];
-    try {
-      final resolvedIds = await _resolveSessionCharacterIds(
-        project.chatHistoryCharacterIds,
-      );
-      for (final charId in resolvedIds) {
-        final sessions = await _db.getSessionsForCharacter(charId);
-        for (final session in sessions) {
-          // Living Time §4: same session scoping as the distiller and the raw
-          // fallback in story_pipeline_service.llm.dart (keep in sync — all
-          // three are "the chat history" for a project, and a preview that
-          // shows chats the story will never use is a lie).
-          if (project.chatHistorySessionIds.isNotEmpty &&
-              !project.chatHistorySessionIds.contains(session.id)) {
-            continue;
-          }
-          final msgs = await _db.getMessagesForSession(session.id);
-          for (final msg in msgs) {
-            try {
-              final swipes = jsonDecode(msg.swipes) as List;
-              final text = swipes.isNotEmpty
-                  ? swipes[msg.swipeIndex.clamp(0, swipes.length - 1)]
-                  : '';
-              if (text.toString().trim().isNotEmpty) {
-                messages.add('${msg.sender}: $text');
-              }
-            } catch (_) {}
-          }
-          messages.add('--- (session break) ---');
-        }
-      }
-    } catch (e) {
-      debugPrint('[StoryPipeline] Chat preview error: $e');
-    }
-    return messages;
-  }
+  Future<List<String>> getChatPreviewMessages(StoryProject project) =>
+      _run.history.previewMessages(project);
 
-  /// Resolve character IDs to actual session characterIds.
-  /// The stored IDs might be embed-IDs, DB PKs, or filename-based IDs.
-  /// This method cross-references by character name to find ALL session IDs.
-  Future<Set<String>> _resolveSessionCharacterIds(
-    List<String> storedIds,
-  ) async {
-    final resolved = <String>{};
-    resolved.addAll(storedIds);
+  /// Every 1:1 chat a story can start from, newest first. Chats where the
+  /// user never wrote anything are left out: a greeting alone is no story.
+  Future<List<StoryChatSourceRow>> chatSources() => _run.history.chatSources();
 
-    try {
-      final allChars = await _db.select(_db.characters).get();
-      final allSessions = await _db.select(_db.sessions).get();
+  /// Called when a run ends: put the chat model back.
+  Future<void> restoreLaneHosts() => _run.llm.restoreLaneHosts();
 
-      for (final storedId in storedIds) {
-        // Find this character in the Characters table
-        final matchingChar = allChars.where((c) => c.id == storedId);
-        if (matchingChar.isEmpty) continue;
+  // ── Pipeline operations (guarded; see StoryPipelineRunner) ──────────
 
-        final charName = matchingChar.first.name;
+  /// Stage 0: chat history → event timeline (both engines).
+  Future<void> runChatDistiller(StoryProject project) =>
+      _run.runChatDistiller(project);
 
-        // Find ALL sessions whose characterId maps to a character with the same name
-        for (final sess in allSessions) {
-          if (sess.characterId == null) continue;
-          final sessChar = allChars.where((c) => c.id == sess.characterId);
-          if (sessChar.isNotEmpty && sessChar.first.name == charName) {
-            resolved.add(sess.characterId!);
-          }
-        }
-      }
-    } catch (e) {
-      debugPrint('[StoryPipeline] ID resolution error: $e');
-    }
+  /// Concept → story bible.
+  Future<void> runStoryArchitect(StoryProject project) =>
+      _run.runStoryArchitect(project);
 
-    // Remove the original stored IDs if they don't match any sessions
-    // (only keep IDs that actually have sessions)
-    return resolved;
-  }
+  /// Bible → acts (and, in Studio, the eight sequences).
+  Future<void> runActStructurer(StoryProject project) =>
+      _run.runActStructurer(project);
 
-  void _setStatus(String step, String message) {
-    _currentStep = step;
-    _statusMessage = message;
-    notifyListeners();
-  }
+  /// Act → scenes. In Studio every sequence of the act that has no scenes
+  /// yet is planned; sequences already planned are left alone.
+  Future<void> runSceneWeaver(StoryProject project, int actIndex) =>
+      _run.runSceneWeaver(project, actIndex);
 
-  // Extension parts call this instead of the inherited `notifyListeners()`
-  // directly. [ChangeNotifier.notifyListeners] is `@protected` /
-  // `@visibleForTesting`; unlike `ChatService` (which sidesteps the same
-  // problem by overriding `notifyListeners()` for its own disposal guard),
-  // this class inherits it unmodified, and Dart's protected-member check
-  // does not treat an `extension … on StoryPipelineService` body as "an
-  // instance member of a subclass" the way it treats a real method on this
-  // class — so a bare call from inside a part's extension trips
-  // invalid_use_of_protected_member / invalid_use_of_visible_for_testing_member.
-  // This one-line pass-through, kept as a real class member, sidesteps that
-  // with zero behavior change.
-  void _notify() => notifyListeners();
+  /// Scene → beats.
+  Future<void> runBeatDirector(
+    StoryProject project,
+    int actIndex,
+    int sceneIndex,
+  ) => _run.runBeatDirector(project, actIndex, sceneIndex);
+
+  /// Write one beat (Quick: draft + edit; Studio: write + continuity check).
+  Future<void> runDraftAndEdit(
+    StoryProject project,
+    int actIndex,
+    int sceneIndex,
+    int beatIndex,
+  ) => _run.runDraftAndEdit(project, actIndex, sceneIndex, beatIndex);
+
+  /// Rewrite a beat that already has prose, optionally with an instruction.
+  Future<void> rewriteBeat(
+    StoryProject project,
+    int actIndex,
+    int sceneIndex,
+    int beatIndex, {
+    String directive = '',
+  }) => _run.rewriteBeat(
+    project,
+    actIndex,
+    sceneIndex,
+    beatIndex,
+    directive: directive,
+  );
+
+  /// Write every unwritten beat of a scene, then archive it.
+  Future<void> autoWriteScene(
+    StoryProject project,
+    int actIndex,
+    int sceneIndex,
+  ) => _run.autoWriteScene(project, actIndex, sceneIndex);
+
+  /// Everything for one act: scenes, beats and prose.
+  Future<void> generateFullAct(StoryProject project, int actIndex) =>
+      _run.generateFullAct(project, actIndex);
+
+  /// Throw a scene's prose away and write it again.
+  Future<void> regenerateSceneProse(
+    StoryProject project,
+    int actIndex,
+    int sceneIndex,
+  ) => _run.regenerateSceneProse(project, actIndex, sceneIndex);
+
+  /// Concept to finished prose without stopping.
+  Future<void> runAutopilot(StoryProject project) => _run.runAutopilot(project);
+
+  /// "Continue writing": one tap, one scene. Returns false when the story is
+  /// finished.
+  Future<bool> writeNextScene(StoryProject project) =>
+      _run.writeNextScene(project);
+
+  /// Rewrite the arc and nothing else. The world, cast and interviews stay.
+  Future<void> runStoryArc(StoryProject project) => _run.runStoryArc(project);
+
+  /// Interview (or re-interview) one cast member on request.
+  Future<void> runCharacterInterview(StoryProject project, String name) =>
+      _run.runCharacterInterview(project, name);
+
+  /// Plan (or re-plan) the scenes of one sequence on request.
+  Future<void> planSequenceScenes(StoryProject project, int number) =>
+      _run.planSequenceScenes(project, number);
+
+  /// Stage 8: Beat Validator — check continuity.
+  Future<bool> runBeatValidator(
+    StoryProject project,
+    int actIndex,
+    int sceneIndex,
+    int beatIndex,
+  ) => _run.quickProse.runBeatValidator(
+    project,
+    actIndex,
+    sceneIndex,
+    beatIndex,
+  );
+
+  /// Put a beat back the way it was before the continuity fix.
+  Future<void> undoContinuityFix(
+    StoryProject project,
+    int act,
+    int index,
+    int beat,
+  ) => _run.studioProse.undoContinuityFix(project, act, index, beat);
+
+  // ── Director ────────────────────────────────────────────────────────
+
+  /// Propose a plan for [directive]. With [refinement], the current plan is
+  /// revised instead of replaced. Nothing changes until [applyDirectorPlan].
+  Future<void> runDirectorPlan(
+    StoryProject project,
+    String directive, {
+    required bool protectWrittenProse,
+    String refinement = '',
+  }) => _run.runDirectorPlan(
+    project,
+    directive,
+    protectWrittenProse: protectWrittenProse,
+    refinement: refinement,
+  );
+
+  /// Apply the ticked actions of the current plan, then re-archive every
+  /// scene that changed.
+  Future<void> applyDirectorPlan(StoryProject project) =>
+      _run.applyDirectorPlan(project);
+
+  /// Re-evaluate the locks after the user flips "Protect written prose".
+  Future<void> setDirectorProtection(StoryProject project, bool protect) =>
+      _run.director.setProtection(project, protect);
+
+  Future<void> setDirectorActionEnabled(
+    StoryProject project,
+    int index,
+    bool enabled,
+  ) => _run.director.setActionEnabled(project, index, enabled);
+
+  Future<void> discardDirectorPlan(StoryProject project) =>
+      _run.director.discard(project);
+
+  /// Put the story back as it was before the last applied plan.
+  Future<bool> undoDirectorPlan(StoryProject project) =>
+      _run.director.undo(project);
+
+  // ── Lore ────────────────────────────────────────────────────────────
+
+  /// Add an uploaded document to the story's lore, cut into searchable
+  /// entries. Re-uploading a file of the same name replaces it.
+  Future<int> addLoreDocument(StoryProject project, String name, String text) =>
+      _run.memory.addLoreDocument(project, name, text);
+
+  /// What the writer would be shown for [query] at scene ([act], [index]).
+  Future<List<LoreHit>> searchLore(
+    StoryProject project,
+    String query, {
+    int? act,
+    int? index,
+  }) => _run.memory.searchLore(project, query, act: act, index: index);
+
+  /// Whether lore search is using the embedding model (true) or plain word
+  /// overlap (false).
+  bool get loreSearchIsSemantic => _run.memory.loreSearchIsSemantic;
 
   // ── Forwarders to lib/services/story/ leaves ────────────────────────
   // Kept as class members so external call sites (story pages, the web

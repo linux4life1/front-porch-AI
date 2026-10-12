@@ -18,6 +18,7 @@ import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -137,6 +138,88 @@ void main() {
       find.text('main page 0'),
       findsOneWidget,
       reason: 'the wizard closes onto Home, not the page it was opened over',
+    );
+  });
+
+  testWidgets('Save & Finish asks before dropping an unsaved page under it', (
+    tester,
+  ) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.binding.setSurfaceSize(const Size(1280, 2400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final storage = FakeStorageService();
+    final provider = FakeLLMProvider();
+    final personas = FakeUserPersonaService();
+    final kobold = KoboldService(storage);
+    final models = ModelManager(
+      storage,
+      DownloadManager(targetDir: Directory.systemTemp.path),
+    );
+    final hardware = _NoHardware();
+    final repo = FakeCharacterRepository();
+    final images = ImageGenService(storage);
+    final appState = AppState()..setIndex(4); // a persona edit, unsaved
+    for (final s in [
+      provider,
+      storage,
+      personas,
+      kobold,
+      models,
+      hardware,
+      repo,
+      images,
+      appState,
+    ]) {
+      addTearDown(s.dispose);
+    }
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<AppState>.value(value: appState),
+          ChangeNotifierProvider<LLMProvider>.value(value: provider),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<UserPersonaService>.value(value: personas),
+          ChangeNotifierProvider<KoboldService>.value(value: kobold),
+          ChangeNotifierProvider<ModelManager>.value(value: models),
+          ChangeNotifierProvider<HardwareService>.value(value: hardware),
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ImageGenService>.value(value: images),
+        ],
+        child: MaterialApp(
+          home: UnsavedChangesGuard(
+            isDirty: () => true,
+            child: const _MainScreen(),
+          ),
+        ),
+      ),
+    );
+
+    await tester.tap(find.text('open creator'));
+    await _settle(tester);
+    final dynamic page = tester.state(find.byType(CharacterCreatorPage));
+    final state = page.creatorState as CreatorState;
+    state.generatedCard = CharacterCard(dbId: 'juniper-db', name: 'Juniper');
+    state.currentStep = 6;
+    state.notify();
+    await _settle(tester);
+
+    final finish = find.text('Save & Finish');
+    await tester.ensureVisible(finish);
+    await tester.pump();
+    await tester.tap(finish);
+    await _settle(tester);
+
+    expect(find.text('Discard unsaved changes?'), findsOneWidget);
+    await tester.tap(find.text('Keep editing'));
+    await _settle(tester);
+
+    expect(find.byType(CharacterCreatorPage), findsNothing);
+    expect(
+      find.text('main page 4'),
+      findsOneWidget,
+      reason: 'keeping the unsaved page leaves the sidebar where it was',
     );
   });
 }

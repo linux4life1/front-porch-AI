@@ -349,10 +349,17 @@ class _RelationshipsSectionState extends State<RelationshipsSection> {
     final note = TextEditingController(text: r?.note ?? '');
     final subtext = TextEditingController(text: r?.subtext ?? '');
     var trust = r?.trust ?? 5;
+    final (startFrom, startTo, startTrust) = (from, to, trust);
+    final textChanged = storyTextChanged([feeling, note, subtext]);
     final ok = await showStoryDialog<bool>(
       context,
       title: r == null ? 'Add pair' : '${r.from} → ${r.to}',
       width: 460,
+      isDirty: () =>
+          textChanged() ||
+          from != startFrom ||
+          to != startTo ||
+          trust != startTrust,
       body: StatefulBuilder(
         builder: (ctx, setLocal) => Column(
           mainAxisSize: MainAxisSize.min,
@@ -415,7 +422,10 @@ class _RelationshipsSectionState extends State<RelationshipsSection> {
         ),
       ),
       actions: (ctx) => [
-        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.ghost(
+          'Cancel',
+          onPressed: () => Navigator.maybePop(ctx, false),
+        ),
         StoryButton.primary(
           r == null ? 'Add' : 'Save',
           onPressed: () => Navigator.pop(ctx, true),

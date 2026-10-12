@@ -58,7 +58,9 @@ Future<ExpressionPackFlight> beginExpressionPack({
   final rules = (promptRules ?? ExpressionPromptRules()).copy();
   final ready = Completer<ExpressionPackSession?>();
   String? error;
-  final started = imageGen.startExpressionPack(emotions, (names) async {
+  final started = ImageGenService.startExpressionPackOn(imageGen, emotions, (
+    names,
+  ) async {
     try {
       final session = ExpressionPackSession(
         emotions: names,
@@ -68,7 +70,7 @@ Future<ExpressionPackFlight> beginExpressionPack({
         editMode: edit,
         promptRules: rules,
         onCancel: () {
-          unawaited(imageGen.cancelJob());
+          unawaited(ImageGenService.cancelJobOn(imageGen));
           onCancelled?.call();
         },
         generate:
@@ -78,7 +80,8 @@ Future<ExpressionPackFlight> beginExpressionPack({
               required int seed,
               required double denoise,
             }) async {
-              final bytes = await imageGen.expressionFrame(
+              final bytes = await ImageGenService.expressionFrameOn(
+                imageGen,
                 prompt: prompt,
                 negativePrompt: negativePrompt,
                 size: size,

@@ -13,6 +13,9 @@ import 'comfy_workflow_adapt.dart';
 import 'comfy_workflow_convert.dart';
 import 'model_family.dart';
 import 'studio_readiness.dart';
+import 'studio_ready_words.dart';
+
+export 'studio_installed_choice.dart';
 
 /// The file this run actually loads. On ComfyUI that is the workflow slot,
 /// not a leftover `image_gen_model` from another family.
@@ -103,136 +106,6 @@ List<String> deskGraphChoices({
     out.add(row.id);
   }
   return out;
-}
-
-/// A finished CivitAI file is selected only when this workflow can load it.
-bool deskAcceptsInstalledFile({
-  required String backend,
-  required String workflowId,
-  required String file,
-  required bool lora,
-  required List<String> checkpoints,
-  required List<String> diffusionModels,
-  required List<String> ggufUnets,
-  required List<String> loras,
-}) {
-  if (lora) return loras.contains(file);
-  if (backend != 'comfyui') return file.trim().isNotEmpty;
-  final name = file.trim();
-  if (name.isEmpty) return false;
-  final gguf = name.toLowerCase().endsWith('.gguf');
-  if (gguf) {
-    if (workflowId == 'sd') return false;
-    return ggufUnets.contains(name) || diffusionModels.contains(name);
-  }
-  final checkpoint = checkpoints.contains(name);
-  final diffusion = diffusionModels.contains(name);
-  if (checkpoint && !diffusion && workflowId != 'sd') return false;
-  return checkpoint || diffusion;
-}
-
-/// What the desk should do with a file that just finished downloading.
-///
-/// This is the desktop install rule: Comfy selects only a file the live
-/// loader list can run on this workflow. Automatic1111 selects a model
-/// by name. A LoRA is selected only when that list contains it.
-class InstalledDeskChoice {
-  final bool accept;
-  final String kind;
-  final String token;
-  final int slot;
-
-  const InstalledDeskChoice({
-    required this.accept,
-    this.kind = '',
-    this.token = '',
-    this.slot = -1,
-  });
-
-  Map<String, Object?> toJson(String workflowId) => {
-    'accept': accept,
-    'kind': kind,
-    if (token.isNotEmpty) 'token': token,
-    if (slot >= 0) 'slot': slot,
-    if (accept && kind == 'comfy') 'workflowId': workflowId,
-  };
-}
-
-int _firstEmptyLoraSlot(List<String> files) {
-  for (var i = 0; i < files.length; i++) {
-    if (files[i].trim().isEmpty) return i;
-  }
-  return -1;
-}
-
-InstalledDeskChoice installedDeskChoice({
-  required String backend,
-  required String workflowId,
-  required String file,
-  required bool lora,
-  required List<String> checkpoints,
-  required List<String> diffusionModels,
-  required List<String> ggufUnets,
-  required List<String> loras,
-  required List<String> loraSlotFiles,
-}) {
-  final accepted = deskAcceptsInstalledFile(
-    backend: backend,
-    workflowId: workflowId,
-    file: file,
-    lora: lora,
-    checkpoints: checkpoints,
-    diffusionModels: diffusionModels,
-    ggufUnets: ggufUnets,
-    loras: loras,
-  );
-  if (!accepted) return const InstalledDeskChoice(accept: false);
-  if (lora) {
-    final slot = _firstEmptyLoraSlot(loraSlotFiles);
-    if (slot < 0) {
-      return const InstalledDeskChoice(accept: false, kind: 'lora-full');
-    }
-    return InstalledDeskChoice(accept: true, kind: 'lora', slot: slot);
-  }
-  if (backend == 'comfyui') {
-    return InstalledDeskChoice(
-      accept: true,
-      kind: 'comfy',
-      token: deskComfyToken(workflowId: workflowId, file: file),
-    );
-  }
-  return const InstalledDeskChoice(accept: true, kind: 'slot');
-}
-
-/// Writes an accepted download onto the desk. A LoRA fills an empty slot.
-/// It does not replace the model.
-Future<void> applyInstalledDeskChoice({
-  required ImageGenSettings settings,
-  required InstalledDeskChoice choice,
-  required String workflowId,
-  required String file,
-  required bool edit,
-}) async {
-  if (!choice.accept) return;
-  if (choice.kind == 'lora') {
-    await settings.setImageGenLoraSlot(choice.slot, file: file);
-    return;
-  }
-  if (choice.kind == 'comfy') {
-    if (edit) {
-      await settings.setComfyEditModelChoice(workflowId, choice.token, file);
-    } else {
-      await settings.setComfyCreateModelChoice(workflowId, choice.token, file);
-    }
-    return;
-  }
-  if (choice.kind == 'slot') {
-    if (edit) {
-      await settings.setImageGenEditModel(file);
-    } else {
-      await settings.setImageGenModel(file);
-    }
-  }
 }
 
 /// The bundled graph for this file. A GGUF name never stays on the
@@ -385,7 +258,11 @@ StudioReadiness deskReadiness({
 }) {
   if (backend != 'comfyui') {
     if (primaryFile.trim().isEmpty) {
-      return const StudioReadiness(StudioReady.missingFile);
+      return StudioReadiness(
+        StudioReady.missingFile,
+        null,
+        studioNoModelWords(backend),
+      );
     }
     if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
       return const StudioReadiness(StudioReady.loraMismatch);
@@ -401,29 +278,35 @@ StudioReadiness deskReadiness({
     uploadedWorkflowJson: uploadedWorkflowJson,
     liveTemplate: liveTemplate,
   );
-  if (source == null || source.isEmpty) {
-    return const StudioReadiness(StudioReady.missingFile);
-  }
-  final api = ensureComfyApiGraph(source, objectInfo: objectInfo);
+  final api = source == null || source.isEmpty
+      ? null
+      : ensureComfyApiGraph(source, objectInfo: objectInfo);
   if (api == null) {
-    return const StudioReadiness(StudioReady.missingFile);
+    return const StudioReadiness(
+      StudioReady.missingFile,
+      null,
+      kStudioGraphUnreadable,
+    );
   }
   final uploaded = workflowId == kComfyUploadedWorkflowId;
   final adapted = adaptComfyApiWorkflow(api);
   final slots = uploaded ? const <ComfyModelSlot>[] : adapted.slots;
   final tokens = detectComfyTokens(adapted.template);
   final ownShift = adapted.ownShifts.values.firstOrNull?.toDouble();
-  StudioReadiness verdict(StudioReady kind, {String? missingClass}) =>
-      StudioReadiness(
-        kind,
-        missingClass,
-        null,
-        null,
-        slots,
-        false,
-        tokens,
-        ownShift,
-      );
+  StudioReadiness verdict(
+    StudioReady kind, {
+    String? missingClass,
+    String? message,
+  }) => StudioReadiness(
+    kind,
+    missingClass,
+    message,
+    null,
+    slots,
+    false,
+    tokens,
+    ownShift,
+  );
   final graph = uploaded
       ? api
       : _graphWithChoices(
@@ -451,15 +334,15 @@ StudioReadiness deskReadiness({
   if (missing != null) {
     return verdict(StudioReady.missingNodeClass, missingClass: missing);
   }
-  final filled = edit
-      ? comfyEditReady(
+  final unfilled = edit
+      ? comfyEditUnfilled(
           workflowId: workflowId,
           uploadedWorkflowJson: uploadedWorkflowJson,
           modelChoices: modelChoices,
           liveTemplate: liveTemplate,
           objectInfo: objectInfo,
         )
-      : comfyCreateReady(
+      : comfyCreateUnfilled(
           workflowId: workflowId,
           uploadedWorkflowJson: uploadedWorkflowJson,
           modelChoices: modelChoices,
@@ -467,7 +350,16 @@ StudioReadiness deskReadiness({
           liveTemplate: liveTemplate,
           objectInfo: objectInfo,
         );
-  if (!filled) return verdict(StudioReady.missingFile);
+  if (unfilled == null || unfilled.isNotEmpty) {
+    return verdict(
+      StudioReady.missingFile,
+      message: studioUnfilledWords(
+        unfilled: unfilled,
+        slots: adapted.slots,
+        primaryFile: primaryFile,
+      ),
+    );
+  }
   if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
     return verdict(StudioReady.loraMismatch);
   }

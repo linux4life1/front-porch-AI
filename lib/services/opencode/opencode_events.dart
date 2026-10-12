@@ -18,6 +18,8 @@
 
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 sealed class OpenCodeBusEvent {
   const OpenCodeBusEvent();
 }
@@ -209,7 +211,9 @@ List<OpenCodeBusEvent> parseOpenCodeSse(
       if (map == null) continue;
       final event = openCodeEventFromJson(map, thinkByPart: thinkByPart);
       if (event != null) out.add(event);
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('[OpenCode] skipped unreadable event: $e');
+    }
   }
   return out;
 }

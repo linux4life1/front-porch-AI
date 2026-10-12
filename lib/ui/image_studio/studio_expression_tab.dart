@@ -13,9 +13,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+import 'studio_expression_tab/expression_draft_pane.dart';
 import 'studio_widgets.dart';
-
-part 'studio_expression_tab.view.dart';
 
 /// Independent draft and owned results for the persistent Expressions tab.
 class StudioExpressionTab extends StatefulWidget {
@@ -53,8 +52,6 @@ class StudioExpressionTabState extends State<StudioExpressionTab> {
   bool _crafting = false;
   bool _draftTouched = false;
   int _loadSequence = 0;
-
-  void _setWorkspaceState(VoidCallback fn) => setState(fn);
 
   bool get hasPack => _packKey.currentState?.hasPack ?? false;
   Future<bool> confirmClose() async =>
@@ -283,5 +280,128 @@ class StudioExpressionTabState extends State<StudioExpressionTab> {
   }
 
   @override
-  Widget build(BuildContext context) => _buildWorkspace(context);
+  Widget build(BuildContext context) {
+    final repository = context.watch<CharacterRepository?>();
+    final settings = context.watch<StorageService>().imageGenSettings;
+    final imageGen = context.watch<ImageGenService>();
+    final backend = settings.imageGenBackend;
+    final edit =
+        backend == 'comfyui' ||
+        backend == 'remote' ||
+        ImageReferenceResolver.packEditMode(settings);
+    final prepared = _prepared;
+    final card = _character;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        OtherExpressionPack(
+          owned: (run) => _packKey.currentState?.owns(run) ?? false,
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Expressions',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppColors.textPrimary(context),
+                  ),
+                ),
+              ),
+              if (hasPack)
+                Tooltip(
+                  message:
+                      'Clear pack results and unlock the target, prompt, and source. Imported expressions stay in the library.',
+                  child: TextButton(
+                    onPressed: _loading || _crafting ? null : _newPack,
+                    child: const Text('Reset pack'),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        Expanded(
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final wide = constraints.maxWidth >= 700;
+              final draft = ExpressionDraftPane(
+                repository: repository,
+                card: card,
+                edit: edit,
+                frozen: _frozen,
+                loading: _loading,
+                crafting: _crafting,
+                description: _description,
+                sourceCaption: _sourceCaption,
+                source: _source,
+                lastStudioImage: widget.lastStudioImage,
+                error: _error,
+                onSelectCharacter: _selectCharacter,
+                onDraftEdited: () => setState(() => _draftTouched = true),
+                onWritePrompt: _writePrompt,
+                onUsePortrait: () {
+                  setState(() => _sourceCaption = 'Character portrait');
+                  _loadPortrait();
+                },
+                onUpload: _upload,
+                onUseLast: () {
+                  setState(() => _sourceCaption = 'Last Studio picture');
+                  _prepareSource(widget.lastStudioImage);
+                },
+              );
+              final pack =
+                  prepared == null || card?.dbId == null || repository == null
+                  ? const Center(
+                      child: Text(
+                        'Choose a character and source portrait to set up expressions.',
+                      ),
+                    )
+                  : ExpressionPackDialog.workspace(
+                      key: _packKey,
+                      characterDbId: card!.dbId!,
+                      characterName: card.name,
+                      repository: repository,
+                      storage: context.read<StorageService>(),
+                      imageGen: imageGen,
+                      baseImage: prepared.bytes,
+                      baseWidth: prepared.width,
+                      baseHeight: prepared.height,
+                      basePrompt: _description.text.trim(),
+                      preparePrompt: () => _craftPrompt(automatic: true),
+                      preparingPrompt: _crafting,
+                      negativePrompt: settings.imageGenNegativePrompt,
+                      existingEmotions: _existing,
+                      note: prepared.note,
+                      onSessionChanged: (hasSession) {
+                        setState(() => _frozen = hasSession);
+                        widget.onPackChanged?.call();
+                      },
+                      onImported: () => widget.onImported?.call(card.dbId!),
+                      onDiscard: _newPack,
+                    );
+              if (wide) {
+                return Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(child: draft),
+                    Expanded(flex: 2, child: pack),
+                  ],
+                );
+              }
+              return SingleChildScrollView(
+                child: Column(
+                  children: [
+                    SizedBox(height: 440, child: draft),
+                    SizedBox(height: 580, child: pack),
+                  ],
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
 }

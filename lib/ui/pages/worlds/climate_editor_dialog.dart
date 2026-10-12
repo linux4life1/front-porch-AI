@@ -21,12 +21,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/ui/pages/worlds/climate_editor_chrome.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_editor_right.dart';
-import 'package:front_porch_ai/ui/pages/worlds/climate_editor_widgets.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_season_strip.dart';
-import 'package:front_porch_ai/ui/pages/worlds/climate_skin_row.dart';
+import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Custom climate editor. Desktop authoring; biome JSON is consumed everywhere.
 /// Anchors are typed in the user's °C/°F unit and stored as °C.
@@ -108,7 +107,15 @@ class _ClimateEditorDialogState extends State<_ClimateEditorDialog> {
     _seedFrom(existing ?? Biome.desert);
     // The mockup opens with the preview already computed.
     _preview = previewBiome(_buildDraft());
+    _startState = _editState;
   }
+
+  String get _draftJson => jsonEncode(_buildDraft().toJson());
+  String get _editState => climateEditState(_draftJson, _skins, [
+    _anchorCtls,
+    _labelCtls,
+  ], _weightCtls);
+  late final String _startState;
 
   void _ensureSeason(String id) {
     if (_labelCtls.containsKey(id)) return;
@@ -179,21 +186,13 @@ class _ClimateEditorDialogState extends State<_ClimateEditorDialog> {
 
   @override
   void dispose() {
-    for (final c in _anchorCtls.values) {
-      c.dispose();
-    }
-    for (final c in _labelCtls.values) {
-      c.dispose();
-    }
-    for (final list in _weightCtls.values) {
-      for (final c in list) {
-        c.dispose();
-      }
-    }
-    for (final c in _skinLabelCtls.values) {
-      c.dispose();
-    }
-    for (final c in _skinFlavourCtls.values) {
+    for (final c in [
+      ..._anchorCtls.values,
+      ..._labelCtls.values,
+      for (final list in _weightCtls.values) ...list,
+      ..._skinLabelCtls.values,
+      ..._skinFlavourCtls.values,
+    ]) {
       c.dispose();
     }
     super.dispose();
@@ -334,57 +333,62 @@ class _ClimateEditorDialogState extends State<_ClimateEditorDialog> {
   @override
   Widget build(BuildContext context) {
     final errors = _blockingErrors();
-    return Dialog(
-      backgroundColor: AppColors.cardOf(context),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: AppColors.borderOf(context)),
-      ),
-      child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: 1120, maxHeight: 760),
-        child: Column(
-          children: [
-            // ── Header with the mockup's amber wash ──
-            ClimateEditorHeader(
-              worldName: widget.worldName,
-              templateId: _templateId,
-              onTemplate: (id) {
-                if (id == 'custom') return;
-                setState(() {
-                  _templateId = id;
-                  _seedFrom(Biome.builtInById(id)!);
-                  _preview = previewBiome(_buildDraft());
-                });
-              },
-              onClose: () => Navigator.pop(context),
-            ),
-            Divider(height: 1, color: AppColors.borderOf(context)),
-            Expanded(
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Expanded(flex: 5, child: _leftColumn(context)),
-                  VerticalDivider(width: 1, color: AppColors.borderOf(context)),
-                  // The mockup's darker inset preview column.
-                  Expanded(
-                    flex: 4,
-                    child: ColoredBox(
-                      color: Colors.black.withValues(alpha: 0.14),
-                      child: _rightColumn(context),
-                    ),
-                  ),
-                ],
+    return UnsavedChangesGuard(
+      isDirty: () => _editState != _startState,
+      child: Dialog(
+        backgroundColor: AppColors.cardOf(context),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppColors.borderOf(context)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 1120, maxHeight: 760),
+          child: Column(
+            children: [
+              // ── Header with the mockup's amber wash ──
+              ClimateEditorHeader(
+                worldName: widget.worldName,
+                templateId: _templateId,
+                onTemplate: (id) {
+                  if (id == 'custom') return;
+                  setState(() {
+                    _templateId = id;
+                    _seedFrom(Biome.builtInById(id)!);
+                    _preview = previewBiome(_buildDraft());
+                  });
+                },
+                onClose: () => Navigator.maybePop(context),
               ),
-            ),
-            Divider(height: 1, color: AppColors.borderOf(context)),
-            // ── Footer pills ──
-            ClimateEditorFooter(
-              canSave: errors.isEmpty,
-              onCancel: () => Navigator.pop(context),
-              onSave: () =>
-                  Navigator.pop(context, jsonEncode(_buildDraft().toJson())),
-            ),
-          ],
+              Divider(height: 1, color: AppColors.borderOf(context)),
+              Expanded(
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Expanded(flex: 5, child: _leftColumn(context)),
+                    VerticalDivider(
+                      width: 1,
+                      color: AppColors.borderOf(context),
+                    ),
+                    // The mockup's darker inset preview column.
+                    Expanded(
+                      flex: 4,
+                      child: ColoredBox(
+                        color: Colors.black.withValues(alpha: 0.14),
+                        child: _rightColumn(context),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Divider(height: 1, color: AppColors.borderOf(context)),
+              // ── Footer pills ──
+              ClimateEditorFooter(
+                canSave: errors.isEmpty,
+                onCancel: () => Navigator.maybePop(context),
+                onSave: () => Navigator.pop(context, _draftJson),
+              ),
+            ],
+          ),
         ),
       ),
     );

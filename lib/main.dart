@@ -255,7 +255,10 @@ class _MyAppState extends State<MyApp> with WindowListener {
   }
 
   @override
-  void onWindowClose() {
+  void onWindowClose() async {
+    if (!_shutdownStarted && !await UnsavedChanges.instance.confirmLeave()) {
+      return;
+    }
     _saveStateAndShutdown();
   }
 
@@ -269,6 +272,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
     if (_shutdownStarted) {
       // A close is already in flight and will _exit when done — refuse this
       // termination so the engine can't race our cleanup with its teardown.
+      return AppExitResponse.cancel;
+    }
+    if (!await UnsavedChanges.instance.confirmLeave()) {
       return AppExitResponse.cancel;
     }
     await _saveStateAndShutdown();

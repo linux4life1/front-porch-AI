@@ -19,6 +19,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/opencode/opencode_events.dart';
@@ -251,7 +252,8 @@ class OpenCodeClient {
         'properties': body,
       });
       return event is OpenCodeSessionTokens ? event : null;
-    } catch (_) {
+    } catch (e) {
+      debugPrint('[OpenCode] token totals unavailable for $sessionId: $e');
       return null;
     } finally {
       client.close();

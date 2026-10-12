@@ -52,7 +52,7 @@ class EditCharacterScaffold extends StatelessWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: AppColors.iconSecondary(context)),
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
         title: Row(
           children: [

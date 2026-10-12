@@ -9,9 +9,12 @@
 import { useState } from 'react';
 import type { SceneRef } from '../storyShape';
 import { Dialog } from '../setup/primitives';
+import { confirmDiscard } from '../../../hooks/useUnsavedChanges';
 
-const cancel = (onCancel: () => void) => (
-  <button type="button" className="s-btn-ghost" onClick={onCancel}>Cancel</button>
+const cancel = (onCancel: () => void, dirty = false) => (
+  <button type="button" className="s-btn-ghost" onClick={() => confirmDiscard(dirty) && onCancel()}>
+    Cancel
+  </button>
 );
 
 export function GoToSceneDialog({ refs, labelOf, onPick, onCancel }: {
@@ -42,10 +45,11 @@ export function ByHandDialog({ beat, text, onSave, onCancel }: {
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(text);
+  const dirty = value !== text;
   return (
-    <Dialog title={`Beat ${beat + 1}`} onClose={onCancel} actions={(
+    <Dialog title={`Beat ${beat + 1}`} onClose={onCancel} dirty={dirty} actions={(
       <>
-        {cancel(onCancel)}
+        {cancel(onCancel, dirty)}
         <button type="button" className="s-btn-primary" data-testid="story-dialog-confirm" onClick={() => onSave(value.trim())}>Save</button>
       </>
     )}>
@@ -65,10 +69,11 @@ export function PhrasesDialog({ own, auto, onSave, onCancel }: {
   onCancel: () => void;
 }) {
   const [value, setValue] = useState(own.join('\n'));
+  const dirty = value !== own.join('\n');
   return (
-    <Dialog title="Phrases to avoid" wide onClose={onCancel} actions={(
+    <Dialog title="Phrases to avoid" wide onClose={onCancel} dirty={dirty} actions={(
       <>
-        {cancel(onCancel)}
+        {cancel(onCancel, dirty)}
         <button type="button" className="s-btn-primary" data-testid="story-dialog-confirm" onClick={() => onSave(value)}>Save</button>
       </>
     )}>

@@ -17,23 +17,18 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import 'expression_pack_dialog/expression_pack_dialog.dart';
 import 'studio_widgets.dart';
-
-part 'expression_pack_dialog.view.dart';
-part 'expression_pack_dialog.qc.dart';
 
 /// Expression pack setup and results embedded in the Expressions workspace.
 class ExpressionPackDialog extends StatefulWidget {
@@ -102,14 +97,10 @@ class ExpressionPackDialogState extends State<ExpressionPackDialog> {
   bool _importing = false;
   bool _imported = false;
 
-  /// The base portrait, encoded once and shared by every vision call.
-  late final String _baseB64 = base64Encode(widget.baseImage);
-
-  /// Vision QC controller for the grid; a new run replaces (and disposes) the
-  /// previous one. Null until the first "Vision check".
-  ExpressionPackQc? _qc;
-  bool _resolvingVision = false;
-  void _setDialogState(VoidCallback fn) => setState(fn);
+  late final ExpressionPackVisionCheck _vision = ExpressionPackVisionCheck(
+    baseImage: widget.baseImage,
+    update: setState,
+  );
 
   @override
   void dispose() {
@@ -117,8 +108,7 @@ class ExpressionPackDialogState extends State<ExpressionPackDialog> {
     if (session != null) expressionPackBoard.release(session);
     _session?.cancel();
     _session?.dispose();
-    _qc?.cancel();
-    _qc?.dispose();
+    _vision.dispose();
     super.dispose();
   }
 
@@ -248,7 +238,8 @@ class ExpressionPackDialogState extends State<ExpressionPackDialog> {
   Future<void> _resume(ExpressionPackSession session) async {
     if (widget.imageGen.isGenerating || _imported) return;
     setState(() => _cancelRequested = false);
-    final names = await widget.imageGen.startExpressionPack(
+    final names = await ImageGenService.startExpressionPackOn(
+      widget.imageGen,
       [
         for (final slot in session.slots)
           if (slot.state == ExpressionSlotState.pending) slot.emotion,
@@ -337,5 +328,47 @@ class ExpressionPackDialogState extends State<ExpressionPackDialog> {
   }
 
   @override
-  Widget build(BuildContext context) => _buildPack(context);
+  Widget build(BuildContext context) {
+    final session = _session;
+    final content = Column(
+      children: [
+        Expanded(
+          child: _checkingWorkflow
+              ? const Center(child: CircularProgressIndicator())
+              : session == null
+              ? ExpressionPackSetupPane(
+                  storage: widget.storage,
+                  preparingPrompt: widget.preparingPrompt,
+                  promptRules: _promptRules,
+                  onRulesChanged: (rules) => _promptRules = rules,
+                  basePrompt: widget.basePrompt,
+                  baseImage: widget.baseImage,
+                  characterName: widget.characterName,
+                  existingEmotions: widget.existingEmotions,
+                  note: widget.note,
+                  onCancel: () => widget.onDiscard?.call(),
+                  onStart: _start,
+                )
+              : ExpressionPackGrid(
+                  storage: widget.storage,
+                  session: session,
+                  imageGen: widget.imageGen,
+                  cancelRequested: _cancelRequested,
+                  importing: _importing,
+                  imported: _imported,
+                  qc: _vision.qc,
+                  resolvingVision: _vision.resolving,
+                  onVisionCheck: () => _vision.run(context, _session),
+                  onCancel: () {
+                    setState(() => _cancelRequested = true);
+                    session.cancel();
+                  },
+                  onResume: () => unawaited(_resume(session)),
+                  onImport: _import,
+                ),
+        ),
+      ],
+    );
+    return content;
+  }
 }

@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
 import 'package:front_porch_ai/ui/widgets/sidebar_width.dart';
+import 'package:front_porch_ai/ui/widgets/unsaved_changes_guard.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
@@ -44,6 +45,16 @@ class Sidebar extends StatelessWidget {
     'Join the Discord',
     'Buy Me a Coffee ☕',
   ];
+
+  /// A tab switch throws the current page away, so unsaved edits are asked
+  /// about first.
+  Future<void> _goTo(BuildContext context, AppState appState, int index) async {
+    if (index != appState.selectedIndex &&
+        !await UnsavedChanges.instance.confirmLeave(context)) {
+      return;
+    }
+    appState.setIndex(index);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +93,7 @@ class Sidebar extends StatelessWidget {
                     icon: Icons.home_outlined,
                     label: 'Home',
                     isSelected: appState.selectedIndex == 0,
-                    onTap: () => appState.setIndex(0),
+                    onTap: () => _goTo(context, appState, 0),
                   ),
                   // The Stoop (community character hub) — a flagship destination, so it
                   // sits right under Home.
@@ -190,7 +201,7 @@ class Sidebar extends StatelessWidget {
                     icon: Icons.add_circle_outline,
                     label: 'Create Character',
                     isSelected: appState.selectedIndex == 1,
-                    onTap: () => appState.setIndex(1),
+                    onTap: () => _goTo(context, appState, 1),
                   ),
                   InkWell(
                     onTap: () => Navigator.of(context).push(
@@ -238,25 +249,25 @@ class Sidebar extends StatelessWidget {
                     icon: Icons.dns_outlined,
                     label: 'Manage Models',
                     isSelected: appState.selectedIndex == 2,
-                    onTap: () => appState.setIndex(2),
+                    onTap: () => _goTo(context, appState, 2),
                   ),
                   _SidebarItem(
                     icon: Icons.settings_outlined,
                     label: 'Settings',
                     isSelected: appState.selectedIndex == 3,
-                    onTap: () => appState.setIndex(3),
+                    onTap: () => _goTo(context, appState, 3),
                   ),
                   _SidebarItem(
                     icon: Icons.person_outline,
                     label: 'User Persona',
                     isSelected: appState.selectedIndex == 4,
-                    onTap: () => appState.setIndex(4),
+                    onTap: () => _goTo(context, appState, 4),
                   ),
                   _SidebarItem(
                     icon: Icons.public_outlined,
                     label: 'Worlds',
                     isSelected: appState.selectedIndex == 5,
-                    onTap: () => appState.setIndex(5),
+                    onTap: () => _goTo(context, appState, 5),
                   ),
                   // Local DB Backups & Restore — preserved from the removed Cloud Sync
                   // page (it was never cloud-dependent). Opens as its own full page.

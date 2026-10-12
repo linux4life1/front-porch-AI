@@ -32,6 +32,7 @@ import { remoteReachabilityLabel } from './remoteReachability';
 import { BACKEND_OPTIONS, INTEL_MAC_LOCAL_UNSUPPORTED, backendOptionId } from '../backendOptions';
 import { presetOwnsContext } from '../presetOwnsContext';
 import { useLocalUnsupported } from '../hooks/useLocalUnsupported';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 
 type Gen = GenSettings;
@@ -95,6 +96,26 @@ interface LegacyModels {
 const fmtBytes = (b: number) =>
   b >= 1024 ** 3 ? `${(b / 1024 ** 3).toFixed(1)} GB` : `${Math.round(b / 1024 ** 2)} MB`;
 
+// What the Save button writes. The sub-panels above it save on their own.
+const savedFields = (s: Settings) =>
+  JSON.stringify([
+    s.backend,
+    s.remoteApiUrl,
+    s.remoteModelName,
+    s.contextSize,
+    s.reasoningEnabled,
+    s.reasoningEffort,
+    s.generation,
+    s.systemPrompt,
+    s.bannedPhrases,
+    s.workerBackend ?? '',
+    s.workerRemoteApiUrl ?? '',
+    s.workerRemoteModelName ?? '',
+    s.workerKoboldModelPath ?? '',
+    s.workerKoboldKcppsPath ?? '',
+    s.spellCheckLanguage,
+  ]);
+
 function RemoteReachabilityBadge({
   configured,
   reachability,
@@ -130,12 +151,21 @@ export function SettingsPage() {
   const [password, setPassword] = useState('');
   const [totpCode, setTotpCode] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
+  // savedFields of the last load or save.
+  const [savedForm, setSavedForm] = useState('');
+  const [personaDirty, setPersonaDirty] = useState(false);
+  const { prompt } = useUnsavedChanges(
+    personaDirty ||
+      (s !== null &&
+        (savedFields(s) !== savedForm || apiKey.trim() !== '' || workerApiKey.trim() !== '')),
+  );
 
   const load = () =>
     api
       .get<Settings>('/api/settings')
       .then((next) => {
         setS(next);
+        setSavedForm(savedFields(next));
         setSavedRemoteApiUrl(next.remoteApiUrl);
         setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       })
@@ -225,6 +255,7 @@ export function SettingsPage() {
       }
       const next = await api.post<Settings>('/api/settings', body);
       setS(next);
+      setSavedForm(savedFields(next));
       setSavedRemoteApiUrl(next.remoteApiUrl);
       setSavedWorkerRemoteApiUrl(next.workerRemoteApiUrl ?? '');
       // Take effect on this device immediately rather than at next reload.
@@ -311,9 +342,10 @@ export function SettingsPage() {
 
   return (
     <div className="page">
+      {prompt}
       <h2>Settings</h2>
 
-      <PersonaManager />
+      <PersonaManager onDirtyChange={setPersonaDirty} />
 
       <MessageSideSettings />
 

@@ -1,0 +1,293 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/character_gen/gen_parsing.dart';
+import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
+import 'package:front_porch_ai/services/character_gen/gen_stages.dart';
+import 'package:front_porch_ai/services/character_gen/greeting_recipe.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
+
+/// AI Enhance: re-run the creator pipeline for an EXISTING character, grounded
+/// in a real chat, producing a detached result card the caller merges onto a
+/// duplicate. This class deliberately reuses the wizard's stages — the
+/// interview, enrichment, dialogue, greeting, and lorebook steps are the SAME
+/// methods the wizard calls, with the chat transcript riding their existing
+/// context seams. The base-card JSON, truncation-recovery, and image-prompt
+/// stages are skipped: the card already exists.
+class GenEnhancer {
+  GenEnhancer(this._s);
+
+  final GenStages _s;
+  GenRunState get _state => _s.state;
+
+  /// Rewrite the [selection]-chosen text fields of [source] using
+  /// [chatGrounding] (built by `buildChatExcerptBlock`) as the source of truth
+  /// for voice and history.
+  ///
+  /// [source] is never mutated. The returned card carries the enhanced text
+  /// fields (unselected ones keep [source]'s values verbatim); `lorebook` is
+  /// non-null only when the selection asked for one. Returns null on abort or
+  /// when nothing was selected.
+  Future<CharacterCard?> run({
+    required CharacterCard source,
+    required EnhanceSelection selection,
+    required String chatGrounding,
+    required String userPersonaContext,
+    required String greetingLength,
+    required bool nsfwEnabled,
+    required bool reasoningEnabled,
+    required bool abortInFlight,
+    required String? narrativePerspective,
+    required String? narrativeTense,
+    required String? sex,
+    required void Function(String accumulated)? onProgress,
+    required void Function(String error)? onError,
+    required void Function(String status)? onStatus,
+  }) async {
+    if (!selection.anySelected) return null;
+    final name = source.name;
+
+    // The stored card carries {{char}} macros (applyCharMacroToCard writes
+    // them on save); expand them for prompting so the interview seed and
+    // rewrite prompts read naturally, then re-normalize at the end.
+    String expand(String s) => s.replaceAll('{{char}}', name);
+    final card = CharacterCard(
+      name: name,
+      description: expand(source.description),
+      personality: expand(source.personality),
+      scenario: expand(source.scenario),
+      firstMessage: source.firstMessage,
+      mesExample: source.mesExample,
+      alternateGreetings: List.from(source.alternateGreetings),
+    );
+
+    debugPrint(
+      'CharacterGen: Enhancing "$name" (${selection.toJson()}, '
+      'grounding ${chatGrounding.length} chars)',
+    );
+    // Same reasoning as the Scene Guest mint: an enhance launched from the
+    // home screen must not kill journal/growth/realism evals a background
+    // chat may legitimately have in flight on the shared backend.
+    final int currentEpoch = _state.beginRun(
+      abortInFlight: abortInFlight,
+      reasoningEnabled: reasoningEnabled,
+      includeDynamicMacros: false,
+    );
+    // Keep the card's Create voice. Params override the stamp; omitted
+    // (and unstamped cards) stay first-person present.
+    final resolved = resolveEnhanceVoice(
+      narrativePerspective: narrativePerspective,
+      narrativeTense: narrativeTense,
+      sex: sex,
+      source: source,
+    );
+    _state.narrativeVoice = resolved.voice;
+    _state.narrativeSex = resolved.sex;
+
+    // ── Interview, grounded in the real chat (always runs) ─────────
+    onStatus?.call('Interviewing $name about the chat...');
+    onProgress?.call('');
+    final interviewTranscript = await _s.interview.runInterview(
+      card: card,
+      name: name,
+      nsfwEnabled: nsfwEnabled,
+      onStatus: onStatus,
+      onProgress: onProgress,
+      chatGrounding: chatGrounding,
+    );
+    if (_state.isStale(currentEpoch)) return null;
+
+    // ── Enrichment: one call rewrites description + personality + scenario ──
+    if (selection.needsEnrichment && interviewTranscript.isNotEmpty) {
+      onStatus?.call('Rewriting profile from the chat...');
+      onProgress?.call('');
+      final origDescription = card.description;
+      final origPersonality = card.personality;
+      await _s.interview.enrichCardFromInterview(
+        card: card,
+        name: name,
+        interviewTranscript: interviewTranscript,
+        // Reuses the wizard's verbatim-scenario gate: an unselected scenario
+        // is "user-authored" and must never drift.
+        preserveUserScenario: !selection.scenario,
+        chatGrounding: chatGrounding,
+        onProgress: onProgress,
+      );
+      // The enrichment call rewrites all three fields at once (cheaper than
+      // three calls); revert the ones the user did not ask to change.
+      if (!selection.description) card.description = origDescription;
+      if (!selection.personality) card.personality = origPersonality;
+    }
+    if (_state.isStale(currentEpoch)) return null;
+
+    // ── Example dialogue, mined from real chat lines ─────────────
+    if (selection.exampleDialogue && interviewTranscript.isNotEmpty) {
+      onStatus?.call('Writing example dialogue from real lines...');
+      onProgress?.call('');
+      await _s.interview.generateExampleDialogue(
+        card: card,
+        name: name,
+        interviewTranscript: interviewTranscript,
+        chatGrounding: chatGrounding,
+        onProgress: onProgress,
+      );
+    }
+    if (_state.isStale(currentEpoch)) return null;
+
+    // ── Lorebook, grounded in the chat via the existing worldLore seam ──
+    if (selection.lorebook) {
+      onStatus?.call('Generating lorebook from the story so far...');
+      onProgress?.call('');
+      await _s.lore.generateLorebookSeparately(
+        card: card,
+        name: name,
+        concept: card.description,
+        loreCategories: const [],
+        loreDepth: 'Standard',
+        interviewTranscript: interviewTranscript,
+        worldLore: chatGrounding,
+        onProgress: onProgress,
+      );
+    }
+    if (_state.isStale(currentEpoch)) return null;
+
+    // ── Greetings: first message + as many alts as the source had ──
+    if (selection.greetings) {
+      onStatus?.call('Writing first message...');
+      onProgress?.call('');
+      final firstMsgPrompt = _s.greetingPrompt(
+        name: name,
+        description: card.description,
+        personality: card.personality,
+        scenario: card.scenario,
+        length: greetingLength,
+        tone: 'Neutral',
+        previousGreetings: [],
+        // The chat grounding rides the existing characterContext seam — its
+        // documented purpose ("weave these details naturally into the scene").
+        characterContext: chatGrounding,
+        userPersonaContext: userPersonaContext,
+        interviewTranscript: interviewTranscript,
+      );
+      final firstMsgOutput = await _s.llm.call(
+        firstMsgPrompt,
+        maxLen: 4096,
+        minLen: 512,
+        onProgress: onProgress,
+      );
+      if (firstMsgOutput != null && firstMsgOutput.trim().isNotEmpty) {
+        card.firstMessage = cleanGeneratedGreeting(firstMsgOutput);
+      }
+      if (_state.isStale(currentEpoch)) return null;
+
+      final altCount = source.alternateGreetings.length.clamp(0, 4);
+      if (altCount > 0) {
+        onStatus?.call('Planning alternate scenarios...');
+        onProgress?.call('');
+        final altScenarios = await _s.interview.generateAltScenarios(
+          name: name,
+          concept: card.description,
+          defaultScenario: card.scenario,
+          personality: card.personality,
+          count: altCount,
+          onProgress: onProgress,
+        );
+        final alts = <String>[];
+        for (int i = 0; i < altCount; i++) {
+          onStatus?.call('Writing alternate greeting ${i + 1} of $altCount...');
+          onProgress?.call('');
+          final altScenario =
+              (i < altScenarios.length && altScenarios[i].isNotEmpty)
+              ? altScenarios[i]
+              : card.scenario;
+          final altPrompt = _s.greetingPrompt(
+            name: name,
+            description: card.description,
+            personality: card.personality,
+            scenario: altScenario,
+            length: greetingLength,
+            tone: 'Neutral',
+            previousGreetings: [card.firstMessage, ...alts],
+            characterContext: chatGrounding,
+            userPersonaContext: userPersonaContext,
+            interviewTranscript: interviewTranscript,
+          );
+          final altOutput = await _s.llm.call(
+            altPrompt,
+            maxLen: 4096,
+            minLen: 512,
+            onProgress: onProgress,
+          );
+          if (altOutput != null && altOutput.trim().isNotEmpty) {
+            alts.add(cleanGeneratedGreeting(altOutput));
+          }
+        }
+        // Seeds are not authored with these rewritten alts — compact against
+        // empty so leftover source furious cannot land on Get out.
+        card.assignRewrittenAlternateGreetings(alts);
+      }
+    }
+    if (_state.isStale(currentEpoch)) return null;
+
+    // Same seed as AI Create, proposed not applied — Review's "Use this"
+    // is what writes it onto the (Enhanced) duplicate.
+    if (selection.porchLife) {
+      onStatus?.call('Proposing wardrobe and ambitions...');
+      onProgress?.call('');
+      // copyWith() keeps source greetingSeeds. When greetings were rewritten
+      // without authored seeds, pass compact-empty so leftover furious cannot
+      // land on Get out. Authored enhance seeds (if any) pair as written.
+      final sourceExt =
+          source.frontPorchExtensions ??
+          FrontPorchExtensions(needsSimEnabled: true);
+      if (selection.greetings) {
+        card.frontPorchExtensions = sourceExt.copyWith(
+          greetingSeeds: compactRewrittenGreetingAlts(
+            card.alternateGreetings,
+            card.frontPorchExtensions?.greetingSeeds,
+          ).seeds,
+        );
+      } else {
+        card.frontPorchExtensions = sourceExt.copyWith();
+      }
+      await _s.porchLife.seedIdentity(
+        card: card,
+        name: name,
+        interviewTranscript: interviewTranscript,
+        nsfwEnabled: nsfwEnabled,
+        onProgress: onProgress,
+      );
+    }
+    if (_state.isStale(currentEpoch)) return null;
+
+    applyCharMacroToCard(card, name);
+    // Unselected fields must carry over BYTE-VERBATIM. The clone expanded
+    // {{char}} and the macro pass above re-collapsed the name everywhere —
+    // a round-trip that can rewrite text the user never asked to change
+    // (hand-written names become {{char}}). The mid-run reverts above exist
+    // so later prompts read the original persona; this restore exists so the
+    // returned card carries the original bytes.
+    if (!selection.description) card.description = source.description;
+    if (!selection.personality) card.personality = source.personality;
+    if (!selection.scenario) card.scenario = source.scenario;
+    // How these greetings were written, for the copy that takes them (it is
+    // a duplicate, so it starts with the original creation's recipe): one
+    // neutral tone, this length, no lore. The chat they were grounded in and
+    // its interview stay out: a card travels, a chat stays where it is.
+    if (selection.greetings) {
+      stampGreetingRecipe(
+        card,
+        GreetingRecipe(
+          greetingLength: greetingLength,
+          tones: const ['Neutral'],
+          reasoningEnabled: reasoningEnabled,
+          nsfwEnabled: nsfwEnabled,
+        ),
+      );
+    }
+    onStatus?.call('Character enhanced!');
+    return card;
+  }
+}

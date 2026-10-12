@@ -7,6 +7,7 @@
 // comes from studio.css (.s-chip, .s-seg, .s-tog, .s-menu, .s-dialog …).
 
 import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { confirmDiscard, UnsavedPrompt } from '../../../hooks/useUnsavedChanges';
 
 /** True under the studio's phone breakpoint (same 760px as studio.css). */
 export function useNarrow(): boolean {
@@ -145,10 +146,14 @@ export function Avatar({ name, src, large }: { name: string; src?: string; large
 
 const openDialogs: object[] = [];
 
-/** A warm dialog: card fill, 15/700 title, body, actions. Esc or a tap outside closes it. */
-export function Dialog({ title, onClose, actions, children, sheet, wide, testid }: {
+/**
+ * A warm dialog: card fill, 15/700 title, body, actions. Esc or a tap outside
+ * closes it, asking first while `dirty` (typed input the close would drop).
+ */
+export function Dialog({ title, onClose, dirty, actions, children, sheet, wide, testid }: {
   title: string;
   onClose: () => void;
+  dirty?: boolean;
   actions?: ReactNode;
   children?: ReactNode;
   /** The model-picker sheet: 480px, with a ✕ in the corner. */
@@ -158,6 +163,11 @@ export function Dialog({ title, onClose, actions, children, sheet, wide, testid 
   testid?: string;
 }) {
   const token = useRef({});
+  const dirtyRef = useRef(dirty);
+  dirtyRef.current = dirty;
+  const dismiss = () => {
+    if (confirmDiscard(!!dirtyRef.current)) onClose();
+  };
   useEffect(() => {
     const me = token.current;
     openDialogs.push(me);
@@ -165,7 +175,7 @@ export function Dialog({ title, onClose, actions, children, sheet, wide, testid 
       // Only the topmost dialog answers Esc (a picker opens over the sheet).
       if (e.key !== 'Escape' || openDialogs[openDialogs.length - 1] !== me) return;
       e.stopPropagation();
-      onClose();
+      if (confirmDiscard(!!dirtyRef.current)) onClose();
     };
     document.addEventListener('keydown', onKey, true);
     return () => {
@@ -174,11 +184,13 @@ export function Dialog({ title, onClose, actions, children, sheet, wide, testid 
     };
   }, [onClose]);
   return (
-    <div className="s-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="s-backdrop" onMouseDown={(e) => { if (e.target === e.currentTarget) dismiss(); }}>
+      {/* Browser back, a nav link or a reload ask too, not only this dialog's own close. */}
+      {dirty !== undefined && <UnsavedPrompt dirty={dirty} />}
       <div className={sheet ? 's-sheet' : `s-dialog${wide ? ' wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} data-testid={testid}>
         <div className="s-row nowrap">
           <span className="t s-grow">{title}</span>
-          {sheet && <button type="button" className="s-btn-ico ghost" aria-label="Close" onClick={onClose}>✕</button>}
+          {sheet && <button type="button" className="s-btn-ico ghost" aria-label="Close" onClick={dismiss}>✕</button>}
         </div>
         {children}
         {actions && <div className="actions">{actions}</div>}

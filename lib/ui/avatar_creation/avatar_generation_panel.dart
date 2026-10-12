@@ -28,10 +28,9 @@ import 'package:front_porch_ai/ui/image_studio/vision_gate.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'avatar_creation_controller.dart';
+import 'avatar_generation_panel/avatar_generation_panel.dart';
 import 'expressions_section.dart';
 import 'portrait_section.dart';
-
-part 'avatar_generation_panel.progress.dart';
 
 /// The ONE shared "Portrait & Avatars" panel (phase #12), hosted by BOTH
 /// creators — the manual wizard's final step and the AI Character Creator's
@@ -128,7 +127,10 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
           // not buried under it in the bottom progress card.
           if (_c.stage == AvatarRunStage.portraitReview) ...[
             const SizedBox(height: 16),
-            _reviewCard(context),
+            AvatarPortraitReviewCard(
+              controller: _c,
+              onZoom: _showPortraitFullSize,
+            ),
           ],
           const SizedBox(height: 16),
           ExpressionsSection(controller: _c),
@@ -139,7 +141,7 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
           if (_c.stage != AvatarRunStage.idle &&
               _c.stage != AvatarRunStage.portraitReview) ...[
             const SizedBox(height: 14),
-            _progress(context),
+            AvatarRunProgress(controller: _c),
           ],
         ],
       ),
@@ -178,6 +180,27 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
           ),
         ),
       ],
+    );
+  }
+
+  /// Full-size zoomable portrait viewer (same interaction as the chat image
+  /// viewer): pinch/scroll to zoom + pan, tap anywhere to close. Takes the
+  /// in-memory bytes since the portrait may not be on disk as a standalone file.
+  void _showPortraitFullSize(BuildContext context, Uint8List bytes) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.all(24),
+        child: GestureDetector(
+          onTap: () => Navigator.of(ctx).pop(),
+          child: InteractiveViewer(
+            minScale: 0.8,
+            maxScale: 6,
+            child: Image.memory(bytes, fit: BoxFit.contain),
+          ),
+        ),
+      ),
     );
   }
 }

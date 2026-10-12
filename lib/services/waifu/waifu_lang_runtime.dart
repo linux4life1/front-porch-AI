@@ -158,7 +158,8 @@ Future<String?> _defaultWhich(String command) async {
     if (result.exitCode != 0) return null;
     final line = result.stdout.toString().trim().split('\n').first.trim();
     return line.isEmpty ? null : line;
-  } catch (_) {
+  } on ProcessException {
+    // No `which` / `where` on this machine: treat the command as missing.
     return null;
   }
 }

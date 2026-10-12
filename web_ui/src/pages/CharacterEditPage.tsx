@@ -21,6 +21,7 @@ import { usePassageOfTime } from '../components/realism/usePassageOfTime';
 import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { TokenBadge } from '../components/realism/controls';
 import { type RealismValues, compactGreetingPairs, realismFromDetail } from '../components/realism/realismTypes';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 interface RawLore {
   name?: string;
@@ -81,6 +82,16 @@ export function CharacterEditPage() {
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState('');
+  // The editable state as loaded; anything else is an unsaved edit.
+  const [loaded, setLoaded] = useState<string | null>(null);
+  const editable =
+    c && rv ? JSON.stringify({ c, tags, greetings, lore, rv, worldNames, ttsVoice }) : null;
+  useEffect(() => {
+    if (loaded === null && editable !== null) setLoaded(editable);
+  }, [loaded, editable]);
+  const { prompt, leaveWithoutAsking } = useUnsavedChanges(
+    loaded !== null && editable !== loaded,
+  );
 
   useEffect(() => {
     if (!id) return;
@@ -160,6 +171,8 @@ export function CharacterEditPage() {
           };
         })(),
       });
+      setLoaded(editable);
+      leaveWithoutAsking();
       navigate(-1);
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not save');
@@ -173,6 +186,7 @@ export function CharacterEditPage() {
     setError('');
     try {
       await api.post(`/api/characters/${id}/delete`);
+      leaveWithoutAsking();
       navigate('/');
     } catch (e) {
       setError(e instanceof ApiError ? e.message : 'Could not delete');
@@ -182,6 +196,7 @@ export function CharacterEditPage() {
 
   return (
     <div className="page">
+      {prompt}
       <div className="page-head">
         <h2>Edit character</h2>
         <div className="row-actions">

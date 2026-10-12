@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { confirmDiscard } from '../hooks/useUnsavedChanges';
 import { MakeCharacterDialog } from './library/PersonaConvertDialogs';
 
 interface Persona {
@@ -34,9 +35,20 @@ interface PersonaDetail {
 
 type EditState = { id: string | null; title: string; name: string; persona: string; birthday: string } | null;
 
-export function PersonaManager() {
+/** `onDirtyChange` lets the page guard leaving an unsaved persona edit. */
+export function PersonaManager({ onDirtyChange }: { onDirtyChange?: (dirty: boolean) => void } = {}) {
   const [personas, setPersonas] = useState<Persona[]>([]);
   const [edit, setEdit] = useState<EditState>(null);
+  // The edit as it was opened; anything else is unsaved.
+  const [editBase, setEditBase] = useState<string | null>(null);
+  const dirty = edit !== null && JSON.stringify(edit) !== editBase;
+  useEffect(() => {
+    onDirtyChange?.(dirty);
+  }, [dirty, onDirtyChange]);
+  const openEdit = (e: EditState) => {
+    setEdit(e);
+    setEditBase(JSON.stringify(e));
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [makeFrom, setMakeFrom] = useState<PersonaDetail | null>(null);
@@ -48,22 +60,25 @@ export function PersonaManager() {
     void load();
   }, []);
 
-  const apply = (p: Promise<{ personas: Persona[] }>) => {
+  const apply = (p: Promise<{ personas: Persona[] }>, closeEditor = true) => {
     setBusy(true);
     setError('');
     p.then((r) => {
       setPersonas(r.personas);
-      setEdit(null);
+      if (closeEditor) setEdit(null);
     })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Action failed'))
       .finally(() => setBusy(false));
   };
 
-  const select = (id: string) => apply(api.post('/api/personas/select', { id }).then(() => api.get('/api/personas')));
+  // Choosing the default or deleting another persona keeps the open edit.
+  const select = (id: string) =>
+    apply(api.post('/api/personas/select', { id }).then(() => api.get('/api/personas')), false);
   const beginEdit = async (id: string) => {
+    if (!confirmDiscard(dirty)) return;
     try {
       const d = await api.get<PersonaDetail>(`/api/personas/${id}/detail`);
-      setEdit({ id: d.id, title: d.title, name: d.name, persona: d.persona, birthday: d.birthday ?? '' });
+      openEdit({ id: d.id, title: d.title, name: d.name, persona: d.persona, birthday: d.birthday ?? '' });
     } catch {
       setError('Could not load persona');
     }
@@ -93,7 +108,10 @@ export function PersonaManager() {
         <h3>User personas</h3>
         <button
           className="ghost"
-          onClick={() => setEdit({ id: null, title: '', name: 'User', persona: '', birthday: '' })}
+          onClick={() =>
+            confirmDiscard(dirty) &&
+            openEdit({ id: null, title: '', name: 'User', persona: '', birthday: '' })
+          }
         >
           + New
         </button>
@@ -134,7 +152,7 @@ export function PersonaManager() {
                 className="icon-btn"
                 title="Delete"
                 disabled={busy || personas.length <= 1}
-                onClick={() => apply(api.post(`/api/personas/${p.id}/delete`))}
+                onClick={() => apply(api.post(`/api/personas/${p.id}/delete`), edit?.id === p.id)}
               >
                 🗑
               </button>
@@ -176,7 +194,7 @@ export function PersonaManager() {
             />
           </label>
           <div className="tool-row">
-            <button onClick={() => setEdit(null)}>Cancel</button>
+            <button onClick={() => confirmDiscard(dirty) && setEdit(null)}>Cancel</button>
             <button className="primary" disabled={busy || !edit.name.trim()} onClick={save}>
               {busy ? 'Saving…' : 'Save persona'}
             </button>

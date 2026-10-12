@@ -126,7 +126,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   }
 
   /// Final step's "Done": back to home and reset the wizard for a fresh run.
-  void _finishAndClose() {
+  Future<void> _finishAndClose() async {
     final name = _savedCard?.name ?? 'Character';
     ScaffoldMessenger.of(
       context,
@@ -136,8 +136,13 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     // screen. Instead navigate back to the home tab and reset the form.
     final appState = Provider.of<AppState>(context, listen: false);
     if (_pushed) {
-      if (appState.selectedIndex != 0) appState.setIndex(0);
-      Navigator.of(context).pop();
+      // The tab underneath may hold its own unsaved draft.
+      final navigator = Navigator.of(context);
+      if (appState.selectedIndex != 0 &&
+          await UnsavedChanges.instance.confirmLeave(context)) {
+        appState.setIndex(0);
+      }
+      navigator.pop();
       return;
     }
     appState.setIndex(0);
@@ -210,15 +215,30 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Once Review has saved the card, what is left is optional portrait work.
+    return UnsavedChangesGuard(
+      isDirty: () => _savedCard == null && _draft.hasContent,
+      child: _scaffold(),
+    );
+  }
+
+  /// A tab page, not a route: back switches to Home, after asking.
+  Future<void> _backToHome() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (!await UnsavedChanges.instance.confirmLeave(context)) return;
+    appState.setIndex(0);
+  }
+
+  Widget _scaffold() {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceOf(context),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => _pushed
-              ? Navigator.of(context).pop()
-              : Provider.of<AppState>(context, listen: false).setIndex(0),
+          onPressed: _pushed
+              ? () => Navigator.of(context).maybePop()
+              : _backToHome,
         ),
         title: Row(
           children: [

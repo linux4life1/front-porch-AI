@@ -32,7 +32,7 @@ void main() {
       'other.gguf',
     ]);
     final source = File(
-      'lib/services/comfy_ui_service.catalog.dart',
+      'lib/services/comfy_ui/comfy_catalog_reader.dart',
     ).readAsStringSync();
     expect(source.contains('assembleComfyCatalog'), isTrue);
     expect(source.contains('unetNames:'), isTrue);

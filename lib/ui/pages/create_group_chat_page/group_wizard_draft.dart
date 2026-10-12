@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -33,9 +35,46 @@ class GroupWizardDraft extends ChangeNotifier {
     scenarioController.addListener(updateEstimates);
     firstMessageController.addListener(updateEstimates);
     groupSystemController.addListener(updateEstimates);
+    _blank = fingerprint();
   }
 
   bool _disposed = false;
+  late final String _blank;
+
+  /// True once the wizard holds anything a fresh one does not. The step and
+  /// the generating flags are where the user is, not what they made.
+  bool get hasContent => fingerprint() != _blank;
+
+  String fingerprint() => jsonEncode([
+    [for (final m in members) stableId(m)],
+    nameController.text,
+    turnOrder.name,
+    autoAdvance,
+    directorMode,
+    scenarioController.text,
+    firstMessageController.text,
+    altGreetings,
+    [for (final s in altGreetingSeeds) s?.toJson()],
+    groupSystemController.text,
+    {
+      for (final e in characterSystemPrompts.entries)
+        if (e.value.text.isNotEmpty) e.key: e.value.text,
+    },
+    characterVoices,
+    [for (final e in groupLoreEntries) e.toJson()],
+    worldIds,
+    inheritCharacterLorebooks,
+    realismEnabled,
+    memberRealismSeeds,
+    chaosModeEnabled,
+    chaosNsfwEnabled,
+    needsSimEnabled,
+    memberNeedsBaselines,
+    globalTimeOfDay,
+    globalDayCount,
+    globalStoryStartDate,
+    globalStoryStartTime,
+  ], toEncodable: (o) => o.toString());
 
   int currentStep = 0;
   // 0 = Members

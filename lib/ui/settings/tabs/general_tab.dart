@@ -18,9 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:url_launcher/url_launcher.dart';
 
-import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -29,8 +27,7 @@ import 'package:front_porch_ai/ui/settings/dialogs/prompt_save_dialog.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/prompt_delete_dialog.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
-
-part 'general_tab.about.dart';
+import 'package:front_porch_ai/ui/settings/tabs/general_tab/general_tab.dart';
 
 /// Settings → General.
 class GeneralTab extends StatelessWidget {
@@ -360,7 +357,7 @@ class GeneralTab extends StatelessWidget {
                 storageService.realismSettings.setAdultThemesEnabled(v),
           ),
           const SizedBox(height: 8),
-          _buildPorchLifePointer(context),
+          const PorchLifePointerCard(),
           const SizedBox(height: 24),
           const SectionHeader('Model Instructions'),
           const SizedBox(height: 8),
@@ -432,20 +429,23 @@ class GeneralTab extends StatelessWidget {
             spacing: 8,
             runSpacing: 4,
             children: [
-              _presetChip(
-                '📡 API Default',
-                defaultApiSystemPrompt,
-                storageService,
+              SystemPromptPresetChip(
+                label: '📡 API Default',
+                prompt: defaultApiSystemPrompt,
+                storage: storageService,
+                systemPromptController: systemPromptController,
               ),
-              _presetChip(
-                '🖥️ KoboldCPP',
-                defaultKoboldSystemPrompt,
-                storageService,
+              SystemPromptPresetChip(
+                label: '🖥️ KoboldCPP',
+                prompt: defaultKoboldSystemPrompt,
+                storage: storageService,
+                systemPromptController: systemPromptController,
               ),
-              _presetChip(
-                '👥 Group Chat',
-                defaultGroupSystemPrompt,
-                storageService,
+              SystemPromptPresetChip(
+                label: '👥 Group Chat',
+                prompt: defaultGroupSystemPrompt,
+                storage: storageService,
+                systemPromptController: systemPromptController,
               ),
             ],
           ),
@@ -469,7 +469,7 @@ class GeneralTab extends StatelessWidget {
           const SizedBox(height: 24),
           const SectionHeader('About & License'),
           const SizedBox(height: 8),
-          _buildAboutSection(context),
+          const AboutLicenseCard(),
         ],
       ),
     );

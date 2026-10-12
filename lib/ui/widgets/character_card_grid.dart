@@ -4,20 +4,16 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
-import 'package:front_porch_ai/ui/pages/home/cards/cards.dart';
 import 'package:front_porch_ai/ui/pages/home/library_selection.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/character_card_grid/character_library_grid.dart';
 import 'package:front_porch_ai/ui/widgets/library_view.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
 export 'package:front_porch_ai/ui/widgets/library_view.dart' show SearchScope;
-
-part 'character_card_grid.grid.dart';
 
 enum FolderDialogAction { create, rename, delete }
 
@@ -246,7 +242,31 @@ class CharacterCardGrid extends StatelessWidget {
                     selection != null && (picking || selection!.dragCount > 0)
                     ? selection!.escape
                     : (picking ? onCancelSelection : null),
-                child: _buildGrid(context, view),
+                child: CharacterLibraryGrid(
+                  view: view,
+                  searchQuery: searchQuery,
+                  activeFolderId: activeFolderId,
+                  messageCountCache: messageCountCache,
+                  gridScale: gridScale,
+                  isSelecting: isSelecting,
+                  isOrganizing: isOrganizing,
+                  selectedCharacterIds: selectedCharacterIds,
+                  selectedGroupIds: selectedGroupIds,
+                  gridScrollController: gridScrollController,
+                  groupRepo: groupRepo,
+                  imageCacheEpoch: repo.coverEpoch,
+                  selection: selection,
+                  onTapCharacter: onTapCharacter,
+                  onTapGroup: onTapGroup,
+                  onToggleSelect: onToggleSelect,
+                  onToggleSelectGroup: onToggleSelectGroup,
+                  onContextMenuAction: onContextMenuAction,
+                  onGroupContextMenuAction: onGroupContextMenuAction,
+                  onAcceptFolderDrop: onAcceptFolderDrop,
+                  onFolderDialogAction: onFolderDialogAction,
+                  onFolderTap: onFolderTap,
+                  onResolveCharImage: onResolveCharImage,
+                ),
               ),
             ),
           ],

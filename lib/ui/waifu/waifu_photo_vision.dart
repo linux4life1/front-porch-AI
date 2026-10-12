@@ -35,7 +35,7 @@ Future<WaifuPhotoVision?> resolveWaifuPhotoVision(BuildContext context) async {
   try {
     llm = Provider.of<LLMProvider>(context, listen: false);
     storage = Provider.of<StorageService>(context, listen: false);
-  } catch (_) {
+  } on ProviderNotFoundException {
     return null;
   }
   final isLocal = llm.activeBackend == BackendType.kobold;

@@ -16,148 +16,90 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
-import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/grpc/draw_things_grpc_service.dart';
-import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
+import 'package:front_porch_ai/services/image_gen/image_gen.dart';
 
 // ImageGenMode / ImageGenBackend / ImageModelInfo now live in the pure leaf
 // image/image_gen_types.dart (imported above via the image/ barrel);
 // re-exported so every existing importer of this file stays unaffected.
 export 'image/image_gen_types.dart';
-
-part 'image_gen_service.generate.dart';
-part 'image_gen_service.studio.dart';
-part 'image_gen_service.prompt.dart';
-part 'image_gen_service.local_admin.dart';
-part 'image_gen_service.backends.dart';
-part 'image_gen_service.backends.generate.dart';
-part 'image_gen_service.catalog.dart';
-part 'image_gen_service.nano_models.dart';
-part 'image_gen_service.payload.dart';
-part 'image_gen_service.comfy.dart';
-part 'image_gen_service.clients.dart';
+export 'image_gen/image_gen_local_admin.dart' show refreshA1111LorasAt;
 
 /// Service for generating images via the remote API. Studio's host is
 /// [ImageGenSettings.imageRemoteApiUrl] (Nano / OpenRouter chips); keys
 /// still come from [RemoteApiKeyVault]. Chat's mouth URL is not rewritten.
 ///
-/// Split-god-file shell: the 19 members the 3 protected test fakes
-/// `implements ImageGenService` override stay literal instance members here
-/// (9 as one-line stubs into `_xImpl` parts); everything unfaked moved out.
+/// Shell: every member a test double that `implements` or `extends` this
+/// service overrides stays a literal instance member here, forwarding to the
+/// collaborators in `image_gen/` (status, clients, admin, job, prompts, disk,
+/// pack lock). Pack members that callers may invoke on a double also have
+/// static `...On` twins, which run the double-safe path.
 class ImageGenService extends ChangeNotifier {
   final StorageService _storage;
 
-  bool _isGenerating = false;
-
-  /// True while [startExpressionPack] holds the lock, so the frames it runs
-  /// can go through it without refusing themselves.
-  bool _packFlight = false;
-  String _statusMessage = '';
-  Uint8List? _lastGeneratedImage;
-  String? _lastSavedPath;
+  late final ImageGenStatus _status = ImageGenStatus(notifyListeners);
+  late final ImageGenClients _clients = ImageGenClients(_storage);
+  late final ImageGenLocalAdmin _admin = ImageGenLocalAdmin(
+    _storage,
+    _clients,
+    unloadViaService: unloadLocalModel,
+  );
+  late final ImageGenJob _job = ImageGenJob(
+    _storage,
+    _status,
+    _clients,
+    _admin,
+    switchLocalModel: switchLocalModel,
+  );
+  late final ImageGenPrompts _prompts = ImageGenPrompts(_storage);
+  late final ImageGenDisk _disk = ImageGenDisk(_storage, _clients, _status);
+  late final ImageGenPackLock _pack = ImageGenPackLock(_status, _clients);
 
   /// Live generation progress (0..1) and the latest in-progress preview
-  /// frame, so the UI can show the image "coming to life" instead of a
-  /// spinner. Fed per backend: A1111 polls /sdapi/v1/progress (percent +
-  /// preview), ComfyUI streams its WebSocket (percent + preview when the
-  /// server has previews enabled), Draw Things reports sampling steps
-  /// (percent only). Remote APIs return in one shot — both stay null there
-  /// (indeterminate). Cleared at the start and end of every generation.
-  double? _genProgress;
-  Uint8List? _genPreview;
-  double? get genProgress => _genProgress;
-  Uint8List? get genPreview => _genPreview;
+  /// frame; see [ImageGenStatus]. Cleared at the start and end of every
+  /// generation.
+  double? get genProgress => _status.genProgress;
+  Uint8List? get genPreview => _status.genPreview;
 
-  void _updateGenProgress(double? progress, [Uint8List? preview]) {
-    _genProgress = progress;
-    if (preview != null) _genPreview = preview;
-    notifyListeners();
-  }
-
-  // Extensions can't call @protected notifyListeners(); this is the forwarder.
-  void _notify() => notifyListeners();
-
-  /// The checkpoint name that is currently loaded on the local A1111 server.
-  /// Used to skip redundant unload→reload cycles that can leave tensors
-  /// split across CPU and CUDA on Windows/nVidia setups.
-  String? _lastLoadedCheckpoint;
-
-  bool get isGenerating => _isGenerating;
-  String get statusMessage => _statusMessage;
-  Uint8List? get lastGeneratedImage => _lastGeneratedImage;
-  String? get lastSavedPath => _lastSavedPath;
+  bool get isGenerating => _status.isGenerating;
+  String get statusMessage => _status.statusMessage;
+  Uint8List? get lastGeneratedImage => _status.lastGeneratedImage;
+  String? get lastSavedPath => _status.lastSavedPath;
 
   /// Whether image gen is configured and ready to use.
-  bool get isConfigured => _isConfiguredImpl;
-
-  DrawThingsGrpcService? _drawThingsGrpc;
-  ComfyUiService? _comfyUi;
-
-  // Thin delegation hook for prompt construction.
-  // Full ownership of ImageGenContext mapping semantics, mode contracts
-  // (no-personality portraits, and customPrompt's scene-distillation fallback
-  // when the prompt is empty but recent chat narrative is present), style
-  // enforcement, LLM smart path, and static fallbacks lives in ImagePromptBuilder.
-  // Keep prompt blocks in sync: changes to ctx construction here must be mirrored in
-  // any direct ImageGenContext sites and the builder's own
-  // _buildStatic / buildPrompt / _generateSmartWith. The builder is stateless/prompt-only
-  // (no reset calls needed). ImageGenService owns no prompt scalars that require zeroing
-  // on chat startNew / setActive / load (per-call snapshot from _storage is authoritative).
-  // See ImagePromptBuilder for the authoritative mode semantics and style rules.
-  late final ImagePromptBuilder _promptBuilder = ImagePromptBuilder();
+  bool get isConfigured => _clients.isConfigured;
 
   ImageGenService(this._storage);
 
   /// Best-effort ComfyUI VRAM nudge before a create→edit model swap (the
   /// creator pack's "Switching to edit model" stage). No-op on every other
   /// backend — DT/remote load-unload per request on their own.
-  Future<void> nudgeComfyFree() => _nudgeComfyFreeImpl();
+  Future<void> nudgeComfyFree() => _clients.nudgeComfyFree();
 
   /// Generate an image from a prompt.
   ///
   /// Routes to the configured remote API (OpenRouter, Nano-GPT, etc.).
   ///
   /// Returns the image bytes on success, or null on failure.
+  /// Per-parameter notes (img2img reference, seed/denoise overrides, intent,
+  /// editStrength) live on [ImageGenJob.run].
   Future<Uint8List?> generateImage({
     required String prompt,
     String? negativePrompt,
     String? size,
-    Uint8List?
-    referenceImage, // img2img reference: honored by all three local backends
-    // (Draw Things, A1111, ComfyUI) at imageGenDenoise strength; remote APIs
-    // have no img2img endpoint here, so they ignore it.
+    Uint8List? referenceImage,
     String? model,
     bool isPortrait = false,
-    // Per-call overrides for the stored seed/denoise settings; used by batch
-    // flows (expression packs) that need a shared fixed seed and fixed denoise
-    // across every image without touching the user's persisted settings.
-    // Remote APIs ignore them (no seed/denoise support on those endpoints).
     int? seed,
     double? denoise,
-    // Which surface asked. Create (default) keeps every existing path
-    // byte-identical; Edit routes an edit-capable model to edit-conditioning
-    // and resolves the EDIT model slot. Passed by the Studio's Edit tab and
-    // by edit-first expression packs (Studio dialog + the creator panel).
     StudioIntent intent = StudioIntent.create,
-    // Edit-only: how strongly the instruction changes the reference (higher =
-    // more change). Overrides the edit profile's default strength when set, so
-    // the Edit tab can offer a "how much should change" control. Ignored outside
-    // the edit path.
     double? editStrength,
-  }) => _generateImageImpl(
+  }) => _job.run(
     prompt: prompt,
     negativePrompt: negativePrompt,
     size: size,
@@ -183,7 +125,7 @@ class ImageGenService extends ChangeNotifier {
   /// - GET `{apiUrl}/image-models`. A failed or empty response falls back
   ///   to the bundled snapshot in `_commonImageModels`.
   Future<List<ImageModelInfo>> fetchImageModels() async {
-    final account = _imageRemoteAccount;
+    final account = _clients.remoteAccount;
     final apiUrl = account.url;
     final apiKey = account.key;
     // No account = no models. This used to fall back to the curated catalog,
@@ -195,10 +137,10 @@ class ImageGenService extends ChangeNotifier {
     // never a stand-in for having an account.
     if (apiUrl.isEmpty || apiKey.isEmpty) return const [];
 
-    if (_isOpenRouterStyle(apiUrl)) {
-      return _fetchOpenRouterImageModels(apiUrl, apiKey);
+    if (isOpenRouterStyle(apiUrl)) {
+      return fetchOpenRouterImageModels(apiUrl, apiKey);
     }
-    return _fetchNanoImageModels(apiUrl, apiKey);
+    return fetchNanoImageModels(apiUrl, apiKey);
   }
 
   /// Available style labels for UI display.
@@ -221,7 +163,7 @@ class ImageGenService extends ChangeNotifier {
   /// like chat_page._showImageGenDialog and the /image slash command). Builder is stateless/prompt-only.
   ///
   /// The flat params are assembled into a typed [ImageGenContext] by the tiny pure helper
-  /// [_buildPromptContext] (data-bag assembly + the custom-vs-lastMessage rule only — zero
+  /// `_buildPromptContext` in [ImageGenPrompts] (data-bag assembly + the custom-vs-lastMessage rule only — zero
   /// prompt/distillation/style/LLM logic, which all lives in ImagePromptBuilder).
   ///
   /// [userInstruction] is free text the user typed in the studio box before Craft; it is
@@ -251,7 +193,7 @@ class ImageGenService extends ChangeNotifier {
     // Text the user typed in the studio box pre-Craft (passed to the LLM as an
     // instruction to "parse into" the image prompt).
     String? userInstruction,
-  }) => _generateSmartPromptImpl(
+  }) => _prompts.generateSmartPrompt(
     mode: mode,
     style: style,
     llmService: llmService,
@@ -278,159 +220,68 @@ class ImageGenService extends ChangeNotifier {
   /// For Draw Things, uses gRPC. For ComfyUI, GET /system_stats. For A1111,
   /// GET /sdapi/v1/sd-models.
   Future<bool> testLocalConnection(String baseUrl) =>
-      _testLocalConnectionImpl(baseUrl);
+      _admin.testLocalConnection(baseUrl);
 
   /// Fetch available checkpoints from an A1111 / Draw Things server.
   ///
   /// For Draw Things, uses gRPC. For A1111, uses HTTP.
   Future<List<String>> fetchA1111Models(String baseUrl) =>
-      _fetchA1111ModelsImpl(baseUrl);
+      _admin.fetchA1111Models(baseUrl);
 
   /// Fetch models from a Draw Things server.
   ///
   /// Uses the Draw Things gRPC CLI to fetch available .ckpt models (via the
   /// special Echo('models') response). LoRAs come from [fetchDrawThingsLoras].
-  Future<List<String>> fetchDrawThingsModels(String baseUrl) async {
-    try {
-      final grpcService = _ensureDrawThingsGrpc;
-      return await grpcService.fetchModels();
-    } catch (e) {
-      debugPrint('ImageGen: fetchDrawThingsModels failed: $e');
-      return [];
-    }
-  }
+  Future<List<String>> fetchDrawThingsModels(String baseUrl) =>
+      _admin.fetchDrawThingsModels();
 
   /// `custom.json` version of each local checkpoint. The passed URL is
   /// ignored; the host comes from settings, same as [fetchDrawThingsLoras].
-  Future<Map<String, String>> fetchDrawThingsModelVersions(
-    String baseUrl,
-  ) async {
-    try {
-      return await _ensureDrawThingsGrpc.fetchModelVersions();
-    } catch (e) {
-      debugPrint('ImageGen: fetchDrawThingsModelVersions failed: $e');
-      return const {};
-    }
-  }
+  Future<Map<String, String>> fetchDrawThingsModelVersions(String baseUrl) =>
+      _admin.fetchDrawThingsModelVersions();
 
-  /// Fetch LoRA files from a Draw Things server (gRPC CLI op 'loras' — the
-  /// same Echo('models') listing as [fetchDrawThingsModels], filtered to
-  /// LoRAs). The selected name is applied natively via the generation config.
-  ///
-  /// Draw Things records the base model on each LoRA in `custom_lora.json`
-  /// (`version`). That id is passed as metadata so the picker can keep the
-  /// checkpoint's family and tuck the other bases away. A bare file name is
-  /// still only a guess.
-  Future<List<LoraOption>> fetchDrawThingsLoras(String baseUrl) async {
-    try {
-      final grpcService = _ensureDrawThingsGrpc;
-      final rows = await grpcService.fetchLoras();
-      return [
-        for (final row in rows)
-          ImageModelFamily.classifyLora(
-            row.file,
-            metadata: row.version.isEmpty
-                ? null
-                : {'dt_base_model': row.version},
-          ),
-      ];
-    } catch (e) {
-      debugPrint('ImageGen: fetchDrawThingsLoras failed: $e');
-      return [];
-    }
-  }
+  /// See [ImageGenLocalAdmin.fetchDrawThingsLoras].
+  Future<List<LoraOption>> fetchDrawThingsLoras(String baseUrl) =>
+      _admin.fetchDrawThingsLoras();
 
   /// ComfyUI discovery — checkpoints / LoRAs / samplers all come from one
   /// GET /object_info payload (see [ComfyUiService]); URL from settings.
   Future<List<String>> fetchComfyModels(String baseUrl) =>
-      _ensureComfyUi.fetchModels();
+      _clients.comfyUi.fetchModels();
 
   /// Checkpoints + diffusion_models + encoders + VAE + LoRAs.
   Future<ComfyFileCatalog> fetchComfyCatalog(String baseUrl) =>
-      _ensureComfyUi.fetchCatalog();
+      _clients.comfyUi.fetchCatalog();
 
-  /// ComfyUI LoRAs, enriched with base-model family. Names come from
-  /// /object_info; the family is read per-LoRA from the embedded safetensors
-  /// metadata via /view_metadata (authoritative), falling back to the file name
-  /// when a model exposes none. Metadata reads run in small concurrent batches
-  /// so a large library doesn't stall the picker, and any failure degrades
-  /// silently to name detection.
-  Future<List<LoraOption>> fetchComfyLoras(String baseUrl) async {
-    final comfy = _ensureComfyUi;
-    final names = await comfy.fetchLoras();
-    final out = <LoraOption>[];
-    const batch = 8;
-    for (var i = 0; i < names.length; i += batch) {
-      final slice = names.skip(i).take(batch);
-      final metas = await Future.wait(slice.map(comfy.fetchLoraMetadata));
-      var j = 0;
-      for (final n in slice) {
-        final meta = metas[j++];
-        out.add(
-          ImageModelFamily.classifyLora(
-            n,
-            metadata: meta.isEmpty ? null : meta,
-          ),
-        );
-      }
-    }
-    return out;
-  }
+  /// See [ImageGenLocalAdmin.fetchComfyLoras].
+  Future<List<LoraOption>> fetchComfyLoras(String baseUrl) =>
+      _admin.fetchComfyLoras();
 
   Future<List<String>> fetchComfySamplers(String baseUrl) =>
-      _ensureComfyUi.fetchSamplers();
+      _clients.comfyUi.fetchSamplers();
 
-  /// Fetch LoRAs from an A1111 / Forge / SD.Next server, enriched with
-  /// base-model family.
-  ///
-  /// Endpoint: GET /sdapi/v1/loras — each entry carries a `metadata` block that
-  /// usually includes `ss_base_model_version` / `modelspec.architecture`, which
-  /// gives an authoritative family (this is the same field A1111's own UI uses).
-  /// When a LoRA exposes no metadata we fall back to file-name detection.
-  /// Draw Things uses [fetchDrawThingsLoras] instead (no HTTP endpoint).
+  /// See [ImageGenLocalAdmin.fetchA1111Loras].
   Future<List<LoraOption>> fetchA1111Loras(String baseUrl) =>
-      _fetchA1111LorasImpl(baseUrl);
+      _admin.fetchA1111Loras(baseUrl);
 
-  /// Unload the currently active model from memory on a local server.
-  ///
-  /// Calls `POST /sdapi/v1/unload-checkpoint` (standard A1111 endpoint).
-  /// Draw Things may support this via its A1111-compat layer.
-  /// If the server doesn't support it the error is silently ignored —
-  /// model switching via [switchLocalModel] will still proceed.
-  ///
-  /// Returns true if the server acknowledged the unload (HTTP 200).
+  /// See [ImageGenLocalAdmin.unloadLocalModel].
   Future<bool> unloadLocalModel(String baseUrl) =>
-      _unloadLocalModelImpl(baseUrl);
+      _admin.unloadLocalModel(baseUrl);
 
-  /// Switch the active checkpoint on a local A1111 / Draw Things server.
-  ///
-  /// Sequence:
-  ///   1. `POST /sdapi/v1/unload-checkpoint` — free current model from memory
-  ///      (silently ignored if not supported by the server)
-  ///   2. `POST /sdapi/v1/options` with the new model name — trigger model load
-  ///   3. Poll `GET /sdapi/v1/options` to confirm the model is fully loaded
-  ///      on the GPU before returning, preventing tensor device mismatches.
-  ///
-  /// Returns true if the model was successfully switched and confirmed ready.
+  /// See [ImageGenLocalAdmin.switchLocalModel].
   Future<bool> switchLocalModel(String baseUrl, String modelName) =>
-      _switchLocalModelImpl(baseUrl, modelName);
+      _admin.switchLocalModel(baseUrl, modelName);
 
   /// Fetch available samplers from an A1111 / Draw Things server.
   ///
   /// Endpoint: GET /sdapi/v1/samplers
   /// Returns sampler names (the `name` field from each entry).
   Future<List<String>> fetchA1111Samplers(String baseUrl) =>
-      _fetchA1111SamplersImpl(baseUrl);
+      _admin.fetchA1111Samplers(baseUrl);
 
-  /// Fetch available schedulers from an A1111 / Forge / SD.Next server.
-  ///
-  /// Endpoint: GET /sdapi/v1/schedulers
-  /// Returns scheduler names (the `name` field from each entry). Older forks
-  /// (and Draw Things' A1111 shim) predate this endpoint and answer 404 — that
-  /// degrades silently to an empty list, so the UI simply offers only
-  /// 'Automatic' there.
+  /// See [ImageGenLocalAdmin.fetchA1111Schedulers].
   Future<List<String>> fetchA1111Schedulers(String baseUrl) =>
-      _fetchA1111SchedulersImpl(baseUrl);
+      _admin.fetchA1111Schedulers(baseUrl);
 
   /// Build the AUTOMATIC1111 generation payload shared by the txt2img and
   /// img2img endpoints. Pure — unit-tested. When [referenceImageB64] is
@@ -449,7 +300,7 @@ class ImageGenService extends ChangeNotifier {
     required int seed,
     String? referenceImageB64,
     double denoise = 0.5,
-  }) => _buildA1111PayloadImpl(
+  }) => buildA1111PayloadMap(
     prompt: prompt,
     negativePrompt: negativePrompt,
     width: width,
@@ -462,4 +313,180 @@ class ImageGenService extends ChangeNotifier {
     referenceImageB64: referenceImageB64,
     denoise: denoise,
   );
+
+  /// Save the last generated image to disk.
+  ///
+  /// Returns the saved file path, or null on failure.
+  ///
+  /// [preferredFileName] — optional basename (e.g. package import). Sanitized
+  /// and uniquified if a file already exists so back-to-back writes never
+  /// collide on the same millisecond (review 03d46d9a finding 1).
+  /// When omitted, uses `img_<ms>.png` with the same collision guard.
+  Future<String?> saveImageToDisk([
+    Uint8List? imageBytes,
+    String? preferredFileName,
+  ]) => _disk.saveImageToDisk(imageBytes, preferredFileName);
+
+  /// Save a generated image as a character avatar to the characters directory.
+  ///
+  /// Unlike [saveImageToDisk], this saves to the characters directory
+  /// (`KoboldManager/Characters/`) so cloud sync picks it up.
+  /// Returns the saved file path, or null on failure.
+  Future<String?> saveAvatarToDisk(
+    Uint8List? imageBytes, {
+    String? characterName,
+  }) => _disk.saveAvatarToDisk(imageBytes, characterName: characterName);
+
+  /// Build a prompt for the given generation mode (static quality path, no
+  /// LLM). See [ImageGenPrompts.buildPrompt].
+  String buildPrompt({
+    required ImageGenMode mode,
+    String? customPrompt,
+    String? lastMessage,
+    String? characterName,
+    String? characterDescription,
+    String? characterPersonality,
+    String? scenario,
+    String? worldInfo,
+    String? personaName,
+    String? personaText,
+    List<String>? recentMessages,
+    String? currentExpression,
+    String? timeOfDay,
+    String? lightingHint,
+    bool isGroupNonObserver = false,
+    String? currentSpeakerId,
+    String? userInstruction,
+  }) => _prompts.buildPrompt(
+    mode: mode,
+    customPrompt: customPrompt,
+    lastMessage: lastMessage,
+    characterName: characterName,
+    characterDescription: characterDescription,
+    characterPersonality: characterPersonality,
+    scenario: scenario,
+    worldInfo: worldInfo,
+    personaName: personaName,
+    personaText: personaText,
+    recentMessages: recentMessages,
+    currentExpression: currentExpression,
+    timeOfDay: timeOfDay,
+    lightingHint: lightingHint,
+    isGroupNonObserver: isGroupNonObserver,
+    currentSpeakerId: currentSpeakerId,
+    userInstruction: userInstruction,
+  );
+
+  /// `POST /sdapi/v1/refresh-loras` — see [refreshA1111LorasAt].
+  Future<bool> refreshA1111Loras(String baseUrl) =>
+      refreshA1111LorasAt(baseUrl);
+
+  /// See [startExpressionPackOn].
+  Future<List<String>?> startExpressionPack(
+    List<String> emotions,
+    Future<List<String>> Function(List<String> emotions) driver,
+  ) => startExpressionPackOn(this, emotions, driver);
+
+  /// See [expressionFrameOn].
+  Future<Uint8List?> expressionFrame({
+    required String prompt,
+    String? negativePrompt,
+    String? size,
+    Uint8List? referenceImage,
+    int? seed,
+    double? denoise,
+    StudioIntent intent = StudioIntent.create,
+    double? editStrength,
+  }) => expressionFrameOn(
+    this,
+    prompt: prompt,
+    negativePrompt: negativePrompt,
+    size: size,
+    referenceImage: referenceImage,
+    seed: seed,
+    denoise: denoise,
+    intent: intent,
+    editStrength: editStrength,
+  );
+
+  /// Whether a cancel is still waiting for the next ComfyUI post; for tests.
+  bool get comfyCancelIsPending => _pack.comfyCancelIsPending;
+
+  /// See [cancelJobOn].
+  Future<void> cancelJob() => cancelJobOn(this);
+
+  // The pack members below are static so a caller holding a test double that
+  // only `implements` this service still runs them: the double has none of
+  // this library's private members, so [_packLockOf] finds no lock on it.
+
+  /// The pack lock of a real service; null on a test double.
+  static ImageGenPackLock? _packLockOf(ImageGenService gen) {
+    try {
+      return gen._pack;
+    } on NoSuchMethodError {
+      return null;
+    }
+  }
+
+  /// Runs one pack inside a single hold of the generation lock, so nothing
+  /// else can start between two of its frames. Null (and the status says
+  /// "Already generating.") when a generation is already running, without
+  /// calling [driver]. On a test double the pack simply runs.
+  static Future<List<String>?> startExpressionPackOn(
+    ImageGenService gen,
+    List<String> emotions,
+    Future<List<String>> Function(List<String> emotions) driver,
+  ) async {
+    final lock = _packLockOf(gen);
+    if (lock == null) return driver(List<String>.from(emotions));
+    return lock.start(emotions, driver);
+  }
+
+  /// One pack frame. Inside a pack flight it runs under the flight's lock;
+  /// otherwise it is an ordinary single generation.
+  static Future<Uint8List?> expressionFrameOn(
+    ImageGenService gen, {
+    required String prompt,
+    String? negativePrompt,
+    String? size,
+    Uint8List? referenceImage,
+    int? seed,
+    double? denoise,
+    StudioIntent intent = StudioIntent.create,
+    double? editStrength,
+  }) {
+    final lock = _packLockOf(gen);
+    if (lock != null && lock.inFlight) {
+      return gen._job.run(
+        prompt: prompt,
+        negativePrompt: negativePrompt,
+        size: size,
+        referenceImage: referenceImage,
+        seed: seed,
+        denoise: denoise,
+        intent: intent,
+        editStrength: editStrength,
+        fromPack: true,
+      );
+    }
+    return gen.generateImage(
+      prompt: prompt,
+      negativePrompt: negativePrompt,
+      size: size,
+      referenceImage: referenceImage,
+      seed: seed,
+      denoise: denoise,
+      intent: intent,
+      editStrength: editStrength,
+    );
+  }
+
+  /// Stops the job the server is running for this service: on ComfyUI the
+  /// prompt is taken off the queue or interrupted. The other backends have no
+  /// job to stop from here; they finish the picture they are on.
+  static Future<void> cancelJobOn(ImageGenService gen) async {
+    final lock = _packLockOf(gen);
+    if (lock == null) return;
+    await lock.cancel();
+  }
 }

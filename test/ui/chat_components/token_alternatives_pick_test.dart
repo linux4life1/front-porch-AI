@@ -172,15 +172,21 @@ void main() {
     );
 
     await tester.tap(find.text('steps  30%'));
-    // The rewrite runs on the real database: let real time pass between
-    // frames until the new swipe lands.
-    for (var i = 0; i < 200 && reply.swipes.length < 2; i++) {
+    // The rewrite starts on the widget clock but waits on the database,
+    // which answers in real time: alternate real time with frames until the
+    // swipe has landed and the turn has settled. The bound is wall-clock,
+    // not a pass count a loaded runner can use up, and settle() alone cannot
+    // finish a turn that resumes on the widget clock.
+    final deadline = DateTime.now().add(const Duration(seconds: 60));
+    while ((reply.swipes.length < 2 ||
+            chat.isGenerating ||
+            chat.isSettlingTurn) &&
+        DateTime.now().isBefore(deadline)) {
       await tester.runAsync(
         () => Future<void>.delayed(const Duration(milliseconds: 10)),
       );
       await tester.pump(const Duration(milliseconds: 50));
     }
-    await tester.runAsync(() => settle(chat));
     await tester.pump();
 
     expect(reply.swipes, hasLength(2));
