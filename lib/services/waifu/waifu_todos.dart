@@ -133,5 +133,8 @@ Future<void> waifuLoadTodos(String folderRoot, WaifuTodos todos) async {
     if (decoded is List) todos.write(decoded);
   } on FormatException catch (e) {
     debugPrint('[waifu] unreadable ${file.path}, todos start empty: $e');
+  } on FileSystemException catch (e) {
+    // The task list is a side file: losing it must not block the session.
+    debugPrint('[waifu] unreadable ${file.path}, todos start empty: $e');
   }
 }

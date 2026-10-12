@@ -320,7 +320,11 @@ class WaifuStore {
       // Keep the damaged list: the next save rewrites projects.json.
       final keep = '${_indexFile.path}.unreadable';
       debugPrint('[waifu] unreadable $kWaifuProjectsFile, kept as $keep: $e');
-      await _indexFile.copy(keep);
+      try {
+        await _indexFile.copy(keep);
+      } on FileSystemException catch (copyError) {
+        debugPrint('[waifu] could not keep $keep: $copyError');
+      }
       return const [];
     }
   }

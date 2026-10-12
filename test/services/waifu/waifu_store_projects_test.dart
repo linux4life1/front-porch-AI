@@ -97,6 +97,21 @@ void main() {
 
     String folder(String name) => p.join(root.path, 'work', name);
 
+    test('an unreadable task list does not block the session', () async {
+      final store = WaifuStore(p.join(root.path, 'waifu'));
+      final toy = folder('toy');
+      await store.saveLast(
+        WaifuSession(
+          folderRoot: toy,
+          coworker: CharacterCard(name: 'Iris'),
+        ),
+      );
+      await waifuTodosFile(toy).writeAsBytes([0xff, 0xfe, 0xc3]);
+      final back = await store.loadSession(toy);
+      expect(back, isNotNull);
+      expect(back!.todos.items, isEmpty);
+    });
+
     test('a damaged session file is reported, not treated as empty', () async {
       final store = WaifuStore(p.join(root.path, 'waifu'));
       final toy = folder('toy');
