@@ -28,16 +28,12 @@ class WaifuWizardProjectStep extends StatefulWidget {
     super.key,
     required this.listing,
     required this.loading,
-    required this.folderConfirmed,
     required this.onOpen,
-    required this.onUseThisFolder,
   });
 
   final WaifuFolderListing? listing;
   final bool loading;
-  final bool folderConfirmed;
   final ValueChanged<String> onOpen;
-  final VoidCallback onUseThisFolder;
 
   @override
   State<WaifuWizardProjectStep> createState() => _WaifuWizardProjectStepState();
@@ -68,7 +64,7 @@ class _WaifuWizardProjectStepState extends State<WaifuWizardProjectStep> {
           ),
           const SizedBox(height: 6),
           Text(
-            'First the folder. Then you pick who sits with you.',
+            'Open the folder they should work in, then press Use this folder.',
             style: TextStyle(color: honey, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 10),
@@ -135,28 +131,6 @@ class _WaifuWizardProjectStepState extends State<WaifuWizardProjectStep> {
                 ),
               ),
             ),
-          const SizedBox(height: 8),
-          SizedBox(
-            height: 52,
-            child: ElevatedButton.icon(
-              key: const Key('waifu-use-folder'),
-              onPressed: listing == null ? null : widget.onUseThisFolder,
-              icon: Icon(
-                widget.folderConfirmed ? Icons.check : Icons.folder_open,
-                size: 18,
-              ),
-              label: Text(
-                widget.folderConfirmed
-                    ? 'Using this folder'
-                    : 'Use this folder',
-              ),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: widget.folderConfirmed ? honey : amber,
-                foregroundColor: AppColors.onChaosAccent,
-                textStyle: const TextStyle(fontWeight: FontWeight.w800),
-              ),
-            ),
-          ),
         ],
       ),
     );

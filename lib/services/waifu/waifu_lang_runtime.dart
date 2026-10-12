@@ -86,10 +86,12 @@ class WaifuLangRuntime {
     );
   }
 
-  Future<void> enable(String id) async {
-    if (enabled.contains(id)) return;
+  /// Starts the language server for [id]. Returns why it could not, or
+  /// null once it is running. Network and process errors still throw.
+  Future<String?> enable(String id) async {
+    if (enabled.contains(id)) return null;
     final d = door(id);
-    if (d == null) return;
+    if (d == null) return 'Unknown language.';
     String? cmd;
     if (d.pathCommand != null && d.pathCommand!.trim().isNotEmpty) {
       final installed = await which(d.pathCommand!);
@@ -99,16 +101,21 @@ class WaifuLangRuntime {
     if (cmd == null && d.url != null && d.sha256 != null) {
       final body = await fetch(d.url!);
       final digest = sha256.convert(body.bytes).toString();
-      if (digest != d.sha256) return;
+      if (digest != d.sha256) {
+        return 'The download failed or did not match its checksum.';
+      }
       final file = File(p.join(directory, id, 'lsp.bin'));
       await file.parent.create(recursive: true);
       await file.writeAsBytes(body.bytes);
       cmd = file.path;
     }
-    if (cmd == null || cmd.trim().isEmpty) return;
+    if (cmd == null || cmd.trim().isEmpty) {
+      return 'Nothing to run. Install it yourself or add a custom door.';
+    }
     final proc = await start(cmd, d.args);
     _procs[id] = proc;
     enabled.add(id);
+    return null;
   }
 
   Future<void> disable(String id) async {

@@ -31,7 +31,7 @@ Future<bool> showWaifuWholeDiskHonesty(BuildContext context) async {
       false;
 }
 
-/// Whole-disk is a real upgrade. Jail does not need this.
+/// Whole disk is a real upgrade. This folder only does not need this.
 class WaifuWholeDiskHonestyDialog extends StatefulWidget {
   const WaifuWholeDiskHonestyDialog({super.key});
 
@@ -81,7 +81,7 @@ class _WaifuWholeDiskHonestyDialogState
           key: const Key('waifu-whole-disk-honesty-cancel'),
           onPressed: () => Navigator.pop(context, false),
           child: Text(
-            'Stay in jail',
+            'Keep this folder only',
             style: TextStyle(color: AppColors.textSecondary(context)),
           ),
         ),
@@ -93,7 +93,7 @@ class _WaifuWholeDiskHonestyDialogState
             foregroundColor: AppColors.onChaosAccent,
             disabledBackgroundColor: AppColors.surfaceContainerOf(context),
           ),
-          child: const Text('Open the disk'),
+          child: const Text('Allow whole disk'),
         ),
       ],
     );

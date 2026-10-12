@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_motion.dart';
 
 /// Grid tile that starts the folder → character wizard.
 class WaifuNewPorchCard extends StatefulWidget {
@@ -42,7 +43,7 @@ class _WaifuNewPorchCardState extends State<WaifuNewPorchCard> {
     final delay = widget.index * 70;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 480 + delay),
+      duration: waifuMotion(context, Duration(milliseconds: 480 + delay)),
       curve: Curves.easeOutBack,
       builder: (context, t, child) {
         final v = t.clamp(0.0, 1.0);
@@ -56,9 +57,9 @@ class _WaifuNewPorchCardState extends State<WaifuNewPorchCard> {
         onExit: (_) => setState(() => _hot = false),
         child: AnimatedScale(
           scale: _hot ? 1.05 : 1,
-          duration: const Duration(milliseconds: 180),
+          duration: waifuMotion(context, const Duration(milliseconds: 180)),
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: waifuMotion(context, const Duration(milliseconds: 180)),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
               boxShadow: [

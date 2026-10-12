@@ -55,6 +55,7 @@ class WaifuHomeView extends StatefulWidget {
 class _WaifuHomeViewState extends State<WaifuHomeView> {
   List<WaifuProject> _stored = const [];
   var _routeCurrent = false;
+  String? _opening;
 
   List<WaifuProject> get _projects {
     if (widget.projects != null) return widget.projects!;
@@ -149,16 +150,30 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
       widget.onResume!();
       return;
     }
+    if (_opening != null) return;
+    setState(() => _opening = project.folderRoot);
     final store = _storeOf();
-    final session =
-        await store?.loadSession(project.folderRoot) ??
-        WaifuSession(
-          folderRoot: project.folderRoot,
-          coworker: project.coworker,
-          title: project.title,
-        );
+    WaifuSession session;
+    try {
+      session =
+          await store?.loadSession(project.folderRoot) ??
+          WaifuSession(
+            folderRoot: project.folderRoot,
+            coworker: project.coworker,
+            title: project.title,
+          );
+    } catch (e) {
+      debugPrint('[Waifu] Resume failed for ${project.folderRoot}: $e');
+      if (!mounted) return;
+      setState(() => _opening = null);
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(
+        SnackBar(content: Text('Could not open ${project.folderName}: $e')),
+      );
+      return;
+    }
     session.toolsSupported = _toolsSupportedOf();
     if (!mounted) return;
+    setState(() => _opening = null);
     await Navigator.of(context).push(
       MaterialPageRoute<void>(builder: (_) => WaifuPage(session: session)),
     );
@@ -241,7 +256,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
                       Text(
                         projects.isEmpty
                             ? 'Pick a throwaway folder. They code in character.'
-                            : 'Your porches. Tap to sit back down.',
+                            : 'Your projects. Tap one to pick up where you left off.',
                         style: TextStyle(
                           color: AppColors.textSecondary(context),
                           fontSize: 15,
@@ -279,6 +294,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
           project: project,
           index: i,
           isNewest: i == 1,
+          opening: _opening == project.folderRoot,
           onResume: () => _resume(project),
           onNewSession: () => _newInFolder(project),
           onForget: widget.store == null && widget.lastSession != null

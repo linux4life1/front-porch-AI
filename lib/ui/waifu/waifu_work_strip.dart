@@ -129,7 +129,7 @@ class WaifuWorkStrip extends StatelessWidget {
                         style: TextStyle(
                           color: AppColors.textSecondary(context),
                           fontFamily: 'monospace',
-                          fontSize: 11,
+                          fontSize: 12,
                         ),
                       ),
                   ],
@@ -152,7 +152,7 @@ class WaifuWorkStrip extends StatelessWidget {
                 'Before',
                 style: TextStyle(
                   color: AppColors.textTertiary(context),
-                  fontSize: 11,
+                  fontSize: 12,
                 ),
               ),
               Text(
@@ -168,7 +168,7 @@ class WaifuWorkStrip extends StatelessWidget {
                 'After',
                 style: TextStyle(
                   color: AppColors.textTertiary(context),
-                  fontSize: 11,
+                  fontSize: 12,
                 ),
               ),
               Text(

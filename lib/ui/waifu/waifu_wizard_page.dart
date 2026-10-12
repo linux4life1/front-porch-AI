@@ -28,8 +28,9 @@ import 'package:front_porch_ai/ui/waifu/waifu_wizard_coworker_step.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_wizard_project_step.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_wizard_sit_down_step.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_motion.dart';
 
-/// Project → Coworker → Sit down. Create Character chrome, linear only.
+/// Project → Coworker → Start. Create Character chrome, linear only.
 class WaifuWizardPage extends StatefulWidget {
   const WaifuWizardPage({
     super.key,
@@ -66,13 +67,14 @@ class WaifuWizardPage extends StatefulWidget {
 }
 
 class _WaifuWizardPageState extends State<WaifuWizardPage> {
-  static const _labels = ['Project', 'Coworker', 'Sit down'];
+  static const _labels = ['Project', 'Coworker', 'Start'];
 
   int _currentStep = 0;
   late String _path;
   WaifuFolderListing? _listing;
   bool _loading = true;
-  bool _folderConfirmed = false;
+  bool _starting = false;
+  String? _startError;
   CharacterCard? _coworker;
   bool _honesty = false;
   bool _skipHonesty = false;
@@ -86,7 +88,6 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
     _path = widget.initialFolder ?? waifuDefaultStartPath();
     _coworker = widget.initialCoworker;
     if (widget.skipProject && widget.initialFolder != null) {
-      _folderConfirmed = true;
       _currentStep = widget.initialCoworker == null ? 1 : 2;
     }
     _load();
@@ -107,7 +108,6 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
   void _open(String path) {
     setState(() {
       _path = path;
-      _folderConfirmed = false;
       _honesty = false;
       _skipHonesty = false;
       _consent = null;
@@ -144,7 +144,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
   }
 
   bool get _canNext {
-    if (_currentStep == 0) return _folderConfirmed;
+    if (_currentStep == 0) return _listing != null && !_loading;
     if (_currentStep == 1) return _coworker != null;
     return false;
   }
@@ -164,8 +164,23 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
       onSat(session);
       return;
     }
-    await waifuLoadTodos(_path, session.todos);
-    await waifuPrepareLangs(session);
+    setState(() {
+      _starting = true;
+      _startError = null;
+    });
+    try {
+      await waifuLoadTodos(_path, session.todos);
+      await waifuPrepareLangs(session);
+    } catch (e) {
+      debugPrint('[Waifu] Start failed: $e');
+      if (mounted) {
+        setState(() {
+          _starting = false;
+          _startError = 'Could not start: $e';
+        });
+      }
+      return;
+    }
     if (!mounted) return;
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(builder: (_) => WaifuPage(session: session)),
@@ -194,14 +209,17 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
           children: [
             Expanded(
               child: AnimatedSwitcher(
-                duration: const Duration(milliseconds: 300),
+                duration: waifuMotion(
+                  context,
+                  const Duration(milliseconds: 300),
+                ),
                 child: KeyedSubtree(
                   key: ValueKey(_currentStep),
                   child: _body(),
                 ),
               ),
             ),
-            if (_currentStep < 2) _nav(),
+            _nav(),
           ],
         ),
       ),
@@ -214,9 +232,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
         return WaifuWizardProjectStep(
           listing: _listing,
           loading: _loading,
-          folderConfirmed: _folderConfirmed,
           onOpen: _open,
-          onUseThisFolder: () => setState(() => _folderConfirmed = true),
         );
       case 1:
         return WaifuWizardCoworkerStep(
@@ -245,6 +261,8 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
           }),
           onHonestyChanged: (v) => setState(() => _honesty = v),
           onConfirm: _confirm,
+          starting: _starting,
+          startError: _startError,
           skipHonestyQuiz: _skipHonesty,
         );
     }
@@ -294,7 +312,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
                 : Text(
                     '${step + 1}',
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 12,
                       color: isActive
                           ? AppColors.onChaosAccent
                           : AppColors.textTertiary(context),
@@ -306,7 +324,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
         Text(
           label,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 12,
             color: isActive
                 ? AppColors.textSecondary(context)
                 : AppColors.textTertiary(context),
@@ -316,16 +334,25 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
     );
   }
 
+  /// Back on every step after the first. The primary button picks the
+  /// folder on step one and moves on; the last step starts from its own
+  /// button, right under the honesty checkbox.
   Widget _nav() {
-    final nextLabel = _currentStep == 0 ? 'Next: Coworker' : 'Next: Sit down';
+    final step = _currentStep;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (_currentStep > 0)
+          if (step > 0)
             OutlinedButton.icon(
-              onPressed: () => setState(() => _currentStep -= 1),
+              key: const Key('waifu-wizard-back'),
+              onPressed: _starting
+                  ? null
+                  : () => setState(() {
+                      _currentStep -= 1;
+                      _startError = null;
+                    }),
               icon: const Icon(Icons.arrow_back, size: 18),
               label: const Text('Back'),
               style: OutlinedButton.styleFrom(
@@ -333,23 +360,27 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
                 side: BorderSide(color: AppColors.borderOf(context)),
               ),
             ),
-          if (_currentStep > 0) const SizedBox(width: 16),
-          SizedBox(
-            width: 240,
-            height: 48,
-            child: ElevatedButton.icon(
-              key: const Key('waifu-wizard-next'),
-              onPressed: _canNext
-                  ? () => setState(() => _currentStep += 1)
-                  : null,
-              icon: const Icon(Icons.arrow_forward, size: 20),
-              label: Text(nextLabel),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+          if (step > 0 && step < 2) const SizedBox(width: 16),
+          if (step < 2)
+            SizedBox(
+              width: 240,
+              height: 48,
+              child: ElevatedButton.icon(
+                key: Key(step == 0 ? 'waifu-use-folder' : 'waifu-wizard-next'),
+                onPressed: _canNext
+                    ? () => setState(() => _currentStep += 1)
+                    : null,
+                icon: Icon(
+                  step == 0 ? Icons.folder_open : Icons.arrow_forward,
+                  size: 20,
+                ),
+                label: Text(step == 0 ? 'Use this folder' : 'Next: Start'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.porchAmberOf(context),
+                  foregroundColor: AppColors.onChaosAccent,
+                ),
               ),
             ),
-          ),
         ],
       ),
     );

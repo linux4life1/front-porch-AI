@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_motion.dart';
 
 /// Amber / honey / terracotta porch-light wash. Finite sparkle pop-in so
 /// widget tests can [WidgetTester.pumpAndSettle].
@@ -63,7 +64,10 @@ class WaifuHomeAtmosphere extends StatelessWidget {
             child: IgnorePointer(
               child: TweenAnimationBuilder<double>(
                 tween: Tween(begin: 0, end: 1),
-                duration: Duration(milliseconds: 520 + s.$4),
+                duration: waifuMotion(
+                  context,
+                  Duration(milliseconds: 520 + s.$4),
+                ),
                 curve: Curves.easeOutBack,
                 builder: (context, t, child) {
                   final v = t.clamp(0.0, 1.0);

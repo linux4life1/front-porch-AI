@@ -36,6 +36,8 @@ export 'waifu_library_tools_tile.dart';
 export 'waifu_mcp_bind.dart';
 export 'waifu_opencode_status.dart';
 export 'waifu_mode_bar.dart';
+export 'waifu_mode_chips.dart';
+export 'waifu_motion.dart';
 export 'waifu_honesty_text.dart';
 export 'waifu_page.dart';
 export 'waifu_scope_badge.dart';

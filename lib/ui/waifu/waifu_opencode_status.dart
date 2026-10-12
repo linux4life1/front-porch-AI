@@ -49,12 +49,22 @@ class _WaifuOpenCodeStatusState extends State<WaifuOpenCodeStatus> {
   VoidCallback? _onPressed(OpenCodeManager mgr) {
     if (mgr.isDownloading || mgr.isCheckingVersion) return null;
     if (mgr.installedVersion == null || mgr.isUpdateAvailable) {
-      return () => mgr.upgrade();
+      return () => _upgrade(mgr);
     }
     if (mgr.versionError != null || mgr.remoteVersion == null) {
       return () => mgr.checkRemoteVersion();
     }
     return null;
+  }
+
+  /// The manager keeps the failure in [OpenCodeManager.error] for the
+  /// line below; the rethrow is only logged here.
+  Future<void> _upgrade(OpenCodeManager mgr) async {
+    try {
+      await mgr.upgrade();
+    } catch (e) {
+      debugPrint('[Waifu] OpenCode download failed: $e');
+    }
   }
 
   bool _showTap(OpenCodeManager mgr) {
@@ -90,6 +100,35 @@ class _WaifuOpenCodeStatusState extends State<WaifuOpenCodeStatus> {
               color: AppColors.textSecondary(context),
             ),
           ),
+          if (mgr.isDownloading) ...[
+            const SizedBox(height: 6),
+            Text(
+              mgr.statusMessage,
+              key: const Key('waifu-opencode-downloading'),
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            const SizedBox(height: 4),
+            LinearProgressIndicator(
+              value: mgr.downloadProgress > 0 ? mgr.downloadProgress : null,
+              color: AppColors.porchAmberOf(context),
+              semanticsLabel: 'Downloading OpenCode',
+            ),
+          ] else if (mgr.error != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '${mgr.statusMessage}: ${mgr.error}',
+              key: const Key('waifu-opencode-error'),
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.negativeAccentOf(context),
+              ),
+            ),
+          ],
           if (_showTap(mgr))
             TextButton(
               key: const Key('waifu-opencode-upgrade'),

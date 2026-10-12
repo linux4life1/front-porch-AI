@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Sit-down honesty body with closed `**…**` rendered as weight, not sludge.
+/// One bullet per line of [text]; `**bold**` runs stay bold.
 class WaifuHonestyText extends StatelessWidget {
   const WaifuHonestyText({super.key, required this.text});
 
@@ -29,17 +30,36 @@ class WaifuHonestyText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final base = TextStyle(
-      color: AppColors.textPrimary(context),
-      height: 1.4,
-    );
-    final spans = waifuEmphasisSpans(text);
-    return Text.rich(
+    final base = TextStyle(color: AppColors.textPrimary(context), height: 1.4);
+    final lines = [
+      for (final line in text.split('\n'))
+        if (line.trim().isNotEmpty) line.trim(),
+    ];
+    return Column(
       key: const Key('waifu-honesty-body'),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        for (final line in lines)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ExcludeSemantics(child: Text('•  ', style: base)),
+                Expanded(child: _line(line, base)),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _line(String line, TextStyle base) {
+    return Text.rich(
       TextSpan(
         style: base,
         children: [
-          for (final s in spans)
+          for (final s in waifuEmphasisSpans(line))
             TextSpan(
               text: s.text,
               style: s.bold

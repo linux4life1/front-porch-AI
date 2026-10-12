@@ -64,6 +64,14 @@ String waifuTodoMark(String raw) {
   }
 }
 
+/// What a screen reader says for a [waifuTodoMark], instead of the raw
+/// OpenCode status.
+String waifuTodoSpoken(String mark) => switch (mark) {
+  'completed' => 'Done',
+  'in_progress' => 'In progress',
+  _ => 'To do',
+};
+
 class WaifuTodos {
   final items = <WaifuTodo>[];
 

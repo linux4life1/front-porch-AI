@@ -10,17 +10,17 @@ void main() {
     final open = waifuHonestyBody(WaifuPathMode.wholeDisk);
     expect(jailed, contains('safer default'));
     expect(jailed, contains('stay inside'));
-    expect(open, contains('starting porch, not a fence'));
+    expect(open, contains('starting point, not a fence'));
     expect(open, contains('absolute paths, ~, .., and cd'));
 
     expect(
       waifuYoloWarning(WaifuPathMode.folderJail),
-      contains('folder jail still holds'),
+      contains('still stay inside this folder'),
     );
     expect(waifuYoloWarning(WaifuPathMode.wholeDisk), contains('whole disk'));
     expect(
       waifuYoloWarning(WaifuPathMode.wholeDisk),
-      isNot(contains('jail still holds')),
+      isNot(contains('stay inside this folder')),
     );
     expect(
       waifuMcpScopeWarning(WaifuPathMode.folderJail),

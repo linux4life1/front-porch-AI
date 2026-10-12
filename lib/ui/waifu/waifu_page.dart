@@ -312,6 +312,14 @@ class _WaifuPageState extends State<WaifuPage> {
     final text = _composer.text.trim();
     final photo = _pendingImage;
     if (text.isEmpty && photo == null) return;
+    final harness = _harnessOf(context);
+    if (harness == null) {
+      // Keep the words in the box; say why nothing went out.
+      setState(() {
+        widget.session.transcript.add(WaifuStage.of(widget.session).noModel());
+      });
+      return;
+    }
     _composer.clear();
     String? imagePath;
     if (photo != null) {
@@ -321,18 +329,6 @@ class _WaifuPageState extends State<WaifuPage> {
         _pendingVisionOk = null;
         _pendingBlindReason = null;
       });
-    }
-    final harness = _harnessOf(context);
-    if (harness == null) {
-      setState(() {
-        widget.session.transcript.add(
-          WaifuMessage.user(
-            text.isEmpty ? '(photo)' : text,
-            imagePath: imagePath,
-          ),
-        );
-      });
-      return;
     }
     await harness.send(text, imagePng: photo, imagePath: imagePath);
   }

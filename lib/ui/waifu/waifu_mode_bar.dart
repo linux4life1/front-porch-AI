@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/waifu/waifu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_mode_chips.dart';
 
 class WaifuModeBar extends StatelessWidget {
   const WaifuModeBar({
@@ -40,50 +41,24 @@ class WaifuModeBar extends StatelessWidget {
   final ValueChanged<WaifuPathMode>? onPathMode;
   final bool enabled;
 
-  /// Jail/Disk can switch mid-turn. Plan/Build/Yolo stays [enabled].
+  /// This folder / Whole disk can switch mid-turn. Plan/Build/Yolo stays [enabled].
   final bool pathEnabled;
   final bool preserveThinking;
   final ValueChanged<bool>? onPreserveThinking;
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final m in WaifuMode.values)
-                ChoiceChip(
-                  key: Key('waifu-mode-${m.name}'),
-                  label: Text(m.name[0].toUpperCase() + m.name.substring(1)),
-                  selected: mode == m,
-                  onSelected: !enabled || mode == m
-                      ? null
-                      : (_) => onChanged(m),
-                  selectedColor: amber.withValues(alpha: 0.3),
-                ),
-            ],
-          ),
+          WaifuModeChips(mode: mode, onChanged: onChanged, enabled: enabled),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            children: [
-              for (final scope in WaifuPathMode.values)
-                ChoiceChip(
-                  key: Key('waifu-path-mode-${scope.name}'),
-                  label: Text(waifuScopeBadgeLabel(scope)),
-                  selected: pathMode == scope,
-                  onSelected:
-                      !pathEnabled || onPathMode == null || pathMode == scope
-                      ? null
-                      : (_) => onPathMode!(scope),
-                  selectedColor: amber.withValues(alpha: 0.3),
-                ),
-            ],
+          WaifuScopeChips(
+            pathMode: pathMode,
+            onChanged: onPathMode,
+            enabled: pathEnabled,
           ),
           const SizedBox(height: 6),
           Text(

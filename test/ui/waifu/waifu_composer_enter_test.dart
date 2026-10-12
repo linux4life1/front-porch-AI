@@ -59,6 +59,9 @@ void main() {
     expect(sent, 2);
   });
 
+  // No harness in this tree, so the send is refused out loud: a stage line
+  // says nothing went out and the words stay in the box. Enter still ran
+  // the send; before, it silently posted a user line nobody answered.
   testWidgets('Enter in the box sends the task', (tester) async {
     final session = WaifuSession(
       folderRoot: '/tmp/throwaway-waifu',
@@ -72,6 +75,8 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pump();
     expect(session.transcript, isNotEmpty);
-    expect(session.transcript.last.text, 'hello waifu');
+    expect(session.transcript.last.kind, WaifuMsgKind.stage);
+    expect(session.transcript.last.detail, kWaifuNoModel);
+    expect(find.text('hello waifu'), findsOneWidget);
   });
 }

@@ -64,7 +64,10 @@ class _WaifuTodoRow extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsets.only(top: 1),
-            child: Semantics(label: mark, child: _markIcon(mark, amber, color)),
+            child: Semantics(
+              label: waifuTodoSpoken(mark),
+              child: _markIcon(mark, amber, color),
+            ),
           ),
           const SizedBox(width: 8),
           Expanded(

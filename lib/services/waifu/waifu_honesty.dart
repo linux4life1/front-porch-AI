@@ -23,42 +23,37 @@ import 'package:front_porch_ai/services/waifu/waifu_sit_down.dart';
 /// Sit-down honesty gate — safety copy, not onboarding.
 ///
 /// Spec: docs/superpowers/specs/2026-09-05-waifu-coding-design.md §3.
-String waifuHonestyBody(WaifuPathMode pathMode) {
-  final scope = switch (pathMode) {
+/// Three points: who does the coding, how far they reach, and what is not
+/// guarded. The sit-down screen shows one bullet per point.
+List<String> waifuHonestyPoints(WaifuPathMode pathMode) => [
+  'OpenCode does the coding. $kWaifuCoderName runs its own private copy, '
+      'not your Homebrew one or ~/.config/opencode.',
+  switch (pathMode) {
     WaifuPathMode.folderJail =>
-      '**Folder jail is the safer default.** Their files, symlinks, and bash '
-          'paths stay inside the project folder you picked.',
+      '**This folder only is the safer default.** Their file and bash paths '
+          'stay inside the folder you picked.',
     WaifuPathMode.wholeDisk =>
-      '**Whole-disk access makes that folder a starting porch, not a fence.** '
-          'They can follow absolute paths, ~, .., and cd to read or change '
-          'other files anywhere your account can reach.',
-  };
-  return '$kWaifuCoderName puts OpenCode in your selected coworker’s hands. '
-      'Porch downloads a private OpenCode into its own closet, starts it, '
-      'and talks to it over HTTP — not the Homebrew binary, not '
-      '~/.config/opencode.\n'
-      '$scope\n'
-      'OpenCode does the coding: read, search, patch, write, bash, tests, and '
-      'visible receipts. They work on disk while speaking as the card — not '
-      'as a generic assistant.\n'
-      'Porch tells OpenCode to refuse a short list of commands: '
-      '$kWaifuBashDenyNames. That list is easy to get around, and nothing '
-      'guards secret files: a gap, not a fence. Guardrails are not a '
-      'backup.\n'
-      'A model can still be confidently wrong. **Never use it on a critical '
-      'codebase**; keep a throwaway branch, a backup, and an eye on the '
-      'receipts.';
-}
+      '**Whole disk makes this folder a starting point, not a fence.** They '
+          'can follow absolute paths, ~, .., and cd to anything your account '
+          'can reach.',
+  },
+  'Only $kWaifuBashDenyNames are refused and nothing guards secret files: '
+      'a gap, not a backup. Models can be confidently wrong. **Never use it '
+      'on a critical codebase.**',
+];
+
+String waifuHonestyBody(WaifuPathMode pathMode) =>
+    waifuHonestyPoints(pathMode).join('\n');
 
 String waifuHonestyCheckbox(WaifuPathMode pathMode) {
   return switch (pathMode) {
     WaifuPathMode.folderJail =>
-      'I understand the folder jail is on, guardrails are not a backup, and '
-          'I will not use $kWaifuCoderName on code I cannot afford to lose.',
+      'I understand only this folder is open, guardrails are not a backup, '
+          'and I will not use $kWaifuCoderName on code I cannot afford to '
+          'lose.',
     WaifuPathMode.wholeDisk =>
-      'I understand this folder is only a starting porch. $kWaifuCoderName '
-          'can read or change files elsewhere on my disk, and I will not use '
-          'it on code I cannot afford to lose.',
+      'I understand $kWaifuCoderName can read or change files elsewhere on '
+          'my disk, and I will not use it on code I cannot afford to lose.',
   };
 }
 
@@ -67,8 +62,8 @@ const kWaifuLocalModelWarning =
     'model works much better.';
 
 const kWaifuHonestySkipped =
-    'Honesty is already on file for this scope. You can still switch Jail '
-    'or Disk.';
+    'You already accepted this for this scope. You can still switch between '
+    'This folder only and Whole disk.';
 
 /// OpenCode's bash deny list (opencode_config.dart), in words a reader knows.
 const kWaifuBashDenyNames = 'rm -rf, sudo, force-push, hard reset, git clean';
@@ -76,8 +71,8 @@ const kWaifuBashDenyNames = 'rm -rf, sudo, force-push, hard reset, git clean';
 String waifuYoloWarning(WaifuPathMode pathMode) {
   return switch (pathMode) {
     WaifuPathMode.folderJail =>
-      'Yolo skips “are you sure?” on writes, commands, and repeats. The '
-          'folder jail still holds, and $kWaifuBashDenyNames are still '
+      'Yolo skips “are you sure?” on writes, commands, and repeats. Paths '
+          'still stay inside this folder, and $kWaifuBashDenyNames are still '
           'refused. Nothing guards secret files.',
     WaifuPathMode.wholeDisk =>
       'Yolo skips “are you sure?” — including repeats — and this coworker '
@@ -87,24 +82,24 @@ String waifuYoloWarning(WaifuPathMode pathMode) {
 }
 
 String waifuPathModeTitle(WaifuPathMode pathMode) => switch (pathMode) {
-  WaifuPathMode.folderJail => 'Folder jail (safer default)',
-  WaifuPathMode.wholeDisk => 'Whole-disk access',
+  WaifuPathMode.folderJail => 'This folder only (safer)',
+  WaifuPathMode.wholeDisk => 'Whole disk',
 };
 
 String waifuPathModeBlurb(WaifuPathMode pathMode) => switch (pathMode) {
   WaifuPathMode.folderJail =>
-    'Keep their file and bash paths on this project porch. Outside paths and '
+    'Their file and bash paths stay inside this folder. Outside paths and '
         'escaping symlinks are turned away.',
   WaifuPathMode.wholeDisk =>
-    'Let them roam like a full coding agent. This folder is the first stop, '
-        'not the property line.',
+    'They can work anywhere your account can reach, like a full coding '
+        'agent. This folder is where they start.',
 };
 
 String waifuPathModeSessionLine(WaifuPathMode pathMode) => switch (pathMode) {
   WaifuPathMode.folderJail =>
-    'Scope: Folder jail — file and bash paths stay on this porch.',
+    'This folder only: file and bash paths stay inside it.',
   WaifuPathMode.wholeDisk =>
-    'Scope: Whole disk — this porch is the starting folder, not a fence.',
+    'Whole disk: this folder is where they start, not a fence.',
 };
 
 String waifuModeLabel(WaifuMode mode) => switch (mode) {
@@ -114,17 +109,27 @@ String waifuModeLabel(WaifuMode mode) => switch (mode) {
 };
 
 /// Compact AppBar / sit-down badge. Full name stays on [waifuPathModeTitle].
+/// What each mode lets the coworker do, for chip and badge tooltips.
+String waifuModeTooltip(WaifuMode mode) => switch (mode) {
+  WaifuMode.plan =>
+    'Plan: looks around and makes a plan. No edits, no commands.',
+  WaifuMode.build => 'Build: edits files and runs commands, asking you first.',
+  WaifuMode.yolo =>
+    'Yolo: edits and runs commands without asking. Refused commands stay '
+        'refused.',
+};
+
 String waifuScopeBadgeLabel(WaifuPathMode pathMode) => switch (pathMode) {
-  WaifuPathMode.folderJail => 'Jail',
-  WaifuPathMode.wholeDisk => 'Disk',
+  WaifuPathMode.folderJail => 'This folder',
+  WaifuPathMode.wholeDisk => 'Whole disk',
 };
 
 String waifuEmptyPrompt(WaifuPathMode pathMode, String coworker) =>
     switch (pathMode) {
       WaifuPathMode.folderJail =>
-        'Tell $coworker what to build. Their tools stay on this project porch.',
+        'Tell $coworker what to build. Their tools stay inside this folder.',
       WaifuPathMode.wholeDisk =>
-        'Tell $coworker what to build. They start from this porch and can '
+        'Tell $coworker what to build. They start in this folder and can '
             'work elsewhere on your disk.',
     };
 
@@ -140,7 +145,11 @@ String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
 
 const kWaifuToolsUnsupported =
     'This model cannot do $kWaifuCoderName. Tool calling is unsupported. '
-    'Sit down is blocked — pick a tool-fluent backend in Settings.';
+    'Start is blocked. Pick a tool-fluent backend in Settings.';
+
+const kWaifuNoModel =
+    'No backend or OpenCode is set up, so nothing was sent. Pick a backend '
+    'in Settings, then send again.';
 
 const kWaifuPhotosUnsupported =
     'Photos are not in this OpenCode version — the text still went through.';
@@ -153,6 +162,6 @@ const kWaifuRedoNeedsRevert =
 
 const kWaifuMcpOpenCodeHonesty =
     'Recipe cards from the shared library tools drawer are written into '
-    'Porch’s isolated OpenCode config at sit-down. OpenCode owns those tools — '
+    'Porch’s isolated OpenCode config when you start. OpenCode owns those tools — '
     'they ride a Porch loopback adapter, not Docker and not extra MCP servers. '
     'Character chat uses the same cards.';

@@ -25,6 +25,7 @@ import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_delete_session_dialog.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_motion.dart';
 
 /// One sit-down folder on the Waifu Coder home grid. Tap resumes. Right-click
 /// or ⋮ offers New session in that folder.
@@ -37,6 +38,7 @@ class WaifuProjectCard extends StatefulWidget {
     this.onForget,
     this.isNewest = false,
     this.index = 0,
+    this.opening = false,
   });
 
   final WaifuProject project;
@@ -45,6 +47,9 @@ class WaifuProjectCard extends StatefulWidget {
   final VoidCallback? onForget;
   final bool isNewest;
   final int index;
+
+  /// Resume is loading this project; taps wait until it opens.
+  final bool opening;
 
   @override
   State<WaifuProjectCard> createState() => _WaifuProjectCardState();
@@ -79,13 +84,13 @@ class _WaifuProjectCardState extends State<WaifuProjectCard> {
             context,
             value: 'forget',
             icon: Icons.delete_outline,
-            label: 'Delete this session',
+            label: 'Forget this project',
             iconColor: AppColors.negativeAccentOf(context),
             labelColor: AppColors.negativeAccentOf(context),
           ),
       ],
     ).then((v) async {
-      if (v == 'resume') widget.onResume();
+      if (v == 'resume' && !widget.opening) widget.onResume();
       if (v == 'new') widget.onNewSession();
       if (v == 'forget') {
         if (!mounted) return;
@@ -128,7 +133,7 @@ class _WaifuProjectCardState extends State<WaifuProjectCard> {
     final delay = widget.index * 70;
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: 420 + delay),
+      duration: waifuMotion(context, Duration(milliseconds: 420 + delay)),
       curve: Curves.easeOutBack,
       builder: (context, t, child) {
         final clamped = t.clamp(0.0, 1.0);
@@ -145,10 +150,10 @@ class _WaifuProjectCardState extends State<WaifuProjectCard> {
         onExit: (_) => setState(() => _hot = false),
         child: AnimatedScale(
           scale: _hot ? 1.05 : 1,
-          duration: const Duration(milliseconds: 180),
+          duration: waifuMotion(context, const Duration(milliseconds: 180)),
           curve: Curves.easeOut,
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: waifuMotion(context, const Duration(milliseconds: 180)),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(22),
               boxShadow: [
@@ -207,14 +212,26 @@ class _WaifuProjectCardState extends State<WaifuProjectCard> {
                             ? const Key('waifu-resume')
                             : Key('waifu-project-${widget.project.folderName}'),
                         borderRadius: BorderRadius.circular(22),
-                        onTap: widget.onResume,
+                        onTap: widget.opening ? null : widget.onResume,
                         onSecondaryTapUp: (d) => _menu(d.globalPosition),
                         child: Padding(
                           padding: const EdgeInsets.fromLTRB(14, 18, 14, 12),
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              _face(context, amber),
+                              widget.opening
+                                  ? SizedBox(
+                                      width: 76,
+                                      height: 76,
+                                      child: Center(
+                                        child: CircularProgressIndicator(
+                                          key: const Key('waifu-opening'),
+                                          semanticsLabel: 'Opening',
+                                          color: amber,
+                                        ),
+                                      ),
+                                    )
+                                  : _face(context, amber),
                               const SizedBox(height: 10),
                               Text(
                                 widget.project.folderName,
@@ -271,7 +288,7 @@ class _WaifuProjectCardState extends State<WaifuProjectCard> {
                                   style: TextStyle(
                                     color: chaos,
                                     fontWeight: FontWeight.w900,
-                                    fontSize: 10,
+                                    fontSize: 12,
                                     letterSpacing: 1.4,
                                   ),
                                 ),

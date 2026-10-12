@@ -41,6 +41,8 @@ class _WaifuLanguageHelpState extends State<WaifuLanguageHelp> {
   final _command = TextEditingController();
   final _args = TextEditingController();
   final _exts = TextEditingController();
+  final _busy = <String>{};
+  final _errors = <String, String>{};
 
   @override
   void dispose() {
@@ -61,12 +63,36 @@ class _WaifuLanguageHelpState extends State<WaifuLanguageHelp> {
   }
 
   Future<void> _toggle(WaifuLangDoor door, bool on) async {
-    if (on) {
-      await widget.langs.enable(door.id);
-    } else {
-      await widget.langs.disable(door.id);
+    setState(() {
+      _busy.add(door.id);
+      _errors.remove(door.id);
+    });
+    String? error;
+    try {
+      if (on) {
+        error = await widget.langs.enable(door.id);
+      } else {
+        await widget.langs.disable(door.id);
+      }
+    } catch (e) {
+      debugPrint('[Waifu] Language ${door.id} toggle failed: $e');
+      error = 'Could not start it: $e';
     }
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    setState(() {
+      _busy.remove(door.id);
+      if (error != null) _errors[door.id] = error;
+    });
+  }
+
+  String _subtitle(WaifuLangDoor door) {
+    if (_busy.contains(door.id)) return 'Setting up…';
+    final error = _errors[door.id];
+    if (error != null) return error;
+    if (widget.suggested.contains(door.id)) {
+      return 'Detected in this folder. Still off until you turn it on.';
+    }
+    return door.pathCommand ?? 'Bring your own binary. Nothing is downloaded.';
   }
 
   void _addCustom() {
@@ -131,20 +157,33 @@ class _WaifuLanguageHelpState extends State<WaifuLanguageHelp> {
                   SwitchListTile(
                     key: Key('waifu-lang-${door.id}'),
                     value: widget.langs.enabled.contains(door.id),
-                    onChanged: (v) => _toggle(door, v),
+                    onChanged: _busy.contains(door.id)
+                        ? null
+                        : (v) => _toggle(door, v),
+                    secondary: _busy.contains(door.id)
+                        ? SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              key: Key('waifu-lang-busy-${door.id}'),
+                              strokeWidth: 2,
+                              color: amber,
+                            ),
+                          )
+                        : null,
                     activeThumbColor: amber,
                     title: Text(
                       door.name,
                       style: TextStyle(color: AppColors.textPrimary(context)),
                     ),
                     subtitle: Text(
-                      widget.suggested.contains(door.id)
-                          ? 'Detected in this folder — still off until you toggle'
-                          : (door.pathCommand ??
-                                'Bring your own binary — no download'),
+                      _subtitle(door),
+                      key: Key('waifu-lang-note-${door.id}'),
                       style: TextStyle(
-                        color: AppColors.textSecondary(context),
-                        fontSize: 12,
+                        color: _errors.containsKey(door.id)
+                            ? AppColors.negativeAccentOf(context)
+                            : AppColors.textSecondary(context),
+                        fontSize: 13,
                       ),
                     ),
                   ),

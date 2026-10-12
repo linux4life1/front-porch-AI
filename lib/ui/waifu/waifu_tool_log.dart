@@ -59,6 +59,7 @@ class _WaifuToolRow extends StatelessWidget {
     final amber = AppColors.porchAmberOf(context);
     final fail = AppColors.negativeAccentOf(context);
     final pending = chip.pending;
+    // Shape and a spoken word carry the outcome, not colour alone.
     final mark = pending
         ? SizedBox(
             key: Key('waifu-tool-pending-$index'),
@@ -66,15 +67,27 @@ class _WaifuToolRow extends StatelessWidget {
             height: 10,
             child: CircularProgressIndicator(strokeWidth: 1.6, color: amber),
           )
-        : Icon(Icons.circle, size: 6, color: chip.ok ? amber : fail);
+        : Icon(
+            chip.ok ? Icons.check_rounded : Icons.close_rounded,
+            key: Key('waifu-tool-${chip.ok ? 'ok' : 'fail'}-$index'),
+            size: 14,
+            color: chip.ok ? amber : fail,
+          );
     return Row(
       children: [
-        SizedBox(width: 10, height: 10, child: Center(child: mark)),
+        Semantics(
+          label: pending
+              ? 'running'
+              : chip.ok
+              ? 'done'
+              : 'failed',
+          child: SizedBox(width: 14, height: 14, child: Center(child: mark)),
+        ),
         const SizedBox(width: 8),
         Text(
           chip.name,
           style: TextStyle(
-            fontSize: 12,
+            fontSize: 13,
             fontWeight: FontWeight.w600,
             fontStyle: pending ? FontStyle.italic : FontStyle.normal,
             color: pending ? amber : AppColors.textSecondary(context),
@@ -88,7 +101,7 @@ class _WaifuToolRow extends StatelessWidget {
               maxLines: chip.ok ? 1 : 4,
               overflow: TextOverflow.ellipsis,
               style: TextStyle(
-                fontSize: 12,
+                fontSize: 13,
                 fontStyle: pending ? FontStyle.italic : FontStyle.normal,
                 color: chip.ok
                     ? AppColors.textTertiary(context)

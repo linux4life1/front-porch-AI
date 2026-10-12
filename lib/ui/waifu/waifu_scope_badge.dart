@@ -55,7 +55,7 @@ class WaifuChromeBadge extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: FontWeight.w800,
             color: warn ? danger : AppColors.textPrimary(context),
           ),
@@ -74,7 +74,7 @@ class WaifuModeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return WaifuChromeBadge(
       label: waifuModeLabel(mode),
-      tooltip: 'Session mode: ${waifuModeLabel(mode)}',
+      tooltip: waifuModeTooltip(mode),
     );
   }
 }
@@ -88,7 +88,7 @@ class WaifuScopeBadge extends StatelessWidget {
   Widget build(BuildContext context) {
     return WaifuChromeBadge(
       label: waifuScopeBadgeLabel(pathMode),
-      tooltip: waifuPathModeTitle(pathMode),
+      tooltip: waifuPathModeBlurb(pathMode),
       warn: pathMode == WaifuPathMode.wholeDisk,
     );
   }

@@ -72,20 +72,18 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('waifu-use-folder')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byKey(const Key('waifu-wizard-next')));
-    await tester.pumpAndSettle();
     await tester.tap(find.text('Mira'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const Key('waifu-wizard-next')));
     await tester.pumpAndSettle();
   }
 
-  testWidgets('wizard chrome is Project → Coworker → Sit down', (tester) async {
+  testWidgets('wizard chrome is Project → Coworker → Start', (tester) async {
     await pumpWizard(tester);
     await tester.pumpAndSettle();
     expect(find.text('Project'), findsWidgets);
     expect(find.text('Coworker'), findsWidgets);
-    expect(find.text('Sit down'), findsWidgets);
+    expect(find.text('Start'), findsWidgets);
     expect(find.text('Use this folder'), findsOneWidget);
   });
 
@@ -133,7 +131,7 @@ void main() {
     await tester.ensureVisible(whole);
     await tester.tap(whole);
     await tester.pumpAndSettle();
-    expect(find.textContaining('starting porch, not a fence'), findsOneWidget);
+    expect(find.textContaining('starting point, not a fence'), findsOneWidget);
     expect(
       find.textContaining('can read or change files elsewhere'),
       findsOneWidget,

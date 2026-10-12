@@ -98,7 +98,7 @@ class WaifuAskDialog extends StatelessWidget {
               Text(
                 'Y allows once · N denies',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   color: AppColors.textTertiary(context),
                 ),
               ),

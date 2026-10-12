@@ -75,6 +75,12 @@ class WaifuStage {
     detail: 'The turn completed, but the wrap-up line did not arrive.',
   );
 
+  /// Send with no backend or OpenCode behind the page.
+  WaifuMessage noModel() => WaifuMessage.stage(
+    '$name has nothing to work with yet. Your message is still in the box.',
+    detail: kWaifuNoModel,
+  );
+
   WaifuMessage noTools() => WaifuMessage.stage(
     '$name cannot pick up tools on this model.',
     detail: kWaifuToolsUnsupported,

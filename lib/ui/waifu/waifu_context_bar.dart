@@ -69,7 +69,7 @@ class WaifuContextBar extends StatelessWidget {
               Text(
                 'Context',
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w800,
                   color: AppColors.textSecondary(context),
                 ),
@@ -82,7 +82,7 @@ class WaifuContextBar extends StatelessWidget {
                   fromApi: session.tokensFromApi,
                 ),
                 style: TextStyle(
-                  fontSize: 11,
+                  fontSize: 12,
                   fontWeight: FontWeight.w700,
                   color: hot ? danger : AppColors.textSecondary(context),
                 ),
