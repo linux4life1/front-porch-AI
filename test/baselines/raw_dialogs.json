@@ -68,7 +68,7 @@
   "lib/ui/pages/chat_page.scene_dialogs.dart": 6,
   "lib/ui/pages/chat_page.session_dialogs.dart": 11,
   "lib/ui/pages/chat_page.sidebar_widgets.dart": 5,
-  "lib/ui/pages/create_group_chat_page.steps_lore.dart": 2,
+  "lib/ui/pages/create_group_chat_page/group_lore_step.dart": 2,
   "lib/ui/pages/edit_group_page.lore_worlds.dart": 6,
   "lib/ui/pages/home/dialogs/chat_history_dialog.dart": 6,
   "lib/ui/pages/home/home_page_char_ops.dart": 4,
