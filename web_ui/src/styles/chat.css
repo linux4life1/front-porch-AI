@@ -190,6 +190,11 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   color: var(--porch-amber); border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
 }
 .director-status { flex: 1; min-width: 0; font-weight: 600; }
+.director-delay {
+  flex-basis: 100%; display: flex; align-items: center; gap: 8px; color: var(--muted);
+}
+.director-delay input[type='range'] { flex: 1; min-width: 0; accent-color: var(--porch-amber); }
+.director-delay-value { color: var(--porch-amber); font-weight: 600; min-width: 3.5em; text-align: right; }
 .undo-bar {
   margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
   display: flex; align-items: center; justify-content: space-between; gap: 8px;

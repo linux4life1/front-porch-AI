@@ -481,9 +481,7 @@ class ChatInputActionStrip {
                   chatService.observerMode ? Icons.movie_creation : Icons.send,
                   color: chatService.isGuestBusy
                       ? AppColors.iconSecondary(context)
-                      : (chatService.observerMode
-                            ? AppColors.porchAmberOf(context)
-                            : AppColors.porchAmberOf(context)),
+                      : AppColors.porchAmberOf(context),
                 ),
                 onPressed: chatService.isLoadingSession ? null : onSend,
               ),

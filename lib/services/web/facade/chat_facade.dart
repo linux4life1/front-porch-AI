@@ -246,6 +246,12 @@ class ChatFacade {
     _notify();
   }
 
+  /// The auto-chat delay (the desktop Director panel slider's twin).
+  Future<void> setDirectorDelay(double seconds) async {
+    await _chat.setSavedDirectorDelay(seconds);
+    _notify();
+  }
+
   /// The stopped-reply notice's dismiss (desktop's ✕ twin).
   void dismissStoppedReplyNotice() {
     _chat.dismissStoppedReplyNotice();

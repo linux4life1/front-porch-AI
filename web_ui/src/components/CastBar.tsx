@@ -46,7 +46,7 @@ export function CastBar({
   onAdd: () => void;
   onCommand: (cmd: string) => void;
   /** False while directing with two characters left (one more exit would
-   *  end Director Mode). Guests can always leave. */
+   *  end Director Mode). Guests count too: they are cast members. */
   canRemoveMember?: boolean;
 }) {
   // A lone host is the classic 1:1 — no roster chrome needed.
@@ -85,11 +85,11 @@ export function CastBar({
                 <button
                   className="icon-btn"
                   title={
-                    c.isLite || canRemoveMember
+                    canRemoveMember
                       ? 'Remove from scene'
                       : 'While you direct, the scene keeps at least two characters'
                   }
-                  disabled={busy || (!c.isLite && !canRemoveMember)}
+                  disabled={busy || !canRemoveMember}
                   onClick={() => onCommand(`/exit ${c.name}`)}
                 >
                   ✕

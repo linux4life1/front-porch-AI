@@ -14,6 +14,9 @@ export interface DirectorState {
   /** False while directing with two characters left: one more exit would
    *  end Director Mode. Absent on older apps. */
   canRemoveMember?: boolean;
+  /** The auto-chat delay in seconds, sent while directing. Absent on older
+   *  apps, which then show no delay control. */
+  delaySeconds?: number | null;
 }
 
 export interface ExitUndo {
@@ -33,13 +36,23 @@ export function DirectorStrip({
   busy,
   onCommand,
   onAutoPlay,
+  onDelay,
 }: {
   director: DirectorState;
   busy: boolean;
   onCommand: (cmd: string) => void;
   onAutoPlay: (on: boolean) => void;
+  onDelay: (seconds: number) => void;
 }) {
-  const { directing, autoPlay } = director;
+  const { directing, autoPlay, delaySeconds } = director;
+  // The slider's live value while it is held; saved when it is let go.
+  const [draft, setDraft] = useState<number | null>(null);
+  const delay = draft ?? delaySeconds ?? null;
+  const commit = () => {
+    if (draft == null) return;
+    onDelay(draft);
+    setDraft(null);
+  };
   return (
     <div className={`director-strip${directing ? ' directing' : ''}`}>
       <span className="director-status">
@@ -66,6 +79,24 @@ export function DirectorStrip({
       >
         {directing ? 'Step back in' : 'Step out to direct'}
       </button>
+      {directing && delay != null && (
+        <label className="director-delay">
+          <span>Auto-chat delay</span>
+          <input
+            type="range"
+            min={0.5}
+            max={60}
+            step={0.5}
+            value={delay}
+            aria-label="Auto-chat delay in seconds"
+            onChange={(e) => setDraft(Number(e.target.value))}
+            onPointerUp={commit}
+            onKeyUp={commit}
+            onBlur={commit}
+          />
+          <span className="director-delay-value">{delay.toFixed(1)}s</span>
+        </label>
+      )}
     </div>
   );
 }
@@ -75,7 +106,12 @@ export function ExitUndoBar({ undo, onUndo }: { undo: ExitUndo | null; onUndo: (
   const key = undo ? `${undo.isUser}:${undo.name}` : null;
   const [hidden, setHidden] = useState<string | null>(null);
   useEffect(() => {
-    if (!key) return;
+    // A closed UNDO forgets what it hid, so the next exit by the same name
+    // (or the next step out) is offered again.
+    if (!key) {
+      setHidden(null);
+      return;
+    }
     const t = setTimeout(() => setHidden(key), UNDO_MS);
     return () => clearTimeout(t);
   }, [key]);

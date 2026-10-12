@@ -293,6 +293,13 @@ void main() {
     expect(h.chat.guestActivityIsError, isTrue);
   });
 
+  test('the auto-chat delay saves and applies to the running scene', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    await h.chat.setSavedDirectorDelay(4.5);
+    expect(h.chat.savedDirectorDelay, 4.5);
+    expect(h.chat.directorDelaySec, 4.5);
+  });
+
   testWidgets('while directing, a member card keeps its state and marks '
       'feelings toward the user as held', (tester) async {
     // The harness's database answers in real time only, so the setup and

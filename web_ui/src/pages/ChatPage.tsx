@@ -252,6 +252,12 @@ export function ChatPage() {
                 .then(() => refresh())
                 .catch((e) => reportActionFailure('change auto-chat', e));
             }}
+            onDelay={(seconds) => {
+              api
+                .post('/api/chat/director/delay', { seconds })
+                .then(() => refresh())
+                .catch((e) => reportActionFailure('change the auto-chat delay', e));
+            }}
           />
         )}
         <ExitUndoBar

@@ -32,6 +32,7 @@ class WebChatOverlayRoutes {
     router.post('/api/chat/skip-objective-check', _skipObjectiveCheck);
     router.post('/api/chat/exit-undo', _undoExit);
     router.post('/api/chat/director/autoplay', _autoPlay);
+    router.post('/api/chat/director/delay', _delay);
   }
 
   final ChatFacade _facade;
@@ -59,6 +60,14 @@ class WebChatOverlayRoutes {
   Future<shelf.Response> _autoPlay(shelf.Request request) async {
     final body = await RequestBody.readJsonMap(request);
     _facade.setAutoPlay(body['on'] == true);
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _delay(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    final seconds = body['seconds'];
+    if (seconds is! num) return JsonResponse.badRequest('seconds is required');
+    await _facade.setDirectorDelay(seconds.toDouble());
     return JsonResponse.ok({'status': 'ok'});
   }
 }

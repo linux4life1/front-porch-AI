@@ -55,6 +55,7 @@ describe('Director Mode on the web', () => {
         busy: false,
         onCommand,
         onAutoPlay,
+        onDelay: () => {},
       });
 
     render(strip(false));
@@ -88,7 +89,51 @@ describe('Director Mode on the web', () => {
     expect(container.textContent).toBe('');
   });
 
-  it('keeps two characters while directing; a guest can still leave', () => {
+  it('offers UNDO again for the next exit by the same name', () => {
+    const onUndo = vi.fn();
+    const bar = (undo: { name: string; isUser: boolean } | null) =>
+      createElement(ExitUndoBar, { undo, onUndo });
+    render(bar({ name: 'Sam', isUser: true }));
+    act(() => button('Undo')!.click());
+    render(bar(null)); // the server closed it
+    render(bar({ name: 'Sam', isUser: true })); // stepped out again
+    expect(container.textContent).toContain('You stepped out to direct');
+
+    act(() => vi.advanceTimersByTime(8000));
+    render(bar(null));
+    render(bar({ name: 'Sam', isUser: true }));
+    expect(container.textContent).toContain('You stepped out to direct');
+  });
+
+  it('sets the auto-chat delay while directing, saved when let go', () => {
+    const onDelay = vi.fn();
+    const strip = (directing: boolean) =>
+      createElement(DirectorStrip, {
+        director: { directing, autoPlay: false, delaySeconds: directing ? 15 : null },
+        busy: false,
+        onCommand: () => {},
+        onAutoPlay: () => {},
+        onDelay,
+      });
+    render(strip(false));
+    expect(container.querySelector('input[type="range"]')).toBeNull();
+    render(strip(true));
+    const slider = container.querySelector<HTMLInputElement>('input[type="range"]')!;
+    expect(container.textContent).toContain('15.0s');
+    act(() => {
+      const set = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+      set.call(slider, '4.5');
+      slider.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    expect(container.textContent).toContain('4.5s');
+    expect(onDelay).not.toHaveBeenCalled();
+    act(() => {
+      slider.dispatchEvent(new Event('pointerup', { bubbles: true }));
+    });
+    expect(onDelay).toHaveBeenCalledWith(4.5);
+  });
+
+  it('keeps two characters while directing, guests included', () => {
     const onCommand = vi.fn();
     render(
       createElement(CastBar, {
@@ -107,7 +152,7 @@ describe('Director Mode on the web', () => {
     const removes = [...container.querySelectorAll<HTMLButtonElement>('button[title]')].filter(
       (b) => b.textContent?.trim() === '✕',
     );
-    expect(removes.map((b) => b.disabled)).toEqual([true, true, false]);
+    expect(removes.map((b) => b.disabled)).toEqual([true, true, true]);
     expect(removes[0].title).toContain('at least two characters');
   });
 });

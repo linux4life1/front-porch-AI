@@ -674,6 +674,21 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
 
     await strip.getByRole('button', { name: 'Step out to direct' }).click();
     await waitIdle(page);
+    await expect(undo).toContainText('You stepped out to direct'); // offered again
+    // The auto-chat delay saves on the host when the slider is let go.
+    const delay = strip.getByLabel('Auto-chat delay in seconds');
+    const savedDelay = await delay.inputValue();
+    await delay.fill('4.5');
+    await delay.blur();
+    await expect
+      .poll(async () => {
+        const s = (await (await page.request.get('/api/chat/state')).json()) as {
+          director?: { delaySeconds?: number | null };
+        };
+        return s.director?.delaySeconds;
+      })
+      .toBe(4.5);
+    await page.request.post('/api/chat/director/delay', { data: { seconds: Number(savedDelay) } });
     await box.fill('The porch light flickers out.');
     await box.press('Enter');
     await waitIdle(page);

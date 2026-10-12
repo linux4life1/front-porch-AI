@@ -231,6 +231,8 @@ class ChatStateSnapshot {
       'director': {
         'directing': _chat.observerMode,
         'autoPlay': _chat.autoPlayActive,
+        // Asked only while directing, the one time the strip shows it.
+        'delaySeconds': _chat.observerMode ? _chat.savedDirectorDelay : null,
         'canRemoveMember': !_chat.isGroupMode || _chat.canRemoveCastMember,
       },
       // The open /exit UNDO (a guest, a member, or the user stepping out to
