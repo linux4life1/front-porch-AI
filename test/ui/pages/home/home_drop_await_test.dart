@@ -19,25 +19,29 @@ void main() {
   late String ops;
 
   setUpAll(() {
-    drop = File('lib/ui/pages/home/home_page_drop.dart').readAsStringSync();
-    importPart = File(
-      'lib/ui/pages/home/home_page_dialogs.import.dart',
+    drop = File(
+      'lib/ui/pages/home/home_actions/home_drop_importer.dart',
     ).readAsStringSync();
-    ops = File('lib/ui/pages/home/home_page_char_ops.dart').readAsStringSync();
+    importPart = File(
+      'lib/ui/pages/home/home_actions/home_card_import.dart',
+    ).readAsStringSync();
+    ops = File(
+      'lib/ui/pages/home/home_actions/home_bulk_import.dart',
+    ).readAsStringSync();
   });
 
   test('mixed drop awaits the batch that reads both kinds', () {
-    expect(drop, contains('await _importPngAndByafBatch('));
+    expect(drop, contains('await HomeBulkImport(context).importBatch('));
   });
 
   test('multi-PNG import awaits bulk progress IO', () {
-    expect(importPart, contains('await _runBulkImport('));
+    expect(importPart, contains('await _bulk.importCards('));
     expect(ops, contains('Future<void> _runBulkImport('));
     expect(ops, contains('return _runBulkProgressImport('));
   });
 
   test('multi-BYAF import awaits bulk progress IO after confirm', () {
-    expect(importPart, contains('await _runBulkProgressImport('));
+    expect(importPart, contains('await _bulk.runWithProgress('));
     expect(ops, contains('Future<void> _runBulkProgressImport('));
     expect(ops, contains('Future<void> _importPngAndByafBatch('));
   });

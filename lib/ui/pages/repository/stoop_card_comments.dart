@@ -7,161 +7,12 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/backporch/backporch.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_card_comments/stoop_card_comments.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_collapsible.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_comments_switch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_profile_header.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_report.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
 
-part 'stoop_card_comments.actions.dart';
-part 'stoop_card_comments.views.dart';
-
-/// Hosts the Discussion block + owner kill switch.
-///
-/// Default OFF: renders nothing unless this card opted in
-/// ([commentsEnabled] or a [StoopCommentsOptIn] published/live flag).
-/// Off hides the composer AND the list. The card owner always sees the
-/// switch so they can turn discussion on after upload. Turning off locks
-/// (hides) without wiping hub rows.
-class StoopCardDiscussionSection extends StatefulWidget {
-  final String cardId;
-  final String? cardOwnerId;
-  final BackporchUser? user;
-  final StoopCommentsClient client;
-  final bool commentsEnabled;
-  final bool commentsLocked;
-  final StoopCommentsOptIn? optInStore;
-  final bool canModerate;
-  final DateTime Function() now;
-  final Future<({bool commentsEnabled, bool commentsLocked})> Function({
-    bool? commentsEnabled,
-    bool? commentsLocked,
-  })?
-  persistFlags;
-
-  const StoopCardDiscussionSection({
-    super.key,
-    required this.cardId,
-    this.cardOwnerId,
-    required this.user,
-    required this.client,
-    this.commentsEnabled = false,
-    this.commentsLocked = false,
-    this.optInStore,
-    this.persistFlags,
-    this.canModerate = false,
-    this.now = DateTime.now,
-  });
-
-  @override
-  State<StoopCardDiscussionSection> createState() =>
-      _StoopCardDiscussionSectionState();
-}
-
-class _StoopCardDiscussionSectionState
-    extends State<StoopCardDiscussionSection> {
-  late bool _live;
-  late bool _published;
-
-  StoopCommentsOptIn get _store =>
-      widget.optInStore ?? StoopCommentsOptIn.instance;
-
-  @override
-  void initState() {
-    super.initState();
-    _published = _store.published(
-      widget.cardId,
-      fromCard: widget.commentsEnabled,
-    );
-    _live = widget.commentsLocked
-        ? false
-        : _store.live(widget.cardId, fromCard: widget.commentsEnabled);
-  }
-
-  bool get _isOwner =>
-      widget.user != null &&
-      widget.cardOwnerId != null &&
-      widget.user!.id == widget.cardOwnerId;
-
-  Future<void> _setLive(bool next) async {
-    final prev = _live;
-    setState(() {
-      _live = next;
-      _store.setLive(widget.cardId, next);
-    });
-    final persist = widget.persistFlags;
-    if (persist == null) return;
-    try {
-      // First-time on: persist the opt-in. Later off: lock (hide, keep rows).
-      final flags = next
-          ? await persist(commentsEnabled: true, commentsLocked: false)
-          : (_published
-                ? await persist(commentsLocked: true)
-                : await persist(commentsEnabled: false));
-      if (!mounted) return;
-      if (flags.commentsEnabled != true) {
-        setState(() {
-          _published = false;
-          _live = false;
-        });
-        return;
-      }
-      setState(() {
-        _published = true;
-        _live = flags.commentsLocked != true;
-      });
-    } on BackporchApiException catch (e) {
-      if (!mounted) return;
-      if (e.statusCode == 404) {
-        setState(() {
-          _published = false;
-          _live = false;
-        });
-        return;
-      }
-      setState(() {
-        _live = prev;
-        _store.setLive(widget.cardId, prev);
-      });
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _live = prev;
-        _store.setLive(widget.cardId, prev);
-      });
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final showSwitch = _isOwner;
-    if (!showSwitch && !_live) return const SizedBox.shrink();
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        if (showSwitch) ...[
-          StoopCommentsSwitch(
-            key: const Key('stoop-comments-kill-switch'),
-            value: _live,
-            liveKill: true,
-            onChanged: _setLive,
-          ),
-          if (_live) const SizedBox(height: 10),
-        ],
-        if (_live)
-          StoopCardComments(
-            cardId: widget.cardId,
-            cardOwnerId: widget.cardOwnerId,
-            user: widget.user,
-            client: widget.client,
-            canModerate: widget.canModerate,
-            now: widget.now,
-          ),
-      ],
-    );
-  }
-}
+export 'stoop_card_comments/stoop_card_discussion_section.dart';
 
 /// Discussion list + composer for one character card.
 class StoopCardComments extends StatefulWidget {
@@ -212,10 +63,6 @@ class _StoopCardCommentsState extends State<StoopCardComments> {
     _load();
   }
 
-  /// setState is protected, so the parts below cannot call it. Same bridge
-  /// settings_page.dart exposes for the same reason.
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   @override
   void dispose() {
     _draft.dispose();
@@ -265,6 +112,250 @@ class _StoopCardCommentsState extends State<StoopCardComments> {
     );
   }
 
+  Future<void> _post() async {
+    final text = _draft.text;
+    if (text.trim().isEmpty || _posting) return;
+    if (!stoopCanComment(_user)) {
+      setState(() {
+        _apiSaysUnverified = _user != null;
+        _inlineError = _user == null
+            ? 'Sign in to comment.'
+            : 'Confirm email to comment.';
+      });
+      return;
+    }
+    setState(() {
+      _posting = true;
+      _inlineError = null;
+    });
+    try {
+      final created = await widget.client.create(
+        cardId: widget.cardId,
+        body: text,
+        author: _user!,
+      );
+      if (!mounted) return;
+      setState(() {
+        _comments = _newestFirst([created, ..._comments]);
+        _draft.clear();
+        _posting = false;
+        _inlineError = null;
+      });
+    } on BackporchApiException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'email_not_verified') {
+        setState(() {
+          _apiSaysUnverified = true;
+          _posting = false;
+          _inlineError = null;
+        });
+        return;
+      }
+      final msg = stoopCommentFailureMessage(e);
+      final rateLimited =
+          e.statusCode == 429 ||
+          e.code == 'too_many_comments' ||
+          e.code == 'too_many_reports';
+      setState(() {
+        _posting = false;
+        if (!rateLimited) _inlineError = msg;
+      });
+      if (rateLimited) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      // 409 / 429: draft stays in [_draft].
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _posting = false;
+        _inlineError = stoopCommentFailureMessage(e);
+      });
+    }
+  }
+
+  Future<void> _postReply(StoopComment parent) async {
+    final text = _replyDraft.text;
+    if (text.trim().isEmpty || _replyPosting) return;
+    if (!stoopCanComment(_user)) {
+      setState(() {
+        _apiSaysUnverified = _user != null;
+        _replyInlineError = _user == null
+            ? 'Sign in to comment.'
+            : 'Confirm email to comment.';
+      });
+      return;
+    }
+    setState(() {
+      _replyPosting = true;
+      _replyInlineError = null;
+    });
+    try {
+      final updated = await widget.client.createReply(
+        cardId: widget.cardId,
+        commentId: parent.id,
+        body: text,
+        author: _user!,
+        cardOwnerId: widget.cardOwnerId,
+      );
+      if (!mounted) return;
+      setState(() {
+        _replace(updated);
+        _replyDraft.clear();
+        _replyingToId = null;
+        _replyPosting = false;
+        _replyInlineError = null;
+      });
+    } on BackporchApiException catch (e) {
+      if (!mounted) return;
+      if (e.code == 'email_not_verified') {
+        setState(() {
+          _apiSaysUnverified = true;
+          _replyPosting = false;
+          _replyInlineError = null;
+          _replyingToId = null;
+        });
+        return;
+      }
+      final msg = stoopCommentFailureMessage(e);
+      final rateLimited =
+          e.statusCode == 429 ||
+          e.code == 'too_many_comments' ||
+          e.code == 'too_many_reports';
+      setState(() {
+        _replyPosting = false;
+        if (!rateLimited) _replyInlineError = msg;
+      });
+      if (rateLimited) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(msg)));
+      }
+      // 409 / 429: reply draft stays in [_replyDraft].
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _replyPosting = false;
+        _replyInlineError = stoopCommentFailureMessage(e);
+      });
+    }
+  }
+
+  Future<void> _delete(StoopComment comment) async {
+    final user = _user;
+    if (user == null) return;
+    final confirmed = await confirmStoopCommentDelete(
+      context,
+      title: 'Delete comment?',
+    );
+    if (!confirmed) return;
+    try {
+      final tombstone = await widget.client.delete(
+        cardId: widget.cardId,
+        commentId: comment.id,
+        actor: user,
+        cardOwnerId: widget.cardOwnerId,
+        canModerate: widget.canModerate,
+      );
+      if (!mounted) return;
+      setState(() => _replace(tombstone));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(stoopCommentFailureMessage(e))));
+    }
+  }
+
+  Future<void> _deleteReply(StoopComment comment) async {
+    final user = _user;
+    if (user == null) return;
+    final confirmed = await confirmStoopCommentDelete(
+      context,
+      title: 'Delete reply?',
+    );
+    if (!confirmed) return;
+    try {
+      final tombstone = await widget.client.deleteReply(
+        cardId: widget.cardId,
+        commentId: comment.id,
+        actor: user,
+        cardOwnerId: widget.cardOwnerId,
+        canModerate: widget.canModerate,
+      );
+      if (!mounted) return;
+      setState(() => _replace(tombstone));
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(stoopCommentFailureMessage(e))));
+    }
+  }
+
+  Future<void> _report(StoopComment comment) async {
+    final user = _user;
+    if (!stoopCanReportComment(comment: comment, user: user)) return;
+    final result = await showDialog<({String category, String reason})>(
+      context: context,
+      builder: (_) => const StoopReportDialog(title: 'Report this comment'),
+    );
+    if (result == null) return;
+    try {
+      await widget.client.report(
+        cardId: widget.cardId,
+        commentId: comment.id,
+        actor: user!,
+        category: result.category,
+        reason: result.reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reported. Thanks — a moderator will review it.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(stoopCommentFailureMessage(e))));
+    }
+  }
+
+  Future<void> _reportReply(StoopComment comment) async {
+    final user = _user;
+    final reply = comment.reply;
+    if (reply == null) return;
+    if (!stoopCanReportReply(reply: reply, user: user)) return;
+    final result = await showDialog<({String category, String reason})>(
+      context: context,
+      builder: (_) => const StoopReportDialog(title: 'Report this reply'),
+    );
+    if (result == null) return;
+    try {
+      await widget.client.reportReply(
+        cardId: widget.cardId,
+        commentId: comment.id,
+        actor: user!,
+        category: result.category,
+        reason: result.reason,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reported. Thanks — a moderator will review it.'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(stoopCommentFailureMessage(e))));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return StoopCollapsible(
@@ -273,7 +364,16 @@ class _StoopCardCommentsState extends State<StoopCardComments> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _composer(context),
+          StoopCommentComposer(
+            user: _user,
+            canWrite: _canWrite,
+            draft: _draft,
+            posting: _posting,
+            onNudgeSignIn: _nudgeSignIn,
+            onNudgeVerify: _nudgeVerify,
+            onPost: _post,
+            onDraftChanged: () => setState(() {}),
+          ),
           if (_inlineError != null) ...[
             const SizedBox(height: 8),
             Text(
@@ -291,7 +391,27 @@ class _StoopCardCommentsState extends State<StoopCardComments> {
             )
           else ...[
             for (final c in _comments) ...[
-              _thread(context, c),
+              StoopCommentThread(
+                comment: c,
+                user: _user,
+                cardOwnerId: widget.cardOwnerId,
+                canModerate: widget.canModerate,
+                now: widget.now,
+                replying: _replyingToId == c.id,
+                replyDraft: _replyDraft,
+                replyPosting: _replyPosting,
+                replyInlineError: _replyInlineError,
+                onDelete: () => _delete(c),
+                onReport: () => _report(c),
+                onDeleteReply: () => _deleteReply(c),
+                onReportReply: () => _reportReply(c),
+                onStartReply: () => setState(() {
+                  _replyingToId = c.id;
+                  _replyInlineError = null;
+                }),
+                onPostReply: () => _postReply(c),
+                onReplyDraftChanged: () => setState(() {}),
+              ),
               const SizedBox(height: 12),
             ],
           ],

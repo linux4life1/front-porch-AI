@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card_face.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
@@ -29,8 +30,6 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show kFolderDragHoldDelay;
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'character_grid_card.body.dart';
 
 /// A single character card in the home grid: draggable (for folder organizing),
 /// selectable, with the avatar/name/message-count body and a right-click
@@ -84,57 +83,6 @@ class CharacterGridCard extends StatelessWidget {
   /// Delegates to the canonical stable group ID.
   String _getCharacterIdFromCard(CharacterCard card) => card.stableGroupId;
 
-  /// The person icon a card shows when it has no portrait of its own.
-  Widget _noPortrait(BuildContext context, double size) => Container(
-    color: AppColors.surfaceContainerOf(context),
-    child: Icon(
-      Icons.person,
-      size: size,
-      color: AppColors.iconSecondary(context),
-    ),
-  );
-
-  /// A card made without a portrait still carries a flat coloured picture
-  /// (the card file needs one); it gets the person icon like a card with no
-  /// picture at all. Until the probe has answered, the icon stands in too, so
-  /// the flat colour never flashes up first; the picture is drawn only once
-  /// the probe says it is real. Answers are cached, so a known card paints
-  /// its final face on the first frame.
-  Widget _coverImage(BuildContext context, File file, {required double size}) {
-    return FutureBuilder<bool>(
-      future: PlaceholderPortraitProbe.check(file, version: imageCacheEpoch),
-      initialData: PlaceholderPortraitProbe.known(
-        file,
-        version: imageCacheEpoch,
-      ),
-      builder: (context, placeholder) => placeholder.data == false
-          ? _portraitImage(context, file, size: size)
-          : _noPortrait(context, size),
-    );
-  }
-
-  Widget _portraitImage(
-    BuildContext context,
-    File file, {
-    required double size,
-  }) {
-    return Image.file(
-      file,
-      key: ValueKey(
-        '${character.dbId ?? character.name}|${file.path}|$imageCacheEpoch',
-      ),
-      fit: BoxFit.cover,
-      alignment: Alignment.topCenter,
-      gaplessPlayback: false,
-      // Decode at grid-tile size, not source size: ~1024² portraits are
-      // ~4 MB decoded EACH, which thrashed the 100 MB image cache on any
-      // decent-sized library and forced re-decodes on every scroll. 512px
-      // covers the largest tile at 2x DPR at a quarter of the memory.
-      cacheWidth: 512,
-      errorBuilder: (_, _, _) => _noPortrait(context, size),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final picks = dragSelection;
@@ -179,7 +127,12 @@ class CharacterGridCard extends StatelessWidget {
   }
 
   Widget _ghostCover(BuildContext context) => character.imagePath != null
-      ? _coverImage(context, onResolveCharImage(character), size: 32)
+      ? CharacterGridCardCover(
+          character: character,
+          file: onResolveCharImage(character),
+          imageCacheEpoch: imageCacheEpoch,
+          size: 32,
+        )
       : ColoredBox(
           color: AppColors.surfaceContainerOf(context),
           child: Icon(
@@ -199,7 +152,12 @@ class CharacterGridCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: character.imagePath != null
-            ? _coverImage(context, onResolveCharImage(character), size: 48)
+            ? CharacterGridCardCover(
+                character: character,
+                file: onResolveCharImage(character),
+                imageCacheEpoch: imageCacheEpoch,
+                size: 48,
+              )
             : Icon(
                 Icons.person,
                 size: 64,
@@ -272,9 +230,19 @@ class CharacterGridCard extends StatelessWidget {
                   final isTiny = constraints.maxWidth < 160;
 
                   if (isTiny) {
-                    return _tinyBody(context, character);
+                    return CharacterGridCardTinyBody(
+                      character: character,
+                      onResolveCharImage: onResolveCharImage,
+                      imageCacheEpoch: imageCacheEpoch,
+                    );
                   }
-                  return _fullBody(context, character, msgCount, isCompact);
+                  return CharacterGridCardFullBody(
+                    character: character,
+                    onResolveCharImage: onResolveCharImage,
+                    imageCacheEpoch: imageCacheEpoch,
+                    msgCount: msgCount,
+                    isCompact: isCompact,
+                  );
                 },
               ),
             ),

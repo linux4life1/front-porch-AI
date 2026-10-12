@@ -23,9 +23,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_review_porch_life.dart';
+import 'package:front_porch_ai/ui/pages/home/enhance/review/enhance_review_sections.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-
-part 'enhance_review_body.sections.dart';
 
 /// Compact accepted Review greet texts against seeds authored with the
 /// enhance rewrite. Leftover source `ext.greetingSeeds` on the duplicate
@@ -77,10 +76,6 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
   late List<String> _porchIntimateInto;
   late List<String> _porchIntimateNotInto;
   bool _saving = false;
-
-  /// Class door for the sections part extension — [setState] is
-  /// @protected and cannot be called from an extension.
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   @override
   void initState() {
@@ -236,6 +231,16 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
     }
   }
 
+  Widget _fieldSection(String title, String key, String oldValue) {
+    return EnhanceReviewFieldSection(
+      title: title,
+      use: _use[key] ?? false,
+      onUseChanged: (v) => setState(() => _use[key] = v),
+      oldValue: oldValue,
+      controller: _controllers[key]!,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final sections = <Widget>[
@@ -259,10 +264,24 @@ class EnhanceReviewBodyState extends State<EnhanceReviewBody> {
         ),
       if (widget.selection.scenario)
         _fieldSection('Scenario', 'scenario', widget.original.scenario),
-      if (widget.selection.greetings) _greetingsSection(),
+      if (widget.selection.greetings)
+        EnhanceReviewGreetingsSection(
+          use: _use['greetings'] ?? false,
+          onUseChanged: (v) => setState(() => _use['greetings'] = v),
+          originalFirstMessage: widget.original.firstMessage,
+          firstMessageController: _controllers['firstMessage']!,
+          altControllers: [
+            for (var i = 0; i < widget.enhanced.alternateGreetings.length; i++)
+              _controllers['alt$i']!,
+          ],
+        ),
       if (widget.selection.lorebook &&
           (widget.enhanced.lorebook?.entries.isNotEmpty ?? false))
-        _lorebookSection(),
+        EnhanceReviewLorebookSection(
+          entries: widget.enhanced.lorebook!.entries,
+          useEntry: _useLoreEntry,
+          onUseEntryChanged: (i, v) => setState(() => _useLoreEntry[i] = v),
+        ),
       if (widget.selection.porchLife)
         EnhancePorchLifeReview(
           use: _use['porchLife'] ?? false,

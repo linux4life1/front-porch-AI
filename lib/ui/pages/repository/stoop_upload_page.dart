@@ -8,32 +8,20 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 // The Drift schema also declares a `World` row class — hide it so `World`
 // below always means the model (the same shape .fpworld export uses).
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_adult_lock_banner.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_comments_switch.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_completeness_panel.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verify_banner.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_pick_step.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_standards.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_tag_selector.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_upload/stoop_upload.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_wizard_steps.dart';
-import 'package:front_porch_ai/ui/pages/repository/stoop_world_share.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-
-part 'stoop_upload_page.publish.dart';
-part 'stoop_upload_page.steps.dart';
 
 /// Wizard to share one of the user's local characters to The Stoop. Mirrors the
 /// app's create-wizard chrome (step dots + AnimatedSwitcher + nav buttons).
@@ -120,11 +108,6 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
   bool _busy = false;
   String? _error;
 
-  /// setState is protected, so the wizard's step and publish parts cannot
-  /// call it directly. Same bridge settings_page.dart exposes for the same
-  /// reason.
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   @override
   void dispose() {
     _name.dispose();
@@ -168,7 +151,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     // Keyed by id on the way back so a slow first pick can't overwrite a second.
     // ADVISORY ONLY: this read feeds the banner and the switch, because the
     // wizard has to show something before Submit. The published flag is decided
-    // in _publishGroup from the card it actually uploads — this query hides its
+    // in StoopUploadPublisher from the card it actually uploads — this query hides its
     // own failures behind an empty list, which reads as "clean cast".
     _groupMembers = null;
     _adult.reconcile(forced: false); // no cast known yet
@@ -250,32 +233,6 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     _tags = pool.take(_maxTags).toList();
   }
 
-  String _mapError(String code, {String? detail}) {
-    switch (code) {
-      case 'policy_not_accepted':
-        return 'Please accept the Acceptable Use Policy before sharing.';
-      case 'email_not_verified':
-        return 'Confirm your email address before sharing — check your inbox '
-            'for the link we sent. Browsing and downloading still work.';
-      case 'unsupported_image_type':
-        return 'That avatar image type isn’t supported (use PNG, JPG, or WebP).';
-      case 'file_too_large':
-        return 'That avatar image is too large.';
-      case 'storage_unavailable':
-        return 'The Stoop’s storage is unavailable right now. Try again later.';
-      case 'avatar_required':
-        return 'This character needs an avatar image to be shared.';
-      case 'incomplete_card':
-        return (detail != null && detail.isNotEmpty)
-            ? detail
-            : 'This card is missing required fields (first message, '
-                  'description/personality, or scenario). Fill them in the '
-                  'editor and try again.';
-      default:
-        return 'Couldn’t share that character. Check your connection and retry.';
-    }
-  }
-
   /// Live checklist for the currently selected card/group/world (sync for
   /// solo; worlds use the repo envelope when available).
   StoopCompleteness? _selectedCompleteness() {
@@ -286,7 +243,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
     final group = _selectedGroup;
     if (group != null) {
       // Group-level fields only here. Member substance is validated in
-      // _publishGroup after GroupCardExporter builds the portable payload
+      // StoopUploadPublisher after GroupCardExporter builds the portable payload
       // (membership lives in group_members, not on GroupChat).
       return StoopCardCompleteness.assess({
         'name': group.name,
@@ -320,7 +277,7 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
   /// rule would drift. A place has no cast, so never.
   ///
   /// The GROUP publish path deliberately re-derives it from the built card
-  /// instead (see [_publishGroup]): this getter depends on a separate read that
+  /// instead (see [StoopUploadPublisher]): this getter depends on a separate read that
   /// can come back empty on a database hiccup.
   bool get _forcedAdult => stoopForcesAdult(_selected, _groupMembers);
 
@@ -417,48 +374,106 @@ class _StoopUploadPageState extends State<StoopUploadPage> {
   Widget _stepBody() {
     switch (_currentStep) {
       case 0:
-        return _pickStep();
+        // Step 0 — pick a local character, group, or place. StoopPickStep is
+        // folder-aware: the grids follow the home grid's folder hierarchy via
+        // the shared buildFolderPickView rules.
+        return StoopPickStep(
+          selectedCard: _selected,
+          selectedGroup: _selectedGroup,
+          selectedWorldId: _selectedWorld?.id,
+          onSelectCard: _select,
+          onSelectGroup: _selectGroup,
+          onSelectWorld: (w) => setState(() => _applyWorldSelection(w)),
+        );
       case 1:
-        return _detailsStep();
+        return StoopUploadDetailsStep(
+          selectedCharacterName: _selected?.name,
+          name: _name,
+          summary: _summary,
+          originalCreator: _originalCreator,
+          tagInput: _tagInput,
+          tagPool: _tagPool,
+          tags: _tags,
+          maxTags: _maxTags,
+          onChanged: () => setState(() {}),
+          onToggleTag: _toggleTag,
+          onAddTag: _addTag,
+        );
       case 2:
-        return _contentStep();
+        return StoopUploadContentStep(
+          completeness: _selectedCompleteness(),
+          forcedAdult: _forcedAdult,
+          adultValue: _adult.value,
+          castPending: _castPending,
+          commentsEnabled: _commentsEnabled,
+          standardsAck: _standardsAck,
+          onAdultChanged: (v) => setState(() => _adult.setByAuthor(v)),
+          onCommentsChanged: (v) => setState(() => _commentsEnabled = v),
+          onStandardsAckChanged: (v) =>
+              setState(() => _standardsAck = v ?? false),
+        );
       default:
-        return _reviewStep();
+        return StoopUploadReviewStep(
+          selectedCard: _selected,
+          selectedGroup: _selectedGroup,
+          selectedWorld: _selectedWorld,
+          completeness: _selectedCompleteness(),
+          name: _name.text.trim(),
+          summary: _summary.text.trim(),
+          originalCreator: _originalCreator.text.trim(),
+          adultValue: _adult.value,
+          forcedAdult: _forcedAdult,
+          tags: _tags,
+          error: _error,
+        );
     }
   }
 
-  Widget _navButtons() {
-    final isLast = _currentStep == _steps.length - 1;
-    return SafeArea(
-      child: Container(
-        padding: const EdgeInsets.fromLTRB(16, 10, 16, 10),
-        decoration: BoxDecoration(
-          color: stoopBg0(context),
-          border: Border(top: BorderSide(color: stoopBorder(context))),
-        ),
-        child: Row(
-          children: [
-            // In update mode the Pick step (0) is skipped, so Back stops at 1.
-            if (_currentStep > (widget.isUpdate ? 1 : 0))
-              TextButton(
-                onPressed: _busy ? null : () => setState(() => _currentStep--),
-                style: TextButton.styleFrom(
-                  foregroundColor: stoopCream2(context),
-                ),
-                child: const Text('Back'),
-              ),
-            const Spacer(),
-            StoopAmberButton(
-              label: isLast ? 'Submit for review' : 'Next',
-              busy: _busy,
-              onPressed: (_canAdvance && !_busy) ? _next : null,
-              padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
-            ),
-          ],
-        ),
+  void _toggleTag(String t) {
+    setState(() => stoopUploadToggleTag(_tags, t, _maxTags));
+  }
+
+  void _addTag(String raw) {
+    setState(
+      () => stoopUploadAddTag(
+        pool: _tagPool,
+        tags: _tags,
+        raw: raw,
+        max: _maxTags,
       ),
     );
   }
 
-  InputDecoration _input(String hint) => stoopInput(context, hint);
+  Future<void> _publish() {
+    return StoopUploadPublisher(
+      context: context,
+      name: _name,
+      summary: _summary,
+      originalCreator: _originalCreator,
+      adult: _adult,
+      tags: _tags,
+      commentsEnabled: _commentsEnabled,
+      isUpdate: widget.isUpdate,
+      updateStoopId: widget.updateStoopId,
+      onStart: () => setState(() {
+        _busy = true;
+        _error = null;
+      }),
+      onError: (msg) => setState(() => _error = msg),
+      onAdultForced: () => setState(() => _adult.reconcile(forced: true)),
+      onIdle: () => setState(() => _busy = false),
+    ).publish(card: _selected, group: _selectedGroup, world: _selectedWorld);
+  }
+
+  Widget _navButtons() {
+    return StoopUploadNavBar(
+      // In update mode the Pick step (0) is skipped, so Back stops at 1.
+      showBack: _currentStep > (widget.isUpdate ? 1 : 0),
+      isLast: _currentStep == _steps.length - 1,
+      busy: _busy,
+      canAdvance: _canAdvance,
+      onBack: () => setState(() => _currentStep--),
+      onNext: _next,
+    );
+  }
 }
