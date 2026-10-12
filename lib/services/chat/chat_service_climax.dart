@@ -112,7 +112,7 @@ extension ChatServiceClimax on ChatService {
         ? null
         : _getCharacterIdFromCard(t.speakingCharacter);
     final loadedId = _activeGroup != null ? speakerId : null;
-    Map<String, dynamic> slot() => _clockWriteSlot(t.streamTarget);
+    Map<String, dynamic> slot() => clockWriteSlot(t.streamTarget);
     if (_clockRunning) {
       final minutes = _refractoryBeatMinutes(t.streamTarget);
       for (final id in _refractoryBodyIds()) {

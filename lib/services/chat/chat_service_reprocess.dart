@@ -134,13 +134,13 @@ extension ChatServiceReprocess on ChatService {
         wikiQuery: wikiQuery,
       );
     } catch (e) {
-      _restoreCapturedThroughReader();
+      _clockWriter.restoreCapturedThroughReader();
       rethrow;
     } finally {
       _groupManager?.endRegeneration();
       _isPostGenerating = false;
       _clearPostGenAbortFlags();
-      _applyTipClock();
+      _clockReader.applyTipClock();
       // Listeners (web isSettlingTurn → chat_updated) only see the clear
       // through a notification. The flag alone does not broadcast.
       notifyListeners();
@@ -251,7 +251,7 @@ extension ChatServiceReprocess on ChatService {
       // Capture the live clock first. Fail/cancel/abort put it back so
       // a rejected regen never leaves the sidebar on the rewound before.
       // Then rewind to the shared message-level before (every swipe).
-      _rewindClockToPreReply(lastMsg);
+      _clockWriter.rewindClockToPreReply(lastMsg);
 
       if (!_revertRegenRealismBaseline(
         lastMsg: lastMsg,
@@ -260,7 +260,7 @@ extension ChatServiceReprocess on ChatService {
         regenSpeakerSid: regenSpeakerSid,
       )) {
         _messages.add(lastMsg);
-        _restoreCapturedThroughReader();
+        _clockWriter.restoreCapturedThroughReader();
         _restoreRealismStateForSpeaker(lastMsg);
         _restorePocketsFromStamp(lastMsg, after: true);
         return;
@@ -344,7 +344,7 @@ extension ChatServiceReprocess on ChatService {
           // session row no longer agreed with, and `_saveChat()` persisted the
           // wrong scalars. 1:1-only branch, host-only (guests never get here).
           _messages.add(lastMsg);
-          _applyTipClock();
+          _clockReader.applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
@@ -396,7 +396,7 @@ extension ChatServiceReprocess on ChatService {
           _messages.add(lastMsg);
           // Same put-back contract as the cancel point above: the message
           // returns WITH the state it was accepted under.
-          _applyTipClock();
+          _clockReader.applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
           _restorePocketsFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;

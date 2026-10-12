@@ -353,9 +353,9 @@ extension ChatServiceGroupEntry on ChatService {
           );
           // Thin delegation to scanner (group greeting scan).
           _lorebookScanner.scanLatest();
-          _writeSlotClock(
+          _clockWriter.writeSlotClock(
             _messages.isEmpty ? null : _messages.first,
-            kind: _SlotClockWrite.seed,
+            kind: SlotClockWrite.seed,
           );
           if (greetingFirstMesEmpty(group.firstMessage) &&
               greetingFirstMesEmpty(_groupCharacters.first.firstMessage)) {

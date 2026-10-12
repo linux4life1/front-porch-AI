@@ -7,6 +7,7 @@
 
 export 'absence_tracker.dart';
 export 'birthday.dart';
+export 'birthday_sync.dart';
 export 'body_clock.dart';
 export 'enabled_needs.dart';
 export 'clock_shift.dart';
@@ -77,6 +78,7 @@ export 'objective_check_skip.dart';
 export 'objective_proposal.dart';
 export 'objective_stale_detector.dart';
 export 'pocket_journal_cards.dart';
+export 'episode_crumb_minter.dart';
 export 'episode_crumbs.dart';
 export 'skip_language.dart';
 export 'pockets.dart';
@@ -117,6 +119,8 @@ export 'session_open_window.dart';
 export 'stop_sequences.dart';
 export 'story_clock.dart';
 export 'story_clock_claims.dart';
+export 'story_clock_reader.dart';
+export 'story_clock_writer.dart';
 export 'time_service.dart';
 export 'variant_snippet.dart';
 export 'today_line_tag.dart';

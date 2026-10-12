@@ -321,7 +321,7 @@ extension ChatServiceImportSeed on ChatService {
       );
       _restoreRealismStateFromMessage(synth, restoreClock: false);
     }
-    _syncLoadedSlotClocks();
+    _clockWriter.syncLoadedSlotClocks();
 
     // 1:1 suitcase kit is captured from raw `_pockets` (HIDES≠erase).
     // Phase-0 nulled it so the prior open chat cannot bleed; the gated

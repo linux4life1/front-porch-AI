@@ -227,11 +227,17 @@ extension ChatServiceGenerationPostGen on ChatService {
             '${_storageService.realismSettings.passageOfTimeDefault} '
             'reason=abort',
           );
-          _abortSlotClockIfThisTurnTicked(t);
+          _clockWriter.abortSlotClockIfThisTurnTicked(
+            () => t.streamTarget,
+            isContinue: t.mode == GenerationMode.continue_,
+          );
         } else {
           await _maybeAdvanceStoryClockAfterReply(t);
           if (_postGenAbortRequested) {
-            _abortSlotClockIfThisTurnTicked(t);
+            _clockWriter.abortSlotClockIfThisTurnTicked(
+              () => t.streamTarget,
+              isContinue: t.mode == GenerationMode.continue_,
+            );
           } else {
             _wearBodiesAfterClock(t);
             _tickRefractoryAfterClock(t);
@@ -324,7 +330,10 @@ extension ChatServiceGenerationPostGen on ChatService {
         );
         if (named != null) {
           await _timeService.applyReconciledClock(named);
-          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.tick);
+          _clockWriter.writeSlotClock(
+            t.streamTarget,
+            kind: SlotClockWrite.tick,
+          );
         }
       }
       debugPrint(
@@ -345,9 +354,9 @@ extension ChatServiceGenerationPostGen on ChatService {
       // Stamp the LIVE swipe map. Writing `metadata` is a no-op for
       // regen when swipeMetadata[i] is already set — activeMetadata
       // returns that slot, not the legacy field.
-      _writeSlotClock(
+      _clockWriter.writeSlotClock(
         msg,
-        kind: _SlotClockWrite.beforeOnly,
+        kind: SlotClockWrite.beforeOnly,
         before:
             StoryClock.parse(
               knownStoryClockBefore(msg) ?? _timeService.storyClockIso,
@@ -367,13 +376,13 @@ extension ChatServiceGenerationPostGen on ChatService {
       await _timeService.applyReconciledClock(named);
       // K-A: overwrite the slot's own before so the stored pair is
       // named/named (07:30/07:30). Clamp still holds. Continue
-      // already stamps through _writeSlotClock above.
-      _writeSlotClock(msg, kind: _SlotClockWrite.tick);
+      // already stamps through writeSlotClock above.
+      _clockWriter.writeSlotClock(msg, kind: SlotClockWrite.tick);
     }
     if (named == null && _isLiteTurn(t) && _clockRunning) {
-      _writeSlotClock(msg, kind: _SlotClockWrite.tick);
+      _clockWriter.writeSlotClock(msg, kind: SlotClockWrite.tick);
     }
-    await _maybeMintEpisodeCrumbs(before, _timeService.clock);
+    await _episodeCrumbs.maybeMint(before, _timeService.clock);
     debugPrint(
       '[Clock] running=$_clockRunning '
       'source=${_timeService.clockGateSource} '

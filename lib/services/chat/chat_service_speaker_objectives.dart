@@ -334,7 +334,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     // Default false. Regen/swipe/delete never pass true — the tip
     // after is the clock. Fork/import pass true only as applyTipClock.
     if (restoreClock) {
-      _applyTipClock();
+      _clockReader.applyTipClock();
     }
 
     if (state == null) {

@@ -52,7 +52,7 @@ extension ChatServiceChatEntry on ChatService {
       _activeCharacter = card;
     }
     refreshEnjoysLowHygieneFromActiveCharacter();
-    unawaited(_ensureBirthdayState());
+    unawaited(_birthdaySync.ensure());
     notifyListeners();
   }
 
@@ -444,9 +444,9 @@ extension ChatServiceChatEntry on ChatService {
             );
             // Scan first message for lore (thin delegation to extracted scanner).
             _lorebookScanner.scanLatest();
-            _writeSlotClock(
+            _clockWriter.writeSlotClock(
               _messages.isEmpty ? null : _messages.first,
-              kind: _SlotClockWrite.seed,
+              kind: SlotClockWrite.seed,
             );
             if (_activeCharacter!.firstMessage.trim().isEmpty) {
               await _applyGreetingOpeningSeed(

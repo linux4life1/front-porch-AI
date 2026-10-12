@@ -124,7 +124,7 @@ extension ChatServiceImportWalk on ChatService {
     // `others`, so it must not wipe Sam's keys from an earlier give.
     _restorePocketsStampsChronologically(start);
 
-    _syncLoadedSlotClocks();
+    _clockWriter.syncLoadedSlotClocks();
 
     seedPocketsFromCards();
 
@@ -198,6 +198,6 @@ extension ChatServiceImportWalk on ChatService {
         seedClock: seedClockIfUnstamped,
       );
     }
-    _syncLoadedSlotClocks();
+    _clockWriter.syncLoadedSlotClocks();
   }
 }
