@@ -16,37 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/chat/chat.dart'
-    show Pockets, BirthdayMath;
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
-import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'edit_character_page.realism_section.dart';
-part 'edit_character_page.save.dart';
-part 'edit_character_page.tab_worlds.dart';
-part 'edit_character_page.tabs_core.dart';
-part 'edit_character_page.tab_dialogue.dart';
-part 'edit_character_page.tabs_lore.dart';
-part 'edit_character_page.host.dart';
-
-// ═══════════════════════════════════════════════════════════════
-//  DESIGN TOKENS — Slate / Indigo dark theme
-// ═══════════════════════════════════════════════════════════════
-
-// Theme-aware surfaces (dark values identical to the old hardcoded navy
-// tokens, so dark mode is unchanged; light mode finally gets light).
-const _borderFocus = AppColors.formMasterAccent;
 
 class EditCharacterPage extends StatefulWidget {
   final CharacterCard character;
@@ -100,265 +78,24 @@ class EditCharacterPage extends StatefulWidget {
 
 class _EditCharacterPageState extends State<EditCharacterPage>
     with SingleTickerProviderStateMixin {
-  /// Re-exposes the protected [setState] for the `part of` extensions
-  /// (`edit_character_page.*.dart`). Same bridge as settings_page/chat_page.
-  void rebuildState(VoidCallback fn) => setState(fn);
-
-  late TextEditingController _nameController;
-  late StyledTextController _descriptionController;
-  late StyledTextController _personalityController;
-  late StyledTextController _scenarioController;
-  late StyledTextController _firstMessageController;
-  late StyledTextController _mesExampleController;
-  late StyledTextController _systemPromptController;
-  late StyledTextController _postHistoryController;
-
-  late TabController _tabController;
-  List<LorebookEntry> _loreEntries = [];
-  List<String> _selectedWorldNames = [];
-  List<String> _initialWorldNames = const [];
-  List<StyledTextController> _altGreetingControllers = [];
-  List<GreetingRealismSeed?> _altGreetingSeeds = [];
-  List<String> _tags = [];
-
-  /// The character's own TTS voice id; '' means "follow the global
-  /// Settings voice". Editable in the Details tab's Voice card.
-  String _ttsVoice = '';
-  final _tagController = TextEditingController();
-
-  /// Long-term ambitions (Living Time §6), one per line. Identity — travels
-  /// with the card; per-chat progress lives in the Journal.
-  // Ambitions are a LIST, not newline-encoded text (see ChipListEditor).
-  List<String> _ambitions = const [];
-  List<String> _planLines = const [];
-  String _occupation = '';
-  String _occupationBrief = '';
-  String _hours = '';
-  List<int>? _workDays;
-  String _birthday = '';
-
-  /// Likes & Dislikes and the 18+ pair — card-authored identity, same shape
-  /// and same chip editor as [_ambitions].
-  List<String> _likes = const [];
-  List<String> _dislikes = const [];
-  List<String> _intimateInto = const [];
-  List<String> _intimateNotInto = const [];
-
-  /// Starting Pockets & Wardrobe, held as the chip text the user sees
-  /// (`sundress (rain-soaked)`) rather than as parsed items. The card stores a
-  /// map of `{name, state}`; [Pockets] owns both directions of that conversion
-  /// so the editor never has to hold two representations at once.
-  List<String> _worn = const [];
-  List<String> _carrying = const [];
-  final ValueNotifier<int> _tokenNotifier = ValueNotifier<int>(0);
-
-  // ── Realism Engine state ──
-  bool _realismEnabled = false;
-  bool _realismSettingsModified = false;
-  String _realismTimeOfDay = 'morning';
-  int _realismDayCount = 1;
-  // Story Calendar authoring (story-calendar.md §3a): null start date =
-  // "the day the chat starts"; null time = period default.
-  String? _realismStoryStartDate;
-  String? _realismStoryStartTime;
-  int _realismShortTermBond = 0;
-  int _realismLongTermBond = 0;
-  int _realismTrustLevel = 0;
-  String _realismEmotion = '';
-  String _realismEmotionIntensity = 'mild';
-  bool _realismNsfwCooldown = false;
-  bool _realismPassageOfTime = true;
-  bool _realismChaosMode = false;
-  bool _realismNeedsSim = false;
-
-  /// For a card that says nothing about Needs: the Porch Life value the
-  /// switch opened on. Save keeps the card silent unless the switch moved
-  /// off it. Null when the card made its own choice.
-  bool? _needsSimShownForSilent;
-  bool _realismPocketsEnabled = true;
-  bool _realismEnjoysLowHygiene = false;
-
-  /// Read-and-write-back only — no editor writes this any more (Ambitions
-  /// replaced the "Current Task / Quest" box). It is loaded from the card and
-  /// saved straight back so editing anything else about an older character
-  /// does not erase the starting quest their chats still import. The create
-  /// flows dropped their copies because a NEW card has no task to preserve;
-  /// this one is load-bearing.
-  String _realismCurrentTask = '';
-  bool _realismVerificationEnabled = false;
-  int _realismVerificationMaxReprocesses = 1;
-  int _realismVerificationStrictness = 3;
-  bool _realismNeedsDirectorAuthority = false;
-  String _needsPace = 'normal';
-  List<String> _needsOff = const [];
-
-  // Per-need baseline values (0-100).
-  int _needsBaselineHunger = 80;
-  int _needsBaselineBladder = 80;
-  int _needsBaselineEnergy = 80;
-  int _needsBaselineSocial = 80;
-  int _needsBaselineFun = 80;
-  int _needsBaselineHygiene = 80;
-  int _needsBaselineComfort = 80;
+  late final EditCharacterDraft _draft;
+  late final TabController _tabController;
 
   @override
   void initState() {
     super.initState();
-    _nameController = TextEditingController(text: widget.character.name);
-    _descriptionController = StyledTextController(
-      text: widget.character.description,
-      preset: StyledTextPreset.macros,
+    _draft = EditCharacterDraft(
+      widget.character,
+      porchLifeNeedsDefault: _porchLifeNeedsDefault,
     );
-    _personalityController = StyledTextController(
-      text: widget.character.personality,
-      preset: StyledTextPreset.macros,
-    );
-    _scenarioController = StyledTextController(
-      text: widget.character.scenario,
-      preset: StyledTextPreset.macros,
-    );
-    _firstMessageController = StyledTextController(
-      text: widget.character.firstMessage,
-      preset: StyledTextPreset.prose,
-    );
-    _mesExampleController = StyledTextController(
-      text: widget.character.mesExample,
-      preset: StyledTextPreset.prose,
-    );
-    _systemPromptController = StyledTextController(
-      text: widget.character.systemPrompt,
-      preset: StyledTextPreset.macros,
-    );
-    _postHistoryController = StyledTextController(
-      text: widget.character.postHistoryInstructions,
-      preset: StyledTextPreset.macros,
-    );
-
-    if (widget.character.lorebook != null) {
-      _loreEntries = List.from(widget.character.lorebook!.entries);
-    } else {
-      widget.character.lorebook = Lorebook(entries: []);
-      _loreEntries = widget.character.lorebook!.entries;
-    }
-
-    _selectedWorldNames = List.from(widget.character.worldNames);
-    // Snapshot for the save-time diff: only worlds ADDED in this edit get
-    // pushed onto the character's existing chats.
-    _initialWorldNames = List.from(widget.character.worldNames);
-
-    _altGreetingControllers = widget.character.alternateGreetings
-        .map(
-          (g) => StyledTextController(text: g, preset: StyledTextPreset.prose),
-        )
-        .toList();
-    _altGreetingSeeds = alignGreetingSeeds(
-      widget.character.frontPorchExtensions?.greetingSeeds ?? const [],
-      _altGreetingControllers.length,
-    );
-
-    _tags = List.from(widget.character.tags);
-    _ttsVoice = widget.character.ttsVoice ?? '';
-
-    // Seed realism state from existing extensions (or keep defaults)
-    final ext = widget.character.frontPorchExtensions;
-    if (ext != null) {
-      _realismEnabled = ext.realismEnabled;
-      _realismTimeOfDay = ext.timeOfDay;
-      _realismDayCount = ext.dayCount;
-      _realismStoryStartDate = ext.storyStartDate;
-      _realismStoryStartTime = ext.storyStartTime;
-      _realismShortTermBond = ext.shortTermBond;
-      _realismLongTermBond = ext.longTermBond;
-      _realismTrustLevel = ext.trustLevel;
-      _realismEmotion = ext.characterEmotion;
-      _realismEmotionIntensity = ext.emotionIntensity;
-      _realismNsfwCooldown = ext.nsfwCooldownEnabled;
-      _realismPassageOfTime = ext.passageOfTimeEnabled;
-      _realismChaosMode = ext.chaosModeEnabled;
-      if (ext.needsSimChoice == null) {
-        _realismNeedsSim = _needsSimShownForSilent = _porchLifeNeedsDefault();
-      } else {
-        _realismNeedsSim = ext.needsSimChoice!;
-      }
-      _realismPocketsEnabled = ext.pocketsEnabled;
-      _realismEnjoysLowHygiene = ext.enjoysLowHygiene;
-      _realismCurrentTask = ext.currentTask;
-      _realismVerificationEnabled = ext.realismVerificationEnabled;
-      _realismVerificationMaxReprocesses =
-          ext.realismVerificationMaxReprocesses;
-      _realismVerificationStrictness = ext.realismVerificationStrictness;
-      _realismNeedsDirectorAuthority = ext.realismNeedsDirectorAuthority;
-      _needsPace = ext.needsPace;
-      _needsOff = List<String>.from(ext.needsOff);
-      _needsBaselineHunger = ext.needsBaselineHunger;
-      _needsBaselineBladder = ext.needsBaselineBladder;
-      _needsBaselineEnergy = ext.needsBaselineEnergy;
-      _needsBaselineSocial = ext.needsBaselineSocial;
-      _needsBaselineFun = ext.needsBaselineFun;
-      _needsBaselineHygiene = ext.needsBaselineHygiene;
-      _needsBaselineComfort = ext.needsBaselineComfort;
-    } else {
-      _realismNeedsSim = _needsSimShownForSilent = _porchLifeNeedsDefault();
-    }
-    _ambitions = List<String>.from(
-      widget.character.frontPorchExtensions?.ambitions ?? const [],
-    );
-    _planLines = List<String>.from(
-      widget.character.frontPorchExtensions?.planLines ?? const [],
-    );
-    _occupation = widget.character.frontPorchExtensions?.occupation ?? '';
-    _occupationBrief =
-        widget.character.frontPorchExtensions?.occupationBrief ?? '';
-    _hours = widget.character.frontPorchExtensions?.hours ?? '';
-    _workDays = widget.character.frontPorchExtensions?.workDays;
-    _birthday = widget.character.frontPorchExtensions?.birthday ?? '';
-    _likes = List<String>.from(
-      widget.character.frontPorchExtensions?.likes ?? const [],
-    );
-    _dislikes = List<String>.from(
-      widget.character.frontPorchExtensions?.dislikes ?? const [],
-    );
-    _intimateInto = List<String>.from(
-      widget.character.frontPorchExtensions?.intimateInto ?? const [],
-    );
-    _intimateNotInto = List<String>.from(
-      widget.character.frontPorchExtensions?.intimateNotInto ?? const [],
-    );
-    // Through Pockets.fromJson rather than a hand-rolled cast: it is the one
-    // reader that already tolerates both entry shapes a card can carry (a bare
-    // string, or {name, state}) and applies the same caps the runtime does.
-    final startingPockets = Pockets.fromJson(
-      widget.character.frontPorchExtensions?.inventory,
-    );
-    _worn = startingPockets.wornDisplay;
-    _carrying = startingPockets.carryingDisplay;
-
     _tabController = TabController(length: 4, vsync: this);
-
-    // Listen for token count updates
-    for (final c in [
-      _nameController,
-      _descriptionController,
-      _personalityController,
-      _scenarioController,
-      _firstMessageController,
-      _mesExampleController,
-      _systemPromptController,
-      _postHistoryController,
-    ]) {
-      c.addListener(_updateTokenCount);
-    }
-    for (final c in _altGreetingControllers) {
-      c.addListener(_updateTokenCount);
-    }
-    _updateTokenCount();
   }
 
   /// A card that says nothing about Needs starts its chats with the Porch
   /// Life Needs switch, so the editor's switch shows that; Save writes a
-  /// choice only if the user moves it (see [_needsSimShownForSilent]).
-  /// Without the StorageService above (widget goldens) the switch's own
-  /// default, on, is the answer.
+  /// choice only if the user moves it (see
+  /// [EditCharacterDraft.needsSimShownForSilent]). Without the StorageService
+  /// above (widget goldens) the switch's own default, on, is the answer.
   bool _porchLifeNeedsDefault() {
     try {
       return Provider.of<StorageService>(
@@ -372,23 +109,255 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   @override
   void dispose() {
-    _nameController.dispose();
-    _descriptionController.dispose();
-    _personalityController.dispose();
-    _scenarioController.dispose();
-    _firstMessageController.dispose();
-    _mesExampleController.dispose();
-    _systemPromptController.dispose();
-    _postHistoryController.dispose();
-    for (final c in _altGreetingControllers) {
-      c.dispose();
-    }
-    _tagController.dispose();
-    _tokenNotifier.dispose();
+    _draft.dispose();
     _tabController.dispose();
     super.dispose();
   }
 
+  void _rebuild() => setState(() {});
+
+  List<LorebookEntry> get _loreEntries => _draft.loreEntries;
+
+  void _snack(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  Future<void> _addLoreEntry() async {
+    final result = await showLorebookEntryDialog(context: context);
+    if (result != null) {
+      setState(() => _loreEntries.add(result));
+    }
+  }
+
+  void _removeLoreEntry(int index) {
+    setState(() {
+      _loreEntries.removeAt(index);
+    });
+  }
+
+  Future<void> _editLoreEntry(int index) async {
+    final entry = _loreEntries[index];
+    final result = await showLorebookEntryDialog(
+      context: context,
+      existing: entry,
+      showEnabled: true,
+    );
+    if (result != null) {
+      setState(() => _loreEntries[index] = result);
+    }
+  }
+
+  Future<void> _importLoreFromCharacter() async {
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    final entries = await showImportCharacterLoreDialog(
+      context: context,
+      characters: repo.characters,
+      excludeCharacterName: widget.character.name,
+    );
+    if (entries == null || entries.isEmpty) return;
+    setState(() {
+      _loreEntries.addAll(entries);
+    });
+    if (mounted) {
+      _snack('Added ${entries.length} entries from character.');
+    }
+  }
+
+  Future<void> _importLorebookJson() async {
+    final result = await GuardedPicker.pickFiles(
+      context,
+      category: PickerPrefs.catImport,
+      type: FileType.custom,
+      allowedExtensions: ['json'],
+    );
+    if (result == null || result.files.isEmpty) return;
+
+    try {
+      final lorebook = parseLorebookImport(
+        await result.files.single.readAsBytes(),
+      );
+
+      if (lorebook.entries.isEmpty) {
+        if (mounted) _snack('No entries found in file.');
+        return;
+      }
+
+      setState(() {
+        _loreEntries.addAll(lorebook.entries);
+      });
+
+      if (mounted) _snack('Imported ${lorebook.entries.length} entries.');
+    } on FormatException catch (e) {
+      if (mounted) _snack('Invalid file format: ${e.message}');
+    } on Exception catch (_) {
+      if (mounted) _snack('Import failed. Please try again.');
+    }
+  }
+
+  /// World-info JSON, the same shape Import file already accepts.
+  Future<void> _exportLorebookJson() async {
+    if (_loreEntries.isEmpty) {
+      if (!mounted) return;
+      _snack('No lorebook entries to export.');
+      return;
+    }
+
+    final selected = await showLorebookExportPicker(
+      context: context,
+      entries: _loreEntries,
+    );
+    if (selected == null || selected.isEmpty || !mounted) return;
+
+    final name = _draft.nameController.text.trim();
+    final bytes = encodeLorebookExport(selected, name);
+
+    try {
+      final path = await GuardedPicker.saveFile(
+        context,
+        category: PickerPrefs.catExport,
+        dialogTitle: 'Export lorebook',
+        fileName: lorebookExportFileName(name),
+        type: FileType.custom,
+        allowedExtensions: const ['json'],
+        bytes: bytes,
+      );
+      if (path == null || !mounted) return;
+      final n = selected.length;
+      _snack('Exported $n ${n == 1 ? 'entry' : 'entries'}.');
+    } catch (e) {
+      if (!mounted) return;
+      _snack('Export failed: $e');
+    }
+  }
+
+  Future<void> _saveCharacter() async {
+    final writer = EditCharacterCardWriter(
+      character: widget.character,
+      draft: _draft,
+    );
+    writer.writeFields(showRealismTab: widget.showRealismTab);
+    await writer.embedPng(Provider.of<StorageService>(context, listen: false));
+    writer.writeLorebook();
+
+    try {
+      if (widget.onSaveOverride != null) {
+        // Delegated persistence (e.g. a group member → its group row, never the
+        // library). The field updates + PNG save above already ran on the card.
+        await widget.onSaveOverride!(widget.character);
+      } else {
+        await Provider.of<CharacterRepository>(
+          context,
+          listen: false,
+        ).updateCharacter(widget.character);
+
+        // Refresh the "Enjoys low hygiene" flag in any active chat so that
+        // toggling it on the character immediately affects existing sessions
+        // (without requiring a database change).
+        if (mounted) {
+          try {
+            final chatService = Provider.of<ChatService>(
+              context,
+              listen: false,
+            );
+            chatService.refreshEnjoysLowHygieneFromActiveCharacter();
+          } catch (_) {
+            // ChatService not available in this context — that's fine.
+          }
+        }
+
+        await _backfillAddedWorlds(writer.addedWorlds);
+      }
+
+      if (widget.onSaved != null) {
+        await widget.onSaved!(widget.character);
+      }
+
+      if (mounted) {
+        // Continue mode (e.g. the Stoop update flow): return the saved card so
+        // the caller can proceed, instead of the standard "updated" toast + pop.
+        if (widget.popWithCardOnSave) {
+          Navigator.pop(context, widget.character);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            porchSnackBar(context, 'Character updated successfully!'),
+          );
+          Navigator.pop(context);
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error updating character: $e'),
+            backgroundColor: AppColors.negativeAccentOf(context),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
+  /// Worlds added in THIS edit back-fill the character's existing chats
+  /// that have none. Creation-time seeding only covers chats made after
+  /// the character already had a world, so a chat opened first and given
+  /// a world later would otherwise keep its temperate default forever
+  /// (climate, Setting prose and the Places panel all read the CHAT's
+  /// attachments, never the character's list).
+  Future<void> _backfillAddedWorlds(List<String> addedWorlds) async {
+    final charId = widget.character.dbId;
+    if (addedWorlds.isEmpty || charId == null) return;
+    try {
+      final worlds = Provider.of<WorldRepository>(context, listen: false);
+      final touched = await worlds.applyAddedCharacterWorldsToChats(
+        characterId: charId,
+        addedRefs: addedWorlds,
+      );
+      if (touched.isNotEmpty && mounted) {
+        final chatService = Provider.of<ChatService>(context, listen: false);
+        if (touched.contains(chatService.currentSessionId)) {
+          await chatService.refreshChatWorlds();
+        }
+      }
+    } catch (_) {
+      // Repository/ChatService not in this context — the chat picks the
+      // world up on its next open regardless.
+    }
+  }
+
   @override
-  Widget build(BuildContext context) => _buildHost(context);
+  Widget build(BuildContext context) {
+    return EditCharacterScaffold(
+      characterName: widget.character.name,
+      saveLabel: widget.saveLabel,
+      popWithCardOnSave: widget.popWithCardOnSave,
+      onSave: _saveCharacter,
+      tabController: _tabController,
+      tokenNotifier: _draft.tokenNotifier,
+      tabs: [
+        EditCharacterDetailsTab(
+          character: widget.character,
+          draft: _draft,
+          showRealismTab: widget.showRealismTab,
+          onChanged: _rebuild,
+        ),
+        EditCharacterDialogueTab(draft: _draft, onChanged: _rebuild),
+        EditCharacterLorebookTab(
+          entries: _loreEntries,
+          onImportFile: _importLorebookJson,
+          onExportFile: _exportLorebookJson,
+          onImportFromCharacter: _importLoreFromCharacter,
+          onAddEntry: _addLoreEntry,
+          onEditEntry: _editLoreEntry,
+          onRemoveEntry: _removeLoreEntry,
+          onChanged: _rebuild,
+        ),
+        EditCharacterWorldsTab(
+          selectedWorldNames: _draft.selectedWorldNames,
+          onChanged: _rebuild,
+        ),
+      ],
+    );
+  }
 }

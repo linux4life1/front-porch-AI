@@ -1,26 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:convert';
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_baseline_seed.dart';
-import 'package:front_porch_ai/ui/dialogs/group_settings/member_ext_persist.dart';
-
-part 'realism_needs_tab.view.dart';
-part 'realism_needs_tab.controls.dart';
-part 'realism_needs_tab.member.dart';
-part 'realism_needs_tab.verify.dart';
-part 'realism_needs_tab.edits.dart';
-part 'realism_needs_tab.toggles.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/realism_needs_tab.dart';
 
 class GroupRealismNeedsTab extends StatefulWidget {
   final ChatService chatService;
@@ -36,144 +20,219 @@ class GroupRealismNeedsTab extends StatefulWidget {
 }
 
 class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
-  bool _realismEnabled = false;
-  bool _chaosModeEnabled = false;
-  bool _chaosNsfwEnabled = false;
-  bool _nsfwEnhancementsEnabled = false;
-
-  // Group-wide Time & Day.
-  String _groupTimeOfDay = 'morning';
-  int _groupDayCount = 1;
-  // Story Calendar seed for fresh sessions (story-calendar.md §3a).
-  String? _groupStoryStartDate;
-  String? _groupStoryStartTime;
-  late final TextEditingController _groupDayCountController;
-
-  List<CharacterCard> _chars = [];
-
-  // Per-member Director/Verifier (Realism Verification) settings for groups.
-  // Wired the same as 1:1 via per-member CharacterCard.frontPorchExtensions + impersonation.
-  // UI exposed here for existing groups (previously only in creation flow).
-  final Map<String, bool> _verificationEnabled = {};
-  final Map<String, int> _verificationMaxReprocesses = {};
-  final Map<String, int> _verificationStrictness = {};
-  final Map<String, bool> _needsDirectorAuthority = {};
-
-  // Baseline seeding state (only bond/trust/emotion/time/day)
-  final Map<String, Map<String, dynamic>> _baselineSeeds = {};
-
-  // Per-character editable realism baselines (seeded from baselineSeeds + card ext).
-  final Map<String, int> _editShortTermBond = {};
-  final Map<String, int> _editLongTermBond = {};
-  final Map<String, int> _editTrustLevel = {};
-  final Map<String, String> _editEmotion = {};
-  final Map<String, String> _editEmotionIntensity = {};
-
-  // Text controllers for inline editing fields.
-  final Map<String, TextEditingController> _emotionControllers = {};
+  late final GroupRealismNeedsController _controller;
 
   @override
   void initState() {
     super.initState();
     widget.chatService.addListener(_onServiceChanged);
-    _initializeFromService();
+    _controller = GroupRealismNeedsController(widget.chatService)
+      ..addListener(_onControllerChanged);
   }
 
   void _onServiceChanged() {
     if (mounted) setState(() {});
   }
 
-  void _initializeFromService() {
-    final cs = widget.chatService;
-    _chars = cs.groupCharacters;
-
-    _realismEnabled = cs.realismEnabled;
-    _chaosModeEnabled = cs.chaosModeService.chaosModeEnabled;
-    _chaosNsfwEnabled = cs.chaosModeService.chaosNsfwEnabled;
-    // Group NSFW Enhancements (arousal/Lust + post-climax cooldowns). Uses the
-    // stable per-member group flag (the live nsfwService scalar is per-speaker
-    // volatile in groups); the write side propagates to every member.
-    _nsfwEnhancementsEnabled = cs.isGroupNsfwEnabled;
-
-    // Group-wide Time & Day, plus the per-member seed blob the ENGINE reads on
-    // a fresh chat (parseGroupRealismSeeds → GroupMemberRealism).
-    Map<String, dynamic> perCharSeeds = const {};
-    final group = cs.activeGroup;
-    if (group != null) {
-      final gs = group.defaultMemberRealismState;
-      if (gs.isNotEmpty && gs != '{}') {
-        final map = (jsonDecode(gs) as Map<String, dynamic>?) ?? {};
-        _groupTimeOfDay = (map['timeOfDay'] as String?) ?? 'morning';
-        _groupDayCount = (map['dayCount'] as num?)?.toInt() ?? 1;
-        _groupStoryStartDate = map['storyStartDate'] as String?;
-        _groupStoryStartTime = map['storyStartTime'] as String?;
-        perCharSeeds =
-            (map['perChar'] as Map?)?.cast<String, dynamic>() ?? const {};
-      }
-    }
-    _groupDayCountController = TextEditingController(
-      text: _groupDayCount.toString(),
-    );
-
-    // Load immutable creation baseline seeds (only the allowed fields)
-    _baselineSeeds.clear();
-    for (final c in _chars) {
-      final id = _getCharId(c);
-      _baselineSeeds[id] = Map<String, dynamic>.from(
-        cs.getBaselineSeedForGroupCharacter(c),
-      );
-
-      // Load per-member Director/Verifier settings (if present on the member's card ext)
-      _verificationEnabled[id] =
-          c.frontPorchExtensions?.realismVerificationEnabled ?? false;
-      _verificationMaxReprocesses[id] =
-          c.frontPorchExtensions?.realismVerificationMaxReprocesses ?? 1;
-      _verificationStrictness[id] =
-          c.frontPorchExtensions?.realismVerificationStrictness ?? 3;
-      _needsDirectorAuthority[id] =
-          c.frontPorchExtensions?.realismNeedsDirectorAuthority ?? false;
-
-      // Load the three relationship sliders. Their key mapping, the legacy
-      // repair and the clamps all live in the shared leaf (and are tested
-      // there) — this is a bug-prone corner, not a two-liner.
-      final seed = _baselineSeeds[id]!;
-      final bond = bondBaselineFromSeeds(
-        baselineSeed: seed,
-        perCharSeed: (perCharSeeds[id] as Map?)?.cast<String, dynamic>(),
-      );
-      _editShortTermBond[id] = bond.shortTerm;
-      _editLongTermBond[id] = bond.longTerm;
-      _editTrustLevel[id] = bond.trust;
-      _editEmotion[id] = (seed['emotion'] as String?) ?? 'neutral';
-      _editEmotionIntensity[id] = emotionIntensityFromSeed(
-        seed['emotionIntensity'],
-      );
-    }
+  void _onControllerChanged() {
+    if (mounted) setState(() {});
   }
-
-  // The Director/Verifier settings below live on the member's card ext — the
-  // blob key each one also writes is read at group CREATION only. The ext only
-  // reaches disk through this persister, so without it every one of them was
-  // back to its old value on the next launch.
-  late final GroupMemberExtPersister _extPersister = GroupMemberExtPersister(
-    widget.chatService,
-  );
-
-  /// Public setState bridge for the part-file extensions
-  /// (same pattern as settings_page's rebuildState).
-  void rebuildState(VoidCallback fn) => setState(fn);
-
-  @override
-  Widget build(BuildContext context) => _buildRealismTabBody(context);
-
-  // Must match ChatService._getCharacterIdFromCard / groupMemberStoreId.
-  String _getCharId(CharacterCard c) => groupMemberStoreId(c);
 
   @override
   void dispose() {
     widget.chatService.removeListener(_onServiceChanged);
-    _groupDayCountController.dispose();
-    _extPersister.dispose();
+    _controller
+      ..removeListener(_onControllerChanged)
+      ..dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cs = widget.chatService;
+    final group = cs.activeGroup;
+    final isDirectorMode = cs.observerMode;
+    final isRealismActive = cs.isGroupRealismActive;
+    final chars = _controller.chars;
+
+    if (group == null) {
+      return Center(
+        child: Text(
+          'No active group chat selected.',
+          style: TextStyle(color: AppColors.textSecondary(context)),
+        ),
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.all(16.0),
+      child: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
+              children: [
+                Icon(
+                  Icons.theater_comedy,
+                  color: AppColors.porchAmberOf(context),
+                  size: 20,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Realism — ${group.name}',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                // Quick baseline note
+                if (_controller.baselineSeeds.isNotEmpty)
+                  Padding(
+                    padding: EdgeInsets.only(left: 8),
+                    child: Chip(
+                      label: Text(
+                        'Baseline seeded',
+                        style: TextStyle(fontSize: 10),
+                      ),
+                      backgroundColor: Colors.blueGrey,
+                      padding: EdgeInsets.symmetric(horizontal: 6, vertical: 0),
+                    ),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Master toggles and per-character baseline management for the Realism Engine, Chaos Mode, and Passage of Time in this group.',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            // Director Mode notice (visual indication per requirements)
+            if (isDirectorMode)
+              Container(
+                padding: const EdgeInsets.all(10),
+                margin: const EdgeInsets.only(bottom: 14),
+                decoration: BoxDecoration(
+                  color: AppColors.surfaceOf(context),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.amber.withValues(alpha: 0.4),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.warning_amber_rounded,
+                      size: 18,
+                      color: Colors.amber,
+                    ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Director Mode is active. Realism Engine and related tracking are suspended for this group (narrative control only). Exit Director Mode to re-enable.',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.amber,
+                          height: 1.3,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+            // Master Realism Engine
+            GroupRealismEngineCard(controller: _controller),
+
+            const SizedBox(height: 14),
+
+            GroupNsfwEnhancementsCard(controller: _controller),
+
+            const SizedBox(height: 14),
+
+            // Passage of Time + Chaos (two-column-ish or stacked)
+            GroupTimeAndChaosCard(cs: cs, controller: _controller),
+
+            const SizedBox(height: 16),
+
+            // Per-character baselines / reset section
+            Row(
+              children: [
+                Icon(
+                  Icons.people_alt,
+                  size: 18,
+                  color: AppColors.porchAmberOf(context),
+                ),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    'Per-Character Realism Baselines',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                  ),
+                ),
+                TextButton(
+                  onPressed: _controller.resetAllRealismStates,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    minimumSize: Size.zero,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  child: Text(
+                    'Reset ALL',
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: AppColors.porchAmberOf(context),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Clear tracked emotion, bond, trust, and fixation for characters in the current group. Use to restart relationship arcs or after major story changes. States re-seed automatically on the next Realism evaluation.',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary(context),
+              ),
+            ),
+            const SizedBox(height: 10),
+
+            if (chars.isEmpty)
+              Padding(
+                padding: EdgeInsets.symmetric(vertical: 8),
+                child: Text(
+                  'No characters loaded for this group.',
+                  style: TextStyle(
+                    color: AppColors.textTertiary(context),
+                    fontSize: 12,
+                  ),
+                ),
+              )
+            else
+              ...chars.asMap().entries.map(
+                (e) => GroupMemberRealismCard(
+                  index: e.key,
+                  char: e.value,
+                  cs: cs,
+                  isRealismActive: isRealismActive,
+                  controller: _controller,
+                ),
+              ),
+
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
   }
 }

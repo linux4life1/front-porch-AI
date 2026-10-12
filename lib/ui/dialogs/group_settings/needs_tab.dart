@@ -1,8 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -11,26 +9,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/member_ext_persist.dart';
-
-part 'needs_tab.member.dart';
-
-const _kHunger = 'hunger';
-const _kBladder = 'bladder';
-const _kEnergy = 'energy';
-const _kSocial = 'social';
-const _kFun = 'fun';
-const _kHygiene = 'hygiene';
-const _kComfort = 'comfort';
-
-const _needFields = [
-  _kHunger,
-  _kBladder,
-  _kEnergy,
-  _kSocial,
-  _kFun,
-  _kHygiene,
-  _kComfort,
-];
+import 'package:front_porch_ai/ui/dialogs/group_settings/needs_tab/group_member_needs_card.dart';
 
 class GroupNeedsTab extends StatefulWidget {
   final ChatService chatService;
@@ -65,8 +44,6 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     widget.chatService,
   );
 
-  // Field name constants for needs baselines map keys.
-
   @override
   void initState() {
     super.initState();
@@ -90,13 +67,13 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
 
       // Seed needs baselines from character card extensions.
       _needsBaselines[id] = {
-        _kHunger: ext?.needsBaselineHunger ?? 80,
-        _kBladder: ext?.needsBaselineBladder ?? 80,
-        _kEnergy: ext?.needsBaselineEnergy ?? 80,
-        _kSocial: ext?.needsBaselineSocial ?? 80,
-        _kFun: ext?.needsBaselineFun ?? 80,
-        _kHygiene: ext?.needsBaselineHygiene ?? 80,
-        _kComfort: ext?.needsBaselineComfort ?? 80,
+        kGroupNeedHunger: ext?.needsBaselineHunger ?? 80,
+        kGroupNeedBladder: ext?.needsBaselineBladder ?? 80,
+        kGroupNeedEnergy: ext?.needsBaselineEnergy ?? 80,
+        kGroupNeedSocial: ext?.needsBaselineSocial ?? 80,
+        kGroupNeedFun: ext?.needsBaselineFun ?? 80,
+        kGroupNeedHygiene: ext?.needsBaselineHygiene ?? 80,
+        kGroupNeedComfort: ext?.needsBaselineComfort ?? 80,
       };
 
       _enjoysLowHygiene[id] = ext?.enjoysLowHygiene ?? false;
@@ -122,13 +99,16 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
       if (char != null) {
         char.frontPorchExtensions =
             (char.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
-              needsBaselineHunger: _needsBaselines[id]?[_kHunger] ?? 80,
-              needsBaselineBladder: _needsBaselines[id]?[_kBladder] ?? 80,
-              needsBaselineEnergy: _needsBaselines[id]?[_kEnergy] ?? 80,
-              needsBaselineSocial: _needsBaselines[id]?[_kSocial] ?? 80,
-              needsBaselineFun: _needsBaselines[id]?[_kFun] ?? 80,
-              needsBaselineHygiene: _needsBaselines[id]?[_kHygiene] ?? 80,
-              needsBaselineComfort: _needsBaselines[id]?[_kComfort] ?? 80,
+              needsBaselineHunger: _needsBaselines[id]?[kGroupNeedHunger] ?? 80,
+              needsBaselineBladder:
+                  _needsBaselines[id]?[kGroupNeedBladder] ?? 80,
+              needsBaselineEnergy: _needsBaselines[id]?[kGroupNeedEnergy] ?? 80,
+              needsBaselineSocial: _needsBaselines[id]?[kGroupNeedSocial] ?? 80,
+              needsBaselineFun: _needsBaselines[id]?[kGroupNeedFun] ?? 80,
+              needsBaselineHygiene:
+                  _needsBaselines[id]?[kGroupNeedHygiene] ?? 80,
+              needsBaselineComfort:
+                  _needsBaselines[id]?[kGroupNeedComfort] ?? 80,
             );
         char.frontPorchExtensions?.ensureStableId();
         _extPersister.schedule(char);
@@ -202,7 +182,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
     final id = _getCharId(character);
     _updateNeedsPace(id, 'normal');
     _updateNeedsOff(id, const []);
-    for (final field in _needFields) {
+    for (final field in kGroupNeedFields) {
       _updateNeedsBaseline(id, field, 80);
     }
     _updateMemberEnjoysLowHygiene(character, false);
@@ -223,6 +203,24 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
       _needsSimEnabled = value;
     });
     widget.chatService.setNeedsSimEnabled(value);
+  }
+
+  Widget _buildMemberNeedsCard(MapEntry<int, CharacterCard> entry) {
+    final char = entry.value;
+    final id = _getCharId(char);
+    return GroupMemberNeedsCard(
+      index: entry.key,
+      char: char,
+      baselines: _needsBaselines[id] ?? {},
+      needsOff: _needsOff[id] ?? const <String>[],
+      pace: _needsPace[id] ?? 'normal',
+      enjoysLowHygiene: _enjoysLowHygiene[id] ?? false,
+      onBaselineChanged: (field, v) => _updateNeedsBaseline(id, field, v),
+      onNeedsOffChanged: (next) => _updateNeedsOff(id, next),
+      onPaceChanged: (next) => _updateNeedsPace(id, next),
+      onEnjoysLowHygieneChanged: (v) => _updateMemberEnjoysLowHygiene(char, v),
+      onReset: () => _resetCharacterNeeds(char),
+    );
   }
 
   @override

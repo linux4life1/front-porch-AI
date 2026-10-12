@@ -1,0 +1,418 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+import 'package:flutter/widgets.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/relationship_scale.dart'
+    show relationshipTierName;
+import 'package:front_porch_ai/utils/utils.dart';
+
+/// Everything the Create Group wizard edits: roster, prompts, lore, realism
+/// seeds, and the current step. The page rebuilds on every
+/// [notifyListeners]; mutations that never rebuilt the page do not notify.
+class GroupWizardDraft extends ChangeNotifier {
+  GroupWizardDraft() {
+    nameController.addListener(updateEstimates);
+    scenarioController.addListener(updateEstimates);
+    firstMessageController.addListener(updateEstimates);
+    groupSystemController.addListener(updateEstimates);
+  }
+
+  bool _disposed = false;
+
+  int currentStep = 0;
+  // 0 = Members
+  // 1 = Identity
+  // 2 = Opening
+  // 3 = Prompts
+  // 4 = Lore
+  // 5 = Realism
+  // 6 = Group Dynamics (only for groups of 4 or fewer)
+  // 7 = Review
+
+  // ── Core State ─────────────────────────────────────────────────────
+  final List<CharacterCard> members = [];
+
+  // Identity
+  final nameController = TextEditingController();
+
+  /// The member-list name last put in [nameController]. While the box still
+  /// holds it (or is empty) the name follows the roster; once the user types
+  /// something else, it is theirs.
+  String _autoGroupName = '';
+
+  // Behavior
+  TurnOrder turnOrder = TurnOrder.roundRobin;
+  bool autoAdvance = false;
+  bool directorMode = false;
+
+  // Opening
+  final scenarioController = StyledTextController(
+    preset: StyledTextPreset.prose,
+  );
+  final firstMessageController = StyledTextController(
+    preset: StyledTextPreset.prose,
+  );
+  List<String> altGreetings = [];
+  List<GreetingRealismSeed?> altGreetingSeeds = [];
+  bool isGeneratingScenario = false;
+  bool isGeneratingFirst = false;
+
+  // Prompts
+  final groupSystemController = StyledTextController(
+    preset: StyledTextPreset.prose,
+  );
+  final Map<String, TextEditingController> characterSystemPrompts =
+      {}; // charId -> prompt
+
+  // Voices (charId -> voiceId or '')
+  final Map<String, String> characterVoices = {};
+
+  // Lore & Worlds
+  final List<LorebookEntry> groupLoreEntries = [];
+  final List<String> worldIds = [];
+  bool inheritCharacterLorebooks = false;
+
+  // Realism / Chaos / Needs (group level + per-member seeds)
+  bool realismEnabled =
+      true; // Master group toggle — this is the only realism on/off control
+  final Map<String, Map<String, dynamic>> memberRealismSeeds = {};
+  bool chaosModeEnabled = false;
+  bool chaosNsfwEnabled = false;
+  bool needsSimEnabled = true;
+
+  // Per-member needs baselines (0-100) — mirrors memberRealismSeeds keys.
+  final Map<String, Map<String, int>> memberNeedsBaselines = {};
+
+  // Global time/day for the whole group (not per-character — prevents footgun)
+  String globalTimeOfDay = 'morning';
+  int globalDayCount = 1;
+  // Story Calendar authoring (story-calendar.md §3a): null start date =
+  // "the day the chat starts"; null time = period default.
+  String? globalStoryStartDate;
+  String? globalStoryStartTime;
+
+  // Token-ish estimate (lightweight)
+  int contentTokenEstimate = 0;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    nameController.dispose();
+    scenarioController.dispose();
+    firstMessageController.dispose();
+    groupSystemController.dispose();
+    // Dispose per-character controllers
+    for (final ctrl in characterSystemPrompts.values) {
+      ctrl.dispose();
+    }
+    super.dispose();
+  }
+
+  /// Applies [fn], then rebuilds the page.
+  void update(VoidCallback fn) {
+    fn();
+    notifyListeners();
+  }
+
+  void updateEstimates() {
+    int total = 0;
+    total += (nameController.text.length / 4).ceil();
+    total += (scenarioController.text.length / 4).ceil();
+    total += (firstMessageController.text.length / 4).ceil();
+    total += (groupSystemController.text.length / 4).ceil();
+    for (final ctrl in characterSystemPrompts.values) {
+      total += (ctrl.text.length / 4).ceil();
+    }
+    for (final e in groupLoreEntries) {
+      total += ((e.name.length + e.key.length + e.content.length) / 4).ceil();
+    }
+    if (!_disposed && total != contentTokenEstimate) {
+      update(() => contentTokenEstimate = total);
+    }
+  }
+
+  /// Delegates to the canonical stable group ID.
+  /// See [StableGroupId.stableGroupId] in lib/utils/character_id.dart
+  String stableId(CharacterCard c) => c.stableGroupId;
+
+  // ── SECTION NAV ────────────────────────────────────────────────────
+
+  bool get canLeaveMembersStep => members.length >= 2;
+
+  int? effectiveNextStep(int current) {
+    int next = current + 1;
+
+    // Skip Group Dynamics (now step 5) if group is too large
+    if (next == 5 && members.length > 4) {
+      next = 6; // jump to Opening
+    }
+
+    if (next > 7) return null; // beyond Review
+    return next;
+  }
+
+  void goToStep(int step) => update(() => currentStep = step);
+
+  void goToPreviousStep(int current) {
+    int prev = current - 1;
+
+    // If we are coming back from Review and skipped Dynamics, go to Realism instead
+    if (current == 7 && members.length > 4) {
+      prev = 4; // Realism
+    }
+
+    if (prev < 0) prev = 0;
+    goToStep(prev);
+  }
+
+  bool canAdvanceFromStep(int step) {
+    if (step == 0) return canLeaveMembersStep;
+    if (step == 6) {
+      return members.length >= 2 && nameController.text.trim().isNotEmpty;
+    }
+    return true;
+  }
+
+  // ── MEMBER MANAGEMENT (heart of the experience) ────────────────────
+
+  /// Library characters not yet on the roster.
+  List<CharacterCard> availableFrom(List<CharacterCard> all) {
+    final memberIds = members.map(stableId).toSet();
+    return all.where((c) => !memberIds.contains(stableId(c))).toList();
+  }
+
+  void addMember(CharacterCard card) {
+    final id = stableId(card);
+    if (members.any((m) => stableId(m) == id)) return;
+    update(() {
+      members.add(card);
+      // Seed a reasonable neutral realism entry if none exists
+      if (!memberRealismSeeds.containsKey(id)) {
+        memberRealismSeeds[id] = defaultRealismSeedFor(card);
+      }
+      if (!memberNeedsBaselines.containsKey(id)) {
+        final s = memberRealismSeeds[id]!;
+        memberNeedsBaselines[id] = {
+          'hunger': s['needsBaselineHunger'] as int? ?? 80,
+          'bladder': s['needsBaselineBladder'] as int? ?? 80,
+          'energy': s['needsBaselineEnergy'] as int? ?? 80,
+          'social': s['needsBaselineSocial'] as int? ?? 80,
+          'fun': s['needsBaselineFun'] as int? ?? 80,
+          'hygiene': s['needsBaselineHygiene'] as int? ?? 80,
+          'comfort': s['needsBaselineComfort'] as int? ?? 80,
+        };
+      }
+
+      // Initialize empty relationships map for small groups
+      if (members.length <= 4) {
+        final seed = memberRealismSeeds[id]!;
+        seed['relationships'] ??= <String, int>{};
+      }
+
+      _followRosterInGroupName();
+      updateEstimates();
+    });
+  }
+
+  void removeMember(String id) {
+    update(() {
+      members.removeWhere((c) => stableId(c) == id);
+      characterVoices.remove(id);
+      characterSystemPrompts.remove(id);
+      memberRealismSeeds.remove(id);
+
+      // Clean up any references to this member from other characters' relationship maps
+      for (final seed in memberRealismSeeds.values) {
+        final rels = seed['relationships'];
+        if (rels is Map) {
+          rels.remove(id);
+        }
+      }
+
+      _followRosterInGroupName();
+    });
+  }
+
+  // onReorderItem (unlike the retired onReorder) delivers newIndex already
+  // adjusted for the removal at oldIndex — no manual decrement.
+  void reorderMembers(int oldIndex, int newIndex) {
+    update(() {
+      final moved = members.removeAt(oldIndex);
+      members.insert(newIndex, moved);
+      _followRosterInGroupName();
+    });
+  }
+
+  /// Names the group after every member ("Juniper & Marlow") until the user
+  /// types a name of their own; a typed name is never overwritten.
+  void _followRosterInGroupName() {
+    final current = nameController.text.trim();
+    if (current.isNotEmpty && current != _autoGroupName) return;
+    _autoGroupName = defaultGroupName([for (final c in members) c.name]);
+    nameController.text = _autoGroupName;
+  }
+
+  void setVoice(String charId, String? voiceId) {
+    update(() {
+      characterVoices[charId] = voiceId ?? '';
+    });
+  }
+
+  // Shared default seed (create + edit parity) lives in group_realism_blobs.dart
+  // as defaultGroupMemberRealismSeed(); the card arg is ignored (the seed is a
+  // neutral constant) but kept so existing call sites read naturally.
+  Map<String, dynamic> defaultRealismSeedFor(CharacterCard c) =>
+      defaultGroupMemberRealismSeed();
+
+  void seedRealismFromCard(String charId) {
+    final card = members.firstWhere(
+      (c) => stableId(c) == charId,
+      orElse: () => members.first,
+    );
+    update(() {
+      memberRealismSeeds[charId] = defaultRealismSeedFor(card);
+    });
+  }
+
+  void bulkSeedRealism(String mode) {
+    update(() {
+      for (final c in members) {
+        final id = stableId(c);
+        if (mode == 'neutral') {
+          memberRealismSeeds[id] = defaultRealismSeedFor(c);
+        } else if (mode == 'highBond') {
+          final s = defaultRealismSeedFor(c);
+          s['affection'] = 75;
+          s['trust'] = 70;
+          s['emotion'] = 'affection';
+          s['emotionIntensity'] = 'moderate';
+          memberRealismSeeds[id] = s;
+        }
+      }
+    });
+  }
+
+  // ── REALISM HELPERS ────────────────────────────────────────────────
+
+  void updateMemberRealism(String charId, Map<String, dynamic> values) {
+    update(() {
+      memberRealismSeeds[charId] = {
+        ...(memberRealismSeeds[charId] ??
+            defaultRealismSeedFor(
+              members.firstWhere((c) => stableId(c) == charId),
+            )),
+        ...values,
+      };
+    });
+  }
+
+  void updateRelationship(String fromId, String toId, int value) {
+    update(() {
+      final seed = memberRealismSeeds[fromId] ??= defaultRealismSeedFor(
+        members.firstWhere((c) => stableId(c) == fromId),
+      );
+
+      final rels =
+          (seed['relationships'] as Map<String, int>?)?.cast<String, int>() ??
+          {};
+      rels[toId] = value;
+      seed['relationships'] = rels;
+    });
+  }
+
+  // ── LORE & WORLDS ──────────────────────────────────────────────────
+
+  /// Replaces the entry at [index], or appends when [index] is out of range.
+  void putLoreEntry(LorebookEntry result, int? index) {
+    update(() {
+      if (index != null && index >= 0 && index < groupLoreEntries.length) {
+        groupLoreEntries[index] = result;
+      } else {
+        groupLoreEntries.add(result);
+      }
+      updateEstimates();
+    });
+  }
+
+  void deleteLoreEntry(int index) {
+    update(() => groupLoreEntries.removeAt(index));
+  }
+
+  void toggleWorld(String worldId) {
+    update(() {
+      if (worldIds.contains(worldId)) {
+        worldIds.remove(worldId);
+      } else {
+        worldIds.add(worldId);
+      }
+    });
+  }
+
+  // ── GENERATION CONTEXT ─────────────────────────────────────────────
+
+  /// Builds a rich, explanatory summary of the current hidden inter-character
+  /// relationships (from the Group Dynamics step) to feed into AI generation.
+  /// Includes guidance on the -300 to +300 scale so the model actually understands
+  /// how to use the data when writing the opening scene.
+  String buildDynamicsContextForGeneration() {
+    if (members.length > 4) return '';
+
+    final buffer = StringBuffer();
+    buffer.writeln(
+      'Hidden inter-character dynamics (these are private feelings the characters have toward each other — the player does not know about them):',
+    );
+    buffer.writeln(
+      'Scale explanation: Values range from -300 (extreme hatred/resentment) to +300 (deep soul-level bond).',
+    );
+    buffer.writeln(
+      'Rough tiers: 80+ = Soulbound / extremely devoted, 50+ = Deep Bond, 20+ = Close, 5+ = Friendly, -4 to +4 = Neutral, -5 to -19 = Uneasy, -20 to -49 = Distant, -50 to -79 = Hostile, -80 and below = Nemesis / intense personal animosity.',
+    );
+    buffer.writeln('');
+
+    for (final source in members) {
+      final sourceId = stableId(source);
+      final seed = memberRealismSeeds[sourceId];
+      final rels = (seed?['relationships'] as Map?)?.cast<String, int>() ?? {};
+      if (rels.isEmpty) continue;
+
+      for (final entry in rels.entries) {
+        final target = members.firstWhere(
+          (m) => stableId(m) == entry.key,
+          orElse: () => source,
+        );
+        if (target == source) continue;
+
+        final value = entry.value;
+        final tier = relationshipTierName(value);
+        buffer.writeln(
+          '- ${source.name} feels ${tier.toLowerCase()} toward ${target.name} (score: $value on -300 to +300 scale)',
+        );
+      }
+    }
+
+    buffer.writeln('');
+    buffer.writeln(
+      'When writing the opening scene, reflect these private feelings naturally through body language, tone, subtext, and how the characters interact with each other. Do not state the scores directly.',
+    );
+
+    return buffer.toString().trim();
+  }
+}
