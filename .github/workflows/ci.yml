@@ -4,8 +4,8 @@ name: CI
 # theme-lint, io-lint, web-tests) plus the unit/integration `test` suite
 # (four file shards behind one `test` check). The heavy matrix — e2e-smoke
 # (3 OS × 5 shards), widget goldens, and the live Stoop pin — already ran
-# on the PR that landed the commit. Re-queueing them on squash-merge starves open PRs of macOS/golden
-# runners. Those jobs therefore skip when github.event_name == 'push'
+# on the PR that landed the commit. Re-queueing them on squash-merge starves
+# open PRs of macOS/golden runners. Those jobs therefore skip when github.event_name == 'push'
 # (`if: github.event_name != 'push'`, ANDed with any existing job `if:`).
 # pull_request and schedule keep the full suite.
 

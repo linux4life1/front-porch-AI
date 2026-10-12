@@ -195,17 +195,38 @@ jobs:
             // nothing and only adds whole tests REPORTS instead of BLOCKING.
             //
             // The cost, stated plainly: a new `group(` runs its body when the
-            // file loads, so it could set global state the old tests read.
-            // The mitigations are the same as for support/: the notice is
-            // always printed, CODEOWNERS still requires review, and anything
-            // the parser below cannot prove is whole tests falls back to the
-            // label (including a diff GitHub aligned so an old `});` lands in
-            // the added run).
-            const isAdditiveTestEdit = (f) => {
+            // file loads, and a new test runs before the old tests declared
+            // after it, so either could set global state the old tests read.
+            // The known global switches (golden re-blessing, the golden
+            // comparator, HTTP overrides) are refused by name, and golden test
+            // files get no carve-out at all. Beyond that the only mitigation
+            // is that the notice is always printed. CODEOWNERS is not one:
+            // agent PRs here come from the maintainer's own account, and
+            // GitHub does not let an author approve their own PR. Anything the
+            // parser below cannot prove is whole tests falls back to the label
+            // (including a diff GitHub aligned so an old `});` lands in the
+            // added run).
+            const GLOBAL_SWITCHES =
+              /\b(autoUpdateGoldenFiles|goldenFileComparator|HttpOverrides)\b/;
+            const GOLDEN_FILE = /\bmatchesGoldenFile\b|@Tags\(\s*\[[^\]]*['"]golden/;
+            const baseSha = context.payload.pull_request.base.sha;
+            const isGoldenTestFile = async (path) => {
+              try {
+                const { data } = await github.rest.repos.getContent({
+                  ...context.repo, path, ref: baseSha,
+                });
+                return GOLDEN_FILE.test(Buffer.from(data.content, 'base64').toString('utf8'));
+              } catch (e) {
+                core.warning(`Could not read ${path} at the base; it needs the label: ${e.message}`);
+                return true;
+              }
+            };
+            const isAdditiveTestEdit = async (f) => {
               const p = f.filename;
               if (f.status !== 'modified' || f.deletions !== 0 || !f.patch) return false;
               if (!p.endsWith('_test.dart')) return false;
               if (!p.startsWith('test/') && !p.startsWith('integration_test/')) return false;
+              if (GLOBAL_SWITCHES.test(f.patch) || GOLDEN_FILE.test(f.patch)) return false;
               // Each run of consecutive added lines is checked on its own.
               const runs = [];
               let run = null;
@@ -218,7 +239,8 @@ jobs:
                 }
               }
               if (run) runs.push(run.join('\n'));
-              return runs.length > 0 && runs.every(isWholeTests);
+              if (!(runs.length > 0 && runs.every(isWholeTests))) return false;
+              return !(await isGoldenTestFile(p));
             };
 
             // A run passes only if, read on its own, it is a sequence of
@@ -227,12 +249,35 @@ jobs:
             // `skip:` or a block comment slipped into an existing test is not
             // such a call, and neither is a top-level helper, which could
             // shadow `expect` for the whole file.
+            //
+            // Strings and comments are blanked in ONE left-to-right scan, so a
+            // quote inside a comment or a `//` inside a string cannot desync
+            // it. Raw strings (r'...') have no escapes in Dart and are matched
+            // before the escaped forms: treating r'\' as an open string would
+            // hide the statements after it. An interpolation with unbalanced
+            // braces inside one literal means a nested string the scan cannot
+            // follow, so the run is refused.
+            const LITERAL = new RegExp([
+              "r'''[\\s\\S]*?'''", 'r"""[\\s\\S]*?"""',
+              "'''(?:\\\\[\\s\\S]|(?!''')[^\\\\])*'''",
+              '"""(?:\\\\[\\s\\S]|(?!""")[^\\\\])*"""',
+              "r'[^'\\n]*'", 'r"[^"\\n]*"',
+              "'(?:\\\\.|[^'\\\\\\n])*'", '"(?:\\\\.|[^"\\\\\\n])*"',
+              '//[^\\n]*',
+            ].join('|'), 'g');
             const isWholeTests = (text) => {
               if (/\/\*|\*\/|\bskip\s*:/.test(text)) return false;
-              const code = text
-                .replace(/r?'''[\s\S]*?'''|r?"""[\s\S]*?"""/g, "''")
-                .replace(/r?'(?:\\.|[^'\\\n])*'|r?"(?:\\.|[^"\\\n])*"/g, "''")
-                .replace(/\/\/.*$/gm, '');
+              let nested = false;
+              const code = text.replace(LITERAL, (m) => {
+                if (m.startsWith('//')) return '';
+                if (!m.startsWith('r') && m.includes('${')) {
+                  const open = (m.match(/\{/g) || []).length;
+                  const close = (m.match(/\}/g) || []).length;
+                  if (open !== close) nested = true;
+                }
+                return "''";
+              });
+              if (nested) return false;
               const chunks = [];
               let depth = 0;
               let start = 0;
@@ -253,13 +298,39 @@ jobs:
               );
             };
 
+            // Self-test, every run: this parser is the only thing between an
+            // edit and the label, so a regression in it must fail loudly.
+            const SELF_TEST = [
+              ["test('a', () { expect(1, 1); });", true],
+              ["import 'x.dart';\ngroup('g', () {\n  test('t', () {});\n});", true],
+              ["test('it\\'s', () {}); // a ' quote", true],
+              ["test(r'\\', () {}); evil(); test('', () {});", false],
+              ["test('a', () {}, tags: r'\\'); evil(); test('b', () {}, tags: r'\\');", false],
+              ["test('${'}'); evil(); test('${'}', () {});", false],
+              ["  return;\n", false],
+              ["test('a', () {}, skip: true);", false],
+              ["void expect(a, b) {}", false],
+              ["/* test('a', () {}); */", false],
+              ["});\ntest('a', () {});", false],
+            ];
+            for (const [text, want] of SELF_TEST) {
+              if (isWholeTests(text) !== want) {
+                core.setFailed(`isWholeTests self-test failed (want ${want}): ${text}`);
+                return;
+              }
+            }
+            if (!GLOBAL_SWITCHES.test("group('g', () { autoUpdateGoldenFiles = true; });")) {
+              core.setFailed('GLOBAL_SWITCHES self-test failed');
+              return;
+            }
+
             const harness = changed.filter((f) => isHarness(f.filename));
-            const additive = changed.filter(
-              (f) => !isHarness(f.filename) && isAdditiveTestEdit(f)
-            );
-            const touched = changed.filter(
-              (f) => !isHarness(f.filename) && !isAdditiveTestEdit(f)
-            );
+            const additive = [];
+            const touched = [];
+            for (const f of changed) {
+              if (isHarness(f.filename)) continue;
+              (await isAdditiveTestEdit(f) ? additive : touched).push(f);
+            }
 
             // Printed whether or not anything else is wrong — the whole value
             // of a non-blocking carve-out is that it stays visible.

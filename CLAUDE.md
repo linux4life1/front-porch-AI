@@ -407,7 +407,8 @@ fails until a maintainer applies **`approved-test-change`**. Adding a **new**
 test file never blocks, and neither does an edit to an existing `_test.dart`
 that deletes nothing and only adds whole `test(` / `testWidgets(` / `group(`
 calls (and imports). Touching a helper, fake or `setUp` the old tests use
-still needs the label. `integration_test/support/` (harness, no asserts) is
+still needs the label, and so does any edit to a golden test file or one that
+mentions `autoUpdateGoldenFiles`, `goldenFileComparator` or `HttpOverrides`. `integration_test/support/` (harness, no asserts) is
 reported, not blocked.
 
 The dependency-floor test fails if `pubspec.lock` moves a package
