@@ -17,7 +17,7 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
 - **File size.** Handwritten Dart under `lib/` stays **under 500 lines**.
   That is CI via `test/hygiene/god_file_ratchet_test.dart` (`kGodFileBar`
   is 500, empty `test/baselines/god_files.json`). Do not add baseline
-  leftovers — split the file. Generated `.g.dart` (including
+  leftovers — extract a class or widget. Generated `.g.dart` (including
   `lib/database/database.g.dart`) is excluded from that ratchet and owned
   by `test/hygiene/generated_dart_size_test.dart` / Drift
   `generate_manager: false`. Do not invent a second 500-line gate.

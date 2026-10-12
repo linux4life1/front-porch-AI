@@ -118,9 +118,9 @@ integration_test/           # One suite per *_test.dart file
 ```
 
 **ChatService is a `part` library.** Behaviour lives under
-`lib/services/chat/`. Grep that directory when hunting a method. Count
-`part` lines in `chat_service.dart` if you need a number — it changes when
-files split.
+`lib/services/chat/`. Grep that directory when hunting a method. Its part
+list is frozen (see Size law): new ChatService code goes into an existing
+part or a leaf class under `lib/services/chat/`, never a new part.
 
 Fake-pinned members stay on the **class** as one-line forwarders. Golden
 fakes override the class member; moving the body onto an extension-only
@@ -160,12 +160,12 @@ size is the other test).
 
 **No mechanical part files.** Never split a file into `part` files to get
 under 500 lines. Extract a real class, widget, or plain-Dart helper with
-explicit inputs instead. New `part` / `part of` directives are banned outside
-the two frozen exceptions: the Drift library
+explicit inputs instead. No new `part` directive anywhere. The Drift library
 (`lib/database/database.dart`) and the ChatService shell
-(`lib/services/chat_service.dart` + `lib/services/chat/chat_service_*.dart`).
-Every other part file (`main.*.dart` included) is legacy, frozen, and
-unwound over time; the count only goes down.
+(`lib/services/chat_service.dart` + `lib/services/chat/chat_service_*.dart`)
+keep their existing parts; every other part file (`main.*.dart` included) is
+legacy and gets unwound. Every library's part count is frozen and only goes
+down.
 `part 'x.g.dart';` codegen is not a split. CI:
 `test/hygiene/part_file_ratchet_test.dart` + `test/baselines/part_files.json`
 — lower an entry in the same change that removes a part.
