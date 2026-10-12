@@ -8,7 +8,7 @@
 // is FPAI_REPLY.
 
 import { readFile } from 'node:fs/promises';
-import type { Locator, Page } from '@playwright/test';
+import type { APIRequestContext, Locator, Page } from '@playwright/test';
 import { expect, openRoute, SERIAL, test } from './support/fixtures';
 
 const REPLY = process.env.FPAI_REPLY ?? '';
@@ -623,10 +623,27 @@ test.describe('the Local model card', () => {
 });
 
 test.describe.serial('Director Mode', { tag: SERIAL }, () => {
+  // Stepping out turns the 1:1 into a group card in the shared library, and
+  // the other project's specs then find two cards named Second Guest or Porch
+  // Tester. Whatever happened, the group this spec made goes again.
+  let groupsBefore: string[] = [];
+  const groupIds = async (request: APIRequestContext) =>
+    ((await (await request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map((g) => g.id);
+  test.beforeEach(async ({ request }) => {
+    groupsBefore = await groupIds(request);
+  });
+  test.afterEach(async ({ request }) => {
+    for (const id of await groupIds(request)) {
+      if (groupsBefore.includes(id)) continue;
+      const gone = await request.post(`/api/groups/${id}/delete`);
+      expect(gone.ok(), `removing the group this spec made: ${gone.status()}`).toBe(true);
+    }
+  });
+
   test('step out of a scene to direct it, undo, direct a note, and step back in', async ({ page }) => {
     // Second Guest's own chat, so the conversion leaves Porch Tester's alone.
     await openRoute(page, '/');
-    await page.locator('.lib-card', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
     await expect(page.locator('.chat-view')).toBeVisible();
     await waitIdle(page);
     await page.locator('.conversations-btn').click();
