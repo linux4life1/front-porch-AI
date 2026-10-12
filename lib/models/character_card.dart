@@ -16,408 +16,157 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:flutter/material.dart';
-import 'package:uuid/uuid.dart';
-
 import 'package:front_porch_ai/models/avatar_image.dart';
 import 'package:front_porch_ai/models/greeting_realism_seed.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/lorebook_export.dart';
 import 'package:front_porch_ai/services/macro_resolver.dart';
 
-part 'character_card.json.dart';
-part 'character_card.card.dart';
+import 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 
-/// Front Porch AI V2.5 extensions — stored inside V2 `extensions.front_porch`.
-///
-/// These values seed the Realism Engine's initial state when a new
-/// conversation is started with a character. Existing sessions use their
-/// own DB-persisted state and are not affected.
-///
-/// stableId (inside realism_engine) provides a persistent identity across
-/// PNG rewrites/reimports so that library dbId and chat history are never lost
-/// on realism/needs edits (import path now updates in place for stable matches).
+export 'package:front_porch_ai/models/character/front_porch_extensions.dart';
 
-class FrontPorchExtensions {
-  bool realismEnabled;
-  int shortTermBond; // -300 to 300
-  int longTermBond; // -300 to 300
-  int trustLevel; // -100 to 100
-  int dayCount; // starts at 1
-  String timeOfDay; // dawn/morning/late_morning/afternoon/evening/night
+class CharacterCard {
+  String name;
+  String description;
+  String personality;
+  String scenario;
+  String firstMessage;
+  String mesExample;
+  String systemPrompt;
+  String postHistoryInstructions;
+  List<String> alternateGreetings;
+  List<String> tags;
+  String? imagePath;
+  String? folderId;
+  Lorebook? lorebook;
+  List<String> worldNames;
 
-  // Story Calendar (docs/design/story-calendar.md §3a). Additive next to the
-  // kept day_count/time_of_day so cards round-trip through The Stoop and
-  // stay readable by older apps.
-  String?
-  storyStartDate; // ISO date the story begins on; null = "the day the chat starts"
-  String? storyStartTime; // "HH:MM" exact opening clock; null = period default
-  String characterEmotion; // e.g. "curious"
-  String emotionIntensity; // mild/moderate/strong
-  bool nsfwCooldownEnabled;
-  bool passageOfTimeEnabled; // sub-toggle for automatic time advancement
-  bool chaosModeEnabled;
-
-  /// The card's own Needs choice; null when the card says nothing (no
-  /// `needs_sim_enabled` key, e.g. an imported Chub or SillyTavern card).
-  /// A silent card lets the Porch Life Needs switch decide when a chat
-  /// starts (maintainer ruling 2026-10-10); an explicit false still wins.
-  /// Kept null through copyWith and toJson so a re-save never invents a
-  /// false the card did not have.
-  bool? needsSimChoice;
-
-  /// True only when the card explicitly asks for Needs. Not "does this card
-  /// get Needs": a silent card reads false here yet follows the Porch Life
-  /// switch, so anything deciding whether a chat runs Needs reads
-  /// [needsSimChoice] (ChatService `_seedNeedsSim`).
-  bool get needsSimEnabled => needsSimChoice ?? false;
-  set needsSimEnabled(bool value) => needsSimChoice = value;
-
-  /// Per-character Pockets & Wardrobe. AND-gated with the Porch Life global
-  /// (`realismSettings.pocketsEnabled`). Missing / null JSON treats as **on**
-  /// so old cards keep running when the global is on. Explicit false disables
-  /// this character only.
-  bool pocketsEnabled;
-  bool
-  enjoysLowHygiene; // when true, low hygiene is desirable (inverted behavior for filthy/musky characters)
-
-  /// Long-term ambitions — the character's ends, distinct from short-lived
-  /// objectives (the means) and fixations (emotional obsessions). Identity,
-  /// not story state: they travel with the card; per-chat PROGRESS lives in
-  /// journal cards (Living Time §6). Authored in the character editor.
-  List<String> ambitions;
-
-  /// Short plan-line sentences. Identity like [ambitions]: travel with the card.
-  /// The today sentence is session state, never stored here.
-  List<String> planLines;
-
-  /// Occupation, hours, job brief, and which weekdays they work — identity.
-  /// Travel with the card like [planLines]. Blank occupation/hours/brief are
-  /// omitted from JSON. [workDays] is DateTime.weekday ints (1=Mon…7=Sun);
-  /// missing means Mon–Fri at derive; written `[]` means never at work.
-  /// At-work is derived from these plus the story clock, not stored here.
-  /// [occupationBrief] grounds at-work narration; empty means today — do
-  /// not invent the job.
-  String occupation;
-  String hours;
-  String occupationBrief;
-  List<int>? workDays;
-
-  /// Calendar birthday `YYYY-MM-DD`. Blank is omitted. Feb 29 is rejected
-  /// at parse. Age and "days away" are story-clock math, not wall-clock.
-  String birthday;
-
-  /// What this character is drawn to, and what puts them off — short phrases,
-  /// authored on the card. Identity like [ambitions]: they travel with it.
+  /// Per-character TTS voice assignment.
   ///
-  /// The precedent already in-tree is [enjoysLowHygiene]: ONE hardcoded
-  /// preference that flips needs behaviour. These make that pattern
-  /// author-editable data instead of a single boolean somebody had to write
-  /// code for. Two consumers: the behavioural injection (so the character
-  /// ACTS on them, which needs no engine) and the realism eval prompts (so
-  /// bond/trust/emotion deltas become character-specific, which does).
-  List<String> likes;
-  List<String> dislikes;
+  /// This must be a valid voice key for the *currently selected* TTS engine
+  /// (e.g. 'af_heart' for Kokoro, 'en_US-lessac-medium' for Piper, etc.).
+  /// The UI now prevents (and warns about) cross-engine assignments.
+  String? ttsVoice;
 
-  /// The 18+ half of the same idea. Kept as its own pair rather than mixed
-  /// into [likes]/[dislikes] so it can be hidden, or stripped from a share,
-  /// with one decision instead of phrase-by-phrase judgement. Surfaces in
-  /// editors ONLY when NSFW is enabled. Transported nested under
-  /// `intimate_preferences: {into: [], not_into: []}`.
-  List<String> intimateInto;
-  List<String> intimateNotInto;
+  /// V2 spec credits — round-trip so Stoop/Chub author names survive import.
+  String creator;
+  String creatorNotes;
+  String characterVersion;
+  String? dbId; // UUID primary key (runtime only, not serialized)
+  DateTime?
+  createdAt; // library "date added" from DB (runtime only, not serialized)
+  FrontPorchExtensions? frontPorchExtensions; // V2.5 Realism Engine defaults
+  Map<String, dynamic>?
+  rawExtensions; // Preserve unknown third-party extension keys
+  List<AvatarImage>? avatarImages; // Multiple avatar images for the character
+  int primeAvatarIndex = 1; // 1-based index of the prime (default) avatar
 
-  /// Starting Pockets & Wardrobe — what the character already has when a chat
-  /// opens: `{worn: [...], carrying: [...]}`, entries either plain strings or
-  /// `{name, state}`. Optional and additive, so older apps and The Stoop
-  /// ignore it and a card without one simply starts empty.
-  ///
-  /// Kept as a raw map rather than a typed Pockets: this is the MODEL layer and
-  /// it must not depend on a chat service leaf. The one place that reads it
-  /// (chat_service_pockets.dart) parses it through Pockets.fromJson, which
-  /// already tolerates both shapes.
-  Map<String, dynamic> inventory;
+  CharacterCard({
+    this.dbId,
+    this.creator = '',
+    this.creatorNotes = '',
+    this.characterVersion = '',
+    required this.name,
+    this.description = '',
+    this.personality = '',
+    this.scenario = '',
+    this.firstMessage = '',
+    this.mesExample = '',
+    this.systemPrompt = '',
+    this.postHistoryInstructions = '',
+    this.alternateGreetings = const [],
+    this.tags = const [],
+    this.imagePath,
+    this.folderId,
+    this.lorebook,
+    this.worldNames = const [],
+    this.ttsVoice,
+    this.frontPorchExtensions,
+    this.rawExtensions,
+    this.avatarImages,
+    int? primeAvatarIndex,
+  }) : primeAvatarIndex = primeAvatarIndex ?? 1;
 
-  // Optional director/verifier thread for Realism Engine + Needs (ingests full latent context + deltas JSON;
-  // rules + optional reprocess with corrections up to full per-eval clamp limits; per-char in Optional Features).
-  bool realismVerificationEnabled;
-  int realismVerificationMaxReprocesses; // 1-5
-  int
-  realismVerificationStrictness; // 1-5 (default 3 = Balanced; higher = stricter director)
-
-  // Director authority on needs deltas. Off by default.
-  bool realismNeedsDirectorAuthority;
-
-  /// Body pace: sloth, normal, or fast. Scales drops only.
-  String needsPace;
-
-  /// Need keys this character has turned off. Empty means all seven are on.
-  /// The stored bar stays; it is just not worn, shown, or scored.
-  /// Growable — Save / persist mutate this in place when a need is
-  /// toggled. A const default throws "Cannot modify an unmodifiable list".
-  List<String> needsOff;
-
-  // Per-need baseline values (0-100). Used to seed the needs vector when starting a new session
-  // with this character. Default 80 matches legacy initialization behavior.
-  int needsBaselineHunger;
-  int needsBaselineBladder;
-  int needsBaselineEnergy;
-  int needsBaselineSocial;
-  int needsBaselineFun;
-  int needsBaselineHygiene;
-  int needsBaselineComfort;
-
-  // Avatar behavior
-  bool
-  avatarLocked; // when true, avatar won't grow past default sidebar width on resize
-
-  // Chat appearance colors (null = use global default)
-  Color? userBubbleColor;
-  Color? userTextColor;
-  Color? aiBubbleColor;
-  Color? aiTextColor;
-  Color? dialogueColor;
-  Color? actionColor;
-
-  // Chat font family (null = use system default)
-  String? chatFontFamily;
-
-  String currentTask; // initial quest/task for the character
-
-  /// Sparse opening-state overlays, parallel to [CharacterCard.alternateGreetings].
-  /// Index 0 = first alternate (`allGreetings[1]`). Null slot = read-the-room;
-  /// empty overlay = inherit this object's card-level seeds and skip eval.
-  /// `first_mes` keeps using the fields above.
-  List<GreetingRealismSeed?> greetingSeeds;
-
-  /// Stable identity UUID for this logical character.
-  /// Carried inside the PNG (under extensions.front_porch.realism_engine.stable_id).
-  /// Generated once per library entry (on create/import/touch); used to match on
-  /// re-import (e.g. after realism/needs edits) so that dbId + sessions are preserved.
-  /// Legacy cards without it get one injected on first save/import.
-  /// Duplicates get fresh stableId. Never changes for an existing library character.
-  String? stableId;
-
-  /// App-internal character tier. `'lite'` marks a Scene Guest (Lite NPC):
-  /// a real library character that can join a 1:1 scene as its own bubble but
-  /// carries NO Realism Engine / Needs state (parity-safe). `null` = a normal
-  /// full character. Stored inside the PNG extensions only; never affects
-  /// external direct-writer schema.
-  String? tier;
-
-  /// The character's starred "canonical avatar": the id of an `avatar_images`
-  /// row (a gallery look OR an expression image) to use as the card cover on
-  /// export and as the default face a new chat opens with. `null` = the portrait
-  /// (`imagePath`). Exactly one at a time. A pointer only — it never mutates
-  /// `imagePath`. Stored inside the PNG extensions (no external-writer schema).
-  String? favoriteAvatarId;
-
-  FrontPorchExtensions({
-    this.realismEnabled = false,
-    this.shortTermBond = 0,
-    this.longTermBond = 0,
-    this.trustLevel = 0,
-    this.dayCount = 1,
-    this.timeOfDay = 'morning',
-    this.storyStartDate,
-    this.storyStartTime,
-    this.characterEmotion = '',
-    this.emotionIntensity = 'mild',
-    this.nsfwCooldownEnabled = false,
-    this.passageOfTimeEnabled = true, // defaults to on when realism is enabled
-    this.chaosModeEnabled = false,
-    bool? needsSimEnabled,
-    this.pocketsEnabled = true,
-    this.enjoysLowHygiene = false,
-    // Never mutated in place — always replaced wholesale (copyWith/editor),
-    // so the const default is safe.
-    this.ambitions = const [],
-    this.planLines = const [],
-    this.occupation = '',
-    this.hours = '',
-    this.occupationBrief = '',
-    this.workDays,
-    this.birthday = '',
-    this.likes = const [],
-    this.dislikes = const [],
-    this.intimateInto = const [],
-    this.intimateNotInto = const [],
-    this.inventory = const {},
-
-    // Realism Verification (Director/Verifier) — optional, off by default (zero cost when off)
-    this.realismVerificationEnabled = false,
-    this.realismVerificationMaxReprocesses = 1,
-    this.realismVerificationStrictness = 3,
-
-    this.realismNeedsDirectorAuthority = false,
-
-    this.needsPace = 'normal',
-    List<String>? needsOff,
-
-    // Per-need baseline values (0-100). Default 80 matches legacy initialization.
-    this.needsBaselineHunger = 80,
-    this.needsBaselineBladder = 80,
-    this.needsBaselineEnergy = 80,
-    this.needsBaselineSocial = 80,
-    this.needsBaselineFun = 80,
-    this.needsBaselineHygiene = 80,
-    this.needsBaselineComfort = 80,
-
-    // Avatar behavior
-    this.avatarLocked = false,
-
-    // Chat appearance colors (null = use global default)
-    this.userBubbleColor,
-    this.userTextColor,
-    this.aiBubbleColor,
-    this.aiTextColor,
-    this.dialogueColor,
-    this.actionColor,
-
-    // Chat font family (null = use system default)
-    this.chatFontFamily,
-
-    this.currentTask = '',
-    this.greetingSeeds = const [],
-    this.stableId,
-    this.tier,
-    this.favoriteAvatarId,
-  }) : needsSimChoice = needsSimEnabled,
-       needsOff = List<String>.from(needsOff ?? const []);
-
-  factory FrontPorchExtensions.fromJson(
-    Map<String, dynamic> json, {
-    List<String> alternateGreetings = const [],
-  }) {
-    // `is Map` + copy rather than `as Map<String, dynamic>?`: jsonDecode always
-    // hands back Map<String, dynamic>, but a card map BUILT IN DART (a group
-    // member seed, a test fixture, anything assembled from literals) can be
-    // Map<dynamic, dynamic>, and the old cast threw on it — failing the entire
-    // card import over a type argument nobody chose deliberately.
-    final raw = json['realism_engine'];
-    final realism = raw is Map
-        ? Map<String, dynamic>.from(raw)
-        : <String, dynamic>{};
-    return FrontPorchExtensions(
-      stableId: realism['stable_id'] as String?,
-      realismEnabled: realism['enabled'] as bool? ?? false,
-      shortTermBond: realism['short_term_bond'] as int? ?? 0,
-      longTermBond: realism['long_term_bond'] as int? ?? 0,
-      trustLevel: realism['trust_level'] as int? ?? 0,
-      dayCount: realism['day_count'] as int? ?? 1,
-      timeOfDay: realism['time_of_day'] as String? ?? 'morning',
-      storyStartDate: realism['story_start_date'] as String?,
-      storyStartTime: realism['story_start_time'] as String?,
-      characterEmotion: realism['character_emotion'] as String? ?? '',
-      emotionIntensity: realism['emotion_intensity'] as String? ?? 'mild',
-      nsfwCooldownEnabled: realism['nsfw_cooldown_enabled'] as bool? ?? false,
-      passageOfTimeEnabled: realism['passage_of_time_enabled'] as bool? ?? true,
-      chaosModeEnabled: realism['chaos_mode_enabled'] as bool? ?? false,
-      needsSimEnabled: realism['needs_sim_enabled'] as bool?,
-      pocketsEnabled: realism['pockets_enabled'] as bool? ?? true,
-      enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
-      ambitions: _phrases(realism['ambitions']),
-      planLines: _phrases(realism['plan_lines']),
-      occupation: realism['occupation'] as String? ?? '',
-      hours: realism['hours'] as String? ?? '',
-      occupationBrief: realism['occupationBrief'] as String? ?? '',
-      workDays: _workDays(realism),
-      birthday: realism['birthday'] as String? ?? '',
-      likes: _phrases(realism['likes']),
-      dislikes: _phrases(realism['dislikes']),
-      intimateInto: _phrases(_intimate(realism)['into']),
-      intimateNotInto: _phrases(_intimate(realism)['not_into']),
-      inventory: realism['inventory'] is Map
-          ? Map<String, dynamic>.from(realism['inventory'] as Map)
-          : const {},
-      realismVerificationEnabled:
-          realism['realism_verification_enabled'] as bool? ?? false,
-      realismVerificationMaxReprocesses:
-          realism['realism_verification_max_reprocesses'] as int? ?? 1,
-      realismVerificationStrictness:
-          realism['realism_verification_strictness'] as int? ?? 3,
-      realismNeedsDirectorAuthority:
-          realism['realism_needs_director_authority'] as bool? ?? false,
-      needsPace: realism['needs_pace'] as String? ?? 'normal',
-      needsOff: realism['needs_off'] is List
-          ? [
-              for (final item in realism['needs_off'] as List)
-                if (item is String) item,
-            ]
-          : <String>[],
-      needsBaselineHunger: realism['needs_baseline_hunger'] as int? ?? 80,
-      needsBaselineBladder: realism['needs_baseline_bladder'] as int? ?? 80,
-      needsBaselineEnergy: realism['needs_baseline_energy'] as int? ?? 80,
-      needsBaselineSocial: realism['needs_baseline_social'] as int? ?? 80,
-      needsBaselineFun: realism['needs_baseline_fun'] as int? ?? 80,
-      needsBaselineHygiene: realism['needs_baseline_hygiene'] as int? ?? 80,
-      needsBaselineComfort: realism['needs_baseline_comfort'] as int? ?? 80,
-      avatarLocked: realism['avatar_locked'] as bool? ?? false,
-
-      // Chat appearance colors (null = use global default)
-      userBubbleColor: realism['user_bubble_color'] != null
-          ? Color(realism['user_bubble_color'] as int)
-          : null,
-      userTextColor: realism['user_text_color'] != null
-          ? Color(realism['user_text_color'] as int)
-          : null,
-      aiBubbleColor: realism['ai_bubble_color'] != null
-          ? Color(realism['ai_bubble_color'] as int)
-          : null,
-      aiTextColor: realism['ai_text_color'] != null
-          ? Color(realism['ai_text_color'] as int)
-          : null,
-      dialogueColor: realism['dialogue_color'] != null
-          ? Color(realism['dialogue_color'] as int)
-          : null,
-      actionColor: realism['action_color'] != null
-          ? Color(realism['action_color'] as int)
-          : null,
-
-      // Chat font family (null = use system default)
-      chatFontFamily: realism['chat_font_family'] as String?,
-
-      currentTask: realism['current_task'] as String? ?? '',
-      greetingSeeds: () {
-        final parsed = parseGreetingSeeds(realism['greeting_seeds']);
-        if (alternateGreetings.isEmpty) return parsed;
-        return compactGreetingPairs(alternateGreetings, parsed).seeds;
-      }(),
-      tier: realism['tier'] as String?,
-      favoriteAvatarId: realism['favorite_avatar_id'] as String?,
-    );
+  /// All greetings: primary first message + alternates
+  List<String> get allGreetings {
+    final greetings = <String>[firstMessage];
+    greetings.addAll(alternateGreetings);
+    return greetings.where((g) => g.trim().isNotEmpty).toList();
   }
-  static final Uuid _uuid = Uuid();
 
-  /// Ensures this extensions object has a non-empty stableId.
-  /// Generates a fresh v4 UUID only if missing or empty.
-  /// Call this on any FP object right before a saveCardAsPng / persist that will embed it
-  /// (creation, realism edits, import collision update-in-place, duplicate gets fresh instead).
-  void ensureStableId() {
-    if (stableId == null || stableId!.isEmpty) {
-      stableId = _uuid.v4();
+  /// Replace [alternateGreetings] with rewritten [alts].
+  ///
+  /// Seeds not authored with the rewrite compact against empty so leftover
+  /// source seeds cannot land on the new alts. A `copyWith` that only
+  /// replaces alts must pass the compacted seeds (or `[]`) — never silently
+  /// keep source [greetingSeeds]. Pass [authoredSeeds] when the rewrite
+  /// wrote seeds alongside the new alts.
+  void assignRewrittenAlternateGreetings(
+    List<String> alts, {
+    List<GreetingRealismSeed?>? authoredSeeds,
+  }) {
+    final paired = compactRewrittenGreetingAlts(alts, authoredSeeds);
+    alternateGreetings = paired.greetings;
+    final ext = frontPorchExtensions;
+    if (ext != null) {
+      ext.greetingSeeds = paired.seeds;
+    } else if (paired.seeds.isNotEmpty) {
+      frontPorchExtensions = FrontPorchExtensions(greetingSeeds: paired.seeds);
     }
   }
 
-  /// Card-level opening used as the merge base for greeting overlays.
-  GreetingOpeningBase get openingBase => GreetingOpeningBase(
-    shortTermBond: shortTermBond,
-    longTermBond: longTermBond,
-    trustLevel: trustLevel,
-    dayCount: dayCount,
-    timeOfDay: timeOfDay,
-    storyStartDate: storyStartDate,
-    storyStartTime: storyStartTime,
-    characterEmotion: characterEmotion,
-    emotionIntensity: emotionIntensity,
-    currentTask: currentTask,
-    needsBaselineHunger: needsBaselineHunger,
-    needsBaselineBladder: needsBaselineBladder,
-    needsBaselineEnergy: needsBaselineEnergy,
-    needsBaselineSocial: needsBaselineSocial,
-    needsBaselineFun: needsBaselineFun,
-    needsBaselineHygiene: needsBaselineHygiene,
-    needsBaselineComfort: needsBaselineComfort,
-    inventory: inventory,
-  );
+  Map<String, dynamic> toJson() {
+    // Build extensions map: merge raw (third-party) keys with our namespace
+    Map<String, dynamic>? extensions;
+    if (frontPorchExtensions != null ||
+        (rawExtensions != null && rawExtensions!.isNotEmpty)) {
+      extensions = <String, dynamic>{};
+      // Preserve any third-party extension keys first
+      if (rawExtensions != null) extensions.addAll(rawExtensions!);
+      // Add/overwrite our namespace
+      if (frontPorchExtensions != null) {
+        extensions['front_porch'] = frontPorchExtensions!.toJson();
+      }
+    }
+
+    return {
+      'name': name,
+      'description': description,
+      'personality': personality,
+      'scenario': scenario,
+      'first_mes': firstMessage,
+      'mes_example': mesExample,
+      'system_prompt': systemPrompt,
+      'post_history_instructions': postHistoryInstructions,
+      'alternate_greetings': alternateGreetings,
+      'tags': tags,
+      'character_book': lorebook == null
+          ? null
+          : encodeCharacterBook(lorebook!),
+      'world_names': worldNames,
+      if (ttsVoice != null) 'tts_voice': ttsVoice,
+      if (creator.isNotEmpty) 'creator': creator,
+      if (creatorNotes.isNotEmpty) 'creator_notes': creatorNotes,
+      if (characterVersion.isNotEmpty) 'character_version': characterVersion,
+      'extensions': ?extensions,
+    };
+  }
+
+  String replacePlaceholders(String text, {String userName = 'You'}) {
+    return MacroResolver().resolve(
+      text,
+      MacroContext(userName: userName, characterName: name),
+    );
+  }
+
+  String get formattedDescription => replacePlaceholders(description);
+
+  /// Whether this card has any Front Porch extensions configured.
+  bool get hasFrontPorchExtensions => frontPorchExtensions != null;
+
+  /// Whether this card is a Scene Guest (Lite NPC): a real library character
+  /// that can join a 1:1 scene as its own bubble but carries no Realism/Needs
+  /// state. Determined by `frontPorchExtensions.tier == 'lite'`.
+  bool get isLite => frontPorchExtensions?.tier == 'lite';
 }

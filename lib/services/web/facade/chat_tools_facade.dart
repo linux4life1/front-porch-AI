@@ -16,19 +16,10 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/database/database.dart' show Objective;
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/services/story/faithful_mode.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools.dart';
 import 'package:front_porch_ai/services/web/facade/journal_web_surface.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
-
-part 'chat_tools_facade.memory.dart';
-part 'chat_tools_facade.scene.dart';
-part 'chat_tools_facade.switches.dart';
-part 'chat_tools_facade.objectives.dart';
-part 'chat_tools_facade.pockets.dart';
 
 /// Thin adapter for the chat *tools* sidebar — the memory/summary/chaos/NSFW/
 /// scene-time/objective sections the desktop shows beside a chat. Every read is
@@ -37,324 +28,31 @@ part 'chat_tools_facade.pockets.dart';
 /// the simulation behavior are inherited (never reimplemented here).
 class ChatToolsFacade {
   ChatToolsFacade(
-    this._chat,
-    this._storage,
-    this._hub, {
+    ChatService chat,
+    StorageService storage,
+    StreamHub? hub, {
     StoryRepository? storyRepo,
     UserPersonaService? personas,
-  }) : _storyRepo = storyRepo,
-       _personas = personas;
+  }) : _ctx = ChatToolsContext(chat, storage, hub) {
+    _scene = ChatToolsScene(_ctx, storyRepo: storyRepo, personas: personas);
+    _snapshot = ChatToolsSnapshot(_ctx, _scene);
+    _memory = ChatToolsMemory(_ctx);
+    _switches = ChatToolsSwitches(_ctx);
+    _objectives = ChatToolsObjectives(_ctx);
+    _pockets = ChatToolsPockets(_ctx);
+  }
 
-  final ChatService _chat;
-  final StorageService _storage;
-  final StreamHub? _hub;
-
-  /// Living Time §4 story-from-chat deps. Optional; the endpoint 400s without.
-  final StoryRepository? _storyRepo;
-  final UserPersonaService? _personas;
+  final ChatToolsContext _ctx;
+  late final ChatToolsScene _scene;
+  late final ChatToolsSnapshot _snapshot;
+  late final ChatToolsMemory _memory;
+  late final ChatToolsSwitches _switches;
+  late final ChatToolsObjectives _objectives;
+  late final ChatToolsPockets _pockets;
 
   /// Full tools snapshot mirroring the desktop sidebar (focus-scoped).
-  Map<String, dynamic> state({String? participantId}) {
-    final chaos = _chat.chaosModeService;
-    final nsfw = _chat.nsfwService;
-    final time = _chat.timeService;
-    final rs = _storage.realismSettings;
-    final mem = _storage.memorySettings;
-    final clockRunning = StoryClock.isRunning(
-      passageOfTimeEnabled: rs.passageOfTimeDefault,
-    );
-    final weather = _chat.currentWeather;
-    final focused = _focusedParticipant(participantId);
-    final focusedCard = focused?.card ?? _chat.activeCharacter;
-    final focusedIsMember =
-        focused != null && !focused.isHost && focused.realismEnabled;
-    return {
-      'wikiBaseUrl': _chat.wikiBaseUrl,
-      'wikiSavedUrls': _storage.webSearchSettings.savedWikiUrls,
-      'realismEnabled': _chat.realismEnabled,
-      'needsEnabled': _chat.needsSimEnabled,
-      'realismOneShotEval': rs.realismOneShotEval,
-      'realismOneShotMode': rs.oneShotMode.name,
-      'focusedId': focused?.id,
-      'memory': {
-        'ragEnabled': mem.ragEnabled,
-        'ragRetrievalCount': mem.ragRetrievalCount,
-        'ragWindowSize': mem.ragWindowSize,
-        // The last reply's retrieval receipt (rag_injection.dart wire
-        // shape) — the same anti-black-box surface the desktop sidebar
-        // shows. Additive + nullable per the API compatibility rules.
-        'lastRagReceipt': _chat.lastRagReceipt,
-        // Embedding-engine status (desktop RagEngineCard parity). Model
-        // download only runs on the host desktop; web surfaces progress
-        // and tells the user to use desktop if setup is needed.
-        'embedding': _chat.memoryService?.embeddingService.statusSnapshot,
-        'journalEnabled': mem.journalEnabled,
-        'journalInterval': mem.journalInterval,
-        'journalReviewFirst': mem.journalReviewFirst,
-        'importLlmertaPorchMemories': mem.importLlmertaPorchMemories,
-        'growthEnabled': mem.characterEvolutionEnabled,
-        'growthInterval': mem.growthInterval,
-        'growthReviewFirst': mem.growthReviewFirst,
-      },
-      // Kept under the 'summary' key for the bundled web UI: this is the
-      // Journal's per-chat recap ("Where we are") — same ChatService surface
-      // as before (text/paused/isGenerating/lastIndex).
-      'summary': {
-        'text': _chat.summary,
-        'paused': _chat.summaryPaused,
-        'isGenerating': _chat.isSummaryGenerating,
-        'lastIndex': _chat.summaryLastIndex,
-      },
-      'chaos': {
-        'enabled': chaos.chaosModeEnabled,
-        'nsfwEnabled': chaos.chaosNsfwEnabled,
-        'pressure': chaos.chaosPressure,
-        'hasPendingEvent': chaos.hasPendingChaosEvent,
-        // Additive: the spicy row shows only with 18+ themes on, and the
-        // hint reads the Porch Life frequency and any cooldown.
-        'adultAllowed': chaos.adultAllowed,
-        'base': chaos.frequency.base,
-        'growth': chaos.frequency.growth,
-        'cooldownTurns': chaos.cooldownTurns,
-      },
-      'nsfw': {
-        'cooldownEnabled': _chat.activeGroup != null
-            ? _chat.isGroupNsfwEnabled
-            : nsfw.nsfwCooldownEnabled,
-        // The desktop chip's own words, ready-made, so the phone cannot
-        // drift from them (story minutes, or replies with the clock off).
-        'refractoryMinutesRemaining': nsfw.refractoryMinutesRemaining,
-        'refractoryClockRunning': nsfw.clockRunning,
-        'refractoryLabel': nsfw.refractoryWords.chip,
-        // Arousal is per-character: scope to the focused member in a group;
-        // the host scalar otherwise. (Tier name is only derivable for the host
-        // scalar, so members show the raw level.)
-        'arousalLevel': focusedIsMember
-            ? _chat.getArousalForGroupCharacter(focusedCard!)
-            : nsfw.arousalLevel,
-        'arousalTier': focusedIsMember ? '' : nsfw.arousalTierName,
-      },
-      // Ambitions (Living Time §6) for the focused participant — additive;
-      // same ChatService.ambitionsFor merge the desktop sidebar reads.
-      // Objectives off ⇒ empty, matching the desktop sidebar row: quest
-      // completion is the only thing that moves progress, so the web would
-      // otherwise show a stage word frozen for the life of the chat.
-      // Standing Mood — the same string the desktop sidebar puts under the
-      // portrait, from the same getter, so the two can never disagree about
-      // what they walked in carrying. '' when the feature is off or the day is
-      // unremarkable.
-      'standingMood': _chat.standingMoodSummary,
-      'ambitions':
-          focusedCard == null ||
-              (focused?.isLite ?? false) ||
-              !_chat.objectivesActive
-          ? const []
-          : () {
-              // The quest climbing each ambition (v46) — the same
-              // AmbitionService merge the desktop sidebar row uses, over the
-              // same accessor, so web and desktop cannot disagree about which
-              // step belongs to which mountain. Computed once per block
-              // rather than per ambition.
-              final steps = AmbitionService.activeStepsFrom(
-                _chat.getObjectivesForGroupCharacter(focusedCard),
-              );
-              return [
-                for (final a in _chat.ambitionsFor(focusedCard))
-                  {
-                    'text': a.text,
-                    'progress': a.progress,
-                    'stage': AmbitionService.stageWord(a.progress),
-                    // Additive + nullable: older bundles ignore it.
-                    'step': steps[a.text],
-                  },
-              ];
-            }(),
-      // Pockets & Wardrobe for the focused participant. Same record and same
-      // per-character resolution the desktop sidebar reads, so the two
-      // surfaces cannot disagree about what they are holding. Absent (null)
-      // when the switch is off or nothing is focused, so the web panel
-      // vanishes rather than going stale. Feature ON with no record sends an
-      // EMPTY record instead of null (2026-08-13, add-by-hand parity): the
-      // panel must render its add row so the FIRST item can be added — the
-      // same off-absent / on-even-when-empty gate the desktop sidebar got.
-      // toJsonOn, not toJson: set-aside clothing expired by the story day,
-      // so the PWA never shows yesterday's outfit in the window before the
-      // next pass rewrites the stored record.
-      'pockets':
-          focusedCard == null ||
-              !_chat.pocketsEnabledFor(_chat.characterIdFor(focusedCard)) ||
-              _isGuestFocus(focused)
-          ? null
-          : (_chat.pocketsFor(_chat.characterIdFor(focusedCard)) ?? Pockets())
-                .toJsonOn(_chat.storyDayCount),
-      'time': {
-        'timeOfDay': time.timeOfDay,
-        'dayCount': time.dayCount,
-        'weekday': time.narrativeWeekday,
-        'passageEnabled': rs.passageOfTimeDefault,
-        'clockRunning': clockRunning,
-        'weather': weather == null
-            ? null
-            : {
-                'condition': weather.condition.name,
-                'temp': weather.temp.name,
-                'season': seasonDisplayName(
-                  weather.season,
-                  _chat.activeChatBiome.seasonLabels,
-                ),
-                'label': switch (_chat.currentSegmentWeather) {
-                  final seg? => skinnedChipLabel(
-                    seg,
-                    _chat.activeChatBiome,
-                    fahrenheit: rs.weatherFahrenheit,
-                  ),
-                  null => WeatherEngine.label(weather),
-                },
-                'emoji': switch (_chat.currentSegmentWeather) {
-                  final seg? => skinnedEmoji(
-                    _chat.activeChatBiome,
-                    seg.condition,
-                  ),
-                  null => skinnedEmoji(
-                    _chat.activeChatBiome,
-                    weather.condition,
-                  ),
-                },
-                'segment': _chat.currentSegmentWeather?.segment.name,
-                'segmentCondition': _chat.currentSegmentWeather?.condition.name,
-                'tempC': _chat.currentSegmentWeather?.tempC,
-                'tempF': switch (_chat.currentSegmentWeather?.tempC) {
-                  null => null,
-                  final c => WeatherSegments.tempF(c),
-                },
-                'unit': rs.weatherFahrenheit ? 'f' : 'c',
-                'dayLabel': WeatherEngine.label(weather),
-                'tomorrow': switch (_chat.upcomingWeather) {
-                  null => null,
-                  final n => {
-                    'condition': n.condition.name,
-                    'temp': n.temp.name,
-                    'season': seasonDisplayName(
-                      n.season,
-                      _chat.activeChatBiome.seasonLabels,
-                    ),
-                    'label': WeatherEngine.label(n),
-                    'emoji': WeatherEngine.emoji(n.condition),
-                  },
-                },
-              },
-        // Story Calendar (story-calendar.md) — additive; older web bundles
-        // simply ignore these.
-        'clock': time.displayClock,
-        'date': time.displayShortDate,
-        'dateLong': time.displayDate,
-        'storyClock': time.storyClockIso,
-        'storyStartDate': time.storyStartDateIso,
-        'presence': _presenceWord(),
-        'todaySentence': _chat.todaySentence,
-      },
-      // Objectives are per-character; scope to the focused participant (lite
-      // guests have none). getObjectivesForGroupCharacter returns the global
-      // list in 1:1, so this is correct in both modes.
-      'objectives': _objectivesBlock(
-        (focused?.isLite ?? false) ? null : focusedCard,
-      ),
-      // Group-only settings (turn order / director / prompts), gated below.
-      'group': _groupBlock(),
-    };
-  }
-
-  /// The focused cast participant, or null when none/unknown.
-  ChatParticipant? _focusedParticipant(String? id) {
-    if (id == null) return null;
-    for (final p in _chat.cast) {
-      if (p.id == id) return p;
-    }
-    return null;
-  }
-
-  /// A focused Scene Guest (1:1 non-host cast entry). Guests carry NO pockets
-  /// record — but the 1:1 record accessors ignore the character id (there is
-  /// only `_pockets`, the host's), so a guest-focused pocket surface would
-  /// silently read AND WRITE the host's kit under the guest's name (hostile
-  /// self-review, 2026-08-13; the ✕ had the same hole). In a group every
-  /// participant is a real member, so this is 1:1-only by construction.
-  bool _isGuestFocus(ChatParticipant? focused) =>
-      focused != null && !focused.isHost && !_chat.isGroupMode;
-
-  /// Objectives block for [card] (split primary/secondary). Empty when null.
-  Map<String, dynamic> _objectivesBlock(CharacterCard? card) {
-    if (card == null) {
-      return {
-        'primary': null,
-        'secondary': const [],
-        'isChecking': _chat.isCheckingCompletion,
-        'enabled': _chat.objectivesActive,
-      };
-    }
-    Objective? primary;
-    final secondary = <Objective>[];
-    for (final o in _chat.getObjectivesForGroupCharacter(card)) {
-      if (o.isPrimary && primary == null) {
-        primary = o;
-      } else {
-        secondary.add(o);
-      }
-    }
-    return {
-      'enabled': _chat.objectivesActive,
-      'primary': _objJson(primary),
-      'secondary': secondary.map(_objJson).whereType<Map>().toList(),
-      'isChecking': _chat.isCheckingCompletion,
-    };
-  }
-
-  /// Group-only settings for the sidebar's group section (null in 1:1). The web
-  /// gates this block on `group != null`. Per-member prompt overrides are keyed
-  /// by [groupMemberStoreId] (== ChatParticipant.id).
-  Map<String, dynamic>? _groupBlock() {
-    final g = _chat.activeGroup;
-    if (g == null) return null;
-    return {
-      'name': g.name,
-      'turnOrder': g.turnOrder.name,
-      'directorMode': _chat.observerMode,
-      'systemPrompt': g.systemPrompt,
-      'scenario': g.scenario,
-      'firstMessage': g.firstMessage,
-      'alternateGreetings': g.alternateGreetings,
-      'greetingSeeds': [for (final s in g.greetingSeeds) s?.toFields()],
-      'members': _chat.cast
-          .map(
-            (p) => {
-              'id': p.id,
-              'name': p.name,
-              'prompt': g.characterSystemPrompts[p.id] ?? '',
-            },
-          )
-          .toList(),
-    };
-  }
-
-  Map<String, dynamic>? _objJson(Objective? o) {
-    if (o == null) return null;
-    final tasks = _chat.tasksForObjective(o);
-    // Stale steps stay on the list so the UI can mark them skipped. They are
-    // excluded from current-step / completion counts (never a 100% win).
-    return {
-      'id': o.id,
-      'objective': o.objective,
-      'isPrimary': o.isPrimary,
-      'checkFrequency': o.checkFrequency,
-      'tasks': tasks,
-      'completedCount': completedQuestTaskCount(tasks),
-      'countableCount': countableQuestTaskCount(tasks),
-      // The ambition this quest is a step toward (schema v46). Additive and
-      // nullable — older web bundles ignore the key, and every objective
-      // created before v46 legitimately has none.
-      'servedAmbition': o.servedAmbition,
-    };
-  }
+  Map<String, dynamic> state({String? participantId}) =>
+      _snapshot.build(participantId: participantId);
 
   /// Apply any subset of the global memory/summary numeric+text settings. Keys
   /// mirror the [state] `memory`/`summary` blocks; absent keys are unchanged.
@@ -368,7 +66,7 @@ class ChatToolsFacade {
       if (v is int) await set(v);
     }
 
-    final mem = _storage.memorySettings;
+    final mem = _ctx.storage.memorySettings;
     await ifBool('ragEnabled', mem.setRagEnabled);
     await ifInt('ragRetrievalCount', mem.setRagRetrievalCount);
     await ifInt('ragWindowSize', mem.setRagWindowSize);
@@ -383,19 +81,158 @@ class ChatToolsFacade {
     await ifBool('growthEnabled', mem.setCharacterEvolutionEnabled);
     await ifInt('growthInterval', mem.setGrowthInterval);
     await ifBool('growthReviewFirst', mem.setGrowthReviewFirst);
-    _notify();
+    _ctx.notify();
   }
 
   /// Same switch the desktop Recap panel and injection use.
-  bool get journalEnabled => _storage.memorySettings.journalEnabled;
+  bool get journalEnabled => _ctx.storage.memorySettings.journalEnabled;
 
   /// Web Journal diary (audit P2.12) — Growth twin for cards + review-first.
   JournalWebSurface get journalWeb => JournalWebSurface(
-    chat: _chat,
-    storage: _storage,
-    notify: _notify,
-    resolveOwner: _growthOwner,
+    chat: _ctx.chat,
+    storage: _ctx.storage,
+    notify: _ctx.notify,
+    resolveOwner: _ctx.growthOwner,
   );
 
-  void _notify() => _hub?.broadcastChatUpdate();
+  // ── Memory: Growth Rings, recap, timeline, promises ─────────────────────
+  Map<String, dynamic> growth(String? participantId) =>
+      _memory.growth(participantId);
+
+  Future<void> growthAction(
+    String? participantId,
+    String action,
+    Map<String, dynamic> body,
+  ) => _memory.growthAction(participantId, action, body);
+
+  Map<String, dynamic> growthReviewBatch() => _memory.growthReviewBatch();
+
+  Future<void> settleGrowthReview({
+    required bool apply,
+    List<String> rejected = const [],
+  }) => _memory.settleGrowthReview(apply: apply, rejected: rejected);
+
+  Future<void> regenerateSummary() => _memory.regenerateSummary();
+
+  void setSummaryPaused(bool v) => _memory.setSummaryPaused(v);
+
+  void setSummaryText(String text) => _memory.setSummaryText(text);
+
+  Future<Map<String, dynamic>> timeline(String? ownerId) =>
+      _memory.timeline(ownerId);
+
+  Future<Map<String, dynamic>> promises(String? ownerId) =>
+      _memory.promises(ownerId);
+
+  Future<bool> resolvePromise({
+    required String ownerId,
+    required String cardId,
+    required bool kept,
+  }) => _memory.resolvePromise(ownerId: ownerId, cardId: cardId, kept: kept);
+
+  // ── Scene: story clock, calendar, story-from-chat ───────────────────────
+  Future<void> setStoryClock(DateTime clock) => _scene.setStoryClock(clock);
+
+  Future<void> setStoryStartDate(DateTime date) =>
+      _scene.setStoryStartDate(date);
+
+  Future<Map<String, dynamic>> calendar(String? ownerId) =>
+      _scene.calendar(ownerId);
+
+  Future<void> nudgeTime(int delta) => _scene.nudgeTime(delta);
+
+  Future<Map<String, dynamic>> toStory({
+    required bool faithful,
+    required String length,
+    required String pov,
+  }) => _scene.toStory(faithful: faithful, length: length, pov: pov);
+
+  // ── Switches ────────────────────────────────────────────────────────────
+  Future<void> setRealismEnabled(bool v) => _switches.setRealismEnabled(v);
+
+  Future<void> setNeedsEnabled(bool v) => _switches.setNeedsEnabled(v);
+
+  Future<void> setOneShotEval(bool v) => _switches.setOneShotEval(v);
+
+  Future<void> setOneShotMode(OneShotMode v) => _switches.setOneShotMode(v);
+
+  Future<void> setChaosEnabled(bool v) => _switches.setChaosEnabled(v);
+
+  Future<void> setChaosNsfw(bool v) => _switches.setChaosNsfw(v);
+
+  Future<void> setNsfwCooldown(bool v) => _switches.setNsfwCooldown(v);
+
+  Future<void> setPassageOfTime(bool v) => _switches.setPassageOfTime(v);
+
+  void setDirectorMode(bool v) => _switches.setDirectorMode(v);
+
+  Future<void> setWikiBaseUrl(String url) => _switches.setWikiBaseUrl(url);
+
+  // ── Objectives ──────────────────────────────────────────────────────────
+  Future<void> setObjective(
+    String goal, {
+    bool isPrimary = true,
+    String? participantId,
+  }) => _objectives.setObjective(
+    goal,
+    isPrimary: isPrimary,
+    participantId: participantId,
+  );
+
+  Future<bool> generateTasks(
+    String id, {
+    int taskCount = 5,
+    bool nsfw = false,
+  }) => _objectives.generateTasks(id, taskCount: taskCount, nsfw: nsfw);
+
+  Future<bool> addTask(String id, String description) =>
+      _objectives.addTask(id, description);
+
+  Future<bool> toggleTask(String id, int taskIndex) =>
+      _objectives.toggleTask(id, taskIndex);
+
+  Future<bool> updateTask(String id, int taskIndex, String description) =>
+      _objectives.updateTask(id, taskIndex, description);
+
+  Future<bool> removeTask(String id, int taskIndex) =>
+      _objectives.removeTask(id, taskIndex);
+
+  Future<bool> setCheckFrequency(String id, int frequency) =>
+      _objectives.setCheckFrequency(id, frequency);
+
+  Future<bool> clearObjective(String id) => _objectives.clearObjective(id);
+
+  Future<bool> promoteObjective(String id) => _objectives.promoteObjective(id);
+
+  void checkCompletion() => _objectives.checkCompletion();
+
+  void abandonToday() => _objectives.abandonToday();
+
+  // ── Pockets & Wardrobe ──────────────────────────────────────────────────
+  Future<void> removePocketItem({
+    String? participantId,
+    required String section,
+    required int index,
+  }) => _pockets.removePocketItem(
+    participantId: participantId,
+    section: section,
+    index: index,
+  );
+
+  Future<void> addPocketItem({
+    String? participantId,
+    required String section,
+    required String name,
+    bool gift = false,
+    bool correction = false,
+  }) => _pockets.addPocketItem(
+    participantId: participantId,
+    section: section,
+    name: name,
+    gift: gift,
+    correction: correction,
+  );
+
+  Future<Map<String, dynamic>> belongings(String? ownerId) =>
+      _pockets.belongings(ownerId);
 }

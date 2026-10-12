@@ -716,7 +716,7 @@ count, that number is written, with `moecpu` for a MoE model.
 ### Stage 0: two quick fixes (plan items 1, 11)
 
 - Cache the `LaneHost` per job id next to the existing `_laneSwaps` map in
-  `lib/services/llm_provider.lanes.dart`, so
+  `lib/services/llm_provider/story_lane_hosts.dart`, so
   `_swapLaneHost` in `lib/services/story_pipeline_service.llm.dart` stops
   restoring the chat model on every call.
 - `lib/services/kobold_process_control.dart`: kill only the process tree the
@@ -804,7 +804,7 @@ bundle.
   last-used model.)
 - All seven launch sites call it: `settings_page.controls.dart`,
   `settings_page.launch.dart` (two), `model_settings_dialog.local_actions.dart`,
-  `setup_service.dart`, `llm_provider.worker.dart`,
+  `setup_service.dart`, `llm_provider/managed_kobold_launcher.dart`,
   `creator_state.models.dart`, `web/facade/backend_facade.dart`.
 - The phone model switch applies the new model's own preset or clears it,
   as the desktop picker already does.
@@ -1105,7 +1105,7 @@ summary card.
 
 ### Stage 7: web (item 21)
 
-- Routes on the backend facade (`backend_facade.local_model.dart`, see
+- Routes on the backend facade (`backend/local_model_card.dart`, see
   "Stage 7 as built" below): list presets with summaries, set the chat
   preset (limited to the engine folder), set the context.
 - Web chat-preset picker and summary card. No editor (deferred).

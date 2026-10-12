@@ -17,46 +17,32 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
-import 'package:front_porch_ai/services/reasoning_effort.dart';
+import 'package:front_porch_ai/services/llm_provider/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/lmstudio_log_streamer.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
-import 'package:front_porch_ai/services/kobold_admin_swap.dart';
-import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
-import 'package:front_porch_ai/services/kobold_speed_test.dart';
-import 'package:front_porch_ai/services/omlx_status_poller.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
-import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
-import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/services/story_lane_labels.dart';
 import 'package:front_porch_ai/services/worker_backend.dart';
 import 'package:front_porch_ai/services/worker_gpu_swap.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
-import 'package:front_porch_ai/utils/utils.dart' show LocalModelKeys;
 
-part 'llm_provider.worker.dart';
-part 'llm_provider.kobold_hosts.dart';
-part 'llm_provider.lanes.dart';
-part 'llm_provider.connection.dart';
-part 'llm_provider.speed_test.dart';
-
-/// The available backend types. The former `pseudoRemote` (a local KoboldCpp
-/// launched from a .kcpps preset) was folded into [kobold]: the local backend
-/// launches a preset via `--config` when one is active, so it was a redundant
-/// second path. Presets are now just a launch option of the Kobold backend.
-enum BackendType { kobold, openRouter, omlx }
+export 'package:front_porch_ai/services/llm_provider/llm_provider.dart'
+    show
+        BackendType,
+        LLMProviderLaneApi,
+        LaneHost,
+        kKoboldChatRole,
+        kKoboldTrialRole,
+        kKoboldWorkerRole,
+        remoteProviderLabel;
 
 /// Manages switching between LLM backends (local KoboldCPP, remote APIs).
 ///
@@ -70,28 +56,64 @@ class LLMProvider extends ChangeNotifier {
 
   BackendType _activeBackend = BackendType.kobold;
 
-  /// Dedicated OpenAI-compatible client for the worker lane. Never the
-  /// mouth [_openRouterService] — configuring this must not flip chat speech.
-  final OpenRouterService _workerRemote = OpenRouterService();
-
   /// Unofficial SuperGrok sign-in; its token rides every api.x.ai request
   /// through [BackendSettings.bearerOverlay].
   late final SuperGrokAuth superGrok = SuperGrokAuth.inPrefs(
     () => _storageService.backendSettings.prefs,
     _storageService.backendSettings.k('xai_supergrok_session'),
   );
-  String? _lastWorkerIdentity;
 
-  // ── Live generation status sources (truthful status bar) ────────────────
-  // One shared struct per non-Kobold source; [activeLiveProgress] resolves
-  // which one the UIs read. Wired lazily: the oMLX poller only issues HTTP
-  // while [isGenerationActive] says a chat generation is running, and the
-  // LM Studio log stream only spawns for a localhost OpenAI backend with
-  // LM Studio's CLI present.
-  late final OmlxStatusPoller _omlxPoller = OmlxStatusPoller(
-    isActive: () => isGenerationActive?.call() ?? false,
+  /// The worker lane's own remote client and eval identity.
+  late final WorkerLaneConfig _worker = WorkerLaneConfig(
+    storage: _storageService,
+    kobold: _koboldService,
   );
-  final LmStudioLogStreamer _lmStudioStreamer = LmStudioLogStreamer();
+
+  /// One shared struct per non-Kobold source; [activeLiveProgress] resolves
+  /// which one the UIs read.
+  late final LiveStatusSources _live = LiveStatusSources(
+    isGenerationActive: () => isGenerationActive?.call() ?? false,
+  );
+
+  late final ManagedKoboldLauncher _launcher = ManagedKoboldLauncher(
+    kobold: _koboldService,
+    storage: _storageService,
+    backendManager: _backendManager,
+    anyProcessRunning: () => hasAnyManagedProcessRunning,
+    workerRefusedDualLocal: () => workerRefusedDualLocal,
+    onChanged: _onServiceChanged,
+  );
+
+  late final LaneHostFactory _hosts = LaneHostFactory(
+    kobold: _koboldService,
+    storage: _storageService,
+    backendManager: _backendManager,
+    ensureKobold: _launcher.ensure,
+  );
+
+  late final WorkerLaneSwap _lane = WorkerLaneSwap(
+    pairSupported: () =>
+        workerConfigured && savedPairSupportsGpuSwap(_storageService),
+    build: _hosts.workerOccupancy,
+  );
+
+  late final KoboldChatReload _reload = KoboldChatReload(
+    kobold: _koboldService,
+    storage: _storageService,
+    hosts: _hosts,
+    ensureKobold: _launcher.ensure,
+  );
+
+  late final StoryLaneHosts _storyLanes = StoryLaneHosts(
+    kobold: _koboldService,
+    storage: _storageService,
+    hosts: _hosts,
+    koboldLaunchPath: _launcher.effectiveLaunchPath,
+  );
+
+  late final LlmProviderParts _parts;
+
+  LLMService? _workerOverride;
 
   /// Set from main.dart wiring (mirrors the setX style): lets the status
   /// sources gate their work on ChatService.isGenerating without this class
@@ -100,66 +122,21 @@ class LLMProvider extends ChangeNotifier {
 
   /// The live progress source for the ACTIVE backend, or null when none can
   /// exist (plain remote APIs — providers expose no prefill data).
-  LiveGenProgress? get activeLiveProgress {
-    switch (_activeBackend) {
-      case BackendType.kobold:
-        return _koboldService.liveProgress;
-      case BackendType.omlx:
-        return _omlxPoller.progress;
-      case BackendType.openRouter:
-        // LM Studio presents as an OpenAI backend on localhost; its runtime
-        // log is only attachable when its CLI exists on this machine.
-        return _lmStudioStreamer.isRunning ? _lmStudioStreamer.progress : null;
-    }
-  }
+  LiveGenProgress? get activeLiveProgress =>
+      _live.progressFor(_activeBackend, kobold: _koboldService.liveProgress);
 
   /// Start/stop the per-backend live-status sources for the current backend
   /// + URL. Called on backend switches; safe to call repeatedly.
-  void _syncLiveStatusSources() {
-    if (shouldRunOmlxPoller(
+  void _syncLiveStatusSources() => _live.sync(
+    active: _activeBackend,
+    runOmlx: shouldRunOmlxPoller(
       mouthType: _storageService.backendSettings.backendType,
       workerType: _storageService.workerBackendType,
       pairAllowed: !workerRefusedDualLocal,
-    )) {
-      final url = _activeBackend == BackendType.omlx
-          ? _openRouterService.apiUrl
-          : resolvedLaneApiUrl('omlx', _storageService.workerRemoteApiUrl);
-      _omlxPoller.start(url);
-    } else {
-      _omlxPoller.stop();
-    }
-    final url = _openRouterService.apiUrl;
-    final isLocalOpenAi =
-        _activeBackend == BackendType.openRouter &&
-        (url.contains('localhost') || url.contains('127.0.0.1'));
-    if (isLocalOpenAi) {
-      // Only attach to servers that really ARE LM Studio: its /api/v0/models
-      // endpoint is the same signature the vision resolver uses. Without
-      // this check, `lms log stream` could spawn against someone else's
-      // local OpenAI server (llama.cpp, text-gen-webui) and — worse — wake
-      // LM Studio's background service uninvited.
-      _startLmStudioStreamerIfConfirmed(url);
-    } else {
-      _lmStudioStreamer.stop();
-    }
-  }
-
-  Future<void> _startLmStudioStreamerIfConfirmed(String apiUrl) async {
-    if (_lmStudioStreamer.isRunning) return;
-    if (LmStudioLogStreamer.lmsBinaryPath() == null) return;
-    try {
-      final base = apiUrl.replaceFirst(RegExp(r'/v1/?$'), '');
-      final resp = await http
-          .get(Uri.parse('$base/api/v0/models'))
-          .timeout(const Duration(seconds: 2));
-      if (resp.statusCode == 200) {
-        await _lmStudioStreamer.start();
-      }
-    } catch (_) {
-      // Not LM Studio (or not up) — stay detached; a later backend switch
-      // re-probes.
-    }
-  }
+    ),
+    mouthUrl: _openRouterService.apiUrl,
+    workerUrl: _storageService.workerRemoteApiUrl,
+  );
 
   BackendType get activeBackend => _activeBackend;
   LLMService get activeService {
@@ -173,18 +150,8 @@ class LLMProvider extends ChangeNotifier {
   }
 
   /// Worker picker type, or null when the worker is off.
-  BackendType? get workerBackend {
-    switch (_storageService.workerBackendType) {
-      case 'openRouter':
-        return BackendType.openRouter;
-      case 'omlx':
-        return BackendType.omlx;
-      case 'kobold':
-        return BackendType.kobold;
-      default:
-        return null;
-    }
-  }
+  BackendType? get workerBackend =>
+      workerBackendTypeFrom(_storageService.workerBackendType);
 
   bool get workerConfigured =>
       !workerBackendIsOff(_storageService.workerBackendType);
@@ -200,7 +167,15 @@ class LLMProvider extends ChangeNotifier {
       );
 
   /// Side-lane service when the worker is on and the pair is allowed.
-  LLMService? get workerService => _liveWorkerService();
+  LLMService? get workerService {
+    if (!workerConfigured || workerRefusedDualLocal) return null;
+    return _workerOverride ??
+        switch (workerBackend) {
+          BackendType.kobold => _koboldService,
+          BackendType.openRouter || BackendType.omlx => _worker.remote,
+          null => null,
+        };
+  }
 
   /// Evals / clerk / journal / growth. Mouth stays [activeService].
   LLMService get sideLaneService => workerService ?? activeService;
@@ -214,6 +189,34 @@ class LLMProvider extends ChangeNotifier {
     if (svc == null || svc.isReady) return null;
     return workerLaneUnreadyMessage(_storageService.workerBackendType);
   }
+
+  OpenRouterService get workerRemoteService => _worker.remote;
+
+  String get workerEvalIdentity => workerEvalIdentityNamed();
+
+  /// [workerEvalIdentity] with a local helper's model named by [modelKey]
+  /// (what the engine runs, for a helper the lane does not swap in) instead of
+  /// by the file the helper setting names.
+  String workerEvalIdentityNamed({String? modelKey}) => _worker.evalIdentity(
+    service: workerService ?? _worker.remote,
+    modelKey: modelKey,
+  );
+
+  @visibleForTesting
+  bool get debugOmlxPollerStarted => _live.omlxStarted;
+
+  @visibleForTesting
+  set debugGpuSwap(GpuSwapOccupancy? occupancy) => _lane.override = occupancy;
+
+  @visibleForTesting
+  GpuSwapOccupancy? get debugGpuSwap => _lane.current;
+
+  /// Production occupancy only. Mid-hold rebuild must not write here.
+  @visibleForTesting
+  GpuSwapOccupancy? get debugGpuSwapExpando => _lane.swap;
+
+  @visibleForTesting
+  set debugWorkerService(LLMService? service) => _workerOverride = service;
 
   /// Whether the active backend is the local KoboldCpp instance (native or
   /// launched from a .kcpps preset). Gates the local niceties — real
@@ -293,7 +296,7 @@ class LLMProvider extends ChangeNotifier {
     bool forGpuSwap = false,
     String? modelPath,
     String? kcppsPath,
-  }) => _ensureManagedKobold(
+  }) => _launcher.ensure(
     forGpuSwap: forGpuSwap,
     modelPath: modelPath,
     kcppsPath: kcppsPath,
@@ -301,7 +304,21 @@ class LLMProvider extends ChangeNotifier {
 
   /// Chat's new preset or model into the running KoboldCpp, live. Says why
   /// when it was not loaded; null when there is nothing to report.
-  Future<KoboldLaunchResult?> reloadChatKobold() => _reloadChatKobold();
+  Future<KoboldLaunchResult?> reloadChatKobold() => _reload.reloadChat();
+
+  /// Loads a timing trial's [config] into the running KoboldCpp, staged as
+  /// [name]. True when it is what runs afterwards; throws
+  /// [KoboldPresetProblem] for a config the app will not start.
+  Future<bool> loadKoboldTrial(String name, Map<String, dynamic> config) =>
+      _reload.loadTrial(name, config);
+
+  /// The host for a story lane, or null when it cannot be built (no model).
+  LaneHost? laneHost({
+    required String type,
+    required String url,
+    required String model,
+    String kcpps = '',
+  }) => _storyLanes.host(type: type, url: url, model: model, kcpps: kcpps);
 
   /// Convenience getters for the underlying services (for UI that needs specifics).
   KoboldService get koboldService => _koboldService;
@@ -314,6 +331,7 @@ class LLMProvider extends ChangeNotifier {
     this._storageService,
     this._backendManager,
   ) {
+    _parts = LlmProviderParts(lane: _lane, launcher: _launcher)..attachTo(this);
     _storageService.backendSettings.bearerOverlay = superGrok.bearerFor;
     superGrok.addListener(_syncFromStorage);
     // Prefs are still null until storage init binds them; loading earlier
@@ -322,7 +340,13 @@ class LLMProvider extends ChangeNotifier {
     _syncFromStorage();
     _storageService.addListener(_syncFromStorage);
     _koboldService.addListener(_onServiceChanged);
-    _makeSpeedTest();
+    _parts.speedTest = KoboldSpeedTestWiring(
+      kobold: _koboldService,
+      storage: _storageService,
+      backendManager: _backendManager,
+      hosts: _hosts,
+      hasManagedProcess: () => hasManagedProcess,
+    ).build(loadTrial: loadKoboldTrial, reloadChat: reloadChatKobold);
   }
 
   @override
@@ -335,12 +359,8 @@ class LLMProvider extends ChangeNotifier {
       backend.bearerOverlay = null;
     }
     superGrok.dispose();
-    _omlxPoller.stop();
-    _lmStudioStreamer.stop();
-    final occupancy =
-        _providerHeldSwap[this] ??
-        _providerSwapOverride[this] ??
-        _providerSwap[this];
+    _live.stop();
+    final occupancy = _lane.current;
     if (occupancy != null) unawaited(occupancy.ensureMouth());
     super.dispose();
   }
@@ -351,30 +371,8 @@ class LLMProvider extends ChangeNotifier {
 
   void _syncFromStorage() {
     final typeStr = _storageService.backendSettings.backendType;
-    BackendType newType;
-    switch (typeStr) {
-      case 'openRouter':
-        newType = BackendType.openRouter;
-      case 'omlx':
-        newType = BackendType.omlx;
-      // 'pseudoRemote' (legacy) falls through to kobold — the preset now runs
-      // under the local Kobold backend. The stored value is rewritten to
-      // 'kobold' by the migration in BackendSettings.load().
-      default:
-        newType = BackendType.kobold;
-    }
-
-    final cfgChanged = newType == BackendType.omlx
-        ? _openRouterService.configure(
-            apiUrl: 'http://localhost:8000/v1',
-            apiKey: _storageService.backendSettings.remoteApiKey,
-            modelName: _storageService.backendSettings.remoteModelName,
-          )
-        : _openRouterService.configure(
-            apiUrl: _storageService.backendSettings.remoteApiUrl,
-            apiKey: _storageService.backendSettings.remoteApiKey,
-            modelName: _storageService.backendSettings.remoteModelName,
-          );
+    final newType = backendTypeFromStored(typeStr);
+    final cfgChanged = _configureMouth(newType);
     _maybePingRemote(newType, configChanged: cfgChanged);
     debugPrint(
       '[LLMProvider] Synced from storage: backend=$typeStr, URL=${_storageService.backendSettings.remoteApiUrl}',
@@ -416,40 +414,57 @@ class LLMProvider extends ChangeNotifier {
   /// capability verdicts on change (see [_syncFromStorage]).
   String? _lastModelIdentity;
 
+  /// Point the mouth's OpenAI-compatible client at [type]'s address: oMLX's
+  /// fixed localhost URL, else the saved remote URL. True when it changed.
+  bool _configureMouth(BackendType type) {
+    final b = _storageService.backendSettings;
+    return _openRouterService.configure(
+      apiUrl: type == BackendType.omlx
+          ? 'http://localhost:8000/v1'
+          : b.remoteApiUrl,
+      apiKey: b.remoteApiKey,
+      modelName: b.remoteModelName,
+    );
+  }
+
+  /// Point the worker's remote client at the saved worker host/model.
+  /// Returns true when the pair identity changed.
+  bool _syncWorkerFromStorage() {
+    if (!_worker.sync()) return false;
+    _syncLiveStatusSources();
+    _lane.rebuild();
+    return true;
+  }
+
+  void _kickLocalThinkingResolve(BackendType type) => kickLocalThinkingResolve(
+    type,
+    settings: _storageService.backendSettings,
+    openAiUrl: _openRouterService.apiUrl,
+  );
+
+  /// Live `GET /models` when the remote backend is (or becomes) active.
+  /// Skipped under `flutter test` so constructing a provider never hits
+  /// the network; tests that care call [OpenRouterService.refreshReachability].
+  void _maybePingRemote(BackendType type, {required bool configChanged}) {
+    if (kSkipRemoteAutoPing) return;
+    if (!isRemoteBackendType(type)) return;
+    if (!configChanged && type == _activeBackend) return;
+    unawaited(_openRouterService.refreshReachability());
+  }
+
   /// Switch the active backend and persist the choice.
   /// Does NOT start or stop any processes — that is handled by the caller (UI).
   Future<void> setActiveBackend(BackendType type) async {
     if (type == _activeBackend) return;
 
     _activeBackend = type;
-    String persistValue;
-    switch (type) {
-      case BackendType.openRouter:
-        persistValue = 'openRouter';
-      case BackendType.omlx:
-        persistValue = 'omlx';
-      case BackendType.kobold:
-        persistValue = 'kobold';
-    }
-    await _storageService.backendSettings.setBackendType(persistValue);
+    await _storageService.backendSettings.setBackendType(type.name);
 
     // oMLX is a fixed localhost URL. Nano/OpenRouter/LM Studio use the
     // parked remoteApiUrl — must reconfigure even when that URL did not
     // change (oMLX never writes remoteApiUrl, so setRemoteApiUrl is a
     // no-op and Waifu would keep hitting oMLX).
-    if (type == BackendType.omlx) {
-      _openRouterService.configure(
-        apiUrl: 'http://localhost:8000/v1',
-        apiKey: _storageService.backendSettings.remoteApiKey,
-        modelName: _storageService.backendSettings.remoteModelName,
-      );
-    } else if (type == BackendType.openRouter) {
-      _openRouterService.configure(
-        apiUrl: _storageService.backendSettings.remoteApiUrl,
-        apiKey: _storageService.backendSettings.remoteApiKey,
-        modelName: _storageService.backendSettings.remoteModelName,
-      );
-    }
+    if (type != BackendType.kobold) _configureMouth(type);
 
     _syncLiveStatusSources();
     _maybePingRemote(type, configChanged: true);

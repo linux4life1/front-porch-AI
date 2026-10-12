@@ -34,7 +34,7 @@ No hardware needed. Each can ship on its own.
   story model again: two full model loads per call, and the prompt cache is
   lost each time.
 - **Fix:** Keep one host object per job, or compare by job id.
-- **Where:** `lib/services/llm_provider.lanes.dart`,
+- **Where:** `lib/services/llm_provider/story_lane_hosts.dart`,
   `lib/services/story_pipeline_service.llm.dart`.
 - **Test:** Two calls in a row on the same local job must cause one swap and
   no return to the chat model. This fails today. No test covers story jobs
@@ -244,7 +244,7 @@ items 5 and 6.
 - **Fix:** One shared function that every launch site calls.
 - **Where:** `lib/ui/pages/settings_page.controls.dart`,
   `lib/ui/dialogs/model_settings_dialog.local_actions.dart`,
-  `lib/services/setup_service.dart`, `lib/services/llm_provider.worker.dart`,
+  `lib/services/setup_service.dart`, `lib/services/llm_provider/managed_kobold_launcher.dart`,
   `lib/ui/pages/settings_page.launch.dart`.
 - **Test:** Today's only test reads the source text. Replace it with one
   that checks behaviour.

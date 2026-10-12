@@ -17,16 +17,12 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:io';
-
-import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
-
-part 'backend_facade.local_model.dart';
+import 'package:front_porch_ai/services/web/facade/backend/local_model_card.dart';
 
 /// Web adapter for local-backend lifecycle, local-model switching, and the
 /// HuggingFace model browser/downloader. Reuses [LLMProvider]'s managed-backend
@@ -40,10 +36,32 @@ class BackendFacade {
   final ModelManager _models;
   final HardwareService? _hardware;
 
-  // The local model card: the model's header as last read, and a pending
-  // reload after the context changed.
-  ({String path, GGUFModelInfo? info, int? bytes})? _cardModel;
-  Timer? _cardReload;
+  /// The phone's "Local model" card, chat-preset picker and speed test.
+  late final LocalModelCard _localModel = LocalModelCard(
+    _llm,
+    _storage,
+    _models,
+    _hardware,
+  );
+
+  /// See [LocalModelCard.localModel].
+  Future<Map<String, dynamic>> localModel() => _localModel.localModel();
+
+  /// See [LocalModelCard.setChatPreset].
+  Future<bool> setChatPreset(String? path) => _localModel.setChatPreset(path);
+
+  /// See [LocalModelCard.setLocalContext].
+  Future<bool> setLocalContext(int context) =>
+      _localModel.setLocalContext(context);
+
+  /// See [LocalModelCard.speedTestAsk].
+  Future<Map<String, dynamic>> speedTestAsk() => _localModel.speedTestAsk();
+
+  /// See [LocalModelCard.startSpeedTest].
+  Future<String?> startSpeedTest() => _localModel.startSpeedTest();
+
+  /// Stops the speed test after the step under way.
+  void cancelSpeedTest() => _localModel.cancelSpeedTest();
 
   /// Unofficial SuperGrok sign-in, relayed by `XaiRoutes`.
   SuperGrokAuth get superGrok => _llm.superGrok;

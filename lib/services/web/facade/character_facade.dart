@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -26,9 +25,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
-
-part 'character_facade.import.dart';
-part 'character_facade.byaf.dart';
+import 'package:front_porch_ai/services/web/facade/character/character.dart';
 
 /// Thin read adapter over the character store for the rewritten web server.
 ///
@@ -97,7 +94,7 @@ class CharacterFacade {
     if (term != null && term.isNotEmpty) {
       characters = characters.where((c) {
         if (c.name.toLowerCase().contains(term)) return true;
-        return _jsonList(
+        return decodeJsonList(
           c.tags,
         ).any((t) => t.toString().toLowerCase().contains(term));
       }).toList();
@@ -161,7 +158,7 @@ class CharacterFacade {
             // `/detail` for the editor, not here, so they're intentionally
             // omitted to keep this list (which loads every character at once)
             // small over a slow uplink.
-            'tags': _jsonList(c.tags),
+            'tags': decodeJsonList(c.tags),
             'hasAvatar': c.imagePath != null && c.imagePath!.isNotEmpty,
             // The picture is only the flat no-portrait colour: the library
             // grid draws its placeholder instead (additive field).
@@ -299,8 +296,19 @@ class CharacterFacade {
   /// which re-writes the V2 PNG card and the DB row. Returns false if the
   /// repository isn't wired or the character isn't found. Only keys present in
   /// [fields] are changed.
-  Future<bool> update(String id, Map<String, dynamic> fields) =>
-      _updateImpl(id, fields);
+  Future<bool> update(String id, Map<String, dynamic> fields) async {
+    final repo = _repo;
+    if (repo == null) return false;
+    final card = cardByDbId(id);
+    if (card == null) return false;
+    applyCharacterFields(
+      card,
+      fields,
+      needsSimDefault: _storage.realismSettings.needsSimDefault,
+    );
+    await repo.updateCharacter(card);
+    return true;
+  }
 
   /// The in-memory [CharacterCard] matching library [id] (its dbId), or null.
   /// Used by [update] and [detail] so both source realism/world state from the
@@ -321,8 +329,11 @@ class CharacterFacade {
   /// a V2 PNG (embedding the extensions so the seeds survive — the DB has no
   /// realism columns) with a synthesized placeholder avatar, then add it via the
   /// same [CharacterRepository.addCharacter] path. Returns {id, name} or null.
-  Future<Map<String, dynamic>?> create(Map<String, dynamic> fields) =>
-      _createImpl(fields);
+  Future<Map<String, dynamic>?> create(Map<String, dynamic> fields) async {
+    if (_repo == null) return null;
+    final card = newCharacterFromFields(fields);
+    return card == null ? null : persistNewCard(card);
+  }
 
   /// Persist a freshly-built [card] via the canonical path: write a V2 PNG into
   /// the characters dir (synthesizing a placeholder avatar when none is set),
@@ -332,7 +343,16 @@ class CharacterFacade {
   Future<Map<String, dynamic>?> persistNewCard(
     CharacterCard card, {
     List<int>? portraitBytes,
-  }) => _persistNewCardImpl(card, portraitBytes: portraitBytes);
+  }) async {
+    final repo = _repo;
+    if (repo == null) return null;
+    return persistCharacterCard(
+      repo,
+      _storage,
+      card,
+      portraitBytes: portraitBytes,
+    );
+  }
 
   /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the
   /// bytes to a temp file and reuses the desktop import path
@@ -351,12 +371,15 @@ class CharacterFacade {
     String filename, {
     String collision = 'keepBoth',
     String? replaceId,
-  }) => _importBytesImpl(
-    bytes,
-    filename,
-    collision: collision,
-    replaceId: replaceId,
-  );
+  }) async {
+    final repo = _repo;
+    if (repo == null) return null;
+    return CharacterImporter(
+      repo,
+      _storage,
+      _db,
+    ).importBytes(bytes, filename, collision: collision, replaceId: replaceId);
+  }
 
   /// Resolve the on-disk avatar file for the active character's *current
   /// expression* (mood-driven portrait), or null if expressions aren't in use
@@ -420,10 +443,10 @@ class CharacterFacade {
         'mesExample': c.mesExample,
         'systemPrompt': c.systemPrompt,
         'postHistoryInstructions': c.postHistoryInstructions,
-        'alternateGreetings': _jsonList(c.alternateGreetings),
-        'tags': _jsonList(c.tags),
-        'worldNames': _jsonList(c.worldNames),
-        'lorebook': _normalizeLorebook(c.lorebook),
+        'alternateGreetings': decodeJsonList(c.alternateGreetings),
+        'tags': decodeJsonList(c.tags),
+        'worldNames': decodeJsonList(c.worldNames),
+        'lorebook': normalizeLorebookJson(c.lorebook),
         'ttsVoice': c.ttsVoice,
         'imagePath': c.imagePath,
         'realism': ext != null
@@ -439,44 +462,6 @@ class CharacterFacade {
         // per-participant by /api/chat/tools/growth; the bundled web UI ships
         // in lockstep with this facade.)
       };
-    } catch (_) {
-      return null;
-    }
-  }
-
-  List<dynamic> _jsonList(String raw) {
-    try {
-      final v = jsonDecode(raw);
-      return v is List ? v : const [];
-    } catch (_) {
-      return const [];
-    }
-  }
-
-  /// Normalize the DB lorebook blob (keys array / comment) into the frontend
-  /// shape (comma-joined key string / name), as the legacy detail handler did.
-  Map<String, dynamic>? _normalizeLorebook(String? raw) {
-    if (raw == null) return null;
-    try {
-      final parsed = jsonDecode(raw);
-      if (parsed is! Map<String, dynamic> || parsed['entries'] is! List) {
-        return parsed is Map<String, dynamic> ? parsed : null;
-      }
-      final entries = (parsed['entries'] as List).map((e) {
-        if (e is! Map<String, dynamic>) return e;
-        final keyStr = e['keys'] is List
-            ? (e['keys'] as List).map((k) => k.toString()).join(', ')
-            : (e['key']?.toString() ?? '');
-        return {
-          'name': e['comment']?.toString() ?? e['name']?.toString() ?? '',
-          'key': keyStr,
-          'content': e['content']?.toString() ?? '',
-          'enabled': e['enabled'] ?? true,
-          'constant': e['constant'] ?? false,
-          'stickyDepth': e['sticky_depth'] ?? e['insertion_order'] ?? 1,
-        };
-      }).toList();
-      return {'entries': entries};
     } catch (_) {
       return null;
     }

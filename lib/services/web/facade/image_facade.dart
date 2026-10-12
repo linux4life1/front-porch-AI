@@ -16,27 +16,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
-import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/storage/storage.dart';
+import 'package:front_porch_ai/services/web/facade/image/image.dart';
 
-part 'image_facade_catalog.dart';
-part 'image_facade_desk.dart';
-part 'image_facade_pack.dart';
-part 'image_facade_pack_workspace.dart';
-part 'image_facade_pack_rules.dart';
-part 'image_facade_ready.dart';
+export 'package:front_porch_ai/services/web/facade/image/image_desk_rules.dart';
+export 'package:front_porch_ai/services/web/facade/image/phone_lora_facts.dart';
 
 /// Web adapter for image generation: read/flip the backend config (Local A1111 /
 /// Draw Things ↔ remote API) and generate an image. Reuses [ImageGenService]
@@ -61,315 +53,50 @@ class ImageFacade {
   @visibleForTesting
   ComfyUrlFinder? comfyFinder;
 
+  late final ImageStudioPackWorkspace _ws = ImageStudioPackWorkspace(
+    _image,
+    _storage,
+    _characters,
+    _packBoard,
+    () => promptLlm,
+  );
+  late final ImageStudioConfig _config = ImageStudioConfig(
+    _image,
+    _storage,
+    _ws,
+  );
+  late final ImageStudioDesk _desk = ImageStudioDesk(
+    _image,
+    _storage,
+    _ws,
+    savedImageFile,
+  );
+  late final ImageComfyCatalog _catalog = ImageComfyCatalog(_image, _storage);
+  late final ImageStudioReady _ready = ImageStudioReady(
+    _image,
+    _storage,
+    () => comfyFinder,
+  );
+  late final ImageStudioPackRules _rules = ImageStudioPackRules(
+    _storage,
+    _packBoard,
+  );
+  late final ImageStudioPacks _packs = ImageStudioPacks(
+    _image,
+    _storage,
+    _characters,
+    _packBoard,
+    workspace: _ws,
+    rules: _rules,
+    desk: _desk,
+  );
+
   /// Current image-gen config for the web panel. The API key is never returned
   /// (presence only), matching the text-backend settings facade.
-  Map<String, dynamic> config() {
-    final img = _storage.imageGenSettings;
-    final b = _storage.backendSettings;
-    final surface = imageSurfaceFor(
-      backend: ImageGenBackend.fromKey(img.imageGenBackend),
-      modelName: img.imageGenModel,
-    );
-    return {
-      'backend': img.imageGenBackend, // 'remote' | 'a1111' | 'drawthings'
-      'isConfigured': _image.isConfigured,
-      'isGenerating': _image.isGenerating,
-      'packConfigMode': packConfigMode,
-      'statusMessage': _image.statusMessage,
-      'size': img.imageGenSize,
-      'style': img.imageGenStyle,
-      'model': img.imageGenModel,
-      'editModel': img.imageGenEditModel,
-      'genProgress': _image.genProgress,
-      'negativePrompt': img.imageGenNegativePrompt,
-      'steps': img.imageGenSteps,
-      'cfgScale': img.imageGenCfgScale,
-      'sampler': img.imageGenSampler,
-      'scheduler': img.imageGenScheduler,
-      'lora': img.imageGenLora,
-      'loraWeight': img.imageGenLoraWeight,
-      'loras': [
-        for (final slot in img.imageGenLoraSlots)
-          {'file': slot.file, 'weight': slot.weight},
-      ],
-      'surface': surface.toJson(),
-      'localUrl': img.localImageGenUrl,
-      'comfyUrl': img.comfyUiUrl,
-      'promptReview': img.imageGenPromptReview,
-      // Whether adult CivitAI results may be asked for: the app's own adult
-      // setting, which the phone cannot change.
-      'adultAllowed': _storage.realismSettings.adultThemesEnabled,
-      'drawThingsHost': img.drawThingsGrpcHost,
-      'drawThingsPort': img.drawThingsGrpcPort,
-      'drawThingsSampler': img.drawThingsSampler,
-      'drawThingsSamplers': [
-        for (final s in kDrawThingsSamplers)
-          {'label': s.label, 'value': s.value},
-      ],
-      // Studio-scoped remote host (chips). `remoteApiUrl` is the resolved
-      // Studio URL — flipping it here must not rewrite chat's mouth.
-      ..._remoteHostConfig(img, b),
-      'comfyCreateWorkflowId': img.comfyCreateWorkflowId,
-      'comfyCreateModelChoices': img.comfyCreateModelChoices,
-      'comfyCreateUploadedWorkflow': img.comfyCreateUploadedWorkflow
-          .trim()
-          .isNotEmpty,
-      'comfyCreateUploadedTitle': img.comfyCreateUploadedTitle,
-      'comfyEditWorkflowId': img.comfyEditWorkflowId,
-      'comfyEditModelChoices': img.comfyEditModelChoices,
-      'comfyEditUploadedWorkflow': img.comfyEditUploadedWorkflow
-          .trim()
-          .isNotEmpty,
-      'comfyEditUploadedTitle': img.comfyEditUploadedTitle,
-      'comfyEditPresets': [
-        for (final preset in kComfyEditPresets)
-          {
-            'id': preset.id,
-            'label': preset.label,
-            'slots': [
-              for (final slot in preset.modelSlots)
-                {
-                  'token': slot.token,
-                  'label': slot.label,
-                  'loaderClass': slot.loaderClass,
-                  'inputName': slot.inputName,
-                  'folderHint': slot.folderHint,
-                },
-            ],
-          },
-      ],
-      'comfyCreatePresets': [
-        for (final p in kComfyCreatePresets)
-          {
-            'id': p.id,
-            'label': p.label,
-            'comfyTemplateName': p.comfyTemplateName,
-            'usesCheckpointBuilder': p.usesCheckpointBuilder,
-            'slots': [
-              for (final s in p.modelSlots)
-                {
-                  'token': s.token,
-                  'label': s.label,
-                  'loaderClass': s.loaderClass,
-                  'inputName': s.inputName,
-                  'folderHint': s.folderHint,
-                },
-            ],
-          },
-      ],
-    };
-  }
+  Map<String, dynamic> config() => _config.config();
 
   /// Apply any subset of the image-gen config (only present keys change).
-  Future<void> updateConfig(Map<String, dynamic> f) async {
-    requireIdleImageSettings();
-    final img = _storage.imageGenSettings;
-    final b = _storage.backendSettings;
-    // A graph is checked before anything in this write is stored, so a
-    // refused one leaves the config as it was. Clearing one ('') is fine.
-    final graphs = <String, String>{
-      for (final key in [
-        'comfyCreateUploadedWorkflow',
-        'comfyEditUploadedWorkflow',
-      ])
-        if (f[key] is String && (f[key] as String).trim().isNotEmpty)
-          key: checkedDeskGraph(f[key] as String),
-    };
-    if (f['backend'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenBackend(f['backend'] as String);
-    }
-    if (f['size'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenSize(snappedStudioSize(f['size'] as String));
-    }
-    if (f['style'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenStyle(f['style'] as String);
-    }
-    if (f['negativePrompt'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenNegativePrompt(f['negativePrompt'] as String);
-    }
-    if (f['steps'] is int) {
-      requireIdleImageSettings();
-      await img.setImageGenSteps(f['steps'] as int);
-    }
-    if (f['cfgScale'] is num) {
-      requireIdleImageSettings();
-      await img.setImageGenCfgScale((f['cfgScale'] as num).toDouble());
-    }
-    if (f['sampler'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenSampler(f['sampler'] as String);
-    }
-    if (f['scheduler'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenScheduler(f['scheduler'] as String);
-    }
-    if (f['lora'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenLora(f['lora'] as String);
-    }
-    if (f['loraWeight'] is num) {
-      requireIdleImageSettings();
-      await img.setImageGenLoraWeight((f['loraWeight'] as num).toDouble());
-    }
-    if (f['loras'] is List) {
-      final parsed = <ImageGenLoraSlot>[];
-      for (final row in f['loras'] as List) {
-        if (row is! Map) continue;
-        parsed.add(
-          ImageGenLoraSlot(
-            file: row['file']?.toString() ?? '',
-            weight: (row['weight'] as num?)?.toDouble() ?? 0.8,
-          ),
-        );
-      }
-      requireIdleImageSettings();
-      await img.setImageGenLoraSlots(parsed);
-    }
-    if (f['localUrl'] is String) {
-      requireIdleImageSettings();
-      await img.setLocalImageGenUrl(f['localUrl'] as String);
-    }
-    if (f['comfyUrl'] is String) {
-      requireIdleImageSettings();
-      await img.setComfyUiUrl(f['comfyUrl'] as String);
-    }
-    if (f['promptReview'] is bool) {
-      requireIdleImageSettings();
-      await img.setImageGenPromptReview(f['promptReview'] as bool);
-    }
-    if (f['drawThingsHost'] is String) {
-      requireIdleImageSettings();
-      await img.setDrawThingsGrpcHost(f['drawThingsHost'] as String);
-    }
-    if (f['drawThingsPort'] is int) {
-      requireIdleImageSettings();
-      await img.setDrawThingsGrpcPort(
-        (f['drawThingsPort'] as int).clamp(1, 65535),
-      );
-    }
-    if (f['drawThingsSampler'] is int) {
-      requireIdleImageSettings();
-      await img.setDrawThingsSampler(f['drawThingsSampler'] as int);
-    }
-    if (f['loraOverrideFamily'] is String) {
-      requireIdleImageSettings();
-      await img.prefs?.setString(
-        img.k('image_studio_lora_override_family'),
-        f['loraOverrideFamily'] as String,
-      );
-      img.notify();
-    }
-    if (f['editModel'] is String) {
-      requireIdleImageSettings();
-      await img.setImageGenEditModel(f['editModel'] as String);
-    }
-    // Studio-scoped host only. `imageRemoteHost` is the chip id; a raw
-    // `remoteApiUrl` from older PWAs still parks on Image Studio, never chat.
-    final hostUrl = imageRemoteUrlForHostId('${f['imageRemoteHost'] ?? ''}');
-    if (hostUrl != null) {
-      requireIdleImageSettings();
-      await applyImageRemoteHost(
-        image: img,
-        url: hostUrl,
-        chatRemoteApiUrl: b.remoteApiUrl,
-        editScoped: f['mode'] == 'edit',
-        canWrite: () {
-          requireIdleImageSettings();
-          return true;
-        },
-      );
-    } else if (f['remoteApiUrl'] is String) {
-      requireIdleImageSettings();
-      await applyImageRemoteHost(
-        image: img,
-        url: f['remoteApiUrl'] as String,
-        chatRemoteApiUrl: b.remoteApiUrl,
-        editScoped: f['mode'] == 'edit',
-        canWrite: () {
-          requireIdleImageSettings();
-          return true;
-        },
-      );
-    }
-    if (f['model'] is String) {
-      final id = f['model'] as String;
-      if (!looksLikeLocalImageModel(id)) {
-        requireIdleImageSettings();
-        await img.setImageGenModel(id);
-        final url = resolveImageStudioRemoteAccount(
-          imageRemoteApiUrl: img.imageRemoteApiUrl,
-          chatRemoteApiUrl: b.remoteApiUrl,
-          keyFor: b.remoteApiKeyFor,
-        ).url;
-        requireIdleImageSettings();
-        await img.setRemoteImageModelFor(url, id);
-      }
-    }
-    final apiKey = f['apiKey']?.toString();
-    if (apiKey != null && apiKey.isNotEmpty) {
-      final url = resolveImageStudioRemoteAccount(
-        imageRemoteApiUrl: img.imageRemoteApiUrl,
-        chatRemoteApiUrl: b.remoteApiUrl,
-        keyFor: b.remoteApiKeyFor,
-      ).url;
-      requireIdleImageSettings();
-      await b.setRemoteApiKeyFor(url, apiKey);
-    }
-    if (f['comfyCreateUploadedWorkflow'] is String) {
-      requireIdleImageSettings();
-      await img.setComfyCreateUploadedWorkflow(
-        graphs['comfyCreateUploadedWorkflow'] ?? '',
-        title: f['comfyCreateUploadedTitle']?.toString() ?? '',
-      );
-    }
-    if (f['comfyEditUploadedWorkflow'] is String) {
-      requireIdleImageSettings();
-      await img.setComfyEditUploadedWorkflow(
-        graphs['comfyEditUploadedWorkflow'] ?? '',
-        title: f['comfyEditUploadedTitle']?.toString() ?? '',
-      );
-    }
-    if (f['comfyEditWorkflowId'] is String) {
-      requireIdleImageSettings();
-      await img.setComfyEditWorkflowId(f['comfyEditWorkflowId'] as String);
-    }
-    final editChoices = f['comfyEditModelChoices'];
-    if (editChoices is Map) {
-      for (final entry in editChoices.entries) {
-        final key = entry.key.toString();
-        final slash = key.indexOf('/');
-        if (slash <= 0) continue;
-        requireIdleImageSettings();
-        await img.setComfyEditModelChoice(
-          key.substring(0, slash),
-          key.substring(slash + 1),
-          entry.value.toString(),
-        );
-      }
-    }
-    if (f['comfyCreateWorkflowId'] is String) {
-      requireIdleImageSettings();
-      await img.setComfyCreateWorkflowId(f['comfyCreateWorkflowId'] as String);
-    }
-    final choices = f['comfyCreateModelChoices'];
-    if (choices is Map) {
-      for (final e in choices.entries) {
-        final key = e.key.toString();
-        final slash = key.indexOf('/');
-        if (slash <= 0) continue;
-        requireIdleImageSettings();
-        await img.setComfyCreateModelChoice(
-          key.substring(0, slash),
-          key.substring(slash + 1),
-          e.value.toString(),
-        );
-      }
-    }
-  }
+  Future<void> updateConfig(Map<String, dynamic> f) => _config.updateConfig(f);
 
   /// Generate an image from [prompt] using the configured backend. Returns the
   /// image as a base64 data URL plus the on-disk save path, or null on failure.
@@ -379,7 +106,7 @@ class ImageFacade {
     // Edit changes a picture: it needs one, and it runs the Edit graph and
     // model. A Create with a picture varies it (img2img).
     final edit = f['mode'] == 'edit';
-    final reference = await _reference(f);
+    final reference = await _desk.reference(f);
     if (edit && reference == null) {
       throw const DeskRefused('needs_picture', 'Pick a picture to edit.');
     }
@@ -443,29 +170,98 @@ class ImageFacade {
       ],
     };
   }
-}
 
-Map<String, dynamic> _remoteHostConfig(
-  ImageGenSettings img,
-  BackendSettings b,
-) {
-  final account = resolveImageStudioRemoteAccount(
-    imageRemoteApiUrl: img.imageRemoteApiUrl,
-    chatRemoteApiUrl: b.remoteApiUrl,
-    keyFor: b.remoteApiKeyFor,
-  );
-  return {
-    'remoteApiUrl': account.url,
-    'imageRemoteHost': imageRemoteHostIdFor(account.url) ?? '',
-    'hasApiKey': account.key.isNotEmpty,
-    'imageRemoteHosts': [
-      for (final h in kImageStudioRemoteHosts)
-        {
-          'id': h.id,
-          'label': h.label,
-          'url': h.url,
-          'hasKey': b.remoteApiKeyFor(h.url).isNotEmpty,
-        },
-    ],
-  };
+  // ── Comfy catalog ───────────────────────────────────────────────────────
+  Future<Map<String, dynamic>> comfyCatalog({
+    bool edit = false,
+    String token = '',
+    bool loraFacts = false,
+  }) => _catalog.comfyCatalog(edit: edit, token: token, loraFacts: loraFacts);
+
+  Future<Map<String, dynamic>> comfyWorkflowSlots(
+    String workflowId, {
+    bool edit = false,
+  }) => _catalog.comfyWorkflowSlots(workflowId, edit: edit);
+
+  // ── Readiness ───────────────────────────────────────────────────────────
+  void setExistingLoaderSupport({
+    required String comfyUrl,
+    required bool confirmed,
+  }) =>
+      _ready.setExistingLoaderSupport(comfyUrl: comfyUrl, confirmed: confirmed);
+
+  Future<Map<String, dynamic>> localCatalog({String model = ''}) =>
+      _ready.localCatalog(model: model);
+
+  Future<Map<String, dynamic>> studioReady({required bool edit}) =>
+      _ready.studioReady(edit: edit);
+
+  Future<Map<String, Object?>> installedChoice({
+    required String workflowId,
+    required String file,
+    required bool lora,
+  }) => _ready.installedChoice(workflowId: workflowId, file: file, lora: lora);
+
+  // ── Desk picks ──────────────────────────────────────────────────────────
+  Future<void> pickModel({required bool edit, required String file}) =>
+      _desk.pickModel(edit: edit, file: file);
+
+  Future<void> pickGraph({required bool edit, required String id}) =>
+      _desk.pickGraph(edit: edit, id: id);
+
+  Future<void> pickSupport({
+    required bool edit,
+    required String token,
+    required String file,
+  }) => _desk.pickSupport(edit: edit, token: token, file: file);
+
+  Future<Map<String, dynamic>> saveGraphFile({
+    required List<int> bytes,
+    required String name,
+    required bool edit,
+    String? useFor,
+  }) =>
+      _desk.saveGraphFile(bytes: bytes, name: name, edit: edit, useFor: useFor);
+
+  // ── Expression packs ────────────────────────────────────────────────────
+  Map<String, Object?>? packView() => _packs.packView();
+
+  Future<Map<String, Object?>> startPack(Map<String, dynamic> f) =>
+      _packs.startPack(f);
+
+  Map<String, Object?> cancelPack() => _packs.cancelPack();
+
+  Future<Map<String, Object?>> importPack(Map<String, dynamic> f) =>
+      _packs.importPack(f);
+
+  Future<Map<String, Object?>> continuePack(
+    Map<String, dynamic> f, {
+    bool reroll = false,
+  }) => _packs.continuePack(f, reroll: reroll);
+
+  Uint8List? packPicture(String? emotion) => _packs.packPicture(emotion);
+
+  Map<String, Object?> packPromptDefaults() => _rules.packPromptDefaults();
+
+  Future<Map<String, Object?>> savePackPromptDefaults(Map<String, dynamic> f) =>
+      _rules.savePackPromptDefaults(f);
+
+  Map<String, Object?> previewPackPrompts(Map<String, dynamic> f) =>
+      _rules.previewPackPrompts(f);
+
+  Map<String, Object?> updatePackPromptRules(Map<String, dynamic> f) =>
+      _rules.updatePackPromptRules(f);
+
+  void requireIdlePackImport() => _ws.requireIdlePackImport();
+
+  void requireIdleImageSettings() => _ws.requireIdleImageSettings();
+
+  String get packConfigMode => _ws.packConfigMode;
+
+  Future<Map<String, Object?>> packPortrait(String id) => _ws.packPortrait(id);
+
+  Future<String> craftPackPrompt(String id, {String? instruction}) =>
+      _ws.craftPackPrompt(id, instruction: instruction);
+
+  void discardPack() => _ws.discardPack();
 }

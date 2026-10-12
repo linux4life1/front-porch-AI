@@ -24,18 +24,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/hardware/hardware.dart';
+import 'package:front_porch_ai/services/hardware/gpu_names.dart' as gpu_names;
 
 // HardwareInfo moved to models/hardware_info.dart (this file was one edit
 // from the 1,000-line god-file bar). Re-exported so the ~7 consumers that
 // import it from here keep compiling unchanged.
 export 'package:front_porch_ai/models/hardware_info.dart';
 
-part 'hardware_service.nvidia.dart';
-part 'hardware_service.apple.dart';
-part 'hardware_service.linux.dart';
-part 'hardware_service.windows.dart';
-part 'hardware_service.free.dart';
-part 'hardware_service.linux_gpu.dart';
+// Free-memory reading, the AMD DRM card list and the Linux card reader,
+// re-exported so callers that reach them through this library keep
+// compiling unchanged.
+export 'package:front_porch_ai/services/hardware/free_memory.dart';
+export 'package:front_porch_ai/services/hardware/linux_gpu.dart';
 
 class HardwareService extends ChangeNotifier {
   HardwareInfo? _hardwareInfo;
@@ -189,11 +190,20 @@ class HardwareService extends ChangeNotifier {
 
     try {
       if (Platform.isWindows) {
-        await _detectWindows();
+        _hardwareInfo = await detectWindowsHardware(
+          hasCuda: _hasCuda,
+          hasRocm: _hasRocm,
+        );
       } else if (Platform.isLinux) {
-        await _detectLinux();
+        _hardwareInfo = await detectLinuxHardware(
+          hasCuda: _hasCuda,
+          onRocm: (rocm) => _hasRocm = rocm,
+        );
       } else if (Platform.isMacOS) {
-        await _detectMac();
+        _hardwareInfo = await detectMacHardware(
+          hasCuda: _hasCuda,
+          hasRocm: _hasRocm,
+        );
       }
     } catch (e) {
       print('Hardware detection failed: $e');
@@ -222,69 +232,23 @@ class HardwareService extends ChangeNotifier {
   bool _hasCuda = false;
   bool _hasRocm = false;
 
-  /// Whether two GPU names coming from different Windows sources describe the
-  /// same adapter.
-  ///
-  /// `Win32_VideoController.Name` (WMI), `DriverDesc` (registry) and
-  /// nvidia-smi's marketing name are all spelled differently for one card, and
-  /// on AMD one source routinely includes the model number where another drops
-  /// it ("AMD Radeon(TM) 780M Graphics" vs "AMD Radeon(TM) Graphics"). Exact
-  /// string comparison therefore fails on exactly the hardware that most needs
-  /// shared-memory detection.
-  ///
-  /// Compares normalized token sets and accepts a subset match, so the less
-  /// specific name matches the more specific one. Requires at least two shared
-  /// tokens, which keeps a discrete card from matching an iGPU purely because
-  /// both start with "AMD" — "AMD Radeon RX 7900 XTX" and "AMD Radeon(TM)
-  /// Graphics" stay distinct because "graphics" is absent from the former.
-  static bool gpuNamesMatch(String a, String b) {
-    final tokensA = _gpuNameTokens(a);
-    final tokensB = _gpuNameTokens(b);
-    if (tokensA.isEmpty || tokensB.isEmpty) return false;
-    final smaller = tokensA.length <= tokensB.length ? tokensA : tokensB;
-    final larger = identical(smaller, tokensA) ? tokensB : tokensA;
-    // A single shared token ("amd", "intel") is not evidence of anything.
-    if (smaller.length < 2) return false;
-    return smaller.every(larger.contains);
-  }
+  /// Whether two GPU names from different Windows sources describe the same
+  /// adapter. See [gpu_names.gpuNamesMatch].
+  static bool gpuNamesMatch(String a, String b) =>
+      gpu_names.gpuNamesMatch(a, b);
 
-  /// Lowercase alphanumeric tokens of a GPU name, with the vendor trademark
-  /// noise ("(tm)", "(r)") dropped so it never counts toward a match.
-  static Set<String> _gpuNameTokens(String name) => name
-      .toLowerCase()
-      .split(RegExp(r'[^a-z0-9]+'))
-      .where((t) => t.isNotEmpty && t != 'tm' && t != 'r')
-      .toSet();
-
-  /// Maps a GPU marketing name to one of 'Nvidia', 'AMD', 'Intel', 'Unknown'.
-  ///
-  /// Recognises a broad set of substrings so very new architectures (RTX
-  /// 50-series "Blackwell", Intel Arc, AMD Radeon RX 7000) are still routed to
-  /// the right backend even before driver-level identification kicks in.
-  String _vendorFromName(String name) {
-    final lower = name.toLowerCase();
-    if (lower.contains('nvidia') ||
-        lower.contains('geforce') ||
-        lower.contains('quadro') ||
-        lower.contains('rtx ') ||
-        lower.contains('gtx ') ||
-        lower.contains('tesla ')) {
-      return 'Nvidia';
-    }
-    if (lower.contains('amd') ||
-        lower.contains('radeon') ||
-        lower.contains('ati ') ||
-        lower.contains('firepro') ||
-        lower.contains('instinct')) {
-      return 'AMD';
-    }
-    if (lower.contains('intel') ||
-        lower.contains('iris') ||
-        lower.contains('uhd') ||
-        lower.contains('arc ')) {
-      return 'Intel';
-    }
-    return 'Unknown';
+  /// [parseNvidiaSmi] for tests.
+  @visibleForTesting
+  ({String name, int vramMb, int cards, int smallestMb}) debugParseNvidiaSmi(
+    String stdout,
+  ) {
+    final r = parseNvidiaSmi(stdout);
+    return (
+      name: r.name,
+      vramMb: r.vramMb,
+      cards: r.cards,
+      smallestMb: r.smallestMb,
+    );
   }
 
   Future<void> _checkDrivers() async {
@@ -292,10 +256,10 @@ class HardwareService extends ChangeNotifier {
     _hasRocm = false;
 
     // CUDA Check (nvidia-smi) — skip on macOS where it doesn't exist.
-    // Use _runNvidiaSmi() so we still detect CUDA when the driver installed
+    // Use runNvidiaSmi() so we still detect CUDA when the driver installed
     // nvidia-smi only under NVSMI/ (not in PATH).
     if (!Platform.isMacOS) {
-      final res = await _runNvidiaSmi([]);
+      final res = await runNvidiaSmi([]);
       if (res != null) _hasCuda = true;
     }
 

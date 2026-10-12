@@ -19,12 +19,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:front_porch_ai/services/kokoro_chunk.dart';
-import 'package:front_porch_ai/services/ordered_audio_collector.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-import 'package:audioplayers/audioplayers.dart';
-import 'package:path/path.dart' as p;
-import 'package:front_porch_ai/services/engine_health.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/voice_manager.dart';
 import 'package:front_porch_ai/services/tts_engine.dart';
@@ -33,10 +27,7 @@ import 'package:front_porch_ai/services/openai_tts_engine.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
 import 'package:front_porch_ai/services/tts/sherpa_piper_engine.dart';
 import 'package:front_porch_ai/services/tts_voice_info.dart';
-
-part 'tts_service.speak.dart';
-part 'tts_service.streaming.dart';
-part 'tts_service.support.dart';
+import 'package:front_porch_ai/services/tts_playback/tts_playback.dart';
 
 /// Text-to-speech service — multi-engine architecture.
 ///
@@ -50,54 +41,63 @@ class TtsService extends ChangeNotifier {
 
   /// In-process sherpa vits engine for Piper voices (phase 4b).
   final SherpaPiperEngine _piperNative = SherpaPiperEngine();
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  final TtsWavPlayer _player = TtsWavPlayer();
+  final TtsReplayCache _cache = TtsReplayCache();
+  late final TtsPlaybackState _state = TtsPlaybackState(_notify);
+  late final TtsContext _context = TtsContext(
+    storage: _storageService,
+    voiceManager: _voiceManager,
+    state: _state,
+    player: _player,
+    cache: _cache,
+    piper: _piperNative,
+    activeEngine: () => activeEngine,
+    stop: () => stop(),
+  );
+  late final TtsSpeaker _speaker = TtsSpeaker(_context);
+  late final TtsStreamer _streamer = TtsStreamer(_context);
+  late final TtsHeadlessGenerator _headless = TtsHeadlessGenerator(_context);
 
   // Engines
   late final KokoroEngine _kokoroEngine = KokoroEngine(_storageService);
-  OrderedAudioCollector? _audioCollector;
   final OpenAiTtsEngine _openaiEngine = OpenAiTtsEngine();
   final ElevenLabsTtsEngine _elevenlabsEngine = ElevenLabsTtsEngine();
 
-  bool _isSpeaking = false;
-  bool _isGenerating = false;
-  String? _currentMessageId;
-  // The exact sentence the streaming (call-mode) playback is voicing right
-  // now — the call overlay's live caption. Null outside streaming playback,
-  // so captions can never show a line the character is not saying.
-  String? _nowSpeaking;
-  double _generationProgress = 0.0;
-  double _modelDownloadProgress = 0.0;
-  bool _isDownloadingModel = false;
-  Process? _afplayProcess; // macOS audio playback process
+  bool get isSpeaking => _state.isSpeaking;
+  bool get isGenerating => _state.isGenerating;
+  String? get currentMessageId => _state.currentMessageId;
 
-  // Audio cache — keeps the last generated WAV for instant replay
-  File? _cachedWav;
-  String? _cachedMessageId;
-  int? _cachedTextHash; // hash of sanitized text to detect edits
-  String? _cachedVoice;
-  String? _cachedEngine;
-  // Speed is part of the replay identity: without it, "play → move the
-  // Speech Rate slider → play again" replayed the OLD-speed WAV, which made
-  // the slider read as a no-op for Kokoro (whose generation plumbing was
-  // actually fine) and masked Piper's real hardcoded-speed bug.
-  double? _cachedSpeed;
-
-  bool get isSpeaking => _isSpeaking;
-  bool get isGenerating => _isGenerating;
-  String? get currentMessageId => _currentMessageId;
-  String? get nowSpeaking => _nowSpeaking;
-  double get generationProgress => _generationProgress;
-  double get modelDownloadProgress => _modelDownloadProgress;
-  bool get isDownloadingModel => _isDownloadingModel;
+  /// The exact sentence the streaming (call-mode) playback is voicing now.
+  String? get nowSpeaking => _state.nowSpeaking;
+  double get generationProgress => _state.generationProgress;
+  double get modelDownloadProgress => _state.modelDownloadProgress;
+  bool get isDownloadingModel => _state.isDownloadingModel;
 
   /// Last error message from a TTS engine (e.g. quota exceeded).
   /// The UI should observe this and show a snackbar/alert when non-null.
-  String? _lastError;
-  String? get lastError => _lastError;
+  String? get lastError => _state.lastError;
   void clearError() {
-    _lastError = null;
+    _state.lastError = null;
     _notify();
   }
+
+  /// Speak the given text using the active TTS engine.
+  ///
+  /// Generates audio for the entire message first (buffered), then plays
+  /// it back seamlessly. Shows generation progress.
+  Future<void> speak(String text, {String? voiceKey, String? messageId}) =>
+      _speaker.speak(text, voiceKey: voiceKey, messageId: messageId);
+
+  /// Speak sentences as they arrive from a stream (for call mode).
+  Future<void> speakStreaming(
+    Stream<String> sentenceStream, {
+    String? voiceKey,
+  }) => _streamer.speakStreaming(sentenceStream, voiceKey: voiceKey);
+
+  /// Generate audio for the given text and return the WAV file without playing.
+  /// Used by the web server to stream audio to the browser.
+  Future<File?> generateAudioFile(String text, {String? voiceKey}) =>
+      _headless.generateAudioFile(text, voiceKey: voiceKey);
 
   /// The currently active TTS engine instance.
   TtsEngine get activeEngine {
@@ -185,15 +185,15 @@ class TtsService extends ChangeNotifier {
   /// Manually download / ensure the model for the active engine is ready.
   /// Returns true if the model is ready after this call.
   Future<bool> downloadModel() async {
-    if (_isDownloadingModel) return false; // already downloading
-    _isDownloadingModel = true;
-    _modelDownloadProgress = 0.0;
+    if (_state.isDownloadingModel) return false; // already downloading
+    _state.isDownloadingModel = true;
+    _state.modelDownloadProgress = 0.0;
     _notify();
 
     try {
       final ready = await activeEngine.ensureModelReady(
         onProgress: (p) {
-          _modelDownloadProgress = p;
+          _state.modelDownloadProgress = p;
           _notify();
         },
       );
@@ -202,7 +202,7 @@ class TtsService extends ChangeNotifier {
       print('TTS downloadModel error: $e');
       return false;
     } finally {
-      _isDownloadingModel = false;
+      _state.isDownloadingModel = false;
       _notify();
     }
   }
@@ -231,17 +231,14 @@ class TtsService extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     stop();
-    _clearCache();
+    _cache.clear();
     releaseLocalEngine();
-    _audioPlayer.dispose();
+    _player.dispose();
     super.dispose();
   }
 
-  // notifyListeners() is @protected/@visibleForTesting on ChangeNotifier, so
-  // the extension parts (not instance members of TtsService itself) cannot
-  // call it directly without analyzer warnings. Same forwarder pattern as
-  // CharacterRepository and StoryPipelineService's split parts — and unlike a
-  // public pass-through override, it does not widen the public API.
+  // The pipelines' state writes are heard through this (handed to
+  // TtsPlaybackState); notifyListeners() itself is @protected.
   //
   // Disposed-guarded: dispose() fires stop() un-awaited (it must stay
   // synchronous), and speak()'s own tail resumes after async gaps — on a
@@ -254,16 +251,13 @@ class TtsService extends ChangeNotifier {
 
   /// Stop any active speech.
   Future<void> stop() async {
-    _isSpeaking = false;
-    _isGenerating = false;
-    _generationProgress = 0.0;
-    _currentMessageId = null;
-    _nowSpeaking = null;
+    _state.isSpeaking = false;
+    _state.isGenerating = false;
+    _state.generationProgress = 0.0;
+    _state.currentMessageId = null;
+    _state.nowSpeaking = null;
 
-    _afplayProcess?.kill();
-    _afplayProcess = null;
-
-    await _audioPlayer.stop();
+    await _player.stop();
     if (_disposed) return;
     _notify();
   }

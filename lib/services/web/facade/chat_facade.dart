@@ -16,30 +16,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:path/path.dart' as p;
-
-import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart'
-    show
-        kFeelingsUnscoredLabel,
-        kFeelingsUnscoredMeta,
-        kFeelingsUnscoredTip,
-        kNeedsUnaffectedMeta,
-        RealismVerification;
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
     show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/facade/chat_session_facade.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
-import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
-
-part 'chat_facade_history.dart';
-part 'chat_facade_state.dart';
 
 /// Thin adapter over [ChatService] for the rewritten web server. Mirrors the
 /// legacy chat handlers' JSON contract and pushes a `chat_updated` signal over
@@ -82,6 +68,27 @@ class ChatFacade {
     _notify,
   );
 
+  late final ChatStateSnapshot _snapshot = ChatStateSnapshot(
+    _chat,
+    _characters,
+    _personas,
+    _hub,
+    _llm,
+    _realism,
+  );
+
+  late final ChatHistoryActions _history = ChatHistoryActions(
+    _chat,
+    _hub,
+    _notify,
+    resolveSavedImage: _resolveSavedImage,
+  );
+
+  late final ChatPersonas _personaOps = ChatPersonas(_personas, _chat, _notify);
+
+  /// Full chat state payload (matches legacy `/api/chat/state`).
+  Map<String, dynamic> state() => _snapshot.build();
+
   /// Context Budget payload (desktop ContextViewerDialog parity): per-section
   /// token estimate + the REAL text each section contributed to the last
   /// assembled prompt. Additive endpoint — old clients simply never call it.
@@ -117,229 +124,11 @@ class ChatFacade {
     return _chat.toolSupportJson;
   }
 
-  /// The unified cast as JSON. Each entry carries enough to render a roster
-  /// (avatar, role, emotion, next-up) and to scope the sidebar via [id]
-  /// ([groupMemberStoreId] in groups). Avatars resolve to the character endpoint for host/guests
-  /// and the group-member endpoint for members.
-  List<Map<String, dynamic>> _castJson() {
-    final groupId = _chat.activeGroup?.id;
-    final nextDbId = _chat.nextCharacter?.dbId;
-    final isGroup = _chat.isGroupMode;
-    final placeholders = _placeholderCastIds(isGroup);
-    return _chat.cast.map((p) {
-      final card = p.card;
-      final avatarUrl = (isGroup && groupId != null)
-          ? '/api/groups/$groupId/members/${card.dbId}/avatar'
-          : '/api/characters/${card.dbId}/avatar';
-      return {
-        'id': p.id,
-        'dbId': card.dbId,
-        'name': p.name,
-        'isHost': p.isHost,
-        'isLite': p.isLite,
-        'realismEnabled': p.realismEnabled,
-        'emotion': !p.realismEnabled
-            ? null
-            : (isGroup
-                  ? _chat.getEmotionForGroupCharacter(card)
-                  : _chat.characterEmotion),
-        'isNext': card.dbId != null && card.dbId == nextDbId,
-        'hasAvatar': card.imagePath != null && card.imagePath!.isNotEmpty,
-        'avatarUrl': avatarUrl,
-        // The picture is only the flat no-portrait colour: the header and
-        // side portrait skip it (additive field).
-        'placeholderPortrait': placeholders.contains(p.id),
-      };
-    }).toList();
-  }
-
-  /// Cast ids whose avatar is the flat placeholder a character made without
-  /// a portrait carries. The chat state is refetched constantly, so this
-  /// never waits: it answers from the probe cache, counts an unknown picture
-  /// as real, probes it in the background, and pushes one `chat_updated`
-  /// when that finds a placeholder.
-  Set<String> _placeholderCastIds(bool isGroup) {
-    final ids = <String>{};
-    final unknown = <Future<bool>>[];
-    final epoch = _characters.coverEpoch;
-    final library = isGroup ? const <String, CharacterCard>{} : _castLibrary();
-    for (final p in _chat.cast) {
-      final file = _castAvatarFile(p.card, isGroup, library);
-      if (file == null) continue;
-      final known = PlaceholderPortraitProbe.known(file, version: epoch);
-      if (known == true) ids.add(p.id);
-      if (known == null) {
-        unknown.add(PlaceholderPortraitProbe.check(file, version: epoch));
-      }
-    }
-    if (unknown.isNotEmpty) {
-      Future.wait(unknown).then((found) {
-        if (found.contains(true)) _hub?.broadcastChatUpdate();
-      });
-    }
-    return ids;
-  }
-
-  /// The file the cast entry's `avatarUrl` serves: a group member's private
-  /// copy, else the library card's (★-aware) cover.
-  File? _castAvatarFile(
-    CharacterCard card,
-    bool isGroup,
-    Map<String, CharacterCard> library,
-  ) {
-    if (isGroup) {
-      final path = card.imagePath;
-      return path == null || path.isEmpty ? null : File(path);
-    }
-    return _characters.coverImageFileFor(library[card.dbId] ?? card);
-  }
-
-  /// The cast's library cards by dbId, from one pass over the library per
-  /// state build (stopping once every cast member is found).
-  Map<String, CharacterCard> _castLibrary() {
-    final wanted = {
-      for (final p in _chat.cast)
-        if (p.card.dbId != null) p.card.dbId!,
-    };
-    final found = <String, CharacterCard>{};
-    if (wanted.isEmpty) return found;
-    for (final c in _characters.characters) {
-      final id = c.dbId;
-      if (id != null && wanted.contains(id)) {
-        found[id] = c;
-        if (found.length == wanted.length) break;
-      }
-    }
-    return found;
-  }
-
   /// Realism for a single cast participant (focus-scoped sidebar). Delegates to
   /// the [ChatRealismRead] leaf, which co-locates the host snapshot and the
   /// per-member branch (the 1:1-vs-group parity pair).
   Map<String, dynamic>? participantRealism(String participantId) =>
       _realism.participantRealism(participantId);
-
-  /// Extract the per-message Realism chip deltas from a message's active-swipe
-  /// metadata (the same keys the desktop bubble reads). Bond and trust keep
-  /// a recorded 0. Arousal still omits zero. A missing key stays omitted.
-  Map<String, dynamic>? _messageChips(Map<String, dynamic>? md, int index) {
-    if (md == null) return null;
-    final out = <String, dynamic>{};
-    for (final entry in const {
-      'bond_delta': 'bondDelta',
-      'trust_delta': 'trustDelta',
-    }.entries) {
-      final v = md[entry.key];
-      if (v is int) out[entry.value] = v;
-    }
-    final arousal = md['arousal_delta'];
-    if (arousal is int && arousal != 0) out['arousalDelta'] = arousal;
-    // A scored reply with no stored bond/trust is a dropped zero. The
-    // bubble says "unchanged" instead of looking like the judge never ran.
-    // Same list as the desktop bubble's realismTouched: the clock is not on
-    // it, since Passage of Time runs with the engine off.
-    final needs = md['needs_deltas'];
-    final verif = md[RealismVerification.kMetaKey];
-    final scored =
-        (md['emotion_label'] is String &&
-            (md['emotion_label'] as String).isNotEmpty) ||
-        (needs is Map && needs.isNotEmpty) ||
-        md[kNeedsUnaffectedMeta] == true ||
-        (verif is Map && (verif['status'] as String? ?? '').trim().isNotEmpty);
-    // The judge ran and could not be read: one "not scored" chip, never a
-    // made-up "unchanged". Same rule as the desktop bubble.
-    final unscored =
-        md[kFeelingsUnscoredMeta] == true &&
-        !out.containsKey('bondDelta') &&
-        !out.containsKey('trustDelta');
-    if (unscored) {
-      out['feelingsUnscored'] = true;
-      out['feelingsUnscoredLabel'] = kFeelingsUnscoredLabel;
-      out['feelingsUnscoredTip'] = kFeelingsUnscoredTip;
-    } else if (scored) {
-      out.putIfAbsent('bondDelta', () => 0);
-      out.putIfAbsent('trustDelta', () => 0);
-    }
-    for (final entry in const {
-      'emotion_label': 'emotionLabel',
-      'bond_reason': 'bondReason',
-      'trust_reason': 'trustReason',
-      'time_skip_to': 'timeSkipTo',
-      'time_passed': 'timePassed',
-      'chance_time_event': 'chanceTimeEvent',
-    }.entries) {
-      final v = md[entry.key];
-      if (v is String && v.isNotEmpty) out[entry.value] = v;
-    }
-    if (needs is Map) {
-      final nz = <String, dynamic>{};
-      needs.forEach((k, v) {
-        // NeedsSimulation.computeNeedsDeltasWithReasons stores {delta, reason}
-        // per need; tolerate a plain int too. Carry BOTH the signed delta and
-        // the reason so the web chip can show the same hover explanation the
-        // desktop bubble does. (Map-not-int is why needs chips never rendered
-        // on the web before — see the chip parser fix.)
-        final delta = v is int
-            ? v
-            : (v is Map && v['delta'] is int ? v['delta'] as int : 0);
-        if (delta == 0) return;
-        final reason = (v is Map && v['reason'] is String)
-            ? (v['reason'] as String)
-            : '';
-        nz[k.toString()] = {'delta': delta, 'reason': reason};
-      });
-      if (nz.isNotEmpty) out['needsDeltas'] = nz;
-    }
-    // Director-redo affordances (mirrors message_bubble.dart): the message can
-    // be reprocessed when the service resolver is non-null (Needs on, at
-    // least one need enabled, group speaker resolved). The client still
-    // gates the button on last + not generating.
-    final target = _chat.reprocessNeedsTargetFor(index);
-    if (target != null) {
-      out['needsReprocessable'] = true;
-      out['enabledNeeds'] = target.enabled;
-      out['needsSpeaker'] = target.speaker;
-    }
-    // The other Manual Reprocess choice: score the reply's feelings again.
-    final feelingsSpeaker = _chat.reprocessFeelingsTargetFor(index);
-    if (feelingsSpeaker != null) {
-      out['feelingsReprocessable'] = true;
-      out['feelingsSpeaker'] = feelingsSpeaker;
-    }
-    if (_chat.needsActive && md['needs_deltas_pre_reprocess'] is Map) {
-      out['needsRevertable'] = true;
-    }
-    if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
-    final search = md['search_receipt'];
-    if (search is Map) {
-      final q = (search['query'] as String?)?.trim() ?? '';
-      if (q.isNotEmpty) {
-        out['searchQuery'] = q;
-        out['searchOk'] = search['ok'] == true;
-      }
-    }
-    final wiki = md['wiki_receipt'];
-    if (wiki is Map) {
-      final q = (wiki['query'] as String?)?.trim() ?? '';
-      final webQuery = (out['searchQuery'] as String?) ?? '';
-      if (q.isNotEmpty && q != webQuery) {
-        out['wikiQuery'] = q;
-        out['wikiOk'] = wiki['ok'] == true;
-      }
-    }
-    final toolReceipt = md['tool_receipt'];
-    if (toolReceipt is Map) {
-      final tool = (toolReceipt['tool'] as String?)?.trim() ?? '';
-      if (tool.isNotEmpty) {
-        out['toolName'] = tool;
-        out['toolOk'] = toolReceipt['ok'] == true;
-        // Older phone bundles read mcpTool; keep the keys until they age out.
-        out['mcpTool'] = tool;
-        out['mcpOk'] = toolReceipt['ok'] == true;
-      }
-    }
-    return out.isEmpty ? null : out;
-  }
 
   /// Select the active character by its DB id. Returns false if not found.
   Future<bool> select(String characterId) async {
@@ -493,6 +282,97 @@ class ChatFacade {
     withoutCity96Ask(_chat.continueGeneration);
     _notify();
   }
+
+  // ── History: swipe, edit/delete, Needs redo, images, lorebook ─────────
+  Map<String, dynamic> variants(int messageIndex) =>
+      _history.variants(messageIndex);
+
+  Future<void> selectVariant(int messageIndex, int variantIndex) =>
+      _history.selectVariant(messageIndex, variantIndex);
+
+  void impersonate(String prefix) => _history.impersonate(prefix);
+
+  Future<bool> reprocessNeeds(
+    int index,
+    String critique, {
+    Set<String> onlyNeeds = const <String>{},
+  }) => _history.reprocessNeeds(index, critique, onlyNeeds: onlyNeeds);
+
+  Future<FeelingsRescore> reprocessFeelings(int index) =>
+      _history.reprocessFeelings(index);
+
+  Future<bool> revertNeedsReprocess(int index) =>
+      _history.revertNeedsReprocess(index);
+
+  void swipe(int messageIndex, int direction, {String? critique}) =>
+      _history.swipe(messageIndex, direction, critique: critique);
+
+  void edit(int index, String text) => _history.edit(index, text);
+
+  void delete(int index) => _history.delete(index);
+
+  void resolveImageReview(String? prompt) =>
+      _history.resolveImageReview(prompt);
+
+  Future<String?> craftStudioPrompt(String subject, String instruction) =>
+      _history.craftStudioPrompt(subject, instruction);
+
+  Future<bool> insertImage(String filename, {String prompt = ''}) =>
+      _history.insertImage(filename, prompt: prompt);
+
+  void setAuthorNote(String note, {int? strength}) =>
+      _history.setAuthorNote(note, strength: strength);
+
+  Map<String, dynamic> chatLorebookRows() => _history.chatLorebookRows();
+
+  Future<bool> setChatLorebook(dynamic rowsJson) =>
+      _history.setChatLorebook(rowsJson);
+
+  Future<bool> setThemeOverrides(Map<String, dynamic> json) =>
+      _history.setThemeOverrides(json);
+
+  List<String> lorePreview(String draft) => _history.lorePreview(draft);
+
+  // ── Personas ────────────────────────────────────────────────────────────
+  List<Map<String, dynamic>> personas() => _personaOps.personas();
+
+  Future<bool> setPersona(String id) => _personaOps.setPersona(id);
+
+  Future<bool> setChatPersona(String id) => _personaOps.setChatPersona(id);
+
+  Map<String, dynamic>? personaDetail(String id) =>
+      _personaOps.personaDetail(id);
+
+  Future<bool> createPersona(Map<String, dynamic> f) =>
+      _personaOps.createPersona(f);
+
+  Future<bool> updatePersona(String id, Map<String, dynamic> f) =>
+      _personaOps.updatePersona(id, f);
+
+  Future<bool> deletePersona(String id) => _personaOps.deletePersona(id);
+
+  // ── Sessions ────────────────────────────────────────────────────────────
+  /// All saved conversations. See [ChatSessionFacade.list].
+  Future<List<Map<String, dynamic>>> sessions({
+    String? characterId,
+    String? groupId,
+  }) => _sessions.list(characterId: characterId, groupId: groupId);
+
+  /// New / load / delete. See [ChatSessionFacade.apply].
+  Future<String?> session({
+    String? action,
+    String? sessionId,
+    bool startReplacement = true,
+  }) => _sessions.apply(
+    action: action,
+    sessionId: sessionId,
+    startReplacement: startReplacement,
+  );
+
+  /// Fork at [messageIndex]. See [ChatSessionFacade.fork].
+  Future<String?> fork(int messageIndex) => _sessions.fork(messageIndex);
+
+  String? get currentSessionId => _chat.currentSessionId;
 
   void _notify() => _hub?.broadcastChatUpdate();
 }

@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-part 'emotion_labels.nuanced.dart';
+import 'package:front_porch_ai/utils/emotion/nuanced_emotion_map.dart';
 
 /// Standard emotion labels for character expression images.
 ///
@@ -102,7 +102,8 @@ class EmotionLabels {
   ///
   /// If an emotion word is not found in this map, the caller should trigger
   /// an LLM re-classification to pick from [all] labels.
-  static const Map<String, String> nuancedToStandard = _nuancedToStandard;
+  static const Map<String, String> nuancedToStandard =
+      kNuancedEmotionToStandard;
 
   /// Prompt template for LLM re-classification when the emotion is unmapped.
   ///
