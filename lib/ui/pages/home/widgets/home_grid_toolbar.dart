@@ -21,14 +21,12 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
+import 'package:front_porch_ai/ui/pages/home/widgets/toolbar/toolbar.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show FolderDialogAction;
 
-part 'home_grid_toolbar.actions.dart';
-part 'home_grid_toolbar.drag.dart';
-part 'home_grid_toolbar.selection.dart';
+export 'package:front_porch_ai/ui/pages/home/widgets/toolbar/library_selection_actions.dart';
 
 /// The home grid's top toolbar: selection/organize header or folder breadcrumb
 /// or the Characters/Stories mode toggle, plus the sort dropdown, grid-size
@@ -106,79 +104,6 @@ class HomeGridToolbar extends StatelessWidget {
   onFolderDialogAction;
   final void Function(String source) onImport;
 
-  static const _sortItems = <(String, String)>[
-    ('name', 'Name (A\u2192Z)'),
-    ('recent', 'Recent Activity'),
-    ('importDate', 'Import Date'),
-    ('messages', 'Messages Sent'),
-  ];
-
-  /// Ancestor chain for the active folder, root-first with the current
-  /// folder last (subfolder cards only render inside their parent, so the
-  /// parent chain is the full navigation path).
-  List<CharacterFolder> _trail() {
-    final trail = <CharacterFolder>[];
-    var cur = activeFolderId;
-    while (cur != null) {
-      final folder = folderService.folders
-          .where((f) => f.id == cur)
-          .firstOrNull;
-      if (folder == null) break;
-      trail.insert(0, folder);
-      cur = folder.parentId;
-    }
-    return trail;
-  }
-
-  /// Clickable path — "My Characters / folder1 / folder2 / current". Every
-  /// segment but the current one jumps straight there, so deep nesting never
-  /// needs N back-taps to escape.
-  /// While a drag is live ([dropTargets]) every level but the current one
-  /// takes a drop instead (library phase 3).
-  Widget _breadcrumb(BuildContext context, {bool dropTargets = false}) {
-    final trail = _trail();
-    final crumbStyle = TextStyle(
-      color: AppColors.textSecondary(context),
-      fontSize: 15,
-    );
-    Widget crumb(String label, String? target) => dropTargets
-        ? _levelTarget(context, label, target)
-        : InkWell(
-            onTap: () => onFolderJump(target),
-            borderRadius: BorderRadius.circular(6),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Text(label, style: crumbStyle),
-            ),
-          );
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      // Keep the tail (the folder you're standing in) visible on long paths.
-      reverse: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          crumb('My Characters', null),
-          for (var i = 0; i < trail.length; i++) ...[
-            Text('/', style: TextStyle(color: AppColors.textTertiary(context))),
-            if (i < trail.length - 1)
-              crumb(trail[i].name, trail[i].id)
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  trail[i].name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-                ),
-              ),
-          ],
-        ],
-      ),
-    );
-  }
-
   List<Widget> _leadingChildren(BuildContext context, double toggleMaxWidth) {
     if (activeFolderId != null) {
       return [
@@ -189,7 +114,7 @@ class HomeGridToolbar extends StatelessWidget {
           onPressed: onFolderNavigateBack,
         ),
         const SizedBox(width: 8),
-        Flexible(child: _breadcrumb(context)),
+        Flexible(child: _breadcrumb()),
       ];
     }
     // ConstrainedBox (not Flexible) so the toggle keeps its natural width
@@ -203,105 +128,139 @@ class HomeGridToolbar extends StatelessWidget {
     ];
   }
 
-  Widget _sortControl(BuildContext context, {required bool labeled}) {
-    if (!labeled) {
-      return PopupMenuButton<String>(
-        tooltip:
-            'Sort: ${_sortItems.where((e) => e.$1 == sortMode).firstOrNull?.$2 ?? sortMode}',
-        icon: Icon(
-          Icons.sort,
-          size: 18,
-          color: AppColors.iconSecondary(context),
+  Widget _breadcrumb({bool dropTargets = false}) => HomeToolbarBreadcrumb(
+    activeFolderId: activeFolderId,
+    folders: folderService.folders,
+    onFolderJump: onFolderJump,
+    dropTargets: dropTargets,
+    onDropOnLevel: onDropOnLevel,
+  );
+
+  Widget _sortControl({required bool labeled}) => HomeToolbarSortControl(
+    sortMode: sortMode,
+    labeled: labeled,
+    onSortChanged: onSortChanged,
+  );
+
+  Widget _scaleSlider() => HomeToolbarScaleSlider(
+    gridScale: gridScale,
+    onChanged: onGridScaleChanged,
+    onChangeEnd: onGridScaleChangeEnd,
+  );
+
+  List<Widget> _actionButtons(BuildContext context) => homeToolbarActionButtons(
+    context,
+    activeFolderId: activeFolderId,
+    repo: repo,
+    onToggleSelectMode: onToggleSelectMode,
+    onToggleOrganizeMode: onToggleOrganizeMode,
+    onFolderDialogAction: onFolderDialogAction,
+    onImport: onImport,
+  );
+
+  Widget _overflowActions() => HomeToolbarOverflowActions(
+    activeFolderId: activeFolderId,
+    repo: repo,
+    onToggleSelectMode: onToggleSelectMode,
+    onToggleOrganizeMode: onToggleOrganizeMode,
+    onFolderDialogAction: onFolderDialogAction,
+    onImport: onImport,
+  );
+
+  /// The toolbar while a card or the picks are being dragged (library
+  /// phase 3), as in the approved sketch: the path, each level of it a drop
+  /// target, and a hint; sort, refresh and New Folder stay on the right.
+  Widget _dragRow(BuildContext context, double width) {
+    final inFolder = activeFolderId != null;
+    final room = width - 560;
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: [
+              if (inFolder) ...[
+                IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  tooltip: 'Up one level',
+                  visualDensity: VisualDensity.compact,
+                  onPressed: onFolderNavigateBack,
+                ),
+                const SizedBox(width: 8),
+                Flexible(child: _breadcrumb(dropTargets: true)),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: Text(
+                  inFolder
+                      ? 'Drop on a folder, or on a level of the path'
+                      : 'Drop on a folder',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    color: AppColors.textSecondary(context),
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
-        initialValue: sortMode,
-        color: AppColors.surfaceContainerOf(context),
-        onSelected: onSortChanged,
-        itemBuilder: (_) => [
-          for (final item in _sortItems)
-            PopupMenuItem(value: item.$1, child: Text(item.$2)),
+        if (room >= 96) ...[
+          const SizedBox(width: 12),
+          _sortControl(labeled: room >= 240),
+          IconButton(
+            tooltip: 'Refresh character list',
+            icon: const Icon(Icons.refresh),
+            visualDensity: VisualDensity.compact,
+            onPressed: () => repo.loadCharacters(),
+          ),
+          IconButton(
+            tooltip: inFolder ? 'New Subfolder' : 'New Folder',
+            icon: Icon(
+              Icons.create_new_folder_outlined,
+              color: inFolder ? AppColors.porchAmberOf(context) : null,
+            ),
+            visualDensity: VisualDensity.compact,
+            onPressed: () => onFolderDialogAction(
+              FolderDialogAction.create,
+              parentId: activeFolderId,
+            ),
+          ),
         ],
-      );
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerOf(context),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.borderOf(context)),
-      ),
-      child: DropdownButtonHideUnderline(
-        child: DropdownButton<String>(
-          value: sortMode,
-          icon: Icon(
-            Icons.sort,
-            size: 18,
-            color: AppColors.iconSecondary(context),
-          ),
-          dropdownColor: AppColors.surfaceContainerOf(context),
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 13,
-          ),
-          isDense: true,
-          items: [
-            for (final item in _sortItems)
-              DropdownMenuItem(value: item.$1, child: Text(item.$2)),
-          ],
-          onChanged: (value) {
-            if (value != null) onSortChanged(value);
-          },
-        ),
-      ),
+      ],
     );
   }
 
-  Widget _scaleSlider(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 8),
-      child: SizedBox(
-        width: 100,
-        child: Row(
-          children: [
-            Icon(
-              Icons.grid_view,
-              size: 16,
-              color: AppColors.iconSecondary(context),
+  /// While picking: the header keeps its room on the left and the sort, card
+  /// size and library actions sit on the right, as in the approved sketch.
+  /// As the window narrows the slider goes first, then the sort label, then
+  /// the inline actions (into the ⋮ menu); a squeezed window keeps only the
+  /// header. Widths are high-side estimates, like the browsing row's.
+  Widget _pickingRow(BuildContext context, double width) {
+    final room = width - 480;
+    final inlineActions = room >= 278;
+    return Row(
+      children: [
+        Expanded(
+          child: Row(
+            children: homeToolbarSelectionChildren(
+              context,
+              selectedCount: selectedCount,
+              hiddenSelectedCount: hiddenSelectedCount,
+              isOrganizing: isOrganizing,
+              actions: selectionActions,
+              onCancelSelection: onCancelSelection,
             ),
-            Expanded(
-              child: SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: 3,
-                  thumbShape: const RoundSliderThumbShape(
-                    enabledThumbRadius: 6,
-                  ),
-                  overlayShape: const RoundSliderOverlayShape(
-                    overlayRadius: 12,
-                  ),
-                  activeTrackColor: AppColors.porchHoneyOf(
-                    context,
-                  ).withValues(alpha: 0.7),
-                  inactiveTrackColor: AppColors.borderOf(
-                    context,
-                  ).withValues(alpha: 0.4),
-                  thumbColor: AppColors.porchHoneyOf(context),
-                ),
-                child: Slider(
-                  value: gridScale,
-                  min: 150,
-                  max: 450,
-                  onChanged: (v) => onGridScaleChanged(v),
-                  onChangeEnd: (v) => onGridScaleChangeEnd?.call(v),
-                ),
-              ),
-            ),
-            Icon(
-              Icons.view_module,
-              size: 16,
-              color: AppColors.iconSecondary(context),
-            ),
-          ],
+          ),
         ),
-      ),
+        if (room >= 96) ...[
+          const SizedBox(width: 12),
+          _sortControl(labeled: room >= 420),
+          if (room >= 540) _scaleSlider(),
+          if (inlineActions) ..._actionButtons(context),
+          if (!inlineActions) _overflowActions(),
+        ],
+      ],
     );
   }
 
@@ -330,11 +289,11 @@ class HomeGridToolbar extends StatelessWidget {
             children: [
               ..._leadingChildren(context, toggleMax),
               const SizedBox(width: 12),
-              _sortControl(context, labeled: labeledSort),
-              if (showSlider) _scaleSlider(context),
+              _sortControl(labeled: labeledSort),
+              if (showSlider) _scaleSlider(),
               const Spacer(),
               if (inlineActions) ..._actionButtons(context),
-              if (!inlineActions) _overflowActions(context),
+              if (!inlineActions) _overflowActions(),
             ],
           );
         },

@@ -16,31 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:flutter/foundation.dart' show compute;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_page.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
-import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
-import 'package:front_porch_ai/utils/world_cover.dart';
-
-// The hero header/stats, the Create/Edit World dialog frame, and its
-// three content sections (Basic Information, Climate picker, Lorebook)
-// live in these `part of` files (extensions on _WorldManagementPageState)
-// to keep every file under the 500-LOC cap -- same pattern
-// chat_service.dart and settings_page.dart use. They share this
-// library's imports and access the page's private state directly, so
-// behavior is unchanged.
-part 'world_management_page.header.dart';
-part 'world_management_page.dialog.dart';
-part 'world_management_page.basics.dart';
-part 'world_management_page.climate.dart';
-part 'world_management_page.lorebook.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'world_management/world_management.dart';
 
 class WorldManagementPage extends StatefulWidget {
   const WorldManagementPage({super.key});
@@ -81,10 +63,18 @@ class _WorldManagementPageState extends State<WorldManagementPage>
           body: CustomScrollView(
             slivers: [
               // Hero header
-              SliverToBoxAdapter(child: _buildHeroHeader(context, repo)),
+              SliverToBoxAdapter(
+                child: WorldManagementHeroHeader(
+                  glow: _headerGlowAnimation,
+                  repo: repo,
+                  onNewWorld: (ctx) => _showWorldDialog(ctx, repo),
+                ),
+              ),
 
               // Stats section
-              SliverToBoxAdapter(child: _buildStatsSection(context, repo)),
+              SliverToBoxAdapter(
+                child: WorldManagementStatsSection(repo: repo),
+              ),
 
               // Section label
               SliverToBoxAdapter(
@@ -142,6 +132,17 @@ class _WorldManagementPageState extends State<WorldManagementPage>
       },
     );
   }
+
+  void _showWorldDialog(
+    BuildContext context,
+    WorldRepository repo, [
+    World? world,
+  ]) => showWorldEditDialog(
+    context,
+    repo,
+    world: world,
+    pickerContext: this.context,
+  );
 
   void _confirmDelete(BuildContext context, WorldRepository repo, World world) {
     showDialog(

@@ -25,11 +25,9 @@ import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/pages/home/enhance/enhance_review_body.dart';
+import 'package:front_porch_ai/ui/pages/home/enhance/wizard/wizard.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'enhance_wizard_page.chrome.dart';
-part 'enhance_wizard_page.steps.dart';
 
 /// The AI Enhance wizard — the same top-bar step-dot chrome and linear
 /// progression as the AI character creator (the mandated "Create X" pattern),
@@ -67,13 +65,7 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
   String _modelId = '';
 
   // Interview step — field checklist + the grounded pipeline run.
-  bool _selDescription = true;
-  bool _selPersonality = true;
-  bool _selExample = true;
-  bool _selScenario = false;
-  bool _selGreetings = false;
-  bool _selLorebook = false;
-  bool _selPorchLife = true;
+  EnhanceSelection _selection = const EnhanceSelection(porchLife: true);
   late bool _nsfw =
       widget.character.frontPorchExtensions?.nsfwCooldownEnabled ?? false;
   EnhanceContext? _chatContext;
@@ -98,22 +90,7 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
   int? _copiedCount;
   String? _copyError;
 
-  EnhanceSelection get _selection => EnhanceSelection(
-    description: _selDescription,
-    personality: _selPersonality,
-    exampleDialogue: _selExample,
-    scenario: _selScenario,
-    greetings: _selGreetings,
-    lorebook: _selLorebook,
-    porchLife: _selPorchLife,
-  );
-
   bool get _navLocked => _running || _saving || _copying;
-
-  /// Public setState bridge for the steps part-file extension — the same
-  /// convention as settings_page.dart's parts (`setState` is @protected, so
-  /// extension members cannot call it directly).
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   void _onCreatorStateChanged() {
     if (mounted) setState(() {});
@@ -340,6 +317,81 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
     }
   }
 
+  Widget _buildInterviewStep() {
+    if (_running) {
+      return EnhanceInterviewProgress(
+        characterName: widget.character.name,
+        statusText: _statusText,
+        previewText: _previewText,
+      );
+    }
+    return EnhanceInterviewChecklist(
+      selection: _selection,
+      onSelectionChanged: (s) => setState(() => _selection = s),
+      nsfw: _nsfw,
+      onNsfwChanged: (v) => setState(() => _nsfw = v),
+      userTurnCount: _chatContext?.userTurnCount,
+      runError: _runError,
+    );
+  }
+
+  // Bottom nav — per-step labels/gating. While the interview runs, the only
+  // control is Cancel; after the Review save there is no way back (the copy
+  // exists).
+  Widget _buildNavButtons(bool backendReady) {
+    if (_running) return EnhanceWizardCancelBar(onCancel: _cancelInterview);
+
+    final (
+      String nextLabel,
+      IconData nextIcon,
+      VoidCallback? onNext,
+    ) = switch (_currentStep) {
+      0 => (
+        'Next: Model',
+        Icons.arrow_forward,
+        (_sessions?.isNotEmpty ?? false)
+            ? () => setState(() => _currentStep = 1)
+            : null,
+      ),
+      1 => (
+        backendReady ? 'Next: Chat' : 'Waiting for a ready backend...',
+        Icons.arrow_forward,
+        backendReady
+            ? () => setState(() {
+                _modelId = creatorState.selectedModelId;
+                _currentStep = 2;
+              })
+            : null,
+      ),
+      2 => (
+        'Next: Interview',
+        Icons.arrow_forward,
+        _sessionId != null ? _loadChatContextAndAdvance : null,
+      ),
+      3 => (
+        'Start the Interview',
+        Icons.auto_awesome,
+        _selection.anySelected ? _runInterview : null,
+      ),
+      4 => (
+        'Save as New Character',
+        Icons.save_alt,
+        _saving ? null : _saveReview,
+      ),
+      _ => ('Finish', Icons.check, _copying ? null : _finish),
+    };
+    final showBack = _currentStep > 0 && _currentStep < 5 && !_saving;
+
+    return EnhanceWizardNavBar(
+      showBack: showBack,
+      onBack: () => setState(() => _currentStep--),
+      saving: _saving,
+      nextLabel: nextLabel,
+      nextIcon: nextIcon,
+      onNext: onNext,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     // Watch the pieces whose changes flip Model-step readiness (Kobold
@@ -374,7 +426,10 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
               ),
             ),
             const Spacer(),
-            _buildStepIndicator(context),
+            EnhanceStepIndicator(
+              labels: _stepLabels,
+              currentStep: _currentStep,
+            ),
           ],
         ),
       ),
@@ -383,17 +438,25 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
-              // Keyed per step: several steps share a runtimeType
-              // (_stepScroll's SingleChildScrollView), and an unkeyed
-              // switcher would update them in place — no transition, and
-              // one step's scroll offset bleeding into the next.
+              // Keyed per step: an unkeyed switcher would update a step that
+              // shares a runtimeType with the last one in place — no
+              // transition, and one step's scroll offset bleeding into the
+              // next.
               child: KeyedSubtree(
                 key: ValueKey<int>(_currentStep),
                 child: switch (_currentStep) {
-                  0 => _buildAboutStep(context),
-                  1 => _buildModelStep(context),
-                  2 => _buildChatStep(context),
-                  3 => _buildInterviewStep(context),
+                  0 => EnhanceAboutStep(
+                    characterName: widget.character.name,
+                    sessions: _sessions,
+                  ),
+                  1 => EnhanceModelStep(creatorState: creatorState),
+                  2 => EnhanceChatPickStep(
+                    characterName: widget.character.name,
+                    sessions: _sessions,
+                    selectedSessionId: _sessionId,
+                    onSelectSession: (id) => setState(() => _sessionId = id),
+                  ),
+                  3 => _buildInterviewStep(),
                   4 => EnhanceReviewBody(
                     key: _reviewKey,
                     original: widget.character,
@@ -401,12 +464,22 @@ class _EnhanceWizardPageState extends State<EnhanceWizardPage> {
                     selection: _ranSelection!,
                     showIntimate: _nsfw,
                   ),
-                  _ => _buildChatsStep(context),
+                  _ => EnhanceChatsCopyStep(
+                    characterName: widget.character.name,
+                    savedCopyName: _savedCopy?.name,
+                    chatCount: _sessions?.length ?? 0,
+                    copying: _copying,
+                    copyDone: _copyDone,
+                    copyTotal: _copyTotal,
+                    copiedCount: _copiedCount,
+                    copyError: _copyError,
+                    onCopy: _copyChats,
+                  ),
                 },
               ),
             ),
           ),
-          _buildNavButtons(context, backendReady),
+          _buildNavButtons(backendReady),
         ],
       ),
     );

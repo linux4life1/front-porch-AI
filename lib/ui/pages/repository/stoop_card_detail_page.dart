@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/group_card_importer.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_comments.dart';
+import 'package:front_porch_ai/ui/pages/repository/stoop_card_detail/stoop_card_detail.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_detail_top.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_card_sections.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_collapsible.dart';
@@ -30,8 +31,6 @@ import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_nav.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_report.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-
-part 'stoop_card_detail_page.body.dart';
 
 /// Open a character as a frosted glass panel that slides in from the right while
 /// the browse grid stays visible (dimmed) behind it. Tap the scrim to dismiss.
@@ -127,8 +126,6 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
     _statsSub?.cancel();
     super.dispose();
   }
-
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   String get _token => context.read<AuthState>().accessToken ?? '';
 
@@ -329,6 +326,73 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
     );
   }
 
+  Widget _content(StoopCardDetail d) {
+    return CustomScrollView(
+      slivers: [
+        SliverToBoxAdapter(
+          child: StoopDetailTop(
+            detail: d,
+            downloadCount: _downloadCount,
+            onClose: () => Navigator.of(context).pop(),
+            onCreatorTap: d.creator == null
+                ? null
+                : () =>
+                      openStoopCreator(context, d.creator!.id, popFirst: true),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(18, 16, 18, 36),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              StoopDetailActions(
+                score: _score,
+                myVote: _myVote,
+                downloading: _downloading,
+                onVote: _vote,
+                onDownload: _download,
+              ),
+              const SizedBox(height: 10),
+              _reportButton(),
+              const SizedBox(height: 16),
+              if (d.type == 'GROUP')
+                ..._groupSections(d)
+              else if (d.isWorld)
+                ...stoopWorldSections(context, d.card)
+              else
+                ...stoopStandardSections(
+                  context,
+                  d.card,
+                  _chatName(d),
+                  firstMessage: StoopDetailFirstMessage(
+                    greetings: _greetings(d),
+                    index: _greetingIndex,
+                    onIndexChanged: (i) => setState(() => _greetingIndex = i),
+                  ),
+                ),
+              const SizedBox(height: 28),
+              StoopCardDiscussionSection(
+                cardId: d.id,
+                cardOwnerId: d.creator?.id,
+                user: context.watch<AuthState>().user,
+                client: _commentsClient,
+                commentsEnabled: d.commentsEnabled,
+                commentsLocked: d.commentsLocked,
+                persistFlags: ({commentsEnabled, commentsLocked}) {
+                  return _api.patchCardComments(
+                    _token,
+                    d.id,
+                    commentsEnabled: commentsEnabled,
+                    commentsLocked: commentsLocked,
+                  );
+                },
+              ),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
   // The name {{char}} actually maps to in chat — the CARD's own name, which
   // may differ from the post's display title ("Misty" vs "Misty Meadows,
   // Misguided Meteorologist"). Previews must read like the chat will.
@@ -387,7 +451,11 @@ class _StoopDetailPanelState extends State<_StoopDetailPanel> {
             ],
           ),
         ),
-        _memberCarousel(members),
+        StoopDetailMemberCarousel(
+          members: members,
+          index: _memberIndex,
+          onIndexChanged: (i) => setState(() => _memberIndex = i),
+        ),
       ],
     ];
   }

@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -24,17 +23,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-
-// The main view, list-card, edit-form, and hover-card builders live in these
-// `part of` files (extensions on _UserPersonaPageState, plus one library-
-// private StatefulWidget) to keep every file under the 500-LOC cap — same
-// pattern chat_service.dart / settings_page.dart use. They share this
-// library's imports and access the page's private state directly, so
-// behavior is unchanged.
-part 'user_persona_page.main_view.dart';
-part 'user_persona_page.list_cards.dart';
-part 'user_persona_page.edit_form.dart';
-part 'user_persona_page.hover_card.dart';
+import 'user_persona/user_persona.dart';
 
 class UserPersonaPage extends StatefulWidget {
   const UserPersonaPage({super.key});
@@ -349,8 +338,28 @@ class _UserPersonaPageState extends State<UserPersonaPage>
           );
         },
         child: _isEditing
-            ? _buildEditForm(context, key: const ValueKey('edit'))
-            : _buildMainView(key: const ValueKey('list')),
+            ? PersonaEditForm(
+                key: const ValueKey('edit'),
+                formKey: _formKey,
+                titleController: _titleController,
+                nameController: _nameController,
+                personaController: _personaController,
+                avatarPath: _avatarPath,
+                birthday: _birthday,
+                onPickAvatar: _pickAvatar,
+                onBirthdayChanged: _setBirthday,
+                onCancel: _cancelEditing,
+                onSave: _savePersona,
+              )
+            : PersonaMainView(
+                key: const ValueKey('list'),
+                glow: _headerGlowAnimation,
+                onEdit: _startEditing,
+                onExport: _exportPersona,
+                onDelete: _showDeleteConfirmation,
+                onCreate: () => _startEditing(null),
+                onImport: _importPersona,
+              ),
       ),
     );
   }
