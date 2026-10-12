@@ -158,6 +158,18 @@ Do not invent a second 500-line gate. Generated protobuf / `.g.dart` /
 `grpc/generated` are excluded from `god_file_ratchet_test.dart` (generated
 size is the other test).
 
+**No mechanical part files.** Never split a file into `part` files to get
+under 500 lines. Extract a real class, widget, or plain-Dart helper with
+explicit inputs instead. New `part` / `part of` directives are banned outside
+the two frozen exceptions: the Drift library
+(`lib/database/database.dart`) and the ChatService shell
+(`lib/services/chat_service.dart` + `lib/services/chat/chat_service_*.dart`).
+Every other part file (`main.*.dart` included) is legacy, frozen, and
+unwound over time; the count only goes down.
+`part 'x.g.dart';` codegen is not a split. CI:
+`test/hygiene/part_file_ratchet_test.dart` + `test/baselines/part_files.json`
+— lower an entry in the same change that removes a part.
+
 ---
 
 ## Style

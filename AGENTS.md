@@ -21,6 +21,8 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
   `lib/database/database.g.dart`) is excluded from that ratchet and owned
   by `test/hygiene/generated_dart_size_test.dart` / Drift
   `generate_manager: false`. Do not invent a second 500-line gate.
+  Splitting into `part` files does not count: extract a real class or
+  widget (`test/hygiene/part_file_ratchet_test.dart`).
 - **Style.** DRY, readable Dart, few comments. `dart format` the files you
   already edited. Never `dart format .`. Touched code must be analyzer-clean.
 - **Chat contracts.** `resolveMouthSpeech`: a closed think-only body is
