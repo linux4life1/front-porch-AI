@@ -346,7 +346,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     if (charId.isEmpty) return;
 
     String characterName = _activeCharacter?.name ?? 'the character';
-    if (_activeGroup != null && !_observerMode) {
+    if (_activeGroup != null) {
       final card = _groupCharacters
           .where((c) => _getCharacterIdFromCard(c) == charId)
           .firstOrNull;

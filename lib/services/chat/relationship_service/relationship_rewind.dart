@@ -126,7 +126,7 @@ class RelationshipRewinder {
   /// Verbatim from original (prune + seed).
   void ensureInterCharacterRelationshipsSeeded(String charId) {
     if (!_h.getShouldTrackInterCharacterRelationships()) return;
-    if (!_h.getIsGroupActive() || _h.getObserverMode()) return;
+    if (!_h.getIsGroupActive()) return;
     if (_h.getGroupCharacterCount() < 2) return;
     if (!_h.getCurrentGroupMemberIds().contains(charId)) return;
 

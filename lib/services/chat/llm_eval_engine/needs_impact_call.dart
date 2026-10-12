@@ -47,9 +47,6 @@ class NeedsImpactCall {
         _engine.getActiveGroup() == null) {
       return null;
     }
-    if (_engine.getActiveGroup() != null && _engine.getIsObserverMode()) {
-      return null; // Director
-    }
 
     final recent = recentExchange(_engine.getMessages());
 

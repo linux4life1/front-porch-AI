@@ -210,29 +210,6 @@ extension ChatServiceSendHandoff on ChatService {
     );
   }
 
-  /// Send a director note — appears as a bracketed instruction in the prompt
-  /// but is not part of the in-story dialogue.
-  Future<void> sendDirectorNote(String text) async {
-    if (_activeGroup == null || text.trim().isEmpty) return;
-
-    _messages.add(
-      ChatMessage(
-        text: text,
-        sender: 'Director',
-        isUser: true,
-        characterId: '__director__',
-      ),
-    );
-    await _saveChat();
-    notifyListeners();
-
-    _lorebookScanner.scanLatest();
-    // Note: depth decrement happens after AI response completes inside _generateResponse.
-    // Director-triggered lore is visible for the current generate.
-
-    await _generateResponse(GenerationMode.normal);
-  }
-
   /// The dream PRODUCER — fired from the post-generation phase, after the
   /// post-reply clock decide, so a night crossed in this beat is visible
   /// before the next send shows the dream.

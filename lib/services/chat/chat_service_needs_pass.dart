@@ -341,7 +341,7 @@ extension ChatServiceNeedsPass on ChatService {
     }
     if (preVec.isEmpty) return;
     final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(preVec);
-    final senderCard = (_activeGroup != null && !_observerMode)
+    final senderCard = _activeGroup != null
         ? resolveGroupSpeakerForMessage(_groupCharacters, _messages.last) ??
               _activeCharacter
         : _activeCharacter;

@@ -386,6 +386,11 @@ extension ChatServiceGeneration on ChatService {
             return;
           }
         }
+      } else if (guestSpeaker == null && _directing && !_isLiteTurn(t)) {
+        _prepareDirectedSpeaker(
+          speakingCharacter,
+          stamp: mode != GenerationMode.continue_ && !skipSpeakerEval,
+        );
       }
 
       // ── The six-phase turn pipeline (chat_service_generation_*.dart) ──

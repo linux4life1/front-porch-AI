@@ -25,7 +25,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
     return RelationshipInjection(
       relationshipService: _relationshipService,
       getRealismEnabled: () => _realismEnabled,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getActiveCharacter: () => _activeCharacter,
@@ -134,7 +134,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getClockMinutes: () => _timeService.clockMinutes,
       getWeekday: () => _timeService.clock.weekday,
       getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -146,7 +146,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       ambitionService: _ambitionService,
       getSessionId: () => _currentSessionId,
       getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -156,7 +156,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   PreferencesInjection _buildPreferencesInjection() {
     return PreferencesInjection(
       getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -180,7 +180,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
   InventoryInjection _buildInventoryInjection() {
     return InventoryInjection(
       getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -223,7 +223,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       promiseDebtService: _promiseDebtService,
       getSessionId: () => _currentSessionId,
       getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -236,7 +236,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       nsfwService: _nsfwService,
       getRealismEnabled: () => _realismEnabled,
       getActiveCharacter: () => _activeCharacter,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
@@ -255,7 +255,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       needsSimulation: _needsSimulation,
       getNeedsSimEnabled: () => _needsActive,
       getRealismEnabled: () => _realismEnabled,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getEnjoysLowHygiene: () => enjoysLowHygiene,
@@ -319,6 +319,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       // always did, while the fragments that are not realism features keep
       // reaching the model in every mode.
       getRealismEnabled: () => _realismActiveThisMode,
+      getOffStageLive: () =>
+          _directing && _realismEnabled && !_autoResponseInProgress,
       getClockRunningOverride: () => _clockRunning,
       // One-shot, opt-in (default OFF), coarse-worded, speculation-forbidding —
       // living-time-features.md §2 "Privacy by design". Lifted here from the
@@ -333,7 +335,7 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
         final phrase = absencePhrase;
         return phrase == null ? null : AbsenceTracker.ackNote(phrase);
       },
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
       getGroupCharacters: () => _groupCharacters,
       getActiveCharacter: () => _activeCharacter,

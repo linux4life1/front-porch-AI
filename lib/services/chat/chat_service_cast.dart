@@ -88,6 +88,80 @@ extension ChatServiceCast on ChatService {
     return true;
   }
 
+  /// `/director`: {{user}} steps out of a group scene to direct it, with the
+  /// same narrated departure and UNDO as a full member's `/exit`. The next
+  /// character reacts to them leaving, then Director Mode comes on. The
+  /// goodbye turn scores nothing (skipSpeakerEval): nobody said anything
+  /// new to anyone, and the judges already scored the last real line.
+  Future<bool> stepUserOffStage() async {
+    if (_activeGroup == null || _observerMode || _isTurnBusy) return false;
+    // An open member-exit undo window closes here, as a send would close it.
+    await _commitPendingMemberExit();
+    _clearExitUndo();
+    if (_activeGroup == null) return false;
+    final name = _userPersonaService.persona.name;
+    final before = _messages.length;
+    _entranceDirective = userStepsOutDirective(name);
+    try {
+      await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
+    } catch (e) {
+      debugPrint('[Director] step-out narration failed: $e');
+      _entranceDirective = null; // don't leak into a later turn
+    }
+    _observerMode = true;
+    final last = _messages.lastOrNull;
+    _sceneGuest.exitUndoUserStep = true;
+    _sceneGuest.exitUndoMessage =
+        (_messages.length > before &&
+            last != null &&
+            !last.isUser &&
+            last.sender != 'System')
+        ? last
+        : null;
+    _sceneGuest.exitUndoOfferName = name;
+    await _saveChat();
+    notifyListeners();
+    return true;
+  }
+
+  /// `/director off`: {{user}} walks back in. Director Mode goes off first,
+  /// so the next character sees the user present and greets them. Like the
+  /// goodbye, the greeting turn scores nothing — the last user-side line is
+  /// a director's note, which is not something the user said.
+  Future<bool> stepUserOnStage() async {
+    if (!_directing || _isTurnBusy) return false;
+    _clearExitUndo();
+    _observerMode = false;
+    _entranceDirective = userReturnsDirective(_userPersonaService.persona.name);
+    try {
+      await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
+    } catch (e) {
+      debugPrint('[Director] step-in narration failed: $e');
+      _entranceDirective = null;
+    }
+    await _saveChat();
+    notifyListeners();
+    return true;
+  }
+
+  /// Undo for `/director`: delete the goodbye turn (rewinding what it
+  /// applied) and put {{user}} back on stage. False when the open undo is
+  /// someone else's exit.
+  Future<bool> _undoUserStepOut() async {
+    if (!_sceneGuest.exitUndoUserStep) return false;
+    final goodbye = _sceneGuest.exitUndoMessage;
+    _clearExitUndo();
+    if (goodbye != null) {
+      final idx = _messages.indexOf(goodbye);
+      if (idx >= 0) deleteMessage(idx); // removes + reverts realism + saves
+    }
+    _observerMode = false;
+    await _saveChat();
+    _setGuestStatus('You are back in the scene.');
+    notifyListeners();
+    return true;
+  }
+
   /// Commit a deferred full-member `/exit`: run the real removal (and any
   /// collapse to a 1:1) now that the undo window has closed. No-op when nothing
   /// is pending. The goodbye turn was already narrated at exit time, so this only

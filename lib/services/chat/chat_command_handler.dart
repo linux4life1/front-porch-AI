@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/director/director.dart';
 import 'package:front_porch_ai/services/chat/lookup_force.dart';
 
 import 'chat_command_handler/chat_command_handler.dart';
@@ -94,6 +95,7 @@ class ChatCommandHandler {
     required Future<void> Function(String args) generateImage,
     CharacterCard? Function()? getHostCharacter,
     bool Function()? isTurnBusy,
+    DirectorCommands? director,
   }) : _setExpression = setExpression,
        _activeCharacterIsSet = activeCharacterIsSet,
        _onSystemMessage = onSystemMessage,
@@ -103,6 +105,7 @@ class ChatCommandHandler {
        _setGroupTurnOrder = setGroupTurnOrder,
        _configureAfk = configureAfk,
        _generateImage = generateImage,
+       _director = director,
        _guest = SceneGuestCommands(
          activeCharacterIsSet: activeCharacterIsSet,
          getSceneGuestCards: getSceneGuestCards,
@@ -145,6 +148,7 @@ class ChatCommandHandler {
   /// Scene Guest entry/exit flow (`/create`, `/join`, `/promote`, `/speak`,
   /// `/exit`).
   final SceneGuestCommands _guest;
+  final DirectorCommands? _director;
 
   /// The user-facing slash-command reference (single source of truth for the
   /// "type /" helper panel). Order = display order. Aliases (/turn, /detect,
@@ -174,6 +178,11 @@ class ChatCommandHandler {
       'exit',
       '/exit [name]',
       'A guest leaves (narrated); in a group, removes that full member by name',
+    ),
+    SlashCommandInfo(
+      'director',
+      '/director [off]',
+      'Step out of a group scene to direct it; /director off steps you back in',
     ),
     SlashCommandInfo(
       'turnorder',
@@ -227,6 +236,7 @@ class ChatCommandHandler {
         .toLowerCase();
     final args = spaceIdx < 0 ? '' : body.substring(spaceIdx + 1).trim();
 
+    if (await _director?.tryHandle(command, args) ?? false) return true;
     switch (command) {
       case 'expression-set':
       case 'expression':

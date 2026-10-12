@@ -390,6 +390,15 @@ extension ChatServiceWiringMemory on ChatService {
         );
       },
       generateImage: (args) => _ensureImageCommand().handle(args),
+      director: DirectorCommands(
+        isGroup: () => _activeGroup != null,
+        hasSceneGuests: () => _sceneGuest.cards.isNotEmpty,
+        isDirecting: () => _directing,
+        promoteSceneToGroup: promoteSceneToFull,
+        stepUserOffStage: stepUserOffStage,
+        stepUserOnStage: stepUserOnStage,
+        onSystemMessage: (m) => _setGuestStatus(m, isError: m.startsWith('⚠')),
+      ),
     );
   }
 

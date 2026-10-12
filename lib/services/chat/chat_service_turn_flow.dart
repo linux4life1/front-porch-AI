@@ -31,6 +31,8 @@ extension ChatServiceTurnFlow on ChatService {
     if (!value) {
       _autoPlayActive = false;
     }
+    if (_sceneGuest.exitUndoUserStep) _clearExitUndo(); // flip beats undo
+    if (_activeGroup != null) unawaited(_saveChat()); // saved per chat
     notifyListeners();
   }
 

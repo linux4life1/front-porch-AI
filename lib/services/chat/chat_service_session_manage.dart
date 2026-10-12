@@ -279,6 +279,7 @@ extension ChatServiceSessionManage on ChatService {
         // defaultMemberRealismState is perChar-only, so that path would wipe those
         // config maps. parseGroupRealismSeeds pulls just the perChar baselines.
         if (_activeGroup != null) {
+          _resetDirectorModeToDefault();
           _groupRealism = parseGroupRealismSeeds(
             _activeGroup!.defaultMemberRealismState,
           ).map((k, v) => MapEntry(k, GroupMemberRealism.fromJson(v)));

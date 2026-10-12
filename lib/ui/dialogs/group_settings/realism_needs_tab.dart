@@ -136,7 +136,7 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Director Mode is active. Realism Engine and related tracking are suspended for this group (narrative control only). Exit Director Mode to re-enable.',
+                        'Director Mode is active. You are off stage, so bond, trust and emotion toward you hold still. Needs, time, weather and the cast\'s feelings for each other keep running.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.amber,

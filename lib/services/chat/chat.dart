@@ -25,6 +25,7 @@ export 'context_viewer_snapshot.dart';
 export 'reply_context.dart';
 export 'token_alternatives.dart';
 export 'continue_glue.dart';
+export 'director/director.dart';
 export 'dream_service.dart';
 export 'expression_classifier.dart';
 export 'fpchat_cast.dart';

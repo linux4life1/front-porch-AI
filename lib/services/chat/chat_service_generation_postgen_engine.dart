@@ -31,9 +31,9 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
   ) async {
     // Phase 2: Update hidden inter-character feelings for the speaker who
     // just responded, based on what was said in the recent exchange.
-    // This makes the invisible tracking react to actual dialogue.
+    // This makes the invisible tracking react to actual dialogue, Director
+    // Mode included: the cast talking among themselves is the whole scene.
     if (_activeGroup != null &&
-        !_observerMode &&
         finalResponse.isNotEmpty &&
         // Same one-exchange rule as the two gates around it. This is a
         // keyword heuristic over the recent text, and after a Continue
@@ -52,7 +52,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       }
     }
 
-    // For group non-observer turns, temporarily re-impersonate the speaker of the *just generated*
+    // For group turns (Director Mode included), temporarily re-impersonate the speaker of the *just generated*
     // response so the post-gen needs checks (now _runPostGenNeedsChecks thin to
     // _needsImpactEvaluator) use the correct _activeCharacter (for name, personality/stance
     // in the consolidated needs impact prompt). The pre-speaker-eval left the *scalars*
@@ -68,7 +68,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // save would write to the wrong member.
     try {
       await _openWorkerLane();
-      if (_activeGroup != null && !_observerMode) {
+      if (_activeGroup != null) {
         prePostActiveChar = _activeCharacter;
         _activeCharacter = t.speakingCharacter;
         final sid = _getCharacterIdFromCard(t.speakingCharacter);
@@ -240,13 +240,12 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           _activeCharacter = prePostActiveChar;
         }
 
-        // For group non-observer, persist the post-scene + long-gen-decay needs changes (and any
+        // For group turns, persist the post-scene + long-gen-decay needs changes (and any
         // other scalars mutated by the checks) back into _groupRealism for this speaker. This is
         // what makes sidebar member cards + getNeedsForGroupCharacter() + future loads see the
         // effects of the just-generated response. (Pre-eval saved the pre-turn state for bond/etc;
         // this captures the *response* effects on needs.)
         if (_activeGroup != null &&
-            !_observerMode &&
             finalResponse.isNotEmpty &&
             _messages.isNotEmpty) {
           // The ACTUAL speaker of this turn — not a by-name lookup with a

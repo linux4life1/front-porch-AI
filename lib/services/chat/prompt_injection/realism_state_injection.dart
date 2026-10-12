@@ -125,6 +125,13 @@ class RealismStateInjection {
   /// so the caller's predicate must also require the Journal. Optional for the
   /// same reason as above.
   final bool Function()? getPromisesEnabled;
+
+  /// Director Mode with the engine on: {{user}} is off stage, so the
+  /// engine's fragments about them (bond, trust, mood, posture) stay out
+  /// while [getRealismEnabled] is false, but the body and the cast's
+  /// feelings for each other are still live and still reach the speaker.
+  /// Optional for the same reason as the others.
+  final bool Function()? getOffStageLive;
   final bool Function() getIsGroupNonObserverMode;
   final String Function() getCurrentSpeakerIdForRealism;
   final List<CharacterCard> Function() getGroupCharacters;
@@ -150,6 +157,7 @@ class RealismStateInjection {
     this.getClockRunningOverride,
     this.getAbsenceNote,
     this.getStandingMood,
+    this.getOffStageLive,
     required this.getIsGroupNonObserverMode,
     required this.getCurrentSpeakerIdForRealism,
     required this.getGroupCharacters,
@@ -205,6 +213,10 @@ class RealismStateInjection {
   /// correctly gated.
   bool get _characterStateEnabled => getRealismEnabled();
 
+  /// The fragments that keep running while {{user}} is off stage.
+  bool get _liveStateEnabled =>
+      _characterStateEnabled || (getOffStageLive?.call() ?? false);
+
   /// The one sentence that lets a character use what they are already carrying.
   ///
   /// Emitted ONLY when the needs fragment and the inventory fragment are both
@@ -238,7 +250,7 @@ class RealismStateInjection {
     // Hoisted out of the list below so the join-line can ask whether BOTH
     // actually said anything. Each still self-gates exactly as before, so the
     // emitted fragments are unchanged.
-    final needsLine = _characterStateEnabled
+    final needsLine = _liveStateEnabled
         ? needsInjection.buildNeedsInjection()
         : '';
     final inventoryLine = inventoryInjection.buildInventoryInjection();
@@ -299,7 +311,7 @@ class RealismStateInjection {
       // MOVED UP from dead last, to sit with the other two relationship lines.
       // How they feel about the people in the room is one subject and was
       // being told in two places with nine fragments in between.
-      if (_characterStateEnabled)
+      if (_liveStateEnabled)
         relationshipInjection.buildInterCharacterFeelingsInjection(),
 
       // ── 3. THEIR WORD ───────────────────────────────────────────────────

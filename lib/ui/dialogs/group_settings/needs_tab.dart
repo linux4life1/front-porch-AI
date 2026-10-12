@@ -296,7 +296,7 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Director Mode is active. Needs Simulation is suspended for this group (narrative control only). Exit Director Mode to re-enable.',
+                        'Director Mode is active. Needs keep running for each character while you direct.',
                         style: const TextStyle(
                           fontSize: 12,
                           color: Colors.amber,
