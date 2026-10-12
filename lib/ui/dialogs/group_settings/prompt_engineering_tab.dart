@@ -1,15 +1,12 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-
-part 'prompt_engineering_tab.editors.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/prompt_engineering_tab/prompt_engineering_tab.dart';
 
 class GroupPromptEngineeringTab extends StatefulWidget {
   final ChatService chatService;
@@ -26,9 +23,6 @@ class GroupPromptEngineeringTab extends StatefulWidget {
 }
 
 class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
-  /// Public setState bridge for the part-file extension (settings_page pattern).
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   // Group-level controllers / state (edited locally, applied on Save)
   late final StyledTextController _groupSystemController;
   late final StyledTextController _groupAuthorNoteController;
@@ -106,6 +100,53 @@ class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
         text: initial,
       );
     });
+  }
+
+  Widget _buildCharacterNoteEditor(CharacterCard c, int index) {
+    final strength = _perCharStrengths.putIfAbsent(
+      c,
+      () => widget.chatService.getAuthorNoteStrengthForGroupCharacter(c),
+    );
+    return GroupCharacterNoteEditor(
+      character: c,
+      accent: _charColor(index),
+      controller: _getOrCreateNoteController(c),
+      strength: strength,
+      onNoteChanged: (text) {
+        widget.chatService.setAuthorNoteForGroupCharacter(c, text);
+      },
+      onStrengthChanged: (newStrength) {
+        setState(() {
+          _perCharStrengths[c] = newStrength;
+        });
+        // Flush to service so it persists on Save / restart
+        final currentNote = _perCharNoteControllers[c]?.text ?? '';
+        widget.chatService.setAuthorNoteForGroupCharacter(
+          c,
+          currentNote,
+          strength: newStrength,
+        );
+      },
+    );
+  }
+
+  Widget _buildCharacterSystemPromptEditor(CharacterCard c, int index) {
+    final promptCtrl = _getOrCreateSystemPromptController(c);
+    return GroupCharacterSystemPromptEditor(
+      character: c,
+      accent: _charColor(index),
+      controller: promptCtrl,
+      onPromptChanged: (text) {
+        widget.chatService.setSystemPromptForGroupCharacter(c, text);
+      },
+      onClear: () {
+        promptCtrl.clear();
+        // A programmatic clear() never fires TextField.onChanged, so
+        // without this the box looked empty while the old override
+        // kept being injected every turn (and came back on reopen).
+        widget.chatService.setSystemPromptForGroupCharacter(c, '');
+      },
+    );
   }
 
   @override
