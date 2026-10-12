@@ -154,10 +154,10 @@ extension ChatServiceAccessors on ChatService {
     rerollIfSame: rerollIfSame,
   );
 
-  /// True when the Realism Engine (and Needs) should actually run for the
-  /// current chat mode. In group chats this is only true when *not* in
-  /// Director/observerMode (per design — Director is narrative control,
-  /// not simulation).
+  /// True when the user-facing Realism Engine (the judges that score the
+  /// user's message: bond, trust, emotion) runs for the current chat mode.
+  /// False in Director Mode, where the user is off stage; Needs, the clock
+  /// and the cast's feelings for each other still run there.
   bool get _realismActiveThisMode =>
       _realismEnabled &&
       !_autoResponseInProgress &&

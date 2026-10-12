@@ -83,6 +83,11 @@ extension ChatServiceRealismDance on ChatService {
     if (!stamp || _needsStampPreTurn(groupSpeaker: speaker) == null) {
       _loadGroupRealismIntoScalars(sid);
     }
+    if (stamp) {
+      // Clock off: the reply's refractory quarter hour, as in the dance.
+      _tickRefractoryPerReply(loadedId: sid);
+      _nsfwService.saveNsfwScalarsToGroup(sid);
+    }
     if (_realismEnabled) {
       _relationshipService.ensureInterCharacterRelationshipsSeeded(sid);
     }

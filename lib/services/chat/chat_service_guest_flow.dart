@@ -39,6 +39,7 @@ extension ChatServiceGuestFlow on ChatService {
     _sceneGuest.exitUndoGuest = guest;
     _sceneGuest.exitUndoMessage = departure;
     _sceneGuest.exitUndoOfferName = guest.name;
+    _sceneGuest.exitUndoUserStep = false; // UNDO now means this exit
     notifyListeners();
   }
 

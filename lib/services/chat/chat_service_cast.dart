@@ -83,6 +83,7 @@ extension ChatServiceCast on ChatService {
         ? _messages.last
         : null;
     _sceneGuest.exitUndoOfferName = member.name;
+    _sceneGuest.exitUndoUserStep = false; // UNDO now means this exit
     await _saveChat();
     notifyListeners();
     return true;

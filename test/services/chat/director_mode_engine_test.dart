@@ -145,6 +145,28 @@ void main() {
     expect(h.chat.messages, hasLength(before));
   });
 
+  test(
+    'a member who leaves after /director is the one UNDO brings back',
+    () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      await h.chat.sendMessage('/exit Bram');
+      await h.settleTurn();
+      expect(
+        h.chat.groupCharacters.map((c) => c.name),
+        isNot(contains('Bram')),
+      );
+
+      await h.chat.undoLastExit();
+      await h.settleTurn();
+
+      expect(h.chat.groupCharacters.map((c) => c.name), contains('Bram'));
+      expect(h.chat.observerMode, isTrue, reason: 'the user stays off stage');
+    },
+  );
+
   test('/director off brings the user back with a greeting', () async {
     await h.groupWithTwoReplies(aOff: const []);
     await h.chat.sendMessage('/director');

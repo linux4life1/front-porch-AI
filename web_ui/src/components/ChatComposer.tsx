@@ -22,6 +22,7 @@ const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: '/promote', args: '[name]', desc: 'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them' },
   { cmd: '/speak', args: '[name]', desc: 'Anyone on the porch (host, guest, or group member) takes a turn now' },
   { cmd: '/exit', args: '[name]', desc: 'A guest leaves (narrated); in a group, removes that full member by name' },
+  { cmd: '/director', args: '[off]', desc: 'Step out of a group scene to direct it; /director off steps you back in' },
   { cmd: '/turnorder', args: '[random | <name>, …]', desc: 'Set how a group takes turns: round-robin, random, or an explicit order' },
   { cmd: '/scan', args: '', desc: 'Scan the scene for a new recurring character to add' },
   { cmd: '/expression', args: '[emotion]', desc: "Set the character's expression; omit the emotion to clear it" },
