@@ -17,115 +17,73 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 //
 // ChatPage input column: the trust-repair and guest-activity banners, the
-// slash-command and @-mention helpers, attach/send handlers, and the no-mic
-// dialog. Extracted verbatim from chat_page.dart (god-file campaign,
-// Tranche A); same library, all privates in scope. The bar itself lives in
+// slash-command and @-mention helpers, the pending photo and the shared send
+// path, and the no-mic dialog. The bar itself lives in
 // chat_page.input_bar.dart.
 
-part of 'chat_page.dart';
+import 'dart:async';
 
-extension _ChatPageInput on _ChatPageState {
-  Widget _buildCommandHelper(
-    BuildContext context,
-    List<SlashCommandInfo> matches,
-  ) {
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 6),
-      constraints: const BoxConstraints(maxHeight: 220),
-      decoration: BoxDecoration(
-        color: AppColors.surfaceContainerOf(context),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderOf(context)),
-      ),
-      child: ListView.separated(
-        shrinkWrap: true,
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        itemCount: matches.length,
-        separatorBuilder: (_, _) => Divider(
-          height: 1,
-          thickness: 1,
-          color: AppColors.borderOf(context).withValues(alpha: 0.4),
-        ),
-        itemBuilder: (context, i) {
-          final c = matches[i];
-          return InkWell(
-            onTap: () {
-              final text = '/${c.command} ';
-              _controller.value = TextEditingValue(
-                text: text,
-                selection: TextSelection.collapsed(offset: text.length),
-              );
-              _chatFocusNode.requestFocus();
-            },
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  SizedBox(
-                    width: 200,
-                    child: Text(
-                      c.example,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        fontFamily: 'monospace',
-                        color: AppColors.relationshipAccent,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      c.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.textSecondary(context),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/capability/capability.dart';
+
+/// The photo riding on the next user message (bytes already downscaled + PNG
+/// re-encoded by pickChatImageAttachment). [visionOk] is null while the
+/// capability resolver is still checking the active model; [blindReason]
+/// carries the backend-specific "why" for the chip's last-resort explanation
+/// when the check fails. [update] is the owning page's setState.
+class PendingImageSlot {
+  PendingImageSlot({required this.update});
+
+  final void Function(VoidCallback fn) update;
+
+  Uint8List? bytes;
+  bool? visionOk;
+  String? blindReason;
+
+  /// Drop the attachment (the chip's ✕, or after a send consumed it).
+  void clear() => update(() {
+    bytes = null;
+    visionOk = null;
+    blindReason = null;
+  });
 
   /// Pick a photo for the next message and resolve (non-blocking) whether the
   /// active model can actually see it — a blind verdict makes the preview
   /// chip explain why and offer the last-resort Photo Understanding
   /// workaround, but never prevents sending (capability detection can't
   /// interrogate externally-started servers).
-  Future<void> _attachImage() async {
-    final bytes = await pickChatImageAttachment(context);
-    if (bytes == null || !mounted) return;
-    await _acceptImageBytes(bytes);
+  Future<void> pick(BuildContext context) async {
+    final picked = await pickChatImageAttachment(context);
+    if (picked == null || !context.mounted) return;
+    await accept(context, picked);
   }
 
-  /// Picker and desktop-drop both land here so vision-check + chip stay one path.
-  Future<void> _acceptImageBytes(Uint8List bytes) async {
+  /// Picker and desktop-drop both land here so vision-check + chip stay one
+  /// path. [context] is the chat page's own.
+  Future<void> accept(BuildContext context, Uint8List picked) async {
     final llmProvider = Provider.of<LLMProvider>(context, listen: false);
     final storage = Provider.of<StorageService>(context, listen: false);
-    rebuildState(() {
-      _pendingImageBytes = bytes;
-      _pendingImageVisionOk = null;
-      _pendingImageBlindReason = null;
+    update(() {
+      bytes = picked;
+      visionOk = null;
+      blindReason = null;
     });
     final isLocalBackend = llmProvider.activeBackend == BackendType.kobold;
     final support = await VisionSupportResolver.instance.resolveForActiveLlm(
       backend: llmProvider.activeBackend,
       storage: storage,
     );
-    if (!mounted || _pendingImageBytes == null) return;
-    rebuildState(() {
-      _pendingImageVisionOk = support.supported;
-      _pendingImageBlindReason = support.supported
+    if (!context.mounted || bytes == null) return;
+    update(() {
+      visionOk = support.supported;
+      blindReason = support.supported
           ? null
           : (support.source == VisionSource.unknown
                 ? 'vision support couldn\'t be verified (the server didn\'t '
@@ -138,58 +96,76 @@ extension _ChatPageInput on _ChatPageState {
                             'accept images'));
     });
   }
+}
 
-  /// Shared send path for the Enter key and the send button. Hands text +
-  /// photo BYTES to ChatService, which saves the photo only after its own
-  /// guards pass — so we never save a file for a turn ChatService will drop.
-  /// We mirror every one of sendMessage's silent early-returns here
-  /// (isGenerating / isLoadingSession / isGuestBusy / entrancesInFlight /
-  /// no active chat) so the pending photo and typed text are preserved
-  /// for retry rather than consumed into the void. In observer mode the
-  /// photo is NOT consumed — director notes are pure instructions and
-  /// would drop it.
-  void _sendCurrentMessage(ChatService chatService) {
-    final pending = chatService.observerMode ? null : _pendingImageBytes;
-    final text = _controller.text;
-    if ((text.trim().isEmpty && pending == null) ||
-        // Mirrors sendMessage's guard set EXACTLY. If this list is ever
-        // narrower than the service's, we fall through to _controller.clear()
-        // below for a send the service silently refused, and the user's typed
-        // text and pending photo are consumed into the void. Note sendMessage
-        // deliberately guards on isGenerating (streaming) and NOT on
-        // isSettlingTurn — see the comment there.
-        chatService.isGenerating ||
-        chatService.isLoadingSession ||
-        chatService.isGuestBusy ||
-        chatService.isPhotoTurnInFlight ||
-        chatService.entrancesInFlight ||
-        (chatService.activeCharacter == null &&
-            chatService.activeGroup == null)) {
-      return;
-    }
-    // Refused while the speed test runs: said under the chat, text kept.
-    final testing = chatService.sendRefusal(text, withImage: pending != null);
-    if (testing != null) {
-      chatService.announceLookupForce(testing);
-      return;
-    }
-    final lookupBlock = chatService.lookupCommandBlock(text);
-    if (lookupBlock != null) {
-      chatService.announceLookupForce(lookupBlock);
-      return;
-    }
-    chatService.sendMessage(text, imageBytes: pending);
-    if (pending != null) {
-      rebuildState(() {
-        _pendingImageBytes = null;
-        _pendingImageVisionOk = null;
-        _pendingImageBlindReason = null;
-      });
-    }
-    _controller.clear();
+/// Shared send path for the Enter key and the send button. Hands text +
+/// photo BYTES to ChatService, which saves the photo only after its own
+/// guards pass — so we never save a file for a turn ChatService will drop.
+/// We mirror every one of sendMessage's silent early-returns here
+/// (isGenerating / isLoadingSession / isGuestBusy / entrancesInFlight /
+/// no active chat) so the pending photo and typed text are preserved
+/// for retry rather than consumed into the void. In observer mode the
+/// photo is NOT consumed — director notes are pure instructions and
+/// would drop it.
+void sendComposerMessage(
+  ChatService chatService, {
+  required TextEditingController controller,
+  required PendingImageSlot pendingImage,
+}) {
+  final pending = chatService.observerMode ? null : pendingImage.bytes;
+  final text = controller.text;
+  if ((text.trim().isEmpty && pending == null) ||
+      // Mirrors sendMessage's guard set EXACTLY. If this list is ever
+      // narrower than the service's, we fall through to controller.clear()
+      // below for a send the service silently refused, and the user's typed
+      // text and pending photo are consumed into the void. Note sendMessage
+      // deliberately guards on isGenerating (streaming) and NOT on
+      // isSettlingTurn — see the comment there.
+      chatService.isGenerating ||
+      chatService.isLoadingSession ||
+      chatService.isGuestBusy ||
+      chatService.isPhotoTurnInFlight ||
+      chatService.entrancesInFlight ||
+      (chatService.activeCharacter == null &&
+          chatService.activeGroup == null)) {
+    return;
   }
+  // Refused while the speed test runs: said under the chat, text kept.
+  final testing = chatService.sendRefusal(text, withImage: pending != null);
+  if (testing != null) {
+    chatService.announceLookupForce(testing);
+    return;
+  }
+  final lookupBlock = chatService.lookupCommandBlock(text);
+  if (lookupBlock != null) {
+    chatService.announceLookupForce(lookupBlock);
+    return;
+  }
+  chatService.sendMessage(text, imageBytes: pending);
+  if (pending != null) {
+    pendingImage.clear();
+  }
+  controller.clear();
+}
 
-  Widget _buildInputArea(BuildContext context, ChatService chatService) {
+/// Everything under the transcript: status banners, the slash and @-mention
+/// helpers for [controller], then [inputBar].
+class ChatInputArea extends StatelessWidget {
+  const ChatInputArea({
+    super.key,
+    required this.chatService,
+    required this.controller,
+    required this.focusNode,
+    required this.inputBar,
+  });
+
+  final ChatService chatService;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final Widget inputBar;
+
+  @override
+  Widget build(BuildContext context) {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -323,7 +299,7 @@ extension _ChatPageInput on _ChatPageState {
         // the input column (no overlay), and scoped to the controller via a
         // ValueListenableBuilder so only this panel rebuilds per keystroke.
         ValueListenableBuilder<TextEditingValue>(
-          valueListenable: _controller,
+          valueListenable: controller,
           builder: (context, value, _) {
             final m = RegExp(r'^/(\w*)$').firstMatch(value.text);
             if (m == null) return const SizedBox.shrink();
@@ -332,7 +308,11 @@ extension _ChatPageInput on _ChatPageState {
                 .where((c) => c.command.startsWith(prefix))
                 .toList();
             if (matches.isEmpty) return const SizedBox.shrink();
-            return _buildCommandHelper(context, matches);
+            return _SlashCommandHelper(
+              matches: matches,
+              controller: controller,
+              focusNode: focusNode,
+            );
           },
         ),
 
@@ -341,37 +321,121 @@ extension _ChatPageInput on _ChatPageState {
         // "@…", lists who can be addressed (host + guests, or group
         // members); tapping fills in "@Name " and that character answers
         // the turn (the sendMessage direct-address router).
-        MentionAutocomplete(controller: _controller, focusNode: _chatFocusNode),
+        MentionAutocomplete(controller: controller, focusNode: focusNode),
 
-        _buildInputBar(context, chatService),
+        inputBar,
       ],
     );
   }
+}
 
-  void _showNoMicDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
-        icon: const Icon(Icons.mic_off, color: Colors.redAccent, size: 40),
-        title: const Text(
-          'No Microphone Detected',
-          style: TextStyle(color: Colors.white),
+/// Matching slash commands above the bar; tapping one fills it in.
+class _SlashCommandHelper extends StatelessWidget {
+  const _SlashCommandHelper({
+    required this.matches,
+    required this.controller,
+    required this.focusNode,
+  });
+
+  final List<SlashCommandInfo> matches;
+  final TextEditingController controller;
+  final FocusNode focusNode;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(bottom: 6),
+      constraints: const BoxConstraints(maxHeight: 220),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceContainerOf(context),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.borderOf(context)),
+      ),
+      child: ListView.separated(
+        shrinkWrap: true,
+        padding: const EdgeInsets.symmetric(vertical: 4),
+        itemCount: matches.length,
+        separatorBuilder: (_, _) => Divider(
+          height: 1,
+          thickness: 1,
+          color: AppColors.borderOf(context).withValues(alpha: 0.4),
         ),
-        content: const Text(
-          'No microphone was found or microphone permission was denied.\n\n'
-          '• Check that a microphone is connected\n'
-          '• Grant microphone permission if prompted\n'
-          '• Select a specific microphone in Settings → Voice Input',
-          style: TextStyle(color: Colors.white70, fontSize: 13),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
-          ),
-        ],
+        itemBuilder: (context, i) {
+          final c = matches[i];
+          return InkWell(
+            onTap: () {
+              final text = '/${c.command} ';
+              controller.value = TextEditingValue(
+                text: text,
+                selection: TextSelection.collapsed(offset: text.length),
+              );
+              focusNode.requestFocus();
+            },
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              child: Row(
+                children: [
+                  SizedBox(
+                    width: 200,
+                    child: Text(
+                      c.example,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        fontFamily: 'monospace',
+                        color: AppColors.relationshipAccent,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      c.description,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: AppColors.textSecondary(context),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
       ),
     );
   }
+}
+
+/// Explains a missing or refused microphone (mic and call buttons).
+void showNoMicDialog(BuildContext context) {
+  showDialog(
+    context: context,
+    builder: (context) => AlertDialog(
+      backgroundColor: const Color(0xFF1E293B),
+      icon: const Icon(Icons.mic_off, color: Colors.redAccent, size: 40),
+      title: const Text(
+        'No Microphone Detected',
+        style: TextStyle(color: Colors.white),
+      ),
+      content: const Text(
+        'No microphone was found or microphone permission was denied.\n\n'
+        '• Check that a microphone is connected\n'
+        '• Grant microphone permission if prompted\n'
+        '• Select a specific microphone in Settings → Voice Input',
+        style: TextStyle(color: Colors.white70, fontSize: 13),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('OK'),
+        ),
+      ],
+    ),
+  );
 }

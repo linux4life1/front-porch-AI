@@ -16,16 +16,28 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'creator_state_engine.dart';
+import 'package:flutter/widgets.dart';
 
-/// Shared generation core + callbacks: the single `_runGeneration` funnel the
-/// three mode assemblers (creator_state_engine.modes.dart) all go through, plus
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/lore_extraction_service.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+
+/// Shared generation core + callbacks: the single [run] funnel the three
+/// mode assemblers (creator_state_engine.modes.dart) all go through, plus
 /// LLM-service resolution, persona context, world-lore extraction, and the
-/// streaming progress/status/error callbacks.
-extension _CreatorCore on CreatorState {
+/// streaming progress/status/error callbacks. Works on [state].
+class CreatorGenerationCore {
+  final CreatorState state;
+
+  CreatorGenerationCore(this.state);
+
   // ── Shared core + helpers ────────────────────────────────────────────
 
-  Future<void> _runGeneration({
+  /// Runs one generation: resolves the LLM, gathers persona and world lore,
+  /// calls [build], then loads the card into the wizard.
+  Future<void> run({
     required LLMProvider llmProvider,
     required StorageService storage,
     required UserPersonaService personaService,
@@ -36,85 +48,86 @@ extension _CreatorCore on CreatorState {
     )
     build,
   }) async {
-    setStep(3);
-    isGenerating = true;
-    generationStatus = 'Crafting character with AI...';
-    generationPreview = '';
-    progress = 0.0;
-    notify();
+    state.setStep(3);
+    state.isGenerating = true;
+    state.generationStatus = 'Crafting character with AI...';
+    state.generationPreview = '';
+    state.progress = 0.0;
+    state.notify();
 
-    final llmService = llmProvider.serviceForModel(selectedModelId);
+    final llmService = llmProvider.serviceForModel(state.selectedModelId);
     if (llmService == null) {
-      generationStatus = llmProvider.hasManagedProcess
+      state.generationStatus = llmProvider.hasManagedProcess
           ? 'Error: The backend is not running. Start it first.'
           : 'Error: No LLM service available. Configure a model first.';
-      isGenerating = false;
-      notify();
+      state.isGenerating = false;
+      state.notify();
       return;
     }
 
     final persona = _personaContext(personaService);
     final worldLore = await _extractWorldLore(llmProvider, storage);
     final genService = CharacterGenService(llmService);
-    activeGenService = genService;
+    state.activeGenService = genService;
 
     final card = await build(genService, worldLore, persona);
 
-    imagePrompt = genService.generatedImagePrompt ?? imagePrompt;
+    state.imagePrompt = genService.generatedImagePrompt ?? state.imagePrompt;
 
     // _abortGeneration already restored state when the user cancels.
     if (genService.isAborted) return;
 
     if (card != null) {
-      generatedCard = card;
+      state.generatedCard = card;
       // A new card: its greetings were written this way, and its outfit
       // already follows its first message.
-      greetings.reset(
+      state.greetings.reset(
         next: genService.greetingRecipe ?? const GreetingRecipe(),
         outfitFrom: card.firstMessage,
       );
       _applyGeneratedPorchLife(card);
-      lorebookEntryEnabled = {};
+      state.lorebookEntryEnabled = {};
       final lore = card.lorebook;
       if (lore != null) {
         for (int i = 0; i < lore.entries.length; i++) {
-          lorebookEntryEnabled[i] = true;
+          state.lorebookEntryEnabled[i] = true;
         }
       }
-      descController.text = card.description;
-      personalityController.text = card.personality;
-      scenarioController.text = card.scenario;
-      final oldFirst = firstMessageController;
-      firstMessageController = newGreetingBox(card.firstMessage);
+      state.descController.text = card.description;
+      state.personalityController.text = card.personality;
+      state.scenarioController.text = card.scenario;
+      final oldFirst = state.firstMessageController;
+      state.firstMessageController = state.newGreetingBox(card.firstMessage);
       // A step still fading out may hold the old box this frame.
       WidgetsBinding.instance.addPostFrameCallback((_) => oldFirst.dispose());
-      exampleDialogueController.text = card.mesExample;
-      systemPromptController.text = card.systemPrompt;
-      for (final c in altGreetingControllers) {
+      state.exampleDialogueController.text = card.mesExample;
+      state.systemPromptController.text = card.systemPrompt;
+      for (final c in state.altGreetingControllers) {
         c.dispose();
       }
-      altGreetingControllers = [
-        for (final g in card.alternateGreetings) newGreetingBox(g),
+      state.altGreetingControllers = [
+        for (final g in card.alternateGreetings) state.newGreetingBox(g),
       ];
-      greetingSeeds = alignGreetingSeeds(
+      state.greetingSeeds = alignGreetingSeeds(
         card.frontPorchExtensions?.greetingSeeds ?? const [],
-        altGreetingControllers.length,
+        state.altGreetingControllers.length,
       );
 
-      progress = 1.0;
-      isGenerating = false;
-      activeGenService = null;
-      setStep(4); // → Greetings step
-      notify();
+      state.progress = 1.0;
+      state.isGenerating = false;
+      state.activeGenService = null;
+      state.setStep(4); // → Greetings step
+      state.notify();
     } else {
-      generatedCard = null;
-      isGenerating = false;
-      activeGenService = null;
-      if (!generationStatus.startsWith('Error')) {
-        generationStatus = 'Generation failed. Check your backend connection.';
+      state.generatedCard = null;
+      state.isGenerating = false;
+      state.activeGenService = null;
+      if (!state.generationStatus.startsWith('Error')) {
+        state.generationStatus =
+            'Generation failed. Check your backend connection.';
       }
-      setStep(4); // → Greetings step (shows the error/Try-Again state)
-      notify();
+      state.setStep(4); // → Greetings step (shows the error/Try-Again state)
+      state.notify();
     }
   }
 
@@ -123,26 +136,26 @@ extension _CreatorCore on CreatorState {
   void _applyGeneratedPorchLife(CharacterCard card) {
     final ext = card.frontPorchExtensions;
     if (ext == null) return;
-    realismAmbitions = List<String>.from(ext.ambitions);
-    realismPlanLines = List<String>.from(ext.planLines);
-    realismOccupation = ext.occupation;
-    realismOccupationBrief = ext.occupationBrief;
-    realismBirthday = ext.birthday;
-    realismHours = ext.hours;
-    realismWorkDays = ext.workDays;
-    realismLikes = List<String>.from(ext.likes);
-    realismDislikes = List<String>.from(ext.dislikes);
-    realismIntimateInto = List<String>.from(ext.intimateInto);
-    realismIntimateNotInto = List<String>.from(ext.intimateNotInto);
+    state.realismAmbitions = List<String>.from(ext.ambitions);
+    state.realismPlanLines = List<String>.from(ext.planLines);
+    state.realismOccupation = ext.occupation;
+    state.realismOccupationBrief = ext.occupationBrief;
+    state.realismBirthday = ext.birthday;
+    state.realismHours = ext.hours;
+    state.realismWorkDays = ext.workDays;
+    state.realismLikes = List<String>.from(ext.likes);
+    state.realismDislikes = List<String>.from(ext.dislikes);
+    state.realismIntimateInto = List<String>.from(ext.intimateInto);
+    state.realismIntimateNotInto = List<String>.from(ext.intimateNotInto);
     final pockets = Pockets.fromJson(ext.inventory);
-    realismWorn = pockets.wornDisplay;
-    realismCarrying = pockets.carryingDisplay;
+    state.realismWorn = pockets.wornDisplay;
+    state.realismCarrying = pockets.carryingDisplay;
   }
 
   String _personaContext(UserPersonaService personaService) {
-    if (selectedPersonaId.isEmpty) return '';
+    if (state.selectedPersonaId.isEmpty) return '';
     final persona = personaService.personas
-        .where((pp) => pp.id == selectedPersonaId)
+        .where((pp) => pp.id == state.selectedPersonaId)
         .firstOrNull;
     if (persona == null) return '';
     final parts = <String>[];
@@ -155,21 +168,21 @@ extension _CreatorCore on CreatorState {
     LLMProvider provider,
     StorageService storage,
   ) async {
-    final urls = loreUrlsController.text
+    final urls = state.loreUrlsController.text
         .split(',')
         .map((e) => e.trim())
         .where((e) => e.isNotEmpty)
         .toList();
-    if (urls.isEmpty && loreFiles.isEmpty) return null;
+    if (urls.isEmpty && state.loreFiles.isEmpty) return null;
 
-    generationStatus = 'Gathering world lore...';
-    notify();
+    state.generationStatus = 'Gathering world lore...';
+    state.notify();
     String? worldLore = await LoreExtractionService.extractAll(
       urls: urls,
-      files: loreFiles,
+      files: state.loreFiles,
       onProgress: (msg) {
-        generationStatus = msg;
-        notify();
+        state.generationStatus = msg;
+        state.notify();
       },
     );
 
@@ -207,19 +220,19 @@ extension _CreatorCore on CreatorState {
     return worldLore;
   }
 
-  void _onGenProgress(String accumulated) {
-    generationPreview = accumulated;
-    progress = (accumulated.length / 3000.0).clamp(0.0, 0.95);
-    notify();
+  void onProgress(String accumulated) {
+    state.generationPreview = accumulated;
+    state.progress = (accumulated.length / 3000.0).clamp(0.0, 0.95);
+    state.notify();
   }
 
-  void _onGenStatus(String status) {
-    generationStatus = status;
-    notify();
+  void onStatus(String status) {
+    state.generationStatus = status;
+    state.notify();
   }
 
-  void _onGenError(String error) {
-    generationStatus = 'Error: $error';
-    notify();
+  void onError(String error) {
+    state.generationStatus = 'Error: $error';
+    state.notify();
   }
 }

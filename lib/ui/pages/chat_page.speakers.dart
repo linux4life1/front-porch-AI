@@ -18,31 +18,42 @@
 //
 // Speaker and cover resolution for ChatPage: focused participant, character
 // image path, bubble speaker (avatar + name color), and star-aware cover.
-// Extracted verbatim from chat_page.dart (god-file campaign) —
-// part of the same library, so every private member is still in scope.
 
-part of 'chat_page.dart';
+import 'dart:collection';
+import 'dart:io';
 
-extension _ChatPageSpeakers on _ChatPageState {
-  /// Resolve the currently-focused participant from the unified cast, defaulting
-  /// to the first participant (the host in a 1:1/NPC chat). Returns null only
-  /// when no chat is loaded.
-  ChatParticipant? _focusedParticipant(ChatService chat) {
-    final cast = chat.cast;
-    if (cast.isEmpty) return null;
-    if (_focusedParticipantId != null) {
-      for (final p in cast) {
-        if (p.id == _focusedParticipantId) return p;
-      }
+import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+
+/// Resolve the currently-focused participant from the unified cast, defaulting
+/// to the first participant (the host in a 1:1/NPC chat). Returns null only
+/// when no chat is loaded. [focusedId] is the roster pick, if any.
+ChatParticipant? focusedChatParticipant(ChatService chat, String? focusedId) {
+  final cast = chat.cast;
+  if (cast.isEmpty) return null;
+  if (focusedId != null) {
+    for (final p in cast) {
+      if (p.id == focusedId) return p;
     }
-    return cast.first;
   }
+  return cast.first;
+}
+
+/// Turns cast members and messages into faces for the chat page. The
+/// services are read lazily (at call time), exactly when a lookup needs them.
+class ChatSpeakerResolver {
+  const ChatSpeakerResolver({required this.storage, required this.repository});
+
+  final ValueGetter<StorageService> storage;
+  final ValueGetter<CharacterRepository> repository;
 
   /// Resolve a character [imagePath] (basename or full path) to a [File].
   /// Always use this instead of [File(imagePath)] directly.
-  File _resolveCharImage(String imagePath) {
-    final storage = Provider.of<StorageService>(context, listen: false);
-    return storage.resolveCharacterImage(imagePath);
+  File resolveCharImage(String imagePath) {
+    return storage().resolveCharacterImage(imagePath);
   }
 
   /// Resolve the avatar + name color for a message's speaker from the unified
@@ -51,7 +62,7 @@ extension _ChatPageSpeakers on _ChatPageState {
   /// avatar and a palette color keyed by its order among non-host speakers
   /// (preserving the previous per-mode coloring). The host gets its avatar and
   /// no color; an unresolved sender (a departed guest) gets the placeholder.
-  (File?, Color?) _resolveSpeaker(ChatService chatService, ChatMessage msg) {
+  (File?, Color?) resolveSpeaker(ChatService chatService, ChatMessage msg) {
     if (msg.isUser) return (null, null);
     final cast = chatService.cast;
     final nonHost = cast.where((p) => !p.isHost).toList();
@@ -72,9 +83,9 @@ extension _ChatPageSpeakers on _ChatPageState {
     }
 
     if (speaker != null && !speaker.isHost) {
-      final img = _coverFor(chatService, speaker.card);
+      final img = coverFor(chatService, speaker.card);
       final idx = nonHost.indexWhere((p) => p.id == speaker!.id);
-      return (img, _ChatPageState._groupCharacterColor(idx >= 0 ? idx : 0));
+      return (img, groupCharacterColor(idx >= 0 ? idx : 0));
     }
 
     // Host message (or an unresolved/departed sender). Use the host avatar only
@@ -87,7 +98,7 @@ extension _ChatPageSpeakers on _ChatPageState {
             (msg.sender == host.name ||
                 (msg.characterId != null && msg.characterId == host.id)));
     final img = (isHostMsg && host != null)
-        ? _coverFor(chatService, host.card)
+        ? coverFor(chatService, host.card)
         : null;
     return (img, null);
   }
@@ -96,15 +107,12 @@ extension _ChatPageSpeakers on _ChatPageState {
   /// ★ gallery cover of the ORIGIN library card — the SAME face the home
   /// grid, web library, and exports show ("one face per character",
   /// maintainer 2026-07-16) — else the portrait. Null when imageless.
-  File? _coverFor(ChatService chat, CharacterCard card) {
+  File? coverFor(ChatService chat, CharacterCard card) {
     final lib = chat.originLibraryCardFor(card) ?? card;
-    final cover = Provider.of<CharacterRepository>(
-      context,
-      listen: false,
-    ).coverImageFileFor(lib);
+    final cover = repository().coverImageFileFor(lib);
     if (cover != null) return cover;
     final path = lib.imagePath ?? card.imagePath;
     if (path == null || path.isEmpty) return null;
-    return _resolveCharImage(path);
+    return resolveCharImage(path);
   }
 }

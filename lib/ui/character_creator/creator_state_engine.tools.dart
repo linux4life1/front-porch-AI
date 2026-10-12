@@ -16,13 +16,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'creator_state_engine.dart';
+import 'package:flutter/widgets.dart';
 
-/// Field-tool generators: single-shot LLM helpers called directly from wizard
-/// step widgets (guided vision expansion, name randomization, automated
-/// concept randomization). Public extension — these are called from OTHER
-/// libraries, so it cannot be library-private.
-extension CreatorEngineTools on CreatorState {
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/chargen_json.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+
+/// Field-tool generators: single-shot LLM helpers called from wizard step
+/// widgets (guided vision expansion, name randomization, automated concept
+/// randomization). They read and write [state].
+class CreatorFieldTools {
+  final CreatorState state;
+
+  CreatorFieldTools(this.state);
+
   /// (Guided) Expand all filled fields into a cohesive description. Returns the
   /// generated text; the step shows an accept/reject dialog and, if accepted,
   /// writes it into [guidedVisionController].
@@ -30,13 +37,13 @@ extension CreatorEngineTools on CreatorState {
     required LLMProvider llmProvider,
     required StorageService storage,
   }) async {
-    if (isExpandingNarrative) return null;
-    isExpandingNarrative = true;
-    notify();
+    if (state.isExpandingNarrative) return null;
+    state.isExpandingNarrative = true;
+    state.notify();
     try {
-      final llmService = llmProvider.serviceForModel(selectedModelId);
+      final llmService = llmProvider.serviceForModel(state.selectedModelId);
       if (llmService == null) {
-        engineError = 'No LLM available — configure a model first';
+        state.engineError = 'No LLM available — configure a model first';
         return null;
       }
 
@@ -45,31 +52,31 @@ extension CreatorEngineTools on CreatorState {
         if (c.text.trim().isNotEmpty) details.add('$label: ${c.text.trim()}');
       }
 
-      add('Name', nameController);
-      add('Age', ageController);
-      add('Sex', sexController);
-      add('Build/Body', guidedAppearanceController);
-      add('Hair', guidedHairController);
-      add('Features', guidedFeaturesController);
-      add('Race/Species', guidedRaceController);
-      add('Personality', guidedPersonalityController);
-      add('Speech style', guidedSpeechController);
-      add('Hidden depth', guidedSecretController);
-      add('Background', guidedOriginController);
-      add('Setting', guidedSettingController);
-      add('Tone', guidedToneController);
-      add('Relationship to {{user}}', guidedRelDynamicController);
-      add('Opening scenario', guidedRelScenarioController);
-      if (nsfwEnabled) {
-        add('Intimate body', guidedNsfwBodyController);
-        add('Experience', guidedNsfwExpController);
-        add('Dominance', guidedNsfwDomController);
-        add('Kinks', guidedNsfwKinksController);
-        add('Clothing', guidedNsfwClothingController);
-        add('Sexual personality', guidedNsfwPersonalityController);
+      add('Name', state.nameController);
+      add('Age', state.ageController);
+      add('Sex', state.sexController);
+      add('Build/Body', state.guidedAppearanceController);
+      add('Hair', state.guidedHairController);
+      add('Features', state.guidedFeaturesController);
+      add('Race/Species', state.guidedRaceController);
+      add('Personality', state.guidedPersonalityController);
+      add('Speech style', state.guidedSpeechController);
+      add('Hidden depth', state.guidedSecretController);
+      add('Background', state.guidedOriginController);
+      add('Setting', state.guidedSettingController);
+      add('Tone', state.guidedToneController);
+      add('Relationship to {{user}}', state.guidedRelDynamicController);
+      add('Opening scenario', state.guidedRelScenarioController);
+      if (state.nsfwEnabled) {
+        add('Intimate body', state.guidedNsfwBodyController);
+        add('Experience', state.guidedNsfwExpController);
+        add('Dominance', state.guidedNsfwDomController);
+        add('Kinks', state.guidedNsfwKinksController);
+        add('Clothing', state.guidedNsfwClothingController);
+        add('Sexual personality', state.guidedNsfwPersonalityController);
       }
 
-      final userVision = guidedVisionController.text.trim();
+      final userVision = state.guidedVisionController.text.trim();
       if (details.length <= 1 && userVision.isEmpty) return null;
 
       final visionBlock = userVision.isNotEmpty
@@ -110,8 +117,8 @@ extension CreatorEngineTools on CreatorState {
       debugPrint('CharacterCreator: expand narrative failed: $e');
       return null;
     } finally {
-      isExpandingNarrative = false;
-      notify();
+      state.isExpandingNarrative = false;
+      state.notify();
     }
   }
 
@@ -120,17 +127,17 @@ extension CreatorEngineTools on CreatorState {
     required LLMProvider llmProvider,
     required StorageService storage,
   }) async {
-    if (isRandomizing) return;
-    isRandomizing = true;
-    notify();
+    if (state.isRandomizing) return;
+    state.isRandomizing = true;
+    state.notify();
     try {
-      final llmService = llmProvider.serviceForModel(selectedModelId);
+      final llmService = llmProvider.serviceForModel(state.selectedModelId);
       if (llmService == null) {
-        engineError = 'No LLM available — configure a model first';
+        state.engineError = 'No LLM available — configure a model first';
         return;
       }
-      final archetypeHint = selectedArchetype.isNotEmpty
-          ? ' The name should suit a "$selectedArchetype" character.'
+      final archetypeHint = state.selectedArchetype.isNotEmpty
+          ? ' The name should suit a "${state.selectedArchetype}" character.'
           : '';
       String accumulated = '';
       await for (final token in llmService.generateStream(
@@ -151,7 +158,7 @@ extension CreatorEngineTools on CreatorState {
         accumulated += token;
       }
       final name = extractChargenValue(accumulated, 'name');
-      if (name != null) nameController.text = name;
+      if (name != null) state.nameController.text = name;
     } catch (e) {
       if (e is SilentMandatoryReasoningStarveException) {
         debugPrint(
@@ -161,8 +168,8 @@ extension CreatorEngineTools on CreatorState {
       }
       debugPrint('CharacterCreator: randomize name failed: $e');
     } finally {
-      isRandomizing = false;
-      notify();
+      state.isRandomizing = false;
+      state.notify();
     }
   }
 
@@ -172,72 +179,86 @@ extension CreatorEngineTools on CreatorState {
     required LLMProvider llmProvider,
     required StorageService storage,
   }) async {
-    if (isRandomizing) return;
-    isRandomizing = true;
-    conceptGenProgress = 0.0;
-    notify();
+    if (state.isRandomizing) return;
+    state.isRandomizing = true;
+    state.conceptGenProgress = 0.0;
+    state.notify();
     try {
-      final llmService = llmProvider.serviceForModel(selectedModelId);
+      final llmService = llmProvider.serviceForModel(state.selectedModelId);
       if (llmService == null) {
-        engineError = 'No LLM available — configure a model first';
+        state.engineError = 'No LLM available — configure a model first';
         return;
       }
 
       final ctx = <String>[];
-      if (selectedArchetype.isNotEmpty) {
-        ctx.add('Archetype: $selectedArchetype');
+      if (state.selectedArchetype.isNotEmpty) {
+        ctx.add('Archetype: ${state.selectedArchetype}');
       }
-      if (nameController.text.trim().isNotEmpty) {
-        ctx.add('Name: ${nameController.text.trim()}');
+      if (state.nameController.text.trim().isNotEmpty) {
+        ctx.add('Name: ${state.nameController.text.trim()}');
       }
-      if (keywordsController.text.trim().isNotEmpty) {
-        ctx.add('Personality: ${keywordsController.text.trim()}');
+      if (state.keywordsController.text.trim().isNotEmpty) {
+        ctx.add('Personality: ${state.keywordsController.text.trim()}');
       }
-      if (ageController.text.trim().isNotEmpty) {
-        ctx.add('Age: ${ageController.text.trim()}');
+      if (state.ageController.text.trim().isNotEmpty) {
+        ctx.add('Age: ${state.ageController.text.trim()}');
       }
-      if (sexController.text.trim().isNotEmpty) {
-        ctx.add('Sex: ${sexController.text.trim()}');
+      if (state.sexController.text.trim().isNotEmpty) {
+        ctx.add('Sex: ${state.sexController.text.trim()}');
       }
-      final effectiveRace = customRaceController.text.trim().isNotEmpty
-          ? customRaceController.text.trim()
-          : race;
+      final effectiveRace = state.customRaceController.text.trim().isNotEmpty
+          ? state.customRaceController.text.trim()
+          : state.race;
       if (effectiveRace.isNotEmpty) ctx.add('Race/species: $effectiveRace');
-      if (bodyType.isNotEmpty) ctx.add('Body type: $bodyType');
-      if (hairLength.isNotEmpty || hairStyle.isNotEmpty) {
+      if (state.bodyType.isNotEmpty) ctx.add('Body type: ${state.bodyType}');
+      if (state.hairLength.isNotEmpty || state.hairStyle.isNotEmpty) {
         ctx.add(
-          'Hair: ${[if (hairLength.isNotEmpty) hairLength, if (hairStyle.isNotEmpty) hairStyle].join(", ")}',
+          'Hair: ${[if (state.hairLength.isNotEmpty) state.hairLength, if (state.hairStyle.isNotEmpty) state.hairStyle].join(", ")}',
         );
       }
-      if (skinTone.isNotEmpty) ctx.add('Skin tone: $skinTone');
-      if (notableFeatures.isNotEmpty) {
-        ctx.add('Notable features: ${notableFeatures.join(", ")}');
+      if (state.skinTone.isNotEmpty) ctx.add('Skin tone: ${state.skinTone}');
+      if (state.notableFeatures.isNotEmpty) {
+        ctx.add('Notable features: ${state.notableFeatures.join(", ")}');
       }
-      if (selectedRelationships.isNotEmpty) {
-        ctx.add('Relationship to user: ${selectedRelationships.join(", ")}');
+      if (state.selectedRelationships.isNotEmpty) {
+        ctx.add(
+          'Relationship to user: ${state.selectedRelationships.join(", ")}',
+        );
       }
-      if (backstoryOrigin.isNotEmpty) {
-        ctx.add('Backstory origin: $backstoryOrigin');
+      if (state.backstoryOrigin.isNotEmpty) {
+        ctx.add('Backstory origin: ${state.backstoryOrigin}');
       }
-      if (backstoryTone.isNotEmpty) ctx.add('Backstory tone: $backstoryTone');
-      if (backstoryEra.isNotEmpty) ctx.add('Era/setting: $backstoryEra');
-      if (backstoryNotesController.text.trim().isNotEmpty) {
-        ctx.add('Backstory notes: ${backstoryNotesController.text.trim()}');
+      if (state.backstoryTone.isNotEmpty) {
+        ctx.add('Backstory tone: ${state.backstoryTone}');
       }
-      if (nsfwEnabled) {
-        if (experience.isNotEmpty) ctx.add('Experience: $experience');
-        if (dominance.isNotEmpty) ctx.add('Dominance: $dominance');
-        if (selectedKinks.isNotEmpty) {
-          ctx.add('Kinks: ${selectedKinks.join(", ")}');
+      if (state.backstoryEra.isNotEmpty) {
+        ctx.add('Era/setting: ${state.backstoryEra}');
+      }
+      if (state.backstoryNotesController.text.trim().isNotEmpty) {
+        ctx.add(
+          'Backstory notes: ${state.backstoryNotesController.text.trim()}',
+        );
+      }
+      if (state.nsfwEnabled) {
+        if (state.experience.isNotEmpty) {
+          ctx.add('Experience: ${state.experience}');
         }
-        if (outfitVibe.isNotEmpty) ctx.add('Outfit vibe: $outfitVibe');
+        if (state.dominance.isNotEmpty) {
+          ctx.add('Dominance: ${state.dominance}');
+        }
+        if (state.selectedKinks.isNotEmpty) {
+          ctx.add('Kinks: ${state.selectedKinks.join(", ")}');
+        }
+        if (state.outfitVibe.isNotEmpty) {
+          ctx.add('Outfit vibe: ${state.outfitVibe}');
+        }
       }
 
       final contextStr = ctx.isNotEmpty
           ? ' Use these character details as inspiration: ${ctx.join("; ")}.'
           : '';
       final descLength =
-          CreatorState.generationDetailOptions[generationDetail] ??
+          CreatorState.generationDetailOptions[state.generationDetail] ??
           '2-3 paragraphs';
       final maxTokens =
           const {
@@ -245,7 +266,7 @@ extension CreatorEngineTools on CreatorState {
             'Standard': 512,
             'Detailed': 1024,
             'Comprehensive': 2048,
-          }[generationDetail] ??
+          }[state.generationDetail] ??
           512;
 
       String accumulated = '';
@@ -267,14 +288,14 @@ extension CreatorEngineTools on CreatorState {
       )) {
         accumulated += token;
         tokenCount++;
-        conceptGenProgress = (tokenCount / maxTokens).clamp(0.0, 0.95);
-        notify();
+        state.conceptGenProgress = (tokenCount / maxTokens).clamp(0.0, 0.95);
+        state.notify();
       }
 
       final concept = extractChargenValue(accumulated, 'concept');
       if (concept != null) {
-        conceptController.text = concept;
-        conceptGenerated = true;
+        state.conceptController.text = concept;
+        state.conceptGenerated = true;
       }
     } catch (e) {
       if (e is SilentMandatoryReasoningStarveException) {
@@ -285,8 +306,8 @@ extension CreatorEngineTools on CreatorState {
         debugPrint('CharacterCreator: randomize concept failed: $e');
       }
     } finally {
-      isRandomizing = false;
-      notify();
+      state.isRandomizing = false;
+      state.notify();
     }
   }
 }

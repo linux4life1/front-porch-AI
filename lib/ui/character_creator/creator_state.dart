@@ -21,15 +21,13 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:path/path.dart' as p;
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.models.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.prefs.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state/creator_form_reset.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-
-part 'creator_state.prefs.dart';
-part 'creator_state.models.dart';
 
 /// Creator mode selection.
 enum CreatorMode { automated, guided, quick }
@@ -167,82 +165,6 @@ class CreatorState extends ChangeNotifier {
   /// no spell-check pass is queued until someone types.
   TextEditingController newGreetingBox([String text = '']) =>
       StyledTextController(text: text, preset: StyledTextPreset.prose);
-
-  // SharedPreferences keys (all lifted)
-  static const _prefName = 'chargen_name';
-  static const _prefConcept = 'chargen_concept';
-  static const _prefKeywords = 'chargen_keywords';
-  static const _prefArtStyle = 'chargen_art_style';
-  static const _prefModel = 'chargen_model';
-  static const _prefGreetingLength = 'chargen_greeting_length';
-  static const _prefAltCount = 'chargen_alt_count';
-  static const _prefTone = 'chargen_tone';
-  static const _prefLorebook = 'chargen_lorebook';
-  static const _prefAge = 'chargen_age';
-  static const _prefSex = 'chargen_sex';
-  static const _prefRelationship = 'chargen_relationship';
-  static const _prefPersona = 'chargen_persona';
-  static const _prefQuickScenario = 'chargen_quick_scenario';
-  static const _prefLoreCategories = 'chargen_lore_categories';
-  static const _prefLoreDepth = 'chargen_lore_depth';
-  static const _prefDynamicMacros = 'chargen_dynamic_macros';
-  static const _prefNarrativePerspective = 'chargen_narrative_perspective';
-  static const _prefNarrativeTense = 'chargen_narrative_tense';
-  static const _prefRelationships = 'chargen_relationships';
-  static const _prefCustomRelationship = 'chargen_custom_relationship';
-  static const _prefNsfwEnabled = 'chargen_nsfw_enabled';
-  static const _prefRealismVerificationEnabled =
-      'chargen_realism_verification_enabled';
-  static const _prefRealismVerificationMax = 'chargen_realism_verification_max';
-  static const _prefRealismVerificationStrict =
-      'chargen_realism_verification_strict';
-  static const _prefRealismNeedsDirectorAuthority =
-      'chargen_realism_needs_director_authority';
-  static const _prefBodyType = 'chargen_body_type';
-  static const _prefRace = 'chargen_race';
-  static const _prefCustomRace = 'chargen_custom_race';
-  static const _prefHairLength = 'chargen_hair_length';
-  static const _prefHairStyle = 'chargen_hair_style';
-  static const _prefSkinTone = 'chargen_skin_tone';
-  static const _prefNotableFeatures = 'chargen_notable_features';
-  static const _prefAbsCore = 'chargen_abs_core';
-  static const _prefThighs = 'chargen_thighs';
-  static const _prefHips = 'chargen_hips';
-  static const _prefShoulders = 'chargen_shoulders';
-  static const _prefWaist = 'chargen_waist';
-  static const _prefChestSize = 'chargen_chest_size';
-  static const _prefButtSize = 'chargen_butt_size';
-  static const _prefExperience = 'chargen_experience';
-  static const _prefDominance = 'chargen_dominance';
-  static const _prefKinks = 'chargen_kinks';
-  static const _prefCustomKinks = 'chargen_custom_kinks';
-  static const _prefOutfitVibe = 'chargen_outfit_vibe';
-  static const _prefGenerationDetail = 'chargen_generation_detail';
-  static const _prefBackstoryOrigin = 'chargen_backstory_origin';
-  static const _prefBackstoryTone = 'chargen_backstory_tone';
-  static const _prefBackstoryEra = 'chargen_backstory_era';
-  static const _prefBackstoryNotes = 'chargen_backstory_notes';
-  static const _prefConceptGenerated = 'chargen_concept_generated';
-  static const _prefCreatorMode = 'chargen_creator_mode';
-  static const _prefGuidedVision = 'chargen_guided_vision';
-  static const _prefGuidedAppearance = 'chargen_guided_appearance';
-  static const _prefGuidedHair = 'chargen_guided_hair';
-  static const _prefGuidedFeatures = 'chargen_guided_features';
-  static const _prefGuidedRace = 'chargen_guided_race';
-  static const _prefGuidedPersonality = 'chargen_guided_personality';
-  static const _prefGuidedSpeech = 'chargen_guided_speech';
-  static const _prefGuidedSecret = 'chargen_guided_secret';
-  static const _prefGuidedOrigin = 'chargen_guided_origin';
-  static const _prefGuidedSetting = 'chargen_guided_setting';
-  static const _prefGuidedTone = 'chargen_guided_tone';
-  static const _prefGuidedRelDynamic = 'chargen_guided_rel_dynamic';
-  static const _prefGuidedRelScenario = 'chargen_guided_rel_scenario';
-  static const _prefGuidedNsfwBody = 'chargen_guided_nsfw_body';
-  static const _prefGuidedNsfwExp = 'chargen_guided_nsfw_exp';
-  static const _prefGuidedNsfwDom = 'chargen_guided_nsfw_dom';
-  static const _prefGuidedNsfwKinks = 'chargen_guided_nsfw_kinks';
-  static const _prefGuidedNsfwClothing = 'chargen_guided_nsfw_clothing';
-  static const _prefGuidedNsfwPersonality = 'chargen_guided_nsfw_personality';
 
   // Generation state (lifted)
   String generationStatus = '';
@@ -401,17 +323,16 @@ class CreatorState extends ChangeNotifier {
   static const saveDelay = Duration(milliseconds: 500);
   Timer? _saveTimer;
 
-  /// The last save in line. Saves write one after another: a slow first
-  /// save (every key missing) could otherwise finish after a newer one and
-  /// put older text back.
-  Future<void> _saveQueue = Future<void>.value();
+  /// Prefs I/O and its one-at-a-time save queue.
+  final _prefs = CreatorFormPrefs();
+  late final _models = CreatorBackendModels(this);
 
   /// Class door — `_CountingCreatorState` in the debounce test `@override`s
   /// this. An extension member is statically dispatched and cannot be.
   /// Drops a pending [scheduleSave]: this save already includes that text.
   Future<void> saveState() {
     _saveTimer?.cancel();
-    return _saveStateImpl();
+    return _prefs.save(this);
   }
 
   /// The typing door: one save once the user pauses, not one per keystroke
@@ -420,6 +341,48 @@ class CreatorState extends ChangeNotifier {
     _saveTimer?.cancel();
     _saveTimer = Timer(saveDelay, saveState);
   }
+
+  Future<void> loadSavedState() async {
+    await _prefs.load(this, applyMode: (mode) => _creatorMode = mode);
+    notifyListeners();
+  }
+
+  void resetAllFields() {
+    _currentStep = 0;
+    _creatorMode = CreatorMode.automated;
+    clearCreatorForm(this);
+    notifyListeners();
+  }
+
+  /// Clear the core saved-form prefs after a character is successfully created,
+  /// so the next visit starts fresh. Mirrors the original review-step save.
+  Future<void> clearSavedFormPrefsAfterSave() => _prefs.clearAfterSave();
+
+  void abortGeneration() => _models.abortGeneration();
+
+  Future<void> loadAvailableModels(LLMProvider llmProvider) =>
+      _models.loadAvailableModels(llmProvider);
+
+  void scanLocalModels(StorageService storage) =>
+      _models.scanLocalModels(storage);
+
+  void scanLocalPresets(StorageService storage) =>
+      _models.scanLocalPresets(storage);
+
+  void initLocalSettingsControllers(StorageService storage) =>
+      _models.initLocalSettingsControllers(storage);
+
+  Future<void> reloadKoboldWithModel(
+    String modelPath,
+    LLMProvider llmProvider,
+    StorageService storage,
+    BackendManager backendManager,
+  ) => _models.reloadKoboldWithModel(
+    modelPath,
+    llmProvider,
+    storage,
+    backendManager,
+  );
 
   // Dispose for controllers (called by shell)
   void disposeControllers() {

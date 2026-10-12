@@ -1,15 +1,22 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-part of 'setup_step.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Extra Settings body and field helpers for [SetupStep].
-extension SetupStepFields on SetupStep {
-  Widget _inputLabel(
-    BuildContext context,
-    String text, {
-    bool required = false,
-  }) {
+/// A field caption for [SetupStep], with a red `*` when [required].
+class SetupInputLabel extends StatelessWidget {
+  final String text;
+  final bool required;
+
+  const SetupInputLabel(this.text, {super.key, this.required = false});
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       children: [
         Text(
@@ -34,8 +41,17 @@ extension SetupStepFields on SetupStep {
       ],
     );
   }
+}
 
-  Widget _buildExtraSettingsBody(BuildContext context, CreatorState state) {
+/// The KoboldCpp "Extra Settings" panel body: preset, hardware, GPU layers,
+/// context size, and KV quantization. Writes go to [state] and storage.
+class SetupExtraSettingsBody extends StatelessWidget {
+  final CreatorState state;
+
+  const SetupExtraSettingsBody({super.key, required this.state});
+
+  @override
+  Widget build(BuildContext context) {
     final storage = Provider.of<StorageService>(context, listen: false);
     final hardwareService = Provider.of<HardwareService>(
       context,
@@ -182,58 +198,58 @@ extension SetupStepFields on SetupStep {
       ),
     );
   }
+}
 
-  Widget _buildInfoRow(BuildContext context, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 4.0),
-      child: Row(
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 12,
-            ),
+Widget _buildInfoRow(BuildContext context, String label, String value) {
+  return Padding(
+    padding: const EdgeInsets.only(bottom: 4.0),
+    child: Row(
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.textTertiary(context),
+            fontSize: 12,
           ),
-          const SizedBox(width: 8),
-          Flexible(
-            child: Text(
-              value,
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontWeight: FontWeight.bold,
-              ),
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.right,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSettingsTextField(
-    BuildContext context, {
-    required String label,
-    required TextEditingController controller,
-    required bool isNumber,
-    required ValueChanged<String> onChanged,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      style: TextStyle(color: AppColors.textPrimary(context)),
-      onChanged: onChanged,
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: AppColors.textSecondary(context)),
-        filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
         ),
+        const SizedBox(width: 8),
+        Flexible(
+          child: Text(
+            value,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
+              fontWeight: FontWeight.bold,
+            ),
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+Widget _buildSettingsTextField(
+  BuildContext context, {
+  required String label,
+  required TextEditingController controller,
+  required bool isNumber,
+  required ValueChanged<String> onChanged,
+}) {
+  return TextField(
+    controller: controller,
+    keyboardType: isNumber ? TextInputType.number : TextInputType.text,
+    style: TextStyle(color: AppColors.textPrimary(context)),
+    onChanged: onChanged,
+    decoration: InputDecoration(
+      labelText: label,
+      labelStyle: TextStyle(color: AppColors.textSecondary(context)),
+      filled: true,
+      fillColor: AppColors.surfaceContainerOf(context),
+      border: OutlineInputBorder(
+        borderRadius: BorderRadius.circular(8),
+        borderSide: BorderSide.none,
       ),
-    );
-  }
+    ),
+  );
 }

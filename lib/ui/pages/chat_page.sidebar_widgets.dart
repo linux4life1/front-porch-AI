@@ -18,15 +18,44 @@
 //
 // The two big blocks of the ChatPage right sidebar: the focused character's
 // portrait (expressions / gallery face ring / chevrons) and the Main Settings
-// popup. Extracted verbatim from _buildRightSidebar's Column (god-file
-// campaign, Tranche A); same library, all privates in scope.
+// popup, plus the in-chat character editor dialog.
 
-part of 'chat_page.dart';
+import 'dart:async';
+import 'dart:io';
 
-extension _ChatPageSidebarWidgets on _ChatPageState {
-  /// Expression image / gallery face / default portrait for the focused
-  /// character — verbatim the first child of the old _buildRightSidebar Column.
-  Widget _buildSidebarPortrait(CharacterCard character, bool isGroup) {
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_controller.dart';
+import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_dialog.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/ui/pages/home/open_section_env.dart';
+import 'package:front_porch_ai/services/avatar_gallery.dart';
+
+/// Expression image / gallery face / default portrait for the focused
+/// character, sized to the sidebar.
+class ChatSidebarPortrait extends StatelessWidget {
+  const ChatSidebarPortrait({
+    super.key,
+    required this.character,
+    required this.isGroup,
+    required this.sidebarWidth,
+    required this.resolveCharImage,
+  });
+
+  final CharacterCard character;
+  final bool isGroup;
+  final double sidebarWidth;
+  final File Function(String imagePath) resolveCharImage;
+
+  @override
+  Widget build(BuildContext context) {
     return Consumer<ChatService>(
       builder: (context, chat, _) {
         final storage = Provider.of<StorageService>(context, listen: false);
@@ -90,7 +119,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
             fallbackWidget = Center(
               child: Text(
                 emoji,
-                style: TextStyle(fontSize: _sidebarWidth * 0.5),
+                style: TextStyle(fontSize: sidebarWidth * 0.5),
               ),
             );
           } else if (fallback == 'prime') {
@@ -124,7 +153,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
             if (displayFile == null &&
                 character.imagePath != null &&
                 character.imagePath!.isNotEmpty) {
-              displayFile = _resolveCharImage(character.imagePath!);
+              displayFile = resolveCharImage(character.imagePath!);
             }
           }
         } else {
@@ -172,11 +201,11 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
               expressionKey = 'face_${faceDisplay.image!.id}';
             } else if (character.imagePath != null &&
                 character.imagePath!.isNotEmpty) {
-              displayFile = _resolveCharImage(character.imagePath!);
+              displayFile = resolveCharImage(character.imagePath!);
             }
           } else if (character.imagePath != null &&
               character.imagePath!.isNotEmpty) {
-            displayFile = _resolveCharImage(character.imagePath!);
+            displayFile = resolveCharImage(character.imagePath!);
           }
         }
 
@@ -186,14 +215,14 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
         final avatarLocked =
             character.frontPorchExtensions?.avatarLocked ?? false;
         final avatarSize = avatarLocked
-            ? _sidebarWidth.clamp(0, 300).toDouble()
-            : _sidebarWidth;
+            ? sidebarWidth.clamp(0, 300).toDouble()
+            : sidebarWidth;
 
         return CharacterPortrait(
           file: displayFile,
           size: avatarSize,
           imageKey: expressionKey ?? 'default',
-          alignEnd: avatarLocked && _sidebarWidth > 300,
+          alignEnd: avatarLocked && sidebarWidth > 300,
           overlays: [
             if (expressionEmoji != null)
               Positioned(
@@ -250,60 +279,75 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
       },
     );
   }
+}
 
-  /// The ONE character editor (EditCharacterPage) in a dialog shell — full
-  /// feature set with honest Save/Cancel; nothing persists until Save.
-  /// OPEN_SECTION=edit reuses this path and scrolls the Relationship header
-  /// block (20px gap + header) below the Details tab. No Save.
-  Future<void> _openEditCharacterDialog(
-    CharacterCard character, {
-    bool ensureRelationshipVisible = false,
-  }) async {
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    final opened = showDialog<void>(
-      context: context,
-      builder: (dialogCtx) => Dialog(
-        insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
-        clipBehavior: Clip.antiAlias,
-        child: SizedBox(
-          width: 780,
-          height: MediaQuery.of(dialogCtx).size.height - 96,
-          child: EditCharacterPage(
-            character: character,
-            // Light refresh only — never the full setActiveCharacter dance,
-            // which cancels in-flight generation, full-reloads on rename,
-            // and leaves group mode.
-            onSaved: (saved) async =>
-                chatService.refreshActiveCharacterCard(saved),
-          ),
+/// The ONE character editor (EditCharacterPage) in a dialog shell — full
+/// feature set with honest Save/Cancel; nothing persists until Save.
+/// OPEN_SECTION=edit reuses this path and scrolls the Relationship header
+/// block (20px gap + header) below the Details tab. No Save. Completes when
+/// the dialog closes; [context] is the chat page's.
+Future<void> showEditCharacterDialog(
+  BuildContext context,
+  CharacterCard character, {
+  bool ensureRelationshipVisible = false,
+}) async {
+  final chatService = Provider.of<ChatService>(context, listen: false);
+  final opened = showDialog<void>(
+    context: context,
+    builder: (dialogCtx) => Dialog(
+      insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
+      clipBehavior: Clip.antiAlias,
+      child: SizedBox(
+        width: 780,
+        height: MediaQuery.of(dialogCtx).size.height - 96,
+        child: EditCharacterPage(
+          character: character,
+          // Light refresh only — never the full setActiveCharacter dance,
+          // which cancels in-flight generation, full-reloads on rename,
+          // and leaves group mode.
+          onSaved: (saved) async =>
+              chatService.refreshActiveCharacterCard(saved),
         ),
       ),
-    );
-    if (ensureRelationshipVisible) {
+    ),
+  );
+  if (ensureRelationshipVisible) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          OpenSectionEnv.ensureRelationshipHeaderVisible(context);
-        });
+        if (!context.mounted) return;
+        OpenSectionEnv.ensureRelationshipHeaderVisible(context);
       });
-    }
-    await opened;
-    if (!mounted) return;
-    rebuildState(() {});
+    });
   }
+  await opened;
+}
 
-  /// The "Main Settings" popup button — verbatim the second child of the old
-  /// _buildRightSidebar Column.
-  Widget _buildSidebarMainSettings(
-    ChatService chatService,
-    CharacterCard character,
-    bool isGroup,
-  ) {
+/// The "Main Settings" popup button.
+class ChatSidebarMainSettings extends StatelessWidget {
+  const ChatSidebarMainSettings({
+    super.key,
+    required this.chatService,
+    required this.character,
+    required this.isGroup,
+    required this.onEditCharacter,
+    required this.onAvatarsChanged,
+  });
+
+  final ChatService chatService;
+  final CharacterCard character;
+  final bool isGroup;
+  final Future<void> Function(CharacterCard character) onEditCharacter;
+
+  /// The avatar gallery closed; the page repaints the edited images.
+  final VoidCallback onAvatarsChanged;
+
+  @override
+  Widget build(BuildContext context) {
     return ChatMainSettingsButton(
       onSelected: (value) async {
         switch (value) {
           case 'edit_character':
-            await _openEditCharacterDialog(character);
+            await onEditCharacter(character);
             break;
           case 'expressions':
             final storage = Provider.of<StorageService>(context, listen: false);
@@ -339,7 +383,7 @@ extension _ChatPageSidebarWidgets on _ChatPageState {
                   : List<AvatarImage>.from(exprTarget.avatarImages!);
               character.primeAvatarIndex = exprTarget.primeAvatarIndex;
             }
-            if (mounted) rebuildState(() {});
+            onAvatarsChanged();
             break;
           case 'ui':
             showDialog(

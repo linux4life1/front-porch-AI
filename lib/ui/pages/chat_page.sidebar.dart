@@ -16,63 +16,144 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 //
-// Sidebar shell for ChatPage: the resize handle, the right-sidebar frame and
-// its section order, the participant roster, and the Director controls.
-// Extracted verbatim from chat_page.dart (god-file campaign, Tranche A) —
-// part of the same library, so every private member is still in scope.
-// The portrait and Main Settings blocks live in chat_page.sidebar_widgets.dart.
+// Sidebar shell for ChatPage: the right-sidebar frame and its section order,
+// the participant roster, and the Director controls; plus the transcript
+// anchors the sidebar's journal receipts jump to. The portrait and Main
+// Settings blocks live in chat_page.sidebar_widgets.dart.
 
-part of 'chat_page.dart';
+import 'dart:async';
+import 'dart:collection';
+import 'dart:io';
 
-extension _ChatPageSidebar on _ChatPageState {
-  /// This page's key for [m]'s bubble, minted on first build (see the
-  /// `_bubbleKeys` field doc — page-owned so two live chat routes can never
-  /// collide on one GlobalKey).
-  GlobalKey _bubbleKeyFor(ChatMessage m) =>
-      _bubbleKeys.putIfAbsent(m, GlobalKey.new);
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.scene_dialogs.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.sidebar_widgets.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.speakers.dart';
+
+/// Opens the character editor for a card; the env-driven open also scrolls
+/// the Relationship block into view.
+typedef EditCharacterLauncher =
+    Future<void> Function(
+      CharacterCard character, {
+      bool ensureRelationshipVisible,
+    });
+
+/// The chat page's per-message bubble keys and the tap-to-jump flash.
+///
+/// The keys used to be `GlobalObjectKey(msg)` — whose identity is the
+/// message alone — and a GlobalKey must be unique across the whole app. Two
+/// ChatPage routes can be alive in the same frame (a push over a
+/// not-yet-disposed page, or the frames of a route transition), and both
+/// listen to the same ChatService, so a chat switch had BOTH pages building
+/// bubbles for the same message objects: one duplicate-key crash per visible
+/// message, then cascading tree corruption (maintainer repro, 2026-08-10).
+/// Keys minted per page instance can never collide across pages; the jump
+/// looks them up through [keyOf]. Identity map on purpose: message equality
+/// is identity everywhere else (list diffing, jump targets, flash).
+class ChatTranscriptAnchors {
+  final Map<ChatMessage, GlobalKey> _bubbleKeys = HashMap.identity();
+
+  // Prune marker: entries live until the session changes (or the page dies),
+  // so a long-lived page can't accumulate every past chat's messages.
+  String? _bubbleKeysSessionId;
+
+  /// Journal receipts tap-to-jump: the just-landed-on bubble, briefly tinted.
+  ChatMessage? jumpFlash;
+
+  /// Drop every key when [sessionId] is a new chat. Returns whether it was.
+  bool syncSession(String? sessionId) {
+    if (_bubbleKeysSessionId == sessionId) return false;
+    _bubbleKeys.clear();
+    _bubbleKeysSessionId = sessionId;
+    return true;
+  }
+
+  /// This page's key for [m]'s bubble, minted on first build.
+  GlobalKey keyFor(ChatMessage m) => _bubbleKeys.putIfAbsent(m, GlobalKey.new);
+
+  /// The key of an already-built bubble, else null.
+  GlobalKey? keyOf(ChatMessage m) => _bubbleKeys[m];
 
   /// Journal receipts tap-to-jump: seek the chat to the message at
   /// [position] (the stored absolute index), then flash the bubble so the
-  /// eye finds it. The seek itself lives in message_jump.dart. Lives in the
-  /// sidebar part because the sidebar's receipts are what call it.
-  Future<void> _jumpToMessage(int position) async {
-    final messages = Provider.of<ChatService>(context, listen: false).messages;
+  /// eye finds it. The seek itself lives in message_jump.dart. [update] is
+  /// the page's setState; [isMounted] its lifetime.
+  Future<void> jumpTo(
+    int position, {
+    required List<ChatMessage> messages,
+    required TranscriptWindow window,
+    required ScrollController controller,
+    required void Function(VoidCallback fn) update,
+    required ValueGetter<bool> isMounted,
+  }) async {
     if (position < 0 || position >= messages.length) return;
     final target = messages[position];
-    _transcriptWindow.revealAround(position, messages.length);
-    rebuildState(() {});
+    window.revealAround(position, messages.length);
+    update(() {});
     await WidgetsBinding.instance.endOfFrame;
     await jumpToMessage(
-      controller: _scrollController,
+      controller: controller,
       messages: messages,
       target: target,
-      builtStart: _transcriptWindow.start,
-      builtEnd: _transcriptWindow.end,
+      builtStart: window.start,
+      builtEnd: window.end,
       // This page's own keys. Null for a not-yet-built bubble — the seek
       // treats that as "keep paging"; the itemBuilder mints the key the
       // moment the bubble materializes.
-      keyOf: (m) => _bubbleKeys[m],
+      keyOf: keyOf,
     );
-    if (!mounted) return;
-    rebuildState(() => _jumpFlashMessage = target);
+    if (!isMounted()) return;
+    update(() => jumpFlash = target);
     Future.delayed(const Duration(milliseconds: 1800), () {
-      if (mounted && identical(_jumpFlashMessage, target)) {
-        rebuildState(() => _jumpFlashMessage = null);
+      if (isMounted() && identical(jumpFlash, target)) {
+        update(() => jumpFlash = null);
       }
     });
   }
+}
 
-  /// Wraps a sidebar widget with a draggable resize handle on its left edge.
-  Widget _buildResizableSidebar({required Widget child}) {
-    return ChatResizeSidebar(
-      width: _sidebarWidth,
-      onWidth: (w) => rebuildState(() => _sidebarWidth = w),
-      child: child,
-    );
-  }
+/// The chat's right sidebar for the focused cast member: portrait, Main
+/// Settings, group controls, roster, then the scrolling section body.
+class ChatRightSidebar extends StatelessWidget {
+  const ChatRightSidebar({
+    super.key,
+    required this.chatService,
+    required this.focusedParticipantId,
+    required this.onFocusParticipant,
+    required this.sidebarWidth,
+    required this.resolveCharImage,
+    required this.draft,
+    required this.onJumpToMessage,
+    required this.onEditCharacter,
+    required this.onAvatarsChanged,
+  });
 
-  Widget _buildRightSidebar(ChatService chatService) {
-    final focused = _focusedParticipant(chatService);
+  final ChatService chatService;
+
+  /// The roster pick; null (or gone from the cast) = the first participant.
+  final String? focusedParticipantId;
+  final ValueChanged<String> onFocusParticipant;
+  final double sidebarWidth;
+  final File Function(String imagePath) resolveCharImage;
+
+  /// The message box, for sections that read the draft.
+  final TextEditingController draft;
+  final ValueChanged<int> onJumpToMessage;
+  final EditCharacterLauncher onEditCharacter;
+
+  /// The focused card's avatar images were edited in place.
+  final VoidCallback onAvatarsChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final focused = focusedChatParticipant(chatService, focusedParticipantId);
     if (focused == null) return const SizedBox.shrink();
     final character = focused.card;
     final isGroup = chatService.isGroupMode;
@@ -89,8 +170,19 @@ extension _ChatPageSidebar on _ChatPageState {
       ),
       child: Column(
         children: [
-          _buildSidebarPortrait(character, isGroup),
-          _buildSidebarMainSettings(chatService, character, isGroup),
+          ChatSidebarPortrait(
+            character: character,
+            isGroup: isGroup,
+            sidebarWidth: sidebarWidth,
+            resolveCharImage: resolveCharImage,
+          ),
+          ChatSidebarMainSettings(
+            chatService: chatService,
+            character: character,
+            isGroup: isGroup,
+            onEditCharacter: (card) => onEditCharacter(card),
+            onAvatarsChanged: onAvatarsChanged,
+          ),
 
           // ── Group Settings (group only; sits directly under Main Settings,
           //    above the cast roster, so the whole-group controls are found
@@ -108,7 +200,7 @@ extension _ChatPageSidebar on _ChatPageState {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _showGroupSettingsDialog(chatService),
+                  onPressed: () => showGroupSettings(context, chatService),
                   icon: const Icon(Icons.settings, size: 16),
                   label: const Text('Group Settings'),
                   style: OutlinedButton.styleFrom(
@@ -123,25 +215,28 @@ extension _ChatPageSidebar on _ChatPageState {
 
           // ── Participant roster (only when more than one speaker) ──
           if (cast.length > 1)
-            _buildParticipantRoster(chatService, cast, focused),
+            _ParticipantRoster(
+              chatService: chatService,
+              cast: cast,
+              focused: focused,
+              resolveCharImage: resolveCharImage,
+              onFocus: onFocusParticipant,
+            ),
 
           // ── Director controls (group turn-taking) ──
-          if (isGroup) _buildDirectorControls(chatService),
+          if (isGroup) _DirectorControls(chatService: chatService),
 
           Expanded(
             child: SidebarBody(
               chatService: chatService,
               focused: focused,
-              onSpinRequested: () => _showChanceTimeOverlay(context),
-              onJumpToMessage: _jumpToMessage,
-              resolveCharImage: _resolveCharImage,
-              draft: _controller,
+              onSpinRequested: () => showChanceTimeOverlay(context),
+              onJumpToMessage: onJumpToMessage,
+              resolveCharImage: resolveCharImage,
+              draft: draft,
               onOpenEditFromEnv: () {
                 unawaited(
-                  _openEditCharacterDialog(
-                    character,
-                    ensureRelationshipVisible: true,
-                  ),
+                  onEditCharacter(character, ensureRelationshipVisible: true),
                 );
               },
             ),
@@ -150,17 +245,30 @@ extension _ChatPageSidebar on _ChatPageState {
       ),
     );
   }
+}
 
-  /// Horizontal roster of all cast participants. Tapping one focuses its
-  /// per-character sidebar sections. Shown only when more than one speaker is
-  /// present (1:1 + guests, or a group). Soft guests show GUEST + Promote
-  /// here — this is the only Promote chrome. Character State may still
-  /// show a GUEST badge; it does not get a second button.
-  Widget _buildParticipantRoster(
-    ChatService chatService,
-    List<ChatParticipant> cast,
-    ChatParticipant focused,
-  ) {
+/// Horizontal roster of all cast participants. Tapping one focuses its
+/// per-character sidebar sections. Shown only when more than one speaker is
+/// present (1:1 + guests, or a group). Soft guests show GUEST + Promote
+/// here — this is the only Promote chrome. Character State may still
+/// show a GUEST badge; it does not get a second button.
+class _ParticipantRoster extends StatelessWidget {
+  const _ParticipantRoster({
+    required this.chatService,
+    required this.cast,
+    required this.focused,
+    required this.resolveCharImage,
+    required this.onFocus,
+  });
+
+  final ChatService chatService;
+  final List<ChatParticipant> cast;
+  final ChatParticipant focused;
+  final File Function(String imagePath) resolveCharImage;
+  final ValueChanged<String> onFocus;
+
+  @override
+  Widget build(BuildContext context) {
     final hasLite = cast.any((p) => p.isLite);
     return Container(
       height: hasLite ? 96 : 66,
@@ -180,16 +288,16 @@ extension _ChatPageSidebar on _ChatPageState {
           final p = cast[i];
           final path = p.card.imagePath;
           final img = (path != null && path.isNotEmpty)
-              ? _resolveCharImage(path)
+              ? resolveCharImage(path)
               : null;
           return CastRosterChip(
             name: p.name,
-            color: _ChatPageState._groupCharacterColor(i),
+            color: groupCharacterColor(i),
             isFocused: p.id == focused.id,
             isLite: p.isLite,
             imageFile: img,
             promoteEnabled: !chatService.isGenerating,
-            onFocus: () => rebuildState(() => _focusedParticipantId = p.id),
+            onFocus: () => onFocus(p.id),
             onPromote: p.isLite
                 ? () {
                     if (chatService.isGroupMode) {
@@ -204,10 +312,26 @@ extension _ChatPageSidebar on _ChatPageState {
       ),
     );
   }
+}
 
-  /// Group turn-taking controls (Group Settings + Director Mode + response
-  /// delay). Shown when the chat has scheduled speakers (a group).
-  Widget _buildDirectorControls(ChatService chatService) {
+/// Group turn-taking controls (Director Mode + response delay). Shown when
+/// the chat has scheduled speakers (a group).
+class _DirectorControls extends StatefulWidget {
+  const _DirectorControls({required this.chatService});
+
+  final ChatService chatService;
+
+  @override
+  State<_DirectorControls> createState() => _DirectorControlsState();
+}
+
+class _DirectorControlsState extends State<_DirectorControls> {
+  // Slider drag tracking — store live value during drag, null on release
+  double? _dragDirectorDelay;
+
+  @override
+  Widget build(BuildContext context) {
+    final chatService = widget.chatService;
     return Container(
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
@@ -296,7 +420,7 @@ extension _ChatPageSidebar on _ChatPageState {
                         activeColor: Colors.amberAccent,
                         inactiveColor: Colors.white12,
                         onChanged: (val) =>
-                            rebuildState(() => _dragDirectorDelay = val),
+                            setState(() => _dragDirectorDelay = val),
                         onChangeEnd: (val) {
                           _dragDirectorDelay = null;
                           storage.ttsSettings.setDirectorDelay(val);

@@ -10,10 +10,9 @@ import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/setup_backend_picker.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-part 'setup_step_fields.dart';
-part 'setup_step_status_dot.dart';
+import 'package:front_porch_ai/ui/character_creator/steps/setup_step_fields.dart';
+import 'package:front_porch_ai/ui/character_creator/steps/setup_step_status_dot.dart';
 
 /// Step 0: Backend & Model setup (lifted pure from _buildSetupStep).
 class SetupStep extends StatelessWidget {
@@ -62,7 +61,7 @@ class SetupStep extends StatelessWidget {
               // tappable selector field + searchable dialog (the one the user liked for API/oMLX).
               // This reuses the existing model picker UX for local .gguf files too.
               if (isKobold) ...[
-                _inputLabel(context, 'Local Model (.gguf)', required: false),
+                const SetupInputLabel('Local Model (.gguf)', required: false),
                 const SizedBox(height: 8),
                 // Identical styled picker field as remote/oMLX
                 InkWell(
@@ -176,7 +175,7 @@ class SetupStep extends StatelessWidget {
                     };
                     return Row(
                       children: [
-                        _BackendStatusDot(
+                        BackendStatusDot(
                           color: dotColor,
                           isBlinking: isTransitioning,
                         ),
@@ -247,10 +246,7 @@ class SetupStep extends StatelessWidget {
                           ),
                           AnimatedCrossFade(
                             firstChild: const SizedBox(height: 0),
-                            secondChild: _buildExtraSettingsBody(
-                              context,
-                              state,
-                            ),
+                            secondChild: SetupExtraSettingsBody(state: state),
                             crossFadeState: state.extraSettingsExpanded
                                 ? CrossFadeState.showSecond
                                 : CrossFadeState.showFirst,
@@ -326,8 +322,7 @@ class SetupStep extends StatelessWidget {
                 ),
               ] else ...[
                 // API (remote) and oMLX — searchable model picker.
-                _inputLabel(
-                  context,
+                SetupInputLabel(
                   activeBackend == BackendType.omlx
                       ? 'oMLX Model'
                       : 'Remote Model',

@@ -16,7 +16,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'border_painters.dart';
+import 'dart:math';
+
+import 'package:flutter/material.dart';
+
+import 'border_painters.dart';
 
 class VineBorderPainter extends ThemeBorderPainter {
   VineBorderPainter({required super.color, super.strokeWidth});

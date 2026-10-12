@@ -16,11 +16,31 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'growth_panel.dart';
+import 'package:flutter/material.dart';
 
-/// Check now / plant / edit / reset plus the settings sheet.
-extension GrowthPanelActions on GrowthPanel {
-  Widget _actionsRow(BuildContext context, Color accent) {
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'growth_panel.editor.dart';
+
+/// Check now / Plant a ring / Reset under the growth timeline.
+class GrowthActionsRow extends StatelessWidget {
+  final ChatService chatService;
+  final String characterId;
+  final String characterName;
+  final Color accent;
+
+  const GrowthActionsRow({
+    super.key,
+    required this.chatService,
+    required this.characterId,
+    required this.characterName,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final busy = chatService.isGrowthPassRunning;
     // Wrap — three TextButtons in a Row overflow the narrow chat sidebar
     // by ~13px ("Check now · Plant a ring · Reset").
@@ -59,7 +79,12 @@ extension GrowthPanelActions on GrowthPanel {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed: () => _plantRing(context),
+            onPressed: () => plantGrowthRing(
+              context,
+              chatService,
+              characterId: characterId,
+              characterName: characterName,
+            ),
             icon: Icon(
               Icons.spa,
               size: 13,
@@ -79,7 +104,12 @@ extension GrowthPanelActions on GrowthPanel {
               padding: const EdgeInsets.symmetric(horizontal: 6),
               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-            onPressed: () => _confirmReset(context),
+            onPressed: () => confirmGrowthReset(
+              context,
+              chatService,
+              characterId: characterId,
+              characterName: characterName,
+            ),
             child: Text(
               'Reset',
               style: TextStyle(
@@ -92,115 +122,131 @@ extension GrowthPanelActions on GrowthPanel {
       ),
     );
   }
+}
 
-  // ── Dialogs ───────────────────────────────────────────────────────────
-
-  void _showSettings(BuildContext context, StorageService storage) {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        backgroundColor: AppColors.cardOf(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          'Growth settings',
-          style: TextStyle(fontSize: 16, color: AppColors.textPrimary(context)),
-        ),
-        content: StatefulBuilder(
-          builder: (context, setState) => SizedBox(
-            width: 360,
-            child: SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              value: storage.memorySettings.growthReviewFirst,
-              activeTrackColor: AppColors.porchHoneyOf(context),
-              title: Text(
-                'Review growth before it applies',
-                style: TextStyle(
-                  fontSize: 13,
-                  color: AppColors.textPrimary(context),
-                ),
-              ),
-              subtitle: Text(
-                'Off (default): characters grow on their own. On: proposed '
-                'rings wait for your approval.',
-                style: TextStyle(
-                  fontSize: 11,
-                  color: AppColors.textTertiary(context),
-                ),
-              ),
-              onChanged: (v) async {
-                await storage.memorySettings.setGrowthReviewFirst(v);
-                setState(() {});
-              },
-            ),
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(),
-            child: const Text('Done'),
-          ),
-        ],
+/// Growth settings modal: the opt-in review-first toggle.
+void showGrowthSettingsDialog(BuildContext context, StorageService storage) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      backgroundColor: AppColors.cardOf(context),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Text(
+        'Growth settings',
+        style: TextStyle(fontSize: 16, color: AppColors.textPrimary(context)),
       ),
-    );
-  }
-
-  Future<void> _plantRing(BuildContext context) async {
-    final draft = await _RingEditorDialog.show(
-      context,
-      title: 'Plant a ring for $characterName',
-    );
-    if (draft == null) return;
-    await chatService.plantGrowthRingFor(
-      characterId,
-      draft.$1,
-      category: draft.$2,
-    );
-  }
-
-  Future<void> _editRing(BuildContext context, GrowthRingData ring) async {
-    final draft = await _RingEditorDialog.show(
-      context,
-      title: 'Edit ring',
-      initialContent: ring.content,
-      initialCategory: ring.category,
-    );
-    if (draft == null) return;
-    await chatService.editGrowthRing(ring, text: draft.$1, category: draft.$2);
-  }
-
-  Future<void> _confirmReset(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.cardOf(ctx),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        title: Text(
-          'Reset $characterName\'s growth?',
-          style: TextStyle(fontSize: 16, color: AppColors.textPrimary(ctx)),
-        ),
-        content: Text(
-          'Every ring in this chat is removed — including past growth and '
-          'the pre-rings archive. The original character card is untouched. '
-          'This cannot be undone.',
-          style: TextStyle(fontSize: 13, color: AppColors.textSecondary(ctx)),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: AppColors.negativeAccentOf(ctx),
+      content: StatefulBuilder(
+        builder: (context, setState) => SizedBox(
+          width: 360,
+          child: SwitchListTile(
+            contentPadding: EdgeInsets.zero,
+            value: storage.memorySettings.growthReviewFirst,
+            activeTrackColor: AppColors.porchHoneyOf(context),
+            title: Text(
+              'Review growth before it applies',
+              style: TextStyle(
+                fontSize: 13,
+                color: AppColors.textPrimary(context),
+              ),
             ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Reset'),
+            subtitle: Text(
+              'Off (default): characters grow on their own. On: proposed '
+              'rings wait for your approval.',
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textTertiary(context),
+              ),
+            ),
+            onChanged: (v) async {
+              await storage.memorySettings.setGrowthReviewFirst(v);
+              setState(() {});
+            },
           ),
-        ],
+        ),
       ),
-    );
-    if (confirmed == true) {
-      await chatService.resetGrowthFor(characterId);
-    }
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Done'),
+        ),
+      ],
+    ),
+  );
+}
+
+/// Opens the ring editor and plants the draft for [characterId].
+Future<void> plantGrowthRing(
+  BuildContext context,
+  ChatService chatService, {
+  required String characterId,
+  required String characterName,
+}) async {
+  final draft = await GrowthRingEditorDialog.show(
+    context,
+    title: 'Plant a ring for $characterName',
+  );
+  if (draft == null) return;
+  await chatService.plantGrowthRingFor(
+    characterId,
+    draft.$1,
+    category: draft.$2,
+  );
+}
+
+/// Opens the ring editor on [ring] and saves the edited wording/category.
+Future<void> editGrowthRing(
+  BuildContext context,
+  ChatService chatService,
+  GrowthRingData ring,
+) async {
+  final draft = await GrowthRingEditorDialog.show(
+    context,
+    title: 'Edit ring',
+    initialContent: ring.content,
+    initialCategory: ring.category,
+  );
+  if (draft == null) return;
+  await chatService.editGrowthRing(ring, text: draft.$1, category: draft.$2);
+}
+
+/// Confirms, then wipes every ring [characterId] has in this chat.
+Future<void> confirmGrowthReset(
+  BuildContext context,
+  ChatService chatService, {
+  required String characterId,
+  required String characterName,
+}) async {
+  final confirmed = await showDialog<bool>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: AppColors.cardOf(ctx),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      title: Text(
+        'Reset $characterName\'s growth?',
+        style: TextStyle(fontSize: 16, color: AppColors.textPrimary(ctx)),
+      ),
+      content: Text(
+        'Every ring in this chat is removed — including past growth and '
+        'the pre-rings archive. The original character card is untouched. '
+        'This cannot be undone.',
+        style: TextStyle(fontSize: 13, color: AppColors.textSecondary(ctx)),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(false),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          style: FilledButton.styleFrom(
+            backgroundColor: AppColors.negativeAccentOf(ctx),
+          ),
+          onPressed: () => Navigator.of(ctx).pop(true),
+          child: const Text('Reset'),
+        ),
+      ],
+    ),
+  );
+  if (confirmed == true) {
+    await chatService.resetGrowthFor(characterId);
   }
 }

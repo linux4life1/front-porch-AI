@@ -18,17 +18,102 @@
 //
 // The ChatPage input bar: resize handle, photo-attachment preview, captioner
 // status, persona switcher, and the seams to the chat-management menu and the
-// action buttons (chat_page.input_actions.dart). Extracted verbatim from
-// _buildInputArea (god-file campaign, Tranche A).
+// action buttons (chat_page.input_actions.dart). Also the remembered height
+// of the message box.
 
-part of 'chat_page.dart';
+import 'dart:async';
+import 'dart:io';
 
-extension _ChatPageInputBar on _ChatPageState {
-  /// The whole visible input bar — verbatim the old "── Input bar ──" Column.
-  Widget _buildInputBar(BuildContext context, ChatService chatService) {
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/services/caption/local_caption_service.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.input_actions.dart';
+
+/// The message box's minimum height in lines (1–8), dragged on the bar's
+/// handle and remembered across launches. [update] is the page's setState.
+class ComposerHeight {
+  ComposerHeight({required this.update});
+
+  final void Function(VoidCallback fn) update;
+
+  int minLines = 1;
+  double _dragAccumulator = 0;
+
+  /// Restore the remembered height.
+  Future<void> load() async {
+    final prefs = await SharedPreferences.getInstance();
+    update(() {
+      minLines = prefs.getInt('input_min_lines') ?? 1;
+    });
+  }
+
+  Future<void> _save(int value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('input_min_lines', value);
+  }
+
+  /// A drag on the handle starts or ends.
+  void resetDrag() => _dragAccumulator = 0;
+
+  /// The handle moved [deltaPixels] (up is negative = taller).
+  void drag(double deltaPixels) {
+    _dragAccumulator -= deltaPixels;
+    final pixelsPerLine = 8.0;
+    final deltaLines = (_dragAccumulator / pixelsPerLine).floor();
+    if (deltaLines != 0) {
+      _dragAccumulator -= deltaLines * pixelsPerLine;
+      final newLines = minLines + deltaLines;
+      if (newLines >= 1 && newLines <= 8) {
+        update(() => minLines = newLines);
+        _save(newLines);
+      }
+    }
+  }
+}
+
+/// The whole visible input bar — the old "── Input bar ──" Column.
+class ChatInputBar extends StatelessWidget {
+  const ChatInputBar({
+    super.key,
+    required this.chatService,
+    required this.pendingImageBytes,
+    required this.pendingImageVisionOk,
+    required this.pendingImageBlindReason,
+    required this.onRemoveImage,
+    required this.onImage,
+    required this.onResizeReset,
+    required this.onResize,
+    required this.menu,
+    required this.actions,
+  });
+
+  final ChatService chatService;
+  final Uint8List? pendingImageBytes;
+  final bool? pendingImageVisionOk;
+  final String? pendingImageBlindReason;
+  final VoidCallback onRemoveImage;
+
+  /// A photo dropped on the composer.
+  final Future<void> Function(Uint8List bytes) onImage;
+  final VoidCallback onResizeReset;
+  final ValueChanged<double> onResize;
+
+  /// The chat-management menu, left of the action buttons.
+  final Widget menu;
+  final ChatInputActionStrip actions;
+
+  @override
+  Widget build(BuildContext context) {
     return ComposerDropZone(
       enabled: !chatService.isGenerating && !chatService.observerMode,
-      onImage: _acceptImageBytes,
+      onImage: onImage,
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -36,10 +121,9 @@ extension _ChatPageInputBar on _ChatPageState {
           MouseRegion(
             cursor: SystemMouseCursors.resizeRow,
             child: GestureDetector(
-              onVerticalDragStart: (_) => _dragAccumulator = 0,
-              onVerticalDragUpdate: (details) =>
-                  _handleInputResize(details.delta.dy),
-              onVerticalDragEnd: (_) => _dragAccumulator = 0,
+              onVerticalDragStart: (_) => onResizeReset(),
+              onVerticalDragUpdate: (details) => onResize(details.delta.dy),
+              onVerticalDragEnd: (_) => onResizeReset(),
               behavior: HitTestBehavior.opaque,
               child: Container(
                 height: 16,
@@ -64,21 +148,17 @@ extension _ChatPageInputBar on _ChatPageState {
           ),
           // Pending photo attachment preview (remove ✕ + blind-model note:
           // offline-captioner fallback when installed, warning otherwise)
-          if (_pendingImageBytes != null)
+          if (pendingImageBytes != null)
             Builder(
               builder: (context) {
                 LocalCaptionService.instance.configure(
                   Provider.of<StorageService>(context, listen: false).rootPath,
                 );
                 return PendingImageChip(
-                  bytes: _pendingImageBytes!,
-                  visionOk: _pendingImageVisionOk,
-                  blindReason: _pendingImageBlindReason,
-                  onRemove: () => rebuildState(() {
-                    _pendingImageBytes = null;
-                    _pendingImageVisionOk = null;
-                    _pendingImageBlindReason = null;
-                  }),
+                  bytes: pendingImageBytes!,
+                  visionOk: pendingImageVisionOk,
+                  blindReason: pendingImageBlindReason,
+                  onRemove: onRemoveImage,
                 );
               },
             ),
@@ -171,8 +251,8 @@ extension _ChatPageInputBar on _ChatPageState {
                     );
                   },
                 ),
-                _buildChatManagementMenu(context, chatService),
-                ..._buildInputActionButtons(context, chatService),
+                menu,
+                ...actions.build(context),
               ],
             ),
           ),

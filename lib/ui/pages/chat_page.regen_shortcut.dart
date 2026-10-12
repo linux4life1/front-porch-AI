@@ -16,7 +16,19 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'chat_page.dart';
+import 'dart:async';
+import 'dart:io';
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+
+/// Platform-appropriate label for the regenerate shortcut (#86), surfaced in
+/// the Generate-reply button tooltip so keyboard users can discover it.
+String get chatRegenShortcutLabel => Platform.isMacOS ? '⌘R' : 'Ctrl+R';
 
 /// ⌘R (macOS) / Ctrl+R: (re)generate the last AI reply. If the reply was
 /// deleted, regenerateLastMessage() writes a fresh one from the trailing user
@@ -24,37 +36,37 @@ part of 'chat_page.dart';
 ///
 /// Read at the keyboard, not on the message box's focus node: a click on a
 /// bubble, the sidebar or a button moves focus out of the box, and the
-/// shortcut used to go dead (macOS played its error sound).
-extension _ChatPageRegenShortcut on _ChatPageState {
-  bool _onRegenShortcut(KeyEvent event) {
-    if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyR) {
-      return false;
-    }
-    final keys = HardwareKeyboard.instance;
-    if (!(Platform.isMacOS ? keys.isMetaPressed : keys.isControlPressed)) {
-      return false;
-    }
-    // Only while the chat is the screen in front. A dialog over it (the
-    // Regenerate dialog takes a second press itself) or a page pushed on top
-    // keeps the key.
-    if (!mounted || !(ModalRoute.of(context)?.isCurrent ?? false)) {
-      return false;
-    }
-    final chatService = Provider.of<ChatService>(context, listen: false);
-    if (chatService.isGenerating || chatService.isGuestBusy) return true;
-    final messages = chatService.messages;
-    final last = messages.isEmpty ? null : messages.last;
-    if (last != null && !last.isUser && last != messages.first) {
-      unawaited(
-        promptLookupRegen(
-          context,
-          chatService,
-          chatService.regenerateLastMessage,
-        ),
-      );
-    } else {
-      chatService.regenerateLastMessage();
-    }
-    return true;
+/// shortcut used to go dead (macOS played its error sound). [host] is the
+/// chat page that registered the handler; returns whether the key was used.
+bool handleChatRegenShortcut(KeyEvent event, State host) {
+  if (event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.keyR) {
+    return false;
   }
+  final keys = HardwareKeyboard.instance;
+  if (!(Platform.isMacOS ? keys.isMetaPressed : keys.isControlPressed)) {
+    return false;
+  }
+  // Only while the chat is the screen in front. A dialog over it (the
+  // Regenerate dialog takes a second press itself) or a page pushed on top
+  // keeps the key.
+  if (!host.mounted || !(ModalRoute.of(host.context)?.isCurrent ?? false)) {
+    return false;
+  }
+  final context = host.context;
+  final chatService = Provider.of<ChatService>(context, listen: false);
+  if (chatService.isGenerating || chatService.isGuestBusy) return true;
+  final messages = chatService.messages;
+  final last = messages.isEmpty ? null : messages.last;
+  if (last != null && !last.isUser && last != messages.first) {
+    unawaited(
+      promptLookupRegen(
+        context,
+        chatService,
+        chatService.regenerateLastMessage,
+      ),
+    );
+  } else {
+    chatService.regenerateLastMessage();
+  }
+  return true;
 }
