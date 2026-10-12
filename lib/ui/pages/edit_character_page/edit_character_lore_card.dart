@@ -15,168 +15,29 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
-//
-// The character editor's Lorebook tab (with per-entry cards) and
-// Worlds tab.
-// Extracted verbatim from edit_character_page.dart (god-file campaign,
-// Tranche A); `part of` the same library — privates stay in scope.
 
-part of 'edit_character_page.dart';
+import 'package:flutter/material.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-extension _EditCharacterLoreTabs on _EditCharacterPageState {
-  Widget _buildLorebookHeading() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Lorebook',
-          style: TextStyle(
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-            color: AppColors.textPrimary(context),
-          ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'World lore entries inject context when keywords are detected.',
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary(context),
-          ),
-        ),
-      ],
-    );
-  }
+/// One lorebook entry row on the editor's Lorebook tab. The enable switch
+/// writes [LorebookEntry.enabled] in place and then calls [onChanged].
+class EditCharacterLoreCard extends StatelessWidget {
+  final LorebookEntry entry;
+  final VoidCallback onEdit;
+  final VoidCallback onRemove;
+  final VoidCallback onChanged;
 
-  Widget _lorebookHeaderButton({
-    required VoidCallback onPressed,
-    required IconData icon,
-    required String label,
-    bool accent = false,
-  }) {
-    return ElevatedButton.icon(
-      onPressed: onPressed,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: accent
-            ? AppColors.formMasterAccent
-            : AppColors.surfaceContainerOf(context),
-        foregroundColor: accent
-            ? AppColors.onChaosAccent
-            : AppColors.textPrimary(context),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
+  const EditCharacterLoreCard({
+    super.key,
+    required this.entry,
+    required this.onEdit,
+    required this.onRemove,
+    required this.onChanged,
+  });
 
-  Widget _buildLorebookTab() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 720),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header. The editor column is 720px wide and three actions
-              // already fill the row beside the title, so Export sits with
-              // them on the next line instead of crushing the heading.
-              _buildLorebookHeading(),
-              const SizedBox(height: 12),
-              Align(
-                alignment: Alignment.centerRight,
-                child: Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  alignment: WrapAlignment.end,
-                  children: [
-                    _lorebookHeaderButton(
-                      onPressed: _importLorebookJson,
-                      icon: Icons.cloud_upload,
-                      label: 'Import file',
-                    ),
-                    _lorebookHeaderButton(
-                      onPressed: _exportLorebookJson,
-                      icon: Icons.cloud_download,
-                      label: 'Export file',
-                    ),
-                    _lorebookHeaderButton(
-                      onPressed: _importLoreFromCharacter,
-                      icon: Icons.person_search,
-                      label: 'From character',
-                    ),
-                    _lorebookHeaderButton(
-                      onPressed: _addLoreEntry,
-                      icon: Icons.add,
-                      label: 'Add Entry',
-                      accent: true,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              if (_loreEntries.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(40),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardOf(context),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.borderOf(
-                        context,
-                      ).withValues(alpha: 0.45),
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.menu_book_outlined,
-                          size: 48,
-                          color: AppColors.resolve(
-                            context,
-                            Colors.white.withValues(alpha: 0.12),
-                            Colors.black.withValues(alpha: 0.12),
-                          ),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No lorebook entries yet',
-                          style: TextStyle(
-                            color: AppColors.textTertiary(context),
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Add entries to inject context-aware world lore.',
-                          style: TextStyle(
-                            color: AppColors.textTertiary(context),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ..._loreEntries.asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final lore = entry.value;
-                  return _buildLoreCard(idx, lore);
-                }),
-
-              const SizedBox(height: 80),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLoreCard(int index, LorebookEntry entry) {
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -267,9 +128,8 @@ extension _EditCharacterLoreTabs on _EditCharacterPageState {
                 child: Switch(
                   value: entry.enabled,
                   onChanged: (val) {
-                    rebuildState(() {
-                      entry.enabled = val;
-                    });
+                    entry.enabled = val;
+                    onChanged();
                   },
                   activeTrackColor: AppColors.formMasterAccent.withValues(
                     alpha: 0.5,
@@ -279,7 +139,7 @@ extension _EditCharacterLoreTabs on _EditCharacterPageState {
                 ),
               ),
               IconButton(
-                onPressed: () => _editLoreEntry(index),
+                onPressed: onEdit,
                 icon: Icon(
                   Icons.edit_outlined,
                   size: 16,
@@ -291,7 +151,7 @@ extension _EditCharacterLoreTabs on _EditCharacterPageState {
                 padding: const EdgeInsets.all(4),
               ),
               IconButton(
-                onPressed: () => _removeLoreEntry(index),
+                onPressed: onRemove,
                 icon: Icon(
                   Icons.delete_outline,
                   size: 16,
@@ -340,8 +200,4 @@ extension _EditCharacterLoreTabs on _EditCharacterPageState {
       ),
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  TAB 4: WORLDS
-  // ═══════════════════════════════════════════════════════════════
 }

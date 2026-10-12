@@ -15,15 +15,26 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
-//
-// The character editor's Worlds tab.
-// Extracted verbatim from edit_character_page.dart (god-file campaign,
-// Tranche A); `part of` the same library — privates stay in scope.
 
-part of 'edit_character_page.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-extension _EditCharacterWorldsTab on _EditCharacterPageState {
-  Widget _buildWorldsTab() {
+/// The character editor's Worlds tab. Linking a place edits
+/// [selectedWorldNames] in place and then calls [onChanged].
+class EditCharacterWorldsTab extends StatelessWidget {
+  final List<String> selectedWorldNames;
+  final VoidCallback onChanged;
+
+  const EditCharacterWorldsTab({
+    super.key,
+    required this.selectedWorldNames,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Consumer<WorldRepository>(
       builder: (context, repo, child) {
         return SingleChildScrollView(
@@ -100,8 +111,8 @@ extension _EditCharacterWorldsTab on _EditCharacterPageState {
                   else
                     ...repo.placeWorlds.map((world) {
                       final isLinked =
-                          _selectedWorldNames.contains(world.id) ||
-                          _selectedWorldNames.contains(world.name);
+                          selectedWorldNames.contains(world.id) ||
+                          selectedWorldNames.contains(world.name);
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
@@ -166,17 +177,16 @@ extension _EditCharacterWorldsTab on _EditCharacterPageState {
                           trailing: Switch(
                             value: isLinked,
                             onChanged: (val) {
-                              rebuildState(() {
-                                if (val) {
-                                  _selectedWorldNames.remove(world.name);
-                                  if (!_selectedWorldNames.contains(world.id)) {
-                                    _selectedWorldNames.add(world.id);
-                                  }
-                                } else {
-                                  _selectedWorldNames.remove(world.id);
-                                  _selectedWorldNames.remove(world.name);
+                              if (val) {
+                                selectedWorldNames.remove(world.name);
+                                if (!selectedWorldNames.contains(world.id)) {
+                                  selectedWorldNames.add(world.id);
                                 }
-                              });
+                              } else {
+                                selectedWorldNames.remove(world.id);
+                                selectedWorldNames.remove(world.name);
+                              }
+                              onChanged();
                             },
                             activeTrackColor: AppColors.formMasterAccent
                                 .withValues(alpha: 0.5),
@@ -195,8 +205,4 @@ extension _EditCharacterWorldsTab on _EditCharacterPageState {
       },
     );
   }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  REALISM ENGINE SUMMARY (read-only)
-  // ═══════════════════════════════════════════════════════════════
 }

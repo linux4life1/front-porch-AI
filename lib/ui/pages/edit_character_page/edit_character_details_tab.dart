@@ -15,15 +15,84 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
-//
-// The character editor's Details and Dialogue tabs.
-// Extracted verbatim from edit_character_page.dart (god-file campaign,
-// Tranche A); `part of` the same library — privates stay in scope.
 
-part of 'edit_character_page.dart';
+import 'dart:io';
 
-extension _EditCharacterCoreTabs on _EditCharacterPageState {
-  Widget _buildDetailsTab() {
+import 'package:flutter/material.dart';
+import 'package:path/path.dart' as p;
+import 'package:provider/provider.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/chat.dart' show BirthdayMath;
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_realism_section.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+
+/// Card face for the editor: the ★ starred gallery look when set, else the
+/// library portrait — same resolution as the home grid / export cover
+/// (issue #171: used to read raw `imagePath` only, so Add avatar + ★ left
+/// this page stuck on "No avatar" while chat already showed the look).
+///
+/// Cost: once per Details rebuild via the repo's cover cache (not a chat
+/// bubble hot path). Prefer this over a raw existsSync on imagePath.
+/// Falls back to raw `imagePath` when CharacterRepository is not above this
+/// widget (widget goldens / rare embeds that only provide StorageService).
+File? editCharacterAvatarFile(BuildContext context, CharacterCard character) {
+  try {
+    final repo = Provider.of<CharacterRepository>(context, listen: false);
+    final cover = repo.coverImageFileFor(character);
+    if (cover != null) return cover;
+  } on ProviderNotFoundException {
+    // Fall through to imagePath.
+  }
+  final img = character.imagePath;
+  if (img == null || img.isEmpty) return null;
+  if (p.isAbsolute(img)) return File(img);
+  try {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    return File(p.join(storage.charactersDir.path, img));
+  } on ProviderNotFoundException {
+    return File(img);
+  }
+}
+
+/// The character editor's Details tab: avatar, identity, voice, prompts,
+/// the identity chip lists and (outside group members) the Realism section.
+class EditCharacterDetailsTab extends StatelessWidget {
+  final CharacterCard character;
+  final EditCharacterDraft draft;
+  final bool showRealismTab;
+  final VoidCallback onChanged;
+
+  const EditCharacterDetailsTab({
+    super.key,
+    required this.character,
+    required this.draft,
+    required this.showRealismTab,
+    required this.onChanged,
+  });
+
+  void _edit(VoidCallback fn) {
+    fn();
+    onChanged();
+  }
+
+  void _addTag(String value) {
+    final trimmed = value.trim().toLowerCase();
+    if (trimmed.isNotEmpty && !draft.tags.contains(trimmed)) {
+      _edit(() {
+        draft.tags.add(trimmed);
+        draft.tagController.clear();
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final d = draft;
+    final kit = EditCharacterFormKit(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
@@ -38,7 +107,7 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               //    Display uses coverImageFileFor (★-aware), not raw imagePath.
               Builder(
                 builder: (context) {
-                  final cover = _avatarFile;
+                  final cover = editCharacterAvatarFile(context, character);
                   return Center(
                     child: Container(
                       width: 160,
@@ -89,10 +158,10 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               const SizedBox(height: 20),
 
               CharacterStatsSection(
-                characterId: widget.character.dbId,
+                characterId: character.dbId,
                 wrap: (content) => Padding(
                   padding: const EdgeInsets.only(bottom: 20),
-                  child: _sectionCard(
+                  child: kit.sectionCard(
                     icon: Icons.insights_outlined,
                     title: 'Your chats together',
                     color: AppColors.porchAmberOf(context),
@@ -102,21 +171,21 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               ),
 
               // ── Identity Section ──
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.badge_outlined,
                 title: 'Identity',
                 color: AppColors.formMasterAccent,
                 children: [
-                  _styledField(controller: _nameController, label: 'Name'),
+                  kit.styledField(controller: d.nameController, label: 'Name'),
                   const SizedBox(height: 16),
                   // Tags
-                  _fieldLabel('Tags'),
+                  kit.fieldLabel('Tags'),
                   const SizedBox(height: 8),
-                  if (_tags.isNotEmpty)
+                  if (d.tags.isNotEmpty)
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
-                      children: _tags
+                      children: d.tags
                           .map(
                             (tag) => Chip(
                               label: Text(
@@ -135,8 +204,7 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                                 size: 14,
                                 color: AppColors.textTertiary(context),
                               ),
-                              onDeleted: () =>
-                                  rebuildState(() => _tags.remove(tag)),
+                              onDeleted: () => _edit(() => d.tags.remove(tag)),
                               visualDensity: VisualDensity.compact,
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(8),
@@ -145,27 +213,18 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                           )
                           .toList(),
                     ),
-                  if (_tags.isNotEmpty) const SizedBox(height: 8),
+                  if (d.tags.isNotEmpty) const SizedBox(height: 8),
                   Row(
                     children: [
                       Expanded(
                         child: TextField(
-                          controller: _tagController,
+                          controller: d.tagController,
                           style: TextStyle(
                             color: AppColors.textPrimary(context),
                             fontSize: 14,
                           ),
-                          decoration: _inputDecoration('Add a tag...'),
-                          onSubmitted: (value) {
-                            final trimmed = value.trim().toLowerCase();
-                            if (trimmed.isNotEmpty &&
-                                !_tags.contains(trimmed)) {
-                              rebuildState(() {
-                                _tags.add(trimmed);
-                                _tagController.clear();
-                              });
-                            }
-                          },
+                          decoration: kit.inputDecoration('Add a tag...'),
+                          onSubmitted: _addTag,
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -175,17 +234,7 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
                           color: AppColors.formMasterAccent,
                         ),
                         tooltip: 'Add tag',
-                        onPressed: () {
-                          final trimmed = _tagController.text
-                              .trim()
-                              .toLowerCase();
-                          if (trimmed.isNotEmpty && !_tags.contains(trimmed)) {
-                            rebuildState(() {
-                              _tags.add(trimmed);
-                              _tagController.clear();
-                            });
-                          }
-                        },
+                        onPressed: () => _addTag(d.tagController.text),
                       ),
                     ],
                   ),
@@ -199,23 +248,23 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               // carries `tts_voice`). It was invisible here until 2026-08-14,
               // which is how "I picked Adam and she still sounds female"
               // happened with nothing to click.
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.record_voice_over_outlined,
                 title: 'Voice',
                 color: AppColors.porchAmberOf(context),
                 children: [
-                  _fieldLabel('Text-to-speech voice'),
+                  kit.fieldLabel('Text-to-speech voice'),
                   const SizedBox(height: 8),
                   CharacterVoicePicker(
-                    value: _ttsVoice,
-                    onChanged: (v) => rebuildState(() => _ttsVoice = v),
+                    value: d.ttsVoice,
+                    onChanged: (v) => _edit(() => d.ttsVoice = v),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    _ttsVoice.isEmpty
+                    d.ttsVoice.isEmpty
                         ? 'Following the voice set in Settings → '
                               'Text-to-Speech. Pick one here to give '
-                              '${_nameController.text.trim().isEmpty ? 'this character' : _nameController.text.trim()} '
+                              '${d.nameController.text.trim().isEmpty ? 'this character' : d.nameController.text.trim()} '
                               'their own voice instead.'
                         : 'This character speaks in their own voice — the '
                               'Settings voice does not apply to them. Choose '
@@ -230,29 +279,29 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               const SizedBox(height: 20),
 
               // ── Personality & World ──
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.psychology_outlined,
                 title: 'Personality & World',
                 color: AppColors.porchHoneyOf(context),
                 children: [
-                  _styledField(
-                    controller: _descriptionController,
+                  kit.styledField(
+                    controller: d.descriptionController,
                     label: 'Description',
                     maxLines: 4,
                     expandable: true,
                     hint: 'Physical appearance, backstory, key traits...',
                   ),
                   const SizedBox(height: 16),
-                  _styledField(
-                    controller: _personalityController,
+                  kit.styledField(
+                    controller: d.personalityController,
                     label: 'Personality',
                     maxLines: 3,
                     expandable: true,
                     hint: 'How they act, speak, think...',
                   ),
                   const SizedBox(height: 16),
-                  _styledField(
-                    controller: _scenarioController,
+                  kit.styledField(
+                    controller: d.scenarioController,
                     label: 'Scenario',
                     maxLines: 3,
                     expandable: true,
@@ -263,22 +312,22 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               const SizedBox(height: 20),
 
               // ── Advanced Prompts ──
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.settings_suggest_outlined,
                 title: 'Advanced Prompts',
                 color: AppColors.textTertiary(context),
                 collapsed: true,
                 children: [
-                  _styledField(
-                    controller: _systemPromptController,
+                  kit.styledField(
+                    controller: d.systemPromptController,
                     label: 'System Prompt',
                     maxLines: 4,
                     expandable: true,
                     hint: 'Custom system prompt for this character...',
                   ),
                   const SizedBox(height: 16),
-                  _styledField(
-                    controller: _postHistoryController,
+                  kit.styledField(
+                    controller: d.postHistoryController,
                     label: 'Post-History Instructions',
                     maxLines: 3,
                     expandable: true,
@@ -295,63 +344,62 @@ extension _EditCharacterCoreTabs on _EditCharacterPageState {
               // chip. See ChipListEditor for why the old shape misled authors.
               // One shared widget (identity_chip_lists.dart) so the editor,
               // both creators and the web form cannot drift apart.
-              // Gated on the same flag as the SAVE below, and that is the whole
+              // Gated on the same flag as the SAVE, and that is the whole
               // point of the condition. These chips used to render
-              // unconditionally while `_saveCharacter` wrote them only under
-              // `showRealismTab` (edit_character_page.dart), so opening a group
+              // unconditionally while the save wrote them only under
+              // `showRealismTab` (edit_character_save.dart), so opening a group
               // MEMBER from Group Settings gave you fully editable Ambitions,
               // Likes and Dislikes that were thrown away the moment you pressed
               // Save — no error, no hint, the chips simply gone on reopen. A
               // member's extensions are group state and are deliberately left
               // untouched there; showing an editor for them was the bug.
-              if (widget.showRealismTab)
+              if (showRealismTab)
                 IdentityChipLists(
-                  ambitions: _ambitions,
-                  onAmbitionsChanged: (v) => rebuildState(() => _ambitions = v),
-                  planLines: _planLines,
-                  onPlanLinesChanged: (v) => rebuildState(() => _planLines = v),
-                  occupation: _occupation,
-                  onOccupationChanged: (v) =>
-                      rebuildState(() => _occupation = v),
-                  occupationBrief: _occupationBrief,
+                  ambitions: d.ambitions,
+                  onAmbitionsChanged: (v) => _edit(() => d.ambitions = v),
+                  planLines: d.planLines,
+                  onPlanLinesChanged: (v) => _edit(() => d.planLines = v),
+                  occupation: d.occupation,
+                  onOccupationChanged: (v) => _edit(() => d.occupation = v),
+                  occupationBrief: d.occupationBrief,
                   onOccupationBriefChanged: (v) =>
-                      rebuildState(() => _occupationBrief = v),
-                  hours: _hours,
-                  onHoursChanged: (v) => rebuildState(() => _hours = v),
-                  workDays: _workDays,
-                  onWorkDaysChanged: (v) => rebuildState(() => _workDays = v),
-                  birthday: _birthday,
-                  onBirthdayChanged: (v) => rebuildState(() => _birthday = v),
+                      _edit(() => d.occupationBrief = v),
+                  hours: d.hours,
+                  onHoursChanged: (v) => _edit(() => d.hours = v),
+                  workDays: d.workDays,
+                  onWorkDaysChanged: (v) => _edit(() => d.workDays = v),
+                  birthday: d.birthday,
+                  onBirthdayChanged: (v) => _edit(() => d.birthday = v),
                   birthdayAgeAsOf: BirthdayMath.ageAsOfStory(
-                    _realismStoryStartDate,
+                    d.realismStoryStartDate,
                   ),
-                  likes: _likes,
-                  onLikesChanged: (v) => rebuildState(() => _likes = v),
-                  dislikes: _dislikes,
-                  onDislikesChanged: (v) => rebuildState(() => _dislikes = v),
-                  intimateInto: _intimateInto,
-                  onIntimateIntoChanged: (v) =>
-                      rebuildState(() => _intimateInto = v),
-                  intimateNotInto: _intimateNotInto,
+                  likes: d.likes,
+                  onLikesChanged: (v) => _edit(() => d.likes = v),
+                  dislikes: d.dislikes,
+                  onDislikesChanged: (v) => _edit(() => d.dislikes = v),
+                  intimateInto: d.intimateInto,
+                  onIntimateIntoChanged: (v) => _edit(() => d.intimateInto = v),
+                  intimateNotInto: d.intimateNotInto,
                   onIntimateNotIntoChanged: (v) =>
-                      rebuildState(() => _intimateNotInto = v),
+                      _edit(() => d.intimateNotInto = v),
                   // The install's 18+ master switch — the same one that shows
                   // or hides the After Dark group in Settings.
                   showIntimate: adultThemesEnabledOf(context),
-                  worn: _worn,
-                  onWornChanged: (v) => rebuildState(() => _worn = v),
-                  carrying: _carrying,
-                  onCarryingChanged: (v) => rebuildState(() => _carrying = v),
-                  pocketsEnabled: _realismPocketsEnabled,
-                  onPocketsEnabledChanged: (v) => rebuildState(() {
-                    _realismPocketsEnabled = v;
-                    _realismSettingsModified = true;
+                  worn: d.worn,
+                  onWornChanged: (v) => _edit(() => d.worn = v),
+                  carrying: d.carrying,
+                  onCarryingChanged: (v) => _edit(() => d.carrying = v),
+                  pocketsEnabled: d.realismPocketsEnabled,
+                  onPocketsEnabledChanged: (v) => _edit(() {
+                    d.realismPocketsEnabled = v;
+                    d.realismSettingsModified = true;
                   }),
                 ),
 
               // ── Realism Engine Summary ── (hidden for group members, whose
               // realism/needs are group state edited in Group Settings)
-              if (widget.showRealismTab) _buildRealismSection(),
+              if (showRealismTab)
+                EditCharacterRealismSection(draft: d, onChanged: onChanged),
 
               const SizedBox(height: 80), // Space for token badge
             ],

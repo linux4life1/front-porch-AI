@@ -15,13 +15,29 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
-//
-// The character editor's Dialogue tab.
 
-part of 'edit_character_page.dart';
+import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
-extension _EditCharacterDialogueTab on _EditCharacterPageState {
-  Widget _buildDialogueTab() {
+/// The character editor's Dialogue tab: first message, alternate greetings
+/// (each with its realism seed) and example dialogue.
+class EditCharacterDialogueTab extends StatelessWidget {
+  final EditCharacterDraft draft;
+  final VoidCallback onChanged;
+
+  const EditCharacterDialogueTab({
+    super.key,
+    required this.draft,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final d = draft;
+    final kit = EditCharacterFormKit(context);
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Center(
@@ -31,13 +47,13 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // ── First Message ──
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.chat_bubble_outline,
                 title: 'First Message',
                 color: AppColors.formMasterAccent,
                 children: [
-                  _styledField(
-                    controller: _firstMessageController,
+                  kit.styledField(
+                    controller: d.firstMessageController,
                     label: 'Opening Message',
                     maxLines: 6,
                     expandable: true,
@@ -49,20 +65,14 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
               const SizedBox(height: 20),
 
               // ── Alternate Greetings ──
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.swap_horiz,
                 title: 'Alternate Greetings',
                 color: AppColors.porchHoneyOf(context),
                 trailing: TextButton.icon(
                   onPressed: () {
-                    rebuildState(() {
-                      final c = StyledTextController(
-                        preset: StyledTextPreset.prose,
-                      );
-                      c.addListener(_updateTokenCount);
-                      _altGreetingControllers.add(c);
-                      _altGreetingSeeds.add(null);
-                    });
+                    d.addAltGreeting();
+                    onChanged();
                   },
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
@@ -71,7 +81,7 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
                   ),
                 ),
                 children: [
-                  if (_altGreetingControllers.isEmpty)
+                  if (d.altGreetingControllers.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(24),
                       child: Center(
@@ -89,12 +99,12 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
                       ),
                     )
                   else
-                    ..._altGreetingControllers.asMap().entries.map((entry) {
+                    ...d.altGreetingControllers.asMap().entries.map((entry) {
                       final idx = entry.key;
                       final ctrl = entry.value;
                       return Padding(
                         padding: EdgeInsets.only(
-                          bottom: idx < _altGreetingControllers.length - 1
+                          bottom: idx < d.altGreetingControllers.length - 1
                               ? 12
                               : 0,
                         ),
@@ -105,7 +115,7 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Expanded(
-                                  child: _styledField(
+                                  child: kit.styledField(
                                     controller: ctrl,
                                     label: 'Greeting ${idx + 2}',
                                     maxLines: 4,
@@ -117,13 +127,8 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
                                   padding: const EdgeInsets.only(top: 26),
                                   child: IconButton(
                                     onPressed: () {
-                                      rebuildState(() {
-                                        _altGreetingControllers[idx].dispose();
-                                        _altGreetingControllers.removeAt(idx);
-                                        if (idx < _altGreetingSeeds.length) {
-                                          _altGreetingSeeds.removeAt(idx);
-                                        }
-                                      });
+                                      d.removeAltGreeting(idx);
+                                      onChanged();
                                     },
                                     icon: Icon(
                                       Icons.remove_circle_outline,
@@ -138,18 +143,14 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
                               ],
                             ),
                             GreetingSeedForm(
-                              seed: idx < _altGreetingSeeds.length
-                                  ? _altGreetingSeeds[idx]
+                              seed: idx < d.altGreetingSeeds.length
+                                  ? d.altGreetingSeeds[idx]
                                   : null,
                               showNeeds: true,
                               showInventory: true,
                               onChanged: (next) {
-                                rebuildState(() {
-                                  while (_altGreetingSeeds.length <= idx) {
-                                    _altGreetingSeeds.add(null);
-                                  }
-                                  _altGreetingSeeds[idx] = next;
-                                });
+                                d.setAltGreetingSeed(idx, next);
+                                onChanged();
                               },
                             ),
                           ],
@@ -161,13 +162,13 @@ extension _EditCharacterDialogueTab on _EditCharacterPageState {
               const SizedBox(height: 20),
 
               // ── Example Dialogue ──
-              _sectionCard(
+              kit.sectionCard(
                 icon: Icons.format_quote_outlined,
                 title: 'Example Dialogue',
                 color: AppColors.porchTerracottaOf(context),
                 children: [
-                  _styledField(
-                    controller: _mesExampleController,
+                  kit.styledField(
+                    controller: d.mesExampleController,
                     label: 'Example Conversations',
                     maxLines: 6,
                     expandable: true,
