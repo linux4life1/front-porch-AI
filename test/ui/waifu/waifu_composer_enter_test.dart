@@ -59,9 +59,11 @@ void main() {
     expect(sent, 2);
   });
 
-  // No harness in this tree, so the send is refused out loud: a stage line
-  // says nothing went out and the words stay in the box. Enter still ran
-  // the send; before, it silently posted a user line nobody answered.
+  // This bare tree has no LLMProvider or OpenCodeManager, so the page has
+  // no harness. The app always provides LLMProvider, so only a test tree
+  // reaches this branch. Enter still runs the send; the branch now says
+  // nothing went out and keeps the words, where it used to post a user
+  // line nobody answered.
   testWidgets('Enter in the box sends the task', (tester) async {
     final session = WaifuSession(
       folderRoot: '/tmp/throwaway-waifu',

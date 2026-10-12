@@ -108,7 +108,6 @@ String waifuModeLabel(WaifuMode mode) => switch (mode) {
   WaifuMode.yolo => 'Yolo',
 };
 
-/// Compact AppBar / sit-down badge. Full name stays on [waifuPathModeTitle].
 /// What each mode lets the coworker do, for chip and badge tooltips.
 String waifuModeTooltip(WaifuMode mode) => switch (mode) {
   WaifuMode.plan =>
@@ -119,6 +118,7 @@ String waifuModeTooltip(WaifuMode mode) => switch (mode) {
         'refused.',
 };
 
+/// Compact AppBar / Start-step badge. Full name stays on [waifuPathModeTitle].
 String waifuScopeBadgeLabel(WaifuPathMode pathMode) => switch (pathMode) {
   WaifuPathMode.folderJail => 'This folder',
   WaifuPathMode.wholeDisk => 'Whole disk',
