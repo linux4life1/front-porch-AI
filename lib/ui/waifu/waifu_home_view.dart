@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/waifu/waifu_new_porch_card.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_new_session_dialog.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_page.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_project_card.dart';
+import 'package:front_porch_ai/ui/waifu/waifu_session_scope.dart';
 import 'package:front_porch_ai/ui/waifu/waifu_wizard_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -97,22 +98,13 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
         knownUnsupported: chat.toolCallSupport.name == 'unsupported',
         paused: chat.toolCallingPaused,
       );
-    } catch (_) {
+    } on ProviderNotFoundException {
       return true;
     }
   }
 
-  WaifuStore? _storeOf() {
-    if (widget.store != null) return widget.store;
-    try {
-      final storage = Provider.of<StorageService>(context, listen: false);
-      final root = storage.rootPath;
-      if (root == null || root.isEmpty) return null;
-      return WaifuStore(waifuStoreDirectory(root));
-    } catch (_) {
-      return null;
-    }
-  }
+  WaifuStore? _storeOf() =>
+      waifuStoreForContext(context, injected: widget.store);
 
   void _startNew({
     String? folder,
@@ -129,7 +121,9 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
       final llm = Provider.of<LLMProvider>(context, listen: false);
       local = llm.isLocal;
       label = local ? 'local Kobold' : 'remote';
-    } catch (_) {}
+    } on ProviderNotFoundException {
+      // No LLM provider in this tree: the wizard shows no backend label.
+    }
     Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => WaifuWizardPage(
@@ -171,7 +165,6 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
       );
       return;
     }
-    session.toolsSupported = _toolsSupportedOf();
     if (!mounted) return;
     setState(() => _opening = null);
     await Navigator.of(context).push(

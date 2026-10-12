@@ -57,7 +57,7 @@ class WaifuComposer extends StatelessWidget {
     required this.session,
     required this.onSend,
     required this.onStop,
-    this.onQueueChanged,
+    this.onRemoveQueued,
     required this.onUndo,
     required this.onRedo,
     this.canUndo = false,
@@ -74,7 +74,7 @@ class WaifuComposer extends StatelessWidget {
   final WaifuSession session;
   final VoidCallback onSend;
   final VoidCallback onStop;
-  final VoidCallback? onQueueChanged;
+  final ValueChanged<int>? onRemoveQueued;
   final VoidCallback onUndo;
   final VoidCallback onRedo;
   final bool canUndo;
@@ -119,12 +119,9 @@ class WaifuComposer extends StatelessWidget {
                         session.queued[i].text,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      onDeleted: onQueueChanged == null
+                      onDeleted: onRemoveQueued == null
                           ? null
-                          : () {
-                              session.queued.removeAt(i);
-                              onQueueChanged!();
-                            },
+                          : () => onRemoveQueued!(i),
                       backgroundColor: AppColors.surfaceContainerOf(context),
                       side: BorderSide(color: AppColors.borderOf(context)),
                       labelStyle: TextStyle(
@@ -145,7 +142,9 @@ class WaifuComposer extends StatelessWidget {
                     listen: false,
                   ).rootPath;
                   LocalCaptionService.instance.configure(root);
-                } catch (_) {}
+                } on ProviderNotFoundException {
+                  // No storage in this tree: the chip shows without captions.
+                }
                 return PendingImageChip(
                   bytes: pendingImage!,
                   visionOk: visionOk,

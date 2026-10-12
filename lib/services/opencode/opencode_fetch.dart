@@ -19,6 +19,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
@@ -108,7 +109,9 @@ Future<File> openCodeUnpackZip(List<int> bytes, Directory dest) async {
   } finally {
     try {
       await archive.delete();
-    } catch (_) {}
+    } on FileSystemException catch (e) {
+      debugPrint('[OpenCode] could not remove ${archive.path}: $e');
+    }
   }
 }
 

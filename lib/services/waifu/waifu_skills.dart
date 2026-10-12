@@ -21,21 +21,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
-/// One OpenCode-style skill folder: `<library>/skills/<name>/SKILL.md`.
-class LibrarySkill {
-  const LibrarySkill({
-    required this.name,
-    required this.description,
-    required this.directory,
-    required this.skillFile,
-  });
-
-  final String name;
-  final String description;
-  final Directory directory;
-  final File skillFile;
-}
-
 /// Create `<library>/skills/` if it is missing. Same on-demand rule as tools/.
 Directory ensureSkillsDir(Directory skillsDir) {
   try {
@@ -52,42 +37,6 @@ Map<String, dynamic> openCodeSkillsConfig(Directory skillsDir) {
   return {
     'paths': [skillsDir.path],
   };
-}
-
-/// Discover `*/SKILL.md` (any language). Frontmatter is optional.
-List<LibrarySkill> listLibrarySkills(Directory skillsDir) {
-  ensureSkillsDir(skillsDir);
-  List<FileSystemEntity> entries;
-  try {
-    entries = skillsDir.listSync(followLinks: false);
-  } catch (e) {
-    debugPrint('[Skills] could not list ${skillsDir.path}: $e');
-    return const [];
-  }
-  final out = <LibrarySkill>[];
-  for (final entity in entries) {
-    if (entity is! Directory) continue;
-    final skillFile = File(p.join(entity.path, 'SKILL.md'));
-    if (!skillFile.existsSync()) continue;
-    String raw;
-    try {
-      raw = skillFile.readAsStringSync();
-    } catch (e) {
-      debugPrint('[Skills] skip ${p.basename(entity.path)}: $e');
-      continue;
-    }
-    final parsed = _frontmatter(raw);
-    final folder = p.basename(entity.path);
-    out.add(
-      LibrarySkill(
-        name: parsed.name.isEmpty ? folder : parsed.name,
-        description: parsed.description,
-        directory: entity,
-        skillFile: skillFile,
-      ),
-    );
-  }
-  return out;
 }
 
 /// Copy skill folders. A `SKILL.md` path copies its parent. Other files skip.
@@ -134,22 +83,4 @@ void _copyDir(Directory source, Directory dest) {
       _copyDir(entity, Directory(p.join(dest.path, base)));
     }
   }
-}
-
-({String name, String description}) _frontmatter(String raw) {
-  var name = '';
-  var description = '';
-  if (!raw.startsWith('---')) return (name: name, description: description);
-  final end = raw.indexOf('\n---', 3);
-  if (end < 0) return (name: name, description: description);
-  final block = raw.substring(3, end);
-  for (final line in block.split('\n')) {
-    final trimmed = line.trim();
-    if (trimmed.startsWith('name:')) {
-      name = trimmed.substring(5).trim();
-    } else if (trimmed.startsWith('description:')) {
-      description = trimmed.substring(12).trim();
-    }
-  }
-  return (name: name, description: description);
 }

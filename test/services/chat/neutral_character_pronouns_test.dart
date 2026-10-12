@@ -107,7 +107,6 @@ void main() {
           expect(_she.hasMatch(waifuEmptyPrompt(mode, 'Mira')), isFalse);
         }
         expect(_she.hasMatch(kWaifuOpenCodePreamble), isFalse);
-        expect(_she.hasMatch(kWaifuMcpOpenCodeHonesty), isFalse);
       },
     );
   });

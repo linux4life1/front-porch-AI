@@ -35,8 +35,12 @@ void main() {
           home: WaifuPage(session: session, store: store),
         ),
       );
-      await Future<void>.delayed(const Duration(milliseconds: 80));
+      // Saves are flushed and renamed into place; wait for the first one.
       list = await store.listProjects();
+      for (var i = 0; i < 100 && list.isEmpty; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        list = await store.listProjects();
+      }
     });
     await tester.pump();
     expect(list, hasLength(1));

@@ -133,16 +133,6 @@ String waifuEmptyPrompt(WaifuPathMode pathMode, String coworker) =>
             'work elsewhere on your disk.',
     };
 
-String waifuMcpScopeWarning(WaifuPathMode pathMode) => switch (pathMode) {
-  WaifuPathMode.folderJail =>
-    'The folder jail covers Waifu Coder’s own file and bash tools. Library '
-        'recipe cards still call the HTTP address on the card — that is '
-        'outside the fence.',
-  WaifuPathMode.wholeDisk =>
-    'Whole-disk access is already open. Library recipe cards still call the '
-        'HTTP address on the card.',
-};
-
 const kWaifuToolsUnsupported =
     'This model cannot do $kWaifuCoderName. Tool calling is unsupported. '
     'Start is blocked. Pick a tool-fluent backend in Settings.';
@@ -159,9 +149,3 @@ const kWaifuUndoNeedsTurn =
 
 const kWaifuRedoNeedsRevert =
     'Redo restores the last OpenCode revert — nothing is waiting.';
-
-const kWaifuMcpOpenCodeHonesty =
-    'Recipe cards from the shared library tools drawer are written into '
-    'Porch’s isolated OpenCode config when you start. OpenCode owns those tools — '
-    'they ride a Porch loopback adapter, not Docker and not extra MCP servers. '
-    'Character chat uses the same cards.';

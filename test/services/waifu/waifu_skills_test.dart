@@ -35,47 +35,38 @@ void main() {
     expect(kRootDirsToMove, contains('skills'));
   });
 
-  test(
-    'a fixture SKILL.md is listed and seated on isolated OpenCode config',
-    () {
-      final dirs = AppDirectories(rootPath: root.path, customModelsPath: null);
-      final skillDir = Directory('${dirs.skillsDir.path}/git-release');
-      skillDir.createSync(recursive: true);
-      File('${skillDir.path}/SKILL.md').writeAsStringSync(
-        '---\n'
-        'name: git-release\n'
-        'description: Cut a tagged release.\n'
-        '---\n'
-        '\n'
-        'Use the project tag script. Works from any language.\n',
-      );
+  test('a fixture skills folder is seated on isolated OpenCode config', () {
+    final dirs = AppDirectories(rootPath: root.path, customModelsPath: null);
+    final skillDir = Directory('${dirs.skillsDir.path}/git-release');
+    skillDir.createSync(recursive: true);
+    File('${skillDir.path}/SKILL.md').writeAsStringSync(
+      '---\n'
+      'name: git-release\n'
+      'description: Cut a tagged release.\n'
+      '---\n'
+      '\n'
+      'Use the project tag script. Works from any language.\n',
+    );
 
-      final found = listLibrarySkills(dirs.skillsDir);
-      expect(found, hasLength(1));
-      expect(found.single.name, 'git-release');
-      expect(found.single.description, contains('tagged release'));
-      expect(found.single.skillFile.existsSync(), isTrue);
-
-      final cfg = buildOpenCodeConfigMap(
-        agentPrompt: 'Name: Mira',
-        baseUrl: 'http://127.0.0.1:5001/v1',
-        apiKey: 'x',
-        modelId: 'local',
-        permission: openCodePermissionMap(folderJail: true, yolo: false),
-        skills: openCodeSkillsConfig(dirs.skillsDir),
-      );
-      expect((cfg['skills'] as Map)['paths'], [dirs.skillsDir.path]);
-      expect(
-        (cfg['permission'] as Map)['skill'],
-        'ask',
-        reason: 'ask stays honest unless YOLO',
-      );
-      expect(
-        openCodePermissionMap(folderJail: true, yolo: true)['skill'],
-        'allow',
-      );
-    },
-  );
+    final cfg = buildOpenCodeConfigMap(
+      agentPrompt: 'Name: Mira',
+      baseUrl: 'http://127.0.0.1:5001/v1',
+      apiKey: 'x',
+      modelId: 'local',
+      permission: openCodePermissionMap(folderJail: true, yolo: false),
+      skills: openCodeSkillsConfig(dirs.skillsDir),
+    );
+    expect((cfg['skills'] as Map)['paths'], [dirs.skillsDir.path]);
+    expect(
+      (cfg['permission'] as Map)['skill'],
+      'ask',
+      reason: 'ask stays honest unless YOLO',
+    );
+    expect(
+      openCodePermissionMap(folderJail: true, yolo: true)['skill'],
+      'allow',
+    );
+  });
 
   test(
     'copySkillSourcesIntoLibrary copies the SKILL.md folder, not stray md',

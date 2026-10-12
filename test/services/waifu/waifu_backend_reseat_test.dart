@@ -28,9 +28,6 @@ void main() {
     expect(openCodeBackendSame(nano, omlx), isFalse);
     expect(omlx.baseUrl, contains('localhost:8000'));
     expect(nano.modelId, 'gpt-4o-mini');
-    expect(waifuBackendNeedsReseat(seated: nano, live: omlx), isTrue);
-    expect(waifuBackendNeedsReseat(seated: nano, live: nano), isFalse);
-    expect(waifuBackendNeedsReseat(seated: null, live: omlx), isFalse);
   });
 
   test('oMLX config write is localhost:8000, not the Nano-GPT URL', () async {
