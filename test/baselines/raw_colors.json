@@ -1,7 +1,5 @@
 {
   "lib/main.dart": 5,
-  "lib/main.migration.dart": 6,
-  "lib/main.recovery.dart": 18,
   "lib/ui/character_creator/steps/automated_config_step.dart": 4,
   "lib/ui/character_creator/steps/generating_step.dart": 6,
   "lib/ui/character_creator/steps/guided_config_step.dart": 10,
@@ -155,6 +153,7 @@
   "lib/ui/widgets/character_card_grid.dart": 6,
   "lib/ui/widgets/character_name_input.dart": 3,
   "lib/ui/widgets/custom_page_flip.dart": 3,
+  "lib/ui/widgets/db_corruption_overlay.dart": 18,
   "lib/ui/widgets/db_init_error_app.dart": 5,
   "lib/ui/widgets/description_detail_chip_row.dart": 2,
   "lib/ui/widgets/download_queue_panel.dart": 9,
@@ -165,6 +164,7 @@
   "lib/ui/widgets/kcpps_selector.dart": 2,
   "lib/ui/widgets/local_model_card.dart": 15,
   "lib/ui/widgets/log_view.dart": 4,
+  "lib/ui/widgets/migration_overlay.dart": 6,
   "lib/ui/widgets/model_selector.dart": 2,
   "lib/ui/widgets/needs_bar.dart": 8,
   "lib/ui/widgets/onnx_download_overlay.dart": 11,

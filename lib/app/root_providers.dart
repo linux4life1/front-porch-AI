@@ -16,12 +16,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'main.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/providers/app_state.dart';
+import 'package:front_porch_ai/providers/auth_state.dart';
+import 'package:front_porch_ai/services/audiobook_generator_service.dart';
+import 'package:front_porch_ai/services/backporch/backporch.dart';
+import 'package:front_porch_ai/services/download_manager.dart';
+import 'package:front_porch_ai/services/embedding_service.dart';
+import 'package:front_porch_ai/services/memory_service.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/setup_service.dart';
+import 'package:front_porch_ai/services/web/web_server_host.dart';
+import 'package:provider/provider.dart';
+
+import 'web_server_host_factory.dart';
 
 /// The full provider graph. ORDER IS LOAD-BEARING: a Provider.of inside a
 /// create/update only resolves providers ABOVE it in this list. [db] and
-/// [needsMigration] arrive from _openDatabaseGuarded in main().
-Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
+/// [needsMigration] arrive from openDatabaseGuarded in main(); [app] is
+/// the MaterialApp host (MyApp) at the bottom of the graph.
+Widget buildRootWidget(
+  AppDatabase db,
+  bool needsMigration, {
+  required Widget app,
+}) {
   // ── Re-entry guards for the two proxies whose `update` is NOT idempotent ──
   //
   // A ProxyProvider's `update` runs on EVERY notification from any dependency,
@@ -30,7 +50,7 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
   // every 150ms of live progress), and LLMProvider re-broadcasts all of it, so
   // "once in a while" is really "up to once per frame, forever".
   //
-  // These are function-local, so hot restart (a fresh _buildRootWidget call)
+  // These are function-local, so hot restart (a fresh buildRootWidget call)
   // starts clean.
 
   // ChatService.setLLMProvider APPENDS a listener with no removeListener, so
@@ -74,48 +94,6 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
       embeddings: Provider.of<EmbeddingService>(context, listen: false),
       db: liveDb,
     );
-  }
-
-  // The web relay with every collaborator wired. A named function rather than
-  // an inline `create:` so the proxy's `update` can fall back to it instead of
-  // ever handing out a half-wired host.
-  WebServerHost createWebServerHost(BuildContext context) {
-    final host = WebServerHost(
-      Provider.of<StorageService>(context, listen: false),
-    );
-    host.setDatabase(db);
-    host.setChatService(Provider.of<ChatService>(context, listen: false));
-    host.setKoboldService(Provider.of<KoboldService>(context, listen: false));
-    host.setCharacterRepository(
-      Provider.of<CharacterRepository>(context, listen: false),
-    );
-    host.setGroupChatRepository(
-      Provider.of<GroupChatRepository>(context, listen: false),
-    );
-    host.setLlmProvider(Provider.of<LLMProvider>(context, listen: false));
-    host.setFolderService(Provider.of<FolderService>(context, listen: false));
-    host.setUserPersonaService(
-      Provider.of<UserPersonaService>(context, listen: false),
-    );
-    host.setWorldRepository(
-      Provider.of<WorldRepository>(context, listen: false),
-    );
-    host.setModelManager(Provider.of<ModelManager>(context, listen: false));
-    host.setHardwareService(
-      Provider.of<HardwareService>(context, listen: false),
-    );
-    host.setImageGenService(
-      Provider.of<ImageGenService>(context, listen: false),
-    );
-    host.setTtsService(Provider.of<TtsService>(context, listen: false));
-    host.setSttService(Provider.of<SttService>(context, listen: false));
-    host.setStoryRepository(
-      Provider.of<StoryRepository>(context, listen: false),
-    );
-    host.setStoryPipelineService(
-      Provider.of<StoryPipelineService>(context, listen: false),
-    );
-    return host;
   }
 
   // ProviderScope: Riverpod root for new-code state (CLAUDE.md Riverpod
@@ -476,22 +454,22 @@ Widget _buildRootWidget(AppDatabase db, bool needsMigration) {
           },
         ),
         // Web server: the React PWA + Dart shelf rewrite (lib/services/web).
-        // Started on launch (_autoStartWebServer) or via the Settings toggle.
+        // Started on launch (autoStartWebServer) or via the Settings toggle.
         // Collaborators are wired via setX. ChatService's own ImageGenService
-        // (Scene Guest portraits) is wired in the post-frame block below.
+        // (Scene Guest portraits) is wired in MyApp's post-frame block.
         ChangeNotifierProxyProvider<StoryPipelineService, WebServerHost>(
-          create: createWebServerHost,
+          create: (context) => createWiredWebServerHost(context, db),
           // The Story proxy above mints a NEW pipeline when the user switches
           // backends, so the relay must be re-pointed or the PWA keeps
           // generating stories on the backend the app happened to launch with
           // (and on a disposed service). Every other collaborator here is a
           // single instance for the app's lifetime; this one is not.
           update: (context, storyPipeline, previous) =>
-              (previous ?? createWebServerHost(context))
+              (previous ?? createWiredWebServerHost(context, db))
                 ..setStoryPipelineService(storyPipeline),
         ),
       ],
-      child: const MyApp(),
+      child: app,
     ),
   );
 }
