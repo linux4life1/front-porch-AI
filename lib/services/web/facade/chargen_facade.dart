@@ -33,8 +33,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
-
-part 'chargen_facade.greetings.dart';
+import 'package:front_porch_ai/services/web/facade/chargen/chargen_greetings.dart';
 
 /// Web adapter for the AI character creator. The generator itself
 /// ([CharacterGenService.generateCharacter]) is already fully headless — the
@@ -59,13 +58,33 @@ class ChargenFacade {
   final StorageService? _storage;
   final ChatService? _chat;
 
-  /// The Greetings step (chargen_facade.greetings.dart): the one greeting
-  /// being written, a cache of how characters created here wrote their
-  /// greetings (the card's own stamp is the record), and whether a whole
-  /// character is being created right now.
-  _GreetingJob? _greetingJob;
-  final Map<String, GreetingRecipe> _recipes = {};
+  /// Whether a whole character is being created right now.
   bool _creating = false;
+
+  /// The Greetings step: rewrite, add, delete or stop one greeting.
+  late final ChargenGreetings _greetings = ChargenGreetings(
+    _llm,
+    _characters,
+    _hub,
+    isCreating: () => _creating,
+  );
+
+  /// See [ChargenGreetings.startGreeting].
+  Map<String, dynamic> startGreeting(
+    Map<String, dynamic> body, {
+    bool add = false,
+  }) => _greetings.startGreeting(body, add: add);
+
+  /// See [ChargenGreetings.writingGreeting].
+  int? writingGreeting(String characterId) =>
+      _greetings.writingGreeting(characterId);
+
+  /// See [ChargenGreetings.stopGreeting].
+  bool stopGreeting(String characterId) => _greetings.stopGreeting(characterId);
+
+  /// See [ChargenGreetings.deleteGreeting].
+  Future<Map<String, dynamic>> deleteGreeting(String characterId, int index) =>
+      _greetings.deleteGreeting(characterId, index);
 
   /// Whether an LLM backend is ready to generate.
   bool get available => _llm.activeService.isReady;
@@ -415,7 +434,7 @@ class ChargenFacade {
         });
         return;
       }
-      _rememberRecipe(saved['id']?.toString(), gen.greetingRecipe);
+      _greetings.rememberRecipe(saved['id']?.toString(), gen.greetingRecipe);
       _hub?.broadcast({
         'event': 'chargen_done',
         'id': saved['id'],

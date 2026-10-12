@@ -16,20 +16,9 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
-import 'dart:io';
-
-import 'package:path/path.dart' as p;
-
-import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/capability/capability.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show ChaosFrequency;
 import 'package:front_porch_ai/services/legacy_model_cleanup.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
-
-part 'settings_facade.read.dart';
-part 'settings_facade.update.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings.dart';
 
 /// Read/write adapter over the core generation + backend settings for the web
 /// Settings page. Reuses the existing StorageService setters (read live at
@@ -48,7 +37,7 @@ class SettingsFacade {
   final ChatService? _chat;
   ChatService? get boundChat => _chat;
 
-  static const List<String> backends = ['kobold', 'openRouter', 'omlx'];
+  static const List<String> backends = kWebSettingsBackends;
 
   /// Live remote API base — used by the settings route to decide whether a
   /// POST would actually change the generation host (step-up gate).
@@ -63,140 +52,35 @@ class SettingsFacade {
   String get currentWorkerKoboldKcppsPath =>
       _storage.workerKoboldKcppsPath ?? '';
 
-  static String? _seededReasoningCatalogUrl;
-
-  /// The identity the shared reasoning-effort helpers key on: the remote model
-  /// name, or — for managed KoboldCpp — the loaded .gguf path the resolver
-  /// registers under. Empty (generic chips, nothing claimed) until the file
-  /// has actually been read, or in preset mode where there is no path.
-  String get _reasoningModelKey {
-    if (!_llm.isLocal) return _storage.backendSettings.remoteModelName;
-    final path = _storage.backendSettings.lastUsedModelPath ?? '';
-    return ReasoningSupportResolver.instance.peek(path) == null ? '' : path;
-  }
-
-  bool get _usesTemplateResolve =>
-      _llm.activeBackend == BackendType.omlx ||
-      isLocalRemoteUrl(_storage.backendSettings.remoteApiUrl);
-
-  /// Template thinking verdict, kicking resolve once so a later state poll
-  /// carries the answer. Mirrors the desktop block's kick-then-peek: this
-  /// getter itself never touches disk or the network.
-  ThinkingSupport? get _localThinkingSupport {
-    if (_llm.isLocal) {
-      final path = _storage.backendSettings.lastUsedModelPath ?? '';
-      if (path.isEmpty) return null;
-      if (!ReasoningSupportResolver.instance.isResolved(path)) {
-        unawaited(ReasoningSupportResolver.instance.resolveLocalGguf(path));
-        return null;
-      }
-      return ReasoningSupportResolver.instance.peek(path);
-    }
-    if (!_usesTemplateResolve) return null;
-    final name = _storage.backendSettings.remoteModelName;
-    if (name.isEmpty) return null;
-    if (!ReasoningSupportResolver.instance.isResolved(name)) {
-      unawaited(_resolveTemplate(name));
-      return null;
-    }
-    return ReasoningSupportResolver.instance.peek(name);
-  }
-
-  Future<void> _resolveTemplate(String name) {
-    final key = _storage.backendSettings.remoteApiKey;
-    if (_llm.activeBackend == BackendType.omlx) {
-      return ReasoningSupportResolver.instance.resolveOmlx(
-        apiUrl: 'http://localhost:8000/v1',
-        modelName: name,
-        apiKey: key,
-      );
-    }
-    return ReasoningSupportResolver.instance.resolveLmStudio(
-      apiUrl: _storage.backendSettings.remoteApiUrl,
-      modelName: name,
-      apiKey: key,
-    );
-  }
+  late final SettingsReasoning _reasoning = SettingsReasoning(_storage, _llm);
+  late final SettingsSnapshot _snapshot = SettingsSnapshot(
+    _storage,
+    _llm,
+    _reasoning,
+  );
+  late final SettingsWriter _writer = SettingsWriter(
+    _storage,
+    _llm,
+    _reasoning,
+  );
 
   /// Await the local-template verdict so a web GET/POST does not return
   /// generic chips for one round and the truth on the next.
-  Future<void> ensureReasoningResolved() async {
-    if (_llm.isLocal) {
-      final path = _storage.backendSettings.lastUsedModelPath ?? '';
-      if (path.isEmpty) return;
-      await ReasoningSupportResolver.instance.resolveLocalGguf(path);
-      return;
-    }
-    final name = _storage.backendSettings.remoteModelName;
-    if (name.isEmpty) return;
-    if (_usesTemplateResolve) {
-      await _resolveTemplate(name);
-      return;
-    }
-    final b = _storage.backendSettings;
-    await probeReasoningEfforts(
-      model: name,
-      apiUrl: b.remoteApiUrl,
-      apiKey: b.remoteApiKey,
-    );
-  }
+  Future<void> ensureReasoningResolved() => _reasoning.ensureResolved();
 
-  void _seedReasoningCatalog() {
-    if (_llm.isLocal) return;
-    final b = _storage.backendSettings;
-    if (b.remoteApiKey.isEmpty && !isLocalRemoteUrl(b.remoteApiUrl)) return;
-    final url = b.remoteApiUrl;
-    if (_seededReasoningCatalogUrl == url) return;
-    _seededReasoningCatalogUrl = url;
-    unawaited(_llm.openRouterService.fetchAvailableModels());
-  }
+  Map<String, dynamic> read() => _snapshot.build();
 
-  void _kickRemoteEffortProbe() {
-    if (_llm.isLocal || _usesTemplateResolve) return;
-    final b = _storage.backendSettings;
-    if (b.remoteModelName.isEmpty || b.remoteApiUrl.isEmpty) return;
-    kickReasoningEffortProbe(
-      model: b.remoteModelName,
-      apiUrl: b.remoteApiUrl,
-      apiKey: b.remoteApiKey,
-    );
-  }
+  /// Dictionary tags the host can actually check, for the web's picker.
+  /// Async because it asks the native side, so it cannot live in [read] —
+  /// the routes merge it in.
+  Future<List<String>> spellCheckLanguages() =>
+      DesktopSpellCheckService.availableLanguages();
 
-  /// Remote poke that learned `{none}` is the same UI as a template toggle.
-  String? get _thinkingSupportName {
-    final local = _localThinkingSupport;
-    if (local != null) return local.name;
-    if (reasoningEffortIsToggleOnly(_reasoningModelKey)) {
-      return ThinkingSupport.toggle.name;
-    }
-    return null;
-  }
+  /// Why [body] must not be stored, in plain words, or null. Asked before
+  /// anything is written, so a refused save changes nothing.
+  String? refusal(Map<String, dynamic> body) => _writer.refusal(body);
 
-  String _loadedModel() {
-    final b = _storage.backendSettings;
-    if (_llm.isLocal) {
-      final path = b.lastUsedModelPath;
-      return (path != null && path.isNotEmpty)
-          ? p.basename(path)
-          : 'No model loaded';
-    }
-    return b.remoteModelName.isNotEmpty ? b.remoteModelName : 'Not set';
-  }
-
-  static String _name(BackendType t) => switch (t) {
-    BackendType.kobold => 'kobold',
-    BackendType.openRouter => 'openRouter',
-    BackendType.omlx => 'omlx',
-  };
-
-  static BackendType? _parse(String s) => switch (s) {
-    'kobold' => BackendType.kobold,
-    // Legacy 'pseudoRemote' now maps to the local Kobold backend.
-    'pseudoRemote' => BackendType.kobold,
-    'openRouter' => BackendType.openRouter,
-    'omlx' => BackendType.omlx,
-    _ => null,
-  };
+  Future<void> update(Map<String, dynamic> body) => _writer.update(body);
 
   /// Legacy-engine model files still on the host's disk (sidecar
   /// retirement cleanup — desktop parity: the Reclaim Disk Space card).

@@ -16,56 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
-import 'dart:math';
-
 import 'package:flutter/foundation.dart';
-import 'package:drift/drift.dart' as drift;
 import 'package:front_porch_ai/services/embedding_service.dart';
+import 'package:front_porch_ai/services/memory/memory.dart';
+import 'package:front_porch_ai/services/memory/memory_vectors.dart'
+    as memory_vectors;
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
-part 'memory_service_retrieve.dart';
-part 'memory_service_embed.dart';
-
-/// A retrieved memory from the vector store.
-class RetrievedMemory {
-  final String content;
-  final String? characterId;
-  final String sessionId;
-  final int positionStart;
-  final int positionEnd;
-  final double score; // cosine similarity 0.0–1.0
-
-  const RetrievedMemory({
-    required this.content,
-    this.characterId,
-    required this.sessionId,
-    required this.positionStart,
-    required this.positionEnd,
-    required this.score,
-  });
-
-  /// Two-tier memory dedupe (living-time-features.md §8): drop retrievals
-  /// whose span overlaps positions the Journal already expanded verbatim
-  /// this turn — the exact lines are in the prompt once; twice is budget
-  /// spent teaching the model to repeat itself. Pure; current-session only
-  /// (cross-session sources use a different position space).
-  static List<RetrievedMemory> excludingPositions(
-    List<RetrievedMemory> memories,
-    Set<int> positions, {
-    required String currentSessionId,
-  }) {
-    if (positions.isEmpty) return memories;
-    return [
-      for (final m in memories)
-        if (m.sessionId != currentSessionId ||
-            !positions.any((p) => p >= m.positionStart && p <= m.positionEnd))
-          m,
-    ];
-  }
-}
+export 'package:front_porch_ai/services/memory/retrieved_memory.dart';
 
 /// Orchestrates RAG memory: embedding message windows and retrieving relevant
 /// past context for prompt injection.
@@ -118,49 +77,29 @@ class MemoryService extends ChangeNotifier {
   final StorageService _storageService;
   AppDatabase _db;
 
-  bool _isEmbedding = false;
-  int _pendingEmbeddings = 0;
-
   /// Set when [retrieve] failed (query embed / thrown). Null = last search
   /// completed or was skipped. Chat stamps `rag_receipt` error from this
   /// instead of lying "nothing relevant" (audit P1.9).
   String? lastRetrieveError;
 
-  /// Re-check only while the engine is down so a retrieve/embed during
-  /// download cannot latch "dead" after files land (audit P1.8). Once
-  /// live, skip — [EmbeddingService.isAvailable] is the live flag.
-  Future<void> _ensureEmbeddingsReady() async {
-    if (!_embeddingService.isAvailable) {
-      debugPrint('[RAG:Memory] Checking embedding availability...');
-      await _embeddingService.checkAvailability();
-    }
-  }
+  // isOperational goes through the member so subclasses can override it.
+  late final MemoryRetriever _retriever = MemoryRetriever(
+    embeddings: _embeddingService,
+    db: () => _db,
+    isOperational: () => isOperational,
+    reportError: (error) => lastRetrieveError = error,
+  );
 
-  /// Per-session chain so import backfill and live post-gen embed cannot both
-  /// discover the same missing window and insert duplicate rows (no unique
-  /// key on position ranges).
-  final Map<String, Future<void>> _embedChains = {};
+  late final MemoryWindowEmbedder _embedder = MemoryWindowEmbedder(
+    embeddings: _embeddingService,
+    storage: _storageService,
+    db: () => _db,
+    isOperational: () => isOperational,
+    onChanged: notify,
+  );
 
-  bool get isEmbedding => _isEmbedding;
-  int get pendingEmbeddings => _pendingEmbeddings;
-
-  Future<T> _withSessionEmbedLock<T>(
-    String sessionId,
-    Future<T> Function() body,
-  ) async {
-    final prev = _embedChains[sessionId] ?? Future<void>.value();
-    final gate = Completer<void>();
-    _embedChains[sessionId] = gate.future;
-    await prev;
-    try {
-      return await body();
-    } finally {
-      gate.complete();
-      if (identical(_embedChains[sessionId], gate.future)) {
-        _embedChains.remove(sessionId);
-      }
-    }
-  }
+  bool get isEmbedding => _embedder.isEmbedding;
+  int get pendingEmbeddings => _embedder.pendingEmbeddings;
 
   /// Expose the embedding service for use by other services (e.g. persona fact dedup).
   EmbeddingService get embeddingService => _embeddingService;
@@ -189,20 +128,7 @@ class MemoryService extends ChangeNotifier {
     _db = db;
   }
 
-  /// Maximum characters per embedding window. Embedding models have limited
-  /// context, and large texts are very slow on CPU ONNX. 2000 chars ≈ 500 tokens.
-  static const int _maxEmbedChars = 2000;
-
-  /// Strip reasoning and truncate for embedding.
-  ///
-  /// A closed-block-only strip left an unclosed `<think>` tail in the text,
-  /// which then became a stored memory: the character could later "remember"
-  /// the model's deliberation as something that happened.
-  String _cleanForEmbedding(String text) {
-    final cleaned = stripThinkTags(text);
-    if (cleaned.length <= _maxEmbedChars) return cleaned;
-    return cleaned.substring(0, _maxEmbedChars);
-  }
+  void notify() => notifyListeners();
 
   /// Result of one [embedMessageWindow] pass.
   ///
@@ -223,8 +149,6 @@ class MemoryService extends ChangeNotifier {
   /// many *missing* windows are discovered per call (avoids O(N²) full-history
   /// rescans on every chunk). Optional [shouldContinue] aborts mid-pass without
   /// losing already-stored progress.
-  void notify() => notifyListeners();
-
   Future<({int stored, bool hasMore, bool aborted})> embedMessageWindow({
     required String sessionId,
     required String characterId,
@@ -234,19 +158,14 @@ class MemoryService extends ChangeNotifier {
     int? maxWindows,
     bool Function()? shouldContinue,
   }) {
-    // Serialize discover+insert per session so import backfill and live
-    // post-gen cannot double-insert the same range (no unique DB key).
-    return _withSessionEmbedLock(
-      sessionId,
-      () => _embedMessageWindowBody(
-        sessionId: sessionId,
-        characterId: characterId,
-        formattedMessages: formattedMessages,
-        totalMessageCount: totalMessageCount,
-        positionOffset: positionOffset,
-        maxWindows: maxWindows,
-        shouldContinue: shouldContinue,
-      ),
+    return _embedder.embed(
+      sessionId: sessionId,
+      characterId: characterId,
+      formattedMessages: formattedMessages,
+      totalMessageCount: totalMessageCount,
+      positionOffset: positionOffset,
+      maxWindows: maxWindows,
+      shouldContinue: shouldContinue,
     );
   }
 
@@ -275,7 +194,7 @@ class MemoryService extends ChangeNotifier {
     double minScore = kRagMinScore,
     Map<String, double>? characterPriorities,
     Set<String> sessionScopedCharacterIds = const {},
-  }) => _retrieveImpl(
+  }) => _retriever.retrieve(
     queryText: queryText,
     sourceCharacterIds: sourceCharacterIds,
     currentSessionId: currentSessionId,
@@ -291,46 +210,19 @@ class MemoryService extends ChangeNotifier {
   /// for other services — the Journal uses it for card vectors and cold-card
   /// query embedding.
   Future<List<double>?> embedText(String text) async {
-    await _ensureEmbeddingsReady();
+    await ensureEmbeddingsReady(_embeddingService);
     if (!isOperational) return null;
-    final cleaned = _cleanForEmbedding(text);
+    final cleaned = cleanForEmbedding(text);
     if (cleaned.isEmpty) return null;
     return _embeddingService.embed(cleaned);
   }
 
   /// Convert stored bytes back to a vector of doubles.
-  static List<double>? bytesToVector(Uint8List bytes, int dimensions) {
-    try {
-      final floats = Float32List.view(
-        bytes.buffer,
-        bytes.offsetInBytes,
-        dimensions,
-      );
-      return floats.map((f) => f.toDouble()).toList();
-    } catch (e) {
-      debugPrint('[MemoryService] Failed to deserialize embedding: $e');
-      return null;
-    }
-  }
+  static List<double>? bytesToVector(Uint8List bytes, int dimensions) =>
+      memory_vectors.bytesToVector(bytes, dimensions);
 
   /// Cosine similarity between two vectors.
   /// Returns a value between -1.0 and 1.0 (1.0 = identical direction).
-  static double cosineSimilarity(List<double> a, List<double> b) {
-    if (a.length != b.length || a.isEmpty) return 0.0;
-
-    double dotProduct = 0.0;
-    double normA = 0.0;
-    double normB = 0.0;
-
-    for (int i = 0; i < a.length; i++) {
-      dotProduct += a[i] * b[i];
-      normA += a[i] * a[i];
-      normB += b[i] * b[i];
-    }
-
-    final denominator = sqrt(normA) * sqrt(normB);
-    if (denominator == 0.0) return 0.0;
-
-    return dotProduct / denominator;
-  }
+  static double cosineSimilarity(List<double> a, List<double> b) =>
+      memory_vectors.cosineSimilarity(a, b);
 }

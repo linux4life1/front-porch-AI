@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -25,20 +24,16 @@ import 'package:shelf/shelf_io.dart' as shelf_io;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/web/auth/auth_service.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
+import 'package:front_porch_ai/services/web/host/host.dart';
 import 'package:front_porch_ai/services/web/server_bootstrap.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 import 'package:front_porch_ai/services/web/tunnels/tunnels.dart';
-import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
 // Re-export the extracted RemoteSetupResult so existing consumers importing
 // this host file are unaffected.
 export 'package:front_porch_ai/services/web/tunnels/remote_setup_result.dart';
-
-part 'web_server_host.streams.dart';
-part 'web_server_host.wiring.dart';
 
 /// Lifecycle owner for the web server (the ChangeNotifier that `main.dart` and
 /// the settings UI talk to). It only bootstraps + binds; all request behavior
@@ -49,21 +44,8 @@ class WebServerHost extends ChangeNotifier {
 
   final StorageService _storage;
   AppDatabase? _db;
-  ChatService? _chatService;
-  CharacterRepository? _characterRepository;
-  FolderService? _folderService;
-  UserPersonaService? _userPersonaService;
-  GroupChatRepository? _groupChatRepository;
-  LLMProvider? _llmProvider;
-  WorldRepository? _worldRepository;
-  ModelManager? _modelManager;
-  HardwareService? _hardwareService;
-  ImageGenService? _imageGenService;
-  KoboldService? _koboldService;
-  TtsService? _ttsService;
-  SttService? _sttService;
-  StoryRepository? _storyRepository;
-  StoryPipelineService? _storyPipelineService;
+  final WebHostServices _services = WebHostServices();
+  late final WebLiveRelays _relays = WebLiveRelays(_storage, _services);
   // The running server's story routes, re-pointed when the pipeline is.
   StoryFacade? _storyFacade;
 
@@ -81,61 +63,6 @@ class WebServerHost extends ChangeNotifier {
   /// leaving the app listening with the UI insisting it is off. A run that
   /// finds the generation moved on closes what it just opened and exits.
   int _startGeneration = 0;
-
-  // Realism-eval overlay streaming: a ChatService listener that pushes the
-  // accumulating eval text over the hub while the Realism Engine is thinking, so
-  // the web shows the same live "processing" overlay the desktop does. Stored so
-  // we can detach it on stop().
-  VoidCallback? _realismListener;
-  bool _wasEvaluatingRealism = false;
-  bool _wasAwaitingChanceTime = false;
-  bool _wasPendingImageReview = false;
-  // A turn's last writes (the new swipe, chips) land while it settles, after
-  // the stream's `done`; see the turn-settled broadcast in _attachLiveRelays.
-  bool _wasTurnBusy = false;
-  // Throttle/dedupe state for the processing broadcast: during evals every
-  // ChatService notify (≤150ms apart) used to re-send the FULL accumulated
-  // eval text — O(n²) bytes over the socket and a client re-render per frame,
-  // which is a big part of the reported iPad stalls. Transitions always send;
-  // text growth is rate-limited and unchanged payloads are skipped.
-  DateTime _lastProcessingSent = DateTime.fromMillisecondsSinceEpoch(0);
-  int _lastProcessingTextLen = -1;
-  bool _lastProcessingVerifying = false;
-  bool _lastProcessingObjective = false;
-
-  // Image-gen progress relay (see the imageGen listener in start()).
-  VoidCallback? _imageProgressListener;
-  bool _wasImageGenerating = false;
-  DateTime _lastImageProgressSent = DateTime.fromMillisecondsSinceEpoch(0);
-
-  // Truthful generation-status relay (parity with the desktop status bar):
-  // live prompt-reading progress parsed from the managed KoboldCpp console +
-  // which background pass is holding the single local slot. Listens on BOTH
-  // the ChatService (phase flips) and the KoboldService (live counts), plus
-  // a 1s heartbeat timer: console lines arrive only once per BATCH, so
-  // between them no notifier fires and the interpolated fraction would
-  // freeze on web without the tick.
-  VoidCallback? _genStatusListener;
-  VoidCallback? _llmReadyListener;
-  VoidCallback? _packBoardListener;
-  VoidCallback? _speedTestListener;
-  bool? _lastLlmReady;
-  String? _lastLlmHint;
-  Timer? _genStatusTicker;
-  bool _wasBroadcastingGenStatus = false;
-  DateTime _lastGenStatusSent = DateTime.fromMillisecondsSinceEpoch(0);
-
-  // Near-instant library live-sync: one debounced listener attached to the
-  // CharacterRepository, FolderService and GroupChatRepository (all
-  // ChangeNotifiers). Because the desktop UI and the web facades mutate through
-  // these same shared services, ANY library change — from the desktop app or a
-  // web client — fans a single `library_changed` event out to every connected
-  // browser so its library refreshes without a manual reload. Stored so we can
-  // detach + cancel on stop().
-  VoidCallback? _libraryListener;
-  Timer? _libraryDebounce;
-  VoidCallback? _settingsListener;
-  Timer? _settingsDebounce;
 
   // Connected-client presence (drives the desktop remote-lock overlay + the
   // settings "client connected" line). Set on the first authenticated request.
@@ -242,31 +169,31 @@ class WebServerHost extends ChangeNotifier {
   }
 
   /// Chat service for live token streaming over the WebSocket hub.
-  void setChatService(ChatService chatService) => _chatService = chatService;
+  void setChatService(ChatService chatService) => _services.chat = chatService;
 
   void setCharacterRepository(CharacterRepository repo) =>
-      _characterRepository = repo;
+      _services.characters = repo;
   void setGroupChatRepository(GroupChatRepository repo) =>
-      _groupChatRepository = repo;
-  void setLlmProvider(LLMProvider provider) => _llmProvider = provider;
-  void setFolderService(FolderService service) => _folderService = service;
+      _services.groups = repo;
+  void setLlmProvider(LLMProvider provider) => _services.llm = provider;
+  void setFolderService(FolderService service) => _services.folders = service;
   void setUserPersonaService(UserPersonaService service) =>
-      _userPersonaService = service;
-  void setWorldRepository(WorldRepository repo) => _worldRepository = repo;
-  void setModelManager(ModelManager manager) => _modelManager = manager;
+      _services.personas = service;
+  void setWorldRepository(WorldRepository repo) => _services.worlds = repo;
+  void setModelManager(ModelManager manager) => _services.models = manager;
   void setHardwareService(HardwareService service) =>
-      _hardwareService = service;
+      _services.hardware = service;
   void setImageGenService(ImageGenService service) =>
-      _imageGenService = service;
-  void setKoboldService(KoboldService service) => _koboldService = service;
-  void setTtsService(TtsService service) => _ttsService = service;
-  void setSttService(SttService service) => _sttService = service;
-  void setStoryRepository(StoryRepository repo) => _storyRepository = repo;
+      _services.imageGen = service;
+  void setKoboldService(KoboldService service) => _services.kobold = service;
+  void setTtsService(TtsService service) => _services.tts = service;
+  void setSttService(SttService service) => _services.stt = service;
+  void setStoryRepository(StoryRepository repo) => _services.stories = repo;
 
   /// The app makes a new pipeline when the chat backend switches and disposes
   /// the old one, so a running server's story routes move to the new one.
   void setStoryPipelineService(StoryPipelineService service) {
-    _storyPipelineService = service;
+    _services.storyPipeline = service;
     _storyFacade?.pipeline = service;
   }
 
@@ -283,9 +210,6 @@ class WebServerHost extends ChangeNotifier {
   /// Remote-access orchestrator (null until the server is running). Exposed so
   /// the Flutter settings UI can read tunnel state directly.
   TunnelManager? get tunnels => _tunnelManager;
-
-  // Public notify for same-library extensions (avoids protected member warnings).
-  void notify() => notifyListeners();
 
   /// Crash-loop-safe entry point for starting the server, used by launch-time
   /// auto-start (main.dart) and the Settings toggle. A hung or crashing [start]
@@ -387,70 +311,11 @@ class WebServerHost extends ChangeNotifier {
     // permanently (the next attempt overwrites the fields without detaching).
     // Bail only when there is genuinely nothing left to release.
     final wired =
-        _streamHub != null ||
-        _tunnelManager != null ||
-        _realismListener != null ||
-        _genStatusListener != null ||
-        _llmReadyListener != null ||
-        _speedTestListener != null ||
-        _imageProgressListener != null ||
-        _packBoardListener != null ||
-        _libraryListener != null ||
-        _settingsListener != null ||
-        _genStatusTicker != null ||
-        _libraryDebounce != null ||
-        _settingsDebounce != null;
+        _streamHub != null || _tunnelManager != null || _relays.isWired;
     if (server == null && !wired) return;
     _server = null;
     _storyFacade = null;
-    if (_realismListener != null) {
-      _chatService?.removeListener(_realismListener!);
-      _realismListener = null;
-    }
-    _wasEvaluatingRealism = false;
-    _wasTurnBusy = false;
-    if (_genStatusListener != null) {
-      _chatService?.removeListener(_genStatusListener!);
-      _koboldService?.removeListener(_genStatusListener!);
-      _genStatusListener = null;
-    }
-    _genStatusTicker?.cancel();
-    _genStatusTicker = null;
-    _wasBroadcastingGenStatus = false;
-    if (_llmReadyListener != null) {
-      _llmProvider?.removeListener(_llmReadyListener!);
-      _llmProvider?.openRouterService.removeListener(_llmReadyListener!);
-      _llmReadyListener = null;
-    }
-    if (_speedTestListener case final l?) {
-      _llmProvider?.koboldSpeedTest?.removeListener(l);
-      _speedTestListener = null;
-    }
-    _lastLlmReady = null;
-    if (_packBoardListener != null) {
-      expressionPackBoard.removeListener(_packBoardListener!);
-      _packBoardListener = null;
-    }
-    _lastLlmHint = null;
-    if (_imageProgressListener != null) {
-      _imageGenService?.removeListener(_imageProgressListener!);
-      _imageProgressListener = null;
-    }
-    _wasImageGenerating = false;
-    if (_settingsListener != null) {
-      _storage.removeListener(_settingsListener!);
-      _settingsListener = null;
-    }
-    _settingsDebounce?.cancel();
-    _settingsDebounce = null;
-    if (_libraryListener != null) {
-      _characterRepository?.removeListener(_libraryListener!);
-      _folderService?.removeListener(_libraryListener!);
-      _groupChatRepository?.removeListener(_libraryListener!);
-      _libraryListener = null;
-    }
-    _libraryDebounce?.cancel();
-    _libraryDebounce = null;
+    _relays.detach();
     await _streamHub?.dispose();
     _streamHub = null;
     await _tunnelManager?.dispose();
@@ -462,5 +327,147 @@ class WebServerHost extends ChangeNotifier {
     _connectedClientInfo = null;
     debugPrint('[WebServerHost] Stopped');
     notifyListeners();
+  }
+
+  Future<void> start([int? portOverride]) async {
+    if (isRunning) return;
+    final int generation = ++_startGeneration;
+    final db = _db;
+    if (db == null) {
+      throw StateError('WebServerHost.start() called before setDatabase()');
+    }
+
+    final settings = _storage.webServerSettings;
+    final bindPort = portOverride ?? settings.webServerPort;
+
+    // Decide the bind interface. We listen on all interfaces when LAN access is
+    // explicitly allowed, OR when the user has opted into remote access and
+    // Tailscale is actually running — otherwise the MagicDNS address (which
+    // resolves to the 100.x tailnet interface, not loopback) can never reach
+    // us. Loopback stays reachable in every case. One provider instance is
+    // reused for the bind decision, the TunnelManager, and the auto-serve.
+    final tailscale = TailscaleProvider();
+    final tsRunning = settings.webServerAutoRemote
+        ? (await tailscale.status()).running
+        : false;
+    final exposeAll =
+        settings.webServerAllowLan ||
+        (settings.webServerAutoRemote && tsRunning);
+    final bindAddress = exposeAll ? InternetAddress.anyIPv4 : '127.0.0.1';
+
+    final auth = _auth ??= AuthService(db);
+    await auth.sessions.sweep();
+
+    final chatService = _services.chat;
+    final streamHub = _streamHub = chatService != null
+        ? StreamHub(chatService.tokenStream, () => chatService.isGenerating)
+        : null;
+
+    _relays.attachLive(streamHub);
+
+    final characterFacade = CharacterFacade(
+      db,
+      _storage,
+      _services.folders,
+      chatService,
+      _services.characters,
+    );
+
+    if (streamHub != null) {
+      _relays.attachLibrary(characterFacade, streamHub);
+      _relays.attachSettings(streamHub);
+    }
+
+    final tunnelManager = _tunnelManager = TunnelManager(
+      bindPort,
+      tailscale: tailscale,
+    );
+
+    final assembled = assembleWebServerDeps(
+      services: _services,
+      storage: _storage,
+      db: db,
+      auth: auth,
+      streamHub: streamHub,
+      characterFacade: characterFacade,
+      tunnelManager: tunnelManager,
+      onClientActive: markClientActive,
+    );
+    final deps = assembled.deps;
+    _storyFacade = assembled.storyFacade;
+
+    // Direct binds (localhost or LAN) are always plain HTTP — never a
+    // self-signed cert, whose browser trust warning is worse UX than http.
+    // Real HTTPS comes only from a trusted external terminator (Tailscale
+    // serve / ngrok); over those our server stays plain http on loopback.
+    final bound =
+        await shelf_io.serve(buildWebHandler(deps), bindAddress, bindPort)
+          ..autoCompress = true;
+
+    // The caller gave up on this run while it was binding (startSafely's
+    // timeout, or a stop()). Publishing the socket now would leave the app
+    // listening with "disabled" already persisted and the UI insisting the
+    // server is off — so close what we just opened and leave.
+    if (generation != _startGeneration) {
+      await bound.close(force: true);
+      debugPrint('[WebServerHost] Abandoned start — closed the late socket');
+      return;
+    }
+    _server = bound;
+
+    if (exposeAll) {
+      final ip = await detectPrivateLanIp();
+      // Same race, one await later: a stop() during the LAN lookup already
+      // closed the socket above, so leave rather than report an address (or
+      // open a tunnel) for a server that is gone.
+      if (generation != _startGeneration) return;
+      _lanIp = ip;
+    }
+    debugPrint(
+      '[WebServerHost] Listening on http://${exposeAll ? (_lanIp ?? '0.0.0.0') : 'localhost'}:${bound.port}',
+    );
+
+    // Re-establish the clean no-port HTTPS URL on launch for opted-in users.
+    // Best-effort: a failure here just means they fall back to the port URL.
+    if (settings.webServerAutoRemote && tsRunning) {
+      await tunnelManager.enableTailscale();
+    }
+    notifyListeners();
+  }
+
+  /// "Take the wheel" remote-access setup driven by the web-access tutorial:
+  /// persist the opt-in, (re)bind so the tailnet address reaches us, turn on
+  /// Tailscale HTTPS (auto-cert), and verify the result actually routes back.
+  /// Returns everything the dialog needs to show the right next step; the port
+  /// URL is always offered as a guaranteed fallback to the HTTPS URL.
+  ///
+  /// Pass `restart: false` for the "I've enabled HTTPS, check again" button —
+  /// it just re-attempts serve + verify without bouncing the live server.
+  Future<RemoteSetupResult> setupRemoteAccess({bool restart = true}) async {
+    await _storage.webServerSettings.setWebServerAutoRemote(true);
+
+    if (restart && isRunning) await stop();
+    if (!isRunning) await start(_storage.webServerSettings.webServerPort);
+
+    final tunnels = _tunnelManager;
+    if (tunnels == null) {
+      return const RemoteSetupResult(outcome: TailscaleServeOutcome.failed);
+    }
+
+    final serve = await tunnels.enableTailscale();
+    final ts = await tunnels.tailscaleStatus();
+    final dns = ts.magicDnsName;
+    final portUrl = dns != null ? 'http://$dns:${tunnels.port}' : null;
+
+    // Verify the best address we have (HTTPS if serve succeeded, else the port).
+    final best = serve.url ?? portUrl;
+    final reachable = best != null && await tunnels.verifyReachable(best);
+
+    return RemoteSetupResult(
+      outcome: serve.outcome,
+      httpsUrl: serve.url,
+      portUrl: portUrl,
+      reachable: reachable,
+    );
   }
 }

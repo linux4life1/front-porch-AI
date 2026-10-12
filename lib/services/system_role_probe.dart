@@ -16,12 +16,12 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
-import 'package:http/http.dart' as http;
 
-part 'system_role_probe.measure.dart';
+import 'package:front_porch_ai/services/system_role/system_role_measure.dart';
+
+export 'package:front_porch_ai/services/system_role/system_role_measure.dart'
+    hide SystemRoleProbeRun, measureSystemRole, systemRoleProbePromptTokens;
 
 /// Per-run memory of which backend identities actually DELIVER the leading
 /// `system` message to the model — the system-role sibling of
@@ -149,7 +149,7 @@ class SystemRoleProbe {
   /// "never two probes at once" guard; the token itself is what lets [reset]
   /// disown a probe that is ALREADY on the wire without also disowning the
   /// fresh one that replaced it.
-  final Map<String, _ProbeRun> _runs = {};
+  final Map<String, SystemRoleProbeRun> _runs = {};
 
   /// Identities whose whole chain came back inconclusive. This is not the
   /// retry budget — that is a loop counter inside one [ensureProbed] call —
@@ -240,11 +240,12 @@ class SystemRoleProbe {
         _runs.containsKey(identity)) {
       return;
     }
-    final run = _ProbeRun();
+    final run = SystemRoleProbeRun();
     _runs[identity] = run;
     try {
       Future<int?> arm(String system, String user) {
-        Future<int?> body() => _promptTokens(baseUrl, run, system, user);
+        Future<int?> body() =>
+            systemRoleProbePromptTokens(baseUrl, run, system, user);
         return runExclusive == null ? body() : runExclusive(body);
       }
 
@@ -255,7 +256,7 @@ class SystemRoleProbe {
           await Future<void>.delayed(retryBackoff * (attempt - 1));
           if (run.cancelled) return;
         }
-        final verdict = await _measure(identity, attempt, arm);
+        final verdict = await measureSystemRole(identity, attempt, arm);
         // Disowned mid-flight (the backend stopped, the model changed): this
         // number describes a template that may no longer be loaded. Drop it.
         if (run.cancelled) return;

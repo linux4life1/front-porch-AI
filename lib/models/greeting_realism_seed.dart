@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-part 'greeting_realism_seed.opening.dart';
+export 'package:front_porch_ai/models/greeting/greeting_opening.dart';
 
 /// Sparse per-alternate-greeting overlay for the Realism Engine + Needs
 /// opening. Parallel to `alternate_greetings` (index 0 = first alt =
@@ -238,4 +238,24 @@ class GreetingRealismSeed {
       inventory: _map(json, 'inventory'),
     );
   }
+}
+
+String? _str(Map<String, dynamic> json, String snake, String camel) {
+  final v = json.containsKey(snake) ? json[snake] : json[camel];
+  if (v is String) return v;
+  return null;
+}
+
+int? _int(Map<String, dynamic> json, String snake, String camel) {
+  final v = json.containsKey(snake) ? json[snake] : json[camel];
+  if (v is int) return v;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v.trim());
+  return null;
+}
+
+Map<String, dynamic>? _map(Map<String, dynamic> json, String key) {
+  final v = json[key];
+  if (v is Map) return Map<String, dynamic>.from(v);
+  return null;
 }

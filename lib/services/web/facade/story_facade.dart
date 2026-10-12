@@ -24,8 +24,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/web/facade/story_snapshot_builder.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
-
-part 'story_facade.studio.dart';
+import 'package:front_porch_ai/services/web/facade/story/story_studio.dart';
 
 /// Web adapter for Porch Stories. The generator ([StoryPipelineService]) and the
 /// store ([StoryRepository]) are already fully headless, so this is a thin
@@ -355,4 +354,59 @@ class StoryFacade {
   /// seeds). Mirrors the desktop "Quick concepts" + Refresh.
   List<Map<String, String>> archetypes({int count = 6}) =>
       StoryPipelineService.generateArchetypes(count: count);
+
+  // ── Studio (see [StoryStudio]) ───────────────────────────────────────────
+  late final StoryStudio _studio = StoryStudio(
+    _repo,
+    pipeline: () => _pipeline,
+    project: _project,
+    imageGen: _imageGen,
+    storage: _storage,
+    llm: _llm,
+  );
+
+  /// Ask the running operation to stop at its next safe point.
+  Map<String, dynamic> stop() {
+    (_inFlight ?? _pipeline).requestStop();
+    return status();
+  }
+
+  Future<StoryProject?> _project(String id) async {
+    await _ensureLoaded();
+    return _repo.getById(id);
+  }
+
+  Future<bool> directorAction(String id, int index, bool enabled) =>
+      _studio.directorAction(id, index, enabled);
+  Future<bool> directorProtect(String id, bool protect) =>
+      _studio.directorProtect(id, protect);
+  Future<bool> directorDiscard(String id) => _studio.directorDiscard(id);
+  Future<bool> directorUndo(String id) => _studio.directorUndo(id);
+  Future<bool> undoFix(String id, int act, int scene, int beat) =>
+      _studio.undoFix(id, act, scene, beat);
+  Future<int?> addLore(String id, String name, String text) =>
+      _studio.addLore(id, name, text);
+  Future<List<Map<String, dynamic>>?> searchLore(
+    String id,
+    String query, {
+    int? act,
+    int? scene,
+  }) => _studio.searchLore(id, query, act: act, scene: scene);
+  Future<bool> generatePortrait(String id, String name) =>
+      _studio.generatePortrait(id, name);
+  Future<File?> portraitFile(String id, String name) =>
+      _studio.portraitFile(id, name);
+  Future<List<Map<String, dynamic>>> runLog(String id) => _studio.runLog(id);
+  Future<void> clearRunLog(String id) => _studio.clearRunLog(id);
+  Map<String, dynamic> quality(String text, List<String> banned) =>
+      _studio.quality(text, banned);
+  List<Map<String, String>> lenses() => _studio.lenses();
+  Map<String, dynamic> pacing(int targetWords) => _studio.pacing(targetWords);
+  Map<String, dynamic> lanes() => _studio.lanes();
+  String laneLabel(Map<String, dynamic> json) => _studio.laneLabel(json);
+  Future<List<Map<String, String>>> hostModels(String type, String url) =>
+      _studio.hostModels(type, url);
+  Future<bool> rename(String id, String title) => _studio.rename(id, title);
+  Future<void> saveHostKey(String type, String url, String key) =>
+      _studio.saveHostKey(type, url, key);
 }

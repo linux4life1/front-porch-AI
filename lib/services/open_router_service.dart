@@ -21,24 +21,16 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/llm_service.dart';
-import 'package:front_porch_ai/services/llm_tool_parsing.dart';
+import 'package:front_porch_ai/services/open_router/open_router.dart';
 import 'package:front_porch_ai/services/openai_completions_fallback.dart';
-import 'package:front_porch_ai/services/openai_tool_payload.dart';
-import 'package:front_porch_ai/services/openai_tool_stream.dart';
 import 'package:front_porch_ai/services/openrouter_native_tools.dart';
-import 'package:front_porch_ai/services/openrouter_structured_eval.dart';
-import 'package:front_porch_ai/services/openrouter_tool_support.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/reasoning_stream_wrapper.dart';
 import 'package:front_porch_ai/services/remote_model_info.dart';
 import 'package:front_porch_ai/services/remote_reachability.dart';
-import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 
 // RemoteModelInfo lived here for years — re-export so importers keep working.
 export 'package:front_porch_ai/services/remote_model_info.dart';
-
-part 'open_router_service.tools.dart';
-part 'open_router_service.catalog.dart';
 
 /// LLM backend for OpenAI-compatible APIs (OpenRouter, Nano-GPT, vLLM, …).
 class OpenRouterService extends LLMService implements LlmApiEndpoint {
@@ -47,9 +39,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   String _modelName;
   final RemoteApiHealth _health = RemoteApiHealth();
 
-  /// Every in-flight client; a set is required because staggered remote evals
-  /// overlap, and one slot let the first completion disarm Cancel for the rest.
-  final Set<http.Client> _activeClients = {};
+  final OpenRouterClients _clients = OpenRouterClients();
 
   /// Test seam: a MockClient so reachability tests never hit the network.
   http.Client Function()? get httpClientFactory => _health.httpClientFactory;
@@ -75,14 +65,11 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
 
   /// Thinking-off 400/422 → Kimi salvage for this model, any host phrasing.
   bool _thinkingOffRejected(int status, GenerationParams params, String err) =>
-      !reasoningCannotDisable(modelName) &&
-      shouldFailoverToMandatoryReasoning(
-        statusCode: status,
-        askedToDisableThinking: askedToDisableThinking(
-          reasoningEnabled: params.reasoningEnabled,
-          reasoningMaxTokens: params.reasoningMaxTokens,
-        ),
-        errorMessage: err,
+      openRouterThinkingOffRejected(
+        modelName: modelName,
+        status: status,
+        params: params,
+        err: err,
       );
 
   /// Credentials + model are filled in. Not a live ping.
@@ -173,7 +160,12 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   Future<List<RemoteModelInfo>> fetchAvailableModels({
     String? apiUrl,
     String? apiKey,
-  }) => _fetchAvailableModels(apiUrl: apiUrl, apiKey: apiKey);
+  }) => fetchOpenAiModelCatalog(
+    url: apiUrl ?? _apiUrl,
+    key: apiKey ?? _apiKey,
+    clientFactory: httpClientFactory,
+    onReachable: noteReachable,
+  );
 
   /// Named evals share [generateWithTools]. Public OpenRouter is the
   /// dedicated tools path (no json_schema-then-tools double bill).
@@ -187,7 +179,36 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
   Future<LlmToolResponse?> generateWithTools(
     GenerationParams params,
     List<Map<String, dynamic>> tools,
-  ) => _generateWithTools(params, tools);
+  ) async {
+    if (!isReady) return null;
+    return sendOpenRouterToolCall(
+      params: params,
+      tools: tools,
+      clients: _clients,
+      clientFactory: httpClientFactory,
+      apiUrl: _apiUrl,
+      modelName: _modelName,
+      backendName: backendName,
+      headers: _chatHeaders,
+      chatPayload: _chatPayload,
+      retry: () => generateWithTools(params, tools),
+    );
+  }
+
+  /// Test seam: the chat/completions body [generateStream] would send.
+  @visibleForTesting
+  Map<String, dynamic> chatRequestPayload(GenerationParams params) =>
+      _chatPayload(params, stream: true);
+
+  Map<String, dynamic> _chatPayload(
+    GenerationParams params, {
+    required bool stream,
+  }) => openRouterChatPayload(
+    params,
+    apiUrl: _apiUrl,
+    modelName: _modelName,
+    stream: stream,
+  );
 
   /// Shared identification/auth headers for both request paths.
   /// Auth is [remoteAuthHeaders] — the same map Check Connection sends.
@@ -226,8 +247,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
 
     final client = httpClientFactory?.call() ?? http.Client();
     final owned = httpClientFactory == null;
-    _activeClients.add(client);
-    _closeWhenCancelled(params, client);
+    _clients.add(client, params);
     // Only wrap reasoning in <think> tags when the app explicitly requested it.
     // Some models (e.g. Qwen on LM Studio) send the entire response as
     // reasoning_content even when reasoning wasn't requested — wrapping those
@@ -419,7 +439,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
         }
       }
     } finally {
-      _activeClients.remove(client);
+      _clients.remove(client);
       if (owned) client.close();
     }
   }
@@ -432,8 +452,7 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       stream: true,
     );
     final client = http.Client();
-    _activeClients.add(client);
-    _closeWhenCancelled(params, client);
+    _clients.add(client, params);
     try {
       final response = await postOpenAiCompletions(
         apiUrl: _apiUrl,
@@ -449,26 +468,11 @@ class OpenRouterService extends LLMService implements LlmApiEndpoint {
       }
       yield* parseCompletionsSse(response.stream);
     } finally {
-      _activeClients.remove(client);
+      _clients.remove(client);
       client.close();
     }
-  }
-
-  /// The caller of [params] called its request off: only that call closes,
-  /// and only while it is still open.
-  void _closeWhenCancelled(GenerationParams params, http.Client client) {
-    params.cancel?.whenCancelled.then((_) {
-      if (_activeClients.remove(client)) client.close();
-    });
   }
 
   @override
-  void abortGeneration() {
-    // Iterate a copy: each close() lets its call's finally run, which mutates
-    // the set.
-    for (final client in _activeClients.toList()) {
-      client.close();
-    }
-    _activeClients.clear();
-  }
+  void abortGeneration() => _clients.abortAll();
 }

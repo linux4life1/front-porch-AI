@@ -81,7 +81,7 @@ Each story points planning, prose and review at a `StoryLaneChoice`: the
 chat model, the worker model, or any configured host (KoboldCpp, oMLX,
 LM Studio, OpenRouter-compatible) with a model picked from that host's list
 (`story_pipeline_factory.dart` → `LLMProvider.laneHost()` in
-`llm_provider.lanes.dart`). A local host lane rides the existing GPU swap
+`llm_provider/story_lane_hosts.dart`). A local host lane rides the existing GPU swap
 (`GpuSwapOccupancy`) so a Kobold story model can take the GPU from the chat
 model and give it back when the run ends (`restoreLaneHosts`). Lane labels
 in both UIs come from `story_lane_labels.dart`; the web reads them through

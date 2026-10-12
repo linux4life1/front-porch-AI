@@ -21,32 +21,9 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:drift/drift.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/persona/persona.dart';
 
-part 'user_persona_service.model.dart';
-part 'user_persona_service.import.dart';
-
-int _lastPersonaId = 0;
-
-/// A new persona id: a millisecond timestamp, as ids always were, but never
-/// one already handed out or stored. Two personas made in the same
-/// millisecond (the first-run default and one created right after it, or
-/// two from one file) would otherwise share an id and fail the table's
-/// unique key. Every new persona id comes from here.
-String _newPersonaId() {
-  final now = DateTime.now().millisecondsSinceEpoch;
-  _lastPersonaId = now > _lastPersonaId ? now : _lastPersonaId + 1;
-  return '$_lastPersonaId';
-}
-
-/// Raises [_newPersonaId]'s floor to every numeric id in [ids]: a library's
-/// ids can run ahead of this computer's clock (made on another machine, or
-/// the clock set back).
-void _notePersonaIds(Iterable<String> ids) {
-  for (final id in ids) {
-    final value = int.tryParse(id);
-    if (value != null && value > _lastPersonaId) _lastPersonaId = value;
-  }
-}
+export 'package:front_porch_ai/services/persona/user_persona.dart';
 
 class UserPersonaService extends ChangeNotifier {
   AppDatabase _db;
@@ -108,12 +85,12 @@ class UserPersonaService extends ChangeNotifier {
       // id floor too, then drop out of the list. A second query here delayed
       // the load into a create or import already under way.
       final stored = await _db.select(_db.personas).get();
-      _notePersonaIds(stored.map((row) => row.id));
+      notePersonaIds(stored.map((row) => row.id));
       final dbPersonas = stored.where((row) => row.deletedAt == null).toList();
 
       if (dbPersonas.isEmpty) {
         // Create default persona
-        final defaultId = _newPersonaId();
+        final defaultId = newPersonaId();
         await _db.insertPersona(
           PersonasCompanion.insert(
             id: defaultId,
@@ -159,7 +136,7 @@ class UserPersonaService extends ChangeNotifier {
     String? avatarPath, {
     String birthday = '',
   }) async {
-    final id = _newPersonaId();
+    final id = newPersonaId();
 
     await _db.insertPersona(
       PersonasCompanion.insert(
@@ -257,20 +234,97 @@ class UserPersonaService extends ChangeNotifier {
   void notify() => notifyListeners();
 
   /// Export all personas + active ID to a JSON file for cloud sync.
-  Future<void> exportToFile(String filePath) => _exportToFileImpl(filePath);
+  Future<void> exportToFile(String filePath) async {
+    final data = PersonaFileCodec.encodeCloud(
+      defaultPersonaId: _defaultPersonaId,
+      personas: _personas,
+    );
+    final file = File(filePath);
+    await file.parent.create(recursive: true);
+    await file.writeAsString(jsonEncode(data));
+  }
 
   /// Import persona(s) from a JSON file. Supports SillyTavern, native,
-  /// TavernAI V2 / Backyard, and generic name+description payloads.
+  /// TavernAI V2 / Backyard, and generic name+description payloads (see
+  /// [PersonaFileCodec.importAll]). Returns the first imported persona,
+  /// or null on failure.
   Future<UserPersona?> importFromJsonFile(
     String filePath, {
     String? avatarSaveDir,
-  }) => _importFromJsonFileImpl(filePath, avatarSaveDir: avatarSaveDir);
+  }) async {
+    try {
+      final file = File(filePath);
+      if (!await file.exists()) {
+        debugPrint('[Persona:Import] File not found: $filePath');
+        return null;
+      }
+      final data = jsonDecode(await file.readAsString());
+      if (data is! Map<String, dynamic>) {
+        debugPrint(
+          '[Persona:Import] Unexpected JSON root type: ${data.runtimeType}',
+        );
+        return null;
+      }
+      return await PersonaFileCodec.importAll(
+        data,
+        add: _addImportedPersona,
+        avatarSaveDir: avatarSaveDir,
+      );
+    } catch (e) {
+      debugPrint('[Persona:Import] Error importing persona JSON: $e');
+      return null;
+    }
+  }
+
+  /// Persist an imported persona and make it the default + current persona
+  /// (same reasoning as [createPersona]). A clashing id gets a fresh one.
+  Future<void> _addImportedPersona(UserPersona p) async {
+    final existingIds = _personas.map((e) => e.id).toSet();
+    final toInsert = existingIds.contains(p.id)
+        ? UserPersona(
+            id: newPersonaId(),
+            title: p.title,
+            name: p.name,
+            persona: p.persona,
+            avatarPath: p.avatarPath,
+            birthday: p.birthday,
+          )
+        : p;
+
+    await _db.insertPersona(_insertCompanion(toInsert, isActive: true));
+    await _db.setActivePersona(toInsert.id);
+    _personas.add(toInsert);
+    _defaultPersonaId = toInsert.id;
+    _activePersonaId = toInsert.id;
+    notify();
+  }
+
+  PersonasCompanion _insertCompanion(UserPersona p, {required bool isActive}) {
+    return PersonasCompanion.insert(
+      id: p.id,
+      title: Value(p.title),
+      name: Value(p.name),
+      persona: Value(p.persona),
+      avatarPath: Value(p.avatarPath),
+      birthday: Value(p.birthday.isEmpty ? null : p.birthday),
+      isActive: Value(isActive),
+    );
+  }
 
   /// Export multiple personas to a JSON file in SillyTavern compliant format.
   Future<void> exportPersonasToSTFormat(
     List<String> personaIds,
     String filePath,
-  ) => _exportPersonasToSTFormatImpl(personaIds, filePath);
+  ) async {
+    final selected = [
+      for (final id in personaIds)
+        _personas.firstWhere((e) => e.id == id, orElse: () => persona),
+    ];
+    final data = PersonaFileCodec.encodeSillyTavern(selected);
+    final file = File(filePath);
+    await file.parent.create(recursive: true);
+    await file.writeAsString(const JsonEncoder.withIndent('  ').convert(data));
+  }
 
   /// Reload personas from DB (e.g. after cloud sync import).
   Future<void> reload() async {

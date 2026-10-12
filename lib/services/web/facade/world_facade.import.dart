@@ -16,10 +16,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'world_facade.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/models/lorebook_analysis.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
-/// World / lorebook import. CRUD and chat-places stay on [WorldFacade].
-extension WorldFacadeImport on WorldFacade {
+// A standalone library at its old part path: test/models/lorebook_import_test
+// reads this file's source.
+
+/// World / lorebook import for the web. CRUD and chat places stay on the
+/// world facade.
+class WorldImporter {
+  WorldImporter(this._worlds, this._characters, this._chat, this._groups);
+
+  final WorldRepository _worlds;
+  final CharacterRepository? _characters;
+  final ChatService? _chat;
+  final GroupChatRepository? _groups;
+
   /// Import .fpworld or bare lorebook JSON as a place. Routes through
   /// WorldRepository.importWorldJson — the same path desktop file import
   /// uses — so climate, place traits, lore, provenance, and name

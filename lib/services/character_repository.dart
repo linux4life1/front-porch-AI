@@ -16,33 +16,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as p;
 import 'package:flutter/foundation.dart';
-import 'package:drift/drift.dart';
-import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/portrait_promotion.dart';
-import 'package:front_porch_ai/services/v2_card_service.dart';
+import 'package:front_porch_ai/services/character_store/character_store.dart';
+import 'package:front_porch_ai/services/portrait_promotion.dart'
+    show promoteLookOverPortrait;
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
-// The Drift row class collides with the model of the same name (hidden above),
-// so the grouped-avatar map names the row type through a prefix.
-import 'package:front_porch_ai/database/database.dart' as rows show AvatarImage;
-import 'package:front_porch_ai/utils/utils.dart'
-    show StartupTrace, stableGroupIdFrom;
-
-part 'character_repository.crud.dart';
-part 'character_repository.import.dart';
-part 'character_repository.media.dart';
-
-/// Extract the basename from a potentially full path (handles / and \).
-/// Returns the input unchanged if it's already a basename.
-String _toBasename(String path) {
-  return path.split(RegExp(r'[/\\]')).last;
-}
+import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
 
 class CharacterRepository extends ChangeNotifier {
   AppDatabase _db;
@@ -92,7 +75,7 @@ class CharacterRepository extends ChangeNotifier {
     // Fallback: query DB and parse (keeps export working even during partial loads)
     try {
       final row = await _db.getCharacterById(id);
-      return _characterFromRow(row);
+      return characterFromRow(row);
     } catch (_) {
       return null;
     }
@@ -102,27 +85,34 @@ class CharacterRepository extends ChangeNotifier {
     loadCharacters();
   }
 
-  /// Resolve a stored image path (basename or full path) to the local full path.
-  String _resolveImagePath(String stored) {
-    final basename = _toBasename(stored);
-    return '${_storage.charactersDir.path}/$basename';
-  }
+  late final _loader = CharacterLibraryLoader(_storage);
+  late final _media = CharacterMediaStore(
+    db: () => _db,
+    storage: _storage,
+    characters: () => _characters,
+    cardById: getCharacterCardById,
+    saveCardSilently: (card) => updateCharacter(card, notify: false),
+  );
+  late final _writer = CharacterCardWriter(
+    db: () => _db,
+    media: _media,
+    resolveImagePath: _loader.resolveImagePath,
+  );
+  // Callbacks go through the members so subclass overrides still apply.
+  late final _importer = CharacterImporter(
+    db: () => _db,
+    storage: _storage,
+    characters: () => _characters,
+    findByStableId: findByStableId,
+    updateCharacter: (card) => updateCharacter(card),
+    clearGalleryLooks: clearGalleryLooks,
+    addToLibrary: _characters.add,
+  );
 
   /// Update the database reference after a library swap replaces the DB file.
   void updateDatabase(AppDatabase db) {
     _db = db;
   }
-
-  /// Plain (non-`@protected`) forwarder to the inherited `notifyListeners()`.
-  /// Split-mechanism requirement, not a behavior change: `ChangeNotifier`
-  /// marks `notifyListeners` `@protected`/`@visibleForTesting`, and Dart's
-  /// protected-member check does not treat an extension `on CharacterRepository`
-  /// as "within" the class the way an actual instance method is — so the
-  /// crud/import part-file extensions (which need to notify after a mutation,
-  /// same as the original in-class methods did) cannot call it directly.
-  /// This unannotated wrapper is an ordinary library-private member, visible
-  /// to every part via `part of`, and does nothing but forward the call.
-  void _notify() => notifyListeners();
 
   /// Loads the library. A call that arrives while one is already running
   /// waits for it, then runs one more pass so the await cannot return
@@ -165,110 +155,7 @@ class CharacterRepository extends ChangeNotifier {
     final traceStart = DateTime.now();
 
     try {
-      final dbChars = await _db.getAllCharacters();
-      StartupTrace.mark(
-        'CharacterRepository: got ${dbChars.length} rows from DB',
-      );
-
-      _characters.clear();
-
-      final missingPngNames = <String>[];
-      final noCardDataNames = <String>[];
-
-      // Every character's avatars in one query instead of one query per
-      // character. Each Drift call is a round trip to the database isolate, so
-      // the old N+1 cost grew with the size of the library for no reason.
-      Map<String, List<rows.AvatarImage>> avatarsByCharacter = const {};
-      try {
-        avatarsByCharacter = await _db.getAvatarImagesGroupedByCharacter();
-      } catch (e) {
-        debugPrint('[CharacterRepository] Failed to load avatar images: $e');
-      }
-
-      // Taken where the portraits start to resolve against the root.
-      final hadRoot = _storage.rootPath != null;
-      for (final c in dbChars) {
-        final card = _characterFromRow(c);
-
-        // Normalize DB path to basename-only (one-time migration for old full paths).
-        // Then resolve to local full path for runtime use.
-        if (card.imagePath != null) {
-          final basename = _toBasename(card.imagePath!);
-          if (basename != card.imagePath) {
-            // DB still has a full path — strip it to basename for portability
-            if (card.dbId != null) {
-              await _db.updateCharacterImagePath(card.dbId!, basename);
-            }
-          }
-          // Always resolve to local full path for runtime use
-          card.imagePath = _resolveImagePath(basename);
-
-          // Always read extensions fresh from PNG.
-          // V2.5 extensions live only in the PNG tEXt chunk (not in DB).
-          // We intentionally do NOT cache previous in-memory values here:
-          // the old cache caused edits to be silently overwritten by stale
-          // pre-edit values whenever loadCharacters() ran after an edit.
-          // Logging here is summarised after the loop, not emitted per card:
-          // debugPrint is NOT compiled out of release builds, so a 500-card
-          // library was building 500+ log strings nobody reads on every load.
-          try {
-            final v2Service = V2CardService();
-            final reloaded = await v2Service.readCard(card.imagePath!);
-            if (reloaded != null) {
-              card.frontPorchExtensions = reloaded.frontPorchExtensions;
-              card.rawExtensions = reloaded.rawExtensions;
-            } else {
-              noCardDataNames.add(card.name);
-            }
-          } catch (e) {
-            if (e is PathNotFoundException ||
-                e.toString().contains('No such file')) {
-              missingPngNames.add(card.name);
-            } else {
-              debugPrint(
-                '[CharacterRepository] Failed to load PNG for ${card.name}: $e',
-              );
-            }
-          }
-        }
-
-        // Avatar images come from the one grouped query above, so they still
-        // survive hot reloads without a per-character round trip.
-        if (card.dbId != null) {
-          final driftAvatars = avatarsByCharacter[card.dbId!];
-          if (driftAvatars != null && driftAvatars.isNotEmpty) {
-            card.avatarImages = driftAvatars
-                .map(
-                  (a) => AvatarImage(
-                    id: a.id,
-                    characterId: a.characterId,
-                    filename: a.filename,
-                    label: a.label,
-                    displayOrder: a.displayOrder,
-                    createdAt: a.createdAt,
-                  ),
-                )
-                .toList();
-          }
-        }
-
-        _characters.add(card);
-      }
-
-      // Summarize missing portrait files once.
-      if (missingPngNames.isNotEmpty) {
-        debugPrint(
-          '[CharacterRepository] ${missingPngNames.length} characters are '
-          'missing their portrait file: ${missingPngNames.join(", ")}',
-        );
-      }
-      if (noCardDataNames.isNotEmpty) {
-        debugPrint(
-          '[CharacterRepository] ${noCardDataNames.length} PNGs carry no card '
-          'data: ${noCardDataNames.join(", ")}',
-        );
-      }
-      _libraryLoaded = hadRoot;
+      _libraryLoaded = await _loader.loadInto(_db, _characters);
     } catch (e) {
       _libraryLoaded = false;
       debugPrint('[CharacterRepository] Error loading characters from DB: $e');
@@ -292,108 +179,7 @@ class CharacterRepository extends ChangeNotifier {
   /// as orphans.
   Future<int> cleanOrphanedPngs() async {
     if (isLoading) return 0;
-    try {
-      final charDir = _storage.charactersDir;
-      if (!await charDir.exists()) return 0;
-
-      // Collect the FILENAMES referenced by loaded characters. Comparing whole
-      // path strings cannot work: referenced paths are built with a literal '/'
-      // (`_resolveImagePath`) while `Directory.list()` returns the platform
-      // separator — on Windows that is '\', so no referenced path ever matched
-      // its own file and every live portrait was classified as an orphan.
-      // Case is folded because Windows/macOS filesystems match names that way;
-      // a near-miss must err toward KEEPING the file.
-      final referencedNames = <String>{};
-      for (final c in _characters) {
-        if (c.imagePath != null) {
-          referencedNames.add(_toBasename(c.imagePath!).toLowerCase());
-        }
-      }
-
-      int deletedCount = 0;
-      await for (final entity in charDir.list()) {
-        if (entity is File && entity.path.toLowerCase().endsWith('.png')) {
-          if (!referencedNames.contains(
-            _toBasename(entity.path).toLowerCase(),
-          )) {
-            debugPrint(
-              '[Cleanup] Deleting orphaned PNG: ${p.basename(entity.path)}',
-            );
-            await entity.delete();
-            deletedCount++;
-          }
-        }
-      }
-
-      if (deletedCount > 0) {
-        debugPrint('[Cleanup] Deleted $deletedCount orphaned character PNG(s)');
-      }
-      return deletedCount;
-    } catch (e) {
-      debugPrint('[Cleanup] Error cleaning orphaned PNGs: $e');
-      return 0;
-    }
-  }
-
-  /// Convert a DB row into a CharacterCard model.
-  CharacterCard _characterFromRow(Character c) {
-    List<String> altGreetings = [];
-    try {
-      altGreetings = List<String>.from(jsonDecode(c.alternateGreetings));
-    } catch (e) {
-      debugPrint(
-        '[CharacterRepo] Unreadable alternate greetings on "${c.name}": $e',
-      );
-    }
-
-    List<String> tags = [];
-    try {
-      tags = List<String>.from(jsonDecode(c.tags));
-    } catch (e) {
-      debugPrint('[CharacterRepo] Unreadable tags on "${c.name}": $e');
-    }
-
-    List<String> worldNames = [];
-    try {
-      worldNames = List<String>.from(jsonDecode(c.worldNames));
-    } catch (e) {
-      debugPrint('[CharacterRepo] Unreadable world names on "${c.name}": $e');
-    }
-
-    Lorebook? lorebook;
-    if (c.lorebook != null) {
-      try {
-        lorebook = Lorebook.fromJson(jsonDecode(c.lorebook!));
-      } catch (e) {
-        debugPrint('[CharacterRepo] Unreadable lorebook on "${c.name}": $e');
-      }
-    }
-
-    final card = CharacterCard(
-      name: c.name,
-      description: c.description,
-      personality: c.personality,
-      scenario: c.scenario,
-      firstMessage: c.firstMessage,
-      mesExample: c.mesExample,
-      systemPrompt: c.systemPrompt,
-      postHistoryInstructions: c.postHistoryInstructions,
-      alternateGreetings: altGreetings,
-      tags: tags,
-      imagePath: c.imagePath,
-      ttsVoice: c.ttsVoice,
-      lorebook: lorebook,
-      worldNames: worldNames,
-    );
-    // Store DB id for lookups
-    card.dbId = c.id;
-    // Library "date added" — used by the home-screen "Import Date" sort. Reading
-    // the real DB column (instead of parsing a timestamp out of the image
-    // filename) means cards without the legacy `<name>_<epoch>.png` naming
-    // (JSON imports, Chub downloads, renamed files) still sort correctly.
-    card.createdAt = c.createdAt;
-    card.primeAvatarIndex = c.primeAvatarIndex;
-    return card;
+    return _loader.cleanOrphanedPngs(_characters);
   }
 
   /// Library characters whose display name equals [name] (exact match).
@@ -419,6 +205,17 @@ class CharacterRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  late final _covers = CharacterCoverCache(_storage);
+
+  /// Bumped whenever cover bytes may have changed under a stable path (in-place
+  /// portrait overwrite). Home grid [Image.file] keys include this so Done
+  /// after gallery bootstrap refreshes the face without needing a ★ re-click.
+  int coverEpoch = 0;
+
+  void _clearCoverCache() => _covers.clear();
+
+  void _bumpCoverEpoch() => coverEpoch++;
+
   /// The file to bake as the character's exported / Stoop card cover: the ★
   /// starred avatar (a gallery look OR an expression image) when it's set and
   /// present on disk, else the library portrait (`imagePath`). Null when neither
@@ -428,49 +225,274 @@ class CharacterRepository extends ChangeNotifier {
   /// [card] must be a HYDRATED library card (`avatarImages` loaded) for the star
   /// to resolve — a bare card silently falls back to the portrait. Every PNG
   /// bake / upload path should route through this so the star works everywhere.
-  /// Memo for [coverImageFileFor]: chat message bubbles resolve the cover
-  /// on EVERY rebuild (dozens of bubbles × every streaming token batch),
-  /// and the uncached path does a synchronous existsSync per call — near
-  /// free on macOS/APFS, but 10-100x slower on Windows where Defender
-  /// intercepts file stats. Field-reported as "the app got sluggish" in
-  /// the 20260716 nightly. The key embeds the star id and portrait path,
-  /// so changing either self-invalidates; mutations also clear the whole
-  /// cache (updateCharacter / delete / notifyCharactersChanged) to cover
-  /// files changing on disk under an unchanged key.
-  final Map<String, File?> _coverCache = {};
+  File? coverImageFileFor(CharacterCard card) =>
+      _covers.fileFor(card, epoch: coverEpoch);
 
-  /// Bumped whenever cover bytes may have changed under a stable path (in-place
-  /// portrait overwrite). Home grid [Image.file] keys include this so Done
-  /// after gallery bootstrap refreshes the face without needing a ★ re-click.
-  int coverEpoch = 0;
+  // ── Card CRUD ─────────────────────────────────────────────────────────
 
-  void _clearCoverCache() => _coverCache.clear();
+  Future<void> addCharacter(CharacterCard character) async {
+    character.dbId = await _writer.insert(character);
+    _characters.add(character);
+    notifyListeners();
+  }
 
-  void _bumpCoverEpoch() => coverEpoch++;
+  Future<void> deleteCharacter(
+    CharacterCard character, {
+    WorldRepository? worldRepo,
+    Directory? chatsDir,
+  }) async {
+    _clearCoverCache();
+    _characters.remove(character);
+    notifyListeners();
+    await _writer.deleteStored(
+      character,
+      worldRepo: worldRepo,
+      chatsDir: chatsDir,
+    );
+  }
 
-  File? coverImageFileFor(CharacterCard card) {
-    final favId = card.frontPorchExtensions?.favoriteAvatarId;
-    final key = '${card.name}|$favId|${card.imagePath}|$coverEpoch';
-    if (_coverCache.containsKey(key)) return _coverCache[key];
-    if (_coverCache.length > 512) _coverCache.clear();
+  /// Bulk delete (mass select / delete-folder-with-characters). Same pipeline
+  /// as [deleteCharacter] per card — soft-delete row, remove PNG, remove chat
+  /// history, drop linked worlds — with progress reported per card so the UI
+  /// can show a counter over a 100+ card purge (the accidental-bulk-import
+  /// case this exists for). Returns how many were deleted.
+  Future<int> deleteCharacters(
+    List<CharacterCard> cards, {
+    WorldRepository? worldRepo,
+    Directory? chatsDir,
+    void Function(int done, int total)? onProgress,
+  }) async {
+    var done = 0;
+    for (final card in cards) {
+      await deleteCharacter(card, worldRepo: worldRepo, chatsDir: chatsDir);
+      done++;
+      onProgress?.call(done, cards.length);
+    }
+    return done;
+  }
 
-    File? result;
-    if (favId != null) {
-      for (final a in card.avatarImages ?? const <AvatarImage>[]) {
-        if (a.id == favId) {
-          final f = a.resolveFile(_storage.characterBaseDir(card.name).path);
-          if (f.existsSync()) result = f;
-          break;
-        }
+  Future<void> _updateCharacter(
+    CharacterCard card, {
+    required bool notify,
+  }) async {
+    _clearCoverCache(); // avatar files may have changed under a stable key
+    _bumpCoverEpoch();
+
+    if (notify) {
+      _isLoading = true;
+      notifyListeners();
+    }
+
+    try {
+      await _writer.persistUpdate(card);
+
+      // Update the list entry. Prefer dbId (stable) so a first-time
+      // imagePath assignment still replaces the list row that was loaded
+      // with a null path — path-only match used to leave a stale null-path
+      // entry and made addLook think the card still had no portrait.
+      final index = _characters.indexWhere(
+        (c) =>
+            (card.dbId != null && c.dbId == card.dbId) ||
+            (card.imagePath != null && c.imagePath == card.imagePath),
+      );
+      if (index != -1) {
+        _characters[index] = card;
+      }
+      if (notify) notifyListeners();
+    } catch (e) {
+      print('Error updating character: $e');
+      rethrow;
+    } finally {
+      if (notify) {
+        _isLoading = false;
+        notifyListeners();
       }
     }
-    if (result == null) {
-      final img = card.imagePath;
-      if (img != null && img.isNotEmpty) {
-        result = _storage.resolveCharacterImage(img);
-      }
+  }
+
+  /// Persist only [card]'s image path, without serializing its other fields
+  /// into either SQLite or the PNG.
+  ///
+  /// This is the gallery portrait-replacement path: the portrait writer has
+  /// already preserved the existing PNG `chara` payload. The database helper
+  /// re-keys filename-owned rows when a missing/external portrait requires a
+  /// genuinely new basename.
+  Future<void> updateCharacterImagePathOnly(
+    CharacterCard card, {
+    bool notify = true,
+  }) async {
+    final id = card.dbId;
+    final imagePath = card.imagePath;
+    if (id == null || imagePath == null) return;
+
+    _clearCoverCache();
+    _bumpCoverEpoch();
+    final fsPath = _writer.absoluteImagePath(imagePath);
+    card.imagePath = fsPath;
+    await _db.updateCharacterImagePath(id, toBasename(fsPath));
+
+    final index = _characters.indexWhere((candidate) => candidate.dbId == id);
+    if (index != -1) {
+      _characters[index].imagePath = fsPath;
     }
-    _coverCache[key] = result;
-    return result;
+    if (notify) notifyListeners();
+  }
+
+  /// Update a character's image path and persist to DB + PNG.
+  Future<void> setCharacterImagePath(
+    CharacterCard card,
+    String imagePath,
+  ) async {
+    card.imagePath = imagePath;
+    await updateCharacter(card);
+  }
+
+  /// Read the JSON-encoded [memorySources] list for a character.
+  Future<List<String>> getMemorySources(String characterDbId) =>
+      _writer.memorySources(characterDbId);
+
+  /// Write memorySources for a character (JSON-encoded list of character IDs).
+  Future<void> setMemorySources(String characterDbId, List<String> sources) =>
+      _writer.setMemorySources(characterDbId, sources);
+
+  // ── Import / duplicate ────────────────────────────────────────────────
+
+  /// Import a character card file (V2 PNG or standalone V2 JSON).
+  ///
+  /// Update-in-place happens only when:
+  /// - the incoming card's [FrontPorchExtensions.stableId] matches a library
+  ///   character (FP reimport / realism edit path — preserves chats), or
+  /// - [forceReplaceTarget] is set (user chose "Replace existing" in the
+  ///   single-file name-collision dialog).
+  ///
+  /// Same display name alone never overwrites or soft-deletes. Bulk import
+  /// and silent callers omit [forceReplaceTarget] so variants land as
+  /// separate library entries (issue #161).
+  Future<CharacterCard?> importCharacter(
+    File file, {
+    CharacterCard? forceReplaceTarget,
+  }) => _whileLoading(
+    () => _importer.importFile(file, forceReplaceTarget: forceReplaceTarget),
+  );
+
+  /// Bulk import multiple character PNG files.
+  /// [onProgress] is called after each file with (current, total, cardName, error).
+  /// Returns a summary map: `{imported: int, failed: int, errors: List<String>}`.
+  Future<Map<String, dynamic>> importCharacters(
+    List<File> files, {
+    void Function(int current, int total, String name, String? error)?
+    onProgress,
+    bool Function()? isCancelled,
+  }) => CharacterImporter.importAll(
+    files,
+    importOne: importCharacter,
+    onProgress: onProgress,
+    isCancelled: isCancelled,
+  );
+
+  /// With [targetDirOverride] + [skipLibraryInsert] this clones into the
+  /// caller's dir (decoupled group private copies, e.g.
+  /// `groups/<gid>/avatars/`) without touching the library DB or list.
+  /// AI Enhance passes [newNameOverride] (`'<Name> (Enhanced)'`).
+  Future<CharacterCard?> duplicateCharacter(
+    CharacterCard card, {
+    String? targetDirOverride,
+    String? forcedBasename,
+    bool skipLibraryInsert = false,
+    String? newNameOverride,
+  }) => _whileLoading(() async {
+    try {
+      return await _importer.duplicate(
+        card,
+        targetDirOverride: targetDirOverride,
+        forcedBasename: forcedBasename,
+        skipLibraryInsert: skipLibraryInsert,
+        newNameOverride: newNameOverride,
+      );
+    } catch (e) {
+      debugPrint('[Duplicate] Error duplicating character: $e');
+      rethrow;
+    }
+  });
+
+  Future<T> _whileLoading<T>(Future<T> Function() body) async {
+    _isLoading = true;
+    notifyListeners();
+    try {
+      return await body();
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Avatar-gallery media ──────────────────────────────────────────────
+
+  /// Get all avatar images for a character from the database.
+  Future<List<AvatarImage>> getAvatarImages(String characterId) =>
+      _media.avatarImages(characterId);
+
+  /// Add a labeled expression avatar (goes to `avatars/`). Returns the new
+  /// avatar id so callers can roll back a partial batch on failure.
+  Future<String> addAvatar(
+    String characterId,
+    String characterName,
+    Uint8List imageBytes,
+    String? label,
+  ) => _media.addAvatar(characterId, characterName, imageBytes, label);
+
+  /// Add a gallery LOOK — a plain alternate avatar (a new outfit, a scene), NOT
+  /// an expression image. Non-destructive: written to the character's SEPARATE
+  /// `looks/` folder and tagged [AvatarImage.lookLabel] so it stays out of the
+  /// emotion pipeline. Returns the new avatar id, or `''` when the bytes were
+  /// applied as the **portrait only** (no gallery look row) because the card
+  /// had no face or only a solid-color placeholder. Selecting a look (per chat)
+  /// remains the caller's job when a real look id is returned.
+  Future<String> addLook(
+    String characterId,
+    String characterName,
+    Uint8List imageBytes,
+  ) => _media.addLook(characterId, characterName, imageBytes);
+
+  /// Delete gallery looks (`isLook`) for [characterId]. Expression avatars stay.
+  Future<void> clearGalleryLooks(String characterId) async {
+    for (final img in await getAvatarImages(characterId)) {
+      if (img.isLook) await removeAvatar(characterId, img.id);
+    }
+  }
+
+  /// Remove an avatar image for a character.
+  Future<void> removeAvatar(String characterId, String avatarId) =>
+      _media.removeAvatar(characterId, avatarId);
+
+  /// Set the prime avatar index for a character.
+  Future<void> setPrimeAvatar(String characterId, int primeIndex) =>
+      _media.setPrimeAvatar(characterId, primeIndex);
+
+  /// Update the label for an avatar image.
+  Future<void> updateAvatarLabel(String avatarId, String label) =>
+      _media.updateAvatarLabel(avatarId, label);
+
+  /// Deletes the canonical portrait; a gallery look is promoted in its place.
+  /// Returns the promoted look's id (callers clean their own cascades).
+  Future<String> deletePortraitPromotingLook(CharacterCard card) =>
+      promoteLookOverPortrait(
+        card: card,
+        storage: _storage,
+        updateCharacter: updateCharacter,
+        removeAvatar: removeAvatar,
+        addLook: addLook,
+      );
+}
+
+/// Static dispatch keeps a pathless card a no-op on test doubles too.
+extension CharacterRepositoryUpdate on CharacterRepository {
+  /// [notify] = false persists silently (DB + PNG still written): the Avatar
+  /// Gallery's ★ writes per click, and broadcasting each one repainted the
+  /// whole home grid behind the open dialog. Silent callers MUST follow up
+  /// with [notifyCharactersChanged] when their surface closes.
+  Future<void> updateCharacter(CharacterCard card, {bool notify = true}) async {
+    if (card.imagePath == null) return;
+    await _updateCharacter(card, notify: notify);
   }
 }
