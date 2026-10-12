@@ -21,6 +21,16 @@ on:
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
+# A new push to a PR cancels that PR's older run: nobody reads a superseded
+# result, and on 2026-10-12 superseded runs held most of the shared runners
+# while the live ones queued. Pushes to Rawhide/main and the schedule get a
+# group of their own run id, so they never cancel or replace one another and
+# every landed commit keeps its full record. (A shared group would still drop
+# a pending run when a third arrived, even without cancel-in-progress.)
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('ci-pr-{0}', github.event.pull_request.number) || format('ci-run-{0}', github.run_id) }}
+  cancel-in-progress: true
+
 jobs:
   analyze:
     name: CI (changed Dart files)
