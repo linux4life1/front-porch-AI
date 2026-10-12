@@ -1,11 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// K-2 / B1 / B2 / greeting-repair pins for the one-path backfill.
+// Direct backfillSlotClocks rules: a null swipe slot stays null, the
+// greeting clock comes only from index 0, a guessed after yields to a
+// surviving snap, stored befores survive, non-tip afters stay off the
+// live clock, and an empty slot takes the earlier real stamp.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/message_clock.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 
 ChatMessage _bot(
   String text,
@@ -48,6 +51,33 @@ void main() {
     expect((msg.activeMetadata?['realism_state'] as Map)['trustLevel'], 45);
     expect(msg.activeMetadata?['is_dream'], isTrue);
     expect(msg.metadata?['story_clock_after'], isNotNull);
+  });
+
+  test('nearestReal prefers an earlier stamp over a closer later one', () {
+    final earlier = _bot('nine-thirty', {
+      'story_clock_before': '2026-06-28T09:30:00.000Z',
+      'story_clock_after': '2026-06-28T09:30:00.000Z',
+    });
+    final mid = _bot('unstamped', {});
+    final later = _bot('evening', {
+      'story_clock_before': '2026-06-28T18:00:00.000Z',
+      'story_clock_after': '2026-06-28T18:00:00.000Z',
+    });
+    backfillSlotClocks(
+      [
+        earlier,
+        ChatMessage(text: 'ok', sender: 'You', isUser: true),
+        mid,
+        later,
+      ],
+      liveClock: DateTime.utc(2026, 6, 28, 18, 0),
+      startDate: DateTime.utc(2026, 6, 28),
+    );
+    expect(
+      slotClockAfter(mid.metadata),
+      DateTime.utc(2026, 6, 28, 9, 30),
+      reason: 'pos 2 must take earlier 09:30, not closer later 18:00',
+    );
   });
 
   test('B1: greetingClock comes only from index 0, not a later snap', () {

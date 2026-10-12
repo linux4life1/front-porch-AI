@@ -162,6 +162,9 @@ List<_Hit> _scanKeyWrites(DartSource src) {
   }
 
   // A name bound to a key covers its later uses, up to a rebinding.
+  // Known limit: a key nested in an interpolation
+  // (`final s = 'x ${'story_clock_before'}';`) binds `s` as a key
+  // constant. That can only cause a false red, so it fails safe.
   final constants = <String, List<({String key, int at})>>{};
   for (final lit in src.strings) {
     if (!_keys.contains(lit.body)) continue;

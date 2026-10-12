@@ -1,8 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// B1–B3 ChatService pins. B4 (.fpchat head clock) already lives in
-// clock_import_fork_test.dart. Public ChatService API only.
+// What a reload, reopen or fork must hold: card-seed trust on a fork
+// after dispose + rehydrate, a null swipe slot's metadata across two
+// opens, and a Realism-off story_day before across send and reload.
+// The .fpchat head clock lives in clock_import_fork_test.dart. Public
+// ChatService API only.
 
 import 'dart:convert';
 import 'dart:io';

@@ -64,8 +64,8 @@ class DartSource {
   final _comments = <int, List<String>>{};
   final _strings = <DartString>[];
 
-  /// Every string literal, in source order (one nested in an interpolation
-  /// comes after the literal around it).
+  /// Every string literal, ordered by closing quote (one nested in an
+  /// interpolation comes before the literal around it).
   List<DartString> get strings => List.unmodifiable(_strings);
 
   /// Every function, method or constructor declaration (`name(` after a
