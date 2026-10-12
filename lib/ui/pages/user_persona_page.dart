@@ -86,6 +86,23 @@ class _UserPersonaPageState extends State<UserPersonaPage>
 
   void _setBirthday(String v) => setState(() => _birthday = v);
 
+  /// The form differs from the persona it opened with (or a new one has
+  /// anything in it).
+  bool _isDirty() {
+    if (!_isEditing) return false;
+    final p = _editingPersona;
+    return _titleController.text != (p?.title ?? '') ||
+        _nameController.text != (p?.name ?? '') ||
+        _personaController.text != (p?.persona ?? '') ||
+        _avatarPath != p?.avatarPath ||
+        _birthday != (p?.birthday ?? '');
+  }
+
+  Future<void> _requestCancel() async {
+    if (_isDirty() && !await confirmDiscardChanges(context)) return;
+    if (mounted) _cancelEditing();
+  }
+
   void _cancelEditing() {
     setState(() {
       _isEditing = false;
@@ -273,7 +290,10 @@ class _UserPersonaPageState extends State<UserPersonaPage>
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      UnsavedChangesGuard(isDirty: _isDirty, child: _scaffold(context));
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
@@ -288,7 +308,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
         leading: _isEditing
             ? IconButton(
                 icon: const Icon(Icons.arrow_back),
-                onPressed: _cancelEditing,
+                onPressed: _requestCancel,
               )
             : null,
         actions: _isEditing
@@ -348,7 +368,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                 birthday: _birthday,
                 onPickAvatar: _pickAvatar,
                 onBirthdayChanged: _setBirthday,
-                onCancel: _cancelEditing,
+                onCancel: _requestCancel,
                 onSave: _savePersona,
               )
             : PersonaMainView(
@@ -359,6 +379,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                 onDelete: _showDeleteConfirmation,
                 onCreate: () => _startEditing(null),
                 onImport: _importPersona,
+                onMakeCharacter: (persona) =>
+                    makeCharacterFromPersona(context, persona),
               ),
       ),
     );

@@ -71,6 +71,9 @@ shelf.Handler buildWebHandler(WebServerDeps deps) {
     WebChatPackageRoutes(deps.chatPackageFacade!, router);
   }
   if (deps.porchFacade != null) WebPorchRoutes(deps.porchFacade!, router);
+  if (deps.personaConversionFacade != null) {
+    WebPersonaConvertRoutes(deps.personaConversionFacade!, router);
+  }
   if (deps.chatToolsFacade != null) {
     WebChatToolsRoutes(deps.chatToolsFacade!, router);
   }

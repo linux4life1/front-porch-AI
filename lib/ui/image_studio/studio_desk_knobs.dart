@@ -307,9 +307,10 @@ class StudioRemoteKeyNote extends StatelessWidget {
     if (account.key.isEmpty) {
       return Text(
         'No Remote API key configured for this host. Remote images '
-        'use the same API account as chat — nothing runs locally and '
-        'nothing is free. Add your provider key under Settings → '
-        'Backend → Remote API first; models will list once it\'s set.',
+        'use the paid API account chat uses for Remote API, even when '
+        'chat itself runs locally. Add a key under Settings → Backend → '
+        'Remote API, or press Change… to make images on this computer '
+        'with ComfyUI, Automatic1111 or Draw Things.',
         style: TextStyle(color: AppColors.textPrimary(context), fontSize: 11.5),
       );
     }

@@ -71,6 +71,28 @@ extension ChatServiceRealismDance on ChatService {
     );
   }
 
+  /// A Director Mode turn. {{user}} is off stage, so no judge scores the
+  /// director's note and bond, trust and emotion hold still. The speaker's
+  /// body still lives: [stamp] loads their bars and stamps the Needs base
+  /// the post-gen pass measures from (Continue loads without stamping, the
+  /// same split as the dance). The cast's feelings for each other are
+  /// seeded here because the dance that normally seeds them does not run.
+  void _prepareDirectedSpeaker(CharacterCard speaker, {required bool stamp}) {
+    final sid = _getCharacterIdFromCard(speaker);
+    if (sid.isEmpty) return;
+    if (!stamp || _needsStampPreTurn(groupSpeaker: speaker) == null) {
+      _loadGroupRealismIntoScalars(sid);
+    }
+    if (stamp) {
+      // Clock off: the reply's refractory quarter hour, as in the dance.
+      _tickRefractoryPerReply(loadedId: sid);
+      _nsfwService.saveNsfwScalarsToGroup(sid);
+    }
+    if (_realismEnabled) {
+      _relationshipService.ensureInterCharacterRelationshipsSeeded(sid);
+    }
+  }
+
   Future<void> _evaluateRealismForUpcomingSpeakerUnheld(
     CharacterCard speaker,
   ) async {

@@ -112,7 +112,7 @@ extension ChatServiceWiringRealism on ChatService {
       getRealismEnabled: () => _realismEnabled,
       getObserverMode: () => _observerMode,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getGroupNeeds: _getGroupNeeds,
       setGroupNeeds: _setGroupNeeds,
       getEnjoysLowHygiene: () => enjoysLowHygiene,

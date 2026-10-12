@@ -16,26 +16,16 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
-import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/chat/tool_verdict_stamp.dart';
-import 'package:front_porch_ai/services/services.dart'
-    show
-        LlmRequestCancel,
-        LlmToolCall,
-        LlmToolResponse,
-        OneShotMode,
-        isToolTransportFailure;
+import 'package:front_porch_ai/services/services.dart' show OneShotMode;
 import 'package:front_porch_ai/services/storage/storage.dart'
     show ToolVerdictSettings;
 import 'package:front_porch_ai/utils/utils.dart' show namesUnknownLocalModel;
 
-part 'pass_support_fire.dart';
+export 'package:front_porch_ai/services/chat/pass_support/structured_eval_fire.dart';
 
 /// Shared support for the two background maintenance passes (the Journal and
 /// Growth Rings) — extracted from JournalMaintenance so the growth pass

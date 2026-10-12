@@ -34,6 +34,10 @@ import 'package:front_porch_ai/models/models.dart';
 /// host classes already hold exactly these fields — `final` fields satisfy the
 /// abstract getters, so adopting it is a one-word change and deleting a method.
 mixin SpeakerCardResolver {
+  /// True on every group turn, Director Mode included: the speaker is a
+  /// group member either way, and the shared active-character pointer is the
+  /// previous speaker. The name predates Director Mode keeping per-speaker
+  /// state; ChatService wires it to `_activeGroup != null`.
   bool Function() get getIsGroupNonObserverMode;
   String Function() get getCurrentSpeakerIdForRealism;
   List<CharacterCard> Function() get getGroupCharacters;

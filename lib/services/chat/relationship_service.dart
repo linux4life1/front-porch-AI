@@ -20,11 +20,11 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/relationship_milestones.dart';
 
+import 'relationship_service/relationship_service.dart';
 import 'relationship_tiers.dart';
 
-part 'relationship_service.persistence.dart';
-part 'relationship_service.dynamics.dart';
-part 'relationship_service.rewind.dart';
+export 'relationship_service/relationship_rewind.dart'
+    show rejectedTurnRewindPatch;
 
 /// Bond applies between long-term growth checks. Going forward only —
 /// stored session counters and [RelationshipService.longTermScore] are
@@ -89,11 +89,14 @@ const int kLongTermCheckEvery = 3;
 /// deletions of moved code are mandatory part of the task).
 ///
 /// This library was split 2026-08 (god-file elimination campaign) into this shell
-/// plus three `part` files (`relationship_service.persistence.dart`,
-/// `.dynamics.dart`, `.rewind.dart`) and one pure leaf (`relationship_tiers.dart`,
-/// which holds the tier/percent scale statics this class still exposes via the
-/// six one-line delegating statics below for source compatibility). Extraction
-/// is verbatim; see the split map for the full inventory.
+/// plus one pure leaf (`relationship_tiers.dart`, which holds the tier/percent
+/// scale statics this class still exposes via the six one-line delegating
+/// statics below for source compatibility). Its former `part` files are now
+/// real collaborators under `relationship_service/`: [RelationshipScalars]
+/// (the owned registers + pure reset/seed/load/setters),
+/// [RelationshipDynamics] (deltas, growth, decay), [RelationshipGroupSync]
+/// (per-speaker group load/save) and [RelationshipRewinder] (capture/restore +
+/// inter-character feelings). This class forwards to them one line each.
 class RelationshipService {
   final VoidCallback onNotify;
   final Future<void> Function() onSaveChat;
@@ -161,30 +164,17 @@ class RelationshipService {
   /// [applyTrustDelta] run with recordMilestone: false (regen revert).
   final void Function(TierCrossing crossing)? onTierCrossing;
 
-  // Owned simulation state (moved verbatim from ChatService).
-  int _affectionScore = 0;
-  int _relationshipTier = 0;
-
-  // Long-Term Bond
-  int _longTermScore = 0;
-  int _longTermTier = 0;
-  int _turnsSinceLongTermCheck = 0;
-  int _shortTermDeltasSummary = 0;
-  int _turnsSinceDecayCheck =
-      0; // counter for short-term relationship decay (every 10 turns)
-
-  // v3 Behavioral
-  int _trustLevel = 0; // -100 to 100
-  String _activeFixation = '';
-  int _fixationLifespan = 0; // turns until fixation naturally clears
-  String _spatialStance = '';
-
-  /// null = unknown (fail closed — glance uses keywords / inScene).
-  bool? _withUser;
+  // Owned simulation state (moved verbatim from ChatService) and the
+  // collaborators that mutate it.
+  final RelationshipScalars _s = RelationshipScalars();
+  late final RelationshipDynamics _dynamics = RelationshipDynamics(this, _s);
+  late final RelationshipGroupSync _groupSync = RelationshipGroupSync(this, _s);
+  late final RelationshipRewinder _rewinder = RelationshipRewinder(this, _s);
 
   // Armed on each severe trust drop (≥ -20 delta). Consumed on the very next user
   // message, then resets so future drops each get one shot.
-  bool pendingTrustRepair = false;
+  bool get pendingTrustRepair => _s.pendingTrustRepair;
+  set pendingTrustRepair(bool v) => _s.pendingTrustRepair = v;
 
   RelationshipService({
     required this.onNotify,
@@ -227,46 +217,46 @@ class RelationshipService {
 
   // ── Public surface (ChatService forwarders + direct test/UI callers) ──────
 
-  int get affectionScore => _affectionScore;
-  int get relationshipTier => _relationshipTier;
-  int get longTermScore => _longTermScore;
-  int get longTermTier => _longTermTier;
-  int get trustLevel => _trustLevel;
-  int get trustTier => _calculateTier(_trustLevel);
+  int get affectionScore => _s.affectionScore;
+  int get relationshipTier => _s.relationshipTier;
+  int get longTermScore => _s.longTermScore;
+  int get longTermTier => _s.longTermTier;
+  int get trustLevel => _s.trustLevel;
+  int get trustTier => RelationshipTiers.bondTierFor(_s.trustLevel);
 
-  String get activeFixation => _activeFixation;
-  int get fixationLifespan => _fixationLifespan;
-  String get spatialStance => _spatialStance;
-  bool? get withUser => _withUser;
+  String get activeFixation => _s.activeFixation;
+  int get fixationLifespan => _s.fixationLifespan;
+  String get spatialStance => _s.spatialStance;
+  bool? get withUser => _s.withUser;
 
   // Counters for snapshot/restore parity (used by capture in parent).
-  int get turnsSinceLongTermCheck => _turnsSinceLongTermCheck;
-  int get shortTermDeltasSummary => _shortTermDeltasSummary;
+  int get turnsSinceLongTermCheck => _s.turnsSinceLongTermCheck;
+  int get shortTermDeltasSummary => _s.shortTermDeltasSummary;
 
   // Progress helpers for relationship bars (UI + tests). Delegate to the pure
   // static scale helpers on [RelationshipTiers] (moved there in the 2026-08
   // split) so the band math is one source of truth, shared with read-only
   // per-member consumers (the web group stats panel).
   int get shortTermProgressTarget =>
-      RelationshipTiers.bondScaleTarget(_affectionScore.abs());
+      RelationshipTiers.bondScaleTarget(_s.affectionScore.abs());
   int get shortTermProgressBase =>
-      RelationshipTiers.bondScaleBase(_affectionScore.abs());
-  double get shortTermProgressPercent => bondScalePercent(_affectionScore);
+      RelationshipTiers.bondScaleBase(_s.affectionScore.abs());
+  double get shortTermProgressPercent => bondScalePercent(_s.affectionScore);
 
   int get longTermProgressTarget =>
-      RelationshipTiers.bondScaleTarget(_longTermScore.abs());
-  double get longTermProgressPercent => bondScalePercent(_longTermScore);
+      RelationshipTiers.bondScaleTarget(_s.longTermScore.abs());
+  double get longTermProgressPercent => bondScalePercent(_s.longTermScore);
 
   int get trustProgressTarget =>
-      RelationshipTiers.trustScaleTarget(_trustLevel.abs());
-  double get trustProgressPercent => trustScalePercent(_trustLevel);
+      RelationshipTiers.trustScaleTarget(_s.trustLevel.abs());
+  double get trustProgressPercent => trustScalePercent(_s.trustLevel);
 
   /// Human-readable tier name for the current relationship level.
   /// Calculate tier for 21-tier system (-10 to +10) for short/long-term bonds
   /// with new range ±300.
-  String get shortTermTierName => bondTierLabel(_relationshipTier);
+  String get shortTermTierName => bondTierLabel(_s.relationshipTier);
 
-  String get longTermTierName => longTermTierLabel(_longTermTier);
+  String get longTermTierName => longTermTierLabel(_s.longTermTier);
 
   String get trustTierName => trustTierLabel(trustTier);
 
@@ -300,7 +290,7 @@ class RelationshipService {
 
   /// Public for any load-site default computation that needs it (e.g. group scalar
   /// fallbacks). Internal logic always prefers provided group tier or computes.
-  int calculateTier(int score) => _calculateTier(score);
+  int calculateTier(int score) => RelationshipTiers.bondTierFor(score);
 
   // Per-score read helpers for consumers that need a tier name / bar percent for
   // an arbitrary score without mutating live state (e.g. the web per-group-member
@@ -313,22 +303,18 @@ class RelationshipService {
   double bondPercentForScore(int score) => bondScalePercent(score);
   double trustPercentForLevel(int level) => trustScalePercent(level);
 
-  // ── Core logic (verbatim mechanical extraction) ───────────────────────────
+  // ── Cadence scoping shared by [RelationshipDynamics] (decay) and
+  // [RelationshipRewinder] (capture). ─────────────────────────────────────
 
-  int _calculateTier(int score) => RelationshipTiers.bondTierFor(score);
-
-  // ── Members relocated here from the dynamics/rewind parts (2026-08 split,
-  // hazards H4/H5): both extension parts call these unqualified, which only
-  // reliably resolves for members declared directly on the class body rather
-  // than inside another part's `extension` block. ──────────────────────────
-
-  bool get _perSpeakerDecay =>
+  /// True when decay cadence runs on the group speaker's own counter.
+  bool get perSpeakerDecay =>
       getIsGroupActive() &&
       !getObserverMode() &&
       getGroupCounter != null &&
       setGroupCounter != null;
 
-  String get _decaySpeakerId => getCurrentSpeakerIdForRealism();
+  /// The member whose cadence/feelings a turn-path decay or capture targets.
+  String get decaySpeakerId => getCurrentSpeakerIdForRealism();
 
   /// Public inter-character read API. Called from the dynamics part
   /// ([applyShortTermDecay]) and the rewind part (capture + the seeding/
@@ -343,11 +329,6 @@ class RelationshipService {
   }
 
   /// Canonical scalar-restore entry (realism_state load, chip revert, tests).
-  /// Lives on the class body — NOT in the persistence part — because callers
-  /// that reach this service only through `ChatService.relationshipService`
-  /// (e.g. sidebar_golden_test.dart) never import this library, and extension
-  /// members, unlike true instance members, only resolve where the declaring
-  /// library is imported.
   void loadScalars({
     required int affectionScore,
     required int longTermScore,
@@ -360,20 +341,102 @@ class RelationshipService {
     int turnsSinceLongTermCheck = 0,
     int shortTermDeltasSummary = 0,
     int turnsSinceDecayCheck = 0,
-  }) {
-    _affectionScore = affectionScore;
-    _longTermScore = longTermScore;
-    _trustLevel = trustLevel;
-    _activeFixation = activeFixation;
-    _fixationLifespan = fixationLifespan;
-    _spatialStance = spatialStance;
-    _withUser = withUser;
-    pendingTrustRepair = trustRepairPending;
-    _turnsSinceLongTermCheck = turnsSinceLongTermCheck;
-    _shortTermDeltasSummary = shortTermDeltasSummary;
-    _turnsSinceDecayCheck = turnsSinceDecayCheck;
+  }) => _s.load(
+    affectionScore: affectionScore,
+    longTermScore: longTermScore,
+    trustLevel: trustLevel,
+    activeFixation: activeFixation,
+    fixationLifespan: fixationLifespan,
+    spatialStance: spatialStance,
+    withUser: withUser,
+    trustRepairPending: trustRepairPending,
+    turnsSinceLongTermCheck: turnsSinceLongTermCheck,
+    shortTermDeltasSummary: shortTermDeltasSummary,
+    turnsSinceDecayCheck: turnsSinceDecayCheck,
+  );
 
-    _relationshipTier = _calculateTier(_affectionScore);
-    _longTermTier = _calculateTier(_longTermScore);
-  }
+  // ── Reset / seed / group load-save ([RelationshipScalars],
+  // [RelationshipGroupSync]) ─────────────────────────────────────────────
+
+  void resetForFreshChat() => _s.reset();
+
+  /// See [RelationshipScalars.seedFromCard].
+  void seedFromCardV2OrExt({
+    required int shortTermBond,
+    required int longTermBond,
+    required int trustLevel,
+  }) => _s.seedFromCard(
+    shortTermBond: shortTermBond,
+    longTermBond: longTermBond,
+    trustLevel: trustLevel,
+  );
+
+  /// See [RelationshipGroupSync.loadRelationshipScalarsForSpeaker].
+  void loadRelationshipScalarsForSpeaker(String charId) =>
+      _groupSync.loadRelationshipScalarsForSpeaker(charId);
+
+  /// See [RelationshipGroupSync.saveRelationshipScalarsToGroup].
+  void saveRelationshipScalarsToGroup(String charId) =>
+      _groupSync.saveRelationshipScalarsToGroup(charId);
+
+  // ── Deltas, growth, decay ([RelationshipDynamics]) ────────────────────────
+
+  /// See [RelationshipDynamics.applyScoreDelta].
+  void applyScoreDelta(int delta, {bool recordMilestone = true}) =>
+      _dynamics.applyScoreDelta(delta, recordMilestone: recordMilestone);
+
+  /// See [RelationshipDynamics.applyTrustDelta].
+  void applyTrustDelta(int delta, {bool recordMilestone = true}) =>
+      _dynamics.applyTrustDelta(delta, recordMilestone: recordMilestone);
+
+  /// See [RelationshipDynamics.applyShortTermDecay].
+  void applyShortTermDecay() => _dynamics.applyShortTermDecay();
+
+  // ── Fixation / spatial / with-user ([RelationshipScalars]) ────────────────
+
+  void decayFixationOneTurn() => _s.decayFixationOneTurn();
+
+  void updateFixationFromEvalResult(
+    String rawTopic, {
+    bool isOneShot = false,
+  }) => _s.updateFixationFromEvalResult(rawTopic, isOneShot: isOneShot);
+
+  void sanitizeFixationIfTooLong() => _s.sanitizeFixationIfTooLong();
+
+  void setSpatialStance(String v) => _s.setSpatialStance(v);
+
+  void applyWithUserVerdict(bool? v) => _s.applyWithUserVerdict(v);
+
+  /// Restore / reset path — null is allowed (unknown).
+  void setWithUser(bool? v) => _s.withUser = v;
+
+  /// Consume the one-shot repair window (called on next user turn after armed severe drop).
+  void consumePendingTrustRepair() => _s.pendingTrustRepair = false;
+
+  void setTrustLevelForRevert(int v) => _s.setTrustLevelForRevert(v);
+
+  // ── Capture / restore + inter-character ([RelationshipRewinder]) ──────────
+
+  /// See [RelationshipRewinder.captureCadenceAndFeelings].
+  Map<String, dynamic> captureCadenceAndFeelings() =>
+      _rewinder.captureCadenceAndFeelings();
+
+  void updateInterCharacterRelationship(
+    String fromCharId,
+    String toCharId,
+    int delta,
+  ) => _rewinder.updateInterCharacterRelationship(fromCharId, toCharId, delta);
+
+  void ensureInterCharacterRelationshipsSeeded(String charId) =>
+      _rewinder.ensureInterCharacterRelationshipsSeeded(charId);
+
+  void updateInterCharacterFeelingsFromRecentExchange(String speakerId) =>
+      _rewinder.updateInterCharacterFeelingsFromRecentExchange(speakerId);
+
+  /// See [RelationshipRewinder.restoreFromMessageState].
+  void restoreFromMessageState(
+    Map<dynamic, dynamic> state, {
+    String? groupSpeakerId,
+  }) =>
+      _rewinder.restoreFromMessageState(state, groupSpeakerId: groupSpeakerId);
 }

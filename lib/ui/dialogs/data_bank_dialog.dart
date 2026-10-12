@@ -146,9 +146,23 @@ class _DataBankDialogState extends State<DataBankDialog> {
     setState(() {
       _isEditing = true;
       _editingId = entry?.id;
-      _titleController.text = entry?.title ?? '';
-      _contentController.text = entry?.content ?? '';
+      _titleController.text = _startTitle = entry?.title ?? '';
+      _contentController.text = _startContent = entry?.content ?? '';
     });
+  }
+
+  String _startTitle = '';
+  String _startContent = '';
+
+  /// The open add/edit form holds text Save has not written.
+  bool get _formDirty =>
+      _isEditing &&
+      (_titleController.text != _startTitle ||
+          _contentController.text != _startContent);
+
+  Future<void> _requestCancel() async {
+    if (_formDirty && !await confirmDiscardChanges(context)) return;
+    if (mounted) _cancelEditing();
   }
 
   void _cancelEditing() {
@@ -283,6 +297,13 @@ class _DataBankDialogState extends State<DataBankDialog> {
         .length;
     final unembedded = _entries.length - embeddedEntries;
 
+    return UnsavedChangesGuard(
+      isDirty: () => _formDirty,
+      child: _dialog(embeddedEntries, unembedded),
+    );
+  }
+
+  Widget _dialog(int embeddedEntries, int unembedded) {
     return Dialog(
       backgroundColor: const Color(0xFF1F2937),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -311,7 +332,7 @@ class _DataBankDialogState extends State<DataBankDialog> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.close, color: Colors.white54),
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
             ),
@@ -352,7 +373,7 @@ class _DataBankDialogState extends State<DataBankDialog> {
                 titleController: _titleController,
                 contentController: _contentController,
                 isNew: _editingId == null,
-                onCancel: _cancelEditing,
+                onCancel: _requestCancel,
                 onSave: _saveEntry,
               )
             else ...[

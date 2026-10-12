@@ -27,6 +27,7 @@ export 'home_folder_dialogs.dart';
 export 'home_import_dialogs.dart';
 export 'home_library_activity.dart';
 export 'home_move_dialog.dart';
+export 'home_persona_convert.dart';
 export 'home_porch_transfer.dart';
 export 'home_selection_tally.dart';
 export 'home_transfer_actions.dart';

@@ -1,24 +1,15 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'dart:async';
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/services/comfy_ui_service.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import 'studio_desk/studio_desk.dart';
 import 'studio_widgets.dart';
-
-part 'studio_desk_actions.dart';
-part 'studio_desk_catalog.dart';
-part 'studio_desk_comfy.dart';
-part 'studio_desk_ready.dart';
 
 /// The studio desk. Reads and writes [StorageService] image settings.
 ///
@@ -57,44 +48,51 @@ class StudioDesk extends StatefulWidget {
   State<StudioDesk> createState() => _StudioDeskState();
 }
 
-class _StudioDeskState extends State<StudioDesk> {
+class _StudioDeskState extends State<StudioDesk> implements StudioDeskHost {
   bool _edit = false;
-  bool get _configurationLocked => !mounted || studioSettingsLocked(context);
+  @override
+  bool get configurationLocked => !mounted || studioSettingsLocked(context);
   void _write(VoidCallback action) {
-    if (!_configurationLocked) action();
+    if (!configurationLocked) action();
   }
 
-  bool get _editing => widget.editMode ?? _edit;
-  bool _adult = false;
-  List<String> _models = const [];
-  List<String> _checkpoints = const [];
-  List<String> _unet = const [];
-  List<String> _gguf = const [];
-  List<String> _loras = const [];
-  List<String> _clips = const [];
-  List<String> _vaes = const [];
-  List<String> _samplers = const [];
-  List<String> _schedulers = const [];
-  Map<String, DeskLoraCheck> _loraFacts = {};
-  Map<String, String> _dtLoraVersions = const {};
-  Map<String, String> _dtModelVersions = const {};
-  String? _catalogUrl;
-  String? _catalogPending;
-  bool _remoteListed = false;
-
-  StudioReadyReport? _ready;
-  String _readyKey = '';
-  int _readySeq = 0;
-  bool _fillWhenReady = false;
-  ModelFamily? _checkedFamily;
-  bool? _reportedReady;
+  @override
+  bool get editing => widget.editMode ?? _edit;
+  late final StudioDeskCatalog _catalog = StudioDeskCatalog(
+    this,
+    onLoraFacts: () {
+      _checkReady();
+    },
+    listA1111Models: _listedA1111Models,
+    listDrawThingsModels: _listedDrawThingsModels,
+  );
+  late final StudioDeskReadiness _readiness = StudioDeskReadiness(
+    this,
+    catalog: _catalog,
+    onReadyChanged: (ready) => widget.onReadyChanged?.call(ready),
+    onReport: _comfy.watch,
+    fillSupport: (settings, slots) => _actions.fillSupport(settings, slots),
+  );
+  late final StudioDeskComfyWatch _comfy = StudioDeskComfyWatch(
+    this,
+    recheck: (settings) {
+      _catalog.refresh(settings, force: true);
+      _checkReady(force: true);
+    },
+  );
+  late final StudioDeskActions _actions = StudioDeskActions(
+    this,
+    catalog: _catalog,
+    readiness: _readiness,
+    openSheet: (builder) =>
+        showDialog<void>(context: context, builder: builder),
+    openFullscreen: (builder) => showDialog<void>(
+      context: context,
+      useRootNavigator: true,
+      builder: builder,
+    ),
+  );
   StorageService? _storage;
-  ComfyBackoff? _comfyBackoff;
-  Future<bool>? _looking;
-  Timer? _comfyUpWatch;
-  bool _askingIfUp = false;
-  bool? _comfyUp;
-  String? _comfyOffer;
   bool _lookedForComfy = false;
 
   @override
@@ -106,13 +104,14 @@ class _StudioDeskState extends State<StudioDesk> {
       _storage = storage..addListener(_onStorage);
     }
     final settings = storage.imageGenSettings;
-    _adult =
-        settings.prefs?.getBool(settings.k('image_studio_adult')) ?? _adult;
-    _refreshCatalog(settings);
+    _actions.adult =
+        settings.prefs?.getBool(settings.k('image_studio_adult')) ??
+        _actions.adult;
+    _catalog.refresh(settings);
     _checkReady();
     if (!_lookedForComfy && settings.imageGenBackend == 'comfyui') {
       _lookedForComfy = true;
-      _lookForComfy();
+      _comfy.look();
     }
   }
 
@@ -125,11 +124,11 @@ class _StudioDeskState extends State<StudioDesk> {
   @override
   void dispose() {
     _storage?.removeListener(_onStorage);
-    _comfyBackoff?.stop();
-    _comfyUpWatch?.cancel();
+    _comfy.dispose();
     super.dispose();
   }
 
+  @override
   void rebuildState(VoidCallback fn) => setState(fn);
 
   void _onStorage() {
@@ -148,13 +147,16 @@ class _StudioDeskState extends State<StudioDesk> {
     return gen.fetchDrawThingsModels(url);
   }
 
+  Future<void> _checkReady({bool force = false}) =>
+      _readiness.check(force: force);
+
   @override
   Widget build(BuildContext context) {
     final storage = context.watch<StorageService>();
     final settings = storage.imageGenSettings;
     final backend = settings.imageGenBackend;
-    final editing = _editing;
-    final report = _ready;
+    final editing = this.editing;
+    final report = _readiness.report;
     final ready = report?.readiness;
     final workflowId = editing
         ? settings.comfyEditWorkflowId
@@ -164,7 +166,7 @@ class _StudioDeskState extends State<StudioDesk> {
         : settings.comfyCreateModelChoices;
     final primary = studioPrimaryFor(settings, edit: editing);
     final family = ImageModelFamily.detectFromName(primary);
-    final loraChecks = _loraChecks(settings);
+    final loraChecks = _catalog.loraChecks(settings);
     final enabled = report?.ready ?? false;
     final parts = settings.imageGenSize.split('x');
     final width = int.tryParse(parts.first) ?? 1024;
@@ -209,35 +211,35 @@ class _StudioDeskState extends State<StudioDesk> {
             ? StudioComfyAddress(
                 url: settings.comfyUiUrl,
                 explicit: settings.comfyUiUrlExplicit,
-                offer: _comfyOffer,
+                offer: _comfy.offer,
                 onSave: (url) async {
-                  if (_configurationLocked) return;
-                  rebuildState(() => _comfyOffer = null);
+                  if (configurationLocked) return;
+                  _comfy.clearOffer();
                   await settings.setComfyUiUrl(url);
-                  if (url.isEmpty) await _lookForComfy();
+                  if (url.isEmpty) await _comfy.look();
                 },
               )
             : null,
         remoteNote: backend == 'remote'
             ? StudioRemoteKeyNote(settings: settings, storage: storage)
             : null,
-        reachable: _reachable(backend, report),
-        checkedDown: (_catalogUrl ?? '').startsWith('down:'),
+        reachable: _catalog.reachable(backend, report),
+        checkedDown: (_catalog.catalogUrl ?? '').startsWith('down:'),
         diffusionCount: backend == 'drawthings' || backend == 'remote'
-            ? _models.length
-            : _unet.length + _gguf.length,
-        loraCount: _loras.length,
+            ? _catalog.models.length
+            : _catalog.unet.length + _catalog.gguf.length,
+        loraCount: _catalog.loras.length,
         familyLabel: primary.isEmpty
             ? 'No model chosen'
             : (family == ModelFamily.unknown ? 'Model' : family.label),
         primaryFile: primary,
         why: why,
-        onGraphs: () => openGraphs(settings),
-        onModels: uploadedGraph ? null : () => _openModels(settings),
-        onGetModel: () => openCivitai(settings, lora: false),
+        onGraphs: () => _actions.openGraphs(settings),
+        onModels: uploadedGraph ? null : () => _actions.openModels(settings),
+        onGetModel: () => _actions.openCivitai(settings, lora: false),
         checkpointOnly: support.checkpointOnly,
         support: support.rows,
-        onChangeSupport: (token) => _openModels(settings, token: token),
+        onChangeSupport: (token) => _actions.openModels(settings, token: token),
         loras: [
           for (final row in loraChecks)
             StudioStoveLora(
@@ -252,10 +254,10 @@ class _StudioDeskState extends State<StudioDesk> {
             ),
         ],
         loraBlocked: ready?.kind == StudioReady.loraMismatch,
-        onAddLora: () => openLoras(settings, primary),
-        onGetLora: () => openCivitai(settings, lora: true),
+        onAddLora: () => _actions.openLoras(settings, primary),
+        onGetLora: () => _actions.openCivitai(settings, lora: true),
         onAnyway: () async {
-          if (_configurationLocked) return;
+          if (configurationLocked) return;
           await settings.prefs?.setString(
             settings.k('image_studio_lora_override_family'),
             family.name,
@@ -270,10 +272,10 @@ class _StudioDeskState extends State<StudioDesk> {
         cfg: cfg,
         sampler: settings.imageGenSampler,
         scheduler: settings.imageGenScheduler,
-        samplers: _samplers,
-        schedulers: _schedulers,
+        samplers: _catalog.samplers,
+        schedulers: _catalog.schedulers,
         onSteps: (value) {
-          if (_configurationLocked) return;
+          if (configurationLocked) return;
           final parsed = int.tryParse(value);
           if (parsed == null) return;
           if (editing) {
@@ -283,7 +285,7 @@ class _StudioDeskState extends State<StudioDesk> {
           }
         },
         onCfg: (value) {
-          if (_configurationLocked) return;
+          if (configurationLocked) return;
           final parsed = double.tryParse(value);
           if (parsed == null) return;
           if (editing) {
@@ -298,7 +300,7 @@ class _StudioDeskState extends State<StudioDesk> {
         drawThings: backend == 'drawthings',
         drawThingsSampler: dtSampler,
         onDrawThingsSampler: (value) {
-          if (_configurationLocked) return;
+          if (configurationLocked) return;
           if (editing) {
             settings.setEditSampler(value);
           } else {
@@ -306,23 +308,23 @@ class _StudioDeskState extends State<StudioDesk> {
           }
         },
         knobs: StudioDeskKnobs(
-          canWrite: () => !_configurationLocked,
+          canWrite: () => !configurationLocked,
           settings: settings,
           edit: editing,
           comfyShiftGraph:
               (ready?.tokens.contains(ComfyEditTokens.shift) ?? false)
-              ? _workflowId(settings)
+              ? _actions.workflowId(settings)
               : null,
           comfyOwnShift: ready?.ownShift ?? kEditRecommendedShift,
         ),
-        readyLine: studioReadyLine(
-          ready: enabled,
-          checking: report == null,
-          blockedLora: ready?.kind == StudioReady.loraMismatch ? primary : null,
-          missing: ready?.kind == StudioReady.missingFile
-              ? studioMissingEncoderLine(primary: primary, rows: support.rows)
-              : '',
-        ),
+        readyLine: ready == null
+            ? 'Checking…'
+            : studioNotReadyLine(
+                readiness: ready,
+                backendName: studioBackendName(backend),
+                primaryFile: primary,
+                loaderNoteShown: true,
+              ),
         generateEnabled: enabled,
         onGenerate: widget.onGenerate,
         showGenerate: widget.showGenerate,
@@ -343,7 +345,7 @@ class _StudioDeskState extends State<StudioDesk> {
             ? TextButton(
                 onPressed: widget.generating
                     ? null
-                    : () => _useExistingLoaderSupport(settings),
+                    : () => _actions.useExistingLoaderSupport(settings),
                 child: Text(
                   City96Gate.instance.hasExistingSupport(settings.comfyUiUrl)
                       ? 'Recheck GGUF support'
@@ -354,32 +356,16 @@ class _StudioDeskState extends State<StudioDesk> {
         onUpdateLoader:
             ready?.kind == StudioReady.needsLoaderUpdate &&
                 ready!.canUpdateLoader
-            ? () => _updateLoader(settings)
+            ? () => _actions.updateLoader(settings)
             : null,
       ),
     );
   }
 
-  bool _reachable(String backend, StudioReadyReport? report) {
-    if (backend == 'comfyui') return report?.objectInfo != null;
-    if (backend == 'drawthings') return _drawThingsListed;
-    if (backend == 'remote') return _remoteListed;
-    return (_catalogUrl ?? '').startsWith('up:');
-  }
-
-  /// Draw Things shows its file counts after a listing, or after Check
-  /// says the server is up. A failed Check stays down.
-  bool get _drawThingsListed {
-    final mark = _catalogUrl ?? '';
-    if (mark.isEmpty || mark.startsWith('down:')) return false;
-    if (mark.startsWith('up:')) return true;
-    return _models.isNotEmpty || _loras.isNotEmpty;
-  }
-
   void _retryCatalog() {
-    _lookForComfy();
-    setState(() => _catalogUrl = null);
-    _refreshCatalog(
+    _comfy.look();
+    _catalog.forgetListing();
+    _catalog.refresh(
       context.read<StorageService>().imageGenSettings,
       force: true,
     );
@@ -400,7 +386,7 @@ class _StudioDeskState extends State<StudioDesk> {
   }
 
   Future<void> _saveUrl(ImageGenSettings settings, String value) {
-    if (_configurationLocked) return Future.value();
+    if (configurationLocked) return Future.value();
     switch (settings.imageGenBackend) {
       case 'comfyui':
         return settings.setComfyUiUrl(value);
@@ -427,36 +413,5 @@ class _StudioDeskState extends State<StudioDesk> {
         ),
       ),
     );
-  }
-
-  /// One stored signature of everything the Ready verdict depends on.
-  String _keyFor(ImageGenSettings settings) {
-    final edit = _editing;
-    final uploaded = edit
-        ? settings.comfyEditUploadedWorkflow
-        : settings.comfyCreateUploadedWorkflow;
-    return jsonEncode([
-      edit,
-      settings.imageGenBackend,
-      settings.comfyUiUrl,
-      City96Gate.instance.hasExistingSupport(settings.comfyUiUrl),
-      edit ? settings.comfyEditWorkflowId : settings.comfyCreateWorkflowId,
-      edit ? settings.comfyEditModelChoices : settings.comfyCreateModelChoices,
-      uploaded.length,
-      uploaded.hashCode,
-      settings.imageGenModel,
-      settings.imageGenEditModel,
-      settings.imageRemoteApiUrl,
-      settings.remoteImageModelFor(settings.imageRemoteApiUrl, edit: edit),
-      [
-        for (final slot in settings.imageGenLoraSlots) [slot.file],
-      ],
-      settings.prefs?.getString(
-        settings.k('image_studio_lora_override_family'),
-      ),
-      [
-        for (final row in _loraFacts.values) [row.file, row.family.name],
-      ],
-    ]);
   }
 }

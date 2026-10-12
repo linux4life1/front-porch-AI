@@ -11,6 +11,7 @@ export 'climate_editor_widgets.dart';
 export 'climate_season_start.dart';
 export 'climate_emoji_picker.dart';
 export 'climate_preview_panel.dart';
+export 'climate_skin_draft.dart';
 export 'climate_skin_row.dart';
 export 'place_traits_editor.dart';
 export 'world_io.dart';

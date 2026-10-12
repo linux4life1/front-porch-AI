@@ -20,21 +20,14 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart'
-    show showPocketItemDialog;
-import 'package:front_porch_ai/ui/pages/pages.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/theme/tier_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/widgets/group_member_card/group_member_card.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-
-part 'group_member_card_menu.dart';
-part 'group_member_card_views.dart';
 
 /// First-class representation of a group chat member in the sidebar.
 ///
@@ -226,7 +219,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     final ringColor = (emotion != null && isRealism)
         ? emotionRingColor(emotion)
         : widget.avatarColor;
-    final look = _GroupMemberCardLook(
+    final look = GroupMemberCardLook(
+      character: widget.character,
+      onOpenObjectives: widget.onOpenObjectives,
       chat: chat,
       isRealism: isRealism,
       emotion: emotion,
@@ -297,7 +292,8 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                 // Header row (avatar + name + badges) — secondary tap only here for reliable "Edit Group" right-click
                 // even on fully-expanded rich speaker view (avoids child gesture absorption).
                 GestureDetector(
-                  onSecondaryTapUp: _showEditGroupMenu,
+                  onSecondaryTapUp: (details) =>
+                      showGroupMemberEditMenu(context, chat, details),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -442,9 +438,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                 ),
 
                 if (widget.isExpanded && isRealism && !widget.character.isLite)
-                  ..._expandedChildren(look),
+                  ...look.expandedChildren(context),
                 if (!widget.isExpanded && !widget.character.isLite)
-                  ..._compactChildren(look),
+                  ...look.compactChildren(context),
               ],
             ),
           ),

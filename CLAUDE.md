@@ -389,7 +389,7 @@ branch's copy.
 |-----|------------|
 | `analyze` | Analyzer issues in **changed** `.dart` files |
 | `test` | Unit/widget tests (`--concurrency=4 --exclude-tags golden`) |
-| `e2e-smoke` | A suite under `integration_test/*_test.dart` fails (one process per file, 5 shards × 3 OSes) |
+| `e2e-smoke` | A suite under `integration_test/*_test.dart` fails (one process per file, 5 shards; Linux on PRs, macOS + Windows on Rawhide/main pushes, all three on the schedule) |
 | `web-tests` | `npm run lint` / `npm test` in `web_ui/` |
 | `web-e2e` | Playwright sweep + journeys against the real app (`integration_test/web_ui/browser_test.dart`); also runs on Rawhide/main pushes |
 | `theme-lint` | New raw `Colors.blueAccent` under `lib/` |

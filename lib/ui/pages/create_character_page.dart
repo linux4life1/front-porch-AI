@@ -36,7 +36,11 @@ import 'package:front_porch_ai/providers/app_state.dart';
 /// Step 6: Portrait & Avatars — the shared AvatarGenerationPanel (phase #12);
 ///         post-save by design, so a failed generation can't lose the writing.
 class CreateCharacterPage extends StatefulWidget {
-  const CreateCharacterPage({super.key});
+  const CreateCharacterPage({super.key, this.seed});
+
+  /// Pre-fills the wizard from a persona ("Make a Character"). A seeded page
+  /// is pushed as a route, so leaving it pops instead of switching tabs.
+  final PersonaCharacterSeed? seed;
 
   @override
   State<CreateCharacterPage> createState() => _CreateCharacterPageState();
@@ -56,6 +60,15 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   /// The panel is mid-generation — Done is locked so leaving can't silently
   /// drop work the engine is still finishing.
   bool _panelBusy = false;
+
+  bool get _pushed => widget.seed != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final seed = widget.seed;
+    if (seed != null) _draft.applyPersonaSeed(seed);
+  }
 
   @override
   void dispose() {
@@ -113,7 +126,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   }
 
   /// Final step's "Done": back to home and reset the wizard for a fresh run.
-  void _finishAndClose() {
+  Future<void> _finishAndClose() async {
     final name = _savedCard?.name ?? 'Character';
     ScaffoldMessenger.of(
       context,
@@ -121,7 +134,18 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     // CreateCharacterPage lives as a tab in MainLayout (not pushed as a
     // route), so Navigator.pop() would pop the entire scaffold → black
     // screen. Instead navigate back to the home tab and reset the form.
-    Provider.of<AppState>(context, listen: false).setIndex(0);
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (_pushed) {
+      // The tab underneath may hold its own unsaved draft.
+      final navigator = Navigator.of(context);
+      if (appState.selectedIndex != 0 &&
+          await UnsavedChanges.instance.confirmLeave(context)) {
+        appState.setIndex(0);
+      }
+      navigator.pop();
+      return;
+    }
+    appState.setIndex(0);
     setState(() {
       _currentStep = 0;
       _savedCard = null;
@@ -191,14 +215,30 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
 
   @override
   Widget build(BuildContext context) {
+    // Once Review has saved the card, what is left is optional portrait work.
+    return UnsavedChangesGuard(
+      isDirty: () => _savedCard == null && _draft.hasContent,
+      child: _scaffold(),
+    );
+  }
+
+  /// A tab page, not a route: back switches to Home, after asking.
+  Future<void> _backToHome() async {
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (!await UnsavedChanges.instance.confirmLeave(context)) return;
+    appState.setIndex(0);
+  }
+
+  Widget _scaffold() {
     return Scaffold(
       backgroundColor: AppColors.backgroundOf(context),
       appBar: AppBar(
         backgroundColor: AppColors.surfaceOf(context),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              Provider.of<AppState>(context, listen: false).setIndex(0),
+          onPressed: _pushed
+              ? () => Navigator.of(context).maybePop()
+              : _backToHome,
         ),
         title: Row(
           children: [

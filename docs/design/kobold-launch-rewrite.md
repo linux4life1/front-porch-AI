@@ -717,7 +717,7 @@ count, that number is written, with `moecpu` for a MoE model.
 
 - Cache the `LaneHost` per job id next to the existing `_laneSwaps` map in
   `lib/services/llm_provider/story_lane_hosts.dart`, so
-  `_swapLaneHost` in `lib/services/story_pipeline_service.llm.dart` stops
+  `_swapLaneHost` in `lib/services/story_pipeline/story_llm_caller.dart` stops
   restoring the chat model on every call.
 - `lib/services/kobold_process_control.dart`: kill only the process tree the
   app started, not every process with KoboldCpp's name.

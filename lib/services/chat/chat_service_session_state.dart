@@ -73,6 +73,10 @@ extension ChatServiceSessionState on ChatService {
     // Timed lorebook effects ride the SESSION blob only (never the group's
     // default-member-state fallback below — defaults carry no chat timers).
     _loreTimedEffects.hydrate(stateJson);
+    // Director Mode is per chat once a chat has saved it; the group's
+    // "start in Director Mode" default only seeds chats that never did.
+    final directing = directingFromSessionBlob(stateJson);
+    if (directing != null) _groupManager?.setObserverMode(directing);
 
     // Fall back to group definition defaults (crucial for imported Group Cards and split-to-solo)
     if (stateJson == null || stateJson.isEmpty || stateJson == '{}') {

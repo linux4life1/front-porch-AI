@@ -39,13 +39,13 @@ Docs still sell tools as making evals **more reliable**, not faster (`docs/reali
 | `KoboldService.generateWithTools` (`lib/services/kobold_service.dart:419`) | `_runSerialized` → `waitForIdle` + `postOpenAiChatWithTools`. Local is single-slot FIFO. That FIFO is what makes the shared `judgePrefix` worth anything. |
 | `_fireToolEval` (`lib/services/chat/chat_service_wiring_evals.dart:541`) | Signature is `(String prompt, List tools)` — **no `toolChoice`**. `maxLength: 4000`, `temperature: 0.1`, `repeatPenalty: 1.15`, `reasoningEnabled: false`, `reasoningMaxTokens: 0`, `salvageReasoning: true`, `stopSequences: const []`, `.timeout(kEvalToolCallTimeout)` where `kEvalToolCallTimeout = 6 minutes` (`llm_eval_engine.dart:45`). `[EvalTraffic]` labels the call with `tools.first['function']['name']` (lines 550–553). |
 | Scalar **text** evals (`LlmEvalEngine.fireLLMEval`) | Same 4000 / 0.1 / reasoning-off, but `repeatPenalty: kScalarEvalRepeatPenalty` (**1.0**), **streaming** via `generateStream`, hang cap `kEvalStreamChunkTimeout = 180s` **between chunks**. Overlay shows tokens live. |
-| Three judges | `kRelationshipEvalTools` / `kEmotionalEvalTools` / `kNarrativeEvalTools` — **three different one-tool lists**. Fired from `evaluateRelationshipCall` / `evaluateEmotionalStateCall` / `evaluateNarrativeCall` (`realism_evals.calls.dart:88, 198, 367`). |
+| Three judges | `kRelationshipEvalTools` / `kEmotionalEvalTools` / `kNarrativeEvalTools` — **three different one-tool lists**. Fired from `evaluateRelationshipCall` / `evaluateEmotionalStateCall` / `evaluateNarrativeCall` (`realism_evals/realism_eval_calls.dart`). |
 | Shared prefix | `RealismPromptBuilder.judgePrefix` is byte-identical. Dispatch in `_fireStaggeredRealismEvals` is relationship, then emotional delayed `_kEvalDispatchStagger` (50ms), then narrative delayed 2×. Pinned by `test/services/chat/realism_shared_prefix_test.dart`. **The test only asserts the Dart prompt string.** It never looks at the HTTP `tools` array. |
 | One-shot Auto | `resolveOneShotMode` (`pass_support.dart:103`): fuse only on **remote + `ToolCallSupport.supported`**. Local never fuses (small models struggle with fused prompt length). SAMF's "realism is slower with tools" is therefore a **local** (or remote + one-shot Off) symptom. |
 | Probe on empty | Null resp, empty 200, transport failure, cancel: **inconclusive**. Do not brand XML-only. Next eval tries tools again. This is how the pill fell off after Scene Guests / abort / visiting character creation — and how you pay tools **plus** JSON every round in that state. Journal and Growth duplicate this policy in their own `_runExchange` bodies. |
 | Overlay | `fireStructuredEval` comment at `pass_support.dart:202`: "the tools lane doesn't stream tokens". It dumps the synthesized JSON on `onChunk` **once, at the end**. The web overlay (`ProcessingOverlay.tsx`) and desktop (`realism_processing_overlay.dart`) both render `realismEvalStreamTextClean`, so a non-streaming tools call looks frozen until it finishes. |
 | Tests pinning `'auto'` | `test/services/open_router_tools_test.dart:158` and `:241`. Any edit of an **existing** test file needs maintainer `approved-test-change` (test-integrity.yml) — not just this one file. Changing `FireToolEval` to `ToolEvalSpec` is a compile break on every `(p, t)` closure (listed in §9). |
-| Chargen | `character_gen_porch_life.dart` already calls `generateWithTools` with `maxLength: 512` and `porchLifeToolSchema`. It does **not** go through `_fireToolEval`. Leave its prose/chargen path alone except to pass a named `toolChoice` once the helper exists. |
+| Chargen | `character_gen/gen_porch_life.dart` already calls `generateWithTools` with `maxLength: 512` and `porchLifeToolSchema`. It does **not** go through `_fireToolEval`. Leave its prose/chargen path alone except to pass a named `toolChoice` once the helper exists. |
 | Remote think headroom | `OpenRouterService._chatPayload` (`open_router_service.dart:332`) already sends `params.maxLength + kMandatoryReasoningThinkHeadroomTokens` (**16000**, `reasoning_effort.dart:211`) when `salvageReasoning && reasoningCannotDisable(modelName)`. `_fireToolEval` already sets `salvageReasoning: true`. Today's Kimi tools eval is **4000+16000 on the wire**, not 4000. The local door (`openai_chat_stream.dart:90`) does **not** add that headroom: `max_tokens: params.maxLength`. |
 | Mandatory-reasoning retry | `OpenRouterService.generateWithTools` on a cannot-disable 400 retries `return await generateWithTools(params, tools);` (`open_router_service.dart:505`) — **positional only**. New named args (`toolChoice`, `onChunk`) are dropped unless the recursive call forwards them. |
 | `FireToolEval` type | `(String prompt, List<Map<String, dynamic>> tools)` at every production site: `pass_support.dart:180`, `journal_maintenance.dart`, `growth_service.dart`, `tool_support_tester.dart:47`, `llm_eval_engine.dart:259`, `time_service.dart`, `expression_classifier.dart`, `cast_detector.dart`, `realism_evals.dart`. Judges never call `generateWithTools` themselves; they go `_fireEval` → `fireStructuredEval` → that callback → `_fireToolEval`. |
@@ -298,13 +298,13 @@ Call-site change — only these three (trust-repair remaining evals reuse the sa
 
 | File | Today | After |
 |---|---|---|
-| `realism_evals.calls.dart` `evaluateRelationshipCall` | `tools: kRelationshipEvalTools` | `tools: kJudgeEvalTools` (still `toolName: kRelationshipTool`) |
+| `realism_evals/realism_eval_calls.dart` `evaluateRelationshipCall` | `tools: kRelationshipEvalTools` | `tools: kJudgeEvalTools` (still `toolName: kRelationshipTool`) |
 | `evaluateEmotionalStateCall` | `kEmotionalEvalTools` | `kJudgeEvalTools` + `kEmotionalTool` |
 | `evaluateNarrativeCall` | `kNarrativeEvalTools` | `kJudgeEvalTools` + `kNarrativeTool` |
 
 **Gate:** this list change is **PR 2**. It is not allowed to land until PR 1 has put `toolChoice` on `ToolEvalSpec` and `_fireEval` already passes `toolName` as `spec.toolChoice`. Inferring from `tools.first` is a footgun the moment the list is concatenated (every judge would name `report_relationship`).
 
-`_fireEval` (`realism_evals.support.dart:159`) must pass `toolName` through as `toolChoice` on the tools fire. That is the selector. That threading is **PR 1** (it works with today's one-tool lists too — named choice instead of `'auto'`).
+`RealismEvalSupport.fireEval` (`realism_evals/realism_eval_support.dart`) must pass `toolName` through as `toolChoice` on the tools fire. That is the selector. That threading is **PR 1** (it works with today's one-tool lists too — named choice instead of `'auto'`).
 
 If the model ignores `tool_choice` and calls a sibling judge's function, `realismToolCallToJson(expectedName, calls)` returns null (it already skips unknown names). Treat that as a miss for **this** eval: salvage prose if any, else fall back to JSON. Do **not** apply the wrong schema. Do **not** brand XML-only — the model *did* speak tools.
 
@@ -373,7 +373,7 @@ Journal `_runExchange` and Growth `_runExchange` build a spec with `toolChoice: 
 |---|---|
 | `lib/services/chat/pass_support.dart` | `fireStructuredEval` parameter |
 | `lib/services/chat/realism_evals.dart` | field `fireToolEval` |
-| `lib/services/chat/realism_evals.support.dart` | `_fireEval` → `fireToolEval(spec)` |
+| `lib/services/chat/realism_evals/realism_eval_support.dart` | `fireEval` → `fireToolEval(spec)` |
 | `lib/services/chat/journal_maintenance.dart` | field + `_runExchange` |
 | `lib/services/chat/growth_service.dart` | field + `_runExchange` |
 | `lib/services/chat/tool_support_tester.dart` | field + `test()` |
@@ -881,8 +881,8 @@ Residual risk we are **not** fixing in PR-1–4: live streaming of tool-call arg
 | `lib/services/kobold_service.dart` | Pass `toolChoice` / `onChunk` / `stillWantTools`. After `waitForIdle`, if `stillWantTools` is false, return null without POST. `_fireToolEval` wires `shouldPostAfterIdle`, **not** live prefer-text. |
 | `lib/services/chat/pass_support.dart` | `ToolEvalSpec` (PR 1); start chunk in `fireStructuredEval` (PR 1); skip/pause/`shouldFireTools` (PR 3); `preferTextEvals` on `resolveOneShotMode` (PR 4). Stay under 500; extract probe policy if not. |
 | `lib/services/chat/realism_tools.dart` | `kJudgeEvalTools` only (PR 2). |
-| `lib/services/chat/realism_evals.calls.dart` | Three judges pass `kJudgeEvalTools` (PR 2). |
-| `lib/services/chat/realism_evals.support.dart` | `_fireEval` threads `toolName` as `toolChoice` (**PR 1**). |
+| `lib/services/chat/realism_evals/realism_eval_calls.dart` | Three judges pass `kJudgeEvalTools` (PR 2). |
+| `lib/services/chat/realism_evals/realism_eval_support.dart` | `fireEval` threads `toolName` as `toolChoice` (**PR 1**). |
 | `lib/services/chat/chat_service_wiring_evals.dart` | `_fireToolEval(ToolEvalSpec)`; scalar vs prose defaults; `[EvalTraffic]` from `spec.toolChoice`; live `getPreferTextEvals`; `stillWantTools: () => probe.shouldPostAfterIdle(id)` — **not** live prefer-text. |
 | `lib/services/chat/chat_service_wiring_memory.dart` | Journal + Growth `FireToolEval` + `getPreferTextEvals` (PR 1 type, PR 3/4 policy). |
 | `lib/services/chat/chat_service_wiring_realism.dart` | Two `fireToolEval: _fireToolEval` (PR 1 type). |
@@ -900,7 +900,7 @@ Residual risk we are **not** fixing in PR-1–4: live streaming of tool-call arg
 | `lib/ui/chat_components/sidebar/tool_calling_pill.dart` | Skipped / paused copies. `AppColors` only. |
 | `lib/services/web/facade/settings_facade.dart` | Additive **read and write**. |
 | `lib/services/web/facade/chat_facade.dart` | Additive `preferText` / `paused` on state **and** on `testToolCalling()`. |
-| `lib/services/chargen/character_gen_porch_life.dart` | `toolChoice: kPorchLifeToolName`. |
+| `lib/services/character_gen/gen_porch_life.dart` | `toolChoice: kPorchLifeToolName`. |
 | `web_ui/src/components/PorchLifeSettings.tsx` | Row + state field; `onChange={(v) => set('preferTextEvals', !v)}`. |
 | `web_ui/src/components/ChatInsight.tsx` | Pill states; post generic includes additive keys. |
 
@@ -961,7 +961,7 @@ If step 1 is still obviously ~3× slower than step 2 on the same model: dump the
 - `lib/services/open_router_service.dart` — `generateWithTools` (same)
 - `lib/services/kobold_service.dart` — `_runSerialized` FIFO
 - `lib/services/chat/realism_tools.dart` — per-eval schemas + `realismToolCallToJson`
-- `lib/services/chat/realism_evals.calls.dart` — three different `tools:` lists
+- `lib/services/chat/realism_evals/realism_eval_calls.dart` — three different `tools:` lists
 - `lib/services/chat/chat_service_realism_evals.dart` — `_fireStaggeredRealismEvals`
 - `lib/services/chat/realism_prompt_builder.dart` — `judgePrefix`
 - `lib/services/chat/journal_maintenance.dart` / `growth_service.dart` — duplicated probe policy
@@ -986,7 +986,7 @@ Incremental, each independently reviewable and mergeable. Speed is PRs 1–2. Th
 
 - **Title:** `fix(evals): named tool_choice on the in-flight eval callback`
 - **Depends on:** nothing
-- **Files (lib):** `openai_tool_payload.dart` (new), `tool_choice_style_probe.dart` (new), `openai_chat_stream.dart` (helper returns `Response`; **no** 16000 on path; no SSE), `open_router_service.dart` (**line delta ≤ 0 net**; forward named args on the mandatory-reasoning retry; door still owns 429/Kimi/parse), `kobold_service.dart`, `llm_service.dart`, `pass_support.dart` (`ToolEvalSpec`, `fireStructuredEval` start chunk), `realism_evals.dart`, `realism_evals.support.dart` (`toolName` → `spec.toolChoice`), `journal_maintenance.dart`, `growth_service.dart`, `tool_support_tester.dart`, `llm_eval_engine.dart`, `time_service.dart`, `expression_classifier.dart`, `cast_detector.dart`, `chat_service_wiring_evals.dart` (`_fireToolEval(ToolEvalSpec)`, `[EvalTraffic]` from `spec.toolChoice`), `chat_service_wiring_memory.dart`, `chat_service_wiring_realism.dart`, `chat_service_realism_evals.dart`, `chargen/character_gen_porch_life.dart`, `chat_service_accessors.dart` (`ToolChoiceStyleProbe.reset` on identity change).
+- **Files (lib):** `openai_tool_payload.dart` (new), `tool_choice_style_probe.dart` (new), `openai_chat_stream.dart` (helper returns `Response`; **no** 16000 on path; no SSE), `open_router_service.dart` (**line delta ≤ 0 net**; forward named args on the mandatory-reasoning retry; door still owns 429/Kimi/parse), `kobold_service.dart`, `llm_service.dart`, `pass_support.dart` (`ToolEvalSpec`, `fireStructuredEval` start chunk), `realism_evals.dart`, `realism_evals/realism_eval_support.dart` (`toolName` → `spec.toolChoice`), `journal_maintenance.dart`, `growth_service.dart`, `tool_support_tester.dart`, `llm_eval_engine.dart`, `time_service.dart`, `expression_classifier.dart`, `cast_detector.dart`, `chat_service_wiring_evals.dart` (`_fireToolEval(ToolEvalSpec)`, `[EvalTraffic]` from `spec.toolChoice`), `chat_service_wiring_memory.dart`, `chat_service_wiring_realism.dart`, `chat_service_realism_evals.dart`, `character_gen/gen_porch_life.dart`, `chat_service_accessors.dart` (`ToolChoiceStyleProbe.reset` on identity change).
 - **Existing tests (needs `approved-test-change`):** every `(p, t)` file in §9 (mechanical `spec` only, old expects unchanged) + the two `generateWithTools` override fakes. Do **not** rewrite `open_router_tools_test.dart` assertions if a new file can hold the named-choice / retry cases; if that file is touched, keep the no-arg `'auto'` expect.
 - **New tests (no label):** `openai_tool_payload_test.dart`, `open_router_tools_retry_test.dart`, `tool_eval_spec_test.dart`.
 - **Changes:** `FireToolEval = (ToolEvalSpec)`. `_fireEval` threads `toolName` as `toolChoice` **now** (judges still send one-tool lists — named choice instead of `'auto'`). Scalar `maxLength` 512 / repeat 1.0; Journal/Growth 4000 / 1.15 / auto; ping 64 + named `report_ping`; chargen named `set_porch_life`. Remote think headroom unchanged (512+16000 on cannot-disable). Local `max_tokens` stays `params.maxLength` (512); keep `thinking_budget: 0` on hard-on templates; do not call `reasoningCannotDisable(path)`. Style retry helper returns `http.Response` (unrelated 400 is not null). Overlay start chunk **from `fireStructuredEval`**. No shared judge list.
@@ -996,7 +996,7 @@ Incremental, each independently reviewable and mergeable. Speed is PRs 1–2. Th
 
 - **Title:** `fix(evals): identical tools list on the three prefix-sharing judges`
 - **Depends on:** PR 1 (named `toolChoice` is already an argument)
-- **Files:** `realism_tools.dart` (`kJudgeEvalTools` only), `realism_evals.calls.dart` (three `tools:` sites), `test/services/chat/judge_tools_wire_test.dart` (**new**). Do **not** touch `realism_shared_prefix_test.dart`.
+- **Files:** `realism_tools.dart` (`kJudgeEvalTools` only), `realism_evals/realism_eval_calls.dart` (three `tools:` sites), `test/services/chat/judge_tools_wire_test.dart` (**new**). Do **not** touch `realism_shared_prefix_test.dart`.
 - **Changes:** three judges pass `kJudgeEvalTools`; selector remains `spec.toolChoice`. Confirm `[EvalTraffic]` still uses `spec.toolChoice` (landed in PR 1). One-shot / post-gen unchanged.
 - **Tests:** §8 wire tests including EvalTraffic three labels. Proven red: pass `kRelationshipEvalTools` from the emotional call only; label from `tools.first`.
 - **Do not claim** this PR makes tools ≤ JSON on every template. Poke first-N tokens if wall-clock is still ~3×.

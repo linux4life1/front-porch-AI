@@ -23,16 +23,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
-import 'package:front_porch_ai/services/chat/realism_evals.dart'
-    show
-        kMinRelationshipDelta,
-        kMaxRelationshipDelta,
-        kMinTrustDelta,
-        kMaxTrustDelta,
-        kMinArousalDelta,
-        kMaxArousalDelta;
-
-part 'realism_verification_rules.dart';
+import 'package:front_porch_ai/services/chat/realism_verification/realism_director_rules.dart';
 
 /// Plain leaf for optional Realism Verification (Director/Verifier). Ingests latent; rules+reprocess. Cbs; stateless (CLAUDE.md). 495 LOC (wc+re-read post trims+fmt+braces+deletions). void_=15. aug passive. Per rules.
 class RealismVerification {
@@ -86,6 +77,10 @@ class RealismVerification {
 
   static const String kMetaKey = 'realism_verification';
 
+  late final RealismDirectorRules _rules = RealismDirectorRules(
+    extractJsonInt: (text, key) => extractJsonInt(text, key),
+  );
+
   Future<VerificationResult> verify({
     required String evalKind,
     required String rawOutput,
@@ -137,7 +132,7 @@ class RealismVerification {
     );
     onVerificationPhase?.call(true, pass: 0, max: maxP);
 
-    final rule = _applyRuleChecks(rawOutput, bundle, strict);
+    final rule = _rules.applyRuleChecks(rawOutput, bundle, strict);
     if (rule.passed) {
       onVerificationPhase?.call(false);
       return VerificationResult.accepted(raw: rawOutput, passes: 0);
@@ -155,7 +150,7 @@ class RealismVerification {
       passesUsed++;
       onVerificationPhase?.call(true, pass: passesUsed, max: maxP);
 
-      final critiquePrompt = _buildReprocessCritiquePrompt(
+      final critiquePrompt = _rules.buildReprocessCritiquePrompt(
         originalRaw: rawOutput,
         reason: reason,
         suggested: currentRaw,
@@ -180,7 +175,7 @@ class RealismVerification {
       // Overlay, then rule-check the MERGE. A rewrite that omits
       // relationship_delta used to pass as 0 and replace the original.
       final merged = mergeEvalJson(currentRaw, reOut);
-      final reRule = _applyRuleChecks(merged, bundle, strict);
+      final reRule = _rules.applyRuleChecks(merged, bundle, strict);
       currentRaw = reRule.correctedRaw ?? merged;
       reason = reRule.reason.isNotEmpty ? reRule.reason : 'reprocessed';
       if (reRule.passed) {
@@ -264,7 +259,7 @@ class RealismVerification {
         'user': getUserName(),
       };
 
-      final rule = _applyRuleChecks(
+      final rule = _rules.applyRuleChecks(
         it.rawOutput,
         bundle,
         it.strictnessOverride ?? getVerificationStrictness(),
@@ -293,7 +288,7 @@ class RealismVerification {
     );
 
     // One combined critique for all that needed it.
-    final critiquePrompt = _buildBatchCritiquePrompt(
+    final critiquePrompt = _rules.buildBatchCritiquePrompt(
       items: needing.map((i) => items[i]).toList(),
       initialCorrections: results,
     );

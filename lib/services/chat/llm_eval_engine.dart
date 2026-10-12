@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
@@ -26,15 +25,13 @@ import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
 import 'package:front_porch_ai/services/chat/eval_lane_params.dart';
 import 'package:front_porch_ai/services/chat/eval_stream_guards.dart';
 import 'package:front_porch_ai/services/chat/eval_traffic.dart';
-import 'package:front_porch_ai/services/chat/needs_impact_zero.dart';
-import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
-import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/utils/reasoning_markers.dart';
 
-part 'llm_eval_extract.dart';
+import 'package:front_porch_ai/services/chat/llm_eval_engine/llm_eval_engine.dart';
+
+export 'package:front_porch_ai/services/chat/llm_eval_engine/eval_window.dart';
 
 /// Hang guard for eval streams: the maximum gap between streamed chunks
 /// before the attempt is treated as dead (covers the first token too, so a
@@ -197,7 +194,7 @@ class LlmEvalEngine {
     Map<String, int>? currentNeeds,
     bool awayScene = false,
     Set<String> onlyNeeds = const {},
-  }) => _evaluateNeedsImpactCall(
+  }) => NeedsImpactCall(this).run(
     responseText,
     onChunk: onChunk,
     userCritique: userCritique,

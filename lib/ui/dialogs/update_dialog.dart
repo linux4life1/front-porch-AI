@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Dialog shown when a new version is available.
 /// Three stages: prompt → downloading → ready to install.
@@ -366,6 +367,9 @@ class UpdateDialog extends StatelessWidget {
         ),
         ElevatedButton.icon(
           onPressed: () async {
+            // Installing quits the app, so unsaved edits are asked about
+            // first, as on the window close.
+            if (!await UnsavedChanges.instance.confirmLeave(context)) return;
             try {
               await service.installNow();
             } catch (e) {

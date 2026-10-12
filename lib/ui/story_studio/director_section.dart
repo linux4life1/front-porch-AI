@@ -312,6 +312,7 @@ class _DirectorSectionState extends State<DirectorSection> {
       context,
       title: 'Refine the plan',
       width: 420,
+      isDirty: storyTextChanged([controller]),
       body: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,7 +331,10 @@ class _DirectorSectionState extends State<DirectorSection> {
         ],
       ),
       actions: (ctx) => [
-        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.ghost(
+          'Cancel',
+          onPressed: () => Navigator.maybePop(ctx, false),
+        ),
         StoryButton.primary(
           'Revise plan',
           onPressed: () => Navigator.pop(ctx, true),

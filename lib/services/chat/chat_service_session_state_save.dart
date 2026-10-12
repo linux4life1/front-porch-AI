@@ -130,6 +130,7 @@ extension ChatServiceSessionStateSave on ChatService {
         'memoryBudgetPercent': _groupMemoryBudgetPercent,
         'characterRAGPriorities': _groupCharacterRAGPriorities,
         'objectives': perCharObjectives,
+        kDirectingSessionKey: _observerMode,
         'savedAt': DateTime.now().toIso8601String(),
       });
     } else if (_activeGroup == null && _sceneGuest.ids.isNotEmpty) {

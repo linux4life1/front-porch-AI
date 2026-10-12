@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/pages/home/enhance/enhance_wizard_page.dart';
 import 'package:front_porch_ai/ui/pages/home/home_actions/home_chat_opener.dart';
 import 'package:front_porch_ai/ui/pages/home/home_actions/home_delete_actions.dart';
 import 'package:front_porch_ai/ui/pages/home/home_actions/home_move_dialog.dart';
+import 'package:front_porch_ai/ui/pages/home/home_actions/home_persona_convert.dart';
 import 'package:front_porch_ai/ui/pages/home/home_actions/home_transfer_actions.dart';
 
 // The library cards' right-click menus. [activeFolderId] is the folder the
@@ -71,6 +72,9 @@ void runHomeCharacterMenuAction(
       break;
     case 'duplicate':
       _duplicateCharacter(context, character);
+      break;
+    case 'use_as_persona':
+      convertHomeCharacterToPersona(context, character);
       break;
     case 'export':
       exportHomeCharacterPng(context, character);

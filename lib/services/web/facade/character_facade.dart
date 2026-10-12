@@ -47,6 +47,9 @@ class CharacterFacade {
   final FolderService? _folders;
   final ChatService? _chat;
 
+  /// Persona id → picture, for `portraitPersonaId` (wired by the host).
+  String? Function(String personaId)? personaPortrait;
+
   /// List characters with optional search/folder filtering and sort, matching
   /// the legacy `/api/characters` payload.
   ///
@@ -332,7 +335,9 @@ class CharacterFacade {
   Future<Map<String, dynamic>?> create(Map<String, dynamic> fields) async {
     if (_repo == null) return null;
     final card = newCharacterFromFields(fields);
-    return card == null ? null : persistNewCard(card);
+    return card == null
+        ? null
+        : persistNewCard(card, portraitPath: portraitFromFields(fields));
   }
 
   /// Persist a freshly-built [card] via the canonical path: write a V2 PNG into
@@ -343,6 +348,7 @@ class CharacterFacade {
   Future<Map<String, dynamic>?> persistNewCard(
     CharacterCard card, {
     List<int>? portraitBytes,
+    String? portraitPath,
   }) async {
     final repo = _repo;
     if (repo == null) return null;
@@ -351,7 +357,17 @@ class CharacterFacade {
       _storage,
       card,
       portraitBytes: portraitBytes,
+      portraitPath: portraitPath,
     );
+  }
+
+  /// The picture of the persona named by `fields['portraitPersonaId']`, if
+  /// any — shared by manual create and AI chargen.
+  String? portraitFromFields(Map<String, dynamic> fields) {
+    final id = fields['portraitPersonaId']?.toString() ?? '';
+    if (id.isEmpty) return null;
+    final path = personaPortrait?.call(id);
+    return path == null || path.isEmpty ? null : path;
   }
 
   /// Import a character card uploaded from the web (V2 PNG or .byaf). Writes the

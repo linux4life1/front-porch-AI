@@ -20,7 +20,6 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/services/services.dart';
 
 import 'growth_ops.dart';
 import 'growth_physics.dart';
@@ -28,12 +27,10 @@ import 'salience_kick_gate.dart';
 import 'growth_prompt.dart';
 import 'growth_review.dart';
 import 'growth_store.dart';
-import 'journal_ops.dart';
 import 'journal_physics.dart';
 import 'pass_support.dart';
 import 'tool_eval_spec.dart';
-
-part 'growth_service.exchange.dart';
+import 'growth_service/growth_exchange.dart';
 
 /// Pass-window start index: clamp [cursor] into [messageCount], then cap the
 /// open window at [JournalPhysics.kFirstPassCap] (audit P1.9 — Journal twin).
@@ -167,6 +164,18 @@ class GrowthService {
     required this.refreshCache,
     required this.onNotify,
   });
+
+  late final GrowthExchange _exchange = GrowthExchange(
+    probe: probe,
+    fireLLMEval: fireLLMEval,
+    fireToolEval: fireToolEval,
+    getPreferTextEvals: getPreferTextEvals,
+    getPassEpoch: getPassEpoch,
+    stripThinkBlocks: stripThinkBlocks,
+    getBackendIdentity: getBackendIdentity,
+    getUserName: getUserName,
+    getRecap: getRecap,
+  );
 
   /// How many trailing messages a force pass re-reads when nothing is new
   /// since the cursor (manual "Check now" with an empty window).
@@ -317,7 +326,7 @@ class GrowthService {
           ownerId,
         )).where(JournalPhysics.isHot).toList();
 
-        final ops = await _runExchange(
+        final ops = await _exchange.run(
           owner: owner,
           activeRings: active,
           journalCards: journalCards,
@@ -333,11 +342,14 @@ class GrowthService {
 
         final distillMode = legacyText.isNotEmpty;
         final intervalHeld = <String>{};
-        final resolved = _resolveOps(
+        final resolved = resolveGrowthOps(
           ops,
           active,
           distillMode: distillMode,
           ownerName: owner.name,
+          getUserName: getUserName,
+          getMessages: getMessages,
+          getGrowthInterval: getGrowthInterval,
           windowStart: start,
           windowLength: window.length,
           rewound: rewound,

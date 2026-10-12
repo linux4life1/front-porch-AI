@@ -7,11 +7,8 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show ChaosCategory, ChaosModeService;
-import 'package:front_porch_ai/ui/widgets/chance_time/chance_time.dart';
-
-part 'chance_time_overlay.view.dart';
-
-enum _EventCategory { fortune, misfortune, chaos, wildCard }
+import 'package:front_porch_ai/ui/theme/chance_time_palette.dart';
+import 'package:front_porch_ai/ui/widgets/chance_time_overlay/chance_time_overlay.dart';
 
 /// Full-screen Chance Time overlay.
 ///
@@ -39,20 +36,8 @@ class _ChanceTimeOverlayState extends State<ChanceTimeOverlay>
   int _landedIndex = 0;
   double _targetAngle = 0;
   String? _charName;
-  _EventCategory? _category;
+  ChanceTimeRevealEffect? _category;
   ChaosCategory? _kind;
-
-  // Segment colours (Mario Party palette)
-  static const List<Color> _segmentColors = [
-    Color(0xFFE63946), // red
-    Color(0xFFFF9F1C), // orange
-    Color(0xFF2EC4B6), // teal
-    Color(0xFF9B5DE5), // purple
-    Color(0xFF06D6A0), // green
-    Color(0xFFFF6B9D), // pink
-    Color(0xFFFFD166), // amber
-    Color(0xFF118AB2), // blue
-  ];
 
   @override
   void initState() {
@@ -125,23 +110,85 @@ class _ChanceTimeOverlayState extends State<ChanceTimeOverlay>
 
   // ── Category ───────────────────────────────────────────────────────────────
 
-  /// The reveal effect for a category: the wheel has four animations, and the
-  /// newer kinds borrow the closest one while keeping their own label.
-  static _EventCategory _effectFor(ChaosCategory c) => switch (c) {
-    ChaosCategory.fortune => _EventCategory.fortune,
+  static ChanceTimeRevealEffect _effectFor(ChaosCategory c) => switch (c) {
+    ChaosCategory.fortune => ChanceTimeRevealEffect.fortune,
     ChaosCategory.misfortune ||
     ChaosCategory.slapstick ||
-    ChaosCategory.needs => _EventCategory.misfortune,
-    ChaosCategory.chaos || ChaosCategory.weather => _EventCategory.chaos,
+    ChaosCategory.needs => ChanceTimeRevealEffect.misfortune,
+    ChaosCategory.chaos ||
+    ChaosCategory.weather => ChanceTimeRevealEffect.chaos,
     ChaosCategory.wildCard ||
     ChaosCategory.social ||
     ChaosCategory.plotHook ||
-    ChaosCategory.spicy => _EventCategory.wildCard,
+    ChaosCategory.spicy => ChanceTimeRevealEffect.wildCard,
   };
 
   String _displayEvent(String raw) => context
       .read<ChatService>()
       .resolveChanceTimeEvent(raw, _charName ?? 'Character');
+
+  void _accept() {
+    final svc = context.read<ChatService>();
+    final seg = _segments[_landedIndex];
+    final name = _charName ?? 'Character';
+    // Pop FIRST so the overlay is fully disposed before
+    // _generateResponse fires notifyListeners.
+    Navigator.of(context).pop();
+    svc.applyChanceTimeResult(seg, name);
+  }
+
+  Widget _buildContent() {
+    return Container(
+      constraints: BoxConstraints(
+        maxHeight: MediaQuery.of(context).size.height * 0.88,
+      ),
+      decoration: BoxDecoration(
+        color: ChanceTimePalette.backdrop.withValues(alpha: 0.97),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(
+          color: ChanceTimePalette.gold.withValues(alpha: 0.4),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: ChanceTimePalette.gold.withValues(alpha: 0.15),
+            blurRadius: 40,
+            spreadRadius: 4,
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const ChanceTimeHeader(),
+            const SizedBox(height: 12),
+            ChanceTimeWheel(
+              segments: _segments,
+              spinning: _spinning,
+              landed: _landed,
+              targetAngle: _targetAngle,
+              spinAnimation: _spinning ? _spinAnimation : null,
+            ),
+            const SizedBox(height: 12),
+            if (_landed)
+              ChanceTimeResultCard(
+                event: _displayEvent(_segments[_landedIndex]),
+                effect: _category,
+                kind: _kind,
+                reveal: _revealAnimation,
+                onAccept: _accept,
+              )
+            else
+              ChanceTimeSpinButton(onSpin: _spin),
+            const SizedBox(height: 10),
+            const ChanceTimePressureRow(),
+          ],
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

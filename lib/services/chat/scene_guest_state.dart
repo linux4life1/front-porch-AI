@@ -91,6 +91,10 @@ class SceneGuestState {
   ChatMessage? exitUndoMessage;
   String? exitUndoOfferName;
 
+  /// The open undo is {{user}}'s own `/director` step-out, not a guest's or
+  /// member's exit: undoing it deletes the goodbye and leaves Director Mode.
+  bool exitUndoUserStep = false;
+
   /// Set when a FULL group member's `/exit` is awaiting commit. They have said
   /// goodbye and left the live roster, but their DB row/realism/evolution/
   /// quests/memory are untouched and the real removal (plus any collapse to a

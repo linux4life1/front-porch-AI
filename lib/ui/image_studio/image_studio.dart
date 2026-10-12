@@ -23,16 +23,11 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+import 'studio_shell/studio_shell.dart';
 import 'studio_widgets.dart';
-
-part 'studio_prompt_craft.dart';
-part 'image_studio.subject.dart';
-part 'image_studio.workspace.dart';
 
 /// The Image Studio: one shared canvas driven by a **Subject** selector
 /// (Freeform / Character / Your persona). Backend, model, size, steps, LoRA,
@@ -113,8 +108,6 @@ class ImageStudio extends StatefulWidget {
 }
 
 class _ImageStudioState extends State<ImageStudio> {
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   // Session state (owned here; no god proliferation).
   late String _selectedStyle;
   late String _paradigm;
@@ -123,24 +116,15 @@ class _ImageStudioState extends State<ImageStudio> {
   int _studioTab = 0;
   final _expressionsKey = GlobalKey<StudioExpressionTabState>();
   bool _allowClose = false;
-
-  // Group-chat subject: the picked cast member, or a whole-cast "group shot".
-  // Both null/false → fall back to the 1:1 character passed on the widget.
-  String? _pickedGroupName;
-  String? _pickedGroupDbId;
-  bool _groupShot = false;
+  late final StudioSubject _subject = StudioSubject(widget.mode);
   late String _editablePrompt;
   Uint8List? _currentImageBytes;
   Uint8List? _lastStudioImage;
   String _error = '';
-  String _seenGraph = '';
-  String _seenModel = '';
+  final _deskStamp = StudioDeskStamp();
   bool _isCrafting = false;
   bool _isGenerating = false;
   bool _saving = false;
-
-  /// The active subject; `widget.mode` is only the initial selection.
-  late ImageGenMode _activeMode;
 
   /// Optional img2img reference (transient, never persisted). When set, Generate
   /// runs img2img at the shared imageGenDenoise strength on the local backends;
@@ -159,7 +143,6 @@ class _ImageStudioState extends State<ImageStudio> {
     final storage = Provider.of<StorageService>(context, listen: false);
     _selectedStyle = storage.imageGenSettings.imageGenStyle;
     _paradigm = storage.imageGenSettings.imageGenPromptParadigm;
-    _activeMode = widget.mode;
     _builder = ImagePromptBuilder(llmService: widget.llmService);
     // No boilerplate prefill for ANY subject: an empty box until the user
     // types or taps "Write it for me". Dumping the raw character description
@@ -221,40 +204,28 @@ class _ImageStudioState extends State<ImageStudio> {
       _currentImageBytes = null;
     });
 
-    final service = Provider.of<ImageGenService>(context, listen: false);
-    try {
-      final bytes = await service.generateImage(
-        prompt: prompt,
-        isPortrait: _isPortraitSubject, // portraits orient vertically
-        referenceImage: _referenceImageBytes, // img2img on local backends
-      );
-
-      if (!mounted) return;
-      setState(() {
-        _isGenerating = false;
-        _currentImageBytes = bytes;
-        if (bytes != null) _lastStudioImage = bytes;
-        if (bytes == null) {
-          _error = service.statusMessage.isNotEmpty
-              ? service.statusMessage
-              : 'Generation returned no image';
-        } else {
-          _history.insert(0, (
-            prompt: prompt,
-            bytes: bytes,
-            style: _selectedStyle,
-          ));
-          if (_history.length > 8) _history.removeLast();
-        }
-      });
-    } catch (e) {
-      if (mounted) {
-        setState(() {
-          _isGenerating = false;
-          _error = e.toString().replaceFirst(RegExp(r'^Exception:\s*'), '');
-        });
+    final result = await generateStudioImage(
+      Provider.of<ImageGenService>(context, listen: false),
+      prompt: prompt,
+      isPortrait: _subject.isPortrait, // portraits orient vertically
+      referenceImage: _referenceImageBytes, // img2img on local backends
+    );
+    if (!mounted) return;
+    setState(() {
+      _isGenerating = false;
+      final bytes = _currentImageBytes = result.bytes;
+      if (bytes == null) {
+        _error = result.error;
+      } else {
+        _lastStudioImage = bytes;
+        _history.insert(0, (
+          prompt: prompt,
+          bytes: bytes,
+          style: _selectedStyle,
+        ));
+        if (_history.length > 8) _history.removeLast();
       }
-    }
+    });
   }
 
   /// Pick a transient img2img reference (desktop file dialog; not persisted).
@@ -288,56 +259,25 @@ class _ImageStudioState extends State<ImageStudio> {
     _error = '';
   });
 
+  void _setSaving(bool saving) => setState(() => _saving = saving);
+
   Future<void> _save() async {
-    if (_currentImageBytes == null) return;
-    setState(() => _saving = true);
-    final service = Provider.of<ImageGenService>(context, listen: false);
-    final path = await service.saveImageToDisk(_currentImageBytes);
-    if (mounted) {
-      setState(() => _saving = false);
-      if (path != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Image saved to $path'),
-            backgroundColor: AppColors.resolve(
-              context,
-              AppColors.logReady,
-              AppColors.lightBorder,
-            ),
-          ),
-        );
-      }
-    }
+    final bytes = _currentImageBytes;
+    if (bytes == null) return;
+    await saveStudioImage(context, bytes, onSaving: _setSaving);
   }
 
   Future<void> _accept([Uint8List? bytesOverride]) async {
     final bytes = bytesOverride ?? _currentImageBytes;
     if (bytes == null) return;
-    setState(() => _saving = true);
-    final service = Provider.of<ImageGenService>(context, listen: false);
-
-    // Accept only applies to portrait subjects → crop then save as an avatar.
-    final croppedBytes = await ImageCropDialog.show(context, imageBytes: bytes);
-    if (croppedBytes == null) {
-      if (mounted) setState(() => _saving = false);
-      return;
-    }
-    final path = await service.saveAvatarToDisk(
-      croppedBytes,
+    final path = await acceptStudioAvatar(
+      context,
+      bytes,
       characterName: widget.characterName ?? widget.personaName,
+      forPersona: _subject.mode == ImageGenMode.userAvatar,
+      onSaving: _setSaving,
     );
-    if (!mounted) return;
-    setState(() => _saving = false);
     if (path == null) return;
-    if (_activeMode == ImageGenMode.userAvatar) {
-      final personaService = Provider.of<UserPersonaService>(
-        context,
-        listen: false,
-      );
-      personaService.updatePersona(
-        personaService.persona.copyWith(avatarPath: path),
-      );
-    }
     widget.onAccept?.call(path);
     await _closeStudio();
   }
@@ -350,30 +290,14 @@ class _ImageStudioState extends State<ImageStudio> {
     final target = _lookTarget;
     if (bytes == null || target == null) return;
     final (dbId, name) = target;
-    setState(() => _saving = true);
-    try {
-      await Provider.of<CharacterRepository>(
-        context,
-        listen: false,
-      ).addLook(dbId, name, bytes);
-      // A look is an avatar_images row too, so the existing library-avatars
-      // refresh pushes it onto the live card → the gallery + sidebar chevrons
-      // pick it up without reopening.
-      widget.onExpressionsImported?.call(dbId);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Saved to Avatar Gallery')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Save to gallery failed: $e')));
-      }
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
+    await saveStudioLook(
+      context,
+      bytes,
+      dbId: dbId,
+      name: name,
+      onSaving: _setSaving,
+      onSaved: (id) => widget.onExpressionsImported?.call(id),
+    );
   }
 
   void _restoreFromHistory(
@@ -393,12 +317,12 @@ class _ImageStudioState extends State<ImageStudio> {
     return () async {
       final bytes = _currentImageBytes;
       if (bytes == null) return;
-      await widget.onSendToChat!(bytes, _editablePrompt.trim());
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(const SnackBar(content: Text('Image sent to chat')));
-      }
+      await sendStudioImageToChat(
+        context,
+        widget.onSendToChat!,
+        bytes,
+        _editablePrompt.trim(),
+      );
     };
   }
 
@@ -406,20 +330,169 @@ class _ImageStudioState extends State<ImageStudio> {
   /// model file has been changed on the desk.
   void _dropStaleError() {
     final settings = context.read<StorageService>().imageGenSettings;
-    final graph =
-        '${settings.comfyCreateWorkflowId}|${settings.comfyEditWorkflowId}';
-    final model =
-        '${settings.imageGenModel}|${settings.imageGenEditModel}|${settings.comfyCreateModelChoices}|${settings.comfyEditModelChoices}';
-    final first = _seenGraph.isEmpty && _seenModel.isEmpty;
-    if (graph == _seenGraph && model == _seenModel) return;
-    _seenGraph = graph;
-    _seenModel = model;
-    if (first || _error.isEmpty) return;
+    if (!_deskStamp.changed(settings) || _error.isEmpty) return;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted && _error.isNotEmpty) setState(() => _error = '');
     });
   }
 
+  /// Switch subject and clear the prompt box — no bleed between subjects,
+  /// and no raw-description prefill.
+  void _selectSubject(ImageGenMode mode) => setState(() {
+    _subject.select(mode);
+    _editablePrompt = '';
+  });
+
+  void _pickGroupSubject(int? index) {
+    final members = widget.groupCharacters;
+    if (index != null && (index < 0 || index >= members.length)) return;
+    setState(() {
+      _subject.pickGroup(index == null ? null : members[index]);
+      _editablePrompt = '';
+    });
+  }
+
+  String? get _packTargetDbId => _subject.packTargetDbId(widget.characterDbId);
+
+  (String, String)? get _lookTarget =>
+      _subject.lookTarget(widget.characterDbId, widget.characterName);
+
+  bool get _canSaveToGallery => _lookTarget != null;
+
+  void _openExpressionPack() {
+    final target = _packTargetDbId;
+    final prompt = _editablePrompt;
+    setState(() => _studioTab = 2);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _expressionsKey.currentState?.selectTarget(target, prompt: prompt);
+      }
+    });
+  }
+
+  Future<void> _craftWithLlmIfAvailable() => craftIntoPromptBox(
+    context,
+    widget,
+    mode: _subject.mode,
+    style: _selectedStyle,
+    box: _editablePrompt,
+    onStart: () => setState(() {
+      _isCrafting = true;
+      _error = '';
+    }),
+    onCrafted: (crafted) => setState(() {
+      _editablePrompt = crafted;
+      _isCrafting = false;
+    }),
+    onFailed: (message) => setState(() {
+      _isCrafting = false;
+      _error = message;
+    }),
+  );
+
+  Future<void> _closeStudio() async {
+    if (!await (_expressionsKey.currentState?.confirmClose() ??
+            Future.value(true)) ||
+        !mounted) {
+      return;
+    }
+    setState(() => _allowClose = true);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) Navigator.pop(context);
+    });
+  }
+
   @override
-  Widget build(BuildContext context) => _buildStudio(context);
+  Widget build(BuildContext context) {
+    _dropStaleError();
+    // Any generation (Create OR Edit) flips the shared service busy; fold it in
+    // so Create cannot submit while another workspace is generating.
+    final genBusy = context.select<ImageGenService, bool>(
+      (s) => s.isGenerating,
+    );
+
+    return PopScope(
+      canPop: _allowClose || !(_expressionsKey.currentState?.hasPack ?? false),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _closeStudio();
+      },
+      child: StudioView(
+        activeMode: _subject.mode,
+        characterName: _subject.charName(
+          widget.groupCharacters,
+          widget.characterName,
+        ),
+        groupCharacters: widget.groupCharacters,
+        groupShotActive: _subject.groupShot,
+        onPickGroupMember: _pickGroupSubject,
+        onPickGroupShot: () => _pickGroupSubject(null),
+        prompt: _editablePrompt,
+        referenceBytes: _referenceImageBytes,
+        currentImageBytes: _currentImageBytes,
+        error: _error,
+        generating: _isGenerating,
+        crafting: _isCrafting,
+        saving: _saving,
+        isBusy: _isBusy || genBusy,
+        history: _history,
+        onClose: _closeStudio,
+        onSelectSubject: _selectSubject,
+        onPickReference: _pickReferenceImage,
+        onClearReference: () => setState(() => _referenceImageBytes = null),
+        onPromptChanged: _updatePrompt,
+        onCraftLlm: _craftWithLlmIfAvailable,
+        onExpressionPack: _packTargetDbId == null ? null : _openExpressionPack,
+        onGenerate: _generate,
+        onSave: _save,
+        onAccept: _accept,
+        onVariations: _variations,
+        onEditRegen: _editAndRegen,
+        onSendToChat: _sendToChat,
+        onSaveToGallery: _canSaveToGallery ? _saveToGallery : null,
+        onRestore: _restoreFromHistory,
+        showEdit: _studioTab == 1,
+        workspaceIndex: _studioTab,
+        draftBusy: _isBusy,
+        expressionBody: StudioExpressionTab(
+          key: _expressionsKey,
+          initialCharacterId: _packTargetDbId,
+          onCraftPrompt: (card, instruction) => craftPackBasePrompt(
+            context,
+            widget,
+            card,
+            instruction,
+            style: _selectedStyle,
+          ),
+          lastStudioImage: _lastStudioImage,
+          onImported: widget.onExpressionsImported,
+          onPackChanged: () => setState(() {}),
+        ),
+        modeTabs: StudioModeTabs(
+          selected: _studioTab,
+          onChanged: (i) {
+            if (i == 2) {
+              _openExpressionPack();
+            } else {
+              setState(() => _studioTab = i);
+            }
+          },
+          enabled: true,
+        ),
+        editBody: EditView(
+          onResultImage: (bytes) => setState(() => _lastStudioImage = bytes),
+          onSendToChat: widget.onSendToChat,
+          onAcceptBytes: hasAcceptAction(_subject.mode)
+              ? (bytes) => _accept(bytes)
+              : null,
+          onSaveToGalleryBytes: _canSaveToGallery
+              ? (bytes) => _saveToGallery(bytes)
+              : null,
+          acceptLabel: getAcceptLabel(_subject.mode),
+          // Pre-load the current portrait as the edit source (the user can still
+          // swap in an unrelated photo via "Add photo").
+          initialSourcePath: widget.characterImagePath,
+        ),
+      ),
+    );
+  }
 }

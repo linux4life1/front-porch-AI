@@ -198,7 +198,7 @@ extension ChatServiceImages on ChatService {
     if (worlds.isNotEmpty) worldInfo = worlds.first.description;
 
     final llm = testLlmServiceOverride ?? _llmProvider?.activeService;
-    final isGroupNonObserver = isGroupMode && !observerMode;
+    final isGroupNonObserver = isGroupMode;
 
     // `/image last` distills just the single most recent turn; `/image [scene]`
     // distills the recent run (the builder caps how many it actually uses).

@@ -17,22 +17,17 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
 import 'dart:math';
 
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
-import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
-    show kScalarEvalRepeatPenalty;
 import 'package:front_porch_ai/services/chat/pass_support.dart';
-import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-part 'expression_classifier.eval.dart';
+import 'package:front_porch_ai/services/chat/expression_classifier/expression_classifier.dart';
 
 /// Chat-scoped expression labels: manual override, avatar pick (random +
 /// lastId reroll avoidance), LLM reclass, ONNX cache/debounce.
@@ -74,13 +69,16 @@ class ExpressionService {
   String? _cachedForEmotion;
 
   // ONNX expression classification
-  ExpressionClassifierService? _expressionClassifierService;
-  String? _onnxExpressionLabel;
-  String? _onnxCachedForEmotion;
-  int _lastOnnxMessageCount = 0;
-  String? _lastOnnxMessageText;
-  bool _onnxClassifying = false;
-  Timer? _onnxDebounce;
+  late final OnnxExpressionClassifier _onnx = OnnxExpressionClassifier(
+    onNotify: onNotify,
+    getStorageService: getStorageService,
+    getIsGenerating: getIsGenerating,
+    getCharacterEmotion: getCharacterEmotion,
+    getMessages: getMessages,
+    getRealismEvalCancelled: getRealismEvalCancelled,
+    onHandleRealismEvalCancelledDuringOnnx:
+        onHandleRealismEvalCancelledDuringOnnx,
+  );
 
   // Tools transport for the LLM reclassify (nullable — tests and tool-less
   // hosts stay on the text path; the god wires the shared probe/door the
@@ -134,34 +132,11 @@ class ExpressionService {
     // ONNX mode: trigger classification if needed and return cached result
     if (getStorageService().expressionSettings.expressionClassificationMode ==
         'onnx') {
-      // ── STABILITY: Keep previous expression while generating ───────────────
-      // As requested, we don't want "live" updates. We keep the current
-      // face until the message is complete.
-      if (getIsGenerating()) {
-        return _onnxExpressionLabel ??
-            EmotionLabels.nuancedToStandard[lower] ??
-            'neutral';
-      }
-
-      // Trigger async ONNX classification if a new message arrived, text changed, or emotion changed
-      if ((_onnxCachedForEmotion != lower ||
-              messageCount != _lastOnnxMessageCount ||
-              lastAiMsgText != _lastOnnxMessageText) &&
-          !_onnxClassifying &&
-          _onnxDebounce == null) {
-        // Use a small debounce to avoid rapid re-triggering during UI transitions
-        _onnxDebounce = Timer(const Duration(milliseconds: 500), () {
-          _onnxDebounce = null;
-          _classifyWithOnnxAsync(lower);
-        });
-      }
-
-      if (_onnxCachedForEmotion == lower && _onnxExpressionLabel != null) {
-        return _onnxExpressionLabel;
-      }
-      return _onnxExpressionLabel ??
-          EmotionLabels.nuancedToStandard[lower] ??
-          'neutral';
+      return _onnx.currentLabel(
+        lower,
+        messageCount: messageCount,
+        lastAiMsgText: lastAiMsgText,
+      );
     }
 
     if (getCharacterEmotion().isEmpty) return 'neutral';
@@ -311,15 +286,11 @@ class ExpressionService {
   }
 
   /// Initialize the ONNX expression classifier service.
-  void initExpressionClassifier() {
-    _expressionClassifierService ??= ExpressionClassifierService(
-      getStorageService(),
-    );
-  }
+  void initExpressionClassifier() => _onnx.init();
 
   /// Set the ExpressionClassifierService (for ONNX).
   void setExpressionClassifierService(ExpressionClassifierService service) {
-    _expressionClassifierService = service;
+    _onnx.setService(service);
   }
 
   // ── Reset / seed / load helpers (support "keep reset blocks in sync" in parent) ──
@@ -329,18 +300,26 @@ class ExpressionService {
     _stableExpressionPicks.clear();
     _cachedExpressionLabel = null;
     _cachedForEmotion = null;
-    _onnxExpressionLabel = null;
-    _onnxCachedForEmotion = null;
-    _lastOnnxMessageCount = 0;
-    _lastOnnxMessageText = null;
-    _onnxClassifying = false;
-    _onnxDebounce?.cancel();
-    _onnxDebounce = null;
+    _onnx.reset();
   }
 
-  void invalidateOnnxCacheForNewResponse() {
-    _onnxCachedForEmotion = null;
-    _onnxExpressionLabel = null;
-    _lastOnnxMessageText = null;
-  }
+  void invalidateOnnxCacheForNewResponse() => _onnx.invalidateForNewResponse();
+
+  /// Fire-and-forget: ask the LLM to map an unknown emotion word to a
+  /// standard label (see [ExpressionReclassifier]).
+  Future<void> _reclassifyEmotionAsync(String unknownEmotion) =>
+      ExpressionReclassifier(
+        getIsEvaluatingRealism: getIsEvaluatingRealism,
+        getLlmServiceForReclass: getLlmServiceForReclass,
+        getIsThinkingModelForReclass: getIsThinkingModelForReclass,
+        fireToolEval: fireToolEval,
+        probe: probe,
+        getBackendIdentity: getBackendIdentity,
+      ).reclassify(
+        unknownEmotion,
+        onLabel: (label) {
+          _cachedExpressionLabel = label;
+          onNotify();
+        },
+      );
 }

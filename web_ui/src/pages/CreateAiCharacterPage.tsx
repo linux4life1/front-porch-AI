@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
+import { usePersonaSeed } from '../components/library/PersonaConvertDialogs';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { StepIndicator } from '../components/StepIndicator';
@@ -21,6 +22,7 @@ import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
 import { OutputSettings } from '../components/aichargen/OutputSettings';
 import { LoreContext } from '../components/aichargen/LoreContext';
 import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
 const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Greetings'];
 const GREETINGS = STEPS.indexOf('Greetings');
@@ -53,6 +55,29 @@ export function CreateAiCharacterPage() {
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<string[]>([]);
   const [error, setError] = useState('');
+  // "Make a Character" → AI Assist: the persona is Quick mode's brief.
+  const { seed: personaSeed, error: seedError } = usePersonaSeed(params);
+  const withSeed = (base: ChargenForm): ChargenForm =>
+    personaSeed
+      ? {
+          ...base,
+          mode: 'quick',
+          name: personaSeed.name,
+          quickConcept: personaSeed.aiConcept,
+          quickScenario: '',
+        }
+      : base;
+  useEffect(() => {
+    if (!personaSeed) return;
+    setForm(withSeed);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [personaSeed]);
+  // Until a character exists the typed setup lives only here. After that the
+  // Greetings step saves as it goes. A persona's seed is the start, not an
+  // edit.
+  const { prompt, leaveWithoutAsking } = useUnsavedChanges(
+    !createdId && JSON.stringify(form) !== JSON.stringify(withSeed(DEFAULT_FORM)),
+  );
 
   useEffect(() => {
     api.get<{ available: boolean }>('/api/chargen/status')
@@ -69,6 +94,7 @@ export function CreateAiCharacterPage() {
         setBusy(false);
         setCreatedId(id);
         setStep(GREETINGS);
+        leaveWithoutAsking();
         // Replace, so the browser's Back leaves the creator instead of
         // landing on it with no character.
         navigate(`/create-ai?greetings=${encodeURIComponent(id)}`, { replace: true });
@@ -79,7 +105,7 @@ export function CreateAiCharacterPage() {
     });
     socket.connect();
     return () => socket.close();
-  }, [navigate]);
+  }, [navigate, leaveWithoutAsking]);
 
   const generate = async () => {
     if (!form.name.trim() || busy) return;
@@ -87,7 +113,11 @@ export function CreateAiCharacterPage() {
     setSteps([]);
     setError('');
     try {
-      await api.post('/api/chargen/create', buildPayload(form));
+      await api.post('/api/chargen/create', {
+        ...buildPayload(form),
+        ...(personaSeed?.hasPortrait ? { portraitPersonaId: personaSeed.personaId } : {}),
+        ...(personaSeed?.birthday ? { birthday: personaSeed.birthday } : {}),
+      });
     } catch (e) {
       setBusy(false);
       setError(e instanceof ApiError ? e.message : 'Could not start generation');
@@ -106,6 +136,7 @@ export function CreateAiCharacterPage() {
 
   return (
     <div className="page wizard">
+      {prompt}
       <header className="page-head cg-head">
         <button type="button" className="ghost" onClick={() => navigate('/')}>
           <ArrowLeft />
@@ -118,6 +149,14 @@ export function CreateAiCharacterPage() {
       </header>
 
       <StepIndicator steps={STEPS} current={step} onJump={held ? undefined : setStep} variant="porch" />
+
+      {personaSeed && (
+        <p className="muted small" data-testid="persona-seed-note">
+          Starting from the persona "{personaSeed.name}"
+          {personaSeed.hasPortrait ? '; its picture becomes the portrait.' : '.'}
+        </p>
+      )}
+      {seedError && <p className="error">{seedError}</p>}
 
       {available === false && (
         <p className="muted">No LLM backend is ready — start or connect a model on the Models page first.</p>

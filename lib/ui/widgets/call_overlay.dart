@@ -17,15 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:io';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-
-part 'call_overlay.visuals.dart';
+import 'package:front_porch_ai/ui/widgets/call_overlay/call_overlay.dart';
 
 /// Full-screen voice call overlay (warm-porch rework, 2026-08-14).
 ///
@@ -164,31 +162,6 @@ class _CallOverlayState extends State<CallOverlay>
     return '$m:$s';
   }
 
-  String _statusText(CallStatus status) => switch (status) {
-    CallStatus.listening => 'Listening…',
-    CallStatus.transcribing => 'Transcribing…',
-    CallStatus.thinking => 'Thinking…',
-    CallStatus.speaking => 'Speaking…',
-    CallStatus.idle => 'Calibrating…',
-  };
-
-  IconData _statusIcon(CallStatus status) => switch (status) {
-    CallStatus.listening => Icons.mic,
-    CallStatus.transcribing => Icons.text_fields,
-    CallStatus.thinking => Icons.psychology,
-    CallStatus.speaking => Icons.volume_up,
-    CallStatus.idle => Icons.pause,
-  };
-
-  Color _statusColor(BuildContext context, CallStatus status) =>
-      switch (status) {
-        CallStatus.listening => AppColors.porchAmberOf(context),
-        CallStatus.transcribing => AppColors.porchHoneyOf(context),
-        CallStatus.thinking => AppColors.textSecondary(context),
-        CallStatus.speaking => AppColors.porchTerracottaOf(context),
-        CallStatus.idle => AppColors.textTertiary(context),
-      };
-
   @override
   Widget build(BuildContext context) {
     return Consumer3<SttService, TtsService, ChatService>(
@@ -206,8 +179,11 @@ class _CallOverlayState extends State<CallOverlay>
                 colors: [
                   bg.withValues(alpha: 0.98),
                   AppColors.surfaceOf(context).withValues(alpha: 0.98),
-                  Color.lerp(bg, AppColors.porchAmberOf(context), 0.10)!
-                      .withValues(alpha: 0.98),
+                  Color.lerp(
+                    bg,
+                    AppColors.porchAmberOf(context),
+                    0.10,
+                  )!.withValues(alpha: 0.98),
                 ],
               ),
             ),
@@ -240,7 +216,13 @@ class _CallOverlayState extends State<CallOverlay>
                         ),
                       ),
                       const Spacer(flex: 2),
-                      _buildAvatar(context, status, amplitude, avatarSize),
+                      CallAvatar(
+                        pulse: _pulseController,
+                        character: widget.character,
+                        status: status,
+                        amp: amplitude,
+                        size: avatarSize,
+                      ),
                       const SizedBox(height: 18),
                       Text(
                         widget.character.name,
@@ -252,15 +234,25 @@ class _CallOverlayState extends State<CallOverlay>
                         ),
                       ),
                       const SizedBox(height: 10),
-                      _buildRealismStrip(context, chat),
+                      CallRealismStrip(chat: chat),
                       const SizedBox(height: 12),
-                      _buildStatusChip(context, status),
+                      CallStatusChip(status: status),
                       const Spacer(flex: 1),
-                      _buildWaveform(context, amplitude, status),
+                      CallWaveform(
+                        wave: _waveController,
+                        amp: amplitude,
+                        status: status,
+                      ),
                       const SizedBox(height: 16),
-                      _buildCaptionArea(context, stt, tts),
+                      CallCaptionArea(stt: stt, tts: tts),
                       const Spacer(flex: 2),
-                      _buildControls(context, stt),
+                      CallControls(
+                        stt: stt,
+                        onEnd: () {
+                          _teardown(); // snappy: mic + TTS stop NOW, not next frame
+                          widget.onEndCall();
+                        },
+                      ),
                       const SizedBox(height: 32),
                     ],
                   );

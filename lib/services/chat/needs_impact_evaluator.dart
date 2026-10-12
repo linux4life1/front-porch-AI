@@ -23,10 +23,9 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
+import 'package:front_porch_ai/services/chat/needs_impact_evaluator/needs_impact_bound.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/realism_verification.dart';
-
-part 'needs_impact_bound.dart';
 
 /// Plain leaf for needs impact.
 ///
@@ -253,6 +252,12 @@ class NeedsImpactEvaluator {
     }
     return deltas;
   }
+
+  void _boundDeltas(Map<String, int> deltas) => boundSceneNeedDeltas(
+    deltas,
+    ext: getActiveCharacter()?.frontPorchExtensions,
+    vector: needsSimulation.vector,
+  );
 
   int? _extractInt(String text, String key) {
     final re = RegExp('"$key"\\s*:\\s*(-?\\d+)');

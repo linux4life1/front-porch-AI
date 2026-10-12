@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
@@ -40,7 +42,27 @@ class WorldEditDraft {
       // 'custom' sentinel = this world authors its own climate (biomeJson).
       selectedBiomeId = world?.biomeJson != null
           ? 'custom'
-          : (world?.biomeId ?? Biome.temperate.id);
+          : (world?.biomeId ?? Biome.temperate.id) {
+    _start = _fingerprint();
+  }
+
+  late final String _start;
+
+  /// Everything Save copies back, so Close can tell whether anything changed.
+  String _fingerprint() => jsonEncode([
+    nameController.text,
+    descController.text,
+    customBiomeJson,
+    selectedBiomeId,
+    injectDescription,
+    climateEnabled,
+    coverImage,
+    atmosphere.name,
+    gravity.name,
+    [for (final e in editingEntries) e.toJson()],
+  ]);
+
+  bool get isDirty => _fingerprint() != _start;
 
   final TextEditingController nameController;
   final TextEditingController descController;

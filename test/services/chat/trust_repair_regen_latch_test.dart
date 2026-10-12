@@ -16,7 +16,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/fpchat_format.dart';
-import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 import '../../helpers/chat_db_teardown.dart';

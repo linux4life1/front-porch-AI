@@ -18,7 +18,6 @@
 
 import 'dart:async';
 import 'dart:convert';
-import 'dart:typed_data';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -26,12 +25,9 @@ import 'package:http/http.dart' as http;
 import 'package:front_porch_ai/services/chat/mediawiki_search.dart';
 import 'package:front_porch_ai/services/chat/tiddly_wiki.dart';
 import 'package:front_porch_ai/services/chat/web_search_service.dart';
-import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/services/chat/wiki_search_service/wiki_search_service.dart';
 
-part 'wiki_search_service.http.dart';
-part 'wiki_search_service.studio.dart';
-
-enum WikiBackend { mediawiki, tiddly, unknown }
+export 'package:front_porch_ai/services/chat/wiki_search_service/wiki_search_service.dart';
 
 /// Same turn window as [shouldAdvertiseWebSearch], but the switch is "this
 /// chat has a usable wiki URL" instead of the Porch Life web-search global.
@@ -52,14 +48,19 @@ bool shouldAdvertiseWikiSearch({
 
 /// Wiki lookup against the pasted host. MediaWiki/Fandom or TiddlyWiki.
 /// Session cache of the tiddler index; HTTP only on a miss.
-class WikiSearchService with _WikiHttp {
+class WikiSearchService {
   WikiSearchService({required this.getBaseUrl, this.sendRequest});
 
   final String Function() getBaseUrl;
 
   /// Request-level test seam. Production leaves this null.
-  @override
   final Future<http.Response> Function(http.BaseRequest request)? sendRequest;
+
+  late final WikiHttpClient _http = WikiHttpClient(sendRequest: sendRequest);
+  late final WikiStudioLister _studio = WikiStudioLister(
+    http: _http,
+    onHttpCall: () => httpCalls++,
+  );
 
   bool get isActive => parseWikiBaseUrl(getBaseUrl()) != null;
 
@@ -100,6 +101,22 @@ class WikiSearchService with _WikiHttp {
       page: true,
       clipChars: kWorldWikiArticleCharCap,
       honorSendCap: false,
+    );
+  }
+
+  /// Tiddly: index titles. MediaWiki: allpages (index analog), seed search
+  /// as a fallback. Skips `$:/`, media, galleries. Cap is the catalog, not 3.
+  Future<WikiStudioCatalog> listStudioTitles({String? seedQuery}) async {
+    final base = parseWikiBaseUrl(getBaseUrl());
+    if (base == null) {
+      return const WikiStudioCatalog(backend: WikiBackend.unknown, titles: []);
+    }
+    final kind = await _ensureBackend(base, honorSendCap: false);
+    return _studio.listStudioTitles(
+      base,
+      kind,
+      tiddlyIndex: kind == WikiBackend.tiddly ? _tiddly[_cacheKey(base)] : null,
+      seedQuery: seedQuery,
     );
   }
 
@@ -269,7 +286,7 @@ class WikiSearchService with _WikiHttp {
     httpCalls++;
     _httpThisSend++;
     try {
-      final resp = await _get(
+      final resp = await _http.get(
         uri,
         kind: 'html',
         cap: kTiddlyMaxBodyBytes,
@@ -305,7 +322,11 @@ class WikiSearchService with _WikiHttp {
     httpCalls++;
     _httpThisSend++;
     try {
-      final resp = await _get(uri, kind: 'search', cap: kMediaWikiMaxBodyBytes);
+      final resp = await _http.get(
+        uri,
+        kind: 'search',
+        cap: kMediaWikiMaxBodyBytes,
+      );
       if (resp.statusCode != 200) return false;
       if (resp.bodyBytes.length > kMediaWikiMaxBodyBytes) return false;
       final dynamic json;
@@ -326,7 +347,7 @@ class WikiSearchService with _WikiHttp {
     _httpThisSend++;
     final searchUri = mediawikiSearchUri(wikiBase, query);
     try {
-      final searchResp = await _get(
+      final searchResp = await _http.get(
         searchUri,
         kind: 'search',
         cap: kMediaWikiMaxBodyBytes,
@@ -344,7 +365,7 @@ class WikiSearchService with _WikiHttp {
         httpCalls++;
         _httpThisSend++;
         final extractUri = mediawikiExtractUri(wikiBase, titles);
-        final extractResp = await _get(
+        final extractResp = await _http.get(
           extractUri,
           kind: 'parse',
           cap: kMediaWikiMaxBodyBytes,
@@ -389,7 +410,7 @@ class WikiSearchService with _WikiHttp {
     _httpThisSend++;
     final parseUri = mediawikiParseUri(wikiBase, title);
     try {
-      final parseResp = await _get(
+      final parseResp = await _http.get(
         parseUri,
         kind: 'parse',
         cap: kMediaWikiMaxBodyBytes,

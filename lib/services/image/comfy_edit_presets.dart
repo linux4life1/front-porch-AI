@@ -444,6 +444,24 @@ bool comfyEditReady({
   required Map<String, String> modelChoices,
   Map<String, dynamic>? liveTemplate,
   Map<String, dynamic>? objectInfo,
+}) =>
+    comfyEditUnfilled(
+      workflowId: workflowId,
+      uploadedWorkflowJson: uploadedWorkflowJson,
+      modelChoices: modelChoices,
+      liveTemplate: liveTemplate,
+      objectInfo: objectInfo,
+    )?.isEmpty ??
+    false;
+
+/// The placeholders an Edit run would leave unfilled besides `%IMAGE%`.
+/// Null when the selected graph cannot be loaded or read.
+Set<String>? comfyEditUnfilled({
+  required String workflowId,
+  required String uploadedWorkflowJson,
+  required Map<String, String> modelChoices,
+  Map<String, dynamic>? liveTemplate,
+  Map<String, dynamic>? objectInfo,
 }) {
   final req = resolveComfyEditRequest(
     workflowId: workflowId,
@@ -459,10 +477,10 @@ bool comfyEditReady({
     denoise: 1,
     shift: 1,
   );
-  if (req == null) return false;
+  if (req == null) return null;
   final graph = substituteComfyWorkflow(req.template, {
     ...req.values,
     ComfyEditTokens.image: 'x', // filled for real at runtime; stub it here
   });
-  return unresolvedComfyTokens(graph).isEmpty;
+  return unresolvedComfyTokens(graph);
 }

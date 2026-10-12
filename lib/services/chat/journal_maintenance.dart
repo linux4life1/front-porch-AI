@@ -19,8 +19,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/services/services.dart';
 import 'journal_ops.dart';
 import 'journal_physics.dart';
 import 'journal_prompt.dart';
@@ -28,8 +26,7 @@ import 'journal_review.dart';
 import 'journal_store.dart';
 import 'pass_support.dart';
 import 'tool_eval_spec.dart';
-
-part 'journal_maintenance.exchange.dart';
+import 'journal_maintenance/journal_exchange.dart';
 
 /// The Journal — the one periodic background job
 /// (docs/design/journal-memory.md §4.2). Replaces BOTH the old SummaryService
@@ -55,7 +52,7 @@ part 'journal_maintenance.exchange.dart';
 ///   modes (1:1 = one owner). Scene guests never journal (unresolvable ids
 ///   are skipped — the guest parity guard).
 /// - Two transports, one applier (§4.3): tool calls when the backend accepts
-///   them ([_runExchange] probes once per backend identity per run, then
+///   them ([JournalExchange.run] probes once per backend identity per run, then
 ///   remembers), XML tags everywhere else — both normalize to the same
 ///   [JournalOp] list, resolved here into id-addressed proposals and applied
 ///   through [JournalReview.applyOwnerProposals] whether immediately or
@@ -156,6 +153,18 @@ class JournalMaintenance {
     required this.getCurrentStoryDay,
     required this.getCurrentStoryClockIso,
   });
+
+  late final JournalExchange _exchange = JournalExchange(
+    probe: probe,
+    fireLLMEval: fireLLMEval,
+    fireToolEval: fireToolEval,
+    getPreferTextEvals: getPreferTextEvals,
+    getPassEpoch: getPassEpoch,
+    stripThinkBlocks: stripThinkBlocks,
+    getBackendIdentity: getBackendIdentity,
+    getUserName: getUserName,
+    getRecap: getRecap,
+  );
 
   /// How many trailing messages to re-read when a force pass finds an empty
   /// window (manual "regenerate" with nothing new since the cursor).
@@ -262,7 +271,7 @@ class JournalMaintenance {
         if (ownerId.isEmpty) continue;
 
         final cards = await store.cardsFor(sessionToken, ownerId);
-        final exchange = await _runExchange(
+        final exchange = await _exchange.run(
           owner: owner,
           cards: cards,
           window: window,
@@ -289,11 +298,13 @@ class JournalMaintenance {
           ownerName: owner.name,
           // Clamp add-floods (double the prompt-side ask as headroom) so one
           // verbose model can't churn the card cap in a single evening.
-          ops: _resolveOps(
+          ops: resolveJournalOps(
             clampJournalAdds(ops, kJournalMaxNewMemories * 2),
             cards,
             window,
             start,
+            getCurrentStoryDay: getCurrentStoryDay,
+            getCurrentStoryClockIso: getCurrentStoryClockIso,
           ),
         );
 

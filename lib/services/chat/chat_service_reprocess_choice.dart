@@ -43,9 +43,9 @@ extension ChatServiceNeedsReprocessTarget on ChatService {
     if (preState is! Map || preState['needs'] == null) return null;
     if (!needsActive) return null;
 
-    final isGroupNonObs = activeGroup != null && !observerMode;
+    final isGroupTurn = activeGroup != null;
     CharacterCard? card;
-    if (isGroupNonObs) {
+    if (isGroupTurn) {
       card = resolveGroupSpeakerForMessage(
         groupCharacters,
         msg,

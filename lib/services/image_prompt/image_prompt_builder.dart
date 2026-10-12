@@ -22,7 +22,31 @@ import 'package:front_porch_ai/services/image_prompt/image_gen_context.dart';
 import 'package:front_porch_ai/services/image_prompt/visual_source_text.dart';
 import 'package:front_porch_ai/utils/utils.dart' show stripQuotedSpeech;
 
-part 'image_prompt_builder.builders.dart';
+import 'builders/builders.dart';
+
+/// How many of the most recent messages feed customPrompt's scene distillation.
+const int kImagePromptSceneRecentCap = 6;
+
+/// Cleans narrative text (last message, recent, scenario, world) for use in visual image prompts.
+/// Combines quote strip + think strip + removal of known non-visual meta (interrupted evals, card import junk).
+/// Keeps the result as source material for distillation rather than raw dump.
+String cleanNarrativeForVisual(String text) {
+  text = stripQuotedSpeech(text);
+  text = stripThinkForVisual(text);
+  text = text.replaceAll(
+    RegExp(r'Realism evaluation interrupted.*?(?:\n|$)', caseSensitive: false),
+    '',
+  );
+  text = text.replaceAll(
+    RegExp(
+      r'Auto-imported from character card:.*?(?:\n|$)',
+      caseSensitive: false,
+    ),
+    '',
+  );
+  text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
+  return text;
+}
 
 /// Single source of truth for turning (mode + style + raw context) into a high-quality,
 /// style-faithful image generation prompt.
@@ -103,9 +127,6 @@ class ImagePromptBuilder {
 
   static const int _maxPromptLength = 1000;
 
-  /// How many of the most recent messages feed customPrompt's scene distillation.
-  static const int _sceneRecentCap = 6;
-
   ImagePromptBuilder({LLMService? llmService}) : _llmService = llmService;
 
   /// Main entry. Builds (and style-enforces) a prompt for the given mode using the supplied context.
@@ -128,7 +149,11 @@ class ImagePromptBuilder {
     final llm = _llmService;
     if (llm != null && llm.isReady) {
       try {
-        final smart = await _generateSmartWith(llm, ctx);
+        final smart = await generateSmartImagePrompt(
+          llm,
+          ctx,
+          styleSuffix: _getStyleSuffix(ctx.style, ctx.paradigm),
+        );
         if (smart.isNotEmpty) {
           return _ensureStyleAndCap(smart, ctx.style, ctx.paradigm);
         }
@@ -140,7 +165,7 @@ class ImagePromptBuilder {
     }
 
     // Strong static fallback (already better than pre-refactor for every mode)
-    final fallback = _buildStatic(ctx);
+    final fallback = buildStaticImagePrompt(ctx);
     return _ensureStyleAndCap(fallback, ctx.style, ctx.paradigm);
   }
 
@@ -152,7 +177,7 @@ class ImagePromptBuilder {
   /// Synchronous static (no-LLM) prompt for callers that need the old buildPrompt signature.
   /// This is the improved fallback logic only — use [buildPrompt] for the full (LLM+static) experience.
   String buildStaticPrompt(ImageGenContext ctx) {
-    final raw = _buildStatic(ctx);
+    final raw = buildStaticImagePrompt(ctx);
     return _ensureStyleAndCap(raw, ctx.style, ctx.paradigm);
   }
 
@@ -171,30 +196,6 @@ class ImagePromptBuilder {
   String _getStyleSuffix(String style, String paradigm) {
     final map = paradigm == 'tags' ? legacyStyleModifiers : styleModifiers;
     return map[style] ?? '';
-  }
-
-  /// Cleans narrative text (last message, recent, scenario, world) for use in visual image prompts.
-  /// Combines quote strip + think strip + removal of known non-visual meta (interrupted evals, card import junk).
-  /// Keeps the result as source material for distillation rather than raw dump.
-  String _cleanNarrativeForVisual(String text) {
-    text = stripQuotedSpeech(text);
-    text = stripThinkForVisual(text);
-    text = text.replaceAll(
-      RegExp(
-        r'Realism evaluation interrupted.*?(?:\n|$)',
-        caseSensitive: false,
-      ),
-      '',
-    );
-    text = text.replaceAll(
-      RegExp(
-        r'Auto-imported from character card:.*?(?:\n|$)',
-        caseSensitive: false,
-      ),
-      '',
-    );
-    text = text.replaceAll(RegExp(r'\s{2,}'), ' ').trim();
-    return text;
   }
 
   String _ensureStyleAndCap(String base, String style, String paradigm) {

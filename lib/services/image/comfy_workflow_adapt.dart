@@ -378,3 +378,31 @@ bool _usesQwenImage21Latent(
       ) &&
       _usesQwenImage21Latent(graph, inputs['on_true'], Set<String>.from(seen));
 }
+
+/// The files [api] names in the loader inputs that [adapted] turned into
+/// model tokens, by token. An uploaded graph runs with its own files unless a
+/// file was picked for that slot.
+Map<String, String> comfyGraphOwnFiles(
+  Map<String, dynamic> api,
+  AdaptedComfyGraph adapted,
+) {
+  final own = <String, String>{};
+  for (final entry in adapted.template.entries) {
+    final node = entry.value;
+    final original = api[entry.key];
+    if (node is! Map || original is! Map) continue;
+    final inputs = node['inputs'];
+    final was = original['inputs'];
+    if (inputs is! Map || was is! Map) continue;
+    for (final input in inputs.entries) {
+      final token = input.value;
+      final file = was[input.key];
+      if (token is! String || !token.startsWith('%MODEL_')) continue;
+      if (file is! String || file.trim().isEmpty || file.startsWith('%')) {
+        continue;
+      }
+      own.putIfAbsent(token, () => file.trim());
+    }
+  }
+  return own;
+}

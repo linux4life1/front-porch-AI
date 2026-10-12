@@ -20,17 +20,11 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
-import 'package:front_porch_ai/services/chat/realism_tools.dart';
-import 'package:front_porch_ai/services/chat/skip_language.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
-import 'package:front_porch_ai/services/chat/today_line_tag.dart';
-import 'package:front_porch_ai/utils/utils.dart' show stripQuotedSpeech;
+import 'package:front_porch_ai/services/chat/time_service/time_service.dart';
 
-part 'time_service_eval.dart';
-part 'time_service_apply.dart';
-part 'time_service_load.dart';
+export 'package:front_porch_ai/services/chat/time_service/time_service.dart';
 
 /// Plain (non-ChangeNotifier) domain service owning the chat-scoped passage-of-time
 /// state — rewritten around a real datetime clock (design:
@@ -158,85 +152,49 @@ class TimeService {
   final FutureOr<void> Function(String line)? onTodayEval;
 
   // Owned state — the whole subsystem.
-  DateTime _clock = StoryClock.representativeTime(
-    StoryClock.todayAnchor(),
-    'morning',
+  final TimeClockState _state = TimeClockState();
+  late final TimeClockApplier _applier = TimeClockApplier(
+    state: _state,
+    isPassageOfTimeEnabled: () => passageOfTimeEnabled,
+    onNotify: onNotify,
+    onSetPendingRealismMetadata: onSetPendingRealismMetadata,
+    onPatchLastMessageRealismState: onPatchLastMessageRealismState,
+    onDayChanged: _ifDayChanged,
   );
-  DateTime _startDate = StoryClock.todayAnchor();
-  bool _passageOfTimeEnabled = true;
-  String _clockGateSource = 'porch_life';
-  bool? _clockGateLeftover;
-  int _turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
-  bool _canonicalClockWasSynthesised = false;
-  // One clock authority per turn: set when detectOocTimeSkip moves the clock,
-  // consumed by the per-turn eval so it can't re-count the same exchange.
-  bool _oocSkipMovedClockThisTurn = false;
-  // Named wall-clock is exact. A later 0 / missing minutes_elapsed
-  // must not land the 2-minute floor on that pair (follow-up,
-  // backfill, reopen).
-  bool _namedReconcileExact = false;
-  DateTime? _capturedClock;
-  DateTime? _capturedStartDate;
-  String? _capturedSessionId;
+  late final SceneTimeEvaluator _evaluator = SceneTimeEvaluator(
+    state: _state,
+    applier: _applier,
+    isPassageOfTimeEnabled: () => passageOfTimeEnabled,
+    getClockGateSource: () => clockGateSource,
+    getPorchLifePassageOfTime: getPorchLifePassageOfTime,
+    getPlannerEnabled: getPlannerEnabled,
+    onTodayEval: onTodayEval,
+    fireToolEval: fireToolEval,
+    probe: probe,
+    getBackendIdentity: getBackendIdentity,
+  );
 
   /// Story minutes the body wears for the beat just committed: the minutes
   /// the clock moved, whatever kind of beat it was. Zero for the same moment.
-  int _bodyWearMinutes = 0;
-  int get bodyWearMinutes => _bodyWearMinutes;
+  int get bodyWearMinutes => _state.bodyWearMinutes;
 
   /// The minutes still to wear, taken once: a turn that notes no new beat
   /// must not wear the last one again.
-  int takeBodyWearMinutes() {
-    final minutes = _bodyWearMinutes;
-    _bodyWearMinutes = 0;
-    return minutes;
-  }
+  int takeBodyWearMinutes() => _state.takeBodyWearMinutes();
 
   /// True when the beat was lived off-screen (a skip, next morning, time
   /// away): wear then stops at the skip floors, not the on-screen stop.
-  bool _bodyBeatOffScreen = false;
-  bool get bodyBeatOffScreen => _bodyBeatOffScreen;
+  bool get bodyBeatOffScreen => _state.bodyBeatOffScreen;
 
   /// Chip text for that beat. Null when the skip chip already says it.
-  String? _timePassedLabel;
-  String? get bodyTimeLabel => _timePassedLabel;
+  String? get bodyTimeLabel => _state.bodyTimeLabel;
 
   /// Words the needs judge scores. Cleared with the chip label so Continue
   /// cannot charge the same span again. A skip has no tick chip, so this
   /// keeps "Next morning" or the destination the clock stamped.
-  String? _needsSpanLabel;
-  String? get needsSpanLabel => _needsSpanLabel;
+  String? get needsSpanLabel => _state.needsSpanLabel;
 
-  void clearBodyBeat() {
-    _bodyWearMinutes = 0;
-    _bodyBeatOffScreen = false;
-    _timePassedLabel = null;
-    _needsSpanLabel = null;
-  }
-
-  /// [minutes] is how far the clock moved; [offScreen] marks a span the
-  /// characters lived away from the scene (a skip, a night, time away).
-  void _noteBodyBeat({
-    required int minutes,
-    required bool nextMorning,
-    required bool isSkip,
-    required bool offScreen,
-    String? skipDestination,
-  }) {
-    _bodyWearMinutes = minutes < 0 ? 0 : minutes;
-    _bodyBeatOffScreen = offScreen;
-    _timePassedLabel = timePassedLabel(
-      minutes: minutes,
-      nextMorning: nextMorning,
-      isSkip: isSkip,
-    );
-    _needsSpanLabel = needsSpanForBeat(
-      minutes: minutes,
-      nextMorning: nextMorning,
-      isSkip: isSkip,
-      skipDestination: skipDestination,
-    );
-  }
+  void clearBodyBeat() => _state.clearBodyBeat();
 
   String? todayLine;
 
@@ -293,7 +251,7 @@ class TimeService {
     bool postureOnly = false,
     bool skipClockAdvance = false,
     bool skipTodayEval = false,
-  }) => _evaluateTimeProgressAndPostureIfNeeded(
+  }) => _evaluator.evaluateTimeProgressAndPostureIfNeeded(
     charName: charName,
     recent: recent,
     shortTermTierName: shortTermTierName,
@@ -314,25 +272,27 @@ class TimeService {
   );
 
   /// Class door for the calendar set. Continue still does not tick.
-  Future<void> setClockDirect(DateTime newClock) => _setClockDirect(newClock);
+  Future<void> setClockDirect(DateTime newClock) =>
+      _applier.setClockDirect(newClock);
 
   void captureLiveClock({String? sessionId}) =>
-      _captureLiveClock(sessionId: sessionId);
+      _state.captureLiveClock(sessionId: sessionId);
 
   void restoreCapturedClock({String? sessionId}) =>
-      _restoreCapturedClock(sessionId: sessionId);
+      _state.restoreCapturedClock(sessionId: sessionId);
 
-  void clearCapturedClock() => _clearCapturedClock();
+  void clearCapturedClock() => _state.clearCapturedClock();
 
-  void rewindToBeforeIso(String? beforeIso) => _rewindToBeforeIso(beforeIso);
+  void rewindToBeforeIso(String? beforeIso) =>
+      _state.rewindToBeforeIso(beforeIso);
 
   /// Re-arm after load / backfill when a stored named pair is still live.
-  void holdNamedReconcileExact() => _namedReconcileExact = true;
+  void holdNamedReconcileExact() => _state.namedReconcileExact = true;
 
   void applySlotClock({DateTime? resolved, String? after}) {
     final clock = resolved ?? StoryClock.parse(after);
     if (clock == null) return;
-    _clock = DateTime.utc(
+    _state.clock = DateTime.utc(
       clock.year,
       clock.month,
       clock.day,
@@ -350,53 +310,95 @@ class TimeService {
     String? storyStartDate,
     String? storyStartTime,
     bool? passageOfTimeEnabled,
-  }) => _seedFromV2OrExt(
-    dayCount: dayCount,
-    timeOfDay: timeOfDay,
-    storyStartDate: storyStartDate,
-    storyStartTime: storyStartTime,
-    passageOfTimeEnabled: passageOfTimeEnabled,
-  );
+  }) {
+    _state.seedFromV2OrExt(
+      dayCount: dayCount,
+      timeOfDay: timeOfDay,
+      storyStartDate: storyStartDate,
+      storyStartTime: storyStartTime,
+      passageOfTimeEnabled: passageOfTimeEnabled,
+    );
+    todayLine = null;
+  }
+
+  /// See [TimeClockState.loadTimeScalars].
+  void loadTimeScalars({
+    required String timeOfDay,
+    required int dayCount,
+    required int startDayOfWeek,
+    String? storyClock,
+    String? storyStartDate,
+  }) {
+    clearTodayLine();
+    _state.loadTimeScalars(
+      timeOfDay: timeOfDay,
+      dayCount: dayCount,
+      startDayOfWeek: startDayOfWeek,
+      storyClock: storyClock,
+      storyStartDate: storyStartDate,
+    );
+  }
+
+  // ── Manual control and per-turn advance (see [TimeClockApplier]) ─────────
+
+  Future<void> nudgeTimePeriod(int delta) => _applier.nudgeTimePeriod(delta);
+
+  Future<void> applyFailureDrift({int? minutes}) =>
+      _applier.applyFailureDrift(minutes: minutes);
+
+  void reclaimSkipOwnership() => _applier.reclaimSkipOwnership();
+
+  Future<void> applyReconciledClock(DateTime newClock) =>
+      _applier.applyReconciledClock(newClock);
+
+  void setStartDate(DateTime newStart) => _applier.setStartDate(newStart);
+
+  void advanceTimePeriods(int count) => _applier.advanceTimePeriods(count);
+
+  Future<void> detectOocTimeSkip(String text) =>
+      _applier.detectOocTimeSkip(text);
 
   // ── Public surface ────────────────────────────────────────────────────────
 
-  DateTime get clock => _clock;
-  DateTime get startDate => _startDate;
-  String get timeOfDay => StoryClock.periodForHour(_clock.hour);
+  DateTime get clock => _state.clock;
+  DateTime get startDate => _state.startDate;
+  String get timeOfDay => _state.timeOfDay;
 
   /// Live clock as minutes from midnight. Presence matches this, not
   /// the period's representative hour.
-  int get clockMinutes => _clock.hour * 60 + _clock.minute;
-  int get dayCount => StoryClock.dayCountFor(_clock, _startDate);
+  int get clockMinutes => _state.clock.hour * 60 + _state.clock.minute;
+  int get dayCount => _state.dayCount;
 
   /// The set-aside-clothing day: flips at the story MORNING (08:00), not
   /// midnight, so a scene running past 00:00 keeps its outfit recoverable.
   /// See [StoryClock.morningDayCountFor].
   int get morningAnchoredDayCount =>
-      StoryClock.morningDayCountFor(_clock, _startDate);
+      StoryClock.morningDayCountFor(_state.clock, _state.startDate);
   bool get passageOfTimeEnabled =>
-      getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
+      getPorchLifePassageOfTime?.call() ?? _state.passageOfTimeEnabled;
   String get clockGateSource {
-    final porch = getPorchLifePassageOfTime?.call() ?? _passageOfTimeEnabled;
-    if (_clockGateLeftover != null) {
-      return 'porch_life leftover=$_clockGateLeftover ignored '
+    final porch =
+        getPorchLifePassageOfTime?.call() ?? _state.passageOfTimeEnabled;
+    if (_state.clockGateLeftover != null) {
+      return 'porch_life leftover=${_state.clockGateLeftover} ignored '
           'porchLife=$porch';
     }
-    return '$_clockGateSource porchLife=$porch';
+    return '${_state.clockGateSource} porchLife=$porch';
   }
 
-  void markClockGateSource(String source) => _clockGateSource = source;
+  void markClockGateSource(String source) => _state.clockGateSource = source;
 
-  void markClockGateLeftover(bool leftover) => _clockGateLeftover = leftover;
-  String get narrativeWeekday => StoryClock.weekdayName(_clock);
+  void markClockGateLeftover(bool leftover) =>
+      _state.clockGateLeftover = leftover;
+  String get narrativeWeekday => _state.narrativeWeekday;
 
   /// Derived legacy anchor — still written to the session row / snapshots so
   /// external readers (Character Card Forge, older apps via The Stoop) keep
   /// seeing a consistent value.
-  int get startDayOfWeekAnchor => _startDate.weekday;
+  int get startDayOfWeekAnchor => _state.startDate.weekday;
 
-  String get storyClockIso => StoryClock.serializeClock(_clock);
-  String get storyStartDateIso => StoryClock.serializeDate(_startDate);
+  String get storyClockIso => _state.storyClockIso;
+  String get storyStartDateIso => StoryClock.serializeDate(_state.startDate);
 
   /// True when the last [loadTimeScalars] had to INVENT part of the canonical
   /// clock because the session row predates the Story Calendar (v38). The
@@ -417,63 +419,44 @@ class TimeService {
   /// library still had NULL `story_clock`/`story_start_date`, because the
   /// columns are only written by a full chat save — opening a chat, reading it
   /// and closing it never froze the date, so those chats wandered indefinitely.
-  bool get canonicalClockWasSynthesised => _canonicalClockWasSynthesised;
+  bool get canonicalClockWasSynthesised => _state.canonicalClockWasSynthesised;
 
   /// "9:40 PM" / "Tue, Mar 3" / "Tuesday, March 3rd(, 1887)" for the UI.
-  String get displayClock => StoryClock.formatClock(_clock);
-  String get displayShortDate => StoryClock.formatShortDate(_clock);
-  String get displayDate =>
-      StoryClock.formatDate(_clock, realYear: StoryClock.todayAnchor().year);
+  String get displayClock => _state.displayClock;
+  String get displayShortDate => _state.displayShortDate;
+  String get displayDate => StoryClock.formatDate(
+    _state.clock,
+    realYear: StoryClock.todayAnchor().year,
+  );
 
   // ── Mutation for control / loads (side-effect free; wrappers do save/notify) ──
 
   void setPassageOfTimeEnabled(bool enabled) {
-    _passageOfTimeEnabled = enabled;
+    _state.passageOfTimeEnabled = enabled;
     if (getPorchLifePassageOfTime == null) {
-      _clockGateSource = 'porch_life';
+      _state.clockGateSource = 'porch_life';
     }
   }
 
   void resetForFreshChat() {
-    _startDate = StoryClock.todayAnchor();
-    _clock = StoryClock.representativeTime(_startDate, 'morning');
-    _turnsSinceClockMoved = 0;
-    _oocSkipMovedClockThisTurn = false;
-    _namedReconcileExact = false;
-    _passageOfTimeEnabled = true;
-    clearBodyBeat();
-    // A brand-new chat has nothing to write back — its clock reaches the row
-    // through the ordinary save. Leaving a previous chat's `true` standing here
-    // would ask the loader to patch a row this service no longer describes.
-    _canonicalClockWasSynthesised = false;
+    _state.resetForFreshChat();
     todayLine = null;
-    _clearCapturedClock();
   }
 
-  /// The posture question alone — shared VERBATIM between the standalone
-  /// post-generation posture pass above and the fused reply-facts prompt
-  /// (ReplyFactsEval), so the two transports can never drift in what they
-  /// ask. Do not re-inline into either caller; the fusion parity test pins
-  /// both.
+  /// The posture question alone — see [SceneTimeEvaluator.postureQuestion].
   static String postureQuestion({
     required String charName,
     String emotionCtx = '',
     String postureCtx = '',
     required String displayClock,
-  }) =>
-      '$emotionCtx$postureCtx'
-      'Current time: $displayClock.\n\n'
-      'What is $charName\'s current physical position and stance? Use "none" if unclear.\n'
-      '- Match the posture to the current scene context and emotional state.\n'
-      '- Within the same scene, maintain natural continuity (don\'t jump locations).\n'
-      '- Across scene breaks or time jumps, update to the new context.\n\n';
+  }) => SceneTimeEvaluator.postureQuestion(
+    charName: charName,
+    emotionCtx: emotionCtx,
+    postureCtx: postureCtx,
+    displayClock: displayClock,
+  );
 
-  /// The ONE posture parser — used by the standalone pass above and by the
-  /// fused reply-facts consumption in the post-generation phase, so a change
-  /// to what counts as an answer can never apply to one transport and not
-  /// the other.
-  static String? parsePosture(String text) {
-    final m = RegExp(r'"posture"\s*:\s*"([^"]+)"').firstMatch(text);
-    return m?.group(1)?.trim();
-  }
+  /// The ONE posture parser — see [SceneTimeEvaluator.parsePosture].
+  static String? parsePosture(String text) =>
+      SceneTimeEvaluator.parsePosture(text);
 }

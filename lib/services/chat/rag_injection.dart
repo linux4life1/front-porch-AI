@@ -50,15 +50,12 @@
 library;
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/pockets.dart' show itemNameTokens;
 import 'package:front_porch_ai/services/memory_service.dart'
     show RetrievedMemory;
 
-part 'rag_injection.receipt.dart';
+import 'rag_injection/rag_cover_receipt.dart';
 
-/// How many chars of a memory ride the receipt as its preview. Receipts live
-/// in every stamped message's metadata forever — store a glance, not a copy.
-const int kRagReceiptPreviewChars = 140;
+export 'rag_injection/rag_cover_receipt.dart';
 
 /// How far [storyDayAt] walks backward for a day stamp before giving up.
 /// Day only moves forward, so the nearest earlier realism_state is correct;

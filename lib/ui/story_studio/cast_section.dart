@@ -371,6 +371,7 @@ class _CastSectionState extends State<CastSection> {
       context,
       title: m == null ? 'Add character' : 'Edit ${m.name}',
       width: 480,
+      isDirty: storyTextChanged([name, role, desc, desire, flaw]),
       body: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -386,7 +387,10 @@ class _CastSectionState extends State<CastSection> {
         ],
       ),
       actions: (ctx) => [
-        StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx, false)),
+        StoryButton.ghost(
+          'Cancel',
+          onPressed: () => Navigator.maybePop(ctx, false),
+        ),
         StoryButton.primary(
           m == null ? 'Add' : 'Save',
           onPressed: () => Navigator.pop(ctx, true),

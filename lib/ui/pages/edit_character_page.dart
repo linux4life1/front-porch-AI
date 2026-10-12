@@ -328,6 +328,13 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
   @override
   Widget build(BuildContext context) {
+    return UnsavedChangesGuard(
+      isDirty: () => _draft.isDirty,
+      child: _scaffold(),
+    );
+  }
+
+  Widget _scaffold() {
     return EditCharacterScaffold(
       characterName: widget.character.name,
       saveLabel: widget.saveLabel,

@@ -20,19 +20,24 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 
-import '../../image/edit_profile.dart';
 import '../../image/image_gen_lora_slots.dart';
+import 'image_gen/image_gen.dart';
 import 'image_gen_remote.dart';
 import 'settings_base.dart';
 
-part 'image_gen_settings.comfy_shift.dart';
-part 'image_gen_settings.comfy_url.dart';
-part 'image_gen_settings.load.dart';
+export 'image_gen/comfy_ui_url_prefs.dart' show kDefaultComfyUiUrl;
 
 /// Image generation (A1111/Draw Things/remote) + Draw Things gRPC settings.
 ///
 /// Lifted Stage 7.
-class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
+class ImageGenSettings
+    with
+        SettingsBase,
+        ImageGenRemotePrefs,
+        ComfyUiUrlPrefs,
+        ComfyShiftPrefs,
+        DrawThingsGrpcPrefs,
+        ImageGenEditKnobPrefs {
   // Default ON since 2026-07: the feature is opt-out. Enabling only shows the
   // ✨ toolbar button and the /image command — nothing generates until a
   // backend is actually configured, so there is no overhead for users who
@@ -41,8 +46,6 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _imageGenBackend =
       'remote'; // 'remote', 'a1111', 'drawthings', 'comfyui'
   String _localImageGenUrl = 'http://127.0.0.1:7860';
-  String _comfyUiUrl = kDefaultComfyUiUrl;
-  bool _comfyUiUrlExplicit = false;
   String _imageGenModel = '';
 
   // The EDIT-task model slot (phase #12 model-slot split). One shared
@@ -75,26 +78,6 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   int _imageGenSeed = -1;
   bool _imageGenPromptReview = true;
 
-  // Draw Things gRPC-specific
-  String _drawThingsGrpcHost = '127.0.0.1';
-  int _drawThingsGrpcPort = 7859;
-  int _drawThingsSampler = 16;
-  double _drawThingsShift = 3.0;
-  int _drawThingsSeedMode = 2;
-  bool _drawThingsTeaCache = false;
-  bool _drawThingsCfgZeroStar = false;
-
-  // Edit-scoped generation knobs (Image Studio → Edit tab, instruction-edit
-  // models like Qwen-Image-Edit). Kept SEPARATE from the txt2img knobs above so
-  // tuning an edit never clobbers Create's sampler/CFG/steps — the two model
-  // families want very different values. Seeded from the field-tested recipe
-  // (edit_profile.dart) and then honored verbatim; nothing overrides them.
-  int _editSteps = kEditRecommendedSteps;
-  double _editCfgScale = kEditRecommendedCfg;
-  int _editSampler = kEditRecommendedSamplerInt;
-  double _editShift = kEditRecommendedShift;
-  int _editSeedMode = kEditRecommendedSeedMode;
-
   // Comfy edit: preset id or '__uploaded__', slot map, uploaded JSON.
   String _comfyEditWorkflowId = 'qwen_image_edit'; // == kQwenImageEditPreset.id
   Map<String, String> _comfyEditModelChoices = {};
@@ -107,14 +90,9 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   String _comfyCreateUploadedWorkflow = '';
   String _comfyCreateUploadedTitle = '';
 
-  /// Shifts the person moved on the desk, by `create|<graph id>` or
-  /// `edit|<graph id>`. A graph with no entry posts its own shift.
-  Map<String, double> _comfyShifts = {};
-
   bool get imageGenEnabled => _imageGenEnabled;
   String get imageGenBackend => _imageGenBackend;
   String get localImageGenUrl => _localImageGenUrl;
-  String get comfyUiUrl => _comfyUiUrl;
   String get imageGenModel => _imageGenModel;
   String get imageGenEditModel => _imageGenEditModel;
   String get imageGenSize => _imageGenSize;
@@ -143,20 +121,6 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   /// Whether AI-crafted image prompts (the /image command) pause for user
   /// review/editing before being sent to the backend. Default ON.
   bool get imageGenPromptReview => _imageGenPromptReview;
-
-  String get drawThingsGrpcHost => _drawThingsGrpcHost;
-  int get drawThingsGrpcPort => _drawThingsGrpcPort;
-  int get drawThingsSampler => _drawThingsSampler;
-  double get drawThingsShift => _drawThingsShift;
-  int get drawThingsSeedMode => _drawThingsSeedMode;
-  bool get drawThingsTeaCache => _drawThingsTeaCache;
-  bool get drawThingsCfgZeroStar => _drawThingsCfgZeroStar;
-
-  int get editSteps => _editSteps;
-  double get editCfgScale => _editCfgScale;
-  int get editSampler => _editSampler;
-  double get editShift => _editShift;
-  int get editSeedMode => _editSeedMode;
 
   String get comfyEditWorkflowId => _comfyEditWorkflowId;
   Map<String, String> get comfyEditModelChoices =>
@@ -188,18 +152,6 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
   Future<void> setLocalImageGenUrl(String value) async {
     _localImageGenUrl = value;
     await prefs?.setString(k('local_image_gen_url'), value);
-    notify();
-  }
-
-  /// An address the person gave (typed on the desk, or saved from the phone):
-  /// it always wins over one found on its own. An empty one turns finding the
-  /// address on again.
-  Future<void> setComfyUiUrl(String value) async {
-    final cleared = value.trim().isEmpty;
-    _comfyUiUrl = cleared ? kDefaultComfyUiUrl : value;
-    _comfyUiUrlExplicit = !cleared;
-    await prefs?.setString(k('comfy_ui_url'), _comfyUiUrl);
-    await prefs?.setBool(k('comfy_ui_url_explicit'), _comfyUiUrlExplicit);
     notify();
   }
 
@@ -318,91 +270,6 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
     notify();
   }
 
-  // Draw Things gRPC setters
-  Future<void> setDrawThingsGrpcHost(String value) async {
-    _drawThingsGrpcHost = value.trim();
-    await prefs?.setString(k('draw_things_grpc_host'), _drawThingsGrpcHost);
-    notify();
-  }
-
-  Future<void> setDrawThingsGrpcPort(int value) async {
-    _drawThingsGrpcPort = value;
-    await prefs?.setInt(k('draw_things_grpc_port'), value);
-    notify();
-  }
-
-  Future<void> setDrawThingsSampler(int value) async {
-    _drawThingsSampler = value;
-    await prefs?.setInt(k('draw_things_sampler'), value);
-    notify();
-  }
-
-  Future<void> setDrawThingsShift(double value) async {
-    _drawThingsShift = value;
-    await prefs?.setDouble(k('draw_things_shift'), value);
-    notify();
-  }
-
-  Future<void> setDrawThingsSeedMode(int value) async {
-    _drawThingsSeedMode = value;
-    await prefs?.setInt(k('draw_things_seed_mode'), value);
-    notify();
-  }
-
-  Future<void> setDrawThingsTeaCache(bool value) async {
-    _drawThingsTeaCache = value;
-    await prefs?.setBool(k('draw_things_tea_cache'), value);
-    notify();
-  }
-
-  Future<void> setDrawThingsCfgZeroStar(bool value) async {
-    _drawThingsCfgZeroStar = value;
-    await prefs?.setBool(k('draw_things_cfg_zero_star'), value);
-    notify();
-  }
-
-  // Edit-scoped setters (Image Studio → Edit tab). Same clamps as their txt2img
-  // twins; they persist to their own keys so Create's knobs are never touched.
-  Future<void> setEditSteps(int value) async {
-    _editSteps = value.clamp(1, 50);
-    await prefs?.setInt(k('image_gen_edit_steps'), _editSteps);
-    notify();
-  }
-
-  Future<void> setEditCfgScale(double value) async {
-    _editCfgScale = value.clamp(1.0, 20.0);
-    await prefs?.setDouble(k('image_gen_edit_cfg_scale'), _editCfgScale);
-    notify();
-  }
-
-  Future<void> setEditSampler(int value) async {
-    _editSampler = value;
-    await prefs?.setInt(k('draw_things_edit_sampler'), value);
-    notify();
-  }
-
-  Future<void> setEditShift(double value) async {
-    _editShift = value;
-    await prefs?.setDouble(k('draw_things_edit_shift'), value);
-    notify();
-  }
-
-  Future<void> setEditSeedMode(int value) async {
-    _editSeedMode = value;
-    await prefs?.setInt(k('draw_things_edit_seed_mode'), value);
-    notify();
-  }
-
-  /// One-tap "Use recommended edit settings" — writes the field-tested edit
-  /// recipe back into the edit-scoped knobs (never touches the Create knobs).
-  Future<void> resetEditKnobsToRecommended() async {
-    await setEditSteps(kEditRecommendedSteps);
-    await setEditCfgScale(kEditRecommendedCfg);
-    await setEditSampler(kEditRecommendedSamplerInt);
-    await setEditShift(kEditRecommendedShift);
-    await setEditSeedMode(kEditRecommendedSeedMode);
-  }
-
   // ComfyUI edit setters.
   Future<void> setComfyEditWorkflowId(String value) async {
     _comfyEditWorkflowId = value;
@@ -470,5 +337,80 @@ class ImageGenSettings with SettingsBase, ImageGenRemotePrefs {
       await prefs?.setString(k('comfy_create_uploaded_title'), title);
     }
     notify();
+  }
+
+  void load() {
+    _imageGenEnabled = prefs?.getBool(k('image_gen_enabled')) ?? true;
+    _imageGenBackend = prefs?.getString(k('image_gen_backend')) ?? 'remote';
+    _localImageGenUrl =
+        prefs?.getString(k('local_image_gen_url')) ?? 'http://127.0.0.1:7860';
+    loadComfyUiUrlPrefs();
+    _imageGenModel = prefs?.getString(k('image_gen_model')) ?? '';
+    _imageGenEditModel = prefs?.getString(k('image_gen_edit_model')) ?? '';
+    // One-time migration seed: before the slot split the single model served
+    // both tabs, so a user whose current model IS an edit model configured it
+    // for the Edit tab — carry it into the edit slot so their setup survives.
+    // (The create slot keeps the value too; the non-blocking warning nudges
+    // them to pick a real create model.)
+    if (_imageGenEditModel.isEmpty && looksLikeEditModel(_imageGenModel)) {
+      _imageGenEditModel = _imageGenModel;
+      prefs?.setString(k('image_gen_edit_model'), _imageGenEditModel);
+    }
+    _imageGenSize = prefs?.getString(k('image_gen_size')) ?? '1024x1024';
+    _imageGenNegativePrompt =
+        prefs?.getString(k('image_gen_negative_prompt')) ??
+        'blurry, low quality, watermark, text';
+    _imageGenStyle = prefs?.getString(k('image_gen_style')) ?? 'photorealistic';
+    _imageGenPromptParadigm =
+        prefs?.getString(k('image_gen_prompt_paradigm')) ?? 'natural';
+    _imageGenLoraSlots = ImageGenLoraSlot.decode(
+      prefs?.getString(k('image_gen_loras')),
+      legacyFile: prefs?.getString(k('image_gen_lora')) ?? '',
+      legacyWeight: prefs?.getDouble(k('image_gen_lora_weight')) ?? 0.8,
+    );
+    _imageGenDenoise = prefs?.getDouble(k('image_gen_denoise')) ?? 0.5;
+    _imageGenSteps = prefs?.getInt(k('image_gen_steps')) ?? 4;
+    _imageGenCfgScale = prefs?.getDouble(k('image_gen_cfg_scale')) ?? 1.0;
+    _imageGenSampler = prefs?.getString(k('image_gen_sampler')) ?? 'Euler a';
+    _imageGenScheduler =
+        prefs?.getString(k('image_gen_scheduler')) ?? 'Automatic';
+    _imageGenSeed = prefs?.getInt(k('image_gen_seed')) ?? -1;
+    _imageGenPromptReview =
+        prefs?.getBool(k('image_gen_prompt_review')) ?? true;
+
+    loadDrawThingsGrpcPrefs();
+    loadEditKnobPrefs();
+
+    _comfyEditWorkflowId =
+        prefs?.getString(k('comfy_edit_workflow_id')) ?? 'qwen_image_edit';
+    _comfyEditModelChoices = _decodeStringMap(
+      prefs?.getString(k('comfy_edit_model_choices')),
+    );
+    _comfyEditUploadedWorkflow =
+        prefs?.getString(k('comfy_edit_uploaded_workflow')) ?? '';
+    _comfyEditUploadedTitle =
+        prefs?.getString(k('comfy_edit_uploaded_title')) ?? '';
+    _comfyCreateWorkflowId =
+        prefs?.getString(k('comfy_create_workflow_id')) ?? 'sd';
+    _comfyCreateModelChoices = _decodeStringMap(
+      prefs?.getString(k('comfy_create_model_choices')),
+    );
+    _comfyCreateUploadedWorkflow =
+        prefs?.getString(k('comfy_create_uploaded_workflow')) ?? '';
+    _comfyCreateUploadedTitle =
+        prefs?.getString(k('comfy_create_uploaded_title')) ?? '';
+    loadComfyShiftPrefs();
+    loadImageRemotePrefs();
+  }
+
+  static Map<String, String> _decodeStringMap(String? s) {
+    if (s == null || s.isEmpty) return {};
+    try {
+      final m = jsonDecode(s);
+      if (m is Map) {
+        return m.map((k, v) => MapEntry(k.toString(), v.toString()));
+      }
+    } catch (_) {}
+    return {};
   }
 }

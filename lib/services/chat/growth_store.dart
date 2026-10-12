@@ -16,16 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
 import 'package:drift/drift.dart';
 
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'growth_ops.dart' show hasGrowthMacros;
 import 'growth_physics.dart';
-
-part 'growth_store.persist.dart';
+import 'growth_store/growth_ring_writer.dart';
 
 /// Growth Rings — ring persistence (docs/design/growth-rings.md §5) plus the
 /// DB half of the ring physics (§4.4): reinforcement, per-pass fade, and
@@ -60,6 +57,11 @@ class GrowthStore {
 
   String _resolved(String characterId, String text) =>
       resolveMacros == null ? text : resolveMacros!(characterId, text);
+
+  late final GrowthRingWriter _writer = GrowthRingWriter(
+    getDb: getDb,
+    resolve: _resolved,
+  );
 
   String? _cacheSessionId;
   final Map<String, List<GrowthRingData>> _ringCache = {};
@@ -127,8 +129,8 @@ class GrowthStore {
       final session = await db.getSessionById(sessionId);
       if (session != null) {
         if (isGroup) {
-          final pers = _parseJsonMap(session.groupEvolvedPersonalities);
-          final scen = _parseJsonMap(session.groupEvolvedScenarios);
+          final pers = parseEvolvedJsonMap(session.groupEvolvedPersonalities);
+          final scen = parseEvolvedJsonMap(session.groupEvolvedScenarios);
           for (final id in charIds) {
             final p = pers[id] ?? '';
             final s = scen[id] ?? '';
@@ -214,23 +216,153 @@ class GrowthStore {
   }
 
   /// Merged, deduplicated receipt positions for a ring + new citations.
-  static List<int> mergedReceipts(GrowthRingData ring, List<int> extra) {
-    final merged = <int>{...receiptsOf(ring), ...extra}.toList()..sort();
-    return merged;
-  }
+  static List<int> mergedReceipts(GrowthRingData ring, List<int> extra) =>
+      mergedGrowthReceipts(ring, extra);
 
   /// Decoded receipt positions of a ring (empty on null/garbage).
   static List<int> receiptsOf(GrowthRingData ring) =>
       decodeReceiptIds(ring.sourceMessageIds);
 
-  Map<String, String> _parseJsonMap(String? json) {
-    if (json == null || json.isEmpty) return {};
-    try {
-      return (jsonDecode(json) as Map<String, dynamic>).map(
-        (k, v) => MapEntry(k, v?.toString() ?? ''),
-      );
-    } catch (_) {
-      return {};
+  // ── Ring writes (GrowthRingWriter) ─────────────────────────────────────
+
+  /// See [GrowthRingWriter.addRing].
+  Future<void> addRing({
+    required String sessionId,
+    required String characterId,
+    required String content,
+    required String category,
+    List<int> sourcePositions = const [],
+    double strength = GrowthPhysics.kNewRingStrength,
+    bool pinned = false,
+    bool retired = false,
+  }) => _writer.addRing(
+    sessionId: sessionId,
+    characterId: characterId,
+    content: content,
+    category: category,
+    sourcePositions: sourcePositions,
+    strength: strength,
+    pinned: pinned,
+    retired: retired,
+  );
+
+  /// See [GrowthRingWriter.reinforceRing].
+  Future<void> reinforceRing(
+    GrowthRingData ring, {
+    List<int> sourcePositions = const [],
+  }) => _writer.reinforceRing(ring, sourcePositions: sourcePositions);
+
+  /// See [GrowthRingWriter.reviseRing].
+  Future<void> reviseRing(
+    GrowthRingData ring, {
+    required String content,
+    String? category,
+  }) => _writer.reviseRing(ring, content: content, category: category);
+
+  /// See [GrowthRingWriter.retireRing].
+  Future<void> retireRing(String id) => _writer.retireRing(id);
+
+  /// See [GrowthRingWriter.unretireRing].
+  Future<void> unretireRing(GrowthRingData ring) => _writer.unretireRing(ring);
+
+  /// See [GrowthRingWriter.setPinned].
+  Future<void> setPinned(String id, bool pinned) =>
+      _writer.setPinned(id, pinned);
+
+  /// See [GrowthRingWriter.deleteRing].
+  Future<void> deleteRing(String id) => _writer.deleteRing(id);
+
+  /// See [GrowthRingWriter.invalidateRingsCitingFrom].
+  Future<int> invalidateRingsCitingFrom(
+    String sessionId,
+    int fromPosition,
+  ) async {
+    final removed = await _writer.invalidateRingsCitingFrom(
+      sessionId,
+      fromPosition,
+    );
+    if (removed > 0 && _cacheValid(sessionId)) {
+      // Drop cache so injection/timeline re-read DB without phantom rings.
+      invalidate();
     }
+    return removed;
   }
+
+  /// See [GrowthRingWriter.deleteAllFor].
+  Future<void> deleteAllFor(String sessionId, String characterId) =>
+      _writer.deleteAllFor(sessionId, characterId);
+
+  /// See [GrowthRingWriter.fadeUnreinforced].
+  Future<void> fadeUnreinforced(
+    String sessionId,
+    String characterId,
+    Set<String> reinforcedIds,
+  ) => _writer.fadeUnreinforced(sessionId, characterId, reinforcedIds);
+
+  /// Archive the legacy evolved blob as a pinned, retired timeline entry and
+  /// clear the session's evolved fields (design §8 — nothing destroyed, and
+  /// injection switches from the blob to rings). [isGroup] selects the
+  /// column shape; 1:1 clears the flat columns.
+  Future<void> archiveLegacyBlob(
+    String sessionId,
+    String characterId, {
+    required bool isGroup,
+  }) async {
+    final blob = _legacyCache[characterId];
+    if (blob == null) return;
+    final (pers, scen) = blob;
+    final text = [
+      if (pers.isNotEmpty) pers,
+      if (scen.isNotEmpty) scen,
+    ].join('\n\n');
+    if (text.isNotEmpty) {
+      await addRing(
+        sessionId: sessionId,
+        characterId: characterId,
+        content: text,
+        category: GrowthPhysics.kArchiveCategory,
+        pinned: true,
+        retired: true,
+      );
+    }
+    await discardLegacyBlob(sessionId, characterId, isGroup: isGroup);
+  }
+
+  /// Clear one owner's legacy evolved fields WITHOUT archiving (user Reset).
+  Future<void> discardLegacyBlob(
+    String sessionId,
+    String characterId, {
+    required bool isGroup,
+  }) async {
+    final cleared = await _writer.clearLegacyColumns(
+      sessionId,
+      characterId,
+      isGroup: isGroup,
+    );
+    if (cleared) _legacyCache.remove(characterId);
+  }
+
+  /// See [GrowthRingWriter.copySessionTo].
+  Future<void> copySessionTo(
+    String fromSessionId,
+    String toSessionId, {
+    required int cursor,
+  }) => _writer.copySessionTo(fromSessionId, toSessionId, cursor: cursor);
+
+  /// See [GrowthRingWriter.carryOwnerGrowth].
+  Future<void> carryOwnerGrowth({
+    required String fromSessionId,
+    required String fromCharId,
+    required String toSessionId,
+    required String toCharId,
+    required bool fromIsGroup,
+    required bool toIsGroup,
+  }) => _writer.carryOwnerGrowth(
+    fromSessionId: fromSessionId,
+    fromCharId: fromCharId,
+    toSessionId: toSessionId,
+    toCharId: toCharId,
+    fromIsGroup: fromIsGroup,
+    toIsGroup: toIsGroup,
+  );
 }

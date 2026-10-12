@@ -6,6 +6,7 @@
 export 'chargen_json.dart';
 export 'creator_greetings.dart';
 export 'creator_options.dart';
+export 'creator_persona_seed.dart';
 export 'creator_state.dart';
 export 'creator_state_engine.dart';
 // The Backend & Model step is reused OUTSIDE the creator (AI Enhance hosts it

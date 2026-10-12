@@ -173,6 +173,9 @@ class CreatorState extends ChangeNotifier {
   double progress = 0.0;
   CharacterCard? generatedCard;
   String? imagePrompt;
+
+  /// First-save picture (a persona's); null writes a placeholder.
+  String? portraitSourcePath;
   Map<int, bool> lorebookEntryEnabled = {};
 
   // Quick-mode NSFW flag (synced into [nsfwEnabled] when generation starts).
@@ -327,11 +330,16 @@ class CreatorState extends ChangeNotifier {
   final _prefs = CreatorFormPrefs();
   late final _models = CreatorBackendModels(this);
 
+  /// False for a session seeded from a persona: it never loads or writes the
+  /// saved draft, so the user's own unfinished character is left alone.
+  bool persistDraft = true;
+
   /// Class door — `_CountingCreatorState` in the debounce test `@override`s
   /// this. An extension member is statically dispatched and cannot be.
   /// Drops a pending [scheduleSave]: this save already includes that text.
   Future<void> saveState() {
     _saveTimer?.cancel();
+    if (!persistDraft) return Future<void>.value();
     return _prefs.save(this);
   }
 
@@ -356,7 +364,8 @@ class CreatorState extends ChangeNotifier {
 
   /// Clear the core saved-form prefs after a character is successfully created,
   /// so the next visit starts fresh. Mirrors the original review-step save.
-  Future<void> clearSavedFormPrefsAfterSave() => _prefs.clearAfterSave();
+  Future<void> clearSavedFormPrefsAfterSave() =>
+      persistDraft ? _prefs.clearAfterSave() : Future<void>.value();
 
   void abortGeneration() => _models.abortGeneration();
 

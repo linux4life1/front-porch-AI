@@ -143,7 +143,7 @@ void main() {
     expect(decode['inputs']['vae'], ['ckpt', 2]);
 
     final service = File(
-      'lib/services/image_gen_service.comfy.dart',
+      'lib/services/image_gen/image_gen_comfy.dart',
     ).readAsStringSync();
     expect(service.contains('clipOutputIndex: req.clipOutputIndex'), isTrue);
 

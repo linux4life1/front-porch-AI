@@ -36,6 +36,7 @@ class PersonaMainView extends StatelessWidget {
     required this.onDelete,
     required this.onCreate,
     required this.onImport,
+    this.onMakeCharacter,
   });
 
   final Animation<double> glow;
@@ -44,6 +45,7 @@ class PersonaMainView extends StatelessWidget {
   final void Function(BuildContext context, UserPersona persona) onDelete;
   final VoidCallback onCreate;
   final VoidCallback onImport;
+  final ValueChanged<UserPersona>? onMakeCharacter;
 
   @override
   Widget build(BuildContext context) {
@@ -118,6 +120,7 @@ class PersonaMainView extends StatelessWidget {
                     onEdit: onEdit,
                     onExport: onExport,
                     onDelete: onDelete,
+                    onMakeCharacter: onMakeCharacter,
                   );
                 }, childCount: service.personas.length),
               ),

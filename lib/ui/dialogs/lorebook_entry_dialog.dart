@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -36,10 +38,8 @@ Future<LorebookEntry?> showLorebookEntryDialog({
 }) {
   return showDialog<LorebookEntry>(
     context: context,
-    builder: (_) => _LorebookEntryDialog(
-      existing: existing,
-      showEnabled: showEnabled,
-    ),
+    builder: (_) =>
+        _LorebookEntryDialog(existing: existing, showEnabled: showEnabled),
   );
 }
 
@@ -47,10 +47,7 @@ class _LorebookEntryDialog extends StatefulWidget {
   final LorebookEntry? existing;
   final bool showEnabled;
 
-  const _LorebookEntryDialog({
-    this.existing,
-    this.showEnabled = false,
-  });
+  const _LorebookEntryDialog({this.existing, this.showEnabled = false});
 
   @override
   State<_LorebookEntryDialog> createState() => _LorebookEntryDialogState();
@@ -58,19 +55,39 @@ class _LorebookEntryDialog extends StatefulWidget {
 
 class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
   /// Clone-then-overwrite: the tabs edit this draft in place; Save pops it.
-  late final LorebookEntry _draft =
-      widget.existing?.clone() ?? LorebookEntry();
+  late final LorebookEntry _draft = widget.existing?.clone() ?? LorebookEntry();
 
-  late final TextEditingController _nameCtrl =
-      TextEditingController(text: _draft.name);
-  late final TextEditingController _keyCtrl =
-      TextEditingController(text: _draft.key);
+  late final TextEditingController _nameCtrl = TextEditingController(
+    text: _draft.name,
+  );
+  late final TextEditingController _keyCtrl = TextEditingController(
+    text: _draft.key,
+  );
   late final StyledTextController _contentCtrl = StyledTextController(
     text: _draft.content,
     preset: StyledTextPreset.macros,
   );
 
   int _tab = 0;
+
+  /// The entry as Save would write it, taken before any edit, so trimming
+  /// alone (imported trailing whitespace) does not count as a change.
+  late final String _initialJson;
+
+  @override
+  void initState() {
+    super.initState();
+    _initialJson = jsonEncode(_applied(_draft.clone()).toJson());
+  }
+
+  /// The draft with the Simple fields applied, as Save would pop it.
+  LorebookEntry _applied(LorebookEntry entry) => entry
+    ..name = _nameCtrl.text.trim()
+    ..keys = LorebookEntry.parseKeyList(_keyCtrl.text.trim())
+    ..content = _contentCtrl.text.trim();
+
+  bool _isDirty() =>
+      jsonEncode(_applied(_draft.clone()).toJson()) != _initialJson;
 
   @override
   void dispose() {
@@ -83,13 +100,18 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
   @override
   Widget build(BuildContext context) {
     final honey = AppColors.porchHoneyOf(context);
+    return UnsavedChangesGuard(
+      isDirty: _isDirty,
+      child: _dialog(context, honey),
+    );
+  }
+
+  Widget _dialog(BuildContext context, Color honey) {
     return AlertDialog(
       backgroundColor: AppColors.surfaceOf(context),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: honey.withValues(alpha: 0.35),
-        ),
+        side: BorderSide(color: honey.withValues(alpha: 0.35)),
       ),
       title: Row(
         children: [
@@ -126,19 +148,14 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.maybePop(context),
           child: Text(
             'Cancel',
             style: TextStyle(color: AppColors.textSecondary(context)),
           ),
         ),
         ElevatedButton(
-          onPressed: () {
-            _draft.name = _nameCtrl.text.trim();
-            _draft.keys = LorebookEntry.parseKeyList(_keyCtrl.text.trim());
-            _draft.content = _contentCtrl.text.trim();
-            Navigator.pop(context, _draft);
-          },
+          onPressed: () => Navigator.pop(context, _applied(_draft)),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.porchAmberOf(context),
             foregroundColor: Colors.white,
@@ -366,8 +383,9 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: honey,
-            inactiveTrackColor:
-                AppColors.borderOf(context).withValues(alpha: 0.4),
+            inactiveTrackColor: AppColors.borderOf(
+              context,
+            ).withValues(alpha: 0.4),
             thumbColor: honey,
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
@@ -383,10 +401,7 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
       alignment: Alignment.centerLeft,
       child: Text(
         text,
-        style: TextStyle(
-          color: AppColors.textSecondary(context),
-          fontSize: 13,
-        ),
+        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
       ),
     );
   }

@@ -120,10 +120,10 @@ extension ChatServiceNeedsReprocess on ChatService {
     final hasPrior = originalNeedsDeltasForStash != null;
 
     final bool isLast = index == _messages.length - 1;
-    final bool isGroupNonObs = _activeGroup != null && !_observerMode;
+    final bool isGroupTurn = _activeGroup != null;
     String? sid;
     CharacterCard? targetSpeakerCard;
-    if (isGroupNonObs) {
+    if (isGroupTurn) {
       targetSpeakerCard = _resolveGroupSpeakerForMessage(msg);
       if (targetSpeakerCard == null) return false;
       sid = _getCharacterIdFromCard(targetSpeakerCard);
@@ -139,7 +139,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     // trailing _saveChat no-oped (its null-character guard), dropping the
     // reprocess result. In a pure group this still correctly captures null.
     final CharacterCard? preActiveChar = _activeCharacter;
-    if (isGroupNonObs) {
+    if (isGroupTurn) {
       preOpActiveSid = _getCurrentSpeakerIdForRealism();
       preOpLive = Map<String, int>.from(_getGroupNeeds(preOpActiveSid));
     } else {
@@ -148,7 +148,7 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     // Snapshot for rollback (target's at click time; used for last + compute baseline)
     final Map<String, int> livePreClick;
-    if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+    if (isGroupTurn && sid != null && sid.isNotEmpty) {
       livePreClick = Map<String, int>.from(_getGroupNeeds(sid));
     } else {
       livePreClick = Map<String, int>.from(_needsSimulation.vector);
@@ -156,7 +156,7 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     // Group impersonation dance + load for prompt fidelity (personality/stance via getActiveCharacter in evaluate) + prepare scalar to msg pre.
     // For !isLast we still dance (to get correct prompt for that speaker's critique) but will strictly rollback live after.
-    if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+    if (isGroupTurn && sid != null && sid.isNotEmpty) {
       if (targetSpeakerCard != null) {
         _activeCharacter = targetSpeakerCard;
       }
@@ -175,11 +175,9 @@ extension ChatServiceNeedsReprocess on ChatService {
       scope = onlyNeeds.intersection(enabled);
     }
     if (target == null || (onlyNeeds.isNotEmpty && scope.isEmpty)) {
-      if (isGroupNonObs &&
-          preOpActiveSid != null &&
-          preOpActiveSid.isNotEmpty) {
+      if (isGroupTurn && preOpActiveSid != null && preOpActiveSid.isNotEmpty) {
         _loadGroupRealismIntoScalars(preOpActiveSid);
-      } else if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+      } else if (isGroupTurn && sid != null && sid.isNotEmpty) {
         _setGroupNeeds(sid, livePreClick);
       }
       _activeCharacter = preActiveChar;
@@ -222,11 +220,9 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     if (!reprocessOk) {
       // A: non-destructive: rollback to pre-op active live (historical leaves current active untouched)
-      if (isGroupNonObs &&
-          preOpActiveSid != null &&
-          preOpActiveSid.isNotEmpty) {
+      if (isGroupTurn && preOpActiveSid != null && preOpActiveSid.isNotEmpty) {
         _loadGroupRealismIntoScalars(preOpActiveSid);
-      } else if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+      } else if (isGroupTurn && sid != null && sid.isNotEmpty) {
         _setGroupNeeds(sid, livePreClick); // fallback
       } else {
         _needsSimulation.restoreFromSnapshot({'vector': preOpLive});
@@ -299,7 +295,7 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     if (isLast) {
       // Persist live only for current last speaker
-      if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+      if (isGroupTurn && sid != null && sid.isNotEmpty) {
         _saveScalarsIntoGroupRealism(sid);
       }
       // Drop the impersonation. The group per-character state is already saved
@@ -316,11 +312,9 @@ extension ChatServiceNeedsReprocess on ChatService {
     } else {
       // Historical: meta updated; strictly no live/group mutation left behind.
       // Transient onSaveChat may fire from temp apply (critique path); scalars rolled back; _saveChat here is only for target msg metadata.
-      if (isGroupNonObs &&
-          preOpActiveSid != null &&
-          preOpActiveSid.isNotEmpty) {
+      if (isGroupTurn && preOpActiveSid != null && preOpActiveSid.isNotEmpty) {
         _loadGroupRealismIntoScalars(preOpActiveSid);
-      } else if (!isGroupNonObs) {
+      } else if (!isGroupTurn) {
         _needsSimulation.restoreFromSnapshot({'vector': preOpLive});
       }
       _activeCharacter = preActiveChar;
@@ -357,10 +351,10 @@ extension ChatServiceNeedsReprocess on ChatService {
     });
 
     final bool isLast = index == _messages.length - 1;
-    final bool isGroupNonObs = _activeGroup != null && !_observerMode;
+    final bool isGroupTurn = _activeGroup != null;
     String? sid;
     CharacterCard? targetSpeakerCard;
-    if (isGroupNonObs) {
+    if (isGroupTurn) {
       targetSpeakerCard = _resolveGroupSpeakerForMessage(msg);
       if (targetSpeakerCard == null) return false;
       sid = _getCharacterIdFromCard(targetSpeakerCard);
@@ -371,7 +365,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     final CharacterCard? preActiveChar = _activeCharacter;
     Map<String, int> preOpLive = {};
     String? preOpSid;
-    if (isGroupNonObs) {
+    if (isGroupTurn) {
       preOpSid = _getCurrentSpeakerIdForRealism();
       preOpLive = Map<String, int>.from(_getGroupNeeds(preOpSid));
     } else {
@@ -379,7 +373,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     }
 
     // Dance + prepare only if we will keep the effect (isLast); for historical we temp dance but rollback
-    if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+    if (isGroupTurn && sid != null && sid.isNotEmpty) {
       if (targetSpeakerCard != null) _activeCharacter = targetSpeakerCard;
       _loadGroupRealismIntoScalars(sid);
     }
@@ -426,7 +420,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     msg.swipeMetadata[msg.swipeIndex] = updated;
 
     if (isLast) {
-      if (isGroupNonObs && sid != null && sid.isNotEmpty) {
+      if (isGroupTurn && sid != null && sid.isNotEmpty) {
         _saveScalarsIntoGroupRealism(sid);
       }
       // Drop the impersonation set by the dance above — same leak (and same
@@ -435,9 +429,9 @@ extension ChatServiceNeedsReprocess on ChatService {
       _activeCharacter = preActiveChar;
     } else {
       // Historical meta-only: rollback live + char, do not persist to group for this op
-      if (isGroupNonObs && preOpSid != null && preOpSid.isNotEmpty) {
+      if (isGroupTurn && preOpSid != null && preOpSid.isNotEmpty) {
         _loadGroupRealismIntoScalars(preOpSid);
-      } else if (!isGroupNonObs) {
+      } else if (!isGroupTurn) {
         _needsSimulation.restoreFromSnapshot({'vector': preOpLive});
       }
       _activeCharacter = preActiveChar;

@@ -27,7 +27,7 @@ import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 /// steered), add one, delete an alternate, stop the one being written, and
 /// re-read the outfit after a new first message. One write at a time; the
 /// box keeps its old text until the new one is in, so Stop has nothing to
-/// undo. The web relay calls the same [GenGreeting] service functions.
+/// undo. The web relay calls the same [CharacterGenService] greeting functions.
 class CreatorGreetingWriter {
   final CreatorState state;
 

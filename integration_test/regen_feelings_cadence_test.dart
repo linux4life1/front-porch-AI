@@ -36,7 +36,6 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 // Extension methods captureCadenceAndFeelings / restoreFromMessageState live
 // on this library (part of RelationshipService).
-import 'package:front_porch_ai/services/chat/relationship_service.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';

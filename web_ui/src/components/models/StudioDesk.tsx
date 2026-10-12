@@ -182,6 +182,7 @@ export function StudioDesk(props: StudioDeskProps) {
     kind: facts?.kind,
     message: facts?.message,
     missingClass: facts?.missingClass,
+    line: facts?.line,
     backendName: backendName(cfg.backend),
     file,
     blockedLora: facts?.blockedLora,

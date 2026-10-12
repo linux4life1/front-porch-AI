@@ -39,6 +39,7 @@ extension ChatServiceGuestFlow on ChatService {
     _sceneGuest.exitUndoGuest = guest;
     _sceneGuest.exitUndoMessage = departure;
     _sceneGuest.exitUndoOfferName = guest.name;
+    _sceneGuest.exitUndoUserStep = false; // UNDO now means this exit
     notifyListeners();
   }
 
@@ -46,6 +47,7 @@ extension ChatServiceGuestFlow on ChatService {
     _sceneGuest.exitUndoGuest = null;
     _sceneGuest.exitUndoMessage = null;
     _sceneGuest.exitUndoOfferName = null;
+    _sceneGuest.exitUndoUserStep = false;
     // A pending full-member exit that is cleared WITHOUT committing (context
     // switch / new chat) is simply cancelled: the member's row was never deleted,
     // so they stay. The sendMessage commit path runs _commitPendingMemberExit
@@ -57,6 +59,7 @@ extension ChatServiceGuestFlow on ChatService {
   /// realism it applied, via [deleteMessage]'s rollback) and restore the guest
   /// to the scene with their full context (evolution + memory were never wiped).
   Future<void> undoLastExit() async {
+    if (await _undoUserStepOut()) return;
     // Full group member (deferred-deletion): the member's DB row, realism,
     // evolution, quests and memory were never touched — restoring is just a
     // roster reload plus deleting their goodbye turn (which reverts the realism

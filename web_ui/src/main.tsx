@@ -3,7 +3,7 @@
 
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { HashRouter } from 'react-router-dom';
+import { createHashRouter, RouterProvider } from 'react-router-dom';
 import { AuthProvider } from './auth/AuthContext';
 import { App } from './App';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
@@ -16,14 +16,23 @@ import './styles.css';
 applyChatColors(loadChatColors());
 applyReadingSize(loadReadingSize());
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <HashRouter>
+// A data router (rather than <HashRouter>) so pages with unsaved edits can
+// block leaving them (useUnsavedChanges). App keeps its own <Routes>.
+const router = createHashRouter([
+  {
+    path: '*',
+    element: (
       <AppErrorBoundary>
         <AuthProvider>
           <App />
         </AuthProvider>
       </AppErrorBoundary>
-    </HashRouter>
+    ),
+  },
+]);
+
+createRoot(document.getElementById('root')!).render(
+  <StrictMode>
+    <RouterProvider router={router} />
   </StrictMode>,
 );

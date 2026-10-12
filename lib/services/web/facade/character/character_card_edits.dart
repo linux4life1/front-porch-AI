@@ -145,6 +145,7 @@ Future<Map<String, dynamic>?> persistCharacterCard(
   StorageService storage,
   CharacterCard card, {
   List<int>? portraitBytes,
+  String? portraitPath,
 }) async {
   try {
     final charDir = storage.charactersDir;
@@ -157,10 +158,10 @@ Future<Map<String, dynamic>?> persistCharacterCard(
       charDir.path,
       '${safeName}_${DateTime.now().millisecondsSinceEpoch}.png',
     );
-    // A rendered portrait (e.g. AI chargen) becomes the card's base image;
-    // otherwise sourceImagePath stays null → V2CardService synthesizes a
-    // placeholder avatar.
-    String? sourceImagePath;
+    // A persona's picture or a rendered portrait (e.g. AI chargen) becomes
+    // the card's base image; otherwise sourceImagePath stays null →
+    // V2CardService synthesizes a placeholder avatar.
+    String? sourceImagePath = portraitPath;
     if (portraitBytes != null && portraitBytes.isNotEmpty) {
       sourceImagePath = p.join(
         Directory.systemTemp.path,

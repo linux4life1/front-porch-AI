@@ -19,9 +19,8 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation/needs_tables.dart';
 import 'package:front_porch_ai/services/chat/needs_wear.dart';
-
-part 'needs_simulation.tables.dart';
 
 /// Plain (non-ChangeNotifier) domain service owning the Needs simulation.
 ///
@@ -85,8 +84,8 @@ class NeedsSimulation {
 
   // Buffer state and getters completely removed.
 
-  static const List<String> needKeys = _needKeys;
-  static const Map<String, int> needDefaults = _needDefaults;
+  static const List<String> needKeys = NeedsTables.needKeys;
+  static const Map<String, int> needDefaults = NeedsTables.needDefaults;
 
   /// Stored group-member needs, or empty when the slot has never carried a
   /// vector. Missing keys in a partial map are filled from [needDefaults];
@@ -121,13 +120,15 @@ class NeedsSimulation {
   /// 40 moderate, 55 mild. Above 55 a need says nothing.
   static const List<int> needStepUpperBounds = [0, 10, 25, 40, 55];
 
-  static const Map<String, List<String>> needSteppedText = _needSteppedText;
+  static const Map<String, List<String>> needSteppedText =
+      NeedsTables.needSteppedText;
   static const List<String> hygieneSteppedTextWhenEnjoysLow =
-      _hygieneSteppedTextWhenEnjoysLow;
-  static const Map<String, String> needCatastropheText = _needCatastropheText;
+      NeedsTables.hygieneSteppedTextWhenEnjoysLow;
+  static const Map<String, String> needCatastropheText =
+      NeedsTables.needCatastropheText;
   static const Map<String, int> needPostCatastropheFloor =
-      _needPostCatastropheFloor;
-  static const List<String> catastropheNeeds = _catastropheNeeds;
+      NeedsTables.needPostCatastropheFloor;
+  static const List<String> catastropheNeeds = NeedsTables.catastropheNeeds;
 
   void initializeFresh() {
     _vector = Map<String, int>.from(needDefaults);

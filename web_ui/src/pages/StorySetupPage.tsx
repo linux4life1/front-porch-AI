@@ -23,6 +23,7 @@ import { SetupRail } from './story/setup/SetupRail';
 import { ShapeStep } from './story/setup/ShapeStep';
 import { useLaneLabels } from './story/setup/useLaneLabels';
 import { loadCharacters, loadPersonaName } from './story/setup/useSetupData';
+import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import '../styles/studio.css';
 
 const STEPS = ['Idea', 'Cast', 'Shape', 'Engine'];
@@ -51,6 +52,13 @@ export function StorySetupPage() {
   const busy = useRef(false);
   const root = useRef<HTMLDivElement | null>(null);
   const laneLabels = useLaneLabels(draft.lanes);
+  // The draft as a new story opened, until its row exists. Before the first
+  // Next nothing is saved, so leaving then would drop the typed title and
+  // concept. After that each step saves, and the ← and Cancel save on leaving.
+  const [unsavedBase, setUnsavedBase] = useState<string | null>(null);
+  const { prompt, leaveWithoutAsking } = useUnsavedChanges(
+    unsavedBase !== null && JSON.stringify(draft) !== unsavedBase,
+  );
 
   useEffect(() => {
     let live = true;
@@ -77,6 +85,7 @@ export function StorySetupPage() {
         setChars(characters);
         setPersonaName(persona);
         setDraft(next);
+        setUnsavedBase(existing ? null : JSON.stringify(next));
         setStep(start);
         setLoaded(true);
       } catch (e) {
@@ -111,6 +120,7 @@ export function StorySetupPage() {
       if (!editing) next.setup_step = setupStep;
       await api.post(`/api/stories/${next.id}`, next);
       project.current = next;
+      setUnsavedBase(null);
       return true;
     } catch (e) {
       setError(message(e, 'Could not save. Check that the app is running, then try again.'));
@@ -128,7 +138,10 @@ export function StorySetupPage() {
 
   /** Nothing saved yet: nothing to keep. Otherwise keep the draft where it stopped. */
   const close = async () => {
-    if (project.current && !(await save(at))) return;
+    if (project.current) {
+      if (!(await save(at))) return;
+      leaveWithoutAsking();
+    }
     leave();
   };
 
@@ -139,6 +152,7 @@ export function StorySetupPage() {
 
   const finish = async () => {
     if (!(await save(null))) return;
+    leaveWithoutAsking();
     if (editing) {
       leave();
       return;
@@ -184,6 +198,7 @@ export function StorySetupPage() {
 
   return (
     <div className="studio-scope wiz" ref={root} data-testid="story-setup">
+      {prompt}
       <header className="wiz-head">
         <button type="button" className="s-btn-ico ghost" aria-label="Back to stories" onClick={() => void close()}>←</button>
         <span className="t">{editing ? 'Setup' : 'New story'}</span>

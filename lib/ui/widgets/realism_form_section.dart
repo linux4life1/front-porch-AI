@@ -17,15 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
-import 'package:front_porch_ai/ui/widgets/synced_text_field.dart';
-
-part 'realism_form_section.engine.dart';
-part 'realism_form_section.porch.dart';
-part 'realism_form_section.controls.dart';
 
 /// Shared Realism + Porch Life authoring form.
 ///
@@ -226,17 +221,6 @@ class RealismFormSection extends StatelessWidget {
     'relationship-header-block',
   );
 
-  static const _timeOptions = [
-    'dawn',
-    'morning',
-    'late_morning',
-    'afternoon',
-    'evening',
-    'night',
-  ];
-
-  static const _intensityOptions = ['mild', 'moderate', 'strong'];
-
   /// Shared (public static for DRY across form + edit dialog manual rows).
   static Widget buildToggleRow({
     required IconData icon,
@@ -245,50 +229,14 @@ class RealismFormSection extends StatelessWidget {
     required bool value,
     required ValueChanged<bool> onChanged,
     required BuildContext context,
-  }) {
-    final onColor = AppColors.porchAmberOf(context);
-    return Row(
-      children: [
-        Icon(
-          icon,
-          color: value ? onColor : AppColors.iconSecondary(context),
-          size: 20,
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: value
-                      ? AppColors.textPrimary(context)
-                      : AppColors.textSecondary(context),
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              if (subtitle.isNotEmpty)
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 11,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        Switch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: onColor.withValues(alpha: 0.5),
-          activeThumbColor: onColor,
-        ),
-      ],
-    );
-  }
+  }) => buildRealismToggleRow(
+    icon: icon,
+    label: label,
+    subtitle: subtitle,
+    value: value,
+    onChanged: onChanged,
+    context: context,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -302,10 +250,168 @@ class RealismFormSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        ..._engineMasterToggle(context),
-        ..._porchTime(context, labelStyle),
-        ..._engineWhenOn(context, labelStyle),
-        ..._porchAfterEngine(context),
+        // ── Master Toggle (can be hidden in group creator where the group-level toggle controls it) ──
+        if (showMasterEnabledToggle)
+          RealismMasterToggle(
+            enabled: enabled,
+            onEnabledChanged: onEnabledChanged,
+          ),
+        // Time / Chaos / identity chips are Porch Life — they run without
+        // the engine. Do not hide them behind [enabled].
+        const SizedBox(height: 20),
+        if (showTimeAndDay) ...[
+          const RealismSectionHeader(
+            Icons.schedule,
+            'Time & Day',
+            AppColors.timeDayAccent,
+          ),
+          const SizedBox(height: 12),
+          RealismTimeDayCard(
+            timeOfDay: timeOfDay,
+            onTimeOfDayChanged: onTimeOfDayChanged,
+            dayCount: dayCount,
+            onDayCountChanged: onDayCountChanged,
+            labelStyle: labelStyle,
+          ),
+          if (onStoryStartDateChanged != null) ...[
+            const SizedBox(height: 8),
+            StoryBeginsRow(
+              storyStartDate: storyStartDate,
+              onStoryStartDateChanged: onStoryStartDateChanged!,
+              storyStartTime: storyStartTime,
+              onStoryStartTimeChanged: onStoryStartTimeChanged,
+            ),
+          ],
+        ],
+        if (enabled) ...[
+          // Needs Simulation (rendered separately when provided by caller).
+          // ignore: use_null_aware_elements — '?' doesn't work in children lists
+          if (needsFormSection != null) needsFormSection!,
+
+          // Relationship Section — one [sectionHeaderGap] above the header.
+          Column(
+            key: relationshipHeaderBlockKey,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const SizedBox(height: sectionHeaderGap),
+              const RealismSectionHeader(
+                Icons.favorite,
+                'Relationship',
+                AppColors.relationshipAccent,
+              ),
+              const SizedBox(height: 12),
+              RealismRelationshipCard(
+                shortTermBond: shortTermBond,
+                onShortTermBondChanged: onShortTermBondChanged,
+                longTermBond: longTermBond,
+                onLongTermBondChanged: onLongTermBondChanged,
+                trustLevel: trustLevel,
+                onTrustLevelChanged: onTrustLevelChanged,
+              ),
+            ],
+          ),
+          const SizedBox(height: sectionHeaderGap),
+          const RealismSectionHeader(
+            Icons.mood,
+            'Starting Emotion',
+            AppColors.emotionAccent,
+          ),
+          const SizedBox(height: 12),
+          RealismEmotionCard(
+            emotion: emotion,
+            onEmotionChanged: onEmotionChanged,
+            emotionIntensity: emotionIntensity,
+            onEmotionIntensityChanged: onEmotionIntensityChanged,
+            labelStyle: labelStyle,
+          ),
+          const SizedBox(height: 20),
+          const RealismSectionHeader(
+            Icons.tune,
+            'Optional Features',
+            AppColors.optionalAccent,
+          ),
+          const SizedBox(height: 12),
+          RealismOptionalFeaturesCard(
+            nsfwCooldownEnabled: nsfwCooldownEnabled,
+            onNsfwCooldownChanged: onNsfwCooldownChanged,
+            chaosModeEnabled: chaosModeEnabled,
+            onChaosModeChanged: onChaosModeChanged,
+            realismVerificationEnabled: realismVerificationEnabled,
+            onRealismVerificationChanged: onRealismVerificationChanged,
+            realismVerificationMaxReprocesses:
+                realismVerificationMaxReprocesses,
+            onRealismVerificationMaxReprocessesChanged:
+                onRealismVerificationMaxReprocessesChanged,
+            realismVerificationStrictness: realismVerificationStrictness,
+            onRealismVerificationStrictnessChanged:
+                onRealismVerificationStrictnessChanged,
+            showNsfwCooldownToggle: showNsfwCooldownToggle,
+            showChaosToggle: showChaosToggle,
+            showVerificationToggle: showVerificationToggle,
+          ),
+        ],
+        if (showChaosToggle && !enabled) ...[
+          const SizedBox(height: 20),
+          const RealismSectionHeader(
+            Icons.tune,
+            'Optional Features',
+            AppColors.optionalAccent,
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: AppColors.cardOf(context),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: AppColors.borderOf(context)),
+            ),
+            child: buildRealismToggleRow(
+              icon: Icons.casino,
+              label: 'Chaos Mode (Chance Time)',
+              subtitle: 'Random narrative events during roleplay',
+              value: chaosModeEnabled,
+              onChanged: onChaosModeChanged,
+              context: context,
+            ),
+          ),
+        ],
+
+        // Identity / wardrobe — Porch Life, not the engine.
+        // Per-character Pockets enable rides IdentityChipLists (top of the
+        // Wearing / Carrying card). Do not re-add an orphan section here.
+        IdentityChipLists(
+          ambitions: ambitions,
+          onAmbitionsChanged: onAmbitionsChanged,
+          planLines: planLines,
+          onPlanLinesChanged: onPlanLinesChanged,
+          occupation: occupation,
+          onOccupationChanged: onOccupationChanged,
+          occupationBrief: occupationBrief,
+          onOccupationBriefChanged: onOccupationBriefChanged,
+          hours: hours,
+          onHoursChanged: onHoursChanged,
+          workDays: workDays,
+          onWorkDaysChanged: onWorkDaysChanged,
+          birthday: birthday,
+          onBirthdayChanged: onBirthdayChanged,
+          birthdayAgeAsOf: birthdayAgeAsOf,
+          likes: likes,
+          onLikesChanged: onLikesChanged,
+          dislikes: dislikes,
+          onDislikesChanged: onDislikesChanged,
+          intimateInto: intimateInto,
+          onIntimateIntoChanged: onIntimateIntoChanged,
+          intimateNotInto: intimateNotInto,
+          onIntimateNotIntoChanged: onIntimateNotIntoChanged,
+          showIntimate: showIntimate,
+          worn: worn,
+          onWornChanged: onWornChanged,
+          carrying: carrying,
+          onCarryingChanged: onCarryingChanged,
+          pocketsEnabled: pocketsEnabled,
+          onPocketsEnabledChanged: onPocketsEnabledChanged,
+          wardrobeNotice: wardrobeNotice,
+        ),
       ],
     );
   }

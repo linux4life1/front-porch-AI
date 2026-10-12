@@ -418,14 +418,27 @@ class ChargenFacade {
         });
         return;
       }
+      // A persona's birthday rides along, as the desktop's realismBirthday.
+      final birthday = fields['birthday']?.toString().trim() ?? '';
+      if (birthday.isNotEmpty) {
+        card.frontPorchExtensions =
+            (card.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
+              birthday: birthday,
+            );
+      }
       // Auto-render a portrait when an image backend is configured (web-only
       // convenience; desktop generation moved to the explicit Portrait &
       // Avatars panel). The LLM authored the prompt during generation; strip the
       // name (image models render names as text) and render a 512² portrait.
-      final portrait = await renderPortrait(name, gen.generatedImagePrompt);
+      // A character made from a persona keeps the persona's picture.
+      final personaPortrait = _characters.portraitFromFields(fields);
+      final portrait = personaPortrait == null
+          ? await renderPortrait(name, gen.generatedImagePrompt)
+          : null;
       final saved = await _characters.persistNewCard(
         card,
         portraitBytes: portrait,
+        portraitPath: personaPortrait,
       );
       if (saved == null) {
         _hub?.broadcast({

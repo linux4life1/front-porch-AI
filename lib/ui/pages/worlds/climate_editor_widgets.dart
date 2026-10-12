@@ -61,15 +61,6 @@ String bandLabel(TempBand b) => switch (b) {
 
 /// Draft skin row state: stance stays null until the author picks one, which
 /// is what lets Save enforce "a rename needs a danger level".
-class SkinDraft {
-  String label = '';
-  String emoji = '';
-  WeatherStance? stance;
-  String flavour = '';
-
-  bool get active => label.trim().isNotEmpty;
-}
-
 String stanceLabel(WeatherStance s) => switch (s) {
   WeatherStance.pleasant => 'Pleasant',
   WeatherStance.ordinary => 'Ordinary',

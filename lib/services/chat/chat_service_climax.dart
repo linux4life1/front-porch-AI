@@ -111,7 +111,7 @@ extension ChatServiceClimax on ChatService {
     final speakerId = _isLiteTurn(t)
         ? null
         : _getCharacterIdFromCard(t.speakingCharacter);
-    final loadedId = _activeGroup != null && !_observerMode ? speakerId : null;
+    final loadedId = _activeGroup != null ? speakerId : null;
     Map<String, dynamic> slot() => _clockWriteSlot(t.streamTarget);
     if (_clockRunning) {
       final minutes = _refractoryBeatMinutes(t.streamTarget);

@@ -12,6 +12,7 @@ import { ImportCharacterLoreButton } from '../components/ImportCharacterLoreButt
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { WorldCard, type WorldSummary } from '../components/WorldCard';
 import type { BiomeDraft } from '../lib/seasonCalendar';
+import { confirmDiscard, useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import '../styles/ws-g.css';
 
 interface Climate {
@@ -64,6 +65,14 @@ export function WorldsPage() {
   const [worlds, setWorlds] = useState<WorldSummary[]>([]);
   const [climates, setClimates] = useState<Climate[]>([]);
   const [edit, setEdit] = useState<EditState>(null);
+  // The edit as it was opened; anything else is unsaved.
+  const [editBase, setEditBase] = useState<string | null>(null);
+  const dirty = edit !== null && JSON.stringify(edit) !== editBase;
+  const { prompt } = useUnsavedChanges(dirty);
+  const openEdit = (e: EditState) => {
+    setEdit(e);
+    setEditBase(JSON.stringify(e));
+  };
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
@@ -83,23 +92,24 @@ export function WorldsPage() {
       .catch(() => setClimates([]));
   }, []);
 
-  const apply = (p: Promise<{ worlds: WorldSummary[] }>) => {
+  const apply = (p: Promise<{ worlds: WorldSummary[] }>, closeEditor = true) => {
     setBusy(true);
     setError('');
     p.then((r) => {
       setWorlds(r.worlds);
-      setEdit(null);
+      if (closeEditor) setEdit(null);
     })
       .catch((e) => setError(e instanceof ApiError ? e.message : 'Action failed'))
       .finally(() => setBusy(false));
   };
 
   const beginEdit = async (name: string) => {
+    if (!confirmDiscard(dirty)) return;
     try {
       const d = await api.get<WorldDetail>(
         `/api/worlds/${encodeURIComponent(name)}/detail`,
       );
-      setEdit({
+      openEdit({
         id: d.id ?? null,
         originalName: d.name,
         name: d.name,
@@ -204,6 +214,7 @@ export function WorldsPage() {
 
   return (
     <div className="page">
+      {prompt}
       <div className="page-head">
         <h2>Places</h2>
         <div className="row-actions">
@@ -231,7 +242,8 @@ export function WorldsPage() {
           <button
             className="primary"
             onClick={() =>
-              setEdit({
+              confirmDiscard(dirty) &&
+              openEdit({
                 id: null,
                 originalName: null,
                 name: '',
@@ -305,8 +317,10 @@ export function WorldsPage() {
               }
               onDelete={() => {
                 if (window.confirm(`Delete place "${w.name}"?`)) {
+                  // Deleting another place keeps the open edit.
                   apply(
                     api.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`),
+                    !edit || edit.originalName === w.name,
                   );
                 }
               }}
@@ -495,7 +509,10 @@ export function WorldsPage() {
             </p>
           )}
           <div className="wizard-nav">
-            <button type="button" onClick={() => setEdit(null)}>
+            <button
+              type="button"
+              onClick={() => confirmDiscard(dirty) && setEdit(null)}
+            >
               Cancel
             </button>
             <button

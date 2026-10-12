@@ -75,6 +75,12 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
         )
       : null;
 
+  final personaConversionFacade = (characters != null && personas != null)
+      ? PersonaConversionFacade(characters, personas, storage)
+      : null;
+  // "Make a Character" from a persona keeps the persona's picture.
+  characterFacade.personaPortrait = personaConversionFacade?.portraitPathFor;
+
   final characterAuthoringFacade = characters != null
       ? CharacterAuthoringFacade(characters, storage)
       : null;
@@ -182,6 +188,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
     porchFacade: (chatService != null && characters != null)
         ? PorchFacade(characters, chatService, storage)
         : null,
+    personaConversionFacade: personaConversionFacade,
     chatToolsFacade: chatToolsFacade,
     groupFacade: groupFacade,
     settingsFacade: settingsFacade,

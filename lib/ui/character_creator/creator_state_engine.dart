@@ -234,7 +234,11 @@ extension CreatorEngine on CreatorState {
             .replaceAll(' ', '_');
         final imagePath = p.join(charDir.path, '${safeName}_$epoch.png');
         card.imagePath = imagePath;
-        await V2CardService().saveCardAsPng(card, imagePath, null);
+        await V2CardService().saveCardAsPng(
+          card,
+          imagePath,
+          portraitSourcePath,
+        );
         await repo.addCharacter(card);
       } else {
         // Already persisted (the Portrait & Avatars panel saves before it

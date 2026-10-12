@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'growth_panel.dart';
 
@@ -59,9 +60,11 @@ class _GrowthRingEditorDialogState extends State<GrowthRingEditorDialog> {
   late final TextEditingController _content = TextEditingController(
     text: widget.initialContent,
   );
-  late String _category = kGrowthCategories.contains(widget.initialCategory)
+  late final String _startCategory =
+      kGrowthCategories.contains(widget.initialCategory)
       ? widget.initialCategory
       : 'trait';
+  late String _category = _startCategory;
 
   @override
   void dispose() {
@@ -71,6 +74,17 @@ class _GrowthRingEditorDialogState extends State<GrowthRingEditorDialog> {
 
   @override
   Widget build(BuildContext context) {
+    // A typed or re-categorised ring asks before Escape, a click outside or
+    // Cancel drops it.
+    return UnsavedChangesGuard(
+      isDirty: () =>
+          _content.text.trim() != widget.initialContent.trim() ||
+          _category != _startCategory,
+      child: _dialog(context),
+    );
+  }
+
+  Widget _dialog(BuildContext context) {
     final accent = AppColors.porchHoneyOf(context);
     return AlertDialog(
       backgroundColor: AppColors.cardOf(context),
@@ -154,7 +168,7 @@ class _GrowthRingEditorDialogState extends State<GrowthRingEditorDialog> {
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.of(context).pop(),
+          onPressed: () => Navigator.of(context).maybePop(),
           child: Text(
             'Cancel',
             style: TextStyle(color: AppColors.textSecondary(context)),
@@ -164,9 +178,9 @@ class _GrowthRingEditorDialogState extends State<GrowthRingEditorDialog> {
           style: FilledButton.styleFrom(backgroundColor: accent),
           onPressed: _content.text.trim().isEmpty
               ? null
-              : () =>
-                    Navigator.of(context)
-                        .pop((_content.text.trim(), _category)),
+              : () => Navigator.of(
+                  context,
+                ).pop((_content.text.trim(), _category)),
           child: const Text('Save'),
         ),
       ],

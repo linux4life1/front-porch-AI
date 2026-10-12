@@ -182,6 +182,17 @@ extension ChatServiceGroupRead on ChatService {
     _groupManager?.setObserverMode(value);
   }
 
+  /// {{user}} is off stage: a group in Director Mode. Nothing scores the
+  /// director's notes, so bond, trust and feelings toward the user hold
+  /// still. Every per-speaker system keeps running as in any group turn:
+  /// Needs, the clock and weather, and the cast's feelings for each other.
+  bool get _directing => _activeGroup != null && _observerMode;
+
+  /// A new chat starts from the group's own Director Mode default; the live
+  /// switch is per chat (saved in the session blob).
+  void _resetDirectorModeToDefault() =>
+      _groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
+
   bool get _autoPlayActive => _groupManager?.autoPlayActive ?? false;
   set _autoPlayActive(bool value) {
     if (value) {
@@ -204,11 +215,12 @@ extension ChatServiceGroupRead on ChatService {
   /// Fully delegated to GroupTurnManager (supports forced override + both turn orders + Director Mode).
   CharacterCard? get nextCharacter => _groupManager?.nextSpeaker;
 
-  /// True only for regular (non-Director) group chats where the Realism Engine
-  /// is enabled. Used by the group sidebar to decide whether to show per-character
+  /// True for group chats where the Realism Engine is enabled, Director Mode
+  /// included: the per-character state still shows (held still while the
+  /// user is off stage) and the cast's feelings for each other keep moving.
+  /// Used by the group sidebar to decide whether to show per-character
   /// emotion / needs indicators.
-  bool get isGroupRealismActive =>
-      _realismEnabled && isGroupMode && !observerMode;
+  bool get isGroupRealismActive => _realismEnabled && isGroupMode;
 
   /// Phase 3: Hard cap for inter-character relationship tracking.
   /// Hidden inter-character dynamics (seeding, decay, injection, updates)

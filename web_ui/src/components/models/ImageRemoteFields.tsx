@@ -96,7 +96,7 @@ export function ImageRemoteFields({
         </p>
       ) : (
         <p className="muted small">
-          No Remote API key configured for this host. Add it under Settings → Backend.
+          No Remote API key configured for this host. Add it under Settings → Backend, or switch Connection to ComfyUI, Automatic1111 or Draw Things to make images on your computer.
         </p>
       )}
 

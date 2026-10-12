@@ -26,7 +26,7 @@ import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Number of `[EVENT N]` markers in a distilled timeline — the chat card's
 /// count. The pattern must stay byte-identical to the one the distiller
-/// itself counts with (`story_pipeline_service.llm.dart`) and to the web
+/// itself counts with (`story_pipeline/story_chat_distiller.dart`) and to the web
 /// twin's `/\[EVENT \d+\]/g`; a line count (or a double-escaped copy of the
 /// pattern) reports the wrong number.
 int distilledEventCount(String timeline) =>

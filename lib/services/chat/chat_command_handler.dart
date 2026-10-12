@@ -17,9 +17,10 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/director/director.dart';
 import 'package:front_porch_ai/services/chat/lookup_force.dart';
 
-part 'chat_command_guest.dart';
+import 'chat_command_handler/chat_command_handler.dart';
 
 /// Result of an attempted Scene Guest mint, surfaced back to the handler so it
 /// can report progress/errors uniformly. On success [card] is the minted (and
@@ -94,53 +95,45 @@ class ChatCommandHandler {
     required Future<void> Function(String args) generateImage,
     CharacterCard? Function()? getHostCharacter,
     bool Function()? isTurnBusy,
+    DirectorCommands? director,
   }) : _setExpression = setExpression,
        _activeCharacterIsSet = activeCharacterIsSet,
-       _getSceneGuestCards = getSceneGuestCards,
-       _setPendingGuestDeparture = setPendingGuestDeparture,
        _onSystemMessage = onSystemMessage,
-       _generatePrimaryTurn = generatePrimaryTurn,
-       _createGuest = createGuest,
-       _exitGuest = exitGuest,
-       _getJoinableCharacters = getJoinableCharacters,
-       _joinGuest = joinGuest,
-       _joinFull = joinFull,
-       _promoteScene = promoteScene,
-       _requestGuestPicker = requestGuestPicker,
        _runCastScan = runCastScan,
-       _speakGuest = speakGuest,
-       _armExitUndo = armExitUndo,
        _getGroupMembers = getGroupMembers,
-       _getGroupJoinableCharacters = getGroupJoinableCharacters,
-       _removeGroupMember = removeGroupMember,
-       _speakGroupMember = speakGroupMember,
        _isGroupTurnOrderRandom = isGroupTurnOrderRandom,
        _setGroupTurnOrder = setGroupTurnOrder,
        _configureAfk = configureAfk,
        _generateImage = generateImage,
-       _getHostCharacter = getHostCharacter,
-       _speakIsBusy = isTurnBusy;
+       _director = director,
+       _guest = SceneGuestCommands(
+         activeCharacterIsSet: activeCharacterIsSet,
+         getSceneGuestCards: getSceneGuestCards,
+         setPendingGuestDeparture: setPendingGuestDeparture,
+         onSystemMessage: onSystemMessage,
+         generatePrimaryTurn: generatePrimaryTurn,
+         createGuest: createGuest,
+         exitGuest: exitGuest,
+         getJoinableCharacters: getJoinableCharacters,
+         joinGuest: joinGuest,
+         joinFull: joinFull,
+         promoteScene: promoteScene,
+         requestGuestPicker: requestGuestPicker,
+         speakGuest: speakGuest,
+         armExitUndo: armExitUndo,
+         getGroupMembers: getGroupMembers,
+         getGroupJoinableCharacters: getGroupJoinableCharacters,
+         removeGroupMember: removeGroupMember,
+         speakGroupMember: speakGroupMember,
+         getHostCharacter: getHostCharacter,
+         isTurnBusy: isTurnBusy,
+       );
 
   final void Function(String? label) _setExpression;
   final bool Function() _activeCharacterIsSet;
-  final List<CharacterCard> Function() _getSceneGuestCards;
-  final void Function(String? guestName) _setPendingGuestDeparture;
   final void Function(String message) _onSystemMessage;
-  final Future<void> Function() _generatePrimaryTurn;
-  final Future<void> Function(String name, String concept) _createGuest;
-  final Future<void> Function(CharacterCard guest) _exitGuest;
-  final List<CharacterCard> Function() _getJoinableCharacters;
-  final Future<void> Function(CharacterCard guest) _joinGuest;
-  final Future<void> Function(CharacterCard character) _joinFull;
-  final Future<void> Function() _promoteScene;
-  final void Function(String initialFilter, bool full) _requestGuestPicker;
   final Future<bool> Function() _runCastScan;
-  final Future<void> Function(CharacterCard guest) _speakGuest;
-  final void Function(CharacterCard guest) _armExitUndo;
   final List<CharacterCard> Function() _getGroupMembers;
-  final List<CharacterCard> Function() _getGroupJoinableCharacters;
-  final Future<bool> Function(CharacterCard member) _removeGroupMember;
-  final Future<void> Function(CharacterCard member) _speakGroupMember;
   final bool Function() _isGroupTurnOrderRandom;
   final Future<void> Function(bool random, List<CharacterCard>? customOrder)
   _setGroupTurnOrder;
@@ -151,8 +144,11 @@ class ChatCommandHandler {
   )
   _configureAfk;
   final Future<void> Function(String args) _generateImage;
-  final CharacterCard? Function()? _getHostCharacter;
-  final bool Function()? _speakIsBusy;
+
+  /// Scene Guest entry/exit flow (`/create`, `/join`, `/promote`, `/speak`,
+  /// `/exit`).
+  final SceneGuestCommands _guest;
+  final DirectorCommands? _director;
 
   /// The user-facing slash-command reference (single source of truth for the
   /// "type /" helper panel). Order = display order. Aliases (/turn, /detect,
@@ -182,6 +178,11 @@ class ChatCommandHandler {
       'exit',
       '/exit [name]',
       'A guest leaves (narrated); in a group, removes that full member by name',
+    ),
+    SlashCommandInfo(
+      'director',
+      '/director [off]',
+      'Step out of a group scene to direct it; /director off steps you back in',
     ),
     SlashCommandInfo(
       'turnorder',
@@ -235,7 +236,12 @@ class ChatCommandHandler {
         .toLowerCase();
     final args = spaceIdx < 0 ? '' : body.substring(spaceIdx + 1).trim();
 
+    if (await _director?.tryHandle(command, args) ?? false) return true;
     switch (command) {
+      case 'director': // only when no DirectorCommands was wired in
+        _onSystemMessage('⚠ Director Mode isn\'t available here.');
+        return true;
+
       case 'expression-set':
       case 'expression':
         _setExpression(args.isNotEmpty ? args.toLowerCase() : null);
@@ -246,20 +252,20 @@ class ChatCommandHandler {
         return true;
 
       case 'create':
-        await _handleCreate(args);
+        await _guest.handleCreate(args);
         return true;
 
       case 'join':
-        await _handleJoin(args);
+        await _guest.handleJoin(args);
         return true;
 
       case 'promote':
-        await _handlePromote(args);
+        await _guest.handlePromote(args);
         return true;
 
       case 'speak':
       case 'turn':
-        await _handleSpeak(args);
+        await _guest.handleSpeak(args);
         return true;
 
       case 'scan':
@@ -278,7 +284,7 @@ class ChatCommandHandler {
         return true;
 
       case 'exit':
-        await _handleExit(args);
+        await _guest.handleExit(args);
         return true;
 
       case 'turnorder':

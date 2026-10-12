@@ -1,0 +1,254 @@
+// Copyright (C) 2026 Front Porch AI
+// SPDX-License-Identifier: AGPL-3.0-or-later
+//
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// Front Porch AI is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+// GNU Affero General Public License for more details.
+//
+// You should have received a copy of the GNU Affero General Public License
+// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
+
+// One owner's growth-pass LLM exchange and the op resolver, pulled out of
+// [GrowthService] with explicit inputs.
+
+import 'package:flutter/foundation.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/services.dart';
+
+import '../growth_ops.dart';
+import '../growth_physics.dart';
+import '../growth_prompt.dart';
+import '../growth_review.dart';
+import '../growth_store.dart';
+import '../journal_ops.dart';
+import '../pass_support.dart';
+import '../tool_eval_spec.dart';
+
+/// Tools-first / XML-fallback exchange for the growth pass. Wired by
+/// [GrowthService] from its own callbacks; holds no state of its own.
+class GrowthExchange {
+  final ToolTransportProbe probe;
+  final Future<String?> Function(String prompt) fireLLMEval;
+  final Object fireToolEval;
+  final bool Function() getPreferTextEvals;
+  final int Function() getPassEpoch;
+  final String Function(String) stripThinkBlocks;
+  final String Function() getBackendIdentity;
+  final String Function() getUserName;
+  final String Function() getRecap;
+
+  GrowthExchange({
+    required this.probe,
+    required this.fireLLMEval,
+    required this.fireToolEval,
+    required this.getPreferTextEvals,
+    required this.getPassEpoch,
+    required this.stripThinkBlocks,
+    required this.getBackendIdentity,
+    required this.getUserName,
+    required this.getRecap,
+  });
+
+  /// One owner's LLM exchange — tools first when the backend allows, XML
+  /// otherwise (shared probe memory with the Journal pass). Null means the
+  /// backend produced nothing usable.
+  Future<List<GrowthOp>?> run({
+    required CharacterCard owner,
+    required List<GrowthRingData> activeRings,
+    required List<JournalMemoryData> journalCards,
+    required List<ChatMessage> window,
+    required int windowStart,
+    required String legacyBlob,
+    required int startedEpoch,
+  }) async {
+    String prompt({required bool toolsMode}) => buildGrowthPrompt(
+      ownerName: owner.name,
+      userName: getUserName(),
+      basePersonality: [
+        if (owner.description.isNotEmpty) owner.description,
+        if (owner.personality.isNotEmpty) owner.personality,
+      ].join('\n'),
+      recap: getRecap(),
+      activeRings: activeRings,
+      journalCards: journalCards,
+      window: window,
+      windowStart: windowStart,
+      legacyBlob: legacyBlob,
+      toolsMode: toolsMode,
+    );
+
+    final backend = getBackendIdentity();
+    if (probe.shouldFireTools(backend, preferTextEvals: getPreferTextEvals())) {
+      LlmToolResponse? resp;
+      var transportFailure = false;
+      try {
+        resp = await invokeToolEval(
+          fireToolEval,
+          ToolEvalSpec(
+            prompt: prompt(toolsMode: true),
+            tools: kGrowthTools,
+            maxLength: kProseToolMaxTokens,
+            repeatPenalty: kProseToolRepeatPenalty,
+          ),
+        );
+      } catch (e) {
+        // Transport failure (unreachable backend, the call torn down by an
+        // app-side abortGeneration, a whole-call timeout, or a busy/5xx
+        // server): a network event, never a capability verdict. Fall back to
+        // XML for THIS round only; the next pass probes tools again.
+        // Mirrors the Journal's handling exactly.
+        debugPrint('[Growth] Tools attempt failed in transport: $e');
+        transportFailure = isToolTransportFailure(e);
+      }
+      if (resp != null) {
+        if (resp.calls.isNotEmpty) probe.markSupported(backend);
+        var ops = parseGrowthToolCalls(resp.calls);
+        if (ops.isEmpty && resp.text.trim().isNotEmpty) {
+          // The model ignored the tools but wrote text — salvage any tags.
+          ops = parseGrowthOps(stripThinkBlocks(resp.text));
+        }
+        if (ops.isNotEmpty) return ops;
+        if (resp.calls.isNotEmpty) {
+          return const [];
+        }
+        if (resp.isUnusableNativeToolCall) {
+          probe.noteInconclusive(backend);
+          return null;
+        }
+        if (resp.text.trim().isNotEmpty) {
+          // Prose with no tool call and no parseable tags: the model
+          // ANSWERED and chose words over tools — real capability evidence.
+          probe.markXmlOnly(backend);
+          debugPrint('[Growth] Tools unavailable on $backend — using XML');
+        } else {
+          probe.noteInconclusive(backend);
+        }
+      } else {
+        probe.noteInconclusive(backend);
+        if (!transportFailure) {
+          debugPrint(
+            '[Growth] Tools inconclusive on $backend — XML this round',
+          );
+        }
+      }
+    }
+
+    if (getPassEpoch() != startedEpoch) return null;
+    final raw = await fireLLMEval(prompt(toolsMode: false));
+    if (raw == null || raw.trim().isEmpty) return null;
+    return parseGrowthOps(stripThinkBlocks(raw));
+  }
+}
+
+/// Resolve parsed ops into id-addressed proposals while the pass snapshot
+/// is live: 1-based handles become ring ids (+ current text for the review
+/// UI), and {{char}}/{{user}} macros the model wrote become real names —
+/// the review dialog displays proposal text verbatim, so placeholders must
+/// be gone before parking (the store resolves again at write time, which
+/// is then a no-op). Distill-mode adds seed at the higher starter strength.
+List<GrowthProposedOp> resolveGrowthOps(
+  List<GrowthOp> ops,
+  List<GrowthRingData> activeRings, {
+  required bool distillMode,
+  required String ownerName,
+  required String Function() getUserName,
+  required List<ChatMessage> Function() getMessages,
+  required int Function() getGrowthInterval,
+  int windowStart = 0,
+  int windowLength = 0,
+  bool rewound = false,
+  Set<String>? intervalHeld,
+}) {
+  String named(String text) =>
+      resolveGrowthMacros(text, charName: ownerName, userName: getUserName());
+  final resolved = <GrowthProposedOp>[];
+  for (final op in ops) {
+    switch (op.action) {
+      case GrowthOpAction.add:
+        final cites = passAuthoredReceipts(
+          op.sourcePositions,
+          windowStart: windowStart,
+          windowLength: windowLength,
+        );
+        resolved.add(
+          GrowthProposedOp(
+            action: op.action,
+            text: named(op.text),
+            category: op.category,
+            sourcePositions: cites,
+            seedStrength: distillMode
+                ? GrowthPhysics.kDistillSeedStrength
+                : GrowthPhysics.kNewRingStrength,
+          ),
+        );
+        break;
+      case GrowthOpAction.reinforce:
+      case GrowthOpAction.revise:
+      case GrowthOpAction.retire:
+        final handle = op.handle;
+        if (handle == null || handle < 1 || handle > activeRings.length) {
+          continue;
+        }
+        final ring = activeRings[handle - 1];
+        // User-pinned rings are permanent: the pass may reinforce or
+        // reword them, but only the diary UI may retire them.
+        if (op.action == GrowthOpAction.retire && ring.pinned) continue;
+        if (op.action == GrowthOpAction.reinforce) {
+          // Reinforcement needs a NEW message. A rewound re-check has
+          // none, and a reinforce that only re-cites the ring's own
+          // receipts is the same event counted twice.
+          if (rewound) continue;
+          final had = GrowthStore.receiptsOf(ring).toSet();
+          final freshCite = op.sourcePositions.any(
+            (position) => !had.contains(position),
+          );
+          if (!freshCite) continue;
+          if (had.isNotEmpty) {
+            var newest = 0;
+            for (final position in had) {
+              if (position > newest) newest = position;
+            }
+            var cited = newest;
+            for (final position in op.sourcePositions) {
+              if (position > cited) cited = position;
+            }
+            // The interval counts user messages, not transcript slots.
+            // A ring cited late in one pass can still step on the next
+            // scheduled pass once a full interval of user turns has
+            // landed. Held rings stay fade-exempt.
+            final messages = getMessages();
+            var userTurns = 0;
+            final end = cited >= messages.length ? messages.length - 1 : cited;
+            for (var i = newest + 1; i <= end; i++) {
+              if (messages[i].isUser) userTurns++;
+            }
+            if (userTurns < getGrowthInterval()) {
+              intervalHeld?.add(ring.id);
+              continue;
+            }
+          }
+        }
+        resolved.add(
+          GrowthProposedOp(
+            action: op.action,
+            ringId: ring.id,
+            oldContent: ring.content,
+            text: named(op.text),
+            sourcePositions: op.sourcePositions,
+          ),
+        );
+        break;
+    }
+  }
+  return resolved;
+}

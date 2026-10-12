@@ -8,6 +8,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Dialog } from './setup/primitives';
+import { confirmDiscard } from '../../hooks/useUnsavedChanges';
 
 export interface DialogField {
   key: string;
@@ -40,14 +41,17 @@ export function FieldsDialog({
     () => Object.fromEntries(fields.map((f) => [f.key, f.value ?? ''])),
   );
   const ready = !required || values[required].trim() !== '';
+  const dirty = fields.some((f) => values[f.key] !== (f.value ?? ''));
   const submit = () => {
     if (!ready) return;
     onSubmit(Object.fromEntries(Object.entries(values).map(([k, v]) => [k, v.trim()])));
   };
   return (
-    <Dialog title={title} wide={wide} onClose={onCancel} actions={(
+    <Dialog title={title} wide={wide} onClose={onCancel} dirty={dirty} actions={(
       <>
-        <button type="button" className="s-btn-ghost" onClick={onCancel}>Cancel</button>
+        <button type="button" className="s-btn-ghost" onClick={() => confirmDiscard(dirty) && onCancel()}>
+          Cancel
+        </button>
         <button type="button" className="s-btn-primary" data-testid="story-dialog-confirm" disabled={!ready} onClick={submit}>
           {confirmLabel}
         </button>

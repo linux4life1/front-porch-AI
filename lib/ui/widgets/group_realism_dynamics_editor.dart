@@ -8,38 +8,17 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_realism_editor.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/widgets/relationship_scale.dart';
+import 'package:front_porch_ai/ui/widgets/group_realism_dynamics_editor/group_realism_dynamics_editor.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-part 'group_realism_dynamics_editor.dynamics.dart';
-
-/// A group member as this editor needs it: the RUNTIME id the realism engine
-/// reads (`mid`), a display name, the optional legacy `originStableId` (used to
-/// recover seeds from groups created before the id-keying fix), and an optional
-/// avatar path for the header.
-class GroupRealismMember {
-  final String mid;
-  final String name;
-  final String? originStableId;
-  final String? avatarPath;
-
-  const GroupRealismMember({
-    required this.mid,
-    required this.name,
-    this.originStableId,
-    this.avatarPath,
-  });
-}
+export 'group_realism_dynamics_editor/group_realism_member.dart';
 
 /// The "Realism & Dynamics" editor for an existing group: per-member base
 /// realism/needs (via the shared [GroupMemberRealismEditor]) plus the intragroup
@@ -203,40 +182,10 @@ class _GroupRealismDynamicsEditorState
     _emit();
   }
 
-  // Memoized per editor: _avatar runs once per member card, once per source
-  // row and once per source×target pair, and EVERY relationship-slider drag
-  // frame rebuilds the whole editor — N existsSync per frame is the io-lint
-  // bug class (same shape as scene_guest_picker_dialog's cache).
-  final Map<String, File?> _avatarCache = {};
+  final _avatars = GroupRealismAvatars();
 
-  Widget _avatar(GroupRealismMember m, double radius) {
-    final path = m.avatarPath;
-    final file = (path == null || path.isEmpty)
-        ? null
-        : _avatarCache.putIfAbsent(
-            path,
-            () =>
-                File(path)
-                    .existsSync() // io-ok: memoized per editor
-                ? File(path)
-                : null,
-          );
-    // A member made without a portrait shows its initial, not its flat
-    // card colour.
-    return RealPortrait(
-      file: file,
-      portrait: (_, f) =>
-          CircleAvatar(radius: radius, backgroundImage: FileImage(f)),
-      noPortrait: (_) => CircleAvatar(
-        radius: radius,
-        backgroundColor: AppColors.surfaceContainerOf(context),
-        child: Text(
-          m.name.isNotEmpty ? m.name[0].toUpperCase() : '?',
-          style: TextStyle(color: AppColors.textPrimary(context)),
-        ),
-      ),
-    );
-  }
+  Widget _avatar(GroupRealismMember m, double radius) =>
+      _avatars.avatar(context, m, radius);
 
   @override
   Widget build(BuildContext context) {
@@ -278,7 +227,12 @@ class _GroupRealismDynamicsEditorState
             _buildSceneTimeCard(),
             const SizedBox(height: 16),
             ...widget.members.map(_buildMemberCard),
-            _buildDynamicsSection(),
+            GroupDynamicsSection(
+              members: widget.members,
+              seedsByMid: _seedsByMid,
+              avatar: _avatar,
+              onRelationshipChanged: _updateRelationship,
+            ),
           ],
         ],
       ),

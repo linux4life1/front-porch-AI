@@ -39,49 +39,10 @@ library;
 import 'dart:convert';
 
 import 'package:front_porch_ai/services/services.dart' show LlmToolCall;
-import 'package:front_porch_ai/utils/utils.dart';
 
-part 'realism_tools.schemas.dart';
+import 'package:front_porch_ai/services/chat/realism_tools/realism_tools.dart';
 
-/// Tool names (also referenced by the prompts' tools-mode instruction).
-const String kRelationshipTool = 'report_relationship';
-const String kEmotionalTool = 'report_emotional_state';
-const String kNarrativeTool = 'report_narrative';
-const String kOneShotTool = 'report_realism';
-const String kNeedsImpactTool = 'report_needs_impact';
-const String kSceneTimeTool = 'report_scene_time';
-const String kExpressionTool = 'report_expression_label';
-const String kCastDetectTool = 'report_detected_character';
-const String kClimaxToolName = 'report_climax';
-const String kPocketsToolName = 'report_inventory';
-const String kReplyFactsToolName = 'report_reply_facts';
-const String kWithUserToolName = 'report_with_user';
-
-Map<String, dynamic> _intField(String description) => {
-  'type': 'integer',
-  'description': description,
-};
-Map<String, dynamic> _strField(String description) => {
-  'type': 'string',
-  'description': description,
-};
-
-/// The whitelisted keys per tool (anything else the model invents is
-/// dropped, mirroring how the regex extractors ignore unknown text keys).
-final Map<String, Map<String, Map<String, dynamic>>> _fieldsByTool = {
-  kRelationshipTool: _relationshipFields,
-  kEmotionalTool: _emotionalFields,
-  kNarrativeTool: _narrativeFields,
-  kOneShotTool: {..._oneShotFields, 'today_sentence': _todaySentenceField},
-  kNeedsImpactTool: _needsImpactFields,
-  kSceneTimeTool: {..._sceneTimeFields, 'today_sentence': _todaySentenceField},
-  kExpressionTool: _expressionFields,
-  kCastDetectTool: _castDetectFields,
-  kClimaxToolName: kClimaxFields,
-  kPocketsToolName: kPocketsFields,
-  kReplyFactsToolName: kReplyFactsFields,
-  kWithUserToolName: kWithUserFields,
-};
+export 'package:front_porch_ai/services/chat/realism_tools/realism_tools.dart';
 
 /// Is [toolName] known to the converter?
 ///
@@ -89,7 +50,8 @@ final Map<String, Map<String, Map<String, dynamic>>> _fieldsByTool = {
 /// [realismToolCallToJson] return null on every call, so the feature silently
 /// uses the text transport forever. Pockets shipped that way. Cheap to assert,
 /// impossible to notice otherwise.
-bool toolIsRegistered(String toolName) => _fieldsByTool.containsKey(toolName);
+bool toolIsRegistered(String toolName) =>
+    realismToolFieldsByTool.containsKey(toolName);
 
 /// Convert the first matching tool call into the canonical flat-JSON text
 /// the text transport would have produced — the single normalization point
@@ -104,7 +66,7 @@ bool toolIsRegistered(String toolName) => _fieldsByTool.containsKey(toolName);
 /// where a matched call without a name IS the "no detection" answer and
 /// yields the canonical `{"name":null}` its parser expects.
 String? realismToolCallToJson(String toolName, List<LlmToolCall> calls) {
-  final fields = _fieldsByTool[toolName];
+  final fields = realismToolFieldsByTool[toolName];
   if (fields == null) return null;
   for (final call in calls) {
     if (call.name != toolName) continue;

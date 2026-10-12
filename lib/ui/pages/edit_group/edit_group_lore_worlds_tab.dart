@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -81,90 +82,11 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
               ),
               OutlinedButton.icon(
                 onPressed: () async {
-                  final nameCtrl = TextEditingController();
-                  final keyCtrl = TextEditingController();
-                  final contentCtrl = TextEditingController();
-                  bool enabled = true;
-                  bool constant = false;
-
-                  final ok = await showDialog<bool>(
+                  final added = await showLorebookEntryDialog(
                     context: context,
-                    builder: (ctx) => AlertDialog(
-                      backgroundColor: AppColors.surfaceOf(context),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      title: const Text('Add Group Lore Entry'),
-                      content: StatefulBuilder(
-                        builder: (inner, setInner) => SingleChildScrollView(
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              AppTextField(
-                                controller: nameCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Name',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              AppTextField(
-                                controller: keyCtrl,
-                                decoration: const InputDecoration(
-                                  labelText: 'Key / Trigger',
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              AppTextField(
-                                controller: contentCtrl,
-                                maxLines: 4,
-                                decoration: const InputDecoration(
-                                  labelText: 'Content',
-                                ),
-                              ),
-                              const SizedBox(height: 12),
-                              SwitchListTile(
-                                title: const Text('Enabled'),
-                                value: enabled,
-                                onChanged: (v) => setInner(() => enabled = v),
-                                dense: true,
-                              ),
-                              SwitchListTile(
-                                title: const Text('Constant'),
-                                value: constant,
-                                onChanged: (v) => setInner(() => constant = v),
-                                dense: true,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      actions: [
-                        TextButton(
-                          onPressed: () => Navigator.pop(ctx, false),
-                          style: TextButton.styleFrom(
-                            foregroundColor: AppColors.textSecondary(context),
-                          ),
-                          child: const Text('Cancel'),
-                        ),
-                        ElevatedButton(
-                          onPressed: () => Navigator.pop(ctx, true),
-                          child: const Text('Add'),
-                        ),
-                      ],
-                    ),
+                    showEnabled: true,
                   );
-                  if (ok == true) {
-                    onAddEntry(
-                      LorebookEntry(
-                        name: nameCtrl.text.trim(),
-                        key: keyCtrl.text.trim(),
-                        content: contentCtrl.text.trim(),
-                        enabled: enabled,
-                        constant: constant,
-                      ),
-                    );
-                  }
+                  if (added != null) onAddEntry(added);
                 },
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Add Entry'),
@@ -206,97 +128,15 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
                   children: [
                     IconButton(
                       icon: const Icon(Icons.edit, size: 20),
+                      // The shared editor edits a clone, so imported
+                      // advanced fields survive and Cancel asks first.
                       onPressed: () async {
-                        final nameCtrl = TextEditingController(
-                          text: entry.name,
-                        );
-                        final keyCtrl = TextEditingController(text: entry.key);
-                        final contentCtrl = TextEditingController(
-                          text: entry.content,
-                        );
-                        bool enabled = entry.enabled;
-                        bool constant = entry.constant;
-
-                        final ok = await showDialog<bool>(
+                        final edited = await showLorebookEntryDialog(
                           context: context,
-                          builder: (ctx) => AlertDialog(
-                            backgroundColor: AppColors.surfaceOf(context),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            title: const Text('Edit Group Lore Entry'),
-                            content: StatefulBuilder(
-                              builder: (inner, setInner) =>
-                                  SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        AppTextField(
-                                          controller: nameCtrl,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Name',
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        AppTextField(
-                                          controller: keyCtrl,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Key / Trigger',
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        AppTextField(
-                                          controller: contentCtrl,
-                                          maxLines: 4,
-                                          decoration: const InputDecoration(
-                                            labelText: 'Content',
-                                          ),
-                                        ),
-                                        const SizedBox(height: 12),
-                                        SwitchListTile(
-                                          title: const Text('Enabled'),
-                                          value: enabled,
-                                          onChanged: (v) =>
-                                              setInner(() => enabled = v),
-                                          dense: true,
-                                        ),
-                                        SwitchListTile(
-                                          title: const Text('Constant'),
-                                          value: constant,
-                                          onChanged: (v) =>
-                                              setInner(() => constant = v),
-                                          dense: true,
-                                        ),
-                                      ],
-                                    ),
-                                  ),
-                            ),
-                            actions: [
-                              TextButton(
-                                onPressed: () => Navigator.pop(ctx, false),
-                                child: const Text('Cancel'),
-                              ),
-                              ElevatedButton(
-                                onPressed: () => Navigator.pop(ctx, true),
-                                child: const Text('Save'),
-                              ),
-                            ],
-                          ),
+                          existing: entry,
+                          showEnabled: true,
                         );
-                        if (ok == true) {
-                          onReplaceEntry(
-                            i,
-                            LorebookEntry(
-                              name: nameCtrl.text.trim(),
-                              key: keyCtrl.text.trim(),
-                              content: contentCtrl.text.trim(),
-                              enabled: enabled,
-                              constant: constant,
-                            ),
-                          );
-                        }
+                        if (edited != null) onReplaceEntry(i, edited);
                       },
                     ),
                     IconButton(

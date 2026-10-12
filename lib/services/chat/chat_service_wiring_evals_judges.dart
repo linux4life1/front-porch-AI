@@ -71,7 +71,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
       getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
-      getIsGroupNonObserverMode: () => (_activeGroup != null && !_observerMode),
+      getIsGroupNonObserverMode: () => _activeGroup != null,
       getGroupNeeds: _getGroupNeeds,
       setGroupNeeds: _setGroupNeeds,
       getGroupCharacters: () => _groupCharacters,

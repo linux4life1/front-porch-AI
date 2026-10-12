@@ -35,7 +35,7 @@ No hardware needed. Each can ship on its own.
   lost each time.
 - **Fix:** Keep one host object per job, or compare by job id.
 - **Where:** `lib/services/llm_provider/story_lane_hosts.dart`,
-  `lib/services/story_pipeline_service.llm.dart`.
+  `lib/services/story_pipeline/story_llm_caller.dart`.
 - **Test:** Two calls in a row on the same local job must cause one swap and
   no return to the chat model. This fails today. No test covers story jobs
   at all.

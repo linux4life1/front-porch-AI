@@ -8,8 +8,9 @@ import 'dart:convert';
 
 import 'package:front_porch_ai/services/chat/season_calendar.dart';
 import 'package:front_porch_ai/services/chat/season_labels.dart';
+import 'package:front_porch_ai/services/chat/weather_biomes/condition_skin.dart';
 
-part 'weather_biomes.skin.dart';
+export 'package:front_porch_ai/services/chat/weather_biomes/condition_skin.dart';
 
 /// Condition order shared with [WeatherEngine]: clear, cloudy, overcast, fog,
 /// rain, storm, snow.
@@ -40,25 +41,6 @@ const (int, int) kClassicBandRange = (0, 4);
 
 /// The widest legal span (cryogenic..inferno, ranks).
 const (int, int) kFullBandRange = (-1, 6);
-
-/// Stance for condition skins (phase 2 fully authors these; built-ins carry
-/// ordinary/harsh so dressCue can stay one code path).
-enum WeatherStance { pleasant, ordinary, harsh, dangerous, deadly }
-
-WeatherStance weatherStanceFromName(String? name) {
-  switch (name?.toLowerCase()) {
-    case 'pleasant':
-      return WeatherStance.pleasant;
-    case 'harsh':
-      return WeatherStance.harsh;
-    case 'dangerous':
-      return WeatherStance.dangerous;
-    case 'deadly':
-      return WeatherStance.deadly;
-    default:
-      return WeatherStance.ordinary;
-  }
-}
 
 /// A climate table: season weights, base temps, diurnal amplitude, skins.
 ///

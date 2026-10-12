@@ -25,3 +25,4 @@ export 'persona_hover_card.dart';
 export 'persona_list_cards.dart';
 export 'persona_main_view.dart';
 export 'persona_text_expand_dialog.dart';
+export 'persona_to_character.dart';

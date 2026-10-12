@@ -199,19 +199,6 @@ extension ChatServiceSend on ChatService {
       // Unknown command — fall through and send as a normal message.
     }
 
-    // In observer mode, route to sendDirectorNote instead
-    if (_observerMode && _activeGroup != null) {
-      if (lookup.accepted) {
-        _armForcedLookup(
-          webQuery: lookup.webQuery,
-          wikiQuery: lookup.wikiQuery,
-        );
-      }
-      await sendDirectorNote(outbound);
-      _clearForcedLookup();
-      return;
-    }
-
     _toolProbe.beginUserSend();
     _webSearchService.beginUserSend();
     _wikiSearchService.beginUserSend();
@@ -225,17 +212,23 @@ extension ChatServiceSend on ChatService {
       // Save the attachment to disk only now that every guard has passed — the
       // composer passes bytes, not a path, so a guard bail above can't orphan a
       // file. Null when there are no bytes / the image service isn't wired.
-      final imagePath = await _persistTurnImage(imageBytes);
+      // Director Mode: {{user}} is off stage and the line is a director's
+      // note. It runs the same turn as any send (dreams, time skips, chaos,
+      // @Name cues, Needs, the clock); only the judges that score the user's
+      // message stand down, because there is no user message to score.
+      final directing = _directing;
+      final imagePath = directing ? null : await _persistTurnImage(imageBytes);
 
-      final senderName = _userPersonaService.persona.name;
-      final userMsg = ChatMessage(
-        text: outbound,
-        sender: senderName,
-        isUser: true,
-        metadata: imagePath != null
-            ? {'is_user_image': true, 'image_path': imagePath}
-            : null,
-      );
+      final userMsg = directing
+          ? directorNoteMessage(outbound)
+          : ChatMessage(
+              text: outbound,
+              sender: _userPersonaService.persona.name,
+              isUser: true,
+              metadata: imagePath != null
+                  ? {'is_user_image': true, 'image_path': imagePath}
+                  : null,
+            );
       // Session token for the caption writes below — captured NOW so a chat
       // switch anywhere during the (long) turn voids the stamp+save.
       final sessionToken = _currentSessionId;

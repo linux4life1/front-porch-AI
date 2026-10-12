@@ -20,10 +20,9 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
 
-part 'promise_debt_service.apply.dart';
+import 'promise_debt_service/promise_ledger_applier.dart';
 
 /// One open (or recently resolved) commitment tracked as a journal card
 /// (`metadata.kind = 'promise'`). Train B — promise & debt ledger.
@@ -99,6 +98,18 @@ class PromiseDebtService {
     this.onSalienceKick,
     this.onCacheWarmed,
   });
+
+  /// Plant / resolve applier (journal writes, deltas, cache refresh).
+  late final PromiseLedgerApplier _ledger = PromiseLedgerApplier(
+    journalStore: journalStore,
+    getMaxCards: getMaxCards,
+    applyTrustDelta: applyTrustDelta,
+    applyBondDelta: applyBondDelta,
+    refreshOpen: listOpen,
+    markLedgerActivity: _markLedgerActivity,
+    onSalienceKick: onSalienceKick,
+    onCacheWarmed: onCacheWarmed,
+  );
 
   static const int kMaxOpen = 3;
   static const int kMaxTextChars = 120;
@@ -362,7 +373,7 @@ class PromiseDebtService {
             debugPrint('[PromiseDebt] duplicate of an existing card — skip');
             return;
           }
-          await _plantOpen(
+          await _ledger.plantOpen(
             sessionId: sessionId,
             characterId: characterId,
             characterName: characterName,
@@ -375,7 +386,7 @@ class PromiseDebtService {
           );
         case PromiseResolved(:final index, :final kept):
           final item = open[index - 1];
-          await _resolve(
+          await _ledger.resolve(
             sessionId: sessionId,
             characterId: characterId,
             item: item,
@@ -393,9 +404,9 @@ class PromiseDebtService {
   /// Manual "Mark kept / broken" from the diary's Promises tab — the escape
   /// hatch for fulfillments the post-turn eval missed (2026-08-04 report:
   /// once the moment scrolls out of the eval window it can never be
-  /// re-detected). Routes through the SAME [_resolve] applier as automatic
-  /// detection, so the trust/bond deltas, the milestone card, salience kick,
-  /// and cache refresh are identical. Returns false if [cardId] is not an
+  /// re-detected). Routes through the SAME [PromiseLedgerApplier.resolve]
+  /// applier as automatic detection, so the trust/bond deltas, the milestone
+  /// card, salience kick, and cache refresh are identical. Returns false if [cardId] is not an
   /// open promise of this diary.
   Future<bool> resolveManually({
     required String sessionId,
@@ -408,7 +419,7 @@ class PromiseDebtService {
     final open = await listOpen(sessionId, characterId);
     for (final item in open) {
       if (item.cardId != cardId) continue;
-      await _resolve(
+      await _ledger.resolve(
         sessionId: sessionId,
         characterId: characterId,
         item: item,

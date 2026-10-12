@@ -83,9 +83,11 @@ export function readyLine(opts: {
   backendName: string;
   file: string;
   blockedLora?: string | null;
+  line?: string;
 }): string {
   if (opts.busy) return 'Generating…';
   if (opts.ready) return 'Ready to generate.';
+  if (opts.line?.trim()) return opts.line.trim();
   switch (opts.kind) {
     case 'loraMismatch':
       return `Not ready — LoRA architecture does not match ${opts.file}.`;
