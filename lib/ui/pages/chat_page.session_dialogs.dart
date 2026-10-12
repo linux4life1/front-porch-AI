@@ -17,7 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 //
 // ChatPage session dialogs: group settings, import/export, clear-chat
-// confirmation. Chat History lives in chat_history_dialog.dart (shared with
+// confirmation. Manage Chats lives in chat_history_dialog.dart (shared with
 // Home). Extracted from chat_page.dart; same library, privates in scope.
 
 part of 'chat_page.dart';
@@ -260,14 +260,13 @@ extension _ChatPageSessionDialogs on _ChatPageState {
         backgroundColor: AppColors.surfaceOf(context),
         title: const Text('New Chat'),
         content: const Text(
-          'This will clear the current conversation and start fresh. This can\'t be undone. Are you sure?',
+          'Start a fresh conversation. Your current one is saved in Manage Chats.',
         ),
         actions: [
           warmDialogCancel(context),
           warmDialogConfirm(
             context,
             label: 'New Chat',
-            destructive: true,
             onPressed: () {
               chatService.startNewChat();
               Navigator.of(context).pop();
@@ -280,6 +279,10 @@ extension _ChatPageSessionDialogs on _ChatPageState {
 
   void _showHistoryDialog(BuildContext context) {
     final chatService = Provider.of<ChatService>(context, listen: false);
-    showChatHistoryDialog(context: context, chatService: chatService);
+    showChatHistoryDialog(
+      context: context,
+      chatService: chatService,
+      onNewChat: chatService.startNewChat,
+    );
   }
 }

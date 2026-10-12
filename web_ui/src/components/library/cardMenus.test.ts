@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Library kebab menus put Chat History immediately after Start new chat.
+// Library kebab menus put Manage Chats immediately after Start new chat.
 
 import { describe, expect, it } from 'vitest';
 import { characterCardMenu, groupCardMenu } from './cardMenus';
@@ -41,12 +41,12 @@ const charActions = {
 };
 
 describe('library card menus', () => {
-  it('puts Chat History after Start new chat on a character', () => {
+  it('puts Manage Chats after Start new chat on a character', () => {
     const labels = characterCardMenu(char, charActions).map((i) => i.label);
-    expect(labels.indexOf('Chat History')).toBe(labels.indexOf('Start new chat') + 1);
+    expect(labels.indexOf('Manage Chats')).toBe(labels.indexOf('Start new chat') + 1);
   });
 
-  it('puts Chat History after Start new chat on a group', () => {
+  it('puts Manage Chats after Start new chat on a group', () => {
     const labels = groupCardMenu(group, {
       inFolder: false,
       onNewChat: noop,
@@ -57,6 +57,6 @@ describe('library card menus', () => {
       onRemoveFolder: noop,
       onDelete: noop,
     }).map((i) => i.label);
-    expect(labels.indexOf('Chat History')).toBe(labels.indexOf('Start new chat') + 1);
+    expect(labels.indexOf('Manage Chats')).toBe(labels.indexOf('Start new chat') + 1);
   });
 });

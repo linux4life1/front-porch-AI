@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Library kebab/right-click menus. Extracted from CharactersPage so that page
-// stays under the file-size cap while Chat History lands after Start new chat.
+// stays under the file-size cap while Manage Chats lands after Start new chat.
 
 import type { CardMenuItem } from './CardMenu';
 import type { LibChar, LibFolder, LibGroup } from '../../hooks/useLibrary';
@@ -25,7 +25,7 @@ export function characterCardMenu(
 ): CardMenuItem[] {
   return [
     { label: 'Start new chat', icon: '💬', onClick: a.onNewChat },
-    { label: 'Chat History', icon: '📂', onClick: a.onHistory },
+    { label: 'Manage Chats', icon: '📂', onClick: a.onHistory },
     { label: 'Edit', icon: '✏️', onClick: a.onEdit },
     { label: 'AI Enhance', icon: '✨', onClick: a.onEnhance },
     { label: 'Duplicate', icon: '⧉', onClick: a.onDuplicate },
@@ -54,7 +54,7 @@ export function groupCardMenu(
 ): CardMenuItem[] {
   return [
     { label: 'Start new chat', icon: '💬', onClick: a.onNewChat },
-    { label: 'Chat History', icon: '📂', onClick: a.onHistory },
+    { label: 'Manage Chats', icon: '📂', onClick: a.onHistory },
     { label: 'Export Group PNG', icon: '🖼', onClick: a.onExportPng },
     { label: 'Extract characters', icon: '👥', onClick: a.onExtract },
     { label: 'Move to folder…', icon: '📁', onClick: a.onMove },

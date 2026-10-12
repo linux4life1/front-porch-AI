@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Library Chat History modal: lists sessions and delete posts action: 'delete'
+// Library Manage Chats modal: lists sessions and delete posts action: 'delete'
 // with startReplacement: false so emptying a card does not mint a new chat.
 
 import { act } from 'react-dom/test-utils';
@@ -66,12 +66,13 @@ describe('ChatHistoryModal', () => {
           createElement(ChatHistoryModal, {
             characterId: 'c1',
             onClose: () => {},
+            onNewChat: () => {},
           }),
         ),
       );
     });
 
-    expect(container.textContent).toContain('Chat History');
+    expect(container.textContent).toContain('Manage Chats');
     expect(container.textContent).toContain('Coffee on the porch');
 
     const trash = container.querySelector('button[aria-label="Delete chat"]') as HTMLButtonElement;
@@ -92,5 +93,31 @@ describe('ChatHistoryModal', () => {
       path: '/api/chat/session',
       body: { action: 'delete', sessionId: 's1', startReplacement: false },
     });
+  });
+
+  it('always offers Start new chat and hands off to onNewChat', async () => {
+    const onNewChat = vi.fn();
+    await act(async () => {
+      root.render(
+        createElement(
+          MemoryRouter,
+          null,
+          createElement(ChatHistoryModal, {
+            characterId: 'c1',
+            onClose: () => {},
+            onNewChat,
+          }),
+        ),
+      );
+    });
+
+    const btn = Array.from(container.querySelectorAll('button')).find((b) =>
+      b.textContent?.includes('Start new chat'),
+    ) as HTMLButtonElement;
+    expect(btn).toBeTruthy();
+    await act(async () => {
+      btn.click();
+    });
+    expect(onNewChat).toHaveBeenCalledTimes(1);
   });
 });

@@ -18,7 +18,7 @@
 
 part of '../home_page.dart';
 
-/// Home right-click Chat History — same dialog as the in-chat folder menu.
+/// Home right-click Manage Chats — same dialog as the in-chat folder menu.
 extension _HomePageHistory on _HomePageState {
   Future<void> _showChatHistory({
     CharacterCard? character,
@@ -36,6 +36,7 @@ extension _HomePageHistory on _HomePageState {
       loadSessions: () => chatService.getSessionsForId(ownerId),
       startReplacement: false,
       closeOnDeleteCurrent: false,
+      onNewChat: () => _startNewChatWith(character: character, group: group),
       onOpen: (sessionId) => _openHistorySession(
         sessionId: sessionId,
         character: character,

@@ -1,7 +1,7 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Library Chat History — the web twin of the desktop folder/Home dialog.
+// Library Manage Chats — the web twin of the desktop folder/Home dialog.
 // Owns fetch / delete / open so CharactersPage does not grow session state.
 
 import { useEffect, useState } from 'react';
@@ -21,10 +21,13 @@ export function ChatHistoryModal({
   characterId,
   groupId,
   onClose,
+  onNewChat,
 }: {
   characterId?: string;
   groupId?: string;
   onClose: () => void;
+  /** Always offered, even with zero or one saved chat. */
+  onNewChat: () => void;
 }) {
   const navigate = useNavigate();
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
@@ -85,11 +88,14 @@ export function ChatHistoryModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="drawer-head">
-          <span>Chat History</span>
+          <span>Manage Chats</span>
           <button className="link-btn" onClick={onClose}>
             Close
           </button>
         </div>
+        <button className="primary new-chat" onClick={onNewChat}>
+          + Start new chat
+        </button>
         {loading ? (
           <div className="centered">
             <div className="spinner" />

@@ -79,7 +79,7 @@ Nothing to hover. Controls stay on screen.
 Folder icon **in the input bar** (not the top bar):
 
 - New Chat
-- Chat History (every past conversation with this character — also right-click the card on Home)
+- Manage Chats (every past conversation with this character, plus Start New Chat — also right-click the card on Home)
 - Import / Export — native **`.fpchat`** or SillyTavern JSON/JSONL
 - Context Budget — what the model was actually sent last turn
 - **Turn Into a Story…** — desktop. Names the **project** and which chats to distill; then the Porch Stories wizard takes over.
