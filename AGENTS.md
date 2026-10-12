@@ -39,10 +39,12 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
   in the current conversation.
 - **Realism/Needs 1:1 ↔ group.** Observable behaviour for a character is the
   same in both modes. Orchestration may differ; results may not.
-- **Tests.** Adding a new test file is fine. Editing or deleting an existing
-  test, golden, baseline, workflow, or `analysis_options.yaml` needs the
-  maintainer's `approved-test-change` label. Do not quietly edit a test to
-  make CI green. A new guard must be proven red, then green.
+- **Tests.** Put a new guard in its feature's existing test file; adding
+  whole tests there (nothing deleted) or a new test file is fine. Editing or
+  deleting an existing test, golden, baseline, workflow, or
+  `analysis_options.yaml` needs the maintainer's `approved-test-change`
+  label. Do not quietly edit a test to make CI green. A new guard must be
+  proven red, then green.
 - **No stub tests.** Network pins hit a real server or skip when env is
   missing — never FakeStoopServer, toy HttpServer JSON, or HttpClient 400
   stubs. See CLAUDE.md ## Testing.

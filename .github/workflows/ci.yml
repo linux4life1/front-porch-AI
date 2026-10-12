@@ -1,10 +1,10 @@
 name: CI
 
 # Push to Rawhide/main still runs the cheap gates (analyze, full-lint,
-# theme-lint, io-lint, web-tests) plus the one-job unit/integration `test`
-# smoke. The heavy matrix — e2e-smoke (3 OS × 5 shards), widget goldens,
-# and the live Stoop pin — already ran on the PR that landed the commit.
-# Re-queueing them on squash-merge starves open PRs of macOS/golden
+# theme-lint, io-lint, web-tests) plus the unit/integration `test` suite
+# (four file shards behind one `test` check). The heavy matrix — e2e-smoke
+# (3 OS × 5 shards), widget goldens, and the live Stoop pin — already ran
+# on the PR that landed the commit. Re-queueing them on squash-merge starves open PRs of macOS/golden
 # runners. Those jobs therefore skip when github.event_name == 'push'
 # (`if: github.event_name != 'push'`, ANDed with any existing job `if:`).
 # pull_request and schedule keep the full suite.
@@ -87,10 +87,21 @@ jobs:
       - name: Run full Flutter Analyze
         run: flutter analyze --no-fatal-warnings --no-fatal-infos || true
 
-  test:
-    name: Tests (unit + integration)
+  # Four runners, each taking every fourth test FILE. Each file is its own
+  # compile and launch, and those costs, not the test bodies, were most of the
+  # unsharded job's 21 minutes on 2026-10-12. `--total-shards` would not help:
+  # it splits test CASES, so every shard would still load every file. Round-
+  # robin over the sorted list (as e2e-smoke does) spreads each directory
+  # across the shards. The union of the shards is exactly what one unsharded
+  # run covers, so scripts/ci-local.sh keeps running the whole suite at once.
+  test-shard:
+    name: Tests (unit + integration) ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
     needs: analyze
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -142,13 +153,39 @@ jobs:
         #
         # Pixel golden tests run in the dedicated `golden` job below so a render
         # diff never masks a logic failure here and vice-versa.
-        run: flutter test --concurrency=4 --reporter expanded --exclude-tags golden
-        # 30, not 20: the suite is 8,960 tests and ran 18 to 21 minutes on
-        # every Rawhide push of 2026-10-07, so 20 was a coin flip (two runs
-        # died at the wall with zero failures). This is headroom, not a
-        # licence: a suite that creeps toward 30 needs a slow test found and
-        # fixed, as the note above says, not another raise.
-        timeout-minutes: 30
+        env:
+          TEST_SHARD: ${{ matrix.shard }}
+          TEST_SHARDS: 4
+        run: |
+          mapfile -t files < <(find test -name '*_test.dart' | LC_ALL=C sort |
+            awk -v n="$TEST_SHARDS" -v k="$TEST_SHARD" '(NR - 1) % n == k - 1')
+          echo "shard $TEST_SHARD/$TEST_SHARDS runs ${#files[@]} test file(s)"
+          # A shard that matched nothing would report green having run nothing.
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "::error::shard $TEST_SHARD matched no test files"
+            exit 1
+          fi
+          flutter test --concurrency=4 --reporter expanded --exclude-tags golden "${files[@]}"
+        # Unsharded, the suite had reached 21 of a 30-minute limit
+        # (2026-10-12). A shard creeping toward 15 needs a slow test found
+        # and fixed, as the note above says, not another raise.
+        timeout-minutes: 15
+
+  # The check name the PR page and branch protection know. It passes only if
+  # every shard passed, so a failed or skipped shard is a red check, not a
+  # silent pass. A cancelled run (a newer push) skips it instead.
+  test:
+    name: Tests (unit + integration)
+    runs-on: ubuntu-latest
+    needs: test-shard
+    if: ${{ !cancelled() }}
+    steps:
+      - name: All shards passed
+        env:
+          RESULT: ${{ needs.test-shard.result }}
+        run: |
+          echo "shards: $RESULT"
+          [ "$RESULT" = success ]
 
   # Live Stoop pin (#264): talks HTTP to the real hub, not FakeStoopServer.
   # Secrets stay on this job's env only — never echo them. Fork PRs skip
