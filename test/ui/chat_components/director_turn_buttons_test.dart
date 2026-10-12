@@ -94,4 +94,57 @@ void main() {
     await tester.pump();
     expect(nextTurns, 1, reason: 'Next Character works again once paused');
   });
+
+  testWidgets('the Director panel steps out, then back in, and waits while '
+      'a turn runs', (tester) async {
+    var directing = false;
+    var busy = false;
+    var outs = 0;
+    var ins = 0;
+    double? delay;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (context, setState) => DirectorPanel(
+              directing: directing,
+              busy: busy,
+              delaySeconds: 4,
+              onStepOut: () => setState(() {
+                outs++;
+                directing = true;
+              }),
+              onStepIn: () => setState(() {
+                ins++;
+                directing = false;
+                busy = true;
+              }),
+              onDelayChanged: (v) => delay = v,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('You\'re in the scene'), findsOneWidget);
+    expect(find.byType(Slider), findsNothing);
+    await tester.tap(find.text('Step out to direct'));
+    await tester.pump();
+    expect(outs, 1);
+    expect(find.text('You\'re directing'), findsOneWidget);
+    expect(find.text('4.0s'), findsOneWidget);
+
+    await tester.drag(find.byType(Slider), const Offset(-400, 0));
+    await tester.pump();
+    expect(delay, isNotNull);
+    expect(delay, lessThan(4));
+
+    await tester.tap(find.text('Step back in'));
+    await tester.pump();
+    expect(ins, 1);
+    final button = tester.widget<OutlinedButton>(
+      find.byKey(const ValueKey('director-step')),
+    );
+    expect(button.onPressed, isNull, reason: 'busy: wait for the turn');
+  });
 }

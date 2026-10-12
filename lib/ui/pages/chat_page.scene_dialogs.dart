@@ -102,13 +102,16 @@ class ChatScenePrompts {
     final exitUndoName = chat.exitUndoOfferName;
     if (exitUndoName != null) {
       chat.consumeExitUndoOffer();
+      final label = chat.exitUndoIsUserStep
+          ? 'You stepped out to direct'
+          : '$exitUndoName left the scene';
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!context.mounted) return;
         final messenger = ScaffoldMessenger.of(context);
         messenger.clearSnackBars();
         messenger.showSnackBar(
           SnackBar(
-            content: Text('$exitUndoName left the scene'),
+            content: Text(label),
             duration: const Duration(seconds: 8),
             // Flutter's SnackBar.persist defaults to `action != null`, so an
             // action snackbar silently ignores its duration and stays forever

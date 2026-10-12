@@ -150,6 +150,12 @@ void main() {
     () async {
       await h.groupWithTwoReplies(aOff: const []);
       h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+      // A third member, so one can leave while the user directs.
+      final nora = needsCard('Nora');
+      await h.repo.addCharacter(nora);
+      await h.chat.joinFull(nora);
+      await h.settleTurn();
+      expect(h.chat.groupCharacters, hasLength(3));
       await h.chat.sendMessage('/director');
       await h.settleTurn();
       await h.chat.sendMessage('/exit Bram');
@@ -230,5 +236,57 @@ void main() {
     await h.chat.loadSession(sid);
     await h.settleTurn();
     expect(h.chat.observerMode, isTrue);
+  });
+
+  test('while directing, the second-to-last character cannot leave', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+    await h.chat.sendMessage('/director');
+    await h.settleTurn();
+    expect(h.chat.canRemoveCastMember, isFalse);
+    final before = h.chat.messages.length;
+
+    await h.chat.sendMessage('/exit Bram');
+    await h.settleTurn();
+
+    expect(h.chat.groupCharacters.map((c) => c.name), contains('Bram'));
+    expect(h.chat.messages, hasLength(before), reason: 'no goodbye turn');
+    expect(h.chat.guestActivityStatus, contains('at least two characters'));
+    expect(h.chat.guestActivityIsError, isTrue);
+
+    // The next note is still a director's note in the same group.
+    h.chat.setNextCharacter(member('Ayla'));
+    await h.chat.sendMessage('The porch light flickers out.');
+    await h.settleTurn();
+    expect(h.chat.isGroupMode, isTrue);
+    expect(h.chat.observerMode, isTrue);
+    expect(
+      h.chat.messages[h.chat.messages.length - 2].characterId,
+      kDirectorCharacterId,
+    );
+  });
+
+  test('the open undo names the user until a note closes it, and a refusal '
+      'shows one warning sign', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    await h.chat.sendMessage('/director');
+    await h.settleTurn();
+    expect(h.chat.exitUndoIsUserStep, isTrue);
+    expect(h.chat.exitUndoName, isNotNull);
+    h.chat.consumeExitUndoOffer(); // the desktop SnackBar was shown
+    expect(h.chat.exitUndoName, isNotNull, reason: 'web still offers UNDO');
+
+    h.chat.setNextCharacter(member('Ayla'));
+    await h.chat.sendMessage('The porch light flickers out.');
+    await h.settleTurn();
+    expect(h.chat.exitUndoName, isNull);
+
+    await h.chat.sendMessage('/director');
+    await h.settleTurn();
+    expect(h.chat.guestActivityStatus, startsWith('You are already directing'));
+    await h.chat.sendMessage('/director sideways');
+    await h.settleTurn();
+    expect(h.chat.guestActivityStatus, startsWith('Use /director'));
+    expect(h.chat.guestActivityIsError, isTrue);
   });
 }

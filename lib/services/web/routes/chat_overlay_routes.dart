@@ -23,12 +23,15 @@ import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// The buttons on the chat's processing overlays: stop the reply during the
-/// Realism read, dismiss the notice that follows, skip the goal check.
+/// Realism read, dismiss the notice that follows, skip the goal check; plus
+/// the transient UNDO after an exit and Director Mode's auto-chat toggle.
 class WebChatOverlayRoutes {
   WebChatOverlayRoutes(this._facade, Router router) {
     router.post('/api/chat/cancel-realism', _cancelRealism);
     router.post('/api/chat/stopped-reply/dismiss', _dismissStoppedReply);
     router.post('/api/chat/skip-objective-check', _skipObjectiveCheck);
+    router.post('/api/chat/exit-undo', _undoExit);
+    router.post('/api/chat/director/autoplay', _autoPlay);
   }
 
   final ChatFacade _facade;
@@ -45,6 +48,17 @@ class WebChatOverlayRoutes {
 
   shelf.Response _skipObjectiveCheck(shelf.Request request) {
     _facade.skipObjectiveCheck();
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _undoExit(shelf.Request request) async {
+    await _facade.undoLastExit();
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _autoPlay(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    _facade.setAutoPlay(body['on'] == true);
     return JsonResponse.ok({'status': 'ok'});
   }
 }

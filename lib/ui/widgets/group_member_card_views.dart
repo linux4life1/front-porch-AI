@@ -128,10 +128,13 @@ extension _GroupMemberCardViews on _GroupMemberCardState {
           ),
           if (isDirector) ...[
             const SizedBox(width: 6),
-            const Icon(
-              Icons.pause_circle_outline,
-              size: 12,
-              color: Colors.amberAccent,
+            Tooltip(
+              message: 'Held while you direct',
+              child: Icon(
+                Icons.pause_circle_outline,
+                size: 12,
+                color: AppColors.porchAmberOf(context),
+              ),
             ),
           ],
         ],

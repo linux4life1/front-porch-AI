@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
@@ -147,7 +149,8 @@ class WebChatToolsRoutes {
       case 'summaryPaused':
         _facade.setSummaryPaused(value);
       case 'director':
-        _facade.setDirectorMode(value);
+        // A narrated turn: answer now, the state streams in as it runs.
+        unawaited(_facade.setDirectorMode(value));
       default:
         return JsonResponse.badRequest('Unknown toggle: $name');
     }

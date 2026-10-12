@@ -81,9 +81,12 @@ class ChatToolsSwitches {
     _notify();
   }
 
-  /// Group director (observer) mode — group-only; the web gates the control.
-  void setDirectorMode(bool v) {
-    _chat.setObserverMode(v);
+  /// Director Mode from the web's switch: the same narrated step out (or
+  /// back in) as `/director`, with its UNDO. Group-only; the web gates it.
+  Future<void> setDirectorMode(bool v) async {
+    if (v != _chat.observerMode) {
+      await _chat.sendMessage(v ? '/director' : '/director off');
+    }
     _notify();
   }
 

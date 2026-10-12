@@ -140,6 +140,12 @@ extension ChatServiceSceneGuest on ChatService {
   }) {
     _sceneGuest.statusClearTimer?.cancel();
     _sceneGuest.statusClearTimer = null;
+    // The banner draws its own warning icon, so a '⚠' lead-in would show
+    // twice; it still marks the line as an error.
+    if (msg != null && msg.startsWith('⚠')) {
+      msg = msg.substring(1).trimLeft();
+      isError = true;
+    }
     _sceneGuest.activityStatus = msg;
     _sceneGuest.activityIsError = isError;
     notifyListeners();
@@ -404,6 +410,14 @@ extension ChatServiceSceneGuest on ChatService {
 
   /// Name to show in the UNDO SnackBar (null = nothing to offer).
   String? get exitUndoOfferName => _sceneGuest.exitUndoOfferName;
+
+  /// Who the open `/exit` undo would bring back, until it closes (a send, a
+  /// chat switch or the undo itself). Unlike [exitUndoOfferName] nothing
+  /// consumes it, so the web client can show its own UNDO.
+  String? get exitUndoName => _sceneGuest.exitUndoName;
+
+  /// The open undo is the user's own step out to direct.
+  bool get exitUndoIsUserStep => _sceneGuest.exitUndoUserStep;
 
   /// Consume the one-shot UNDO offer (the SnackBar was shown); the undo itself
   /// stays available via [undoLastExit] until invalidated.

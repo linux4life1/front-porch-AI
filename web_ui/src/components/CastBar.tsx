@@ -34,6 +34,7 @@ export function CastBar({
   onFocus,
   onAdd,
   onCommand,
+  canRemoveMember = true,
 }: {
   cast: CastMember[];
   focusedId: string | null;
@@ -44,6 +45,9 @@ export function CastBar({
   onFocus: (id: string) => void;
   onAdd: () => void;
   onCommand: (cmd: string) => void;
+  /** False while directing with two characters left (one more exit would
+   *  end Director Mode). Guests can always leave. */
+  canRemoveMember?: boolean;
 }) {
   // A lone host is the classic 1:1 — no roster chrome needed.
   const soloHost = cast.length <= 1;
@@ -78,7 +82,18 @@ export function CastBar({
                     Promote
                   </button>
                 )}
-                <button className="icon-btn" title="Remove from scene" disabled={busy} onClick={() => onCommand(`/exit ${c.name}`)}>✕</button>
+                <button
+                  className="icon-btn"
+                  title={
+                    c.isLite || canRemoveMember
+                      ? 'Remove from scene'
+                      : 'While you direct, the scene keeps at least two characters'
+                  }
+                  disabled={busy || (!c.isLite && !canRemoveMember)}
+                  onClick={() => onCommand(`/exit ${c.name}`)}
+                >
+                  ✕
+                </button>
               </span>
             )}
           </div>

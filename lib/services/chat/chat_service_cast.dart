@@ -18,6 +18,11 @@
 
 part of '../chat_service.dart';
 
+/// Why [ChatServiceCast.canRemoveCastMember] refused a member's exit.
+const kDirectorCastFloorNote =
+    'While you direct, the scene keeps at least two characters. Step back '
+    'in with /director off first.';
+
 /// "One chat, a cast that changes" — cast-shrinking operations (Phase 3):
 /// per-member cleanup on removal, and the automatic collapse of a group back to
 /// a 1:1 with the original library character once only one member remains. Kept
@@ -45,6 +50,10 @@ extension ChatServiceCast on ChatService {
     // re-check before proceeding (a no-op in the normal single-exit case).
     await _commitPendingMemberExit();
     if (_activeGroup == null) return false;
+    if (!canRemoveCastMember) {
+      _setGuestStatus(kDirectorCastFloorNote, isError: true);
+      return false;
+    }
     final stillMember = _groupCharacters.any(
       (c) => _getCharacterIdFromCard(c) == _getCharacterIdFromCard(member),
     );
@@ -88,6 +97,12 @@ extension ChatServiceCast on ChatService {
     notifyListeners();
     return true;
   }
+
+  /// Whether a member may leave now. While the user directs, the scene keeps
+  /// two characters: one left would turn the group back into a 1:1 and end
+  /// Director Mode under the next note.
+  bool get canRemoveCastMember =>
+      _groupCharacters.length > (_directing ? 2 : 1);
 
   /// `/director`: {{user}} steps out of a group scene to direct it, with the
   /// same narrated departure and UNDO as a full member's `/exit`. The next

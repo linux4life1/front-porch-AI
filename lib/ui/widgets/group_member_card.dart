@@ -219,9 +219,12 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       ),
       padTop: false,
     );
+    // While the user directs, the cast is still live (Needs, the clock and
+    // their feelings for each other), so the card stays lit; only the feelings
+    // toward the user hold, marked by the pause icon beside the emotion.
     final isDirector = chat.observerMode;
-    // Away / At work uses the signed 0.45. Director 0.38 is only for With you.
-    final opacity = presence.dimCard ? 0.45 : (isDirector ? 0.38 : 1.0);
+    // Away / At work uses the signed 0.45.
+    final opacity = presence.dimCard ? 0.45 : 1.0;
 
     final ringColor = (emotion != null && isRealism)
         ? emotionRingColor(emotion)

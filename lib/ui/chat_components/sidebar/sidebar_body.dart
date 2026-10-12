@@ -279,7 +279,10 @@ class _SidebarBodyState extends State<SidebarBody> {
     final character = focused.card;
     final cast = chat.cast;
     final idx = cast.indexWhere((p) => p.id == focused.id);
-    final canRemove = chat.groupCharacters.length > 1 && !chat.isGenerating;
+    // Two or more members, or three while directing (one left would end
+    // Director Mode); removing the second-to-last otherwise collapses the
+    // group back to a 1:1.
+    final canRemove = chat.canRemoveCastMember && !chat.isGenerating;
     return GroupMemberCard(
       character: character,
       chatService: chat,
@@ -291,8 +294,6 @@ class _SidebarBodyState extends State<SidebarBody> {
           ? widget.resolveCharImage(character.imagePath!)
           : null,
       ringCount: chat.growthRingCountFor(character),
-      // > 1 (not > 2): removing the second-to-last member is allowed and
-      // auto-collapses the group back to a 1:1.
       canRemove: canRemove,
       onRemove: canRemove
           ? () async {

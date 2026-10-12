@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type MouseEvent as ReactMous
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { CastBar } from '../components/CastBar';
+import { DirectorStrip, ExitUndoBar } from '../components/DirectorStrip';
 import { ChatMessageList } from '../components/ChatMessageList';
 import { ChatComposer } from '../components/ChatComposer';
 import { ChatInsight } from '../components/ChatInsight';
@@ -238,6 +239,29 @@ export function ChatPage() {
           onFocus={focusParticipant}
           onAdd={() => setShowPicker(true)}
           onCommand={sendMessage}
+          canRemoveMember={state.director?.canRemoveMember ?? true}
+        />
+        {state.director && (state.isGroupMode || cast.length > 1) && (
+          <DirectorStrip
+            director={state.director}
+            busy={state.isGenerating}
+            onCommand={sendMessage}
+            onAutoPlay={(on) => {
+              api
+                .post('/api/chat/director/autoplay', { on })
+                .then(() => refresh())
+                .catch((e) => reportActionFailure('change auto-chat', e));
+            }}
+          />
+        )}
+        <ExitUndoBar
+          undo={state.exitUndo ?? null}
+          onUndo={() => {
+            api
+              .post('/api/chat/exit-undo')
+              .then(() => refresh())
+              .catch((e) => reportActionFailure('undo that exit', e));
+          }}
         />
 
         <ChatNotices
@@ -342,6 +366,7 @@ export function ChatPage() {
           }}
           apiReady={state.llmReady !== false}
           apiHint={state.llmHint}
+          directing={!!state.director?.directing}
         />
       </div>
 

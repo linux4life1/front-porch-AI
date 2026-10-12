@@ -164,7 +164,7 @@ class ChatToolsFacade {
 
   Future<void> setPassageOfTime(bool v) => _switches.setPassageOfTime(v);
 
-  void setDirectorMode(bool v) => _switches.setDirectorMode(v);
+  Future<void> setDirectorMode(bool v) => _switches.setDirectorMode(v);
 
   Future<void> setWikiBaseUrl(String url) => _switches.setWikiBaseUrl(url);
 

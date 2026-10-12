@@ -621,3 +621,49 @@ test.describe('the Local model card', () => {
     await expect(refused).toHaveCount(0);
   });
 });
+
+test.describe.serial('Director Mode', { tag: SERIAL }, () => {
+  test('step out of a scene to direct it, undo, direct a note, and step back in', async ({ page }) => {
+    // Second Guest's own chat, so the conversion leaves Porch Tester's alone.
+    await openRoute(page, '/');
+    await page.locator('.lib-card', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await page.locator('.conversations-btn').click();
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+
+    const box = page.locator('textarea.composer-input');
+    const strip = page.locator('.director-strip');
+    await box.fill('/join Porch Tester');
+    await box.press('Enter');
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re in the scene');
+
+    // Stepping out turns the 1:1 with a guest into a group, then directs it.
+    await strip.getByRole('button', { name: 'Step out to direct' }).click();
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re directing');
+    await expect(box).toHaveAttribute('placeholder', 'Direct the scene…');
+    const undo = page.locator('.undo-bar');
+    await expect(undo).toContainText('You stepped out to direct');
+    const before = await rows(page).count();
+    await undo.getByRole('button', { name: 'Undo' }).click();
+    await expect(strip).toContainText('You’re in the scene');
+    await expect(rows(page)).toHaveCount(before - 1); // the goodbye is gone
+
+    await strip.getByRole('button', { name: 'Step out to direct' }).click();
+    await waitIdle(page);
+    await box.fill('The porch light flickers out.');
+    await box.press('Enter');
+    await waitIdle(page);
+    const note = page.locator('.bubble.director-note', { hasText: 'The porch light flickers out.' });
+    await expect(note).toContainText('Director');
+    await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
+
+    await strip.getByRole('button', { name: 'Step back in' }).click();
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re in the scene');
+    await expect(box).toHaveAttribute('placeholder', 'Message…');
+  });
+});
