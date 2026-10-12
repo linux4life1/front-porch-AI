@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
@@ -107,7 +109,14 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
               child: OutlinedButton.icon(
                 onPressed: () {
                   Navigator.of(context).pop();
-                  widget.onNewChat();
+                  // The dialog is gone; a failure can only be logged.
+                  unawaited(
+                    widget.onNewChat().catchError((Object e, StackTrace st) {
+                      debugPrint(
+                        '[Manage Chats] Start New Chat failed: $e\n$st',
+                      );
+                    }),
+                  );
                 },
                 icon: const Icon(Icons.add, size: 18),
                 label: const Text('Start New Chat'),

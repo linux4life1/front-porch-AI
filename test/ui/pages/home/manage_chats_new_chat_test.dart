@@ -1,10 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Focused widget test of the extracted Chat History dialog — rows, trash
-// confirm, empty copy. Does not launch the full app.
-
-//
 // Manage Chats always offers Start New Chat — with zero or one saved chat
 // too, not only when the list is long. Tapping it closes the dialog first,
 // then hands off to the caller's new-chat flow.

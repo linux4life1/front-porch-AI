@@ -307,6 +307,48 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
   }
 });
 
+// Library card → Manage Chats → Start new chat → persona → a fresh chat,
+// on a character made for this test (so Porch Tester's chats stay as the
+// conversation journeys left them). Start new chat is offered even though
+// this character has no saved chat yet.
+test('Manage Chats on a library card starts a new chat through the persona step', async ({ page }) => {
+  const name = `Manage Chats ${test.info().project.name}`;
+  const created = await page.request.post('/api/characters/create', {
+    data: { name, firstMessage: '*The screen door creaks.* "Back again?"' },
+  });
+  expect(created.ok(), `create: ${created.status()}`).toBe(true);
+  const id = String(((await created.json()) as { id: string | number }).id);
+  const sessions = async () =>
+    (
+      (await (
+        await page.request.get(`/api/chat/sessions?characterId=${encodeURIComponent(id)}`)
+      ).json()) as { sessions?: unknown[] }
+    ).sessions ?? [];
+  try {
+    await openRoute(page, '/');
+    const card = page.locator('.lib-card', { hasText: name });
+    await card.getByRole('button', { name: 'More actions' }).click();
+    await page.getByRole('menuitem', { name: 'Manage Chats' }).click();
+
+    const manage = page.locator('.chat-history-modal');
+    await expect(manage).toContainText('Manage Chats');
+    await manage.getByRole('button', { name: '+ Start new chat' }).click();
+    await expect(manage).toHaveCount(0);
+
+    const picker = page.locator('.modal', { hasText: `Start a new chat with ${name} as` });
+    await expect(picker).toBeVisible();
+    await picker.locator('.move-row').first().click();
+
+    await expect(page).toHaveURL(/\/chat$/);
+    await waitIdle(page);
+    await expect(rows(page).filter({ hasText: 'Back again?' })).toHaveCount(1);
+    await expect.poll(async () => (await sessions()).length).toBeGreaterThanOrEqual(1);
+  } finally {
+    const gone = await page.request.post(`/api/characters/${id}/delete`);
+    expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+  }
+});
+
 test('the chat model sheet lists models you can tap, and offers providers', async ({ page }) => {
   await openPorchChat(page);
   await page.locator('.model-switch-chip').click();
