@@ -172,6 +172,8 @@ class ReprocessHarness {
   late RecordingLlm llm;
   DebugPrintCallback? _previousPrint;
 
+  bool _disposed = false;
+
   Future<void> boot({bool quiet = true}) async {
     if (quiet) {
       _previousPrint = debugPrint;
@@ -202,6 +204,8 @@ class ReprocessHarness {
   }
 
   Future<void> dispose() async {
+    if (_disposed) return;
+    _disposed = true;
     if (_previousPrint != null) debugPrint = _previousPrint!;
     chat.dispose();
     await drainMicrotasks();

@@ -654,6 +654,9 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     const strip = page.locator('.director-strip');
     await box.fill('/join Porch Tester');
     await box.press('Enter');
+    // The join settles after the send returns; stepping out before it lands
+    // is refused as a busy turn.
+    await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
     await expect(strip).toContainText('You’re in the scene');
 

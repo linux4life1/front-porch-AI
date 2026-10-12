@@ -15,9 +15,12 @@
 // applies a regenerated directed turn; dropping the session key in
 // chat_service_session_state_save.dart loses Director Mode on reload.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/director/director.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import '../../helpers/reprocess_needs_harness.dart';
 
@@ -288,5 +291,39 @@ void main() {
     await h.settleTurn();
     expect(h.chat.guestActivityStatus, startsWith('Use /director'));
     expect(h.chat.guestActivityIsError, isTrue);
+  });
+
+  testWidgets('while directing, a member card keeps its state and marks '
+      'feelings toward the user as held', (tester) async {
+    // The harness's database answers in real time only, so the setup and
+    // the save that directing makes run outside the widget clock.
+    await tester.runAsync(() async {
+      await h.groupWithTwoReplies(aOff: const []);
+      h.chat.setObserverMode(true);
+      await h.settleTurn();
+    });
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: SizedBox(
+              width: 320,
+              child: GroupMemberCard(
+                character: member('Ayla'),
+                chatService: h.chat,
+                avatarColor: AppColors.formMasterAccent,
+                isNextSpeaker: false,
+                isExpanded: true,
+                onTap: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.byTooltip('Held while you direct'), findsOneWidget);
+    expect(find.textContaining('Realism off'), findsNothing);
+    // Dispose here: the binding checks debugPrint is handed back.
+    await tester.runAsync(h.dispose);
   });
 }

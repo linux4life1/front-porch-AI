@@ -107,9 +107,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
   Widget build(BuildContext context) {
     final chat = widget.chatService;
     // Public getters — isGroupRealismActive reads a library-private field
-    // and cannot be faked. Same formula.
-    final isRealism =
-        chat.realismEnabled && chat.isGroupMode && !chat.observerMode;
+    // and cannot be faked. Same formula. Directing keeps it on: Needs and the
+    // cast's feelings run while you direct, and the card marks what is held.
+    final isRealism = chat.realismEnabled && chat.isGroupMode;
 
     // Resolve per-character state (only meaningful when realism is on)
     final emotion = isRealism
