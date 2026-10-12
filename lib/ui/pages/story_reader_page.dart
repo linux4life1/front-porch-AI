@@ -16,33 +16,14 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
-import 'dart:convert';
-import 'dart:io';
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:audioplayers/audioplayers.dart';
 import 'package:front_porch_ai/ui/widgets/custom_page_flip.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/story_narration_service.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
+import 'package:front_porch_ai/ui/pages/story_reader/story_reader.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-
-part 'story_reader_page.bar.dart';
-
-part 'story_reader_page.readalong.dart';
-part 'story_reader_page.actions.dart';
-part 'story_reader_page.toc.dart';
-part 'story_reader_page.pagination.dart';
-part 'story_reader_page.pages.dart';
-part 'story_reader_page.scroll.dart';
-
-/// The leather cover's drop shadow: a physical prop, black in every theme.
-const _coverShadow = Color(0x99000000); // theme-keep: book prop
 
 /// A book-like reader for completed Porch Stories with paper aesthetic
 /// and page-by-page navigation, or a continuous scroll with chapter
@@ -70,7 +51,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   final _flipKey = GlobalKey<CustomPageFlipState>();
   final _scaffoldKey = GlobalKey<ScaffoldState>();
   int _currentPage = 0;
-  List<_BookPage>? _pages; // Null when not yet calculated
+  List<BookPage>? _pages; // Null when not yet calculated
   BoxConstraints? _lastConstraints;
   bool _isFirstLoad = true;
   bool _lastIsTwoPageSpread = false;
@@ -80,27 +61,13 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   bool _isAudioPlaying = true;
   bool _isAudioMuted = true; // explicitly muted by default per user request
 
-  bool _isReadingAlong = false;
-  int _bufferedPageCount = 0;
+  final _readAlong = StoryReadAlong();
 
-  // Read-along audio player (separate from ambient). Relocated here from its
-  // former mid-file position — the read-along playback logic now lives in an
-  // `extension` in story_reader_page.readalong.dart, and extensions cannot
-  // hold fields, so every field the extracted methods touch must live on the
-  // State itself.
-  AudioPlayer? _readAlongPlayer;
-
-  // Scene regeneration flag — relocated here for the same reason;
-  // _regenCurrentScene now lives in the extension in
-  // story_reader_page.actions.dart.
-
-  // Scroll mode (story_reader_page.scroll.dart).
-  final ScrollController _scrollController = ScrollController();
-  final List<GlobalKey> _chapterKeys = [];
+  // Scroll mode.
+  final _scroll = StoryScrollTracker();
   int _scrollChapter = 0;
   bool _hudHidden = false;
   bool _scrollRestored = false;
-  Timer? _scrollSaveTimer;
 
   @override
   void initState() {
@@ -145,7 +112,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
   @override
   void dispose() {
-    _isReadingAlong = false;
+    _readAlong.isReading = false;
     // ensure TTS stops on exit
     WidgetsBinding.instance.addPostFrameCallback((_) {
       try {
@@ -154,17 +121,228 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     });
     _ambientPlayer.dispose();
     _sfxPlayer.dispose();
-    _readAlongPlayer?.dispose();
-    _scrollSaveTimer?.cancel();
-    _scrollController.dispose();
+    _readAlong.dispose();
+    _scroll.dispose();
     super.dispose();
   }
 
-  /// Re-exposes the protected [setState] for the `part of` extensions
-  /// (`story_reader_page.*.dart`), which hold read-along playback, scene
-  /// regeneration, and the TOC drawer but can't call a State's protected
-  /// members directly.
-  void rebuildState(VoidCallback fn) => setState(fn);
+  StoryRepository get _repo =>
+      Provider.of<StoryRepository>(context, listen: false);
+
+  void _buildPages(BoxConstraints constraints, bool isTwoPageSpread) {
+    if (_pages != null && _lastConstraints == constraints) {
+      return; // Already built for this size
+    }
+    _lastConstraints = constraints;
+    _pages = paginateStory(
+      project: _repo.getById(widget.projectId),
+      constraints: constraints,
+      isTwoPageSpread: isTwoPageSpread,
+      viewPadding: MediaQuery.of(context).padding,
+    );
+  }
+
+  int _getFlipPageCount() {
+    if (_pages == null) return 0;
+    return flipPageCountFor(_pages!, MediaQuery.of(context).size.width);
+  }
+
+  /// Get the text content for a given flip-page index.
+  String _getPageText(int flipPage) {
+    if (_pages == null) return '';
+    final isTwoPageSpread = MediaQuery.of(context).size.width > 800;
+    return flipPageText(_pages!, flipPage, isTwoPageSpread);
+  }
+
+  Future<void> _startReadAlong() async {
+    if (_readAlong.isReading || _pages == null) return;
+    final tts = Provider.of<TtsService>(context, listen: false);
+    final storage = Provider.of<StorageService>(context, listen: false);
+    if (!storage.ttsSettings.ttsEnabled) {
+      await showVoiceOffDialog(context);
+      return;
+    }
+    setState(() => _readAlong.isReading = true);
+
+    final project = _repo.getById(widget.projectId);
+    final cast = project?.cast ?? [];
+
+    await _readAlong.run(
+      tts: tts,
+      cast: cast,
+      flipCount: _getFlipPageCount(),
+      currentPage: () => _currentPage,
+      pageText: _getPageText,
+      advancePage: () {
+        // In scroll mode there is no flip widget to advance the page.
+        if (_flipKey.currentState != null) {
+          _flipKey.currentState!.nextPage();
+        } else {
+          setState(() => _currentPage++);
+        }
+      },
+      isMounted: () => mounted,
+      update: setState,
+    );
+  }
+
+  void _stopReadAlong() {
+    _readAlong.stop();
+    Provider.of<TtsService>(context, listen: false).stop();
+    setState(() {});
+  }
+
+  Future<void> _exportStory() async {
+    final project = _repo.getById(widget.projectId);
+    if (project == null) return;
+    await exportStoryText(context, project);
+  }
+
+  Future<void> _setReaderMode(StoryProject project, String mode) async {
+    project.readerMode = mode;
+    await _repo.saveProject(project);
+    setState(() => _hudHidden = false);
+  }
+
+  void _saveScroll(StoryProject project) {
+    final recorded = _scroll.recordProgress(project, () {
+      if (!mounted) return;
+      _repo.saveProject(project);
+    });
+    if (!recorded) return;
+    _updateVisibleChapter();
+  }
+
+  void _updateVisibleChapter() {
+    final visible = _scroll.visibleChapter();
+    if (visible != _scrollChapter) setState(() => _scrollChapter = visible);
+  }
+
+  /// Read aloud from the visible chapter: point the page-based read-along
+  /// at that chapter's first page and let it run.
+  void _readAloudVisibleChapter(StoryProject project) {
+    if (_readAlong.isReading) {
+      _stopReadAlong();
+      return;
+    }
+    final chapters = storyChapters(project);
+    if (_pages == null || chapters.isEmpty) return;
+    final ref = chapters[_scrollChapter.clamp(0, chapters.length - 1)];
+    final pageIdx = _pages!.indexWhere(
+      (p) => p.actIndex == ref.act && p.sceneIndex == ref.index,
+    );
+    if (pageIdx == -1) return;
+    final isTwoPageSpread = MediaQuery.of(context).size.width > 800;
+    setState(() => _currentPage = isTwoPageSpread ? pageIdx ~/ 2 : pageIdx);
+    _startReadAlong();
+  }
+
+  void _onTocSelect(int pageIndex, int flipPage) {
+    Navigator.pop(context); // Close drawer
+    // Scroll mode has no flip widget: jump to the page's chapter.
+    if (_flipKey.currentState == null) {
+      final page = _pages![pageIndex.clamp(0, _pages!.length - 1)];
+      final act = page.actIndex;
+      final scene = page.sceneIndex;
+      if (act != null && scene != null) {
+        final project = _repo.getById(widget.projectId);
+        if (project != null) {
+          final chapters = storyChapters(project);
+          final i = chapters.indexWhere(
+            (c) => c.act == act && c.index == scene,
+          );
+          if (i >= 0) _scroll.jumpToChapter(i);
+        }
+      }
+      return;
+    }
+    setState(() => _currentPage = flipPage);
+    _flipKey.currentState?.goToPage(flipPage);
+  }
+
+  void _onPageFlipped(int pageNumber, bool isTwoPageSpread) {
+    setState(() {
+      _currentPage = pageNumber;
+    });
+
+    // Save reading progress seamlessly
+    final repo = _repo;
+    final project = repo.getById(widget.projectId);
+    if (project != null) {
+      project.lastReadPageIndex = isTwoPageSpread ? pageNumber * 2 : pageNumber;
+      repo.saveProject(project);
+    }
+  }
+
+  Widget _tocDrawer(StoryProject? project, bool isTwoPageSpread) =>
+      StoryTocDrawer(
+        project: project,
+        pages: _pages,
+        isTwoPageSpread: isTwoPageSpread,
+        currentPage: _currentPage,
+        onSelect: _onTocSelect,
+      );
+
+  PreferredSizeWidget _studioBar(StoryProject project, String where) =>
+      StoryReaderBar(
+        project: project,
+        where: where,
+        embedded: widget.embedded,
+        onToggleSidebar: widget.onToggleSidebar,
+        onReaderModeSelected: (m) => _setReaderMode(project, m),
+        onOpenContents: () => _scaffoldKey.currentState?.openEndDrawer(),
+        isAudioMuted: _isAudioMuted,
+        onToggleAudio: _toggleAudio,
+        onExport: _exportStory,
+        isReadingAlong: _readAlong.isReading,
+        bufferedPageCount: _readAlong.bufferedPageCount,
+        onReadAloud: project.readerMode == 'scroll'
+            ? () => _readAloudVisibleChapter(project)
+            : _startReadAlong,
+        onStopReadAlong: _stopReadAlong,
+      );
+
+  Widget _buildScrollMode(StoryProject project) {
+    final chapters = storyChapters(project);
+    _scroll.syncChapterCount(chapters.length);
+    if (!_scrollRestored) {
+      _scrollRestored = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final controller = _scroll.controller;
+        if (!mounted || !controller.hasClients) return;
+        final max = controller.position.maxScrollExtent;
+        controller.jumpTo(project.readerScroll * max);
+        _updateVisibleChapter();
+      });
+    }
+    final chapter = chapters.isEmpty
+        ? null
+        : chapters[_scrollChapter.clamp(0, chapters.length - 1)];
+    final percent = _scroll.percent;
+
+    return Scaffold(
+      key: _scaffoldKey,
+      endDrawer: _tocDrawer(project, MediaQuery.of(context).size.width > 800),
+      backgroundColor: StudioColors.bgOf(context),
+      appBar: _hudHidden
+          ? null
+          : _studioBar(
+              project,
+              chapter == null ? '' : 'Ch. ${_scrollChapter + 1} · $percent%',
+            ),
+      body: StoryScrollBody(
+        project: project,
+        chapters: chapters,
+        controller: _scroll.controller,
+        chapterKeys: _scroll.chapterKeys,
+        scrollChapter: _scrollChapter,
+        hudHidden: _hudHidden,
+        onToggleHud: () => setState(() => _hudHidden = !_hudHidden),
+        onScrolled: () => _saveScroll(project),
+        onJumpToChapter: _scroll.jumpToChapter,
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -179,10 +357,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         // For simplicity, we trigger build right here
         _buildPages(constraints, isTwoPageSpread);
 
-        final scrollProject = Provider.of<StoryRepository>(
-          context,
-          listen: false,
-        ).getById(widget.projectId);
+        final scrollProject = _repo.getById(widget.projectId);
         if (scrollProject != null && scrollProject.readerMode == 'scroll') {
           return _buildScrollMode(scrollProject);
         }
@@ -191,8 +366,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
 
         // Handle initial load and window resizing (layout change) seamlessly
         if (_isFirstLoad) {
-          final repo = Provider.of<StoryRepository>(context, listen: false);
-          final project = repo.getById(widget.projectId);
+          final project = _repo.getById(widget.projectId);
           if (project != null) {
             _currentPage = isTwoPageSpread
                 ? project.lastReadPageIndex ~/ 2
@@ -215,216 +389,29 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
           _lastIsTwoPageSpread = isTwoPageSpread;
         }
 
-        // Rebuild the list of flip pages so it's fresh for current screen width
-        final List<Widget> flipPages = [];
-        for (int i = 0; i < flipCount; i++) {
-          if (isTwoPageSpread) {
-            final leftIndex = i * 2;
-            final rightIndex = leftIndex + 1;
-            flipPages.add(
-              _buildSpreadView(
-                leftPage: leftIndex < _pages!.length
-                    ? _pages![leftIndex]
-                    : null,
-                rightPage: rightIndex < _pages!.length
-                    ? _pages![rightIndex]
-                    : null,
-              ),
-            );
-          } else {
-            flipPages.add(_buildSinglePageContainer(_pages![i]));
-          }
-        }
-
         // Determine current logical page to match old UI indexing roughly
         final logicalPageLabel = isTwoPageSpread
             ? '${(_currentPage * 2) + 1}-${((_currentPage * 2) + 2).clamp(1, _pages!.length)}'
             : '${_currentPage + 1}';
 
-        return Scaffold(
-          key: _scaffoldKey,
-          backgroundColor: StudioColors.bgOf(context),
-          endDrawer: _buildTocDrawer(isTwoPageSpread),
+        return BookReaderView(
+          scaffoldKey: _scaffoldKey,
+          flipKey: _flipKey,
+          endDrawer: _tocDrawer(scrollProject, isTwoPageSpread),
           appBar: scrollProject == null
               ? null
               : _studioBar(
                   scrollProject,
                   'Page $logicalPageLabel of ${_pages!.length}',
                 ),
-          body: Stack(
-            children: [
-              // Background Book Cover Context
-              Positioned.fill(
-                child: Container(
-                  color: StudioColors.sideOf(context),
-                  child: Center(
-                    // Leather backing
-                    child: Container(
-                      constraints: BoxConstraints(
-                        maxWidth: isTwoPageSpread ? 1200 : 600,
-                      ),
-                      margin: const EdgeInsets.symmetric(
-                        vertical: 24,
-                        horizontal: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        // Dark leather binding color — theme-keep: book prop
-                        // (the reader is a book prop; its cover stays leather
-                        // brown in every app theme, light or dark).
-                        color: const Color(0xFF4A2F1D), // theme-keep: book prop
-                        borderRadius: BorderRadius.circular(8),
-                        boxShadow: [
-                          BoxShadow(
-                            // theme-keep: book prop (a physical drop shadow
-                            // stays black regardless of app theme).
-                            color: _coverShadow,
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // 3D Page Flip Widget
-              SafeArea(
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isTwoPageSpread ? 1160 : 580,
-                    ),
-                    margin: const EdgeInsets.symmetric(
-                      vertical: 32,
-                      horizontal: 24,
-                    ),
-                    child: CustomPageFlip(
-                      key: _flipKey,
-                      initialPage: _currentPage,
-                      pages: flipPages,
-                      backCover: _buildEndCover(isTwoPageSpread),
-                      onPageFlipped: (pageNumber) {
-                        setState(() {
-                          _currentPage = pageNumber;
-                        });
-
-                        // Save reading progress seamlessly
-                        final repo = Provider.of<StoryRepository>(
-                          context,
-                          listen: false,
-                        );
-                        final project = repo.getById(widget.projectId);
-                        if (project != null) {
-                          project.lastReadPageIndex = isTwoPageSpread
-                              ? pageNumber * 2
-                              : pageNumber;
-                          repo.saveProject(project);
-                        }
-                      },
-                      onFlipStart: _playPageTurn,
-                    ),
-                  ),
-                ),
-              ),
-
-              // Reading progress bar
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 56,
-                child: Center(
-                  child: Container(
-                    constraints: BoxConstraints(
-                      maxWidth: isTwoPageSpread ? 1160 : 580,
-                    ),
-                    margin: const EdgeInsets.symmetric(horizontal: 40),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(2),
-                      child: LinearProgressIndicator(
-                        value: flipCount > 1
-                            ? _currentPage / (flipCount - 1)
-                            : 1.0,
-                        backgroundColor: StudioColors.raiseOf(
-                          context,
-                        ).withValues(alpha: 0.3),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          StudioColors.amberOf(context).withValues(alpha: 0.5),
-                        ),
-                        minHeight: 3,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-
-              // Bottom page indicator with navigation buttons
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 16,
-                child: Center(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: StudioColors.sideOf(
-                        context,
-                      ).withValues(alpha: 0.8),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        InkWell(
-                          onTap: () => _flipKey.currentState?.previousPage(),
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            child: Icon(
-                              Icons.chevron_left,
-                              color: StudioColors.inkOf(context),
-                              size: 28,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Text(
-                          'Page $logicalPageLabel / ${_pages!.length}',
-                          style: TextStyle(
-                            color: StudioColors.inkOf(context),
-                            fontFamily: 'Georgia',
-                            fontSize: 13,
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        InkWell(
-                          onTap: () => _flipKey.currentState?.nextPage(),
-                          borderRadius: BorderRadius.circular(16),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 4,
-                            ),
-                            child: Icon(
-                              Icons.chevron_right,
-                              color: StudioColors.inkOf(context),
-                              size: 28,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          pages: _pages!,
+          isTwoPageSpread: isTwoPageSpread,
+          flipCount: flipCount,
+          currentPage: _currentPage,
+          pageLabel: logicalPageLabel,
+          onPageFlipped: (pageNumber) =>
+              _onPageFlipped(pageNumber, isTwoPageSpread),
+          onFlipStart: _playPageTurn,
         );
       },
     );

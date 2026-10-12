@@ -21,15 +21,13 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/story/story.dart';
-import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
+import 'package:front_porch_ai/ui/pages/story_home/story_home.dart';
 import 'package:front_porch_ai/ui/pages/story_setup_page.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
-part 'story_home_view.cards.dart';
+export 'package:front_porch_ai/ui/pages/story_home/story_home.dart';
 
 /// The stories shelf (sketch H): every story as a book, "New story" and
 /// "From a chat" as the only ways in. The web twin is StoriesPage.tsx.

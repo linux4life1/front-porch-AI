@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/ui/story_studio/lore/lore.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
@@ -32,8 +33,6 @@ import 'package:front_porch_ai/ui/story_studio/studio_widgets.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-part 'lore_section.facts.dart';
 
 /// Lore & continuity (sketch T): the facts the story must keep straight,
 /// the lore (bible + dropped-in files), and the story so far.
@@ -54,8 +53,6 @@ class _LoreSectionState extends State<LoreSection> {
 
   Future<void> _save() =>
       Provider.of<StoryRepository>(context, listen: false).saveProject(p);
-
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   int get _fileCount => {
     for (final l in p.lore)
@@ -112,7 +109,12 @@ class _LoreSectionState extends State<LoreSection> {
         switch (_tab) {
           'lore' => _loreTab(),
           'sofar' => _soFarTab(),
-          _ => _continuityTab(),
+          _ => StoryContinuityLedger(
+            project: p,
+            onEdit: _editFact,
+            onRetire: _retireFact,
+            onForget: _forgetFact,
+          ),
         },
       ],
     );
@@ -236,6 +238,54 @@ class _LoreSectionState extends State<LoreSection> {
       );
     }
     return Column(children: blocks);
+  }
+
+  Future<void> _editFact(ContinuityFact? f) async {
+    final input = await showContinuityFactDialog(context, f);
+    if (input == null || !mounted) return;
+    if (f == null) {
+      StoryContinuity.record(
+        p,
+        ContinuityFact(
+          category: input.category,
+          key: input.key,
+          value: input.value,
+          entity: input.entity,
+        ),
+      );
+    } else {
+      f
+        ..category = input.category
+        ..key = input.key
+        ..value = input.value
+        ..entity = input.entity;
+    }
+    await _save();
+    setState(() {});
+  }
+
+  Future<void> _retireFact(ContinuityFact f) async {
+    final picked = await showRetireFactScenePicker(context, p, f);
+    if (picked == null || !mounted) return;
+    f.retiredSceneId = picked;
+    await _save();
+    setState(() {});
+  }
+
+  Future<void> _forgetFact(ContinuityFact f) async {
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Forget “${f.key}”?',
+      body:
+          'The writer stops being told this. Scenes already written keep '
+          'their text.',
+      confirmLabel: 'Forget',
+      destructive: true,
+    );
+    if (!ok || !mounted) return;
+    p.continuity.remove(f);
+    await _save();
+    setState(() {});
   }
 
   Future<void> _addFile() async {

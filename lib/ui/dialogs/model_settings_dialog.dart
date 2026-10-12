@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:io';
-import 'package:path/path.dart' as path_lib;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -29,24 +28,9 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/backend.dart';
+import 'package:front_porch_ai/ui/dialogs/model_settings/model_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-
-// The local-backend actions/settings, remote-settings, and model-picker
-// builders live in these `part of` files (extensions on
-// _ModelSettingsDialogState) to keep every file under the 500-LOC cap — same
-// pattern settings_page.dart uses. They share this library's imports and
-// access the dialog's private state directly, so behavior is unchanged.
-part 'model_settings_dialog.local_actions.dart';
-part 'model_settings_dialog.remote.dart';
-part 'model_settings_dialog.picker.dart';
-part 'model_settings_dialog.local.dart';
-
-/// Fixed oMLX localhost endpoint, shared by the "Test Connection" probe
-/// (model_settings_dialog.remote.dart) and the model picker's fetch
-/// (model_settings_dialog.picker.dart) — both force this URL when the oMLX
-/// backend is active instead of whatever is in the API URL field.
-const _omlxLocalhostUrl = 'http://localhost:8000/v1';
 
 class ModelSettingsDialog extends StatefulWidget {
   const ModelSettingsDialog({super.key});
@@ -105,18 +89,106 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     });
   }
 
-  /// Check whether a .kcpps preset is currently active.
-  bool _isPresetActive(BuildContext ctx) {
-    final storage = Provider.of<StorageService>(ctx, listen: false);
-    return storage.backendSettings.activeKcppsPath != null &&
-        storage.backendSettings.activeKcppsPath!.isNotEmpty;
+  /// The user chose [path] as the preset, from the list or with Browse, or
+  /// none when it is null. It is kept for the model it loads
+  /// ([chooseKoboldPreset]). A running engine is left alone: the start button
+  /// below applies it.
+  Future<void> _choosePreset(String? path) async {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    await chooseKoboldPreset(storage, path);
+    if (!mounted) return;
+    // A preset that names its model on this computer owns the choice.
+    if (path != null &&
+        storage.backendSettings.kcppsHasModel &&
+        _kcppsModelExists.of(storage.backendSettings.kcppsModelPath)) {
+      setState(() {
+        _selectedModelPath = null;
+      });
+    }
   }
 
-  /// Re-exposes the protected [setState] for the `part of` extensions
-  /// (`model_settings_dialog.*.dart`), which hold the local-backend actions,
-  /// remote settings, and model picker but can't call a State's protected
-  /// members directly.
-  void rebuildState(VoidCallback fn) => setState(fn);
+  Future<void> _browsePicked(String path) async {
+    await _choosePreset(path);
+    if (mounted) _scanLocalPresets();
+  }
+
+  Future<void> _restartBackend() =>
+      restartKoboldBackend(context, pickedModel: () => _selectedModelPath);
+
+  void _saveRemoteSettings({bool snackbar = false}) {
+    final storage = Provider.of<StorageService>(context, listen: false);
+    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
+    saveRemoteApiSettings(
+      storage,
+      activeBackend: llmProvider.activeBackend,
+      apiUrl: _apiUrlController.text,
+      apiKey: _apiKeyController.text,
+      modelName: _modelNameController.text,
+    );
+    if (snackbar) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('API settings saved.')));
+    }
+  }
+
+  String _probeKeyFor(String apiUrl) => remoteProbeKey(
+    Provider.of<StorageService>(context, listen: false),
+    typedKey: _apiKeyController.text,
+    apiUrl: apiUrl,
+  );
+
+  Future<void> _testConnection() async {
+    setState(() {
+      _isTesting = true;
+      _connectionStatus = null;
+    });
+    _saveRemoteSettings();
+    final openRouter = Provider.of<OpenRouterService>(context, listen: false);
+    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
+    // Force oMLX localhost URL when oMLX backend is active (ignores whatever is in the URL field)
+    final apiUrl = remoteProbeUrl(
+      llmProvider.activeBackend,
+      _apiUrlController.text,
+    );
+    // Override form — NEVER configure() the live service just to probe
+    // (that silently re-routes active chat traffic; see the service's own
+    // fetchAvailableModels doc note).
+    final result = await openRouter.testConnection(
+      apiUrl: apiUrl,
+      apiKey: _probeKeyFor(apiUrl),
+    );
+    if (mounted) {
+      setState(() {
+        _isTesting = false;
+        _connectionStatus = result;
+      });
+    }
+  }
+
+  Future<void> _showModelPicker() async {
+    // Resolve the target from the backend selected AT TAP TIME — after an
+    // oMLX ↔ Remote toggle the picker must ask the NEWLY selected provider
+    // (maintainer bug: it choked asking the remote provider with the stale
+    // pre-toggle configuration).
+    final llmProvider = Provider.of<LLMProvider>(context, listen: false);
+    final apiUrl = remoteProbeUrl(
+      llmProvider.activeBackend,
+      _apiUrlController.text,
+    );
+    final selected = await pickRemoteModel(
+      context,
+      apiUrl: apiUrl,
+      apiKey: _probeKeyFor(apiUrl),
+      currentModel: _modelNameController.text,
+    );
+    if (selected != null && mounted) {
+      setState(() {
+        _modelNameController.text = selected;
+      });
+      _saveRemoteSettings();
+    }
+  }
 
   @override
   void dispose() {
@@ -204,10 +276,8 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     backend == BackendType.kobold
-                        ? _buildLocalSettings()
-                        : _buildRemoteSettings(
-                            isOmLx: backend == BackendType.omlx,
-                          ),
+                        ? _localSettings()
+                        : _remoteSettings(isOmLx: backend == BackendType.omlx),
                     // Same widget + prefs as Settings → Backend (H0: under
                     // the chat stack, not a twin host/key row above the key).
                     WorkerBackendSection(
@@ -224,31 +294,85 @@ class _ModelSettingsDialogState extends State<ModelSettingsDialog> {
     );
   }
 
-  Widget _buildTextField({
-    required String label,
-    required TextEditingController controller,
-    bool isNumber = false,
-    bool isObscured = false,
-    VoidCallback? onEditingComplete,
-    ValueChanged<String>? onChanged,
-  }) {
-    return TextField(
-      controller: controller,
-      keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-      obscureText: isObscured,
-      onEditingComplete: onEditingComplete,
-      onChanged: onChanged,
-      style: TextStyle(color: AppColors.textPrimary(context)),
-      decoration: InputDecoration(
-        labelText: label,
-        labelStyle: TextStyle(color: AppColors.textSecondary(context)),
-        filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide.none,
-        ),
-      ),
+  Widget _localSettings() {
+    final storage = Provider.of<StorageService>(context);
+    final modelManager = Provider.of<ModelManager>(context);
+    final hardwareService = Provider.of<HardwareService>(context);
+    final koboldService = Provider.of<KoboldService>(context);
+    // Start on the last-used model when the scan has it, else nothing chosen.
+    // Skip when a kcpps preset with a valid model is active (use "Managed by kcpps").
+    // Gate the exists memo on kcppsHasModel — same short-circuit the old
+    // `kcppsHasModel && kcppsModelFileExists` used — so a rebuild without a
+    // preset never reads kcppsModelPath or stats a file.
+    final kcppsModelExists =
+        storage.backendSettings.kcppsHasModel &&
+        _kcppsModelExists.of(storage.backendSettings.kcppsModelPath);
+    if (_selectedModelPath == null &&
+        modelManager.models.isNotEmpty &&
+        !kcppsModelExists) {
+      _selectedModelPath = modelListStart(
+        modelManager.models,
+        storage.backendSettings.lastUsedModelPath,
+      );
+    }
+    // A preset sets its own context, so the box follows the preset that is
+    // active instead of showing what it held when the dialog opened.
+    final activePreset = storage.backendSettings.activeKcppsPath;
+    if (activePreset != _contextPreset) {
+      _contextPreset = activePreset;
+      _contextSizeController.text = storage.backendSettings.contextSize
+          .toString();
+    }
+
+    return LocalBackendSettings(
+      storage: storage,
+      models: modelManager.models,
+      selectedModelPath: _selectedModelPath,
+      showManagedByKcpps:
+          storage.backendSettings.kcppsHasModel && kcppsModelExists,
+      hardware: hardwareService,
+      koboldRunning: koboldService.isRunning,
+      localPresets: _localPresets,
+      gpuLayersController: _gpuLayersController,
+      contextSizeController: _contextSizeController,
+      onModelChanged: (val) {
+        if (val == null) {
+          setState(() {
+            _selectedModelPath = null;
+          });
+        } else {
+          setState(() {
+            _selectedModelPath = val;
+          });
+          selectKoboldModel(storage, val);
+        }
+      },
+      onChoosePreset: _choosePreset,
+      onBrowsePicked: _browsePicked,
+      onRefresh: () => setState(() {}),
+      onRestart: _restartBackend,
+    );
+  }
+
+  Widget _remoteSettings({bool isOmLx = false}) {
+    return RemoteBackendSettings(
+      isOmLx: isOmLx,
+      apiUrlController: _apiUrlController,
+      apiKeyController: _apiKeyController,
+      modelName: _modelNameController.text,
+      showKeyEditor: _showKeyEditor,
+      xaiKeyOpen: _xaiKeyOpen,
+      connectionStatus: _connectionStatus,
+      isTesting: _isTesting,
+      onSave: _saveRemoteSettings,
+      onKeySubmitted: () {
+        _saveRemoteSettings();
+        setState(() => _showKeyEditor = false);
+      },
+      onOpenXaiKey: () => setState(() => _xaiKeyOpen = true),
+      onEditKey: () => setState(() => _showKeyEditor = true),
+      onPickModel: () => _showModelPicker(),
+      onTest: _testConnection,
     );
   }
 }

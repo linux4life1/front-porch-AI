@@ -4,8 +4,8 @@
 // The reader bar (sketch P), one for Book and Scroll: ☰ (folds the studio
 // sidebar), the title, Book | Scroll, where you are, Read aloud, Contents and ⋯
 // (ambient sound, Export text). Under it, the status line: what the narrator is
-// doing, or why it is not (voice off). Web twin of _studioBar in
-// story_reader_page.bar.dart.
+// doing, or why it is not (voice off). Web twin of StoryReaderBar in
+// story_reader/story_reader_bar.dart.
 
 import { Chip, MenuButton, Segmented } from './setup/primitives';
 import { MenuIcon, PlayIcon, StopIcon } from './icons';

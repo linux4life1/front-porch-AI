@@ -3,8 +3,8 @@
 //
 // "Phrases to avoid": always shown, so a first phrase can be added to an empty
 // list. The writer's own phrases stay for the whole story; the engine adds the
-// ones it notices itself repeating. Web twin of _buildBannedCard in
-// story_writer_page.lenses.dart.
+// ones it notices itself repeating. Web twin of StoryBannedPhrasesCard in
+// story_writer/story_banned_phrases_card.dart.
 
 import { Chip } from '../setup/primitives';
 import { PHRASE_CHIPS, phrasesSummary } from './writeShape';

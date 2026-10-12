@@ -3,7 +3,8 @@
 //
 // The studio header (sketch M): ← Stories, the title (tap to rename) with where
 // the story stands, the one Stop while a run is on, Setup, and ⋯ (exports,
-// Rename, Delete). Web twin of _buildHeader in story_dashboard_page.shell.dart.
+// Rename, Delete). Web twin of StudioHeader in
+// story_dashboard/studio_header.dart.
 // Under 760px the buttons drop to their own row under the title.
 
 import { useState } from 'react';

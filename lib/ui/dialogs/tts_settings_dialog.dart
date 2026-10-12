@@ -18,23 +18,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/elevenlabs_tts_engine.dart';
-import 'package:front_porch_ai/ui/dialogs/piper_voice_label.dart';
+import 'package:front_porch_ai/ui/dialogs/tts_settings/tts_settings.dart';
 import 'package:front_porch_ai/ui/dialogs/voice_browser_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-
-// The per-engine settings blocks live in these `part of` files (extensions
-// on _TtsSettingsDialogState) to keep every file under the 500-LOC cap —
-// same pattern chat_service.dart / settings_page.dart use.
-part 'tts_settings_dialog.engine.dart';
-part 'tts_settings_dialog.kokoro.dart';
-part 'tts_settings_dialog.openai.dart';
-part 'tts_settings_dialog.piper.dart';
-part 'tts_settings_dialog.elevenlabs.dart';
-part 'tts_settings_dialog.common.dart';
 
 /// Dialog for configuring TTS settings with multi-engine support.
 class TtsSettingsDialog extends StatefulWidget {
@@ -51,13 +39,6 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
   final _baseUrlController = TextEditingController();
   final _modelController = TextEditingController();
   bool _obscureApiKey = true;
-
-  // Slider drag tracking
-  double? _dragTtsSpeechRate;
-  double? _dragTtsConcurrency;
-  double? _dragElevenlabsStability;
-  double? _dragElevenlabsSimilarity;
-  double? _dragElevenlabsStyle;
 
   @override
   void initState() {
@@ -77,10 +58,6 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
     super.dispose();
   }
 
-  /// Re-exposes the protected [setState] for the `part of` extensions
-  /// (tts_settings_dialog.*.dart) — same bridge settings_page.dart uses.
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   Future<void> _loadInstalledVoices() async {
     final vm = Provider.of<VoiceManager>(context, listen: false);
     final voices = await vm.listInstalledVoices();
@@ -93,6 +70,39 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
       _installedPiperVoices = voices;
       _piperCatalog = catalog;
     });
+  }
+
+  void _toggleObscureApiKey() =>
+      setState(() => _obscureApiKey = !_obscureApiKey);
+
+  Future<void> _browsePiperVoices() async {
+    await showDialog(
+      context: context,
+      builder: (_) => const VoiceBrowserDialog(),
+    );
+    await _loadInstalledVoices();
+
+    // Also refresh TtsService's engine-aware voice cache
+    // (especially important when user added custom Piper voices)
+    final tts = Provider.of<TtsService>(context, listen: false);
+    await tts.refreshAvailableVoices();
+  }
+
+  Future<void> _refreshElevenLabsVoices(TtsService tts) async {
+    final engine = tts.activeEngine;
+    if (engine is ElevenLabsTtsEngine) {
+      final fetched = await engine.fetchVoices();
+      if (mounted) setState(() {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Found ${fetched.length} voices'),
+            backgroundColor: Colors.green, // theme-keep: fetch-result status
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -195,28 +205,68 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                           ),
                         ),
                         const SizedBox(height: 8),
-                        _buildEngineSelector(storage),
+                        TtsEngineSelector(
+                          selectedEngine: engineId,
+                          onSelected: (id) {
+                            storage.ttsSettings.setTtsEngine(id);
+                            // The old voice id belongs to the old engine and
+                            // cannot carry over, so it is cleared. speak()
+                            // then reports "no voice configured" through
+                            // lastError (chat_page surfaces it) instead of
+                            // returning in silence — which is what made a
+                            // post-switch TTS look simply dead.
+                            storage.ttsSettings.setTtsVoiceModel('');
+                          },
+                        ),
 
                         const SizedBox(height: 20),
 
                         // ──── Engine-specific settings ────
                         if (engineId == 'kokoro')
-                          ..._buildKokoroSettings(storage, tts, voices),
+                          KokoroTtsSettings(
+                            settings: storage.ttsSettings,
+                            tts: tts,
+                            voices: voices,
+                          ),
                         if (engineId == 'openai')
-                          ..._buildOpenAiSettings(storage, tts, voices),
+                          OpenAiTtsSettings(
+                            settings: storage.ttsSettings,
+                            voices: voices,
+                            apiKeyController: _apiKeyController,
+                            modelController: _modelController,
+                            baseUrlController: _baseUrlController,
+                            obscureApiKey: _obscureApiKey,
+                            onToggleObscure: _toggleObscureApiKey,
+                          ),
                         if (engineId == 'elevenlabs')
-                          ..._buildElevenLabsSettings(storage, tts, voices),
+                          ElevenLabsTtsSettings(
+                            settings: storage.ttsSettings,
+                            voices: voices,
+                            obscureApiKey: _obscureApiKey,
+                            onToggleObscure: _toggleObscureApiKey,
+                            onRefreshVoices: () =>
+                                _refreshElevenLabsVoices(tts),
+                          ),
                         if (engineId == 'piper')
-                          ..._buildPiperSettings(storage, tts),
+                          PiperTtsSettings(
+                            settings: storage.ttsSettings,
+                            installedVoices: _installedPiperVoices,
+                            catalog: _piperCatalog,
+                            onBrowse: _browsePiperVoices,
+                          ),
 
                         // The open character's own voice beats everything
                         // picked above — say so HERE, where the user is
                         // choosing, instead of leaving them to wonder why
                         // nothing changed (Discord, 2026-07-31).
-                        _buildCharacterOverrideNotice(context, voices),
+                        CharacterVoiceOverrideNotice(voices: voices),
 
                         const SizedBox(height: 20),
-                        ..._buildCommonSettings(storage, tts, engineId),
+                        TtsCommonSettings(
+                          settings: storage.ttsSettings,
+                          tts: tts,
+                          engineId: engineId,
+                        ),
                       ],
                     ),
                   ),

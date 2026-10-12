@@ -19,16 +19,14 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/calendar_today_hold.dart';
 import 'package:provider/provider.dart';
 
-import 'journal_card_editor.dart';
-
-part 'story_calendar_dialog.grid.dart';
-part 'story_calendar_dialog.detail.dart';
+import 'story_calendar/story_calendar.dart';
 
 /// The Story Calendar (docs/design/story-calendar.md §6): a month grid over
 /// the chat's real dates. The current story date glows porch amber, days
@@ -55,10 +53,6 @@ class StoryCalendarDialog extends StatefulWidget {
 
 class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
   ChatService get _chat => widget.chatService;
-
-  /// Class door for the grid/detail part extensions — [setState] is
-  /// @protected and cannot be called from an extension.
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   late DateTime _visibleMonth; // first of the shown month (UTC)
   String? _ownerId;
@@ -106,7 +100,74 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
   DateTime get _startDate => _chat.timeService.startDate;
   DateTime get _currentDate => StoryClock.dateOnly(_chat.timeService.clock);
 
-  int _dayFor(DateTime date) => StoryClock.dayCountFor(date, _startDate);
+  void _shiftMonth(int delta) => setState(
+    () => _visibleMonth = DateTime.utc(
+      _visibleMonth.year,
+      _visibleMonth.month + delta,
+      1,
+    ),
+  );
+
+  void _selectOwner(List<ChatParticipant> owners, String id) {
+    setState(() {
+      _ownerId = id;
+      _ownerName = owners.firstWhere((p) => p.id == id).name;
+      _selectedDay = null;
+      _loading = true;
+    });
+    _load();
+  }
+
+  Future<void> _pickStartDate() async {
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: DateTime(_startDate.year, _startDate.month, _startDate.day),
+      firstDate: DateTime(1),
+      lastDate: DateTime(9999, 12, 31),
+      helpText: 'The story begins on…',
+    );
+    if (picked == null || !mounted) return;
+    await _chat.setStoryStartDate(
+      DateTime.utc(picked.year, picked.month, picked.day),
+    );
+    setState(() {
+      final clock = _chat.timeService.clock;
+      _visibleMonth = DateTime.utc(clock.year, clock.month, 1);
+      _selectedDay = null;
+    });
+  }
+
+  Future<void> _pickCurrentDateTime() async {
+    final clock = _chat.timeService.clock;
+    final pickedDate = await showDatePicker(
+      context: context,
+      initialDate: DateTime(clock.year, clock.month, clock.day),
+      firstDate: DateTime(1),
+      lastDate: DateTime(9999, 12, 31),
+      helpText: 'Current story date',
+    );
+    if (pickedDate == null || !mounted) return;
+    final pickedTime = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: clock.hour, minute: clock.minute),
+      helpText: 'Current story time',
+    );
+    if (!mounted) return;
+    await _chat.setStoryClock(
+      DateTime.utc(
+        pickedDate.year,
+        pickedDate.month,
+        pickedDate.day,
+        pickedTime?.hour ?? clock.hour,
+        pickedTime?.minute ?? clock.minute,
+      ),
+    );
+    setState(() {
+      final c = _chat.timeService.clock;
+      _visibleMonth = DateTime.utc(c.year, c.month, 1);
+      _selectedDay = null;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -176,16 +237,46 @@ class _StoryCalendarDialogState extends State<StoryCalendarDialog> {
               },
             ),
             const SizedBox(height: 10),
-            _monthNav(context),
+            CalendarMonthNav(
+              visibleMonth: _visibleMonth,
+              onPrevious: () => _shiftMonth(-1),
+              onNext: () => _shiftMonth(1),
+            ),
             const SizedBox(height: 6),
-            _grid(context, amber),
+            CalendarMonthGrid(
+              visibleMonth: _visibleMonth,
+              amber: amber,
+              startDate: _startDate,
+              currentDate: _currentDate,
+              memoryDays: _cardsByDay.keys.toSet(),
+              todaySentence: _chat.todaySentence,
+              selectedDay: _selectedDay,
+              onSelectDay: (day) => setState(() => _selectedDay = day),
+            ),
             if (owners.length > 1) ...[
               const SizedBox(height: 6),
-              _ownerPicker(context, owners),
+              CalendarOwnerPicker(
+                owners: owners,
+                ownerId: _ownerId,
+                onChanged: (id) => _selectOwner(owners, id),
+              ),
             ],
-            Flexible(child: _dayDetail(context)),
+            Flexible(
+              child: CalendarDayDetail(
+                loading: _loading,
+                selectedDay: _selectedDay,
+                cardsByDay: _cardsByDay,
+                ownerName: _ownerName,
+                startDate: _startDate,
+              ),
+            ),
             const SizedBox(height: 8),
-            _anchorControls(context, canEdit),
+            CalendarAnchorControls(
+              startDate: _startDate,
+              canEdit: canEdit,
+              onPickStartDate: _pickStartDate,
+              onPickCurrentDateTime: _pickCurrentDateTime,
+            ),
           ],
         ),
       ),

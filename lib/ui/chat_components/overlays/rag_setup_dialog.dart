@@ -16,16 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-part 'rag_setup_dialog.consent.dart';
-part 'rag_setup_dialog.setup.dart';
+import 'rag_setup/rag_setup.dart';
+
+export 'rag_setup/info_row.dart' show InfoRow;
 
 class RagSetupDialog extends StatefulWidget {
   const RagSetupDialog({super.key});
@@ -37,10 +36,6 @@ class RagSetupDialog extends StatefulWidget {
 class RagSetupDialogState extends State<RagSetupDialog> {
   bool _isSettingUp = false;
   bool _isDone = false;
-
-  /// Class door for the consent/setup part extensions — [setState] is
-  /// @protected and cannot be called from an extension.
-  void rebuildState(VoidCallback fn) => setState(fn);
 
   @override
   Widget build(BuildContext context) {
@@ -54,8 +49,17 @@ class RagSetupDialogState extends State<RagSetupDialog> {
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: _isSettingUp
-              ? _buildSetupView(embeddings)
-              : _buildConsentView(),
+              ? RagSetupProgressView(
+                  embeddings: embeddings,
+                  isDone: _isDone,
+                  onRetry: _startSetup,
+                )
+              : RagConsentView(
+                  onStartSetup: () {
+                    setState(() => _isSettingUp = true);
+                    _startSetup();
+                  },
+                ),
         ),
       ),
     );
@@ -72,39 +76,5 @@ class RagSetupDialogState extends State<RagSetupDialog> {
       setState(() => _isDone = true);
     }
     // If not ready, the error state shows via embeddings.setupError.
-  }
-}
-
-/// Small helper widget for the consent dialog info rows.
-class InfoRow extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-  final String text;
-  const InfoRow({
-    super.key,
-    required this.icon,
-    required this.color,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, size: 16, color: color),
-        SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            text,
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 12,
-              height: 1.4,
-            ),
-          ),
-        ),
-      ],
-    );
   }
 }

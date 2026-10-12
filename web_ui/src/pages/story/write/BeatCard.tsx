@@ -4,7 +4,7 @@
 // One beat of the scene (sketch O): its number, type and description, the ⋯
 // menu, the quality chips, the continuity fix with Undo, and the prose. The beat
 // being written streams in place with a cursor and the card turns amber.
-// Web twin of _buildBeatCard in story_writer_page.beats.dart.
+// Web twin of StoryBeatCard in story_writer/story_beat_card.dart.
 
 import type { ContinuityFix, StoryBeat } from '../../../storyTypes';
 import { Chip, MenuButton } from '../setup/primitives';

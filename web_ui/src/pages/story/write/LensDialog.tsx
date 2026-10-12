@@ -4,7 +4,8 @@
 // "Writing lens for this scene": every lens (the built-in ones and the story's
 // own) with its mark, name and when to use it; the scene's current one is
 // raised. "Add your own lens" opens the three-field dialog. Web twin of
-// _changeLens / _addCustomLens in story_writer_page.lenses.dart.
+// _changeLens in story_writer_page.dart and showStoryLensPicker /
+// showStoryCustomLensDialog in story_writer/story_writer_dialogs.dart.
 
 import type { StoryLens } from '../../../storyTypes';
 import { Dialog } from '../setup/primitives';

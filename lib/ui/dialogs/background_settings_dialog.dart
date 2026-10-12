@@ -1,15 +1,54 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/utils/utils.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/dialogs/background_settings/background_settings.dart';
 
-part 'background_settings_dialog.thumbs.dart';
-part 'background_settings_dialog.upload.dart';
+/// (key, label, asset) for each built-in background; a null asset is None.
+const _builtInBackgrounds = <(String, String, String?)>[
+  ('none', 'None', null),
+  ('noir', 'Noir', 'assets/backgrounds/noir.png'),
+  ('fantasy', 'Fantasy', 'assets/backgrounds/fantasy.png'),
+  ('grid', 'Grid', 'assets/backgrounds/grid.png'),
+  ('roman_market', 'Roman Market', 'assets/backgrounds/roman_market.png'),
+  ('enchanted_wood', 'Enchanted Wood', 'assets/backgrounds/enchanted_wood.png'),
+  ('ocean_depth', 'Ocean Depth', 'assets/backgrounds/ocean_depth.png'),
+  ('steampunk_bg', 'Steampunk', 'assets/backgrounds/steampunk_bg.png'),
+  (
+    'cyberpunk_bedroom',
+    'Cyberpunk',
+    'assets/backgrounds/cyberpunk_bedroom.png',
+  ),
+  ('coffee_shop', 'Coffee Shop', 'assets/backgrounds/coffee_shop.png'),
+  ('beach', 'Beach', 'assets/backgrounds/beach.png'),
+  ('futuristic_city', 'Neon City', 'assets/backgrounds/futuristic_city.png'),
+  ('edm_rave', 'EDM Rave', 'assets/backgrounds/edm_rave.png'),
+  ('cozy_library', 'Library', 'assets/backgrounds/cozy_library.png'),
+  ('rainy_japan', 'Rainy Japan', 'assets/backgrounds/rainy_japan.png'),
+  ('space_station', 'Space', 'assets/backgrounds/space_station.png'),
+  ('enchanted_forest', 'Forest', 'assets/backgrounds/enchanted_forest.png'),
+  (
+    'anime_cherry_blossom',
+    'Sakura',
+    'assets/backgrounds/anime_cherry_blossom.png',
+  ),
+  ('anime_rooftop', 'Rooftop', 'assets/backgrounds/anime_rooftop.png'),
+  (
+    'anime_rooftop_sunset',
+    'Sunset',
+    'assets/backgrounds/anime_rooftop_sunset.png',
+  ),
+  ('cherry_blossom', 'Blossom', 'assets/backgrounds/cherry_blossom.png'),
+  ('beach_waves', 'Waves', 'assets/backgrounds/beach_waves.png'),
+  (
+    'waifu_gaming_room',
+    'Waifu Game',
+    'assets/backgrounds/waifu_gaming_room.png',
+  ),
+  ('waifu_beach_bar', 'Waifu Bar', 'assets/backgrounds/waifu_beach_bar.png'),
+  ('waifu_garden', 'Waifu Garden', 'assets/backgrounds/waifu_garden.png'),
+  ('waifu_neon', 'Waifu Neon', 'assets/backgrounds/waifu_neon.png'),
+  ('waifu_beach', 'Waifu Beach', 'assets/backgrounds/waifu_beach.png'),
+];
 
 class BackgroundSettingsDialog extends StatelessWidget {
   const BackgroundSettingsDialog({super.key});
@@ -18,168 +57,35 @@ class BackgroundSettingsDialog extends StatelessWidget {
   Widget build(BuildContext context) {
     final storageService = Provider.of<StorageService>(context);
 
+    Widget thumb(String key, String label, String? assetPath) =>
+        BackgroundThumbnail(
+          label: label,
+          assetPath: assetPath,
+          isSelected: storageService.uiSettings.chatBackground == key,
+          onTap: () => storageService.uiSettings.setChatBackground(key),
+        );
+
     final builtInBackgrounds = [
-      _buildBgThumbnail(storageService, 'none', 'None', null),
-      _buildBgThumbnail(
-        storageService,
-        'noir',
-        'Noir',
-        'assets/backgrounds/noir.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'fantasy',
-        'Fantasy',
-        'assets/backgrounds/fantasy.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'grid',
-        'Grid',
-        'assets/backgrounds/grid.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'roman_market',
-        'Roman Market',
-        'assets/backgrounds/roman_market.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'enchanted_wood',
-        'Enchanted Wood',
-        'assets/backgrounds/enchanted_wood.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'ocean_depth',
-        'Ocean Depth',
-        'assets/backgrounds/ocean_depth.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'steampunk_bg',
-        'Steampunk',
-        'assets/backgrounds/steampunk_bg.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'cyberpunk_bedroom',
-        'Cyberpunk',
-        'assets/backgrounds/cyberpunk_bedroom.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'coffee_shop',
-        'Coffee Shop',
-        'assets/backgrounds/coffee_shop.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'beach',
-        'Beach',
-        'assets/backgrounds/beach.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'futuristic_city',
-        'Neon City',
-        'assets/backgrounds/futuristic_city.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'edm_rave',
-        'EDM Rave',
-        'assets/backgrounds/edm_rave.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'cozy_library',
-        'Library',
-        'assets/backgrounds/cozy_library.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'rainy_japan',
-        'Rainy Japan',
-        'assets/backgrounds/rainy_japan.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'space_station',
-        'Space',
-        'assets/backgrounds/space_station.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'enchanted_forest',
-        'Forest',
-        'assets/backgrounds/enchanted_forest.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'anime_cherry_blossom',
-        'Sakura',
-        'assets/backgrounds/anime_cherry_blossom.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'anime_rooftop',
-        'Rooftop',
-        'assets/backgrounds/anime_rooftop.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'anime_rooftop_sunset',
-        'Sunset',
-        'assets/backgrounds/anime_rooftop_sunset.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'cherry_blossom',
-        'Blossom',
-        'assets/backgrounds/cherry_blossom.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'beach_waves',
-        'Waves',
-        'assets/backgrounds/beach_waves.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'waifu_gaming_room',
-        'Waifu Game',
-        'assets/backgrounds/waifu_gaming_room.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'waifu_beach_bar',
-        'Waifu Bar',
-        'assets/backgrounds/waifu_beach_bar.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'waifu_garden',
-        'Waifu Garden',
-        'assets/backgrounds/waifu_garden.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'waifu_neon',
-        'Waifu Neon',
-        'assets/backgrounds/waifu_neon.png',
-      ),
-      _buildBgThumbnail(
-        storageService,
-        'waifu_beach',
-        'Waifu Beach',
-        'assets/backgrounds/waifu_beach.png',
-      ),
+      for (final (key, label, assetPath) in _builtInBackgrounds)
+        thumb(key, label, assetPath),
     ];
 
     final customBackgrounds = storageService.uiSettings.customBackgrounds
-        .map((entry) => _buildCustomBgThumbnail(storageService, entry, context))
+        .map(
+          (entry) => CustomBackgroundThumbnail(
+            name: entry['name'] ?? 'Custom',
+            filePath: entry['filePath'] ?? '',
+            isSelected: storageService.uiSettings.chatBackground == entry['id'],
+            onTap: () =>
+                storageService.uiSettings.setChatBackground(entry['id']!),
+            onDelete: () => showDeleteBackgroundConfirmation(
+              context,
+              id: entry['id']!,
+              filePath: entry['filePath'] ?? '',
+              name: entry['name'] ?? 'Custom',
+            ),
+          ),
+        )
         .toList();
 
     final allBackgrounds = [...builtInBackgrounds, ...customBackgrounds];
@@ -216,7 +122,7 @@ class BackgroundSettingsDialog extends StatelessWidget {
               child: SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  onPressed: () => _showUploadDialog(context),
+                  onPressed: () => showAddCustomBackgroundDialog(context),
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Custom Background'),
                   style: OutlinedButton.styleFrom(

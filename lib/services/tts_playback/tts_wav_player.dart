@@ -59,7 +59,7 @@ class TtsWavPlayer {
       // caller's loop never returns, its temp WAVs are never cleaned up, and
       // the orphaned subscription fires into the NEXT session. macOS never
       // sees it because that platform plays through afplay above. Same guard
-      // as the read-along player in story_reader_page.readalong.dart.
+      // as the read-along player in story_reader/story_read_along.dart.
       final stopSub = _audioPlayer.onPlayerStateChanged.listen((state) {
         if (state == PlayerState.stopped) finish();
       });
