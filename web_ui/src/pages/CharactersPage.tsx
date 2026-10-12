@@ -35,6 +35,7 @@ import {
   type PickerPersona,
 } from '../components/library/LibraryDialogs';
 import { EnhanceDialog } from '../components/aichargen/EnhanceDialog';
+import { UseAsPersonaDialog } from '../components/library/PersonaConvertDialogs';
 import { EnhanceReviewModal } from '../components/aichargen/EnhanceReviewModal';
 import type { EnhanceProposal, EnhanceSelection } from '../components/aichargen/enhanceForm';
 
@@ -56,6 +57,7 @@ type Dialog =
   | { kind: 'aiEnhance'; char: LibChar }
   | { kind: 'enhanceReview'; char: LibChar; proposal: EnhanceProposal; selection: EnhanceSelection }
   | { kind: 'chatHistory'; subject: string; characterId?: string; groupId?: string }
+  | { kind: 'useAsPersona'; char: LibChar }
   | null;
 
 export function CharactersPage() {
@@ -64,6 +66,7 @@ export function CharactersPage() {
   const { wide } = useLayout();
   const [menu, setMenu] = useState<MenuState | null>(null);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [personaNotice, setPersonaNotice] = useState('');
   const [draggedId, setDraggedId] = useState<string | null>(null);
   // Personas for "Start new chat" step 2. Fetched once when the dialog is
   // first opened (not on page load — most visits never need it).
@@ -113,6 +116,7 @@ export function CharactersPage() {
       onEdit: () => lib.editCharacter(c.id),
       onEnhance: () => setDialog({ kind: 'aiEnhance', char: c }),
       onDuplicate: () => lib.duplicateCharacter(c.id),
+      onUseAsPersona: () => setDialog({ kind: 'useAsPersona', char: c }),
       onExportPng: () => lib.exportPng(c.id),
       onExportJson: () => lib.exportJson(c.id),
       onMove: () => setDialog({ kind: 'move', ids: [c.id] }),
@@ -274,6 +278,11 @@ export function CharactersPage() {
       {porch.notice && (
         <p className="muted small" role="status" data-testid="porch-notice" style={{ whiteSpace: 'pre-line' }}>
           {porch.notice}
+        </p>
+      )}
+      {personaNotice && (
+        <p className="muted small" role="status" data-testid="persona-notice">
+          {personaNotice}
         </p>
       )}
       {lib.error && (
@@ -442,6 +451,14 @@ export function CharactersPage() {
           message={`This will PERMANENTLY delete the folder "${dialog.folder.name}", its subfolders, and EVERY character inside them — cards, images, and chat histories. Group chats inside are kept and move back to the root. There is no undo and no recycle bin.`}
           confirmLabel="Delete everything"
           onConfirm={() => lib.deleteFolderDeep(dialog.folder.id)}
+          onClose={() => setDialog(null)}
+        />
+      )}
+      {dialog?.kind === 'useAsPersona' && (
+        <UseAsPersonaDialog
+          characterId={dialog.char.id}
+          characterName={dialog.char.name}
+          onDone={(name) => setPersonaNotice(`"${name}" is now a persona. Pick it under your personas to play as it.`)}
           onClose={() => setDialog(null)}
         />
       )}

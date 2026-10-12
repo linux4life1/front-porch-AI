@@ -359,6 +359,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                 onDelete: _showDeleteConfirmation,
                 onCreate: () => _startEditing(null),
                 onImport: _importPersona,
+                onMakeCharacter: (persona) =>
+                    makeCharacterFromPersona(context, persona),
               ),
       ),
     );

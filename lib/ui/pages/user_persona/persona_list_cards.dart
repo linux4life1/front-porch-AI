@@ -35,6 +35,7 @@ class PersonaGridCard extends StatelessWidget {
     required this.onEdit,
     required this.onExport,
     required this.onDelete,
+    this.onMakeCharacter,
   });
 
   final UserPersona persona;
@@ -45,6 +46,9 @@ class PersonaGridCard extends StatelessWidget {
 
   /// Receives the card's context (the confirmation dialog anchors there).
   final void Function(BuildContext context, UserPersona persona) onDelete;
+
+  /// "Make a Character" — hidden when null.
+  final ValueChanged<UserPersona>? onMakeCharacter;
 
   @override
   Widget build(BuildContext context) {
@@ -109,6 +113,9 @@ class PersonaGridCard extends StatelessWidget {
                       case 'export':
                         onExport(persona);
                         break;
+                      case 'make_character':
+                        onMakeCharacter?.call(persona);
+                        break;
                       case 'delete':
                         onDelete(context, persona);
                         break;
@@ -155,6 +162,27 @@ class PersonaGridCard extends StatelessWidget {
                         ],
                       ),
                     ),
+                    if (onMakeCharacter != null)
+                      PopupMenuItem(
+                        value: 'make_character',
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.person_add_alt_1,
+                              size: 16,
+                              color: AppColors.porchAmberOf(context),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              'Make a Character',
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: AppColors.textPrimary(context),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
                     if (service.personas.length > 1)
                       PopupMenuItem(
                         value: 'delete',

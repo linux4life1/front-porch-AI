@@ -102,6 +102,13 @@ List<PopupMenuItem<String>> characterCardMenuItems(
       icon: Icons.copy,
       label: 'Duplicate Character',
     ),
+    // SillyTavern's "Convert to Persona": a copy you can play as.
+    homeCardMenuItem(
+      context,
+      value: 'use_as_persona',
+      icon: Icons.switch_account,
+      label: 'Use as Persona',
+    ),
     homeCardMenuItem(
       context,
       value: 'export',

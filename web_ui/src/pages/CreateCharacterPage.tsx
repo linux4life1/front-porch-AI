@@ -8,10 +8,11 @@
 // shared realism_extensions_json helper). Full multi-step on desktop/tablet;
 // the same steps stack compactly on phone.
 
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { StepIndicator } from '../components/StepIndicator';
+import { usePersonaSeed } from '../components/library/PersonaConvertDialogs';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
@@ -59,6 +60,18 @@ export function CreateCharacterPage() {
   const [d, setD] = useState<Draft>(EMPTY);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  // "Make a Character" → Manual: start from a persona.
+  const [params] = useSearchParams();
+  const { seed: personaSeed, error: seedError } = usePersonaSeed(params);
+  useEffect(() => {
+    if (!personaSeed) return;
+    setD((prev) => ({
+      ...prev,
+      name: personaSeed.name,
+      description: personaSeed.description,
+      birthday: personaSeed.birthday,
+    }));
+  }, [personaSeed]);
 
   const set = <K extends keyof Draft>(key: K, value: Draft[K]) => setD({ ...d, [key]: value });
   const patch = (p: Partial<RealismValues>) => setD({ ...d, ...p });
@@ -74,6 +87,7 @@ export function CreateCharacterPage() {
         tags: d.tags.split(',').map((t) => t.trim()).filter(Boolean),
         alternateGreetings: paired.greetings,
         greetingSeeds: paired.seeds,
+        ...(personaSeed?.hasPortrait ? { portraitPersonaId: personaSeed.personaId } : {}),
       });
       // Open the new character so creation is verifiable end-to-end.
       try {
@@ -96,6 +110,13 @@ export function CreateCharacterPage() {
         <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
       </div>
       <StepIndicator steps={STEPS} current={step} onJump={setStep} />
+      {personaSeed && (
+        <p className="muted small" data-testid="persona-seed-note">
+          Starting from the persona "{personaSeed.name}"
+          {personaSeed.hasPortrait ? '; its picture becomes the portrait.' : '.'}
+        </p>
+      )}
+      {seedError && <p className="error">{seedError}</p>}
 
       <div className="wizard-body">
         {step === 0 && (

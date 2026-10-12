@@ -135,6 +135,7 @@ void clearCreatorForm(CreatorState s) {
 
   // Persona
   s.selectedPersonaId = '';
+  s.portraitSourcePath = null;
 
   // Active gen service
   s.activeGenService = null;

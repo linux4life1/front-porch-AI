@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/models.dart';
 
 /// One Data Bank entry row: embedded marker, title, word count, edit and
 /// delete buttons, and a two-line content preview.
@@ -67,7 +68,7 @@ class DataBankEntryTile extends StatelessWidget {
                 ),
               ),
               Text(
-                '${entry.content.split(RegExp(r'\\s+')).length}w',
+                '${countWords(entry.content)}w',
                 style: const TextStyle(fontSize: 9, color: Colors.white24),
               ),
               const SizedBox(width: 4),

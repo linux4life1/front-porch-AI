@@ -46,6 +46,7 @@ class WebServerDeps {
     this.chatFacade,
     this.chatPackageFacade,
     this.porchFacade,
+    this.personaConversionFacade,
     this.chatToolsFacade,
     this.groupFacade,
     this.settingsFacade,
@@ -94,6 +95,10 @@ class WebServerDeps {
   /// `.porch` / `.porchpack` export and import — null until ChatService and
   /// the CharacterRepository are injected. Same code as the desktop library.
   final PorchFacade? porchFacade;
+
+  /// Character ↔ persona conversion — null until the CharacterRepository
+  /// and UserPersonaService are injected.
+  final PersonaConversionFacade? personaConversionFacade;
 
   /// Chat sidebar tools adapter (memory/summary/chaos/NSFW/scene-time/
   /// objectives) — null until a ChatService is injected.

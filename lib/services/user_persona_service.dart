@@ -129,12 +129,16 @@ class UserPersonaService extends ChangeNotifier {
     }
   }
 
-  Future<void> createPersona(
+  /// Adds a persona and returns its id. With [activate] (the default) it
+  /// becomes both the default for new chats and who you are right now; a
+  /// converted character passes false and only joins the list.
+  Future<String> createPersona(
     String title,
     String name,
     String persona,
     String? avatarPath, {
     String birthday = '',
+    bool activate = true,
   }) async {
     final id = newPersonaId();
 
@@ -146,12 +150,12 @@ class UserPersonaService extends ChangeNotifier {
         persona: Value(persona),
         avatarPath: Value(avatarPath),
         birthday: Value(birthday.isEmpty ? null : birthday),
-        isActive: const Value(true),
+        isActive: Value(activate),
       ),
     );
 
     // Deactivate others
-    await _db.setActivePersona(id);
+    if (activate) await _db.setActivePersona(id);
 
     final newPersona = UserPersona(
       id: id,
@@ -164,9 +168,12 @@ class UserPersonaService extends ChangeNotifier {
     _personas.add(newPersona);
     // Creating a persona is deliberate enough to mean both: it becomes the
     // default for new chats and who you are right now.
-    _defaultPersonaId = id;
-    _activePersonaId = id;
+    if (activate) {
+      _defaultPersonaId = id;
+      _activePersonaId = id;
+    }
     notifyListeners();
+    return id;
   }
 
   Future<void> updatePersona(UserPersona updatedPersona) async {

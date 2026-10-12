@@ -36,7 +36,11 @@ import 'package:front_porch_ai/providers/app_state.dart';
 /// Step 6: Portrait & Avatars — the shared AvatarGenerationPanel (phase #12);
 ///         post-save by design, so a failed generation can't lose the writing.
 class CreateCharacterPage extends StatefulWidget {
-  const CreateCharacterPage({super.key});
+  const CreateCharacterPage({super.key, this.seed});
+
+  /// Pre-fills the wizard from a persona ("Make a Character"). A seeded page
+  /// is pushed as a route, so leaving it pops instead of switching tabs.
+  final PersonaCharacterSeed? seed;
 
   @override
   State<CreateCharacterPage> createState() => _CreateCharacterPageState();
@@ -56,6 +60,15 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
   /// The panel is mid-generation — Done is locked so leaving can't silently
   /// drop work the engine is still finishing.
   bool _panelBusy = false;
+
+  bool get _pushed => widget.seed != null;
+
+  @override
+  void initState() {
+    super.initState();
+    final seed = widget.seed;
+    if (seed != null) _draft.applyPersonaSeed(seed);
+  }
 
   @override
   void dispose() {
@@ -121,7 +134,13 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
     // CreateCharacterPage lives as a tab in MainLayout (not pushed as a
     // route), so Navigator.pop() would pop the entire scaffold → black
     // screen. Instead navigate back to the home tab and reset the form.
-    Provider.of<AppState>(context, listen: false).setIndex(0);
+    final appState = Provider.of<AppState>(context, listen: false);
+    if (_pushed) {
+      if (appState.selectedIndex != 0) appState.setIndex(0);
+      Navigator.of(context).pop();
+      return;
+    }
+    appState.setIndex(0);
     setState(() {
       _currentStep = 0;
       _savedCard = null;
@@ -197,8 +216,9 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         backgroundColor: AppColors.surfaceOf(context),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () =>
-              Provider.of<AppState>(context, listen: false).setIndex(0),
+          onPressed: () => _pushed
+              ? Navigator.of(context).pop()
+              : Provider.of<AppState>(context, listen: false).setIndex(0),
         ),
         title: Row(
           children: [

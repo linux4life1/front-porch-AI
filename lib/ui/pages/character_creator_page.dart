@@ -36,7 +36,10 @@ import 'package:front_porch_ai/ui/character_creator/steps/review_step.dart';
 /// Top-bar step dots + labels, [AnimatedSwitcher] for step content,
 /// `_buildNavButtons` at the bottom. No side menus, tab bars, or free-jumping.
 class CharacterCreatorPage extends StatefulWidget {
-  const CharacterCreatorPage({super.key});
+  const CharacterCreatorPage({super.key, this.seed});
+
+  /// "Make a Character" → AI Assist: starts Quick mode from a persona.
+  final PersonaCharacterSeed? seed;
 
   @override
   State<CharacterCreatorPage> createState() => _CharacterCreatorPageState();
@@ -52,7 +55,12 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
   @override
   void initState() {
     super.initState();
-    creatorState.loadSavedState();
+    final seed = widget.seed;
+    if (seed != null) {
+      creatorState.applyPersonaSeed(seed);
+    } else {
+      creatorState.loadSavedState();
+    }
     creatorState.addListener(_onCreatorStateChanged);
 
     // Ensure local models are scanned for the KoboldCpp picker in Setup (was never called before).

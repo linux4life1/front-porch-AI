@@ -44,6 +44,7 @@ Update this file when you add or retire a suite.
 | `persona_folder_test` | Persona form + session; folder create/move/open |
 | `library_organize_test` | Home library: folder tiles follow the sort (made C, B, A → shown A, B, C), the top-level search scope (Top level only / Everywhere), Multi-select → Select all with a search, "N selected (M hidden)", Move to Folder → FolderService membership (#345, #346, #347) |
 | `persona_default_test` | Default persona behaviour |
+| `persona_convert_test` | Library card "Use as Persona" (macros swapped, portrait copied) → persona "Make a Character" Manual (wizard pre-filled, pops back) and AI Assist (creator seeded). Web twin: `web_ui/e2e/persona-convert.spec.ts` |
 | `lorebook_chat_test` | This Chat lore entry → triggers → injection |
 | `lorebook_import_test` | Import path |
 | `worlds_management_test` | New World + Places attach |

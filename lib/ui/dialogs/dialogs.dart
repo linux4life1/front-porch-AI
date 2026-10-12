@@ -35,6 +35,7 @@ export 'lorebook_entry_dialog.dart';
 export 'lorebook_export_picker_dialog.dart';
 export 'message_edit_dialog.dart';
 export 'model_settings_dialog.dart';
+export 'persona_convert_dialogs.dart';
 export 'persona_picker_dialog.dart';
 export 'pocket_item_dialog.dart';
 export 'reprocess_needs_dialog.dart';

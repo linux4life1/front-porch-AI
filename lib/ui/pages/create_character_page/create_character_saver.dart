@@ -25,8 +25,8 @@ import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
 import 'create_character_draft.dart';
 
 /// Persists the manual creator's draft as a new card (always-embedded V2
-/// PNG, placeholder image — the portrait lands in the next step) and adds it
-/// to the repository. Throws on failure; the page owns the snackbars.
+/// PNG; the draft's portrait source, else a placeholder the next step
+/// replaces) and adds it to the repository. Throws on failure; the page owns the snackbars.
 class CreateCharacterSaver {
   const CreateCharacterSaver({required this.repo, required this.storage});
 
@@ -130,7 +130,7 @@ class CreateCharacterSaver {
     final imagePath = p.join(charDir.path, '${safeName}_$epoch.png');
     card.imagePath = imagePath;
     final v2Service = V2CardService();
-    await v2Service.saveCardAsPng(card, imagePath, null);
+    await v2Service.saveCardAsPng(card, imagePath, draft.portraitSourcePath);
     debugPrint(
       '[CreateCharacter] Saved PNG with extensions: '
       'realism=${fpExt.realismEnabled}, bond=${fpExt.shortTermBond}, '

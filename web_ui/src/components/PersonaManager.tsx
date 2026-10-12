@@ -13,6 +13,7 @@
 
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { MakeCharacterDialog } from './library/PersonaConvertDialogs';
 
 interface Persona {
   id: string;
@@ -38,6 +39,7 @@ export function PersonaManager() {
   const [edit, setEdit] = useState<EditState>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [makeFrom, setMakeFrom] = useState<PersonaDetail | null>(null);
 
   const load = () =>
     api.get<{ personas: Persona[] }>('/api/personas').then((r) => setPersonas(r.personas)).catch(() => {});
@@ -62,6 +64,13 @@ export function PersonaManager() {
     try {
       const d = await api.get<PersonaDetail>(`/api/personas/${id}/detail`);
       setEdit({ id: d.id, title: d.title, name: d.name, persona: d.persona, birthday: d.birthday ?? '' });
+    } catch {
+      setError('Could not load persona');
+    }
+  };
+  const beginMakeCharacter = async (id: string) => {
+    try {
+      setMakeFrom(await api.get<PersonaDetail>(`/api/personas/${id}/detail`));
     } catch {
       setError('Could not load persona');
     }
@@ -115,6 +124,14 @@ export function PersonaManager() {
               <button className="icon-btn" title="Edit" onClick={() => beginEdit(p.id)}>✎</button>
               <button
                 className="icon-btn"
+                title="Make a character"
+                aria-label={`Make a character from ${p.label}`}
+                onClick={() => beginMakeCharacter(p.id)}
+              >
+                🧑
+              </button>
+              <button
+                className="icon-btn"
                 title="Delete"
                 disabled={busy || personas.length <= 1}
                 onClick={() => apply(api.post(`/api/personas/${p.id}/delete`))}
@@ -165,6 +182,15 @@ export function PersonaManager() {
             </button>
           </div>
         </div>
+      )}
+
+      {makeFrom && (
+        <MakeCharacterDialog
+          personaId={makeFrom.id}
+          personaName={makeFrom.name}
+          personaText={makeFrom.persona}
+          onClose={() => setMakeFrom(null)}
+        />
       )}
 
       {error && <p className="error">{error}</p>}

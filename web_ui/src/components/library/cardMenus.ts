@@ -16,6 +16,8 @@ export function characterCardMenu(
     onEdit: () => void;
     onEnhance: () => void;
     onDuplicate: () => void;
+    /** "Use as persona" — omitted when the host can't convert. */
+    onUseAsPersona?: () => void;
     onExportPng: () => void;
     onExportJson: () => void;
     onMove: () => void;
@@ -29,6 +31,9 @@ export function characterCardMenu(
     { label: 'Edit', icon: '✏️', onClick: a.onEdit },
     { label: 'AI Enhance', icon: '✨', onClick: a.onEnhance },
     { label: 'Duplicate', icon: '⧉', onClick: a.onDuplicate },
+    ...(a.onUseAsPersona
+      ? [{ label: 'Use as persona', icon: '🎭', onClick: a.onUseAsPersona }]
+      : []),
     { label: 'Export PNG', icon: '🖼', onClick: a.onExportPng },
     { label: 'Export JSON', icon: '📄', onClick: a.onExportJson },
     { label: 'Move to folder…', icon: '📁', onClick: a.onMove },

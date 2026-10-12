@@ -50,10 +50,11 @@ void main() {
       );
       expect(values, isNot(contains('remove_folder')));
 
-      // Full parity with the pre-extraction menu (plus the new entry).
+      // Full parity with the pre-extraction menu (plus the new entries).
       expect(values, [
         'new_chat', 'chat_history', 'edit', 'ai_enhance', 'avatar_gallery',
-        'duplicate', 'export', 'export_json', 'move_folder', 'delete', //
+        'duplicate', 'use_as_persona', 'export', 'export_json', //
+        'move_folder', 'delete',
       ]);
     });
 
