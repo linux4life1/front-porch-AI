@@ -79,7 +79,7 @@ extension _ChatPageInputActions on _ChatPageState {
             children: [
               Icon(Icons.history, size: 20),
               SizedBox(width: 12),
-              Text('Chat History'),
+              Text('Manage Chats'),
             ],
           ),
         ),

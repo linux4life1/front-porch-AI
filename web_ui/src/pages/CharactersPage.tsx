@@ -55,7 +55,7 @@ type Dialog =
   // old-vs-new review once the proposal arrives over the socket.
   | { kind: 'aiEnhance'; char: LibChar }
   | { kind: 'enhanceReview'; char: LibChar; proposal: EnhanceProposal; selection: EnhanceSelection }
-  | { kind: 'chatHistory'; characterId?: string; groupId?: string }
+  | { kind: 'chatHistory'; subject: string; characterId?: string; groupId?: string }
   | null;
 
 export function CharactersPage() {
@@ -109,7 +109,7 @@ export function CharactersPage() {
       inFolder: Boolean(lib.folderId),
       onNewChat: () =>
         setDialog({ kind: 'newChat', subject: c.name, target: { characterId: c.id } }),
-      onHistory: () => setDialog({ kind: 'chatHistory', characterId: c.id }),
+      onHistory: () => setDialog({ kind: 'chatHistory', subject: c.name, characterId: c.id }),
       onEdit: () => lib.editCharacter(c.id),
       onEnhance: () => setDialog({ kind: 'aiEnhance', char: c }),
       onDuplicate: () => lib.duplicateCharacter(c.id),
@@ -133,7 +133,7 @@ export function CharactersPage() {
       inFolder: Boolean(lib.folderId),
       onNewChat: () =>
         setDialog({ kind: 'newChat', subject: g.name, target: { groupId: g.id } }),
-      onHistory: () => setDialog({ kind: 'chatHistory', groupId: g.id }),
+      onHistory: () => setDialog({ kind: 'chatHistory', subject: g.name, groupId: g.id }),
       onExportPng: () => lib.exportGroupPng(g),
       onExtract: () => setDialog({ kind: 'extractGroup', group: g }),
       onMove: () => setDialog({ kind: 'move', ids: [g.id] }),
@@ -522,6 +522,13 @@ export function CharactersPage() {
           characterId={dialog.characterId}
           groupId={dialog.groupId}
           onClose={() => setDialog(null)}
+          onNewChat={() =>
+            setDialog({
+              kind: 'newChat',
+              subject: dialog.subject,
+              target: { characterId: dialog.characterId, groupId: dialog.groupId },
+            })
+          }
         />
       )}
     </div>
