@@ -16,37 +16,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 //
-// Manual creator chrome: step dots, nav buttons, token badge. Extracted
-// so create_character_page.dart stays under the 500-line ratchet after
-// the per-character Pockets & Wardrobe field landed on the shell.
+// Manual creator chrome: step dots, nav buttons, token badge.
 
-part of 'create_character_page.dart';
+import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-extension _CreateCharacterChrome on _CreateCharacterPageState {
-  Widget _buildStepIndicator() {
+/// AppBar step dots for the 7-step manual creator.
+class CreatorStepIndicator extends StatelessWidget {
+  const CreatorStepIndicator({super.key, required this.currentStep});
+
+  final int currentStep;
+
+  @override
+  Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        _stepDot(0, 'Identity'),
-        _stepLine(),
-        _stepDot(1, 'Personality'),
-        _stepLine(),
-        _stepDot(2, 'Dialogue'),
-        _stepLine(),
-        _stepDot(3, 'Lorebook'),
-        _stepLine(),
-        _stepDot(4, 'Porch Life'),
-        _stepLine(),
-        _stepDot(5, 'Review'),
-        _stepLine(),
-        _stepDot(6, 'Portrait & Avatars'),
+        _stepDot(context, 0, 'Identity'),
+        _stepLine(context),
+        _stepDot(context, 1, 'Personality'),
+        _stepLine(context),
+        _stepDot(context, 2, 'Dialogue'),
+        _stepLine(context),
+        _stepDot(context, 3, 'Lorebook'),
+        _stepLine(context),
+        _stepDot(context, 4, 'Porch Life'),
+        _stepLine(context),
+        _stepDot(context, 5, 'Review'),
+        _stepLine(context),
+        _stepDot(context, 6, 'Portrait & Avatars'),
       ],
     );
   }
 
-  Widget _stepDot(int step, String label) {
-    final isActive = _currentStep >= step;
-    final isCurrent = _currentStep == step;
+  Widget _stepDot(BuildContext context, int step, String label) {
+    final isActive = currentStep >= step;
+    final isCurrent = currentStep == step;
 
     final dotColor = isActive
         ? AppColors.porchAmberOf(context)
@@ -94,7 +99,7 @@ extension _CreateCharacterChrome on _CreateCharacterPageState {
     );
   }
 
-  Widget _stepLine() {
+  Widget _stepLine(BuildContext context) {
     return Container(
       width: 24,
       height: 2,
@@ -102,8 +107,16 @@ extension _CreateCharacterChrome on _CreateCharacterPageState {
       color: AppColors.borderOf(context).withValues(alpha: 0.35),
     );
   }
+}
 
-  Widget _buildTokenBadge(int estimatedTokens) {
+/// Floating "~N tokens" estimate badge.
+class CreatorTokenBadge extends StatelessWidget {
+  const CreatorTokenBadge({super.key, required this.estimatedTokens});
+
+  final int estimatedTokens;
+
+  @override
+  Widget build(BuildContext context) {
     final color = estimatedTokens > 4000
         ? Colors.redAccent
         : estimatedTokens > 2000
@@ -140,23 +153,35 @@ extension _CreateCharacterChrome on _CreateCharacterPageState {
       ),
     );
   }
+}
 
-  Widget _buildNavButtons({
-    required int currentStep,
-    String? nextLabel,
-    VoidCallback? onNext,
-    bool showBack = true,
-  }) {
-    final labels = [
-      'Personality',
-      'Dialogue',
-      'Lorebook',
-      'Porch Life',
-      'Review & Create',
-    ];
-    final nextText =
-        nextLabel ??
-        (currentStep < labels.length ? 'Next: ${labels[currentStep]}' : 'Save');
+/// Back / "Next: …" row at the foot of steps 0–4. Step 0 refuses to advance
+/// without a character name.
+class CreatorNavButtons extends StatelessWidget {
+  const CreatorNavButtons({
+    super.key,
+    required this.currentStep,
+    required this.nameController,
+    required this.onGoToStep,
+  });
+
+  final int currentStep;
+  final TextEditingController nameController;
+  final ValueChanged<int> onGoToStep;
+
+  static const _labels = [
+    'Personality',
+    'Dialogue',
+    'Lorebook',
+    'Porch Life',
+    'Review & Create',
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final nextText = currentStep < _labels.length
+        ? 'Next: ${_labels[currentStep]}'
+        : 'Save';
 
     return Padding(
       padding: const EdgeInsets.only(top: 32),
@@ -164,12 +189,11 @@ extension _CreateCharacterChrome on _CreateCharacterPageState {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (showBack && currentStep > 0)
+            if (currentStep > 0)
               SizedBox(
                 height: 52,
                 child: OutlinedButton.icon(
-                  onPressed: () =>
-                      rebuildState(() => _currentStep = currentStep - 1),
+                  onPressed: () => onGoToStep(currentStep - 1),
                   icon: const Icon(Icons.arrow_back, size: 18),
                   label: const Text('Back', style: TextStyle(fontSize: 14)),
                   style: OutlinedButton.styleFrom(
@@ -181,28 +205,26 @@ extension _CreateCharacterChrome on _CreateCharacterPageState {
                   ),
                 ),
               ),
-            if (showBack && currentStep > 0) const SizedBox(width: 16),
+            if (currentStep > 0) const SizedBox(width: 16),
             SizedBox(
               width: 280,
               height: 52,
               child: ElevatedButton.icon(
-                onPressed:
-                    onNext ??
-                    () {
-                      if (currentStep == 0) {
-                        if (_nameController.text.trim().isEmpty) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Character name is required'),
-                              backgroundColor: Colors.redAccent,
-                              behavior: SnackBarBehavior.floating,
-                            ),
-                          );
-                          return;
-                        }
-                      }
-                      rebuildState(() => _currentStep = currentStep + 1);
-                    },
+                onPressed: () {
+                  if (currentStep == 0) {
+                    if (nameController.text.trim().isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('Character name is required'),
+                          backgroundColor: Colors.redAccent,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                      return;
+                    }
+                  }
+                  onGoToStep(currentStep + 1);
+                },
                 icon: const Icon(Icons.arrow_forward, size: 20),
                 label: Text(nextText, style: const TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(

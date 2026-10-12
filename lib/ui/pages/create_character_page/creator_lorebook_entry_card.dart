@@ -15,125 +15,29 @@
 //
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
-//
-// Manual creator: the Lorebook step, its per-entry cards, and the
-// add/edit/delete entry actions.
-// Extracted verbatim from create_character_page.dart (god-file campaign,
-// Tranche A); `part of` the same library, so privates and the mandatory
-// step-indicator wizard flow are unchanged.
 
-part of 'create_character_page.dart';
+import 'package:flutter/material.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
-  Widget _buildLorebookStep() {
-    return Center(
-      key: const ValueKey('lorebook'),
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Lorebook',
-                          style: TextStyle(
-                            fontSize: 28,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary(context),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Add world lore entries that inject context into conversations when keywords are detected.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: AppColors.textSecondary(context),
-                            height: 1.5,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _addLorebookEntry,
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('Add Entry'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.formMasterAccent,
-                      foregroundColor: AppColors.onChaosAccent,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 24),
+/// One lorebook entry row in the Lorebook step: state badge, enable switch,
+/// edit / delete, and its key chips.
+class CreatorLorebookEntryCard extends StatelessWidget {
+  const CreatorLorebookEntryCard({
+    super.key,
+    required this.entry,
+    required this.onEnabledChanged,
+    required this.onEdit,
+    required this.onDelete,
+  });
 
-              if (_lorebookEntries.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(40),
-                  decoration: BoxDecoration(
-                    color: AppColors.cardOf(context),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: AppColors.borderOf(
-                        context,
-                      ).withValues(alpha: 0.45),
-                    ),
-                  ),
-                  child: Center(
-                    child: Column(
-                      children: [
-                        Icon(
-                          Icons.menu_book_outlined,
-                          size: 48,
-                          color: AppColors.hairlineOf(context, 0.15),
-                        ),
-                        const SizedBox(height: 12),
-                        Text(
-                          'No lorebook entries yet',
-                          style: TextStyle(
-                            color: AppColors.textTertiary(context),
-                            fontSize: 15,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Add entries to inject context-aware world lore into conversations.',
-                          style: TextStyle(
-                            color: AppColors.textTertiary(context),
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                )
-              else
-                ..._lorebookEntries.asMap().entries.map((entry) {
-                  final idx = entry.key;
-                  final lore = entry.value;
-                  return _buildLorebookEntryCard(idx, lore);
-                }),
+  final LorebookEntry entry;
+  final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
 
-              _buildNavButtons(currentStep: 3),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  Widget _buildLorebookEntryCard(int index, LorebookEntry entry) {
+  @override
+  Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(12),
@@ -223,12 +127,7 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                     : 'Enable — entry will match on its keys',
                 child: Switch(
                   value: entry.enabled,
-                  onChanged: (val) {
-                    rebuildState(() {
-                      entry.enabled = val;
-                      _updateTokenEstimate();
-                    });
-                  },
+                  onChanged: onEnabledChanged,
                   activeTrackColor: AppColors.formMasterAccent.withValues(
                     alpha: 0.5,
                   ),
@@ -237,7 +136,7 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                 ),
               ),
               IconButton(
-                onPressed: () => _editLorebookEntry(index),
+                onPressed: onEdit,
                 icon: Icon(
                   Icons.edit_outlined,
                   size: 16,
@@ -249,7 +148,7 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
                 padding: const EdgeInsets.all(4),
               ),
               IconButton(
-                onPressed: () => _deleteLorebookEntry(index),
+                onPressed: onDelete,
                 icon: Icon(
                   Icons.delete_outline,
                   size: 16,
@@ -294,40 +193,4 @@ extension _CreateCharacterLorebookStep on _CreateCharacterPageState {
       ),
     );
   }
-
-  Future<void> _addLorebookEntry() async {
-    final result = await showLorebookEntryDialog(context: context);
-    if (result != null) {
-      rebuildState(() {
-        _lorebookEntries.add(result);
-        _updateTokenEstimate();
-      });
-    }
-  }
-
-  Future<void> _editLorebookEntry(int index) async {
-    final entry = _lorebookEntries[index];
-    final result = await showLorebookEntryDialog(
-      context: context,
-      existing: entry,
-      showEnabled: true,
-    );
-    if (result != null) {
-      rebuildState(() {
-        _lorebookEntries[index] = result;
-        _updateTokenEstimate();
-      });
-    }
-  }
-
-  void _deleteLorebookEntry(int index) {
-    rebuildState(() {
-      _lorebookEntries.removeAt(index);
-      _updateTokenEstimate();
-    });
-  }
-
-  // ═══════════════════════════════════════════════════════════════
-  //  STEP 4: REALISM ENGINE
-  // ═══════════════════════════════════════════════════════════════
 }
