@@ -205,7 +205,7 @@ void main() {
           );
           await tester.pump();
         }
-        expect(find.textContaining('could not be read'), findsOneWidget);
+        expect(find.textContaining('saved session is damaged'), findsOneWidget);
         expect(find.byType(WaifuPage), findsNothing);
       },
     );

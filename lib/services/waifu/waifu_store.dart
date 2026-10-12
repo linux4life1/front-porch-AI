@@ -97,9 +97,10 @@ class WaifuSessionUnreadable implements Exception {
   final String path;
   final Object cause;
 
+  /// Shown to the user; [path] and [cause] are logged where it is thrown.
   @override
   String toString() =>
-      'its saved session could not be read (${p.basename(path)}): $cause';
+      'its saved session is damaged. Use Forget this project to start over.';
 }
 
 String _json(Object value) => const JsonEncoder.withIndent('  ').convert(value);
