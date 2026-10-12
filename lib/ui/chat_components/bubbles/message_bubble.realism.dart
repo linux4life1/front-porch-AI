@@ -16,18 +16,42 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'message_bubble.dart';
+import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'message_bubble.realism_chips.dart';
+import 'message_bubble.realism_layout.dart';
 
 /// Parses a message's realism/needs metadata into the chip widgets shown
 /// under the bubble (bond / trust / mood / lust / time-skip / time-reversal /
 /// Chance Time / Director-verifier chips, plus the per-need delta chips),
-/// then hands the two chip lists to `_realismChipLayout`
-/// (`message_bubble.realism_layout.dart`) for final layout. Split at the
-/// one seam in this 639-line method that needs neither hoisting the
-/// `maybeTooltip` closure nor threading a dozen parsed scalars — see the
-/// split map's H3.
-extension _BubbleRealism on _MessageBubbleState {
-  Widget _buildRealismIndicator(Map<String, dynamic> metadata) {
+/// then hands the two chip lists to [MessageRealismChipLayout]
+/// (`message_bubble.realism_layout.dart`) for final layout.
+class MessageRealismIndicator extends StatelessWidget {
+  const MessageRealismIndicator({
+    super.key,
+    required this.metadata,
+    required this.message,
+    required this.index,
+    required this.chatService,
+    required this.onReprocess,
+  });
+
+  /// The shown swipe's metadata.
+  final Map<String, dynamic> metadata;
+  final ChatMessage message;
+  final int index;
+  final ChatService? chatService;
+
+  /// Opens Manual Reprocess for this message.
+  final VoidCallback onReprocess;
+
+  @override
+  Widget build(BuildContext context) {
     // A present key means the relationship judge ran, even when it
     // returned 0. A missing key is an older turn or a skipped judge.
     final bondRecorded = metadata.containsKey('bond_delta');
@@ -427,25 +451,34 @@ extension _BubbleRealism on _MessageBubbleState {
       chips.add(maybeTooltip(chip, trustReason));
     }
 
-    _appendEventAndReceiptChips(
-      chips: chips,
-      maybeTooltip: maybeTooltip,
-      timeReversal: timeReversal,
-      timeSkipTo: timeSkipTo,
-      timePassed: timePassed,
-      searchQuery: searchQuery,
-      searchOk: searchOk,
-      wikiQuery: wikiQuery,
-      wikiOk: wikiOk,
-      toolName: toolName,
-      toolOk: toolOk,
-      chanceTimeEvent: chanceTimeEvent,
-      verifStatus: verifStatus,
-      verifPasses: verifPasses,
-      verifReason: verifReason,
-      pocketReceipts: pocketReceipts,
+    chips.addAll(
+      realismEventAndReceiptChips(
+        context,
+        maybeTooltip: maybeTooltip,
+        timeReversal: timeReversal,
+        timeSkipTo: timeSkipTo,
+        timePassed: timePassed,
+        searchQuery: searchQuery,
+        searchOk: searchOk,
+        wikiQuery: wikiQuery,
+        wikiOk: wikiOk,
+        toolName: toolName,
+        toolOk: toolOk,
+        chanceTimeEvent: chanceTimeEvent,
+        verifStatus: verifStatus,
+        verifPasses: verifPasses,
+        verifReason: verifReason,
+        pocketReceipts: pocketReceipts,
+      ),
     );
 
-    return _realismChipLayout(chips, needsChipList);
+    return MessageRealismChipLayout(
+      chips: chips,
+      needsChips: needsChipList,
+      message: message,
+      index: index,
+      chatService: chatService,
+      onReprocess: onReprocess,
+    );
   }
 }

@@ -24,11 +24,10 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/growth_review_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import '../sidebar_tokens.dart';
 
-part 'growth_panel.card.dart';
-part 'growth_panel.actions.dart';
-part 'growth_panel.editor.dart';
+import '../sidebar_tokens.dart';
+import 'growth_panel.actions.dart';
+import 'growth_panel.card.dart';
 
 /// Growth Rings sidebar panel (docs/design/growth-rings.md; replaced the
 /// Character Evolution panel) — the focused character's growth timeline for
@@ -108,7 +107,8 @@ class GrowthPanel extends StatelessWidget {
                       ),
                       visualDensity: VisualDensity.compact,
                       tooltip: 'Growth settings',
-                      onPressed: () => _showSettings(context, storage),
+                      onPressed: () =>
+                          showGrowthSettingsDialog(context, storage),
                     ),
                   SizedBox(
                     height: 28,
@@ -176,9 +176,19 @@ class GrowthPanel extends StatelessWidget {
                 'emerging',
               ])
                 ..._tierSection(context, tier, active),
-              if (past.isNotEmpty) _pastSection(context, past),
+              if (past.isNotEmpty)
+                GrowthPastSection(
+                  past: past,
+                  chatService: chatService,
+                  onJumpToMessage: onJumpToMessage,
+                ),
               const SizedBox(height: 6),
-              _actionsRow(context, accent),
+              GrowthActionsRow(
+                chatService: chatService,
+                characterId: characterId,
+                characterName: characterName,
+                accent: accent,
+              ),
             ],
           ],
         );
@@ -233,7 +243,11 @@ class GrowthPanel extends StatelessWidget {
       for (final ring in rings)
         Padding(
           padding: const EdgeInsets.only(left: 20, bottom: 6),
-          child: _ringCard(context, ring),
+          child: GrowthRingCard(
+            ring: ring,
+            chatService: chatService,
+            onJumpToMessage: onJumpToMessage,
+          ),
         ),
     ];
   }

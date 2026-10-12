@@ -23,7 +23,7 @@ import 'package:front_porch_ai/services/services.dart';
 /// The Greetings step's own state (#370): which greeting is being written and
 /// what has come in so far, each greeting's steer box, and the outfit hint
 /// the Realism step shows after a new first message. Held by `CreatorState`,
-/// which notifies; the work itself is `CreatorGreetingEngine`.
+/// which notifies; the work itself is `CreatorGreetingWriter`.
 class CreatorGreetings {
   /// The most alternates the creator writes or lets you add.
   static const maxAlternates = kMaxAlternateGreetings;

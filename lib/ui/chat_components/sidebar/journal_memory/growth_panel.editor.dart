@@ -16,16 +16,22 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'growth_panel.dart';
+import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'growth_panel.dart';
 
 /// Compact modal editor for one ring: the sentence + its category.
 /// Returns (text, category) or null on cancel.
-class _RingEditorDialog extends StatefulWidget {
+class GrowthRingEditorDialog extends StatefulWidget {
   final String title;
   final String initialContent;
   final String initialCategory;
 
-  const _RingEditorDialog({
+  const GrowthRingEditorDialog({
+    super.key,
     required this.title,
     this.initialContent = '',
     this.initialCategory = 'trait',
@@ -38,7 +44,7 @@ class _RingEditorDialog extends StatefulWidget {
     String initialCategory = 'trait',
   }) => showDialog<(String, String)>(
     context: context,
-    builder: (_) => _RingEditorDialog(
+    builder: (_) => GrowthRingEditorDialog(
       title: title,
       initialContent: initialContent,
       initialCategory: initialCategory,
@@ -46,10 +52,10 @@ class _RingEditorDialog extends StatefulWidget {
   );
 
   @override
-  State<_RingEditorDialog> createState() => _RingEditorDialogState();
+  State<GrowthRingEditorDialog> createState() => _GrowthRingEditorDialogState();
 }
 
-class _RingEditorDialogState extends State<_RingEditorDialog> {
+class _GrowthRingEditorDialogState extends State<GrowthRingEditorDialog> {
   late final TextEditingController _content = TextEditingController(
     text: widget.initialContent,
   );
@@ -158,9 +164,9 @@ class _RingEditorDialogState extends State<_RingEditorDialog> {
           style: FilledButton.styleFrom(backgroundColor: accent),
           onPressed: _content.text.trim().isEmpty
               ? null
-              : () => Navigator.of(
-                  context,
-                ).pop((_content.text.trim(), _category)),
+              : () =>
+                    Navigator.of(context)
+                        .pop((_content.text.trim(), _category)),
           child: const Text('Save'),
         ),
       ],

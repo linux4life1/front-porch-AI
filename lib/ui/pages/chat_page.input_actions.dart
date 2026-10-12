@@ -18,37 +18,58 @@
 //
 // ChatPage input-bar actions: the chat-management menu and the button strip
 // (image studio, attach photo, impersonate, mic, call, auto-play, send/stop).
-// Extracted verbatim from the input bar's Row children (god-file campaign,
-// Tranche A). The list is spread back into the same position, so the widget
-// tree is unchanged.
+// The strip is a list spread into the bar's Row, so it is a plain builder
+// rather than a widget: its Expanded message box must stay a direct Row child.
 
-part of 'chat_page.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
-extension _ChatPageInputActions on _ChatPageState {
-  /// The folder-icon chat-management popup — verbatim.
-  Widget _buildChatManagementMenu(
-    BuildContext context,
-    ChatService chatService,
-  ) {
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.input.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.session_dialogs.dart';
+import 'package:front_porch_ai/ui/pages/chat_page.regen_shortcut.dart';
+
+/// The folder-icon chat-management popup. Import, export and add-character
+/// are the page's own flows; the rest open from this menu's context.
+class ChatManagementMenu extends StatelessWidget {
+  const ChatManagementMenu({
+    super.key,
+    required this.chatService,
+    required this.onImport,
+    required this.onExport,
+    required this.onConvertToGroup,
+  });
+
+  final ChatService chatService;
+  final VoidCallback onImport;
+  final VoidCallback onExport;
+  final VoidCallback onConvertToGroup;
+
+  @override
+  Widget build(BuildContext context) {
     return PopupMenuButton<String>(
       icon: Icon(Icons.folder_open, color: AppColors.iconSecondary(context)),
       padding: EdgeInsets.zero,
       tooltip: 'Chat Management',
       onSelected: (value) {
         if (value == 'new_chat') {
-          _showClearChatConfirmation(context);
+          showNewChatConfirmation(context);
         } else if (value == 'history') {
-          _showHistoryDialog(context);
+          showManageChats(context);
         } else if (value == 'import') {
           // itemBuilder runs once when the menu opens. A turn can start
           // while the menu is still up, leaving a stale-enabled item.
           if (!chatService.isGenerating &&
               !chatService.isSettlingTurn &&
               !chatService.isImporting) {
-            _importChat();
+            onImport();
           }
         } else if (value == 'export') {
-          _exportChat();
+          onExport();
         } else if (value == 'context') {
           showDialog(
             context: context,
@@ -57,7 +78,7 @@ extension _ChatPageInputActions on _ChatPageState {
         } else if (value == 'to_story') {
           ChatToStoryDialog.show(context, chatService: chatService);
         } else if (value == 'fork_group') {
-          _showConvertToGroupPicker(chatService);
+          onConvertToGroup();
         } else if (value == 'kobold_log') {
           showDialog(context: context, builder: (_) => const KoboldLogDialog());
         }
@@ -169,14 +190,41 @@ extension _ChatPageInputActions on _ChatPageState {
       ],
     );
   }
+}
 
-  /// Every action button to the right of the menu — verbatim Row children,
-  /// spread back in place. A spread of the same widgets in the same order is
-  /// an identical child list.
-  List<Widget> _buildInputActionButtons(
-    BuildContext context,
-    ChatService chatService,
-  ) {
+/// Every action button to the right of the menu, in Row order.
+class ChatInputActionStrip {
+  const ChatInputActionStrip({
+    required this.chatService,
+    required this.controller,
+    required this.focusNode,
+    required this.minLines,
+    required this.isPageMounted,
+    required this.onOpenImageStudio,
+    required this.onAttachImage,
+    required this.onStartCall,
+    required this.onSend,
+  });
+
+  final ChatService chatService;
+
+  /// The chat page's message box. It dies with the page, not with this bar.
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final int minLines;
+  final ValueGetter<bool> isPageMounted;
+  final VoidCallback onOpenImageStudio;
+  final VoidCallback onAttachImage;
+  final VoidCallback onStartCall;
+  final VoidCallback onSend;
+
+  /// Whether the page that owns [controller] is still alive. Async results
+  /// (Impersonate tokens, Whisper transcripts) land after it may have closed.
+  bool get mounted => isPageMounted();
+
+  /// The buttons, spread into the bar's Row (a spread of the same widgets in
+  /// the same order is an identical child list).
+  List<Widget> build(BuildContext context) {
     return <Widget>[
       // Image Generation: the magic-wand button opens the Image
       // Studio, where the user picks a Subject (Freeform / Character
@@ -197,7 +245,7 @@ extension _ChatPageInputActions on _ChatPageState {
             ),
             padding: EdgeInsets.zero,
             tooltip: 'Image Studio',
-            onPressed: () => _showImageGenDialog(context, chatService),
+            onPressed: onOpenImageStudio,
           );
         },
       ),
@@ -213,7 +261,7 @@ extension _ChatPageInputActions on _ChatPageState {
           ),
           padding: EdgeInsets.zero,
           tooltip: 'Attach photo',
-          onPressed: _attachImage,
+          onPressed: onAttachImage,
         ),
 
       const SizedBox(width: 4),
@@ -231,11 +279,11 @@ extension _ChatPageInputActions on _ChatPageState {
             return ReadingSizeScope(
               textScale: storage.uiSettings.textScale,
               child: AppTextField(
-                controller: _controller,
-                focusNode: _chatFocusNode,
+                controller: controller,
+                focusNode: focusNode,
                 enabled: !chatService.isLoadingSession,
                 maxLines: 10,
-                minLines: _inputMinLines,
+                minLines: minLines,
                 textInputAction: TextInputAction.newline,
                 style: readingSurfaceStyle(
                   color: AppColors.textPrimary(context),
@@ -277,7 +325,7 @@ extension _ChatPageInputActions on _ChatPageState {
           onPressed: chatService.isGenerating
               ? null
               : () {
-                  final prefix = _controller.text;
+                  final prefix = controller.text;
                   chatService.impersonateUser(
                     prefix: prefix,
                     onToken: (accumulated) {
@@ -285,8 +333,8 @@ extension _ChatPageInputActions on _ChatPageState {
                       // streaming after the page pops — writing a disposed
                       // controller here throws inside the stream loop.
                       if (!mounted) return;
-                      _controller.text = accumulated;
-                      _controller.selection = TextSelection.fromPosition(
+                      controller.text = accumulated;
+                      controller.selection = TextSelection.fromPosition(
                         TextPosition(offset: accumulated.length),
                       );
                     },
@@ -331,21 +379,21 @@ extension _ChatPageInputActions on _ChatPageState {
                         if (!mounted) return;
                         if (text != null && text.isNotEmpty) {
                           if (storage.sttSettings.autoSendTranscription &&
-                              _controller.text.isEmpty) {
+                              controller.text.isEmpty) {
                             chatService.sendMessage(text);
                           } else {
-                            _controller.text = _controller.text.isEmpty
+                            controller.text = controller.text.isEmpty
                                 ? text
-                                : '${_controller.text} $text';
-                            _controller.selection = TextSelection.fromPosition(
-                              TextPosition(offset: _controller.text.length),
+                                : '${controller.text} $text';
+                            controller.selection = TextSelection.fromPosition(
+                              TextPosition(offset: controller.text.length),
                             );
                           }
                         }
                       } else {
                         final micOk = await sttService.checkMicAvailable();
                         if (!micOk && context.mounted) {
-                          _showNoMicDialog(context);
+                          showNoMicDialog(context);
                           return;
                         }
                         await sttService.startRecording();
@@ -370,10 +418,10 @@ extension _ChatPageInputActions on _ChatPageState {
                   : () async {
                       final micOk = await sttService.checkMicAvailable();
                       if (!micOk && context.mounted) {
-                        _showNoMicDialog(context);
+                        showNoMicDialog(context);
                         return;
                       }
-                      rebuildState(() => _isCallActive = true);
+                      onStartCall();
                     },
             ),
           );
@@ -407,7 +455,7 @@ extension _ChatPageInputActions on _ChatPageState {
           chatService.messages.isNotEmpty &&
           chatService.messages.last.isUser)
         Tooltip(
-          message: 'Generate reply ($_regenShortcutLabel)',
+          message: 'Generate reply ($chatRegenShortcutLabel)',
           child: IconButton(
             icon: const Icon(Icons.refresh, color: Colors.orangeAccent),
             onPressed: () => chatService.regenerateLastMessage(),
@@ -437,9 +485,7 @@ extension _ChatPageInputActions on _ChatPageState {
                             ? Colors.amberAccent
                             : AppColors.porchAmberOf(context)),
                 ),
-                onPressed: chatService.isLoadingSession
-                    ? null
-                    : () => _sendCurrentMessage(chatService),
+                onPressed: chatService.isLoadingSession ? null : onSend,
               ),
             ),
     ];

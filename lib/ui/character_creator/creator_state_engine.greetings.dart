@@ -16,50 +16,60 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'creator_state_engine.dart';
+import 'package:flutter/widgets.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 
 /// The Greetings step's actions (#370): rewrite one greeting (optionally
 /// steered), add one, delete an alternate, stop the one being written, and
 /// re-read the outfit after a new first message. One write at a time; the
 /// box keeps its old text until the new one is in, so Stop has nothing to
 /// undo. The web relay calls the same [GenGreeting] service functions.
-extension CreatorGreetingEngine on CreatorState {
+class CreatorGreetingWriter {
+  final CreatorState state;
+
+  CreatorGreetingWriter(this.state);
+
   /// Rewrite greeting [index] (0 = the first message, 1 and up = the
   /// alternates), steered by that greeting's steer box when it has text.
   Future<void> regenerateGreeting({
     required LLMProvider llmProvider,
     required int index,
   }) {
-    final box = index == 0 ? firstMessageController : _altBox(index);
+    final box = index == 0 ? state.firstMessageController : _altBox(index);
     if (box == null) return Future.value();
     return _writeGreeting(
       llmProvider,
       index,
-      direction: greetings.steerFor(box).text,
+      direction: state.greetings.steerFor(box).text,
     );
   }
 
   /// Write a new alternate right away, up to [CreatorGreetings.maxAlternates].
   Future<void> addGreeting({required LLMProvider llmProvider}) {
-    if (altGreetingControllers.length >= CreatorGreetings.maxAlternates) {
+    if (state.altGreetingControllers.length >= CreatorGreetings.maxAlternates) {
       return Future.value();
     }
-    return _writeGreeting(llmProvider, altGreetingControllers.length + 1);
+    return _writeGreeting(llmProvider, state.altGreetingControllers.length + 1);
   }
 
   /// Delete alternate [index] (1 and up, as above) with its starting state.
   /// The first message cannot be deleted.
   void deleteAlternate(int index) {
     final box = _altBox(index);
-    if (box == null || greetings.busy) return;
-    greetingSeeds = alignGreetingSeeds(
-      greetingSeeds,
-      altGreetingControllers.length,
+    if (box == null || state.greetings.busy) return;
+    state.greetingSeeds = alignGreetingSeeds(
+      state.greetingSeeds,
+      state.altGreetingControllers.length,
     )..removeAt(index - 1);
-    altGreetingControllers = [...altGreetingControllers]..removeAt(index - 1);
-    greetings.forgetSteer(box);
-    if (greetings.errorIndex != null) greetings.clearError();
-    notify();
+    state.altGreetingControllers = [...state.altGreetingControllers]
+      ..removeAt(index - 1);
+    state.greetings.forgetSteer(box);
+    if (state.greetings.errorIndex != null) state.greetings.clearError();
+    state.notify();
     // Its box can still be on screen this frame.
     WidgetsBinding.instance.addPostFrameCallback((_) => box.dispose());
   }
@@ -67,26 +77,26 @@ extension CreatorGreetingEngine on CreatorState {
   /// Stop the greeting being written. Its box never changed, so the old
   /// text is simply still there; a greeting being added just goes away.
   void stopGreeting() {
-    final gen = greetings.activeGen;
+    final gen = state.greetings.activeGen;
     if (gen == null) return;
     gen.abort();
-    greetings
+    state.greetings
       ..activeGen = null
       ..writingIndex = null
       ..writingText = '';
-    notify();
+    state.notify();
   }
 
   /// Fill the Realism step's outfit (Wearing / Carrying) from the current
   /// first message, with the extraction creation used. On no answer the
   /// outfit is left as it was and the hint says so.
   Future<void> rereadOutfit({required LLMProvider llmProvider}) async {
-    final g = greetings;
-    if (g.busy || generatedCard == null) return;
-    final llm = llmProvider.serviceForModel(selectedModelId);
+    final g = state.greetings;
+    if (g.busy || state.generatedCard == null) return;
+    final llm = llmProvider.serviceForModel(state.selectedModelId);
     if (llm == null) {
       g.outfitError = _noModel(llmProvider);
-      notify();
+      state.notify();
       return;
     }
     final gen = CharacterGenService(llm);
@@ -94,7 +104,7 @@ extension CreatorGreetingEngine on CreatorState {
       ..rereadingOutfit = true
       ..outfitGen = gen
       ..outfitError = null;
-    notify();
+    state.notify();
     final card = _greetingCard();
     final read = await gen
         .rereadOpeningWardrobe(card: card, recipe: g.recipe)
@@ -111,20 +121,20 @@ extension CreatorGreetingEngine on CreatorState {
           'The outfit could not be read from the new first message. '
           'Nothing was changed. Try again, or edit it below.';
     } else {
-      realismWorn = read.worn;
-      realismCarrying = read.carrying;
+      state.realismWorn = read.worn;
+      state.realismCarrying = read.carrying;
       g.outfitReadFrom = card.firstMessage;
     }
-    notify();
+    state.notify();
   }
 
   /// "Keep this outfit": the outfit stays and now stands for the first
   /// message as it reads today, so the hint goes until that changes again.
   void keepOutfit() {
-    greetings
-      ..outfitReadFrom = firstMessageController.text
+    state.greetings
+      ..outfitReadFrom = state.firstMessageController.text
       ..outfitError = null;
-    notify();
+    state.notify();
   }
 
   Future<void> _writeGreeting(
@@ -132,12 +142,12 @@ extension CreatorGreetingEngine on CreatorState {
     int index, {
     String direction = '',
   }) async {
-    final g = greetings;
-    if (g.busy || generatedCard == null) return;
-    final llm = llmProvider.serviceForModel(selectedModelId);
+    final g = state.greetings;
+    if (g.busy || state.generatedCard == null) return;
+    final llm = llmProvider.serviceForModel(state.selectedModelId);
     if (llm == null) {
       g.setError(index, _noModel(llmProvider));
-      notify();
+      state.notify();
       return;
     }
     final gen = CharacterGenService(llm);
@@ -146,7 +156,7 @@ extension CreatorGreetingEngine on CreatorState {
       ..writingIndex = index
       ..writingText = ''
       ..activeGen = gen;
-    notify();
+    state.notify();
     String? text;
     try {
       text = await gen.regenerateGreeting(
@@ -157,7 +167,7 @@ extension CreatorGreetingEngine on CreatorState {
         onProgress: (s) {
           if (!identical(g.activeGen, gen)) return;
           g.writingText = s;
-          notify();
+          state.notify();
         },
       );
     } catch (e) {
@@ -177,40 +187,42 @@ extension CreatorGreetingEngine on CreatorState {
     } else if (index == 0) {
       // The outfit was read from the old words; Realism sees the difference
       // (CreatorGreetings.firstMessageChangedFrom) and offers a re-read.
-      firstMessageController.text = text;
-    } else if (index <= altGreetingControllers.length) {
-      altGreetingControllers[index - 1].text = text;
+      state.firstMessageController.text = text;
+    } else if (index <= state.altGreetingControllers.length) {
+      state.altGreetingControllers[index - 1].text = text;
     } else {
-      altGreetingControllers = [
-        ...altGreetingControllers,
-        newGreetingBox(text),
+      state.altGreetingControllers = [
+        ...state.altGreetingControllers,
+        state.newGreetingBox(text),
       ];
-      greetingSeeds = alignGreetingSeeds(
-        greetingSeeds,
-        altGreetingControllers.length,
+      state.greetingSeeds = alignGreetingSeeds(
+        state.greetingSeeds,
+        state.altGreetingControllers.length,
       );
     }
-    notify();
+    state.notify();
   }
 
   /// The card as the wizard holds it right now: the generated card with
   /// every box's current text, so a rewrite follows the user's edits.
   CharacterCard _greetingCard() {
-    final base = generatedCard!;
+    final base = state.generatedCard!;
     return CharacterCard(
       name: base.name,
-      description: descController.text,
-      personality: personalityController.text,
-      scenario: scenarioController.text,
-      firstMessage: firstMessageController.text,
-      alternateGreetings: [for (final c in altGreetingControllers) c.text],
+      description: state.descController.text,
+      personality: state.personalityController.text,
+      scenario: state.scenarioController.text,
+      firstMessage: state.firstMessageController.text,
+      alternateGreetings: [
+        for (final c in state.altGreetingControllers) c.text,
+      ],
       rawExtensions: base.rawExtensions,
     );
   }
 
   TextEditingController? _altBox(int index) =>
-      index >= 1 && index <= altGreetingControllers.length
-      ? altGreetingControllers[index - 1]
+      index >= 1 && index <= state.altGreetingControllers.length
+      ? state.altGreetingControllers[index - 1]
       : null;
 
   String _noModel(LLMProvider llmProvider) => llmProvider.hasManagedProcess

@@ -16,237 +16,296 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'creator_state.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 
-/// Load, save, and reset the wizard form through SharedPreferences.
-extension CreatorStatePrefs on CreatorState {
-  // Load / Save / Reset (pure lift, adapted for notifier)
-  Future<void> loadSavedState() async {
+/// Loads, saves, and clears the wizard form through SharedPreferences.
+/// Saves run one after another through [_saveQueue].
+class CreatorFormPrefs {
+  static const _prefName = 'chargen_name';
+  static const _prefConcept = 'chargen_concept';
+  static const _prefKeywords = 'chargen_keywords';
+  static const _prefArtStyle = 'chargen_art_style';
+  static const _prefModel = 'chargen_model';
+  static const _prefGreetingLength = 'chargen_greeting_length';
+  static const _prefAltCount = 'chargen_alt_count';
+  static const _prefTone = 'chargen_tone';
+  static const _prefLorebook = 'chargen_lorebook';
+  static const _prefAge = 'chargen_age';
+  static const _prefSex = 'chargen_sex';
+  static const _prefRelationship = 'chargen_relationship';
+  static const _prefPersona = 'chargen_persona';
+  static const _prefQuickScenario = 'chargen_quick_scenario';
+  static const _prefLoreCategories = 'chargen_lore_categories';
+  static const _prefLoreDepth = 'chargen_lore_depth';
+  static const _prefDynamicMacros = 'chargen_dynamic_macros';
+  static const _prefNarrativePerspective = 'chargen_narrative_perspective';
+  static const _prefNarrativeTense = 'chargen_narrative_tense';
+  static const _prefRelationships = 'chargen_relationships';
+  static const _prefCustomRelationship = 'chargen_custom_relationship';
+  static const _prefNsfwEnabled = 'chargen_nsfw_enabled';
+  static const _prefRealismVerificationEnabled =
+      'chargen_realism_verification_enabled';
+  static const _prefRealismVerificationMax = 'chargen_realism_verification_max';
+  static const _prefRealismVerificationStrict =
+      'chargen_realism_verification_strict';
+  static const _prefRealismNeedsDirectorAuthority =
+      'chargen_realism_needs_director_authority';
+  static const _prefBodyType = 'chargen_body_type';
+  static const _prefRace = 'chargen_race';
+  static const _prefCustomRace = 'chargen_custom_race';
+  static const _prefHairLength = 'chargen_hair_length';
+  static const _prefHairStyle = 'chargen_hair_style';
+  static const _prefSkinTone = 'chargen_skin_tone';
+  static const _prefNotableFeatures = 'chargen_notable_features';
+  static const _prefAbsCore = 'chargen_abs_core';
+  static const _prefThighs = 'chargen_thighs';
+  static const _prefHips = 'chargen_hips';
+  static const _prefShoulders = 'chargen_shoulders';
+  static const _prefWaist = 'chargen_waist';
+  static const _prefChestSize = 'chargen_chest_size';
+  static const _prefButtSize = 'chargen_butt_size';
+  static const _prefExperience = 'chargen_experience';
+  static const _prefDominance = 'chargen_dominance';
+  static const _prefKinks = 'chargen_kinks';
+  static const _prefCustomKinks = 'chargen_custom_kinks';
+  static const _prefOutfitVibe = 'chargen_outfit_vibe';
+  static const _prefGenerationDetail = 'chargen_generation_detail';
+  static const _prefBackstoryOrigin = 'chargen_backstory_origin';
+  static const _prefBackstoryTone = 'chargen_backstory_tone';
+  static const _prefBackstoryEra = 'chargen_backstory_era';
+  static const _prefBackstoryNotes = 'chargen_backstory_notes';
+  static const _prefConceptGenerated = 'chargen_concept_generated';
+  static const _prefCreatorMode = 'chargen_creator_mode';
+  static const _prefGuidedVision = 'chargen_guided_vision';
+  static const _prefGuidedAppearance = 'chargen_guided_appearance';
+  static const _prefGuidedHair = 'chargen_guided_hair';
+  static const _prefGuidedFeatures = 'chargen_guided_features';
+  static const _prefGuidedRace = 'chargen_guided_race';
+  static const _prefGuidedPersonality = 'chargen_guided_personality';
+  static const _prefGuidedSpeech = 'chargen_guided_speech';
+  static const _prefGuidedSecret = 'chargen_guided_secret';
+  static const _prefGuidedOrigin = 'chargen_guided_origin';
+  static const _prefGuidedSetting = 'chargen_guided_setting';
+  static const _prefGuidedTone = 'chargen_guided_tone';
+  static const _prefGuidedRelDynamic = 'chargen_guided_rel_dynamic';
+  static const _prefGuidedRelScenario = 'chargen_guided_rel_scenario';
+  static const _prefGuidedNsfwBody = 'chargen_guided_nsfw_body';
+  static const _prefGuidedNsfwExp = 'chargen_guided_nsfw_exp';
+  static const _prefGuidedNsfwDom = 'chargen_guided_nsfw_dom';
+  static const _prefGuidedNsfwKinks = 'chargen_guided_nsfw_kinks';
+  static const _prefGuidedNsfwClothing = 'chargen_guided_nsfw_clothing';
+  static const _prefGuidedNsfwPersonality = 'chargen_guided_nsfw_personality';
+
+  /// The last save in line. Saves write one after another: a slow first
+  /// save (every key missing) could otherwise finish after a newer one and
+  /// put older text back.
+  Future<void> _saveQueue = Future<void>.value();
+
+  /// Reads every saved field into [s]. The saved mode goes to [applyMode]:
+  /// the state owns that field. The caller notifies once loading is done.
+  Future<void> load(
+    CreatorState s, {
+    required void Function(CreatorMode mode) applyMode,
+  }) async {
     final prefs = await SharedPreferences.getInstance();
-    nameController.text = prefs.getString(CreatorState._prefName) ?? '';
-    conceptController.text = prefs.getString(CreatorState._prefConcept) ?? '';
-    keywordsController.text = prefs.getString(CreatorState._prefKeywords) ?? '';
-    artStyle = prefs.getString(CreatorState._prefArtStyle) ?? 'Anime';
-    selectedModelId = prefs.getString(CreatorState._prefModel) ?? '';
-    greetingLength =
-        prefs.getString(CreatorState._prefGreetingLength) ??
-        'Medium (2-4 paragraphs)';
-    altGreetingCount = prefs.getInt(CreatorState._prefAltCount) ?? 2;
-    final savedTones = prefs.getString(CreatorState._prefTone) ?? 'Neutral';
-    selectedTones = savedTones.split(',').where((t) => t.isNotEmpty).toSet();
-    if (selectedTones.isEmpty) selectedTones = {'Neutral'};
-    generateLorebook = prefs.getBool(CreatorState._prefLorebook) ?? true;
-    ageController.text = prefs.getString(CreatorState._prefAge) ?? '';
-    sexController.text = prefs.getString(CreatorState._prefSex) ?? '';
-    relationshipController.text =
-        prefs.getString(CreatorState._prefRelationship) ?? '';
-    selectedPersonaId = prefs.getString(CreatorState._prefPersona) ?? '';
-    quickScenarioController.text =
-        prefs.getString(CreatorState._prefQuickScenario) ?? '';
+    s.nameController.text = prefs.getString(_prefName) ?? '';
+    s.conceptController.text = prefs.getString(_prefConcept) ?? '';
+    s.keywordsController.text = prefs.getString(_prefKeywords) ?? '';
+    s.artStyle = prefs.getString(_prefArtStyle) ?? 'Anime';
+    s.selectedModelId = prefs.getString(_prefModel) ?? '';
+    s.greetingLength =
+        prefs.getString(_prefGreetingLength) ?? 'Medium (2-4 paragraphs)';
+    s.altGreetingCount = prefs.getInt(_prefAltCount) ?? 2;
+    final savedTones = prefs.getString(_prefTone) ?? 'Neutral';
+    s.selectedTones = savedTones.split(',').where((t) => t.isNotEmpty).toSet();
+    if (s.selectedTones.isEmpty) s.selectedTones = {'Neutral'};
+    s.generateLorebook = prefs.getBool(_prefLorebook) ?? true;
+    s.ageController.text = prefs.getString(_prefAge) ?? '';
+    s.sexController.text = prefs.getString(_prefSex) ?? '';
+    s.relationshipController.text = prefs.getString(_prefRelationship) ?? '';
+    s.selectedPersonaId = prefs.getString(_prefPersona) ?? '';
+    s.quickScenarioController.text = prefs.getString(_prefQuickScenario) ?? '';
 
-    final savedCategories =
-        prefs.getString(CreatorState._prefLoreCategories) ?? '';
-    selectedLoreCategories = savedCategories
+    final savedCategories = prefs.getString(_prefLoreCategories) ?? '';
+    s.selectedLoreCategories = savedCategories
         .split(',')
         .where((c) => c.isNotEmpty)
         .toSet();
-    loreDepth = prefs.getString(CreatorState._prefLoreDepth) ?? 'Standard';
-    includeDynamicMacros =
-        prefs.getBool(CreatorState._prefDynamicMacros) ?? false;
-    narrativePerspective =
-        prefs.getString(CreatorState._prefNarrativePerspective) ?? 'first';
-    if (narrativePerspective != 'first' && narrativePerspective != 'third') {
-      narrativePerspective = 'first';
+    s.loreDepth = prefs.getString(_prefLoreDepth) ?? 'Standard';
+    s.includeDynamicMacros = prefs.getBool(_prefDynamicMacros) ?? false;
+    s.narrativePerspective =
+        prefs.getString(_prefNarrativePerspective) ?? 'first';
+    if (s.narrativePerspective != 'first' &&
+        s.narrativePerspective != 'third') {
+      s.narrativePerspective = 'first';
     }
-    narrativeTense =
-        prefs.getString(CreatorState._prefNarrativeTense) ?? 'present';
-    if (narrativeTense != 'present' && narrativeTense != 'past') {
-      narrativeTense = 'present';
+    s.narrativeTense = prefs.getString(_prefNarrativeTense) ?? 'present';
+    if (s.narrativeTense != 'present' && s.narrativeTense != 'past') {
+      s.narrativeTense = 'present';
     }
-    final savedRelationships =
-        prefs.getString(CreatorState._prefRelationships) ?? '';
-    selectedRelationships = savedRelationships
+    final savedRelationships = prefs.getString(_prefRelationships) ?? '';
+    s.selectedRelationships = savedRelationships
         .split(',')
         .where((r) => r.isNotEmpty)
         .toSet();
-    customRelationship =
-        prefs.getString(CreatorState._prefCustomRelationship) ?? '';
-    nsfwEnabled = prefs.getBool(CreatorState._prefNsfwEnabled) ?? false;
-    realismVerificationEnabled =
-        prefs.getBool(CreatorState._prefRealismVerificationEnabled) ?? false;
-    realismVerificationMaxReprocesses =
-        prefs.getInt(CreatorState._prefRealismVerificationMax) ?? 1;
-    realismVerificationStrictness =
-        prefs.getInt(CreatorState._prefRealismVerificationStrict) ?? 3;
-    realismNeedsDirectorAuthority =
-        prefs.getBool(CreatorState._prefRealismNeedsDirectorAuthority) ?? false;
-    bodyType = prefs.getString(CreatorState._prefBodyType) ?? '';
-    race = prefs.getString(CreatorState._prefRace) ?? '';
-    customRaceController.text =
-        prefs.getString(CreatorState._prefCustomRace) ?? '';
-    hairLength = prefs.getString(CreatorState._prefHairLength) ?? '';
-    hairStyle = prefs.getString(CreatorState._prefHairStyle) ?? '';
-    skinTone = prefs.getString(CreatorState._prefSkinTone) ?? '';
-    final savedFeatures =
-        prefs.getString(CreatorState._prefNotableFeatures) ?? '';
-    notableFeatures = savedFeatures
+    s.customRelationship = prefs.getString(_prefCustomRelationship) ?? '';
+    s.nsfwEnabled = prefs.getBool(_prefNsfwEnabled) ?? false;
+    s.realismVerificationEnabled =
+        prefs.getBool(_prefRealismVerificationEnabled) ?? false;
+    s.realismVerificationMaxReprocesses =
+        prefs.getInt(_prefRealismVerificationMax) ?? 1;
+    s.realismVerificationStrictness =
+        prefs.getInt(_prefRealismVerificationStrict) ?? 3;
+    s.realismNeedsDirectorAuthority =
+        prefs.getBool(_prefRealismNeedsDirectorAuthority) ?? false;
+    s.bodyType = prefs.getString(_prefBodyType) ?? '';
+    s.race = prefs.getString(_prefRace) ?? '';
+    s.customRaceController.text = prefs.getString(_prefCustomRace) ?? '';
+    s.hairLength = prefs.getString(_prefHairLength) ?? '';
+    s.hairStyle = prefs.getString(_prefHairStyle) ?? '';
+    s.skinTone = prefs.getString(_prefSkinTone) ?? '';
+    final savedFeatures = prefs.getString(_prefNotableFeatures) ?? '';
+    s.notableFeatures = savedFeatures
         .split(',')
         .where((f) => f.isNotEmpty)
         .toSet();
-    absCore = prefs.getString(CreatorState._prefAbsCore) ?? '';
-    thighs = prefs.getString(CreatorState._prefThighs) ?? '';
-    hips = prefs.getString(CreatorState._prefHips) ?? '';
-    shoulders = prefs.getString(CreatorState._prefShoulders) ?? '';
-    waist = prefs.getString(CreatorState._prefWaist) ?? '';
-    chestSize = prefs.getString(CreatorState._prefChestSize) ?? '';
-    buttSize = prefs.getString(CreatorState._prefButtSize) ?? '';
-    experience = prefs.getString(CreatorState._prefExperience) ?? '';
-    dominance = prefs.getString(CreatorState._prefDominance) ?? '';
-    final savedKinks = prefs.getString(CreatorState._prefKinks) ?? '';
-    selectedKinks = savedKinks.split(',').where((k) => k.isNotEmpty).toSet();
-    customKinksController.text =
-        prefs.getString(CreatorState._prefCustomKinks) ?? '';
-    outfitVibe = prefs.getString(CreatorState._prefOutfitVibe) ?? '';
-    generationDetail =
-        prefs.getString(CreatorState._prefGenerationDetail) ?? 'Standard';
-    backstoryOrigin = prefs.getString(CreatorState._prefBackstoryOrigin) ?? '';
-    backstoryTone = prefs.getString(CreatorState._prefBackstoryTone) ?? '';
-    backstoryEra = prefs.getString(CreatorState._prefBackstoryEra) ?? '';
-    backstoryNotesController.text =
-        prefs.getString(CreatorState._prefBackstoryNotes) ?? '';
-    conceptGenerated =
-        prefs.getBool(CreatorState._prefConceptGenerated) ?? false;
+    s.absCore = prefs.getString(_prefAbsCore) ?? '';
+    s.thighs = prefs.getString(_prefThighs) ?? '';
+    s.hips = prefs.getString(_prefHips) ?? '';
+    s.shoulders = prefs.getString(_prefShoulders) ?? '';
+    s.waist = prefs.getString(_prefWaist) ?? '';
+    s.chestSize = prefs.getString(_prefChestSize) ?? '';
+    s.buttSize = prefs.getString(_prefButtSize) ?? '';
+    s.experience = prefs.getString(_prefExperience) ?? '';
+    s.dominance = prefs.getString(_prefDominance) ?? '';
+    final savedKinks = prefs.getString(_prefKinks) ?? '';
+    s.selectedKinks = savedKinks.split(',').where((k) => k.isNotEmpty).toSet();
+    s.customKinksController.text = prefs.getString(_prefCustomKinks) ?? '';
+    s.outfitVibe = prefs.getString(_prefOutfitVibe) ?? '';
+    s.generationDetail = prefs.getString(_prefGenerationDetail) ?? 'Standard';
+    s.backstoryOrigin = prefs.getString(_prefBackstoryOrigin) ?? '';
+    s.backstoryTone = prefs.getString(_prefBackstoryTone) ?? '';
+    s.backstoryEra = prefs.getString(_prefBackstoryEra) ?? '';
+    s.backstoryNotesController.text =
+        prefs.getString(_prefBackstoryNotes) ?? '';
+    s.conceptGenerated = prefs.getBool(_prefConceptGenerated) ?? false;
 
     // Stored as the enum's own name so every mode round-trips. Quick Create
     // used to collapse to 'automated' on BOTH sides of this pair, so picking
     // it and reopening the wizard silently put the user back on the automated
     // form. Unknown/legacy values still fall back to automated.
-    final savedMode =
-        prefs.getString(CreatorState._prefCreatorMode) ?? 'automated';
-    _creatorMode = switch (savedMode) {
+    final savedMode = prefs.getString(_prefCreatorMode) ?? 'automated';
+    applyMode(switch (savedMode) {
       'guided' => CreatorMode.guided,
       'quick' => CreatorMode.quick,
       _ => CreatorMode.automated,
-    };
-    guidedVisionController.text =
-        prefs.getString(CreatorState._prefGuidedVision) ?? '';
-    guidedAppearanceController.text =
-        prefs.getString(CreatorState._prefGuidedAppearance) ?? '';
-    guidedHairController.text =
-        prefs.getString(CreatorState._prefGuidedHair) ?? '';
-    guidedFeaturesController.text =
-        prefs.getString(CreatorState._prefGuidedFeatures) ?? '';
-    guidedRaceController.text =
-        prefs.getString(CreatorState._prefGuidedRace) ?? '';
-    guidedPersonalityController.text =
-        prefs.getString(CreatorState._prefGuidedPersonality) ?? '';
-    guidedSpeechController.text =
-        prefs.getString(CreatorState._prefGuidedSpeech) ?? '';
-    guidedSecretController.text =
-        prefs.getString(CreatorState._prefGuidedSecret) ?? '';
-    guidedOriginController.text =
-        prefs.getString(CreatorState._prefGuidedOrigin) ?? '';
-    guidedSettingController.text =
-        prefs.getString(CreatorState._prefGuidedSetting) ?? '';
-    guidedToneController.text =
-        prefs.getString(CreatorState._prefGuidedTone) ?? '';
-    guidedRelDynamicController.text =
-        prefs.getString(CreatorState._prefGuidedRelDynamic) ?? '';
-    guidedRelScenarioController.text =
-        prefs.getString(CreatorState._prefGuidedRelScenario) ?? '';
-    guidedNsfwBodyController.text =
-        prefs.getString(CreatorState._prefGuidedNsfwBody) ?? '';
-    guidedNsfwExpController.text =
-        prefs.getString(CreatorState._prefGuidedNsfwExp) ?? '';
-    guidedNsfwDomController.text =
-        prefs.getString(CreatorState._prefGuidedNsfwDom) ?? '';
-    guidedNsfwKinksController.text =
-        prefs.getString(CreatorState._prefGuidedNsfwKinks) ?? '';
-    guidedNsfwClothingController.text =
-        prefs.getString(CreatorState._prefGuidedNsfwClothing) ?? '';
-    guidedNsfwPersonalityController.text =
-        prefs.getString(CreatorState._prefGuidedNsfwPersonality) ?? '';
-
-    notify();
+    });
+    s.guidedVisionController.text = prefs.getString(_prefGuidedVision) ?? '';
+    s.guidedAppearanceController.text =
+        prefs.getString(_prefGuidedAppearance) ?? '';
+    s.guidedHairController.text = prefs.getString(_prefGuidedHair) ?? '';
+    s.guidedFeaturesController.text =
+        prefs.getString(_prefGuidedFeatures) ?? '';
+    s.guidedRaceController.text = prefs.getString(_prefGuidedRace) ?? '';
+    s.guidedPersonalityController.text =
+        prefs.getString(_prefGuidedPersonality) ?? '';
+    s.guidedSpeechController.text = prefs.getString(_prefGuidedSpeech) ?? '';
+    s.guidedSecretController.text = prefs.getString(_prefGuidedSecret) ?? '';
+    s.guidedOriginController.text = prefs.getString(_prefGuidedOrigin) ?? '';
+    s.guidedSettingController.text = prefs.getString(_prefGuidedSetting) ?? '';
+    s.guidedToneController.text = prefs.getString(_prefGuidedTone) ?? '';
+    s.guidedRelDynamicController.text =
+        prefs.getString(_prefGuidedRelDynamic) ?? '';
+    s.guidedRelScenarioController.text =
+        prefs.getString(_prefGuidedRelScenario) ?? '';
+    s.guidedNsfwBodyController.text =
+        prefs.getString(_prefGuidedNsfwBody) ?? '';
+    s.guidedNsfwExpController.text = prefs.getString(_prefGuidedNsfwExp) ?? '';
+    s.guidedNsfwDomController.text = prefs.getString(_prefGuidedNsfwDom) ?? '';
+    s.guidedNsfwKinksController.text =
+        prefs.getString(_prefGuidedNsfwKinks) ?? '';
+    s.guidedNsfwClothingController.text =
+        prefs.getString(_prefGuidedNsfwClothing) ?? '';
+    s.guidedNsfwPersonalityController.text =
+        prefs.getString(_prefGuidedNsfwPersonality) ?? '';
   }
 
   /// Every saved wizard field, keyed by its preference. Read in one go,
   /// before any await, so a save started as the wizard closes still sees the
   /// text of controllers that are about to be disposed.
-  Map<String, Object> _savedFields() => {
-    CreatorState._prefName: nameController.text,
-    CreatorState._prefConcept: conceptController.text,
-    CreatorState._prefKeywords: keywordsController.text,
-    CreatorState._prefArtStyle: artStyle,
-    CreatorState._prefModel: selectedModelId,
-    CreatorState._prefGreetingLength: greetingLength,
-    CreatorState._prefAltCount: altGreetingCount,
-    CreatorState._prefTone: selectedTones.join(','),
-    CreatorState._prefLorebook: generateLorebook,
-    CreatorState._prefAge: ageController.text,
-    CreatorState._prefSex: sexController.text,
-    CreatorState._prefRelationship: relationshipController.text,
-    CreatorState._prefPersona: selectedPersonaId,
-    CreatorState._prefQuickScenario: quickScenarioController.text,
-    CreatorState._prefLoreCategories: selectedLoreCategories.join(','),
-    CreatorState._prefLoreDepth: loreDepth,
-    CreatorState._prefDynamicMacros: includeDynamicMacros,
-    CreatorState._prefNarrativePerspective: narrativePerspective,
-    CreatorState._prefNarrativeTense: narrativeTense,
-    CreatorState._prefRelationships: selectedRelationships.join(','),
-    CreatorState._prefCustomRelationship: customRelationship,
-    CreatorState._prefNsfwEnabled: nsfwEnabled,
-    CreatorState._prefRealismVerificationEnabled: realismVerificationEnabled,
-    CreatorState._prefRealismVerificationMax: realismVerificationMaxReprocesses,
-    CreatorState._prefRealismVerificationStrict: realismVerificationStrictness,
-    CreatorState._prefRealismNeedsDirectorAuthority:
-        realismNeedsDirectorAuthority,
-    CreatorState._prefBodyType: bodyType,
-    CreatorState._prefRace: race,
-    CreatorState._prefCustomRace: customRaceController.text,
-    CreatorState._prefHairLength: hairLength,
-    CreatorState._prefHairStyle: hairStyle,
-    CreatorState._prefSkinTone: skinTone,
-    CreatorState._prefNotableFeatures: notableFeatures.join(','),
-    CreatorState._prefAbsCore: absCore,
-    CreatorState._prefThighs: thighs,
-    CreatorState._prefHips: hips,
-    CreatorState._prefShoulders: shoulders,
-    CreatorState._prefWaist: waist,
-    CreatorState._prefChestSize: chestSize,
-    CreatorState._prefButtSize: buttSize,
-    CreatorState._prefExperience: experience,
-    CreatorState._prefDominance: dominance,
-    CreatorState._prefKinks: selectedKinks.join(','),
-    CreatorState._prefCustomKinks: customKinksController.text,
-    CreatorState._prefOutfitVibe: outfitVibe,
-    CreatorState._prefGenerationDetail: generationDetail,
-    CreatorState._prefBackstoryOrigin: backstoryOrigin,
-    CreatorState._prefBackstoryTone: backstoryTone,
-    CreatorState._prefBackstoryEra: backstoryEra,
-    CreatorState._prefBackstoryNotes: backstoryNotesController.text,
-    CreatorState._prefConceptGenerated: conceptGenerated,
-    CreatorState._prefCreatorMode: _creatorMode.name,
-    CreatorState._prefGuidedVision: guidedVisionController.text,
-    CreatorState._prefGuidedAppearance: guidedAppearanceController.text,
-    CreatorState._prefGuidedHair: guidedHairController.text,
-    CreatorState._prefGuidedFeatures: guidedFeaturesController.text,
-    CreatorState._prefGuidedRace: guidedRaceController.text,
-    CreatorState._prefGuidedPersonality: guidedPersonalityController.text,
-    CreatorState._prefGuidedSpeech: guidedSpeechController.text,
-    CreatorState._prefGuidedSecret: guidedSecretController.text,
-    CreatorState._prefGuidedOrigin: guidedOriginController.text,
-    CreatorState._prefGuidedSetting: guidedSettingController.text,
-    CreatorState._prefGuidedTone: guidedToneController.text,
-    CreatorState._prefGuidedRelDynamic: guidedRelDynamicController.text,
-    CreatorState._prefGuidedRelScenario: guidedRelScenarioController.text,
-    CreatorState._prefGuidedNsfwBody: guidedNsfwBodyController.text,
-    CreatorState._prefGuidedNsfwExp: guidedNsfwExpController.text,
-    CreatorState._prefGuidedNsfwDom: guidedNsfwDomController.text,
-    CreatorState._prefGuidedNsfwKinks: guidedNsfwKinksController.text,
-    CreatorState._prefGuidedNsfwClothing: guidedNsfwClothingController.text,
-    CreatorState._prefGuidedNsfwPersonality:
-        guidedNsfwPersonalityController.text,
+  Map<String, Object> _savedFields(CreatorState s) => {
+    _prefName: s.nameController.text,
+    _prefConcept: s.conceptController.text,
+    _prefKeywords: s.keywordsController.text,
+    _prefArtStyle: s.artStyle,
+    _prefModel: s.selectedModelId,
+    _prefGreetingLength: s.greetingLength,
+    _prefAltCount: s.altGreetingCount,
+    _prefTone: s.selectedTones.join(','),
+    _prefLorebook: s.generateLorebook,
+    _prefAge: s.ageController.text,
+    _prefSex: s.sexController.text,
+    _prefRelationship: s.relationshipController.text,
+    _prefPersona: s.selectedPersonaId,
+    _prefQuickScenario: s.quickScenarioController.text,
+    _prefLoreCategories: s.selectedLoreCategories.join(','),
+    _prefLoreDepth: s.loreDepth,
+    _prefDynamicMacros: s.includeDynamicMacros,
+    _prefNarrativePerspective: s.narrativePerspective,
+    _prefNarrativeTense: s.narrativeTense,
+    _prefRelationships: s.selectedRelationships.join(','),
+    _prefCustomRelationship: s.customRelationship,
+    _prefNsfwEnabled: s.nsfwEnabled,
+    _prefRealismVerificationEnabled: s.realismVerificationEnabled,
+    _prefRealismVerificationMax: s.realismVerificationMaxReprocesses,
+    _prefRealismVerificationStrict: s.realismVerificationStrictness,
+    _prefRealismNeedsDirectorAuthority: s.realismNeedsDirectorAuthority,
+    _prefBodyType: s.bodyType,
+    _prefRace: s.race,
+    _prefCustomRace: s.customRaceController.text,
+    _prefHairLength: s.hairLength,
+    _prefHairStyle: s.hairStyle,
+    _prefSkinTone: s.skinTone,
+    _prefNotableFeatures: s.notableFeatures.join(','),
+    _prefAbsCore: s.absCore,
+    _prefThighs: s.thighs,
+    _prefHips: s.hips,
+    _prefShoulders: s.shoulders,
+    _prefWaist: s.waist,
+    _prefChestSize: s.chestSize,
+    _prefButtSize: s.buttSize,
+    _prefExperience: s.experience,
+    _prefDominance: s.dominance,
+    _prefKinks: s.selectedKinks.join(','),
+    _prefCustomKinks: s.customKinksController.text,
+    _prefOutfitVibe: s.outfitVibe,
+    _prefGenerationDetail: s.generationDetail,
+    _prefBackstoryOrigin: s.backstoryOrigin,
+    _prefBackstoryTone: s.backstoryTone,
+    _prefBackstoryEra: s.backstoryEra,
+    _prefBackstoryNotes: s.backstoryNotesController.text,
+    _prefConceptGenerated: s.conceptGenerated,
+    _prefCreatorMode: s.creatorMode.name,
+    _prefGuidedVision: s.guidedVisionController.text,
+    _prefGuidedAppearance: s.guidedAppearanceController.text,
+    _prefGuidedHair: s.guidedHairController.text,
+    _prefGuidedFeatures: s.guidedFeaturesController.text,
+    _prefGuidedRace: s.guidedRaceController.text,
+    _prefGuidedPersonality: s.guidedPersonalityController.text,
+    _prefGuidedSpeech: s.guidedSpeechController.text,
+    _prefGuidedSecret: s.guidedSecretController.text,
+    _prefGuidedOrigin: s.guidedOriginController.text,
+    _prefGuidedSetting: s.guidedSettingController.text,
+    _prefGuidedTone: s.guidedToneController.text,
+    _prefGuidedRelDynamic: s.guidedRelDynamicController.text,
+    _prefGuidedRelScenario: s.guidedRelScenarioController.text,
+    _prefGuidedNsfwBody: s.guidedNsfwBodyController.text,
+    _prefGuidedNsfwExp: s.guidedNsfwExpController.text,
+    _prefGuidedNsfwDom: s.guidedNsfwDomController.text,
+    _prefGuidedNsfwKinks: s.guidedNsfwKinksController.text,
+    _prefGuidedNsfwClothing: s.guidedNsfwClothingController.text,
+    _prefGuidedNsfwPersonality: s.guidedNsfwPersonalityController.text,
   };
 
   /// Writes only the fields whose value changed. On Windows and Linux every
@@ -254,8 +313,8 @@ extension CreatorStatePrefs on CreatorState {
   /// so writing all of them per keystroke stalled typing (#371). The check
   /// is a read of the in-memory cache. The fields are read now; the writes
   /// wait for any save still running.
-  Future<void> _saveStateImpl() {
-    final fields = _savedFields();
+  Future<void> save(CreatorState s) {
+    final fields = _savedFields(s);
     return _queuePrefsWrite((prefs) async {
       for (final MapEntry(:key, :value) in fields.entries) {
         if (prefs.get(key) == value) continue;
@@ -280,147 +339,11 @@ extension CreatorStatePrefs on CreatorState {
     return run;
   }
 
-  void resetAllFields() {
-    // Step & mode
-    _currentStep = 0;
-    _creatorMode = CreatorMode.automated;
-
-    // Basic info controllers
-    nameController.clear();
-    conceptController.clear();
-    keywordsController.clear();
-    ageController.clear();
-    sexController.clear();
-    relationshipController.clear();
-    backstoryNotesController.clear();
-    customRaceController.clear();
-    customKinksController.clear();
-
-    // Guided mode controllers
-    guidedVisionController.clear();
-    guidedAppearanceController.clear();
-    guidedHairController.clear();
-    guidedFeaturesController.clear();
-    guidedRaceController.clear();
-    guidedPersonalityController.clear();
-    guidedSpeechController.clear();
-    guidedSecretController.clear();
-    guidedOriginController.clear();
-    guidedSettingController.clear();
-    guidedToneController.clear();
-    guidedRelDynamicController.clear();
-    guidedRelScenarioController.clear();
-    guidedNsfwBodyController.clear();
-    guidedNsfwExpController.clear();
-    guidedNsfwDomController.clear();
-    guidedNsfwKinksController.clear();
-    guidedNsfwClothingController.clear();
-    guidedNsfwPersonalityController.clear();
-    loreUrlsController.clear();
-    loreFiles.clear();
-
-    // Greetings step: stop a write first, so nothing lands in a box below.
-    greetings.reset();
-
-    // Review controllers
-    descController.clear();
-    personalityController.clear();
-    scenarioController.clear();
-    firstMessageController.clear();
-    exampleDialogueController.clear();
-    systemPromptController.clear();
-    for (final c in altGreetingControllers) {
-      c.dispose();
-    }
-    altGreetingControllers = [];
-    greetingSeeds = [];
-
-    // Chip/toggle selections
-    selectedTones = {'Neutral'};
-    selectedLoreCategories = {};
-    selectedRelationships = {};
-    customRelationship = '';
-    selectedArchetype = '';
-    selectedKinks = {};
-    notableFeatures = {};
-    nsfwEnabled = false;
-    realismVerificationEnabled = false;
-    realismVerificationMaxReprocesses = 1;
-    realismVerificationStrictness = 3;
-    realismNeedsDirectorAuthority = false;
-
-    // Appearance dropdowns
-    race = '';
-    bodyType = '';
-    hairLength = '';
-    hairStyle = '';
-    skinTone = '';
-    absCore = '';
-    thighs = '';
-    hips = '';
-    shoulders = '';
-    waist = '';
-
-    // NSFW appearance
-    chestSize = '';
-    buttSize = '';
-    experience = '';
-    dominance = '';
-    outfitVibe = '';
-
-    // Backstory
-    backstoryOrigin = '';
-    backstoryTone = '';
-    backstoryEra = '';
-    conceptGenerated = false;
-
-    // Generation config defaults
-    artStyle = 'Anime';
-    greetingLength = 'Medium (2-4 paragraphs)';
-    altGreetingCount = 2;
-    generateLorebook = true;
-    loreDepth = 'Standard';
-    includeDynamicMacros = false;
-    narrativePerspective = 'first';
-    narrativeTense = 'present';
-    generationDetail = 'Standard';
-
-    // Generation state
-    generationStatus = '';
-    generationPreview = '';
-    isGenerating = false;
-    progress = 0.0;
-
-    // Generated results
-    generatedCard = null;
-    imagePrompt = null;
-    lorebookEntryEnabled = {};
-
-    // Persona
-    selectedPersonaId = '';
-
-    // Active gen service
-    activeGenService = null;
-
-    // Model state reset (light)
-    selectedLocalModelPath = '';
-    koboldStatus = '';
-    selectedModelId = '';
-
-    notify();
-  }
-
   /// Clear the core saved-form prefs after a character is successfully created,
   /// so the next visit starts fresh. Mirrors the original review-step save.
-  Future<void> clearSavedFormPrefsAfterSave() =>
-      _queuePrefsWrite((prefs) async {
-        for (final key in [
-          CreatorState._prefName,
-          CreatorState._prefConcept,
-          CreatorState._prefKeywords,
-          CreatorState._prefArtStyle,
-        ]) {
-          await prefs.remove(key);
-        }
-      });
+  Future<void> clearAfterSave() => _queuePrefsWrite((prefs) async {
+    for (final key in [_prefName, _prefConcept, _prefKeywords, _prefArtStyle]) {
+      await prefs.remove(key);
+    }
+  });
 }

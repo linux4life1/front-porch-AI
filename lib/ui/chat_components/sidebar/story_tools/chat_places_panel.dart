@@ -13,9 +13,8 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../sidebar_tokens.dart';
-
-part 'chat_places_panel.cards.dart';
-part 'chat_places_panel.picker.dart';
+import 'chat_places_panel.cards.dart';
+import 'chat_places_panel.picker.dart';
 
 /// Places attached to the open chat — Setting (0..1) + Lore (0..N).
 class ChatPlacesPanel extends StatelessWidget {
@@ -77,7 +76,7 @@ class ChatPlacesPanel extends StatelessWidget {
                         color: AppColors.formMasterAccent,
                       ),
                       visualDensity: VisualDensity.compact,
-                      onPressed: () => _showAttachPicker(
+                      onPressed: () => showAttachPlacePicker(
                         context,
                         chat: chat,
                         places: places,
@@ -108,10 +107,9 @@ class ChatPlacesPanel extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             if (primary == null)
-              _emptySettingCard(context)
+              const ChatPlaceEmptySettingCard()
             else
-              _settingCard(
-                context,
+              ChatPlaceSettingCard(
                 chat: chat,
                 world: primary,
                 loreIds: loreIds,
@@ -300,8 +298,7 @@ class ChatPlacesPanel extends StatelessWidget {
                 },
                 itemBuilder: (context, i) {
                   final w = lore[i];
-                  return _loreTile(
-                    context,
+                  return ChatPlaceLoreTile(
                     key: ValueKey(w.id),
                     index: i,
                     world: w,

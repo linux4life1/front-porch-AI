@@ -16,9 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'message_bubble.dart';
+import 'package:flutter/material.dart';
 
-/// Lays out the two realism chip lists built by `_buildRealismIndicator`
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'message_bubble.realism.dart';
+
+/// Lays out the two realism chip lists built by [MessageRealismIndicator]
 /// (`message_bubble.realism.dart`): the classic chips `Wrap`, or the
 /// two-row layout (classic `Wrap` above a needs-chips `Wrap`), followed
 /// by the Manual Reprocess / Revert-reprocess pills. BOTH rows wrap: the
@@ -27,8 +33,31 @@ part of 'message_bubble.dart';
 /// bond/trust — four "took off: …" receipts overflowed a bubble by 1086px
 /// (live repro 2026-08-15). Wrap's own spacing also retired the `_spaced`
 /// helper (the old RangeError fix for an empty chip list).
-extension _BubbleRealismLayout on _MessageBubbleState {
-  Widget _realismChipLayout(List<Widget> chips, List<Widget> needsChipList) {
+class MessageRealismChipLayout extends StatelessWidget {
+  const MessageRealismChipLayout({
+    super.key,
+    required this.chips,
+    required this.needsChips,
+    required this.message,
+    required this.index,
+    required this.chatService,
+    required this.onReprocess,
+  });
+
+  /// Classic chips: bond, trust, mood, time, receipts, Director status.
+  final List<Widget> chips;
+
+  /// Needs Simulation delta chips, on their own row.
+  final List<Widget> needsChips;
+  final ChatMessage message;
+  final int index;
+  final ChatService? chatService;
+
+  /// Opens Manual Reprocess for this message.
+  final VoidCallback onReprocess;
+
+  @override
+  Widget build(BuildContext context) {
     // Wrap, not Row — same rule as the needs row below. Pocket receipt
     // chips ("took off: white long-sleeved haori (Royal Guard white)") are
     // sentence-length, and a turn can carry several beside bond/trust/mood.
@@ -52,9 +81,9 @@ extension _BubbleRealismLayout on _MessageBubbleState {
     );
 
     // Built once so BOTH layouts below can render them — see _reprocessPills.
-    final pills = _reprocessPills();
+    final pills = _reprocessPills(context);
 
-    if (needsChipList.isEmpty) {
+    if (needsChips.isEmpty) {
       // Nothing classic and no needs chips → nothing to show (guard should have caught most,
       // but be defensive after 0-delta filtering in needs).
       if (chips.isEmpty && pills.isEmpty) return const SizedBox.shrink();
@@ -100,7 +129,7 @@ extension _BubbleRealismLayout on _MessageBubbleState {
             // Wrap, not Row: all seven needs can carry a delta at once (a
             // manual reprocess routinely returns a full set) and seven chips
             // overflow the bubble — Windows hit it first, by 0.668px.
-            child: Wrap(spacing: 8, runSpacing: 4, children: needsChipList),
+            child: Wrap(spacing: 8, runSpacing: 4, children: needsChips),
           ),
 
           // Row 3: Manual Reprocess / Revert buttons (only for last non-user msg with usable needs state)
@@ -120,8 +149,8 @@ extension _BubbleRealismLayout on _MessageBubbleState {
   /// needs chip and therefore stranded Revert, the one control whose whole job
   /// is undoing what the user just did. The web twin (ChipsRow.tsx) already
   /// renders them as a sibling of both chip rows; this matches it.
-  List<Widget> _reprocessPills() {
-    final chat = widget.chatService;
+  List<Widget> _reprocessPills(BuildContext context) {
+    final chat = chatService;
     if (chat == null ||
         index != chat.messages.length - 1 ||
         message.isUser ||
@@ -162,7 +191,7 @@ extension _BubbleRealismLayout on _MessageBubbleState {
           child: Material(
             color: Colors.transparent,
             child: InkWell(
-              onTap: () => showReprocessNeedsDialog(context, index),
+              onTap: onReprocess,
               borderRadius: BorderRadius.circular(16),
               child: Container(
                 padding: const EdgeInsets.symmetric(

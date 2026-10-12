@@ -2,7 +2,9 @@ import 'dart:math';
 
 import 'package:flutter/material.dart';
 
-part 'border_painters.ornamental.dart';
+import 'border_painters.ornamental.dart';
+
+export 'border_painters.ornamental.dart';
 
 abstract class ThemeBorderPainter extends CustomPainter {
   final Color color;

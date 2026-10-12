@@ -1,10 +1,20 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-part of 'chat_places_panel.dart';
+import 'package:flutter/material.dart';
 
-extension _ChatPlacesCards on ChatPlacesPanel {
-  Widget _emptySettingCard(BuildContext context) {
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import 'chat_places_panel.picker.dart';
+
+/// Placeholder card shown while the chat has no Setting place.
+class ChatPlaceEmptySettingCard extends StatelessWidget {
+  const ChatPlaceEmptySettingCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(10),
@@ -38,13 +48,23 @@ extension _ChatPlacesCards on ChatPlacesPanel {
       ),
     );
   }
+}
 
-  Widget _settingCard(
-    BuildContext context, {
-    required ChatService chat,
-    required World world,
-    required List<String> loreIds,
-  }) {
+/// The chat's Setting place with Move-to-lore and Remove actions.
+class ChatPlaceSettingCard extends StatelessWidget {
+  final ChatService chat;
+  final World world;
+  final List<String> loreIds;
+
+  const ChatPlaceSettingCard({
+    super.key,
+    required this.chat,
+    required this.world,
+    required this.loreIds,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
@@ -57,7 +77,7 @@ extension _ChatPlacesCards on ChatPlacesPanel {
       ),
       child: Row(
         children: [
-          _rolePill(context, label: 'SETTING', accent: true),
+          const ChatPlaceRolePill(label: 'SETTING', accent: true),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -81,7 +101,7 @@ extension _ChatPlacesCards on ChatPlacesPanel {
             onPressed: chat.isGenerating
                 ? null
                 : () async {
-                    final ok = await _confirm(
+                    final ok = await confirmChatPlaceChange(
                       context,
                       title: 'Move to lore?',
                       body:
@@ -115,18 +135,28 @@ extension _ChatPlacesCards on ChatPlacesPanel {
       ),
     );
   }
+}
 
-  Widget _loreTile(
-    BuildContext context, {
-    required Key key,
-    required int index,
-    required World world,
-    required ChatService chat,
-    required String? primaryId,
-    required List<String> loreIds,
-  }) {
+/// One reorderable Lore place row with Use-as-setting and Remove actions.
+class ChatPlaceLoreTile extends StatelessWidget {
+  final int index;
+  final World world;
+  final ChatService chat;
+  final String? primaryId;
+  final List<String> loreIds;
+
+  const ChatPlaceLoreTile({
+    super.key,
+    required this.index,
+    required this.world,
+    required this.chat,
+    required this.primaryId,
+    required this.loreIds,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     return Padding(
-      key: key,
       padding: const EdgeInsets.only(bottom: 6),
       child: Container(
         padding: const EdgeInsets.fromLTRB(8, 4, 4, 4),
@@ -147,7 +177,7 @@ extension _ChatPlacesCards on ChatPlacesPanel {
               ),
             ),
             const SizedBox(width: 6),
-            _rolePill(context, label: 'LORE', accent: false),
+            const ChatPlaceRolePill(label: 'LORE', accent: false),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -176,7 +206,7 @@ extension _ChatPlacesCards on ChatPlacesPanel {
                           if (id != world.id) id,
                       ];
                       if (primaryId != null) {
-                        final ok = await _confirm(
+                        final ok = await confirmChatPlaceChange(
                           context,
                           title: 'Replace setting?',
                           body:
@@ -215,12 +245,21 @@ extension _ChatPlacesCards on ChatPlacesPanel {
       ),
     );
   }
+}
 
-  Widget _rolePill(
-    BuildContext context, {
-    required String label,
-    required bool accent,
-  }) {
+/// SETTING / LORE role badge.
+class ChatPlaceRolePill extends StatelessWidget {
+  final String label;
+  final bool accent;
+
+  const ChatPlaceRolePill({
+    super.key,
+    required this.label,
+    required this.accent,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final color = accent
         ? AppColors.formMasterAccent
         : AppColors.textTertiary(context);

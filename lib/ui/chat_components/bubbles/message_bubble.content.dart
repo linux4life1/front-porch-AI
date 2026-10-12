@@ -16,7 +16,20 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'message_bubble.dart';
+import 'package:flutter/material.dart';
+
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import '../widgets/inline_chat_image.dart';
+import 'live_thought_body.dart';
+import 'live_thinking_timer.dart';
+import 'message_bubble.dart';
+import 'message_bubble.realism.dart';
+import 'selectable_bubble_body.dart';
+import 'styled_chat_message.dart';
+import 'theme_border_resolver.dart';
 
 /// The thought chip / expanded-thinking / live-timer / message-body /
 /// inline-image / realism-indicator run of sibling widgets that sits
@@ -24,167 +37,179 @@ part of 'message_bubble.dart';
 /// [SelectableBubbleBody]; the thought chip stays [Unselectable].
 /// The thought-only-hint vs. `StyledChatMessage` if/else pair still
 /// moves as one selectable child.
-extension _BubbleContent on _MessageBubbleState {
-  /// Live "Thinking…" belongs to the bubble that is streaming. A later
-  /// group speaker keeps [ChatService.isGenerating] true, and an earlier
-  /// think that never recorded a duration would otherwise count the
-  /// whole time that next reply takes. Impersonate writes into the input
-  /// box, so no bubble is streaming while it runs.
-  bool get _liveThinkHere {
-    if (widget.isGenerating != null) return widget.isGenerating!;
-    final chat = widget.chatService;
-    if (chat == null) return true;
-    return chat.isGenerating &&
-        chat.generationPhase != GenerationPhase.impersonating &&
-        index == chat.messages.length - 1;
-  }
-
-  List<Widget> _thoughtAndBodyChildren(
-    BuildContext context,
-    ResolvedThemeData theme,
-  ) {
-    final selectable = <Widget>[
-      if (!message.isUser && message.hasThinking && _thoughtOpen)
-        Container(
-          margin: const EdgeInsets.only(bottom: 8, left: 20),
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: AppColors.resolve(
-              context,
-              const Color(0xFF1A2A3A),
-              const Color(0xFFE0F2FE),
-            ),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppColors.borderOf(context)),
+///
+/// Returned as a list because the bubble splices it into its own column.
+/// [widget] is the bubble's configuration; [thoughtOpen] and
+/// [onToggleThought] are the bubble's Thought expand state, and
+/// [onReprocess] opens Manual Reprocess from the realism chips.
+List<Widget> messageBubbleContentChildren(
+  BuildContext context, {
+  required MessageBubble widget,
+  required ResolvedThemeData theme,
+  required bool thoughtOpen,
+  required VoidCallback onToggleThought,
+  required VoidCallback onReprocess,
+  required bool hasStorage,
+}) {
+  final message = widget.message;
+  final selectable = <Widget>[
+    if (!message.isUser && message.hasThinking && thoughtOpen)
+      Container(
+        margin: const EdgeInsets.only(bottom: 8, left: 20),
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: AppColors.resolve(
+            context,
+            const Color(0xFF1A2A3A),
+            const Color(0xFFE0F2FE),
           ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              if (message.thinkingDurationMs > 0)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Text(
-                    'Thought for ${(message.thinkingDurationMs / 1000).toStringAsFixed(1)}s',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: Colors.tealAccent,
-                      fontStyle: FontStyle.italic,
-                    ),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.borderOf(context)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            if (message.thinkingDurationMs > 0)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 6),
+                child: Text(
+                  'Thought for ${(message.thinkingDurationMs / 1000).toStringAsFixed(1)}s',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: Colors.tealAccent,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
-              if (message.thinkingContent != null)
-                LiveThoughtBody(
-                  text: message.thinkingContent!,
-                  followLatest: widget.followStreamingReplies,
-                ),
-            ],
-          ),
-        ),
-      if (widget.chatService != null &&
-          !message.isUser &&
-          message.sender != 'System' &&
-          message.displayText.isEmpty &&
-          (message.thinkingContent?.isNotEmpty ?? false) &&
-          !_liveThinkHere)
-        Text(
-          '💭 Only thoughts this turn — Continue or '
-          'Regenerate for a spoken reply.',
-          style: TextStyle(
-            fontSize: 12,
-            fontStyle: FontStyle.italic,
-            color: AppColors.textTertiary(context),
-          ),
-        )
-      else if (!hasStorage)
-        Text(
-          message.displayText,
-          style: TextStyle(color: AppColors.textPrimary(context)),
-        )
-      else
-        StyledChatMessage(
-          text: message.displayText,
-          isUser: message.isUser,
-          externalImagesAllowed: widget.externalImagesAllowed,
-          onRequestImagePermission: widget.onRequestImagePermission,
-          character: widget.character ?? widget.chatService?.activeCharacter,
-          themePreset: theme.preset,
-          themeOverrides: theme.overrides,
-        ),
-    ];
-    return [
-      if (!message.isUser) const SizedBox(height: 4),
-      if (!message.isUser && message.hasThinking)
-        Unselectable(
-          child: GestureDetector(
-            key: const Key('thought-toggle'),
-            behavior: HitTestBehavior.opaque,
-            onTap: _toggleThought,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(
-                    _thoughtOpen ? Icons.expand_more : Icons.chevron_right,
-                    size: 20,
-                    color: AppColors.textSecondary(context),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 3,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.resolve(
-                        context,
-                        const Color(0xFF2A4A5A),
-                        const Color(0xFFE0F2FE),
-                      ),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      'Thought',
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: Colors.tealAccent,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Icon(
-                    Icons.lightbulb_outline,
-                    size: 16,
-                    color: AppColors.porchAmberOf(context),
-                  ),
-                ],
               ),
-            ),
-          ),
-        ),
-      if (_liveThinkHere &&
-          !message.isUser &&
-          message.thinkingStartTime != null &&
-          message.thinkingDurationMs == 0)
-        LiveThinkingTimer(
-          startMs: message.thinkingStartTime!,
-          generating: true,
-        ),
-      SelectableBubbleBody(
-        child: selectable.length == 1
-            ? selectable.first
-            : Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: selectable,
+            if (message.thinkingContent != null)
+              LiveThoughtBody(
+                text: message.thinkingContent!,
+                followLatest: widget.followStreamingReplies,
               ),
+          ],
+        ),
       ),
-      if (message.activeMetadata?['image_path'] is String)
-        InlineChatImage(
-          path: message.activeMetadata!['image_path'] as String,
-          prompt: message.activeMetadata!['image_prompt'] as String?,
+    if (widget.chatService != null &&
+        !message.isUser &&
+        message.sender != 'System' &&
+        message.displayText.isEmpty &&
+        (message.thinkingContent?.isNotEmpty ?? false) &&
+        !_liveThinkHere(widget))
+      Text(
+        '💭 Only thoughts this turn — Continue or '
+        'Regenerate for a spoken reply.',
+        style: TextStyle(
+          fontSize: 12,
+          fontStyle: FontStyle.italic,
+          color: AppColors.textTertiary(context),
         ),
-      if (message.activeMetadata != null)
-        _buildRealismIndicator(message.activeMetadata!),
-    ];
-  }
+      )
+    else if (!hasStorage)
+      Text(
+        message.displayText,
+        style: TextStyle(color: AppColors.textPrimary(context)),
+      )
+    else
+      StyledChatMessage(
+        text: message.displayText,
+        isUser: message.isUser,
+        externalImagesAllowed: widget.externalImagesAllowed,
+        onRequestImagePermission: widget.onRequestImagePermission,
+        character: widget.character ?? widget.chatService?.activeCharacter,
+        themePreset: theme.preset,
+        themeOverrides: theme.overrides,
+      ),
+  ];
+  return [
+    if (!message.isUser) const SizedBox(height: 4),
+    if (!message.isUser && message.hasThinking)
+      Unselectable(
+        child: GestureDetector(
+          key: const Key('thought-toggle'),
+          behavior: HitTestBehavior.opaque,
+          onTap: onToggleThought,
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  thoughtOpen ? Icons.expand_more : Icons.chevron_right,
+                  size: 20,
+                  color: AppColors.textSecondary(context),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: AppColors.resolve(
+                      context,
+                      const Color(0xFF2A4A5A),
+                      const Color(0xFFE0F2FE),
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Thought',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.tealAccent,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.lightbulb_outline,
+                  size: 16,
+                  color: AppColors.porchAmberOf(context),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    if (_liveThinkHere(widget) &&
+        !message.isUser &&
+        message.thinkingStartTime != null &&
+        message.thinkingDurationMs == 0)
+      LiveThinkingTimer(startMs: message.thinkingStartTime!, generating: true),
+    SelectableBubbleBody(
+      child: selectable.length == 1
+          ? selectable.first
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: selectable,
+            ),
+    ),
+    if (message.activeMetadata?['image_path'] is String)
+      InlineChatImage(
+        path: message.activeMetadata!['image_path'] as String,
+        prompt: message.activeMetadata!['image_prompt'] as String?,
+      ),
+    if (message.activeMetadata != null)
+      MessageRealismIndicator(
+        metadata: message.activeMetadata!,
+        message: message,
+        index: widget.index,
+        chatService: widget.chatService,
+        onReprocess: onReprocess,
+      ),
+  ];
+}
+
+/// Live "Thinking…" belongs to the bubble that is streaming. A later
+/// group speaker keeps [ChatService.isGenerating] true, and an earlier
+/// think that never recorded a duration would otherwise count the
+/// whole time that next reply takes. Impersonate writes into the input
+/// box, so no bubble is streaming while it runs.
+bool _liveThinkHere(MessageBubble widget) {
+  if (widget.isGenerating != null) return widget.isGenerating!;
+  final chat = widget.chatService;
+  if (chat == null) return true;
+  return chat.isGenerating &&
+      chat.generationPhase != GenerationPhase.impersonating &&
+      widget.index == chat.messages.length - 1;
 }

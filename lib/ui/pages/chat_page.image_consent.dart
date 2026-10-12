@@ -18,20 +18,37 @@
 //
 // The external-image consent flow: the one-time "allow images from the
 // internet?" dialog (risk list + per-character persisted consent) that
-// MessageBubble raises via onRequestImagePermission. Extracted verbatim from
-// the build() closure in chat_page.dart (god-file campaign, Tranche A).
+// MessageBubble raises via onRequestImagePermission.
 
-part of 'chat_page.dart';
+import 'dart:async';
 
-extension _ChatPageImageConsent on _ChatPageState {
-  /// Verbatim the old onRequestImagePermission closure body.
-  Future<bool> _requestExternalImagePermission() async {
-    if (_externalImagesAllowed != null) {
-      return _externalImagesAllowed!;
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import 'package:front_porch_ai/services/services.dart';
+
+/// The chat page's answer to "may this chat load images from the internet?".
+/// [allowed] is null until asked; [onDecided] rebuilds the owning page after
+/// [allowed] changes (only while the page is still mounted).
+class ExternalImageConsent {
+  ExternalImageConsent({required this.onDecided});
+
+  final VoidCallback onDecided;
+
+  /// Null = not decided yet this page; feeds MessageBubble.
+  bool? allowed;
+  bool _checked = false;
+
+  /// Raise the consent dialog (or answer from the persisted per-character
+  /// consent) from the chat page's [context].
+  Future<bool> request(BuildContext context) async {
+    if (allowed != null) {
+      return allowed!;
     }
     // Check persisted consent first
-    if (!_imageConsentChecked) {
-      _imageConsentChecked = true;
+    if (!_checked) {
+      _checked = true;
       final prefs = await SharedPreferences.getInstance();
       final consented = prefs.getStringList('image_consent_characters') ?? [];
       final charName =
@@ -41,8 +58,9 @@ extension _ChatPageImageConsent on _ChatPageState {
           ).activeCharacter?.name ??
           '';
       if (charName.isNotEmpty && consented.contains(charName)) {
-        if (mounted) {
-          rebuildState(() => _externalImagesAllowed = true);
+        if (context.mounted) {
+          allowed = true;
+          onDecided();
         }
         return true;
       }
@@ -122,8 +140,8 @@ extension _ChatPageImageConsent on _ChatPageState {
         ],
       ),
     );
-    final allowed = result ?? false;
-    if (allowed) {
+    final decided = result ?? false;
+    if (decided) {
       // Persist consent for this character
       final prefs = await SharedPreferences.getInstance();
       final charName =
@@ -140,10 +158,11 @@ extension _ChatPageImageConsent on _ChatPageState {
         }
       }
     }
-    if (mounted) {
-      rebuildState(() => _externalImagesAllowed = allowed);
+    if (context.mounted) {
+      allowed = decided;
+      onDecided();
     }
-    return allowed;
+    return decided;
   }
 }
 

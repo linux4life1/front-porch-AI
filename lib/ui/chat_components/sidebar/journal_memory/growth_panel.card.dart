@@ -16,11 +16,32 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'growth_panel.dart';
+import 'package:flutter/material.dart';
 
-/// Past-growth fold and one ring card plus its overflow menu.
-extension GrowthPanelCards on GrowthPanel {
-  Widget _pastSection(BuildContext context, List<GrowthRingData> past) {
+import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
+
+import '../sidebar_tokens.dart';
+import 'growth_panel.actions.dart';
+import 'growth_panel.dart';
+
+/// Collapsible "Past growth" fold listing retired rings.
+class GrowthPastSection extends StatelessWidget {
+  final List<GrowthRingData> past;
+  final ChatService chatService;
+  final ValueChanged<int>? onJumpToMessage;
+
+  const GrowthPastSection({
+    super.key,
+    required this.past,
+    required this.chatService,
+    this.onJumpToMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     // Material so ExpansionTile's internal ListTile has a paint surface —
     // without it, Flutter asserts when a parent PorchAccordion DecoratedBox
     // sits between this ListTile and the nearest Material (ink invisible).
@@ -46,7 +67,12 @@ extension GrowthPanelCards on GrowthPanel {
                 padding: const EdgeInsets.only(bottom: 6),
                 child: Opacity(
                   opacity: 0.65,
-                  child: _ringCard(context, ring, isPast: true),
+                  child: GrowthRingCard(
+                    ring: ring,
+                    isPast: true,
+                    chatService: chatService,
+                    onJumpToMessage: onJumpToMessage,
+                  ),
                 ),
               ),
           ],
@@ -54,12 +80,26 @@ extension GrowthPanelCards on GrowthPanel {
       ),
     );
   }
+}
 
-  Widget _ringCard(
-    BuildContext context,
-    GrowthRingData ring, {
-    bool isPast = false,
-  }) {
+/// One ring card: category chip, sentence, strength bar, receipt pills and
+/// its overflow menu (pin / edit / retire, or restore / delete when past).
+class GrowthRingCard extends StatelessWidget {
+  final GrowthRingData ring;
+  final bool isPast;
+  final ChatService chatService;
+  final ValueChanged<int>? onJumpToMessage;
+
+  const GrowthRingCard({
+    super.key,
+    required this.ring,
+    required this.chatService,
+    this.isPast = false,
+    this.onJumpToMessage,
+  });
+
+  @override
+  Widget build(BuildContext context) {
     final isArchive = ring.category == GrowthPhysics.kArchiveCategory;
     final chipColor = GrowthPanel.categoryAccent(context, ring.category);
     final emerging = !isPast && GrowthPhysics.tierOf(ring) == 'emerging';
@@ -113,7 +153,7 @@ extension GrowthPanelCards on GrowthPanel {
                   size: 11,
                   color: AppColors.porchHoneyOf(context),
                 ),
-              _ringMenu(context, ring, isPast: isPast),
+              _menu(context),
             ],
           ),
           const SizedBox(height: 4),
@@ -137,9 +177,8 @@ extension GrowthPanelCards on GrowthPanel {
                     child: LinearProgressIndicator(
                       value: ring.strength.clamp(0.0, 1.0),
                       minHeight: 3,
-                      backgroundColor: AppColors.borderOf(
-                        context,
-                      ).withValues(alpha: 0.4),
+                      backgroundColor: AppColors.borderOf(context)
+                          .withValues(alpha: 0.4),
                       valueColor: AlwaysStoppedAnimation(
                         AppColors.porchAmberOf(context),
                       ),
@@ -163,9 +202,8 @@ extension GrowthPanelCards on GrowthPanel {
                         vertical: 1.5,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.porchAmberOf(
-                          context,
-                        ).withValues(alpha: 0.12),
+                        color: AppColors.porchAmberOf(context)
+                            .withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(
@@ -198,11 +236,7 @@ extension GrowthPanelCards on GrowthPanel {
     );
   }
 
-  Widget _ringMenu(
-    BuildContext context,
-    GrowthRingData ring, {
-    required bool isPast,
-  }) {
+  Widget _menu(BuildContext context) {
     return PopupMenuButton<String>(
       icon: Icon(
         Icons.more_horiz,
@@ -218,7 +252,7 @@ extension GrowthPanelCards on GrowthPanel {
             await chatService.setGrowthRingPinned(ring.id, !ring.pinned);
             break;
           case 'edit':
-            await _editRing(context, ring);
+            await editGrowthRing(context, chatService, ring);
             break;
           case 'retire':
             await chatService.retireGrowthRing(ring.id);

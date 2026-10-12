@@ -16,44 +16,54 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of 'creator_state.dart';
+import 'dart:io';
 
-/// Abort, catalog, and local-model reload for the creator setup step.
-extension CreatorStateModels on CreatorState {
+import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+
+/// Abort, catalog, and local-model reload for the creator setup step. Reads
+/// and writes [state]'s model fields and notifies through it.
+class CreatorBackendModels {
+  final CreatorState state;
+
+  CreatorBackendModels(this.state);
+
   void abortGeneration() {
-    activeGenService?.abort();
-    isGenerating = false;
-    generationStatus = 'Generation aborted.';
-    generationPreview = '';
-    progress = 0.0;
-    _currentStep = 2; // Return to config step
-    activeGenService = null;
-    notify();
+    state.activeGenService?.abort();
+    state.isGenerating = false;
+    state.generationStatus = 'Generation aborted.';
+    state.generationPreview = '';
+    state.progress = 0.0;
+    state.setStep(2); // Return to config step
+    state.activeGenService = null;
+    state.notify();
   }
 
   // Model loading / scanning (signatures adapted to accept services; callers pass from UI context)
   Future<void> loadAvailableModels(LLMProvider llmProvider) async {
     if (llmProvider.hasManagedProcess) {
-      availableModels = [];
-      isLoadingModels = false;
-      selectedModelId = '';
-      notify();
+      state.availableModels = [];
+      state.isLoadingModels = false;
+      state.selectedModelId = '';
+      state.notify();
       return;
     }
     final openRouter = llmProvider.openRouterService;
     try {
       final models = await openRouter.fetchAvailableModels();
-      availableModels = models;
-      isLoadingModels = false;
-      if (selectedModelId.isEmpty) {
-        selectedModelId = openRouter.modelName;
+      state.availableModels = models;
+      state.isLoadingModels = false;
+      if (state.selectedModelId.isEmpty) {
+        state.selectedModelId = openRouter.modelName;
       }
-      notify();
+      state.notify();
     } catch (e) {
       debugPrint('CreatorState: Failed to load models: $e');
-      isLoadingModels = false;
-      selectedModelId = llmProvider.openRouterService.modelName;
-      notify();
+      state.isLoadingModels = false;
+      state.selectedModelId = llmProvider.openRouterService.modelName;
+      state.notify();
     }
   }
 
@@ -61,8 +71,8 @@ extension CreatorStateModels on CreatorState {
     final modelsDir = storage.modelsDir;
     final noDir = !modelsDir.existsSync(); // io-ok: catalog scan
     if (noDir) {
-      localModels = [];
-      notify();
+      state.localModels = [];
+      state.notify();
       return;
     }
     try {
@@ -78,27 +88,29 @@ extension CreatorStateModels on CreatorState {
                   .toLowerCase()
                   .compareTo(p.basename(b.path).toLowerCase()),
             );
-      localModels = files;
-      if (selectedLocalModelPath.isEmpty) {
-        selectedLocalModelPath =
+      state.localModels = files;
+      if (state.selectedLocalModelPath.isEmpty) {
+        state.selectedLocalModelPath =
             storage.backendSettings.lastUsedModelPath ?? '';
       }
-      notify();
+      state.notify();
     } catch (e) {
       debugPrint('CreatorState: Failed to scan models: $e');
-      localModels = [];
-      notify();
+      state.localModels = [];
+      state.notify();
     }
   }
 
   void scanLocalPresets(StorageService storage) {
-    localPresets = kcppsPresetFiles(storage.binDir.path);
-    notify();
+    state.localPresets = kcppsPresetFiles(storage.binDir.path);
+    state.notify();
   }
 
   void initLocalSettingsControllers(StorageService storage) {
-    gpuLayersController.text = storage.backendSettings.gpuLayers.toString();
-    contextSizeController.text = storage.backendSettings.contextSize.toString();
+    state.gpuLayersController.text = storage.backendSettings.gpuLayers
+        .toString();
+    state.contextSizeController.text = storage.backendSettings.contextSize
+        .toString();
   }
 
   // Note: reloadKoboldWithModel lifted with service params (callers in steps
@@ -110,11 +122,11 @@ extension CreatorStateModels on CreatorState {
     StorageService storage,
     BackendManager backendManager,
   ) async {
-    if (isReloadingKobold) return;
+    if (state.isReloadingKobold) return;
     final kobold = llmProvider.koboldService;
 
-    isReloadingKobold = true;
-    notify();
+    state.isReloadingKobold = true;
+    state.notify();
 
     try {
       // Checked before anything is stopped, as the desktop's buttons do: a
@@ -126,21 +138,21 @@ extension CreatorStateModels on CreatorState {
           ? 'Error: Backend executable not found'
           : await koboldLaunchProblem(storage, pickedModel: modelPath);
       if (execPath == null || problem != null) {
-        isReloadingKobold = false;
-        koboldStatus = problem!;
-        notify();
+        state.isReloadingKobold = false;
+        state.koboldStatus = problem!;
+        state.notify();
         return;
       }
 
-      koboldStatus = 'Stopping KoboldCpp...';
-      notify();
+      state.koboldStatus = 'Stopping KoboldCpp...';
+      state.notify();
       if (kobold.isRunning) {
         await kobold.stopKobold();
         await Future.delayed(const Duration(seconds: 1));
       }
 
-      koboldStatus = 'Starting KoboldCpp with new model...';
-      notify();
+      state.koboldStatus = 'Starting KoboldCpp with new model...';
+      state.notify();
 
       // Same rule as every other start: the active preset's own model when
       // it has one on this disk, otherwise the model picked here. The
@@ -148,41 +160,42 @@ extension CreatorStateModels on CreatorState {
       // (saying why) a model or preset that cannot be read.
       final result = await kobold.launch(execPath, pickedModel: modelPath);
       if (!result.started) {
-        isReloadingKobold = false;
-        koboldStatus = result.message ?? 'KoboldCpp could not be started.';
-        notify();
+        state.isReloadingKobold = false;
+        state.koboldStatus =
+            result.message ?? 'KoboldCpp could not be started.';
+        state.notify();
         return;
       }
       // The model that loaded, which the launch records: the active
       // preset's own model when it has one here, not always the one picked.
       final loaded = storage.backendSettings.lastUsedModelPath ?? modelPath;
-      selectedLocalModelPath = loaded;
+      state.selectedLocalModelPath = loaded;
 
       // Poll for model readiness
-      koboldStatus = 'Loading model...';
-      notify();
+      state.koboldStatus = 'Loading model...';
+      state.notify();
       for (int i = 0; i < 120; i++) {
         await Future.delayed(const Duration(seconds: 1));
         if (kobold.modelReady) {
-          isReloadingKobold = false;
-          koboldStatus = 'Model loaded successfully!';
-          selectedLocalModelPath = loaded;
-          notify();
+          state.isReloadingKobold = false;
+          state.koboldStatus = 'Model loaded successfully!';
+          state.selectedLocalModelPath = loaded;
+          state.notify();
           return;
         }
         if (kobold.modelLoadingStatus.isNotEmpty) {
-          koboldStatus = kobold.modelLoadingStatus;
-          notify();
+          state.koboldStatus = kobold.modelLoadingStatus;
+          state.notify();
         }
       }
 
-      isReloadingKobold = false;
-      koboldStatus = 'Timeout waiting for model to load';
-      notify();
+      state.isReloadingKobold = false;
+      state.koboldStatus = 'Timeout waiting for model to load';
+      state.notify();
     } catch (e) {
-      isReloadingKobold = false;
-      koboldStatus = 'Error: $e';
-      notify();
+      state.isReloadingKobold = false;
+      state.koboldStatus = 'Error: $e';
+      state.notify();
     }
   }
 }

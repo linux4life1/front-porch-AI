@@ -1,21 +1,25 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-part of 'setup_step.dart';
+import 'package:flutter/material.dart';
 
 /// An 8px pulsing status dot that blinks during transitional states.
 /// Uses the same animation pattern as LogView (800ms easeInOut opacity pulse).
-class _BackendStatusDot extends StatefulWidget {
+class BackendStatusDot extends StatefulWidget {
   final Color color;
   final bool isBlinking;
 
-  const _BackendStatusDot({required this.color, required this.isBlinking});
+  const BackendStatusDot({
+    super.key,
+    required this.color,
+    required this.isBlinking,
+  });
 
   @override
-  State<_BackendStatusDot> createState() => _BackendStatusDotState();
+  State<BackendStatusDot> createState() => _BackendStatusDotState();
 }
 
-class _BackendStatusDotState extends State<_BackendStatusDot>
+class _BackendStatusDotState extends State<BackendStatusDot>
     with SingleTickerProviderStateMixin {
   late final AnimationController _controller;
   late final Animation<double> _animation;
@@ -35,7 +39,7 @@ class _BackendStatusDotState extends State<_BackendStatusDot>
   }
 
   @override
-  void didUpdateWidget(_BackendStatusDot oldWidget) {
+  void didUpdateWidget(BackendStatusDot oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.isBlinking != widget.isBlinking) {
       _updateBlinking();

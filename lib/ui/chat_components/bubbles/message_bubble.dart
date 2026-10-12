@@ -22,29 +22,15 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-import '../widgets/composer_draft_scope.dart';
-import '../widgets/inline_chat_image.dart';
-import '../widgets/regen_critique_field.dart';
-import 'live_thought_body.dart';
-import 'live_thinking_timer.dart';
-import 'selectable_bubble_body.dart';
-import 'styled_chat_message.dart';
+import 'message_bubble.actions.dart';
+import 'message_bubble.content.dart';
+import 'message_bubble.dialogs.dart';
+import 'message_bubble.header.dart';
 import 'theme_border_resolver.dart';
-
-part 'message_bubble.header.dart';
-part 'message_bubble.content.dart';
-part 'message_bubble.actions.dart';
-part 'message_bubble.dialogs.dart';
-part 'message_bubble.realism.dart';
-part 'message_bubble.realism_chips.dart';
-part 'message_bubble.realism_layout.dart';
 
 /// Message bubble widget (extracted from chat_page god file).
 /// Preserves all original behavior for 1:1 + group, swipes, TTS, realism indicators, thoughts, actions, Chance Time, etc.
@@ -101,13 +87,6 @@ class _MessageBubbleState extends State<MessageBubble> {
   int get index => widget.index;
   CharacterCard? get character => widget.character;
 
-  /// Re-exposes the protected `setState` for the `part of` extensions
-  /// (`message_bubble.*.dart`), which hold the header row, thought/body
-  /// children, action rows, dialogs, and realism-chip rendering but can't
-  /// call a State's protected members directly (settings_page.dart's
-  /// `rebuildState` bridge, same pattern).
-  void rebuildState(VoidCallback fn) => setState(fn);
-
   /// Chat Thought stays collapsed until the chevron is tapped (the
   /// pre-Waifu default). Waifu passes [isGenerating] so the live
   /// tool-loop step can be watched. A tap pins the user's choice so
@@ -120,11 +99,28 @@ class _MessageBubbleState extends State<MessageBubble> {
 
   void _toggleThought() {
     final next = !_thoughtOpen;
-    rebuildState(() {
+    setState(() {
       _thoughtPinned = true;
       _thoughtExpanded = next;
     });
   }
+
+  /// Variant picker for this message. The pick applies only while this
+  /// bubble is still mounted.
+  Future<void> _openVariantPicker({
+    required String title,
+    required Future<void> Function(int) onSelect,
+  }) async {
+    final chat = context.read<ChatService>();
+    final chosen = await showVariantPickerDialog(
+      context,
+      title: title,
+      variants: chat.variantsForMessage(index),
+    );
+    if (chosen != null && mounted) await onSelect(chosen);
+  }
+
+  void _confirmDelete() => confirmDeleteMessage(context, index);
 
   bool get hasStorage {
     try {
@@ -168,19 +164,19 @@ class _MessageBubbleState extends State<MessageBubble> {
     // (the chance-time banner was inlined here before dreams arrived; the
     // extraction deletes that duplication rather than adding a parallel copy).
     if (isChanceTimeNarration) {
-      return _narrationBanner(
-        context,
+      return MessageNarrationBanner(
         emoji: '🎰',
         text: message.text
             .replaceAll('[🎰 CHANCE TIME! ', '')
             .replaceAll(']', ''),
+        onDelete: _confirmDelete,
       );
     }
     if (message.activeMetadata?['is_dream'] == true) {
-      return _narrationBanner(
-        context,
+      return MessageNarrationBanner(
         emoji: '🌙',
         text: '${message.sender} dreamt: ${message.text}',
+        onDelete: _confirmDelete,
       );
     }
 
@@ -201,7 +197,12 @@ class _MessageBubbleState extends State<MessageBubble> {
             : MainAxisAlignment.start,
         children: [
           if (!isDirectorNote) ...[
-            _avatarColumn(context, boundToChat),
+            MessageBubbleAvatar(
+              message: message,
+              index: index,
+              characterImage: characterImage,
+              chatService: widget.chatService,
+            ),
             const SizedBox(width: 12),
           ],
 
@@ -260,25 +261,63 @@ class _MessageBubbleState extends State<MessageBubble> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _headerActionsRow(
-                        context,
-                        theme,
-                        storage,
-                        isDirectorNote,
+                      MessageBubbleHeader(
+                        message: message,
+                        index: index,
+                        chatService: widget.chatService,
+                        senderColor: widget.senderColor,
+                        character: character,
+                        theme: theme,
+                        storage: storage,
+                        isDirectorNote: isDirectorNote,
+                        onInspectPrompt: () => showMessageReplyContext(
+                          context,
+                          chat: widget.chatService,
+                          message: message,
+                        ),
+                        onOtherWords: () => showMessageTokenAlternatives(
+                          context,
+                          chat: widget.chatService,
+                          message: message,
+                          index: index,
+                        ),
+                        onEdit: () => editMessageViaDialog(
+                          context,
+                          message: message,
+                          index: index,
+                        ),
+                        onFork: () => confirmForkMessage(context, index),
+                        onDelete: _confirmDelete,
                       ),
-                      ..._thoughtAndBodyChildren(context, theme),
+                      ...messageBubbleContentChildren(
+                        context,
+                        widget: widget,
+                        theme: theme,
+                        thoughtOpen: _thoughtOpen,
+                        onToggleThought: _toggleThought,
+                        onReprocess: () =>
+                            showReprocessNeedsDialog(context, index),
+                        hasStorage: hasStorage,
+                      ),
                       if (boundToChat && index == 0 && !message.isUser)
-                        _greetingSwipeRow(),
+                        GreetingSwipeRow(
+                          index: index,
+                          openVariantPicker: _openVariantPicker,
+                        ),
                       if (boundToChat &&
                           !message.isUser &&
                           message.sender != 'System' &&
                           message.activeMetadata?['is_generated_image'] != true)
-                        _messageActionRow(),
+                        MessageActionRow(
+                          message: message,
+                          index: index,
+                          openVariantPicker: _openVariantPicker,
+                        ),
                       if (boundToChat &&
                           !message.isUser &&
                           message.sender != 'System' &&
                           message.activeMetadata?['is_generated_image'] != true)
-                        _suggestActionsColumn(theme),
+                        SuggestActionsColumn(index: index, theme: theme),
                     ],
                   ),
                 ),
