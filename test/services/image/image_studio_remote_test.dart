@@ -238,6 +238,21 @@ void main() {
 
       await pick(kNanoGptApiV1);
       expect(image.imageGenModel, 'z-image-turbo', reason: 'remembered');
+
+      final fresh = ImageGenSettings();
+      await fresh.setImageRemoteApiUrl(kXaiApiV1);
+      await fresh.setImageGenEditModel('grok-imagine-image');
+      await applyImageRemoteHost(
+        image: fresh,
+        url: kNanoGptApiV1,
+        chatRemoteApiUrl: '',
+        editScoped: false,
+      );
+      expect(
+        fresh.imageGenEditModel,
+        isEmpty,
+        reason: 'Nano has no Edit model of its own; xAI\'s id must not stay',
+      );
     },
   );
 }
