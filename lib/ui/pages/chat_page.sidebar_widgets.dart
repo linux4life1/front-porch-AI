@@ -221,7 +221,8 @@ class ChatSidebarPortrait extends StatelessWidget {
         return CharacterPortrait(
           file: displayFile,
           size: avatarSize,
-          imageKey: expressionKey ?? 'default',
+          imageKey:
+              '${expressionKey ?? 'default'}:${context.watch<CharacterRepository>().coverEpoch}',
           alignEnd: avatarLocked && sidebarWidth > 300,
           overlays: [
             if (expressionEmoji != null)

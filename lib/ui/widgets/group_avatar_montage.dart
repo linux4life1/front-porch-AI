@@ -12,8 +12,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// An avatar montage that adapts to the cast size so no blank slots are left:
 /// 1 fills the square, 2 sit side-by-side (full height), 3 form an inverted
@@ -44,7 +45,10 @@ class GroupAvatarMontage extends StatelessWidget {
         image: picture != null
             // Montage cells are tiny (quarter of a tile); decode small.
             ? DecorationImage(
-                image: ResizeImage(FileImage(picture), width: 256),
+                image: ResizeImage(
+                  FileImage(picture),
+                  width: kPortraitMontageDecodeWidth,
+                ),
                 fit: BoxFit.cover,
               )
             : null,
