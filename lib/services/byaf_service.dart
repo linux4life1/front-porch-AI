@@ -33,6 +33,11 @@ class ByafImportPreview {
 
   /// Every extracted archive image, in listed order. Index 0 is the portrait.
   final List<String> galleryImagePaths;
+
+  /// The portrait's bytes, held in memory so the preview never opens the
+  /// temp extract. On Windows an open or mapped file cannot be deleted, so a
+  /// preview reading [extractedImagePath] would leave it behind on Cancel.
+  final Uint8List? portraitBytes;
   final String? firstMessage;
   final String? narrative;
   final String? formattingInstructions;
@@ -45,6 +50,7 @@ class ByafImportPreview {
     required this.persona,
     this.loreItems = const [],
     this.galleryImagePaths = const [],
+    this.portraitBytes,
     this.firstMessage,
     this.narrative,
     this.formattingInstructions,
@@ -135,6 +141,7 @@ class ByafService {
     // 4. Extract the archive's image set. First listed image is the
     // portrait; the rest become gallery looks at confirm time.
     final galleryImagePaths = <String>[];
+    Uint8List? portraitBytes;
     if (charJson['images'] is List && (charJson['images'] as List).isNotEmpty) {
       final tempDir = await _getTemporaryDirectory();
       if (!await tempDir.exists()) await tempDir.create(recursive: true);
@@ -153,7 +160,9 @@ class ByafService {
             : '.png';
         final tempPath =
             '${tempDir.path}/byaf_import_${i}_${DateTime.now().millisecondsSinceEpoch}$ext';
-        await File(tempPath).writeAsBytes(imgFile.content as List<int>);
+        final bytes = Uint8List.fromList(imgFile.content as List<int>);
+        await File(tempPath).writeAsBytes(bytes);
+        portraitBytes ??= bytes;
         galleryImagePaths.add(tempPath);
       }
     }
@@ -262,6 +271,7 @@ class ByafService {
       persona: persona,
       loreItems: loreItems,
       galleryImagePaths: galleryImagePaths,
+      portraitBytes: portraitBytes,
       firstMessage: firstMessage,
       narrative: narrative,
       formattingInstructions: formattingInstructions,

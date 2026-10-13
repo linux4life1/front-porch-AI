@@ -16,7 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/byaf_service.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -120,9 +119,9 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                             width: 100,
                             height: 100,
                             color: AppColors.surfaceContainerOf(context),
-                            child: preview.extractedImagePath != null
-                                ? Image.file(
-                                    File(preview.extractedImagePath!),
+                            child: preview.portraitBytes != null
+                                ? Image.memory(
+                                    preview.portraitBytes!,
                                     fit: BoxFit.cover,
                                     alignment: Alignment.topCenter,
                                     errorBuilder: (_, _, _) => Icon(

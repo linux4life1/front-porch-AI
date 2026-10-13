@@ -18,6 +18,7 @@
 
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_repository.dart';
 
@@ -28,7 +29,9 @@ void deleteByafTempImages(Iterable<String> paths) {
     if (!img.existsSync()) continue;
     try {
       img.deleteSync();
-    } catch (_) {}
+    } on FileSystemException catch (e) {
+      debugPrint('[BYAF] Could not delete temp extract $imgPath: $e');
+    }
   }
 }
 
@@ -60,17 +63,21 @@ Future<int> applyByafGalleryLooks({
       );
       if (lookId.isNotEmpty) added++;
     }
-    try {
-      await imgFile.delete();
-    } catch (_) {}
+    await _deleteExtract(imgFile);
   }
   if (galleryImagePaths.isNotEmpty) {
     final portrait = File(galleryImagePaths.first);
     if (portrait.existsSync()) {
-      try {
-        await portrait.delete();
-      } catch (_) {}
+      await _deleteExtract(portrait);
     }
   }
   return added;
+}
+
+Future<void> _deleteExtract(File file) async {
+  try {
+    await file.delete();
+  } on FileSystemException catch (e) {
+    debugPrint('[BYAF] Could not delete temp extract ${file.path}: $e');
+  }
 }
