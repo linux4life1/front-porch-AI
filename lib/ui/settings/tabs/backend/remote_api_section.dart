@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_model_memory.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -162,14 +163,24 @@ class _RemoteApiSectionState extends State<RemoteApiSection> {
         ),
       ),
       const SizedBox(height: 20),
-      RemoteModelPickerField(
-        availableModels: widget.availableModels,
-        selectedId: storageService.backendSettings.remoteModelName,
-        fetching: _isFetchingModels,
-        onRefresh: () => _refreshModels(context),
-        onSelected: (m) =>
-            storageService.backendSettings.setRemoteModelName(m.id),
-        onTyped: storageService.backendSettings.setRemoteModelName,
+      // Re-keyed per host: the typed field keeps its first value, so a
+      // same-layout switch would show the last host's model.
+      KeyedSubtree(
+        key: ValueKey(
+          remoteModelSlot(
+            backend: storageService.backendSettings.backendType,
+            url: storageService.backendSettings.remoteApiUrl,
+          ),
+        ),
+        child: RemoteModelPickerField(
+          availableModels: widget.availableModels,
+          selectedId: storageService.backendSettings.remoteModelName,
+          fetching: _isFetchingModels,
+          onRefresh: () => _refreshModels(context),
+          onSelected: (m) =>
+              storageService.backendSettings.setRemoteModelName(m.id),
+          onTyped: storageService.backendSettings.setRemoteModelName,
+        ),
       ),
       if (storageService.backendSettings.remoteModelName.isNotEmpty) ...[
         const SizedBox(height: 10),

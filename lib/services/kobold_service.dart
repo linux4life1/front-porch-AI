@@ -29,6 +29,7 @@ import 'package:front_porch_ai/services/kobold_admin_swap.dart';
 import 'package:front_porch_ai/services/kobold_launch_args.dart';
 import 'package:front_porch_ai/services/kobold_process_control.dart';
 import 'package:front_porch_ai/services/kobold_system_role.dart';
+import 'package:front_porch_ai/services/kobold_tool_crash_guard.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/model_file_check.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -277,7 +278,13 @@ class KoboldService extends ChangeNotifier
     }
   }
 
+  KoboldToolCrashGuard get toolCrashGuard => _requests.toolCrashGuard;
+
+  String get toolConfigurationKey =>
+      '$_baseUrl|${_executablePath ?? ''}|${_residentKey ?? requestModel}';
+
   void setBaseUrl(String url) {
+    final previousUrl = _baseUrl;
     // Force IPv4 for consistency
     String cleanUrl = url.replaceAll('localhost', '127.0.0.1');
     if (cleanUrl.endsWith('/')) {
@@ -285,6 +292,7 @@ class KoboldService extends ChangeNotifier
     } else {
       _baseUrl = cleanUrl;
     }
+    if (previousUrl != _baseUrl) toolCrashGuard.clear();
     notifyListeners();
   }
 

@@ -3,7 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
-import { isLmStudioUrl, urlHasStoredApiKey } from '../remoteApiKeys';
+import { isLmStudioUrl, parkRemoteModel, rememberedRemoteModel, urlHasStoredApiKey } from '../remoteApiKeys';
 import { ModelPicker } from './ModelPicker';
 import { type LocalModelFile } from './models/types';
 import { INTEL_MAC_LOCAL_UNSUPPORTED } from '../backendOptions';
@@ -20,6 +20,8 @@ export interface WorkerBackendFields {
   workerBackend?: string;
   workerRemoteApiUrl?: string;
   workerRemoteModelName?: string;
+  /** Slot → last worker model per host. Absent on older hosts. */
+  workerRemoteApiModels?: Record<string, string>;
   workerKoboldModelPath?: string;
   workerKoboldKcppsPath?: string;
   lastUsedModelPath?: string;
@@ -133,16 +135,20 @@ export function WorkerBackendCard({
   const onHostChange = (nextId: string) => {
     const opt = HOSTS.find((o) => o.id === nextId);
     if (!opt) return;
-    const patch: Partial<WorkerBackendFields> = {
+    const url = nextId === 'custom' ? '' : (opt.url ?? workerUrl);
+    // Park the current pick, then bring back the new host's last model.
+    const models = parkRemoteModel(
+      s.workerBackend ?? '',
+      workerUrl,
+      s.workerRemoteModelName ?? '',
+      s.workerRemoteApiModels,
+    );
+    onPatch({
       workerBackend: opt.backend,
-      workerRemoteModelName: '',
-    };
-    if (nextId === 'custom') {
-      patch.workerRemoteApiUrl = '';
-    } else if (opt.url) {
-      patch.workerRemoteApiUrl = opt.url;
-    }
-    onPatch(patch);
+      workerRemoteApiUrl: url,
+      workerRemoteApiModels: models,
+      workerRemoteModelName: rememberedRemoteModel(opt.backend, url, models),
+    });
   };
 
   const pickerUrl = sameHost ? (s.remoteApiUrl ?? '') : workerUrl;

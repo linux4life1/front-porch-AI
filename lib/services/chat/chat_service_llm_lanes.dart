@@ -254,6 +254,10 @@ extension ChatServiceLlmLanes on ChatService {
               (_localModelPath ?? '').isEmpty),
       isBusy: () => _isGenerating || (_llmProvider?.gpuSwapBusy ?? false),
       onNotify: notifyListeners,
+      onForcedRetest: () {
+        final service = _studioToolLlm;
+        if (service is KoboldService) service.toolCrashGuard.clear();
+      },
     );
   }
 

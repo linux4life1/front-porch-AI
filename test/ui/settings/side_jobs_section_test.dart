@@ -210,4 +210,31 @@ void main() {
     expect(find.byType(RemoteProviderBar), findsNothing);
     expect(find.byType(RemoteModelPickerField), findsNothing);
   });
+
+  testWidgets('switching host shows that host\'s own model in the field', (
+    tester,
+  ) async {
+    final storage = _Store();
+    await storage.setWorkerBackendType('openRouter');
+    await storage.setWorkerRemoteApiUrl(kOpenRouterApiV1);
+    await storage.setWorkerRemoteModelName('openai/gpt-5');
+    await storage.setWorkerRemoteApiUrl(kNanoGptApiV1);
+    await storage.setWorkerRemoteModelName('moonshotai/kimi-k2');
+    await _pump(tester, storage: storage);
+
+    String fieldText() => tester
+        .widget<EditableText>(
+          find.descendant(
+            of: find.byKey(const Key('side-jobs-model-picker')),
+            matching: find.byType(EditableText),
+          ),
+        )
+        .controller
+        .text;
+    expect(fieldText(), 'moonshotai/kimi-k2');
+
+    await storage.setWorkerRemoteApiUrl(kOpenRouterApiV1);
+    await tester.pumpAndSettle();
+    expect(fieldText(), 'openai/gpt-5');
+  });
 }

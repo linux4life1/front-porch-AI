@@ -395,6 +395,7 @@ extension KoboldServiceProcess on KoboldService {
     for (final rawLine in rawLines) {
       final line = rawLine.trim();
       if (line.isEmpty) continue;
+      toolCrashGuard.observe(line);
 
       final isProgress = _progressLinePattern.hasMatch(line);
 
