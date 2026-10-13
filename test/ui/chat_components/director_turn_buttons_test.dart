@@ -147,31 +147,4 @@ void main() {
     );
     expect(button.onPressed, isNull, reason: 'busy: wait for the turn');
   });
-  testWidgets('the Director panel slot gives the sidebar body every pixel a '
-      'short panel leaves, and caps a tall one', (tester) async {
-    tester.view
-      ..physicalSize = const Size(320, 800)
-      ..devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    const bodyKey = ValueKey('body');
-
-    Future<double> bodyHeightUnder(double panel) async {
-      await tester.pumpWidget(
-        MaterialApp(
-          home: Scaffold(
-            body: Column(
-              children: [
-                DirectorPanelSlot(child: SizedBox(height: panel)),
-                const Expanded(child: SizedBox.expand(key: bodyKey)),
-              ],
-            ),
-          ),
-        ),
-      );
-      return tester.getSize(find.byKey(bodyKey)).height;
-    }
-
-    expect(await bodyHeightUnder(100), 700, reason: 'not half the column');
-    expect(await bodyHeightUnder(2000), 800 - 800 * 0.4);
-  });
 }

@@ -61,6 +61,10 @@ class SidebarBody extends StatefulWidget {
   /// OPEN_SECTION=edit: ChatPage opens the in-chat Edit Character dialog.
   final VoidCallback? onOpenEditFromEnv;
 
+  /// Scrolls first, above every section (the Director panel): tall content
+  /// here scrolls with the sidebar instead of squeezing it.
+  final Widget? header;
+
   const SidebarBody({
     super.key,
     required this.chatService,
@@ -70,6 +74,7 @@ class SidebarBody extends StatefulWidget {
     required this.resolveCharImage,
     this.draft,
     this.onOpenEditFromEnv,
+    this.header,
   });
 
   @override
@@ -155,6 +160,7 @@ class _SidebarBodyState extends State<SidebarBody> {
         return ListView(
           padding: const EdgeInsets.all(12),
           children: [
+            ?widget.header,
             // Tool-calling capability of the current model, always visible —
             // users shouldn't have to guess why evals silently run in text
             // mode (and it retests itself on model/backend switches).
