@@ -1026,3 +1026,25 @@ Incremental, each independently reviewable and mergeable. Speed is PRs 1–2. Th
 - **Tests:** two-delta SSE fixture; 400-fallback remembers per identity. Proven red: drop the accumulator → arguments `{}`.
 
 **Merge note:** PRs 1–2 are the "tools can be as fast as JSON on common jinja" claim. PR 3 is the "no 2×" claim. PR 4 is SAMF's switch plus parity. Do not ship PR 4 alone (that is alternative A). Do not hold PRs 1–3 on the streaming parser. Do not start PR 2 until PR 1 has `spec.toolChoice` on the wire.
+
+## Confirmed KoboldCpp reasoning/grammar crashes
+
+Native tools remain the first transport for every unconfirmed backend/model
+configuration. No preset flags are overridden and no token-count or template
+rendering requests are added to an eval.
+
+The managed Kobold request records its configuration while native tools run. If
+its process logs both a zero-token reasoning-budget closer and the specific
+`GGML_ASSERT(!grammar->stacks.empty())` failure, that configuration is quarantined
+for this application session. Further reasoning-off tool requests return no
+native result without sampling. The existing caller-owned text floor then runs
+once. This is independent of version numbers; ordinary logs, reasoning-on
+requests, changed configurations and unobserved external servers retain native
+tools. A manual tool-support retest clears the quarantine.
+
+This is recovery after an observed native fault, not proof that the first request
+cannot crash. It does not inspect primary-profile logs or crash dumps, and does
+not persist prompts or crash history. Engines outside this app's process-log
+capture cannot be diagnosed this way. Continue, regeneration, group passes,
+Journal and Growth still use their existing transport negotiation and state
+contracts; no request payload or caller fallback semantics change.

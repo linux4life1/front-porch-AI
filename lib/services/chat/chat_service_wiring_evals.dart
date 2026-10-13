@@ -411,6 +411,7 @@ extension ChatServiceWiringEvals on ChatService {
       workerLaneReadyForPing: () =>
           _llmProvider?.workerLaneReadyForAutoPing ?? true,
       onNotify: notifyListeners,
+      onForcedRetest: _koboldService.toolCrashGuard.clear,
       // OpenRouter/Nano-GPT list tool support in their /models metadata, so the
       // auto-test seeds the probe for free instead of pinging the model. Gated
       // to the openRouter backend: oMLX runs at localhost (no metadata) and the
