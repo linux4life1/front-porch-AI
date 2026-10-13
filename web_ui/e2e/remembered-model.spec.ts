@@ -24,6 +24,11 @@ test.describe('the model last used on each backend', () => {
     standIn = { backend: s.backend, remoteApiUrl: s.remoteApiUrl, remoteModelName: s.remoteModelName };
   });
   test.afterEach(async ({ request }) => {
+    // Forget the journey's Nano-GPT model so no later spec finds it there.
+    const forget = await request.post('/api/settings', {
+      data: { backend: 'openRouter', remoteApiUrl: NANO, remoteModelName: '', currentPassword: process.env.FPAI_PASSWORD },
+    });
+    expect(forget.ok(), `clearing the Nano-GPT model: ${forget.status()}`).toBe(true);
     const back = await request.post('/api/settings', {
       data: { ...standIn, currentPassword: process.env.FPAI_PASSWORD },
     });
