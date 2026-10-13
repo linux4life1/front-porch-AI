@@ -266,7 +266,7 @@ class StorageService extends ChangeNotifier {
     // Swallowing it is the whole recovery — we do NOT relocate to the default
     // root any more. Relocating split the app in two: AppDatabase.instance()
     // already opened `<persisted root>/KoboldManager` back in main()'s
-    // _openDatabaseGuarded (a failure THERE ends the launch in DbInitErrorApp),
+    // openDatabaseGuarded (a failure THERE ends the launch in DbInitErrorApp),
     // so reaching this line proves the persisted root took the database (the
     // one exception is a pre-release FRONT_PORCH_AI_DATA_DIR run, where a dev
     // has deliberately split the two roots already).
