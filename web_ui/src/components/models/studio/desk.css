@@ -198,3 +198,5 @@
   .fp-remote { padding: 16px; }
 }
 .fp-desk-remote { margin: 0; padding: 0; border: none; min-width: 0; }
+.pack-intensity { display: flex; flex-direction: column; gap: .4rem; min-width: 0; width: 100%; }
+.pack-intensity select { max-width: 100%; }

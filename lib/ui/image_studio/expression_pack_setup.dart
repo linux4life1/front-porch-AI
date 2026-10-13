@@ -19,12 +19,12 @@
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
-import 'expression_pack_widgets.dart';
+import 'studio_widgets.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Step 1 of the Expression-pack dialog: the setup form. Owns its own local
@@ -44,8 +44,12 @@ class ExpressionPackSetup extends StatefulWidget {
     this.promptRules,
     this.onRulesChanged,
     this.originalPrompts = const {},
+    this.intensity = ExpressionIntensity.current,
+    this.onIntensityChanged,
   });
 
+  final ExpressionIntensity intensity;
+  final ValueChanged<ExpressionIntensity>? onIntensityChanged;
   final StorageService? storage;
   final bool busy;
   final ExpressionPromptRules? promptRules;
@@ -216,6 +220,11 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
           ),
         ],
         const SizedBox(height: 16),
+        ExpressionIntensityPicker(
+          value: widget.intensity,
+          onChanged: widget.busy ? null : widget.onIntensityChanged,
+        ),
+        const SizedBox(height: 16),
         Text(
           'Variation strength',
           style: TextStyle(
@@ -250,7 +259,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
           ],
         ),
         Text(
-          'Higher = more expressive, less faithful to the base.',
+          'Changes source variation only when the workflow supports it. Expression intensity changes the wording.',
           style: TextStyle(
             color: AppColors.textTertiary(context),
             fontSize: 11,

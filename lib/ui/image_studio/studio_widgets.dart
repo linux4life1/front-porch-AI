@@ -40,3 +40,4 @@ export 'studio_size_fields.dart';
 export 'studio_size_pill.dart';
 export 'studio_stove_knobs.dart';
 export 'studio_stove_modes.dart';
+export 'expression_intensity_picker.dart';

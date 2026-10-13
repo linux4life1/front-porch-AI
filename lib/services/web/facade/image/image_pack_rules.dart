@@ -29,6 +29,16 @@ class ImageStudioPackRules {
   final StorageService _storage;
   final ExpressionPackBoard _board;
 
+  ExpressionIntensity readIntensity(Map<String, dynamic> fields) {
+    try {
+      return ExpressionIntensity.parse(
+        fields.containsKey('intensity') ? fields['intensity'] : 'current',
+      );
+    } on FormatException catch (error) {
+      throw DeskRefused('bad_intensity', error.message);
+    }
+  }
+
   ExpressionPromptRules readPromptRules(Map<String, dynamic> f) {
     if (!f.containsKey('promptRules')) {
       return _storage.expressionSettings.expressionPromptRules.copy();
@@ -65,6 +75,7 @@ class ImageStudioPackRules {
     if (f['activePack'] == true && active == null) {
       throw const DeskRefused('no_pack', 'No expression pack.', 404);
     }
+    final intensity = readIntensity(f);
     final base = '${'${f['prompt'] ?? ''}'.trim()}, $kExpressionFraming';
     final settings = _storage.imageGenSettings;
     final edit =
@@ -80,20 +91,32 @@ class ImageStudioPackRules {
           {
             'emotion': active?.slots[i].emotion ?? emotions[i],
             'original':
-                active?.originalPromptFor(i) ??
+                active?.originalPromptFor(
+                  i,
+                  intensity: f.containsKey('intensity') ? intensity : null,
+                ) ??
                 originalExpressionPrompt(
                   emotion: emotions[i],
                   basePrompt: base,
                   editMode: edit,
+                  intensity: intensity,
                 ),
             'effective':
-                active?.slots[i].customPrompt ??
+                (f['useIntensityPrompt'] == true
+                    ? null
+                    : active?.slots[i].customPrompt) ??
                 rules.apply(
-                  active?.originalPromptFor(i) ??
+                  active?.originalPromptFor(
+                        i,
+                        intensity: f.containsKey('intensity')
+                            ? intensity
+                            : null,
+                      ) ??
                       originalExpressionPrompt(
                         emotion: emotions[i],
                         basePrompt: base,
                         editMode: edit,
+                        intensity: intensity,
                       ),
                 ),
           },
@@ -120,9 +143,17 @@ class ImageStudioPackRules {
       );
     }
     final rules = readPromptRules(f);
+    final intensity = f.containsKey('intensity')
+        ? readIntensity(f)
+        : run.session.intensity;
     try {
       for (var i = 0; i < run.session.slots.length; i++) {
-        rules.apply(run.session.originalPromptFor(i));
+        rules.apply(
+          run.session.originalPromptFor(
+            i,
+            intensity: run.session.slots[i].intensityOverride ?? intensity,
+          ),
+        );
       }
     } on FormatException catch (e) {
       throw DeskRefused('bad_prompt_rules', e.message);
@@ -134,6 +165,7 @@ class ImageStudioPackRules {
         409,
       );
     }
+    run.session.updateIntensity(intensity);
     return _board.view()!;
   }
 }

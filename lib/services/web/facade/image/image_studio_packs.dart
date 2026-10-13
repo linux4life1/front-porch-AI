@@ -72,6 +72,7 @@ class ImageStudioPacks {
       throw const DeskRefused('busy', kAlreadyGeneratingMessage, 409);
     }
     final rules = _rules.readPromptRules(f);
+    final intensity = _rules.readIntensity(f);
     final repo = _characters;
     if (repo == null) {
       throw const DeskRefused(
@@ -154,6 +155,7 @@ class ImageStudioPacks {
           basePrompt: '$prompt, $kExpressionFraming',
           editMode: plan.edit,
           rules: rules,
+          intensity: intensity,
         );
       }
     } on FormatException catch (e) {
@@ -175,6 +177,7 @@ class ImageStudioPacks {
       () => beginExpressionPack(
         imageGen: _image,
         promptRules: rules,
+        intensity: intensity,
         plan: plan,
         emotions: emotions,
         basePrompt: '$prompt, $kExpressionFraming',
@@ -322,6 +325,28 @@ class ImageStudioPacks {
         409,
       );
     }
+    final intensity = f.containsKey('intensity')
+        ? _rules.readIntensity(f)
+        : null;
+    if (f.containsKey('followPackIntensity') &&
+        f['followPackIntensity'] is! bool) {
+      throw const DeskRefused('bad_iteration', 'Follow pack must be boolean.');
+    }
+    if (f.containsKey('newSeed') && f['newSeed'] is! bool ||
+        f.containsKey('useIntensityPrompt') &&
+            f['useIntensityPrompt'] is! bool) {
+      throw const DeskRefused(
+        'bad_iteration',
+        'Seed and prompt options must be boolean.',
+      );
+    }
+    final prompt = f['promptOverride'];
+    if (prompt != null && (prompt is! String || prompt.length > 16384)) {
+      throw const DeskRefused(
+        'bad_prompt',
+        'Prompt must be text of at most 16384 characters.',
+      );
+    }
     final ready = Completer<bool>();
     final work = ImageGenService.startExpressionPackOn(
       _image,
@@ -333,7 +358,14 @@ class ImageStudioPacks {
             ],
       (_) async {
         final generating = reroll
-            ? run.session.reroll(index, newSeed: true)
+            ? run.session.reroll(
+                index,
+                newSeed: f['newSeed'] as bool? ?? true,
+                intensityOverride: intensity,
+                followPackIntensity: f['followPackIntensity'] == true,
+                useIntensityPrompt: f['useIntensityPrompt'] == true,
+                promptOverride: prompt as String?,
+              )
             : run.session.run();
         ready.complete(true);
         await generating;

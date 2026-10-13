@@ -8,11 +8,13 @@ import {
   previewPrompts,
   savePromptDefaults,
   type PromptRules,
+  type ExpressionIntensity,
   type PromptPreview,
 } from "./packApi";
 
 export function PromptRulesEditor(props: {
   rules: PromptRules;
+  intensity?: ExpressionIntensity;
   prompt: string;
   full: boolean;
   activePack: boolean;
@@ -49,6 +51,7 @@ export function PromptRulesEditor(props: {
         prompt: props.prompt,
         set: props.full ? "full" : "starter",
         activePack: props.activePack,
+        ...(props.intensity ? { intensity: props.intensity } : {}),
       })
         .then((result) => {
           if (live) {
@@ -71,7 +74,7 @@ export function PromptRulesEditor(props: {
       live = false;
       window.clearTimeout(timer);
     };
-  }, [rules, props.prompt, props.full, props.activePack, props.loadPreview]);
+  }, [rules, props.prompt, props.full, props.activePack, props.loadPreview, props.intensity]);
   const change = (
     i: number,
     value: Partial<PromptRules["replacements"][number]>,

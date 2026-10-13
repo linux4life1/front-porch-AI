@@ -6,7 +6,12 @@
 
 import { api } from "../../../api/client";
 
+export type ExpressionIntensity = 'current' | 'subtle' | 'clear' | 'strong';
 export interface PackSlot {
+  intensity?: ExpressionIntensity;
+  intensityOverride?: ExpressionIntensity | null;
+  customPrompt?: boolean;
+  prompt?: string;
   emotion: string;
   state: "pending" | "generating" | "done" | "failed";
   keep: boolean;
@@ -17,6 +22,7 @@ export interface PackSlot {
 /** GET /api/image/expression-pack: the pack on the computer, if any. */
 export interface PackView {
   running: boolean;
+  intensity?: ExpressionIntensity;
   promptRules?: PromptRules;
   mode: "edit" | "img2img";
   origin: "phone" | "desktop";
@@ -34,6 +40,7 @@ export interface PackView {
 }
 
 export interface PackStart {
+  intensity?: ExpressionIntensity;
   characterId: string;
   set: "starter" | "full";
   skipExisting: boolean;
@@ -105,19 +112,21 @@ export const previewPrompts = (body: {
   prompt: string;
   set: string;
   activePack: boolean;
+  intensity?: ExpressionIntensity;
+  useIntensityPrompt?: boolean;
 }) =>
   api.post<{ previews: PromptPreview[] }>(
     "/api/image/expression-pack/preview",
     body,
   );
-export const updatePackRules = (promptRules: PromptRules) =>
+export const updatePackRules = (promptRules: PromptRules, intensity?: ExpressionIntensity) =>
   api
-    .post<PackView>("/api/image/expression-pack/rules", { promptRules })
+    .post<PackView>("/api/image/expression-pack/rules", { promptRules, ...(intensity ? { intensity } : {}) })
     .then(announce);
 
 export const resumePack = () =>
   api.post<PackView>("/api/image/expression-pack/resume", {}).then(announce);
-export const rerollPack = (emotion: string) =>
+export const rerollPack = (emotion: string, options?: { intensity?: ExpressionIntensity; followPackIntensity?: boolean; newSeed: boolean; useIntensityPrompt: boolean; promptOverride?: string }) =>
   api
-    .post<PackView>("/api/image/expression-pack/reroll", { emotion })
+    .post<PackView>("/api/image/expression-pack/reroll", { emotion, ...options })
     .then(announce);

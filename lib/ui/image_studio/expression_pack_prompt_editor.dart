@@ -22,7 +22,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'studio_widgets.dart';
 
 /// The re-roll editor: with img2img, same seed + same prompt + same strength
 /// reproduces the SAME image — so a re-roll is always a chance to steer.
@@ -40,6 +41,11 @@ Future<void> showPackRerollEditor(
   final controller = TextEditingController(text: initialPrompt);
   var denoise = session.effectiveDenoiseFor(index);
   var newSeed = false;
+  var intensity = session.effectiveIntensityFor(index);
+  var followsPack = session.slots[index].intensityOverride == null;
+  var intensityChanged = false;
+  var useIntensityPrompt = false;
+  var promptEdited = session.slots[index].customPrompt != null;
   final emotion = session.slots[index].emotion;
   final route = DialogRoute<bool>(
     context: context,
@@ -51,90 +57,144 @@ Future<void> showPackRerollEditor(
           'Re-roll «$emotion»',
           style: TextStyle(fontSize: 15, color: AppColors.textPrimary(context)),
         ),
-        content: SizedBox(
-          width: 460,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              TextField(
-                controller: controller,
-                autofocus: true,
-                maxLines: 6,
-                minLines: 3,
-                style: TextStyle(
-                  fontSize: 12.5,
-                  color: AppColors.textPrimary(context),
-                  height: 1.4,
+        content: SingleChildScrollView(
+          child: SizedBox(
+            width: 460,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                ExpressionIntensityPicker(
+                  value: intensity,
+                  followsPack: followsPack,
+                  onFollowPack: () => setState(() {
+                    followsPack = true;
+                    intensityChanged = true;
+                    intensity = session.intensity;
+                    if (!promptEdited) {
+                      controller.text = session.intensityPromptFor(
+                        index,
+                        intensity,
+                      );
+                      useIntensityPrompt = true;
+                    }
+                  }),
+                  onChanged: (value) => setState(() {
+                    intensity = value;
+                    followsPack = false;
+                    intensityChanged = true;
+                    if (!promptEdited) {
+                      controller.text = session.intensityPromptFor(
+                        index,
+                        intensity,
+                      );
+                      useIntensityPrompt = true;
+                      promptEdited = false;
+                    }
+                  }),
                 ),
-                decoration: InputDecoration(
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: BorderSide(color: AppColors.borderOf(context)),
+                TextButton(
+                  onPressed: () => setState(() {
+                    controller.text = session.intensityPromptFor(
+                      index,
+                      intensity,
+                    );
+                    useIntensityPrompt = true;
+                    promptEdited = false;
+                  }),
+                  child: const Text(
+                    'Use intensity wording (replaces custom prompt)',
                   ),
-                  helperText:
-                      'Your wording sticks to this slot for future re-rolls.',
                 ),
-              ),
-              const SizedBox(height: 12),
-              Text(
-                'Variation strength',
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Row(
-                children: [
-                  Expanded(
-                    child: Slider(
-                      value: denoise,
-                      min: 0.30,
-                      max: 0.85,
-                      divisions: 11,
-                      activeColor: AppColors.formMasterAccent,
-                      inactiveColor: AppColors.borderOf(context),
-                      onChanged: (v) => setState(() => denoise = v),
-                    ),
+                if (promptEdited && !useIntensityPrompt)
+                  const Text(
+                    'A custom prompt overrides intensity until you replace its wording.',
                   ),
-                  SizedBox(
-                    width: 36,
-                    child: Text(
-                      denoise.toStringAsFixed(2),
-                      style: TextStyle(
-                        color: AppColors.textPrimary(context),
-                        fontSize: 12,
+                TextField(
+                  onChanged: (_) {
+                    useIntensityPrompt = false;
+                    promptEdited = true;
+                  },
+                  controller: controller,
+                  autofocus: true,
+                  maxLines: 6,
+                  minLines: 3,
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    color: AppColors.textPrimary(context),
+                    height: 1.4,
+                  ),
+                  decoration: InputDecoration(
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                      borderSide: BorderSide(
+                        color: AppColors.borderOf(context),
                       ),
                     ),
-                  ),
-                ],
-              ),
-              CheckboxListTile(
-                value: newSeed,
-                onChanged: (v) => setState(() => newSeed = v ?? false),
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                activeColor: AppColors.formMasterAccent,
-                title: Text(
-                  'New random seed',
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 12.5,
+                    helperText:
+                        'Your wording sticks to this slot for future re-rolls.',
                   ),
                 ),
-                subtitle: Text(
-                  'Off keeps the pack-consistent noise — the same seed with '
-                  'unchanged prompt and strength reproduces the same image, '
-                  'so tweak something above or roll new noise here.',
+                const SizedBox(height: 12),
+                Text(
+                  'Source variation',
                   style: TextStyle(
-                    color: AppColors.textTertiary(context),
+                    color: AppColors.textSecondary(context),
                     fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-              ),
-            ],
+                Row(
+                  children: [
+                    Expanded(
+                      child: Slider(
+                        value: denoise,
+                        min: 0.30,
+                        max: 0.85,
+                        divisions: 11,
+                        activeColor: AppColors.formMasterAccent,
+                        inactiveColor: AppColors.borderOf(context),
+                        onChanged: (v) => setState(() => denoise = v),
+                      ),
+                    ),
+                    SizedBox(
+                      width: 36,
+                      child: Text(
+                        denoise.toStringAsFixed(2),
+                        style: TextStyle(
+                          color: AppColors.textPrimary(context),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                CheckboxListTile(
+                  value: newSeed,
+                  onChanged: (v) => setState(() => newSeed = v ?? false),
+                  dense: true,
+                  contentPadding: EdgeInsets.zero,
+                  controlAffinity: ListTileControlAffinity.leading,
+                  activeColor: AppColors.formMasterAccent,
+                  title: Text(
+                    'New random seed',
+                    style: TextStyle(
+                      color: AppColors.textPrimary(context),
+                      fontSize: 12.5,
+                    ),
+                  ),
+                  subtitle: Text(
+                    'Off keeps the pack-consistent noise — the same seed with '
+                    'unchanged prompt and strength reproduces the same image, '
+                    'so tweak something above or roll new noise here.',
+                    style: TextStyle(
+                      color: AppColors.textTertiary(context),
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         actions: [
@@ -172,6 +232,9 @@ Future<void> showPackRerollEditor(
         promptOverride: prompt.trim() == initialPrompt.trim() ? null : prompt,
         denoiseOverride: denoise,
         newSeed: newSeed,
+        intensityOverride: intensityChanged && !followsPack ? intensity : null,
+        followPackIntensity: intensityChanged && followsPack,
+        useIntensityPrompt: useIntensityPrompt,
       ),
     );
   }

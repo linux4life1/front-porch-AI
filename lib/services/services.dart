@@ -40,6 +40,7 @@ export 'expression_pack_convert.dart';
 export 'expression_pack_jpeg_check.dart';
 export 'expression_pack_prepare.dart';
 export 'expression_pack_service.dart';
+export 'expression_pack_normalizer.dart';
 export 'model_fetch.dart';
 export 'model_manager.dart';
 export 'storage_service.dart';

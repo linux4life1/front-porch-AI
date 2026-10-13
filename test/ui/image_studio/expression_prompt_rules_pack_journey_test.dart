@@ -64,6 +64,95 @@ class PortraitImages extends ChangeNotifier implements ImageGenService {
 }
 
 void main() {
+  testWidgets(
+    'setup intensity reaches generation and retry replaces wording only on request',
+    (tester) async {
+      final rig = await PackRuleRig.open(tester);
+      await rig.pumpWorkspace(tester);
+      final source = find.widgetWithText(TextButton, 'Use last Studio picture');
+      await settleIo(
+        tester,
+        () =>
+            source.evaluate().isNotEmpty &&
+            tester.widget<TextButton>(source).onPressed != null &&
+            !tester.hasRunningAnimations,
+      );
+      await tester.enterText(
+        find.byKey(const Key('expression-description')),
+        'portrait',
+      );
+      await tester.ensureVisible(source);
+      await tester.tap(source);
+      await settleIo(
+        tester,
+        () => find.byType(ExpressionPackSetup).evaluate().isNotEmpty,
+      );
+      var picker = find.descendant(
+        of: find.byType(ExpressionIntensityPicker),
+        matching: find.byType(DropdownButton<String>),
+      );
+      await tester.ensureVisible(picker);
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Subtle').last);
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Start (8)'));
+      await tester.tap(find.text('Start (8)'));
+      await settleIo(tester, () => rig.image.prompts.length == 8);
+      expect(rig.image.prompts[3], contains('gently tightened lips'));
+      final session = expressionPackBoard.run!.session;
+      expect(session.intensity, ExpressionIntensity.subtle);
+      await tester.tap(
+        find.byTooltip('Re-roll (edit prompt, strength, seed)').at(3),
+      );
+      await tester.pumpAndSettle();
+      picker = find
+          .descendant(
+            of: find.byType(ExpressionIntensityPicker),
+            matching: find.byType(DropdownButton<String>),
+          )
+          .last;
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Clear').last);
+      await tester.pumpAndSettle();
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Strong').last);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<TextField>(find.byType(TextField).last).controller!.text,
+        contains('deeply furrowed brows'),
+      );
+      await tester.tap(find.text('Re-roll').last);
+      await settleIo(tester, () => rig.image.prompts.length == 9);
+      expect(rig.image.prompts.last, contains('deeply furrowed brows'));
+      expect(session.slots[3].intensityOverride, ExpressionIntensity.strong);
+      await tester.tap(
+        find.byTooltip('Re-roll (edit prompt, strength, seed)').at(3),
+      );
+      await tester.pumpAndSettle();
+      picker = find
+          .descendant(
+            of: find.byType(ExpressionIntensityPicker),
+            matching: find.byType(DropdownButton<String>),
+          )
+          .last;
+      await tester.tap(picker);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Follow pack').last);
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.byType(TextField).last,
+        'my precise expression',
+      );
+      await tester.tap(find.text('Re-roll').last);
+      await settleIo(tester, () => rig.image.prompts.length == 10);
+      expect(session.slots[3].intensityOverride, isNull);
+      expect(rig.image.prompts.last, 'my precise expression');
+      expect(session.slots[3].customPrompt, 'my precise expression');
+    },
+  );
   for (final useLocal in [false, true]) {
     testWidgets(
       'actual pack setup forwards ${useLocal ? 'local' : 'cancelled default'} rules and grid edits affect rerolls',

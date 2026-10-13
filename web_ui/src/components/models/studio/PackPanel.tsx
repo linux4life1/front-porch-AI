@@ -7,6 +7,8 @@ import type { Picture } from "./DeskRail";
 import { PackDraft } from './PackDraft';
 import { PackDiscardConfirmation } from './PackDiscardConfirmation';
 import type { Mode } from './types';
+import { IntensityPicker, SlotIntensityEditor } from './ExpressionIntensity';
+import type { ExpressionIntensity } from './packApi';
 import { PromptRulesEditor } from "./PromptRulesEditor";
 import {
   cancelPack,
@@ -64,6 +66,7 @@ export function PackPanel(props: {
   sharedBusy?: boolean; configMode?: Mode; onBusy?: (busy: boolean) => void;
 }) {
   const [pack, setPack] = useState<PackView | null>(null);
+  const [intensity, setIntensity] = useState<ExpressionIntensity>('current');
   const [rules, setRules] = useState<PromptRules | null>(null);
   const [editingRules, setEditingRules] = useState<"setup" | "pack" | null>(
     null,
@@ -214,6 +217,7 @@ export function PackPanel(props: {
     if (!picture && portrait) body.referenceImage = portrait;
     refreshEpoch.current++;
     if (rules) body.promptRules = rules;
+    if (intensity !== 'current') body.intensity = intensity;
     setBusy(true);
     setLeft(new Set());
     setStartProblem("");
@@ -378,6 +382,7 @@ export function PackPanel(props: {
         />
         Replace old images when one is made again
       </label>
+      <IntensityPicker value={intensity} onChange={setIntensity} />
       <label>
         Variation strength {denoise.toFixed(2)}
         <input
@@ -400,6 +405,7 @@ export function PackPanel(props: {
       </button>
       {editingRules && (editingRules === "pack" ? pack?.promptRules : rules) ? (
         <PromptRulesEditor
+          intensity={editingRules === "pack" ? undefined : intensity}
           rules={(editingRules === "pack" ? pack?.promptRules : rules)!}
           prompt={description}
           full={full}
@@ -450,6 +456,15 @@ export function PackPanel(props: {
               Edit pack prompt rules...
             </button>
           ) : null}
+          {pack.origin === 'phone' && pack.imported == null ?
+            <IntensityPicker label="Pack expression intensity" value={pack.intensity ?? 'current'} disabled={running || busy || props.sharedBusy}
+              onChange={(value) => {
+                refreshEpoch.current++; setBusy(true); setPackProblem('');
+                updatePackRules(pack.promptRules ?? {prefix:'', suffix:'', replacements:[]}, value)
+                  .then((view) => {refreshEpoch.current++; setPack(view);})
+                  .catch((e: unknown) => setPackProblem(message(e, 'Could not change intensity.')))
+                  .finally(() => setBusy(false));
+              }} /> : null}
           <ul>
             {pack.slots.map((slot) => (
               <li key={slot.emotion}>
@@ -477,6 +492,10 @@ export function PackPanel(props: {
                   </button>
                 ) : null}
                 {slot.error ? <span> — {slot.error}</span> : null}
+                {pack.origin === 'phone' && pack.imported == null ?
+                  <SlotIntensityEditor key={`${slot.emotion}:${slot.prompt}:${slot.intensity}`} slot={slot} pack={pack}
+                    disabled={busy || props.sharedBusy === true} onBegin={() => {refreshEpoch.current++; setBusy(true);}}
+                    onDone={(view) => {refreshEpoch.current++; setPack(view);}} onEnd={() => setBusy(false)} /> : null}
                 {slot.verdict &&
                 !(slot.verdict.samePerson && slot.verdict.expressionMatches) ? (
                   <span>
