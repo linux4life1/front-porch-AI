@@ -428,16 +428,21 @@ class ChatInputActionStrip {
         },
       ),
       // Auto-play (Director Mode) + Next Character; Next stays greyed out
-      // while auto-play runs so Pause lands where Play was.
-      if (chatService.isGroupMode && !chatService.isGenerating)
+      // while auto-play runs so Pause lands where Play was. Pause stays up
+      // through an auto-chat reply: it lets that reply finish.
+      if (chatService.isGroupMode &&
+          (!chatService.isGenerating || chatService.autoPlayActive))
         DirectorTurnButtons(
           showAutoPlay: chatService.observerMode,
           autoPlayActive: chatService.autoPlayActive,
+          autoPlayPaused: chatService.autoPlayPaused,
+          turnsLeft: chatService.autoChatTurnsLeft,
+          onStopAutoPlay: chatService.stopAutoPlay,
           nextTooltip: chatService.nextCharacter != null
               ? 'Next: ${chatService.nextCharacter!.name}'
               : 'Trigger next character',
           onToggleAutoPlay: chatService.autoPlayActive
-              ? chatService.stopAutoPlay
+              ? chatService.pauseAutoPlay
               : chatService.startAutoPlay,
           onNextCharacter: chatService.triggerNextCharacter,
           playColor: AppColors.porchAmberOf(context),

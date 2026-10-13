@@ -193,6 +193,7 @@ extension ChatServiceGroupRead on ChatService {
   void _resetDirectorModeToDefault() {
     _groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
     _directorScene.hydrate(null); // a fresh chat starts with no directions
+    _autoChatBudget.clear();
   }
 
   bool get _autoPlayActive => _groupManager?.autoPlayActive ?? false;
@@ -260,20 +261,37 @@ extension ChatServiceGroupRead on ChatService {
     notifyListeners();
   }
 
-  /// Start auto-play: characters keep chatting automatically.
+  /// Start auto-play: characters keep chatting automatically. A paused run
+  /// resumes with the turns it had left.
   void startAutoPlay() {
     if (_activeGroup == null || !_observerMode) return;
-    _autoChatBudget.arm(_storageService.ttsSettings.directorTurnBudget);
+    if (!_autoChatBudget.resume()) {
+      _autoChatBudget.arm(_storageService.ttsSettings.directorTurnBudget);
+    }
     _autoPlayActive = true;
     notifyListeners();
     _autoPlayNext();
   }
 
-  /// Stop auto-play.
-  void stopAutoPlay() {
+  /// Pause auto-play: a reply already running finishes, and the run keeps
+  /// its turns for [startAutoPlay] to resume.
+  void pauseAutoPlay() {
+    if (!_autoPlayActive) return;
     _autoPlayActive = false;
+    _autoChatBudget.pause();
     notifyListeners();
   }
+
+  /// Stop auto-play and end the run.
+  void stopAutoPlay() {
+    _autoPlayActive = false;
+    _autoChatBudget.clear();
+    notifyListeners();
+  }
+
+  /// Auto-chat is paused with turns left to resume.
+  bool get autoPlayPaused =>
+      _directing && !_autoPlayActive && _autoChatBudget.paused;
 
   /// Internal: trigger the next auto-play response.
   Future<void> _autoPlayNext() async {
@@ -288,8 +306,10 @@ extension ChatServiceGroupRead on ChatService {
     await _generateResponse(GenerationMode.normal);
   }
 
-  /// Turns left in this auto-chat run, or null when it has no limit.
-  int? get autoChatTurnsLeft => _autoChatBudget.remaining;
+  /// Turns left in this auto-chat run, or null when it has no limit or no
+  /// run is going or paused.
+  int? get autoChatTurnsLeft =>
+      _autoPlayActive || autoPlayPaused ? _autoChatBudget.remaining : null;
 
   /// The saved auto-chat turn budget (0 = no limit).
   int get savedDirectorTurnBudget =>
@@ -315,6 +335,8 @@ extension ChatServiceGroupRead on ChatService {
       return false;
     }
     _autoPlayActive = false;
+    // Spoken to, the run can resume; spent, there is nothing left.
+    _autoChatBudget.pause();
     _setGuestStatus(why);
     notifyListeners();
     return true;

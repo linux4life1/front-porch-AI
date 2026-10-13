@@ -58,4 +58,26 @@ describe('ChatComposer placeholder', () => {
     render(true);
     expect(area().placeholder).toBe('Message…');
   });
+
+  it('keeps a line typed while a reply streams when Enter is pressed', async () => {
+    const onSend = vi.fn();
+    const composer = (isGenerating: boolean) =>
+      createElement(ChatComposer, { onSend, onStop: vi.fn(), isGenerating, canMic: false });
+    act(() => root.render(composer(true)));
+    const ta = area();
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(ta, '/narrate a storm rolls in');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const enter = () =>
+      ta.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true, cancelable: true }));
+    await act(async () => enter());
+    expect(onSend).not.toHaveBeenCalled();
+    expect(area().value).toBe('/narrate a storm rolls in');
+
+    act(() => root.render(composer(false)));
+    await act(async () => enter());
+    expect(onSend).toHaveBeenCalledWith('/narrate a storm rolls in');
+  });
 });

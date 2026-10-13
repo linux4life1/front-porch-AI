@@ -21,15 +21,16 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The group input row's turn buttons: auto-chat Play/Pause (Director Mode
-/// only) and Next Character.
+/// only), Stop for a paused run, and Next Character.
 ///
 /// The input row is right-aligned behind an expanding text field, so removing
 /// a button slides everything to its left one slot right. Next Character
 /// therefore keeps its slot while auto-chat runs, greyed out, so Pause lands
 /// exactly where Play was and Impersonate never slides under it.
 ///
-/// The caller passes the accent colours so they stay on the input row's
-/// palette.
+/// Pause keeps the run's turns, so Play then resumes it; Stop, shown left of
+/// Play while a run is paused, ends it. The caller passes the accent colours
+/// so they stay on the input row's palette.
 class DirectorTurnButtons extends StatelessWidget {
   const DirectorTurnButtons({
     super.key,
@@ -41,6 +42,9 @@ class DirectorTurnButtons extends StatelessWidget {
     required this.playColor,
     required this.pauseColor,
     required this.nextColor,
+    this.autoPlayPaused = false,
+    this.turnsLeft,
+    this.onStopAutoPlay,
   });
 
   /// Director Mode is on, so the auto-chat toggle is shown.
@@ -53,14 +57,36 @@ class DirectorTurnButtons extends StatelessWidget {
   final Color pauseColor;
   final Color nextColor;
 
+  /// A paused run waits with turns left: Play resumes it.
+  final bool autoPlayPaused;
+
+  /// The run's turns left, or null when it has no limit.
+  final int? turnsLeft;
+
+  /// Ends the paused run.
+  final VoidCallback? onStopAutoPlay;
+
   @override
   Widget build(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
+        if (showAutoPlay && autoPlayPaused && onStopAutoPlay != null)
+          Tooltip(
+            message: 'End this auto-chat run',
+            child: IconButton(
+              icon: Icon(Icons.stop_circle_outlined, color: pauseColor),
+              onPressed: onStopAutoPlay,
+            ),
+          ),
         if (showAutoPlay)
           Tooltip(
-            message: autoPlayActive ? 'Pause auto-chat' : 'Start auto-chat',
+            message: autoPlayActive
+                ? 'Pause auto-chat'
+                : autoPlayPaused
+                ? 'Resume auto-chat'
+                      '${turnsLeft == null ? '' : ' ($turnsLeft turns left)'}'
+                : 'Start auto-chat',
             child: IconButton(
               icon: Icon(
                 autoPlayActive

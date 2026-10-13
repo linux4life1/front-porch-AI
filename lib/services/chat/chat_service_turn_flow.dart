@@ -166,8 +166,9 @@ extension ChatServiceTurnFlow on ChatService {
     return !stanceSaysAway(stance);
   }
 
-  /// Wait for TTS to finish speaking, then apply the configured delay before auto-play.
-  void _waitForTtsThenContinue() {
+  /// Wait for TTS to finish speaking, then apply the configured delay before
+  /// auto-play. [run] is the auto-chat run that armed the wait.
+  void _waitForTtsThenContinue(int run) {
     if (!(_groupManager?.autoPlayActive ?? false) ||
         !(_groupManager?.observerMode ?? false)) {
       return;
@@ -184,7 +185,9 @@ extension ChatServiceTurnFlow on ChatService {
         final delayMs = ((_groupManager?.directorDelaySec ?? 15.0) * 1000)
             .round();
         Future.delayed(Duration(milliseconds: delayMs), () {
-          if ((_groupManager?.autoPlayActive ?? false) && !_isGenerating) {
+          if ((_groupManager?.autoPlayActive ?? false) &&
+              !_isGenerating &&
+              _autoChatBudget.run == run) {
             _autoPlayNext();
           }
         });

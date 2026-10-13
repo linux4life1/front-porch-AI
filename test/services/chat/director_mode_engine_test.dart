@@ -24,6 +24,8 @@ import 'package:front_porch_ai/services/chat/chat.dart'
     show kCastFeelingsMaxDelta;
 import 'package:front_porch_ai/services/chat/director/director.dart';
 import 'package:front_porch_ai/utils/utils.dart' show groupMemberStoreId;
+import 'package:front_porch_ai/ui/pages/chat_page.input.dart'
+    show PendingImageSlot, sendComposerMessage;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -71,6 +73,23 @@ class _SceneLlm extends _PromptRecordingLlm {
       return Stream.value(castFeelings);
     }
     return super.generateStream(params);
+  }
+}
+
+/// Starts every character reply with an unclosed thought, then hangs until
+/// [hold] completes, so a test can Stop a goodbye before it says anything.
+class _HangingLlm extends _PromptRecordingLlm {
+  bool hang = false;
+  final Completer<void> hold = Completer<void>();
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    if (hang && params.systemPrompt != null) {
+      yield '<think>Should I wave goodbye';
+      await hold.future;
+      return;
+    }
+    yield* super.generateStream(params);
   }
 }
 
@@ -542,6 +561,157 @@ void main() {
         before[bramKey]! + kCastFeelingsMaxDelta,
         reason: 'the judged delta, clamped, moves Ayla toward Bram',
       );
+    });
+  });
+
+  group('director follow-ups', () {
+    test('an exit that leaves one character makes the chat a 1:1 at once, '
+        'with no one-member group left behind', () async {
+      await h.repo.addCharacter(needsCard('Nora'));
+      await h.repo.addCharacter(needsCard('Mara'));
+      h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+      await h.oneToOneWithStampedReply(
+        h.repo.characters.firstWhere((c) => c.name == 'Mara'),
+      );
+      await h.chat.sendMessage('/join Nora');
+      await h.settleTurn();
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      await h.chat.sendMessage('/director off');
+      await h.settleTurn();
+      expect(h.chat.isGroupMode, isTrue);
+
+      await h.chat.sendMessage('/exit Nora');
+      await h.settleTurn();
+
+      expect(h.chat.isGroupMode, isFalse, reason: 'no send needed first');
+      expect(h.chat.activeGroup, isNull);
+      expect(h.chat.activeCharacter?.name, 'Mara');
+      expect(h.chat.exitUndoName, isNull, reason: 'no group to undo into');
+    });
+
+    test('a goodbye stopped before it says anything leaves no empty '
+        'bubble, and the user still steps out', () async {
+      final hanging = _HangingLlm();
+      llm = hanging;
+      h.llm = hanging;
+      h.chat.testLlmServiceOverride = hanging;
+      await h.groupWithTwoReplies(aOff: const []);
+      final before = h.chat.messages.length;
+      hanging.hang = true;
+
+      final out = h.chat.sendMessage('/director');
+      for (var i = 0; i < 200; i++) {
+        final last = h.chat.messages.last;
+        if (h.chat.messages.length > before &&
+            (last.thinkingContent?.isNotEmpty ?? false)) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(h.chat.messages, hasLength(before + 1));
+      h.chat.stopGeneration();
+      hanging.hold.complete();
+      await out;
+      await h.settleTurn();
+
+      expect(h.chat.observerMode, isTrue);
+      expect(h.chat.messages, hasLength(before));
+    });
+
+    test(
+      'Pause keeps the run\'s turns for Resume; Stop ends the run',
+      () async {
+        await h.groupWithTwoReplies(aOff: const []);
+        await h.chat.sendMessage('/director');
+        await h.settleTurn();
+        h.chat.directorDelaySec = 3600; // one turn, then the wait
+        await h.chat.setSavedDirectorTurnBudget(3);
+
+        h.chat.startAutoPlay();
+        await h.settleTurn();
+        expect(h.chat.autoChatTurnsLeft, 2);
+        h.chat.pauseAutoPlay();
+        expect(h.chat.autoPlayActive, isFalse);
+        expect(h.chat.autoPlayPaused, isTrue);
+        expect(h.chat.autoChatTurnsLeft, 2, reason: 'shown while paused');
+
+        h.chat.startAutoPlay();
+        expect(h.chat.autoPlayActive, isTrue);
+        expect(h.chat.autoChatTurnsLeft, 2, reason: 'resumed, not re-armed');
+        await h.settleTurn();
+        expect(h.chat.autoChatTurnsLeft, 1);
+
+        h.chat.stopAutoPlay();
+        expect(h.chat.autoPlayPaused, isFalse);
+        expect(h.chat.autoChatTurnsLeft, isNull);
+        h.chat.startAutoPlay();
+        expect(
+          h.chat.autoChatTurnsLeft,
+          3,
+          reason: 'a stopped run starts over',
+        );
+        h.chat.stopAutoPlay();
+      },
+    );
+
+    test('a line sent while the narrator writes stays in the box, and '
+        'goes once the beat has landed', () async {
+      final scene = _SceneLlm();
+      llm = scene;
+      h.llm = scene;
+      h.chat.testLlmServiceOverride = scene;
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      final box = TextEditingController(text: 'The porch light flickers.');
+      addTearDown(box.dispose);
+      final photo = PendingImageSlot(update: (fn) => fn());
+      scene.holdNarration = Completer<void>();
+
+      final narrating = h.chat.sendMessage('/narrate');
+      for (var i = 0; i < 200 && !h.chat.isNarrating; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(h.chat.sendBusyReason, contains('narrator'));
+      sendComposerMessage(h.chat, controller: box, pendingImage: photo);
+      expect(box.text, 'The porch light flickers.');
+
+      scene.holdNarration!.complete();
+      await narrating;
+      await h.settleTurn();
+      expect(h.chat.sendBusyReason, isNull);
+      sendComposerMessage(h.chat, controller: box, pendingImage: photo);
+      expect(box.text, isEmpty);
+      await h.settleTurn();
+    });
+
+    test('a pause and resume inside the wait between turns plays one turn, '
+        'not two', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      await h.chat.setSavedDirectorTurnBudget(3);
+      h.chat.directorDelaySec = 0.3;
+
+      h.chat.startAutoPlay();
+      await h.settleTurn();
+      final afterFirst = h.chat.messages.length;
+      h.chat.pauseAutoPlay();
+      h.chat.directorDelaySec = 3600; // the resumed run waits after its turn
+      h.chat.startAutoPlay();
+      await h.settleTurn();
+      expect(h.chat.messages, hasLength(afterFirst + 1));
+
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await h.settleTurn();
+      expect(
+        h.chat.messages,
+        hasLength(afterFirst + 1),
+        reason: 'the paused run\'s wait must not start a turn',
+      );
+      expect(h.chat.autoChatTurnsLeft, 1);
+      h.chat.stopAutoPlay();
     });
   });
 }

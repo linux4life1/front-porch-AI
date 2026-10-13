@@ -101,12 +101,11 @@ class PendingImageSlot {
 /// Shared send path for the Enter key and the send button. Hands text +
 /// photo BYTES to ChatService, which saves the photo only after its own
 /// guards pass — so we never save a file for a turn ChatService will drop.
-/// We mirror every one of sendMessage's silent early-returns here
-/// (isGenerating / isLoadingSession / isGuestBusy / entrancesInFlight /
-/// no active chat) so the pending photo and typed text are preserved
-/// for retry rather than consumed into the void. In observer mode the
-/// photo is NOT consumed — director notes are pure instructions and
-/// would drop it.
+/// While [ChatService.sendBusyReason] says the service would drop the send
+/// (a reply or the narrator running, a load, a guest joining…) the pending
+/// photo and typed text stay for retry rather than being consumed into the
+/// void. In observer mode the photo is NOT consumed — director notes are
+/// pure instructions and would drop it.
 void sendComposerMessage(
   ChatService chatService, {
   required TextEditingController controller,
@@ -114,20 +113,11 @@ void sendComposerMessage(
 }) {
   final pending = chatService.observerMode ? null : pendingImage.bytes;
   final text = controller.text;
+  // The service's own guard set, so this cannot drift narrower than it.
+  // Note sendMessage deliberately guards on isGenerating (streaming) and NOT
+  // on isSettlingTurn — see the comment there.
   if ((text.trim().isEmpty && pending == null) ||
-      // Mirrors sendMessage's guard set EXACTLY. If this list is ever
-      // narrower than the service's, we fall through to controller.clear()
-      // below for a send the service silently refused, and the user's typed
-      // text and pending photo are consumed into the void. Note sendMessage
-      // deliberately guards on isGenerating (streaming) and NOT on
-      // isSettlingTurn — see the comment there.
-      chatService.isGenerating ||
-      chatService.isLoadingSession ||
-      chatService.isGuestBusy ||
-      chatService.isPhotoTurnInFlight ||
-      chatService.entrancesInFlight ||
-      (chatService.activeCharacter == null &&
-          chatService.activeGroup == null)) {
+      chatService.sendBusyReason != null) {
     return;
   }
   // Refused while the speed test runs: said under the chat, text kept.

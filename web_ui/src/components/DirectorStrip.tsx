@@ -23,8 +23,10 @@ export interface DirectorState {
   goal?: string;
   whispers?: DirectorWhisper[];
   turnBudget?: number;
-  /** Turns left in the running auto-chat, or null when unlimited. */
+  /** Turns left in the running or paused auto-chat, or null when unlimited. */
   turnsLeft?: number | null;
+  /** Auto-chat is paused with turns left to resume. Absent on older apps. */
+  autoPlayPaused?: boolean;
   /** Who a cue can call on (the desktop panel's list). */
   members?: string[];
   /** The narrator is writing a beat: a turn is running. */
@@ -48,6 +50,7 @@ export function DirectorStrip({
   busy,
   onCommand,
   onAutoPlay,
+  onPauseAutoPlay,
   onDelay,
   memberNames = [],
   onGoal,
@@ -57,7 +60,11 @@ export function DirectorStrip({
   director: DirectorState;
   busy: boolean;
   onCommand: (cmd: string) => void;
+  /** True starts or resumes auto-chat; false stops it and ends the run. */
   onAutoPlay: (on: boolean) => void;
+  /** Pauses auto-chat, keeping the run's turns for a resume. Without it,
+   *  Pause stops. */
+  onPauseAutoPlay?: () => void;
   onDelay: (seconds: number) => void;
   memberNames?: string[];
   onGoal?: (text: string) => void;
@@ -65,6 +72,8 @@ export function DirectorStrip({
   onTurnBudget?: (turns: number) => void;
 }) {
   const { directing, autoPlay, delaySeconds } = director;
+  const paused = !autoPlay && director.autoPlayPaused === true;
+  const left = director.turnsLeft;
   const turnBusy = busy || director.narrating === true;
   // The slider's live value while it is held; saved when it is let go.
   const [draft, setDraft] = useState<number | null>(null);
@@ -82,10 +91,31 @@ export function DirectorStrip({
       {directing && (
         <button
           className="ghost small"
-          onClick={() => onAutoPlay(!autoPlay)}
-          title={autoPlay ? 'Pause auto-chat' : 'Let the cast keep talking on their own'}
+          onClick={() =>
+            autoPlay ? (onPauseAutoPlay ?? (() => onAutoPlay(false)))() : onAutoPlay(true)
+          }
+          title={
+            autoPlay
+              ? 'Pause auto-chat; Resume picks up the turns left'
+              : paused
+                ? 'Pick the paused run back up'
+                : 'Let the cast keep talking on their own'
+          }
         >
-          {autoPlay ? '⏸ Pause auto-chat' : '▶ Auto-chat'}
+          {autoPlay
+            ? '⏸ Pause auto-chat'
+            : paused
+              ? `▶ Resume auto-chat${left != null ? ` (${left} left)` : ''}`
+              : '▶ Auto-chat'}
+        </button>
+      )}
+      {directing && (autoPlay || paused) && onPauseAutoPlay && (
+        <button
+          className="ghost small"
+          onClick={() => onAutoPlay(false)}
+          title="End this auto-chat run"
+        >
+          ⏹ Stop auto-chat
         </button>
       )}
       <button

@@ -33,9 +33,12 @@ extension ChatServiceCast on ChatService {
   ///   1. The leaving member narrates their own brief goodbye (no "poof").
   ///   2. They drop out of the LIVE roster, but their DB row, realism, evolution,
   ///      quests and memory are left fully intact, and an UNDO offer is armed.
-  ///   3. The destructive removal (and any auto-collapse to a 1:1) is deferred to
-  ///      [_commitPendingMemberExit], which fires from `sendMessage` the moment the
-  ///      user continues — so [undoLastExit] in the meantime restores them exactly.
+  ///   3. The destructive removal is deferred to [_commitPendingMemberExit],
+  ///      which fires from `sendMessage` the moment the user continues — so
+  ///      [undoLastExit] in the meantime restores them exactly. An exit that
+  ///      leaves one character commits at once instead: the group turns back
+  ///      into a 1:1 there and then, with no UNDO, rather than sitting as a
+  ///      one-member group under the old group header until the next send.
   /// Unlike a Lite guest (never deleted, so undo is trivial), a full member is a
   /// real row; deferring the delete is what makes the undo lossless. Returns true
   /// once the goodbye is staged and the exit is pending.
@@ -67,18 +70,26 @@ extension ChatServiceCast on ChatService {
         'reply): ${member.name} is leaving the conversation now. Write '
         '${member.name}\'s short, in-character goodbye / exit, in their own '
         'voice and words.';
+    final before = _messages.length;
     try {
       await _generateResponse(GenerationMode.normal);
     } catch (e) {
       debugPrint('[Cast] exit narration for ${member.name} failed: $e');
       _entranceDirective = null; // don't leak into a later turn
     }
+    await _dropSilentStagedTurn(before);
     // 2. Soft-remove from the live roster only — nothing on disk is touched, so
     //    the removal stays fully reversible until the user continues.
     final memberId = _getCharacterIdFromCard(member);
     final remaining = _groupCharacters
         .where((c) => _getCharacterIdFromCard(c) != memberId)
         .toList();
+    if (remaining.length < 2) {
+      _clearExitUndo();
+      await _waitForTurnToSettle();
+      if (await removeCharacterFromGroup(member, groupRepo)) return true;
+      // Still busy: the next send commits it, as for any exit.
+    }
     _groupManager?.refreshCharacters(remaining);
     _sceneGuest.pendingMemberExit = member;
     // 3. Arm the UNDO snackbar; the just-generated goodbye turn is what undo
@@ -124,6 +135,7 @@ extension ChatServiceCast on ChatService {
       debugPrint('[Director] step-out narration failed: $e');
       _entranceDirective = null; // don't leak into a later turn
     }
+    await _dropSilentStagedTurn(before);
     _observerMode = true;
     final last = _messages.lastOrNull;
     _sceneGuest.exitUndoUserStep = true;
@@ -149,12 +161,14 @@ extension ChatServiceCast on ChatService {
     _clearExitUndo();
     _observerMode = false;
     _entranceDirective = userReturnsDirective(_userPersonaService.persona.name);
+    final before = _messages.length;
     try {
       await _generateResponse(GenerationMode.normal, skipSpeakerEval: true);
     } catch (e) {
       debugPrint('[Director] step-in narration failed: $e');
       _entranceDirective = null;
     }
+    await _dropSilentStagedTurn(before);
     await _saveChat();
     notifyListeners();
     return true;
@@ -278,6 +292,18 @@ extension ChatServiceCast on ChatService {
       await _generateResponse(GenerationMode.normal);
     }
     return true;
+  }
+
+  /// A goodbye or greeting that was stopped before it said a word (or only
+  /// thought) is not a turn: it goes, rather than staying as an empty
+  /// "only thoughts" bubble. [before] is the transcript length before it.
+  Future<void> _dropSilentStagedTurn(int before) async {
+    final last = _messages.lastOrNull;
+    if (_messages.length <= before || last == null || last.isUser) return;
+    if (last.displayText.trim().isNotEmpty) return;
+    await _waitForTurnToSettle();
+    final idx = _messages.indexOf(last);
+    if (idx >= 0) deleteMessage(idx); // removes + reverts realism + saves
   }
 
   /// Commit a deferred full-member `/exit`: run the real removal (and any

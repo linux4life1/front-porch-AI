@@ -264,6 +264,12 @@ class WebChatRoutes {
     }
     final testing = _facade.sendRefusal(text, withImage: image != null);
     if (testing != null) return JsonResponse.badRequest(testing);
+    // A send the app would drop (a reply or the narrator still running)
+    // comes back to the phone with the reason, rather than vanishing.
+    final busy = _facade.sendBusyReason;
+    if (busy != null) {
+      return JsonResponse.error(409, '$busy Send it again once it finishes.');
+    }
     final lookupBlock = _facade.lookupCommandBlock(text);
     if (lookupBlock != null) return JsonResponse.badRequest(lookupBlock);
     _facade.send(text, imageBytes: image);

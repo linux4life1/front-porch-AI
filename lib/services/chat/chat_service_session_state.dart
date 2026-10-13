@@ -70,6 +70,7 @@ extension ChatServiceSessionState on ChatService {
     _directorScene.hydrate(
       _activeGroup == null ? null : session?.groupRealismState,
     );
+    _autoChatBudget.clear(); // a paused run belongs to the chat it ran in
     if (_activeGroup == null) return false;
 
     String? stateJson = session?.groupRealismState;

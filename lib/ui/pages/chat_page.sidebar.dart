@@ -257,9 +257,7 @@ class ChatRightSidebar extends StatelessWidget {
                             goal: chatService.directorGoal,
                             whispers: chatService.directorWhisperRows,
                             turnBudget: storage.ttsSettings.directorTurnBudget,
-                            turnsLeft: chatService.autoPlayActive
-                                ? chatService.autoChatTurnsLeft
-                                : null,
+                            turnsLeft: chatService.autoChatTurnsLeft,
                             busy:
                                 chatService.isGenerating ||
                                 chatService.isNarrating,

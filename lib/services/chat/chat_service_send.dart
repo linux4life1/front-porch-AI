@@ -44,6 +44,26 @@ extension ChatServiceSend on ChatService {
     return command ? null : words;
   }
 
+  /// Why [sendMessage] would drop a message right now, or null when it would
+  /// go: its early returns, in words. The desktop composer and the web relay
+  /// both ask this before they let go of the text, so a line typed while a
+  /// reply or the narrator is running stays in the box (or comes back to the
+  /// phone) instead of being cleared and silently ignored.
+  String? get sendBusyReason {
+    if (_activeCharacter == null && _activeGroup == null) {
+      return 'No chat is open.';
+    }
+    if (_isLoadingSession) return 'The chat is still opening.';
+    if (_isImporting) return 'A chat import is still running.';
+    if (_entrancesInFlight || _sceneGuest.busy) {
+      return 'A character is still joining the scene.';
+    }
+    if (_photoTurnInFlight) return 'The last photo is still being read.';
+    if (_isGenerating) return 'A reply is still being written.';
+    if (_narrating) return 'The narrator is still setting the scene.';
+    return null;
+  }
+
   /// [imageBytes] optionally attaches a photo (already downscaled+PNG-encoded
   /// by the composer) to this user turn. The bytes are saved to disk HERE,
   /// after all guards pass, so a guard bail can never orphan a file. The photo

@@ -247,7 +247,9 @@ class ChatStateSnapshot {
             {'id': w.id, 'name': w.name, 'text': w.text},
         ],
         'turnBudget': _chat.savedDirectorTurnBudget,
-        'turnsLeft': _chat.autoPlayActive ? _chat.autoChatTurnsLeft : null,
+        'turnsLeft': _chat.autoChatTurnsLeft,
+        // Paused with turns left: the strip offers Resume. Additive.
+        'autoPlayPaused': _chat.autoPlayPaused,
         // The narrator's beat counts as a running turn.
         'narrating': _chat.isNarrating,
       },

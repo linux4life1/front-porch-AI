@@ -147,4 +147,45 @@ void main() {
     );
     expect(button.onPressed, isNull, reason: 'busy: wait for the turn');
   });
+
+  testWidgets('a paused run offers Resume with its turns left and a Stop '
+      'that ends it, left of Play so Play keeps its slot', (tester) async {
+    var resumes = 0;
+    var stops = 0;
+    Widget row({required bool paused}) => MaterialApp(
+      home: Scaffold(
+        body: Row(
+          children: [
+            const Expanded(child: TextField()),
+            DirectorTurnButtons(
+              showAutoPlay: true,
+              autoPlayActive: false,
+              autoPlayPaused: paused,
+              turnsLeft: 2,
+              onStopAutoPlay: () => stops++,
+              nextTooltip: 'Trigger next character',
+              onToggleAutoPlay: () => resumes++,
+              onNextCharacter: () {},
+              playColor: Colors.amber,
+              pauseColor: Colors.orange,
+              nextColor: Colors.purple,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    await tester.pumpWidget(row(paused: false));
+    final playRect = tester.getRect(find.byIcon(Icons.play_circle_filled));
+    expect(find.byIcon(Icons.stop_circle_outlined), findsNothing);
+    expect(find.byTooltip('Start auto-chat'), findsOneWidget);
+
+    await tester.pumpWidget(row(paused: true));
+    expect(find.byTooltip('Resume auto-chat (2 turns left)'), findsOneWidget);
+    expect(tester.getRect(find.byIcon(Icons.play_circle_filled)), playRect);
+    await tester.tap(find.byIcon(Icons.play_circle_filled));
+    expect(resumes, 1);
+    await tester.tap(find.byIcon(Icons.stop_circle_outlined));
+    expect(stops, 1);
+  });
 }

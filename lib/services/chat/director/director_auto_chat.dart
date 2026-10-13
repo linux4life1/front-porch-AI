@@ -20,16 +20,48 @@ import 'package:front_porch_ai/services/chat/scene_guest_director.dart';
 
 /// The auto-chat run: how many turns are left before it pauses itself.
 /// Armed when auto-chat starts; a limit of 0 runs until it is stopped.
+/// A paused run keeps its turns for a resume; a stopped one is gone.
 class AutoChatBudget {
   int _remaining = 0;
   bool _limited = false;
+  bool _paused = false;
+  int _run = 0;
+
+  /// Changes on every start, pause, resume and stop, so a wait armed before
+  /// one of those can tell it no longer belongs to the live run.
+  int get run => _run;
 
   /// Turns left in this run, or null when the run has no limit.
   int? get remaining => _limited ? _remaining : null;
 
+  /// Whether a run is paused with turns still to play.
+  bool get paused => _paused;
+
   void arm(int limit) {
     _limited = limit > 0;
     _remaining = _limited ? limit : 0;
+    _paused = false;
+    _run++;
+  }
+
+  /// Holds the run where it is, so a resume picks up its turns.
+  void pause() {
+    _paused = !_limited || _remaining > 0;
+    _run++;
+  }
+
+  /// Picks a paused run back up. False when there is none to resume.
+  bool resume() {
+    final had = _paused;
+    _paused = false;
+    if (had) _run++;
+    return had;
+  }
+
+  /// Ends the run: nothing is left to resume.
+  void clear() {
+    _paused = false;
+    _run++;
   }
 
   /// Spends one finished turn. True when that was the run's last turn.

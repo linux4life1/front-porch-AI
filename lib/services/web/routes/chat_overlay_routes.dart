@@ -63,7 +63,7 @@ class WebChatOverlayRoutes {
 
   Future<shelf.Response> _autoPlay(shelf.Request request) async {
     final body = await RequestBody.readJsonMap(request);
-    _facade.setAutoPlay(body['on'] == true);
+    _facade.setAutoPlay(body['on'] == true, pause: body['pause'] == true);
     return JsonResponse.ok({'status': 'ok'});
   }
 

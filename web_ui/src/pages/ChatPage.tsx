@@ -255,6 +255,9 @@ export function ChatPage() {
             onCommand={sendMessage}
             memberNames={cast.map((c) => c.name)}
             onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
+            onPauseAutoPlay={() =>
+              postDirector('autoplay', { on: false, pause: true }, 'pause auto-chat')
+            }
             onDelay={(seconds) => postDirector('delay', { seconds }, 'change the auto-chat delay')}
             onGoal={(text) => postDirector('goal', { text }, 'change the scene goal')}
             onClearWhisper={(id) => postDirector('whisper', { id, text: '' }, 'clear the whisper')}

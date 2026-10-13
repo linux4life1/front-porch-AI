@@ -205,6 +205,9 @@ export function ChatComposer({
   const send = () => {
     const text = draft.trim();
     if (!text && !photo) return;
+    // Enter while a reply streams: the app would drop the line, so it stays
+    // in the box, as on the desktop.
+    if (isGenerating) return;
     const pending = photo;
     setDraft('');
     setSlashDismissed(false);

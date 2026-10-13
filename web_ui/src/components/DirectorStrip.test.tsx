@@ -75,6 +75,35 @@ describe('Director Mode on the web', () => {
     expect(onCommand).toHaveBeenLastCalledWith('/director off');
   });
 
+  it('pauses auto-chat with its turns kept, resumes it, and stops the run', () => {
+    const onAutoPlay = vi.fn();
+    const onPauseAutoPlay = vi.fn();
+    const strip = (autoPlay: boolean, autoPlayPaused = false) =>
+      createElement(DirectorStrip, {
+        director: { directing: true, autoPlay, autoPlayPaused, turnsLeft: 2 },
+        busy: false,
+        onCommand: () => {},
+        onAutoPlay,
+        onPauseAutoPlay,
+        onDelay: () => {},
+      });
+
+    render(strip(true));
+    act(() => button('Pause auto-chat')!.click());
+    expect(onPauseAutoPlay).toHaveBeenCalledOnce();
+    expect(onAutoPlay).not.toHaveBeenCalled();
+
+    render(strip(false, true));
+    act(() => button('Resume auto-chat (2 left)')!.click());
+    expect(onAutoPlay).toHaveBeenLastCalledWith(true);
+    act(() => button('Stop auto-chat')!.click());
+    expect(onAutoPlay).toHaveBeenLastCalledWith(false);
+
+    render(strip(false));
+    expect(button('Stop auto-chat')).toBeUndefined();
+    expect(button('Resume')).toBeUndefined();
+  });
+
   it('offers UNDO for a few seconds, worded for who left', () => {
     const onUndo = vi.fn();
     render(createElement(ExitUndoBar, { undo: { name: 'Sam', isUser: true }, onUndo }));

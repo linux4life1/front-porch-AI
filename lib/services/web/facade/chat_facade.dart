@@ -240,9 +240,16 @@ class ChatFacade {
     _notify();
   }
 
-  /// Director Mode's auto-chat Play/Pause (the desktop input row's twin).
-  void setAutoPlay(bool on) {
-    on ? _chat.startAutoPlay() : _chat.stopAutoPlay();
+  /// Director Mode's auto-chat Play/Resume, Pause and Stop (the desktop
+  /// input row's twin). [pause] keeps the run's turns for a resume.
+  void setAutoPlay(bool on, {bool pause = false}) {
+    if (on) {
+      _chat.startAutoPlay();
+    } else if (pause) {
+      _chat.pauseAutoPlay();
+    } else {
+      _chat.stopAutoPlay();
+    }
     _notify();
   }
 
@@ -306,6 +313,9 @@ class ChatFacade {
   }
 
   String? lookupCommandBlock(String text) => _chat.lookupCommandBlock(text);
+
+  /// Why a send would be dropped right now (see ChatService), or null.
+  String? get sendBusyReason => _chat.sendBusyReason;
 
   /// Why a message cannot be sent now (the speed test has the engine), as
   /// the desktop's composer is told; null when it can.
