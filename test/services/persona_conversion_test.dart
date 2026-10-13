@@ -77,7 +77,7 @@ void main() {
     );
 
     expect(persona.name, 'Mabel');
-    expect(persona.title, isEmpty);
+    expect(persona.title, 'Mabel (from character)');
     expect(
       persona.persona,
       '{{user}} lives next door to {{char}}.\n\nPersonality: Nosy but kind.',
@@ -137,5 +137,22 @@ void main() {
     expect(seed.portraitPath, '/pics/jo.png');
     expect(seed.aiConcept, contains('{{char}} keeps bees for {{user}}.'));
     expect(seed.aiConcept, contains('Birthday: 1988-03-02'));
+  });
+
+  test('a persona made from a character turns back into one with its '
+      'personality in the personality field', () {
+    final seed = PersonaConversion.characterSeedFromPersona(
+      UserPersona(
+        id: 'p2',
+        name: 'Mabel',
+        persona:
+            '{{user}} lives next door to {{char}}.\n\n'
+            'Personality: Nosy but kind.\nBakes on Sundays.',
+      ),
+      swapMacros: true,
+    );
+    expect(seed.description, '{{char}} lives next door to {{user}}.');
+    expect(seed.personality, 'Nosy but kind.\nBakes on Sundays.');
+    expect(seed.aiConcept, contains('Personality: Nosy but kind.'));
   });
 }

@@ -252,6 +252,8 @@ export interface PickerPersona {
   label: string;
   name: string;
   active: boolean;
+  /** Who new chats start as; older apps don't send it. */
+  default?: boolean;
 }
 
 /** Step 2 of "Start new chat": which persona walks into the scene. A fresh
@@ -281,7 +283,7 @@ export function PersonaPickerDialog({
           {personas.map((p) => (
             <button key={p.id} className="move-row" onClick={() => onPick(p.id)}>
               <span aria-hidden>🧑</span> {p.label}
-              {p.active && <span className="persona-current">Current</span>}
+              {p.default && <span className="persona-current">Default</span>}
             </button>
           ))}
           {personas.length === 0 && (

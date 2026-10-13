@@ -154,7 +154,18 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
           ? '${cast.length} characters • ${group.turnOrder.name}'
           : '${cast.length} characters';
     } else {
-      final desc = cast.isNotEmpty ? cast.first.card.description : '';
+      // Card text is written in macros; the header shows it as read.
+      final desc = cast.isNotEmpty
+          ? cast.first.card.description
+                .replaceAll(
+                  RegExp(r'\{\{char\}\}', caseSensitive: false),
+                  cast.first.name,
+                )
+                .replaceAll(
+                  RegExp(r'\{\{user\}\}', caseSensitive: false),
+                  'you',
+                )
+          : '';
       subtitle = desc.isEmpty
           ? null
           : (desc.length > 30 ? '${desc.substring(0, 30)}...' : desc);

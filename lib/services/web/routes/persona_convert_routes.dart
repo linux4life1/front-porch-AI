@@ -29,6 +29,7 @@ class WebPersonaConvertRoutes {
     router.get('/api/persona-convert/character/<id>', _characterPreview);
     router.post('/api/persona-convert/character/<id>', _characterToPersona);
     router.get('/api/persona-convert/persona/<id>', _characterSeed);
+    router.get('/api/persona-convert/persona/<id>/portrait', _portrait);
   }
 
   final PersonaConversionFacade _facade;
@@ -69,5 +70,18 @@ class WebPersonaConvertRoutes {
     );
     if (seed == null) return JsonResponse.error(404, 'Persona not found');
     return JsonResponse.ok(seed);
+  }
+
+  /// The persona's picture, shown by the phone's wizards before saving.
+  Future<shelf.Response> _portrait(shelf.Request request, String id) async {
+    final picture = await _facade.portrait(id);
+    if (picture == null) return shelf.Response.notFound('No portrait');
+    return shelf.Response.ok(
+      picture.bytes,
+      headers: {
+        'Content-Type': picture.contentType,
+        'Cache-Control': 'private, max-age=60',
+      },
+    );
   }
 }

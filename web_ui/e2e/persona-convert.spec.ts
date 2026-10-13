@@ -59,11 +59,16 @@ test('a character becomes a persona, and the persona starts a character both way
     const nameBox = page.locator('.wizard-body label', { hasText: 'Name' }).locator('input');
     await expect(nameBox).toHaveValue(charName);
     await expect(page.locator('.wizard-body label', { hasText: 'Description' }).locator('textarea')).toHaveValue(
-      '{{char}} lives next door to {{user}}.\n\nPersonality: Nosy but kind.',
+      '{{char}} lives next door to {{user}}.',
     );
     const madeName = `${charName} Again`;
     await nameBox.fill(madeName);
-    for (let i = 0; i < 5; i++) await page.getByRole('button', { name: 'Next →' }).click();
+    // The persona's "Personality:" section goes back to its own field.
+    await page.getByRole('button', { name: 'Next →' }).click();
+    await expect(page.locator('.wizard-body label', { hasText: 'Personality' }).locator('textarea')).toHaveValue(
+      'Nosy but kind.',
+    );
+    for (let i = 0; i < 4; i++) await page.getByRole('button', { name: 'Next →' }).click();
     await page.getByRole('button', { name: 'Create character' }).click();
     // `/chat?opening=1` comes first; wait for the select to land so its
     // `/chat` redirect cannot pull the next navigation back.

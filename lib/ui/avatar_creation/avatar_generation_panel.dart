@@ -43,6 +43,7 @@ class AvatarGenerationPanel extends StatefulWidget {
     required this.ensureCardSaved,
     required this.initialPrompt,
     this.card,
+    this.existingPortraitPath,
     this.onBusyChanged,
   });
 
@@ -55,6 +56,10 @@ class AvatarGenerationPanel extends StatefulWidget {
 
   /// Already-saved card, when the host saved before showing the panel.
   final CharacterCard? card;
+
+  /// A picture the new card already has (made from a persona): the panel
+  /// opens on Upload with it in the portrait slot, not on Generate.
+  final String? existingPortraitPath;
 
   /// Fires on run start/stop so the host can lock its own exits (e.g. the
   /// manual wizard's Done) — leaving mid-run disposes the panel and drops
@@ -97,6 +102,7 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
       },
       initialPrompt: widget.initialPrompt,
       card: widget.card,
+      existingPortraitPath: widget.existingPortraitPath,
     );
     _c.addListener(_reportBusy);
     _c.init();

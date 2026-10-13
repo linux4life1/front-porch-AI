@@ -46,7 +46,8 @@ Future<bool?> showCharacterToPersonaDialog(
       icon: Icons.switch_account,
       body:
           'Save "$characterName" as a persona you can play as. The name, '
-          'description, personality, birthday and portrait are copied. '
+          'description, personality and portrait are copied, plus the '
+          'birthday when the character has one. '
           'Greetings, scenario, lorebook and Porch Life stay with the '
           'character, which is not changed.',
       hasMacros: hasMacros,
@@ -70,7 +71,8 @@ Future<PersonaToCharacterChoice?> showPersonaToCharacterDialog(
       icon: Icons.person_add_alt_1,
       body:
           'Start a character from "$personaName". Manual opens the character '
-          'wizard with the name, description, birthday and picture filled in. '
+          'wizard with the name, description and picture filled in, plus the '
+          'birthday when the persona has one. '
           'AI Assist hands the persona to the AI creator, which writes the '
           'personality, scenario and greetings around it. The persona stays.',
       hasMacros: hasMacros,

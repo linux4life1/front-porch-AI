@@ -199,11 +199,11 @@ void main() {
     expect(manual.seed?.portraitPath, avatar);
     await d.waitForWidget(_fieldHolding(_kName));
     await tapWhenHittable(tester, find.text('Next: Personality'));
+    // The persona's "Personality:" section goes back to its own field.
     await d.waitForWidget(
-      _fieldHolding(
-        '{{char}} lives next door to {{user}}.\n\nPersonality: Nosy but kind.',
-      ),
+      _fieldHolding('{{char}} lives next door to {{user}}.'),
     );
+    await d.waitForWidget(_fieldHolding(_kPersonality));
     // Pushed, so its back arrow pops back to the Persona page.
     await tapWhenHittable(
       tester,

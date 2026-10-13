@@ -40,7 +40,9 @@ Future<String?> showPersonaPickerDialog(
 }) {
   final service = Provider.of<UserPersonaService>(context, listen: false);
   final personas = service.personas;
-  final activeId = service.persona.id;
+  // New chats start as the default (the persona the Personas page shows),
+  // not whoever the last open chat happened to speak as.
+  final defaultId = service.defaultPersona.id;
 
   return showWarmDialog<String>(
     context,
@@ -70,7 +72,7 @@ Future<String?> showPersonaPickerDialog(
                       name: p.name,
                       persona: p.persona,
                       avatarPath: p.avatarPath,
-                      isCurrent: p.id == activeId,
+                      isDefault: p.id == defaultId,
                       onTap: () => Navigator.pop(context, p.id),
                     ),
                 ],
@@ -87,7 +89,7 @@ class _PersonaTile extends StatelessWidget {
     required this.name,
     required this.persona,
     required this.avatarPath,
-    required this.isCurrent,
+    required this.isDefault,
     required this.onTap,
   });
 
@@ -95,7 +97,7 @@ class _PersonaTile extends StatelessWidget {
   final String name;
   final String persona;
   final String? avatarPath;
-  final bool isCurrent;
+  final bool isDefault;
   final VoidCallback onTap;
 
   @override
@@ -114,10 +116,15 @@ class _PersonaTile extends StatelessWidget {
             ? FileImage(File(avatarPath!))
             : null,
         // A persona whose avatar file vanished still renders.
-        onBackgroundImageError:
-            (avatarPath != null && avatarPath!.isNotEmpty) ? (_, _) {} : null,
+        onBackgroundImageError: (avatarPath != null && avatarPath!.isNotEmpty)
+            ? (_, _) {}
+            : null,
         child: (avatarPath == null || avatarPath!.isEmpty)
-            ? Icon(Icons.person, size: 20, color: AppColors.iconSecondary(context))
+            ? Icon(
+                Icons.person,
+                size: 20,
+                color: AppColors.iconSecondary(context),
+              )
             : null,
       ),
       title: Row(
@@ -132,7 +139,7 @@ class _PersonaTile extends StatelessWidget {
               ),
             ),
           ),
-          if (isCurrent) ...[
+          if (isDefault) ...[
             const SizedBox(width: 8),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
@@ -141,7 +148,7 @@ class _PersonaTile extends StatelessWidget {
                 borderRadius: BorderRadius.circular(4),
               ),
               child: Text(
-                'Current',
+                'Default',
                 style: TextStyle(fontSize: 10.5, color: accent),
               ),
             ),

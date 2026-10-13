@@ -89,3 +89,11 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
   .stats-btn { display: none; } /* insight is persistent; no drawer toggle needed */
 }
 
+
+/* "Make a Character" from a persona: its picture beside the note. */
+.persona-seed-note { display: flex; align-items: center; gap: 10px; margin: 4px 0 8px; }
+.persona-seed-note p { margin: 0; }
+.persona-seed-portrait {
+  width: 56px; height: 56px; flex: none; object-fit: cover;
+  border-radius: var(--radius); border: 1px solid var(--border);
+}

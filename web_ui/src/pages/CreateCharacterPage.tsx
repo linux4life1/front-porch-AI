@@ -12,7 +12,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { StepIndicator } from '../components/StepIndicator';
-import { usePersonaSeed } from '../components/library/PersonaConvertDialogs';
+import { PersonaSeedNote, usePersonaSeed } from '../components/library/PersonaConvertDialogs';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { AltGreetingsEditor } from '../components/AltGreetingsEditor';
 import { RealismFormSection } from '../components/realism/RealismFormSection';
@@ -70,6 +70,7 @@ export function CreateCharacterPage() {
           ...base,
           name: personaSeed.name,
           description: personaSeed.description,
+          personality: personaSeed.personality ?? '',
           birthday: personaSeed.birthday,
         }
       : base;
@@ -122,12 +123,7 @@ export function CreateCharacterPage() {
         <button className="ghost" onClick={() => navigate(-1)}>Cancel</button>
       </div>
       <StepIndicator steps={STEPS} current={step} onJump={setStep} />
-      {personaSeed && (
-        <p className="muted small" data-testid="persona-seed-note">
-          Starting from the persona "{personaSeed.name}"
-          {personaSeed.hasPortrait ? '; its picture becomes the portrait.' : '.'}
-        </p>
-      )}
+      {personaSeed && <PersonaSeedNote seed={personaSeed} />}
       {seedError && <p className="error">{seedError}</p>}
 
       <div className="wizard-body">

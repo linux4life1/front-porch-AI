@@ -27,6 +27,13 @@ import 'package:front_porch_ai/services/user_persona_service.dart';
 
 final _macroPattern = RegExp(r'\{\{(char|user)\}\}', caseSensitive: false);
 
+/// The "Personality:" heading [PersonaConversion.personaTextFromCharacter]
+/// writes, so a round trip puts the personality back in its own field.
+final _personalityHeading = RegExp(
+  r'(^|\n)\s*Personality:[ \t]*',
+  caseSensitive: false,
+);
+
 /// Character card ↔ user persona conversion (SillyTavern's "Convert to
 /// Persona", plus the reverse it lacks). A persona only holds a name, a
 /// description, a birthday and a picture, so that is all that moves; the
@@ -73,12 +80,12 @@ class PersonaConversion {
     String? avatarDir,
   }) async {
     final name = card.name.trim().isEmpty ? 'Persona' : card.name.trim();
-    final clash = personas.personas.any((x) => x.name == name);
     final avatarPath = avatarDir == null
         ? null
         : await _copyPortrait(card.imagePath, name, avatarDir);
+    // Always labelled, so every converted persona reads the same in lists.
     final id = await personas.createPersona(
-      clash ? '$name (from character)' : '',
+      '$name (from character)',
       name,
       personaTextFromCharacter(card, swapMacros: swapMacros),
       avatarPath,
@@ -93,11 +100,16 @@ class PersonaConversion {
     UserPersona persona, {
     required bool swapMacros,
   }) {
-    final text = persona.persona.trim();
+    var text = persona.persona.trim();
+    if (swapMacros) text = swapCharUserMacros(text);
+    final heading = _personalityHeading.firstMatch(text);
     final avatar = persona.avatarPath;
     return PersonaCharacterSeed(
       name: persona.name.trim(),
-      description: swapMacros ? swapCharUserMacros(text) : text,
+      description: heading == null
+          ? text
+          : text.substring(0, heading.start).trim(),
+      personality: heading == null ? '' : text.substring(heading.end).trim(),
       birthday: persona.birthday,
       portraitPath: avatar != null && avatar.isNotEmpty ? avatar : null,
     );
@@ -134,12 +146,16 @@ class PersonaCharacterSeed {
   const PersonaCharacterSeed({
     required this.name,
     required this.description,
+    this.personality = '',
     this.birthday = '',
     this.portraitPath,
   });
 
   final String name;
   final String description;
+
+  /// Text after a "Personality:" heading in the persona, if it has one.
+  final String personality;
   final String birthday;
 
   /// The persona's picture, used as the new card's portrait.
@@ -152,6 +168,7 @@ class PersonaCharacterSeed {
         'name, identity and every stated detail; invent only what is missing '
         '(personality, scenario, greetings).',
     if (description.isNotEmpty) description,
+    if (personality.isNotEmpty) 'Personality: $personality',
     if (birthday.isNotEmpty) 'Birthday: $birthday',
   ].join('\n\n');
 }

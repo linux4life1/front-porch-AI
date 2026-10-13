@@ -11,7 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { usePersonaSeed } from '../components/library/PersonaConvertDialogs';
+import { PersonaSeedNote, usePersonaSeed } from '../components/library/PersonaConvertDialogs';
 import { api, ApiError } from '../api/client';
 import { ChatSocket } from '../api/ws';
 import { StepIndicator } from '../components/StepIndicator';
@@ -150,12 +150,7 @@ export function CreateAiCharacterPage() {
 
       <StepIndicator steps={STEPS} current={step} onJump={held ? undefined : setStep} variant="porch" />
 
-      {personaSeed && (
-        <p className="muted small" data-testid="persona-seed-note">
-          Starting from the persona "{personaSeed.name}"
-          {personaSeed.hasPortrait ? '; its picture becomes the portrait.' : '.'}
-        </p>
-      )}
+      {personaSeed && <PersonaSeedNote seed={personaSeed} />}
       {seedError && <p className="error">{seedError}</p>}
 
       {available === false && (

@@ -205,6 +205,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       key: const ValueKey('portrait-avatars'),
       card: card,
       description: _draft.descriptionController.text,
+      existingPortraitPath: _draft.portraitSourcePath,
       panelBusy: _panelBusy,
       onBusyChanged: (busy) {
         if (mounted) setState(() => _panelBusy = busy);

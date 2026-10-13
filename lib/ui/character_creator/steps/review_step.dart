@@ -112,6 +112,7 @@ class ReviewStep extends StatelessWidget {
                     return ok ? state.generatedCard : null;
                   },
                   initialPrompt: state.buildPortraitPromptSeed(),
+                  existingPortraitPath: state.portraitSourcePath,
                 ),
                 const SizedBox(height: 16),
                 Text(

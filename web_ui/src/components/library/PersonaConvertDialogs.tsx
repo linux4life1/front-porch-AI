@@ -87,8 +87,8 @@ export function UseAsPersonaDialog({
           </button>
         </div>
         <p className="muted dialog-msg">
-          Save "{characterName}" as a persona you can play as. The name, description, personality, birthday and
-          portrait are copied. Greetings, scenario, lorebook and Porch Life stay with the character, which is not
+          Save "{characterName}" as a persona you can play as. The name, description, personality and portrait are
+          copied, plus the birthday when the character has one. Greetings, scenario, lorebook and Porch Life stay with the character, which is not
           changed.
         </p>
         {hasMacros && <SwapToggle swap={swap} onChange={setSwap} />}
@@ -132,8 +132,8 @@ export function MakeCharacterDialog({
           </button>
         </div>
         <p className="muted dialog-msg">
-          Start a character from "{personaName}". Manual opens the character wizard with the name, description,
-          birthday and picture filled in. AI Assist hands the persona to the AI creator, which writes the personality,
+          Start a character from "{personaName}". Manual opens the character wizard with the name, description and
+          picture filled in, plus the birthday when the persona has one. AI Assist hands the persona to the AI creator, which writes the personality,
           scenario and greetings around it. The persona stays.
         </p>
         {MACRO_RE.test(personaText) && <SwapToggle swap={swap} onChange={setSwap} />}
@@ -158,9 +158,36 @@ export interface PersonaSeed {
   personaId: string;
   name: string;
   description: string;
+  /** Older apps don't send it. */
+  personality?: string;
   birthday: string;
   aiConcept: string;
   hasPortrait: boolean;
+}
+
+/** The persona's picture as the relay serves it. */
+export function personaPortraitUrl(personaId: string) {
+  return `/api/persona-convert/persona/${encodeURIComponent(personaId)}/portrait`;
+}
+
+/** The wizards' "Starting from the persona…" line, with its picture. */
+export function PersonaSeedNote({ seed }: { seed: PersonaSeed }) {
+  return (
+    <div className="persona-seed-note" data-testid="persona-seed-note">
+      {seed.hasPortrait && (
+        <img
+          className="persona-seed-portrait"
+          src={personaPortraitUrl(seed.personaId)}
+          alt={`${seed.name}'s picture`}
+          data-testid="persona-seed-portrait"
+        />
+      )}
+      <p className="muted small">
+        Starting from the persona "{seed.name}"
+        {seed.hasPortrait ? '; its picture becomes the portrait.' : '.'}
+      </p>
+    </div>
+  );
 }
 
 export function usePersonaSeed(params: URLSearchParams): { seed: PersonaSeed | null; error: string } {

@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -39,6 +41,8 @@ class CreatorReviewSummary extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = draft;
+    // Made from a persona: its picture is already the portrait.
+    final portrait = d.portraitSourcePath;
     final tertiary11 = TextStyle(
       color: AppColors.textTertiary(context),
       fontSize: 11,
@@ -50,30 +54,42 @@ class CreatorReviewSummary extends StatelessWidget {
           Container(
             width: 260,
             height: 260,
+            clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
               color: AppColors.cardOf(context),
               border: Border.all(color: AppColors.borderOf(context)),
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.person,
-                  size: 64,
-                  color: AppColors.textTertiary(context),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Portrait comes next,\nonce the card is saved',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 12,
+            child: portrait != null
+                ? Image.file(
+                    File(portrait),
+                    key: const ValueKey('creator-review-portrait'),
+                    fit: BoxFit.cover,
+                    errorBuilder: (_, _, _) => Icon(
+                      Icons.person,
+                      size: 64,
+                      color: AppColors.textTertiary(context),
+                    ),
+                  )
+                : Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.person,
+                        size: 64,
+                        color: AppColors.textTertiary(context),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Portrait comes next,\nonce the card is saved',
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: AppColors.textTertiary(context),
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-              ],
-            ),
           ),
           const SizedBox(height: 16),
           // Name

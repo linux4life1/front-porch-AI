@@ -565,4 +565,32 @@ void main() {
       expect(heard, lessThan(50));
     });
   });
+
+  group('starting portrait (a character made from a persona)', () {
+    test('opens on Upload with the picture already in the portrait slot, '
+        'even with an engine ready', () async {
+      final path =
+          '${storage.charactersDir.path}${Platform.pathSeparator}persona.png';
+      final bytes = _realPng(w: 40, h: 50);
+      File(path).writeAsBytesSync(bytes);
+      final c = AvatarCreationController(
+        ensureCardSaved: () async => card,
+        repository: repo,
+        storage: storage,
+        imageGen: gen,
+        resolveVisionFire: () async => null,
+        peekVisionSupport: () async => null,
+        initialPrompt: 'elf knight, silver armor',
+        card: card,
+        existingPortraitPath: path,
+      );
+      expect(c.source, PortraitSource.upload);
+      await c.loadExistingPortrait();
+      expect(c.portraitBytes, bytes);
+      // The pack can build straight off the persona's picture.
+      expect(c.ctaLabel, 'Generate 8 expressions');
+      expect(c.canRun, isTrue);
+      c.dispose();
+    });
+  });
 }

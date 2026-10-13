@@ -189,6 +189,7 @@ class CreateCharacterDraft {
   void applyPersonaSeed(PersonaCharacterSeed seed) {
     nameController.text = seed.name;
     descriptionController.text = seed.description;
+    personalityController.text = seed.personality;
     realismBirthday = seed.birthday;
     portraitSourcePath = seed.portraitPath;
     updateTokenEstimate();

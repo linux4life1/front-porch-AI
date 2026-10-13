@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io';
+
 import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/services/services.dart';
@@ -71,6 +73,7 @@ class PersonaConversionFacade {
       'personaId': persona.id,
       'name': seed.name,
       'description': seed.description,
+      'personality': seed.personality,
       'birthday': seed.birthday,
       'aiConcept': seed.aiConcept,
       'hasPortrait': seed.portraitPath != null,
@@ -80,6 +83,25 @@ class PersonaConversionFacade {
 
   /// The persona's picture, for a character created from it.
   String? portraitPathFor(String personaId) => _find(personaId)?.avatarPath;
+
+  /// The persona's picture as served to the phone's wizards; null when it
+  /// has none or the file is gone.
+  Future<({List<int> bytes, String contentType})?> portrait(
+    String personaId,
+  ) async {
+    final path = portraitPathFor(personaId);
+    if (path == null || path.isEmpty) return null;
+    final file = File(path);
+    if (!await file.exists()) return null;
+    final ext = p.extension(path).toLowerCase();
+    final type = switch (ext) {
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.webp' => 'image/webp',
+      '.gif' => 'image/gif',
+      _ => 'image/png',
+    };
+    return (bytes: await file.readAsBytes(), contentType: type);
+  }
 
   UserPersona? _find(String id) {
     for (final persona in _personas.personas) {

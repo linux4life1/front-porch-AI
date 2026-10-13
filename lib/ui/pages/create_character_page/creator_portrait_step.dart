@@ -30,6 +30,7 @@ class CreatorPortraitStep extends StatelessWidget {
     super.key,
     required this.card,
     required this.description,
+    this.existingPortraitPath,
     required this.panelBusy,
     required this.onBusyChanged,
     required this.onDone,
@@ -39,6 +40,9 @@ class CreatorPortraitStep extends StatelessWidget {
 
   /// The wizard's description text, seeding the portrait prompt.
   final String description;
+
+  /// The persona picture the card was saved with, if it came from one.
+  final String? existingPortraitPath;
 
   /// The panel is mid-generation — Done is locked so leaving can't silently
   /// drop work the engine is still finishing.
@@ -89,6 +93,7 @@ class CreatorPortraitStep extends StatelessWidget {
           card: card,
           ensureCardSaved: () async => card,
           initialPrompt: _portraitPromptSeed(card.name),
+          existingPortraitPath: existingPortraitPath,
           onBusyChanged: onBusyChanged,
         ),
         const SizedBox(height: 24),
