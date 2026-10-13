@@ -230,7 +230,7 @@ extension ChatServiceClimax on ChatService {
       if (withArousal) _nsfwService.setArousalLevel(body.arousal);
       return;
     }
-    final member = _memberForWrite(id)..refractory = body.refractory;
+    final member = _groupStore.memberForWrite(id)..refractory = body.refractory;
     if (withArousal) member.arousal = body.arousal;
   }
 

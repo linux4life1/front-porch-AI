@@ -136,7 +136,7 @@ final List<Map<String, dynamic>> kNarrativeEvalTools = [
 ///
 /// llama.cpp / Kobold jinja injects `tools` near the start of the rendered
 /// prompt. Three different one-tool lists tokenize three different prefixes
-/// and silently defeat `judgePrefix` + `_fireStaggeredRealismEvals`. One
+/// and silently defeat `judgePrefix` + `RealismJudges._fireStaggeredRealismEvals`. One
 /// identical list + a named `tool_choice` keeps the templated prefix
 /// cacheable; `realismToolCallToJson` still filters by the expected name.
 final List<Map<String, dynamic>> kJudgeEvalTools = [
@@ -431,6 +431,28 @@ List<Map<String, dynamic>> kReplyFactsToolsFor({
   ),
 ];
 
+/// The char→char judge (CastFeelingsJudge): how one group member's reply
+/// moved their feelings toward the others it involved.
+final Map<String, Map<String, dynamic>> kCastFeelingsFields = {
+  'feelings': {
+    'type': 'array',
+    'items': {'type': 'object'},
+    'description':
+        'One {"name", "delta"} per character whose relationship with the '
+        'speaker this reply moved; delta is an int from -4 to 4.',
+  },
+};
+
+final List<Map<String, dynamic>> kCastFeelingsEvalTools = [
+  _tool(
+    kCastFeelingsToolName,
+    'Report how the reply changed the speaker\'s feelings toward the other '
+    'characters (empty list when it changed none).',
+    kCastFeelingsFields,
+    const ['feelings'],
+  ),
+];
+
 /// The whitelisted keys per tool (anything else the model invents is
 /// dropped, mirroring how the regex extractors ignore unknown text keys).
 final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
@@ -446,4 +468,5 @@ final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
   kPocketsToolName: kPocketsFields,
   kReplyFactsToolName: kReplyFactsFields,
   kWithUserToolName: kWithUserFields,
+  kCastFeelingsToolName: kCastFeelingsFields,
 };

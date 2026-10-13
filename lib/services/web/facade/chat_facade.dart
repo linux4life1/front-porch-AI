@@ -252,6 +252,21 @@ class ChatFacade {
     _notify();
   }
 
+  Future<void> setDirectorTurnBudget(int turns) async {
+    await _chat.setSavedDirectorTurnBudget(turns);
+    _notify();
+  }
+
+  Future<void> setDirectorGoal(String text) async {
+    await _chat.setDirectorGoal(text);
+    _notify();
+  }
+
+  Future<void> setDirectorWhisper(String memberId, String text) async {
+    await _chat.setDirectorWhisper(memberId, text);
+    _notify();
+  }
+
   /// The stopped-reply notice's dismiss (desktop's ✕ twin).
   void dismissStoppedReplyNotice() {
     _chat.dismissStoppedReplyNotice();

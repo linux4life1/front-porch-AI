@@ -43,6 +43,7 @@ class TtsSettings with SettingsBase {
   int _ttsConcurrency = Platform.numberOfProcessors.clamp(1, 8);
   int _ttsAudioLookahead = 6;
   double _directorDelay = 15.0;
+  int _directorTurnBudget = 0;
 
   bool get ttsEnabled => _ttsEnabled;
   String get ttsEngine => _ttsEngine;
@@ -63,6 +64,9 @@ class TtsSettings with SettingsBase {
   int get ttsConcurrency => _ttsConcurrency.clamp(1, 8);
   int get ttsAudioLookahead => _ttsAudioLookahead;
   double get directorDelay => _directorDelay;
+
+  /// Director auto-chat: turns to run before it pauses itself (0 = no limit).
+  int get directorTurnBudget => _directorTurnBudget;
 
   void load() {
     _ttsEnabled = prefs?.getBool(k('tts_enabled')) ?? false;
@@ -89,8 +93,10 @@ class TtsSettings with SettingsBase {
     _ttsNarrateQuotedOnly =
         prefs?.getBool(k('tts_narrate_quoted_only')) ?? false;
     _ttsIgnoreAsterisks = prefs?.getBool(k('tts_ignore_asterisks')) ?? false;
-    _ttsReplaceCurlyQuotes = prefs?.getBool(k('tts_replace_curly_quotes')) ?? false;
+    _ttsReplaceCurlyQuotes =
+        prefs?.getBool(k('tts_replace_curly_quotes')) ?? false;
     _directorDelay = prefs?.getDouble(k('director_delay')) ?? 15.0;
+    _directorTurnBudget = prefs?.getInt(k('director_turn_budget')) ?? 0;
   }
 
   Future<void> setTtsEnabled(bool value) async {
@@ -206,4 +212,13 @@ class TtsSettings with SettingsBase {
     await prefs?.setDouble(k('director_delay'), _directorDelay);
     notify();
   }
+
+  Future<void> setDirectorTurnBudget(int value) async {
+    _directorTurnBudget = value.clamp(0, kMaxDirectorTurnBudget);
+    await prefs?.setInt(k('director_turn_budget'), _directorTurnBudget);
+    notify();
+  }
 }
+
+/// The longest auto-chat run the Director budget offers.
+const int kMaxDirectorTurnBudget = 50;

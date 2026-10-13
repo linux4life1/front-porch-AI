@@ -22,6 +22,8 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/director/director.dart'
+    show kDirectorQuickBeats;
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
@@ -89,6 +91,7 @@ class ChatStateSnapshot {
         'swipeCount': m.swipes.length,
         'swipeIndex': m.swipeIndex,
         'characterId': m.characterId,
+        if (m.isDirectorNarration) 'isNarration': true,
         if (!m.isUser && md?[kReplyContextKey] is Map) 'hasContext': true,
         if (!m.isUser && md?[kTokenAltsKey] is List) 'hasTokenAlts': true,
         'chips': ?chips,
@@ -234,6 +237,19 @@ class ChatStateSnapshot {
         // Asked only while directing, the one time the strip shows it.
         'delaySeconds': _chat.observerMode ? _chat.savedDirectorDelay : null,
         'canRemoveMember': !_chat.isGroupMode || _chat.canRemoveCastMember,
+        // The director's tools, served so the web shows what desktop shows.
+        'beats': [for (final b in kDirectorQuickBeats) b.toJson()],
+        // Who a cue can call on: the desktop panel's own list.
+        'members': [for (final c in _chat.groupCharacters) c.name],
+        'goal': _chat.directorGoal,
+        'whispers': [
+          for (final w in _chat.directorWhisperRows)
+            {'id': w.id, 'name': w.name, 'text': w.text},
+        ],
+        'turnBudget': _chat.savedDirectorTurnBudget,
+        'turnsLeft': _chat.autoPlayActive ? _chat.autoChatTurnsLeft : null,
+        // The narrator's beat counts as a running turn.
+        'narrating': _chat.isNarrating,
       },
       // The open /exit UNDO (a guest, a member, or the user stepping out to
       // direct) until a send or a chat switch closes it. Additive nullable.

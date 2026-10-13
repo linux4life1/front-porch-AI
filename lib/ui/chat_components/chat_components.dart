@@ -53,6 +53,7 @@ export 'widgets/chat_image_attachment.dart';
 export 'widgets/composer_draft_scope.dart';
 export 'widgets/composer_drop_zone.dart';
 export 'widgets/director_panel.dart';
+export 'widgets/director_tools.dart';
 export 'widgets/director_turn_buttons.dart';
 export 'widgets/eval_pill.dart';
 export 'widgets/generating_image_bubble.dart';

@@ -230,11 +230,13 @@ extension ChatServiceSessionHydrate on ChatService {
     final nv = s.needsVector;
     final hasSavedNeeds = nv is String && nv.isNotEmpty;
     // A card that says nothing asks for Needs when Porch Life does and this
-    // chat's Realism (hydrated above) is on — the seed rule, _seedNeedsSim.
+    // chat's Realism (hydrated above) is on — the seed rule, NeedsPass.seedNeedsSim.
     // An explicit card choice is read as before.
     final cardWantsNeeds =
         _activeGroup == null &&
-        _seedNeedsSim(_activeCharacter?.frontPorchExtensions?.needsSimChoice);
+        _needsPass.seedNeedsSim(
+          _activeCharacter?.frontPorchExtensions?.needsSimChoice,
+        );
     // Session flag is seed-time AND, column default FALSE. A lived-in 1:1
     // that never flipped the column (no saved vector) still promotes ON
     // when card + Porch Life ask for Needs. Explicit OFF keeps its vector

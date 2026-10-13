@@ -72,7 +72,7 @@ extension ChatServiceWiringInjection on ChatService {
           for (final m in _messages.sublist(start))
             if (!m.isStatusBanner)
               m.characterId == '__director__'
-                  ? '[Director: ${m.text}]'
+                  ? m.toPromptHistoryLine()
                   : (includeNames ? m.toPromptHistoryLine() : m.promptText),
         ];
       },
@@ -287,7 +287,7 @@ extension ChatServiceWiringInjection on ChatService {
               : const <CharacterCard>[]);
     CharacterCard? speaker;
     if (!scanner && _activeGroup != null) {
-      speaker = _workSpeakerCard();
+      speaker = _groupStore.workSpeakerCard();
       // No resolved speaker → no character books. Null speaker would
       // inherit every member and walk a present-scene row onto the porch.
       if (speaker == null) characters = const [];

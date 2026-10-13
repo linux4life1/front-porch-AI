@@ -73,7 +73,7 @@ extension ChatServiceMessageOps on ChatService {
     }
     if (isTip) _syncRealismStateForSwipe(msg);
     if (isGuestTip) {
-      _restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');
+      _needsRewinds.restoreWornBodiesExceptSpeaker(msg, msg.characterId ?? '');
     }
     // Pockets follow the selected variant too — this swipe's own
     // post-turn record, or the shared pre-turn base when this variant's
@@ -108,7 +108,10 @@ extension ChatServiceMessageOps on ChatService {
     _restoreRealismStateForSpeaker(msg, restoreClock: false);
     final speaker = _resolveGroupSpeakerForMessage(msg);
     if (_activeGroup != null && speaker != null) {
-      _restoreWornBodiesExceptSpeaker(msg, _getCharacterIdFromCard(speaker));
+      _needsRewinds.restoreWornBodiesExceptSpeaker(
+        msg,
+        _getCharacterIdFromCard(speaker),
+      );
     }
   }
 
@@ -276,11 +279,13 @@ extension ChatServiceMessageOps on ChatService {
           (!_needsSimEnabled || (_activeGroup != null && deletedSid == null))
           ? const <String, int>{}
           : (deletedSid != null
-                ? Map<String, int>.from(_getGroupNeeds(deletedSid))
+                ? Map<String, int>.from(_groupStore.needsOf(deletedSid))
                 : Map<String, int>.from(_needsSimulation.vector));
       // Co-present bars, before the snapshot restore below. Ana's wear is
       // undone from these, not from the restored snapshot.
-      final presentBeforeDelete = _capturePresentNeedsBeforeDelete(deleted);
+      final presentBeforeDelete = _needsRewinds.capturePresentBeforeDelete(
+        deleted,
+      );
 
       _messages.removeAt(index);
 
@@ -332,8 +337,8 @@ extension ChatServiceMessageOps on ChatService {
       }
 
       // Settle needs LAST so it wins over whatever the snapshot restores did
-      // to the vector (see _revertNeedsForDeletedMessage).
-      _revertNeedsForDeletedMessage(
+      // to the vector (see NeedsRewinds.revertForDeletedMessage).
+      _needsRewinds.revertForDeletedMessage(
         deleted,
         needsBeforeDelete,
         groupSid: deletedSid,

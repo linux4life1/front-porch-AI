@@ -187,7 +187,9 @@ void main() {
     final src = File(
       'lib/services/chat/chat_service_generation_postgen_engine.dart',
     ).readAsStringSync();
-    final pass = src.indexOf('await _runWithUserPass(scoredReply)');
+    final pass = src.indexOf(
+      'await _realismJudges.runWithUserPass(scoredReply)',
+    );
     expect(pass, greaterThanOrEqualTo(0));
     final glance = src.indexOf("[Presence] lite-glance", pass);
     expect(

@@ -136,6 +136,34 @@ extension ChatServiceLlmLanes on ChatService {
     return p.withWorkerLane(work);
   }
 
+  /// The realism/eval text door: [LlmEvalEngine.fireLLMEval] on the worker
+  /// lane.
+  Future<String?> _fireLLMEval(
+    String prompt, {
+    void Function(String)? onChunk,
+    double repeatPenalty = 1.15,
+    String label = 'eval',
+    bool salvageReasoning = true,
+    int? maxLength,
+    Duration? wallClockTimeout,
+    bool abortClientOnStop = false,
+    bool Function(String accumulated)? stopWhen,
+    void Function()? onGuardAbort,
+  }) => _withWorkerLane(
+    () => _llmEvalEngine.fireLLMEval(
+      prompt,
+      onChunk: onChunk,
+      repeatPenalty: repeatPenalty,
+      label: label,
+      salvageReasoning: salvageReasoning,
+      maxLength: maxLength,
+      wallClockTimeout: wallClockTimeout,
+      abortClientOnStop: abortClientOnStop,
+      stopWhen: stopWhen,
+      onGuardAbort: onGuardAbort,
+    ),
+  );
+
   Future<void> _openWorkerLane() {
     if (testWorkerLlmServiceOverride != null) return Future<void>.value();
     final p = _llmProvider;

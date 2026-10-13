@@ -18,7 +18,9 @@
 
 part of '../chat_service.dart';
 
-/// Private runtime fields that are not fake-pinned and are not `_groupRealism`.
+/// Runtime fields that are not fake-pinned (no `implements ChatService` double
+/// overrides them). Test hooks ride here too — they are written on real
+/// [ChatService] instances only.
 /// Extensions in this library can still read them; a Dart extension cannot
 /// *declare* instance state, so this mixin is the legal home.
 mixin ChatServiceFieldBag {
@@ -141,7 +143,7 @@ mixin ChatServiceFieldBag {
   ///
   /// `_isGenerating` is cleared the moment the last token lands, but the turn
   /// is not finished there: the needs-impact eval, the realism-state re-stamp,
-  /// the `_saveScalarsIntoGroupRealism` persist and the chip attach all run
+  /// the `RealismDance.saveScalarsIntoGroup` persist and the chip attach all run
   /// afterwards, and in a group they run under an impersonation dance that
   /// reassigns `_activeCharacter` and loads that member's scalars. For those
   /// seconds the app used to report "not generating" while the engine was
@@ -280,6 +282,18 @@ mixin ChatServiceFieldBag {
   // (Direction mode). Injected into the prompt, consumed on the next generation;
   // the forced-speaker side is handled by GroupTurnManager.setNextSpeaker.
   String? _entranceDirective;
+
+  /// The director's pinned scene goal and private whispers, saved per chat.
+  final DirectorScene _directorScene = DirectorScene();
+
+  /// A `/narrate` call is in flight (it runs before the turn it starts).
+  bool _narrating = false;
+
+  /// The running auto-chat's turn budget.
+  final AutoChatBudget _autoChatBudget = AutoChatBudget();
+
+  /// The char→char judge, built on first use.
+  CastFeelingsJudge? _castFeelingsJudgeCache;
 
   /// Per-character Author's Notes for group chats (independent of group-level _authorNote).
   /// Keyed by stable charId (from _getCharacterIdFromCard). Populated from the
@@ -450,4 +464,31 @@ mixin ChatServiceFieldBag {
   int _greetingIndex = 0;
   String? _evalCleanSrc, _evalCleanOut;
   bool _isGrowthPassRunning = false;
+
+  /// Test-only overrides for driving the real LLM paths (realism evals +
+  /// chat generation) with canned responses without constructing a full
+  /// LLMProvider (heavy deps).
+  @visibleForTesting
+  LLMService? testLlmServiceOverride;
+  @visibleForTesting
+  bool testIsLocalOverride = false;
+  @visibleForTesting
+  LLMService? testWorkerLlmServiceOverride;
+
+  /// Test hook: import awaits this before mutating so a Send can race it.
+  @visibleForTesting
+  Completer<void>? testImportHold;
+
+  /// True while Manual Reprocess → Feelings runs the judges again. They may
+  /// not start quests then, and tier crossings wait in [_rescoreCrossings]
+  /// until the new score is kept (see chat_service_reprocess_choice.dart).
+  bool _rescoringFeelings = false;
+  final List<TierCrossing> _rescoreCrossings = [];
+
+  /// A rewrite from a word waiting for its turn: the next normal reply
+  /// starts with this text (see chat_service_variants.dart).
+  String? _regenSeed;
+
+  /// Shared Journal/Growth tools-vs-XML probe (one per backend identity).
+  final _toolProbe = ToolTransportProbe();
 }

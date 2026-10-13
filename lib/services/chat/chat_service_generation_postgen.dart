@@ -239,7 +239,7 @@ extension ChatServiceGenerationPostGen on ChatService {
               isContinue: t.mode == GenerationMode.continue_,
             );
           } else {
-            _wearBodiesAfterClock(t);
+            _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
             _tickRefractoryAfterClock(t);
             _maybeKickDreamPrefetch();
             await _saveChat();
@@ -275,7 +275,11 @@ extension ChatServiceGenerationPostGen on ChatService {
       }
 
       // Auto-play: if director mode is active, queue the next character
-      if (_autoPlayActive && _observerMode && _activeGroup != null) {
+      // (unless this reply spoke to the absent user, or spent the run).
+      if (_autoPlayActive &&
+          _observerMode &&
+          _activeGroup != null &&
+          !(!t.streamTarget.isUser && _autoChatPausesAfter(t.streamTarget))) {
         // If TTS is active, wait for it to finish before starting the delay
         if (_ttsService != null && _ttsService!.isSpeaking) {
           _waitForTtsThenContinue();

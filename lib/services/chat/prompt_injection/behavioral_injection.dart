@@ -24,7 +24,7 @@ import 'package:front_porch_ai/services/chat/relationship_service.dart';
 /// legitimately contain digits); both are salience-gated to silence.
 ///
 /// GROUP-SAFETY CONTRACT: this leaf reads RelationshipService SCALARS, which
-/// are per-speaker-valid at assembly time because `_loadGroupRealismIntoScalars`
+/// are per-speaker-valid at assembly time because `RealismDance.loadIntoScalars`
 /// (chat_service_realism_dance.dart) calls
 /// `loadRelationshipScalarsForSpeaker(charId)` — which copies activeFixation,
 /// fixationLifespan, AND spatialStance for the upcoming speaker — before any

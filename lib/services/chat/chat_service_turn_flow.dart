@@ -19,50 +19,12 @@
 part of '../chat_service.dart';
 
 /// Turn-progression surfaces that sit outside the [ChatServiceSend] spine:
-/// Director/observer/auto-play controls, group speaker picking, TTS-paced
+/// group speaker picking, TTS-paced
 /// auto-play, the web/mobile Chance Time reveal surface, the Journal recap
 /// controls, background RAG embedding, and the periodic (cast-detection)
 /// eval coordinator. Extracted verbatim from `chat_service.dart` — zero
 /// behaviour change.
 extension ChatServiceTurnFlow on ChatService {
-  /// Set observer mode on/off.
-  void setObserverMode(bool value) {
-    _observerMode = value;
-    if (!value) {
-      _autoPlayActive = false;
-    }
-    if (_sceneGuest.exitUndoUserStep) _clearExitUndo(); // flip beats undo
-    if (_activeGroup != null) unawaited(_saveChat()); // saved per chat
-    notifyListeners();
-  }
-
-  /// Start auto-play: characters keep chatting automatically.
-  void startAutoPlay() {
-    if (_activeGroup == null || !_observerMode) return;
-    _autoPlayActive = true;
-    notifyListeners();
-    _autoPlayNext();
-  }
-
-  /// Stop auto-play.
-  void stopAutoPlay() {
-    _autoPlayActive = false;
-    notifyListeners();
-  }
-
-  /// Internal: trigger the next auto-play response.
-  Future<void> _autoPlayNext() async {
-    if (!_autoPlayActive || !_observerMode || _activeGroup == null) return;
-    // Both auto-play schedulers (generation.dart and _waitForTtsThenContinue)
-    // arm their delay AFTER the awaited post-gen section has already finished,
-    // so this is clear by the time they fire; no re-arm machinery is needed.
-    if (_isTurnBusy) return; // wait for the current turn to finish settling
-
-    // Each spoken reply post-decides the clock; the next speaker is
-    // announced at that time (bucket brigade). No pre-tick.
-    await _generateResponse(GenerationMode.normal);
-  }
-
   /// Trigger the next character to speak in group mode.
   Future<void> triggerNextCharacter() async {
     if (_activeGroup == null || _groupCharacters.isEmpty || _isTurnBusy) {
@@ -412,7 +374,7 @@ extension ChatServiceTurnFlow on ChatService {
   List<String> _formatMessagesForRagEmbedding(List<ChatMessage> messages) {
     return messages.map((m) {
       if (m.characterId == '__director__') {
-        return '[Director: ${m.text}]';
+        return m.toPromptHistoryLine(); // note or narration
       }
       return '${m.sender}: ${m.text}';
     }).toList();

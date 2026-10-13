@@ -22,6 +22,8 @@ import 'package:front_porch_ai/services/chat/lookup_force.dart';
 
 import 'chat_command_handler/chat_command_handler.dart';
 
+export 'chat_command_handler/slash_command_catalog.dart';
+
 /// Result of an attempted Scene Guest mint, surfaced back to the handler so it
 /// can report progress/errors uniformly. On success [card] is the minted (and
 /// already-persisted) lite NPC; on failure [card] is null and [error] explains.
@@ -33,21 +35,6 @@ class GuestMintResult {
   final String? error;
 
   bool get ok => card != null;
-}
-
-/// One entry in the slash-command reference, used by the input "type /" helper
-/// panel (and any cheat-sheet). [example] is what tapping the row inserts.
-class SlashCommandInfo {
-  const SlashCommandInfo(this.command, this.example, this.description);
-
-  /// The bare command token (no slash), e.g. `create`.
-  final String command;
-
-  /// A usage example shown to the user, e.g. `/create <name>: <concept>`.
-  final String example;
-
-  /// One-line description of what it does.
-  final String description;
 }
 
 /// Parses and dispatches in-chat slash commands.
@@ -150,76 +137,8 @@ class ChatCommandHandler {
   final SceneGuestCommands _guest;
   final DirectorCommands? _director;
 
-  /// The user-facing slash-command reference (single source of truth for the
-  /// "type /" helper panel). Order = display order. Aliases (/turn, /detect,
-  /// /expression-clear) are intentionally omitted to keep the list scannable.
-  static const List<SlashCommandInfo> commands = [
-    SlashCommandInfo(
-      'create',
-      '/create <name>: <concept>',
-      'Create a new guest NPC and bring them into the scene',
-    ),
-    SlashCommandInfo(
-      'join',
-      '/join [--full|--lite] [name]',
-      'Bring a character in — lite is a Scene Guest (works in a group too); --full is a full member',
-    ),
-    SlashCommandInfo(
-      'promote',
-      '/promote [name]',
-      'Named: that guest becomes a full member. Bare: a 1:1 becomes a group; guests stay Guest until you Promote them',
-    ),
-    SlashCommandInfo(
-      'speak',
-      '/speak [name]',
-      'Anyone on the porch (host, guest, or group member) takes a turn now',
-    ),
-    SlashCommandInfo(
-      'exit',
-      '/exit [name]',
-      'A guest leaves (narrated); in a group, removes that full member by name',
-    ),
-    SlashCommandInfo(
-      'director',
-      '/director [off]',
-      'Step out of a group scene to direct it; /director off steps you back in',
-    ),
-    SlashCommandInfo(
-      'turnorder',
-      '/turnorder [random | <name>, …]',
-      'Set how a group takes turns: round-robin, random, or an explicit order',
-    ),
-    SlashCommandInfo(
-      'scan',
-      '/scan',
-      'Scan the scene for a new recurring character to add',
-    ),
-    SlashCommandInfo(
-      'expression',
-      '/expression [emotion]',
-      "Set the character's expression (omit to clear it)",
-    ),
-    SlashCommandInfo(
-      'afk',
-      '/afk [off] [--messages N] [--time 5m]',
-      'Keep the scene alive while you step away — N solitary auto-responses at a set interval',
-    ),
-    SlashCommandInfo(
-      'image',
-      '/image [me | char | raw <prompt> | <description>]',
-      'Generate an image in chat — bare /image pictures the current scene',
-    ),
-    SlashCommandInfo(
-      'search',
-      '/search -- <what to look up>',
-      'Look up these exact words on the web before she answers. Put your line first, then the command',
-    ),
-    SlashCommandInfo(
-      'wiki',
-      '/wiki -- <what to look up>',
-      'Look up these exact words in this chat\'s wiki. Put your line first, then the command',
-    ),
-  ];
+  /// The user-facing slash-command reference ([kSlashCommands]).
+  static const List<SlashCommandInfo> commands = kSlashCommands;
 
   /// Attempt to handle [rawInput] as a slash command.
   ///
@@ -239,6 +158,9 @@ class ChatCommandHandler {
     if (await _director?.tryHandle(command, args) ?? false) return true;
     switch (command) {
       case 'director': // only when no DirectorCommands was wired in
+      case 'whisper':
+      case 'goal':
+      case 'narrate':
         _onSystemMessage('⚠ Director Mode isn\'t available here.');
         return true;
 

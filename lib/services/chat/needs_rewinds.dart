@@ -9,18 +9,41 @@
 // (at your option) any later version.
 //
 // The Needs rewinds: regen, swipe and delete putting bodies back to the
-// stamps a reply carries (chat_service_needs_pass.dart writes them). State,
-// not runs: a stamp came from wear that happened, so these read the chat's
-// stored Needs switch, not the live gate, and a chat whose Needs are off
-// still rewinds what an earlier turn wore.
+// stamps a reply carries (needs_pass.dart writes them). State, not runs: a
+// stamp came from wear that happened, so these read the chat's stored Needs
+// switch, not the live gate, and a chat whose Needs are off still rewinds
+// what an earlier turn wore.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
+import 'package:front_porch_ai/services/chat/needs_wear.dart';
+import 'package:front_porch_ai/services/chat/realism_scope.dart';
 
-extension ChatServiceNeedsRewinds on ChatService {
+class NeedsRewinds {
+  NeedsRewinds(this._scope, {required this.restoreRefractoryAfterBeat});
+
+  final RealismScope _scope;
+
+  /// A swipe's refractory receipt for every co-present body but [speakerId].
+  final void Function(ChatMessage msg, String speakerId)
+  restoreRefractoryAfterBeat;
+
+  bool get _needsSimEnabled => _scope.needsSimEnabled();
+  NeedsSimulation get _needsSimulation => _scope.needs();
+  GroupChat? get _activeGroup => _scope.activeGroup();
+  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
+  String _getCurrentSpeakerIdForRealism() => _scope.groups.currentSpeakerId();
+  Map<String, int> _getGroupNeeds(String id) => _scope.groups.needsOf(id);
+  void _setGroupNeeds(String id, Map<String, int> needs) =>
+      _scope.groups.setNeeds(id, needs);
+
   /// 1:1 regen when Needs is on: prefer the send-time pre-turn vector,
   /// then the present-body stamp. Realism-off still has to rewind or
   /// the replay wears a second time (80 → 78 → 76).
-  void _restoreNeedsBaselineForReplay(ChatMessage msg) {
+  void restoreBaselineForReplay(ChatMessage msg) {
     if (!_needsSimEnabled) return;
     final preTurn = msg.activeMetadata?['needs_pre_turn_vector'];
     if (preTurn is Map && preTurn.isNotEmpty) {
@@ -31,12 +54,12 @@ extension ChatServiceNeedsRewinds on ChatService {
       });
       return;
     }
-    _restorePresentBodiesForReplay(msg);
+    restorePresentBodiesForReplay(msg);
   }
 
   /// Regen loads every present body from the pre-wear snapshot, then the
   /// replayed reply wears them once.
-  void _restorePresentBodiesForReplay(ChatMessage msg) {
+  void restorePresentBodiesForReplay(ChatMessage msg) {
     final before = presentBodiesFromMeta(
       msg.activeMetadata?[kNeedsPreWearByMember],
     );
@@ -59,7 +82,9 @@ extension ChatServiceNeedsRewinds on ChatService {
     for (final entry in restored.entries) {
       _setGroupNeeds(entry.key, entry.value);
       final carry = carries[entry.key];
-      if (carry != null) _memberForWrite(entry.key).needsWearCarry = carry;
+      if (carry != null) {
+        _scope.groups.memberForWrite(entry.key).needsWearCarry = carry;
+      }
     }
   }
 
@@ -110,7 +135,7 @@ extension ChatServiceNeedsRewinds on ChatService {
   }
 
   /// Live bars for everyone this reply wore, read before delete time-travel.
-  Map<String, Map<String, int>> _capturePresentNeedsBeforeDelete(
+  Map<String, Map<String, int>> capturePresentBeforeDelete(
     ChatMessage deleted,
   ) {
     final ids = <String>{
@@ -139,8 +164,8 @@ extension ChatServiceNeedsRewinds on ChatService {
   /// A swipe shows the bodies that beat left behind, refractory included. The
   /// speaker is restored from their own snapshot, which also includes the
   /// scene.
-  void _restoreWornBodiesExceptSpeaker(ChatMessage msg, String speakerId) {
-    _restoreRefractoryAfterBeat(msg, speakerId);
+  void restoreWornBodiesExceptSpeaker(ChatMessage msg, String speakerId) {
+    restoreRefractoryAfterBeat(msg, speakerId);
     final worn = presentBodiesFromMeta(msg.activeMetadata?[kNeedsWornByMember]);
     if (_activeGroup == null) {
       final hostOnly = <String, Map<String, int>>{
@@ -154,5 +179,65 @@ extension ChatServiceNeedsRewinds on ChatService {
       if (entry.key == speakerId) continue;
       _setGroupNeeds(entry.key, Map<String, int>.from(entry.value));
     }
+  }
+
+  /// Give back what a deleted message spent.
+  ///
+  /// A message's chips (`needs_deltas`) ARE the record of what that turn did to
+  /// the speaker's needs, so deleting it subtracts those deltas from the
+  /// CURRENT scores. Deliberately arithmetic rather than time travel: a message
+  /// buried twenty turns back rolls its cost off exactly like the newest one,
+  /// which is what the realism snapshot ("restore the state stamped on the new
+  /// last message") could never do — it only ever rewound the tail, so a reply
+  /// that cost 20 hunger kept costing it forever once deleted.
+  ///
+  /// [liveBefore] is the speaker's needs captured BEFORE the delete path's
+  /// realism time-travel ran. That restore rewinds the whole realism snapshot
+  /// (bond/trust/emotion/time) and its needs half would otherwise fight this
+  /// arithmetic, so needs are settled here and here only.
+  ///
+  /// 1:1/group parity: [groupSid] names the DELETED speaker, so a group refund
+  /// lands in their own `_groupRealism` entry exactly as a 1:1 refund lands in
+  /// the live vector.
+  void revertForDeletedMessage(
+    ChatMessage deleted,
+    Map<String, int> liveBefore, {
+    String? groupSid,
+    Map<String, Map<String, int>> presentBeforeDelete = const {},
+  }) {
+    _refundPresentWearExcept(deleted, groupSid, presentBeforeDelete);
+    if (!_needsSimEnabled || liveBefore.isEmpty) return;
+    final raw = deleted.activeMetadata?['needs_deltas'];
+    if (raw is! Map || raw.isEmpty) return;
+
+    final refunded = Map<String, int>.from(liveBefore);
+    var changed = false;
+    for (final entry in raw.entries) {
+      final key = entry.key.toString();
+      final v = entry.value;
+      // Chips are {delta, reason}; tolerate a bare number from older rows.
+      final delta = (v is Map && v['delta'] is num)
+          ? (v['delta'] as num).toInt()
+          : (v is num ? v.toInt() : 0);
+      if (delta == 0 || !refunded.containsKey(key)) continue;
+      refunded[key] = (refunded[key]! - delta).clamp(0, 100);
+      changed = true;
+    }
+    if (!changed) return;
+
+    if (groupSid != null && groupSid.isNotEmpty) {
+      _setGroupNeeds(groupSid, refunded);
+      // Keep the live scalars in step when the refunded speaker is the one
+      // currently loaded, or the sidebar keeps showing the stale figure.
+      if (_getCurrentSpeakerIdForRealism() == groupSid) {
+        _needsSimulation.restoreFromSnapshot({'vector': refunded});
+      }
+    } else {
+      _needsSimulation.restoreFromSnapshot({'vector': refunded});
+    }
+    debugPrint(
+      '[Realism:Needs] Deleted message refunded its deltas to '
+      '${deleted.sender}${groupSid == null ? '' : ' ($groupSid)'}',
+    );
   }
 }

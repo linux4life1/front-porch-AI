@@ -303,7 +303,7 @@ extension ChatServiceReprocess on ChatService {
         // (and deleting the regenerated reply under-refunds by it — caught by
         // regen_chip_attach_test: the original showed a hygiene chip, the
         // regen didn't).
-        if (_needsActive && _needsSimulation.vector.isNotEmpty) {
+        if (_needsPass.active && _needsSimulation.vector.isNotEmpty) {
           _pendingRealismMetadata ??= {};
           _pendingRealismMetadata!['needs_pre_turn_vector'] =
               Map<String, int>.from(_needsSimulation.vector);
@@ -315,7 +315,7 @@ extension ChatServiceReprocess on ChatService {
         _applyMoodDecay();
         _tickRefractoryPerReply();
 
-        await _runPreGenRealismJudges(
+        await _realismJudges.runPreGenJudges(
           onChunk: handleChunk,
           logSpeakerName: _activeCharacter?.name,
         );
@@ -365,7 +365,7 @@ extension ChatServiceReprocess on ChatService {
       }
 
       // In group mode the per-speaker realism eval (and its metadata / needs deltas)
-      // happens inside _generateResponse via _evaluateRealismForUpcomingSpeaker
+      // happens inside _generateResponse via RealismDance.evaluateForUpcomingSpeaker
       // for the correctly-forced speaker. Skip the 1:1 scalar synthesis here.
       Map<String, int>? regenPreTurn;
       if (_activeGroup == null && regenGuest == null) {
@@ -384,7 +384,7 @@ extension ChatServiceReprocess on ChatService {
         if (_realismEnabled) {
           _pendingRealismMetadata!['emotion_label'] = _characterEmotion;
         }
-        _pendingRealismMetadata!['realism_state'] = _captureRealismState(
+        _pendingRealismMetadata!['realism_state'] = _realismSnapshot.capture(
           preTurn: regenPreTurn,
         );
 

@@ -199,3 +199,83 @@ extension ChatServiceAccessorsLiving on ChatService {
           _evalCleanSrc = _realismEvalStreamText,
         );
 }
+
+/// Reprocess Needs (body in needs_reprocess.dart) and the group-realism test
+/// hooks. Public extension members: no fake overrides them.
+extension ChatServiceRealismDoors on ChatService {
+  /// Re-evaluate a message's needs deltas under a user critique; see
+  /// [NeedsReprocess.manualReprocessNeeds] for [onlyNeeds] scoping.
+  Future<bool> manualReprocessNeeds(
+    int index,
+    String critique, {
+    Set<String> onlyNeeds = const <String>{},
+  }) => _needsReprocess.manualReprocessNeeds(
+    index,
+    critique,
+    onlyNeeds: onlyNeeds,
+  );
+
+  /// Revert a prior manual reprocess on the given message.
+  Future<bool> revertNeedsReprocess(int index) =>
+      _needsReprocess.revertNeedsReprocess(index);
+
+  /// Test-only: pin the group speaker the same way `_generateResponse` does
+  /// ([GroupRealismStore.turnSpeakerId]). Do not assign `_activeCharacter`.
+  @visibleForTesting
+  void debugPinTurnSpeakerForRealism(String? charId) {
+    _groupStore.turnSpeakerId = charId;
+  }
+
+  /// Test-only: set the glance bit on a group member slot.
+  @visibleForTesting
+  void debugSetGroupWithUser(String charId, bool? v) {
+    _groupStore.memberForWrite(charId).withUser = v;
+  }
+
+  /// Test-only: live position injection through the wired BehavioralInjection.
+  /// Does not stub `getOccupationBrief`.
+  @visibleForTesting
+  String debugBuildPositionInjection() =>
+      _behavioralInjection.buildPositionInjection();
+
+  /// Test-only: first-speaker [RealismDance.loadIntoScalars] without a turn.
+  @visibleForTesting
+  void debugReloadFirstGroupSpeakerScalars() {
+    if (_groupCharacters.isEmpty) return;
+    _realismDance.loadIntoScalars(
+      _getCharacterIdFromCard(_groupCharacters.first),
+    );
+  }
+
+  /// Test-only: emotion sitting in a group member slot (not live scalars).
+  @visibleForTesting
+  String debugGroupSlotEmotion(String charId) =>
+      _groupRealism[charId]?.emotion ?? '';
+
+  /// Test-only: stored needs for a group member. Empty when the slot has
+  /// never carried a vector (does not invent [NeedsSimulation.needDefaults]).
+  @visibleForTesting
+  Map<String, int> debugGroupNeeds(String charId) =>
+      _groupStore.needsOf(charId);
+
+  /// Test-only: mark the in-flight post-gen as rejected so lite/engine
+  /// finalize can prove they skip wear (same flag `_yieldSettlingTurn` sets).
+  @visibleForTesting
+  void debugRequestPostGenAbort() {
+    _postGenAbortRequested = true;
+  }
+
+  /// Test-only: seed a member slot so a later soft turn can prove it does
+  /// not leak this member's Needs / bond into the guest prompt.
+  @visibleForTesting
+  void debugSeedGroupSpeakerState(
+    String charId, {
+    Map<String, int>? needs,
+    int? longTermTier,
+  }) {
+    if (needs != null) _groupStore.setNeeds(charId, needs);
+    if (longTermTier != null) {
+      _groupStore.memberForWrite(charId).longTermTier = longTermTier;
+    }
+  }
+}

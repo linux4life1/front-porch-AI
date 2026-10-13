@@ -310,7 +310,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     final isGroupMember =
         _activeGroup != null &&
         _groupCharacters.any((c) => _getCharacterIdFromCard(c) == characterId);
-    if (isGroupMember) _loadGroupRealismIntoScalars(characterId);
+    if (isGroupMember) _realismDance.loadIntoScalars(characterId);
     final ok = await _promiseDebtService.resolveManually(
       sessionId: sessionId,
       characterId: characterId,
@@ -319,7 +319,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
       storyDay: _timeService.dayCount,
       storyClock: _timeService.storyClockIso,
     );
-    if (isGroupMember) _saveScalarsIntoGroupRealism(characterId);
+    if (isGroupMember) _realismDance.saveScalarsIntoGroup(characterId);
     if (ok) await _saveChat();
     return ok;
   }
@@ -342,7 +342,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     if (!_storageService.memorySettings.journalEnabled) return;
     final sessionId = _currentSessionId;
     if (sessionId == null) return;
-    final charId = _getCurrentSpeakerIdForRealism();
+    final charId = _groupStore.currentSpeakerId();
     if (charId.isEmpty) return;
 
     String characterName = _activeCharacter?.name ?? 'the character';

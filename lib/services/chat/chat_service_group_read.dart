@@ -73,7 +73,7 @@ extension ChatServiceGroupRead on ChatService {
   /// from older group data are silently filtered).
   Map<String, int> getNeedsForGroupCharacter(CharacterCard character) {
     if (!isGroupRealismActive) return const {};
-    return _getGroupNeeds(_getCharacterIdFromCard(character));
+    return _groupStore.needsOf(_getCharacterIdFromCard(character));
   }
 
   int getAffectionForGroupCharacter(CharacterCard character) {
@@ -190,8 +190,10 @@ extension ChatServiceGroupRead on ChatService {
 
   /// A new chat starts from the group's own Director Mode default; the live
   /// switch is per chat (saved in the session blob).
-  void _resetDirectorModeToDefault() =>
-      _groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
+  void _resetDirectorModeToDefault() {
+    _groupManager?.setObserverMode(_activeGroup?.directorMode ?? false);
+    _directorScene.hydrate(null); // a fresh chat starts with no directions
+  }
 
   bool get _autoPlayActive => _groupManager?.autoPlayActive ?? false;
   set _autoPlayActive(bool value) {
@@ -245,5 +247,76 @@ extension ChatServiceGroupRead on ChatService {
   bool get _shouldTrackInterCharacterRelationships {
     if (_activeGroup == null) return false;
     return shouldTrackInterCharacterAmong(_groupCharacters);
+  }
+
+  /// Set observer mode on/off.
+  void setObserverMode(bool value) {
+    _observerMode = value;
+    if (!value) {
+      _autoPlayActive = false;
+    }
+    if (_sceneGuest.exitUndoUserStep) _clearExitUndo(); // flip beats undo
+    if (_activeGroup != null) unawaited(_saveChat()); // saved per chat
+    notifyListeners();
+  }
+
+  /// Start auto-play: characters keep chatting automatically.
+  void startAutoPlay() {
+    if (_activeGroup == null || !_observerMode) return;
+    _autoChatBudget.arm(_storageService.ttsSettings.directorTurnBudget);
+    _autoPlayActive = true;
+    notifyListeners();
+    _autoPlayNext();
+  }
+
+  /// Stop auto-play.
+  void stopAutoPlay() {
+    _autoPlayActive = false;
+    notifyListeners();
+  }
+
+  /// Internal: trigger the next auto-play response.
+  Future<void> _autoPlayNext() async {
+    if (!_autoPlayActive || !_observerMode || _activeGroup == null) return;
+    // Both auto-play schedulers (generation.dart and _waitForTtsThenContinue)
+    // arm their delay AFTER the awaited post-gen section has already finished,
+    // so this is clear by the time they fire; no re-arm machinery is needed.
+    if (_isTurnBusy) return; // wait for the current turn to finish settling
+
+    // Each spoken reply post-decides the clock; the next speaker is
+    // announced at that time (bucket brigade). No pre-tick.
+    await _generateResponse(GenerationMode.normal);
+  }
+
+  /// Turns left in this auto-chat run, or null when it has no limit.
+  int? get autoChatTurnsLeft => _autoChatBudget.remaining;
+
+  /// The saved auto-chat turn budget (0 = no limit).
+  int get savedDirectorTurnBudget =>
+      _storageService.ttsSettings.directorTurnBudget;
+
+  Future<void> setSavedDirectorTurnBudget(int turns) async {
+    await _storageService.ttsSettings.setDirectorTurnBudget(turns);
+    notifyListeners();
+  }
+
+  /// After an auto-chat turn: pauses when [reply] speaks to the absent user,
+  /// or when the run's budget is spent. True when it paused.
+  bool _autoChatPausesAfter(ChatMessage reply) {
+    final String why;
+    if (replyAddressesUser(
+      reply.displayText,
+      _userPersonaService.persona.name,
+    )) {
+      why = 'Auto-chat paused: ${reply.sender} spoke to you.';
+    } else if (_autoChatBudget.spend()) {
+      why = 'Auto-chat paused: the run of turns is done.';
+    } else {
+      return false;
+    }
+    _autoPlayActive = false;
+    _setGuestStatus(why);
+    notifyListeners();
+    return true;
   }
 }

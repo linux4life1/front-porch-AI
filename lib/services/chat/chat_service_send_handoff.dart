@@ -74,7 +74,7 @@ extension ChatServiceSendHandoff on ChatService {
     // (climax, sexual activity, daily activities, fulfillment) are reflected.
     // This ensures UI chips show accurate deltas.
     // Per-message needs-delta chips are attached inside _generateResponse (via
-    // _attachNeedsDeltaChipToLastMessage) so EVERY speaker gets them — group
+    // NeedsPass.attachDeltaChipToLastMessage) so EVERY speaker gets them — group
     // auto-advance, /speak and chime-ins reach _generateResponse but never this
     // sendMessage scope, which is why only the first responder used to show
     // chips. preTurnVector is stamped in _scoreUserTurnBeforeReply.
@@ -117,7 +117,9 @@ extension ChatServiceSendHandoff on ChatService {
     // (bond/trust/arousal) use.
     // The Needs pass stamps the body before this beat (and nothing, with
     // Needs off); regen and the chip read the stamp from the reply.
-    if (addressedGuest == null && _activeGroup == null) _needsStampPreTurn();
+    if (addressedGuest == null && _activeGroup == null) {
+      _needsPass.stampPreTurn();
+    }
     if (_realismActiveThisMode && addressedGuest == null) {
       // 1:1 only. Group per-speaker stamp lives in the realism dance —
       // writing it here used the last loaded (full) member's vector, then
@@ -127,7 +129,7 @@ extension ChatServiceSendHandoff on ChatService {
       // Short-term bond decay: 1:1 host only. In group mode the speaker isn't
       // picked yet — the old call here fell back to the FIRST member under
       // random turn order, so member #1 absorbed everyone's decay. The group
-      // tick now lives per-speaker inside _evaluateRealismForUpcomingSpeaker,
+      // tick now lives per-speaker inside RealismDance.evaluateForUpcomingSpeaker,
       // on the pinned speaker's own cadence counter (mirrors needs + nsfw).
       if (_activeGroup == null) {
         _applyMoodDecay();
@@ -137,7 +139,7 @@ extension ChatServiceSendHandoff on ChatService {
       // Clock off: the reply's refractory quarter hour, 1:1 host only. In a
       // group the speaker isn't picked yet (ticking here hit whichever
       // member was still loaded); theirs runs in
-      // _evaluateRealismForUpcomingSpeaker once their scalars load. Clock on,
+      // RealismDance.evaluateForUpcomingSpeaker once their scalars load. Clock on,
       // the beat's own minutes tick after the clock instead.
       if (_activeGroup == null) {
         _tickRefractoryPerReply();
@@ -145,20 +147,20 @@ extension ChatServiceSendHandoff on ChatService {
 
       // Single-path bridge: realism evaluation now runs inside _generateResponse
       // for EVERY speaker (1:1 host or group member) via
-      // _evaluateRealismForUpcomingSpeaker.
+      // RealismDance.evaluateForUpcomingSpeaker.
       //
       // No cast-store mirror for the 1:1 host: its scalar fields are already the
       // canonical realism store (loaded by loadSession, decayed just above), and the
       // per-character _groupRealism map is group-only — its writes no-op when
       // _activeGroup == null. Mirroring was a no-op, and the eval path deliberately
       // does NOT reload the host from that empty map (doing so reset
-      // bond/trust/emotion/needs to defaults). See _evaluateRealismForUpcomingSpeaker.
+      // bond/trust/emotion/needs to defaults). See RealismDance.evaluateForUpcomingSpeaker.
       if (_activeGroup == null && _activeCharacter != null) {
         // Run the SINGLE eval path for the host now — on a user turn only.
         // (Regen of a reply and Continue bypass this. Generate reply on a
         // trailing user message rewinds to the stamp first, then re-enters
         // here. Each caller checks cancellation before generating.)
-        await _evaluateRealismForUpcomingSpeaker(_activeCharacter!);
+        await _realismDance.evaluateForUpcomingSpeaker(_activeCharacter!);
       }
     } else if (_clockRunning && addressedGuest == null) {
       // PoT is on and the engine did not run this turn. Stamp the user
@@ -305,10 +307,10 @@ extension ChatServiceSendHandoff on ChatService {
   /// Mutated in place: a user bubble's swipeMetadata[0] aliases [metadata].
   void _stampUserTurnBaseline(ChatMessage userMsg) {
     if (!userMsg.isUser) return;
-    if (!_realismActiveThisMode && !_needsActive) return;
+    if (!_realismActiveThisMode && !_needsPass.active) return;
     final meta = userMsg.metadata ??= <String, dynamic>{};
     if (meta[kRealismPreTurn] is Map) return;
-    meta[kRealismPreTurn] = _captureRealismState(
+    meta[kRealismPreTurn] = _realismSnapshot.capture(
       preTurn: Map<String, int>.from(_needsSimulation.vector),
     );
   }
@@ -326,8 +328,8 @@ extension ChatServiceSendHandoff on ChatService {
         ? Map<String, dynamic>.from(raw)
         : <String, dynamic>{};
     if (bySpeaker[charId] is Map) return;
-    _loadGroupRealismIntoScalars(charId);
-    bySpeaker[charId] = _captureRealismState(
+    _realismDance.loadIntoScalars(charId);
+    bySpeaker[charId] = _realismSnapshot.capture(
       preTurn: Map<String, int>.from(_needsSimulation.vector),
     );
     meta[kRealismPreTurnBySpeaker] = bySpeaker;
@@ -429,14 +431,14 @@ extension ChatServiceSendHandoff on ChatService {
       if (!_groupCharacters.any((c) => _getCharacterIdFromCard(c) == sid)) {
         continue;
       }
-      _loadGroupRealismIntoScalars(sid);
+      _realismDance.loadIntoScalars(sid);
       _restoreRealismStateFromMessage(
         _realismStampCarrier(stamp),
         groupSpeakerId: sid,
       );
-      _saveScalarsIntoGroupRealism(sid);
+      _realismDance.saveScalarsIntoGroup(sid);
       // The save skips an empty mood; a first-turn member had none.
-      _memberForWrite(sid)
+      _groupStore.memberForWrite(sid)
         ..emotion = stamp['characterEmotion'] as String? ?? ''
         ..emotionIntensity = stamp['emotionIntensity'] as String? ?? '';
     }

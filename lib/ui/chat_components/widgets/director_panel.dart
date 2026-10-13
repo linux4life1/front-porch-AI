@@ -18,6 +18,7 @@ class DirectorPanel extends StatefulWidget {
     required this.onStepOut,
     required this.onStepIn,
     required this.onDelayChanged,
+    this.tools,
   });
 
   final bool directing;
@@ -28,6 +29,9 @@ class DirectorPanel extends StatefulWidget {
   final VoidCallback onStepOut;
   final VoidCallback onStepIn;
   final ValueChanged<double> onDelayChanged;
+
+  /// The director's tools ([DirectorTools]), shown while directing.
+  final Widget? tools;
 
   @override
   State<DirectorPanel> createState() => _DirectorPanelState();
@@ -95,6 +99,7 @@ class _DirectorPanelState extends State<DirectorPanel> {
             ),
           ),
           if (directing) ..._delayRow(context, amber),
+          if (directing && widget.tools != null) widget.tools!,
         ],
       ),
     );

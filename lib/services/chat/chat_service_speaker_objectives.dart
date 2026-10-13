@@ -262,11 +262,11 @@ extension ChatServiceSpeakerObjectives on ChatService {
       body();
       return;
     }
-    _saveScalarsIntoGroupRealism(sid);
+    _realismDance.saveScalarsIntoGroup(sid);
     try {
       body();
     } finally {
-      _loadGroupRealismIntoScalars(sid);
+      _realismDance.loadIntoScalars(sid);
     }
   }
 
@@ -290,10 +290,10 @@ extension ChatServiceSpeakerObjectives on ChatService {
     if (speaker == null) return;
     final sid = _getCharacterIdFromCard(speaker);
     if (sid.isEmpty) return;
-    final hadStoredNeeds = _getGroupNeeds(sid).isNotEmpty;
+    final hadStoredNeeds = _groupStore.needsOf(sid).isNotEmpty;
     final state = msg.activeMetadata?['realism_state'];
     final stampHasNeeds = state is Map && state['needs'] is Map;
-    _loadGroupRealismIntoScalars(sid);
+    _realismDance.loadIntoScalars(sid);
     _restoreRealismStateFromMessage(
       msg,
       groupSpeakerId: sid,
@@ -305,7 +305,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
       // so the save below can't materialize invented needs into their entry.
       _needsSimulation.restoreFromSnapshot(const {'vector': <String, int>{}});
     }
-    _saveScalarsIntoGroupRealism(sid);
+    _realismDance.saveScalarsIntoGroup(sid);
   }
 
   /// [groupSpeakerId] names the member being rewound so the two registers
@@ -403,7 +403,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
   /// NeedsImpactEvaluator (simple model + optional Director authority review loop).
   /// Orchestration (guards, group impersonation dance + loadGroupRealismIntoScalars
   /// before call so prompts see correct $charName/personality/stance, preTurn
-  /// snapshot for chips, post _saveScalarsIntoGroupRealism + attach needs_deltas,
+  /// snapshot for chips, post RealismDance.saveScalarsIntoGroup + attach needs_deltas,
   /// (orchestration + impersonation dance in god; full in evaluator).
   Future<void> _runPostGenNeedsChecks(String responseText) async {
     // During AFK, store current needs vector so the evaluator can include it

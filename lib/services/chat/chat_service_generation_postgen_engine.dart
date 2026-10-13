@@ -29,29 +29,6 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     String newPart,
     String finalResponse,
   ) async {
-    // Phase 2: Update hidden inter-character feelings for the speaker who
-    // just responded, based on what was said in the recent exchange.
-    // This makes the invisible tracking react to actual dialogue, Director
-    // Mode included: the cast talking among themselves is the whole scene.
-    if (_activeGroup != null &&
-        finalResponse.isNotEmpty &&
-        // Same one-exchange rule as the two gates around it. This is a
-        // keyword heuristic over the recent text, and after a Continue
-        // the first half of the reply is still in that text — so the
-        // same phrases scored the same feelings a second time.
-        t.mode != GenerationMode.continue_) {
-      // Use the ACTUAL speaker of this turn, not a by-name lookup with a
-      // first-member fallback — duplicate display names would otherwise
-      // route this member's inter-character feelings to the wrong card.
-      final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
-      if (speakerId.isNotEmpty) {
-        _relationshipService.updateInterCharacterFeelingsFromRecentExchange(
-          speakerId,
-        );
-        // (old checkpoint call removed in v30) // persist the hidden relationship changes
-      }
-    }
-
     // For group turns (Director Mode included), temporarily re-impersonate the speaker of the *just generated*
     // response so the post-gen needs checks (now _runPostGenNeedsChecks thin to
     // _needsImpactEvaluator) use the correct _activeCharacter (for name, personality/stance
@@ -68,12 +45,21 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // save would write to the wrong member.
     try {
       await _openWorkerLane();
+      // The cast's hidden feelings for each other react to what the speaker
+      // just said, Director Mode included: the cast talking among themselves
+      // is the whole scene. Continue skips it: the first half of the reply
+      // was already scored.
+      if (_activeGroup != null &&
+          finalResponse.isNotEmpty &&
+          t.mode != GenerationMode.continue_) {
+        await _scoreCastFeelings(t.speakingCharacter, finalResponse);
+      }
       if (_activeGroup != null) {
         prePostActiveChar = _activeCharacter;
         _activeCharacter = t.speakingCharacter;
         final sid = _getCharacterIdFromCard(t.speakingCharacter);
         if (sid.isNotEmpty) {
-          _loadGroupRealismIntoScalars(sid);
+          _realismDance.loadIntoScalars(sid);
         }
       }
 
@@ -122,7 +108,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
             isContinue: t.mode == GenerationMode.continue_,
           );
         } else {
-          _wearBodiesAfterClock(t);
+          _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
           _tickRefractoryAfterClock(t);
         }
       }
@@ -209,12 +195,12 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
                 '(fused reply-facts)',
               );
             } else {
-              await _evaluatePhysicalStateCall(postureOnly: true);
+              await _realismEvals.evaluatePhysicalStateCall(postureOnly: true);
             }
           }
           // Glance only. After posture so the judge can read where they
           // already are. Not fused with posture — that mix is the teleport.
-          await _runWithUserPass(scoredReply);
+          await _realismJudges.runWithUserPass(scoredReply);
           if (_activeGroup != null &&
               t.guestSpeaker == null &&
               t.mode == GenerationMode.normal &&
@@ -234,7 +220,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // post-gen checks have run — needs vector AND the NSFW scalars a
         // climax just changed. See the helper for the two bugs this
         // prevents (hygiene snap-back; climax erased by the regen merge).
-        await _restampRealismSnapshotPostGen(t.streamTarget);
+        await _realismSnapshot.restampPostGen(t.streamTarget);
         if (_clockRunning && t.mode != GenerationMode.continue_) {
           _clockWriter.writeSlotClock(
             t.streamTarget,
@@ -259,7 +245,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           // critical scalar save to the wrong member's _groupRealism entry).
           final sid = _getCharacterIdFromCard(t.speakingCharacter);
           if (sid.isNotEmpty) {
-            _saveScalarsIntoGroupRealism(sid);
+            _realismDance.saveScalarsIntoGroup(sid);
           }
         }
 
@@ -274,7 +260,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // misreport the turn the moment the continuation moved a need.
         if (t.mode == GenerationMode.normal ||
             (t.mode == GenerationMode.continue_ && scoredReply.isNotEmpty)) {
-          _attachNeedsDeltaChipToLastMessage();
+          _needsPass.attachDeltaChipToLastMessage();
         }
 
         // ── The post-generation phase's ONE persist ────────────────────
@@ -287,7 +273,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // their results.
         //
         // Until 2026-08-08 the only save that could follow this block was
-        // the one hidden inside _attachNeedsDeltaChipToLastMessage, which
+        // the one hidden inside NeedsPass.attachDeltaChipToLastMessage, which
         // returns on its first line when Needs is off. So on the ordinary
         // 1:1 path with Needs off NOTHING was written after the passes ran:
         // the session row, the message snapshot and the group blob all kept
@@ -396,13 +382,14 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         meta.putIfAbsent(kWithUserPreTurn, () => _relationshipService.withUser);
         t.streamTarget.activeMetadata = meta;
       }
-      await _runWithUserPass(scoredReply);
+      await _realismJudges.runWithUserPass(scoredReply);
       debugPrint(
         '[Presence] lite-glance ${t.speakingCharacter.name}='
         '${_relationshipService.withUser}',
       );
       if (sid.isNotEmpty) {
-        _memberForWrite(sid).withUser = _relationshipService.withUser;
+        _groupStore.memberForWrite(sid).withUser =
+            _relationshipService.withUser;
       }
       if (t.mode == GenerationMode.normal && !_awayPulse.consumingReturnSpeak) {
         _awayPulse.presentSpeakerTurns++;
@@ -411,5 +398,35 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (prior != null) _activeCharacter = prior;
       await _closeWorkerLane();
     }
+  }
+
+  /// How [reply] moved the speaker's hidden feelings toward the others. The
+  /// char→char judge scores it while the Realism Engine is on (that is when
+  /// the feelings reach a prompt); the old keyword scan is the floor when
+  /// the engine is off, the turn was aborted, or the judge failed.
+  Future<void> _scoreCastFeelings(CharacterCard speaker, String reply) async {
+    final speakerId = _getCharacterIdFromCard(speaker);
+    if (speakerId.isEmpty || !_shouldTrackInterCharacterRelationships) return;
+    final others = [
+      for (final c in _groupCharacters)
+        if (_getCharacterIdFromCard(c) != speakerId) c,
+    ];
+    final judged = _realismEnabled && !_postGenAbortRequested
+        ? await _castFeelingsJudge.judge(
+            speakerName: speaker.name,
+            otherNames: [for (final c in others) c.name],
+            reply: clampEvalMessage(reply),
+            recentExchange: recentExchange(_messages),
+          )
+        : null;
+    if (judged == null) {
+      _relationshipService.updateInterCharacterFeelingsFromRecentExchange(
+        speakerId,
+      );
+      return;
+    }
+    _relationshipService.applyInterCharacterDeltas(speakerId, {
+      for (final c in others) _getCharacterIdFromCard(c): ?judged[c.name],
+    });
   }
 }

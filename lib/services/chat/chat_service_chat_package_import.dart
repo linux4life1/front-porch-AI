@@ -417,8 +417,8 @@ extension ChatServiceChatPackageImport on ChatService {
     }
   }
 
-  /// Test hook: live `_captureRealismState` key set for stamp-contract guards.
+  /// Test hook: live `_realismSnapshot.capture` key set for stamp-contract guards.
   @visibleForTesting
   Map<String, dynamic> debugCaptureRealismStateForFpchat() =>
-      _captureRealismState();
+      _realismSnapshot.capture();
 }
