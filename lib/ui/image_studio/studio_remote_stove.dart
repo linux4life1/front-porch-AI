@@ -140,9 +140,11 @@ class _StudioRemoteStoveState extends State<StudioRemoteStove> {
             else
               Row(
                 children: [
-                  Text(
-                    panel.status,
-                    style: TextStyle(color: secondary, fontSize: 13),
+                  Flexible(
+                    child: Text(
+                      panel.status,
+                      style: TextStyle(color: secondary, fontSize: 13),
+                    ),
                   ),
                   const SizedBox(width: 12),
                   if (widget.onRetry != null)

@@ -141,6 +141,11 @@
 /* Too narrow for three tiles side by side (the desk's stove column, a
    phone): one row per host, name left and its key state right, so no
    host name is ever cut. */
+/* The phone desk stacks with align-items: start; a size container must not
+   shrink to its content, which is nothing. */
+@media (max-width: 720px) {
+  .fp-desk-stove:has(> .fp-desk-remote) { align-self: stretch; }
+}
 @container (max-width: 380px) {
   .fp-remote-hosts { grid-template-columns: minmax(0, 1fr); }
   .fp-remote-host {
@@ -153,6 +158,7 @@
   .fp-remote-host-sub { margin-top: 0; text-align: right; }
 }
 .fp-remote-host-name, .fp-remote-host-sub { overflow-wrap: normal; word-break: normal; }
+.fp-remote-host-name { white-space: nowrap; }
 .fp-remote-where { font-size: 13px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
 .fp-remote-billing { font-style: italic; }
 .fp-remote-key {

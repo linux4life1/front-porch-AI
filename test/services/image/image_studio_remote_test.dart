@@ -238,6 +238,11 @@ void main() {
 
       await pick(kNanoGptApiV1);
       expect(image.imageGenModel, 'z-image-turbo', reason: 'remembered');
+      expect(
+        image.remoteImageModelFor('https://example.test/v1', edit: true),
+        isEmpty,
+        reason: 'the custom address never moved Edit, so it keeps none',
+      );
 
       final fresh = ImageGenSettings();
       await fresh.setImageRemoteApiUrl(kXaiApiV1);

@@ -246,7 +246,11 @@ Future<void> applyImageRemoteHost({
   final host = imageRemoteHostFor(next);
   Future<void> set(bool edit, String id) =>
       edit ? image.setImageGenEditModel(id) : image.setImageGenModel(id);
-  for (final edit in prev == next ? [editScoped] : [false, true]) {
+  // A custom address only ever moved the picked slot, so only that slot's
+  // model is its own to remember.
+  final prevKnown = imageRemoteHostFor(prev) != null;
+  final leaving = prev == next || !prevKnown ? [editScoped] : [false, true];
+  for (final edit in leaving) {
     final current = edit ? image.imageGenEditModel : image.imageGenModel;
     final local = looksLikeLocalImageModel(current);
     if (prev == next) {
