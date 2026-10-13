@@ -44,6 +44,7 @@ class WebBackendRoutes {
       router.post('/api/backend/restart', _restart);
       router.post('/api/backend/stop', _stop);
       router.post('/api/backend/engine/install', _installEngine);
+      router.post('/api/backend/engine/check', _recheckEngine);
       router.get('/api/backend/models', _models);
       router.post('/api/backend/models/switch', _switchModel);
       router.get('/api/backend/local-model', _localModel);
@@ -117,6 +118,9 @@ class WebBackendRoutes {
   /// installed / already downloading / remote backend selected).
   Future<shelf.Response> _installEngine(shelf.Request r) async =>
       JsonResponse.ok(await _backend!.installEngine());
+
+  Future<shelf.Response> _recheckEngine(shelf.Request r) async =>
+      JsonResponse.ok(await _backend!.recheckEngine());
 
   Future<shelf.Response> _models(shelf.Request r) async =>
       JsonResponse.ok({'models': await _backend!.localModels()});

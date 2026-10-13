@@ -93,7 +93,7 @@ extension ChatServiceContextBudget on ChatService {
     final historyLines = <String>[];
     for (final m in _messages) {
       if (m.characterId == '__director__') {
-        historyLines.add('[Director: ${m.text}]');
+        historyLines.add(m.toPromptHistoryLine());
       } else {
         historyLines.add('${m.sender}: ${m.text}');
       }

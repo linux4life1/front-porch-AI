@@ -223,25 +223,6 @@ class ChatRightSidebar extends StatelessWidget {
               onFocus: onFocusParticipant,
             ),
 
-          // ── Director: step out to direct, or back in ──
-          if (isGroup || cast.length > 1)
-            Consumer<StorageService>(
-              builder: (context, storage, _) {
-                final delay = storage.ttsSettings.directorDelay;
-                chatService.directorDelaySec = delay;
-                return DirectorPanel(
-                  directing: chatService.observerMode,
-                  busy: chatService.isGenerating,
-                  delaySeconds: delay,
-                  onStepOut: () =>
-                      unawaited(chatService.sendMessage('/director')),
-                  onStepIn: () =>
-                      unawaited(chatService.sendMessage('/director off')),
-                  onDelayChanged: storage.ttsSettings.setDirectorDelay,
-                );
-              },
-            ),
-
           Expanded(
             child: SidebarBody(
               chatService: chatService,
@@ -250,6 +231,56 @@ class ChatRightSidebar extends StatelessWidget {
               onJumpToMessage: onJumpToMessage,
               resolveCharImage: resolveCharImage,
               draft: draft,
+              // ── Director: step out to direct, or back in ──
+              header: isGroup || cast.length > 1
+                  ? Consumer<StorageService>(
+                      builder: (context, storage, _) {
+                        final delay = storage.ttsSettings.directorDelay;
+                        chatService.directorDelaySec = delay;
+                        return DirectorPanel(
+                          directing: chatService.observerMode,
+                          busy:
+                              chatService.isGenerating ||
+                              chatService.isNarrating,
+                          delaySeconds: delay,
+                          onStepOut: () =>
+                              unawaited(chatService.sendMessage('/director')),
+                          onStepIn: () => unawaited(
+                            chatService.sendMessage('/director off'),
+                          ),
+                          onDelayChanged: storage.ttsSettings.setDirectorDelay,
+                          tools: DirectorTools(
+                            memberNames: [
+                              for (final c in chatService.groupCharacters)
+                                c.name,
+                            ],
+                            goal: chatService.directorGoal,
+                            whispers: chatService.directorWhisperRows,
+                            turnBudget: storage.ttsSettings.directorTurnBudget,
+                            turnsLeft: chatService.autoPlayActive
+                                ? chatService.autoChatTurnsLeft
+                                : null,
+                            busy:
+                                chatService.isGenerating ||
+                                chatService.isNarrating,
+                            onCue: (name) => unawaited(
+                              chatService.sendMessage('/speak $name'),
+                            ),
+                            onBeat: (note) =>
+                                unawaited(chatService.sendMessage(note)),
+                            onGoal: (text) =>
+                                unawaited(chatService.setDirectorGoal(text)),
+                            onClearWhisper: (id) => unawaited(
+                              chatService.setDirectorWhisper(id, ''),
+                            ),
+                            onTurnBudget: (n) => unawaited(
+                              storage.ttsSettings.setDirectorTurnBudget(n),
+                            ),
+                          ),
+                        );
+                      },
+                    )
+                  : null,
               onOpenEditFromEnv: () {
                 unawaited(
                   onEditCharacter(character, ensureRelationshipVisible: true),

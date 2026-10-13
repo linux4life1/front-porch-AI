@@ -72,7 +72,7 @@ extension ChatServiceWiringInjection on ChatService {
           for (final m in _messages.sublist(start))
             if (!m.isStatusBanner)
               m.characterId == '__director__'
-                  ? '[Director: ${m.text}]'
+                  ? m.toPromptHistoryLine()
                   : (includeNames ? m.toPromptHistoryLine() : m.promptText),
         ];
       },

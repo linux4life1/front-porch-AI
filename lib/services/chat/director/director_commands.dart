@@ -1,7 +1,10 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/// `/director` and the persona's own `/exit me` / `/join me`.
+import 'package:front_porch_ai/models/models.dart';
+
+/// `/director`, the persona's own `/exit me` / `/join me`, and the
+/// director's tools: `/whisper`, `/goal` and `/narrate`.
 ///
 /// Director Mode is {{user}} stepping off stage to steer a cast that keeps
 /// talking among themselves, so it needs a cast: a group, or a 1:1 with a
@@ -16,6 +19,11 @@ class DirectorCommands {
     required Future<void> Function() promoteSceneToGroup,
     required Future<bool> Function() stepUserOffStage,
     required Future<bool> Function() stepUserOnStage,
+    required List<CharacterCard> Function() getCast,
+    required Future<void> Function(CharacterCard member, String text)
+    setWhisper,
+    required Future<void> Function(String text) setGoal,
+    required Future<bool> Function(String hint) narrate,
     required void Function(String message) onSystemMessage,
   }) : _isGroup = isGroup,
        _hasSceneGuests = hasSceneGuests,
@@ -23,6 +31,10 @@ class DirectorCommands {
        _promoteSceneToGroup = promoteSceneToGroup,
        _stepUserOffStage = stepUserOffStage,
        _stepUserOnStage = stepUserOnStage,
+       _getCast = getCast,
+       _setWhisper = setWhisper,
+       _setGoal = setGoal,
+       _narrate = narrate,
        _say = onSystemMessage;
 
   final bool Function() _isGroup;
@@ -31,6 +43,10 @@ class DirectorCommands {
   final Future<void> Function() _promoteSceneToGroup;
   final Future<bool> Function() _stepUserOffStage;
   final Future<bool> Function() _stepUserOnStage;
+  final List<CharacterCard> Function() _getCast;
+  final Future<void> Function(CharacterCard member, String text) _setWhisper;
+  final Future<void> Function(String text) _setGoal;
+  final Future<bool> Function(String hint) _narrate;
   final void Function(String message) _say;
 
   static const _selfTokens = {'me', 'myself', 'you', 'user', '{{user}}'};
@@ -44,6 +60,10 @@ class DirectorCommands {
     'return',
     'back',
   };
+
+  /// What clears a goal or a whisper. Narrower than [_offWords]: a goal can
+  /// read "done" or "leave" and mean it.
+  static const _clearWords = {'off', 'clear', 'none'};
 
   /// Whether `/exit` or `/join` args name the user themself.
   static bool namesSelf(String args) =>
@@ -61,6 +81,15 @@ class DirectorCommands {
         return true;
       case 'join' when namesSelf(args):
         await stepIn();
+        return true;
+      case 'whisper':
+        await whisper(args);
+        return true;
+      case 'goal':
+        await goal(args);
+        return true;
+      case 'narrate':
+        await narrate(args);
         return true;
       default:
         return false;
@@ -108,5 +137,84 @@ class DirectorCommands {
     if (!await _stepUserOnStage()) {
       _say('⚠ Wait for the current turn to finish, then try again.');
     }
+  }
+
+  bool _requireDirecting(String command) {
+    if (_isDirecting()) return true;
+    _say('⚠ /$command works while you direct. Step out with /director first.');
+    return false;
+  }
+
+  /// `/whisper <name> <direction>` or `/whisper <name> off`.
+  Future<void> whisper(String args) async {
+    if (!_requireDirecting('whisper')) return;
+    final split = splitMemberAndText(args, _getCast());
+    if (split == null) {
+      final names = _getCast().map((c) => c.name).join(', ');
+      _say('⚠ Use /whisper <name> <direction>. In the scene: $names.');
+      return;
+    }
+    final (member, text) = split;
+    if (text.isEmpty) {
+      _say('⚠ What should ${member.name} know? /whisper ${member.name} …');
+      return;
+    }
+    final clearing = _clearWords.contains(text.toLowerCase());
+    await _setWhisper(member, clearing ? '' : text);
+    _say(
+      clearing
+          ? 'Whisper to ${member.name} cleared.'
+          : 'Only ${member.name} knows this now.',
+    );
+  }
+
+  /// `/goal <text>` pins a scene goal; `/goal off` clears it.
+  Future<void> goal(String args) async {
+    if (!_requireDirecting('goal')) return;
+    final text = args.trim();
+    if (text.isEmpty) {
+      _say('⚠ Use /goal <where the scene should go>, or /goal off.');
+      return;
+    }
+    final clearing = _clearWords.contains(text.toLowerCase());
+    await _setGoal(clearing ? '' : text);
+    _say(clearing ? 'Scene goal cleared.' : 'Scene goal pinned.');
+  }
+
+  /// `/narrate [what happens]`: a narrator beat, then the cast reacts.
+  Future<void> narrate(String args) async {
+    if (!_requireDirecting('narrate')) return;
+    if (!await _narrate(args.trim())) {
+      _say('⚠ Wait for the current turn to finish, then try again.');
+    }
+  }
+
+  /// The cast member [args] starts with, and the rest of the text. The
+  /// longest full name wins ("Mara Vance said…" is Mara Vance, not Mara);
+  /// otherwise the first word must be a whole word of exactly one member's
+  /// name ("Vance" finds Mara Vance; "e" finds no one).
+  static (CharacterCard, String)? splitMemberAndText(
+    String args,
+    List<CharacterCard> cast,
+  ) {
+    final a = args.trim();
+    final lower = a.toLowerCase();
+    final byLength = [...cast]
+      ..sort((x, y) => y.name.length.compareTo(x.name.length));
+    for (final c in byLength) {
+      final n = c.name.trim().toLowerCase();
+      if (n.isEmpty) continue;
+      if (lower == n) return (c, '');
+      if (lower.startsWith('$n ')) return (c, a.substring(n.length).trim());
+    }
+    final space = a.indexOf(RegExp(r'\s'));
+    final first = (space < 0 ? a : a.substring(0, space)).toLowerCase();
+    if (first.isEmpty) return null;
+    final hits = [
+      for (final c in cast)
+        if (c.name.toLowerCase().split(RegExp(r'\s+')).contains(first)) c,
+    ];
+    if (hits.length != 1) return null;
+    return (hits.single, space < 0 ? '' : a.substring(space).trim());
   }
 }

@@ -154,6 +154,13 @@ export function ChatPage() {
   }
 
   const cast = state.cast ?? [];
+  // One Director setting to the app, then a refresh (or the failure shown).
+  const postDirector = (path: string, body: object, what: string) => {
+    api
+      .post(`/api/chat/director/${path}`, body)
+      .then(() => refresh())
+      .catch((e) => reportActionFailure(what, e));
+  };
   // A chat is active if there's a cast (group or 1:1) or a host character.
   // (In a group, state.character is null — the cast carries the participants.)
   if (cast.length === 0 && !state.character) {
@@ -246,18 +253,12 @@ export function ChatPage() {
             director={state.director}
             busy={state.isGenerating}
             onCommand={sendMessage}
-            onAutoPlay={(on) => {
-              api
-                .post('/api/chat/director/autoplay', { on })
-                .then(() => refresh())
-                .catch((e) => reportActionFailure('change auto-chat', e));
-            }}
-            onDelay={(seconds) => {
-              api
-                .post('/api/chat/director/delay', { seconds })
-                .then(() => refresh())
-                .catch((e) => reportActionFailure('change the auto-chat delay', e));
-            }}
+            memberNames={cast.map((c) => c.name)}
+            onAutoPlay={(on) => postDirector('autoplay', { on }, 'change auto-chat')}
+            onDelay={(seconds) => postDirector('delay', { seconds }, 'change the auto-chat delay')}
+            onGoal={(text) => postDirector('goal', { text }, 'change the scene goal')}
+            onClearWhisper={(id) => postDirector('whisper', { id, text: '' }, 'clear the whisper')}
+            onTurnBudget={(turns) => postDirector('budget', { turns }, 'change the auto-chat run')}
           />
         )}
         <ExitUndoBar

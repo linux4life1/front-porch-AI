@@ -433,6 +433,9 @@ class RelationshipService {
   void updateInterCharacterFeelingsFromRecentExchange(String speakerId) =>
       _rewinder.updateInterCharacterFeelingsFromRecentExchange(speakerId);
 
+  void applyInterCharacterDeltas(String speakerId, Map<String, int> deltas) =>
+      _rewinder.applyInterCharacterDeltas(speakerId, deltas);
+
   /// See [RelationshipRewinder.restoreFromMessageState].
   void restoreFromMessageState(
     Map<dynamic, dynamic> state, {

@@ -223,6 +223,28 @@ class RelationshipRewinder {
     }
   }
 
+  /// Applies judged deltas (by member id) to [speakerId]'s feelings toward
+  /// the members it already tracks. Same gates and clamp as the keyword scan.
+  void applyInterCharacterDeltas(String speakerId, Map<String, int> deltas) {
+    if (!_h.getShouldTrackInterCharacterRelationships()) return;
+    if (!_h.getIsGroupActive()) return;
+    if (!_h.getCurrentGroupMemberIds().contains(speakerId)) return;
+    final rels = Map<String, int>.from(
+      _h.getInterCharacterRelationships(speakerId),
+    );
+    var changed = false;
+    deltas.forEach((otherId, delta) {
+      final current = rels[otherId];
+      if (current == null || delta == 0) return;
+      rels[otherId] = (current + delta).clamp(-300, 300);
+      changed = true;
+    });
+    if (changed) {
+      _h.setGroupInterCharacterRelationships(speakerId, rels);
+      debugPrint('[Realism:Group] Judged inter-char feelings for $speakerId');
+    }
+  }
+
   // ── Snapshot / restore support (for message state roundtrips in regen) ─────
 
   /// [groupSpeakerId] names the member being rewound, and is passed ONLY by the

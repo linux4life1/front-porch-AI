@@ -353,6 +353,30 @@ extension ChatServiceWiringEvalJudges on ChatService {
     );
   }
 
+  /// The char→char judge (its own tool and pass; see CastFeelingsJudge).
+  CastFeelingsJudge get _castFeelingsJudge =>
+      _castFeelingsJudgeCache ??= CastFeelingsJudge(
+        fire: ({required debugLabel, required tools, required buildPrompt}) =>
+            fireStructuredEval(
+              probe: _toolProbe,
+              backendIdentity: _evalBackendIdentity,
+              debugLabel: debugLabel,
+              tools: tools,
+              buildPrompt: buildPrompt,
+              callToText: (resp) =>
+                  realismToolCallToJson(kCastFeelingsToolName, resp.calls),
+              fireToolEval: _fireToolEval,
+              toolChoice: kCastFeelingsToolName,
+              getPreferTextEvals: () =>
+                  _storageService.realismSettings.preferTextEvals,
+              fireTextEval: (p, {onChunk}) => _fireLLMEval(
+                p,
+                repeatPenalty: kScalarEvalRepeatPenalty,
+                label: 'cast_feelings',
+              ),
+            ),
+      );
+
   RealismJudges _buildRealismJudges() => RealismJudges(
     _realismScope(),
     realismEvals: () => _realismEvals,

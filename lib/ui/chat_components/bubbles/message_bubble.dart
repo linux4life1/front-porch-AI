@@ -172,6 +172,13 @@ class _MessageBubbleState extends State<MessageBubble> {
         onDelete: _confirmDelete,
       );
     }
+    if (message.isDirectorNarration) {
+      return MessageNarrationBanner(
+        emoji: '📜',
+        text: message.text,
+        onDelete: _confirmDelete,
+      );
+    }
     if (message.activeMetadata?['is_dream'] == true) {
       return MessageNarrationBanner(
         emoji: '🌙',

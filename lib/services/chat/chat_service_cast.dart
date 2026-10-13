@@ -178,6 +178,108 @@ extension ChatServiceCast on ChatService {
     return true;
   }
 
+  /// The director's pinned scene goal, or empty.
+  String get directorGoal => _directorScene.goal;
+
+  /// The director's private whispers, by member id.
+  Map<String, String> get directorWhispers => _directorScene.whispers;
+
+  /// The whispers for members still in the scene, in cast order.
+  List<({String id, String name, String text})> get directorWhisperRows => [
+    for (final c in _groupCharacters)
+      if (_directorScene.whispers[_getCharacterIdFromCard(c)] case final w?)
+        (id: _getCharacterIdFromCard(c), name: c.name, text: w),
+  ];
+
+  /// Pins [text] as the scene goal; empty clears it. Saved per chat.
+  Future<void> setDirectorGoal(String text) async {
+    if (_activeGroup == null) return;
+    _directorScene.setGoal(text);
+    await _saveChat();
+    notifyListeners();
+  }
+
+  /// Sets the private whisper for the member with [memberId]; empty clears it.
+  Future<void> setDirectorWhisper(String memberId, String text) async {
+    if (_activeGroup == null) return;
+    final known = _groupCharacters.any(
+      (c) => _getCharacterIdFromCard(c) == memberId,
+    );
+    // A stale id can only be cleared; it never gains a whisper.
+    if (!known && text.trim().isNotEmpty) return;
+    _directorScene.setWhisper(memberId, text);
+    await _saveChat();
+    notifyListeners();
+  }
+
+  /// The narrator is writing a beat (a turn in all but name).
+  bool get isNarrating => _narrating;
+
+  /// `/narrate`: one narrator beat lands as a scene card, then the next
+  /// character reacts to it as they would to a note. False when a turn is
+  /// already running, or the user isn't directing. The narrator's call counts
+  /// as a running turn ([_isTurnBusy]), so a note, a cue, an auto-chat tick or
+  /// a chat switch waits for it; a beat that returns to another chat is
+  /// dropped.
+  Future<bool> narrateScene(String hint) async {
+    if (!_directing || _isTurnBusy) return false;
+    final token = _currentSessionId;
+    // The beat closes the undo window the way a note does.
+    await _commitPendingMemberExit();
+    _clearExitUndo();
+    if (_sceneChanged(token) || !_directing || _isTurnBusy) return false;
+    _narrating = true;
+    var landed = false;
+    try {
+      _setGuestStatus('The narrator sets the scene…', sticky: true);
+      final recent = _messages.length > kNarrationHistoryLines
+          ? _messages.sublist(_messages.length - kNarrationHistoryLines)
+          : _messages;
+      final raw = await _llmEvalEngine.fireLLMEval(
+        narrationPrompt(
+          recentLines: [
+            for (final m in recent)
+              if (!m.isStatusBanner && m.sender != 'System')
+                m.toPromptHistoryLine(),
+          ],
+          castNames: [for (final c in _groupCharacters) c.name],
+          hint: hint,
+        ),
+        label: 'narration',
+      );
+      if (_sceneChanged(token)) {
+        _setGuestStatus(null);
+        return true;
+      }
+      final beat = raw == null
+          ? ''
+          : cleanNarration(_llmEvalEngine.stripThinkBlocks(raw));
+      if (beat.isEmpty || !_directing) {
+        _setGuestStatus(
+          '⚠ The narrator had nothing to add. Try again.',
+          isError: true,
+        );
+        return true;
+      }
+      _setGuestStatus(null);
+      _messages.add(narrationMessage(beat));
+      await _saveChat();
+      landed = true;
+    } catch (e) {
+      debugPrint('[Director] narration failed: $e');
+      _setGuestStatus('⚠ The narrator could not set the scene.', isError: true);
+      return true;
+    } finally {
+      _narrating = false;
+      notifyListeners();
+    }
+    // No await since the flag dropped: the reply raises _isGenerating first.
+    if (landed && !_sceneChanged(token)) {
+      await _generateResponse(GenerationMode.normal);
+    }
+    return true;
+  }
+
   /// Commit a deferred full-member `/exit`: run the real removal (and any
   /// collapse to a 1:1) now that the undo window has closed. No-op when nothing
   /// is pending. The goodbye turn was already narrated at exit time, so this only

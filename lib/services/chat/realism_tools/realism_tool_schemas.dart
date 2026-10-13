@@ -431,6 +431,28 @@ List<Map<String, dynamic>> kReplyFactsToolsFor({
   ),
 ];
 
+/// The char→char judge (CastFeelingsJudge): how one group member's reply
+/// moved their feelings toward the others it involved.
+final Map<String, Map<String, dynamic>> kCastFeelingsFields = {
+  'feelings': {
+    'type': 'array',
+    'items': {'type': 'object'},
+    'description':
+        'One {"name", "delta"} per character whose relationship with the '
+        'speaker this reply moved; delta is an int from -4 to 4.',
+  },
+};
+
+final List<Map<String, dynamic>> kCastFeelingsEvalTools = [
+  _tool(
+    kCastFeelingsToolName,
+    'Report how the reply changed the speaker\'s feelings toward the other '
+    'characters (empty list when it changed none).',
+    kCastFeelingsFields,
+    const ['feelings'],
+  ),
+];
+
 /// The whitelisted keys per tool (anything else the model invents is
 /// dropped, mirroring how the regex extractors ignore unknown text keys).
 final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
@@ -446,4 +468,5 @@ final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
   kPocketsToolName: kPocketsFields,
   kReplyFactsToolName: kReplyFactsFields,
   kWithUserToolName: kWithUserFields,
+  kCastFeelingsToolName: kCastFeelingsFields,
 };

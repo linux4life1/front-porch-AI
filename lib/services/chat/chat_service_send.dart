@@ -87,6 +87,8 @@ extension ChatServiceSend on ChatService {
     // keep the wider _isTurnBusy guard, because that is where the race
     // actually corrupts something.
     if (_isGenerating) return;
+    // The narrator's beat is about to append and start the reply.
+    if (_narrating) return;
     final testing = sendRefusal(text, withImage: imageBytes != null);
     if (testing != null) {
       _setGuestStatus(testing, isError: true);

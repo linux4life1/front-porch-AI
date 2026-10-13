@@ -208,6 +208,15 @@ extension ChatServiceGenerationBlocks on ChatService {
       _entranceDirective = null;
     }
 
+    // The director's standing goal and this speaker's whisper, while the
+    // user directs (stepping back in hides them; it does not erase them).
+    if (_directing) {
+      t.authorNoteBlock += _directorScene.promptBlock(
+        speakerId: _getCharacterIdFromCard(t.speakingCharacter),
+        speakerName: t.speakingCharacter.name,
+      );
+    }
+
     // ── Scene Guests (Lite NPCs) prompt injection (1:1 only) ───────────
     // Guests speak for themselves in their own bubbles, so the primary must
     // not fully voice/narrate them. A guest turn instead gets a short line

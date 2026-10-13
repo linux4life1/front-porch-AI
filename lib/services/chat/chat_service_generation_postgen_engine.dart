@@ -29,29 +29,6 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     String newPart,
     String finalResponse,
   ) async {
-    // Phase 2: Update hidden inter-character feelings for the speaker who
-    // just responded, based on what was said in the recent exchange.
-    // This makes the invisible tracking react to actual dialogue, Director
-    // Mode included: the cast talking among themselves is the whole scene.
-    if (_activeGroup != null &&
-        finalResponse.isNotEmpty &&
-        // Same one-exchange rule as the two gates around it. This is a
-        // keyword heuristic over the recent text, and after a Continue
-        // the first half of the reply is still in that text — so the
-        // same phrases scored the same feelings a second time.
-        t.mode != GenerationMode.continue_) {
-      // Use the ACTUAL speaker of this turn, not a by-name lookup with a
-      // first-member fallback — duplicate display names would otherwise
-      // route this member's inter-character feelings to the wrong card.
-      final speakerId = _getCharacterIdFromCard(t.speakingCharacter);
-      if (speakerId.isNotEmpty) {
-        _relationshipService.updateInterCharacterFeelingsFromRecentExchange(
-          speakerId,
-        );
-        // (old checkpoint call removed in v30) // persist the hidden relationship changes
-      }
-    }
-
     // For group turns (Director Mode included), temporarily re-impersonate the speaker of the *just generated*
     // response so the post-gen needs checks (now _runPostGenNeedsChecks thin to
     // _needsImpactEvaluator) use the correct _activeCharacter (for name, personality/stance
@@ -68,6 +45,15 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
     // save would write to the wrong member.
     try {
       await _openWorkerLane();
+      // The cast's hidden feelings for each other react to what the speaker
+      // just said, Director Mode included: the cast talking among themselves
+      // is the whole scene. Continue skips it: the first half of the reply
+      // was already scored.
+      if (_activeGroup != null &&
+          finalResponse.isNotEmpty &&
+          t.mode != GenerationMode.continue_) {
+        await _scoreCastFeelings(t.speakingCharacter, finalResponse);
+      }
       if (_activeGroup != null) {
         prePostActiveChar = _activeCharacter;
         _activeCharacter = t.speakingCharacter;
@@ -412,5 +398,35 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       if (prior != null) _activeCharacter = prior;
       await _closeWorkerLane();
     }
+  }
+
+  /// How [reply] moved the speaker's hidden feelings toward the others. The
+  /// char→char judge scores it while the Realism Engine is on (that is when
+  /// the feelings reach a prompt); the old keyword scan is the floor when
+  /// the engine is off, the turn was aborted, or the judge failed.
+  Future<void> _scoreCastFeelings(CharacterCard speaker, String reply) async {
+    final speakerId = _getCharacterIdFromCard(speaker);
+    if (speakerId.isEmpty || !_shouldTrackInterCharacterRelationships) return;
+    final others = [
+      for (final c in _groupCharacters)
+        if (_getCharacterIdFromCard(c) != speakerId) c,
+    ];
+    final judged = _realismEnabled && !_postGenAbortRequested
+        ? await _castFeelingsJudge.judge(
+            speakerName: speaker.name,
+            otherNames: [for (final c in others) c.name],
+            reply: clampEvalMessage(reply),
+            recentExchange: recentExchange(_messages),
+          )
+        : null;
+    if (judged == null) {
+      _relationshipService.updateInterCharacterFeelingsFromRecentExchange(
+        speakerId,
+      );
+      return;
+    }
+    _relationshipService.applyInterCharacterDeltas(speakerId, {
+      for (final c in others) _getCharacterIdFromCard(c): ?judged[c.name],
+    });
   }
 }

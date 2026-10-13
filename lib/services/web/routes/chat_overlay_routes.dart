@@ -24,7 +24,8 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// The buttons on the chat's processing overlays: stop the reply during the
 /// Realism read, dismiss the notice that follows, skip the goal check; plus
-/// the transient UNDO after an exit and Director Mode's auto-chat toggle.
+/// the transient UNDO after an exit, and Director Mode's auto-chat and
+/// standing directions (scene goal, whispers).
 class WebChatOverlayRoutes {
   WebChatOverlayRoutes(this._facade, Router router) {
     router.post('/api/chat/cancel-realism', _cancelRealism);
@@ -33,6 +34,9 @@ class WebChatOverlayRoutes {
     router.post('/api/chat/exit-undo', _undoExit);
     router.post('/api/chat/director/autoplay', _autoPlay);
     router.post('/api/chat/director/delay', _delay);
+    router.post('/api/chat/director/budget', _budget);
+    router.post('/api/chat/director/goal', _goal);
+    router.post('/api/chat/director/whisper', _whisper);
   }
 
   final ChatFacade _facade;
@@ -68,6 +72,35 @@ class WebChatOverlayRoutes {
     final seconds = body['seconds'];
     if (seconds is! num) return JsonResponse.badRequest('seconds is required');
     await _facade.setDirectorDelay(seconds.toDouble());
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  Future<shelf.Response> _budget(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    final turns = body['turns'];
+    if (turns is! num) return JsonResponse.badRequest('turns is required');
+    await _facade.setDirectorTurnBudget(turns.toInt());
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// `{text}` pins the scene goal; an empty text clears it.
+  Future<shelf.Response> _goal(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    final text = body['text'];
+    if (text is! String) return JsonResponse.badRequest('text is required');
+    await _facade.setDirectorGoal(text);
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// `{id, text}` sets a member's whisper; an empty text clears it.
+  Future<shelf.Response> _whisper(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    final id = body['id'];
+    final text = body['text'];
+    if (id is! String || id.isEmpty || text is! String) {
+      return JsonResponse.badRequest('id and text are required');
+    }
+    await _facade.setDirectorWhisper(id, text);
     return JsonResponse.ok({'status': 'ok'});
   }
 }
