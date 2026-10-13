@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'expression_pack_widgets.dart';
+import 'expression_intensity_picker.dart';
 
 /// Step 2 of the Expression-pack dialog: the live generation grid. One cell
 /// per emotion, generated sequentially by the [ExpressionPackSession]; this
@@ -74,6 +75,16 @@ class ExpressionPackGrid extends StatelessWidget {
         final total = session.slots.length;
         return Column(
           children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: ExpressionIntensityPicker(
+                value: session.intensity,
+                onChanged:
+                    session.isRunning || importing || imageGen.isGenerating
+                    ? null
+                    : (level) => session.updateIntensity(level),
+              ),
+            ),
             Padding(
               padding: const EdgeInsets.fromLTRB(20, 14, 20, 10),
               child: Row(

@@ -35,6 +35,8 @@ class ExpressionPackSetupPane extends StatelessWidget {
     required this.storage,
     required this.preparingPrompt,
     required this.promptRules,
+    required this.intensity,
+    required this.onIntensityChanged,
     required this.onRulesChanged,
     required this.basePrompt,
     required this.baseImage,
@@ -48,6 +50,8 @@ class ExpressionPackSetupPane extends StatelessWidget {
   final StorageService storage;
   final bool preparingPrompt;
   final ExpressionPromptRules promptRules;
+  final ExpressionIntensity intensity;
+  final ValueChanged<ExpressionIntensity> onIntensityChanged;
   final ValueChanged<ExpressionPromptRules> onRulesChanged;
   final String basePrompt;
   final Uint8List baseImage;
@@ -70,11 +74,14 @@ class ExpressionPackSetupPane extends StatelessWidget {
       child: ExpressionPackSetup(
         busy: preparingPrompt || context.watch<ImageGenService>().isGenerating,
         promptRules: promptRules,
+        intensity: intensity,
+        onIntensityChanged: onIntensityChanged,
         onRulesChanged: onRulesChanged,
         originalPrompts: {
           for (final emotion in kFullExpressionSet)
             emotion: originalExpressionPrompt(
               emotion: emotion,
+              intensity: intensity,
               basePrompt: '$basePrompt, $kExpressionFraming',
               editMode:
                   ImageGenBackend.fromKey(

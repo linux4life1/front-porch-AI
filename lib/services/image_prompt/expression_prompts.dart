@@ -23,6 +23,9 @@
 /// (`a.label?.toLowerCase() == label`) finds it exactly.
 library;
 
+import 'expression_intensity.dart';
+import 'expression_prompt_rules.dart';
+
 /// The 8-emotion starter set (all reachable by both classifiers).
 const List<String> kCuratedExpressionSet = [
   'neutral',
@@ -78,34 +81,62 @@ const List<String> kFullExpressionSet = [
 /// encoders draw MORE smile) and never use teeth-summoning words like
 /// "beaming"/"grinning ear to ear" (horror-grin artifacts at high denoise).
 const Map<String, String> kExpressionModifiers = {
-  'admiration': 'admiring gaze, sparkling wide eyes, raised inner brows, softly parted lips, impressed look',
-  'amusement': 'amused lopsided smile, one raised eyebrow, crinkled sparkling eyes, holding back a laugh',
-  'anger': 'furious scowl, brows slammed down and drawn together, glaring eyes, clenched jaw, mouth pressed into a hard line',
-  'annoyance': 'irritated scowl, narrowed eyes, flat pressed lips, twitching raised eyebrow',
-  'approval': 'approving warm closed-lip smile, relaxed brows, steady confident gaze, slight nod',
-  'caring': 'tender gentle smile, soft warm eyes, inner eyebrows tilted up in sympathy, head tilted slightly',
-  'confusion': 'puzzled frown, one eyebrow raised and one lowered, uneven squinting eyes, mouth slightly open, head tilted',
-  'curiosity': 'intrigued bright eyes, both eyebrows lifted, small parted mouth, attentive leaning-in look',
-  'desire': 'sultry half-lidded eyes, softly parted lips, flushed cheeks, smoldering longing gaze',
-  'disappointment': 'deflated expression, mouth corners turned down, drooping eyelids, lowered sighing gaze',
-  'disapproval': 'stern disapproving frown, hard narrowed eyes, tightly pressed lips, chin drawn back',
-  'disgust': 'revolted grimace, wrinkled nose, curled upper lip, squinted eyes, head pulled back',
-  'embarrassment': 'deep blush across cheeks, averted downcast eyes, awkward sheepish small smile, hunched shoulders',
-  'excitement': 'thrilled open smile, wide shining eyes, eyebrows raised high, energized expression',
-  'fear': 'terrified expression, wide white-rimmed eyes, brows raised and pulled together, mouth open in a silent gasp, pale face',
-  'gratitude': 'moved grateful soft smile, glistening warm eyes, relaxed brows, touched expression',
-  'grief': 'devastated anguish, tears streaming down cheeks, inner brows knotted upward, trembling downturned mouth',
-  'joy': 'happy warm smile, raised rounded cheeks, sparkling crescent-moon eyes, relaxed brows, radiant glow',
-  'love': 'adoring soft gaze, dreamy gentle half-smile, faint blush, tender sparkling eyes',
-  'nervousness': 'anxious tight-lipped smile, darting worried eyes, tense raised brows, biting lower lip, bead of sweat',
-  'optimism': 'hopeful bright expression, gentle upturned smile, lifted shining gaze, open relaxed face',
-  'pride': 'confident smirk, chin lifted high, half-lidded self-assured eyes, satisfied expression',
-  'realization': 'sudden dawning look, eyes snapping wide open, eyebrows shooting up, lips parted in a small oh',
-  'relief': 'relieved soft exhale, eyes gently closed, easing unburdened smile, relaxed released shoulders',
-  'remorse': 'guilty downcast eyes, sorrowful frown, head bowed low, brows pinched together',
-  'sadness': 'sad glistening teary eyes, downturned mouth, inner brows raised and pinched, subdued heavy expression',
-  'surprise': 'startled expression, eyebrows shot up high, round wide eyes, mouth open in a small o shape',
-  'neutral': 'calm neutral expression, relaxed face, level brows, closed relaxed mouth, steady even gaze',
+  'admiration':
+      'admiring gaze, sparkling wide eyes, raised inner brows, softly parted lips, impressed look',
+  'amusement':
+      'amused lopsided smile, one raised eyebrow, crinkled sparkling eyes, holding back a laugh',
+  'anger':
+      'furious scowl, brows slammed down and drawn together, glaring eyes, clenched jaw, mouth pressed into a hard line',
+  'annoyance':
+      'irritated scowl, narrowed eyes, flat pressed lips, twitching raised eyebrow',
+  'approval':
+      'approving warm closed-lip smile, relaxed brows, steady confident gaze, slight nod',
+  'caring':
+      'tender gentle smile, soft warm eyes, inner eyebrows tilted up in sympathy, head tilted slightly',
+  'confusion':
+      'puzzled frown, one eyebrow raised and one lowered, uneven squinting eyes, mouth slightly open, head tilted',
+  'curiosity':
+      'intrigued bright eyes, both eyebrows lifted, small parted mouth, attentive leaning-in look',
+  'desire':
+      'sultry half-lidded eyes, softly parted lips, flushed cheeks, smoldering longing gaze',
+  'disappointment':
+      'deflated expression, mouth corners turned down, drooping eyelids, lowered sighing gaze',
+  'disapproval':
+      'stern disapproving frown, hard narrowed eyes, tightly pressed lips, chin drawn back',
+  'disgust':
+      'revolted grimace, wrinkled nose, curled upper lip, squinted eyes, head pulled back',
+  'embarrassment':
+      'deep blush across cheeks, averted downcast eyes, awkward sheepish small smile, hunched shoulders',
+  'excitement':
+      'thrilled open smile, wide shining eyes, eyebrows raised high, energized expression',
+  'fear':
+      'terrified expression, wide white-rimmed eyes, brows raised and pulled together, mouth open in a silent gasp, pale face',
+  'gratitude':
+      'moved grateful soft smile, glistening warm eyes, relaxed brows, touched expression',
+  'grief':
+      'devastated anguish, tears streaming down cheeks, inner brows knotted upward, trembling downturned mouth',
+  'joy':
+      'happy warm smile, raised rounded cheeks, sparkling crescent-moon eyes, relaxed brows, radiant glow',
+  'love':
+      'adoring soft gaze, dreamy gentle half-smile, faint blush, tender sparkling eyes',
+  'nervousness':
+      'anxious tight-lipped smile, darting worried eyes, tense raised brows, biting lower lip, bead of sweat',
+  'optimism':
+      'hopeful bright expression, gentle upturned smile, lifted shining gaze, open relaxed face',
+  'pride':
+      'confident smirk, chin lifted high, half-lidded self-assured eyes, satisfied expression',
+  'realization':
+      'sudden dawning look, eyes snapping wide open, eyebrows shooting up, lips parted in a small oh',
+  'relief':
+      'relieved soft exhale, eyes gently closed, easing unburdened smile, relaxed released shoulders',
+  'remorse':
+      'guilty downcast eyes, sorrowful frown, head bowed low, brows pinched together',
+  'sadness':
+      'sad glistening teary eyes, downturned mouth, inner brows raised and pinched, subdued heavy expression',
+  'surprise':
+      'startled expression, eyebrows shot up high, round wide eyes, mouth open in a small o shape',
+  'neutral':
+      'calm neutral expression, relaxed face, level brows, closed relaxed mouth, steady even gaze',
 };
 
 /// Per-emotion counter-cues appended to the NEGATIVE prompt (keys ==
@@ -157,9 +188,39 @@ const String kExpressionFraming =
 /// expression and keeps identity, so no character/framing prompt is needed (the
 /// reference image supplies both). Deriving from the one table (rather than a
 /// hand-written second one) means the img2img and edit paths can never drift.
-String expressionEditInstruction(String emotion) {
-  final desc = kExpressionModifiers[emotion] ?? emotion;
+String expressionEditInstruction(
+  String emotion, {
+  ExpressionIntensity intensity = ExpressionIntensity.current,
+}) {
+  final desc =
+      expressionIntensityDescription(emotion, intensity) ??
+      kExpressionModifiers[emotion] ??
+      emotion;
   return 'Change only the facial expression to: $desc. '
       'Keep the same person, hairstyle, outfit, pose, camera framing, and '
       'background exactly as they are.';
 }
+
+String originalExpressionPrompt({
+  required String emotion,
+  required String basePrompt,
+  required bool editMode,
+  ExpressionIntensity intensity = ExpressionIntensity.current,
+}) => editMode
+    ? expressionEditInstruction(emotion, intensity: intensity)
+    : '${expressionIntensityDescription(emotion, intensity) ?? kExpressionModifiers[emotion] ?? emotion}, $basePrompt';
+
+String composeExpressionPrompt({
+  required String emotion,
+  required String basePrompt,
+  required bool editMode,
+  ExpressionIntensity intensity = ExpressionIntensity.current,
+  required ExpressionPromptRules rules,
+}) => rules.apply(
+  originalExpressionPrompt(
+    emotion: emotion,
+    basePrompt: basePrompt,
+    editMode: editMode,
+    intensity: intensity,
+  ),
+);

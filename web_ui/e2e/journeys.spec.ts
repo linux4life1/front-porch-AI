@@ -32,7 +32,7 @@ test('expression workspace keeps its own prompt and picture across tabs', async 
     await panel.getByLabel('Image prompt', { exact: true }).fill('A deliberate pack portrait');
     await panel.getByLabel('Pack picture file').setInputFiles({
       name: 'pack-source.png', mimeType: 'image/png',
-      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/l9sAAAAASUVORK5CYII=', 'base64'),
+      buffer: Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAEAAAABQCAIAAAAm3eQSAAAAkUlEQVR4nO3PUQkAIBTAQGOb5CUxoCH8OITBAtzWnvN1iwsa0IIGtKABLWhACxrQgga0oAEtaEALGtCCBrSgAS1oQAsa0IIGtKABLWhACxrQgga0oAEtaEALGtCCBrSgAS1oQAsa0IIGtKABLWhACxrQgga0oAEtaEALGtCCBrSgAS1oQAsa0IIGtKCB8YiXgQvuWSoOwHWgQgAAAABJRU5ErkJggg==', 'base64'),
     });
     await expect(panel).toContainText('Source: pack-source.png');
     await expect(panel.getByRole('button', { name: 'Start pack', exact: true })).toBeEnabled();
@@ -869,5 +869,55 @@ test('upload and clear a preset chat template without changing the model setting
     await page.request.post('/api/settings', { data: {
       backend: settings.backend, remoteApiUrl: settings.remoteApiUrl, remoteModelName: settings.remoteModelName,
     } });
+  }
+});
+
+
+test('expression intensity rerolls Strong and can follow the pack again', async ({page, allowHttp}) => {
+  await page.request.post('/api/image/expression-pack/discard');
+  allowHttp((url,status) => status === 404 && url.includes('/api/image/expression-pack/source'));
+  const saved=await (await page.request.get('/api/image/config')).json() as {backend:string;localUrl:string};
+  try {
+    expect((await page.request.post('/api/image/config',{data:{backend:'a1111',localUrl:'http://127.0.0.1:9',currentPassword:process.env.FPAI_PASSWORD}})).ok()).toBe(true);
+    await openRoute(page,'/models');
+    await page.getByRole('tab',{name:'Expression pack',exact:true}).click();
+    const panel=page.locator('#studio-pack-panel');
+    await panel.getByLabel('Character',{exact:true}).selectOption({label:'Porch Tester'});
+    await panel.getByLabel('Image prompt',{exact:true}).fill('portrait');
+    await panel.getByLabel('Pack picture file').setInputFiles({name:'synthetic.png',mimeType:'image/png',buffer:Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAEAAAABQCAIAAAAm3eQSAAAAkUlEQVR4nO3PUQkAIBTAQGOb5CUxoCH8OITBAtzWnvN1iwsa0IIGtKABLWhACxrQgga0oAEtaEALGtCCBrSgAS1oQAsa0IIGtKABLWhACxrQgga0oAEtaEALGtCCBrSgAS1oQAsa0IIGtKABLWhACxrQgga0oAEtaEALGtCCBrSgAS1oQAsa0IIGtKCB8YiXgQvuWSoOwHWgQgAAAABJRU5ErkJggg==','base64')});
+    const intensity=panel.getByLabel('Expression intensity',{exact:true});
+    await intensity.selectOption('subtle');
+    await panel.getByRole('button',{name:'Prompt rules...',exact:true}).click();
+    await expect(page.getByRole('dialog')).toContainText('gently tightened lips');
+    await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+    await intensity.selectOption('strong');
+    await panel.getByRole('button',{name:'Prompt rules...',exact:true}).click();
+    await expect(page.getByRole('dialog')).toContainText('deeply furrowed brows');
+    await page.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();
+    await intensity.selectOption('subtle');
+    // An unavailable real backend exercises failed-slot iteration without a fake image server.
+    await panel.getByRole('button',{name:'Start pack',exact:true}).click();
+    await expect(panel.getByLabel('Pack expression intensity')).toBeEnabled({timeout:60_000});
+    await panel.getByText('Tune anger',{exact:true}).click();
+    const slot=panel.getByLabel('Intensity for anger');
+    await expect(slot).toHaveValue('pack');
+    await slot.selectOption('strong');
+    await expect(panel.getByLabel('Prompt for anger')).toHaveValue(/deeply furrowed brows/);
+    const retry=panel.getByRole('button',{name:'Retry anger with these settings',exact:true});
+    await retry.click();
+    await expect(slot).toBeEnabled({timeout:60_000});
+    await expect(slot).toHaveValue('strong');
+    await panel.getByText('Tune anger',{exact:true}).click();
+    await slot.selectOption('pack');
+    await expect(panel.getByLabel('Prompt for anger')).toHaveValue(/gently tightened lips/);
+    await panel.getByLabel('Prompt for anger').fill('my exact expression');
+    await retry.click();
+    await expect(slot).toBeEnabled({timeout:60_000});
+    await expect(slot).toHaveValue('pack');
+    await expect(panel.getByLabel('Prompt for anger')).toHaveValue('my exact expression');
+    await expect(panel).toContainText('A custom prompt overrides intensity');
+  } finally {
+    await page.request.post('/api/image/expression-pack/discard');
+    await page.request.post('/api/image/config',{data:{backend:saved.backend,localUrl:saved.localUrl,currentPassword:process.env.FPAI_PASSWORD}});
   }
 });
