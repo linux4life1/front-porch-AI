@@ -303,7 +303,7 @@ extension ChatServiceCast on ChatService {
     if (last.displayText.trim().isNotEmpty) return;
     await _waitForTurnToSettle();
     final idx = _messages.indexOf(last);
-    if (idx >= 0) deleteMessage(idx); // removes + reverts realism + saves
+    if (idx >= 0) await deleteMessage(idx); // + reverts realism, saves
   }
 
   /// Commit a deferred full-member `/exit`: run the real removal (and any

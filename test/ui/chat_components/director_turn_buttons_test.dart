@@ -188,4 +188,29 @@ void main() {
     await tester.tap(find.byIcon(Icons.stop_circle_outlined));
     expect(stops, 1);
   });
+
+  testWidgets('a running run offers Stop too, as the web strip does', (
+    tester,
+  ) async {
+    var stops = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: DirectorTurnButtons(
+            showAutoPlay: true,
+            autoPlayActive: true,
+            onStopAutoPlay: () => stops++,
+            nextTooltip: 'Trigger next character',
+            onToggleAutoPlay: () {},
+            onNextCharacter: () {},
+            playColor: Colors.amber,
+            pauseColor: Colors.orange,
+            nextColor: Colors.purple,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('End this auto-chat run'));
+    expect(stops, 1);
+  });
 }

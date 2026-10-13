@@ -21,7 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The group input row's turn buttons: auto-chat Play/Pause (Director Mode
-/// only), Stop for a paused run, and Next Character.
+/// only), Stop for a running or paused run, and Next Character.
 ///
 /// The input row is right-aligned behind an expanding text field, so removing
 /// a button slides everything to its left one slot right. Next Character
@@ -29,7 +29,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// exactly where Play was and Impersonate never slides under it.
 ///
 /// Pause keeps the run's turns, so Play then resumes it; Stop, shown left of
-/// Play while a run is paused, ends it. The caller passes the accent colours
+/// Play while a run is going or paused, ends it. The caller passes the accent colours
 /// so they stay on the input row's palette.
 class DirectorTurnButtons extends StatelessWidget {
   const DirectorTurnButtons({
@@ -63,7 +63,7 @@ class DirectorTurnButtons extends StatelessWidget {
   /// The run's turns left, or null when it has no limit.
   final int? turnsLeft;
 
-  /// Ends the paused run.
+  /// Ends the running or paused run.
   final VoidCallback? onStopAutoPlay;
 
   @override
@@ -71,7 +71,9 @@ class DirectorTurnButtons extends StatelessWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (showAutoPlay && autoPlayPaused && onStopAutoPlay != null)
+        if (showAutoPlay &&
+            (autoPlayActive || autoPlayPaused) &&
+            onStopAutoPlay != null)
           Tooltip(
             message: 'End this auto-chat run',
             child: IconButton(

@@ -226,7 +226,7 @@ extension ChatServiceMessageOps on ChatService {
     notifyListeners();
   }
 
-  void deleteMessage(int index) async {
+  Future<void> deleteMessage(int index) async {
     // The tail is the live reply. Positional writers still assume it stays
     // last, and removing it made a dream banner the last message, where
     // the aborted turn's writes landed (2026-07-28). Stop before deleting

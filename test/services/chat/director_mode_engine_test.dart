@@ -713,5 +713,55 @@ void main() {
       expect(h.chat.autoChatTurnsLeft, 1);
       h.chat.stopAutoPlay();
     });
+
+    test('a last exit whose goodbye is stopped before it says anything '
+        'still collapses to a 1:1, with no empty bubble saved', () async {
+      final hanging = _HangingLlm();
+      llm = hanging;
+      h.llm = hanging;
+      h.chat.testLlmServiceOverride = hanging;
+      await h.repo.addCharacter(needsCard('Nora'));
+      await h.repo.addCharacter(needsCard('Mara'));
+      h.chat.setGroupChatRepository(GroupChatRepository(h.storage, h.db));
+      await h.oneToOneWithStampedReply(
+        h.repo.characters.firstWhere((c) => c.name == 'Mara'),
+      );
+      await h.chat.sendMessage('/join Nora');
+      await h.settleTurn();
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      await h.chat.sendMessage('/director off');
+      await h.settleTurn();
+      final before = h.chat.messages.length;
+      hanging.hang = true;
+
+      final exit = h.chat.sendMessage('/exit Nora');
+      for (var i = 0; i < 200; i++) {
+        final last = h.chat.messages.last;
+        if (h.chat.messages.length > before &&
+            (last.thinkingContent?.isNotEmpty ?? false)) {
+          break;
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      h.chat.stopGeneration();
+      hanging.hold.complete();
+      await exit;
+      await h.settleTurn();
+
+      expect(h.chat.isGroupMode, isFalse);
+      expect(h.chat.activeCharacter?.name, 'Mara');
+      expect(h.chat.messages, hasLength(before));
+      final sid = h.chat.currentSessionId!;
+      await h.chat.startNewChat();
+      await h.settleTurn();
+      await h.chat.loadSession(sid);
+      await h.settleTurn();
+      expect(h.chat.messages, hasLength(before), reason: 'as saved');
+      expect(
+        h.chat.messages.where((m) => !m.isUser && m.displayText.isEmpty),
+        isEmpty,
+      );
+    });
   });
 }
