@@ -368,7 +368,7 @@ extension ChatServiceSend on ChatService {
           final stillHere = await _bridgeLongSkip(
             from: before,
             skipped: skipped,
-            skipLine: outbound,
+            skipLine: userMsg,
             token: sessionToken,
           );
           if (!stillHere) return;

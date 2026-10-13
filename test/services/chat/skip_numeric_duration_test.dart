@@ -126,6 +126,18 @@ void main() {
       expect(hasSkipPhrase('we met three years ago'), isFalse);
     });
 
+    test('backstory and a skipped class are not skips', () {
+      for (final line in [
+        '*three years had passed since the accident*',
+        '*a few days have passed since our date*',
+        'two years passed since we last spoke',
+        '*i skip a day of school to see you*',
+        'i jump two days ahead in my reading',
+      ]) {
+        expect(hasSkipPhrase(line), isFalse, reason: line);
+      }
+    });
+
     test('a skip a character says out loud is not a skip', () async {
       final t = skipClock();
       await t.detectOocTimeSkip(

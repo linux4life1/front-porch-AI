@@ -44,15 +44,18 @@ class SkipSpan {
       r'five|six|seven|eight|nine|ten|eleven|twelve)';
 
   /// A long span said as narration: "two weeks later", "3 days pass",
-  /// "a few months went by". A bare "for two weeks" is not a skip.
+  /// "a few months went by". Backstory is not a skip: "for two weeks",
+  /// "three years had passed", "a year passed since the accident".
   static final _narrated = RegExp(
     '\\b$_count\\s*(days?|weeks?|months?|years?)\\s+'
-    r'(?:later|pass(?:es|ed)?|go(?:es)? by|went by|have passed|had passed)\b',
+    r'(?:later|pass(?:es|ed)?|go(?:es)? by|went by)\b(?!\s+since\b)',
   );
 
-  /// Or asked for: "skip ahead two weeks", "fast forward 3 months".
+  /// Or asked for: "skip ahead two weeks", "fast forward 3 months". A bare
+  /// skip or jump needs a direction: "I skip a day of school" is not one.
   static final _asked = RegExp(
-    r'\b(?:time.?skip|skip|jump|fast.?forward)(?:\s+(?:ahead|forward))?'
+    r'\b(?:(?:time.?skip|fast.?forward)(?:\s+(?:ahead|forward))?'
+    r'|(?:skip|jump)\s+(?:ahead|forward|by|to))'
     r'(?:\s+(?:by|to))?\s+'
     '$_count\\s*(days?|weeks?|months?|years?)\\b',
   );

@@ -13,7 +13,9 @@
 // the bars at the skip floors; dropping `LongSkipSettle(...).settle()` in
 // chat_service_send.dart keeps "furious" and the couch in the prompts;
 // dropping `renoteLongSkip` in chat_service_reprocess.dart puts the
-// pre-skip bars back on regen.
+// pre-skip bars back on regen; dropping the regen settle there lets a judge
+// read "furious" again (1:1 and group); appending the card after the skip
+// line instead of before it hides the user's turn from Reprocess Feelings.
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -107,6 +109,17 @@ void main() {
     }
   }
 
+  /// The card sits before the skip line, so every pass that looks for the
+  /// user's turn (baselines, Reprocess Feelings, photos, RAG) finds the line
+  /// itself.
+  void expectUserTurnLast(int sent) {
+    final msgs = h.chat.messages;
+    final user = msgs.lastWhere((m) => m.isUser);
+    expect(user.isDirectorNarration, isFalse);
+    expect(msgs.indexOf(user), sent + 1);
+    expect(h.chat.reprocessFeelingsTargetFor(msgs.length - 1), isNotNull);
+  }
+
   void expectEveryday() {
     final bars = h.chat.needsSimulation.vector;
     expect(bars['hunger'], 80, reason: 'two weeks of meals, not a floor');
@@ -126,13 +139,14 @@ void main() {
 
       expect(h.chat.timeService.clock, before.add(const Duration(days: 14)));
       expect(h.chat.messages, hasLength(sent + 3));
-      final card = h.chat.messages[sent + 1];
+      final card = h.chat.messages[sent];
       expect(card.isDirectorNarration, isTrue);
       expect(card.activeMetadata?[kTimeSkipBridgeMeta], isTrue);
       expect(card.text, _bridge);
       expect(llm.bridgePrompts.single, contains('skips ahead 2 weeks'));
       expect(llm.bridgePrompts.single, contains('Two weeks later'));
 
+      expectUserTurnLast(sent);
       final reply = h.chat.messages.last;
       expect(reply.isUser, isFalse);
       expect(reply.activeMetadata?[kLongSkipMinutesMeta], 14 * 24 * 60);
@@ -209,10 +223,8 @@ void main() {
     await h.chat.sendMessage('*Three weeks pass before we meet again.*');
     await h.settleTurn();
 
-    expect(
-      h.chat.messages[sent + 1].activeMetadata?[kTimeSkipBridgeMeta],
-      isTrue,
-    );
+    expect(h.chat.messages[sent].activeMetadata?[kTimeSkipBridgeMeta], isTrue);
+    expectUserTurnLast(sent);
     expect(llm.bridgePrompts.single, contains('Ayla, Bram'));
     for (final name in ['Ayla', 'Bram']) {
       final card = h.chat.groupCharacters.firstWhere((c) => c.name == name);
@@ -220,5 +232,43 @@ void main() {
       expect(bars['hunger'], 80, reason: '$name ate in those three weeks');
       expect(bars['energy'], 80, reason: '$name slept in those three weeks');
     }
+  });
+
+  test('a group regen replays the skip: one card, and every member comes '
+      'back with the same bars and the same settled mood', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    llm.liveNeedsReply = _quietNeeds;
+    final cast = h.chat.groupCharacters.toList();
+    expect(cast.map(h.chat.getEmotionForGroupCharacter), contains('furious'));
+    llm.emotion = 'calm';
+    llm.evalPrompts.clear();
+
+    await h.chat.sendMessage('*Three weeks pass before we meet again.*');
+    await h.settleTurn();
+    expectSettled();
+    Map<String, Object> landed() => {
+      for (final c in cast)
+        c.name: [
+          h.chat.getEmotionForGroupCharacter(c),
+          h.chat.getFixationForGroupCharacter(c),
+          {...h.chat.getNeedsForGroupCharacter(c)},
+        ],
+    };
+    final first = landed();
+    final clock = h.chat.timeService.clock;
+
+    llm.evalPrompts.clear();
+    await h.chat.regenerateLastMessage();
+    await h.settleTurn();
+
+    expectSettled();
+    expect(
+      h.chat.messages.where(
+        (m) => m.activeMetadata?[kTimeSkipBridgeMeta] == true,
+      ),
+      hasLength(1),
+    );
+    expect(h.chat.timeService.clock, clock);
+    expect(landed(), first);
   });
 }

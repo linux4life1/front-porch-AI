@@ -301,15 +301,19 @@ extension ChatServiceCast on ChatService {
   Future<bool> _bridgeLongSkip({
     required DateTime from,
     required int skipped,
-    required String skipLine,
+    required ChatMessage skipLine,
     required String? token,
   }) async {
     if (!_storageService.realismSettings.timeSkipBridgeEnabled) return true;
     _setGuestStatus('The narrator fills in the time skip…', sticky: true);
     try {
-      final recent = _messages.length > kNarrationHistoryLines
-          ? _messages.sublist(_messages.length - kNarrationHistoryLines)
-          : _messages;
+      final scene = [
+        for (final m in _messages)
+          if (!identical(m, skipLine)) m,
+      ];
+      final recent = scene.length > kNarrationHistoryLines
+          ? scene.sublist(scene.length - kNarrationHistoryLines)
+          : scene;
       final raw = await _llmEvalEngine.fireLLMEval(
         timeSkipBridgePrompt(
           recentLines: [
@@ -321,7 +325,7 @@ extension ChatServiceCast on ChatService {
               ? [for (final c in _groupCharacters) c.name]
               : [?_activeCharacter?.name],
           userName: _userPersonaService.persona.name,
-          skipLine: skipLine,
+          skipLine: skipLine.text,
           from:
               '${StoryClock.formatShortDate(from)} · '
               '${StoryClock.formatClock(from)}',
@@ -338,7 +342,13 @@ extension ChatServiceCast on ChatService {
         debugPrint('[TimeSkip] bridge came back empty; replying without it');
         return true;
       }
-      _messages.add(timeSkipBridgeMessage(beat));
+      // Before the skip line, like a dream: the line that skipped stays the
+      // user's turn for every pass that looks for it.
+      final at = _messages.indexOf(skipLine);
+      _messages.insert(
+        at < 0 ? _messages.length : at,
+        timeSkipBridgeMessage(beat),
+      );
       await _saveChat();
       return true;
     } catch (e) {
