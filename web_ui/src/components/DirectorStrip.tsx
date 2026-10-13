@@ -25,6 +25,10 @@ export interface DirectorState {
   turnBudget?: number;
   /** Turns left in the running auto-chat, or null when unlimited. */
   turnsLeft?: number | null;
+  /** Who a cue can call on (the desktop panel's list). */
+  members?: string[];
+  /** The narrator is writing a beat: a turn is running. */
+  narrating?: boolean;
 }
 
 export interface ExitUndo {
@@ -61,6 +65,7 @@ export function DirectorStrip({
   onTurnBudget?: (turns: number) => void;
 }) {
   const { directing, autoPlay, delaySeconds } = director;
+  const turnBusy = busy || director.narrating === true;
   // The slider's live value while it is held; saved when it is let go.
   const [draft, setDraft] = useState<number | null>(null);
   const delay = draft ?? delaySeconds ?? null;
@@ -85,7 +90,7 @@ export function DirectorStrip({
       )}
       <button
         className="ghost small"
-        disabled={busy}
+        disabled={turnBusy}
         onClick={() => onCommand(directing ? '/director off' : '/director')}
         title={
           directing
@@ -115,13 +120,13 @@ export function DirectorStrip({
       )}
       {directing && director.beats && onGoal && onClearWhisper && onTurnBudget && (
         <DirectorTools
-          memberNames={memberNames}
+          memberNames={director.members ?? memberNames}
           beats={director.beats}
           goal={director.goal ?? ''}
           whispers={director.whispers ?? []}
           turnBudget={director.turnBudget ?? 0}
           turnsLeft={director.turnsLeft ?? null}
-          busy={busy}
+          busy={turnBusy}
           onCommand={onCommand}
           onGoal={onGoal}
           onClearWhisper={onClearWhisper}

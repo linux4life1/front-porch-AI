@@ -561,6 +561,12 @@ class FakeBackendServer {
     if (lastContent.contains('"with_user"')) {
       eval['with_user'] = true;
     }
+    // Char→char feelings judge (group turns). Same trap again: an empty
+    // verdict keeps it out of CHAT and moves no one.
+    if (lastContent.contains('"feelings"') ||
+        lastContent.contains('report_cast_feelings')) {
+      eval['feelings'] = <Object>[];
+    }
 
     // One line per completion so a misclassification is visible in the suite
     // log without any debugger. ignore: avoid_print — test support.

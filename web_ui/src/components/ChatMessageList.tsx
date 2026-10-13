@@ -237,25 +237,39 @@ const TranscriptRows = memo(function TranscriptRows({
                 onRevert={() => onRevert(m.index)}
               />
             )}
-            <MessageActions
-              m={m}
-              isLast={m.index === lastIndex}
-              busy={busy}
-              canSpeak={canSpeak}
-              greetCount={greetCount}
-              greetingIndex={greetingIndex}
-              userHasReplied={userHasReplied}
-              onSwipe={onSwipe}
-              onRegenerate={onRegenerate}
-              lookupWeb={lookupWeb}
-              lookupWiki={lookupWiki}
-              onContinue={onContinue}
-              onFork={() => onFork(m.index)}
-              onEdit={() => onBeginEdit(m)}
-              onDelete={() => onDelete(m.index)}
-              onVariantPicked={onVariantPicked}
-              onActionFailed={onActionFailed}
-            />
+            {m.isNarration ? (
+              // A narrator beat offers Delete only, as on the desktop.
+              <div className="msg-actions user">
+                <button
+                  className="icon-btn"
+                  title="Delete"
+                  disabled={busy && m.index === lastIndex}
+                  onClick={() => onDelete(m.index)}
+                >
+                  🗑
+                </button>
+              </div>
+            ) : (
+              <MessageActions
+                m={m}
+                isLast={m.index === lastIndex}
+                busy={busy}
+                canSpeak={canSpeak}
+                greetCount={greetCount}
+                greetingIndex={greetingIndex}
+                userHasReplied={userHasReplied}
+                onSwipe={onSwipe}
+                onRegenerate={onRegenerate}
+                lookupWeb={lookupWeb}
+                lookupWiki={lookupWiki}
+                onContinue={onContinue}
+                onFork={() => onFork(m.index)}
+                onEdit={() => onBeginEdit(m)}
+                onDelete={() => onDelete(m.index)}
+                onVariantPicked={onVariantPicked}
+                onActionFailed={onActionFailed}
+              />
+            )}
           </div>
         );
       })}

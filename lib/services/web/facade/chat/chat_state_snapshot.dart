@@ -239,6 +239,8 @@ class ChatStateSnapshot {
         'canRemoveMember': !_chat.isGroupMode || _chat.canRemoveCastMember,
         // The director's tools, served so the web shows what desktop shows.
         'beats': [for (final b in kDirectorQuickBeats) b.toJson()],
+        // Who a cue can call on: the desktop panel's own list.
+        'members': [for (final c in _chat.groupCharacters) c.name],
         'goal': _chat.directorGoal,
         'whispers': [
           for (final w in _chat.directorWhisperRows)
@@ -246,6 +248,8 @@ class ChatStateSnapshot {
         ],
         'turnBudget': _chat.savedDirectorTurnBudget,
         'turnsLeft': _chat.autoPlayActive ? _chat.autoChatTurnsLeft : null,
+        // The narrator's beat counts as a running turn.
+        'narrating': _chat.isNarrating,
       },
       // The open /exit UNDO (a guest, a member, or the user stepping out to
       // direct) until a send or a chat switch closes it. Additive nullable.

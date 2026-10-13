@@ -744,6 +744,21 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await expect(rows(page)).toHaveCount(before + 1);
     await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
 
+    // A quick beat is a director's note the cast answers.
+    before = await rows(page).count();
+    await strip.getByRole('button', { name: /Raise the stakes/ }).click();
+    await waitIdle(page);
+    await expect(rows(page)).toHaveCount(before + 2);
+    await expect(page.locator('.bubble.director-note').last()).toContainText('Director');
+
+    // A whisper pins for one member and clears from the strip.
+    await box.fill('/whisper Porch Tester You hid the key.');
+    await box.press('Enter');
+    const whisper = strip.getByRole('note').filter({ hasText: 'Porch Tester: You hid the key.' });
+    await expect(whisper).toBeVisible();
+    await strip.getByRole('button', { name: 'Clear the whisper to Porch Tester' }).click();
+    await expect(whisper).toHaveCount(0);
+
     // The narrator's beat lands as its own line, and the cast answers it.
     before = await rows(page).count();
     await box.fill('/narrate a storm rolls in');

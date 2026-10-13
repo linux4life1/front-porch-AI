@@ -15,6 +15,8 @@
 // applies a regenerated directed turn; dropping the session key in
 // chat_service_session_state_save.dart loses Director Mode on reload.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -49,11 +51,19 @@ class _SceneLlm extends _PromptRecordingLlm {
   String castFeelings = '{"feelings": []}';
   int castFeelingsCalls = 0;
 
+  /// While set, the narrator's answer waits for it, so a test can act
+  /// mid-narration.
+  Completer<void>? holdNarration;
+
   @override
   Stream<String> generateStream(GenerationParams params) {
     final p = params.prompt;
     if (p.contains('You are the narrator of a roleplay scene')) {
       narrationPrompts.add(p);
+      final hold = holdNarration;
+      if (hold != null) {
+        return Stream.fromFuture(hold.future.then((_) => narration));
+      }
       return Stream.value(narration);
     }
     if (p.contains('just replied. Judge how this reply')) {
@@ -437,6 +447,36 @@ void main() {
       expect(
         scene.replyPrompts.last,
         contains('[Narration: Rain starts drumming on the porch roof.]'),
+      );
+    });
+
+    test('while the narrator writes, a note or a turn waits, and the beat '
+        'then lands before its one reply', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      final before = h.chat.messages.length;
+      scene.holdNarration = Completer<void>();
+
+      final narrating = h.chat.sendMessage('/narrate a storm rolls in');
+      for (var i = 0; i < 200 && scene.narrationPrompts.isEmpty; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(h.chat.isNarrating, isTrue);
+      await h.chat.sendMessage('The porch light flickers out.');
+      await h.chat.triggerNextCharacter();
+      expect(h.chat.messages, hasLength(before), reason: 'nothing ran yet');
+
+      scene.holdNarration!.complete();
+      await narrating;
+      await h.settleTurn();
+
+      expect(h.chat.messages, hasLength(before + 2));
+      expect(h.chat.messages[before].isDirectorNarration, isTrue);
+      expect(h.chat.messages.last.isUser, isFalse);
+      expect(
+        h.chat.messages.map((m) => m.text),
+        isNot(contains('The porch light flickers out.')),
       );
     });
 

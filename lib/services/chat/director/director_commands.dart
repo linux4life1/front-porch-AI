@@ -61,6 +61,10 @@ class DirectorCommands {
     'back',
   };
 
+  /// What clears a goal or a whisper. Narrower than [_offWords]: a goal can
+  /// read "done" or "leave" and mean it.
+  static const _clearWords = {'off', 'clear', 'none'};
+
   /// Whether `/exit` or `/join` args name the user themself.
   static bool namesSelf(String args) =>
       _selfTokens.contains(args.trim().toLowerCase());
@@ -155,7 +159,7 @@ class DirectorCommands {
       _say('⚠ What should ${member.name} know? /whisper ${member.name} …');
       return;
     }
-    final clearing = _offWords.contains(text.toLowerCase());
+    final clearing = _clearWords.contains(text.toLowerCase());
     await _setWhisper(member, clearing ? '' : text);
     _say(
       clearing
@@ -172,7 +176,7 @@ class DirectorCommands {
       _say('⚠ Use /goal <where the scene should go>, or /goal off.');
       return;
     }
-    final clearing = _offWords.contains(text.toLowerCase());
+    final clearing = _clearWords.contains(text.toLowerCase());
     await _setGoal(clearing ? '' : text);
     _say(clearing ? 'Scene goal cleared.' : 'Scene goal pinned.');
   }
@@ -187,7 +191,8 @@ class DirectorCommands {
 
   /// The cast member [args] starts with, and the rest of the text. The
   /// longest full name wins ("Mara Vance said…" is Mara Vance, not Mara);
-  /// otherwise the first word must match exactly one member.
+  /// otherwise the first word must be a whole word of exactly one member's
+  /// name ("Vance" finds Mara Vance; "e" finds no one).
   static (CharacterCard, String)? splitMemberAndText(
     String args,
     List<CharacterCard> cast,
@@ -207,7 +212,7 @@ class DirectorCommands {
     if (first.isEmpty) return null;
     final hits = [
       for (final c in cast)
-        if (c.name.toLowerCase().contains(first)) c,
+        if (c.name.toLowerCase().split(RegExp(r'\s+')).contains(first)) c,
     ];
     if (hits.length != 1) return null;
     return (hits.single, space < 0 ? '' : a.substring(space).trim());

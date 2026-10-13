@@ -193,6 +193,7 @@ extension ChatServiceCast on ChatService {
 
   /// Pins [text] as the scene goal; empty clears it. Saved per chat.
   Future<void> setDirectorGoal(String text) async {
+    if (_activeGroup == null) return;
     _directorScene.setGoal(text);
     await _saveChat();
     notifyListeners();
@@ -200,17 +201,35 @@ extension ChatServiceCast on ChatService {
 
   /// Sets the private whisper for the member with [memberId]; empty clears it.
   Future<void> setDirectorWhisper(String memberId, String text) async {
+    if (_activeGroup == null) return;
+    final known = _groupCharacters.any(
+      (c) => _getCharacterIdFromCard(c) == memberId,
+    );
+    // A stale id can only be cleared; it never gains a whisper.
+    if (!known && text.trim().isNotEmpty) return;
     _directorScene.setWhisper(memberId, text);
     await _saveChat();
     notifyListeners();
   }
 
+  /// The narrator is writing a beat (a turn in all but name).
+  bool get isNarrating => _narrating;
+
   /// `/narrate`: one narrator beat lands as a scene card, then the next
   /// character reacts to it as they would to a note. False when a turn is
-  /// already running, or the user isn't directing.
+  /// already running, or the user isn't directing. The narrator's call counts
+  /// as a running turn ([_isTurnBusy]), so a note, a cue, an auto-chat tick or
+  /// a chat switch waits for it; a beat that returns to another chat is
+  /// dropped.
   Future<bool> narrateScene(String hint) async {
-    if (!_directing || _isTurnBusy || _narrating) return false;
+    if (!_directing || _isTurnBusy) return false;
+    final token = _currentSessionId;
+    // The beat closes the undo window the way a note does.
+    await _commitPendingMemberExit();
+    _clearExitUndo();
+    if (_sceneChanged(token) || !_directing || _isTurnBusy) return false;
     _narrating = true;
+    var landed = false;
     try {
       _setGuestStatus('The narrator sets the scene…', sticky: true);
       final recent = _messages.length > kNarrationHistoryLines
@@ -228,6 +247,10 @@ extension ChatServiceCast on ChatService {
         ),
         label: 'narration',
       );
+      if (_sceneChanged(token)) {
+        _setGuestStatus(null);
+        return true;
+      }
       final beat = raw == null
           ? ''
           : cleanNarration(_llmEvalEngine.stripThinkBlocks(raw));
@@ -239,15 +262,21 @@ extension ChatServiceCast on ChatService {
         return true;
       }
       _setGuestStatus(null);
-      await _commitPendingMemberExit();
-      _clearExitUndo();
       _messages.add(narrationMessage(beat));
       await _saveChat();
-      notifyListeners();
+      landed = true;
+    } catch (e) {
+      debugPrint('[Director] narration failed: $e');
+      _setGuestStatus('⚠ The narrator could not set the scene.', isError: true);
+      return true;
     } finally {
       _narrating = false;
+      notifyListeners();
     }
-    await _generateResponse(GenerationMode.normal);
+    // No await since the flag dropped: the reply raises _isGenerating first.
+    if (landed && !_sceneChanged(token)) {
+      await _generateResponse(GenerationMode.normal);
+    }
     return true;
   }
 
