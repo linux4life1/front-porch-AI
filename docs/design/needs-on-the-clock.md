@@ -240,10 +240,10 @@ rule went back on 2026-10-08. The global Needs switch (Settings → Porch
 Life) is read live, the way Objectives read theirs, so turning it off
 takes effect on the next turn rather than the next time the chat opens.
 
-One gate, one place. `_needsActive` in
-`lib/services/chat/chat_service_needs_pass.dart` is that AND (engine,
+One gate, one place. `NeedsPass._needsActive` in
+`lib/services/chat/needs_pass.dart` is that AND (engine,
 the chat's switch, the global switch live), and it is the only way Needs
-run: the pre-turn stamp (`_needsStampPreTurn`, 1:1 and group), the prompt
+run: the pre-turn stamp (`NeedsPass.stampPreTurn`, 1:1 and group), the prompt
 lines, the judge, the clock's wear, the chip under the reply and
 Reprocess Needs all read it. The stored per-chat switch
 (`_needsSimEnabled`) still decides whether a chat *keeps* Needs state —

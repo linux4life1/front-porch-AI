@@ -59,7 +59,7 @@ extension ChatServiceAwayPulse on ChatService {
     );
     final userName = _userPersonaService.persona.name.trim();
     final exchange = recentExchange(_messages);
-    final eval = _makeWithUserEval();
+    final eval = _realismJudges.makeWithUserEval();
     final flipped = <({String id, int lastSpokeIndex})>[];
 
     for (final card in targets) {

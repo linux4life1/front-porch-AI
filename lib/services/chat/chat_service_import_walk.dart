@@ -141,7 +141,7 @@ extension ChatServiceImportWalk on ChatService {
     scratch ??= _groupCharacters.isNotEmpty ? _groupCharacters.first : null;
     if (scratch != null) {
       final id = _getCharacterIdFromCard(scratch);
-      if (id.isNotEmpty) _loadGroupRealismIntoScalars(id);
+      if (id.isNotEmpty) _realismDance.loadIntoScalars(id);
     }
 
     _chaosModeService.seedFromGroupOrExt(keepChaos, keepChaosNsfw);

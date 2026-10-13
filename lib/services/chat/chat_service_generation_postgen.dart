@@ -239,7 +239,7 @@ extension ChatServiceGenerationPostGen on ChatService {
               isContinue: t.mode == GenerationMode.continue_,
             );
           } else {
-            _wearBodiesAfterClock(t);
+            _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
             _tickRefractoryAfterClock(t);
             _maybeKickDreamPrefetch();
             await _saveChat();

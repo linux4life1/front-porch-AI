@@ -175,7 +175,7 @@ extension ChatServiceSessionManage on ChatService {
         false,
       );
       // A silent card follows the Porch Life Needs switch (chat_entry twin).
-      _needsSimEnabled = _seedNeedsSim(extSeed.needsSimChoice);
+      _needsSimEnabled = _needsPass.seedNeedsSim(extSeed.needsSimChoice);
       _enjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
         // Fresh chat / new session: seed from card baselines (falls back to
@@ -303,7 +303,7 @@ extension ChatServiceSessionManage on ChatService {
               });
           if (_needsSimEnabled) {
             // Placeholder vector only — the first per-speaker
-            // _loadGroupRealismIntoScalars replaces it with that member's own
+            // RealismDance.loadIntoScalars replaces it with that member's own
             // needs. Same flat baseline the group-entry twin uses.
             _needsSimulation.initializeFreshWithDefaults(const {
               'hunger': 80,

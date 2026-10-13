@@ -174,7 +174,7 @@ enum FeelingsRescore {
 /// Same input, same answer, like a regen: the judged registers rewind to
 /// the stamp the user line carries (`realism_pre_turn`, per speaker in a
 /// group), the turn's mood decay replays, and the judges run through the
-/// one shared dispatch a send uses ([_runPreGenRealismJudges] — one-shot or
+/// one shared dispatch a send uses ([RealismJudges.runPreGenJudges] — one-shot or
 /// three calls, tools first). What the judges do not own stays as the turn
 /// left it: needs, clock, pockets, posture, the decay cadence and the
 /// group's hidden feelings, a climax's arousal reset, and the turn's quests.
@@ -201,7 +201,7 @@ extension ChatServiceFeelingsRescore on ChatService {
     if (rawStamp is! Map) return refused;
 
     final preActive = _activeCharacter;
-    final prePin = _turnSpeakerIdForRealism;
+    final prePin = _groupStore.turnSpeakerId;
     final preObjectives = _activeObjectives;
     // Both held for the whole pass: settling keeps every mutation out, and
     // "evaluating" is what the bubble can read to hide the pill meanwhile.
@@ -229,7 +229,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       _rescoreCrossings.clear();
       _pendingRealismMetadata = null;
       _activeCharacter = preActive;
-      _turnSpeakerIdForRealism = prePin;
+      _groupStore.turnSpeakerId = prePin;
       _activeObjectives = preObjectives;
       _evalChunkTimer?.cancel();
       _evalChunkTimer = null;
@@ -253,14 +253,14 @@ extension ChatServiceFeelingsRescore on ChatService {
     final groupSid = inGroup ? sid : null;
     _activeCharacter = speaker;
     if (inGroup) {
-      _turnSpeakerIdForRealism = sid;
-      _loadGroupRealismIntoScalars(sid);
+      _groupStore.turnSpeakerId = sid;
+      _realismDance.loadIntoScalars(sid);
     }
     _activeObjectives = await _objectivesBeforeTurn(
       speaker,
       msg.activeMetadata?['objective_turn_ops'],
     );
-    final now = _captureRealismState();
+    final now = _realismSnapshot.capture();
     final nowCadence = _relationshipService.captureCadenceAndFeelings();
     final nowTiers = {
       'bond': _relationshipService.relationshipTier,
@@ -309,7 +309,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       groupSid,
     );
     _applyMoodDecay();
-    if (groupSid != null) _loadGroupRealismIntoScalars(groupSid);
+    if (groupSid != null) _realismDance.loadIntoScalars(groupSid);
     // Posture is written after the reply; the one-shot judge read the
     // position the turn began in.
     final stanceBefore =
@@ -325,7 +325,7 @@ extension ChatServiceFeelingsRescore on ChatService {
     notifyListeners();
     final kobold = _llmProvider?.koboldService;
     if (kobold != null) await kobold.waitForIdle();
-    await _runPreGenRealismJudges(
+    await _realismJudges.runPreGenJudges(
       onChunk: (chunk) {
         _realismEvalStreamText += chunk;
         _evalChunkTimer?.cancel();
@@ -382,7 +382,7 @@ extension ChatServiceFeelingsRescore on ChatService {
         ...verdict,
       };
     }
-    final live = _captureRealismState();
+    final live = _realismSnapshot.capture();
     meta['realism_state'] = {
       ...Map<String, dynamic>.from(meta['realism_state'] as Map),
       for (final k in [..._kJudgedRegisters, 'arousalLevel'])
@@ -468,9 +468,9 @@ extension ChatServiceFeelingsRescore on ChatService {
     if (intensity is String) _emotionIntensity = intensity;
     if (arousal is num) _nsfwService.setArousalLevel(arousal.toInt());
     if (groupSid == null) return;
-    _saveScalarsIntoGroupRealism(groupSid);
+    _realismDance.saveScalarsIntoGroup(groupSid);
     // The save skips an empty mood; a first-turn member had none.
-    _memberForWrite(groupSid)
+    _groupStore.memberForWrite(groupSid)
       ..emotion = _characterEmotion
       ..emotionIntensity = _emotionIntensity;
   }

@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Pre-gen judge builders: verifier, needs impact, RealismEvals,
-// ObjectiveProposal. Engine, post-gen trio, and tools transport
+// ObjectiveProposal, and the RealismJudges / RealismDance /
+// NeedsReprocess that run them. Engine, post-gen trio, and tools transport
 // stay on wiring_evals. Injection is a different file.
 // objectivesActive stays the live AND.
 
@@ -40,9 +41,9 @@ extension ChatServiceWiringEvalJudges on ChatService {
               ?.frontPorchExtensions
               ?.realismVerificationStrictness ??
           3,
-      captureRealismState: _captureRealismState,
+      captureRealismState: _realismSnapshot.capture,
       getPreTurnNeedsVector: () => _needsSimulation.vector,
-      getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
+      getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       onVerificationPhase: (verifying, {pass = 0, max = 1}) {
         _isVerifyingRealism = verifying;
         _verificationPass = pass;
@@ -70,15 +71,15 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
-      getCurrentSpeakerIdForRealism: _getCurrentSpeakerIdForRealism,
+      getCurrentSpeakerIdForRealism: _groupStore.currentSpeakerId,
       getIsGroupNonObserverMode: () => _activeGroup != null,
-      getGroupNeeds: _getGroupNeeds,
-      setGroupNeeds: _setGroupNeeds,
+      getGroupNeeds: _groupStore.needsOf,
+      setGroupNeeds: _groupStore.setNeeds,
       getGroupCharacters: () => _groupCharacters,
       getCharacterIdFromCard: _getCharacterIdFromCard,
       getMessages: () => _messages,
       needsSimulation: _needsSimulation,
-      getNeedsSimEnabled: () => _needsActive,
+      getNeedsSimEnabled: () => _needsPass.active,
       getRealismEnabled: () => _realismEnabled,
       getNeedsModelAuthorityEnabled: () =>
           (_activeCharacter
@@ -144,7 +145,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getMessages: () => _messages,
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
       setPendingRealismMetadata: _writePendingRealismMetadata,
-      captureRealismState: _captureRealismState,
+      captureRealismState: _realismSnapshot.capture,
       getCharacterEmotion: () => _characterEmotion,
       setCharacterEmotion: (v) => _characterEmotion = v,
       getEmotionIntensity: () => _emotionIntensity,
@@ -350,4 +351,65 @@ extension ChatServiceWiringEvalJudges on ChatService {
       },
     );
   }
+
+  RealismJudges _buildRealismJudges() => RealismJudges(
+    _realismScope(),
+    realismEvals: () => _realismEvals,
+    verifier: () => _realismVerifier,
+    fireLLMEval: _fireLLMEval,
+    fireToolEval: _fireToolEval,
+    toolProbe: _toolProbe,
+    backendIdentity: () => _evalBackendIdentity,
+    writePending: _writePendingRealismMetadata,
+    evalCancelled: () => _realismEvalCancelled,
+    oneShotActive: () => _oneShotActive,
+    personaName: () => _userPersonaService.persona.name,
+    dispatchStagger: _kEvalDispatchStagger,
+  );
+
+  RealismDance _buildRealismDance() => RealismDance(
+    _realismScope(),
+    needsPass: () => _needsPass,
+    judges: () => _realismJudges,
+    snapshot: () => _realismSnapshot,
+    realismActiveThisMode: () => _realismActiveThisMode,
+    speakerIsSoft: _speakerIsSoft,
+    withWorkerLane: _withWorkerLane,
+    tickRefractoryPerReply: _tickRefractoryPerReply,
+    stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
+    applyMoodDecay: _applyMoodDecay,
+    seedOpeningPosture: _seedOpeningPosture,
+    objectives: () => _activeObjectives,
+    setObjectives: (v) => _activeObjectives = v,
+    objectivesFor: getActiveObjectivesFor,
+    evalCancelled: () => _realismEvalCancelled,
+    setEvaluating: (v) => _isEvaluatingRealism = v,
+    streamText: () => _realismEvalStreamText,
+    setStreamText: (v) => _realismEvalStreamText = v,
+    chunkTimer: () => _evalChunkTimer,
+    setChunkTimer: (t) => _evalChunkTimer = t,
+  );
+
+  NeedsReprocess _buildNeedsReprocess() => NeedsReprocess(
+    _realismScope(),
+    needsActive: () => _needsPass.active,
+    isTurnBusy: () => _isTurnBusy,
+    speakerForMessage: _resolveGroupSpeakerForMessage,
+    targetFor: reprocessNeedsTargetFor,
+    loadIntoScalars: (id) => _realismDance.loadIntoScalars(id),
+    saveScalarsIntoGroup: (id) => _realismDance.saveScalarsIntoGroup(id),
+    evaluator: () => _needsImpactEvaluator,
+    setVerifying: (on, {pass, maxPasses}) {
+      _isVerifyingRealism = on;
+      if (pass != null) _verificationPass = pass;
+      if (maxPasses != null) _verificationMaxPasses = maxPasses;
+    },
+    clearEvalCancelled: () => _realismEvalCancelled = false,
+    waitForEvalIdle: () async {
+      final koboldForReprocess = _llmProvider?.koboldService;
+      if (koboldForReprocess != null) {
+        await koboldForReprocess.waitForIdle();
+      }
+    },
+  );
 }

@@ -68,7 +68,7 @@ extension ChatServiceWiringEvals on ChatService {
           _realismEvalCancelled || _isStaleGreetingEval(),
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
       setPendingRealismMetadata: _writePendingRealismMetadata,
-      captureRealismState: _captureRealismState,
+      captureRealismState: _realismSnapshot.capture,
       getCharacterEmotion: () => _characterEmotion,
       setCharacterEmotion: (v) => _characterEmotion = v,
       getEmotionIntensity: () => _emotionIntensity,

@@ -161,7 +161,7 @@ class NeedsImpactEvaluator {
             evalKind: 'needs_impact',
             rawOutput: text,
             sceneResponse: responseText,
-            // Pass a needs snapshot shape consistent with what _captureRealismState
+            // Pass a needs snapshot shape consistent with what RealismSnapshot.capture
             // embeds in realism_state['needs'] (and what timeline/restore paths expect).
             // At this point in evaluateAndApply the sim.vector is still the pre-impact one.
             preState: {

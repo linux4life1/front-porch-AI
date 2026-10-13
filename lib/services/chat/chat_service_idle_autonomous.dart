@@ -109,12 +109,12 @@ extension ChatServiceIdleAutonomous on ChatService {
     if (_activeGroup != null) {
       afkSpeaker = _pickPresentGroupSpeaker();
       final sid = _getCharacterIdFromCard(afkSpeaker);
-      if (sid.isNotEmpty) _loadGroupRealismIntoScalars(sid);
+      if (sid.isNotEmpty) _realismDance.loadIntoScalars(sid);
     }
 
     // Capture pre-AFK needs vector so the needs delta chip has a baseline.
     // Soft group speakers skip Needs — do not park a leftover vector.
-    if (_needsActive &&
+    if (_needsPass.active &&
         _needsSimulation.vector.isNotEmpty &&
         (afkSpeaker == null || !_speakerIsSoft(afkSpeaker))) {
       _pendingRealismMetadata ??= {};
@@ -180,7 +180,7 @@ extension ChatServiceIdleAutonomous on ChatService {
         ? '${_timeService.timeOfDay} (Day ${_timeService.dayCount})'
         : '';
 
-    if (!_needsActive || _needsSimulation.vector.isEmpty) {
+    if (!_needsPass.active || _needsSimulation.vector.isEmpty) {
       final preamble = timeAdvancing
           ? '*${AfkFlavor.timePhrase(pace)} It is now $timeStr.\n\n'
           : '*A while has passed.\n\n';

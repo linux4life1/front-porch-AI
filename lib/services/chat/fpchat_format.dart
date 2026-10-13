@@ -28,7 +28,7 @@ const int kFpchatFormatVersion = 1;
 /// Old files (stamp 1) stay valid — the importer only refuses *newer*.
 const int kFpchatStampVersion = 2;
 
-/// Keys written by ChatService._captureRealismState (plus optional needs).
+/// Keys written by RealismSnapshot.capture (plus optional needs).
 /// Guard test must stay in sync — see fpchat_stamp_keys_test.dart.
 const Set<String> kFpchatRealismStateCoreKeys = {
   'affectionScore',

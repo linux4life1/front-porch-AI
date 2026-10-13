@@ -163,8 +163,8 @@ extension ChatServiceGroupMembers on ChatService {
     }
     _inheritGroupExpressionAvatars(resolved);
     _groupManager?.refreshCharacters(resolved);
-    if (!asLite && _needsSimEnabled && _getGroupNeeds(mid).isEmpty) {
-      _setGroupNeeds(
+    if (!asLite && _needsSimEnabled && _groupStore.needsOf(mid).isEmpty) {
+      _groupStore.setNeeds(
         mid,
         NeedsSimulation.baselinesFromExtensions(character.frontPorchExtensions),
       );

@@ -7,32 +7,84 @@
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/enabled_needs.dart';
+import 'package:front_porch_ai/services/chat/needs_impact_evaluator.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
+import 'package:front_porch_ai/services/chat/realism_scope.dart';
+import 'package:front_porch_ai/services/chat/realism_verification.dart';
+
+/// Who a Reprocess Needs pass would run as, and which needs are on.
+typedef NeedsReprocessTarget = ({
+  String speaker,
+  List<String> enabled,
+  CharacterCard? card,
+});
 
 /// Manual needs reprocess + its revert — the two flows that let a user correct
 /// a message's Needs deltas after the fact.
 ///
-/// Split out of `chat_service_reprocess.dart` when the scoped-reprocess work
-/// pushed that file over the god-file ratchet. The seam is the one its own doc
-/// comment already described: these two rebuild a PAST message's needs from a
-/// fixed baseline, while the regenerate flows left behind replay a turn against
-/// the live model. They share only [_resolveGroupSpeakerForMessage], which
-/// stays there because both halves use it.
+/// These rebuild a PAST message's needs from a fixed baseline, while the
+/// regenerate flows (chat_service_reprocess.dart) replay a turn against the
+/// live model.
 ///
 /// The whole reason a baseline key exists rather than reusing realism_state is
-/// documented on [ChatServiceNeedsReprocess._needsPreImpactBaseline] — read it
-/// before touching either flow.
+/// documented on [NeedsReprocess._needsPreImpactBaseline] — read it before
+/// touching either flow.
+class NeedsReprocess {
+  NeedsReprocess(
+    this._scope, {
+    required this.needsActive,
+    required this.isTurnBusy,
+    required this.speakerForMessage,
+    required this.targetFor,
+    required this.loadIntoScalars,
+    required this.saveScalarsIntoGroup,
+    required this.evaluator,
+    required this.setVerifying,
+    required this.clearEvalCancelled,
+    required this.waitForEvalIdle,
+  });
 
-extension ChatServiceNeedsReprocess on ChatService {
+  final RealismScope _scope;
+
+  /// `NeedsPass.active` — the one Needs gate.
+  final bool Function() needsActive;
+  final bool Function() isTurnBusy;
+
+  /// The group roster card that spoke [msg], or null.
+  final CharacterCard? Function(ChatMessage msg) speakerForMessage;
+  final NeedsReprocessTarget? Function(int index) targetFor;
+  final void Function(String charId) loadIntoScalars;
+  final void Function(String charId) saveScalarsIntoGroup;
+  final NeedsImpactEvaluator Function() evaluator;
+
+  /// The verifier overlay: on with its pass counters, or off.
+  final void Function(bool on, {int? pass, int? maxPasses}) setVerifying;
+  final void Function() clearEvalCancelled;
+
+  /// Waits for the local engine to finish what it is doing.
+  final Future<void> Function() waitForEvalIdle;
+
+  List<ChatMessage> get _messages => _scope.messages;
+  bool get _isTurnBusy => isTurnBusy();
+  GroupChat? get _activeGroup => _scope.activeGroup();
+  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  set _activeCharacter(CharacterCard? c) => _scope.setActiveCharacter(c);
+  NeedsSimulation get _needsSimulation => _scope.needs();
+  Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
+  set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
+  String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
+  String _getCurrentSpeakerIdForRealism() => _scope.groups.currentSpeakerId();
+  Map<String, int> _getGroupNeeds(String id) => _scope.groups.needsOf(id);
+  void _setGroupNeeds(String id, Map<String, int> needs) =>
+      _scope.groups.setNeeds(id, needs);
+  void _loadGroupRealismIntoScalars(String id) => loadIntoScalars(id);
+  void _saveScalarsIntoGroupRealism(String id) => saveScalarsIntoGroup(id);
+  Future<void> _saveChat() => _scope.saveChat();
+  void notifyListeners() => _scope.notify();
+
   /// The needs vector as it stood BEFORE this turn touched needs at all — the
   /// one baseline a reprocess and a revert may rebuild from.
   ///
@@ -124,7 +176,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     String? sid;
     CharacterCard? targetSpeakerCard;
     if (isGroupTurn) {
-      targetSpeakerCard = _resolveGroupSpeakerForMessage(msg);
+      targetSpeakerCard = speakerForMessage(msg);
       if (targetSpeakerCard == null) return false;
       sid = _getCharacterIdFromCard(targetSpeakerCard);
     }
@@ -164,7 +216,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     }
 
     // After the swap so the speaker card's needsOff is the one used.
-    final target = reprocessNeedsTargetFor(index);
+    final target = targetFor(index);
     final enabled = target?.enabled.toSet() ?? const <String>{};
     final Set<String> scope;
     if (target == null) {
@@ -197,26 +249,20 @@ extension ChatServiceNeedsReprocess on ChatService {
     );
 
     if (isLast) {
-      _isVerifyingRealism = true;
-      _verificationPass = 1;
-      _verificationMaxPasses = 1;
+      setVerifying(true, pass: 1, maxPasses: 1);
       notifyListeners();
     }
 
     _pendingRealismMetadata = null;
-    _realismEvalCancelled = false;
-    final koboldForReprocess = _llmProvider?.koboldService;
-    if (koboldForReprocess != null) {
-      await koboldForReprocess.waitForIdle();
-    }
+    clearEvalCancelled();
+    await waitForEvalIdle();
 
-    final bool reprocessOk = await _needsImpactEvaluator
-        .reprocessWithUserCritique(
-          msg.displayText,
-          oldNeedsDeltas,
-          critique,
-          onlyNeeds: evalOnly,
-        );
+    final bool reprocessOk = await evaluator().reprocessWithUserCritique(
+      msg.displayText,
+      oldNeedsDeltas,
+      critique,
+      onlyNeeds: evalOnly,
+    );
 
     if (!reprocessOk) {
       // A: non-destructive: rollback to pre-op active live (historical leaves current active untouched)
@@ -231,7 +277,7 @@ extension ChatServiceNeedsReprocess on ChatService {
       // impersonation must be dropped even on failure.
       _activeCharacter = preActiveChar;
       if (isLast) {
-        _isVerifyingRealism = false;
+        setVerifying(false);
         _pendingRealismMetadata = null;
         await _saveChat();
         notifyListeners();
@@ -262,7 +308,7 @@ extension ChatServiceNeedsReprocess on ChatService {
 
     // Keep realism_state['needs'] aligned with manual corrections so swipe
     // navigation and regen do not resurrect a stale pre-reprocess vector.
-    if (_needsActive && updatedMeta['realism_state'] is Map) {
+    if (needsActive() && updatedMeta['realism_state'] is Map) {
       final postReprocessVector = Map<String, int>.from(
         _needsSimulation.vector,
       );
@@ -307,7 +353,7 @@ extension ChatServiceNeedsReprocess on ChatService {
       // 1:1 the capture above grabbed the current character, so this is the
       // no-op it always claimed to be.
       _activeCharacter = preActiveChar;
-      _isVerifyingRealism = false;
+      setVerifying(false);
       _pendingRealismMetadata = null;
     } else {
       // Historical: meta updated; strictly no live/group mutation left behind.
@@ -331,7 +377,7 @@ extension ChatServiceNeedsReprocess on ChatService {
   /// Safe for 1:1 and group (speaker via msg.sender + dance on last).
   /// Returns true on success.
   Future<bool> revertNeedsReprocess(int index) async {
-    if (!_needsActive) return false;
+    if (!needsActive()) return false;
     if (index < 0 || index >= _messages.length) return false;
     if (_isTurnBusy) return false;
     final msg = _messages[index];
@@ -355,7 +401,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     String? sid;
     CharacterCard? targetSpeakerCard;
     if (isGroupTurn) {
-      targetSpeakerCard = _resolveGroupSpeakerForMessage(msg);
+      targetSpeakerCard = speakerForMessage(msg);
       if (targetSpeakerCard == null) return false;
       sid = _getCharacterIdFromCard(targetSpeakerCard);
     }
@@ -407,7 +453,7 @@ extension ChatServiceNeedsReprocess on ChatService {
     // turn, not the correction, and dropping it would let the next reprocess
     // re-derive a baseline from the (already post-impact) realism_state.
     updated['needs_pre_impact'] = baseline;
-    if (_needsActive && updated['realism_state'] is Map) {
+    if (needsActive() && updated['realism_state'] is Map) {
       final postRevertVector = Map<String, int>.from(_needsSimulation.vector);
       final rs = Map<String, dynamic>.from(updated['realism_state'] as Map);
       final needsSnap = <String, dynamic>{'vector': postRevertVector};

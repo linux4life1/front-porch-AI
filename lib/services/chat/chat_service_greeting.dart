@@ -133,7 +133,7 @@ extension ChatServiceGreeting on ChatService {
     if (_openingPostureSeededFor == key) return;
     _openingPostureSeededFor = key;
     debugPrint('[Realism:Posture] Seeding opening position (none on record)');
-    final seed = _evaluatePhysicalStateCall(postureOnly: true);
+    final seed = _realismEvals.evaluatePhysicalStateCall(postureOnly: true);
     // The waiter's copy swallows failures: a seed that blew up is the OWNER's
     // problem to surface (it still awaits `seed` raw, exactly as before this
     // was single-flight), and must not become an exception thrown at whoever
@@ -170,10 +170,10 @@ extension ChatServiceGreeting on ChatService {
       try {
         await Future.wait([
           // delegates to _llmEvalEngine (step 9 thins; full bodies excised)
-          _evaluateEmotionalStateCall(),
+          _realismEvals.evaluateEmotionalStateCall(),
           Future.delayed(
             _kEvalDispatchStagger,
-            () => _evaluateRelationshipCall(),
+            () => _realismEvals.evaluateRelationshipCall(),
           ),
           // WHERE SHE IS WHEN THE STORY OPENS. The greeting IS the opening scene
           // — "they are rocking in the armchair when you walk in" — so the baseline
@@ -213,8 +213,8 @@ extension ChatServiceGreeting on ChatService {
           if (_characterEmotion.isNotEmpty) {
             _messages.first.activeMetadata!['emotion_label'] =
                 _characterEmotion;
-            _messages.first.activeMetadata!['realism_state'] =
-                _captureRealismState();
+            _messages.first.activeMetadata!['realism_state'] = _realismSnapshot
+                .capture();
           }
         }
         // Unauthored group RtR writes live scalars only unless we put them
@@ -252,7 +252,8 @@ extension ChatServiceGreeting on ChatService {
     notifyListeners();
     try {
       if (_oneShotActive) {
-        await _evaluateOneShotCall(); // step 10 thin (full in realism_evals)
+        await _realismEvals
+            .evaluateOneShotCall(); // step 10 thin (full in realism_evals)
 
         // Check for cancellation after one-shot eval
         if (_realismEvalCancelled) {
@@ -263,18 +264,18 @@ extension ChatServiceGreeting on ChatService {
         }
       } else {
         await Future.wait([
-          _evaluateRelationshipCall(),
+          _realismEvals.evaluateRelationshipCall(),
           Future.delayed(
             _kEvalDispatchStagger,
-            () => _evaluateEmotionalStateCall(),
+            () => _realismEvals.evaluateEmotionalStateCall(),
           ),
           Future.delayed(
             _kEvalDispatchStagger * 2,
-            () => _evaluatePhysicalStateCall(),
+            () => _realismEvals.evaluatePhysicalStateCall(),
           ),
           Future.delayed(
             _kEvalDispatchStagger * 3,
-            () => _evaluateNarrativeCall(),
+            () => _realismEvals.evaluateNarrativeCall(),
           ),
         ]);
 
@@ -299,8 +300,8 @@ extension ChatServiceGreeting on ChatService {
       if (_messages.isNotEmpty) {
         _messages.last.activeMetadata ??= {};
         _messages.last.activeMetadata!['emotion_label'] = _characterEmotion;
-        _messages.last.activeMetadata!['realism_state'] =
-            _captureRealismState();
+        _messages.last.activeMetadata!['realism_state'] = _realismSnapshot
+            .capture();
       }
       await _saveChat();
       notifyListeners();

@@ -30,7 +30,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 /// The 4 multi-call realism eval calls (Cluster D) for [RealismEvals]:
 /// relationship, emotional state, physical state, narrative. PUBLIC (not
 /// `_private`) because these are invoked from the chat_service library's
-/// god thins (`chat_service_realism_evals.dart`) and from
+/// god thins (`realism_judges.dart`) and from
 /// test/services/chat/realism_evals_test.dart — a private extension would
 /// not resolve outside this library. Split out of realism_evals.dart
 /// verbatim as part of the god-file elimination campaign; see

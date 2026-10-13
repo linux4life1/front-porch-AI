@@ -62,7 +62,7 @@ extension ChatServiceGenerationStream on ChatService {
     // one of them would eventually be missed. No-op when the feature is off or
     // the day is unremarkable.
     if (_pendingRealismMetadata != null) {
-      stampStandingMood(_pendingRealismMetadata!);
+      _standingMood.stamp(_pendingRealismMetadata!);
     }
 
     if (t.mode == GenerationMode.continue_) {

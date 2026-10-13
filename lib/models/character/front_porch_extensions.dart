@@ -63,7 +63,7 @@ class FrontPorchExtensions {
   /// True only when the card explicitly asks for Needs. Not "does this card
   /// get Needs": a silent card reads false here yet follows the Porch Life
   /// switch, so anything deciding whether a chat runs Needs reads
-  /// [needsSimChoice] (ChatService `_seedNeedsSim`).
+  /// [needsSimChoice] (`NeedsPass.seedNeedsSim`).
   bool get needsSimEnabled => needsSimChoice ?? false;
   set needsSimEnabled(bool value) => needsSimChoice = value;
 

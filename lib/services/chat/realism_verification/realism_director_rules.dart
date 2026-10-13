@@ -98,7 +98,7 @@ class RealismDirectorRules {
     final scene = (bundle['scene'] as String? ?? '').toLowerCase();
     final strictFactor = (strict / 3.0).clamp(0.6, 1.4);
     final pre = (bundle['pre_state'] as Map?) ?? {};
-    // 'affectionScore' FIRST: that is the key ChatService._captureRealismState
+    // 'affectionScore' FIRST: that is the key RealismSnapshot.capture
     // actually writes the bond under, and it is the only producer of
     // `pre_state` in production. Probing the other two alone left preBond
     // pinned at 0, so the 'extreme bond swing' damper below could never fire.

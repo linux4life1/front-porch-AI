@@ -8,9 +8,9 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
-// Needs run behind one gate. `_needsActive` (lib/services/chat/
-// chat_service_needs_pass.dart) is the Realism engine AND the chat's Needs
-// switch AND the global Needs switch read live; every way Needs run (the
+// Needs run behind one gate. `NeedsPass._needsActive` (lib/services/chat/
+// needs_pass.dart, read as `NeedsPass.active`) is the Realism engine AND the
+// chat's Needs switch AND the global Needs switch read live; every way Needs run (the
 // pre-turn stamp, the prompt lines, the judge, the clock's wear, the chip,
 // Reprocess Needs) reads it, so off means off. Needs v2 added the clock's
 // wear with its own check of the stored switch alone, and a v1.5.0 user
@@ -20,7 +20,9 @@
 // The stored switch, `_needsSimEnabled`, may still be read as a condition
 // where it means "this chat keeps Needs state", not "run Needs now": the
 // files below, each with its reason. Anywhere else in the ChatService
-// library, a condition on it is a Needs pass that bypassed the gate. The
+// library or its chat leaves, a condition on it (as the field, or as a
+// leaf's `RealismScope.needsSimEnabled()` read) is a Needs pass that
+// bypassed the gate. The
 // public `needsSimEnabled` is the same switch, for the Needs toggle to
 // show its position; a leaf service must not run from it, and the bars
 // (desktop sidebar, the phone's feed) show from `needsActive`, or they sit
@@ -30,9 +32,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../helpers/source_ratchet.dart';
 
-const _pass = 'lib/services/chat/chat_service_needs_pass.dart';
+const _pass = 'lib/services/chat/needs_pass.dart';
 
-/// The ChatService library: the shell and its parts.
+/// The ChatService library (the shell and its parts) and its chat leaves.
 List<String> _chatServiceLibrary() => [
   'lib/services/chat_service.dart',
   ...dartFiles('lib/services/chat'),
@@ -41,8 +43,8 @@ List<String> _chatServiceLibrary() => [
 /// Files that read the stored switch as a condition, and why that is right.
 const _stateAndRewinds = <String, String>{
   _pass: 'the gate itself',
-  'lib/services/chat/chat_service_needs_rewinds.dart':
-      'rewinds (restore, refund) of a stamp a reply carries',
+  'lib/services/chat/needs_rewinds.dart':
+      'rewinds (restore, refund) of a stamp a reply carries, refunds a delete',
   'lib/services/chat/chat_service_chat_entry.dart': 'seeds the bars at open',
   'lib/services/chat/chat_service_group_entry.dart': 'seeds the bars at open',
   'lib/services/chat/chat_service_group_lite.dart':
@@ -55,31 +57,35 @@ const _stateAndRewinds = <String, String>{
       'restores the bars from a session',
   'lib/services/chat/chat_service_session_manage.dart':
       'saves the bars with a session',
-  'lib/services/chat/chat_service_group_realism_helpers.dart':
-      'restores a speaker\'s bars from a snapshot, refunds a delete',
+  'lib/services/chat/realism_snapshot.dart':
+      'restamps a speaker\'s bars into the reply\'s snapshot',
   'lib/services/chat/chat_service_speaker_objectives.dart':
       'restores the bars from a message\'s snapshot on rewind',
   'lib/services/chat/chat_service_regen_revert.dart':
       'rewinds a regen to its stamp',
   'lib/services/chat/chat_service_message_ops.dart':
       'rewinds a delete to its stamp',
-  'lib/services/chat/chat_service_mood.dart':
+  'lib/services/chat/standing_mood.dart':
       'reads the bars into the realism snapshot',
 };
 
 /// [name] used as a condition: in an `if` / `while` / `assert` head,
 /// beside `&&` / `||` (on either line of a wrapped condition), or before
-/// `?`.
+/// `?`. `(?!\w)` ends the name (a `\b` cannot follow a closing paren).
 RegExp _asCondition(String name) => RegExp(
-  '(?:if|while|assert)\\s*\\([^;{\\n]*$name\\b'
+  '(?:if|while|assert)\\s*\\([^;{\\n]*$name(?!\\w)'
   '|$name\\s*(?:&&|\\|\\||\\?)'
-  '|(?:&&|\\|\\|)\\s*!?$name\\b',
+  '|(?:&&|\\|\\|)\\s*!?$name(?!\\w)',
 );
 
 /// Inside the library the switch is read as the field or as the bare
 /// public getter (an extension that keeps to public members, for the
-/// golden fake); `card.needsSimEnabled` is the card's seed, not the chat's.
-final _storedSwitchAsCondition = _asCondition(r'(?<![.\w])_?needsSimEnabled');
+/// golden fake); a chat leaf reads it through its scope's
+/// `needsSimEnabled()` call. `card.needsSimEnabled` is the card's seed, not
+/// the chat's.
+final _storedSwitchAsCondition = _asCondition(
+  r'(?:(?<![.\w])_?needsSimEnabled|[\w.]*\.needsSimEnabled\(\))',
+);
 final _publicSwitchAsCondition = _asCondition(r'\.needsSimEnabled');
 final _gateDefinition = RegExp(r'bool get _needsActive\b');
 

@@ -73,7 +73,7 @@ extension ChatServiceGroupRead on ChatService {
   /// from older group data are silently filtered).
   Map<String, int> getNeedsForGroupCharacter(CharacterCard character) {
     if (!isGroupRealismActive) return const {};
-    return _getGroupNeeds(_getCharacterIdFromCard(character));
+    return _groupStore.needsOf(_getCharacterIdFromCard(character));
   }
 
   int getAffectionForGroupCharacter(CharacterCard character) {
