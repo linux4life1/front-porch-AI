@@ -29,3 +29,4 @@ const String kClimaxToolName = 'report_climax';
 const String kPocketsToolName = 'report_inventory';
 const String kReplyFactsToolName = 'report_reply_facts';
 const String kWithUserToolName = 'report_with_user';
+const String kCastFeelingsToolName = 'report_cast_feelings';

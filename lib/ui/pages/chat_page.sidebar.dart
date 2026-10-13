@@ -238,6 +238,27 @@ class ChatRightSidebar extends StatelessWidget {
                   onStepIn: () =>
                       unawaited(chatService.sendMessage('/director off')),
                   onDelayChanged: storage.ttsSettings.setDirectorDelay,
+                  tools: DirectorTools(
+                    memberNames: [
+                      for (final c in chatService.groupCharacters) c.name,
+                    ],
+                    goal: chatService.directorGoal,
+                    whispers: chatService.directorWhisperRows,
+                    turnBudget: storage.ttsSettings.directorTurnBudget,
+                    turnsLeft: chatService.autoPlayActive
+                        ? chatService.autoChatTurnsLeft
+                        : null,
+                    busy: chatService.isGenerating,
+                    onCue: (name) =>
+                        unawaited(chatService.sendMessage('/speak $name')),
+                    onBeat: (note) => unawaited(chatService.sendMessage(note)),
+                    onGoal: (text) =>
+                        unawaited(chatService.setDirectorGoal(text)),
+                    onClearWhisper: (id) =>
+                        unawaited(chatService.setDirectorWhisper(id, '')),
+                    onTurnBudget: (n) =>
+                        unawaited(storage.ttsSettings.setDirectorTurnBudget(n)),
+                  ),
                 );
               },
             ),

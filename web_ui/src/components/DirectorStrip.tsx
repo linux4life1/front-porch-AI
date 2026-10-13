@@ -7,6 +7,7 @@
 // and the UNDO all come from ChatService.
 
 import { useEffect, useState } from 'react';
+import { DirectorTools, type DirectorBeat, type DirectorWhisper } from './DirectorTools';
 
 export interface DirectorState {
   directing: boolean;
@@ -17,6 +18,13 @@ export interface DirectorState {
   /** The auto-chat delay in seconds, sent while directing. Absent on older
    *  apps, which then show no delay control. */
   delaySeconds?: number | null;
+  /** The director's tools. Absent on older apps, which then show none. */
+  beats?: DirectorBeat[];
+  goal?: string;
+  whispers?: DirectorWhisper[];
+  turnBudget?: number;
+  /** Turns left in the running auto-chat, or null when unlimited. */
+  turnsLeft?: number | null;
 }
 
 export interface ExitUndo {
@@ -37,12 +45,20 @@ export function DirectorStrip({
   onCommand,
   onAutoPlay,
   onDelay,
+  memberNames = [],
+  onGoal,
+  onClearWhisper,
+  onTurnBudget,
 }: {
   director: DirectorState;
   busy: boolean;
   onCommand: (cmd: string) => void;
   onAutoPlay: (on: boolean) => void;
   onDelay: (seconds: number) => void;
+  memberNames?: string[];
+  onGoal?: (text: string) => void;
+  onClearWhisper?: (id: string) => void;
+  onTurnBudget?: (turns: number) => void;
 }) {
   const { directing, autoPlay, delaySeconds } = director;
   // The slider's live value while it is held; saved when it is let go.
@@ -97,6 +113,21 @@ export function DirectorStrip({
           <span className="director-delay-value">{delay.toFixed(1)}s</span>
         </label>
       )}
+      {directing && director.beats && onGoal && onClearWhisper && onTurnBudget && (
+        <DirectorTools
+          memberNames={memberNames}
+          beats={director.beats}
+          goal={director.goal ?? ''}
+          whispers={director.whispers ?? []}
+          turnBudget={director.turnBudget ?? 0}
+          turnsLeft={director.turnsLeft ?? null}
+          busy={busy}
+          onCommand={onCommand}
+          onGoal={onGoal}
+          onClearWhisper={onClearWhisper}
+          onTurnBudget={onTurnBudget}
+        />
+      )}
     </div>
   );
 }
@@ -104,15 +135,25 @@ export function DirectorStrip({
 export function ExitUndoBar({ undo, onUndo }: { undo: ExitUndo | null; onUndo: () => void }) {
   // Offered once per exit, for a few seconds, like the desktop SnackBar.
   const key = undo ? `${undo.isUser}:${undo.name}` : null;
-  const [hidden, setHidden] = useState<string | null>(null);
+  // Remembered for this tab, so a reload doesn't offer the same UNDO again.
+  const [hidden, setHiddenState] = useState<string | null>(readHiddenUndo);
+  const setHidden = (k: string | null) => {
+    setHiddenState(k);
+    writeHiddenUndo(k);
+  };
   useEffect(() => {
     // A closed UNDO forgets what it hid, so the next exit by the same name
     // (or the next step out) is offered again.
     if (!key) {
-      setHidden(null);
+      setHiddenState(null);
+      writeHiddenUndo(null);
       return;
     }
-    const t = setTimeout(() => setHidden(key), UNDO_MS);
+    if (readHiddenUndo() === key) return;
+    const t = setTimeout(() => {
+      setHiddenState(key);
+      writeHiddenUndo(key);
+    }, UNDO_MS);
     return () => clearTimeout(t);
   }, [key]);
   if (!undo || hidden === key) return null;
@@ -130,4 +171,23 @@ export function ExitUndoBar({ undo, onUndo }: { undo: ExitUndo | null; onUndo: (
       </button>
     </div>
   );
+}
+
+const HIDDEN_UNDO_KEY = 'fpai.exitUndoHidden';
+
+function readHiddenUndo(): string | null {
+  try {
+    return sessionStorage.getItem(HIDDEN_UNDO_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeHiddenUndo(key: string | null) {
+  try {
+    if (key) sessionStorage.setItem(HIDDEN_UNDO_KEY, key);
+    else sessionStorage.removeItem(HIDDEN_UNDO_KEY);
+  } catch {
+    // Storage blocked (private mode): the bar just isn't remembered.
+  }
 }

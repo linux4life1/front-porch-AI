@@ -18,3 +18,4 @@
 
 export 'cast_name_resolver.dart';
 export 'scene_guest_commands.dart';
+export 'slash_command_catalog.dart';

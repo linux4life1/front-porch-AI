@@ -22,6 +22,10 @@ import 'package:front_porch_ai/utils/reasoning_markers.dart';
 /// Status, not story: omit from the prompt and from the saved transcript.
 const String kStatusBannerMeta = 'is_status_banner';
 
+/// Metadata on a director-family message (`__director__`) that says it is a
+/// narrator's scene beat rather than a director's note.
+const String kDirectorNarrationMeta = 'is_director_narration';
+
 enum GenerationMode { normal, continue_, impersonate }
 
 /// Tracks the distinct phases of text generation for UI display.
@@ -143,6 +147,10 @@ class ChatMessage {
   /// Backend-down / generation-error banners. Not story.
   bool get isStatusBanner => activeMetadata?[kStatusBannerMeta] == true;
 
+  /// A narrator's scene beat asked for while directing (`/narrate`).
+  bool get isDirectorNarration =>
+      activeMetadata?[kDirectorNarrationMeta] == true;
+
   /// One `sender: text` line for the chat-history section of a generation
   /// prompt. Always think-stripped ([promptText]): feeding raw [text] re-injects
   /// every prior `<think>` plan into the next turn, so a thinking model on a
@@ -152,7 +160,7 @@ class ChatMessage {
   String toPromptHistoryLine() {
     if (isStatusBanner) return '';
     if (characterId == '__director__') {
-      return '[Director: $text]';
+      return isDirectorNarration ? '[Narration: $text]' : '[Director: $text]';
     }
     if (activeMetadata?['is_generated_image'] == true && displayText.isEmpty) {
       final prompt = (activeMetadata?['image_prompt'] as String? ?? '').trim();

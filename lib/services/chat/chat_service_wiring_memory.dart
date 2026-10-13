@@ -401,6 +401,11 @@ extension ChatServiceWiringMemory on ChatService {
         promoteSceneToGroup: promoteSceneToFull,
         stepUserOffStage: stepUserOffStage,
         stepUserOnStage: stepUserOnStage,
+        getCast: () => _groupCharacters,
+        setWhisper: (member, text) =>
+            setDirectorWhisper(_getCharacterIdFromCard(member), text),
+        setGoal: setDirectorGoal,
+        narrate: narrateScene,
         onSystemMessage: (m) => _setGuestStatus(m, isError: m.startsWith('⚠')),
       ),
     );

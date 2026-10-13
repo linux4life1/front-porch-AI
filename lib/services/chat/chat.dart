@@ -17,6 +17,7 @@ export 'ambition_service.dart';
 export 'biome_preview.dart';
 export 'biome_schedule.dart';
 export 'cast_detector.dart';
+export 'cast_feelings_judge.dart';
 export 'chaos/chaos.dart';
 export 'chaos_mode_service.dart';
 export 'chat_command_handler.dart';

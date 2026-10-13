@@ -281,6 +281,18 @@ mixin ChatServiceFieldBag {
   // the forced-speaker side is handled by GroupTurnManager.setNextSpeaker.
   String? _entranceDirective;
 
+  /// The director's pinned scene goal and private whispers, saved per chat.
+  final DirectorScene _directorScene = DirectorScene();
+
+  /// A `/narrate` call is in flight (it runs before the turn it starts).
+  bool _narrating = false;
+
+  /// The running auto-chat's turn budget.
+  final AutoChatBudget _autoChatBudget = AutoChatBudget();
+
+  /// The char→char judge, built on first use.
+  CastFeelingsJudge? _castFeelingsJudgeCache;
+
   /// Per-character Author's Notes for group chats (independent of group-level _authorNote).
   /// Keyed by stable charId (from _getCharacterIdFromCard). Populated from the
   /// (legacy comment — now persisted via sessions.group_realism_state column)

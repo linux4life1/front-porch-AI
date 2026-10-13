@@ -701,4 +701,58 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await expect(strip).toContainText('You’re in the scene');
     await expect(box).toHaveAttribute('placeholder', 'Message…');
   });
+
+  test('pin a scene goal, set the auto-chat run, cue a speaker and narrate', async ({ page }) => {
+    await openRoute(page, '/');
+    await page.locator('.lib-card:not(.group-card)', { hasText: 'Second Guest' }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await page.locator('.conversations-btn').click();
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+
+    const box = page.locator('textarea.composer-input');
+    const strip = page.locator('.director-strip');
+    await box.fill('/join Porch Tester');
+    await box.press('Enter');
+    await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
+    await waitIdle(page);
+    await strip.getByRole('button', { name: 'Step out to direct' }).click();
+    await waitIdle(page);
+    await expect(strip).toContainText('You’re directing');
+
+    const directorState = async () =>
+      ((await (await page.request.get('/api/chat/state')).json()) as {
+        director?: { goal?: string; turnBudget?: number };
+      }).director;
+
+    await strip.getByLabel('Scene goal').fill('Find the lost key before dawn');
+    await strip.getByRole('button', { name: 'Pin' }).click();
+    await expect(strip.getByRole('note')).toContainText('Find the lost key before dawn');
+    await expect.poll(async () => (await directorState())?.goal).toBe('Find the lost key before dawn');
+
+    const run = strip.getByLabel('Auto-chat run length');
+    const savedRun = await run.inputValue();
+    await run.selectOption('6');
+    await expect.poll(async () => (await directorState())?.turnBudget).toBe(6);
+    await page.request.post('/api/chat/director/budget', { data: { turns: Number(savedRun) } });
+
+    // A cue has that member take their turn now.
+    let before = await rows(page).count();
+    await strip.getByLabel('Cue who speaks next').getByRole('button', { name: 'Porch Tester' }).click();
+    await waitIdle(page);
+    await expect(rows(page)).toHaveCount(before + 1);
+    await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
+
+    // The narrator's beat lands as its own line, and the cast answers it.
+    before = await rows(page).count();
+    await box.fill('/narrate a storm rolls in');
+    await box.press('Enter');
+    await waitIdle(page);
+    await expect(page.locator('.bubble.director-note', { hasText: 'Narrator' })).toBeVisible();
+    await expect(rows(page)).toHaveCount(before + 2);
+
+    await strip.getByRole('button', { name: 'Clear the scene goal' }).click();
+    await expect.poll(async () => (await directorState())?.goal).toBe('');
+  });
 });

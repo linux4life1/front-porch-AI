@@ -66,6 +66,10 @@ extension ChatServiceSessionState on ChatService {
   /// once after [_hydrateSessionScalars] — a save here races the
   /// history-drawer path, which hydrates after this load.
   Future<bool> _loadGroupRealismStateFromSession(Session? session) async {
+    // Directions are per chat: a chat without a group has none.
+    _directorScene.hydrate(
+      _activeGroup == null ? null : session?.groupRealismState,
+    );
     if (_activeGroup == null) return false;
 
     String? stateJson = session?.groupRealismState;

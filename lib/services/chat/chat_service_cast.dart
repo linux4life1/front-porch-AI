@@ -178,6 +178,79 @@ extension ChatServiceCast on ChatService {
     return true;
   }
 
+  /// The director's pinned scene goal, or empty.
+  String get directorGoal => _directorScene.goal;
+
+  /// The director's private whispers, by member id.
+  Map<String, String> get directorWhispers => _directorScene.whispers;
+
+  /// The whispers for members still in the scene, in cast order.
+  List<({String id, String name, String text})> get directorWhisperRows => [
+    for (final c in _groupCharacters)
+      if (_directorScene.whispers[_getCharacterIdFromCard(c)] case final w?)
+        (id: _getCharacterIdFromCard(c), name: c.name, text: w),
+  ];
+
+  /// Pins [text] as the scene goal; empty clears it. Saved per chat.
+  Future<void> setDirectorGoal(String text) async {
+    _directorScene.setGoal(text);
+    await _saveChat();
+    notifyListeners();
+  }
+
+  /// Sets the private whisper for the member with [memberId]; empty clears it.
+  Future<void> setDirectorWhisper(String memberId, String text) async {
+    _directorScene.setWhisper(memberId, text);
+    await _saveChat();
+    notifyListeners();
+  }
+
+  /// `/narrate`: one narrator beat lands as a scene card, then the next
+  /// character reacts to it as they would to a note. False when a turn is
+  /// already running, or the user isn't directing.
+  Future<bool> narrateScene(String hint) async {
+    if (!_directing || _isTurnBusy || _narrating) return false;
+    _narrating = true;
+    try {
+      _setGuestStatus('The narrator sets the scene…', sticky: true);
+      final recent = _messages.length > kNarrationHistoryLines
+          ? _messages.sublist(_messages.length - kNarrationHistoryLines)
+          : _messages;
+      final raw = await _llmEvalEngine.fireLLMEval(
+        narrationPrompt(
+          recentLines: [
+            for (final m in recent)
+              if (!m.isStatusBanner && m.sender != 'System')
+                m.toPromptHistoryLine(),
+          ],
+          castNames: [for (final c in _groupCharacters) c.name],
+          hint: hint,
+        ),
+        label: 'narration',
+      );
+      final beat = raw == null
+          ? ''
+          : cleanNarration(_llmEvalEngine.stripThinkBlocks(raw));
+      if (beat.isEmpty || !_directing) {
+        _setGuestStatus(
+          '⚠ The narrator had nothing to add. Try again.',
+          isError: true,
+        );
+        return true;
+      }
+      _setGuestStatus(null);
+      await _commitPendingMemberExit();
+      _clearExitUndo();
+      _messages.add(narrationMessage(beat));
+      await _saveChat();
+      notifyListeners();
+    } finally {
+      _narrating = false;
+    }
+    await _generateResponse(GenerationMode.normal);
+    return true;
+  }
+
   /// Commit a deferred full-member `/exit`: run the real removal (and any
   /// collapse to a 1:1) now that the undo window has closed. No-op when nothing
   /// is pending. The goodbye turn was already narrated at exit time, so this only

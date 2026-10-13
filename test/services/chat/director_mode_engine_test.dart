@@ -18,7 +18,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show kCastFeelingsMaxDelta;
 import 'package:front_porch_ai/services/chat/director/director.dart';
+import 'package:front_porch_ai/utils/utils.dart' show groupMemberStoreId;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -33,6 +36,29 @@ class _PromptRecordingLlm extends RecordingLlm {
   Stream<String> generateStream(GenerationParams params) {
     if (params.systemPrompt != null) {
       replyPrompts.add('${params.systemPrompt}\n${params.prompt}');
+    }
+    return super.generateStream(params);
+  }
+}
+
+/// Also plays the narrator and the char→char judge, so a test can see what
+/// each was asked and hand back a known answer.
+class _SceneLlm extends _PromptRecordingLlm {
+  final List<String> narrationPrompts = [];
+  String narration = 'Narration: Rain starts drumming on the porch roof.';
+  String castFeelings = '{"feelings": []}';
+  int castFeelingsCalls = 0;
+
+  @override
+  Stream<String> generateStream(GenerationParams params) {
+    final p = params.prompt;
+    if (p.contains('You are the narrator of a roleplay scene')) {
+      narrationPrompts.add(p);
+      return Stream.value(narration);
+    }
+    if (p.contains('just replied. Judge how this reply')) {
+      castFeelingsCalls++;
+      return Stream.value(castFeelings);
     }
     return super.generateStream(params);
   }
@@ -332,5 +358,150 @@ void main() {
     expect(find.textContaining('Realism off'), findsNothing);
     // Dispose here: the binding checks debugPrint is handed back.
     await tester.runAsync(h.dispose);
+  });
+  group('the director\'s tools', () {
+    late _SceneLlm scene;
+    setUp(() {
+      scene = _SceneLlm();
+      llm = scene;
+      h.llm = scene;
+      h.chat.testLlmServiceOverride = scene;
+    });
+
+    test('a pinned goal reaches every speaker, a whisper only its member, '
+        'and both survive a reload', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/goal Find the lost key before dawn');
+      await h.settleTurn();
+      expect(h.chat.directorGoal, isEmpty, reason: 'only while directing');
+
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      await h.chat.sendMessage('/goal Find the lost key before dawn');
+      await h.chat.sendMessage('/whisper Ayla You took the key yourself.');
+      await h.settleTurn();
+      expect(h.chat.directorGoal, 'Find the lost key before dawn');
+      expect(h.chat.directorWhisperRows.single.name, 'Ayla');
+
+      h.chat.setNextCharacter(member('Ayla'));
+      await h.chat.sendMessage('The porch light flickers out.');
+      await h.settleTurn();
+      expect(scene.replyPrompts.last, contains('Find the lost key'));
+      expect(scene.replyPrompts.last, contains('You took the key yourself.'));
+
+      h.chat.setNextCharacter(member('Bram'));
+      await h.chat.sendMessage('Somebody knocks.');
+      await h.settleTurn();
+      expect(scene.replyPrompts.last, contains('Find the lost key'));
+      expect(
+        scene.replyPrompts.last,
+        isNot(contains('You took the key yourself.')),
+        reason: 'a whisper is for one member only',
+      );
+
+      final sid = h.chat.currentSessionId!;
+      await h.chat.startNewChat();
+      await h.settleTurn();
+      expect(h.chat.directorGoal, isEmpty);
+      await h.chat.loadSession(sid);
+      await h.settleTurn();
+      expect(h.chat.directorGoal, 'Find the lost key before dawn');
+      expect(
+        h.chat.directorWhisperRows.single.text,
+        'You took the key yourself.',
+      );
+
+      await h.chat.sendMessage('/whisper Ayla off');
+      await h.settleTurn();
+      expect(h.chat.directorWhisperRows, isEmpty);
+    });
+
+    test('/narrate lands a narrator beat in the transcript and the cast '
+        'answers it', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      final before = h.chat.messages.length;
+
+      await h.chat.sendMessage('/narrate a storm rolls in');
+      await h.settleTurn();
+
+      expect(scene.narrationPrompts.last, contains('a storm rolls in'));
+      final beat = h.chat.messages[before];
+      expect(beat.isDirectorNarration, isTrue);
+      expect(beat.sender, 'Narrator');
+      expect(beat.characterId, kDirectorCharacterId);
+      expect(beat.text, 'Rain starts drumming on the porch roof.');
+      expect(h.chat.messages, hasLength(before + 2));
+      expect(h.chat.messages.last.isUser, isFalse);
+      expect(
+        scene.replyPrompts.last,
+        contains('[Narration: Rain starts drumming on the porch roof.]'),
+      );
+    });
+
+    test('auto-chat stops itself when its run of turns is spent', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      h.chat.directorDelaySec = 0;
+      await h.chat.setSavedDirectorTurnBudget(2);
+      final before = h.chat.messages.length;
+
+      h.chat.startAutoPlay();
+      expect(h.chat.autoChatTurnsLeft, 2);
+      for (var i = 0; i < 20 && h.chat.autoPlayActive; i++) {
+        await h.settleTurn();
+      }
+
+      expect(h.chat.autoPlayActive, isFalse);
+      expect(h.chat.messages, hasLength(before + 2));
+      expect(h.chat.guestActivityStatus, contains('run of turns is done'));
+    });
+
+    test('auto-chat pauses when a character speaks to the user', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      h.chat.directorDelaySec = 0;
+      scene.mouth =
+          '*She squints at the dark yard.* "User, are you out there?"';
+      final before = h.chat.messages.length;
+
+      h.chat.startAutoPlay();
+      for (var i = 0; i < 20 && h.chat.autoPlayActive; i++) {
+        await h.settleTurn();
+      }
+
+      expect(h.chat.autoPlayActive, isFalse);
+      expect(h.chat.messages, hasLength(before + 1));
+      expect(h.chat.guestActivityStatus, contains('spoke to you'));
+    });
+
+    test('the char-to-char judge moves the speaker\'s feelings toward the '
+        'member the reply involved', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      final rel = h.chat.relationshipService;
+      final aylaId = groupMemberStoreId(member('Ayla'));
+      final bramKey = groupMemberStoreId(member('Bram'));
+      final before = Map<String, int>.of(
+        rel.getInterCharacterRelationships(aylaId),
+      );
+      expect(before.keys, contains(bramKey));
+      scene.castFeelings = '{"feelings": [{"name": "bram", "delta": 9}]}';
+
+      h.chat.setNextCharacter(member('Ayla'));
+      await h.chat.sendMessage('Bram hands Ayla a warm mug.');
+      await h.settleTurn();
+
+      expect(scene.castFeelingsCalls, greaterThan(0));
+      expect(
+        rel.getInterCharacterRelationships(aylaId)[bramKey],
+        before[bramKey]! + kCastFeelingsMaxDelta,
+        reason: 'the judged delta, clamped, moves Ayla toward Bram',
+      );
+    });
   });
 }

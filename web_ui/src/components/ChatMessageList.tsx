@@ -202,7 +202,9 @@ const TranscriptRows = memo(function TranscriptRows({
               </details>
             )}
             <div className={isDirectorNote ? 'bubble director-note' : m.isUser ? 'bubble user' : 'bubble ai'}>
-              {isDirectorNote && <span className="director-note-label">🎬 Director</span>}
+              {isDirectorNote && (
+                <span className="director-note-label">{m.isNarration ? '📜 Narrator' : '🎬 Director'}</span>
+              )}
               {m.image && (
                 // Generated image (from /image or the Image Studio) —
                 // native right-click gives "Save image as…" in a browser.
