@@ -119,6 +119,10 @@ class SettingsWriter {
       if (pot is bool) {
         await _storage.realismSettings.setPassageOfTimeDefault(pot);
       }
+      final bridge = realism['timeSkipBridgeEnabled'];
+      if (bridge is bool) {
+        await _storage.realismSettings.setTimeSkipBridgeEnabled(bridge);
+      }
       // Leftover pref: old PWAs still write it. The live clock gates on
       // chat-gear Passage of Time, not this flag.
       final sc = realism['standaloneClockEnabled'];

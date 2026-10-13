@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/chat/skip_language.dart';
+import 'package:front_porch_ai/services/chat/skip_span.dart';
 
 /// The Story Clock — pure calendar/clock math for the passage-of-time
 /// subsystem (design: docs/design/story-calendar.md). No I/O, no state,
@@ -220,6 +221,10 @@ class StoryClock {
   /// OOC / narrative skip destination. [lower] is quote-stripped lowercase.
   /// Callers still gate on skip language; this only interprets the target.
   static DateTime resolveSkipTarget(DateTime clock, String lower) {
+    // A counted day-plus span first: "two weeks later" is fourteen days,
+    // "3 months pass" is three calendar months.
+    final long = SkipSpan.longLanding(clock, lower);
+    if (long != null) return long;
     if (RegExp(
       r'\b(a|one)? ?month (later|passes)|next month\b',
     ).hasMatch(lower)) {
@@ -275,7 +280,7 @@ class StoryClock {
     // Counted durations before the vague "hours pass" bucket. "[6 hours
     // passed]" used to fall through to +1h (or +3h when "pass" matched),
     // so the skip chip stamped a time the strip barely moved.
-    final counted = _countedSkip(clock, lower);
+    final counted = SkipSpan.shortLanding(clock, lower);
     if (counted != null) return counted;
     if (RegExp(
       r'\b(several hours|many hours|a long time|hours? pass)\b',
@@ -288,54 +293,6 @@ class StoryClock {
       return clock.add(const Duration(hours: 2));
     }
     return clock.add(const Duration(hours: 1));
-  }
-
-  static const _wordCount = {
-    'a': 1,
-    'an': 1,
-    'one': 1,
-    'two': 2,
-    'three': 3,
-    'four': 4,
-    'five': 5,
-    'six': 6,
-    'seven': 7,
-    'eight': 8,
-    'nine': 9,
-    'ten': 10,
-    'eleven': 11,
-    'twelve': 12,
-  };
-
-  /// Digit or word duration ("6 hours", "six hours"). Null if none.
-  static DateTime? _countedSkip(DateTime clock, String lower) {
-    final digit = RegExp(
-      r'\b(\d+)\s*(minutes?|hours?|days?)\b',
-    ).firstMatch(lower);
-    if (digit != null) {
-      return _addCounted(
-        clock,
-        int.tryParse(digit.group(1)!) ?? 0,
-        digit.group(2)!,
-      );
-    }
-    final word = RegExp(
-      r'\b(an?|one|two|three|four|five|six|seven|eight|nine|ten|'
-      r'eleven|twelve)\s*(minutes?|hours?|days?)\b',
-    ).firstMatch(lower);
-    if (word == null) return null;
-    return _addCounted(clock, _wordCount[word.group(1)!] ?? 0, word.group(2)!);
-  }
-
-  static DateTime? _addCounted(DateTime clock, int n, String unit) {
-    if (n <= 0) return null;
-    if (unit.startsWith('day')) {
-      return clock.add(Duration(days: n.clamp(1, 30)));
-    }
-    if (unit.startsWith('hour')) {
-      return clock.add(Duration(hours: n.clamp(1, 72)));
-    }
-    return clock.add(Duration(minutes: n.clamp(1, 24 * 60)));
   }
 
   // ── Legacy synthesis (design §3) ──────────────────────────────────────────

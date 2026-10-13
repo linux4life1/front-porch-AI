@@ -85,6 +85,27 @@ int clampSceneDrop({required int current, required int delta}) {
   return delta;
 }
 
+/// A skip this long is days lived off-screen, not one beat: the bodies
+/// land at their everyday level and the narrator bridges the gap.
+const int kLongSkipMinutes = 24 * 60;
+
+/// Minutes a long skip moved the clock, stamped on the reply so a regen
+/// can replay the same skip (needs, mood) without moving the clock again.
+const String kLongSkipMinutesMeta = 'long_skip_minutes';
+
+/// The only realism keys a guest or lite reply keeps: the skip that owned
+/// the turn ([skip], the `time_skip_to` destination) and, for a long skip,
+/// its minutes, so a regen of that reply replays the same skip.
+Map<String, dynamic>? liteSkipMetadata(
+  String skip,
+  Map<String, dynamic>? pending,
+) => skip.isEmpty
+    ? null
+    : {
+        'time_skip_to': skip,
+        kLongSkipMinutesMeta: ?pending?[kLongSkipMinutesMeta],
+      };
+
 /// Span the needs judge should score. A skip has no tick chip
 /// ([timePassedLabel] is null), so a night stays "Next morning" and any
 /// other skip keeps the destination the clock already stamped. Continue
@@ -108,13 +129,23 @@ String? needsSpanForBeat({
 /// charged the span (needs_wear.dart); the judge scores only what the
 /// scene did. A night is never assumed: on a skip through one, the judge
 /// is asked whether they slept.
-String needsBeatNote(String? span, {bool nextMorning = false}) {
+String needsBeatNote(
+  String? span, {
+  bool nextMorning = false,
+  bool longSkip = false,
+}) {
   final text = span?.trim() ?? '';
   const events =
       'Score only what the scene itself did: a meal, a snack, a drink, the '
       'bathroom, a wash, a nap, sleep, exertion, sex, a mess, closeness. '
       'Describing how they feel right now is not an event. A quiet reply '
       'is all zeros.';
+  if (longSkip) {
+    return 'THIS BEAT skipped ahead to $text. The days in between were '
+        'lived off-screen, eating, sleeping and washing as usual, and the '
+        'body is already back at its everyday level. Do not restore sleep '
+        'or the bathroom for the skip. $events';
+  }
   if (text.isEmpty || text == 'same moment') {
     return 'This beat is the same moment. Time charged nothing. $events';
   }

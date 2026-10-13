@@ -23,6 +23,7 @@ import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
     show normalizeObjectiveStaleThreshold;
 import 'package:front_porch_ai/services/storage/settings/realism/one_shot_mode.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/realism_prefs_snapshot.dart';
+import 'package:front_porch_ai/services/storage/settings/realism/time_skip_bridge_setting.dart';
 
 import 'settings_base.dart';
 
@@ -34,7 +35,7 @@ export 'package:front_porch_ai/services/storage/settings/realism/realism_import_
 /// JSON, not here).
 ///
 /// Lifted Stage 7.
-class RealismSettings with SettingsBase {
+class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
   bool _realismDefault = false;
   bool _nsfwCooldownDefault = false;
   bool _passageOfTimeDefault = true;

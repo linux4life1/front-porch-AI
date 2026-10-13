@@ -51,6 +51,24 @@ const Map<String, int> needsSkipFloors = {
 /// the catastrophe at 0.
 const int needsWearStopsAt = 1;
 
+/// Where the bars land after days lived off-screen ([kLongSkipMinutes] or
+/// more): every need in [on] at its [everyday] level. A body that lived two
+/// weeks ate, slept and washed, so it is neither starving nor at a skip
+/// floor. Needs that are off keep what they hold.
+Map<String, int> livedSkipBars({
+  required Map<String, int> current,
+  required Map<String, int> everyday,
+  required List<String> on,
+}) {
+  final next = Map<String, int>.from(current);
+  for (final need in on) {
+    final level = everyday[need];
+    if (level == null || !next.containsKey(need)) continue;
+    next[need] = level.clamp(0, 100);
+  }
+  return next;
+}
+
 /// The crisis band's top: a bar at or under it may be worn to 0.
 const int needsCrisisBandTop = 10;
 

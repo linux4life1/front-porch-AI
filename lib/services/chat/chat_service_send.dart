@@ -361,8 +361,20 @@ extension ChatServiceSend on ChatService {
       // story clock is live, engine on or off.
       if (_clockRunning) {
         final before = _timeService.clock;
-        await _timeService.detectOocTimeSkip(outbound);
+        final skipped = await _timeService.detectOocTimeSkip(outbound);
         await _episodeCrumbs.maybeMint(before, _timeService.clock);
+        // A day or more: settle the moment the scene left, then let the
+        // narrator fill in the gap before anyone replies.
+        if (skipped >= kLongSkipMinutes) {
+          LongSkipSettle(_realismScope()).settle();
+          final stillHere = await _bridgeLongSkip(
+            from: before,
+            skipped: skipped,
+            skipLine: userMsg,
+            token: sessionToken,
+          );
+          if (!stillHere) return;
+        }
       }
 
       // ── Direct-address turn routing (both cast surfaces) ─────────────────
