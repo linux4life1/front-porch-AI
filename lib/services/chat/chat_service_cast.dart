@@ -236,7 +236,7 @@ extension ChatServiceCast on ChatService {
       // Same reasoning for the diary: the removed member's journal cards are
       // keyed by this instance id, so nothing would ever read them again.
       await _moveJournalCards(_currentSessionId!, charId, null);
-      await _refreshGrowthCache();
+      await _growthDesk.refreshCache();
     }
   }
 

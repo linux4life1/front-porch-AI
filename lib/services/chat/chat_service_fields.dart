@@ -425,8 +425,6 @@ mixin ChatServiceFieldBag {
   /// after a restart (the macro passes through untouched then).
   DateTime? _lastUserMessageAt;
 
-  String? _replyFactsRaw; // fused reply-facts carrier — see _prefetchReplyFacts
-
   /// The 1:1 speaker's pockets. In a group each member's record lives in their
   /// `_groupRealism` slot instead, which is what keeps it session-scoped and
   /// deleted with the chat; this scalar is the same record for the host.

@@ -38,7 +38,7 @@ extension ChatServiceRegenRevert on ChatService {
     // pre-wear snapshot before replay; do not run the host speaker revert.
     if (regenGuest != null) {
       _needsRewinds.restorePresentBodiesForReplay(lastMsg);
-      _restoreRefractoryBeforeBeat(lastMsg);
+      _afterglow.restoreBeforeBeat(lastMsg);
       return true;
     }
 
@@ -316,7 +316,7 @@ extension ChatServiceRegenRevert on ChatService {
     // Last, so it wins: the snapshots above are each speaker's own last turn,
     // and every body this beat's clock reached is put back to the beat's
     // start — the replay ticks them once.
-    _restoreRefractoryBeforeBeat(lastMsg);
+    _afterglow.restoreBeforeBeat(lastMsg);
     return true;
   }
 
@@ -388,7 +388,7 @@ extension ChatServiceRegenRevert on ChatService {
         // accepted text, so the pockets must return to the accepted
         // (post-turn) record too — same put-back contract as the two
         // realism-cancel points earlier in this method.
-        _restorePocketsFromStamp(lastMsg, after: true);
+        _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
       }
       notifyListeners();
       // Full rewrite: the abort inside _generateResponse already persisted

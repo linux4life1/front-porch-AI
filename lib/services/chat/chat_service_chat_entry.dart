@@ -282,7 +282,7 @@ extension ChatServiceChatEntry on ChatService {
         _isCheckingCompletion =
             false; // secondary objective flag zero on setActiveCharacter main path (incomplete zeroing hygiene; keep reset blocks)
         _isGrowthPassRunning =
-            false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _refreshGrowthCache in _loadLastSession)
+            false; // explicit growth-pass flag zero on setActiveCharacter main path (transient guard; keep reset blocks in sync — growth cache itself is session-scoped and re-cached by _growthDesk.refreshCache in _loadLastSession)
         debugPrint(
           '[ChatService] setActiveCharacter: Reset realism state (baseline + runtime transients cleared; was: arousal=$prevArousal, fixation=$prevFixation/$prevFixationLife)',
         );
@@ -476,7 +476,8 @@ extension ChatServiceChatEntry on ChatService {
               false; // secondary zero in empty subpath of setActiveCharacter (incomplete zeroing... now complete (see CLAUDE.md))
           _isGrowthPassRunning =
               false; // growth-pass flag zero in empty subpath of setActiveCharacter (transient guard; keep reset blocks in sync)
-          await _refreshGrowthCache(); // fresh session id → scope the injection cache to it
+          await _growthDesk
+              .refreshCache(); // fresh session id → scope the injection cache to it
         }
         // Load active objectives for this session (must be after _loadLastSession
         // so _currentSessionId is set)

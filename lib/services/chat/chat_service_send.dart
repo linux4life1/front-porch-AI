@@ -180,7 +180,7 @@ extension ChatServiceSend on ChatService {
     // done; ones still pending (never made it into a prompt) stay queued for
     // THIS turn. Cleared here, not at prompt build, so a regenerate of the
     // reacting reply reproduces the reaction.
-    _dropConsumedItemIntros();
+    _pocketsLedger.dropConsumedItemIntros();
 
     // A new message while an /image prompt review is parked cancels it —
     // the desktop dialog is modal, but the web modal can be typed around.

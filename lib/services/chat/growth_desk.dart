@@ -7,25 +7,91 @@
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/database/database.dart' show GrowthRingData;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/growth_ops.dart';
+import 'package:front_porch_ai/services/chat/growth_physics.dart';
+import 'package:front_porch_ai/services/chat/growth_review.dart';
+import 'package:front_porch_ai/services/chat/growth_service.dart';
+import 'package:front_porch_ai/services/chat/growth_store.dart';
+import 'package:front_porch_ai/services/chat/journal_maintenance.dart';
+import 'package:front_porch_ai/services/chat/journal_physics.dart';
+import 'package:front_porch_ai/services/chat/salience_kick_gate.dart';
+import 'package:front_porch_ai/services/macro_resolver.dart';
+import 'package:front_porch_ai/services/storage/settings/memory_settings.dart';
 
 /// Growth Rings — trigger, cache plumbing, and the UI/facade surface
-/// (docs/design/growth-rings.md; replaced the old evolution accessors part).
-/// The pass itself lives in growth_service.dart, persistence + the sync
-/// injection cache in growth_store.dart, review parking in growth_review.dart.
-/// Mutations here route through the store and then re-sync the cache +
-/// notify, so the desktop timeline, the web facade, and the injection layer
-/// always agree.
-extension ChatServiceGrowth on ChatService {
+/// (docs/design/growth-rings.md). The pass itself lives in growth_service
+/// .dart, persistence + the sync injection cache in growth_store.dart,
+/// review parking in growth_review.dart. Mutations here route through the
+/// store and then re-sync the cache + notify, so the desktop timeline, the
+/// web facade, and the injection layer always agree. Rings are per-chat,
+/// per-character: every read is keyed by the session and the owner's
+/// stable id. Also the one salience-kick door Journal and Growth share.
+class GrowthDesk {
+  GrowthDesk({
+    required this.messages,
+    required this.macroResolver,
+    required this.store,
+    required this.review,
+    required this.service,
+    required this.journalMaintenance,
+    required this.currentSessionId,
+    required this.activeCharacter,
+    required this.activeGroup,
+    required this.groupCharacters,
+    required this.sceneGuestCards,
+    required this.characterIdFor,
+    required this.memorySettings,
+    required this.hasLlm,
+    required this.isGrowthPassRunning,
+    required this.awaitHistoryHydrated,
+    required this.setPending,
+    required this.notify,
+  });
+
+  /// The chat's in-memory message list (the same list object, not a copy).
+  final List<ChatMessage> messages;
+  final MacroResolver macroResolver;
+  final GrowthStore Function() store;
+  final GrowthReview Function() review;
+  final GrowthService Function() service;
+  final JournalMaintenance Function() journalMaintenance;
+  final String? Function() currentSessionId;
+  final CharacterCard? Function() activeCharacter;
+  final GroupChat? Function() activeGroup;
+  final List<CharacterCard> Function() groupCharacters;
+  final List<CharacterCard> Function() sceneGuestCards;
+  final String Function(CharacterCard) characterIdFor;
+  final MemorySettings Function() memorySettings;
+
+  /// Whether an LLM provider is wired (`_llmProvider != null`).
+  final bool Function() hasLlm;
+  final bool Function() isGrowthPassRunning;
+  final Future<void> Function() awaitHistoryHydrated;
+
+  /// Plain write of the turn's pending realism metadata.
+  final void Function(Map<String, dynamic>?) setPending;
+  final void Function() notify;
+
+  List<ChatMessage> get _messages => messages;
+  MacroResolver get _macroResolver => macroResolver;
+  GrowthStore get _growthStore => store();
+  GrowthReview get _growthReview => review();
+  GrowthService get _growthService => service();
+  JournalMaintenance get _journalMaintenance => journalMaintenance();
+  String? get _currentSessionId => currentSessionId();
+  CharacterCard? get _activeCharacter => activeCharacter();
+  GroupChat? get _activeGroup => activeGroup();
+  List<CharacterCard> get _groupCharacters => groupCharacters();
+  bool get _isGrowthPassRunning => isGrowthPassRunning();
+  String _getCharacterIdFromCard(CharacterCard c) => characterIdFor(c);
+  Future<void> _awaitHistoryHydrated() => awaitHistoryHydrated();
+
   /// Review parking door for the sidebar banner + review dialog (default
   /// OFF — with review disabled this never holds a batch).
   GrowthReview get growthReview => _growthReview;
@@ -65,8 +131,8 @@ extension ChatServiceGrowth on ChatService {
       strength: GrowthPhysics.kDistillSeedStrength,
       pinned: true,
     );
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
   }
 
   /// Edit a ring's wording/category in place (timeline ⋯ menu).
@@ -81,35 +147,35 @@ extension ChatServiceGrowth on ChatService {
       content: text.trim(),
       category: category == null ? null : normalizeGrowthCategory(category),
     );
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
   }
 
   Future<void> setGrowthRingPinned(String ringId, bool pinned) async {
     await _growthStore.setPinned(ringId, pinned);
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
   }
 
   /// Demote a ring to Past growth (user "retire" — reversible).
   Future<void> retireGrowthRing(String ringId) async {
     await _growthStore.retireRing(ringId);
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
   }
 
   /// Bring a Past ring back into the active set.
   Future<void> unretireGrowthRing(GrowthRingData ring) async {
     await _growthStore.unretireRing(ring);
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
   }
 
   /// Hard-delete one ring (timeline ⋯ menu on Past entries).
   Future<void> deleteGrowthRing(String ringId) async {
     await _growthStore.deleteRing(ringId);
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
   }
 
   /// Reset one owner's growth in this chat: every ring (including the legacy
@@ -124,8 +190,8 @@ extension ChatServiceGrowth on ChatService {
       ownerId,
       isGroup: _activeGroup != null,
     );
-    await _refreshGrowthCache();
-    notifyListeners();
+    await refreshCache();
+    notify();
     debugPrint('[Growth] Reset for owner $ownerId');
   }
 
@@ -139,7 +205,7 @@ extension ChatServiceGrowth on ChatService {
   /// realism stamp: bond/trust/repair/chance must be salient or this is a
   /// no-op. Omit [onlyIf] when the caller already knows (quest, promise).
   /// The gate lives here so a hot scene cannot stack a second double-pass.
-  void _requestSalienceKick({Map<String, dynamic>? onlyIf}) {
+  void requestSalienceKick({Map<String, dynamic>? onlyIf}) {
     if (onlyIf != null && !JournalPhysics.metadataIsSalient(onlyIf)) return;
     if (!_growthService.salienceKickGate.allow(
       sessionId: _currentSessionId,
@@ -158,9 +224,9 @@ extension ChatServiceGrowth on ChatService {
   /// Pending-metadata writes that can become salient (relationship eval,
   /// trust repair, Chance Time) must go through here — a bare assignment
   /// is how Growth sat at kickPending=false after a bond_delta 13 stamp.
-  void _writePendingRealismMetadata(Map<String, dynamic>? value) {
-    _pendingRealismMetadata = value;
-    _requestSalienceKick(onlyIf: value ?? const {});
+  void writePendingRealismMetadata(Map<String, dynamic>? value) {
+    setPending(value);
+    requestSalienceKick(onlyIf: value ?? const {});
   }
 
   /// Check whether a growth pass is due and trigger it non-blockingly.
@@ -169,10 +235,10 @@ extension ChatServiceGrowth on ChatService {
   /// complete). Bond/trust swings on the window are NOT re-read here —
   /// that used to bypass the kick cooldown and starve new rings.
   /// Not gated on Director Mode — characters keep growing while you direct.
-  void _maybeRunGrowthPass() {
-    if (!_storageService.memorySettings.characterEvolutionEnabled) return;
+  void maybeRunGrowthPass() {
+    if (!memorySettings().characterEvolutionEnabled) return;
     if (_isGrowthPassRunning) return;
-    if (_llmProvider == null) return;
+    if (!hasLlm()) return;
     final sessionId = _currentSessionId;
     if (sessionId == null) return;
 
@@ -180,7 +246,7 @@ extension ChatServiceGrowth on ChatService {
     // so a 24-row open window cannot clamp 11200 down to 24.
     unawaited(() async {
       await _awaitHistoryHydrated();
-      if (!_storageService.memorySettings.characterEvolutionEnabled) return;
+      if (!memorySettings().characterEvolutionEnabled) return;
       if (_isGrowthPassRunning) return;
       final sid = _currentSessionId;
       if (sid == null) return;
@@ -193,7 +259,7 @@ extension ChatServiceGrowth on ChatService {
       }
       if (growthPassIsDue(
         userMessagesSincePass: userMessagesSincePass,
-        interval: _storageService.memorySettings.growthInterval,
+        interval: memorySettings().growthInterval,
         kickPending: _growthService.eventKickPending,
       )) {
         _growthService.runGrowthPass();
@@ -204,7 +270,7 @@ extension ChatServiceGrowth on ChatService {
   /// Re-scope the store's sync injection cache to the current session +
   /// roster (members or active char + scene guests). Called on session
   /// load/switch, by the pass, and after every mutation above.
-  Future<void> _refreshGrowthCache() async {
+  Future<void> refreshCache() async {
     final sessionId = _currentSessionId;
     if (sessionId == null) {
       _growthStore.invalidate();
@@ -222,7 +288,7 @@ extension ChatServiceGrowth on ChatService {
         activeId = _getCharacterIdFromCard(_activeCharacter!);
         ids.add(activeId);
       }
-      for (final g in _sceneGuest.cards) {
+      for (final g in sceneGuestCards()) {
         ids.add(_getCharacterIdFromCard(g));
       }
     }
@@ -236,11 +302,11 @@ extension ChatServiceGrowth on ChatService {
 
   // Effective getters (all injection paths route through these); moved
   // verbatim from the god file, zero behaviour change.
-  String _getEffectivePersonality(CharacterCard card) =>
+  String effectivePersonality(CharacterCard card) =>
       _growthService.effectivePersonality(card);
 
   /// Card text only. Growth rides its own post-transcript section.
-  String _resolvedCardPersonality(CharacterCard card, String userName) {
+  String resolvedCardPersonality(CharacterCard card, String userName) {
     return _macroResolver.resolve(
       _growthService.cardPersonality(card),
       MacroContext(userName: userName, characterName: card.name),
@@ -249,7 +315,7 @@ extension ChatServiceGrowth on ChatService {
   }
 
   /// Growth block for the prompt tail. Empty when growth is off or quiet.
-  String _resolvedGrowthBlock(CharacterCard card, String userName) {
+  String resolvedGrowthBlock(CharacterCard card, String userName) {
     if (!_growthService.getGrowthEnabled()) return '';
     final raw = _growthService.growthBlockFor(card);
     if (raw.isEmpty) return '';
@@ -262,5 +328,5 @@ extension ChatServiceGrowth on ChatService {
 
   // Scenario evolution is retired (growth-rings design §3.2): the Journal
   // recap owns "where we are", so every mode uses the card's own scenario.
-  String _getEffectiveScenario(CharacterCard card) => card.scenario;
+  String effectiveScenario(CharacterCard card) => card.scenario;
 }

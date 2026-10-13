@@ -36,6 +36,15 @@ extension ChatServiceGroupLite on ChatService {
   bool _isLiteTurn(_GenTurn t) =>
       t.guestSpeaker != null || _speakerIsSoft(t.speakingCharacter);
 
+  /// After the clock commits; body in [AfterglowPass.tickAfterClock]. A lite
+  /// beat (guest or soft member) has no speaker refractory to open.
+  void _tickRefractoryAfterClock(_GenTurn t) => _afterglow.tickAfterClock(
+    t.mode,
+    speakerIdOf: () =>
+        _isLiteTurn(t) ? null : _getCharacterIdFromCard(t.speakingCharacter),
+    reply: () => t.streamTarget,
+  );
+
   bool _sceneNameTaken(String name) {
     final wanted = name.trim().toLowerCase();
     return presentSceneNames(

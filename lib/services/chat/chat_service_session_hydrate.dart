@@ -332,7 +332,7 @@ extension ChatServiceSessionHydrate on ChatService {
     // Cache growth rings (and any not-yet-distilled legacy evolved blobs) for
     // this session so the injection layer can read them synchronously —
     // scoped to the session, not the character (1:1 + group both).
-    await _refreshGrowthCache();
+    await _growthDesk.refreshCache();
   }
 
   /// Chat-scoped only — never moves [UserPersonaService.defaultPersonaId].

@@ -67,7 +67,7 @@ extension ChatServiceWiringEvals on ChatService {
       getRealismEvalCancelled: () =>
           _realismEvalCancelled || _isStaleGreetingEval(),
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
-      setPendingRealismMetadata: _writePendingRealismMetadata,
+      setPendingRealismMetadata: _growthDesk.writePendingRealismMetadata,
       captureRealismState: _realismSnapshot.capture,
       getCharacterEmotion: () => _characterEmotion,
       setCharacterEmotion: (v) => _characterEmotion = v,
@@ -112,7 +112,7 @@ extension ChatServiceWiringEvals on ChatService {
   // One round trip for climax + pockets + posture when two or more of them
   // are live; the composition rules that keep every feature on its own gate
   // are documented on the leaf. Same transport wiring as its three siblings —
-  // but constructed PER TURN by _prefetchReplyFacts rather than held as a
+  // but constructed PER TURN by ReplyFacts.prefetch rather than held as a
   // late final: the leaf is a stateless wrapper over this fire closure, and
   // one small allocation per turn is what kept the shell under the god-file
   // ratchet. Not a hot path (once per reply, never per frame).

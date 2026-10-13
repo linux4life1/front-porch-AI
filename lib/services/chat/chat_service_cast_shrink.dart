@@ -247,7 +247,7 @@ extension ChatServiceCastShrink on ChatService {
         ),
       );
     }
-    await _refreshGrowthCache();
+    await _growthDesk.refreshCache();
     await _saveChat();
     notifyListeners();
     debugPrint(
@@ -354,7 +354,7 @@ extension ChatServiceCastShrink on ChatService {
         fromIsGroup: false,
         toIsGroup: true,
       );
-      await _refreshGrowthCache();
+      await _growthDesk.refreshCache();
       // Objectives -> the host MEMBER instance id + new group session.
       final origObjs = await _db.getObjectivesForCharacter(
         originalCharId,

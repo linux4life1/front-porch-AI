@@ -116,9 +116,12 @@ extension ChatServiceGenerationBlocks on ChatService {
       );
     } else {
       t.personaBlock =
-          "${t.speakingCharacter.name}'s Persona: ${_resolvedCardPersonality(t.speakingCharacter, t.userName)}";
+          "${t.speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(t.speakingCharacter, t.userName)}";
     }
-    t.growthBlock = _resolvedGrowthBlock(t.speakingCharacter, t.userName);
+    t.growthBlock = _growthDesk.resolvedGrowthBlock(
+      t.speakingCharacter,
+      t.userName,
+    );
 
     // User persona — inject user's self-description + learned facts
     t.userPersonaBlock = await _buildUserPersonaBlock(t.userName);
@@ -135,7 +138,7 @@ extension ChatServiceGenerationBlocks on ChatService {
                 ? _groupCharacters.first.scenario
                 : '');
     } else {
-      rawScenario = _getEffectiveScenario(t.speakingCharacter);
+      rawScenario = _growthDesk.effectiveScenario(t.speakingCharacter);
     }
     t.scenario = rawScenario;
     // A Scene Guest drops into the HOST's ongoing scene — it has no scenario
@@ -381,7 +384,7 @@ extension ChatServiceGenerationBlocks on ChatService {
           );
     final persona = buildSpeakerPersonaLine(
       name: speaker.name,
-      personality: _resolvedCardPersonality(speaker, t.userName),
+      personality: _growthDesk.resolvedCardPersonality(speaker, t.userName),
     );
     var example = '';
     if (speaker.mesExample.isNotEmpty) {

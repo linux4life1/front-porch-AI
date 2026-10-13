@@ -1,23 +1,66 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Item-memory card write / retire / rewind stamps. Extracted from
-// chat_service_pockets.dart so that file does not grow.
+// This file is part of Front Porch AI.
+//
+// Front Porch AI is free software: you can redistribute it and/or modify
+// it under the terms of the GNU Affero General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/database/database.dart'
+    show AppDatabase, AppDatabaseMemoryQueries;
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/item_card_stamps.dart';
+import 'package:front_porch_ai/services/chat/journal_physics.dart';
+import 'package:front_porch_ai/services/chat/journal_store.dart';
+import 'package:front_porch_ai/services/chat/pocket_journal_cards.dart';
+import 'package:front_porch_ai/services/chat/pockets.dart';
+import 'package:front_porch_ai/services/chat/session_open_window.dart';
+import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/storage/settings/memory_settings.dart';
 
-extension ChatServiceItemCards on ChatService {
+/// Item-memory Journal cards: written from applied pocket events (only when
+/// both Pockets and the Journal are on — the caller holds that gate),
+/// retired by the eraser, stamped on the swipe, and re-planted on rewind.
+class ItemCardJournal {
+  ItemCardJournal({
+    required this.messages,
+    required this.history,
+    required this.currentSessionId,
+    required this.journalStore,
+    required this.db,
+    required this.time,
+    required this.memorySettings,
+    required this.activeCharacterName,
+  });
+
+  /// The chat's in-memory message list (the same list object, not a copy).
+  final List<ChatMessage> messages;
+  final SessionHistoryWindow history;
+  final String? Function() currentSessionId;
+  final JournalStore Function() journalStore;
+  final AppDatabase Function() db;
+  final TimeService Function() time;
+  final MemorySettings Function() memorySettings;
+  final String? Function() activeCharacterName;
+
+  List<ChatMessage> get _messages => messages;
+  SessionHistoryWindow get _history => history;
+
   /// Retire every live item-memory card about [itemName] for [ownerId].
   /// Shared by the post-gen feed (one live placement per item) and the
-  /// eraser ([removePocketItem]) so neither path leaves a phantom diary.
-  Future<void> _retireItemCardsFor(String ownerId, String itemName) async {
-    final sid = _currentSessionId;
+  /// eraser (`PocketsLedger.removePocketItem`) so neither path leaves a
+  /// phantom diary.
+  Future<void> retireFor(String ownerId, String itemName) async {
+    final sid = currentSessionId();
     if (sid == null || itemName.isEmpty) return;
-    final existing = await _journalStore.cardsFor(sid, ownerId);
+    final existing = await journalStore().cardsFor(sid, ownerId);
     for (final old in existing) {
       if (JournalPhysics.isItemCard(old) &&
           sameItem(JournalPhysics.itemOf(old) ?? '', itemName)) {
-        await _journalStore.retireCard(old.id);
+        await journalStore().retireCard(old.id);
       }
     }
   }
@@ -29,7 +72,7 @@ extension ChatServiceItemCards on ChatService {
   /// canonical item name in the metadata pouch (the keyword re-warm key),
   /// the story stamp, and the reply's **persist** position as their receipt
   /// — a tail window must cite base+index, not the on-screen 0..23.
-  Future<void> _writeItemCards(
+  Future<void> write(
     String ownerId,
     List<PocketEvent> events, {
     required bool asContinuation,
@@ -45,30 +88,26 @@ extension ChatServiceItemCards on ChatService {
     // ("I set my keys down") or "where are my keys?" stays wrong.
     for (final e in events) {
       if (e.kind == PocketOpKind.pickup) {
-        final sid = _currentSessionId;
+        final sid = currentSessionId();
         if (sid != null) {
           stamps.addAll(
             itemCardStampsFrom(
-              await _db.getJournalCardsForSession(sid),
+              await db().getJournalCardsForSession(sid),
               e.item,
             ),
           );
-          await _journalStore.retireItemCardsInSession(sid, e.item);
+          await journalStore().retireItemCardsInSession(sid, e.item);
         } else {
-          await _retireItemCardsFor(ownerId, e.item);
+          await retireFor(ownerId, e.item);
         }
       }
     }
     final drafts = itemCardsFrom(events);
     if (drafts.isEmpty) {
-      _stampItemCards(
-        stamps,
-        key: 'item_cards_retired',
-        asContinuation: asContinuation,
-      );
+      _stamp(stamps, key: 'item_cards_retired', asContinuation: asContinuation);
       return;
     }
-    final sid = _currentSessionId!;
+    final sid = currentSessionId()!;
     final cite = persistTipCite(
       base: _history.basePosition,
       length: _messages.length,
@@ -76,12 +115,12 @@ extension ChatServiceItemCards on ChatService {
     for (final draft in drafts) {
       stamps.addAll(
         itemCardStampsFrom(
-          await _journalStore.cardsFor(sid, ownerId),
+          await journalStore().cardsFor(sid, ownerId),
           draft.item,
         ),
       );
-      await _retireItemCardsFor(ownerId, draft.item);
-      await _journalStore.addCard(
+      await retireFor(ownerId, draft.item);
+      await journalStore().addCard(
         sessionId: sid,
         characterId: ownerId,
         content: draft.content,
@@ -89,9 +128,9 @@ extension ChatServiceItemCards on ChatService {
         kind: 'item',
         extraMetadata: {'item': draft.item},
         sourcePositions: cite,
-        storyDay: _timeService.dayCount,
-        storyClock: _timeService.storyClockIso,
-        maxCards: _storageService.memorySettings.journalMaxCards,
+        storyDay: time().dayCount,
+        storyClock: time().storyClockIso,
+        maxCards: memorySettings().journalMaxCards,
       );
       planted.add(
         ItemCardStamp(
@@ -99,23 +138,15 @@ extension ChatServiceItemCards on ChatService {
           item: draft.item,
           content: draft.content,
           positions: cite,
-          storyDay: _timeService.dayCount,
-          storyClock: _timeService.storyClockIso,
+          storyDay: time().dayCount,
+          storyClock: time().storyClockIso,
         ),
       );
     }
-    _stampItemCards(
-      stamps,
-      key: 'item_cards_retired',
-      asContinuation: asContinuation,
-    );
-    _stampItemCards(
-      planted,
-      key: 'item_cards_planted',
-      asContinuation: asContinuation,
-    );
+    _stamp(stamps, key: 'item_cards_retired', asContinuation: asContinuation);
+    _stamp(planted, key: 'item_cards_planted', asContinuation: asContinuation);
     debugPrint(
-      '[Journal] 📦 ${drafts.length} item card(s) for ${_activeCharacter?.name}',
+      '[Journal] 📦 ${drafts.length} item card(s) for ${activeCharacterName()}',
     );
   }
 
@@ -123,8 +154,8 @@ extension ChatServiceItemCards on ChatService {
   /// on Continue (the first half belongs to the same swipe). Swipe-scoped
   /// so regen of swipe 1 cannot replant swipe 0's retires. Older chats that
   /// wrote `item_cards_retired` on shared metadata still read via the
-  /// activeMetadata → metadata fallback in [_replantItemCards].
-  void _stampItemCards(
+  /// activeMetadata → metadata fallback in [replant].
+  void _stamp(
     List<ItemCardStamp> stamps, {
     required String key,
     required bool asContinuation,
@@ -146,16 +177,16 @@ extension ChatServiceItemCards on ChatService {
   /// `item_cards_retired`: regenerate / tail-delete (`after: false`).
   /// `item_cards_planted`: swipe-back after timeline invalidation.
   /// Retire-first so a double regenerate cannot duplicate a card.
-  Future<void> _replantItemCards(ChatMessage msg, {required String key}) async {
-    final sid = _currentSessionId;
+  Future<void> replant(ChatMessage msg, {required String key}) async {
+    final sid = currentSessionId();
     if (sid == null) return;
     final stamps = ItemCardStamp.listFrom(
       msg.activeMetadata?[key] ?? msg.metadata?[key],
     );
     for (final s in stamps) {
       try {
-        await _retireItemCardsFor(s.owner, s.item);
-        await _journalStore.addCard(
+        await retireFor(s.owner, s.item);
+        await journalStore().addCard(
           sessionId: sid,
           characterId: s.owner,
           content: s.content,
@@ -167,7 +198,7 @@ extension ChatServiceItemCards on ChatService {
           storyClock: s.storyClock,
           heat: s.heat,
           pinned: s.pinned,
-          maxCards: _storageService.memorySettings.journalMaxCards,
+          maxCards: memorySettings().journalMaxCards,
         );
       } catch (e) {
         debugPrint('[Journal] item card re-plant skipped (${s.item}): $e');

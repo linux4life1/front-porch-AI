@@ -34,7 +34,7 @@ class StandingMood {
   ///
   /// Gated HERE and nowhere else — the derivation leaf consults no settings,
   /// so a second gate cannot appear later and disagree with this one. (Same
-  /// discipline as `_runPocketsPass`.)
+  /// discipline as `PocketsPass.run`.)
   ///
   /// Reads the CURRENT speaker's needs so a group member's mood is their own:
   /// `needsSimulation.vector` is already loaded with the evaluated speaker's

@@ -7,32 +7,67 @@
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/climax_eval.dart';
+import 'package:front_porch_ai/services/chat/clock_resolve.dart';
+import 'package:front_porch_ai/services/chat/group_member_realism.dart';
+import 'package:front_porch_ai/services/chat/group_realism_store.dart';
+import 'package:front_porch_ai/services/chat/llm_eval_engine.dart';
+import 'package:front_porch_ai/services/chat/nsfw_service.dart';
+import 'package:front_porch_ai/services/chat/realism_scope.dart';
+import 'package:front_porch_ai/services/chat/refractory.dart';
+import 'package:front_porch_ai/services/chat/story_clock_writer.dart';
+import 'package:front_porch_ai/services/chat/time_service.dart';
 
 /// Afterglow's post-generation climax check — the one place it is gated, fired
-/// and applied.
+/// and applied — and the refractory it starts, run down on the story clock.
 ///
-/// Sits beside `_runPocketsPass` in the same post-gen phase and for the same
+/// Sits beside [PocketsPass] in the same post-gen phase and for the same
 /// reason: it reads the reply that was just written. See the class doc on
 /// [ClimaxEval] for why it must be post-generation and why it stands alone
 /// instead of riding the needs-impact eval.
-extension ChatServiceClimax on ChatService {
+class AfterglowPass {
+  AfterglowPass(
+    this._scope,
+    this._eval, {
+    required this.fusedReply,
+    required this.isGuestAuthoredMessage,
+    required this.resolveGroupSpeakerForMessage,
+  });
+
+  final RealismScope _scope;
+  final ClimaxEval _eval;
+
+  /// The fused reply-facts carrier (`ReplyFacts.raw`).
+  final String? Function() fusedReply;
+  final bool Function(ChatMessage) isGuestAuthoredMessage;
+  final CharacterCard? Function(ChatMessage) resolveGroupSpeakerForMessage;
+
+  bool get _realismEnabled => _scope.realismEnabled();
+  bool get _clockRunning => _scope.clockRunning();
+  NsfwService get _nsfwService => _scope.nsfw();
+  TimeService get _timeService => _scope.time();
+  GroupChat? get _activeGroup => _scope.activeGroup();
+  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
+  List<ChatMessage> get _messages => _scope.messages;
+  GroupRealismStore get _groupStore => _scope.groups;
+  Map<String, GroupMemberRealism> get _groupRealism => _scope.groups.members;
+  Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
+  set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
+  String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
+  bool _isGuestAuthoredMessage(ChatMessage m) => isGuestAuthoredMessage(m);
+  CharacterCard? _resolveGroupSpeakerForMessage(ChatMessage m) =>
+      resolveGroupSpeakerForMessage(m);
+
   /// Whether Afterglow can run at all this turn.
   ///
   /// The Realism Engine and the Afterglow switch. NOT Needs — that dependency
   /// was never declared anywhere, and it is what made the feature dead on most
   /// cards while its row showed green.
-  bool get _afterglowActive =>
-      _realismEnabled && _nsfwService.nsfwCooldownEnabled;
+  bool get active => _realismEnabled && _nsfwService.nsfwCooldownEnabled;
 
   /// Ask whether the reply narrated the character's own climax, and start the
   /// refractory if it did.
@@ -45,8 +80,8 @@ extension ChatServiceClimax on ChatService {
   /// a re-affirmation cannot stack; the metadata guard below keeps the FIRST
   /// reading's pre-climax arousal, because by the second reading it is
   /// already 0.
-  Future<void> _runClimaxPass(String reply) async {
-    if (!_afterglowActive) return;
+  Future<void> runClimaxPass(String reply) async {
+    if (!active) return;
     if (reply.trim().isEmpty) return;
 
     final speaker = _activeCharacter;
@@ -56,10 +91,10 @@ extension ChatServiceClimax on ChatService {
     // for all three bookkeeping passes) — read this pass's slice through the
     // SAME parser the standalone call feeds. A fused answer without a
     // verdict skips, exactly as a failed standalone call does.
-    final fused = _replyFactsRaw;
+    final fused = fusedReply();
     final turns = fused != null
         ? ClimaxEval.parseRefractory(fused)
-        : await _climaxEval.detect(
+        : await _eval.detect(
             charName: speaker.name,
             // Clamped like every judge window (eval diet, hostile
             // review 2026-08-11).
@@ -96,7 +131,7 @@ extension ChatServiceClimax on ChatService {
       '[Afterglow] climax detected (arousal was $preClimaxArousal) — '
       'refractory ${_nsfwService.refractoryMinutesRemaining} min',
     );
-    notifyListeners();
+    _scope.notify();
   }
 
   // ── The refractory on the story clock ────────────────────────────────────
@@ -104,17 +139,22 @@ extension ChatServiceClimax on ChatService {
   /// After the clock commits. With Passage of Time running, every body's
   /// refractory runs down by this beat's story minutes, a skip or a night
   /// included. With it off, the reply's quarter hour was taken before
-  /// generation ([_tickRefractoryPerReply]). Either way the speaker has now
+  /// generation ([tickPerReply]). Either way the speaker has now
   /// spoken their opening afterglow turn. Continue is the same beat: nothing.
-  void _tickRefractoryAfterClock(_GenTurn t) {
-    if (t.mode != GenerationMode.normal || !_realismEnabled) return;
-    final speakerId = _isLiteTurn(t)
-        ? null
-        : _getCharacterIdFromCard(t.speakingCharacter);
+  /// [speakerIdOf] is the turn's speaker, or null for a lite (guest or
+  /// soft member) beat; [reply] is the turn's stream target. Both are read
+  /// only past the gate, where the old `_GenTurn` reads were.
+  void tickAfterClock(
+    GenerationMode mode, {
+    required String? Function() speakerIdOf,
+    required ChatMessage Function() reply,
+  }) {
+    if (mode != GenerationMode.normal || !_realismEnabled) return;
+    final speakerId = speakerIdOf();
     final loadedId = _activeGroup != null ? speakerId : null;
-    Map<String, dynamic> slot() => clockWriteSlot(t.streamTarget);
+    Map<String, dynamic> slot() => clockWriteSlot(reply());
     if (_clockRunning) {
-      final minutes = _refractoryBeatMinutes(t.streamTarget);
+      final minutes = _refractoryBeatMinutes(reply());
       for (final id in _refractoryBodyIds()) {
         _moveRefractory(
           id,
@@ -138,7 +178,7 @@ extension ChatServiceClimax on ChatService {
   /// per-reply tick always ran (the 1:1 send and regen; in a group right
   /// after the speaker's scalars load, [loadedId]); the receipt rides the
   /// reply's pending metadata.
-  void _tickRefractoryPerReply({String? loadedId}) {
+  void tickPerReply({String? loadedId}) {
     if (_clockRunning) return;
     // Clock off: a reply is fifteen minutes for the character who spoke, as
     // it was one turn before; the others wait for their own replies, so a
@@ -237,14 +277,14 @@ extension ChatServiceClimax on ChatService {
   /// Regen and a tail delete: every body this reply's beat moved goes back to
   /// where the beat found it. The speaker's arousal stays with the realism
   /// rewind, which owns the rest of their turn.
-  void _restoreRefractoryBeforeBeat(ChatMessage msg) => _applyRefractoryReceipt(
+  void restoreBeforeBeat(ChatMessage msg) => _applyRefractoryReceipt(
     msg.activeMetadata?[kRefractoryPreBeat],
     keepArousalOf: _refractorySpeakerId(msg),
   );
 
   /// A swipe: every co-present body as this alternative's beat left it. The
   /// speaker comes back with their own realism snapshot.
-  void _restoreRefractoryAfterBeat(ChatMessage msg, String speakerId) =>
+  void restoreAfterBeat(ChatMessage msg, String speakerId) =>
       _applyRefractoryReceipt(
         msg.activeMetadata?[kRefractoryPostBeat],
         skip: speakerId,

@@ -92,7 +92,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       // chips still equals the live vector (the chip helper measures
       // live-minus-stamp, so the merge is free), and pockets keeps the
       // ORIGINAL pre-turn stamp so regen/tail-delete rewind to the true
-      // base (see _runPocketsPass's asContinuation).
+      // base (see _pocketsPass.run's asContinuation).
       // Present-guest Continue sets guestSpeaker before _GenTurn, so
       // this whole block is skipped. Departed-guest Continue refuses
       // before generating. The empty scoredReply is leftover belt if
@@ -147,25 +147,25 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
             _runPostGenNeedsChecks(scoredReply),
             Future<void>.delayed(
               _kEvalDispatchStagger,
-            ).then((_) => _prefetchReplyFacts(scoredReply)),
+            ).then((_) => _replyFacts.prefetch(scoredReply)),
           ]);
         } catch (e) {
           if (!_postGenAbortRequested) rethrow;
         }
         if (_postGenAbortRequested) {
-          _replyFactsRaw = null;
+          _replyFacts.raw = null;
         } else {
           // Afterglow. Reads the reply that was just written, which is why
           // it lives here and not on the pre-generation judges. On Continue
           // it reads only the new text — a climax the first half already
           // registered is not re-claimed by its aftermath, and one the
           // continuation adds finally counts.
-          await _runClimaxPass(scoredReply);
+          await _afterglow.runClimaxPass(scoredReply);
           // Pockets & Wardrobe — its own pass; answers to its own switch
           // and nothing else. asContinuation preserves the message's
           // original pockets_before stamp (the turn's true pre-state) and
           // appends receipts instead of replacing them.
-          await _runPocketsPass(
+          await _pocketsPass.run(
             scoredReply,
             asContinuation: t.mode == GenerationMode.continue_,
           );
@@ -193,7 +193,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           // recreating the bug this block was rewritten to fix. Same
           // reasoning, same phase, same awaiting as its two siblings above.
           {
-            final fused = _replyFactsRaw;
+            final fused = _replyFacts.raw;
             if (fused != null) {
               // The fused call already asked "where did this reply leave
               // them" — consume its answer through the ONE posture parser
@@ -224,7 +224,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           }
           // Consumed — the carrier must never outlive the passes that read
           // it, or a stale answer could feed the next turn's bookkeeping.
-          _replyFactsRaw = null;
+          _replyFacts.raw = null;
         }
       }
 
@@ -343,7 +343,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       // members AND 1:1 scene guests who spoke in the window (guest
       // growth rides this shared pass; there is no per-guest trigger).
       // Cursor-based like the journal, so it is naturally regen-safe.
-      _maybeRunGrowthPass();
+      _growthDesk.maybeRunGrowthPass();
 
       // Promise/debt ledger (Train B) — fire-and-forget on new turns only.
       // Keyword gate + open-list gate live inside the service so most

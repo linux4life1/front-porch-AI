@@ -36,9 +36,9 @@ import 'growth_store/growth_ring_writer.dart';
 /// Unlike JournalStore, this store also keeps a small synchronous CACHE of
 /// the current session's rings + legacy evolved blobs: the [Character Growth]
 /// injection is built inside synchronous prompt assembly
-/// (_getEffectivePersonality), so it cannot await the DB. [refresh] reloads
-/// the cache — on session load, after every pass, and after every UI
-/// mutation (the mutation helpers here do it themselves).
+/// (GrowthDesk.effectivePersonality), so it cannot await the DB. [refresh]
+/// reloads the cache — on session load, after every pass, and after every
+/// UI mutation (the mutation helpers here do it themselves).
 ///
 /// Holds the database via a closure (JournalStore precedent). No
 /// bumpSyncVersion on writes (derived, session-local data).

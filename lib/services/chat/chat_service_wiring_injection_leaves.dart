@@ -194,27 +194,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       // pass/sidebar/facade (all on storySetAside day now) or the injection
       // would hide an outfit the record still holds after midnight.
       getCurrentDay: () => _timeService.morningAnchoredDayCount,
-      // Get-and-mark: a prompt that carries an intro flags it so the NEXT
-      // user turn drops it (see _dropConsumedItemIntros). Marking here and
-      // clearing there is what lets a regen rebuild reproduce the reaction.
-      takePendingIntros: (charId) {
-        // Session filter: only intros added in THIS chat fire — an add made
-        // in another session stays queued for that chat (see the session
-        // stamp on _PendingItemIntro). Mark included only what fired.
-        final list = _pendingItemIntrosOf[this]?[charId]
-            ?.where((n) => n.session == _currentSessionId)
-            .toList();
-        if (list == null || list.isEmpty) {
-          return const <({String item, bool gift, PocketSection section})>[];
-        }
-        for (final n in list) {
-          n.included = true;
-        }
-        return [
-          for (final n in list)
-            (item: n.item, gift: n.gift, section: n.section),
-        ];
-      },
+      // Get-and-mark, session-filtered; see PocketsLedger.takePendingIntros.
+      takePendingIntros: (charId) => _pocketsLedger.takePendingIntros(charId),
       getUserName: () => _userPersonaService.persona.name,
     );
   }

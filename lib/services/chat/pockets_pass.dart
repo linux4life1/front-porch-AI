@@ -7,27 +7,55 @@
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/item_card_journal.dart';
+import 'package:front_porch_ai/services/chat/llm_eval_engine.dart';
+import 'package:front_porch_ai/services/chat/pockets.dart';
+import 'package:front_porch_ai/services/chat/pockets_eval.dart';
+import 'package:front_porch_ai/services/chat/pockets_ledger.dart';
+import 'package:front_porch_ai/services/chat/realism_scope.dart';
+import 'package:front_porch_ai/services/storage/settings/memory_settings.dart';
 
-/// The post-generation pockets eval + stamps. Intro queue and persist
-/// helpers stay on [ChatServicePockets]. Continue [asContinuation] keeps
-/// the turn's original `pockets_before`.
-extension ChatServicePocketsPass on ChatService {
+/// The post-generation Pockets & Wardrobe pass — the one place the eval is
+/// fired and its result stored, with its rewind stamps. Continue
+/// (`asContinuation`) keeps the turn's original `pockets_before`.
+class PocketsPass {
+  PocketsPass(
+    this._scope,
+    this._ledger,
+    this._eval, {
+    required this.fusedReply,
+    required this.itemCards,
+    required this.currentSessionId,
+    required this.storyDayCount,
+    required this.memorySettings,
+  });
+
+  final RealismScope _scope;
+  final PocketsLedger _ledger;
+  final PocketsEval _eval;
+
+  /// The fused reply-facts carrier (`ReplyFacts.raw`).
+  final String? Function() fusedReply;
+  final ItemCardJournal Function() itemCards;
+  final String? Function() currentSessionId;
+  final int Function() storyDayCount;
+  final MemorySettings Function() memorySettings;
+
+  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
+  List<ChatMessage> get _messages => _scope.messages;
+  String? get _currentSessionId => currentSessionId();
+  String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
+
   /// Runs the detection pass for the speaker who just replied.
   ///
-  /// Gated on [pocketsEnabledFor] (Porch Life global AND this character's
-  /// card flag). The eval leaf itself consults no settings — that separation
-  /// is what stops a second gate appearing somewhere later and disagreeing
-  /// with this one.
+  /// Gated on [PocketsLedger.pocketsEnabledFor] (Porch Life global AND this
+  /// character's card flag). The eval leaf itself consults no settings —
+  /// that separation is what stops a second gate appearing somewhere later
+  /// and disagreeing with this one.
   ///
   /// [asContinuation]: the Continue button's incremental run — [reply] is the
   /// NEW text only (the first half was bookkept when the reply was first
@@ -37,16 +65,13 @@ extension ChatServicePocketsPass on ChatService {
   /// pre-state — overwriting it with the mid-turn record would make regen
   /// and tail-delete rewind to the middle of the turn), new transfer
   /// recipients union into it, and receipts append instead of replacing.
-  Future<void> _runPocketsPass(
-    String reply, {
-    bool asContinuation = false,
-  }) async {
+  Future<void> run(String reply, {bool asContinuation = false}) async {
     if (reply.trim().isEmpty) return;
 
     final speaker = _activeCharacter;
     if (speaker == null) return;
     final charId = _getCharacterIdFromCard(speaker);
-    if (!pocketsEnabledFor(charId)) return;
+    if (!_ledger.pocketsEnabledFor(charId)) return;
 
     // Seed from the card the first time this chat asks: an author who wrote
     // `frontPorchExtensions.inventory` expects them to START with those things,
@@ -54,11 +79,12 @@ extension ChatServicePocketsPass on ChatService {
     // Still `??`-lazy, and still load-bearing: seedPocketsFromCards runs at
     // the top of a user turn, so a character who ARRIVES mid-turn (a Scene
     // Guest, a cast change) reaches this without having been seeded.
-    final record = pocketsFor(charId) ?? startingPocketsFor(speaker);
+    final record =
+        _ledger.pocketsFor(charId) ?? PocketsLedger.startingPocketsFor(speaker);
     // Lazy morning housekeeping: yesterday's set-aside clothes leave the
     // record the first time it is touched on a new story day, BEFORE any
     // prompt or op can see them. Possessions stay (see SetAsideItem).
-    final day = storyDayCount;
+    final day = storyDayCount();
     record.expireSetAside(day);
 
     // Pre-turn snapshot for the rewind stamps below — taken AFTER expiry on
@@ -69,7 +95,7 @@ extension ChatServicePocketsPass on ChatService {
     // a group: in a 1:1 the only other party is the user, who has no record to
     // put anything into, so the roster stays empty and the model is never
     // invited to name a recipient.
-    final others = _pocketTransferRoster(charId);
+    final others = _ledger.pocketTransferRoster(charId);
     final transfersOn = others.isNotEmpty;
 
     // A LIST of (recipient, item), not a map keyed by recipient: "they hand
@@ -92,7 +118,7 @@ extension ChatServicePocketsPass on ChatService {
     // for all three bookkeeping passes) — parse this pass's slice through
     // the SAME parser and applier the standalone call feeds. An answer with
     // no ops is the common case and applies nothing, exactly as today.
-    final fused = _replyFactsRaw;
+    final fused = fusedReply();
     // Applied-change feed for the item-memory journal cards — populated by
     // the applier with canonical names, consumed after the record persists.
     final events = <PocketEvent>[];
@@ -109,7 +135,7 @@ extension ChatServicePocketsPass on ChatService {
               events: events,
             );
     } else {
-      receipts = await _pocketsEval.evaluateAndApply(
+      receipts = await _eval.evaluateAndApply(
         charName: speaker.name,
         pockets: record,
         // Clamped like every judge window (the eval diet missed the
@@ -139,8 +165,10 @@ extension ChatServicePocketsPass on ChatService {
       if (matches.isEmpty) continue;
       final recipient = matches.first;
       final rid = _getCharacterIdFromCard(recipient);
-      if (!_pocketsWriteAllowed(rid)) continue;
-      final theirs = pocketsFor(rid) ?? startingPocketsFor(recipient);
+      if (!_ledger.pocketsWriteAllowed(rid)) continue;
+      final theirs =
+          _ledger.pocketsFor(rid) ??
+          PocketsLedger.startingPocketsFor(recipient);
       // One before-snapshot per recipient (multiple items to Sam → one kit).
       if (seenRecipients.add(rid)) {
         othersBefore.add({'char': rid, 'record': theirs.toJson()});
@@ -149,14 +177,14 @@ extension ChatServicePocketsPass on ChatService {
       while (theirs.carrying.length > kMaxCarrying) {
         theirs.carrying.removeAt(0);
       }
-      setPocketsFor(rid, theirs);
+      _ledger.setPocketsFor(rid, theirs);
       debugPrint(
         '[Pockets] ${speaker.name} -> ${recipient.name}: ${item.display}',
       );
     }
     for (final ob in othersBefore) {
       final rid = ob['char'] as String;
-      final afterRec = pocketsFor(rid);
+      final afterRec = _ledger.pocketsFor(rid);
       if (afterRec != null) {
         othersAfter.add({'char': rid, 'record': afterRec.toJson()});
       }
@@ -165,7 +193,7 @@ extension ChatServicePocketsPass on ChatService {
     // Store even when nothing changed: the first turn is what promotes a
     // card-seeded record into the chat, and without this it would be re-seeded
     // (and re-diffed against) every single turn.
-    setPocketsFor(charId, record);
+    _ledger.setPocketsFor(charId, record);
 
     // The Journal remembers what changed hands (maintainer design,
     // 2026-08-11): deterministic diary cards from the ops just applied —
@@ -175,10 +203,10 @@ extension ChatServicePocketsPass on ChatService {
     // intersection. Guests never journal — the pass already runs only for
     // real cast members.
     if (events.isNotEmpty &&
-        _storageService.memorySettings.journalEnabled &&
+        memorySettings().journalEnabled &&
         _currentSessionId != null) {
       try {
-        await _writeItemCards(charId, events, asContinuation: asContinuation);
+        await itemCards().write(charId, events, asContinuation: asContinuation);
       } catch (e) {
         // A diary miss must never cost the turn — same floor as the eval.
         debugPrint('[Journal] item cards skipped: $e');
@@ -188,7 +216,7 @@ extension ChatServicePocketsPass on ChatService {
     // Nothing moved for the bubble and no transfer to rewind — still
     // notify (record may have been first-seeded above) and stop.
     if (receipts.isEmpty && othersBefore.isEmpty) {
-      notifyListeners();
+      _scope.notify();
       return;
     }
 
@@ -274,8 +302,8 @@ extension ChatServicePocketsPass on ChatService {
         ];
       }
       msg.activeMetadata = afterMeta;
-      await _saveChat();
+      await _scope.saveChat();
     }
-    notifyListeners();
+    _scope.notify();
   }
 }

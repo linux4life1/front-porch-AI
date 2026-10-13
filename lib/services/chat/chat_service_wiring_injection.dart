@@ -327,7 +327,7 @@ extension ChatServiceWiringInjection on ChatService {
       chatId: _currentSessionId,
       characterId: speaking.dbId,
       description: speaking.description,
-      personality: _getEffectivePersonality(speaking),
+      personality: _growthDesk.effectivePersonality(speaking),
       scenario: scenario ?? speaking.scenario,
       userPersona: _userPersonaService.persona.persona,
       groupMemberNames: _activeGroup != null

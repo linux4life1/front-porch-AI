@@ -74,7 +74,7 @@ extension ChatServiceContextBudget on ChatService {
         ];
         speakerCard =
             '${(speaker.isLite ? buildLiteGroupTurnNote : buildSpeakerTurnNote)(speakerName: speaker.name, otherMemberNames: others, userName: _userPersonaService.persona.name, observerMode: _observerMode)}'
-            '${buildSpeakerPersonaLine(name: speaker.name, personality: _getEffectivePersonality(speaker))}\n'
+            '${buildSpeakerPersonaLine(name: speaker.name, personality: _growthDesk.effectivePersonality(speaker))}\n'
             '${speaker.mesExample}';
       }
     } else if (_activeCharacter != null) {

@@ -378,8 +378,8 @@ extension ChatServiceSpeakerObjectives on ChatService {
     // Owner key MUST be the message speaker (groupSpeakerId when rewinding a
     // group member), never bare `_activeCharacter` — after post-gen the
     // active pointer is often someone else, so restore used to write
-    // speaker A's kit onto B (audit P1.7). `_restorePocketsFromStamp` already
-    // keys by stamp `char`; this realism_state path is the dual for no-op /
+    // speaker A's kit onto B (audit P1.7).
+    // `_pocketsRewinds.restoreFromStamp` already keys by stamp `char`; this realism_state path is the dual for no-op /
     // stamp-less turns that only carry pockets inside realism_state.
     final pocketsSnap = state['pockets'];
     if (pocketsSnap is Map) {
@@ -388,7 +388,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
           : (_activeCharacter != null
                 ? _getCharacterIdFromCard(_activeCharacter!)
                 : '');
-      if (ownerId.isNotEmpty && _pocketsWriteAllowed(ownerId)) {
+      if (ownerId.isNotEmpty && _pocketsLedger.pocketsWriteAllowed(ownerId)) {
         setPocketsFor(ownerId, Pockets.fromJson(pocketsSnap));
       }
     }

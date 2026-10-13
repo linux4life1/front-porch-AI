@@ -67,7 +67,8 @@ extension ChatServicePackageExtras on ChatService {
       final cid = (m['character_id'] as String? ?? '').trim();
       final content = (m['content'] as String? ?? '').trim();
       if (cid.isEmpty || content.isEmpty) continue;
-      final sources = (m['source_message_ids'] as List?)
+      final sources =
+          (m['source_message_ids'] as List?)
               ?.map((e) => (e as num).toInt())
               .toList() ??
           const <int>[];
@@ -83,11 +84,11 @@ extension ChatServicePackageExtras on ChatService {
           sourceMessageIds: drift.Value(
             sources.isEmpty ? null : jsonEncode(sources),
           ),
-          metadata: drift.Value(m['metadata'] is String
-              ? m['metadata'] as String
-              : (m['metadata'] is Map
-                  ? jsonEncode(m['metadata'])
-                  : null)),
+          metadata: drift.Value(
+            m['metadata'] is String
+                ? m['metadata'] as String
+                : (m['metadata'] is Map ? jsonEncode(m['metadata']) : null),
+          ),
         ),
       );
     }
@@ -95,7 +96,7 @@ extension ChatServicePackageExtras on ChatService {
     // Canonical roster refresh (group + 1:1). Scene guests are cleared on
     // import seed, so guest-owned rings from the package stay in DB for
     // that session id but are not injected until a guest re-enters.
-    await _refreshGrowthCache();
+    await _growthDesk.refreshCache();
   }
 
   Future<void> _importObjectivesFromPackage(List<dynamic> list) async {
@@ -119,10 +120,12 @@ extension ChatServicePackageExtras on ChatService {
           tasks: drift.Value(tasksJson),
           active: drift.Value(m['active'] != false),
           isPrimary: drift.Value(m['is_primary'] == true),
-          checkFrequency:
-              drift.Value((m['check_frequency'] as num?)?.toInt() ?? 3),
-          injectionDepth:
-              drift.Value((m['injection_depth'] as num?)?.toInt() ?? 4),
+          checkFrequency: drift.Value(
+            (m['check_frequency'] as num?)?.toInt() ?? 3,
+          ),
+          injectionDepth: drift.Value(
+            (m['injection_depth'] as num?)?.toInt() ?? 4,
+          ),
           servedAmbition: drift.Value(m['served_ambition'] as String?),
         ),
       );

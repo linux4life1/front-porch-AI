@@ -107,9 +107,12 @@ extension ChatServiceImpersonate on ChatService {
         );
       } else {
         personaBlock =
-            "${speakingCharacter.name}'s Persona: ${_resolvedCardPersonality(speakingCharacter, userName)}";
+            "${speakingCharacter.name}'s Persona: ${_growthDesk.resolvedCardPersonality(speakingCharacter, userName)}";
       }
-      final growthBlock = _resolvedGrowthBlock(speakingCharacter, userName);
+      final growthBlock = _growthDesk.resolvedGrowthBlock(
+        speakingCharacter,
+        userName,
+      );
 
       // User persona — inject user's self-description + learned facts
       final userPersonaBlock = await _buildUserPersonaBlock(userName);
@@ -118,7 +121,7 @@ extension ChatServiceImpersonate on ChatService {
       if (_activeGroup != null && _activeGroup!.scenario.isNotEmpty) {
         rawScenario = _activeGroup!.scenario;
       } else {
-        rawScenario = _getEffectiveScenario(speakingCharacter);
+        rawScenario = _growthDesk.effectiveScenario(speakingCharacter);
       }
       String scenario = rawScenario;
 

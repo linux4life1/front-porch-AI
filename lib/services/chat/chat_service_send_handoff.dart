@@ -142,7 +142,7 @@ extension ChatServiceSendHandoff on ChatService {
       // RealismDance.evaluateForUpcomingSpeaker once their scalars load. Clock on,
       // the beat's own minutes tick after the clock instead.
       if (_activeGroup == null) {
-        _tickRefractoryPerReply();
+        _afterglow.tickPerReply();
       }
 
       // Single-path bridge: realism evaluation now runs inside _generateResponse

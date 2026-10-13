@@ -67,7 +67,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
         label: 'needs',
       ),
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
-      setPendingRealismMetadata: _writePendingRealismMetadata,
+      setPendingRealismMetadata: _growthDesk.writePendingRealismMetadata,
       getActiveCharacter: () => _activeCharacter,
       getActiveGroup: () => _activeGroup,
       getIsObserverMode: () => _observerMode,
@@ -144,7 +144,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getObjectivesEnabled: () => objectivesActive && !_rescoringFeelings,
       getMessages: () => _messages,
       getPendingRealismMetadata: () => _pendingRealismMetadata ?? {},
-      setPendingRealismMetadata: _writePendingRealismMetadata,
+      setPendingRealismMetadata: _growthDesk.writePendingRealismMetadata,
       captureRealismState: _realismSnapshot.capture,
       getCharacterEmotion: () => _characterEmotion,
       setCharacterEmotion: (v) => _characterEmotion = v,
@@ -290,9 +290,10 @@ extension ChatServiceWiringEvalJudges on ChatService {
       getBackendIdentity: () => _evalBackendIdentity,
       getPreferTextEvals: () => _storageService.realismSettings.preferTextEvals,
       // The completion check runs pre-generation; the flags are consumed by
-      // _maybeRunJournalPass/_maybeRunGrowthPass post-generation (a finished
-      // quest is a story beat worth journaling AND a moment characters grow).
-      onObjectiveCompleted: () => _requestSalienceKick(),
+      // _maybeRunJournalPass/GrowthDesk.maybeRunGrowthPass post-generation (a
+      // finished quest is a story beat worth journaling AND a moment
+      // characters grow).
+      onObjectiveCompleted: () => _growthDesk.requestSalienceKick(),
       // Ambitions (Living Time §6): a whole quest finishing is the ONE moment
       // ambition progress can move. Fire-and-forget; owner resolved from the
       // objective row's characterId (per-character in groups by construction).
@@ -360,7 +361,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
     fireToolEval: _fireToolEval,
     toolProbe: _toolProbe,
     backendIdentity: () => _evalBackendIdentity,
-    writePending: _writePendingRealismMetadata,
+    writePending: _growthDesk.writePendingRealismMetadata,
     evalCancelled: () => _realismEvalCancelled,
     oneShotActive: () => _oneShotActive,
     personaName: () => _userPersonaService.persona.name,
@@ -375,7 +376,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
     realismActiveThisMode: () => _realismActiveThisMode,
     speakerIsSoft: _speakerIsSoft,
     withWorkerLane: _withWorkerLane,
-    tickRefractoryPerReply: _tickRefractoryPerReply,
+    tickRefractoryPerReply: _afterglow.tickPerReply,
     stampGroupUserTurnBaseline: _stampGroupUserTurnBaseline,
     applyMoodDecay: _applyMoodDecay,
     seedOpeningPosture: _seedOpeningPosture,

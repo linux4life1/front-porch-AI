@@ -373,7 +373,7 @@ extension ChatServiceGroupEntry on ChatService {
 
       // Cache growth rings (and any not-yet-distilled legacy evolved blobs)
       // for all group characters so the injection layer can read them sync.
-      await _refreshGrowthCache();
+      await _growthDesk.refreshCache();
     } finally {
       if (ownedLoad) endSessionLoad();
     }

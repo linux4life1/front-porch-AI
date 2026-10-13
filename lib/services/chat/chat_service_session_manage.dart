@@ -356,7 +356,7 @@ extension ChatServiceSessionManage on ChatService {
     // Drop the previous session's growth cache so the new chat starts with
     // the original (ungrown) personality. A fresh session has no rings and
     // no legacy blob, so an empty cache IS the correct state — the next
-    // _refreshGrowthCache (session load / first growth pass) re-scopes it.
+    // _growthDesk.refreshCache (session load / first growth pass) re-scopes it.
     _isGrowthPassRunning = false;
     _growthStore.invalidate();
 

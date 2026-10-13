@@ -354,8 +354,8 @@ extension ChatServiceTurnFlow on ChatService {
           userMessagesSincePass >=
           _storageService.memorySettings.journalInterval;
       // Salient immediacy is ONLY eventKickPending, which already passed
-      // [_requestSalienceKick]. Reading the window again would bypass the
-      // shared cooldown Growth already honors.
+      // GrowthDesk.requestSalienceKick. Reading the window again would bypass
+      // the shared cooldown Growth already honors.
       if (due || _journalMaintenance.eventKickPending) {
         _journalMaintenance.runMaintenancePass();
       }
@@ -421,8 +421,8 @@ extension ChatServiceTurnFlow on ChatService {
   /// Coordinator for the periodic background evals (now just Scene Guest cast
   /// detection). User-fact extraction and chat summaries were replaced by the
   /// Journal maintenance pass (_maybeRunJournalPass); character evolution was
-  /// replaced by the growth pass (_maybeRunGrowthPass in
-  /// chat_service_growth.dart), which has its own cursor-based cadence.
+  /// replaced by the growth pass (GrowthDesk.maybeRunGrowthPass), which has
+  /// its own cursor-based cadence.
   void _maybeRunPeriodicEvals() {
     // Scene Guest cast detection (1:1 only). Runs on its own cadence and
     // fires-and-forget so it never blocks the turn. See _maybeRunCastDetection.

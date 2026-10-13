@@ -63,7 +63,6 @@ export 'chat/realism_snapshot.dart'
 
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
-part 'chat/chat_service_growth.dart';
 part 'chat/chat_service_sillytavern.dart';
 part 'chat/chat_service_import_seed.dart';
 part 'chat/chat_service_import_walk.dart';
@@ -106,11 +105,6 @@ part 'chat/chat_service_generation_stream.dart';
 part 'chat/chat_service_generation_stream_accessors.dart';
 part 'chat/chat_service_generation_postgen.dart';
 part 'chat/chat_service_generation_postgen_engine.dart';
-part 'chat/chat_service_pockets.dart';
-part 'chat/chat_service_pockets_pass.dart';
-part 'chat/chat_service_item_cards.dart';
-part 'chat/chat_service_reply_facts.dart';
-part 'chat/chat_service_climax.dart';
 part 'chat/chat_service_cast.dart';
 part 'chat/chat_service_cast_shrink.dart';
 part 'chat/chat_service_images.dart';
@@ -136,7 +130,6 @@ part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_away_pulse.dart';
 part 'chat/chat_service_message_ops.dart';
-part 'chat/chat_service_timeline.dart';
 part 'chat/chat_service_guest_flow.dart';
 part 'chat/chat_service_accessors.dart';
 part 'chat/chat_service_accessors_living.dart';
@@ -255,40 +248,17 @@ class ChatService extends ChangeNotifier
   /// switch only (see PocketsEval for why it depends on nothing else).
   late final _inventoryInjection = _buildInventoryInjection();
 
-  /// The Pockets detection pass. Its own eval by design — see PocketsEval.
-  late final _pocketsEval = _buildPocketsEval();
+  late final _pocketsLedger = _buildPocketsLedger();
+  late final _pocketsRewinds = _buildPocketsRewinds();
+  late final _pocketsPass = _buildPocketsPass();
+  late final _itemCards = _buildItemCardJournal();
+  late final _replyFacts = _buildReplyFacts();
+  late final _afterglow = _buildAfterglowPass();
 
-  /// Afterglow's climax check. Its own pass — see ClimaxEval.
-  late final _climaxEval = _buildClimaxEval();
-
-  // `_pockets` / `_replyFactsRaw` live on ChatServiceFieldBag (extensions
-  // cannot declare fields). pocketsFor / characterIdFor stay HERE — FakeChatService
-  // can only override class members.
-
-  /// The record for [characterId], whichever mode the chat is in — the ONE
-  /// read every Pockets surface uses, so 1:1 and group cannot diverge about
-  /// whose pockets are whose.
-  ///
-  /// **Absent when the feature is off, and that is the whole gate.** The design
-  /// doc's rule is "off means off: no eval fires, no injection block is built,
-  /// and the sidebar panel is absent — not greyed, absent", and putting it here
-  /// is what makes that true by construction rather than by three call sites
-  /// remembering to ask. Two of them did remember (the injection wiring and the
-  /// web facade) and the sidebar did not, so a chat that had run with Pockets ON
-  /// went on showing its Wardrobe row after the switch went down — a panel for a
-  /// disabled feature, and a desktop/web split, since the web facade hid it
-  /// correctly.
-  ///
-  /// This HIDES, it never erases. `_pockets` and the per-member records are left
-  /// exactly as they were, the v47 save wire writes `_pockets` directly, and the
-  /// load wire restores it directly — all deliberately outside this gate — so
-  /// switching Pockets off and back on finds everything they were carrying still
-  /// there. The rewind path likewise writes through `setPocketsFor`, not here.
-  Pockets? pocketsFor(String characterId) {
-    if (!pocketsEnabledFor(characterId)) return null;
-    if (_activeGroup == null) return _pockets;
-    return _groupRealism[characterId]?.pockets;
-  }
+  /// Pockets' one read (off hides, never erases); body in
+  /// [PocketsLedger.pocketsFor]. Class member: FakeChatService overrides it.
+  Pockets? pocketsFor(String characterId) =>
+      _pocketsLedger.pocketsFor(characterId);
 
   /// The one Pockets switch, exposed for UI gating. [pocketsFor] returning
   /// null cannot distinguish "feature off" (panel absent) from "no record
@@ -333,6 +303,8 @@ class ChatService extends ChangeNotifier
   late final _growthStore = _buildGrowthStore();
   late final _growthReview = _buildGrowthReview();
   late final _growthService = _buildGrowthService();
+  late final _growthDesk = _buildGrowthDesk();
+  late final _timeline = _buildTimelineInvalidator();
 
   CharacterCard? get activeCharacter => _activeCharacter;
   List<ChatMessage> get messages => List.unmodifiable(_messages);

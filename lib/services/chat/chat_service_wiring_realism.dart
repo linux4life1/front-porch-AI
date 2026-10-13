@@ -34,7 +34,7 @@ extension ChatServiceWiringRealism on ChatService {
       onSetPendingRealismMetadata: (key, value) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
-        _requestSalienceKick(onlyIf: _pendingRealismMetadata);
+        _growthDesk.requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
       onStoryDayChanged: () {
         _recordTodayPointerOp();
@@ -172,7 +172,8 @@ extension ChatServiceWiringRealism on ChatService {
 
   NeedsRewinds _buildNeedsRewinds() => NeedsRewinds(
     _realismScope(),
-    restoreRefractoryAfterBeat: _restoreRefractoryAfterBeat,
+    restoreRefractoryAfterBeat: (msg, id) =>
+        _afterglow.restoreAfterBeat(msg, id),
   );
 
   StandingMood _buildStandingMood() =>
@@ -185,6 +186,48 @@ extension ChatServiceWiringRealism on ChatService {
     wearBeatOn: (msg) => _needsPass.wearBeatOn(msg),
   );
 
+  // ── Pockets, Afterglow and their fused reply-facts transport ──
+  PocketsLedger _buildPocketsLedger() => PocketsLedger(
+    _realismScope(),
+    hostRecord: () => _pockets,
+    setHostRecord: (p) => _pockets = p,
+    originLibraryCardFor: originLibraryCardFor,
+    currentSessionId: () => _currentSessionId,
+    storyDayCount: () => storyDayCount,
+    memorySettings: () => _storageService.memorySettings,
+    itemCards: () => _itemCards,
+  );
+
+  PocketsRewinds _buildPocketsRewinds() =>
+      PocketsRewinds(_messages, _pocketsLedger, itemCards: () => _itemCards);
+
+  PocketsPass _buildPocketsPass() => PocketsPass(
+    _realismScope(),
+    _pocketsLedger,
+    _buildPocketsEval(),
+    fusedReply: () => _replyFacts.raw,
+    itemCards: () => _itemCards,
+    currentSessionId: () => _currentSessionId,
+    storyDayCount: () => storyDayCount,
+    memorySettings: () => _storageService.memorySettings,
+  );
+
+  ReplyFacts _buildReplyFacts() => ReplyFacts(
+    _realismScope(),
+    _pocketsLedger,
+    afterglowActive: () => _afterglow.active,
+    storyDayCount: () => storyDayCount,
+    buildEval: _buildReplyFactsEval,
+  );
+
+  AfterglowPass _buildAfterglowPass() => AfterglowPass(
+    _realismScope(),
+    _buildClimaxEval(),
+    fusedReply: () => _replyFacts.raw,
+    isGuestAuthoredMessage: _isGuestAuthoredMessage,
+    resolveGroupSpeakerForMessage: _resolveGroupSpeakerForMessage,
+  );
+
   // ── Chaos Mode (extracted; late final here for injection safety, before _chaosInjection) ──
   ChaosModeService _buildChaosModeService() {
     return ChaosModeService(
@@ -193,7 +236,7 @@ extension ChatServiceWiringRealism on ChatService {
       onSetPendingRealismMetadata: (key, value) {
         _pendingRealismMetadata ??= {};
         _pendingRealismMetadata![key] = value;
-        _requestSalienceKick(onlyIf: _pendingRealismMetadata);
+        _growthDesk.requestSalienceKick(onlyIf: _pendingRealismMetadata);
       },
       isAdultAllowed: () => _storageService.realismSettings.adultThemesEnabled,
       getFrequency: () => _storageService.realismSettings.chaosFrequency,

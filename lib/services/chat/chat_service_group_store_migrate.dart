@@ -74,7 +74,7 @@ extension ChatServiceGroupStoreMigrate on ChatService {
     } catch (e) {
       debugPrint('[GroupStore] Failed to rekey journal/growth rows: $e');
     }
-    if (moved) await _refreshGrowthCache();
+    if (moved) await _growthDesk.refreshCache();
   }
 
   /// Fill the existing [_groupObjectives] map from DB after rekey.

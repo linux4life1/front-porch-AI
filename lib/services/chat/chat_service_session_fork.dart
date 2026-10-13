@@ -201,7 +201,7 @@ extension ChatServiceSessionFork on ChatService {
       _currentSessionId!,
       cursor: _messages.length,
     );
-    await _refreshGrowthCache();
+    await _growthDesk.refreshCache();
     notifyListeners();
   }
 }

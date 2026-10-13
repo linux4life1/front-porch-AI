@@ -128,8 +128,8 @@ class FrontPorchExtensions {
   ///
   /// Kept as a raw map rather than a typed Pockets: this is the MODEL layer and
   /// it must not depend on a chat service leaf. The one place that reads it
-  /// (chat_service_pockets.dart) parses it through Pockets.fromJson, which
-  /// already tolerates both shapes.
+  /// (PocketsLedger) parses it through Pockets.fromJson, which already
+  /// tolerates both shapes.
   Map<String, dynamic> inventory;
 
   // Optional director/verifier thread for Realism Engine + Needs (ingests full latent context + deltas JSON;

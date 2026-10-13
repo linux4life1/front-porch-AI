@@ -41,7 +41,7 @@ import 'pockets_record.dart';
 /// all, so a rain-soaked coat arrives rain-soaked. It stays a callback rather
 /// than a return value because this function owns exactly one character's
 /// record; who the other side is, and whether that name resolves to anyone, is
-/// the caller's business (see ChatService._runPocketsPass).
+/// the caller's business (see PocketsPass.run).
 ///
 /// A `give` with no recipient, or with one nobody can resolve, still removes
 /// the item from the giver. That is the floor and it is deliberate: the giver

@@ -122,7 +122,7 @@ extension ChatServiceImportWalk on ChatService {
     // who never spoke after the handoff have no own stamp of the item.
     // Apply EVERY stamp oldest → newest: a later giver-only move has no
     // `others`, so it must not wipe Sam's keys from an earlier give.
-    _restorePocketsStampsChronologically(start);
+    _pocketsRewinds.restoreChronologically(start);
 
     _clockWriter.syncLoadedSlotClocks();
 
@@ -183,7 +183,7 @@ extension ChatServiceImportWalk on ChatService {
       if (meta?['realism_state'] is Map) {
         _restoreRealismStateForSpeaker(m, restoreClock: false);
         if (m.metadata?['pockets_before'] is Map) {
-          _restorePocketsFromStamp(m, after: true);
+          _pocketsRewinds.restoreFromStamp(m, after: true);
         }
         restored = true;
         break;

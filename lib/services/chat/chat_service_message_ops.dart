@@ -20,7 +20,7 @@ part of '../chat_service.dart';
 
 /// Message-list mutation: swipe, continue, session reload/clear/delete,
 /// [deleteMessage], generation cancel, [cancelRealismEval]. Timeline
-/// invalidation lives in chat_service_timeline.dart.
+/// invalidation lives in TimelineInvalidator (timeline_invalidator.dart).
 extension ChatServiceMessageOps on ChatService {
   /// Navigate swipes on a specific message. direction: -1 = left, +1 = right.
   /// If swiping right past the last swipe on the last bot message, regenerates.
@@ -78,7 +78,7 @@ extension ChatServiceMessageOps on ChatService {
     // Pockets follow the selected variant too — this swipe's own
     // post-turn record, or the shared pre-turn base when this variant's
     // pass changed nothing (hostile review 2026-08-11).
-    if (isTip) _restorePocketsFromStamp(msg, after: true);
+    if (isTip) _pocketsRewinds.restoreFromStamp(msg, after: true);
     // Timeline integrity follows the same tip-only rule pockets/realism
     // already use. A TIP swipe is a suffix rewrite: Journal/Growth/RAG
     // citing this position and later describe events that no longer
@@ -86,7 +86,7 @@ extension ChatServiceMessageOps on ChatService {
     // swipe is navigation — later memories stay on screen AND in the
     // diary; only this variant's item cards are re-sown.
     if (isTip) {
-      _invalidateJournalFrom(
+      _timeline.invalidateFrom(
         persistMessagePosition(
           base: _history.basePosition,
           index: messageIndex,
@@ -94,7 +94,7 @@ extension ChatServiceMessageOps on ChatService {
         thenReplantPlanted: msg,
       );
     } else {
-      unawaited(_replantItemCards(msg, key: 'item_cards_planted'));
+      unawaited(_itemCards.replant(msg, key: 'item_cards_planted'));
     }
     await _saveChat();
     notifyListeners();
@@ -290,7 +290,7 @@ extension ChatServiceMessageOps on ChatService {
       _messages.removeAt(index);
 
       // Persist index, not the on-screen 0..23 of a tail window.
-      _invalidateJournalFrom(dbPos);
+      _timeline.invalidateFrom(dbPos);
 
       // Time-travel rollback for realism when deleting a character message.
       // Restore from the new last message if it has a snapshot, regardless
@@ -353,7 +353,7 @@ extension ChatServiceMessageOps on ChatService {
         // clock from it mid-turn would move story time under that speaker.
         if (!duringTurn) {
           _clockWriter.applyClockAfterDelete(deleted, wasTail: wasTail);
-          if (wasTail) _restoreRefractoryBeforeBeat(deleted);
+          if (wasTail) _afterglow.restoreBeforeBeat(deleted);
         }
       }
 
@@ -400,10 +400,10 @@ extension ChatServiceMessageOps on ChatService {
     required bool wasTail,
   }) {
     if (wasTail) {
-      _restorePocketsFromStamp(deleted, after: false);
+      _pocketsRewinds.restoreFromStamp(deleted, after: false);
       return;
     }
-    unawaited(_replantItemCards(deleted, key: 'item_cards_retired'));
+    unawaited(_itemCards.replant(deleted, key: 'item_cards_retired'));
     if (!pocketsFeatureEnabled) return;
     final before = deleted.metadata?['pockets_before'];
     if (before is! Map) return;
@@ -438,7 +438,7 @@ extension ChatServiceMessageOps on ChatService {
     };
     final live = <String, Pockets>{
       for (final id in ids)
-        if (id.isNotEmpty && _pocketsWriteAllowed(id))
+        if (id.isNotEmpty && _pocketsLedger.pocketsWriteAllowed(id))
           id: (pocketsFor(id) ?? Pockets()).copy(),
     };
     invertDeletedPocketTurn(
@@ -450,7 +450,7 @@ extension ChatServiceMessageOps on ChatService {
       live: live,
     );
     for (final e in live.entries) {
-      if (!_pocketsWriteAllowed(e.key)) continue;
+      if (!_pocketsLedger.pocketsWriteAllowed(e.key)) continue;
       setPocketsFor(e.key, e.value);
     }
   }

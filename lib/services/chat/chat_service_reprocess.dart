@@ -245,7 +245,7 @@ extension ChatServiceReprocess on ChatService {
         // review 2026-08-11). Group-safe: the stamp carries the speaker's
         // own charId. The journal invalidation above already took the
         // rejected turn's item cards with it.
-        _restorePocketsFromStamp(lastMsg, after: false);
+        _pocketsRewinds.restoreFromStamp(lastMsg, after: false);
       }
 
       // Capture the live clock first. Fail/cancel/abort put it back so
@@ -262,13 +262,13 @@ extension ChatServiceReprocess on ChatService {
         _messages.add(lastMsg);
         _clockWriter.restoreCapturedThroughReader();
         _restoreRealismStateForSpeaker(lastMsg);
-        _restorePocketsFromStamp(lastMsg, after: true);
+        _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
         return;
       }
 
       // After the unreadable-baseline bail: the bubble stays, so its
       // journal/growth cites must stay too (same rule as a departed guest).
-      _invalidateJournalFrom(
+      _timeline.invalidateFrom(
         persistMessagePosition(
           base: _history.basePosition,
           index: _messages.length,
@@ -313,7 +313,7 @@ extension ChatServiceReprocess on ChatService {
 
         // Wear waits until the clock commits on the replayed reply.
         _applyMoodDecay();
-        _tickRefractoryPerReply();
+        _afterglow.tickPerReply();
 
         await _realismJudges.runPreGenJudges(
           onChunk: handleChunk,
@@ -346,7 +346,7 @@ extension ChatServiceReprocess on ChatService {
           _messages.add(lastMsg);
           _clockReader.applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
-          _restorePocketsFromStamp(lastMsg, after: true);
+          _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
           _realismEvalCancelled = false;
           _evalChunkTimer?.cancel();
@@ -398,7 +398,7 @@ extension ChatServiceReprocess on ChatService {
           // returns WITH the state it was accepted under.
           _clockReader.applyTipClock();
           _restoreRealismStateForSpeaker(lastMsg);
-          _restorePocketsFromStamp(lastMsg, after: true);
+          _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
           _pendingRealismMetadata = null;
           _realismEvalCancelled = false;
           notifyListeners();
