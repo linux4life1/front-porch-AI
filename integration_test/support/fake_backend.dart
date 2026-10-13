@@ -561,11 +561,24 @@ class FakeBackendServer {
     if (lastContent.contains('"with_user"')) {
       eval['with_user'] = true;
     }
-    // Char→char feelings judge (group turns). Same trap again: an empty
-    // verdict keeps it out of CHAT and moves no one.
+    // Char→char feelings judge (group turns). Same trap again. It answers
+    // as the keyword scan it replaced did: a reply that names a listed
+    // member warmly (wonderful/adore/friend) moves them +4, the rest none,
+    // so regen_feelings_cadence still pins that a regen doesn't stack it.
     if (lastContent.contains('"feelings"') ||
         lastContent.contains('report_cast_feelings')) {
-      eval['feelings'] = <Object>[];
+      final listed =
+          RegExp(
+            r'toward each of these characters changing: (.*?)\.\n',
+          ).firstMatch(lastContent)?.group(1)?.split(', ') ??
+          const <String>[];
+      final reply = lastContent.split("'s reply:\n").last.toLowerCase();
+      final warm = const ['wonderful', 'adore', 'friend'].any(reply.contains);
+      eval['feelings'] = [
+        for (final name in listed)
+          if (warm && reply.contains(name.toLowerCase()))
+            {'name': name, 'delta': 4},
+      ];
     }
 
     // One line per completion so a misclassification is visible in the suite
