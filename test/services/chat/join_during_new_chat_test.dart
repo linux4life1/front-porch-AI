@@ -133,7 +133,10 @@ void main() {
   ) async {
     final before = c.currentSessionId;
     final done = switching();
-    for (var i = 0; i < 500 && c.currentSessionId == before; i++) {
+    // Bounded by time, not spins: under a loaded runner the switch's own
+    // database awaits can outlast any fixed number of event-loop turns.
+    final deadline = DateTime.now().add(const Duration(seconds: 10));
+    while (c.currentSessionId == before && DateTime.now().isBefore(deadline)) {
       await Future<void>.delayed(Duration.zero);
     }
     expect(c.currentSessionId, isNot(before), reason: 'switch is under way');
