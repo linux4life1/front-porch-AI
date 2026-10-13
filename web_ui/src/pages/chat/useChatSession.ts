@@ -353,21 +353,27 @@ export function useChatSession() {
       });
   }, [state?.hasOlderHistory, state?.isBackfillingHistory, refresh]);
 
-  const loadSession = async (sessionId: string) => {
+  // A chat switch the page started. The host refuses a send until it lands
+  // (the desktop covers its chat the same way), so the page holds the chat
+  // instead of offering a composer whose message would bounce.
+  const [switching, setSwitching] = useState(false);
+  const switchChat = async (body: Record<string, unknown>) => {
     setShowSessions(false);
     clearLiveTurnUi();
-    await api.post('/api/chat/session', { sessionId });
-    await refresh();
+    setSwitching(true);
+    try {
+      await api.post('/api/chat/session', body);
+      await refresh();
+    } finally {
+      setSwitching(false);
+    }
   };
-  const newChat = async () => {
-    setShowSessions(false);
-    clearLiveTurnUi();
-    await api.post('/api/chat/session', { action: 'new' });
-    await refresh();
-  };
+  const loadSession = (sessionId: string) => switchChat({ sessionId });
+  const newChat = () => switchChat({ action: 'new' });
 
   return {
     opening,
+    switching,
     state,
     loadError,
     streaming,

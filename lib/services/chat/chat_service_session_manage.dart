@@ -71,7 +71,7 @@ extension ChatServiceSessionManage on ChatService {
   /// persona, never as whoever the previously-open chat happened to be. That
   /// inheritance is exactly what showPersonaPickerDialog exists to prevent, and
   /// it used to leak in through here whenever the picker was skipped.
-  Future<void> startNewChat({String? personaId}) async {
+  Future<void> _openNewChat({String? personaId}) async {
     if (_activeCharacter == null && _activeGroup == null) return;
     _clearTodayPointer();
 

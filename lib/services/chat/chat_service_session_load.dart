@@ -258,7 +258,34 @@ extension ChatServiceSessionLoad on ChatService {
     return getSessionsForId(charId);
   }
 
-  Future<void> loadSession(String sessionId) async {
+  /// Open a fresh chat for the open cast. See [_openNewChat].
+  Future<void> startNewChat({String? personaId}) =>
+      _whileSwitchingChat(() async {
+        // A reply still finishing belongs to the chat it started in.
+        await _waitForTurnToSettle();
+        await _openNewChat(personaId: personaId);
+      });
+
+  Future<void> loadSession(String sessionId) =>
+      _whileSwitchingChat(() => _openSession(sessionId));
+
+  /// Holds the session-load flag across an in-chat switch, as entering a
+  /// character or group does. A send (a `/join` included) that lands mid-switch
+  /// is refused ("The chat is still opening.") instead of starting in one chat
+  /// and finishing in the next: a New chat mints its id twice, so a join that
+  /// slipped in between lost its "joined the scene" line and could lose the
+  /// guest too.
+  Future<void> _whileSwitchingChat(Future<void> Function() body) async {
+    final ownedLoad = !_isLoadingSession;
+    beginSessionLoad();
+    try {
+      await body();
+    } finally {
+      if (ownedLoad) endSessionLoad();
+    }
+  }
+
+  Future<void> _openSession(String sessionId) async {
     if (_activeCharacter == null && _activeGroup == null) return;
 
     // A reload mid-settle reads rows the finishing turn hasn't persisted yet
