@@ -10,8 +10,11 @@
 //
 // Proven red: calling _openNewChat / _openSession straight from startNewChat
 // / loadSession (no _whileSwitchingChat) writes the entrance into the chat
-// the switch opened, and sendBusyReason says nothing mid-switch.
+// the switch opened, and sendBusyReason says nothing mid-switch. Without
+// the cancel in startNewChat, New chat over a streaming reply waits out the
+// 15 s settle bound instead of switching at once.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -36,8 +39,18 @@ void _setupPathProviderMock() {
 }
 
 class _ScriptedLlm extends LLMService {
+  /// Streams a reply that never ends on its own, a slow local model.
+  bool drip = false;
+
   @override
   Stream<String> generateStream(GenerationParams params) async* {
+    if (drip) {
+      for (var i = 0; i < 2000; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        yield 'on ';
+      }
+      return;
+    }
     if (params.systemPrompt != null) {
       yield '*Riley steps onto the porch.*';
       return;
@@ -69,7 +82,10 @@ void main() {
     await disposeChatThenCloseDb(chat, db);
   });
 
+  late _ScriptedLlm llm;
+
   Future<ChatService> boot() async {
+    llm = _ScriptedLlm();
     HttpOverrides.global = null;
     SharedPreferences.setMockInitialValues({'update_auto_check': false});
     db = AppDatabase.forTesting();
@@ -84,7 +100,7 @@ void main() {
           )
           ..setDatabase(db!)
           ..setCharacterRepository(repo)
-          ..testLlmServiceOverride = _ScriptedLlm();
+          ..testLlmServiceOverride = llm;
     await storage.initialized;
     final host = CharacterCard(
       name: 'Flora',
@@ -171,6 +187,31 @@ void main() {
       expect(c.currentSessionId, first);
       expectNoHalfJoin(c);
       await expectJoinWorks(c);
+    },
+  );
+
+  test(
+    'New chat during a streaming reply cuts it and switches at once',
+    () async {
+      final c = await boot();
+      final first = c.currentSessionId!;
+      llm.drip = true;
+      unawaited(c.sendMessage('hello'));
+      for (var i = 0; i < 500 && !c.isGenerating; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+      expect(c.isGenerating, isTrue, reason: 'the reply is streaming');
+      final sw = Stopwatch()..start();
+      await c.startNewChat();
+      expect(sw.elapsed, lessThan(const Duration(seconds: 3)));
+      expect(c.currentSessionId, isNot(first));
+      expect(c.isGenerating, isFalse);
+      expect(c.messages.map((m) => m.sender), ['Flora']);
+      llm.drip = false;
+      await c.loadSession(first);
+      // The old chat keeps the line and, as Stop does, whatever was on screen.
+      expect(c.messages.take(2).map((m) => m.sender), ['Flora', 'User']);
+      expect(c.messages[1].text, 'hello');
     },
   );
 }

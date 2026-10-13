@@ -261,7 +261,9 @@ extension ChatServiceSessionLoad on ChatService {
   /// Open a fresh chat for the open cast. See [_openNewChat].
   Future<void> startNewChat({String? personaId}) =>
       _whileSwitchingChat(() async {
-        // A reply still finishing belongs to the chat it started in.
+        // A streaming reply is cut, as on entering a character; one still
+        // settling finishes in the chat it started in.
+        await _cancelAndWaitForGeneration();
         await _waitForTurnToSettle();
         await _openNewChat(personaId: personaId);
       });
