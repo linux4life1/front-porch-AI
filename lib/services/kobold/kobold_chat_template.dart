@@ -19,6 +19,9 @@ String kcppsChatTemplatePath(Map<String, dynamic> config) =>
 String kcppsChatTemplateFile(Map<String, dynamic> config, String engineDir) =>
     kcppsPathIn(kcppsChatTemplatePath(config), engineDir);
 
+/// Settings the chat template field manages, so not "unmanaged" extras.
+bool kcppsIsTemplateKey(String key) => key == 'jinjatemplate' || key == 'jinja';
+
 Map<String, dynamic> kcppsWithChatTemplate(
   Map<String, dynamic> config,
   String template,

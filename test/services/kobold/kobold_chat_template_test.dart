@@ -148,6 +148,21 @@ void main() {
     },
   );
 
+  test('the preset line does not count the template as unmanaged', () {
+    final read = readKcpps(
+      jsonEncode({
+        'model_param': '/models/example.gguf',
+        'jinjatemplate': 'chat_templates/abc/x.jinja',
+        'jinja': true,
+        'jinja_tools': false,
+      }),
+    );
+    expect(
+      kcppsShortLine(read),
+      endsWith('1 setting this app does not manage'),
+    );
+  });
+
   group('template and model fit', () {
     const chatml =
         "{% for m in messages %}{{ '<|im_start|>' + m.role }}"

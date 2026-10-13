@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'kcpps_codec.dart';
+import 'kobold_chat_template.dart';
 import 'kobold_context_verdict.dart';
 import 'kobold_launch_config.dart';
 
@@ -46,7 +47,9 @@ String kcppsShortLine(KcppsRead read) {
   if (read is KcppsBroken) return 'Cannot be read: ${read.reason}';
   final ok = read as KcppsOk;
   final c = ok.config;
-  final unmanaged = ok.unmanagedKeys;
+  final unmanaged = ok.unmanagedKeys
+      .where((key) => !kcppsIsTemplateKey(key))
+      .toList();
   if (unmanaged.isNotEmpty) {
     final model = c.modelPath.isEmpty
         ? 'No model'
