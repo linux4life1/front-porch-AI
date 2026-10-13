@@ -67,7 +67,8 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _mockPathProvider();
 
-  test('Kobold ↔ OpenRouter clears even when they share a URL slot', () async {
+  test('Kobold ↔ OpenRouter: Kobold blanks, OpenRouter gets its own model '
+      'back, never a Kobold-side leftover', () async {
     final storage = await _storage();
     addTearDown(storage.dispose);
     await storage.backendSettings.setBackendType('openRouter');
@@ -81,7 +82,7 @@ void main() {
 
     await storage.backendSettings.setRemoteModelName('should-not-stick');
     await storage.backendSettings.setBackendType('openRouter');
-    expect(storage.backendSettings.remoteModelName, isEmpty);
+    expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
     expect(storage.backendSettings.lastUsedModelPath, '/models/chat.gguf');
   });
 
@@ -90,6 +91,7 @@ void main() {
     () async {
       final storage = await _storage();
       addTearDown(storage.dispose);
+      await storage.backendSettings.setBackendType('openRouter');
       await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
       await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
       await storage.backendSettings.setRemoteApiUrl(kNanoGptApiV1);
@@ -99,7 +101,7 @@ void main() {
       );
 
       await storage.backendSettings.setRemoteApiUrl(kOpenRouterApiV1);
-      expect(storage.backendSettings.remoteModelName, isEmpty);
+      expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
       expect(
         storage.backendSettings.remoteApiModelFor(kOpenRouterApiV1),
         'x-ai/grok-4.6',

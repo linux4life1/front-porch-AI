@@ -21,11 +21,11 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 
-/// Apply a provider-bar tap: backend + named URL, restore that host's
-/// key, and blank the live model so a leftover id cannot ride the new
-/// host. oMLX does not write [remoteApiUrl] so OpenRouter/Nano stay
-/// parked. Custom clears a named URL so the bar does not keep
-/// highlighting OpenRouter.
+/// Apply a provider-bar tap: backend + named URL, then restore that
+/// host's key and the model last used there (blank when it has none), so
+/// the previous host's id never rides the new host. oMLX does not write
+/// [remoteApiUrl] so OpenRouter/Nano stay parked. Custom clears a named
+/// URL so the bar does not keep highlighting OpenRouter.
 Future<void> applyRemoteProvider({
   required RemoteProviderKind kind,
   required StorageService storage,

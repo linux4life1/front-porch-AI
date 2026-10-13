@@ -51,3 +51,45 @@ export function isLmStudioUrl(url: string): boolean {
 export function isOmlxUrl(url: string): boolean {
   return loopbackPort(url) === 8000;
 }
+
+const OMLX_API_V1 = 'http://localhost:8000/v1';
+
+/** Same slot rule as Dart `remoteModelSlot`: KoboldCpp (or an unset worker)
+ *  has none, oMLX always uses its fixed address, else the API URL. */
+export function remoteModelSlot(backend: string, url: string): string {
+  if (!backend || backend === 'kobold') return '';
+  return normalizeRemoteApiUrl(backend === 'omlx' ? OMLX_API_V1 : url);
+}
+
+/** The model last used on that backend + URL, from the settings snapshot's
+ *  slot → model map. Empty when the host has none. */
+export function rememberedRemoteModel(
+  backend: string,
+  url: string,
+  models: Record<string, string> | undefined,
+): string {
+  const slot = remoteModelSlot(backend, url);
+  if (!slot || !models) return '';
+  for (const [key, model] of Object.entries(models)) {
+    if (normalizeRemoteApiUrl(key) === slot) return model;
+  }
+  return '';
+}
+
+/** [models] with [model] parked under backend + URL, so an unsaved pick
+ *  survives switching away and back before Save. A blank never wipes. */
+export function parkRemoteModel(
+  backend: string,
+  url: string,
+  model: string,
+  models: Record<string, string> | undefined,
+): Record<string, string> {
+  const slot = remoteModelSlot(backend, url);
+  const next = { ...(models ?? {}) };
+  if (!slot || !model.trim()) return next;
+  for (const key of Object.keys(next)) {
+    if (normalizeRemoteApiUrl(key) === slot) delete next[key];
+  }
+  next[slot] = model.trim();
+  return next;
+}

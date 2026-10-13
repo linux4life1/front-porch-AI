@@ -29,6 +29,8 @@ Map<String, dynamic> readWorkerSettings(
     'workerBackend': storage.workerBackendType,
     'workerRemoteApiUrl': storage.workerRemoteApiUrl,
     'workerRemoteModelName': storage.workerRemoteModelName,
+    'workerRemoteApiModels':
+        storage.backendSettings.rememberedWorkerRemoteModels,
     'workerKoboldModelPath': storage.workerKoboldModelPath ?? '',
     'workerKoboldKcppsPath': storage.workerKoboldKcppsPath ?? '',
     'lastUsedModelPath': storage.backendSettings.lastUsedModelPath ?? '',
