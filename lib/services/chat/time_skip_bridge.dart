@@ -25,6 +25,8 @@ String skipSpanWords(int minutes) {
   return unit((days / 365.25).round(), 'year');
 }
 
+final _lastComma = RegExp(r', (?=[^,]*$)');
+
 /// The bridge narrator's prompt. [skipLine] is the user's message that
 /// skipped; [from] and [to] are the story moments either side of the gap.
 String timeSkipBridgePrompt({
@@ -37,7 +39,8 @@ String timeSkipBridgePrompt({
   required int minutes,
 }) =>
     'You are the narrator of a roleplay scene. The characters are '
-    '${castNames.join(', ')}, and $userName.\n\n'
+    '${[...castNames, userName].join(', ').replaceFirst(_lastComma, ' and ')}.'
+    '\n\n'
     'Recent scene:\n${recentLines.join('\n')}\n\n'
     'The story now skips ahead ${skipSpanWords(minutes)}, from $from to $to. '
     '$userName moved it on with: ${skipLine.trim()}\n\n'

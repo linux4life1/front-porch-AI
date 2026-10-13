@@ -145,6 +145,7 @@ void main() {
       expect(card.text, _bridge);
       expect(llm.bridgePrompts.single, contains('skips ahead 2 weeks'));
       expect(llm.bridgePrompts.single, contains('Two weeks later'));
+      expect(llm.bridgePrompts.single, contains('The characters are Mae and '));
 
       expectUserTurnLast(sent);
       final reply = h.chat.messages.last;
