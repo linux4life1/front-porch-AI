@@ -57,8 +57,6 @@ const _stateAndRewinds = <String, String>{
       'restores the bars from a session',
   'lib/services/chat/chat_service_session_manage.dart':
       'saves the bars with a session',
-  'lib/services/chat/realism_snapshot.dart':
-      'restamps a speaker\'s bars into the reply\'s snapshot',
   'lib/services/chat/chat_service_speaker_objectives.dart':
       'restores the bars from a message\'s snapshot on rewind',
   'lib/services/chat/chat_service_regen_revert.dart':
@@ -67,6 +65,15 @@ const _stateAndRewinds = <String, String>{
       'rewinds a delete to its stamp',
   'lib/services/chat/standing_mood.dart':
       'reads the bars into the realism snapshot',
+};
+
+/// Files where only one function may read the stored switch, because the
+/// rest of the file runs Needs behind the gate (capture reads needsActive).
+const _stateAndRewindFunctions = <String, (String, String)>{
+  'lib/services/chat/realism_snapshot.dart': (
+    'restampPostGen',
+    'restamps a speaker\'s bars into the reply\'s snapshot',
+  ),
 };
 
 /// [name] used as a condition: in an `if` / `while` / `assert` head,
@@ -105,7 +112,14 @@ void main() {
     final problems = <String>[];
     for (final path in _chatServiceLibrary()) {
       if (_stateAndRewinds.containsKey(path)) continue;
-      for (final hit in DartSource.read(path).hits(_storedSwitchAsCondition)) {
+      final source = DartSource.read(path);
+      final allowedIn = _stateAndRewindFunctions[path]?.$1;
+      for (final hit in source.hits(_storedSwitchAsCondition)) {
+        if (source
+            .enclosingFunctions(hit.offset)
+            .any((f) => f.name == allowedIn)) {
+          continue;
+        }
         problems.add('$path:${hit.line}: ${hit.text.trim()}');
       }
     }
@@ -154,6 +168,18 @@ void main() {
       if (DartSource.read(path).hits(_storedSwitchAsCondition).isEmpty) {
         unused.add(path);
       }
+    }
+    for (final MapEntry(key: path, value: (name, _))
+        in _stateAndRewindFunctions.entries) {
+      final source = DartSource.read(path);
+      final used = source
+          .hits(_storedSwitchAsCondition)
+          .any(
+            (hit) => source
+                .enclosingFunctions(hit.offset)
+                .any((f) => f.name == name),
+          );
+      if (!used) unused.add('$path $name');
     }
     expect(unused, isEmpty, reason: 'drop these from _stateAndRewinds');
   });
