@@ -141,6 +141,28 @@ void main() {
       expect(p.billing, 'Bills your Nano-GPT account per image.');
     });
 
+    test('the app\'s own model list is not a reached host', () {
+      final bundled = bundledImageModels(const [_zImage]);
+
+      expect(isBundledImageCatalog(bundled), isTrue);
+      expect(isBundledImageCatalog(const [_zImage]), isFalse);
+      expect(
+        RemoteStudioPanel.build(
+          selectedUrl: kNanoGptApiV1,
+          hasKey: (_) => true,
+          signedIn: (_) => false,
+          models: bundled,
+          listed: !isBundledImageCatalog(bundled),
+          modelId: 'z-image-turbo',
+          storedSize: '',
+          studioSize: '',
+          xaiAspect: '',
+          xaiResolution: '',
+        ).status,
+        'Not reachable · showing the app’s own model list',
+      );
+    });
+
     test('the web reads the same words', () {
       final json = _panel().toJson();
 

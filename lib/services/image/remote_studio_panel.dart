@@ -143,7 +143,9 @@ class RemoteStudioPanel {
       reachable: listed,
       status: listed
           ? RemoteStudioCopy.status(host, models.length)
-          : 'Not reachable',
+          : models.isEmpty
+          ? 'Not reachable'
+          : 'Not reachable · showing the app’s own model list',
       model: model,
       modelId: modelId,
       badges: model == null ? const [] : RemoteStudioCopy.badges(host, model),

@@ -27,8 +27,7 @@ String studioBackendName(String backend) {
 String studioNoModelWords(String backend) {
   switch (backend) {
     case 'remote':
-      return 'no image model is chosen. Add your image API’s address and '
-          'key, then choose one of its models.';
+      return 'no image model is chosen. Choose one with Change model.';
     case 'a1111':
       return 'no model is chosen. Choose one Automatic1111 has.';
     case 'drawthings':

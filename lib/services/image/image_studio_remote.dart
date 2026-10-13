@@ -24,13 +24,26 @@ import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.da
 /// Image Studio's remote image hosts. Keys live in [RemoteApiKeyVault];
 /// the selected URL is Image Studio–scoped and must not rewrite chat's mouth.
 const kImageStudioRemoteHosts = <ImageStudioRemoteHost>[
-  ImageStudioRemoteHost(id: 'nano', label: 'Nano-GPT', url: kNanoGptApiV1),
+  ImageStudioRemoteHost(
+    id: 'nano',
+    label: 'Nano-GPT',
+    url: kNanoGptApiV1,
+    model: 'z-image-turbo',
+  ),
   ImageStudioRemoteHost(
     id: 'openrouter',
     label: 'OpenRouter',
     url: kOpenRouterApiV1,
+    model: 'google/gemini-2.5-flash-image',
+    editModel: 'google/gemini-2.5-flash-image',
   ),
-  ImageStudioRemoteHost(id: 'xai', label: 'xAI', url: kXaiApiV1),
+  ImageStudioRemoteHost(
+    id: 'xai',
+    label: 'xAI',
+    url: kXaiApiV1,
+    model: 'grok-imagine-image',
+    editModel: 'grok-imagine-image',
+  ),
 ];
 
 /// The Studio host for [url], or null for a custom address.
@@ -45,11 +58,18 @@ class ImageStudioRemoteHost {
     required this.id,
     required this.label,
     required this.url,
+    this.model = '',
+    this.editModel = '',
   });
 
   final String id;
   final String label;
   final String url;
+
+  /// The model a first visit starts on, so a switch never carries another
+  /// host's id over. Empty means the user picks one.
+  final String model;
+  final String editModel;
 }
 
 /// Image Studio fetch/generate host. A stored Studio URL wins; otherwise the
@@ -201,7 +221,9 @@ Future<String?> sanitizeRemoteImageSlot({
   return null;
 }
 
-/// Switch Studio's remote host and restore that host's last image model.
+/// Switch Studio's remote host. Both the Create and the Edit model follow
+/// it: each comes back to what it last was on that host, or starts on the
+/// host's own model, so another host's id is never sent here.
 /// Writes only [ImageGenSettings] — chat [remoteApiUrl] is untouched.
 /// Local checkpoint filenames are never written into [image_remote_models].
 Future<void> applyImageRemoteHost({
@@ -211,7 +233,8 @@ Future<void> applyImageRemoteHost({
   required bool editScoped,
   bool Function()? canWrite,
 }) async {
-  if (!(canWrite?.call() ?? true)) return;
+  bool live() => canWrite?.call() ?? true;
+  if (!live()) return;
   final next = normalizeRemoteApiUrl(url);
   if (next.isEmpty) return;
   final prev = normalizeRemoteApiUrl(
@@ -219,33 +242,34 @@ Future<void> applyImageRemoteHost({
         ? image.imageRemoteApiUrl
         : chatRemoteApiUrl,
   );
-  final currentModel = editScoped
-      ? image.imageGenEditModel
-      : image.imageGenModel;
-  if (prev.isNotEmpty &&
-      currentModel.isNotEmpty &&
-      prev != next &&
-      !looksLikeLocalImageModel(currentModel)) {
-    if (!(canWrite?.call() ?? true)) return;
-    await image.setRemoteImageModelFor(prev, currentModel, edit: editScoped);
+  final host = imageRemoteHostFor(next);
+  Future<void> set(bool edit, String id) =>
+      edit ? image.setImageGenEditModel(id) : image.setImageGenModel(id);
+  for (final edit in prev == next ? [editScoped] : [false, true]) {
+    final current = edit ? image.imageGenEditModel : image.imageGenModel;
+    final local = looksLikeLocalImageModel(current);
+    if (prev == next) {
+      if (local && live()) {
+        await set(edit, image.remoteImageModelFor(next, edit: edit));
+      }
+      continue;
+    }
+    if (prev.isNotEmpty && current.isNotEmpty && !local) {
+      if (!live()) return;
+      await image.setRemoteImageModelFor(prev, current, edit: edit);
+    }
   }
-  if (!(canWrite?.call() ?? true)) return;
+  if (!live()) return;
   await image.setImageRemoteApiUrl(next);
-  if (!(canWrite?.call() ?? true)) return;
-  final restored = image.remoteImageModelFor(next, edit: editScoped);
-  if (restored.isNotEmpty) {
-    if (editScoped) {
-      await image.setImageGenEditModel(restored);
-    } else {
-      await image.setImageGenModel(restored);
-    }
-    return;
-  }
-  if (looksLikeLocalImageModel(currentModel)) {
-    if (editScoped) {
-      await image.setImageGenEditModel('');
-    } else {
-      await image.setImageGenModel('');
-    }
+  if (prev == next) return;
+  for (final edit in [false, true]) {
+    if (!live()) return;
+    final restored = image.remoteImageModelFor(next, edit: edit);
+    await set(
+      edit,
+      restored.isNotEmpty
+          ? restored
+          : (edit ? host?.editModel : host?.model) ?? '',
+    );
   }
 }

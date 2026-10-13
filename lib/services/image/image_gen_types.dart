@@ -132,3 +132,17 @@ class ImageModelInfo {
     return displayName;
   }
 }
+
+final _bundledCatalogs = Expando<bool>('bundled image catalog');
+
+/// A copy of [models] marked as the app's own list, used when a host's
+/// listing could not be read. The host was not reached, whatever its length.
+List<ImageModelInfo> bundledImageModels(Iterable<ImageModelInfo> models) {
+  final copy = List<ImageModelInfo>.from(models);
+  _bundledCatalogs[copy] = true;
+  return copy;
+}
+
+/// Whether [models] came from [bundledImageModels], not from the host.
+bool isBundledImageCatalog(List<ImageModelInfo> models) =>
+    _bundledCatalogs[models] ?? false;

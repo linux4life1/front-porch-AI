@@ -37,7 +37,7 @@ Future<List<ImageModelInfo>> fetchNanoImageModels(
   final proUrl = nanoProImageModelsUrl(apiUrl);
   return loadNanoImageCatalog(
     fetchBody: () => _readCatalogBody('$apiUrl/image-models', apiKey),
-    fallback: List<ImageModelInfo>.from(kCommonImageModels),
+    fallback: kCommonImageModels,
     fetchProBody: proUrl == null
         ? null
         : () => _readCatalogBody(proUrl, apiKey),
@@ -85,7 +85,7 @@ Future<List<ImageModelInfo>> fetchXaiImageModels(
   } catch (e) {
     debugPrint('ImageGen: xAI image model list unreadable: $e');
   }
-  return List<ImageModelInfo>.from(kXaiImageModels);
+  return bundledImageModels(kXaiImageModels);
 }
 
 /// Fetch image models specifically from OpenRouter's API.

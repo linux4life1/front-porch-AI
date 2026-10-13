@@ -283,7 +283,7 @@ class StudioDeskCatalog {
     _applyCatalog(
       models: [for (final model in listed) model.id],
       remoteModels: listed,
-      remoteListed: listed.isNotEmpty,
+      remoteListed: listed.isNotEmpty && !isBundledImageCatalog(listed),
       url: url,
     );
   }

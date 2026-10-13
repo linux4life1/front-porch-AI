@@ -105,10 +105,10 @@ Future<List<ImageModelInfo>> loadNanoImageCatalog({
     final parsed = raw == null || raw.trim().isEmpty
         ? const <ImageModelInfo>[]
         : parseNanoImageModels(raw);
-    if (parsed.isEmpty) return List<ImageModelInfo>.from(fallback);
+    if (parsed.isEmpty) return bundledImageModels(fallback);
     models = parsed;
   } catch (_) {
-    return List<ImageModelInfo>.from(fallback);
+    return bundledImageModels(fallback);
   }
   if (fetchProBody == null) return models;
   try {

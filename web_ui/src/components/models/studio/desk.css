@@ -108,6 +108,7 @@
 
 /* Remote API stove: the same card the desktop draws. */
 .fp-remote {
+  container-type: inline-size;
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 22px;
@@ -137,6 +138,21 @@
 .fp-remote-host-sub { display: block; font-size: 12px; margin-top: 2px; color: var(--muted); }
 .fp-remote-host.keyless .fp-remote-host-sub { color: var(--accent); }
 .fp-remote-host.on .fp-remote-host-sub { color: var(--on-accent); opacity: 0.75; }
+/* Too narrow for three tiles side by side (the desk's stove column, a
+   phone): one row per host, name left and its key state right, so no
+   host name is ever cut. */
+@container (max-width: 380px) {
+  .fp-remote-hosts { grid-template-columns: minmax(0, 1fr); }
+  .fp-remote-host {
+    min-height: 44px;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+  }
+  .fp-remote-host-sub { margin-top: 0; text-align: right; }
+}
+.fp-remote-host-name, .fp-remote-host-sub { overflow-wrap: normal; word-break: normal; }
 .fp-remote-where { font-size: 13px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
 .fp-remote-billing { font-style: italic; }
 .fp-remote-key {

@@ -210,4 +210,34 @@ void main() {
     expect(picked, 'qwen-image-max-edit');
     expect(image.imageGenEditModel, 'qwen-image-max-edit');
   });
+
+  test(
+    'a first visit to a host starts on its own model, never the last host\'s',
+    () async {
+      final image = ImageGenSettings();
+      await image.setImageRemoteApiUrl(kNanoGptApiV1);
+      await image.setImageGenModel('z-image-turbo');
+      await image.setImageGenEditModel('qwen-image-max-edit');
+
+      Future<void> pick(String url, {bool edit = false}) =>
+          applyImageRemoteHost(
+            image: image,
+            url: url,
+            chatRemoteApiUrl: '',
+            editScoped: edit,
+          );
+
+      await pick(kOpenRouterApiV1);
+      expect(image.imageGenModel, 'google/gemini-2.5-flash-image');
+      await pick(kXaiApiV1);
+      expect(image.imageGenModel, 'grok-imagine-image');
+      await pick(kXaiApiV1, edit: true);
+      expect(image.imageGenEditModel, 'grok-imagine-image');
+      await pick('https://example.test/v1');
+      expect(image.imageGenModel, isEmpty, reason: 'a custom host: pick one');
+
+      await pick(kNanoGptApiV1);
+      expect(image.imageGenModel, 'z-image-turbo', reason: 'remembered');
+    },
+  );
 }

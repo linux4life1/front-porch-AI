@@ -300,6 +300,7 @@ class _StudioRemoteStoveState extends State<StudioRemoteStove> {
                 label: c.label,
                 selected: c.selected,
                 onPressed: () => onPick(c.value),
+                tall: true,
               ),
           ],
         );

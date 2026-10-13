@@ -176,7 +176,7 @@ class ImageFacade {
       hasKey: (u) => backend.remoteApiKeyFor(u).isNotEmpty,
       signedIn: (u) => backend.bearerOverlay?.call(u) != null,
       models: models,
-      listed: models.isNotEmpty,
+      listed: models.isNotEmpty && !isBundledImageCatalog(models),
       modelId: modelId,
       storedSize: settings.remoteSizeFor(modelId),
       studioSize: settings.imageGenSize,

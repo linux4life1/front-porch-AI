@@ -160,8 +160,7 @@ void main() {
       );
       expect(
         studioNotReadyLine(readiness: ready, backendName: 'Remote'),
-        'Not ready — no image model is chosen. Add your image API’s address '
-        'and key, then choose one of its models.',
+        'Not ready — no image model is chosen. Choose one with Change model.',
       );
     });
   });
