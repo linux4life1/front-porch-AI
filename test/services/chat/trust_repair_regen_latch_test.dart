@@ -114,21 +114,21 @@ void main() {
 
   test('1:1 regen and the group dance share pre-gen judge dispatch', () {
     final dance = File(
-      'lib/services/chat/chat_service_realism_dance.dart',
+      'lib/services/chat/realism_dance.dart',
     ).readAsStringSync();
     final regen = File(
       'lib/services/chat/chat_service_reprocess.dart',
     ).readAsStringSync();
     final evals = File(
-      'lib/services/chat/chat_service_realism_evals.dart',
+      'lib/services/chat/realism_judges.dart',
     ).readAsStringSync();
     expect(
-      evals.contains('_runPreGenRealismJudges'),
+      evals.contains('Future<void> runPreGenJudges('),
       isTrue,
       reason: 'one helper so 1:1 regen cannot skip the repair branch',
     );
-    expect(dance.contains('_runPreGenRealismJudges'), isTrue);
-    expect(regen.contains('_runPreGenRealismJudges'), isTrue);
+    expect(dance.contains('.runPreGenJudges('), isTrue);
+    expect(regen.contains('_realismJudges.runPreGenJudges('), isTrue);
     expect(
       evals.contains('pendingTrustRepair'),
       isTrue,

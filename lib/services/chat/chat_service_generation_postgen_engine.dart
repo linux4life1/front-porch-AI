@@ -59,7 +59,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         _activeCharacter = t.speakingCharacter;
         final sid = _getCharacterIdFromCard(t.speakingCharacter);
         if (sid.isNotEmpty) {
-          _loadGroupRealismIntoScalars(sid);
+          _realismDance.loadIntoScalars(sid);
         }
       }
 
@@ -108,7 +108,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
             isContinue: t.mode == GenerationMode.continue_,
           );
         } else {
-          _wearBodiesAfterClock(t);
+          _needsPass.wearBodiesAfterClock(t.mode, t.streamTarget);
           _tickRefractoryAfterClock(t);
         }
       }
@@ -195,12 +195,12 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
                 '(fused reply-facts)',
               );
             } else {
-              await _evaluatePhysicalStateCall(postureOnly: true);
+              await _realismEvals.evaluatePhysicalStateCall(postureOnly: true);
             }
           }
           // Glance only. After posture so the judge can read where they
           // already are. Not fused with posture — that mix is the teleport.
-          await _runWithUserPass(scoredReply);
+          await _realismJudges.runWithUserPass(scoredReply);
           if (_activeGroup != null &&
               t.guestSpeaker == null &&
               t.mode == GenerationMode.normal &&
@@ -220,7 +220,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // post-gen checks have run — needs vector AND the NSFW scalars a
         // climax just changed. See the helper for the two bugs this
         // prevents (hygiene snap-back; climax erased by the regen merge).
-        await _restampRealismSnapshotPostGen(t.streamTarget);
+        await _realismSnapshot.restampPostGen(t.streamTarget);
         if (_clockRunning && t.mode != GenerationMode.continue_) {
           _clockWriter.writeSlotClock(
             t.streamTarget,
@@ -245,7 +245,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           // critical scalar save to the wrong member's _groupRealism entry).
           final sid = _getCharacterIdFromCard(t.speakingCharacter);
           if (sid.isNotEmpty) {
-            _saveScalarsIntoGroupRealism(sid);
+            _realismDance.saveScalarsIntoGroup(sid);
           }
         }
 
@@ -260,7 +260,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // misreport the turn the moment the continuation moved a need.
         if (t.mode == GenerationMode.normal ||
             (t.mode == GenerationMode.continue_ && scoredReply.isNotEmpty)) {
-          _attachNeedsDeltaChipToLastMessage();
+          _needsPass.attachDeltaChipToLastMessage();
         }
 
         // ── The post-generation phase's ONE persist ────────────────────
@@ -273,7 +273,7 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // their results.
         //
         // Until 2026-08-08 the only save that could follow this block was
-        // the one hidden inside _attachNeedsDeltaChipToLastMessage, which
+        // the one hidden inside NeedsPass.attachDeltaChipToLastMessage, which
         // returns on its first line when Needs is off. So on the ordinary
         // 1:1 path with Needs off NOTHING was written after the passes ran:
         // the session row, the message snapshot and the group blob all kept
@@ -382,13 +382,14 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         meta.putIfAbsent(kWithUserPreTurn, () => _relationshipService.withUser);
         t.streamTarget.activeMetadata = meta;
       }
-      await _runWithUserPass(scoredReply);
+      await _realismJudges.runWithUserPass(scoredReply);
       debugPrint(
         '[Presence] lite-glance ${t.speakingCharacter.name}='
         '${_relationshipService.withUser}',
       );
       if (sid.isNotEmpty) {
-        _memberForWrite(sid).withUser = _relationshipService.withUser;
+        _groupStore.memberForWrite(sid).withUser =
+            _relationshipService.withUser;
       }
       if (t.mode == GenerationMode.normal && !_awayPulse.consumingReturnSpeak) {
         _awayPulse.presentSpeakerTurns++;

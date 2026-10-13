@@ -71,6 +71,7 @@ const _barrierArguments = {
 bool _isUiCode(String path) =>
     !path.endsWith('.g.dart') &&
     ((path.startsWith('lib/ui/') && !path.startsWith('lib/ui/theme/')) ||
+        path.startsWith('lib/app/') ||
         RegExp(r'^lib/main(\.\w+)?\.dart$').hasMatch(path));
 
 List<RatchetHit> _rawColours(DartSource source) {

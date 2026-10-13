@@ -82,7 +82,7 @@ extension ChatServiceImportSeed on ChatService {
             _storageService.realismSettings.chaosModeDefault,
         false,
       );
-      _needsSimEnabled = _seedNeedsSim(extSeed.needsSimChoice);
+      _needsSimEnabled = _needsPass.seedNeedsSim(extSeed.needsSimChoice);
       _objectivesEnabled = _storageService.realismSettings.objectivesEnabled;
       _enjoysLowHygiene = extSeed.enjoysLowHygiene;
       if (_needsSimEnabled) {
@@ -157,7 +157,7 @@ extension ChatServiceImportSeed on ChatService {
             });
         if (_needsSimEnabled) {
           // Placeholder vector only — the first per-speaker
-          // _loadGroupRealismIntoScalars replaces it with that member's own
+          // RealismDance.loadIntoScalars replaces it with that member's own
           // needs. Same flat baseline both group twins use.
           _needsSimulation.initializeFreshWithDefaults(const {
             'hunger': 80,

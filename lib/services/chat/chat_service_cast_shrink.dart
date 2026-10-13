@@ -95,10 +95,10 @@ extension ChatServiceCastShrink on ChatService {
     final bool wasNeedsOn = _needsSimEnabled;
     Map<String, dynamic>? snapshot;
     if (wasRealismOn) {
-      _loadGroupRealismIntoScalars(
+      _realismDance.loadIntoScalars(
         soleId,
       ); // loads the survivor's per-char nsfw flag too
-      snapshot = _captureRealismState();
+      snapshot = _realismSnapshot.capture();
     }
     // Read the survivor's per-char NSFW flag straight from the group store (the
     // per-speaker load only ran above when realism is on; reading the live nsfw
@@ -305,7 +305,7 @@ extension ChatServiceCastShrink on ChatService {
       } else {
         _needsSimulation.clearVector();
       }
-      _saveScalarsIntoGroupRealism(hostId);
+      _realismDance.saveScalarsIntoGroup(hostId);
     }
 
     // Enable-flags (independent of realism; persist via _doSaveChat columns in

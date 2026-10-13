@@ -88,8 +88,13 @@ extension ChatServiceGroupLite on ChatService {
       );
     }
     await _reloadGroupRoster();
-    if (_needsSimEnabled && mid.isNotEmpty && _getGroupNeeds(mid).isEmpty) {
-      _setGroupNeeds(mid, NeedsSimulation.baselinesFromExtensions(cleared));
+    if (_needsSimEnabled &&
+        mid.isNotEmpty &&
+        _groupStore.needsOf(mid).isEmpty) {
+      _groupStore.setNeeds(
+        mid,
+        NeedsSimulation.baselinesFromExtensions(cleared),
+      );
     }
     if (mid.isNotEmpty) {
       _relationshipService.ensureInterCharacterRelationshipsSeeded(mid);

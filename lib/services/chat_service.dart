@@ -58,6 +58,9 @@ import 'package:front_porch_ai/services/chat/prompt_injection/prompt_injection.d
 import 'package:front_porch_ai/services/macro_resolver.dart';
 import 'package:drift/drift.dart' as drift;
 
+export 'chat/realism_snapshot.dart'
+    show kSpatialStancePreTurn, kWithUserPreTurn;
+
 part 'chat/chat_service_group_read.dart';
 part 'chat/chat_service_group_settings.dart';
 part 'chat/chat_service_growth.dart';
@@ -68,14 +71,12 @@ part 'chat/chat_service_chat_package.dart';
 part 'chat/chat_service_chat_package_import.dart';
 part 'chat/chat_service_enhance_chats.dart';
 part 'chat/chat_service_package_extras.dart';
-part 'chat/chat_service_group_realism_helpers.dart';
 part 'chat/chat_service_history.dart';
 part 'chat/chat_service_group_membership.dart';
 part 'chat/chat_service_group_members.dart';
 part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
-part 'chat/chat_service_needs_reprocess.dart';
 part 'chat/chat_service_reprocess_choice.dart';
 part 'chat/chat_service_chat_entry.dart';
 part 'chat/chat_service_group_entry.dart';
@@ -85,12 +86,10 @@ part 'chat/chat_service_session_state_save.dart';
 part 'chat/chat_service_session_load.dart';
 part 'chat/chat_service_session_hydrate.dart';
 part 'chat/chat_service_session_window.dart';
-part 'chat/chat_service_realism_evals.dart';
 part 'chat/chat_service_actions.dart';
 part 'chat/chat_service_objectives.dart';
 part 'chat/chat_service_objective_tasks.dart';
 part 'chat/chat_service_objective_completion.dart';
-part 'chat/chat_service_realism_dance.dart';
 part 'chat/chat_service_speaker_objectives.dart';
 part 'chat/chat_service_impersonate.dart';
 part 'chat/chat_service_session_manage.dart';
@@ -111,7 +110,6 @@ part 'chat/chat_service_pockets.dart';
 part 'chat/chat_service_pockets_pass.dart';
 part 'chat/chat_service_item_cards.dart';
 part 'chat/chat_service_reply_facts.dart';
-part 'chat/chat_service_mood.dart';
 part 'chat/chat_service_climax.dart';
 part 'chat/chat_service_cast.dart';
 part 'chat/chat_service_cast_shrink.dart';
@@ -134,8 +132,6 @@ part 'chat/chat_service_wiring_memory.dart';
 part 'chat/chat_service_wiring_injection.dart';
 part 'chat/chat_service_wiring_injection_leaves.dart';
 part 'chat/chat_service_send.dart';
-part 'chat/chat_service_needs_pass.dart';
-part 'chat/chat_service_needs_rewinds.dart';
 part 'chat/chat_service_send_handoff.dart';
 part 'chat/chat_service_turn_flow.dart';
 part 'chat/chat_service_away_pulse.dart';
@@ -148,14 +144,10 @@ part 'chat/chat_service_today_sentence.dart';
 part 'chat/chat_service_planner_resolve.dart';
 part 'chat/chat_service_defaults.dart';
 part 'chat/chat_service_fields.dart';
-part 'chat/chat_service_group_realism_fields.dart';
 
 // Realism-eval cancel flag + GBNF note live in chat_service_defaults.dart.
 class ChatService extends ChangeNotifier
-    with
-        ChatServiceTodaySentence,
-        ChatServiceFieldBag,
-        ChatServiceGroupRealismFields {
+    with ChatServiceTodaySentence, ChatServiceFieldBag {
   final KoboldService _koboldService;
   final UserPersonaService _userPersonaService;
   final StorageService _storageService;
@@ -221,6 +213,14 @@ class ChatService extends ChangeNotifier
   late final _wikiSearchService = _buildWikiSearchService();
   late final _nsfwService = _buildNsfwService();
   late final _needsSimulation = _buildNeedsSimulation();
+  late final _groupStore = _buildGroupStore();
+  late final _needsPass = _buildNeedsPass();
+  late final _needsRewinds = _buildNeedsRewinds();
+  late final _needsReprocess = _buildNeedsReprocess();
+  late final _standingMood = _buildStandingMood();
+  late final _realismSnapshot = _buildRealismSnapshot();
+  late final _realismJudges = _buildRealismJudges();
+  late final _realismDance = _buildRealismDance();
   late final _relationshipService = _buildRelationshipService();
   late final _expressionService = _buildExpressionService();
   late final _authorNoteBuilder = _buildAuthorNoteBuilder();
@@ -441,7 +441,7 @@ class ChatService extends ChangeNotifier
   bool get objectivesActive => _objectivesActiveImpl;
   MemoryService? get memoryService => _memoryService;
   Map<String, dynamic>? get lastRagReceipt => _lastRagReceiptImpl;
-  String get standingMoodSummary => standingMoodSummaryImpl;
+  String get standingMoodSummary => _standingMood.summary;
 
   bool get isEvaluatingRealism => _isEvaluatingRealism;
   bool get isProcessingGreeting => _isProcessingGreeting;
@@ -462,7 +462,7 @@ class ChatService extends ChangeNotifier
 
   /// The chat's Needs switch; [needsActive] is the gate Needs run behind.
   bool get needsSimEnabled => _needsSimEnabled;
-  bool get needsActive => _needsActive;
+  bool get needsActive => _needsPass.active;
 
   /// Writes Porch Life Passage of Time — the live clock gate. Class-pinned
   /// so goldens/fakes can override.

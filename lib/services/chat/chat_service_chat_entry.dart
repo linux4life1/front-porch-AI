@@ -363,7 +363,7 @@ extension ChatServiceChatEntry on ChatService {
             // The Porch Life Needs switch decides for a card that says
             // nothing (imported Chub/SillyTavern cards) and can veto a card
             // that asks. A card's explicit false still wins.
-            _needsSimEnabled = _seedNeedsSim(ext.needsSimChoice);
+            _needsSimEnabled = _needsPass.seedNeedsSim(ext.needsSimChoice);
             // Objectives seed from the GLOBAL switch only — deliberately no card
             // extension. A per-character default would change the card JSON
             // shape, which ripples to The Stoop and every external reader, and
@@ -424,7 +424,7 @@ extension ChatServiceChatEntry on ChatService {
               _storageService.realismSettings.chaosModeDefault,
               false,
             );
-            _needsSimEnabled = _seedNeedsSim(null);
+            _needsSimEnabled = _needsPass.seedNeedsSim(null);
             if (_needsSimEnabled) _needsSimulation.initializeFresh();
             _objectivesEnabled =
                 _storageService.realismSettings.objectivesEnabled;
@@ -458,7 +458,7 @@ extension ChatServiceChatEntry on ChatService {
           // Note: for the direct 0-session setActiveCharacter path (fresh import via home grid <=1 session),
           // _greetingEvalPending is left false here. The post-greeting baseline eval is scheduled only
           // in startNewChat (for explicit New Chat flows). Fresh-import cards rely on the retro path
-          // in setRealismEnabled (or manual enable after first messages) when _hasRealismBaseline==false.
+          // in setRealismEnabled (or manual enable after first messages) when _realismDance.hasBaseline==false.
           // This matches pre-existing behavior for the import entry point; the critical bleed fix
           // ensures the baseline check is now correctly false for no-ext cards.
           // Save the initial message session

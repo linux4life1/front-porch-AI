@@ -37,7 +37,7 @@ extension ChatServiceControls on ChatService {
       // ── Solution 1: Pending greeting flag ────────────────────────────
       // The greeting was placed while realism was off. Fire the baseline
       // eval now that the user has explicitly enabled it.
-      if (_greetingEvalPending && !_hasRealismBaseline) {
+      if (_greetingEvalPending && !_realismDance.hasBaseline) {
         debugPrint(
           '[Realism] Consuming pending greeting eval (user enabled realism after load).',
         );
@@ -47,7 +47,7 @@ extension ChatServiceControls on ChatService {
       // Realism was enabled mid-conversation with no baseline captured yet
       // (emotion is blank, affection is zero, multiple messages exist).
       // Run a full retrospective eval against all visible messages.
-      else if (!_hasRealismBaseline && _messages.length > 1) {
+      else if (!_realismDance.hasBaseline && _messages.length > 1) {
         debugPrint(
           '[Realism] No baseline detected — running retroactive scan on enable.',
         );
@@ -77,7 +77,7 @@ extension ChatServiceControls on ChatService {
     if (_activeGroup != null) {
       for (final c in _groupCharacters) {
         final id = _getCharacterIdFromCard(c);
-        final entry = _memberForWrite(id);
+        final entry = _groupStore.memberForWrite(id);
         entry.nsfwCooldownEnabled = enabled;
         // Parity with 1:1: NsfwService.setNsfwCooldownEnabled(false) zeroes
         // the scalar arousal + cooldowns, so disabling must clear each

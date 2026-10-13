@@ -125,7 +125,7 @@ void main() {
     final src = File(
       'lib/services/chat/chat_service_generation.dart',
     ).readAsStringSync();
-    final dance = src.indexOf('await _evaluateRealismForUpcomingSpeaker');
+    final dance = src.indexOf('await _realismDance.evaluateForUpcomingSpeaker');
     expect(dance, greaterThanOrEqualTo(0));
     final cancelled = src.indexOf('if (_realismEvalCancelled)', dance);
     final ret = src.indexOf('return;', cancelled);

@@ -228,7 +228,7 @@ class RealismPromptBuilder {
   /// — so fast-forward was defeated from token one and every call re-prefilled
   /// its full copy of the same dossier/standing/frame. With a byte-identical
   /// prefix, call one pays the prefill and calls two and three fast-forward
-  /// through it. The dispatch order in `_fireStaggeredRealismEvals` keeps the
+  /// through it. The dispatch order in `RealismJudges._fireStaggeredRealismEvals` keeps the
   /// three prefix-sharing judges CONSECUTIVE (scene-time, whose prompt is
   /// deliberately lean and shares nothing, fires last) — firing order is
   /// free to change, eval PHASE is not (nothing moved across the generation

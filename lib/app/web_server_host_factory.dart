@@ -26,7 +26,6 @@ import 'package:provider/provider.dart';
 /// an inline `create:` so the WebServerHost proxy's `update` can fall back to
 /// it instead of ever handing out a half-wired host. [context] must sit below
 /// every provider it reads; [db] is the startup database handle.
-// ever handing out a half-wired host.
 WebServerHost createWiredWebServerHost(BuildContext context, AppDatabase db) {
   final host = WebServerHost(
     Provider.of<StorageService>(context, listen: false),

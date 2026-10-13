@@ -223,7 +223,9 @@ extension ChatServiceGenerationPlan on ChatService {
       final skipOneShots = t.mode == GenerationMode.continue_;
 
       // Chance Time injection — independent of realism mode
-      final chanceTimeBlock = skipOneShots ? '' : _getChanceTimeInjection();
+      final chanceTimeBlock = skipOneShots
+          ? ''
+          : _chaosInjection.buildChanceTimeInjection();
 
       // Hand-added item one-shots (gift / the surprise Easter egg) — same
       // register as Chance Time: a bracketed directive at maximum recency.

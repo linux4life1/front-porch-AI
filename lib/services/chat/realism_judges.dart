@@ -7,85 +7,90 @@
 // it under the terms of the GNU Affero General Public License as published by
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
-//
-// Front Porch AI is distributed in the hope that it will be useful,
-// but WITHOUT ANY WARRANTY; without even the implied warranty of
-// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-// GNU Affero General Public License for more details.
-//
-// You should have received a copy of the GNU Affero General Public License
-// along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
+import 'package:front_porch_ai/services/chat/llm_eval_engine.dart';
+import 'package:front_porch_ai/services/chat/pass_support.dart';
+import 'package:front_porch_ai/services/chat/realism_evals.dart';
+import 'package:front_porch_ai/services/chat/realism_scope.dart';
+import 'package:front_porch_ai/services/chat/realism_tools.dart';
+import 'package:front_porch_ai/services/chat/realism_verification.dart';
+import 'package:front_porch_ai/services/chat/relationship_service.dart';
+import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
+import 'package:front_porch_ai/services/chat/with_user_eval.dart';
+import 'package:front_porch_ai/services/llm_service.dart' show LlmToolResponse;
 
-/// Realism eval plumbing — chance-time injection, LLM eval fire + think-block
-/// stripping, the five eval-call wrappers, trust-repair, realism-state capture,
-/// and staggered eval dispatch. Extracted verbatim (zero behaviour change).
-extension ChatServiceRealismEvals on ChatService {
-  /// Injects a Chance Time event into the character's response prompt.
-  /// Placed AFTER the character name suffix for maximum recency weight.
-  /// Consumed after one use (cleared after response generation).
-  String _getChanceTimeInjection() {
-    return _chaosInjection.buildChanceTimeInjection();
-  }
+/// The text-eval door (worker lane, low temperature, reasoning off).
+typedef RealismTextEval =
+    Future<String?> Function(
+      String prompt, {
+      void Function(String)? onChunk,
+      double repeatPenalty,
+      String label,
+    });
 
-  Future<String?> _fireLLMEval(
-    String prompt, {
-    void Function(String)? onChunk,
-    double repeatPenalty = 1.15,
-    String label = 'eval',
-    bool salvageReasoning = true,
-    int? maxLength,
-    Duration? wallClockTimeout,
-    bool abortClientOnStop = false,
-    bool Function(String accumulated)? stopWhen,
-    void Function()? onGuardAbort,
-  }) => _withWorkerLane(
-    () => _llmEvalEngine.fireLLMEval(
-      prompt,
-      onChunk: onChunk,
-      repeatPenalty: repeatPenalty,
-      label: label,
-      salvageReasoning: salvageReasoning,
-      maxLength: maxLength,
-      wallClockTimeout: wallClockTimeout,
-      abortClientOnStop: abortClientOnStop,
-      stopWhen: stopWhen,
-      onGuardAbort: onGuardAbort,
-    ),
-  );
+/// The pre-generation judges and their dispatch, the trust-repair
+/// substitute, the batched Director verification, and the post-reply
+/// with-user glance.
+///
+/// The judges score the USER's message and fire before generation; 1:1
+/// regen and the group dance share [runPreGenJudges] so a restored
+/// trust-repair latch cannot skip the repair branch on one path. The three
+/// prefix-sharing judges dispatch in a fixed order so KoboldCpp's FIFO
+/// queue serves them consecutively (see [_fireStaggeredRealismEvals]).
+class RealismJudges {
+  RealismJudges(
+    this._scope, {
+    required this.realismEvals,
+    required this.verifier,
+    required this.fireLLMEval,
+    required this.fireToolEval,
+    required this.toolProbe,
+    required this.backendIdentity,
+    required this.writePending,
+    required this.evalCancelled,
+    required this.oneShotActive,
+    required this.personaName,
+    required this.dispatchStagger,
+  });
 
-  // KoboldCpp receives HTTP requests in wire order via loopback.
-  // A small stagger prevents TCP timing from reordering concurrent
-  // eval dispatches, ensuring KoboldCpp's FIFO queue (which serializes
-  // internally) processes evals in our intended order rather than
-  // reverse or interleaved. Zero wall time added — KoboldCpp serializes
-  // anyway, so the stagger just ensures already-in-flight ordering.
-  // (_kEvalDispatchStagger is a library-top-level const in chat_service_defaults.dart.)
+  final RealismScope _scope;
+  final RealismEvals Function() realismEvals;
+  final RealismVerification Function() verifier;
+  final RealismTextEval fireLLMEval;
+  final Future<LlmToolResponse?> Function(ToolEvalSpec spec) fireToolEval;
+  final ToolTransportProbe toolProbe;
+  final String Function() backendIdentity;
 
-  Future<void> _evaluateRelationshipCall({void Function(String)? onChunk}) =>
-      _realismEvals.evaluateRelationshipCall(onChunk: onChunk);
+  /// Pending writes that can become salient go through here (Growth kick).
+  final void Function(Map<String, dynamic>? value) writePending;
+  final bool Function() evalCancelled;
+  final bool Function() oneShotActive;
+  final String Function() personaName;
 
-  Future<void> _evaluateEmotionalStateCall({void Function(String)? onChunk}) =>
-      _realismEvals.evaluateEmotionalStateCall(onChunk: onChunk);
+  /// Inter-call delay that keeps the staggered judges in wire order.
+  final Duration dispatchStagger;
 
-  /// [postureOnly] is the post-generation spatial pass — the same eval leaf,
-  /// asked the one question that can only be answered once the reply exists.
-  Future<void> _evaluatePhysicalStateCall({
-    void Function(String)? onChunk,
-    bool postureOnly = false,
-    bool skipClockAdvance = false,
-  }) => _realismEvals.evaluatePhysicalStateCall(
-    onChunk: onChunk,
-    postureOnly: postureOnly,
-    skipClockAdvance: skipClockAdvance,
-  );
-
-  Future<void> _evaluateNarrativeCall({void Function(String)? onChunk}) =>
-      _realismEvals.evaluateNarrativeCall(onChunk: onChunk);
-
-  Future<void> _evaluateOneShotCall({void Function(String)? onChunk}) =>
-      _realismEvals.evaluateOneShotCall(onChunk: onChunk);
+  RealismEvals get _realismEvals => realismEvals();
+  RealismVerification get _realismVerifier => verifier();
+  bool get _realismEnabled => _scope.realismEnabled();
+  bool get _realismEvalCancelled => evalCancelled();
+  bool get _oneShotActive => oneShotActive();
+  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  GroupChat? get _activeGroup => _scope.activeGroup();
+  List<ChatMessage> get _messages => _scope.messages;
+  RelationshipService get _relationshipService => _scope.relationship();
+  Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
+  set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
+  void _writePendingRealismMetadata(Map<String, dynamic>? v) => writePending(v);
+  String get _evalBackendIdentity => backendIdentity();
+  ToolTransportProbe get _toolProbe => toolProbe;
+  Future<LlmToolResponse?> _fireToolEval(ToolEvalSpec spec) =>
+      fireToolEval(spec);
+  Future<void> _saveChat() => _scope.saveChat();
+  void notifyListeners() => _scope.notify();
 
   /// One-shot trust repair evaluator.
   ///
@@ -129,7 +134,7 @@ extension ChatServiceRealismEvals on ChatService {
 
     try {
       debugPrint('[Realism:TrustRepair] Evaluating repair attempt...');
-      final raw = await _fireLLMEval(
+      final raw = await fireLLMEval(
         prompt,
         onChunk: onChunk,
         label: 'trust_repair',
@@ -170,82 +175,6 @@ extension ChatServiceRealismEvals on ChatService {
     }
   }
 
-  Map<String, dynamic> _captureRealismState({Map<String, int>? preTurn}) {
-    final state = {
-      'affectionScore': _relationshipService.affectionScore,
-      'relationshipTier': _relationshipService.relationshipTier,
-      'longTermScore': _relationshipService.longTermScore,
-      'longTermTier': _relationshipService.longTermTier,
-      'turnsSinceLongTermCheck': _relationshipService.turnsSinceLongTermCheck,
-      'shortTermDeltasSummary': _relationshipService.shortTermDeltasSummary,
-      // The decay cadence + the group's hidden inter-character feelings. These
-      // are the eval inputs that used to be missing from this snapshot, so a
-      // group regen could not rewind them; see captureCadenceAndFeelings.
-      // (They replaced 'moodDecayCounter', which was captured, persisted and
-      // restored while no decay logic read it — the real counter was, and is,
-      // RelationshipService's.)
-      ..._relationshipService.captureCadenceAndFeelings(),
-      'characterEmotion': _characterEmotion,
-      'emotionIntensity': _emotionIntensity,
-      'timeOfDay': _timeService.timeOfDay,
-      'dayCount': _timeService.dayCount,
-      'startDayOfWeek': _timeService.startDayOfWeekAnchor,
-      'storyClock': _timeService.storyClockIso,
-      'storyStartDate': _timeService.storyStartDateIso,
-      'arousalLevel': _nsfwService.arousalLevel,
-      ..._nsfwService.refractory.toSnapshot(),
-      'trustLevel': _relationshipService.trustLevel,
-      'pendingTrustRepair': _relationshipService.pendingTrustRepair,
-      'activeFixation': _relationshipService.activeFixation,
-      'fixationLifespan': _relationshipService.fixationLifespan,
-      'spatialStance': _relationshipService.spatialStance,
-      'withUser': _relationshipService.withUser,
-      // Pockets & Wardrobe rides the rewind contract like every other
-      // per-turn scalar. Without this a regenerate re-runs the detection pass
-      // on a NEW reply while the record still carries the discarded reply's
-      // changes — they pick the keys up twice, or are left holding something
-      // from a version of the scene that no longer exists. Found in review by
-      // Grok, 2026-08-07, and required by the design doc in as many words.
-      ...(() {
-        final c = _activeCharacter;
-        if (c == null) return const <String, dynamic>{};
-        final p = pocketsFor(_getCharacterIdFromCard(c));
-        return p == null ? const <String, dynamic>{} : {'pockets': p.toJson()};
-      })(),
-    };
-
-    // Include needs snapshot when the simulation is active (clean port).
-    // Note: 'enabled' is deliberately omitted from the per-message snapshot.
-    // The enabled flag is authoritative from the character card / current session
-    // (see setNeedsSimEnabled and ext seeding). Snapshots only carry the vector
-    // for timeline continuity while the sim is on. This prevents historical
-    // snapshots from resurrecting a stale enabled state after a mid-chat toggle-off.
-    if (_needsActive && _needsSimulation.vector.isNotEmpty) {
-      // Explicit <String, dynamic> for the needs snapshot so that 'deltas' (Map with
-      // mixed int/String values from computeNeedsDeltasWithReasons) can be attached
-      // without runtime generic value-type violation (the 'vector' entry statically
-      // infers Map<String,int>, which would lock the literal's value type and reject
-      // the deltas map on []=).
-      final needsSnap = <String, dynamic>{
-        'vector': Map<String, int>.from(_needsSimulation.vector),
-        'hygiene_crisis_acked': _needsSimulation.hygieneCrisisAcked.toList(),
-        kNeedsWearCarryKey: Map<String, double>.from(
-          _needsSimulation.wearCarry,
-        ),
-      };
-      state['needs'] = needsSnap;
-
-      final needsDeltas = _needsSimulation.computeNeedsDeltasWithReasons(
-        preTurn ?? const <String, int>{},
-      );
-      if (needsDeltas.isNotEmpty) {
-        needsSnap['deltas'] = needsDeltas;
-      }
-    }
-
-    return state;
-  }
-
   // ── Phase 1: Per-character realism evaluation for the upcoming speaker ────
   /// Fire the three pre-generation judges (relationship / emotional /
   /// narrative) concurrently with the standard dispatch stagger. Scene-time
@@ -259,21 +188,21 @@ extension ChatServiceRealismEvals on ChatService {
     // (test/services/chat/realism_shared_prefix_test.dart pins the prefix
     // and this order.)
     await Future.wait([
-      _evaluateRelationshipCall(onChunk: onChunk),
+      _realismEvals.evaluateRelationshipCall(onChunk: onChunk),
       Future.delayed(
-        _kEvalDispatchStagger,
-        () => _evaluateEmotionalStateCall(onChunk: onChunk),
+        dispatchStagger,
+        () => _realismEvals.evaluateEmotionalStateCall(onChunk: onChunk),
       ),
       Future.delayed(
-        _kEvalDispatchStagger * 2,
-        () => _evaluateNarrativeCall(onChunk: onChunk),
+        dispatchStagger * 2,
+        () => _realismEvals.evaluateNarrativeCall(onChunk: onChunk),
       ),
     ]);
   }
 
   /// Shared pre-gen judge dispatch for the dance AND 1:1 regen so a restored
   /// trust-repair latch cannot skip the repair branch on one path.
-  Future<void> _runPreGenRealismJudges({
+  Future<void> runPreGenJudges({
     required void Function(String) onChunk,
     String? logSpeakerName,
   }) async {
@@ -302,7 +231,7 @@ extension ChatServiceRealismEvals on ChatService {
         '[Realism:Unified] One-shot eval'
         '${logSpeakerName != null ? ' for $logSpeakerName' : ''}',
       );
-      await _evaluateOneShotCall(onChunk: onChunk);
+      await _realismEvals.evaluateOneShotCall(onChunk: onChunk);
       return;
     }
     debugPrint(
@@ -321,10 +250,10 @@ extension ChatServiceRealismEvals on ChatService {
     void Function(String) onChunk,
   ) async {
     await Future.wait([
-      _evaluateEmotionalStateCall(onChunk: onChunk),
+      _realismEvals.evaluateEmotionalStateCall(onChunk: onChunk),
       Future.delayed(
-        _kEvalDispatchStagger,
-        () => _evaluateNarrativeCall(onChunk: onChunk),
+        dispatchStagger,
+        () => _realismEvals.evaluateNarrativeCall(onChunk: onChunk),
       ),
     ]);
   }
@@ -405,13 +334,13 @@ extension ChatServiceRealismEvals on ChatService {
 
   /// Glance bit only. Runs AFTER posture so it can read the stance that
   /// pass just wrote. Never writes spatial stance.
-  Future<void> _runWithUserPass(String reply) async {
+  Future<void> runWithUserPass(String reply) async {
     if (!_realismEnabled) return;
     if (reply.trim().isEmpty) return;
     final speaker = _activeCharacter;
     if (speaker == null) return;
-    final userName = _userPersonaService.persona.name.trim();
-    final verdict = await _makeWithUserEval().detect(
+    final userName = personaName().trim();
+    final verdict = await makeWithUserEval().detect(
       charName: speaker.name,
       userName: userName.isEmpty ? 'the user' : userName,
       reply: clampEvalMessage(reply),
@@ -425,7 +354,7 @@ extension ChatServiceRealismEvals on ChatService {
     );
   }
 
-  WithUserEval _makeWithUserEval() => WithUserEval(
+  WithUserEval makeWithUserEval() => WithUserEval(
     fire: ({required debugLabel, required tools, required buildPrompt}) async {
       return fireStructuredEval(
         probe: _toolProbe,
@@ -437,9 +366,8 @@ extension ChatServiceRealismEvals on ChatService {
             realismToolCallToJson(WithUserEval.kWithUserTool, resp.calls),
         fireToolEval: _fireToolEval,
         toolChoice: WithUserEval.kWithUserTool,
-        getPreferTextEvals: () =>
-            _storageService.realismSettings.preferTextEvals,
-        fireTextEval: (p, {onChunk}) => _fireLLMEval(
+        getPreferTextEvals: () => _scope.realismSettings().preferTextEvals,
+        fireTextEval: (p, {onChunk}) => fireLLMEval(
           p,
           repeatPenalty: kScalarEvalRepeatPenalty,
           label: 'with_user',

@@ -129,7 +129,7 @@ extension ChatServiceSend on ChatService {
     // A send that lands in the previous turn's SETTLING window must QUEUE
     // behind it, not race it: the new turn's pre-gen work (mood decay, needs
     // tick, the group per-speaker scalar re-point) otherwise runs before the
-    // old turn's _saveScalarsIntoGroupRealism / snapshot restamp / chip
+    // old turn's RealismDance.saveScalarsIntoGroup / snapshot restamp / chip
     // attach, cross-writing speaker A's realism state with speaker B's.
     // Bounded (15s deadline) and drains the save chain — the same
     // serialization point setActiveCharacter/setActiveGroup/loadSession

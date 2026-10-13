@@ -3,15 +3,15 @@
 //
 // The Needs pass: the one place Needs run from, behind one gate.
 //
-// Disabled means disabled. [_needsActive] is the gate (the Realism engine,
-// this chat's Needs switch, the global Needs switch read live), and every
-// way Needs run reads it: the pre-turn stamp, the prompt lines and the
-// judge (wired to it in chat_service_wiring_*), the clock's wear, the chip
-// under the reply, Reprocess Needs. Off, none of them run and nothing of
-// Needs is written. What this file does not gate on [_needsActive] is
-// state and rewinds: the bars seeded from a card or a session (the
-// chat's stored switch), and regen / delete undoing a stamp a reply
-// already carries, which came from wear that happened.
+// Disabled means disabled. [NeedsPass._needsActive] is the gate (the Realism
+// engine, this chat's Needs switch, the global Needs switch read live), and
+// every way Needs run reads it: the pre-turn stamp, the prompt lines and the
+// judge (wired to [NeedsPass.active] in chat_service_wiring_*), the clock's
+// wear, the chip under the reply, Reprocess Needs. Off, none of them run and
+// nothing of Needs is written. What this file does not gate on the gate is
+// state: the bars seeded from a card or a session (the chat's stored
+// switch). Regen / delete undoing a stamp a reply already carries, which
+// came from wear that happened, lives in needs_rewinds.dart.
 // test/hygiene/needs_gate_ratchet_test.dart keeps new Needs code here.
 //
 // The wear: after the clock commits, every present body wears the beat's
@@ -19,12 +19,51 @@
 // scores events on top. With the clock off the reply is the beat: the
 // speaker's hunger, bladder and energy tick a fixed step (version 1's
 // per-turn tick, the maintainer's ruling of 2026-10-08), so the body still
-// moves between events. Continue does not invent a second beat. The
-// rewinds of these stamps live in chat_service_needs_rewinds.dart.
+// moves between events. Continue does not invent a second beat.
 
-part of '../chat_service.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart';
+import 'package:front_porch_ai/services/chat/enabled_needs.dart';
+import 'package:front_porch_ai/services/chat/group_member_realism.dart';
+import 'package:front_porch_ai/services/chat/group_speaker_resolution.dart';
+import 'package:front_porch_ai/services/chat/needs_simulation.dart';
+import 'package:front_porch_ai/services/chat/needs_wear.dart';
+import 'package:front_porch_ai/services/chat/realism_scope.dart';
+import 'package:front_porch_ai/services/chat/time_service.dart';
 
-extension ChatServiceNeedsPass on ChatService {
+class NeedsPass {
+  NeedsPass(this._scope, {required this.loadIntoScalars});
+
+  final RealismScope _scope;
+
+  /// The group dance's load of a member into the live scalars.
+  final void Function(String charId) loadIntoScalars;
+
+  /// The gate every Needs run reads. [_needsActive] keeps its name: the
+  /// ratchet pins the one definition here.
+  bool get active => _needsActive;
+
+  bool get _realismEnabled => _scope.realismEnabled();
+  bool get _needsSimEnabled => _scope.needsSimEnabled();
+  bool get _clockRunning => _scope.clockRunning();
+  NeedsSimulation get _needsSimulation => _scope.needs();
+  TimeService get _timeService => _scope.time();
+  GroupChat? get _activeGroup => _scope.activeGroup();
+  CharacterCard? get _activeCharacter => _scope.activeCharacter();
+  List<CharacterCard> get _groupCharacters => _scope.groupCharacters();
+  List<ChatMessage> get _messages => _scope.messages;
+  Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
+  set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
+  String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
+  String _getCurrentSpeakerIdForRealism() => _scope.groups.currentSpeakerId();
+  Map<String, int> _getGroupNeeds(String id) => _scope.groups.needsOf(id);
+  void _setGroupNeeds(String id, Map<String, int> needs) =>
+      _scope.groups.setNeeds(id, needs);
+  GroupMemberRealism _memberForWrite(String id) =>
+      _scope.groups.memberForWrite(id);
+  void _loadGroupRealismIntoScalars(String id) => loadIntoScalars(id);
+
   /// After the clock commits: wear every present body for the beat's
   /// minutes at that character's pace, with the skip floors off-screen and
   /// the one-warning-turn stop on-screen. What the speaker lost goes to the
@@ -42,7 +81,7 @@ extension ChatServiceNeedsPass on ChatService {
   bool get _needsActive =>
       _realismEnabled &&
       _needsSimEnabled &&
-      _storageService.realismSettings.needsSimDefault;
+      _scope.realismSettings().needsSimDefault;
 
   /// The chat's Needs switch at the start of a 1:1 chat, from the card's
   /// own choice ([FrontPorchExtensions.needsSimChoice]). A card that says
@@ -52,9 +91,9 @@ extension ChatServiceNeedsPass on ChatService {
   /// A card that chose is still vetoed by the Porch Life switch, and its
   /// explicit false wins (maintainer ruling, 2026-10-10). Reads
   /// `_realismEnabled`, so callers set Realism first.
-  bool _seedNeedsSim(bool? cardChoice) =>
+  bool seedNeedsSim(bool? cardChoice) =>
       (cardChoice ?? _realismEnabled) &&
-      _storageService.realismSettings.needsSimDefault;
+      _scope.realismSettings().needsSimDefault;
 
   /// The pre-turn stamp: the body as it is before this reply, with the
   /// carried fraction, on the pending map, so regen and the chip rewind to
@@ -62,7 +101,7 @@ extension ChatServiceNeedsPass on ChatService {
   /// speaker's own bars (or the card's baselines on a first turn) and that
   /// member's carry, and loads the speaker into the scalars. Returns the
   /// vector stamped, or null when nothing was.
-  Map<String, int>? _needsStampPreTurn({CharacterCard? groupSpeaker}) {
+  Map<String, int>? stampPreTurn({CharacterCard? groupSpeaker}) {
     if (!_needsActive) return null;
     if (groupSpeaker == null) {
       if (_needsSimulation.vector.isEmpty) return null;
@@ -92,12 +131,12 @@ extension ChatServiceNeedsPass on ChatService {
     return preTurn;
   }
 
-  void _wearBodiesAfterClock(_GenTurn t) {
+  void wearBodiesAfterClock(GenerationMode mode, ChatMessage target) {
     if (!_needsActive) return;
-    if (t.mode == GenerationMode.continue_) return;
+    if (mode == GenerationMode.continue_) return;
     _pendingRealismMetadata ??= {};
     _pendingRealismMetadata!['needs_time_wear'] = const <String, int>{};
-    _wearBeatOn(t.streamTarget);
+    wearBeatOn(target);
   }
 
   /// Wears whatever minutes the clock has not yet charged, taking them so
@@ -107,7 +146,7 @@ extension ChatServiceNeedsPass on ChatService {
   /// the chip's time part. With the clock off the reply itself is the
   /// beat: the speaker ticks [needsTickPerReply], through the same stamps,
   /// so regen, swipe and delete rewind it the same way.
-  void _wearBeatOn(ChatMessage target) {
+  void wearBeatOn(ChatMessage target) {
     if (!_needsActive) return;
     final _BeatWear beat;
     if (_clockRunning) {
@@ -328,7 +367,7 @@ extension ChatServiceNeedsPass on ChatService {
   /// disk. The persist now lives at the end of the block in
   /// `chat_service_generation_postgen.dart`, where it covers every pass rather
   /// than one feature's slice.
-  void _attachNeedsDeltaChipToLastMessage() {
+  void attachDeltaChipToLastMessage() {
     if (!_needsActive || _messages.isEmpty) return;
     var preVec = _coerceNeedsVector(
       _messages.last.activeMetadata?['needs_pre_turn_vector'],

@@ -40,7 +40,7 @@ const _afterglowNeedsDrive =
 ///
 /// GROUP-SAFETY CONTRACT: this leaf reads NsfwService SCALARS
 /// (arousalLevel / refractory minutes), which are per-speaker-valid at assembly
-/// time because `_loadGroupRealismIntoScalars`
+/// time because `RealismDance.loadIntoScalars`
 /// (chat_service_realism_dance.dart) calls
 /// `nsfwService.loadNsfwScalarsForSpeaker(charId)` before any prompt is
 /// built. Only the NAME needed its own group lookup (getActiveCharacter is
