@@ -22,6 +22,8 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:sherpa_onnx/sherpa_onnx.dart' as sherpa;
 
+import 'windows_sherpa_onnx_runtime.dart';
+
 const _sherpaCApiLib = {
   'macos': 'libsherpa-onnx-c-api.dylib',
   'linux': 'libsherpa-onnx-c-api.so',
@@ -75,6 +77,9 @@ String? sherpaInitBindingsDir(String operatingSystem, String? foundDir) {
 /// `DynamicLibrary.process()`.
 void initSherpaBindings() {
   final found = sherpaNativeLibDir();
+  if (Platform.isWindows) {
+    ensureWindowsSherpaOnnxRuntime(found);
+  }
   if (Platform.isMacOS && found != null) {
     final dylib = p.join(found, _sherpaCApiLib['macos']!);
     if (File(dylib).existsSync()) {
