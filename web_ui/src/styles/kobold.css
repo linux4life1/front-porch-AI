@@ -335,3 +335,5 @@
 .kc-template-actions .kc-label { flex-basis: 100%; }
 .kc-template-actions input { max-width: 100%; min-width: 0; color: var(--kc-muted); font: inherit; }
 .kc-template-actions input::file-selector-button { margin-right: .75rem; padding: .65rem .9rem; border: 1px solid var(--kc-line-strong); border-radius: .6rem; background: var(--kc-inset); color: var(--kc-ink); font: inherit; cursor: pointer; }
+.kc-template-warning { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin: .5rem 0; padding: .65rem .9rem; border-left: 3px solid var(--kc-amber); }
+.kc-template-warning p { margin: 0; flex: 1 1 16rem; color: var(--kc-amber); }

@@ -14,6 +14,7 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 class KoboldChatTemplateRoutes {
   KoboldChatTemplateRoutes(this.backend, Router router) {
     router.post('/api/backend/local-model/chat-template', save);
+    router.post('/api/backend/local-model/chat-template/accept', accept);
   }
 
   final BackendFacade backend;
@@ -22,7 +23,8 @@ class KoboldChatTemplateRoutes {
     try {
       final bytes = BytesBuilder(copy: false);
       await for (final chunk in request.read()) {
-        if (bytes.length + chunk.length > 256 * 1024) {
+        // A 64 KiB template can grow sixfold as JSON (\u0001 escapes).
+        if (bytes.length + chunk.length > 512 * 1024) {
           return JsonResponse.badRequest('Template upload is too large.');
         }
         bytes.add(chunk);
@@ -49,6 +51,21 @@ class KoboldChatTemplateRoutes {
         500,
         'The template or preset could not be saved.',
       );
+    }
+  }
+
+  Future<shelf.Response> accept(shelf.Request request) async {
+    try {
+      final body = jsonDecode(await request.readAsString());
+      if (body is! Map || body['preset'] is! String) {
+        return JsonResponse.badRequest('preset must be text.');
+      }
+      await backend.acceptChatTemplate(body['preset'] as String);
+      return JsonResponse.ok(await backend.localModel());
+    } on FormatException catch (error) {
+      return JsonResponse.badRequest(error.message);
+    } on FileSystemException {
+      return JsonResponse.error(500, 'The choice could not be saved.');
     }
   }
 }

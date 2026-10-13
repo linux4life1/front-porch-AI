@@ -25,7 +25,8 @@ export type LocalModel = {
   /** What the desktop's status line says: a load in progress, or why a model
    *  change was not made (additive; '' or absent when there is nothing). */
   statusMessage?: string;
-  preset: { path: string; name: string; words: string; line?: string; chatTemplate?: string; chatTemplateEditable?: boolean } | null;
+  preset: { path: string; name: string; words: string; line?: string; chatTemplate?: string; chatTemplateEditable?: boolean;
+    chatTemplateWarning?: { message: string; missing: string[]; modelMarkers: string[] } | null } | null;
   auto: {
     lines: string[];
     context: number;

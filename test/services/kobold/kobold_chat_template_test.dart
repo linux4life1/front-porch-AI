@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:path/path.dart' as p;
 
+import '../../helpers/gguf_vocab_file.dart';
+
 void main() {
   late Directory root;
   late Directory engine;
@@ -67,7 +69,8 @@ void main() {
         content: content,
       );
       final saved = (await KcppsLibrary.open(preset.path)).read as KcppsOk;
-      final template = kcppsChatTemplatePath(saved.raw);
+      expect(p.isRelative(kcppsChatTemplatePath(saved.raw)), isTrue);
+      final template = kcppsChatTemplateFile(saved.raw, engine.path);
       expect(
         p.isWithin(p.join(engine.path, 'chat_templates'), template),
         isTrue,
@@ -144,4 +147,99 @@ void main() {
       expect(jsonDecode(await preset.readAsString()), original);
     },
   );
+
+  group('template and model fit', () {
+    const chatml =
+        "{% for m in messages %}{{ '<|im_start|>' + m.role }}"
+        "{{ m.content + '<|im_end|>' }}{% endfor %}";
+    const mistral =
+        "{% for m in messages %}{{ '[INST] ' + m.content + ' [/INST]' }}"
+        "{% endfor %}";
+
+    test('a Qwen template on a Mistral vocabulary is flagged', () {
+      final fit = checkChatTemplateFit(
+        template: chatml,
+        vocab: {'<s>', '</s>', '[INST]', '[/INST]'},
+      );
+      expect(fit.fits, isFalse);
+      expect(fit.missing, ['<|im_end|>', '<|im_start|>']);
+    });
+
+    test('a Mistral template on a Qwen model is flagged by its family', () {
+      final fit = checkChatTemplateFit(
+        template: mistral,
+        vocab: {'<|im_start|>', '<|im_end|>', '<think>'},
+        embedded: chatml,
+      );
+      expect(fit.fits, isFalse);
+      expect(fit.modelMarkers, ['<|im_end|>', '<|im_start|>']);
+    });
+
+    test('plain-text [INST] on an older vocabulary still fits', () {
+      final fit = checkChatTemplateFit(
+        template: mistral,
+        vocab: {'<s>', '</s>', '<unk>'},
+        embedded: mistral,
+      );
+      expect(fit.fits, isTrue);
+    });
+
+    test(
+      'Use anyway is remembered per template and model, across folders',
+      () async {
+        final model = File(p.join(root.path, 'Mistral-7B.gguf'));
+        await model.writeAsBytes(
+          ggufWithVocab(
+            tokens: ['<unk>', '<s>', '</s>', '[INST]', '[/INST]', 'hello'],
+            template: mistral,
+          ),
+        );
+        final template = File(p.join(engine.path, 'qwen.jinja'));
+        await template.writeAsString(chatml);
+        Future<ChatTemplateFit?> warning(String modelPath) =>
+            koboldTemplateWarning(
+              engineDir: engine.path,
+              templatePath: template.path,
+              modelPath: modelPath,
+            );
+
+        final first = await warning(model.path);
+        expect(first?.missing, ['<|im_end|>', '<|im_start|>']);
+        expect(first?.message('Mistral 7B'), contains('<|im_end|>'));
+
+        await acceptKoboldTemplate(
+          engineDir: engine.path,
+          templatePath: template.path,
+          modelPath: model.path,
+        );
+        expect(await warning(model.path), isNull);
+
+        // The same model file in another folder is still the same model.
+        final moved = await Directory(p.join(root.path, 'moved')).create();
+        final copy = await model.copy(p.join(moved.path, 'Mistral-7B.gguf'));
+        expect(await warning(copy.path), isNull);
+
+        // Another template asks again.
+        await template.writeAsString('$chatml{{ "<|endoftext|>" }}');
+        expect(await warning(model.path), isNotNull);
+
+        // A template the model reads never warns.
+        await template.writeAsString(mistral);
+        expect(await warning(model.path), isNull);
+      },
+    );
+
+    test('a launch hands KoboldCpp the template as a full path', () {
+      final map = kcppsPresetLaunchMap(
+        {'jinjatemplate': p.join('chat_templates', 'abc', 'x.jinja')},
+        modelPath: '',
+        mmprojPath: '',
+        engineDir: engine.path,
+      );
+      expect(
+        map['jinjatemplate'],
+        p.join(engine.path, 'chat_templates', 'abc', 'x.jinja'),
+      );
+    });
+  });
 }

@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'kcpps_codec.dart';
+import 'kobold_chat_template.dart';
 import 'kobold_app_config.dart';
 import 'kobold_launch_config.dart';
 import 'kobold_launch_failure.dart';
@@ -55,12 +56,17 @@ Map<String, dynamic> kcppsPresetLaunchMap(
   required String mmprojPath,
   void Function(String note)? onNote,
   bool flashAttentionOff = false,
+  String? engineDir,
 }) {
   final refused = kcppsPresetProblem(preset);
   if (refused != null) throw KoboldPresetProblem(refused);
   final map = Map<String, dynamic>.of(preset);
   if (modelPath.isNotEmpty) map['model_param'] = modelPath;
   map['jinja'] = true;
+  final template = kcppsChatTemplatePath(map);
+  if (template.isNotEmpty) {
+    map['jinjatemplate'] = kcppsPathIn(template, engineDir);
+  }
   if (mmprojPath.isNotEmpty) map['mmproj'] = mmprojPath;
 
   // Sliding window together with fast forward degrades the model's output.

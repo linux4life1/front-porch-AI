@@ -19,6 +19,25 @@ in-place model reload has replaced the startup-loaded custom template.
 This UI feature is independent of the reasoning/grammar crash workaround.
 It has no profile migration, inference change, new dependency or version bump.
 
+## Template and model fit
+
+Picking a template checks it against the model the preset loads. The turn
+markers the template writes (`<|im_start|>`, `<start_of_turn>`, `[INST]`)
+are looked up in the GGUF vocabulary, and compared with the model's own
+embedded template. Pipe markers the vocabulary lacks always warn; angle and
+bracket markers only warn when the vocabulary has markers of that shape,
+because older models write `[INST]` as plain text. A template that shares no
+marker with the model's embedded one also warns.
+
+The warning is advice, not a block. "Use anyway" keeps the template and
+records the pair (template text hash, model file name and size) in
+`chat_templates/accepted.json` in the engine folder, which desktop and web
+share. The same pair is not asked about again, even after the model moves;
+a different template or model asks again.
+
+Imported templates are stored relative to the engine folder, so moving the
+app's data keeps them; each launch hands KoboldCpp the full path.
+
 ## Verification and poke
 
 New tests exercise selection, save/copy/clear, exact uploaded contents,
@@ -32,7 +51,11 @@ reloads, verifies persistence and clears on Chromium and WebKit.
    synthetic `.jinja` file; save, reopen and copy the preset.
 2. Select the preset on the web Models page, upload a template and reload;
    clear it and confirm the model/context settings are unchanged.
-3. Stop/start the isolated backend and check its custom-template startup
+3. Pick a template from another model family (a ChatML `<|im_start|>`
+   template on a Mistral or Llama model): both editors warn. Tap "Use
+   anyway", reopen, and confirm no warning; pick a different template and
+   confirm it warns again.
+4. Stop/start the isolated backend and check its custom-template startup
    message; clear the override and repeat the stop/start.
 
 The browser journey verifies UI/API persistence, not inference quality for

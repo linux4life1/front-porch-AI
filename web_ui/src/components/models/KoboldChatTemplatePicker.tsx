@@ -13,6 +13,19 @@ export function KoboldChatTemplatePicker({ preset, onSaved }: {
   const [error, setError] = useState('');
   const [saved, setSaved] = useState(false);
   const name = preset.chatTemplate?.split(/[\\/]/).pop() || '';
+  async function keep() {
+    setError('');
+    setBusy(true);
+    try {
+      onSaved(await api.post<LocalModel>('/api/backend/local-model/chat-template/accept', {
+        preset: preset.path,
+      }));
+    } catch (problem) {
+      setError(problem instanceof Error ? problem.message : 'The choice could not be saved.');
+    } finally {
+      setBusy(false);
+    }
+  }
   async function save(file?: File) {
     setError('');
     setSaved(false);
@@ -51,6 +64,11 @@ export function KoboldChatTemplatePicker({ preset, onSaved }: {
     </div> : <p>Edit this preset on desktop, or select a preset in the host engine folder.</p>}
     <p className="kc-words">A custom template overrides the GGUF template.
       Stop and restart KoboldCpp after saving to apply the change.</p>
+    {preset.chatTemplateWarning && <div className="kc-template-warning">
+      <p>{preset.chatTemplateWarning.message}</p>
+      {preset.chatTemplateEditable && <button className="btn" type="button" disabled={busy}
+        onClick={() => void keep()}>Use anyway</button>}
+    </div>}
     {busy && <p role="status">Saving template…</p>}
     {saved && <p role="status">Saved. Restart KoboldCpp to apply the template change.</p>}
     {error && <p role="alert">{error}</p>}

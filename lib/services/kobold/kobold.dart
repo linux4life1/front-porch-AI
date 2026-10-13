@@ -58,3 +58,4 @@ export 'kobold_update_gate.dart';
 export 'kobold_wire.dart';
 
 export 'kobold_chat_template.dart';
+export 'kobold_template_fit.dart';

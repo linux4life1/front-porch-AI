@@ -67,6 +67,10 @@ class LocalModelCard {
       preset = {
         'path': active,
         'chatTemplate': read is KcppsOk ? kcppsChatTemplatePath(read.raw) : '',
+        // Why the template may not suit the model, until it is kept anyway.
+        'chatTemplateWarning': read is KcppsOk
+            ? await _templateWarning(read.raw, model)
+            : null,
         'chatTemplateEditable': await canEditKoboldTemplate(
           _storage.binDir.path,
           active,
@@ -206,6 +210,15 @@ class LocalModelCard {
 
   /// Stops the speed test after the step under way.
   void cancelSpeedTest() => _llm.koboldSpeedTest?.cancel();
+
+  Future<Map<String, dynamic>?> _templateWarning(
+    Map<String, dynamic> preset,
+    String model,
+  ) async => (await koboldTemplateWarning(
+    engineDir: _storage.binDir.path,
+    templatePath: kcppsChatTemplateFile(preset, _storage.binDir.path),
+    modelPath: model,
+  ))?.toJson(koboldModelName(model));
 
   /// The model at [model] has a sliding window. The sentence that needs it
   /// is an extra: a header that cannot be read means no sentence, never a

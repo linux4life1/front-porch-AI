@@ -282,6 +282,7 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
         KcppsChatTemplateField(
           engineDir: c.storage.binDir.path,
           path: c.draft.chatTemplatePath,
+          modelPath: c.draft.modelPath,
           onChanged: (path) =>
               c.edit((d) => d.copyWith(chatTemplatePath: path)),
         ),

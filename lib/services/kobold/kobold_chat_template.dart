@@ -14,6 +14,11 @@ const kChatTemplateMaxBytes = 64 * 1024;
 String kcppsChatTemplatePath(Map<String, dynamic> config) =>
     config['jinjatemplate'] is String ? config['jinjatemplate'] as String : '';
 
+/// The preset's template as a full path: an imported one is stored relative
+/// to [engineDir].
+String kcppsChatTemplateFile(Map<String, dynamic> config, String engineDir) =>
+    kcppsPathIn(kcppsChatTemplatePath(config), engineDir);
+
 Map<String, dynamic> kcppsWithChatTemplate(
   Map<String, dynamic> config,
   String template,
@@ -121,5 +126,6 @@ Future<String> copyKoboldChatTemplate({
     throw const FormatException('The template file cannot be a symbolic link.');
   }
   await File(template).writeAsBytes(bytes, flush: true);
-  return template;
+  // Relative to the engine folder, so moving the app's data keeps it working.
+  return p.relative(template, from: engineDir);
 }

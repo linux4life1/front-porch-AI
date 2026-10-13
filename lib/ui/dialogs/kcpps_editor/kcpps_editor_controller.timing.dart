@@ -83,6 +83,7 @@ extension KcppsEditorTiming on KcppsEditorController {
           _map(_trial(knob, k)),
           modelPath: draft.modelPath,
           mmprojPath: '',
+          engineDir: storage.binDir.path,
         ),
         load: (config) => load(kSpeedTrialConfig, config),
         time: kobold.timeTurn,

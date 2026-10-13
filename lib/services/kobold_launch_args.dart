@@ -222,6 +222,7 @@ Future<Map<String, dynamic>> koboldLaunchMap({
       onNote: onNote,
       flashAttentionOff:
           useRocm && storage.backendSettings.rocmFlashAttentionFailed,
+      engineDir: storage.binDir.path,
     );
   }
 

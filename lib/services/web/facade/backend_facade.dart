@@ -52,6 +52,9 @@ class BackendFacade {
     _storage,
   ).save(preset: preset, name: name, content: content);
 
+  Future<void> acceptChatTemplate(String preset) =>
+      ChatTemplateSettings(_storage).accept(preset: preset);
+
   /// See [LocalModelCard.localModel].
   Future<Map<String, dynamic>> localModel() => _localModel.localModel();
 

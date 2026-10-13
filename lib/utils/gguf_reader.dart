@@ -64,7 +64,13 @@ class GGUFFileReader {
 
   /// Parse the metadata and the tensor table from the start of a file.
   /// Null when [bytes] is not the start of a GGUF file.
-  static GGUFHeader? parseHeaderBytes(Uint8List bytes) {
+  ///
+  /// [onToken] is handed each `tokenizer.ggml.tokens` entry as it is read;
+  /// without it the strings are skipped unread.
+  static GGUFHeader? parseHeaderBytes(
+    Uint8List bytes, {
+    void Function(String token)? onToken,
+  }) {
     final data = ByteData.sublistView(bytes);
     int offset = 0;
 
@@ -116,7 +122,9 @@ class GGUFFileReader {
         if (arrType == 8) {
           // A list of strings. Only its length is ever wanted (the
           // vocabulary's size); the strings themselves are skipped.
-          if (key == 'tokenizer.ggml.tokens') meta[key] = arrLen;
+          final isVocab = key == 'tokenizer.ggml.tokens';
+          if (isVocab) meta[key] = arrLen;
+          final tokenSink = isVocab ? onToken : null;
           var complete = true;
           for (var j = 0; j < arrLen; j++) {
             if (offset + 8 > bytes.length) {
@@ -130,6 +138,12 @@ class GGUFFileReader {
               complete = false;
               break;
             }
+            tokenSink?.call(
+              utf8.decode(
+                bytes.sublist(offset + 8, offset + 8 + len),
+                allowMalformed: true,
+              ),
+            );
             offset += 8 + len;
           }
           if (!complete || offset > bytes.length) break;

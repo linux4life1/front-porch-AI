@@ -10,6 +10,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
 
+import '../../helpers/gguf_vocab_file.dart';
+
 void main() {
   testWidgets('choose and clear the template with restart guidance', (
     tester,
@@ -75,9 +77,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(selected, contains('chat_templates'));
     await tester.runAsync(() async {
-      expect(await File(selected).readAsString(), '{{ messages }}');
+      final imported = File('${directory.path}/$selected');
+      expect(await imported.readAsString(), '{{ messages }}');
       await source.delete();
-      expect(await File(selected).readAsString(), '{{ messages }}');
+      expect(await imported.readAsString(), '{{ messages }}');
     });
     expect(find.text('Use embedded template'), findsOneWidget);
     if (capture != null) {
@@ -95,5 +98,59 @@ void main() {
     await tester.pumpAndSettle();
     expect(selected, isEmpty);
     expect(find.text('Choose .jinja file…'), findsOneWidget);
+  });
+
+  testWidgets('a template the model cannot read warns until kept anyway', (
+    tester,
+  ) async {
+    late Directory directory;
+    late String model;
+    late String template;
+    await tester.runAsync(() async {
+      directory = await Directory.systemTemp.createTemp('fpai-template-fit-');
+      model = '${directory.path}/Mistral-7B.gguf';
+      await File(model).writeAsBytes(
+        ggufWithVocab(
+          tokens: ['<unk>', '<s>', '</s>', '[INST]', '[/INST]'],
+          template: "{{ '[INST] ' + m + ' [/INST]' }}",
+        ),
+      );
+      template = '${directory.path}/qwen.jinja';
+      await File(template).writeAsString("{{ '<|im_start|>' + m }}");
+    });
+    addTearDown(() => directory.delete(recursive: true));
+    Widget field() => MaterialApp(
+      home: Scaffold(
+        body: SingleChildScrollView(
+          child: KcppsChatTemplateField(
+            engineDir: directory.path,
+            path: template,
+            modelPath: model,
+            onChanged: (_) {},
+          ),
+        ),
+      ),
+    );
+    // The check reads real files: start it and let it finish outside the
+    // fake clock, then show what it found.
+    Future<void> real(Future<void> Function() act) async {
+      await tester.runAsync(() async {
+        await act();
+        await Future<void>.delayed(const Duration(milliseconds: 300));
+      });
+      await tester.pump();
+    }
+
+    await real(() => tester.pumpWidget(field()));
+    expect(find.textContaining('may not fit'), findsOneWidget);
+    expect(find.textContaining('<|im_start|>'), findsOneWidget);
+
+    await real(() => tester.tap(find.text('Use anyway')));
+    expect(find.textContaining('may not fit'), findsNothing);
+
+    // Opening the editor again does not ask about the same pair.
+    await tester.pumpWidget(const SizedBox());
+    await real(() => tester.pumpWidget(field()));
+    expect(find.textContaining('may not fit'), findsNothing);
   });
 }

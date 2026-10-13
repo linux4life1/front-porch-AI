@@ -16,10 +16,14 @@ class KcppsChatTemplateField extends StatefulWidget {
     required this.engineDir,
     required this.path,
     required this.onChanged,
+    this.modelPath = '',
     this.pickFile,
   });
   final String engineDir;
   final String path;
+
+  /// The model the preset loads: the template is checked against it.
+  final String modelPath;
   final ValueChanged<String> onChanged;
   final Future<String?> Function()? pickFile;
 
@@ -30,6 +34,47 @@ class KcppsChatTemplateField extends StatefulWidget {
 class _ChatTemplateFieldState extends State<KcppsChatTemplateField> {
   bool _busy = false;
   String? _error;
+  ChatTemplateFit? _warning;
+
+  String get _file => kcppsPathIn(widget.path, widget.engineDir);
+
+  @override
+  void initState() {
+    super.initState();
+    _check();
+  }
+
+  @override
+  void didUpdateWidget(KcppsChatTemplateField old) {
+    super.didUpdateWidget(old);
+    if (old.path != widget.path || old.modelPath != widget.modelPath) _check();
+  }
+
+  Future<void> _check() async {
+    final path = widget.path;
+    final model = widget.modelPath;
+    final warning = await koboldTemplateWarning(
+      engineDir: widget.engineDir,
+      templatePath: _file,
+      modelPath: model,
+    );
+    // A later pick or model change has its own check under way.
+    if (!mounted || path != widget.path || model != widget.modelPath) return;
+    setState(() => _warning = warning);
+  }
+
+  Future<void> _useAnyway() async {
+    try {
+      await acceptKoboldTemplate(
+        engineDir: widget.engineDir,
+        templatePath: _file,
+        modelPath: widget.modelPath,
+      );
+      if (mounted) setState(() => _warning = null);
+    } on FileSystemException catch (error) {
+      if (mounted) setState(() => _error = error.message);
+    }
+  }
 
   Future<void> _choose() async {
     setState(() {
@@ -61,7 +106,8 @@ class _ChatTemplateFieldState extends State<KcppsChatTemplateField> {
       );
       if (mounted) widget.onChanged(imported);
     } on Object catch (error) {
-      if (mounted) setState(() => _error = '$error');
+      final words = error is FormatException ? error.message : '$error';
+      if (mounted) setState(() => _error = words);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -106,6 +152,23 @@ class _ChatTemplateFieldState extends State<KcppsChatTemplateField> {
           color: AppColors.slateFaintOf(context),
         ),
       ),
+      if (_warning case final warning?)
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            Text(
+              warning.message(koboldModelName(widget.modelPath)),
+              style: keText(
+                context,
+                size: 12,
+                color: AppColors.porchAmberOf(context),
+              ),
+            ),
+            KeButton('Use anyway', onPressed: _useAnyway),
+          ],
+        ),
       if (_busy) const Text('Importing template…'),
       if (_error != null)
         Text(_error!, style: TextStyle(color: AppColors.logError)),
