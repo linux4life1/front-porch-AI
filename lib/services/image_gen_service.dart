@@ -113,6 +113,9 @@ class ImageGenService extends ChangeNotifier {
     editStrength: editStrength,
   );
 
+  /// The list the last [fetchImageModels] read, without asking again.
+  List<ImageModelInfo> get cachedImageModels => _clients.remoteModels;
+
   /// Fetch available image models.
   ///
   /// Behavior depends on which API backend is configured:
@@ -125,9 +128,6 @@ class ImageGenService extends ChangeNotifier {
   /// **Nano-GPT and others**:
   /// - GET `{apiUrl}/image-models`. A failed or empty response falls back
   ///   to the bundled snapshot in `_commonImageModels`.
-  /// The list the last [fetchImageModels] read, without asking again.
-  List<ImageModelInfo> get cachedImageModels => _clients.remoteModels;
-
   Future<List<ImageModelInfo>> fetchImageModels() async {
     final account = _clients.remoteAccount;
     final apiUrl = account.url;
