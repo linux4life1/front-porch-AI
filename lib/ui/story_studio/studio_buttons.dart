@@ -85,41 +85,44 @@ class StoryButton extends StatelessWidget {
         StudioColors.badOf(context).withValues(alpha: 0.45),
       ),
     };
-    return Opacity(
-      opacity: enabled ? 1 : 0.45,
-      child: Material(
-        color: fill ?? Colors.transparent,
-        borderRadius: BorderRadius.circular(8),
-        child: InkWell(
-          onTap: onPressed,
+    return _SwallowWhenDisabled(
+      enabled: enabled,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.45,
+        child: Material(
+          color: fill ?? Colors.transparent,
           borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                color: kind == StoryButtonKind.ghost
-                    ? Colors.transparent
-                    : edge,
-              ),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (icon != null) ...[
-                  Icon(icon, size: 15, color: fg),
-                  const SizedBox(width: 6),
-                ],
-                Text(
-                  label,
-                  style: StudioType.ui(
-                    context,
-                    size: 12.5,
-                    weight: FontWeight.w600,
-                    color: fg,
-                  ),
+          child: InkWell(
+            onTap: onPressed,
+            borderRadius: BorderRadius.circular(8),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: kind == StoryButtonKind.ghost
+                      ? Colors.transparent
+                      : edge,
                 ),
-              ],
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (icon != null) ...[
+                    Icon(icon, size: 15, color: fg),
+                    const SizedBox(width: 6),
+                  ],
+                  Text(
+                    label,
+                    style: StudioType.ui(
+                      context,
+                      size: 12.5,
+                      weight: FontWeight.w600,
+                      color: fg,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -163,22 +166,45 @@ class StoryIconButton extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) => Tooltip(
-    message: tooltip,
-    child: InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
-      child: Padding(
-        padding: const EdgeInsets.all(7),
-        child: Icon(
-          icon,
-          size: 16,
-          color: onPressed == null
-              ? StudioColors.faintOf(context)
-              : color ?? StudioColors.mutedOf(context),
+  Widget build(BuildContext context) => _SwallowWhenDisabled(
+    enabled: onPressed != null,
+    child: Tooltip(
+      message: tooltip,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.all(7),
+          child: Icon(
+            icon,
+            size: 16,
+            color: onPressed == null
+                ? StudioColors.faintOf(context)
+                : color ?? StudioColors.mutedOf(context),
+          ),
         ),
       ),
     ),
+  );
+}
+
+/// A disabled button still owns its spot: a tap on it must not fall through
+/// to a tappable parent (an act header would collapse under a greyed-out
+/// "Generate act" pressed twice). A disabled InkWell joins no gesture arena,
+/// so an empty tap handler claims the tap instead.
+class _SwallowWhenDisabled extends StatelessWidget {
+  final bool enabled;
+  final Widget child;
+
+  const _SwallowWhenDisabled({required this.enabled, required this.child});
+
+  // Always the same GestureDetector, so flipping enabled never remounts
+  // the button underneath.
+  @override
+  Widget build(BuildContext context) => GestureDetector(
+    onTap: enabled ? null : () {},
+    excludeFromSemantics: true,
+    child: child,
   );
 }
 
