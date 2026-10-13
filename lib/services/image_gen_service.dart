@@ -113,7 +113,7 @@ class ImageGenService extends ChangeNotifier {
     editStrength: editStrength,
   );
 
-  /// The list the last [fetchImageModels] read, without asking again.
+  /// The very list the last [fetchImageModels] read; a copy loses its mark.
   List<ImageModelInfo> get cachedImageModels => _clients.remoteModels;
 
   /// Fetch available image models.

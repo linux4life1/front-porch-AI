@@ -221,9 +221,10 @@ Future<String?> sanitizeRemoteImageSlot({
   return null;
 }
 
-/// Switch Studio's remote host. Both the Create and the Edit model follow
-/// it: each comes back to what it last was on that host, or starts on the
-/// host's own model, so another host's id is never sent here.
+/// Switch Studio's remote host. The model for [editScoped]'s slot comes back
+/// to what it last was on that host, or starts on the host's own model; the
+/// other slot follows too when the host has one, so another host's id is
+/// not sent to a known host.
 /// Writes only [ImageGenSettings] — chat [remoteApiUrl] is untouched.
 /// Local checkpoint filenames are never written into [image_remote_models].
 Future<void> applyImageRemoteHost({
@@ -265,11 +266,11 @@ Future<void> applyImageRemoteHost({
   for (final edit in [false, true]) {
     if (!live()) return;
     final restored = image.remoteImageModelFor(next, edit: edit);
-    await set(
-      edit,
-      restored.isNotEmpty
-          ? restored
-          : (edit ? host?.editModel : host?.model) ?? '',
-    );
+    final start = restored.isNotEmpty
+        ? restored
+        : (edit ? host?.editModel : host?.model) ?? '';
+    // The slot being picked for always moves; the other one only when this
+    // host has a model for it, so a custom address never empties it.
+    if (edit == editScoped || start.isNotEmpty) await set(edit, start);
   }
 }
