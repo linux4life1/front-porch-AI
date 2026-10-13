@@ -62,6 +62,10 @@ class TimeClockState {
   /// away): wear then stops at the skip floors, not the on-screen stop.
   bool bodyBeatOffScreen = false;
 
+  /// True when that off-screen beat was days long ([kLongSkipMinutes]):
+  /// the bodies land at their everyday level instead of wearing down.
+  bool bodyBeatLongSkip = false;
+
   /// Chip text for that beat. Null when the skip chip already says it.
   String? _timePassedLabel;
   String? get bodyTimeLabel => _timePassedLabel;
@@ -75,6 +79,7 @@ class TimeClockState {
   void clearBodyBeat() {
     bodyWearMinutes = 0;
     bodyBeatOffScreen = false;
+    bodyBeatLongSkip = false;
     _timePassedLabel = null;
     _needsSpanLabel = null;
   }
@@ -90,6 +95,7 @@ class TimeClockState {
   }) {
     bodyWearMinutes = minutes < 0 ? 0 : minutes;
     bodyBeatOffScreen = offScreen;
+    bodyBeatLongSkip = isSkip && offScreen && minutes >= kLongSkipMinutes;
     _timePassedLabel = timePassedLabel(
       minutes: minutes,
       nextMorning: nextMorning,

@@ -35,6 +35,7 @@ interface PorchLifeState {
   nsfwCooldownDefault: boolean;
   needsSimDefault: boolean;
   passageOfTimeDefault: boolean;
+  timeSkipBridgeEnabled: boolean;
   objectivesEnabled: boolean;
   objectiveStaleThreshold: number;
   weatherEnabled: boolean;
@@ -71,6 +72,7 @@ const DEFAULTS: PorchLifeState = {
   nsfwCooldownDefault: false,
   needsSimDefault: true,
   passageOfTimeDefault: true,
+  timeSkipBridgeEnabled: true,
   objectivesEnabled: true,
   objectiveStaleThreshold: 2,
   weatherEnabled: true,
@@ -464,6 +466,16 @@ export function PorchLifeSettings() {
           blurb={'The story keeps its own clock — dawn to morning to evening to night, day after day. This switch is what runs the clock in every open chat. Off pauses them immediately; on starts them again. The AI judges how long each exchange actually took, so a shared meal moves the clock further than a passing hello. A normal send always moves at least a minute or two.'}
           value={timeOn}
           onChange={(v) => set('passageOfTimeDefault', v)}
+        />
+        <FeatureRow
+          icon="⏩"
+          label="Time-skip bridge"
+          need="needs"
+          dependsOn="Passage of Time"
+          satisfied={timeOn}
+          blurb={'When a message skips a day or more ("two weeks later"), a short narrator card fills in how those days went before the character replies. One short AI call, only on a turn that skips that far. Off, the skip still happens, just without the card.'}
+          value={st.timeSkipBridgeEnabled}
+          onChange={(v) => set('timeSkipBridgeEnabled', v)}
         />
         <FeatureRow
           icon="☁️"

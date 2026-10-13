@@ -189,6 +189,20 @@ class NeedsSimulation {
     return taken;
   }
 
+  /// Days lived off-screen: the bars land at [bars] and the carried
+  /// fractions start over. Returns what each bar lost (negative for a gain).
+  Map<String, int> applyLivedSkip(Map<String, int> bars) {
+    final taken = <String, int>{};
+    for (final entry in bars.entries) {
+      final current = _vector[entry.key];
+      if (current == null || current == entry.value) continue;
+      _vector[entry.key] = entry.value;
+      taken[entry.key] = current - entry.value;
+    }
+    _wearCarry = {};
+    return taken;
+  }
+
   void resetBuffers() {
     // Buffer reset is now a no-op (buffers expunged). Kept for god reset hygiene calls.
     _pendingCatastrophe = null;

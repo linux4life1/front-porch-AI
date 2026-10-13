@@ -265,6 +265,14 @@ extension ChatServiceReprocess on ChatService {
         _pocketsRewinds.restoreFromStamp(lastMsg, after: true);
         return;
       }
+      // A long skip's reply: the revert put the pre-skip mood back.
+      final longSkip =
+          ((lastMsg.activeMetadata?[kLongSkipMinutesMeta] ??
+                      preservedRejectedMeta?[kLongSkipMinutesMeta])
+                  as num?)
+              ?.toInt() ??
+          0;
+      if (longSkip > 0) LongSkipSettle(_realismScope()).settle();
 
       // After the unreadable-baseline bail: the bubble stays, so its
       // journal/growth cites must stay too (same rule as a departed guest).
@@ -436,6 +444,9 @@ extension ChatServiceReprocess on ChatService {
           _pendingRealismMetadata!['time_passed'] = passed;
         }
         _timeService.reclaimSkipOwnership();
+        if (longSkip > 0) {
+          _timeService.renoteLongSkip(minutes: longSkip, destination: skipTo);
+        }
       }
 
       final preGenLen = _messages.length;

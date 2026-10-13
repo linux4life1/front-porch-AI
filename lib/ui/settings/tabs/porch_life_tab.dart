@@ -120,6 +120,21 @@ class PorchLifeTab extends StatelessWidget {
               onChanged: storage.realismSettings.setPassageOfTimeDefault,
             ),
             FeatureRow(
+              icon: Icons.fast_forward_outlined,
+              label: 'Time-skip bridge',
+              need: FeatureNeed.needs,
+              dependsOn: 'Passage of Time',
+              satisfied: timeOn,
+              blurb:
+                  'When a message skips a day or more ("two weeks '
+                  'later"), a short narrator card fills in how those days '
+                  'went before the character replies. One short AI call, '
+                  'only on a turn that skips that far. Off, the skip still '
+                  'happens, just without the card.',
+              value: realism.timeSkipBridgeEnabled,
+              onChanged: realism.setTimeSkipBridgeEnabled,
+            ),
+            FeatureRow(
               icon: Icons.cloud_outlined,
               label: 'Story Weather',
               need: FeatureNeed.needs,

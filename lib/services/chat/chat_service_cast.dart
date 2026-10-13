@@ -294,6 +294,62 @@ extension ChatServiceCast on ChatService {
     return true;
   }
 
+  /// A skip of a day or more ([skipped] minutes from [from]): the narrator
+  /// fills in the gap as a card, then the reply follows it. A failed or
+  /// empty bridge is logged and the turn goes on without one. False only
+  /// when the chat changed under the call, so the send stops.
+  Future<bool> _bridgeLongSkip({
+    required DateTime from,
+    required int skipped,
+    required String skipLine,
+    required String? token,
+  }) async {
+    if (!_storageService.realismSettings.timeSkipBridgeEnabled) return true;
+    _setGuestStatus('The narrator fills in the time skip…', sticky: true);
+    try {
+      final recent = _messages.length > kNarrationHistoryLines
+          ? _messages.sublist(_messages.length - kNarrationHistoryLines)
+          : _messages;
+      final raw = await _llmEvalEngine.fireLLMEval(
+        timeSkipBridgePrompt(
+          recentLines: [
+            for (final m in recent)
+              if (!m.isStatusBanner && m.sender != 'System')
+                m.toPromptHistoryLine(),
+          ],
+          castNames: _activeGroup != null
+              ? [for (final c in _groupCharacters) c.name]
+              : [?_activeCharacter?.name],
+          userName: _userPersonaService.persona.name,
+          skipLine: skipLine,
+          from:
+              '${StoryClock.formatShortDate(from)} · '
+              '${StoryClock.formatClock(from)}',
+          to: '${_timeService.displayShortDate} · ${_timeService.displayClock}',
+          minutes: skipped,
+        ),
+        label: 'time_skip_bridge',
+      );
+      if (_sceneChanged(token)) return false;
+      final beat = raw == null
+          ? ''
+          : cleanNarration(_llmEvalEngine.stripThinkBlocks(raw));
+      if (beat.isEmpty) {
+        debugPrint('[TimeSkip] bridge came back empty; replying without it');
+        return true;
+      }
+      _messages.add(timeSkipBridgeMessage(beat));
+      await _saveChat();
+      return true;
+    } catch (e) {
+      debugPrint('[TimeSkip] bridge failed, replying without it: $e');
+      return !_sceneChanged(token);
+    } finally {
+      if (!_sceneChanged(token)) _setGuestStatus(null);
+      notifyListeners();
+    }
+  }
+
   /// A goodbye or greeting that was stopped before it said a word (or only
   /// thought) is not a turn: it goes, rather than staying as an empty
   /// "only thoughts" bubble. [before] is the transcript length before it.

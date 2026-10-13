@@ -254,16 +254,18 @@ class TimeClockApplier {
   /// going to sleep" are SPOKEN, so stripping quotes there would delete the
   /// evidence that a night was really crossed and quietly stop day rolls
   /// altogether. Opposite question, opposite answer.
-  Future<void> detectOocTimeSkip(String text) async {
+  ///
+  /// Returns the minutes skipped, 0 when [text] skipped nothing.
+  Future<int> detectOocTimeSkip(String text) async {
     if (!isPassageOfTimeEnabled()) {
       debugPrint(
         '[Realism:OOC] Time-skip requested but passageOfTimeEnabled=false, ignoring',
       );
-      return;
+      return 0;
     }
 
     final lower = stripQuotedSpeech(text).toLowerCase();
-    if (!shouldDetectTimeSkip(lower)) return;
+    if (!shouldDetectTimeSkip(lower)) return 0;
 
     final next = StoryClock.resolveSkipTarget(state.clock, lower);
 
@@ -281,11 +283,29 @@ class TimeClockApplier {
       skipDestination: destination,
     );
     onSetPendingRealismMetadata('time_skip_to', destination);
+    if (state.bodyBeatLongSkip) {
+      onSetPendingRealismMetadata(kLongSkipMinutesMeta, skipped);
+    }
     onNotify();
     debugPrint(
       '[Realism:OOC] Time-skip → ${state.displayClock} ${state.displayShortDate} (Day ${state.dayCount})',
     );
     await onDayChanged(dayBefore);
+    return skipped;
+  }
+
+  /// Regen of a long skip's reply: the clock already sits at [destination],
+  /// so only the body beat is noted again, and the replayed reply lands the
+  /// bodies the same way the first one did.
+  void renoteLongSkip({required int minutes, required String destination}) {
+    state.noteBodyBeat(
+      minutes: minutes,
+      nextMorning: false,
+      isSkip: true,
+      offScreen: true,
+      skipDestination: destination,
+    );
+    onSetPendingRealismMetadata(kLongSkipMinutesMeta, minutes);
   }
 
   // ── Per-turn time advance (delegated from the physical / one-shot evals) ──

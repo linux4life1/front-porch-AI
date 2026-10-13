@@ -153,9 +153,10 @@ class NeedsPass {
       final minutes = _timeService.takeBodyWearMinutes();
       if (minutes <= 0) return;
       final offScreen = _timeService.bodyBeatOffScreen;
+      final lived = _timeService.bodyBeatLongSkip;
       beat = _activeGroup == null
-          ? _wearHost(minutes, offScreen: offScreen)
-          : _wearGroup(minutes, offScreen: offScreen);
+          ? _wearHost(minutes, offScreen: offScreen, lived: lived)
+          : _wearGroup(minutes, offScreen: offScreen, lived: lived);
     } else {
       beat = _tickSpeaker();
     }
@@ -183,24 +184,43 @@ class NeedsPass {
   }
 
   /// The 1:1 host lives on the scalar vector.
-  _BeatWear _wearHost(int minutes, {required bool offScreen}) {
+  _BeatWear _wearHost(
+    int minutes, {
+    required bool offScreen,
+    required bool lived,
+  }) {
     final card = _activeCharacter;
     final ext = card?.frontPorchExtensions;
     final hostId = card != null ? _getCharacterIdFromCard(card) : '';
     final before = Map<String, int>.from(_needsSimulation.vector);
     if (before.isEmpty) return _BeatWear.none;
     final carryBefore = Map<String, double>.from(_needsSimulation.wearCarry);
-    final wear = needsWearForSpan(
-      minutes: minutes,
-      pace: BodyPace.parse(ext?.needsPace),
-      on: needsThatAreOn(NeedsSimulation.needKeys, ext?.needsOff ?? const []),
-      carry: carryBefore,
+    final on = needsThatAreOn(
+      NeedsSimulation.needKeys,
+      ext?.needsOff ?? const [],
     );
-    final taken = _needsSimulation.applyTimeWear(
-      points: wear.points,
-      carry: wear.carry,
-      offScreen: offScreen,
-    );
+    final Map<String, int> taken;
+    if (lived) {
+      taken = _needsSimulation.applyLivedSkip(
+        livedSkipBars(
+          current: before,
+          everyday: NeedsSimulation.baselinesFromExtensions(ext),
+          on: on,
+        ),
+      );
+    } else {
+      final wear = needsWearForSpan(
+        minutes: minutes,
+        pace: BodyPace.parse(ext?.needsPace),
+        on: on,
+        carry: carryBefore,
+      );
+      taken = _needsSimulation.applyTimeWear(
+        points: wear.points,
+        carry: wear.carry,
+        offScreen: offScreen,
+      );
+    }
     return _BeatWear(
       speakerTaken: taken,
       before: {hostId: before},
@@ -276,7 +296,11 @@ class NeedsPass {
   /// Every member with a stored body wears, at their own pace. The speaker's
   /// scalars (loaded for this turn) wear too, so the eval reads worn bars and
   /// the post-gen save writes them back.
-  _BeatWear _wearGroup(int minutes, {required bool offScreen}) {
+  _BeatWear _wearGroup(
+    int minutes, {
+    required bool offScreen,
+    required bool lived,
+  }) {
     final speakerId = _getCurrentSpeakerIdForRealism();
     final before = <String, Map<String, int>>{};
     final after = <String, Map<String, int>>{};
@@ -289,14 +313,32 @@ class NeedsPass {
       final ext = card.frontPorchExtensions;
       final member = _memberForWrite(id);
       final carried = Map<String, double>.from(member.needsWearCarry);
-      final wear = needsWearForSpan(
-        minutes: minutes,
-        pace: BodyPace.parse(ext?.needsPace),
-        on: needsThatAreOn(NeedsSimulation.needKeys, ext?.needsOff ?? const []),
-        carry: carried,
+      final on = needsThatAreOn(
+        NeedsSimulation.needKeys,
+        ext?.needsOff ?? const [],
       );
       before[id] = Map<String, int>.from(stored);
       carryBefore[id] = carried;
+      if (lived) {
+        final bars = livedSkipBars(
+          current: stored,
+          everyday: NeedsSimulation.baselinesFromExtensions(ext),
+          on: on,
+        );
+        _setGroupNeeds(id, bars);
+        member.needsWearCarry = const <String, double>{};
+        after[id] = bars;
+        if (id == speakerId) {
+          speakerTaken = _needsSimulation.applyLivedSkip(bars);
+        }
+        continue;
+      }
+      final wear = needsWearForSpan(
+        minutes: minutes,
+        pace: BodyPace.parse(ext?.needsPace),
+        on: on,
+        carry: carried,
+      );
       final worn = Map<String, int>.from(stored);
       for (final e in wear.points.entries) {
         final current = worn[e.key];

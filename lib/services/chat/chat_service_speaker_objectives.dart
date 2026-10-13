@@ -415,7 +415,10 @@ extension ChatServiceSpeakerObjectives on ChatService {
         needsSimulation.vector,
       );
     }
-    _needsImpactEvaluator.beatNote = needsBeatNote(_timeService.needsSpanLabel);
+    _needsImpactEvaluator.beatNote = needsBeatNote(
+      _timeService.needsSpanLabel,
+      longSkip: _timeService.bodyBeatLongSkip,
+    );
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
     // During time away, clear the scene-level reason so each need's own
     // reason shows on the chip.

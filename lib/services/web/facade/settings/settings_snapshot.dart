@@ -133,6 +133,7 @@ class SettingsSnapshot {
         'realismDefaultWritable': true,
         'nsfwCooldownDefault': _storage.realismSettings.nsfwCooldownDefault,
         'needsSimDefault': _storage.realismSettings.needsSimDefault,
+        'timeSkipBridgeEnabled': _storage.realismSettings.timeSkipBridgeEnabled,
         'passageOfTimeDefault': _storage.realismSettings.passageOfTimeDefault,
         'standaloneClockEnabled':
             _storage.realismSettings.standaloneClockEnabled,

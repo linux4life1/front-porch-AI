@@ -102,7 +102,7 @@ extension ChatServiceGenerationStream on ChatService {
             break;
           }
         }
-        initialMetadata = skip.isNotEmpty ? {'time_skip_to': skip} : null;
+        initialMetadata = liteSkipMetadata(skip, _pendingRealismMetadata);
       } else if (_pendingRealismMetadata == null) {
         initialMetadata = null;
       } else {

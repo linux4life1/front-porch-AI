@@ -4,6 +4,8 @@
 // Quote-stripped lowercase. Completed-night language is a skip (land
 // morning first). "Let's go to bed" is a scene, not a skip.
 
+import 'package:front_porch_ai/services/chat/skip_span.dart';
+
 /// Existing skip phrases plus a finished night. Callers still strip quotes.
 final _skipPhrase = RegExp(
   r'\b(time.?skip|fast.?forward|skip ahead|several hours|a few hours|hours? later|'
@@ -43,7 +45,8 @@ final _durationHint = RegExp(
   caseSensitive: false,
 );
 
-bool hasSkipPhrase(String lower) => _skipPhrase.hasMatch(lower);
+bool hasSkipPhrase(String lower) =>
+    _skipPhrase.hasMatch(lower) || SkipSpan.namesLongSkip(lower);
 
 /// Clock lands at next morning AND the body may restore. Not "hours later".
 bool isNightSkip(String lower) => _nightSkip.hasMatch(lower);
@@ -55,4 +58,3 @@ bool shouldDetectTimeSkip(String lower) {
   if (!_oocMarker.hasMatch(lower)) return false;
   return _durationHint.hasMatch(lower);
 }
-

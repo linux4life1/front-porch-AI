@@ -14,6 +14,8 @@ import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show RealismVerification, evalJsonBool, evalJsonInt;
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/needs_wear.dart'
+    show livedSkipBars;
 
 import 'llm_eval_engine_test.dart' show createTestLlmEvalEngine;
 
@@ -299,5 +301,23 @@ void main() {
     expect(gain.status, 'corrected');
     expect(gain.correctedRaw, contains('"hunger_delta": 2'));
     expect(gain.correctedRaw, isNot(contains('20')));
+  });
+
+  test('a long skip tells the judge the days were lived, not to restore '
+      'sleep for them', () {
+    const dest = 'Thu, Jul 16 · 9:00 AM';
+    final note = needsBeatNote(dest, longSkip: true);
+    expect(note, contains('skipped ahead to $dest'));
+    expect(note, contains('already back at its everyday level'));
+    expect(note, isNot(contains('restore energy')));
+  });
+
+  test('livedSkipBars puts every need that is on at its everyday level', () {
+    final bars = livedSkipBars(
+      current: const {'hunger': 20, 'energy': 5, 'social': 30},
+      everyday: const {'hunger': 80, 'energy': 70, 'social': 60},
+      on: const ['hunger', 'energy'],
+    );
+    expect(bars, {'hunger': 80, 'energy': 70, 'social': 30});
   });
 }
