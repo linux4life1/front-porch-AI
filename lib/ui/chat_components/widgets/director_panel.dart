@@ -179,3 +179,26 @@ class _StatusPill extends StatelessWidget {
     );
   }
 }
+
+/// Holds the Director panel above the sidebar body: as tall as the panel
+/// needs, at most [maxFraction] of the window, scrolling past that. Not a
+/// Flexible: beside the body's Expanded, that splits the free height in half
+/// and leaves whatever a short panel does not use blank.
+class DirectorPanelSlot extends StatelessWidget {
+  const DirectorPanelSlot({
+    super.key,
+    required this.child,
+    this.maxFraction = 0.4,
+  });
+
+  final Widget child;
+  final double maxFraction;
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: BoxConstraints(
+      maxHeight: MediaQuery.sizeOf(context).height * maxFraction,
+    ),
+    child: SingleChildScrollView(child: child),
+  );
+}
