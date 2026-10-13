@@ -214,7 +214,7 @@ void main() {
       await pump(tester, const StudioDesk());
 
       expect(
-        find.text('Paste your Nano-GPT key to use it here'),
+        find.text('Paste your OpenRouter key to use it here'),
         findsOneWidget,
       );
       expect(find.textContaining('Reachable'), findsNothing);

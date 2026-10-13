@@ -101,7 +101,10 @@ void main() {
     addTearDown(() => dir.deleteSync(recursive: true));
     final storage = StorageService.sandbox(dir.path);
     await storage.imageGenSettings.setImageGenBackend('remote');
-    await storage.backendSettings.setRemoteApiKeyFor(kNanoGptApiV1, 'nk-test');
+    await storage.backendSettings.setRemoteApiKeyFor(
+      kOpenRouterApiV1,
+      'sk-or-test',
+    );
     await storage.imageGenSettings.setImageGenEditModel('vendor/flux');
     bool? ready;
     await tester.pumpWidget(

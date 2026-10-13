@@ -270,7 +270,7 @@ void main() {
 
     // A fresh install is on Remote with no key: the panel asks for one.
     expect(
-      find.text('Add a Nano-GPT key, or pick another host.'),
+      find.text('Add an OpenRouter key, or pick another host.'),
       findsOneWidget,
     );
     expect(generateOn(tester), isFalse);
