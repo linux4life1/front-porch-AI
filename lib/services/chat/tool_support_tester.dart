@@ -61,6 +61,7 @@ class ToolSupportTester {
     required this.isBusy,
     required this.onNotify,
     this.workerLaneReadyForPing,
+    this.onForcedRetest,
     this.fetchMetadataToolVerdict,
     this.retryGaps = kToolTestRetryGaps,
     this.now = DateTime.now,
@@ -80,6 +81,7 @@ class ToolSupportTester {
   /// resident and generation-ready. Null = always allowed (no swap).
   final bool Function()? workerLaneReadyForPing;
   final VoidCallback onNotify;
+  final VoidCallback? onForcedRetest;
 
   /// Provider-metadata answer for "does the current REMOTE model support tool
   /// calls?" — true/false when OpenRouter/Nano-GPT `/models` metadata lists
@@ -171,6 +173,7 @@ class ToolSupportTester {
     if (force) {
       _unansweredIdentity = '';
       _forcedIdentity = identity;
+      onForcedRetest?.call();
       probe.reset(identity);
     }
     if (probe.supportFor(identity) != ToolCallSupport.untested) return;
