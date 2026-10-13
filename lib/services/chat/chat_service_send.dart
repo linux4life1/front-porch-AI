@@ -340,7 +340,7 @@ extension ChatServiceSend on ChatService {
       if (_clockRunning) {
         final before = _timeService.clock;
         await _timeService.detectOocTimeSkip(outbound);
-        await _maybeMintEpisodeCrumbs(before, _timeService.clock);
+        await _episodeCrumbs.maybeMint(before, _timeService.clock);
       }
 
       // ── Direct-address turn routing (both cast surfaces) ─────────────────

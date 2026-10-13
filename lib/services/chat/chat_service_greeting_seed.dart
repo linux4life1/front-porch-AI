@@ -191,9 +191,9 @@ extension ChatServiceGreetingSeed on ChatService {
       if (scheduleEval) {
         _messages.first.activeMetadata!['realism_state'] =
             _captureRealismState();
-        _writeSlotClock(
+        _clockWriter.writeSlotClock(
           _messages.isEmpty ? null : _messages.first,
-          kind: _SlotClockWrite.seed,
+          kind: SlotClockWrite.seed,
         );
       }
     }
@@ -311,9 +311,9 @@ extension ChatServiceGreetingSeed on ChatService {
       if (scheduleEval) {
         _messages.first.activeMetadata!['realism_state'] =
             _captureRealismState();
-        _writeSlotClock(
+        _clockWriter.writeSlotClock(
           _messages.isEmpty ? null : _messages.first,
-          kind: _SlotClockWrite.seed,
+          kind: SlotClockWrite.seed,
         );
       }
     }

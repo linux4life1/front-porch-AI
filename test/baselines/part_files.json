@@ -2,8 +2,7 @@
   "lib/database/data_migration_service.dart": 2,
   "lib/database/database.dart": 16,
   "lib/database/database_cleanup.dart": 1,
-  "lib/main.dart": 5,
-  "lib/services/chat_service.dart": 95,
+  "lib/services/chat_service.dart": 91,
   "lib/services/kobold_service.dart": 7,
   "lib/services/update_service.dart": 2,
   "lib/ui/dialogs/kcpps_editor/kcpps_editor_controller.dart": 2

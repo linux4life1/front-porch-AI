@@ -103,7 +103,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
       } else {
         await _maybeAdvanceStoryClockAfterReply(t);
         if (_postGenAbortRequested) {
-          _abortSlotClockIfThisTurnTicked(t);
+          _clockWriter.abortSlotClockIfThisTurnTicked(
+            () => t.streamTarget,
+            isContinue: t.mode == GenerationMode.continue_,
+          );
         } else {
           _wearBodiesAfterClock(t);
           _tickRefractoryAfterClock(t);
@@ -219,7 +222,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
         // prevents (hygiene snap-back; climax erased by the regen merge).
         await _restampRealismSnapshotPostGen(t.streamTarget);
         if (_clockRunning && t.mode != GenerationMode.continue_) {
-          _writeSlotClock(t.streamTarget, kind: _SlotClockWrite.tick);
+          _clockWriter.writeSlotClock(
+            t.streamTarget,
+            kind: SlotClockWrite.tick,
+          );
         }
 
         if (prePostActiveChar != null) {
@@ -288,7 +294,10 @@ extension ChatServiceGenerationPostGenEngine on ChatService {
           notifyListeners();
         }
       } else {
-        _abortSlotClockIfThisTurnTicked(t);
+        _clockWriter.abortSlotClockIfThisTurnTicked(
+          () => t.streamTarget,
+          isContinue: t.mode == GenerationMode.continue_,
+        );
       }
     } finally {
       await _closeWorkerLane();

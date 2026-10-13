@@ -16,81 +16,24 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:async';
-// Hide `Size`: dart:ffi exports a `Size` type that collides with Flutter's
-// `Size`. `hide` (not `show`) keeps the `lookupFunction` extension in scope.
-import 'dart:ffi' hide Size;
 import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:path/path.dart' as p;
-import 'package:path_provider/path_provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-
 import 'package:provider/provider.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart' as riverpod;
-
 import 'package:window_manager/window_manager.dart';
-// screen_retriever is a transitive dep of window_manager (used here to validate
-// that restored window bounds are actually visible on a connected display).
-// ignore: depend_on_referenced_packages
-import 'package:screen_retriever/screen_retriever.dart';
-import 'package:front_porch_ai/providers/app_state.dart';
-import 'package:front_porch_ai/providers/auth_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/window_chrome.dart';
-import 'package:front_porch_ai/ui/window_size_env.dart';
-import 'package:front_porch_ai/services/backporch/backporch.dart';
-import 'package:front_porch_ai/ui/layout/main_layout.dart'; // Keep original import for MainLayout
-import 'package:front_porch_ai/app_version.dart';
-import 'package:front_porch_ai/utils/native_exit.dart';
-import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
+
+import 'package:front_porch_ai/app/app.dart';
 import 'package:front_porch_ai/database/database.dart';
-// ignore: unused_import — used in the commented-out auto-cleanup block below
-import 'package:front_porch_ai/database/database_cleanup.dart';
 import 'package:front_porch_ai/database/data_migration_service.dart';
-
-// Barrel imports for the most common services and widgets used directly in main.dart
-import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-
-// Services and modules not yet in the services barrel (internal, low-frequency, or side-effect heavy)
-import 'package:front_porch_ai/services/download_manager.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
-import 'package:front_porch_ai/services/setup_service.dart';
-import 'package:front_porch_ai/services/embedding_service.dart';
-import 'package:front_porch_ai/services/memory_service.dart';
-import 'package:front_porch_ai/services/audiobook_generator_service.dart';
-import 'package:front_porch_ai/services/file_consolidation_service.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
-
-// Dialogs and specific widgets used only in main.dart (direct imports are appropriate)
-import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/ui/widgets/db_init_error_app.dart';
-
-// God-file split (Tranche C, docs/design/god-file-elimination.md): main.dart
-// is a library-of-top-level-functions + one State class. Parts hold the
-// pre-runApp startup phases, the provider graph, and the _MyAppState
-// extensions. Order below mirrors the original file's top-to-bottom layout.
-part 'main.startup.dart';
-part 'main.providers.dart';
-part 'main.lifecycle.dart';
-part 'main.recovery.dart';
-part 'main.migration.dart';
-
-/// Prefix SharedPreferences keys for beta builds so window state is
-/// isolated from the stable installation.  Unchanged for stable builds.
-String _k(String key) => isPreRelease ? 'beta_$key' : key;
-
-/// DB health flag, set once from `_openDatabaseGuarded()` before the first
-/// `runApp` and read/written thereafter by `_MainDbRecovery._checkDbHealth`
-/// (main.recovery.dart) and `_rebindAfterDatabaseSwap`. Hoisted to a
-/// top-level library-private variable — main() writes it before any
-/// `_MyAppState` exists, and an extension cannot resolve an unqualified
-/// class static, so it can't stay a `static` field on `_MyAppState`.
-bool _dbHealthy = true; // set from main() before runApp
+import 'package:front_porch_ai/ui/layout/main_layout.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
 
 void _mark(String step) => StartupTrace.mark(step);
 
@@ -100,13 +43,13 @@ void main(List<String> args) async {
   await windowManager.ensureInitialized();
   _mark('windowManager.ensureInitialized');
 
-  // Ordered startup phases — each builder lives in main.startup.dart /
-  // main.providers.dart. The ORDER of these calls is the init contract;
-  // never reorder (see the phase functions' own comments for why each
-  // must precede the next).
-  _installSignalHandlers();
-  await _healPrefsAndConsolidateFiles();
-  final boot = await _openDatabaseGuarded();
+  // Ordered startup phases — each lives in lib/app/ (startup_phases.dart,
+  // main_window.dart, root_providers.dart). The ORDER of these calls is the
+  // init contract; never reorder (see the phase functions' own comments for
+  // why each must precede the next).
+  installSignalHandlers();
+  await healPrefsAndConsolidateFiles();
+  final boot = await openDatabaseGuarded();
   if (boot == null) return; // DbInitErrorApp is already running
   if (Platform.isWindows) {
     // Windows runs the app first and shows the window once it has painted
@@ -115,12 +58,15 @@ void main(List<String> args) async {
     // white until a real resize (flutter/flutter#192537). The runner keeps
     // the window hidden until Dart shows it (windows/runner/flutter_window.cpp).
     runApp(_buildRootWidget(boot.db, boot.needsMigration));
-    await _showMainWindow();
+    await showMainWindow();
     return;
   }
-  await _showMainWindow();
+  await showMainWindow();
   runApp(_buildRootWidget(boot.db, boot.needsMigration));
 }
+
+Widget _buildRootWidget(AppDatabase db, bool needsMigration) =>
+    buildRootWidget(db, needsMigration, app: const MyApp());
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});
@@ -134,18 +80,10 @@ class _MyAppState extends State<MyApp> with WindowListener {
   /// overlays so first paint happens before the providers spin up.
   bool _overlaysArmed = false;
   bool _updateChecked = false;
-  bool _isMigrating = false;
-  bool _isDbCorrupt = false;
-  List<File> _availableBackups = [];
-  String _migrationStep = '';
-  int _migrationCurrent = 0;
-  int _migrationTotal = 1;
 
-  // Track normal (non-maximized) window bounds for correct save/restore
-  double _normalWidth = 1280;
-  double _normalHeight = 720;
-  double? _normalX;
-  double? _normalY;
+  late final StartupRecovery _recovery = StartupRecovery(setState);
+  final WindowBoundsTracker _bounds = WindowBoundsTracker();
+  final AppShutdown _shutdown = AppShutdown();
 
   /// macOS-only hook for Cmd+Q / Dock-quit — see [_onAppExitRequested].
   AppLifecycleListener? _appExitListener;
@@ -164,24 +102,11 @@ class _MyAppState extends State<MyApp> with WindowListener {
       _mark('FIRST FRAME (user sees the app)');
       // First frame is up — arm the deferred overlays (see the home Stack).
       if (mounted) setState(() => _overlaysArmed = true);
-      // Capture initial window bounds after restore so tracking is correct
-      // even if user maximizes without any interactive resize this session.
-      try {
-        if (!await windowManager.isMaximized()) {
-          final size = await windowManager.getSize();
-          final position = await windowManager.getPosition();
-          _normalWidth = size.width;
-          _normalHeight = size.height;
-          _normalX = position.dx;
-          _normalY = position.dy;
-        }
-      } catch (e) {
-        debugPrint('Failed to capture initial window bounds: $e');
-      }
-      await _checkDbHealth();
+      await _bounds.captureInitial();
+      await _recovery.checkDbHealth(context);
       // Show stable DB import dialog on first beta launch (before migration)
-      await _showStableDbImportIfNeeded();
-      await _runMigrationIfNeeded();
+      await _recovery.showStableDbImportIfNeeded(context);
+      await _recovery.runMigrationIfNeeded(context);
       // Deferred idempotent maintenance (moved out of main()'s pre-window
       // path): purge month-old soft-deletes + pre-0.8.0 legacy JSON files.
       try {
@@ -198,15 +123,6 @@ class _MyAppState extends State<MyApp> with WindowListener {
     });
   }
 
-  /// setState bridge for the `_MyAppState` extensions split into
-  /// main.lifecycle.dart / main.recovery.dart / main.migration.dart —
-  /// `setState` is `@protected`, so an extension
-  /// method calling it directly fails the analyzer's
-  /// `invalid_use_of_protected_member` check. Same pattern as
-  /// `settings_page.dart`'s `rebuildState` and `tts_service.dart`'s
-  /// `_notify`; private because every caller is library-internal.
-  void _rebuild(VoidCallback fn) => setState(fn);
-
   @override
   void dispose() {
     _appExitListener?.dispose();
@@ -216,50 +132,25 @@ class _MyAppState extends State<MyApp> with WindowListener {
 
   @override
   void onWindowResized() async {
-    try {
-      if (!await windowManager.isMaximized()) {
-        final size = await windowManager.getSize();
-        _normalWidth = size.width;
-        _normalHeight = size.height;
-      }
-    } catch (e) {
-      debugPrint('Failed to capture window size: $e');
-    }
+    await _bounds.onResized();
   }
 
   @override
   void onWindowMoved() async {
-    try {
-      if (!await windowManager.isMaximized()) {
-        final pos = await windowManager.getPosition();
-        _normalX = pos.dx;
-        _normalY = pos.dy;
-      }
-    } catch (e) {
-      debugPrint('Failed to capture window position: $e');
-    }
+    await _bounds.onMoved();
   }
 
   @override
   void onWindowUnmaximize() async {
-    try {
-      final size = await windowManager.getSize();
-      final pos = await windowManager.getPosition();
-      _normalWidth = size.width;
-      _normalHeight = size.height;
-      _normalX = pos.dx;
-      _normalY = pos.dy;
-    } catch (e) {
-      debugPrint('Failed to capture window bounds after unmaximize: $e');
-    }
+    await _bounds.onUnmaximized();
   }
 
   @override
   void onWindowClose() async {
-    if (!_shutdownStarted && !await UnsavedChanges.instance.confirmLeave()) {
+    if (!_shutdown.started && !await UnsavedChanges.instance.confirmLeave()) {
       return;
     }
-    _saveStateAndShutdown();
+    _shutdown.run(context, _bounds);
   }
 
   /// Cmd+Q / Dock "Quit" (macOS): AppKit asks the framework for a cancelable
@@ -269,7 +160,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
   /// even with the red-button path fixed. Run the same cleanup instead; it
   /// ends in exitWithoutNativeFinalizers, so the response is never sent.
   Future<AppExitResponse> _onAppExitRequested() async {
-    if (_shutdownStarted) {
+    if (_shutdown.started) {
       // A close is already in flight and will _exit when done — refuse this
       // termination so the engine can't race our cleanup with its teardown.
       return AppExitResponse.cancel;
@@ -277,13 +168,9 @@ class _MyAppState extends State<MyApp> with WindowListener {
     if (!await UnsavedChanges.instance.confirmLeave()) {
       return AppExitResponse.cancel;
     }
-    await _saveStateAndShutdown();
+    await _shutdown.run(context, _bounds);
     return AppExitResponse.exit; // unreachable on macOS
   }
-
-  /// True once a shutdown path has started — makes close requests
-  /// idempotent (red button + Cmd+Q can both fire in one quit).
-  bool _shutdownStarted = false;
 
   @override
   Widget build(BuildContext context) {
@@ -355,10 +242,10 @@ class _MyAppState extends State<MyApp> with WindowListener {
                       actions: [warmDialogCancel(context, label: 'OK')],
                     );
                   }
-                  _checkForUpdates(context).then((_) {
-                    if (context.mounted) _checkKoboldEngine(context);
+                  checkForAppUpdates(context).then((_) {
+                    if (context.mounted) checkKoboldEngine(context);
                   });
-                  _autoStartWebServer(context);
+                  autoStartWebServer(context);
                   // Start auto-backup (always on, every 10 minutes)
                   BackupService.startAutoBackup();
                   // Wire TtsService into ChatService (can't be done during provider
@@ -471,8 +358,20 @@ class _MyAppState extends State<MyApp> with WindowListener {
                     // imperceptible; first paint no longer waits on it.
                     if (_overlaysArmed) const SetupOverlay(),
                     if (_overlaysArmed) const RemoteLockOverlay(),
-                    if (_isDbCorrupt) _buildCorruptionOverlay(),
-                    if (_isMigrating) _buildMigrationOverlay(),
+                    if (_recovery.isDbCorrupt)
+                      DbCorruptionOverlay(
+                        backups: _recovery.availableBackups,
+                        onRestore: (backup) =>
+                            _recovery.restoreBackup(this.context, backup),
+                        onContinue: () =>
+                            _recovery.continueWithoutRestoring(this.context),
+                      ),
+                    if (_recovery.isMigrating)
+                      MigrationOverlay(
+                        step: _recovery.migrationStep,
+                        current: _recovery.migrationCurrent,
+                        total: _recovery.migrationTotal,
+                      ),
                   ],
                 ),
               );

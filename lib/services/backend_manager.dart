@@ -39,6 +39,7 @@ class BackendManager extends ChangeNotifier {
   bool _isDownloading = false;
   double _downloadProgress = 0.0;
   String? _backendPath;
+  Future<void> _looks = Future.value();
   String? _error;
 
   String _statusMessage = '';
@@ -244,13 +245,15 @@ class BackendManager extends ChangeNotifier {
     _localSize = v.size;
   }
 
-  Future<void> checkBackendAvailability() async {
-    if (_storageService.rootPath == null) return;
+  /// Looks run in order, so a late old look can't restore a deleted engine.
+  /// A failed look fails its own caller; the next look still runs.
+  Future<void> checkBackendAvailability() =>
+      _looks = _looks.catchError((_) {}).then((_) => _lookForEngine());
 
+  Future<void> _lookForEngine() async {
+    if (_storageService.rootPath == null) return;
     final foundFile = await _findEngine();
     if (foundFile != null) {
-      // This look's own file: another look can run during the awaits below
-      // (a settings change re-runs it) and replace or clear _backendPath.
       final exe = foundFile.path;
       _backendPath = exe;
       _statusMessage = 'Ready';

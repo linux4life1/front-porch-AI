@@ -253,7 +253,7 @@ extension ChatServiceRegenRevert on ChatService {
         );
       }
 
-      // Clock rewind lives in [_rewindClockToPreReply] (reprocess). A
+      // Clock rewind lives in [StoryClockWriter.rewindClockToPreReply] (reprocess). A
       // realism_state.storyClock / timeOfDay / dayCount snap is not the
       // pre-reply time — old chats freeze those at Day 1 09:00.
       // Clock suppression is an argument on Next Character only. Regen
@@ -380,7 +380,7 @@ extension ChatServiceRegenRevert on ChatService {
       );
       if (ghostIdx >= 0) _messages.removeAt(ghostIdx);
       _messages.insert(preGenLen, lastMsg);
-      _applyTipClock();
+      _clockReader.applyTipClock();
       if (regenGuest == null) {
         _restoreRealismStateForSpeaker(lastMsg);
         // The pre-generation rewind above rolled pockets to the PRE-turn
@@ -433,14 +433,14 @@ extension ChatServiceRegenRevert on ChatService {
       if (newMetadata != null) {
         lastMsg.swipeMetadata[newSwipeIndex] = newMetadata;
       }
-      if (_clockRunning) _discoverAndPersistMessageBefore(lastMsg);
+      if (_clockRunning) _clockWriter.discoverAndPersistMessageBefore(lastMsg);
       _messages.add(lastMsg);
       // Host messages restore the active character's Realism/Needs from the
       // accepted swipe (in groups: the speaker's own _groupRealism entry).
       // Guest swipes wear present bodies (1:1 host); the replay just wore
       // them once — do not pull a host realism_state the guest never had.
       if (regenGuest == null) _restoreRealismStateForSpeaker(lastMsg);
-      _applyTipClock();
+      _clockReader.applyTipClock();
       _timeService.clearCapturedClock();
       await _saveChat();
       notifyListeners();

@@ -75,8 +75,6 @@ part 'chat/chat_service_group_members.dart';
 part 'chat/chat_service_group_lite.dart';
 part 'chat/chat_service_reprocess.dart';
 part 'chat/chat_service_regen_revert.dart';
-part 'chat/chat_service_message_clock.dart';
-part 'chat/chat_service_message_clock_write.dart';
 part 'chat/chat_service_needs_reprocess.dart';
 part 'chat/chat_service_reprocess_choice.dart';
 part 'chat/chat_service_chat_entry.dart';
@@ -112,8 +110,6 @@ part 'chat/chat_service_generation_postgen_engine.dart';
 part 'chat/chat_service_pockets.dart';
 part 'chat/chat_service_pockets_pass.dart';
 part 'chat/chat_service_item_cards.dart';
-part 'chat/chat_service_birthday.dart';
-part 'chat/chat_service_episode_crumbs.dart';
 part 'chat/chat_service_reply_facts.dart';
 part 'chat/chat_service_mood.dart';
 part 'chat/chat_service_climax.dart';
@@ -214,6 +210,10 @@ class ChatService extends ChangeNotifier
   late final _lorebookScanner = _buildLorebookScanner();
   late final _lorebookInjector = _buildLorebookInjector();
   late final _timeService = _buildTimeService();
+  late final _clockReader = StoryClockReader(_storyClockScope());
+  late final _clockWriter = _buildClockWriter();
+  late final _episodeCrumbs = _buildEpisodeCrumbs();
+  late final _birthdaySync = _buildBirthdaySync();
 
   Biome get activeChatBiome => _biomeSchedule.biomeAt(_timeService.dayCount);
   late final _chaosModeService = _buildChaosModeService();

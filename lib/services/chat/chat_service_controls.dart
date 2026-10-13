@@ -169,12 +169,15 @@ extension ChatServiceControls on ChatService {
   Future<void> nudgeTimePeriod(int delta) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
-    _pendingNudgeBefore = before;
+    _clockWriter.pendingNudgeBefore = before;
     await _timeService.nudgeTimePeriod(delta);
-    _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
+    _clockWriter.writeSlotClock(
+      _clockReader.visibleTipMessage(),
+      kind: SlotClockWrite.nudge,
+    );
     // Day-ate journal rides TimeService.onStoryDayChanged.
-    await _maybeMintEpisodeCrumbs(before, _timeService.clock);
-    unawaited(_ensureBirthdayState());
+    await _episodeCrumbs.maybeMint(before, _timeService.clock);
+    unawaited(_birthdaySync.ensure());
     await _saveChat();
     notifyListeners();
   }
@@ -184,12 +187,15 @@ extension ChatServiceControls on ChatService {
   Future<void> setStoryClock(DateTime clock) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
-    _pendingNudgeBefore = before;
+    _clockWriter.pendingNudgeBefore = before;
     await _timeService.setClockDirect(clock);
-    _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.nudge);
+    _clockWriter.writeSlotClock(
+      _clockReader.visibleTipMessage(),
+      kind: SlotClockWrite.nudge,
+    );
     // Day-ate journal rides TimeService.onStoryDayChanged.
-    await _maybeMintEpisodeCrumbs(before, _timeService.clock);
-    unawaited(_ensureBirthdayState());
+    await _episodeCrumbs.maybeMint(before, _timeService.clock);
+    unawaited(_birthdaySync.ensure());
     await _saveChat();
     notifyListeners();
   }
@@ -203,8 +209,8 @@ extension ChatServiceControls on ChatService {
     final delta = _timeService.startDate.difference(oldStart);
     shiftMessageClockStamps(_messages, delta);
     await _shiftPersistedSessionClockStamps(delta);
-    _applyTipClock();
-    unawaited(_ensureBirthdayState());
+    _clockReader.applyTipClock();
+    unawaited(_birthdaySync.ensure());
     await _saveChat();
     notifyListeners();
   }

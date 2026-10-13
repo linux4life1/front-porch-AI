@@ -305,7 +305,7 @@ bool backfillSlotClocks(
     if (!slotPairIsInverted(slot)) return false;
     // Legacy stored invert only. Lift after to before so the pair
     // matches the read clamp (16:00/09:00 → 16:00/16:00, named
-    // 08:00/07:30 → 08:00/08:00). Live _writeSlotClock still keeps
+    // 08:00/07:30 → 08:00/08:00). Live writeSlotClock still keeps
     // the after (named 07:30 stays 07:30/07:30).
     final before = slotClockBefore(slot)!;
     writeSlotClockPair(dest, before: before, after: before);
