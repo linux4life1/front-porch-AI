@@ -66,6 +66,11 @@ class LocalModelCard {
           await _hasSlidingWindow(model);
       preset = {
         'path': active,
+        'chatTemplate': read is KcppsOk ? kcppsChatTemplatePath(read.raw) : '',
+        'chatTemplateEditable': await canEditKoboldTemplate(
+          _storage.binDir.path,
+          active,
+        ),
         'name': kcppsPresetName(active),
         // As the picker lists a preset in the engine folder: one picked
         // from elsewhere on the desktop is in use but not in that list.

@@ -9,6 +9,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/client';
+import { KoboldChatTemplatePicker } from './KoboldChatTemplatePicker';
 import { SpeedTestButton } from './SpeedTestButton';
 import { SpeedTestOverlay } from './SpeedTestOverlay';
 import type { KoboldPhase, SpeedTestCard } from './types';
@@ -24,7 +25,7 @@ export type LocalModel = {
   /** What the desktop's status line says: a load in progress, or why a model
    *  change was not made (additive; '' or absent when there is nothing). */
   statusMessage?: string;
-  preset: { path: string; name: string; words: string; line?: string } | null;
+  preset: { path: string; name: string; words: string; line?: string; chatTemplate?: string; chatTemplateEditable?: boolean } | null;
   auto: {
     lines: string[];
     context: number;
@@ -275,6 +276,8 @@ export function KoboldStatusCard({ onError }: { onError: (m: string) => void }) 
             <p>{presetProblem}</p>
           </div>
         )}
+        {card.preset && <KoboldChatTemplatePicker key={card.preset.path} preset={card.preset}
+          onSaved={next => setCard(current => current?.preset?.path === next.preset?.path ? next : current)} />}
         {card.preset && (
           <div className="kc-plain">
             <span className="kc-plain-head">In plain words</span>

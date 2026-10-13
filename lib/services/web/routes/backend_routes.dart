@@ -22,9 +22,7 @@ import 'package:shelf_router/shelf_router.dart';
 import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
-import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
-import 'package:front_porch_ai/services/web/routes/expression_pack_routes.dart';
-import 'package:front_porch_ai/services/web/routes/image_desk_routes.dart';
+import 'package:front_porch_ai/services/web/routes/routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 import 'package:front_porch_ai/services/web/web_server_deps.dart';
 
@@ -48,6 +46,7 @@ class WebBackendRoutes {
       router.get('/api/backend/models', _models);
       router.post('/api/backend/models/switch', _switchModel);
       router.get('/api/backend/local-model', _localModel);
+      KoboldChatTemplateRoutes(backend, router);
       router.post('/api/backend/local-model/preset', _setChatPreset);
       router.post('/api/backend/local-model/context', _setLocalContext);
       router.post('/api/backend/models/delete', _deleteModel);

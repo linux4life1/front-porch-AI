@@ -9,14 +9,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'kcpps_editor_controller.dart';
-import 'kcpps_editor_prompts.dart';
-import 'kcpps_editor_style.dart';
-import 'kcpps_fit_panel.dart';
-import 'kcpps_model_field.dart';
-import 'kcpps_preset_list.dart';
-import 'kcpps_sections.dart';
-import 'kcpps_sections_more.dart';
+import 'kcpps_editor.dart';
 
 /// The preset editor. True when a preset was saved.
 class KcppsEditorDialog extends StatefulWidget {
@@ -286,6 +279,12 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
         KcppsSpeedSection(c: c),
         KcppsSmartCacheSection(c: c),
         KcppsExtrasSection(c: c),
+        KcppsChatTemplateField(
+          engineDir: c.storage.binDir.path,
+          path: c.draft.chatTemplatePath,
+          onChanged: (path) =>
+              c.edit((d) => d.copyWith(chatTemplatePath: path)),
+        ),
       ];
       if (box.maxWidth < 720) {
         return Column(
@@ -309,6 +308,8 @@ class _KcppsEditorDialogState extends State<KcppsEditorDialog> {
           pair(sections[0], sections[1]),
           const SizedBox(height: 16),
           pair(sections[2], sections[3]),
+          const SizedBox(height: 16),
+          sections[4],
         ],
       );
     },

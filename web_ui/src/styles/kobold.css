@@ -330,3 +330,8 @@
 [data-layout='phone'] .kc-card { padding: 18px 16px; }
 [data-layout='phone'] .kc-speed-btn { align-self: stretch; }
 [data-layout='phone'] .modal.kc-speed-dialog { padding: 18px 16px; }
+
+.kc-template-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; }
+.kc-template-actions .kc-label { flex-basis: 100%; }
+.kc-template-actions input { max-width: 100%; min-width: 0; color: var(--kc-muted); font: inherit; }
+.kc-template-actions input::file-selector-button { margin-right: .75rem; padding: .65rem .9rem; border: 1px solid var(--kc-line-strong); border-radius: .6rem; background: var(--kc-inset); color: var(--kc-ink); font: inherit; cursor: pointer; }

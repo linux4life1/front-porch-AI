@@ -29,3 +29,7 @@ export 'voice_routes.dart';
 export 'world_routes.dart';
 export 'world_from_wiki_routes.dart';
 export 'xai_routes.dart';
+export 'kobold_chat_template_routes.dart';
+export 'civitai_routes.dart';
+export 'expression_pack_routes.dart';
+export 'image_desk_routes.dart';

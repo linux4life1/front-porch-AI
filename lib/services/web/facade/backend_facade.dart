@@ -22,7 +22,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:front_porch_ai/services/xai/xai.dart';
-import 'package:front_porch_ai/services/web/facade/backend/local_model_card.dart';
+import 'package:front_porch_ai/services/web/facade/backend/backend.dart';
 
 /// Web adapter for local-backend lifecycle, local-model switching, and the
 /// HuggingFace model browser/downloader. Reuses [LLMProvider]'s managed-backend
@@ -43,6 +43,14 @@ class BackendFacade {
     _models,
     _hardware,
   );
+
+  Future<void> saveChatTemplate({
+    required String preset,
+    String? name,
+    String? content,
+  }) => ChatTemplateSettings(
+    _storage,
+  ).save(preset: preset, name: name, content: content);
 
   /// See [LocalModelCard.localModel].
   Future<Map<String, dynamic>> localModel() => _localModel.localModel();

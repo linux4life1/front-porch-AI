@@ -19,3 +19,5 @@ export 'kcpps_number_field.dart';
 export 'kcpps_preset_list.dart';
 export 'kcpps_sections.dart';
 export 'kcpps_sections_more.dart';
+
+export 'kcpps_chat_template_field.dart';

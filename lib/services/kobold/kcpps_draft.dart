@@ -3,9 +3,7 @@
 
 import 'package:front_porch_ai/utils/utils.dart';
 
-import 'kcpps_codec.dart';
-import 'kobold_app_config.dart';
-import 'kobold_launch_config.dart';
+import 'kobold.dart';
 
 /// What the preset editor's form holds. [toConfig] turns it into the
 /// preset written, by the same rules as every preset the app writes.
@@ -97,6 +95,8 @@ class KcppsDraft {
   /// Where a speed test measured the preset (see [KoboldMeasured]).
   final KoboldMeasured? measured;
   final Map<String, dynamic> extras;
+
+  String get chatTemplatePath => kcppsChatTemplatePath(extras);
 
   /// The form for a preset read from a file. [recurrent]: the model has
   /// recurrent layers, which changes how many slots KoboldCpp makes. [raw]:
@@ -259,6 +259,7 @@ class KcppsDraft {
     int? draftAmount,
     bool clearDraftAmount = false,
     bool? useMtp,
+    String? chatTemplatePath,
     KoboldGpuBackend? backend,
     int? gpuId,
     KoboldMeasured? measured,
@@ -293,7 +294,9 @@ class KcppsDraft {
     moreGpuIds: moreGpuIds,
     cudaOptions: cudaOptions,
     measured: unmeasured ? null : measured ?? this.measured,
-    extras: extras,
+    extras: chatTemplatePath == null
+        ? extras
+        : kcppsWithChatTemplate(extras, chatTemplatePath),
   );
 
   /// This form after a hand edit of [was]: a setting a speed test measures
