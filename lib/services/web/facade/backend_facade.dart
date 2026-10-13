@@ -244,6 +244,13 @@ class BackendFacade {
     return status();
   }
 
+  /// Looks for the engine again before answering, so a page opening after
+  /// the engine file was removed does not show the old "installed".
+  Future<Map<String, dynamic>> recheckEngine() async {
+    await _llm.backendManager.checkBackendAvailability();
+    return status();
+  }
+
   bool cancelDownload(String taskId) => _models.cancelDownload(taskId);
 
   // ── Remote (OpenAI-compatible) model picker ──────────────────────────────
