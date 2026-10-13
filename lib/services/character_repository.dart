@@ -25,7 +25,7 @@ import 'package:front_porch_ai/services/portrait_promotion.dart'
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
-import 'package:front_porch_ai/utils/utils.dart' show StartupTrace;
+import 'package:front_porch_ai/utils/utils.dart';
 
 class CharacterRepository extends ChangeNotifier {
   AppDatabase _db;
@@ -329,6 +329,7 @@ class CharacterRepository extends ChangeNotifier {
     _bumpCoverEpoch();
     final fsPath = _writer.absoluteImagePath(imagePath);
     card.imagePath = fsPath;
+    await evictPortraitImage(File(fsPath));
     await _db.updateCharacterImagePath(id, toBasename(fsPath));
 
     final index = _characters.indexWhere((candidate) => candidate.dbId == id);
@@ -338,16 +339,15 @@ class CharacterRepository extends ChangeNotifier {
     if (notify) notifyListeners();
   }
 
-  /// Update a character's image path and persist to DB + PNG.
   Future<void> setCharacterImagePath(
     CharacterCard card,
     String imagePath,
   ) async {
     card.imagePath = imagePath;
+    await evictPortraitImage(File(_writer.absoluteImagePath(imagePath)));
     await updateCharacter(card);
   }
 
-  /// Read the JSON-encoded [memorySources] list for a character.
   Future<List<String>> getMemorySources(String characterDbId) =>
       _writer.memorySources(characterDbId);
 

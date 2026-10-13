@@ -37,8 +37,9 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   _mockPathProvider();
 
-  test('switching URL clears the live model', () async {
+  test('switching URL restores each host\'s last model', () async {
     final storage = await _storage();
+    await storage.backendSettings.setBackendType('openRouter');
     await storage.backendSettings.setRemoteApiUrl(_openRouter);
     await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
     await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
@@ -47,36 +48,36 @@ void main() {
     );
 
     await storage.backendSettings.setRemoteApiUrl(_openRouter);
-    expect(storage.backendSettings.remoteModelName, isEmpty);
+    expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
     expect(
       storage.backendSettings.remoteApiModelFor(_openRouter),
       'x-ai/grok-4.6',
     );
     await storage.backendSettings.setRemoteApiUrl(_nanoGpt);
-    expect(storage.backendSettings.remoteModelName, isEmpty);
+    expect(
+      storage.backendSettings.remoteModelName,
+      'moonshotai/kimi-k2.6:thinking',
+    );
     expect(
       storage.backendSettings.remoteApiModelFor(_nanoGpt),
       'moonshotai/kimi-k2.6:thinking',
     );
   });
 
-  test(
-    'oMLX backend clears the live model without overwriting the URL slot',
-    () async {
-      final storage = await _storage();
-      await storage.backendSettings.setBackendType('openRouter');
-      await storage.backendSettings.setRemoteApiUrl(_openRouter);
-      await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
+  test('oMLX keeps its own model without overwriting the URL slot', () async {
+    final storage = await _storage();
+    await storage.backendSettings.setBackendType('openRouter');
+    await storage.backendSettings.setRemoteApiUrl(_openRouter);
+    await storage.backendSettings.setRemoteModelName('x-ai/grok-4.6');
 
-      await storage.backendSettings.setBackendType('omlx');
-      expect(storage.backendSettings.remoteModelName, isEmpty);
-      await storage.backendSettings.setRemoteModelName('mlx-community/foo');
-      expect(storage.backendSettings.remoteApiUrl, _openRouter);
+    await storage.backendSettings.setBackendType('omlx');
+    expect(storage.backendSettings.remoteModelName, isEmpty);
+    await storage.backendSettings.setRemoteModelName('mlx-community/foo');
+    expect(storage.backendSettings.remoteApiUrl, _openRouter);
 
-      await storage.backendSettings.setBackendType('openRouter');
-      expect(storage.backendSettings.remoteModelName, isEmpty);
-      await storage.backendSettings.setBackendType('omlx');
-      expect(storage.backendSettings.remoteModelName, isEmpty);
-    },
-  );
+    await storage.backendSettings.setBackendType('openRouter');
+    expect(storage.backendSettings.remoteModelName, 'x-ai/grok-4.6');
+    await storage.backendSettings.setBackendType('omlx');
+    expect(storage.backendSettings.remoteModelName, 'mlx-community/foo');
+  });
 }

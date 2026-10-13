@@ -71,6 +71,10 @@ add_subdirectory("runner")
 # Generated plugin build rules, which manage building the plugins and adding
 # them to the application.
 include(flutter/generated_plugins.cmake)
+include(onnx_runtime_bundle.cmake)
+# Only Sherpa's matched runtime may be installed under this shared DLL name.
+fpai_select_onnx_runtime(FPAI_ONNX_RUNTIME_LIBRARIES ${sherpa_onnx_windows_bundled_libraries})
+fpai_remove_onnx_runtime(PLUGIN_BUNDLED_LIBRARIES ${PLUGIN_BUNDLED_LIBRARIES})
 
 
 # === Installation ===
@@ -108,7 +112,12 @@ endif()
 set(NATIVE_ASSETS_DIR "${PROJECT_BUILD_DIR}native_assets/windows/")
 install(DIRECTORY "${NATIVE_ASSETS_DIR}"
    DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
-   COMPONENT Runtime)
+   COMPONENT Runtime
+   PATTERN "onnxruntime.dll" EXCLUDE
+   PATTERN "onnxruntime_providers_*.dll" EXCLUDE)
+install(FILES ${FPAI_ONNX_RUNTIME_LIBRARIES}
+  DESTINATION "${INSTALL_BUNDLE_LIB_DIR}"
+  COMPONENT Runtime)
 
 # Fully re-copy the assets directory on each build to avoid having stale files
 # from a previous install.

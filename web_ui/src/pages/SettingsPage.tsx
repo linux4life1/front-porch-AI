@@ -27,7 +27,7 @@ import {
 import { VoiceMediaSettings } from '../components/VoiceMediaSettings';
 import { WorkerBackendCard } from '../components/WorkerBackendCard';
 import { SuperGrokCard } from '../components/SuperGrokCard';
-import { urlHasStoredApiKey } from '../remoteApiKeys';
+import { parkRemoteModel, rememberedRemoteModel, urlHasStoredApiKey } from '../remoteApiKeys';
 import { remoteReachabilityLabel } from './remoteReachability';
 import { BACKEND_OPTIONS, INTEL_MAC_LOCAL_UNSUPPORTED, backendOptionId } from '../backendOptions';
 import { presetOwnsContext } from '../presetOwnsContext';
@@ -45,6 +45,8 @@ interface Settings {
   remoteModelName: string;
   hasApiKey: boolean;
   remoteApiUrlsWithKeys?: string[];
+  /** Slot → last model used on that host. Absent on older hosts. */
+  remoteApiModels?: Record<string, string>;
   /** Host is macOS — oMLX is Apple Silicon only. Absent = hide (old hosts). */
   omlxAvailable?: boolean;
   remoteConfigured?: boolean;
@@ -74,6 +76,7 @@ interface Settings {
   workerBackend?: string;
   workerRemoteApiUrl?: string;
   workerRemoteModelName?: string;
+  workerRemoteApiModels?: Record<string, string>;
   workerKoboldModelPath?: string;
   workerKoboldKcppsPath?: string;
   lastUsedModelPath?: string;
@@ -280,14 +283,20 @@ export function SettingsPage() {
 
   // Switching backend sets the BackendType and, for fixed-URL providers, the API
   // URL; Custom clears the URL so it doesn't masquerade as a named provider and
-  // the model dropdown refetches off the new endpoint. The live model id is
-  // blanked — a leftover from the previous host is not valid here.
+  // the model dropdown refetches off the new endpoint. The model last used
+  // on the new host comes back (blank when it has none) — never the
+  // previous host's id, which is not valid there.
   const onBackendChange = (id: string) => {
     const opt = BACKEND_OPTIONS.find((o) => o.id === id);
     if (!opt) return;
-    const next: Partial<Settings> = { backend: opt.backend, remoteModelName: '' };
-    if (id === 'custom') next.remoteApiUrl = '';
-    else if (opt.url) next.remoteApiUrl = opt.url;
+    const url = id === 'custom' ? '' : (opt.url ?? s.remoteApiUrl);
+    const models = parkRemoteModel(s.backend, s.remoteApiUrl, s.remoteModelName, s.remoteApiModels);
+    const next: Partial<Settings> = {
+      backend: opt.backend,
+      remoteApiUrl: url,
+      remoteApiModels: models,
+      remoteModelName: rememberedRemoteModel(opt.backend, url, models),
+    };
     setApiKey('');
     patch(next);
   };

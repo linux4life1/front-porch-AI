@@ -25,6 +25,9 @@ class _RequestState {
   /// while it goes up was stopped, not broken.
   int aborts = 0;
 
+  /// Port of the managed process launched with Jinja tool formatting.
+  final toolCrashGuard = KoboldToolCrashGuard();
+
   /// Chat replies still waiting for their turn.
   final Set<_Waiting> waiting = {};
 
@@ -74,10 +77,16 @@ extension KoboldServiceRequests on KoboldService {
     final speedTest = _requests.speedTest;
     if (speedTest != null) await speedTest.future;
     if (!isReady) return null;
+    final reasoningOff =
+        !params.reasoningEnabled || params.reasoningMaxTokens == 0;
+    if (reasoningOff && toolCrashGuard.blocks(toolConfigurationKey)) {
+      return null; // The caller owns the one existing text floor.
+    }
     http.Client? mine;
     return _runSerialized<LlmToolResponse?>(() async {
       if (params.stillWantTools?.call() == false) return null;
       if (params.cancel?.isCancelled ?? false) return null;
+      toolCrashGuard.begin(toolConfigurationKey, reasoningOff: reasoningOff);
       return postOpenAiChatWithTools(
         _baseUrl,
         params,

@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_model_memory.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
@@ -234,30 +235,42 @@ class _WorkerBackendSectionState extends State<WorkerBackendSection> {
                 ],
                 if (showModel) ...[
                   const SizedBox(height: 12),
-                  RemoteModelPickerField(
-                    key: const Key('side-jobs-model-picker'),
-                    availableModels: _models,
-                    selectedId: storage.workerRemoteModelName,
-                    fetching: _fetching,
-                    dialogTitle: 'Realism evals model',
-                    onRefresh: () async {
-                      setState(() => _fetching = true);
-                      try {
-                        if (_url.text.trim().isNotEmpty) {
-                          await storage.setWorkerRemoteApiUrl(_url.text.trim());
+                  // Re-keyed per host: the typed field keeps its first value,
+                  // so a same-layout switch would show the last host's model.
+                  KeyedSubtree(
+                    key: ValueKey(
+                      remoteModelSlot(
+                        backend: storage.workerBackendType,
+                        url: storage.workerRemoteApiUrl,
+                      ),
+                    ),
+                    child: RemoteModelPickerField(
+                      key: const Key('side-jobs-model-picker'),
+                      availableModels: _models,
+                      selectedId: storage.workerRemoteModelName,
+                      fetching: _fetching,
+                      dialogTitle: 'Realism evals model',
+                      onRefresh: () async {
+                        setState(() => _fetching = true);
+                        try {
+                          if (_url.text.trim().isNotEmpty) {
+                            await storage.setWorkerRemoteApiUrl(
+                              _url.text.trim(),
+                            );
+                          }
+                          final list = await llm.workerRemoteService
+                              .fetchAvailableModels();
+                          if (!mounted) return;
+                          setState(() => _models = list);
+                        } finally {
+                          if (mounted) setState(() => _fetching = false);
                         }
-                        final list = await llm.workerRemoteService
-                            .fetchAvailableModels();
-                        if (!mounted) return;
-                        setState(() => _models = list);
-                      } finally {
-                        if (mounted) setState(() => _fetching = false);
-                      }
-                    },
-                    onSelected: (m) {
-                      storage.setWorkerRemoteModelName(m.id);
-                    },
-                    onTyped: storage.setWorkerRemoteModelName,
+                      },
+                      onSelected: (m) {
+                        storage.setWorkerRemoteModelName(m.id);
+                      },
+                      onTyped: storage.setWorkerRemoteModelName,
+                    ),
                   ),
                 ],
                 if (showKey) ...[

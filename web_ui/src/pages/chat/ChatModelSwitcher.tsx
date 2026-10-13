@@ -26,7 +26,7 @@ import { ModelPicker } from '../../components/ModelPicker';
 import { attachStepUp, StepUpFields } from '../../components/StepUpFields';
 import { useBackDismiss } from '../../hooks/useBackDismiss';
 import { BACKEND_OPTIONS, backendOptionId } from '../../backendOptions';
-import { urlHasStoredApiKey } from '../../remoteApiKeys';
+import { rememberedRemoteModel, urlHasStoredApiKey } from '../../remoteApiKeys';
 
 const MARKER_KEY = 'fpModelSwitch';
 /** Hosted providers that cannot list models without a saved key. */
@@ -38,6 +38,8 @@ export interface ChatModelSnapshot {
   remoteModelName: string;
   loadedModel?: string;
   remoteApiUrlsWithKeys?: string[];
+  /** Slot → last model used on that host. Absent on older hosts. */
+  remoteApiModels?: Record<string, string>;
   omlxAvailable?: boolean;
 }
 
@@ -154,6 +156,10 @@ function ModelSwitchSheet({
     canPick &&
     KEYED_PROVIDERS.has(provider.id) &&
     !urlHasStoredApiKey(draftUrl, settings.remoteApiUrlsWithKeys);
+  // The model last used on the provider being switched to, one tap away.
+  const remembered = switching
+    ? rememberedRemoteModel(provider.backend, draftUrl, settings.remoteApiModels)
+    : '';
   const providers = BACKEND_OPTIONS.filter(
     (o) => o.id !== 'omlx' || settings.omlxAvailable === true || savedId === 'omlx',
   );
@@ -205,9 +211,9 @@ function ModelSwitchSheet({
 
   const switchHost = () => {
     const body: Record<string, unknown> = { backend: provider.backend };
+    // No model in the body: the host brings back this provider's last one.
     if (urlChanges) {
       body.remoteApiUrl = draftUrl;
-      body.remoteModelName = '';
       attachStepUp(body, password, totpEnabled, totpCode);
     }
     post(body, '', provider.kind === 'api');
@@ -266,6 +272,17 @@ function ModelSwitchSheet({
               </Link>
             </p>
           )}
+          {canPick && remembered && (
+            <button
+              type="button"
+              className="primary model-switch-remembered"
+              data-testid="model-switch-remembered"
+              disabled={saving || (urlChanges && !password.trim())}
+              onClick={() => save(remembered)}
+            >
+              Use {remembered}
+            </button>
+          )}
           {canPick ? (
             <ModelPicker
               key={providerId}
@@ -276,7 +293,7 @@ function ModelSwitchSheet({
               totpCode={totpCode}
               totpEnabled={totpEnabled}
               onTotpRequired={() => setTotpEnabled(true)}
-              value={switching ? '' : settings.remoteModelName}
+              value={switching ? remembered : settings.remoteModelName}
               onChange={save}
             />
           ) : switching && (provider.kind === 'local' || hostLocal) ? (

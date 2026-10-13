@@ -484,10 +484,9 @@ test.describe('the Local model card', () => {
   const setBackend = (page: Page, backend: 'kobold' | 'openRouter') =>
     page.request.post('/api/settings', { data: { backend } });
 
-  // The stand-in backend as the suite set it up. Switching the backend blanks
-  // the remote model name on purpose (BackendSettings.setBackendType: the
-  // picker must not keep the previous host's model), so putting back the
-  // backend alone leaves chat with no model.
+  // The stand-in backend as the suite set it up, put back in full: the host
+  // restores each backend's last model on a switch, but naming it here
+  // keeps the next spec independent of that.
   let standIn: { backend: string; remoteApiUrl: string; remoteModelName: string };
   test.beforeEach(async ({ request }) => {
     const s = await (await request.get('/api/settings')).json();
