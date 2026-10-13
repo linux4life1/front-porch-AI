@@ -83,8 +83,11 @@ class RemoteStudioPanel {
     required String xaiResolution,
   }) {
     // A custom address (chat's own, never picked here) selects no tile; the
-    // panel still names and bills that address.
-    final known = imageRemoteHostFor(selectedUrl);
+    // panel still names and bills that address. No address at all is the
+    // first host, which is what the panel shows and a saved key goes to.
+    final known =
+        imageRemoteHostFor(selectedUrl) ??
+        (selectedUrl.trim().isEmpty ? kImageStudioRemoteHosts.first : null);
     final host = known ?? kImageStudioRemoteHosts.first;
     final url = known == null && selectedUrl.isNotEmpty
         ? selectedUrl

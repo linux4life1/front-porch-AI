@@ -133,6 +133,14 @@ void main() {
       );
     });
 
+    test('no address at all is the first host, not a custom one', () {
+      final p = _panel(url: '', keys: const {});
+
+      expect(p.tiles.first.selected, isTrue);
+      expect(p.url, kNanoGptApiV1);
+      expect(p.billing, 'Bills your Nano-GPT account per image.');
+    });
+
     test('the web reads the same words', () {
       final json = _panel().toJson();
 
