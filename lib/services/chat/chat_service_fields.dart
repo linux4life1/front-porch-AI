@@ -174,6 +174,8 @@ mixin ChatServiceFieldBag {
   // drop the shared field entirely.)
   bool _entrancesInFlight = false;
   bool _isLoadingSession = false;
+  // New chat / loadSession runs in flight; sends wait them out.
+  int _chatSwitches = 0;
   final _history = SessionHistoryWindow();
 
   /// Saved position of `messages[0]`. Older rows still loading sit

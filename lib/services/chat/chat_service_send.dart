@@ -53,7 +53,9 @@ extension ChatServiceSend on ChatService {
     if (_activeCharacter == null && _activeGroup == null) {
       return 'No chat is open.';
     }
-    if (_isLoadingSession) return 'The chat is still opening.';
+    if (_isLoadingSession || _chatSwitches > 0) {
+      return 'The chat is still opening.';
+    }
     if (_isImporting) return 'A chat import is still running.';
     if (_entrancesInFlight || _sceneGuest.busy) {
       return 'A character is still joining the scene.';
@@ -78,7 +80,7 @@ extension ChatServiceSend on ChatService {
     // Overlay / picker hydrate is still in flight. A send here would
     // persist the pre-hydrate realism reset onto whichever session is
     // currently live (often the last-active chat, not the one opening).
-    if (_isLoadingSession) return;
+    if (_isLoadingSession || _chatSwitches > 0) return;
     // Don't let a user turn start while forked-in entrances are still playing —
     // it would race the one-shot entrance directive / turn positioning.
     if (_entrancesInFlight) return;

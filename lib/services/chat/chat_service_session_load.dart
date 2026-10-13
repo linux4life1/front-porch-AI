@@ -269,19 +269,18 @@ extension ChatServiceSessionLoad on ChatService {
   Future<void> loadSession(String sessionId) =>
       _whileSwitchingChat(() => _openSession(sessionId));
 
-  /// Holds the session-load flag across an in-chat switch, as entering a
-  /// character or group does. A send (a `/join` included) that lands mid-switch
-  /// is refused ("The chat is still opening.") instead of starting in one chat
-  /// and finishing in the next: a New chat mints its id twice, so a join that
-  /// slipped in between lost its "joined the scene" line and could lose the
-  /// guest too.
+  /// Refuses sends across an in-chat switch, as entering a character or group
+  /// does. A send (a `/join` included) that lands mid-switch gets "The chat is
+  /// still opening." instead of starting in one chat and finishing in the
+  /// next: a New chat mints its id twice, so a join that slipped in between
+  /// lost its "joined the scene" line and could lose the guest too. Not the
+  /// session-load flag: that would also hold the history backfill back.
   Future<void> _whileSwitchingChat(Future<void> Function() body) async {
-    final ownedLoad = !_isLoadingSession;
-    beginSessionLoad();
+    _chatSwitches++;
     try {
       await body();
     } finally {
-      if (ownedLoad) endSessionLoad();
+      _chatSwitches--;
     }
   }
 
