@@ -742,7 +742,9 @@ void main() {
       h.chat.pauseAutoPlay();
       hanging.hang = false;
       hanging.hold.complete();
-      await until(() => !h.chat.isGenerating);
+      // The turn is still settling after its last token; the turn is spent
+      // during that settle, so wait for the settle itself to end.
+      await until(() => !h.chat.isGenerating && !h.chat.isSettlingTurn);
 
       expect(h.chat.autoPlayPaused, isTrue);
       expect(h.chat.autoChatTurnsLeft, 2, reason: '3 turns, 1 written');
