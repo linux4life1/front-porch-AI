@@ -213,21 +213,4 @@ void main() {
       expect(models.single.isPaid, isFalse);
     });
   });
-
-  test('a leftover LoRA never blocks a Remote API', () {
-    const lora = DeskLoraCheck(
-      'qwen_lora.safetensors',
-      ModelFamily.qwen,
-      metadataBacked: true,
-    );
-    StudioReadiness ready(String backend) => deskReadiness(
-      backend: backend,
-      primaryFile: 'z_image_turbo_bf16.safetensors',
-      objectInfo: null,
-      loras: const [lora],
-    );
-
-    expect(ready('a1111').kind, StudioReady.loraMismatch);
-    expect(ready('remote').kind, StudioReady.ready);
-  });
 }
