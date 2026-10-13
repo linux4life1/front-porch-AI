@@ -143,7 +143,7 @@ extension ChatServiceSessionWindow on ChatService {
     // After basePosition/hasMore so the last page sees a complete
     // history. A bad stamp cast must not skip the rest of open.
     try {
-      _backfillLoadedSlotClocks();
+      _clockReader.backfillLoadedSlotClocks();
     } catch (e, st) {
       debugPrint('[Clock] page backfill failed: $e\n$st');
     }

@@ -69,7 +69,7 @@ extension ChatServiceMessageOps on ChatService {
 
     msg.swipeIndex = newIndex;
     if (isTip || isGuestTip) {
-      _applyTipClock();
+      _clockReader.applyTipClock();
     }
     if (isTip) _syncRealismStateForSwipe(msg);
     if (isGuestTip) {
@@ -347,7 +347,7 @@ extension ChatServiceMessageOps on ChatService {
         // The live tip is the reply still being written. Applying the
         // clock from it mid-turn would move story time under that speaker.
         if (!duringTurn) {
-          _applyClockAfterDelete(deleted, wasTail: wasTail);
+          _clockWriter.applyClockAfterDelete(deleted, wasTail: wasTail);
           if (wasTail) _restoreRefractoryBeforeBeat(deleted);
         }
       }

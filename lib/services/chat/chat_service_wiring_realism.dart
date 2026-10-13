@@ -64,11 +64,62 @@ extension ChatServiceWiringRealism on ChatService {
         }();
       },
       onPatchLastMessageRealismState: (_, _, _) {
-        // Clock stamps are written only by _writeSlotClock.
+        // Clock stamps are written only by StoryClockWriter.writeSlotClock.
         // This hook must not insert a snapshot or mark user messages.
       },
     );
   }
+
+  /// The open chat as the story clock reads it — live getters only.
+  StoryClockScope _storyClockScope() => StoryClockScope(
+    messages: _messages,
+    history: _history,
+    time: () => _timeService,
+    clockRunning: () => _clockRunning,
+    activeGroup: () => _activeGroup,
+    activeCharacter: () => _activeCharacter,
+  );
+
+  StoryClockWriter _buildClockWriter() => StoryClockWriter(
+    _storyClockScope(),
+    _clockReader,
+    currentSessionId: () => _currentSessionId,
+    saveChat: _saveChat,
+    notify: notifyListeners,
+    setGuestStatus: _setGuestStatus,
+  );
+
+  /// Group members in a group, else the 1:1 character when one is set.
+  Iterable<CharacterCard> _clockCast() => _activeGroup != null
+      ? _groupCharacters
+      : [_activeCharacter].whereType<CharacterCard>();
+
+  EpisodeCrumbMinter _buildEpisodeCrumbs() => EpisodeCrumbMinter(
+    clockRunning: () => _clockRunning,
+    memorySettings: () => _storageService.memorySettings,
+    currentSessionId: () => _currentSessionId,
+    cast: _clockCast,
+    time: () => _timeService,
+    history: _history,
+    messageCount: () => _messages.length,
+    workFieldsFor: _workFieldsFor,
+    characterIdFor: _getCharacterIdFromCard,
+    journalStore: () => _journalStore,
+  );
+
+  BirthdaySync _buildBirthdaySync() => BirthdaySync(
+    currentSessionId: () => _currentSessionId,
+    memorySettings: () => _storageService.memorySettings,
+    time: () => _timeService,
+    persona: () => _userPersonaService.persona,
+    cast: _clockCast,
+    characterIdFor: _getCharacterIdFromCard,
+    journalStore: () => _journalStore,
+    objectivesActive: () => objectivesActive,
+    db: () => _db,
+    reloadActiveObjectives: _loadActiveObjectives,
+    maxSecondaryObjectives: kMaxSecondaryObjectives,
+  );
 
   // ── Chaos Mode (extracted; late final here for injection safety, before _chaosInjection) ──
   ChaosModeService _buildChaosModeService() {

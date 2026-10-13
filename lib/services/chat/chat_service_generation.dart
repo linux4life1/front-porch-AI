@@ -324,7 +324,10 @@ extension ChatServiceGeneration on ChatService {
                 : StoryClock.failureDriftMinutes,
           );
           // F3: persist the drift on the tip so reopen cannot rewind it.
-          _writeSlotClock(_visibleTipMessage(), kind: _SlotClockWrite.tick);
+          _clockWriter.writeSlotClock(
+            _clockReader.visibleTipMessage(),
+            kind: SlotClockWrite.tick,
+          );
         }
         _messages.add(
           ChatMessage(
@@ -374,7 +377,7 @@ extension ChatServiceGeneration on ChatService {
           // abort before any prompt is built. Entry-state flags are reset
           // by hand — the normal clears live in completion/catch.
           if (_realismEvalCancelled) {
-            _applyTipClock();
+            _clockReader.applyTipClock();
             _pendingRealismMetadata = null;
             _needsSimulation.consumePendingCatastrophe();
             _realismEvalCancelled = false;
@@ -405,7 +408,7 @@ extension ChatServiceGeneration on ChatService {
       }
       await _finalizeGenerationTurn(t);
     } catch (e) {
-      _restoreCapturedThroughReader();
+      _clockWriter.restoreCapturedThroughReader();
       // A stream that threw mid-think must not leave its live start behind.
       if (t.thinkStartedAt != null) t.sealThinkClock();
       final wasCancelled = _cancelRequested;

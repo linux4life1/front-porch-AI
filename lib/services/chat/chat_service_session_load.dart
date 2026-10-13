@@ -163,7 +163,7 @@ extension ChatServiceSessionLoad on ChatService {
         _loadSceneGuestsFromSession(lastSession);
       }
       await _reapplyOpeningOverlayIfNeeded();
-      await _reloadSessionClockThenSync(lastSession);
+      await _clockWriter.reloadSessionClockThenSync(lastSession);
     } finally {
       _preserveSessionPersonaOf[this] = false;
     }
@@ -181,7 +181,7 @@ extension ChatServiceSessionLoad on ChatService {
     // Load per-chat generation settings override for this session.
     // LLMerta porch memories on last-session open (same as loadSession).
     unawaited(_maybeImportPorchMemories());
-    unawaited(_ensureBirthdayState());
+    unawaited(_birthdaySync.ensure());
   }
 
   /// Get sessions for a given character/group ID without setting it as active.
@@ -378,7 +378,7 @@ extension ChatServiceSessionLoad on ChatService {
         await _journalStore.persistRecap(sessionId, liveRecap);
       }
       await _reapplyOpeningOverlayIfNeeded();
-      await _reloadSessionClockThenSync(session);
+      await _clockWriter.reloadSessionClockThenSync(session);
 
       // Quests are keyed (character, CHAT) — so switching chats has to reload
       // them, exactly like the scalars above. Nothing did: `_activeObjectives`
@@ -406,7 +406,7 @@ extension ChatServiceSessionLoad on ChatService {
       // LLMerta porch memories: plant matching Mafia nights + arm force-ack.
       // Fire-and-forget so open path never blocks on disk/DB.
       unawaited(_maybeImportPorchMemories());
-      unawaited(_ensureBirthdayState());
+      unawaited(_birthdaySync.ensure());
     } catch (e) {
       debugPrint('[ChatService] Error loading session $sessionId: $e');
     }

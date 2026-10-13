@@ -184,7 +184,7 @@ extension ChatServiceSessionFork on ChatService {
         fromIndex: _messages.length - 1,
         seedClockIfUnstamped: true,
       );
-      _applyForkPointClock(parentStartDate: parentStart);
+      _clockWriter.applyForkPointClock(parentStartDate: parentStart);
     }
 
     await _saveChat();

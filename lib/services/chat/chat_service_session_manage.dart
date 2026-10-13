@@ -63,7 +63,7 @@ extension ChatServiceSessionManage on ChatService {
   Future<void> persistSessionPersona() async {
     if (_currentSessionId == null) return;
     await _saveChat();
-    unawaited(_ensureBirthdayState());
+    unawaited(_birthdaySync.ensure());
   }
 
   /// [personaId] is the explicitly-picked persona ("Start New Chat"). Omitted —
@@ -393,9 +393,9 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
-        _writeSlotClock(
+        _clockWriter.writeSlotClock(
           _messages.isEmpty ? null : _messages.first,
-          kind: _SlotClockWrite.seed,
+          kind: SlotClockWrite.seed,
         );
         // Overlay 0 / inherit baseline into live emotion and slots.
         // Previously only the empty-empty path applied seed, so leftover
@@ -425,9 +425,9 @@ extension ChatServiceSessionManage on ChatService {
           ),
         );
         _lorebookScanner.scanLatest();
-        _writeSlotClock(
+        _clockWriter.writeSlotClock(
           _messages.isEmpty ? null : _messages.first,
-          kind: _SlotClockWrite.seed,
+          kind: SlotClockWrite.seed,
         );
         if (_activeCharacter!.firstMessage.trim().isEmpty) {
           await _applyGreetingOpeningSeed(card: _activeCharacter!, index: 0);
