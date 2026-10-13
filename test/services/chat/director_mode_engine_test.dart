@@ -619,6 +619,15 @@ void main() {
       expect(h.chat.messages, hasLength(before));
     });
 
+    // An auto-chat turn starts on its own; on a slow runner settleTurn can
+    // return before it has begun or before it has finished.
+    Future<void> until(bool Function() done) async {
+      for (var i = 0; i < 500 && !done(); i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      await h.settleTurn();
+    }
+
     test(
       'Pause keeps the run\'s turns for Resume; Stop ends the run',
       () async {
@@ -629,7 +638,7 @@ void main() {
         await h.chat.setSavedDirectorTurnBudget(3);
 
         h.chat.startAutoPlay();
-        await h.settleTurn();
+        await until(() => h.chat.autoChatTurnsLeft == 2);
         expect(h.chat.autoChatTurnsLeft, 2);
         h.chat.pauseAutoPlay();
         expect(h.chat.autoPlayActive, isFalse);
@@ -639,7 +648,7 @@ void main() {
         h.chat.startAutoPlay();
         expect(h.chat.autoPlayActive, isTrue);
         expect(h.chat.autoChatTurnsLeft, 2, reason: 'resumed, not re-armed');
-        await h.settleTurn();
+        await until(() => h.chat.autoChatTurnsLeft == 1);
         expect(h.chat.autoChatTurnsLeft, 1);
 
         h.chat.stopAutoPlay();
@@ -695,12 +704,12 @@ void main() {
       h.chat.directorDelaySec = 0.3;
 
       h.chat.startAutoPlay();
-      await h.settleTurn();
+      await until(() => h.chat.autoChatTurnsLeft == 2);
       final afterFirst = h.chat.messages.length;
       h.chat.pauseAutoPlay();
       h.chat.directorDelaySec = 3600; // the resumed run waits after its turn
       h.chat.startAutoPlay();
-      await h.settleTurn();
+      await until(() => h.chat.autoChatTurnsLeft == 1);
       expect(h.chat.messages, hasLength(afterFirst + 1));
 
       await Future<void>.delayed(const Duration(milliseconds: 600));
@@ -711,6 +720,32 @@ void main() {
         reason: 'the paused run\'s wait must not start a turn',
       );
       expect(h.chat.autoChatTurnsLeft, 1);
+      h.chat.stopAutoPlay();
+    });
+
+    test('Pause pressed while an auto-chat reply is being written still '
+        'counts that reply as one of the run\'s turns', () async {
+      final hanging = _HangingLlm();
+      llm = hanging;
+      h.llm = hanging;
+      h.chat.testLlmServiceOverride = hanging;
+      await h.groupWithTwoReplies(aOff: const []);
+      await h.chat.sendMessage('/director');
+      await h.settleTurn();
+      h.chat.directorDelaySec = 3600;
+      await h.chat.setSavedDirectorTurnBudget(3);
+      final before = h.chat.messages.length;
+      hanging.hang = true;
+
+      h.chat.startAutoPlay();
+      await until(() => h.chat.messages.length > before);
+      h.chat.pauseAutoPlay();
+      hanging.hang = false;
+      hanging.hold.complete();
+      await until(() => !h.chat.isGenerating);
+
+      expect(h.chat.autoPlayPaused, isTrue);
+      expect(h.chat.autoChatTurnsLeft, 2, reason: '3 turns, 1 written');
       h.chat.stopAutoPlay();
     });
 

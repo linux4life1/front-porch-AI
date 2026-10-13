@@ -105,4 +105,14 @@ describe('useChatSession chat switch mid-reply', () => {
     await act(async () => TestSocket.last.emit({ event: 'token', data: 'Hello' }));
     expect(session.streaming).toBe('Hello');
   });
+
+  it('a reply counts as on its way while its tokens stream, before any refresh says so', async () => {
+    get.mockResolvedValue(chatState('chat-a', false));
+    await act(async () => {
+      await session.refresh();
+    });
+    expect(session.replying).toBe(false);
+    await act(async () => TestSocket.last.emit({ event: 'token', data: 'Well' }));
+    expect(session.replying).toBe(true);
+  });
 });

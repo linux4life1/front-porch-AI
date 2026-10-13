@@ -29,8 +29,8 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// exactly where Play was and Impersonate never slides under it.
 ///
 /// Pause keeps the run's turns, so Play then resumes it; Stop, shown left of
-/// Play while a run is going or paused, ends it. The caller passes the accent colours
-/// so they stay on the input row's palette.
+/// Play while a run is going or paused, ends it. The caller passes the
+/// accent colours so they stay on the input row's palette.
 class DirectorTurnButtons extends StatelessWidget {
   const DirectorTurnButtons({
     super.key,

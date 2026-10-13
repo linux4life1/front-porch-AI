@@ -70,6 +70,15 @@ class AutoChatBudget {
     _remaining = (_remaining - 1).clamp(0, 1 << 30);
     return _remaining == 0;
   }
+
+  /// Whether an auto-chat turn is being written right now.
+  bool turnRunning = false;
+
+  /// A turn that was already being written when the run paused still counts.
+  /// When it was the last one, nothing is left to resume.
+  void spendPaused() {
+    if (_paused && spend()) _paused = false;
+  }
 }
 
 final RegExp _quoted = RegExp(r'"([^"]+)"|“([^”]+)”');

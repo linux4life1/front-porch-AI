@@ -274,6 +274,12 @@ extension ChatServiceGenerationPostGen on ChatService {
         );
       }
 
+      // Paused while this auto-chat turn was being written: it still counts.
+      if (!_autoPlayActive &&
+          _autoChatBudget.turnRunning &&
+          !t.streamTarget.isUser) {
+        _autoChatBudget.spendPaused();
+      }
       // Auto-play: if director mode is active, queue the next character
       // (unless this reply spoke to the absent user, or spent the run).
       if (_autoPlayActive &&

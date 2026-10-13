@@ -371,6 +371,9 @@ export function useChatSession() {
     state,
     loadError,
     streaming,
+    // A reply is on its way. state.isGenerating is only as fresh as the last
+    // refresh, and nothing refreshes while tokens stream.
+    replying: !!state?.isGenerating || streaming !== '',
     chance,
     imageProg,
     genStatus,

@@ -362,7 +362,7 @@ export function ChatPage() {
         <ChatComposer
           onSend={sendMessage}
           onStop={stop}
-          isGenerating={state.isGenerating}
+          isGenerating={session.replying}
           isSettlingTurn={!!state.isSettlingTurn}
           isSendWaitingOnSettle={!!state.isSendWaitingOnSettle}
           canMic={canMic}

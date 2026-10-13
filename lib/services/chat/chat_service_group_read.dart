@@ -303,7 +303,12 @@ extension ChatServiceGroupRead on ChatService {
 
     // Each spoken reply post-decides the clock; the next speaker is
     // announced at that time (bucket brigade). No pre-tick.
-    await _generateResponse(GenerationMode.normal);
+    _autoChatBudget.turnRunning = true;
+    try {
+      await _generateResponse(GenerationMode.normal);
+    } finally {
+      _autoChatBudget.turnRunning = false;
+    }
   }
 
   /// Turns left in this auto-chat run, or null when it has no limit or no
