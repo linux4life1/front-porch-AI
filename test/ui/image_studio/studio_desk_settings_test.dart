@@ -214,13 +214,10 @@ void main() {
       await pump(tester, const StudioDesk());
 
       expect(
-        find.textContaining('No Remote API key configured'),
+        find.text('Paste your Nano-GPT key to use it here'),
         findsOneWidget,
       );
-      expect(
-        find.textContaining('Bills your Remote API account'),
-        findsNothing,
-      );
+      expect(find.textContaining('Reachable'), findsNothing);
     });
 
     testWidgets('with a key names the account it bills', (tester) async {
@@ -232,10 +229,10 @@ void main() {
       await pump(tester, const StudioDesk());
 
       expect(
-        find.textContaining('Bills your Remote API account (nano-gpt.com)'),
+        find.text('Bills your Nano-GPT account per image.'),
         findsOneWidget,
       );
-      expect(find.textContaining('No Remote API key configured'), findsNothing);
+      expect(find.textContaining('Paste your Nano-GPT key'), findsNothing);
     });
   });
 
@@ -264,8 +261,8 @@ void main() {
       await s.setImageGenPromptParadigm('natural');
       await pump(tester, const ImageGenSettingsDialog());
 
-      await tester.ensureVisible(find.textContaining('Advanced'));
-      await tester.tap(find.textContaining('Advanced'));
+      await tester.ensureVisible(find.textContaining('Prompt options'));
+      await tester.tap(find.textContaining('Prompt options'));
       await tester.pumpAndSettle();
       expect(find.text('Style'), findsOneWidget);
       expect(find.text('Prompt format'), findsOneWidget);

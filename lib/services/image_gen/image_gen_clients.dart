@@ -85,6 +85,17 @@ class ImageGenClients {
         keyFor: _storage.backendSettings.remoteApiKeyFor,
       );
 
+  /// The last image-model list read from the Studio host, so a generate
+  /// sends the size the desk showed for that model.
+  List<ImageModelInfo> remoteModels = const [];
+
+  ImageModelInfo? remoteModelById(String id) {
+    for (final m in remoteModels) {
+      if (m.id == id) return m;
+    }
+    return null;
+  }
+
   Future<void> nudgeComfyFree() async {
     final backend = ImageGenBackend.fromKey(
       _storage.imageGenSettings.imageGenBackend,

@@ -82,6 +82,7 @@ class WebBackendRoutes {
       router.post('/api/image/studio/installed', _imageInstalled);
       router.get('/api/image/comfy-workflow-slots', _imageComfyWorkflowSlots);
       router.get('/api/image/models', _imageRemoteModels);
+      router.get('/api/image/remote-panel', _imageRemotePanel);
       ImageDeskRoutes(router, deps: _deps, image: image);
       ExpressionPackRoutes(router, image: image);
       CivitaiRoutes(
@@ -444,6 +445,16 @@ class WebBackendRoutes {
 
   Future<shelf.Response> _imageRemoteModels(shelf.Request r) async =>
       JsonResponse.ok(await _image!.remoteModels());
+
+  Future<shelf.Response> _imageRemotePanel(shelf.Request r) async {
+    final q = r.url.queryParameters;
+    return JsonResponse.ok(
+      await _image!.remotePanel(
+        edit: q['mode'] == 'edit',
+        refresh: q['refresh'] == '1',
+      ),
+    );
+  }
 
   Future<shelf.Response> _imageSaved(shelf.Request r, String name) async {
     final file = _image!.savedImageFile(name);

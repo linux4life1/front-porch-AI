@@ -20,7 +20,6 @@ import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image/comfy_workflow_convert.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
@@ -794,7 +793,7 @@ void main() {
       await storage.backendSettings.setRemoteApiKeyFor(host, 'test-key');
       await pumpDesk(tester);
 
-      await tester.tap(find.textContaining('Advanced'));
+      await tester.tap(find.textContaining('Prompt options'));
       await tester.pump();
       expect(find.text('Nano-GPT'), findsWidgets);
       expect(find.text('Style'), findsOneWidget);

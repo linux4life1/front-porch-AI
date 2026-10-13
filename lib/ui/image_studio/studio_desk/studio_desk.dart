@@ -6,3 +6,4 @@ export 'studio_desk_catalog.dart';
 export 'studio_desk_comfy_watch.dart';
 export 'studio_desk_host.dart';
 export 'studio_desk_readiness.dart';
+export 'studio_desk_remote.dart';

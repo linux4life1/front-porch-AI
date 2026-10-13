@@ -6,11 +6,9 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { api, ApiError } from '../../api/client';
-import { ImageRemoteFields } from './ImageRemoteFields';
 import { StudioDesk, type GenerateRequest } from './StudioDesk';
 import { PackBanner } from './studio/PackBanner';
 import type { ImageConfig } from './studio/types';
-import type { Mode } from './studio/types';
 
 const PROGRESS_MS = 1000;
 
@@ -28,8 +26,6 @@ export function ImageGen({
   const [filename, setFilename] = useState<string | null>(null);
   const [inserted, setInserted] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [sharedBusy, setSharedBusy] = useState(false);
-  const [configMode, setConfigMode] = useState<Mode>('create');
   const [progress, setProgress] = useState<number | null>(null);
   const [genError, setGenError] = useState('');
   const [totpEnabled, setTotpEnabled] = useState(false);
@@ -142,8 +138,6 @@ export function ImageGen({
         onGenerate={generate}
         generateError={genError}
         busy={busy}
-        onSharedBusy={setSharedBusy}
-        onConfigMode={setConfigMode}
         progress={progress}
         lastSaved={filename ? { name: filename, url: `/api/image/saved/${encodeURIComponent(filename)}` } : null}
         result={
@@ -164,26 +158,6 @@ export function ImageGen({
           ) : null
         }
       />
-      {cfg.backend === 'remote' && (
-        <fieldset disabled={sharedBusy} className="fp-desk-settings">
-        <legend>Remote image account · {configMode === 'edit' ? 'Edit model' : 'Create model'}</legend>
-        <ImageRemoteFields
-          selectedHostId={cfg.imageRemoteHost ?? ''}
-          hosts={cfg.imageRemoteHosts ?? []}
-          modelId={configMode === 'edit' ? cfg.editModel ?? '' : cfg.model}
-          hasApiKey={cfg.hasApiKey}
-          remoteApiUrl={cfg.remoteApiUrl}
-          onHost={(id) => { if (!sharedBusy) void save({ imageRemoteHost: id, ...(configMode === 'edit' ? { mode: 'edit' } : {}) }); }}
-          onModel={(id) => {
-            if (sharedBusy) return;
-            if (configMode === 'create') { void save({ model: id }); return; }
-            api.post<ImageConfig>('/api/image/studio/pick', { kind: 'model', mode: 'edit', file: id })
-              .then(setCfg).catch((e) => onError(e instanceof ApiError ? e.message : 'Could not change the Edit model.'));
-          }}
-          onError={onError}
-        />
-        </fieldset>
-      )}
     </section>
   );
 }

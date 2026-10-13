@@ -264,7 +264,10 @@ StudioReadiness deskReadiness({
         studioNoModelWords(backend),
       );
     }
-    if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
+    // A Remote API never receives LoRAs, so a leftover slot cannot block it.
+    if (backend != 'remote' &&
+        !allowLoraMismatch &&
+        deskLoraBlocks(primaryFile, loras)) {
       return const StudioReadiness(StudioReady.loraMismatch);
     }
     return const StudioReadiness(StudioReady.ready);

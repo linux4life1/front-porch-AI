@@ -270,11 +270,21 @@ describe('around the desk', () => {
         ],
       },
       'GET /api/image/models': { models: [] },
+      'GET /api/image/remote-panel': {
+        hosts: [
+          { id: 'nano', label: 'Nano-GPT', url: 'https://nano-gpt.com/api/v1', sub: 'Key saved', selected: true, hasKey: true },
+          { id: 'openrouter', label: 'OpenRouter', url: 'https://openrouter.ai/api/v1', sub: 'Key saved', selected: false, hasKey: true },
+        ],
+        hostId: 'nano', hostLabel: 'Nano-GPT', url: 'https://nano-gpt.com/api/v1',
+        billing: 'Bills your Nano-GPT account per image.', needsKey: false, keyPrompt: '', keyHint: '', keyNote: '',
+        needsKeyLine: '', reachable: true, status: 'Reachable · 0 models', modelName: 'No model chosen', modelId: '',
+        badges: [], price: '', sizeMode: 'pixels', sizeTitle: 'Size', sizes: [], resolutions: [], sizeNote: '',
+      },
       'POST /api/image/config': baseConfig,
     });
 
     expect(text()).toContain('OpenRouter');
-    click('OpenRouter');
+    click(/^OpenRouter/);
     await settle();
 
     expect(posts('/api/image/config').map((c) => c.body)).toEqual([{ imageRemoteHost: 'openrouter' }]);

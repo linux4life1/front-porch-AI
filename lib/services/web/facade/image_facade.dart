@@ -152,6 +152,39 @@ class ImageFacade {
     return file.existsSync() ? file : null;
   }
 
+  /// What the Remote panel shows, judged by the desktop's own rules.
+  /// [refresh] lists the host's models again; otherwise the last list is
+  /// used, so a size pick does not wait on the network.
+  Future<Map<String, Object?>> remotePanel({
+    required bool edit,
+    bool refresh = false,
+  }) async {
+    final cached = _image.cachedImageModels;
+    final models = refresh || cached.isEmpty
+        ? await _image.fetchImageModels()
+        : cached;
+    final settings = _storage.imageGenSettings;
+    final backend = _storage.backendSettings;
+    final url = resolveImageStudioRemoteAccount(
+      imageRemoteApiUrl: settings.imageRemoteApiUrl,
+      chatRemoteApiUrl: backend.remoteApiUrl,
+      keyFor: backend.remoteApiKeyFor,
+    ).url;
+    final modelId = studioPrimaryFor(settings, edit: edit);
+    return RemoteStudioPanel.build(
+      selectedUrl: url,
+      hasKey: (u) => backend.remoteApiKeyFor(u).isNotEmpty,
+      signedIn: (u) => backend.bearerOverlay?.call(u) != null,
+      models: models,
+      listed: models.isNotEmpty,
+      modelId: modelId,
+      storedSize: settings.remoteSizeFor(modelId),
+      studioSize: settings.imageGenSize,
+      xaiAspect: settings.imageXaiAspect,
+      xaiResolution: settings.imageXaiResolution,
+    ).toJson();
+  }
+
   /// Image models for the Studio-scoped remote host (Nano snapshot or
   /// OpenRouter listing). Labels include Pro / paid / pricing.
   Future<Map<String, dynamic>> remoteModels() async {

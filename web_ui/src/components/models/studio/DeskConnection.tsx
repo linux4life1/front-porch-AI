@@ -134,14 +134,21 @@ export function DeskConnection(props: {
           </button>
         </>
       )}
-      <details>
-        <summary>Change…</summary>
-        {BACKENDS.map(([id, label]) => (
-          <button key={id} type="button" aria-pressed={cfg.backend === id} onClick={() => props.onBackend(id)}>
-            {label}
-          </button>
-        ))}
-      </details>
+      <BackendChange backend={cfg.backend} onBackend={props.onBackend} />
     </div>
+  );
+}
+
+/** Change…: where the pictures come from. */
+export function BackendChange(props: { backend: string; onBackend: (backend: string) => void }) {
+  return (
+    <details className="fp-backend-change">
+      <summary>Change…</summary>
+      {BACKENDS.map(([id, label]) => (
+        <button key={id} type="button" aria-pressed={props.backend === id} onClick={() => props.onBackend(id)}>
+          {label}
+        </button>
+      ))}
+    </details>
   );
 }

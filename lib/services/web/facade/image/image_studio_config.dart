@@ -234,6 +234,25 @@ class ImageStudioConfig {
       );
       img.notify();
     }
+    // Remote sizes: Nano's own value for the model on the desk, or xAI's
+    // ratio and resolution. None of them is a host or a key.
+    if (f['remoteSize'] is String) {
+      _ws.requireIdleImageSettings();
+      await img.setRemoteSizeFor(
+        studioPrimaryFor(img, edit: f['mode'] == 'edit'),
+        f['remoteSize'] as String,
+      );
+    }
+    if (f['xaiAspect'] is String &&
+        kXaiAspectRatios.contains(f['xaiAspect'] as String)) {
+      _ws.requireIdleImageSettings();
+      await img.setImageXaiAspect(f['xaiAspect'] as String);
+    }
+    if (f['xaiResolution'] is String &&
+        kXaiResolutions.contains(f['xaiResolution'] as String)) {
+      _ws.requireIdleImageSettings();
+      await img.setImageXaiResolution(f['xaiResolution'] as String);
+    }
     if (f['editModel'] is String) {
       _ws.requireIdleImageSettings();
       await img.setImageGenEditModel(f['editModel'] as String);

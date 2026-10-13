@@ -53,6 +53,40 @@ test('expression workspace keeps its own prompt and picture across tabs', async 
   }
 });
 
+test('the Remote API stove offers each host and asks a keyless one for its key', async ({ page }) => {
+  const original = await (await page.request.get('/api/image/config')).json() as {
+    backend: string; imageRemoteHost?: string;
+  };
+  try {
+    const configured = await page.request.post('/api/image/config', {
+      data: { backend: 'remote', imageRemoteHost: 'openrouter', currentPassword: process.env.FPAI_PASSWORD },
+    });
+    expect(configured.ok()).toBe(true);
+    await openRoute(page, '/models');
+    const stove = page.locator('.fp-remote');
+    await expect(stove).toContainText('Remote API');
+    const hosts = stove.getByRole('radiogroup', { name: 'Remote host' });
+    await expect(hosts.getByRole('radio')).toHaveCount(3);
+    await expect(hosts.getByRole('radio', { name: /OpenRouter/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(stove).toContainText('Paste your OpenRouter key to use it here');
+    await expect(stove).toContainText('Add an OpenRouter key, or pick another host.');
+    await expect(stove.getByRole('button', { name: 'Generate', exact: true })).toBeDisabled();
+    await expect(page.getByText('LoRA', { exact: true })).toHaveCount(0);
+    await hosts.getByRole('radio', { name: /xAI/ }).click();
+    await expect(hosts.getByRole('radio', { name: /xAI/ })).toHaveAttribute('aria-checked', 'true');
+    await expect(stove).toContainText('https://api.x.ai/v1');
+  } finally {
+    const restored = await page.request.post('/api/image/config', {
+      data: {
+        backend: original.backend,
+        ...(original.imageRemoteHost ? { imageRemoteHost: original.imageRemoteHost } : {}),
+        currentPassword: process.env.FPAI_PASSWORD,
+      },
+    });
+    expect(restored.ok()).toBe(true);
+  }
+});
+
 const rows = (page: Page) => page.locator('.chat-messages .msg-row');
 const lastRow = (page: Page) => rows(page).last();
 const action = (row: Locator, title: string) => row.locator(`.msg-actions button[title="${title}"]`);

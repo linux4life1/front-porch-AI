@@ -12,7 +12,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'studio_widgets.dart';
 
 /// Every setting a generate reads that the graph and model controls do not
-/// cover, each with a control you can see: the Remote host, seed, negative
+/// cover, each with a control you can see: seed, negative
 /// prompt, the Draw Things cluster (port, shift, seed mode, TeaCache, CFG
 /// Zero), the prompt-review switch, and the default style and prompt format.
 /// Steps, CFG, sampler and scheduler are the stove's own sliders.
@@ -46,7 +46,7 @@ class StudioDeskKnobs extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final storage = context.watch<StorageService>();
+    context.watch<StorageService>();
     final backend = settings.imageGenBackend;
     final drawThings = backend == 'drawthings';
     final surface = imageSurfaceFor(
@@ -57,23 +57,6 @@ class StudioDeskKnobs extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (backend == 'remote') ...[
-          RemoteImageHostChips(
-            selectedUrl: settings.imageRemoteApiUrl,
-            keyFor: storage.backendSettings.remoteApiKeyFor,
-            onSelect: (url) => _write(
-              () => applyImageRemoteHost(
-                image: settings,
-                url: url,
-                chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
-                editScoped: edit,
-                canWrite: canWrite,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          StudioRemoteKeyNote(settings: settings, storage: storage),
-        ],
         if (backend != 'remote')
           StudioCommitField(
             key: ValueKey('seed-${settings.imageGenSeed}'),
@@ -284,45 +267,5 @@ class StudioDeskKnobs extends StatelessWidget {
         },
       ),
     ];
-  }
-}
-
-class StudioRemoteKeyNote extends StatelessWidget {
-  const StudioRemoteKeyNote({
-    super.key,
-    required this.settings,
-    required this.storage,
-  });
-
-  final ImageGenSettings settings;
-  final StorageService storage;
-
-  @override
-  Widget build(BuildContext context) {
-    final account = resolveImageStudioRemoteAccount(
-      imageRemoteApiUrl: settings.imageRemoteApiUrl,
-      chatRemoteApiUrl: storage.backendSettings.remoteApiUrl,
-      keyFor: storage.backendSettings.remoteApiKeyFor,
-    );
-    if (account.key.isEmpty) {
-      return Text(
-        'No Remote API key configured for this host. Remote images '
-        'use the paid API account chat uses for Remote API, even when '
-        'chat itself runs locally. Add a key under Settings → Backend → '
-        'Remote API, or press Change… to make images on this computer '
-        'with ComfyUI, Automatic1111 or Draw Things.',
-        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 11.5),
-      );
-    }
-    final host = Uri.tryParse(account.url)?.host ?? '';
-    return Text(
-      'Bills your Remote API account'
-      '${host.isEmpty ? '' : ' ($host)'} per image.',
-      style: TextStyle(
-        color: AppColors.textSecondary(context),
-        fontSize: 11,
-        fontStyle: FontStyle.italic,
-      ),
-    );
   }
 }

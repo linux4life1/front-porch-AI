@@ -6,7 +6,7 @@ import type { ImageConfig } from './types';
 
 const SAMPLERS = ['Euler a', 'Euler', 'DPM++ 2M', 'DPM++ 2M Karras', 'DPM++ SDE Karras', 'DPM++ 2M SDE Karras', 'DDIM', 'UniPC', 'LCM'];
 const SCHEDULERS = ['Automatic', 'normal', 'karras', 'exponential', 'sgm_uniform', 'simple', 'beta'];
-const STYLES: Record<string, string> = {
+export const STYLES: Record<string, string> = {
   photorealistic: 'Photorealistic',
   anime: 'Anime / Manga',
   fantasy_art: 'Fantasy Art',

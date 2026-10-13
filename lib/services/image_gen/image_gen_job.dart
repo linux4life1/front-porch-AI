@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/image_gen/image_gen.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Generation orchestration behind `ImageGenService.generateImage`: plans the
@@ -402,7 +403,18 @@ class ImageGenJob {
           _status.statusMessage = 'Editing with $imageModel...';
           _status.notify();
         }
-        if (isOpenRouterStyle(apiUrl)) {
+        final image = _storage.imageGenSettings;
+        if (remoteApiUrlIsXai(apiUrl)) {
+          imageBytes = await generateViaXai(
+            apiUrl: apiUrl,
+            apiKey: apiKey,
+            model: imageModel,
+            prompt: prompt,
+            aspectRatio: xaiAspectOrSize(image.imageXaiAspect, imageSize),
+            resolution: xaiResolutionOr(image.imageXaiResolution),
+            editImage: remoteEdit ? referenceImage : null,
+          );
+        } else if (isOpenRouterStyle(apiUrl)) {
           imageBytes = await generateViaOpenRouter(
             apiUrl: apiUrl,
             apiKey: apiKey,
@@ -418,7 +430,7 @@ class ImageGenJob {
             model: imageModel,
             prompt: prompt,
             negativePrompt: negativePrompt,
-            size: imageSize,
+            size: size ?? _nanoSize(imageModel, imageSize),
             editImage: remoteEdit ? referenceImage : null,
           );
         }
@@ -447,5 +459,16 @@ class ImageGenJob {
       _status.genPreview = null;
       _status.notify();
     }
+  }
+
+  /// The Nano `size` the Studio shows for [model]: the value picked from its
+  /// own list, else the Studio pixel size.
+  String _nanoSize(String model, String studioSize) {
+    final picked = remoteSizeFor(
+      _clients.remoteModelById(model),
+      _storage.imageGenSettings.remoteSizeFor(model),
+      studioSize,
+    );
+    return picked.isEmpty ? studioSize : picked;
   }
 }

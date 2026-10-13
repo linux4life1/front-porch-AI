@@ -15,7 +15,6 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
@@ -269,11 +268,9 @@ void main() {
 
     await pumpDesk(tester);
 
+    // A fresh install is on Remote with no key: the panel asks for one.
     expect(
-      find.text(
-        'Not ready — no image model is chosen. Add your image API’s '
-        'address and key, then choose one of its models.',
-      ),
+      find.text('Add a Nano-GPT key, or pick another host.'),
       findsOneWidget,
     );
     expect(generateOn(tester), isFalse);

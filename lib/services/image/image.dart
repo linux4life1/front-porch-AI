@@ -50,6 +50,8 @@ export 'image_studio_remote.dart';
 export 'image_surface.dart';
 export 'model_family.dart';
 export 'nano_catalog.dart';
+export 'remote_studio_copy.dart';
+export 'remote_studio_panel.dart';
 export 'studio_desk_logic.dart';
 export 'studio_graph_menu.dart';
 export 'studio_desk_picks.dart';
@@ -58,6 +60,7 @@ export 'studio_readiness.dart';
 export 'studio_ready_words.dart';
 export 'studio_size.dart';
 export 'studio_support_fit.dart';
+export 'xai_image.dart';
 
 export 'expression_pack_board.dart';
 export 'expression_pack_flight.dart';

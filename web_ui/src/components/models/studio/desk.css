@@ -105,3 +105,96 @@
   outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* Remote API stove: the same card the desktop draws. */
+.fp-remote {
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  background: var(--surface);
+  color: var(--text);
+}
+.fp-remote-group { display: flex; flex-direction: column; gap: 10px; }
+.fp-remote-rule { border-top: 1px solid var(--border); padding-top: 18px; }
+.fp-remote-head { display: flex; justify-content: space-between; align-items: baseline; }
+.fp-remote-label { font-size: 14px; color: var(--muted); }
+.fp-remote-title { font-size: 20px; font-weight: 600; margin-top: -8px; }
+.fp-remote-hosts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.fp-remote-host {
+  text-align: left;
+  padding: 10px 14px;
+  min-height: 56px;
+  border-radius: 10px;
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.fp-remote-host.on { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.fp-remote-host-name { display: block; font-size: 15px; font-weight: 600; }
+.fp-remote-host-sub { display: block; font-size: 12px; margin-top: 2px; color: var(--muted); }
+.fp-remote-host.keyless .fp-remote-host-sub { color: var(--accent); }
+.fp-remote-host.on .fp-remote-host-sub { color: var(--on-accent); opacity: 0.75; }
+.fp-remote-where { font-size: 13px; color: var(--muted); line-height: 1.5; overflow-wrap: anywhere; }
+.fp-remote-billing { font-style: italic; }
+.fp-remote-key {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: 10px;
+  background: var(--surface-2);
+}
+.fp-remote-key label { font-size: 14px; }
+.fp-remote-key-row { display: flex; gap: 8px; }
+.fp-remote-key-row input {
+  flex-grow: 1;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+.fp-remote-save,
+.fp-remote-generate {
+  border-radius: 999px;
+  border: none;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-weight: 600;
+}
+.fp-remote-save { padding: 10px 18px; }
+.fp-remote-generate { padding: 12px 28px; font-size: 16px; }
+.fp-remote-save:disabled,
+.fp-remote-generate:disabled { background: var(--surface-2); color: var(--faint); cursor: not-allowed; }
+.fp-remote-note { font-size: 12px; color: var(--muted); }
+.fp-remote-rule .fp-remote-note { font-size: 13px; }
+.fp-remote-status { display: flex; align-items: center; gap: 12px; font-size: 13px; color: var(--muted); }
+.fp-remote-link,
+.fp-remote-fold {
+  background: none;
+  border: none;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 10px 4px;
+}
+.fp-remote-change { font-size: 15px; padding-inline: 0; }
+.fp-remote-fold { padding-inline: 0; }
+.fp-remote-model { font-size: 18px; font-weight: 600; }
+.fp-remote-id { font-size: 13px; color: var(--muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.fp-remote-badges { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+.fp-remote-badge { font-size: 12px; padding: 4px 10px; border-radius: 999px; background: var(--surface-2); color: var(--text); }
+.fp-remote-price { font-size: 13px; color: var(--text); }
+.fp-remote-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+.fp-remote-pills .fp-pill { margin: 0; padding: 8px 16px; min-height: 40px; font-size: 14px; }
+.fp-remote-foot { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 14px; }
+.fp-remote-models { list-style: none; padding: 0; }
+.fp-remote-models button { display: flex; flex-direction: column; align-items: flex-start; width: 100%; margin-block: 4px; text-align: left; }
+.fp-remote-models button[aria-pressed="true"] { border-color: var(--accent); }
+@media (max-width: 480px) {
+  .fp-remote { padding: 16px; }
+}
+.fp-desk-remote { margin: 0; padding: 0; border: none; min-width: 0; }

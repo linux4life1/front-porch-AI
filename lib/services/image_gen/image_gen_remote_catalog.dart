@@ -23,6 +23,8 @@ import 'package:http/http.dart' as http;
 
 import 'package:front_porch_ai/services/image/image.dart';
 
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
+
 import 'nano_image_models.dart';
 
 /// Remote model catalog for `ImageGenService.fetchImageModels`. The Nano
@@ -32,26 +34,58 @@ Future<List<ImageModelInfo>> fetchNanoImageModels(
   String apiUrl,
   String apiKey,
 ) {
+  final proUrl = nanoProImageModelsUrl(apiUrl);
   return loadNanoImageCatalog(
-    fetchBody: () => _readNanoImageModelsBody(apiUrl, apiKey),
+    fetchBody: () => _readCatalogBody('$apiUrl/image-models', apiKey),
     fallback: List<ImageModelInfo>.from(kCommonImageModels),
+    fetchProBody: proUrl == null
+        ? null
+        : () => _readCatalogBody(proUrl, apiKey),
   );
 }
 
-Future<String?> _readNanoImageModelsBody(String apiUrl, String apiKey) async {
+/// Nano's Pro-included list lives beside the API root
+/// (`/api/subscription/v1/image-models`). Other hosts have none.
+String? nanoProImageModelsUrl(String apiUrl) {
+  final uri = Uri.tryParse(normalizeRemoteApiUrl(apiUrl));
+  if (uri == null || uri.host != 'nano-gpt.com') return null;
+  if (!uri.path.endsWith('/api/v1')) return null;
+  final root = uri.path.substring(0, uri.path.length - '/api/v1'.length);
+  return uri.replace(path: '$root/api/subscription/v1/image-models').toString();
+}
+
+Future<String?> _readCatalogBody(String url, String apiKey) async {
   final client = http.Client();
   try {
     final response = await client
-        .get(
-          Uri.parse('$apiUrl/image-models'),
-          headers: {'Authorization': 'Bearer $apiKey'},
-        )
+        .get(Uri.parse(url), headers: {'Authorization': 'Bearer $apiKey'})
         .timeout(const Duration(seconds: 15));
     if (response.statusCode != 200) return null;
     return response.body;
   } finally {
     client.close();
   }
+}
+
+/// xAI's image models. The live list is read when xAI answers it; the
+/// bundled id keeps Grok Imagine usable when it does not.
+Future<List<ImageModelInfo>> fetchXaiImageModels(
+  String apiUrl,
+  String apiKey,
+) async {
+  try {
+    final raw = await _readCatalogBody(
+      '$apiUrl/image-generation-models',
+      apiKey,
+    );
+    final listed = raw == null
+        ? const <ImageModelInfo>[]
+        : parseXaiImageModels(raw);
+    if (listed.isNotEmpty) return listed;
+  } catch (e) {
+    debugPrint('ImageGen: xAI image model list unreadable: $e');
+  }
+  return List<ImageModelInfo>.from(kXaiImageModels);
 }
 
 /// Fetch image models specifically from OpenRouter's API.
@@ -83,6 +117,10 @@ Future<List<ImageModelInfo>> fetchOpenRouterImageModels(
         final id = m['id']?.toString() ?? '';
         if (id.isEmpty) continue;
         final name = m['name']?.toString() ?? id;
+        final arch = m['architecture'];
+        final inputs = arch is Map && arch['input_modalities'] is List
+            ? arch['input_modalities'] as List
+            : const [];
 
         // Extract pricing info if available (display as-is from OpenRouter)
         final pricing = m['pricing'] as Map<String, dynamic>?;
@@ -110,6 +148,7 @@ Future<List<ImageModelInfo>> fetchOpenRouterImageModels(
             name: name,
             isPaid: isPaid,
             pricingInfo: pricingInfo,
+            canEdit: inputs.contains('image'),
           ),
         );
       }

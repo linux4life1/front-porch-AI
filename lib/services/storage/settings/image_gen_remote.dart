@@ -30,6 +30,17 @@ import 'package:front_porch_ai/services/storage/settings/settings_base.dart';
 mixin ImageGenRemotePrefs on SettingsBase {
   String _imageRemoteApiUrl = '';
   final Map<String, String> _remoteImageModels = {};
+  final Map<String, String> _remoteSizes = {};
+  String _imageXaiAspect = '';
+  String _imageXaiResolution = '';
+
+  /// The `size` value last picked from [modelId]'s own list, verbatim.
+  /// Separate from `imageGenSize` so local backends keep their pixel size.
+  String remoteSizeFor(String modelId) => _remoteSizes[modelId] ?? '';
+
+  /// xAI's aspect ratio and resolution. Empty until picked.
+  String get imageXaiAspect => _imageXaiAspect;
+  String get imageXaiResolution => _imageXaiResolution;
 
   /// Empty until the user picks a Studio host. Fetch/generate then fall
   /// back to chat's URL without writing it here.
@@ -47,6 +58,11 @@ mixin ImageGenRemotePrefs on SettingsBase {
 
   void loadImageRemotePrefs() {
     _imageRemoteApiUrl = prefs?.getString(k('image_remote_api_url')) ?? '';
+    _remoteSizes
+      ..clear()
+      ..addAll(_decodeSizes(prefs?.getString(k('image_remote_sizes'))));
+    _imageXaiAspect = prefs?.getString(k('image_xai_aspect')) ?? '';
+    _imageXaiResolution = prefs?.getString(k('image_xai_resolution')) ?? '';
     _remoteImageModels
       ..clear()
       ..addAll(
@@ -57,6 +73,25 @@ mixin ImageGenRemotePrefs on SettingsBase {
   Future<void> setImageRemoteApiUrl(String value) async {
     _imageRemoteApiUrl = normalizeRemoteApiUrl(value);
     await prefs?.setString(k('image_remote_api_url'), _imageRemoteApiUrl);
+    notify();
+  }
+
+  Future<void> setRemoteSizeFor(String modelId, String value) async {
+    if (modelId.trim().isEmpty) return;
+    _remoteSizes[modelId] = value.trim();
+    await prefs?.setString(k('image_remote_sizes'), jsonEncode(_remoteSizes));
+    notify();
+  }
+
+  Future<void> setImageXaiAspect(String value) async {
+    _imageXaiAspect = value.trim();
+    await prefs?.setString(k('image_xai_aspect'), _imageXaiAspect);
+    notify();
+  }
+
+  Future<void> setImageXaiResolution(String value) async {
+    _imageXaiResolution = value.trim();
+    await prefs?.setString(k('image_xai_resolution'), _imageXaiResolution);
     notify();
   }
 
@@ -84,6 +119,19 @@ mixin ImageGenRemotePrefs on SettingsBase {
     final slot = normalizeRemoteApiUrl(url);
     if (slot.isEmpty) return '';
     return edit ? '$slot#edit' : slot;
+  }
+
+  static Map<String, String> _decodeSizes(String? raw) {
+    if (raw == null || raw.isEmpty) return {};
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) return {};
+      return {
+        for (final e in decoded.entries) e.key.toString(): e.value.toString(),
+      };
+    } on FormatException {
+      return {};
+    }
   }
 
   static Map<String, String> _decodeRemoteImageModels(String? raw) {

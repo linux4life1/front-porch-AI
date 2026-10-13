@@ -34,6 +34,7 @@ class StudioDeskCatalog {
   final VoidCallback onLoraFacts;
 
   List<String> _models = const [];
+  List<ImageModelInfo> _remoteModels = const [];
   List<String> _checkpoints = const [];
   List<String> _unet = const [];
   List<String> _gguf = const [];
@@ -50,6 +51,9 @@ class StudioDeskCatalog {
   bool _remoteListed = false;
 
   List<String> get models => _models;
+
+  /// The Remote host's image models with their sizes and prices.
+  List<ImageModelInfo> get remoteModels => _remoteModels;
   List<String> get checkpoints => _checkpoints;
   List<String> get unet => _unet;
   List<String> get gguf => _gguf;
@@ -108,6 +112,7 @@ class StudioDeskCatalog {
 
   void _applyCatalog({
     List<String> models = const [],
+    List<ImageModelInfo> remoteModels = const [],
     List<String> checkpoints = const [],
     List<String> unet = const [],
     List<String> gguf = const [],
@@ -121,6 +126,7 @@ class StudioDeskCatalog {
   }) {
     _host.rebuildState(() {
       _models = models;
+      _remoteModels = remoteModels;
       _checkpoints = checkpoints;
       _unet = unet;
       _gguf = gguf;
@@ -276,6 +282,7 @@ class StudioDeskCatalog {
     if (!_host.mounted) return;
     _applyCatalog(
       models: [for (final model in listed) model.id],
+      remoteModels: listed,
       remoteListed: listed.isNotEmpty,
       url: url,
     );

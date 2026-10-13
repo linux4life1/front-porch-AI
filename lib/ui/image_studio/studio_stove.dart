@@ -1,7 +1,6 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -27,7 +26,6 @@ class StudioStove extends StatefulWidget {
     required this.onBackend,
     required this.onEditUrl,
     this.address,
-    this.remoteNote,
     this.reachable = false,
     this.checkedDown = false,
     this.diffusionCount = 0,
@@ -86,7 +84,6 @@ class StudioStove extends StatefulWidget {
 
   /// Shown instead of the tappable address (ComfyUI's editable field).
   final Widget? address;
-  final Widget? remoteNote;
   final bool reachable;
   final bool checkedDown;
   final int diffusionCount;
@@ -413,7 +410,6 @@ class _StudioStoveState extends State<StudioStove> {
                       style: TextStyle(color: secondary, fontSize: 12),
                     ),
                   ),
-              if (widget.remoteNote != null) widget.remoteNote!,
               if (widget.reachable)
                 Text(
                   'Reachable · ${widget.diffusionCount} diffusion files · ${widget.loraCount} LoRAs',
@@ -432,24 +428,7 @@ class _StudioStoveState extends State<StudioStove> {
             ],
           ),
         ),
-        PopupMenuButton<String>(
-          onSelected: widget.onBackend,
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'remote', child: Text('Remote')),
-            const PopupMenuItem(value: 'comfyui', child: Text('ComfyUI')),
-            const PopupMenuItem(value: 'a1111', child: Text('Automatic1111')),
-            if (defaultTargetPlatform == TargetPlatform.macOS ||
-                widget.backend == 'drawthings')
-              const PopupMenuItem(
-                value: 'drawthings',
-                child: Text('Draw Things'),
-              ),
-          ],
-          child: const Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-            child: Text('Change…'),
-          ),
-        ),
+        StudioBackendMenu(backend: widget.backend, onBackend: widget.onBackend),
       ],
     );
   }

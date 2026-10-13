@@ -19,120 +19,94 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Nano-GPT / OpenRouter chips for Image Studio Remote API.
-///
-/// A chip is tappable only when [keyFor] that host is non-empty; otherwise
-/// it stays disabled with a Settings → Backend hint.
+/// The Remote host tiles: Nano-GPT, OpenRouter and xAI, each with a line
+/// saying whether a key or a sign-in is ready. Every tile can be picked;
+/// a host with no key shows the key field on the panel instead.
 class RemoteImageHostChips extends StatelessWidget {
   const RemoteImageHostChips({
     super.key,
-    required this.selectedUrl,
-    required this.keyFor,
+    required this.tiles,
     required this.onSelect,
   });
 
-  final String selectedUrl;
-  final String Function(String url) keyFor;
+  final List<RemoteHostTile> tiles;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
-    final selected = normalizeRemoteApiUrl(selectedUrl);
-    final missing = [
-      for (final h in kImageStudioRemoteHosts)
-        if (keyFor(h.url).isEmpty) h.label,
-    ];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            for (var i = 0; i < kImageStudioRemoteHosts.length; i++) ...[
-              if (i > 0) const SizedBox(width: 8),
-              Expanded(
-                child: _HostChip(
-                  host: kImageStudioRemoteHosts[i],
-                  selected:
-                      selected.isNotEmpty &&
-                      normalizeRemoteApiUrl(kImageStudioRemoteHosts[i].url) ==
-                          selected,
-                  hasKey: keyFor(kImageStudioRemoteHosts[i].url).isNotEmpty,
-                  onSelect: onSelect,
-                ),
-              ),
-            ],
-          ],
-        ),
-        if (missing.isNotEmpty) ...[
-          const SizedBox(height: 6),
-          Text(
-            '${missing.join(' / ')}: add a key in Settings → Backend.',
-            style: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 11,
+    return Semantics(
+      label: 'Remote host',
+      container: true,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var i = 0; i < tiles.length; i++) ...[
+            if (i > 0) const SizedBox(width: 8),
+            Expanded(
+              child: _HostTile(tile: tiles[i], onSelect: onSelect),
             ),
-          ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
 
-class _HostChip extends StatelessWidget {
-  const _HostChip({
-    required this.host,
-    required this.selected,
-    required this.hasKey,
-    required this.onSelect,
-  });
+class _HostTile extends StatelessWidget {
+  const _HostTile({required this.tile, required this.onSelect});
 
-  final ImageStudioRemoteHost host;
-  final bool selected;
-  final bool hasKey;
+  final RemoteHostTile tile;
   final ValueChanged<String> onSelect;
 
   @override
   Widget build(BuildContext context) {
     final accent = AppColors.porchAmberOf(context);
-    final enabled = hasKey;
-    final bg = !enabled
-        ? AppColors.surfaceContainerOf(context).withValues(alpha: 0.5)
-        : selected
-        ? accent
-        : AppColors.surfaceContainerOf(context);
-    final fg = !enabled
-        ? AppColors.textTertiary(context)
-        : selected
+    final selected = tile.selected;
+    final fg = selected
         ? AppColors.onChaosAccent
-        : AppColors.textSecondary(context);
-    return Material(
-      color: bg,
-      borderRadius: BorderRadius.circular(999),
-      child: InkWell(
-        key: Key('image-remote-host-${host.id}'),
-        onTap: enabled ? () => onSelect(host.url) : null,
-        borderRadius: BorderRadius.circular(999),
-        child: Container(
-          alignment: Alignment.center,
-          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 2),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(
-              color: selected && enabled ? accent : AppColors.borderOf(context),
+        : AppColors.textPrimary(context);
+    final sub = selected
+        ? AppColors.onChaosAccent
+        : tile.usable
+        ? AppColors.textSecondary(context)
+        : accent;
+    return Semantics(
+      inMutuallyExclusiveGroup: true,
+      checked: selected,
+      button: true,
+      child: Material(
+        color: selected ? accent : AppColors.surfaceContainerOf(context),
+        borderRadius: BorderRadius.circular(10),
+        child: InkWell(
+          key: Key('image-remote-host-${tile.host.id}'),
+          onTap: () => onSelect(tile.host.url),
+          borderRadius: BorderRadius.circular(10),
+          child: Container(
+            constraints: const BoxConstraints(minHeight: 56),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(
+                color: selected ? accent : AppColors.borderOf(context),
+              ),
             ),
-          ),
-          child: Text(
-            host.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11.5,
-              fontWeight: FontWeight.w600,
-              height: 1.1,
-              color: fg,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  tile.host.label,
+                  style: TextStyle(
+                    color: fg,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(tile.sub, style: TextStyle(color: sub, fontSize: 12)),
+              ],
             ),
           ),
         ),

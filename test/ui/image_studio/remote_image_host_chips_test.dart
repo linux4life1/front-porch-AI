@@ -19,16 +19,27 @@ import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 void main() {
-  testWidgets('Nano chip is enabled only when the vault has a key', (
+  testWidgets('every host tile can be picked and says if a key is ready', (
     tester,
   ) async {
     String? picked;
+    final panel = RemoteStudioPanel.build(
+      selectedUrl: kNanoGptApiV1,
+      hasKey: (url) => url == kNanoGptApiV1,
+      signedIn: (url) => false,
+      models: const [],
+      listed: false,
+      modelId: '',
+      storedSize: '',
+      studioSize: '1024x1024',
+      xaiAspect: '',
+      xaiResolution: '',
+    );
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
           body: RemoteImageHostChips(
-            selectedUrl: kNanoGptApiV1,
-            keyFor: (url) => url == kNanoGptApiV1 ? 'sk-nano' : '',
+            tiles: panel.tiles,
             onSelect: (url) => picked = url,
           ),
         ),
@@ -37,11 +48,14 @@ void main() {
 
     expect(find.text('Nano-GPT'), findsOneWidget);
     expect(find.text('OpenRouter'), findsOneWidget);
-    expect(find.textContaining('Settings → Backend'), findsOneWidget);
+    expect(find.text('xAI'), findsOneWidget);
+    expect(find.text('Key saved'), findsOneWidget);
+    expect(find.text('Add a key'), findsNWidgets(2));
 
+    // A host with no key is picked too; the panel then asks for its key.
     await tester.tap(find.byKey(const Key('image-remote-host-openrouter')));
     await tester.pump();
-    expect(picked, isNull);
+    expect(picked, kOpenRouterApiV1);
 
     await tester.tap(find.byKey(const Key('image-remote-host-nano')));
     await tester.pump();
@@ -114,18 +128,9 @@ void main() {
     },
   );
 
-  testWidgets('the desk knobs host the remote chips', (tester) async {
-    final inkErrors = <String>[];
-    final previous = FlutterError.onError;
-    FlutterError.onError = (details) {
-      final text = details.exceptionAsString();
-      if (text.contains('ListTile background color or ink splashes')) {
-        inkErrors.add(text);
-      }
-      previous?.call(details);
-    };
-    addTearDown(() => FlutterError.onError = previous);
-
+  testWidgets('the desk knobs no longer carry the remote chips', (
+    tester,
+  ) async {
     final store = _PanelStore();
     tester.view.physicalSize = const Size(1200, 2000);
     tester.view.devicePixelRatio = 1.0;
@@ -143,8 +148,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('Nano-GPT'), findsOneWidget);
-    expect(inkErrors, isEmpty);
+    // The host tiles sit on the Remote panel itself, not in a folded block.
+    expect(find.text('Nano-GPT'), findsNothing);
+    expect(find.text('Review AI prompts before generating'), findsOneWidget);
   });
 }
 

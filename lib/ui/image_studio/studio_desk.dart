@@ -92,6 +92,14 @@ class _StudioDeskState extends State<StudioDesk> implements StudioDeskHost {
       builder: builder,
     ),
   );
+  late final StudioDeskRemote _remote = StudioDeskRemote(
+    this,
+    catalog: _catalog,
+    recheck: (settings) {
+      _catalog.refresh(settings, force: true);
+      _checkReady(force: true);
+    },
+  );
   StorageService? _storage;
   bool _lookedForComfy = false;
 
@@ -158,6 +166,7 @@ class _StudioDeskState extends State<StudioDesk> implements StudioDeskHost {
     final editing = this.editing;
     final report = _readiness.report;
     final ready = report?.readiness;
+    if (backend == 'remote') return _remoteStove(storage, report);
     final workflowId = editing
         ? settings.comfyEditWorkflowId
         : settings.comfyCreateWorkflowId;
@@ -219,9 +228,6 @@ class _StudioDeskState extends State<StudioDesk> implements StudioDeskHost {
                   if (url.isEmpty) await _comfy.look();
                 },
               )
-            : null,
-        remoteNote: backend == 'remote'
-            ? StudioRemoteKeyNote(settings: settings, storage: storage)
             : null,
         reachable: _catalog.reachable(backend, report),
         checkedDown: (_catalog.catalogUrl ?? '').startsWith('down:'),
@@ -358,6 +364,49 @@ class _StudioDeskState extends State<StudioDesk> implements StudioDeskHost {
                 ready!.canUpdateLoader
             ? () => _actions.updateLoader(settings)
             : null,
+      ),
+    );
+  }
+
+  Widget _remoteStove(StorageService storage, StudioReadyReport? report) {
+    final settings = storage.imageGenSettings;
+    final ready = report?.readiness;
+    return StudioSettingsGate(
+      busy: context.watch<ImageGenService?>()?.isGenerating ?? false,
+      child: StudioRemoteStove(
+        panel: _remote.panel(storage),
+        backend: 'remote',
+        onBackend: (value) => _write(() => settings.setImageGenBackend(value)),
+        onHost: (url) => _remote.pickHost(storage, url),
+        onSaveKey: (key) => _remote.saveKey(storage, key),
+        onModels: () => _remote.openModels(storage),
+        onSize: (value) => _remote.pickSize(settings, value),
+        onAspect: (value) => _remote.pickAspect(settings, value),
+        onResolution: (value) => _remote.pickResolution(settings, value),
+        promptKnobs: StudioDeskKnobs(
+          canWrite: () => !configurationLocked,
+          settings: settings,
+          edit: editing,
+        ),
+        readyLine: ready == null
+            ? 'Checking…'
+            : studioNotReadyLine(
+                readiness: ready,
+                backendName: studioBackendName('remote'),
+                primaryFile: studioPrimaryFor(settings, edit: editing),
+              ),
+        generateEnabled: report?.ready ?? false,
+        onGenerate: widget.onGenerate,
+        showGenerate: widget.showGenerate,
+        errorText: widget.errorText,
+        generating: widget.generating,
+        onRetry: _retryCatalog,
+        showModes: widget.editMode == null,
+        editing: editing,
+        onMode: (value) {
+          setState(() => _edit = value);
+          _checkReady();
+        },
       ),
     );
   }

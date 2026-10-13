@@ -13,6 +13,7 @@ import { DeskConnection, backendName } from './studio/DeskConnection';
 import { DeskLoras } from './studio/DeskLoras';
 import { DeskModel } from './studio/DeskModel';
 import { DeskRail, type Picture, type Subject } from './studio/DeskRail';
+import { DeskRemote } from './studio/DeskRemote';
 import { DeskSize } from './studio/DeskSize';
 import { PackPanel } from './studio/PackPanel';
 import { GraphSheet } from './studio/GraphSheet';
@@ -174,6 +175,12 @@ export function StudioDesk(props: StudioDeskProps) {
     }
   };
 
+  const remote = cfg.backend === 'remote';
+  const pickRemoteModel = (id: string) =>
+    configMode === 'create'
+      ? saveConfig({ model: id }).then(() => undefined)
+      : choose({ kind: 'model', mode: 'edit', file: id }).catch((e) => failed(e, 'Could not change the Edit model.'));
+
   const ready = facts?.ready === true;
   const needsPicture = mode === 'edit' && !picture;
   const line = readyLine({
@@ -187,6 +194,8 @@ export function StudioDesk(props: StudioDeskProps) {
     file,
     blockedLora: facts?.blockedLora,
   });
+  const generateDisabled =
+    !ready || props.busy === true || globalBusy === true || packBusy || needsPicture || !props.prompt.trim();
 
   return (
     <section className="studio-desk">
@@ -241,6 +250,25 @@ export function StudioDesk(props: StudioDeskProps) {
         </div> : null}
         {props.result ? <div className="fp-desk-output" data-region="output">{props.result}</div> : null}
         <div className="fp-desk-stove" data-region="stove">
+          {remote ? (
+            <fieldset className="fp-desk-remote" disabled={sharedBusy}
+              aria-label={tab === 'pack' ? `Pack settings · ${configMode === 'edit' ? 'Edit' : 'Create / img2img'}` : 'Image settings'}>
+              <DeskRemote
+                cfg={cfg}
+                mode={configMode}
+                busy={sharedBusy}
+                totpEnabled={props.totpEnabled}
+                onBackend={(backend) => void saveConfig({ backend }).then(refresh)}
+                save={saveConfig}
+                onModel={pickRemoteModel}
+                onChanged={refresh}
+                readyLine={line}
+                generateDisabled={generateDisabled}
+                showGenerate={tab !== 'pack'}
+                onGenerate={() => props.onGenerate({ mode, picture })}
+              />
+            </fieldset>
+          ) : (
           <fieldset className="fp-desk-settings" disabled={sharedBusy}>
           <legend>{tab === 'pack' ? `Pack settings · ${configMode === 'edit' ? 'Edit' : 'Create / img2img'}` : 'Image settings'}</legend>
           <DeskConnection
@@ -273,17 +301,18 @@ export function StudioDesk(props: StudioDeskProps) {
           <DeskSize size={cfg.size} onSize={(size) => void saveConfig({ size })} />
           <DeskAdvanced cfg={cfg} samplers={cfg.drawThingsSamplers ?? []} save={saveConfig} />
           </fieldset>
+          )}
           {props.busy ? (
             <div>
               <progress aria-label="Generation progress" max={1} value={props.progress ?? undefined} />
               {props.progress != null ? <span>{`Painting… ${Math.round(props.progress * 100)}%`}</span> : null}
             </div>
           ) : null}
-          <p>{line}</p>
+          {remote ? null : <p>{line}</p>}
           {needsPicture ? <p>Pick a picture to edit.</p> : null}
-          {tab !== 'pack' ? <button
+          {tab !== 'pack' && !remote ? <button
             type="button"
-            disabled={!ready || props.busy === true || globalBusy === true || packBusy || needsPicture || !props.prompt.trim()}
+            disabled={generateDisabled}
             onClick={() => props.onGenerate({ mode, picture })}
           >
             Generate

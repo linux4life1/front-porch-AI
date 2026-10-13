@@ -30,11 +30,7 @@
 /// former is now `customPrompt` with scene context, the latter was retired
 /// because generating a figure-free chat background confused users. Backgrounds
 /// are still chosen from the Background settings dialog.)
-enum ImageGenMode {
-  customPrompt,
-  characterPortrait,
-  userAvatar,
-}
+enum ImageGenMode { customPrompt, characterPortrait, userAvatar }
 
 /// Local image-generation backend options.
 enum ImageGenBackend {
@@ -96,12 +92,35 @@ class ImageModelInfo {
   /// Format: "prompt_cost / completion_cost per token" or raw JSON string.
   final String? pricingInfo;
 
+  /// The `size` values the host lists for this model, verbatim (`1024x1536`,
+  /// `1024*1536`, `16:9`, `2k`, `auto`). Empty when the host lists none.
+  final List<String> resolutions;
+
+  /// Host price per image keyed by a [resolutions] value, in USD.
+  final Map<String, double> pricePerImage;
+
+  /// Whether the host says this model takes a picture to edit.
+  final bool canEdit;
+
   const ImageModelInfo({
     required this.id,
     this.name = '',
     this.isPaid = true,
     this.pricingInfo,
+    this.resolutions = const [],
+    this.pricePerImage = const {},
+    this.canEdit = false,
   });
+
+  ImageModelInfo copyWith({bool? isPaid}) => ImageModelInfo(
+    id: id,
+    name: name,
+    isPaid: isPaid ?? this.isPaid,
+    pricingInfo: pricingInfo,
+    resolutions: resolutions,
+    pricePerImage: pricePerImage,
+    canEdit: canEdit,
+  );
 
   String get displayName => name.isNotEmpty ? name : id;
 

@@ -21,7 +21,7 @@ import 'package:front_porch_ai/services/image/image_gen_types.dart';
 import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 
-/// Image Studio's two remote image hosts. Keys live in [RemoteApiKeyVault];
+/// Image Studio's remote image hosts. Keys live in [RemoteApiKeyVault];
 /// the selected URL is Image Studio–scoped and must not rewrite chat's mouth.
 const kImageStudioRemoteHosts = <ImageStudioRemoteHost>[
   ImageStudioRemoteHost(id: 'nano', label: 'Nano-GPT', url: kNanoGptApiV1),
@@ -30,7 +30,15 @@ const kImageStudioRemoteHosts = <ImageStudioRemoteHost>[
     label: 'OpenRouter',
     url: kOpenRouterApiV1,
   ),
+  ImageStudioRemoteHost(id: 'xai', label: 'xAI', url: kXaiApiV1),
 ];
+
+/// The Studio host for [url], or null for a custom address.
+ImageStudioRemoteHost? imageRemoteHostFor(String url) {
+  final id = imageRemoteHostIdFor(url);
+  if (id == null) return null;
+  return kImageStudioRemoteHosts.firstWhere((h) => h.id == id);
+}
 
 class ImageStudioRemoteHost {
   const ImageStudioRemoteHost({

@@ -86,6 +86,22 @@ Future<Uint8List> generateViaOpenAICompat({
           'response_format': 'b64_json',
         };
 
+  return _postImagesApi(
+    uri: uri,
+    apiKey: apiKey,
+    payload: payload,
+    endpoint: imageEndpoint,
+  );
+}
+
+/// POSTs an OpenAI-shaped images request and reads `data[0]` as base64 or a
+/// URL to download. Nano-GPT and xAI both answer in this shape.
+Future<Uint8List> _postImagesApi({
+  required Uri uri,
+  required String apiKey,
+  required Map<String, dynamic> payload,
+  required String endpoint,
+}) async {
   final client = http.Client();
   try {
     final response = await _postRemoteImage(
@@ -99,7 +115,7 @@ Future<Uint8List> generateViaOpenAICompat({
     );
 
     if (response.statusCode != 200) {
-      debugPrint('ImageGen: HTTP ${response.statusCode} from $imageEndpoint');
+      debugPrint('ImageGen: HTTP ${response.statusCode} from $endpoint');
       debugPrint('ImageGen: Response body: ${response.body}');
       String errorMsg = 'HTTP ${response.statusCode}';
       try {
@@ -142,6 +158,39 @@ Future<Uint8List> generateViaOpenAICompat({
   } finally {
     client.close();
   }
+}
+
+/// Generate via xAI's Grok Imagine. A create sends an aspect ratio and a
+/// resolution instead of pixels; an edit sends the picture as an `image`
+/// object to `/images/edits`.
+Future<Uint8List> generateViaXai({
+  required String apiUrl,
+  required String apiKey,
+  required String model,
+  required String prompt,
+  required String aspectRatio,
+  required String resolution,
+  Uint8List? editImage,
+}) {
+  final isEdit = editImage != null;
+  final endpoint = isEdit
+      ? '$apiUrl/images/edits'
+      : '$apiUrl/images/generations';
+  debugPrint('ImageGen: POST $endpoint (model=$model, edit=$isEdit)');
+  return _postImagesApi(
+    uri: Uri.parse(endpoint),
+    apiKey: apiKey,
+    endpoint: endpoint,
+    payload: xaiImagePayload(
+      model: model,
+      prompt: prompt,
+      aspectRatio: aspectRatio,
+      resolution: resolution,
+      editImage: isEdit
+          ? 'data:image/png;base64,${base64Encode(editImage)}'
+          : null,
+    ),
+  );
 }
 
 /// Generate via OpenRouter's chat/completions endpoint with image modality.

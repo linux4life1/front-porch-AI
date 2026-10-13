@@ -12,7 +12,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/image/draw_things_samplers.dart';
 import 'package:front_porch_ai/ui/image_studio/image_studio.dart';
@@ -386,9 +385,11 @@ void main() {
     expect(find.byKey(const Key('studio-desk-narrow')), findsOneWidget);
     expect(find.byKey(const Key('studio-desk-wide')), findsNothing);
     expect(find.text('Write it for me'), findsOneWidget);
-    expect(find.text(kStudioCheckpointSupport), findsOneWidget);
+    // The default backend is Remote, which loads no graph files.
+    expect(find.text(kStudioCheckpointSupport), findsNothing);
+    expect(find.text('Remote API'), findsOneWidget);
     expect(find.text('Generate'), findsOneWidget);
-    expect(find.textContaining('Advanced ▸'), findsOneWidget);
+    expect(find.textContaining('Prompt options ▸'), findsOneWidget);
   });
 
   testWidgets('metadata clash keeps Generate off until Use anyway', (

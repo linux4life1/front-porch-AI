@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
+import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_edit_pane.dart';
@@ -50,7 +51,8 @@ void main() {
     );
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Edit'), findsOneWidget);
-    expect(find.text('Change model'), findsOneWidget);
+    // Remote with no key shows the key box, not the model.
+    expect(find.text('Change model'), findsNothing);
     FilledButton generate() => tester.widget<FilledButton>(
       find.widgetWithText(FilledButton, 'Generate'),
     );
@@ -99,6 +101,7 @@ void main() {
     addTearDown(() => dir.deleteSync(recursive: true));
     final storage = StorageService.sandbox(dir.path);
     await storage.imageGenSettings.setImageGenBackend('remote');
+    await storage.backendSettings.setRemoteApiKeyFor(kNanoGptApiV1, 'nk-test');
     await storage.imageGenSettings.setImageGenEditModel('vendor/flux');
     bool? ready;
     await tester.pumpWidget(
