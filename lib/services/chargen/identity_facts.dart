@@ -381,7 +381,13 @@ List<Map<String, dynamic>> identityFactsToolSchema({required bool nsfw}) {
 /// empty value keeps what the card had, so a partial read never wipes a
 /// field; bond and trust are always written. Settings and instructions
 /// (chaos, needs baselines, verification, prompts) are never touched.
-void applyIdentityFacts(CharacterCard card, IdentityFacts f) {
+/// When [nsfw] is false the intimate lists are cleared: a card whose 18+
+/// was switched off must not keep (and export) them.
+void applyIdentityFacts(
+  CharacterCard card,
+  IdentityFacts f, {
+  bool nsfw = true,
+}) {
   final prior = card.frontPorchExtensions;
   String keep(String next, String old) => next.isEmpty ? old : next;
   List<String> keepList(List<String> next, List<String> old) =>
@@ -400,8 +406,10 @@ void applyIdentityFacts(CharacterCard card, IdentityFacts f) {
     planLines: keepList(f.planLines, base.planLines),
     likes: keepList(f.likes, base.likes),
     dislikes: keepList(f.dislikes, base.dislikes),
-    intimateInto: keepList(f.intimateInto, base.intimateInto),
-    intimateNotInto: keepList(f.intimateNotInto, base.intimateNotInto),
+    intimateInto: nsfw ? keepList(f.intimateInto, base.intimateInto) : const [],
+    intimateNotInto: nsfw
+        ? keepList(f.intimateNotInto, base.intimateNotInto)
+        : const [],
   );
   if (f.creatorNotes.isNotEmpty) card.creatorNotes = f.creatorNotes;
 }

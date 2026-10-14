@@ -85,10 +85,6 @@ class GenPorchLife {
     final greeting = card.firstMessage.length > 800
         ? '${card.firstMessage.substring(0, 800)}...'
         : card.firstMessage;
-    final intimateBlock = nsfwEnabled
-        ? '- "intimate_into": 2-5 short suggestive tastes for 18+ scenes\n'
-              '- "intimate_not_into": 2-4 hard limits / not interested\n'
-        : 'Do NOT emit intimate_into or intimate_not_into.\n';
     final keys = identityDone
         ? _openingSceneKeys(card.scenario)
         : '''Keys (arrays of short phrases, one thing per string):
@@ -97,7 +93,7 @@ class GenPorchLife {
 - "dislikes": 2-4 things that make them bristle
 - "worn": what they are wearing as the greeting opens. "sundress (rain-soaked)" is the shape
 - "carrying": pockets and hands in that same opening beat
-$intimateBlock''';
+${_intimateKeys(nsfwEnabled)}''';
 
     final prompt =
         '''Seed Porch Life identity lists for $name. Output ONLY a JSON object.
@@ -165,6 +161,12 @@ Respond with ONLY the JSON:''';
         ? parsePorchLifeIdentity(data['raw'], nsfw: nsfwEnabled)
         : parsePorchLifeIdentity(data, nsfw: nsfwEnabled);
   }
+
+  /// The 18+ list keys for the full read, or the instruction to leave them.
+  String _intimateKeys(bool nsfwEnabled) => nsfwEnabled
+      ? '- "intimate_into": 2-5 short suggestive tastes for 18+ scenes\n'
+            '- "intimate_not_into": 2-4 hard limits / not interested\n'
+      : 'Do NOT emit intimate_into or intimate_not_into.\n';
 
   /// The keys the greeting decides, once the facts pass wrote the lists.
   String _openingSceneKeys(String scenario) =>

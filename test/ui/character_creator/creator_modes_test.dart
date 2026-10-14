@@ -629,6 +629,25 @@ Sure! Here's a name for your character:
       expect(porch, contains('"ambitions"'));
       expect(porch, contains('"likes"'));
     });
+
+    test('an empty facts pass leaves the lists to Porch Life', () async {
+      final llm = MarkerChargenLlm(
+        textAnswers: {'Read the facts this character profile implies': '{}'},
+      );
+      final paused = await CharacterGenService(
+        llm,
+      ).generateProfile(inputs: inputs);
+      expect(
+        llm.sent('Read the facts this character profile implies'),
+        isTrue,
+      );
+      expect(paused!.facts, isNull);
+
+      await CharacterGenService(llm).completeCharacter(paused: paused);
+      final porch = llm.promptWith('Seed Porch Life identity');
+      expect(porch, contains('"ambitions"'));
+      expect(porch, contains('"likes"'));
+    });
   });
 
   group('Profile and review rewrites', () {

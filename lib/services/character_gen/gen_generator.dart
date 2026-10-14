@@ -318,7 +318,9 @@ class GenCharacterGenerator {
         onProgress: onProgress,
       );
       if (_state.isStale(currentEpoch)) return null;
-      if (facts != null) applyIdentityFacts(card, facts);
+      if (facts != null) {
+        applyIdentityFacts(card, facts, nsfw: nsfwEnabled);
+      }
     }
 
     return (

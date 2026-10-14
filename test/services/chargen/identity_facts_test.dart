@@ -241,4 +241,26 @@ void main() {
     expect(card.systemPrompt, 'sys');
     expect(card.creatorNotes, 'A mapmaker.');
   });
+
+  test('a read with 18+ off clears intimate lists the card still had', () {
+    final card = CharacterCard(
+      name: 'Mira',
+      frontPorchExtensions: FrontPorchExtensions(
+        intimateInto: const ['slow mornings'],
+        intimateNotInto: const ['an audience'],
+      ),
+    );
+    applyIdentityFacts(
+      card,
+      _parse({
+        'intimate_into': ['should not land'],
+        'ambitions': ['a boat'],
+      }),
+      nsfw: false,
+    );
+    final ext = card.frontPorchExtensions!;
+    expect(ext.intimateInto, isEmpty);
+    expect(ext.intimateNotInto, isEmpty);
+    expect(ext.ambitions, ['a boat']);
+  });
 }

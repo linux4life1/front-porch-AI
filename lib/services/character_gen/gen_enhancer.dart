@@ -291,7 +291,8 @@ class GenEnhancer {
         name: name,
         interviewTranscript: interviewTranscript,
         nsfwEnabled: nsfwEnabled,
-        identityDone: true,
+        // A facts call that gave nothing leaves the lists to this pass.
+        identityDone: facts != null,
         onProgress: onProgress,
       );
     }

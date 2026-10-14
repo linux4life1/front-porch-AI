@@ -128,6 +128,34 @@ void main() {
       },
     );
   }
+
+  test('an empty facts call leaves the lists to Porch Life', () async {
+    // This scripted model answers the facts prompt with prose, so the facts
+    // pass reads nothing; the Porch Life read must then ask for the lists.
+    final llm = _EnhancePorchLlm();
+    final result = await CharacterGenService(llm).enhanceCharacter(
+      source: CharacterCard(
+        name: 'Nina',
+        description: 'A baker.',
+        personality: 'Hungry and kind.',
+        firstMessage: 'I wipe flour off the apron.',
+      ),
+      selection: const EnhanceSelection(
+        description: false,
+        personality: false,
+        exampleDialogue: false,
+        porchLife: true,
+      ),
+      chatGrounding: _grounding,
+    );
+
+    expect(result, isNotNull);
+    final porch = llm.prompts.firstWhere(
+      (p) => p.contains('Seed Porch Life identity'),
+    );
+    expect(porch, contains('"ambitions"'));
+    expect(porch, contains('"likes"'));
+  });
 }
 
 class _EnhancePorchLlm extends LLMService {

@@ -34,16 +34,18 @@ class GenCardCompletion {
       tense: inputs.narrativeTense,
     );
     _state.narrativeSex = inputs.sex;
-    final epoch = _state.beginRun(
-      abortInFlight: abortInFlight,
-      reasoningEnabled: inputs.reasoningEnabled,
-      includeDynamicMacros: inputs.includeDynamicMacros,
-    );
+    // Read the card back first: an unreadable pause must not stop whatever
+    // the backend is doing or open a run for nothing.
     final card = GenPausedRun.copyCard(paused.card.toJson());
     if (card == null) {
       onError?.call('The paused character could not be read back.');
       return null;
     }
+    final epoch = _state.beginRun(
+      abortInFlight: abortInFlight,
+      reasoningEnabled: inputs.reasoningEnabled,
+      includeDynamicMacros: inputs.includeDynamicMacros,
+    );
     return finish(
       paused: paused,
       card: card,
@@ -169,8 +171,9 @@ class GenCardCompletion {
 
     // ── The opening scene: outfit, pockets, mood, time ────────────
     // After the greeting so they match the opening beat. The identity facts
-    // pass already wrote the lists; this merges, never wipes them. Without
-    // that pass (a Scene Guest) this asks for the lists itself.
+    // pass already wrote the lists; this merges, never wipes them. When it
+    // wrote nothing (skipped for a Scene Guest, or it answered nothing) this
+    // asks for the lists itself.
     onStatus?.call('Seeding wardrobe and ambitions...');
     onProgress?.call('');
     await _s.porchLife.seedIdentity(
@@ -178,7 +181,7 @@ class GenCardCompletion {
       name: name,
       interviewTranscript: transcript,
       nsfwEnabled: inputs.nsfwEnabled,
-      identityDone: inputs.includeIdentityFacts,
+      identityDone: paused.facts != null,
       onProgress: onProgress,
     );
     if (_state.isStale(epoch)) return null;
