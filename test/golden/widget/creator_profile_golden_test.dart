@@ -81,8 +81,12 @@ CreatorState _seed() {
   return state;
 }
 
+/// The page wraps every step in [CreatorTheme] (fields, chips and menus
+/// take the spec's look from it); the goldens do the same.
+Widget _themed(Widget child) => CreatorTheme(child: child);
+
 Widget _sized(Widget child, {double height = 2200}) =>
-    SizedBox(width: 900, height: height, child: child);
+    _themed(SizedBox(width: 900, height: height, child: child));
 
 void main() {
   setupPathProviderMock();
@@ -137,9 +141,11 @@ void main() {
   testWidgets('ProfileHint — the profile changed', (tester) async {
     await expectThemedGoldens(
       tester,
-      child: SizedBox(
-        width: 852,
-        child: ProfileHint(rewriting: false, onRewrite: () {}, onKeep: () {}),
+      child: _themed(
+        SizedBox(
+          width: 852,
+          child: ProfileHint(rewriting: false, onRewrite: () {}, onKeep: () {}),
+        ),
       ),
       group: 'creator_profile',
       name: 'hint',
@@ -152,16 +158,18 @@ void main() {
     addTearDown(steer.dispose);
     await expectThemedGoldens(
       tester,
-      child: SizedBox(
-        width: 852,
-        child: ReviewRewriteRow(
-          id: 'review-dialogue',
-          steer: steer,
-          hint: 'Steer it (optional), e.g. shorter lines, more bite',
-          action: 'Regenerate',
-          writing: false,
-          onRun: () {},
-          onStop: () {},
+      child: _themed(
+        SizedBox(
+          width: 852,
+          child: ReviewRewriteRow(
+            id: 'review-dialogue',
+            steer: steer,
+            hint: 'Steer it (optional), e.g. shorter lines, more bite',
+            action: 'Regenerate',
+            writing: false,
+            onRun: () {},
+            onStop: () {},
+          ),
         ),
       ),
       group: 'creator_profile',
