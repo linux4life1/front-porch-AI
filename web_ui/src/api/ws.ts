@@ -22,6 +22,15 @@ export type WsEvent = {
   index?: number;
   firstMessage?: string;
   alternateGreetings?: string[];
+  // `chargen_profile*` (the creator's Profile step): the three texts, the
+  // facts, which box a rewrite is writing (`field`), and the rest of the
+  // view (`chargen_profile`). `chargen_rewrite_*`: `field` is mesExample or
+  // lorebook; `lorebook` carries the rows.
+  personality?: string;
+  scenario?: string;
+  facts?: unknown;
+  field?: string;
+  lorebook?: unknown;
   // `world_wiki_done`: written lorebook cards, not saved until Preview.
   description?: string;
   climateEnabled?: boolean;

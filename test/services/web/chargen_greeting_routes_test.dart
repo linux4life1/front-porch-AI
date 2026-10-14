@@ -35,6 +35,7 @@ import 'package:front_porch_ai/services/web/routes/chargen_routes.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 import '../../golden/support/fakes.dart';
+import 'support/chargen_relay.dart';
 
 const _name = 'Aria Vale';
 
@@ -285,4 +286,383 @@ void main() {
     expect(code, 400);
     expect(body['error'], contains('5 alternate greetings'));
   });
+
+  // ── THE PHONE'S PROFILE STEP: create pauses after the profile ──────────
+  // A create asked to pause writes the profile and the facts, then waits:
+  // nothing is saved until Next. The pause is on disk, so a relay that
+  // restarts still has it. Next writes the rest from the texts and facts as
+  // the phone left them, saves, and the pause is gone.
+  test(
+    'create pauses at the profile; a restart keeps it; Next saves',
+    () async {
+      final llm = StreamingChargenLlm(
+        toolAnswers: {
+          kIdentityFactsToolName: {
+            'occupation': 'lighthouse keeper',
+            'hours': '18:00-06:00',
+            'current_task': 'Trim the wick before the storm.',
+            'ambitions': ['keep the light one more winter'],
+            'likes': ['salt wind'],
+            'dislikes': ['fog'],
+            'creator_notes': 'Aria Vale keeps the light.',
+          },
+        },
+      );
+      final relay = await ChargenRelay.start(llm);
+      final profiled = relay.next('chargen_profile', seconds: 60);
+      var (code, body) = await relay.post('/api/chargen/create', {
+        'name': _name,
+        'mode': 'guided',
+        'concept': 'A lighthouse keeper on a wet rock.',
+        'pauseAtProfile': true,
+      });
+      expect(code, 200, reason: '$body');
+      expect(body, {'status': 'started', 'phase': 'profile'});
+      final profile = await profiled;
+      expect(profile['description'], contains('ZZSENTINELZZ'));
+      expect(profile['mode'], 'guided');
+      expect(profile['transcriptQuestions'], greaterThan(0));
+      expect((profile['facts'] as Map)['occupation'], 'lighthouse keeper');
+
+      // Nothing downstream ran and nothing was saved.
+      await Future<void>.delayed(const Duration(milliseconds: 300));
+      expect(relay.events.where((e) => e['event'] == 'chargen_done'), isEmpty);
+      expect(llm.sent('Write example dialogue exchanges'), isFalse);
+
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect((body['pending'] as Map)['description'], profile['description']);
+      expect((body['pending'] as Map)['writing'], isNull);
+
+      // A relay that restarts reads the pause back from its file.
+      (code, body) = await relay.get(
+        '/api/chargen/profile',
+        on: relay.restarted(),
+      );
+      expect(code, 200);
+      expect(
+        (body['pending'] as Map?)?['description'],
+        profile['description'],
+        reason: 'the pending run survives a restart',
+      );
+
+      // Next: the texts and facts as the phone left them, then the rest.
+      final facts = Map<String, dynamic>.from(profile['facts'] as Map)
+        ..['likes'] = ['hot tea']
+        ..['ambitions'] = <String>[];
+      final done = relay.next('chargen_done', seconds: 60);
+      (code, body) = await relay.post('/api/chargen/continue', {
+        'description': 'EDITED {{char}} has salt-cracked hands.',
+        'personality': profile['personality'],
+        'scenario': profile['scenario'],
+        'facts': facts,
+      });
+      expect(code, 200, reason: '$body');
+      expect(body, {'status': 'started', 'phase': 'complete'});
+      final id = (await done)['id'].toString();
+      final saved = relay.characters.cardByDbId(id)!;
+      expect(saved.description, 'EDITED {{char}} has salt-cracked hands.');
+      expect(saved.frontPorchExtensions!.likes, ['hot tea']);
+      expect(
+        saved.frontPorchExtensions!.ambitions,
+        isEmpty,
+        reason: 'a list the author emptied stays empty',
+      );
+      expect(saved.frontPorchExtensions!.occupation, 'lighthouse keeper');
+      expect(saved.mesExample, isNotEmpty, reason: 'Next wrote the rest');
+      expect(saved.firstMessage, isNotEmpty);
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect(body['pending'], isNull);
+      (code, body) = await relay.get(
+        '/api/chargen/profile',
+        on: relay.restarted(),
+      );
+      expect(body['pending'], isNull, reason: 'the file went with the save');
+      (code, body) = await relay.post('/api/chargen/continue', {
+        'description': 'x',
+        'personality': 'y',
+        'scenario': 'z',
+      });
+      expect(code, 404, reason: 'nothing is waiting any more');
+    },
+  );
+
+  // ── The profile rewrite streams into its boxes; Stop keeps the old text;
+  // Re-read refreshes the facts ──────────────────────────────────────────
+  test(
+    'a steered rewrite streams, Stop keeps the text, Re-read reads facts',
+    () async {
+      final factsAnswer = <String, dynamic>{
+        'occupation': 'lighthouse keeper',
+        'likes': ['salt wind'],
+      };
+      final llm = StreamingChargenLlm(
+        toolAnswers: {kIdentityFactsToolName: factsAnswer},
+      );
+      final relay = await ChargenRelay.start(llm);
+      final profiled = relay.next('chargen_profile', seconds: 60);
+      await relay.post('/api/chargen/create', {
+        'name': _name,
+        'mode': 'quick',
+        'concept': 'A lighthouse keeper.',
+        'pauseAtProfile': true,
+      });
+      final profile = await profiled;
+
+      // A steered rewrite: the description arrives first, then personality.
+      llm
+        ..streamMarker = 'ZZSTEER'
+        ..chunks = const [
+          '{"description": "ZZNEW {{char}} is tall',
+          ' and windburnt, with salt-cracked hands and dark hair she cuts '
+              'herself, and a coat that smells of lamp oil and tar.", '
+              '"personality": "ZZNEW Blunt',
+          ' and exact; she answers questions with questions and hides care '
+              'inside practical help, a dry coat or a full kettle.", '
+              '"scenario": "ZZNEW The storm has closed the harbor for three '
+              'days and the lamp room is the only warm place left."}',
+        ];
+      final streamed = relay.collect(
+        'chargen_profile_progress',
+        'chargen_profile_done',
+      );
+      var (code, body) = await relay.post('/api/chargen/profile/rewrite', {
+        'description': profile['description'],
+        'personality': profile['personality'],
+        'scenario': profile['scenario'],
+        'direction': 'make her colder ZZSTEER',
+      });
+      expect(code, 200, reason: '$body');
+      final seen = await streamed;
+      final progress = seen.where(
+        (e) => e['event'] == 'chargen_profile_progress',
+      );
+      expect(
+        progress.any(
+          (e) =>
+              e['field'] == 'description' &&
+              (e['description'] as String).startsWith('ZZNEW') &&
+              e['personality'] == '',
+        ),
+        isTrue,
+        reason: 'the description streams before personality starts: $progress',
+      );
+      expect(progress.any((e) => e['field'] == 'personality'), isTrue);
+      final done = seen.last;
+      expect(
+        done['description'],
+        startsWith('ZZNEW {{char}} is tall and windburnt, with salt-cracked'),
+      );
+      expect(llm.promptWith('ZZSTEER'), contains('DIRECTION FROM THE AUTHOR'));
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect((body['pending'] as Map)['description'], done['description']);
+
+      // Stop: the second rewrite is held after its first words; a second call
+      // waits; Stop keeps the text the profile had.
+      llm
+        ..holdNext = true
+        ..chunks = const [
+          '{"description": "NEVER SAVED',
+          ' text that runs long enough to be taken as a real description by '
+              'the rewrite, so only Stop can keep it out of the profile.", '
+              '"personality": "NEVER SAVED either, though it too is long '
+              'enough that the rewrite would take it as a personality.", '
+              '"scenario": "NEVER SAVED: a scenario long enough to pass the '
+              'floor the rewrite holds a scenario to."}',
+        ];
+      final firstWords = relay.next('chargen_profile_progress');
+      (code, body) = await relay.post('/api/chargen/profile/rewrite', {
+        'description': done['description'],
+        'personality': done['personality'],
+        'scenario': done['scenario'],
+        'direction': 'again ZZSTEER',
+      });
+      expect(code, 200);
+      await firstWords;
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect((body['pending'] as Map)['writing'], 'rewrite');
+      (code, body) = await relay.post('/api/chargen/profile/facts', {
+        'description': done['description'],
+        'personality': done['personality'],
+        'scenario': done['scenario'],
+      });
+      expect(code, 409, reason: 'one model call at a time');
+      final stopped = relay.next('chargen_profile_stopped');
+      (code, body) = await relay.post('/api/chargen/profile/stop', const {});
+      expect(body['stopped'], isTrue);
+      await stopped;
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect(
+        (body['pending'] as Map)['description'],
+        done['description'],
+        reason: 'Stop keeps the old text',
+      );
+      expect(
+        relay.events.where((e) => e['event'] == 'chargen_profile_done'),
+        hasLength(1),
+      );
+      expect(
+        relay.events.where((e) => e['event'] == 'chargen_profile_error'),
+        isEmpty,
+        reason: 'a Stop is not an error',
+      );
+
+      // Re-read: the facts come back from the profile as it is now.
+      factsAnswer['occupation'] = 'harbour pilot';
+      final facts = relay.next('chargen_facts_done');
+      (code, body) = await relay.post('/api/chargen/profile/facts', {
+        'description': done['description'],
+        'personality': done['personality'],
+        'scenario': done['scenario'],
+      });
+      expect(code, 200, reason: '$body');
+      expect(((await facts)['facts'] as Map)['occupation'], 'harbour pilot');
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect(
+        ((body['pending'] as Map)['facts'] as Map)['occupation'],
+        'harbour pilot',
+      );
+    },
+  );
+
+  // ── The review rewrites and the profile-changed hint, on a saved card ──
+  test(
+    'dialogue and lorebook rewrites save; hand edits stay; the hint',
+    () async {
+      final llm = StreamingChargenLlm(
+        textAnswers: {
+          'Generate WORLD-BUILDING lorebook entries': jsonEncode({
+            'lorebook': [
+              {
+                'name': 'The Rock',
+                'category': 'premise',
+                'key': 'rock, sea',
+                'content': 'ZZLORE A wet rock two miles out.',
+              },
+              {
+                'name': 'The Harbor',
+                'category': 'location',
+                'key': 'harbor, town',
+                'content': 'ZZLORE A harbor town of gulls and tar.',
+              },
+            ],
+          }),
+        },
+      );
+      final relay = await ChargenRelay.start(llm);
+      final generated = LorebookEntry(
+        name: 'Old Lore',
+        keys: ['old'],
+        content: 'Written by the generator.',
+      );
+      final edited = LorebookEntry(
+        name: 'My Pub',
+        keys: ['pub'],
+        content: 'Written by the generator.',
+      );
+      final book = Lorebook(entries: [generated, edited]);
+      stampLoreFingerprints(book);
+      edited.content = 'The pub I wrote myself.';
+      final card = CharacterCard(
+        name: _name,
+        description: 'D1 {{char}} keeps the lighthouse.',
+        personality: 'P1 Patient and dry.',
+        scenario: '{{user}} climbs the stairs.',
+        firstMessage: '*{{char}} trims the wick.*',
+        alternateGreetings: const ['ALT ONE'],
+        lorebook: book,
+      );
+      stampGreetingRecipe(
+        card,
+        GreetingRecipe(
+          interviewTranscript: 'Q: Who are you?\nA: The keeper.',
+          profileFingerprint: profileFingerprintOf(
+            'D0 an older description',
+            'P1 Patient and dry.',
+            name: _name,
+          ),
+        ),
+      );
+      final id = (await relay.characters.persistNewCard(
+        card,
+      ))!['id'].toString();
+      CharacterCard saved() => relay.characters.cardByDbId(id)!;
+      Future<Object?> changed() async => (await relay.get(
+        '/api/chargen/greeting/status?characterId=$id',
+      )).$2['profileChanged'];
+
+      // ── The hint: derived from the fingerprint, never from an action ──
+      expect(await changed(), isTrue);
+      var (code, body) = await relay.post(
+        '/api/chargen/greeting/keep-profile',
+        {'characterId': id},
+      );
+      expect(body['ok'], isTrue);
+      expect(await changed(), isFalse, reason: 'Keep them re-stamps');
+      await relay.characters.update(id, {'description': 'D2 a hand edit.'});
+      expect(await changed(), isTrue, reason: 'a hand edit raises it too');
+
+      // ── Rewrite the greetings from it: every greeting, in order ──
+      final run = relay.collect(
+        'chargen_greeting_done',
+        'chargen_greetings_rewritten',
+      );
+      (code, body) = await relay.post('/api/chargen/greeting/rewrite-all', {
+        'characterId': id,
+      });
+      expect(code, 200, reason: '$body');
+      expect(body['count'], 2);
+      final written = await run;
+      expect(
+        [
+          for (final e in written)
+            if (e['event'] == 'chargen_greeting_done') e['index'],
+        ],
+        [0, 1],
+      );
+      expect(await changed(), isFalse, reason: 'written from this profile');
+
+      // ── Example dialogue, steered, saved ──
+      final dialogue = relay.next('chargen_rewrite_done');
+      (code, body) = await relay.post('/api/chargen/rewrite/dialogue', {
+        'characterId': id,
+        'direction': 'shorter lines ZZDLG',
+      });
+      expect(code, 200, reason: '$body');
+      final d = await dialogue;
+      expect(d['field'], 'mesExample');
+      expect(d['text'], contains('mapped every one of them twice'));
+      expect(saved().mesExample, d['text']);
+      expect(llm.promptWith('ZZDLG'), contains('DIRECTION FROM THE AUTHOR'));
+
+      // ── The lorebook: the generator's entry goes, the hand-edited stays ──
+      final lore = relay.next('chargen_rewrite_done');
+      (code, body) = await relay.post('/api/chargen/rewrite/lorebook', {
+        'characterId': id,
+        'direction': 'more about the harbor',
+      });
+      expect(code, 200, reason: '$body');
+      final l = await lore;
+      expect(l['field'], 'lorebook');
+      final entries = saved().lorebook!.entries;
+      expect(
+        entries.map((e) => e.content),
+        contains('The pub I wrote myself.'),
+        reason: 'the hand-edited entry is kept as written',
+      );
+      expect(
+        entries.map((e) => e.content),
+        isNot(contains('Written by the generator.')),
+      );
+      expect(entries.any((e) => e.content.startsWith('ZZLORE')), isTrue);
+      final rows = (l['lorebook'] as List).cast<Map>();
+      expect(
+        rows.firstWhere((r) => r['name'] == 'My Pub')['handEdited'],
+        isTrue,
+      );
+      (code, body) = await relay.get('/api/chargen/review?characterId=$id');
+      expect(body['mesExample'], d['text']);
+      expect((body['lorebook'] as List), hasLength(entries.length));
+    },
+  );
 }

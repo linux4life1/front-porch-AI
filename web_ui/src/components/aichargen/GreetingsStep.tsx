@@ -7,12 +7,19 @@
 // add one (up to 5), delete an alternate. One greeting is written at a time;
 // its card shows the text coming in and Stop, the rest wait. A greeting is
 // saved by the relay only when it is done, so Stop leaves the card as it was.
-// The outfit hint is desktop-only: the web creator has no Realism step.
+// When the profile changed after these greetings were written (the relay
+// compares fingerprints) a hint offers to write them all again from it or
+// keep them. The example dialogue and lorebook rewrites sit at the foot, as
+// this is the phone's last step. The outfit hint is desktop-only: the web
+// creator has no Realism step.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
 import { ChatSocket, type WsEvent } from '../../api/ws';
+import { CreatorHint } from './CreatorHint';
 import { GreetingCard, PlusIcon } from './GreetingCard';
+import { ReviewSection, type ReviewSectionHandle } from './ReviewSection';
+import { keepGreetings, rewriteAllGreetings } from './profileApi';
 import {
   MAX_ALTERNATES,
   applyWritten,
@@ -41,20 +48,34 @@ const without = (errors: Record<number, string>, index: number) =>
 
 export const GreetingsStep = forwardRef<
   GreetingsStepHandle,
-  { characterId: string; onWritingChange?: (writing: boolean) => void }
->(function GreetingsStep({ characterId: id, onWritingChange }, ref) {
+  {
+    characterId: string;
+    onWritingChange?: (writing: boolean) => void;
+    /** The lorebook card's "Open the lorebook editor". */
+    onOpenEditor?: () => void;
+  }
+>(function GreetingsStep({ characterId: id, onWritingChange, onOpenEditor }, ref) {
   const [g, setG] = useState<Greetings | null>(null);
   const [loadError, setLoadError] = useState('');
   const [steers, setSteers] = useState<string[]>([]);
   const [writing, setWriting] = useState<Writing | null>(null);
   const [errors, setErrors] = useState<Record<number, string>>({});
   const [saveError, setSaveError] = useState('');
+  /** The profile changed after these greetings were written (the relay
+   *  compares fingerprints), and "Rewrite the greetings from it" running. */
+  const [changed, setChanged] = useState(false);
+  const [rewritingAll, setRewritingAll] = useState(false);
+  const [hintError, setHintError] = useState('');
+  const [reviewWriting, setReviewWriting] = useState(false);
 
   // The latest of each, for saves and socket events that outlive a render.
   const gRef = useRef<Greetings | null>(null);
   gRef.current = g;
   const writingRef = useRef<Writing | null>(null);
   writingRef.current = writing;
+  /** The last index a rewrite-all writes, while it runs. */
+  const allRef = useRef<number | null>(null);
+  const review = useRef<ReviewSectionHandle>(null);
   const dirty = useRef({ first: false, alts: false });
   const timer = useRef<number | undefined>(undefined);
 
@@ -71,6 +92,9 @@ export const GreetingsStep = forwardRef<
       .catch(() => {
         if (alive) setLoadError('This character could not be loaded. Open it from the library instead.');
       });
+    writingStatus(id)
+      .then((s) => alive && setChanged(s.profileChanged === true))
+      .catch(() => undefined);
     return () => {
       alive = false;
     };
@@ -104,8 +128,8 @@ export const GreetingsStep = forwardRef<
   // Leaving the step keeps what was typed in the last moment.
   useEffect(() => () => void flush(), [flush]);
   useEffect(() => {
-    onWritingChange?.(writing !== null);
-  }, [writing, onWritingChange]);
+    onWritingChange?.(writing !== null || rewritingAll || reviewWriting);
+  }, [writing, rewritingAll, reviewWriting, onWritingChange]);
   // Edits held while an alternate was written go out once it is done.
   useEffect(() => {
     if (!writing && dirty.current.alts) void flush();
@@ -116,6 +140,14 @@ export const GreetingsStep = forwardRef<
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(() => void flush(), SAVE_PAUSE_MS);
   };
+
+  /** A rewrite-all is over; [rewritten] when it wrote every greeting. */
+  const endAll = useCallback((rewritten: boolean) => {
+    if (allRef.current === null) return;
+    allRef.current = null;
+    setRewritingAll(false);
+    if (rewritten) setChanged(false);
+  }, []);
 
   const finish = useCallback((index: number, text: string | null, error?: string) => {
     const w = writingRef.current;
@@ -146,23 +178,39 @@ export const GreetingsStep = forwardRef<
     const socket = new ChatSocket((e: WsEvent) => {
       if (e.event === 'connected') {
         void resync();
+        review.current?.onEvent(e);
         return;
       }
-      if (!e.event.startsWith('chargen_greeting_') || String(e.characterId ?? '') !== id) return;
+      if (e.event.startsWith('chargen_rewrite_')) {
+        review.current?.onEvent(e);
+        return;
+      }
+      if (!e.event.startsWith('chargen_greeting') || String(e.characterId ?? '') !== id) return;
       const index = typeof e.index === 'number' ? e.index : -1;
       if (e.event === 'chargen_greeting_progress') {
         setWriting((w) => (w && w.index === index ? { index, text: e.text ?? '' } : w));
       } else if (e.event === 'chargen_greeting_done') {
         finish(index, e.text ?? '');
+        // A rewrite-all goes on to the next greeting by itself.
+        const last = allRef.current;
+        if (last !== null && index < last) {
+          const next = { index: index + 1, text: '' };
+          writingRef.current = next;
+          setWriting(next);
+        }
       } else if (e.event === 'chargen_greeting_error') {
         finish(index, null, e.error || 'The greeting could not be written.');
+        endAll(false);
       } else if (e.event === 'chargen_greeting_stopped') {
         finish(index, null);
+        endAll(false);
+      } else if (e.event === 'chargen_greetings_rewritten') {
+        endAll(true);
       }
     });
     socket.connect();
     return () => socket.close();
-  }, [id, finish]);
+  }, [id, finish, endAll]);
 
   const begin = async (index: number, start: () => Promise<unknown>) => {
     if (writingRef.current || !gRef.current) return;
@@ -207,10 +255,41 @@ export const GreetingsStep = forwardRef<
     }
   };
 
+  const rewriteAll = async () => {
+    const cur = gRef.current;
+    if (writingRef.current || !cur) return;
+    await flush();
+    setHintError('');
+    allRef.current = cur.alts.length;
+    setRewritingAll(true);
+    const first = { index: 0, text: '' };
+    writingRef.current = first;
+    setWriting(first);
+    try {
+      await rewriteAllGreetings(id);
+    } catch (err) {
+      allRef.current = null;
+      setRewritingAll(false);
+      writingRef.current = null;
+      setWriting(null);
+      setHintError(messageOf(err, 'The greetings could not be rewritten. Try again.'));
+    }
+  };
+
+  const keep = async () => {
+    setHintError('');
+    try {
+      await keepGreetings(id);
+      setChanged(false);
+    } catch (err) {
+      setHintError(messageOf(err, 'That did not reach the app. Try again.'));
+    }
+  };
+
   if (loadError) return <p className="error">{loadError}</p>;
   if (!g) return <p className="muted">Loading the greetings…</p>;
 
-  const busy = writing !== null;
+  const busy = writing !== null || rewritingAll || reviewWriting;
   const addIndex = g.alts.length + 1;
   const adding = writing?.index === addIndex;
   const card = (index: number, value: string | null) => (
@@ -251,6 +330,18 @@ export const GreetingsStep = forwardRef<
           Edit any of them, rewrite one, or steer a rewrite with a line of direction.
         </p>
       </div>
+      {changed && !rewritingAll && (
+        <CreatorHint
+          title="The profile changed"
+          body="These greetings were written from the old Description and Personality. Nothing was changed for you."
+          action="Rewrite the greetings from it"
+          onAction={() => void rewriteAll()}
+          dismiss="Keep them"
+          onDismiss={() => void keep()}
+          disabled={busy}
+        />
+      )}
+      {hintError && <p className="error">{hintError}</p>}
       {card(0, g.first)}
       <div className="cg-g-alt-head">
         <h2>Alternate greetings</h2>
@@ -275,6 +366,13 @@ export const GreetingsStep = forwardRef<
         <span className="cg-g-hint">Writes a new one right away</span>
       </div>
       {saveError && <p className="error">{saveError}</p>}
+      <ReviewSection
+        ref={review}
+        characterId={id}
+        locked={writing !== null || rewritingAll}
+        onWritingChange={setReviewWriting}
+        onOpenEditor={onOpenEditor}
+      />
     </div>
   );
 });

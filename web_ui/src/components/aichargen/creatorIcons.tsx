@@ -47,6 +47,44 @@ export const PenIcon = () => (
   </svg>
 );
 
+export const ExpandIcon = () => (
+  <svg {...stroke} width={18} height={18}>
+    <path d="M15 4h5v5M9 20H4v-5M20 4l-6 6M4 20l6-6" />
+  </svg>
+);
+
+export const RewriteIcon = ({ size = 18 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size} strokeWidth={2.2}>
+    <path d="M21 12a9 9 0 1 1-2.6-6.4" />
+    <path d="M21 3v6h-6" />
+  </svg>
+);
+
+export const StopIcon = () => (
+  <svg width={14} height={14} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+    <rect x="5" y="5" width="14" height="14" rx="2" />
+  </svg>
+);
+
+export const InfoIcon = () => (
+  <svg {...stroke} width={22} height={22}>
+    <circle cx="12" cy="12" r="9" />
+    <path d="M12 11v5M12 8h.01" />
+  </svg>
+);
+
+export const ChevronIcon = ({ open }: { open: boolean }) => (
+  <svg {...stroke} width={18} height={18}>
+    <path d={open ? 'M6 15l6-6 6 6' : 'M9 6l6 6-6 6'} />
+  </svg>
+);
+
+export const CloseIcon = () => (
+  <svg {...stroke} width={14} height={14}>
+    <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
+
 export const BubblesIcon = () => (
   <svg {...stroke}>
     <circle cx="7" cy="8" r="3" />

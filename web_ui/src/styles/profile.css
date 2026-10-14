@@ -1,0 +1,135 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   The AI creator's Profile step, hint box and review rewrites, on the
+   studio palette (docs/design/creator-ui-spec.md, Components). Cards, macro
+   boxes, steer fields and outlined buttons come from greetings.css; these
+   are the parts the Profile step adds. Desktop rules first, then the
+   [data-layout="phone"] deltas.
+*/
+
+/* ── Field cards ──────────────────────────────────────────────── */
+.cg-p-state { font-size: 12px; color: var(--studio-muted); }
+.cg-g-card.writing button.cg-g-icon:disabled { opacity: 0.35; }
+
+/* ── The rewrite card: a steer box that grows, then the action ── */
+.cg-p-rewrite { gap: 10px; }
+.cg-p-hidden-label {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); margin: 0;
+}
+textarea.cg-p-steer {
+  width: 100%; min-height: 44px; margin: 0; padding: 12px 14px; box-sizing: border-box;
+  background: var(--studio-raise); border: 0; border-radius: 12px; resize: none;
+  color: var(--studio-ink); font-size: 14px; line-height: 1.4;
+}
+textarea.cg-p-steer::placeholder { color: var(--studio-faint); }
+textarea.cg-p-steer:disabled { color: var(--studio-muted); }
+button.cg-p-action { align-self: flex-start; }
+.cg-p-caption { margin: 0; font-size: 12px; line-height: 1.5; color: var(--studio-muted); }
+
+/* ── Facts card ───────────────────────────────────────────────── */
+.cg-p-facts { gap: 12px; transition: opacity 0.15s; }
+.cg-p-facts.dim { opacity: 0.45; }
+.cg-p-facts-head { display: flex; align-items: flex-start; gap: 16px; }
+.cg-p-facts-title { display: flex; flex-direction: column; gap: 4px; flex: 1 1 auto; min-width: 0; }
+.cg-p-facts-title h3 { margin: 0; font-size: 16px; font-weight: 700; color: var(--studio-ink); }
+.cg-p-reread-note { font-size: 12px; font-weight: 600; color: var(--studio-amber); }
+button.cg-p-small-btn {
+  height: 36px; padding: 0 12px; border-radius: 10px; flex-shrink: 0;
+  background: transparent; border: 1.5px solid var(--studio-amber); color: var(--studio-amber);
+  font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px;
+}
+button.cg-p-small-btn:disabled { opacity: 0.45; }
+.cg-p-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; }
+.cg-p-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
+.cg-scope .cg-p-fact input.cg-p-readonly { color: var(--studio-muted); }
+.cg-p-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cg-p-chip {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 10px;
+  border-radius: 10px; background: var(--studio-raise); color: var(--studio-ink); font-size: 13px;
+}
+button.cg-p-chip-x {
+  width: 22px; height: 22px; padding: 0; border: 0; border-radius: 11px; background: transparent;
+  color: var(--studio-muted); display: flex; align-items: center; justify-content: center;
+}
+button.cg-p-chip-add {
+  height: 34px; padding: 0 10px; border-radius: 10px; background: transparent;
+  border: 1px solid var(--studio-amber); color: var(--studio-amber); font-size: 13px; font-weight: 700;
+}
+.cg-scope input.cg-p-chip-input {
+  width: 160px; height: 34px; margin: 0; padding: 0 10px; border-radius: 10px;
+  background: var(--studio-bg); border: 1px solid var(--studio-amber); color: var(--studio-ink); font-size: 13px;
+}
+.cg-p-intimate { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.cg-p-intimate .cg-p-chips { display: contents; }
+.cg-scope .cg-field-label .cg-p-macro { text-transform: none; color: var(--studio-teal); font-weight: 700; }
+.cg-p-sub-label { font-size: 12px; color: var(--studio-muted); }
+
+/* ── Collapsed row: the interview ─────────────────────────────── */
+button.cg-p-row {
+  min-height: 44px; padding: 0 14px; border-radius: 12px; border: 1px solid var(--studio-line);
+  background: transparent; color: var(--studio-prose);
+  display: flex; align-items: center; gap: 10px; text-align: left;
+}
+button.cg-p-row:disabled { opacity: 0.5; }
+.cg-p-row-title { font-size: 14px; font-weight: 500; color: var(--studio-prose); flex-shrink: 0; }
+.cg-p-row-note { font-size: 12px; color: var(--studio-muted); }
+.cg-p-transcript { max-height: 320px; overflow-y: auto; font-size: 14px; }
+
+/* ── Hint box ─────────────────────────────────────────────────── */
+.cg-hint {
+  display: flex; gap: 12px; padding: 16px 18px; border-radius: 12px;
+  background: var(--studio-raise); border: 1px solid color-mix(in srgb, var(--studio-amber) 50%, transparent);
+}
+.cg-hint-icon { color: var(--studio-amber); flex-shrink: 0; display: flex; }
+.cg-hint-text { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cg-hint-text h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--studio-ink); }
+.cg-hint-text p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--studio-prose); }
+.cg-hint-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 18px; margin-top: 6px; }
+button.cg-hint-action {
+  height: 40px; padding: 0 16px; border-radius: 10px; background: transparent;
+  border: 1.5px solid var(--studio-amber); color: var(--studio-amber); font-size: 14px; font-weight: 700;
+}
+button.cg-hint-dismiss {
+  height: 40px; padding: 0 4px; border: 0; background: transparent;
+  color: var(--studio-prose); font-size: 14px; font-weight: 500;
+}
+button.cg-hint-action:disabled,
+button.cg-hint-dismiss:disabled { opacity: 0.45; }
+
+/* ── Review rewrites ──────────────────────────────────────────── */
+.cg-review-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
+button.cg-p-text-btn {
+  height: 36px; padding: 0 12px; border: 0; border-radius: 10px; background: transparent;
+  color: var(--studio-amber); font-size: 13px; font-weight: 600; flex-shrink: 0;
+}
+.cg-lore-rows { display: flex; flex-direction: column; gap: 8px; }
+.cg-lore-row {
+  display: flex; align-items: center; gap: 12px; padding: 10px 14px; border-radius: 12px;
+  background: var(--studio-bg); border: 1px solid var(--studio-line); min-width: 0;
+}
+.cg-lore-name { flex: 0 0 180px; font-size: 14px; font-weight: 600; color: var(--studio-ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-lore-preview { flex: 1 1 auto; min-width: 0; font-size: 13px; color: var(--studio-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cg-lore-pill {
+  flex-shrink: 0; font-size: 11px; font-weight: 600; color: var(--studio-muted);
+  border: 1px solid var(--studio-line); border-radius: 8px; padding: 1px 7px;
+}
+.cg-lore-more { font-size: 12px; color: var(--studio-faint); }
+
+/* ── Phone ────────────────────────────────────────────────────── */
+[data-layout="phone"] .cg-g-card .cg-p-scenario .macro-area .macro-input,
+[data-layout="phone"] .cg-g-stream.cg-p-scenario { max-height: 108px; }
+[data-layout="phone"] button.cg-p-action { align-self: stretch; }
+[data-layout="phone"] textarea.cg-p-steer { font-size: 16px; }
+[data-layout="phone"] .cg-p-facts-head { flex-direction: column; align-items: stretch; gap: 12px; }
+[data-layout="phone"] button.cg-p-small-btn { width: 100%; height: 44px; justify-content: center; font-size: 14px; }
+[data-layout="phone"] .cg-p-grid3,
+[data-layout="phone"] .cg-p-grid2 { grid-template-columns: 1fr; }
+[data-layout="phone"] .cg-p-chip,
+[data-layout="phone"] button.cg-p-chip-add,
+[data-layout="phone"] .cg-scope input.cg-p-chip-input { height: 36px; }
+[data-layout="phone"] .cg-scope input.cg-p-chip-input { font-size: 16px; }
+[data-layout="phone"] button.cg-p-row { flex-wrap: wrap; padding: 10px 14px; row-gap: 2px; }
+[data-layout="phone"] .cg-lore-name { flex-basis: 110px; }
+/* The review cards keep their subtitle on the phone (the count, the pronoun). */
+[data-layout="phone"] .cg-g-card-head .cg-r-sub { display: inline; }
+[data-layout="phone"] .cg-hint-actions { flex-direction: column; align-items: stretch; gap: 8px; }

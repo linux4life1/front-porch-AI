@@ -90,7 +90,11 @@ button.cg-g-add-btn:disabled { opacity: 0.45; }
 [data-layout="phone"] .cg-g-card .macro-area .macro-input { max-height: 132px; resize: none; }
 [data-layout="phone"] .cg-g-stream { max-height: 132px; overflow-y: auto; }
 [data-layout="phone"] .cg-g-steer-row { flex-direction: column; align-items: stretch; }
-[data-layout="phone"] input.cg-g-steer { flex: none; width: 100%; }
+[data-layout="phone"] input.cg-g-steer { flex: none; width: 100%; font-size: 16px; }
+/* iOS Safari zooms on a focused field under 16px: the phone's boxes are
+   16px, the backdrop with them so the colours stay under the letters. */
+[data-layout="phone"] .cg-g-card .macro-area .macro-backdrop,
+[data-layout="phone"] .cg-g-card .macro-area .macro-input { font-size: 16px; }
 [data-layout="phone"] button.cg-g-regen,
 [data-layout="phone"] button.cg-g-stop,
 [data-layout="phone"] button.cg-g-add-btn { width: 100%; height: 48px; font-size: 16px; }

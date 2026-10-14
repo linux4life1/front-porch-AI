@@ -25,15 +25,13 @@ import 'package:front_porch_ai/utils/picker_prefs.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
-    show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/lore_extraction_service.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
-import 'package:front_porch_ai/services/web/facade/chargen/chargen_greetings.dart';
+import 'package:front_porch_ai/services/web/facade/chargen/chargen.dart';
 
 /// Web adapter for the AI character creator. The generator itself
 /// ([CharacterGenService.generateCharacter]) is already fully headless — the
@@ -58,16 +56,61 @@ class ChargenFacade {
   final StorageService? _storage;
   final ChatService? _chat;
 
-  /// Whether a whole character is being created right now.
-  bool _creating = false;
+  /// Creating and saving a whole character.
+  late final ChargenCreate _create = ChargenCreate(
+    _llm,
+    _characters,
+    _hub,
+    _imageGen,
+  )..onSaved = (id, recipe) => _greetings.rememberRecipe(id, recipe);
 
   /// The Greetings step: rewrite, add, delete or stop one greeting.
   late final ChargenGreetings _greetings = ChargenGreetings(
     _llm,
     _characters,
     _hub,
-    isCreating: () => _creating,
+    busyReason: () => _busyReason(greetings: false),
   );
+
+  /// The Profile step: the paused create, its rewrites and Next.
+  late final ChargenProfile _profile = ChargenProfile(
+    _characters,
+    _hub,
+    _storage,
+    _create,
+    busyReason: () => _busyReason(profile: false),
+  );
+
+  /// The review rewrites: example dialogue and lorebook.
+  late final ChargenRewrites _rewrites = ChargenRewrites(
+    _characters,
+    _hub,
+    _create,
+    recipeFor: _greetings.recipeFor,
+    busyReason: () => _busyReason(rewrites: false),
+  );
+
+  /// Why a new model call must wait, or null. One call at a time across
+  /// the creator; each part checks its own job itself, so it is left out.
+  String? _busyReason({
+    bool greetings = true,
+    bool profile = true,
+    bool rewrites = true,
+  }) {
+    if (_create.creating) {
+      return 'A character is still being created. Wait for it.';
+    }
+    if (profile && _profile.busy) {
+      return 'The profile is being written. Wait for it.';
+    }
+    if (greetings && _greetings.busy) {
+      return 'A greeting is being written. Wait for it.';
+    }
+    if (rewrites && _rewrites.busy) {
+      return 'Something is being rewritten. Wait for it.';
+    }
+    return null;
+  }
 
   /// See [ChargenGreetings.startGreeting].
   Map<String, dynamic> startGreeting(
@@ -94,6 +137,10 @@ class ChargenFacade {
   /// `chargen_error` events, so the client never holds a multi-minute HTTP
   /// request open on a flaky mobile link. Returns `{ok:false, error}` only for
   /// synchronous pre-flight failures (no name / backend not ready).
+  ///
+  /// With `pauseAtProfile: true` the run stops after the profile
+  /// (`chargen_profile`) and waits for [startContinue]; a refusal then may
+  /// carry a `status` (409 while another model call runs).
   Map<String, dynamic> startCreate(Map<String, dynamic> fields) {
     final name = fields['name']?.toString().trim() ?? '';
     if (name.isEmpty) return {'ok': false, 'error': 'name is required'};
@@ -101,9 +148,69 @@ class ChargenFacade {
     if (!svc.isReady) {
       return {'ok': false, 'error': 'the LLM backend is not ready'};
     }
-    unawaited(_run(name, fields, svc));
+    if (fields['pauseAtProfile'] == true) {
+      return _profile.startPaused(name, fields, svc);
+    }
+    _create.startOneShot(name, fields, svc);
     return {'ok': true};
   }
+
+  /// See [ChargenProfile.profile].
+  Future<Map<String, dynamic>> profile({String characterId = ''}) =>
+      _profile.profile(characterId: characterId);
+
+  /// See [ChargenProfile.startRewrite].
+  Future<Map<String, dynamic>> startProfileRewrite(Map<String, dynamic> b) =>
+      _profile.startRewrite(b);
+
+  /// See [ChargenProfile.stop].
+  bool stopProfile(Map<String, dynamic> body) => _profile.stop(body);
+
+  /// See [ChargenProfile.startFacts].
+  Future<Map<String, dynamic>> startFacts(Map<String, dynamic> body) =>
+      _profile.startFacts(body);
+
+  /// See [ChargenProfile.startContinue].
+  Future<Map<String, dynamic>> startContinue(Map<String, dynamic> body) =>
+      _profile.startContinue(body);
+
+  /// See [ChargenGreetings.startRewriteAll].
+  Map<String, dynamic> startRewriteAll(Map<String, dynamic> body) =>
+      _greetings.startRewriteAll(body);
+
+  /// See [ChargenGreetings.profileChanged].
+  bool profileChanged(String characterId) =>
+      _greetings.profileChanged(characterId);
+
+  /// See [ChargenGreetings.keepProfile].
+  Future<bool> keepProfile(String characterId) =>
+      _greetings.keepProfile(characterId);
+
+  /// See [ChargenRewrites.start]; [field] is `mesExample` or `lorebook`.
+  Map<String, dynamic> startRewrite(String field, Map<String, dynamic> b) =>
+      _rewrites.start(field, b);
+
+  /// See [ChargenRewrites.stop].
+  bool stopRewrite(String characterId) => _rewrites.stop(characterId);
+
+  /// What the review cards show for a saved character: its example
+  /// dialogue, its lorebook entries (hand-edited ones marked), the field
+  /// being rewritten and the sex the subtitle's pronoun reads.
+  Map<String, dynamic>? review(String characterId) {
+    final card = _characters.cardByDbId(characterId);
+    if (card == null) return null;
+    return {
+      'mesExample': card.mesExample,
+      'lorebook': lorebookRows(card.lorebook),
+      'writing': _rewrites.writing(characterId),
+      'sex': readNarrativeVoice(card).sex,
+    };
+  }
+
+  /// See [ChargenCreate.renderPortrait].
+  @visibleForTesting
+  Future<List<int>?> renderPortrait(String name, String? imagePrompt) =>
+      _create.renderPortrait(name, imagePrompt);
 
   /// Begin an AI Enhance run (grow an existing character from one of its
   /// chats) and return immediately. Progress rides the shared
@@ -299,164 +406,5 @@ class ChargenFacade {
       files: [file],
     );
     return {'lore': text, 'chars': text.length};
-  }
-
-  /// Coerce a JSON value to a `List<String>`, dropping blanks; falls back to
-  /// [fallback] when absent or empty. Used for greeting tones / lore categories.
-  List<String> _strList(dynamic v, List<String> fallback) {
-    if (v is List) {
-      final out = v
-          .map((e) => e.toString().trim())
-          .where((s) => s.isNotEmpty)
-          .toList();
-      return out.isEmpty ? fallback : out;
-    }
-    return fallback;
-  }
-
-  /// Render a portrait via the configured image backend, or null if there is no
-  /// backend / prompt / on failure (generation never blocks on the image step).
-  /// Mirrors the desktop buildPortraitPromptSeed: strip the character name from the
-  /// LLM-authored prompt so the image model doesn't render it as text.
-  @visibleForTesting
-  Future<List<int>?> renderPortrait(String name, String? imagePrompt) async {
-    final svc = _imageGen;
-    final prompt = imagePrompt?.trim() ?? '';
-    if (svc == null || !svc.isConfigured || prompt.isEmpty) return null;
-    var clean = prompt;
-    for (final part in name.split(RegExp(r'\s+'))) {
-      if (part.length > 2) {
-        clean = clean.replaceAll(
-          RegExp('\\b${RegExp.escape(part)}\\b', caseSensitive: false),
-          '',
-        );
-      }
-    }
-    clean = clean
-        .replaceAll(RegExp(r',\s*,'), ',')
-        .replaceAll(RegExp(r'\s{2,}'), ' ')
-        .trim();
-    if (clean.startsWith(',')) clean = clean.substring(1).trim();
-    if (clean.isEmpty) clean = prompt;
-    _hub?.broadcast({
-      'event': 'chargen_status',
-      'data': 'Generating portrait...',
-    });
-    try {
-      // Configured size, oriented portrait, configured default negative —
-      // mirrors the desktop creator (the old fixed 512x512 failed on remote
-      // models that reject small sizes and capped local quality).
-      // No desktop dialog can be answered from here; see ImageFacade.generate.
-      return await withoutCity96Ask(
-        () => svc.generateImage(prompt: clean, isPortrait: true),
-      );
-    } catch (_) {
-      _hub?.broadcast({
-        'event': 'chargen_status',
-        'data': 'Portrait generation skipped',
-      });
-      return null;
-    }
-  }
-
-  Future<void> _run(
-    String name,
-    Map<String, dynamic> fields,
-    LLMService svc,
-  ) async {
-    _creating = true;
-    try {
-      // Quick / Guided / Automated all flow through the same headless generator;
-      // the web wizard assembles concept + characterContext per-mode (mirroring
-      // the desktop creator_state_engine) and posts the full param set here. The
-      // only mode-specific server step is Automated injecting its assembled
-      // description verbatim (the desktop does the same — it doesn't trust the
-      // model's rewrite of a user-built description).
-      final mode = fields['mode']?.toString() ?? 'quick';
-      final concept = fields['concept']?.toString() ?? '';
-      final gen = CharacterGenService(svc);
-      final card = await gen.generateCharacter(
-        name: name,
-        concept: concept,
-        personalityKeywords: fields['personalityKeywords']?.toString() ?? '',
-        artStyle: fields['artStyle']?.toString() ?? '',
-        greetingLength:
-            fields['greetingLength']?.toString() ?? 'Medium (2-4 paragraphs)',
-        altGreetingCount: (fields['altGreetingCount'] as num?)?.toInt() ?? 2,
-        greetingTones: _strList(fields['greetingTones'], const ['Neutral']),
-        generateLorebook: fields['generateLorebook'] != false,
-        loreCategories: _strList(fields['loreCategories'], const []),
-        loreDepth: fields['loreDepth']?.toString() ?? 'Standard',
-        includeDynamicMacros: fields['includeDynamicMacros'] == true,
-        narrativePerspective:
-            fields['narrativePerspective']?.toString() ?? 'first',
-        narrativeTense: fields['narrativeTense']?.toString() ?? 'present',
-        age: fields['age']?.toString() ?? '',
-        sex: fields['sex']?.toString() ?? '',
-        relationship: fields['relationship']?.toString() ?? '',
-        descriptionDetail:
-            fields['descriptionDetail']?.toString() ?? '2-3 paragraphs',
-        backstory: fields['backstory']?.toString() ?? '',
-        scenario: fields['scenario']?.toString() ?? '',
-        characterContext: fields['characterContext']?.toString() ?? '',
-        generateDescription: mode != 'automated',
-        worldLore: (fields['worldLore']?.toString().trim().isNotEmpty ?? false)
-            ? fields['worldLore'].toString()
-            : null,
-        nsfwEnabled: fields['nsfwEnabled'] == true,
-        reasoningEnabled: fields['reasoningEnabled'] == true,
-        descriptionOverride: mode == 'automated' && concept.isNotEmpty
-            ? concept
-            : null,
-        onStatus: (s) =>
-            _hub?.broadcast({'event': 'chargen_status', 'data': s}),
-      );
-      if (card == null) {
-        _hub?.broadcast({
-          'event': 'chargen_error',
-          'error': 'generation produced no card',
-        });
-        return;
-      }
-      // A persona's birthday rides along, as the desktop's realismBirthday.
-      final birthday = fields['birthday']?.toString().trim() ?? '';
-      if (birthday.isNotEmpty) {
-        card.frontPorchExtensions =
-            (card.frontPorchExtensions ?? FrontPorchExtensions()).copyWith(
-              birthday: birthday,
-            );
-      }
-      // Auto-render a portrait when an image backend is configured (web-only
-      // convenience; desktop generation moved to the explicit Portrait &
-      // Avatars panel). The LLM authored the prompt during generation; strip the
-      // name (image models render names as text) and render a 512² portrait.
-      // A character made from a persona keeps the persona's picture.
-      final personaPortrait = _characters.portraitFromFields(fields);
-      final portrait = personaPortrait == null
-          ? await renderPortrait(name, gen.generatedImagePrompt)
-          : null;
-      final saved = await _characters.persistNewCard(
-        card,
-        portraitBytes: portrait,
-        portraitPath: personaPortrait,
-      );
-      if (saved == null) {
-        _hub?.broadcast({
-          'event': 'chargen_error',
-          'error': 'failed to save the generated character',
-        });
-        return;
-      }
-      _greetings.rememberRecipe(saved['id']?.toString(), gen.greetingRecipe);
-      _hub?.broadcast({
-        'event': 'chargen_done',
-        'id': saved['id'],
-        'name': saved['name'],
-      });
-    } catch (e) {
-      _hub?.broadcast({'event': 'chargen_error', 'error': '$e'});
-    } finally {
-      _creating = false;
-    }
   }
 }

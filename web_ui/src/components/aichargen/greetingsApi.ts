@@ -73,7 +73,9 @@ export const stopWriting = (id: string) =>
   api.post<{ stopped: boolean }>('/api/chargen/greeting/stop', { characterId: id });
 
 export const writingStatus = (id: string) =>
-  api.get<{ writing: number | null }>(`/api/chargen/greeting/status?characterId=${enc(id)}`);
+  api.get<{ writing: number | null; profileChanged?: boolean }>(
+    `/api/chargen/greeting/status?characterId=${enc(id)}`,
+  );
 
 /** A finished greeting into what the step holds. Only that slot changes, so
  *  text typed into the others meanwhile stays (and is saved right after). */

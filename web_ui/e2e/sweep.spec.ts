@@ -58,6 +58,9 @@ const ROUTES: ((i: { character: string; story: string }) => string)[] = [
   () => '/create-ai',
   // The AI creator's Greetings step (#370), opened on a saved character.
   (i) => `/create-ai?greetings=${i.character}`,
+  // The AI creator's Profile step, as a reload finds it (with nothing
+  // pending in the sweep's sandbox it opens the Mode step again).
+  () => '/create-ai?profile=pending',
   () => '/create-group',
   () => '/worlds',
   () => '/worlds/from-wiki',

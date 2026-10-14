@@ -244,9 +244,12 @@ function outputSettings(f: ChargenForm): Record<string, unknown> {
   };
 }
 
-/** Build the POST /api/chargen/create body for the active mode. */
+/** Build the POST /api/chargen/create body for the active mode. The run
+ *  pauses after the profile, so the Profile step can show it before the
+ *  rest is written. */
 export function buildPayload(f: ChargenForm): Record<string, unknown> {
   const base = {
+    pauseAtProfile: true,
     name: f.name.trim(),
     mode: f.mode,
     nsfwEnabled: f.nsfw,

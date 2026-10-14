@@ -85,9 +85,9 @@
 .cg-scope .step-indicator.porch .step-dot {
   width: 52px; gap: 3px; padding: 0; border: 0; background: transparent; color: var(--studio-muted);
 }
-/* Generate and Greetings: the 4th and 5th of the web's steps. */
+/* Generate and Greetings: the 4th and 6th of the web's steps. */
 .cg-scope .step-indicator.porch .step-seg:nth-child(4) .step-dot,
-.cg-scope .step-indicator.porch .step-seg:nth-child(5) .step-dot { width: 60px; }
+.cg-scope .step-indicator.porch .step-seg:nth-child(6) .step-dot { width: 60px; }
 .cg-scope .step-indicator.porch .step-dot:disabled { opacity: 1; }
 .cg-scope .step-indicator.porch .step-num {
   width: 24px; height: 24px; border-radius: 12px; border: 0; box-sizing: border-box;
@@ -298,7 +298,9 @@
 
 [data-layout="phone"] .cg-scope .cg-field input:not([type='checkbox']):not([type='range']),
 [data-layout="phone"] .cg-scope .cg-field select,
-[data-layout="phone"] .cg-scope .cg-lore-url input { height: 44px; }
+[data-layout="phone"] .cg-scope .cg-lore-url input { height: 44px; font-size: 16px; }
+/* iOS Safari zooms on a focused field under 16px: phone fields are 16px. */
+[data-layout="phone"] .cg-scope .cg-field textarea { font-size: 16px; }
 [data-layout="phone"] .cg-scope button.cg-chip { height: 36px; }
 [data-layout="phone"] .cg-scope .cg-grid2,
 [data-layout="phone"] .cg-scope .cg-review { grid-template-columns: 1fr; }

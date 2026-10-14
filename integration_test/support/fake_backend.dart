@@ -28,6 +28,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'fake_backend_chargen.dart';
 import 'fake_backend_studio.dart';
 
 class FakeBackendServer {
@@ -87,6 +88,9 @@ class FakeBackendServer {
   /// Story pipeline stages served, in order (architect / acts / scenes /
   /// beats / prose) — the story suite asserts the exact sequence.
   final List<String> storyStagesServed = [];
+
+  /// AI Character Creator stages served, in order (fake_backend_chargen).
+  final List<String> chargenStagesServed = [];
 
   /// Tool-transport probes refused (forces the text eval fallback).
   int toolProbeRequests = 0;
@@ -288,6 +292,18 @@ class FakeBackendServer {
     if (studio != null) {
       storyStagesServed.add(studio.stage);
       await _streamSse(req, studio.pieces);
+      return;
+    }
+    // ── AI Character Creator stages (fake_backend_chargen.dart) ────────
+    // Greetings are not among them: they take the chat reply below.
+    final chargen = chargenReply(lastContent);
+    if (chargen != null) {
+      chargenStagesServed.add(chargen.stage);
+      await _streamSse(
+        req,
+        chargen.pieces,
+        delay: const Duration(milliseconds: 150),
+      );
       return;
     }
     // ── Story pipeline stages ──────────────────────────────────────────

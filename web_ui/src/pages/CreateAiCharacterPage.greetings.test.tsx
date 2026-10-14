@@ -91,3 +91,48 @@ it('a saved character opens on its greetings, never on "Generate a character fir
   expect(container.querySelector('[data-testid="greetings-step"]')).not.toBeNull();
   expect(container.textContent).toContain('Open in editor');
 });
+
+it('a paused create opens on its profile; Next writes the rest, then the greetings', async () => {
+  const added: Node[] = [];
+  const watch = new MutationObserver((records) => {
+    for (const r of records) added.push(...Array.from(r.addedNodes));
+  });
+  watch.observe(container, { subtree: true, childList: true, characterData: true });
+  const said = (text: string) => added.some((n) => (n.textContent ?? '').includes(text));
+
+  await act(async () => {
+    for (const l of listeners) {
+      l({
+        event: 'chargen_profile',
+        name: 'Aria Vale',
+        description: '{{char}} keeps the light.',
+        personality: 'Dry and patient.',
+        scenario: 'A storm.',
+        facts: { occupation: 'lighthouse keeper' },
+      });
+    }
+  });
+  expect(container.querySelector('[data-testid="profile-step"]')).not.toBeNull();
+  expect(said('its profile opens here'), 'no render showed the step without its profile').toBe(false);
+
+  const next = Array.from(container.querySelectorAll('button')).find((b) =>
+    (b.textContent ?? '').includes('Next: Greetings'),
+  )!;
+  await act(async () => {
+    next.click();
+  });
+  // The Generate screen again while the rest is written.
+  expect(container.textContent).toContain('Generating…');
+  expect(container.querySelector('[data-testid="profile-step"]')).toBeNull();
+
+  await act(async () => {
+    for (const l of listeners) l({ event: 'chargen_done', id: 7, name: 'Aria Vale' });
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
+  });
+  for (const r of watch.takeRecords()) added.push(...Array.from(r.addedNodes));
+  watch.disconnect();
+  expect(said('Generate a character first'), 'no render showed a step without its character').toBe(false);
+  expect(container.querySelector('[data-testid="greetings-step"]')).not.toBeNull();
+});

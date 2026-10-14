@@ -23,12 +23,17 @@ import { OutputSettings } from '../components/aichargen/OutputSettings';
 import { LoreContext } from '../components/aichargen/LoreContext';
 import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
 import { ModeCards } from '../components/aichargen/ModeCards';
+import { ProfileStep, type ProfileStepHandle } from '../components/aichargen/ProfileStep';
+import { continueProfile, loadPending, viewOf, type ProfileView } from '../components/aichargen/profileApi';
 import { ArrowLeft, ArrowRight, Sparkle } from '../components/aichargen/creatorIcons';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import '../styles/studio.css';
 import '../styles/creator.css';
+import '../styles/profile.css';
 
-const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Greetings'];
+const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Profile', 'Greetings'];
+const GENERATE = STEPS.indexOf('Generate');
+const PROFILE = STEPS.indexOf('Profile');
 const GREETINGS = STEPS.indexOf('Greetings');
 
 export function CreateAiCharacterPage() {
@@ -46,9 +51,17 @@ export function CreateAiCharacterPage() {
   }, [urlId]);
   const [form, setForm] = useState<ChargenForm>(DEFAULT_FORM);
   const set = (p: Partial<ChargenForm>) => setForm((f) => ({ ...f, ...p }));
-  const [step, setStep] = useState(() => (createdId ? GREETINGS : 0));
+  // A create pauses after the profile; the run waits on the relay (which
+  // keeps it in a file), so ?profile=pending finds it again after a reload.
+  // Held in state and set with the step on chargen_profile, as the id is.
+  // Read once, at mount: the URL this page sets itself later is not a
+  // reload to restore from.
+  const [restoring] = useState(() => !createdId && params.get('profile') === 'pending');
+  const [pending, setPending] = useState<ProfileView | null>(null);
+  const [step, setStep] = useState(() => (createdId ? GREETINGS : restoring ? PROFILE : 0));
   const [writing, setWriting] = useState(false);
   const greetings = useRef<GreetingsStepHandle>(null);
+  const profile = useRef<ProfileStepHandle>(null);
   const [available, setAvailable] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [steps, setSteps] = useState<string[]>([]);
@@ -74,7 +87,7 @@ export function CreateAiCharacterPage() {
   // Greetings step saves as it goes. A persona's seed is the start, not an
   // edit.
   const { prompt, leaveWithoutAsking } = useUnsavedChanges(
-    !createdId && JSON.stringify(form) !== JSON.stringify(withSeed(DEFAULT_FORM)),
+    !createdId && !pending && JSON.stringify(form) !== JSON.stringify(withSeed(DEFAULT_FORM)),
   );
 
   useEffect(() => {
@@ -83,10 +96,44 @@ export function CreateAiCharacterPage() {
       .catch(() => setAvailable(false));
   }, []);
 
+  // A reload on the Profile step: the waiting run, or the create still
+  // writing it, or nothing (then the wizard starts over).
+  useEffect(() => {
+    if (!restoring) return;
+    let alive = true;
+    loadPending()
+      .then(({ pending: p, creating }) => {
+        if (!alive) return;
+        if (p) {
+          setPending(p);
+          setStep(PROFILE);
+        } else if (creating) {
+          setBusy(true);
+          setStep(GENERATE);
+        } else {
+          setStep(0);
+          navigate('/create-ai', { replace: true });
+        }
+      })
+      .catch(() => alive && setError('The profile could not be loaded. Check the connection, then reload.'));
+    return () => {
+      alive = false;
+    };
+  }, [restoring, navigate]);
+
   useEffect(() => {
     const socket = new ChatSocket((e) => {
       if (e.event === 'chargen_status' && e.data) {
         setSteps((s) => [...s, e.data!]);
+      } else if (e.event === 'chargen_profile') {
+        const view = viewOf(e);
+        if (!view) return;
+        setBusy(false);
+        setCreatedId(null);
+        setPending(view);
+        setStep(PROFILE);
+        leaveWithoutAsking();
+        navigate('/create-ai?profile=pending', { replace: true });
       } else if (e.event === 'chargen_done') {
         const id = String(e.id);
         setBusy(false);
@@ -123,7 +170,37 @@ export function CreateAiCharacterPage() {
   };
 
   const canAdvance =
-    (step !== 0 || form.name.trim().length > 0) && (step !== GREETINGS - 1 || !!createdId);
+    (step !== 0 || form.name.trim().length > 0) &&
+    (step !== GENERATE || !!createdId || !!pending) &&
+    (step !== PROFILE || !!createdId || !!pending);
+
+  // Next on Profile: a pending run writes the rest (the Generate screen
+  // again, then chargen_done lands on Greetings); a saved character saves
+  // its profile and goes on.
+  const nextFromProfile = async () => {
+    const cur = profile.current?.current();
+    if (!cur) return;
+    setError('');
+    if (createdId) {
+      try {
+        await continueProfile(cur.texts, cur.facts, createdId);
+        setStep(GREETINGS);
+      } catch (e) {
+        setError(e instanceof ApiError ? e.message : 'The profile could not be saved. Try again.');
+      }
+      return;
+    }
+    setBusy(true);
+    setSteps([]);
+    setStep(GENERATE);
+    try {
+      await continueProfile(cur.texts, cur.facts);
+    } catch (e) {
+      setBusy(false);
+      setStep(PROFILE);
+      setError(e instanceof ApiError ? e.message : 'The rest could not be started. Try again.');
+    }
+  };
   const held = busy || writing;
 
   const openEditor = async () => {
@@ -208,8 +285,27 @@ export function CreateAiCharacterPage() {
               </div>
             )}
 
+            {step === PROFILE && (createdId || pending) && (
+              <ProfileStep
+                key={createdId ?? 'pending'}
+                ref={profile}
+                initial={pending}
+                characterId={createdId ?? undefined}
+                onWritingChange={setWriting}
+              />
+            )}
+            {step === PROFILE && error && <p className="error">{error}</p>}
+            {step === PROFILE && !createdId && !pending && (
+              <p className="muted">{restoring ? 'Loading the profile…' : 'Generate a character first; its profile opens here.'}</p>
+            )}
+
             {step === GREETINGS && createdId && (
-              <GreetingsStep ref={greetings} characterId={createdId} onWritingChange={setWriting} />
+              <GreetingsStep
+                ref={greetings}
+                characterId={createdId}
+                onWritingChange={setWriting}
+                onOpenEditor={() => void openEditor()}
+              />
             )}
             {step === GREETINGS && !createdId && (
               <p className="muted">Generate a character first; its greetings open here.</p>
@@ -236,7 +332,12 @@ export function CreateAiCharacterPage() {
             <ArrowRight />
           </button>
         ) : (
-          <button type="button" className="cg-next" disabled={!canAdvance || held} onClick={() => setStep(step + 1)}>
+          <button
+            type="button"
+            className="cg-next"
+            disabled={!canAdvance || held}
+            onClick={() => (step === PROFILE ? void nextFromProfile() : setStep(step + 1))}
+          >
             Next: {STEPS[step + 1]}
             <ArrowRight />
           </button>

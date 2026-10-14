@@ -92,3 +92,11 @@ describe('buildPayload — shared output settings', () => {
     expect(p.loreCategories).toEqual([]);
   });
 });
+
+describe('buildPayload — the Profile step', () => {
+  it('asks every mode to pause after the profile', () => {
+    for (const mode of ['quick', 'guided', 'automated'] as const) {
+      expect(buildPayload(form({ mode, name: 'X' })).pauseAtProfile).toBe(true);
+    }
+  });
+});

@@ -341,6 +341,72 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
   }
 });
 
+// The creator's Profile step, through a real create: the stand-in backend
+// answers each creator stage (integration_test/support/fake_backend_chargen),
+// so Generate stops at the profile with nothing saved; a steered rewrite
+// streams in and lands; Re-read puts back the facts the profile implies; a
+// reload finds the pause again; Next writes the rest and lands on the
+// Greetings step with no "profile changed" hint and the two review cards.
+// The character is deleted whatever happens.
+test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then Next', async ({ page }) => {
+  const name = `Profile Journey ${test.info().project.name}`;
+  let id = '';
+  try {
+    await openRoute(page, '/create-ai');
+    await page.locator('.cg-field', { hasText: 'Name' }).locator('input').fill(name);
+    await page.getByRole('button', { name: /Quick Create/ }).click();
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await page.getByLabel('Concept').fill('A lighthouse keeper on a wet rock.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+    await page.getByRole('button', { name: /^Next: Generate/ }).click();
+    await page.getByRole('button', { name: /Generate character/ }).click();
+
+    const step = page.getByTestId('profile-step');
+    await expect(step).toBeVisible({ timeout: 120_000 });
+    await expect(page).toHaveURL(/profile=pending/);
+    const description = page.getByLabel('Description text');
+    await expect(description).toHaveValue(/tall and windburnt/);
+    const facts = page.getByTestId('facts-card');
+    const occupation = facts.locator('.cg-field', { hasText: 'OCCUPATION' }).locator('input');
+    await expect(occupation).toHaveValue('lighthouse keeper');
+    const library = (await (await page.request.get('/api/characters')).json()) as { name: string }[];
+    expect(library.some((c) => c.name === name), 'nothing is saved before Next').toBe(false);
+
+    // A steered rewrite streams into the boxes and lands.
+    await page.locator('#cg-profile-steer').fill('Does not follow the Tsundere personality type');
+    await page.getByRole('button', { name: 'Rewrite the profile' }).click();
+    await expect(page.getByTestId('profile-card-description')).toContainText('Writing…', { timeout: 30_000 });
+    await expect(facts).toContainText('Re-read after the rewrite');
+    await expect(description).toHaveValue(/rewritten the way the author asked/, { timeout: 60_000 });
+
+    // Re-read puts back what the profile implies.
+    await occupation.fill('baker');
+    await facts.getByRole('button', { name: 'Re-read from the profile' }).click();
+    await expect(occupation).toHaveValue('lighthouse keeper', { timeout: 60_000 });
+
+    // A reload finds the pause again, with the rewritten profile.
+    await page.reload();
+    await expect(step).toBeVisible({ timeout: 20_000 });
+    await expect(description).toHaveValue(/rewritten the way the author asked/);
+
+    // Next writes the rest and lands on Greetings.
+    await page.getByRole('button', { name: /^Next: Greetings/ }).click();
+    await expect(page.getByTestId('greetings-step')).toBeVisible({ timeout: 120_000 });
+    id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
+    expect(id, 'the saved character is in the URL').not.toBe('');
+    await expect(page.getByTestId('creator-hint')).toHaveCount(0);
+    await expect(page.getByTestId('review-example-dialogue')).toContainText('Mind the third step');
+    await expect(page.getByTestId('review-lorebook')).toContainText('2 entries');
+    const after = (await (await page.request.get('/api/chargen/profile')).json()) as { pending: unknown };
+    expect(after.pending, 'the pause is gone once the card is saved').toBeNull();
+  } finally {
+    if (id) {
+      const gone = await page.request.post(`/api/characters/${id}/delete`);
+      expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
 // Library card → Manage Chats → Start new chat → persona → a fresh chat,
 // on a character made for this test (so Porch Tester's chats stay as the
 // conversation journeys left them). Start new chat is offered even though
