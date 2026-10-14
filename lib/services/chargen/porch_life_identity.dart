@@ -8,7 +8,8 @@
 import 'dart:convert';
 
 import 'package:front_porch_ai/models/models.dart' show FrontPorchExtensions;
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets, kMaxWorn;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Pockets, StoryClock, kMaxWorn;
 
 /// Chip lists the AI creator can seed onto a new card.
 class PorchLifeIdentity {
@@ -20,6 +21,10 @@ class PorchLifeIdentity {
     this.carrying = const [],
     this.intimateInto = const [],
     this.intimateNotInto = const [],
+    this.characterEmotion = '',
+    this.emotionIntensity = '',
+    this.timeOfDay = '',
+    this.storyStartTime = '',
   });
 
   final List<String> ambitions;
@@ -30,6 +35,14 @@ class PorchLifeIdentity {
   final List<String> intimateInto;
   final List<String> intimateNotInto;
 
+  /// The greeting-time read (`identityDone`): the mood as the greeting opens
+  /// (mild / moderate / strong), the story period it opens in (one of
+  /// [StoryClock.periods]) and its `HH:MM` clock. '' when not read.
+  final String characterEmotion;
+  final String emotionIntensity;
+  final String timeOfDay;
+  final String storyStartTime;
+
   bool get isEmpty =>
       ambitions.isEmpty &&
       likes.isEmpty &&
@@ -37,7 +50,11 @@ class PorchLifeIdentity {
       worn.isEmpty &&
       carrying.isEmpty &&
       intimateInto.isEmpty &&
-      intimateNotInto.isEmpty;
+      intimateNotInto.isEmpty &&
+      characterEmotion.isEmpty &&
+      emotionIntensity.isEmpty &&
+      timeOfDay.isEmpty &&
+      storyStartTime.isEmpty;
 }
 
 const kPorchLifeToolName = 'set_porch_life';
@@ -54,12 +71,18 @@ const _kChipKeys = [
 
 /// OpenAI-style tool the extract pass asks for. Intimate fields are omitted
 /// unless [nsfw] — the schema must not invite 18+ lists on an SFW run.
-List<Map<String, dynamic>> porchLifeToolSchema({required bool nsfw}) {
+/// [identityDone]: the identity facts pass already wrote the lists, so ask
+/// only what the greeting decides (outfit, pockets, mood, time).
+List<Map<String, dynamic>> porchLifeToolSchema({
+  required bool nsfw,
+  bool identityDone = false,
+}) {
   Map<String, dynamic> chips(String description) => {
     'type': 'array',
     'items': {'type': 'string'},
     'description': description,
   };
+  if (identityDone) return _openingSceneToolSchema(chips);
   final properties = <String, dynamic>{
     'ambitions': chips(
       '2-4 long-term goals across the whole story, not today\'s errand.',
@@ -99,25 +122,135 @@ List<Map<String, dynamic>> porchLifeToolSchema({required bool nsfw}) {
   ];
 }
 
+List<Map<String, dynamic>> _openingSceneToolSchema(
+  Map<String, dynamic> Function(String) chips,
+) => [
+  {
+    'type': 'function',
+    'function': {
+      'name': kPorchLifeToolName,
+      'description':
+          'Read the opening scene: what this character is wearing and '
+          'carrying, how they feel, and when the greeting takes place.',
+      'parameters': {
+        'type': 'object',
+        'properties': {
+          'worn': chips(
+            'What they are wearing in the opening scene. "item (condition)" '
+            'is fine.',
+          ),
+          'carrying': chips(
+            'What is in their pockets or hands as the greeting opens.',
+          ),
+          'character_emotion': {
+            'type': 'string',
+            'description': 'One word for how they feel as the greeting opens.',
+          },
+          'emotion_intensity': {'type': 'string', 'enum': kEmotionIntensities},
+          'time_of_day': {
+            'type': 'string',
+            'enum': StoryClock.periods,
+            'description': 'The part of the day the greeting takes place in.',
+          },
+          'story_start_time': {
+            'type': 'string',
+            'description': 'The clock as the greeting opens, 24-hour "HH:MM".',
+          },
+        },
+        'required': ['worn', 'carrying'],
+      },
+    },
+  },
+];
+
+/// How strongly the opening mood is felt, as the card stores it.
+const kEmotionIntensities = ['mild', 'moderate', 'strong'];
+
 /// Pull chip lists out of a decoded object or a raw JSON/prose blob.
 /// Intimate lists are dropped when [nsfw] is false even if the model sent them.
 PorchLifeIdentity parsePorchLifeIdentity(Object? raw, {required bool nsfw}) {
-  final map = _asStringKeyedMap(raw) ?? _decodeLoose(raw);
+  final map = porchLifeJsonMap(raw);
   if (map == null) return const PorchLifeIdentity();
   return PorchLifeIdentity(
-    ambitions: _chips(map['ambitions']),
-    likes: _chips(map['likes']),
-    dislikes: _chips(map['dislikes']),
-    worn: _chips(map['worn'], cap: kMaxWorn),
-    carrying: _chips(map['carrying'], cap: kMaxWorn),
+    ambitions: porchLifeChips(map['ambitions']),
+    likes: porchLifeChips(map['likes']),
+    dislikes: porchLifeChips(map['dislikes']),
+    worn: porchLifeChips(map['worn'], cap: kMaxWorn),
+    carrying: porchLifeChips(map['carrying'], cap: kMaxWorn),
     intimateInto: nsfw
-        ? _chips(map['intimate_into'] ?? map['intimateInto'])
+        ? porchLifeChips(map['intimate_into'] ?? map['intimateInto'])
         : const [],
     intimateNotInto: nsfw
-        ? _chips(map['intimate_not_into'] ?? map['intimateNotInto'])
+        ? porchLifeChips(map['intimate_not_into'] ?? map['intimateNotInto'])
         : const [],
+    characterEmotion: _emotion(map['character_emotion']),
+    emotionIntensity: _oneOf(map['emotion_intensity'], kEmotionIntensities),
+    timeOfDay: _oneOf(map['time_of_day'], StoryClock.periods),
+    storyStartTime: _clock(map['story_start_time']),
   );
 }
+
+String _emotion(Object? raw) {
+  if (raw is! String) return '';
+  final s = raw.trim().toLowerCase();
+  if (s.isEmpty || s.length > 30 || s.contains('{{')) return '';
+  return s;
+}
+
+String _oneOf(Object? raw, List<String> allowed) {
+  if (raw is! String) return '';
+  final s = raw.trim().toLowerCase().replaceAll(RegExp(r'[\s-]+'), '_');
+  return allowed.contains(s) ? s : '';
+}
+
+/// `H:MM` / `HH:MM` on a 24-hour clock, written `HH:MM`; '' otherwise.
+String _clock(Object? raw) {
+  if (raw is! String) return '';
+  final m = RegExp(r'^(\d{1,2}):(\d{2})$').firstMatch(raw.trim());
+  if (m == null) return '';
+  final h = int.parse(m.group(1)!);
+  final min = int.parse(m.group(2)!);
+  if (h > 23 || min > 59) return '';
+  return '${h.toString().padLeft(2, '0')}:${m.group(2)}';
+}
+
+/// The string-keyed map inside [raw]: a decoded map as is, or the JSON
+/// object salvaged from a model's text (preamble, unescaped quotes). When
+/// the text will not decode, [chipKeys] arrays and [scalarKeys] strings or
+/// numbers are pulled out one by one.
+Map<String, dynamic>? porchLifeJsonMap(
+  Object? raw, {
+  List<String> chipKeys = _kChipKeys,
+  List<String> scalarKeys = _kSceneKeys,
+}) {
+  final map = _asStringKeyedMap(raw);
+  if (map != null) return map;
+  if (raw is! String) return null;
+  final cleaned = raw.trim();
+  final start = cleaned.indexOf('{');
+  final end = cleaned.lastIndexOf('}');
+  if (start >= 0 && end > start) {
+    try {
+      final decoded = _asStringKeyedMap(
+        json.decode(cleaned.substring(start, end + 1)),
+      );
+      if (decoded != null) return decoded;
+    } on FormatException {
+      // Unescaped quotes and the like: salvage key by key below.
+    }
+  }
+  return {
+    ..._regexLists(cleaned, chipKeys),
+    ..._regexScalars(cleaned, scalarKeys),
+  };
+}
+
+const _kSceneKeys = [
+  'character_emotion',
+  'emotion_intensity',
+  'time_of_day',
+  'story_start_time',
+];
 
 Map<String, dynamic>? _asStringKeyedMap(Object? raw) {
   if (raw is Map<String, dynamic>) return raw;
@@ -127,24 +260,29 @@ Map<String, dynamic>? _asStringKeyedMap(Object? raw) {
   return null;
 }
 
-Map<String, dynamic>? _decodeLoose(Object? raw) {
-  if (raw is! String) return null;
-  final cleaned = raw.trim();
-  final start = cleaned.indexOf('{');
-  final end = cleaned.lastIndexOf('}');
-  if (start < 0 || end <= start) return _regexLists(cleaned);
-  try {
-    final decoded = json.decode(cleaned.substring(start, end + 1));
-    return _asStringKeyedMap(decoded);
-  } catch (_) {
-    return _regexLists(cleaned);
+/// The same salvage for string and number values: a string runs to the
+/// quote that closes the field, so a stray quote inside it survives.
+Map<String, dynamic> _regexScalars(String raw, List<String> keys) {
+  final out = <String, dynamic>{};
+  for (final key in keys) {
+    final text = RegExp(
+      '"$key"\\s*:\\s*"(.*?)"\\s*(?=[,}\\n]|\$)',
+      dotAll: true,
+    ).firstMatch(raw);
+    if (text != null) {
+      out[key] = text.group(1)!.replaceAll(r'\"', '"');
+      continue;
+    }
+    final number = RegExp('"$key"\\s*:\\s*(-?\\d+)').firstMatch(raw);
+    if (number != null) out[key] = int.parse(number.group(1)!);
   }
+  return out;
 }
 
 /// When json.decode fails (unescaped quotes), pull each array by key.
-Map<String, dynamic> _regexLists(String raw) {
+Map<String, dynamic> _regexLists(String raw, List<String> keys) {
   final out = <String, dynamic>{};
-  for (final key in _kChipKeys) {
+  for (final key in keys) {
     final match = RegExp('"$key"\\s*:\\s*\\[').firstMatch(raw);
     if (match == null) continue;
     final open = raw.indexOf('[', match.start);
@@ -219,7 +357,10 @@ PorchLifeIdentity porchLifeIdentityOf(FrontPorchExtensions? ext) {
   );
 }
 
-List<String> _chips(Object? raw, {int cap = 8}) {
+/// A model's list as chips: trimmed, no `{{user}}` belongings, each cut to
+/// [maxLen], case-insensitive duplicates dropped, at most [cap]. Shared by
+/// the Porch Life seed and the identity facts pass.
+List<String> porchLifeChips(Object? raw, {int cap = 8, int maxLen = 80}) {
   if (raw is! List) return const [];
   final seen = <String>{};
   final out = <String>[];
@@ -227,7 +368,7 @@ List<String> _chips(Object? raw, {int cap = 8}) {
     var s = item.toString().trim();
     if (s.isEmpty) continue;
     if (s.contains('{{user}}')) continue;
-    if (s.length > 80) s = s.substring(0, 80).trim();
+    if (s.length > maxLen) s = s.substring(0, maxLen).trim();
     final key = s.toLowerCase();
     if (seen.contains(key)) continue;
     seen.add(key);

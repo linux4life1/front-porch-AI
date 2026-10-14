@@ -8,6 +8,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_gen/gen_llm_caller.dart';
 import 'package:front_porch_ai/services/character_gen/gen_parsing.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
+import 'package:front_porch_ai/services/character_gen/gen_prompts.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -129,6 +130,7 @@ Use {{char}} for character name and {{user}} for user name. Respond with ONLY th
     required String loreDepth,
     String interviewTranscript = '',
     String? worldLore,
+    String direction = '',
     void Function(String accumulated)? onProgress,
   }) async {
     String countRange;
@@ -165,7 +167,7 @@ Use {{char}} for character name and {{user}} for user name. Respond with ONLY th
     final interviewSection = interviewTranscript.isNotEmpty
         ? '\nWORLD VOICE — The character described their world in their own words. '
               'Let these details inform the texture and specificity of lorebook entries:\n'
-              '${interviewTranscript.length > 1200 ? interviewTranscript.substring(0, 1200) + "..." : interviewTranscript}\n'
+              '${capInterview(interviewTranscript)}\n'
         : '';
 
     final loreSection = (worldLore != null && worldLore.trim().isNotEmpty)
@@ -208,7 +210,7 @@ CATEGORY — tag EVERY entry with exactly one of:
 
 Each entry format: {"name": "short title", "category": "premise|faction|location|figure|history|item|custom", "key": "trigger,keywords", "secondary": "context,words", "content": "1-2 paragraphs of world lore"}
 
-Output ONLY the JSON:''';
+${authorDirection(direction, 'Write the lorebook')}Output ONLY the JSON:''';
 
     final output = await _llm.call(
       prompt,

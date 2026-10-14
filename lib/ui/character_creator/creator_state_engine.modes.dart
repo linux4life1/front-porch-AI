@@ -327,13 +327,13 @@ class CreatorModeAssemblers {
           reasoningEnabled: state.reasoningEnabled,
           imageGenPromptParadigm:
               storage.imageGenSettings.imageGenPromptParadigm,
+          // The automated flow injects the (possibly magic-wand authored)
+          // description verbatim rather than trusting the model's rewrite.
+          descriptionOverride: enriched,
           onProgress: _core.onProgress,
           onStatus: _core.onStatus,
           onError: _core.onError,
         );
-        // The automated flow injects the (possibly magic-wand authored)
-        // description verbatim rather than trusting the model's rewrite.
-        if (card != null) card.description = enriched;
         return card;
       },
     );

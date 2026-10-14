@@ -8,6 +8,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_gen/gen_llm_caller.dart';
 import 'package:front_porch_ai/services/character_gen/gen_parsing.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
+import 'package:front_porch_ai/services/character_gen/gen_prompts.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 
 // The interview is assembled in GenInterviewSteps.runInterview in a deliberate order:
@@ -177,13 +178,9 @@ Respond with ONLY the JSON:''';
 
     // Skip the relationship question for strangers/one-shots — inventing shared
     // history (what they want from {{user}}, unspoken tension) actively hurts a
-    // "you just met" card. Empty OR a stranger-like preset counts as no relationship.
-    final relLower = relationship.trim().toLowerCase();
-    final hasRelationship =
-        relLower.isNotEmpty &&
-        relLower != 'stranger' &&
-        relLower != 'strangers' &&
-        relLower != 'none';
+    // "you just met" card. Empty OR a stranger-like preset counts as no
+    // relationship (the facts pass opens such a card as strangers too).
+    final hasRelationship = hasRelationshipToUser(relationship);
 
     // Voice → motive → wound → (relationship) → social → pressure → joy →
     // (NSFW) → appearance. See the question constants for the rationale.
@@ -251,6 +248,7 @@ Respond with ONLY the JSON:''';
     bool preserveUserScenario = false,
     void Function(String)? onProgress,
     String chatGrounding = '',
+    String direction = '',
   }) async {
     // AI Enhance: real chat excerpts outrank invented detail — the rewrite
     // must sound like the character as PLAYED, not as originally sketched.
@@ -299,7 +297,7 @@ Rewrite these fields using the specific details, voice, and texture revealed in 
 
 Use {{char}} for the character name and {{user}} for the user throughout.
 
-Respond with ONLY the JSON:''';
+${authorDirection(direction, 'Rewrite the profile')}Respond with ONLY the JSON:''';
 
     final output = await _llm.call(
       prompt,
@@ -365,6 +363,7 @@ Respond with ONLY the JSON:''';
     required String interviewTranscript,
     void Function(String)? onProgress,
     String chatGrounding = '',
+    String direction = '',
   }) async {
     // AI Enhance: real chat lines are the strongest possible voice reference —
     // invite the model to adapt the best genuine exchanges instead of
@@ -412,7 +411,7 @@ RULES:
 - {{char}} responses should feel like they come from a real person with opinions, not a generic AI
 - Use {{char}} and {{user}} as placeholders — never real names$voiceRuleLine
 
-Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start directly with <START>:''';
+${authorDirection(direction, 'Write these exchanges')}Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start directly with <START>:''';
 
     final output = await _llm.call(
       prompt,

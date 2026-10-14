@@ -405,12 +405,12 @@ class ChargenFacade {
             : null,
         nsfwEnabled: fields['nsfwEnabled'] == true,
         reasoningEnabled: fields['reasoningEnabled'] == true,
+        descriptionOverride: mode == 'automated' && concept.isNotEmpty
+            ? concept
+            : null,
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
       );
-      if (card != null && mode == 'automated' && concept.isNotEmpty) {
-        card.description = concept;
-      }
       if (card == null) {
         _hub?.broadcast({
           'event': 'chargen_error',

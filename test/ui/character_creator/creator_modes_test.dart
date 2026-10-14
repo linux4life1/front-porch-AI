@@ -48,6 +48,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
+import 'package:front_porch_ai/services/character_gen/character_gen.dart';
+import 'package:front_porch_ai/services/character_gen_service.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show parseWorkHoursRange;
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -58,6 +63,7 @@ import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state_engine.dart';
 
 import '../../golden/support/creator_test_support.dart';
+import '../../services/chargen/support/marker_chargen_llm.dart';
 
 /// A scripted LLM that (a) records every prompt it was asked to generate from
 /// and (b) always answers with the same canned response, counting calls. The
@@ -415,5 +421,390 @@ Sure! Here's a name for your character:
         expect(state.isRandomizing, isFalse);
       },
     );
+  });
+
+  group('Interview transcript reaches every reader whole', () {
+    test('greeting, lorebook and Porch Life prompts carry the last answer '
+        'of a long interview', () async {
+      final llm = MarkerChargenLlm(
+        longAnswers: true,
+        lastAnswerMarker: 'MARKER-LAST',
+      );
+      final card = await CharacterGenService(llm).generateCharacter(
+        name: 'Mira Holt',
+        concept: 'A cartographer of drowned coasts.',
+        altGreetingCount: 0,
+        generateDescription: true,
+      );
+      // The fourth reader: the recipe stamp a later greeting rewrite reads.
+      expect(
+        readGreetingRecipe(card)?.interviewTranscript,
+        contains('MARKER-LAST'),
+      );
+
+      final interview = llm.prompts
+          .where((p) => p.contains('Question: '))
+          .toList();
+      expect(interview.length, greaterThan(4));
+      // The transcript the readers get is longer than the old head-slices
+      // (1,000 / 1,200 / 1,400 characters), and the marker is in its tail.
+      final rewrite = llm.promptWith('You have just completed an in-character');
+      final transcript = rewrite.substring(
+        rewrite.indexOf('INTERVIEW TRANSCRIPT:'),
+        rewrite.indexOf('CURRENT DESCRIPTION'),
+      );
+      expect(transcript.length, greaterThan(1400));
+      expect(transcript.indexOf('MARKER-LAST'), greaterThan(1400));
+
+      for (final marker in const [
+        'Write an opening roleplay message',
+        'Generate WORLD-BUILDING lorebook entries',
+        'Seed Porch Life identity',
+      ]) {
+        final prompt = llm.promptWith(marker);
+        expect(prompt, isNotEmpty, reason: '$marker must be sent');
+        expect(
+          prompt,
+          contains('MARKER-LAST'),
+          reason: '$marker must read the whole interview, not its head',
+        );
+      }
+    });
+  });
+
+  group('Profile pause', () {
+    const downstream = [
+      'Write an opening roleplay message',
+      'Write example dialogue exchanges',
+      'Generate WORLD-BUILDING lorebook entries',
+      'Seed Porch Life identity',
+    ];
+    const inputs = GenRunInputs(
+      name: 'Mira Holt',
+      concept: 'A cartographer of drowned coasts.',
+      altGreetingCount: 1,
+      generateDescription: true,
+    );
+
+    test('generateProfile writes the profile and nothing downstream; '
+        'completeCharacter then writes the rest', () async {
+      final llm = MarkerChargenLlm();
+      final paused = await CharacterGenService(
+        llm,
+      ).generateProfile(inputs: inputs);
+
+      expect(paused, isNotNull);
+      for (final marker in downstream) {
+        expect(llm.sent(marker), isFalse, reason: '$marker before Next');
+      }
+      expect(paused!.card.description, contains('cartographer'));
+      expect(paused.card.personality, isNotEmpty);
+      expect(paused.card.scenario, isNotEmpty);
+      expect(paused.interviewTranscript, contains('Q: '));
+
+      // Next runs on a fresh service, from the plain-data pause.
+      final card = await CharacterGenService(
+        llm,
+      ).completeCharacter(paused: paused);
+      expect(card, isNotNull);
+      for (final marker in downstream) {
+        expect(llm.sent(marker), isTrue, reason: '$marker after Next');
+      }
+      expect(card!.mesExample, contains('<START>'));
+      expect(card.alternateGreetings, hasLength(1));
+      expect(readGreetingRecipe(card), isNotNull);
+    });
+
+    test('a Stop during Phase B leaves the paused card as it was', () async {
+      final llm = MarkerChargenLlm();
+      final paused = await CharacterGenService(
+        llm,
+      ).generateProfile(inputs: inputs);
+      final before = paused!.card.toJson().toString();
+
+      final gen = CharacterGenService(llm);
+      llm.onPrompt = (p) {
+        if (p.contains('Write an opening roleplay message')) gen.abort();
+      };
+      final card = await gen.completeCharacter(paused: paused);
+
+      expect(card, isNull);
+      expect(llm.sent('Write example dialogue exchanges'), isTrue);
+      expect(paused.card.toJson().toString(), before);
+    });
+
+    test('the identity facts land on the paused card, survive a JSON round '
+        'trip, and the opening scene pass keeps them', () async {
+      final llm = MarkerChargenLlm(
+        toolAnswers: {
+          kIdentityFactsToolName: {
+            'birthday_month': 3,
+            'birthday_day': 14,
+            'occupation': 'harbour cartographer',
+            'occupation_brief': 'Charts the shoals for the pilots guild.',
+            'hours': '07:00-15:30',
+            'work_days': [1, 2, 3, 4],
+            'current_task': 'I need that chart finished before the tide.',
+            'relationship_warmth': 'warm',
+            'ambitions': ['map the drowned city'],
+            'plan_lines': ['Sell the coastal charts to buy a boat.'],
+            'likes': ['salt wind'],
+            'dislikes': ['fog'],
+            'creator_notes': 'Mira Holt maps a coast that keeps moving.',
+          },
+        },
+      );
+      final paused = await CharacterGenService(llm).generateProfile(
+        inputs: const GenRunInputs(
+          name: 'Mira Holt',
+          concept: 'A cartographer of drowned coasts.',
+          age: '29',
+          relationship: 'old friend',
+          altGreetingCount: 0,
+          generateLorebook: false,
+        ),
+      );
+      final ext = paused!.card.frontPorchExtensions!;
+      expect(ext.birthday, endsWith('-03-14'));
+      expect(ext.occupation, 'harbour cartographer');
+      expect(parseWorkHoursRange(ext.hours), (420, 930));
+      expect(ext.workDays, [1, 2, 3, 4]);
+      expect(ext.currentTask, contains('chart'));
+      expect((ext.shortTermBond, ext.trustLevel), (15, 15));
+      expect(ext.ambitions, ['map the drowned city']);
+      expect(ext.planLines, hasLength(1));
+      expect(paused.card.creatorNotes, startsWith('{{char}} maps'));
+      expect(paused.facts?.likes, ['salt wind']);
+
+      final back = GenPausedRun.fromJson(
+        jsonDecode(jsonEncode(paused.toJson())) as Map<String, dynamic>,
+      )!;
+      expect(back.card.toJson().toString(), paused.card.toJson().toString());
+      expect(back.inputs.toJson(), paused.inputs.toJson());
+      expect(back.interviewTranscript, paused.interviewTranscript);
+      expect(back.facts?.toJson(), paused.facts?.toJson());
+
+      final card = await CharacterGenService(
+        llm,
+      ).completeCharacter(paused: back);
+      expect(llm.sent('Seed Porch Life identity'), isTrue);
+      expect(card!.frontPorchExtensions!.ambitions, ['map the drowned city']);
+      expect(card.frontPorchExtensions!.likes, ['salt wind']);
+    });
+
+    test('the Automated description is on the paused card', () async {
+      final llm = MarkerChargenLlm();
+      final paused = await CharacterGenService(llm).generateProfile(
+        inputs: const GenRunInputs(
+          name: 'Sable Marrow',
+          concept: 'A wandering elf ranger.',
+          descriptionOverride:
+              'A wandering elf ranger.. Physical appearance: '
+              'Elf race/species',
+        ),
+      );
+      expect(
+        paused!.card.description,
+        'A wandering elf ranger.. Physical appearance: Elf race/species',
+      );
+    });
+  });
+
+  group('Profile and review rewrites', () {
+    const lore =
+        '{"lorebook": ['
+        '{"name": "The Drowned Coast", "category": "premise", "key": "coast,sea", '
+        '"content": "A coast the sea keeps taking back."}, '
+        '{"name": "Gull Tavern", "category": "location", "key": "tavern", '
+        '"content": "Where the pilots drink."}, '
+        '{"name": "Pilots Guild", "category": "faction", "key": "guild", '
+        '"content": "They own the shoal charts."}]}';
+    const facts = {
+      'birthday_month': 3,
+      'birthday_day': 14,
+      'relationship_warmth': 'warm',
+      'ambitions': ['map the drowned city'],
+      'likes': ['salt wind'],
+      'dislikes': ['fog'],
+      'current_task': 'Finish the chart.',
+      'creator_notes': 'A mapmaker on a moving coast.',
+    };
+    const typedScenario =
+        'Rain on the harbour. {{user}} brings {{char}} a stolen chart.';
+
+    MarkerChargenLlm llmFor() => MarkerChargenLlm(
+      toolAnswers: {kIdentityFactsToolName: facts},
+      textAnswers: {'Generate WORLD-BUILDING lorebook entries': lore},
+    );
+
+    Future<GenPausedRun> pause(MarkerChargenLlm llm) async =>
+        (await CharacterGenService(llm).generateProfile(
+          inputs: const GenRunInputs(
+            name: 'Mira Holt',
+            concept: 'A cartographer of drowned coasts.',
+            scenario: typedScenario,
+            altGreetingCount: 0,
+          ),
+        ))!;
+
+    test('the steer reruns only the rewrite, keeps a typed scenario, and '
+        're-reads the facts', () async {
+      final llm = llmFor();
+      final paused = await pause(llm);
+      final questions = llm.prompts.where((p) => p.contains('Question: '));
+      final asked = questions.length;
+      final factsReads = llm.toolChoices
+          .where((c) => c == kIdentityFactsToolName)
+          .length;
+
+      final rewrite = await CharacterGenService(llm).rewriteProfile(
+        paused: paused,
+        description: 'Short and plain.',
+        personality: 'Cheerful.',
+        scenario: typedScenario,
+        direction: 'Make her a Tsundere.',
+      );
+
+      expect(rewrite, isNotNull);
+      expect(
+        llm.prompts.where((p) => p.contains('Question: ')),
+        hasLength(asked),
+        reason: 'the interview is not asked again',
+      );
+      final prompt = llm.prompts.lastWhere(
+        (p) => p.contains('You have just completed an in-character'),
+      );
+      expect(prompt, contains(paused.interviewTranscript));
+      expect(
+        prompt,
+        contains('CURRENT PERSONALITY (inner traits):\nCheerful.'),
+      );
+      expect(
+        prompt,
+        contains(
+          '== DIRECTION FROM THE AUTHOR ==\nRewrite the profile the way the '
+          'author asked: Make her a Tsundere.',
+        ),
+      );
+      expect(rewrite!.description, contains('cartographer'));
+      expect(rewrite.scenario, typedScenario);
+      expect(
+        llm.toolChoices.where((c) => c == kIdentityFactsToolName),
+        hasLength(factsReads + 1),
+        reason: 'the facts are read again from the new profile',
+      );
+      expect(rewrite.facts?.ambitions, ['map the drowned city']);
+    });
+
+    test(
+      'an empty steer leaves each rewrite prompt as creation sent it',
+      () async {
+        final llm = llmFor();
+        final paused = await pause(llm);
+        String lastWith(String marker) =>
+            llm.prompts.lastWhere((p) => p.contains(marker));
+
+        Future<void> rewriteWith(String direction) =>
+            CharacterGenService(llm).rewriteProfile(
+              paused: paused,
+              description: 'Short and plain.',
+              personality: 'Cheerful.',
+              scenario: typedScenario,
+              direction: direction,
+            );
+        const marker = 'You have just completed an in-character';
+        await rewriteWith('');
+        final plain = lastWith(marker);
+        await rewriteWith('Colder.');
+        final steered = lastWith(marker);
+        expect(plain, isNot(contains('DIRECTION FROM THE AUTHOR')));
+        expect(plain, endsWith('throughout.\n\nRespond with ONLY the JSON:'));
+        expect(
+          steered.replaceFirst(
+            authorDirection('Colder.', 'Rewrite the profile'),
+            '',
+          ),
+          plain,
+        );
+
+        final card = (await CharacterGenService(
+          llm,
+        ).completeCharacter(paused: paused))!;
+        final gen = CharacterGenService(llm);
+        const dialogue = 'Write example dialogue exchanges';
+        final creationDialogue = lastWith(dialogue);
+        expect(creationDialogue, isNot(contains('DIRECTION FROM THE AUTHOR')));
+        await gen.regenerateExampleDialogue(
+          card: card,
+          recipe: readGreetingRecipe(card)!,
+          direction: 'More teasing.',
+        );
+        expect(
+          lastWith(dialogue).replaceFirst(
+            authorDirection('More teasing.', 'Write these exchanges'),
+            '',
+          ),
+          creationDialogue,
+        );
+      },
+    );
+
+    test('Rewrite the lorebook keeps an entry edited by hand', () async {
+      final llm = llmFor();
+      final paused = await pause(llm);
+      final card = (await CharacterGenService(
+        llm,
+      ).completeCharacter(paused: paused))!;
+      final entries = card.lorebook!.entries;
+      expect(entries, hasLength(3));
+      expect(entries.any(isHandEdited), isFalse);
+
+      entries[1].content = 'Where I drink, and nobody else.';
+      final merged = await CharacterGenService(llm).rewriteLorebook(
+        card: card,
+        recipe: readGreetingRecipe(card)!,
+        concept: paused.inputs.concept,
+        direction: 'More smugglers.',
+      );
+
+      expect(merged, isNotNull);
+      expect(merged!.entries, hasLength(3));
+      expect(merged.entries[1].content, 'Where I drink, and nobody else.');
+      expect(merged.entries.where(isHandEdited), hasLength(1));
+      expect(
+        llm.prompts.last,
+        contains(
+          'Write the lorebook the way the author asked: More smugglers.',
+        ),
+      );
+    });
+
+    test('the greetings carry the profile they were written from', () async {
+      final llm = llmFor();
+      final paused = await pause(llm);
+      final card = (await CharacterGenService(
+        llm,
+      ).completeCharacter(paused: paused))!;
+      final stamped = readGreetingRecipe(card)!.profileFingerprint;
+      expect(
+        stamped,
+        profileFingerprintOf(
+          paused.card.description,
+          paused.card.personality,
+          name: 'Mira Holt',
+        ),
+        reason: 'the same profile, name written out or as {{char}}',
+      );
+      expect(
+        stamped,
+        isNot(
+          profileFingerprintOf(
+            'Rewritten.',
+            card.personality,
+            name: 'Mira Holt',
+          ),
+        ),
+      );
+    });
   });
 }

@@ -105,20 +105,9 @@ class GenGreetingWriter {
     return identity;
   }
 
-  /// Start a one-call run the way the create pipeline starts a
-  /// whole one: the card's stamped voice, a fresh epoch for abort.
   int _beginSingleRun(
     CharacterCard card,
     GreetingRecipe recipe,
     bool abortInFlight,
-  ) {
-    final voice = readNarrativeVoice(card);
-    _state.narrativeVoice = voice.voice;
-    _state.narrativeSex = voice.sex;
-    return _state.beginRun(
-      abortInFlight: abortInFlight,
-      reasoningEnabled: recipe.reasoningEnabled,
-      includeDynamicMacros: recipe.includeDynamicMacros,
-    );
-  }
+  ) => _s.beginCardRun(card, recipe, abortInFlight: abortInFlight);
 }
