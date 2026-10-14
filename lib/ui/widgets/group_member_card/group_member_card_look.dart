@@ -114,13 +114,19 @@ class GroupMemberCardLook {
             style: const TextStyle(fontSize: 15),
           ),
           const SizedBox(width: 6),
-          Text(
-            moodLine ??
-                '${(emotion ?? 'neutral')[0].toUpperCase()}${(emotion ?? 'neutral').substring(1)}${intensity != null && intensity.isNotEmpty ? ' ($intensity)' : ''}',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w600,
-              color: emotionRingColor(emotion ?? 'neutral'),
+          Flexible(
+            child: Text(
+              moodLine ??
+                  '${(emotion ?? 'neutral')[0].toUpperCase()}${(emotion ?? 'neutral').substring(1)}${intensity != null && intensity.isNotEmpty ? ' ($intensity)' : ''}',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: emotionRingColor(emotion ?? 'neutral'),
+              ),
+              // With a cause the line is a sentence: wrap to two lines
+              // instead of overflowing the row.
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (isDirector) ...[

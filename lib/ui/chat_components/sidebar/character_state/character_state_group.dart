@@ -226,6 +226,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                         fontSize: 12,
                         color: AppColors.textSecondary(context),
                       ),
+                      // The cause makes this a sentence; give it a second
+                      // line before the ellipsis takes the hold word.
+                      maxLines: 2,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
