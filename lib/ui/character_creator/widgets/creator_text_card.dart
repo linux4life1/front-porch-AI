@@ -126,6 +126,7 @@ class CreatorTextCard extends StatelessWidget {
     this.status,
     this.statusAmber = false,
     this.boxKey,
+    this.locked = false,
   });
 
   final String title;
@@ -151,6 +152,11 @@ class CreatorTextCard extends StatelessWidget {
   final bool statusAmber;
   final Key? boxKey;
 
+  /// The box is read-only and dimmed like a waiting button (the Automated
+  /// description while a rewrite runs: it is kept verbatim, so typing then
+  /// would be thrown away).
+  final bool locked;
+
   @override
   Widget build(BuildContext context) {
     final writing = writingText != null;
@@ -164,10 +170,10 @@ class CreatorTextCard extends StatelessWidget {
         children: [
           ?trailing,
           Opacity(
-            opacity: writing ? 0.35 : 1,
+            opacity: writing || locked ? 0.35 : 1,
             child: IconButton(
               tooltip: 'Open $title in the full editor',
-              onPressed: writing
+              onPressed: writing || locked
                   ? null
                   : () => showExpandedEditorDialog(
                       context: context,
@@ -186,7 +192,11 @@ class CreatorTextCard extends StatelessWidget {
       children: [
         Semantics(
           label: '$title text',
-          child: writing ? _writingBox(context) : _box(context),
+          child: writing
+              ? _writingBox(context)
+              : locked
+              ? Opacity(opacity: 0.35, child: _box(context))
+              : _box(context),
         ),
         ...below,
       ],
@@ -207,6 +217,7 @@ class CreatorTextCard extends StatelessWidget {
       child: AppTextField(
         key: boxKey,
         controller: controller,
+        readOnly: locked,
         minLines: minLines,
         maxLines: maxLines,
         onChanged: onChanged,

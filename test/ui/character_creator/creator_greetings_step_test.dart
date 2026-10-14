@@ -799,6 +799,68 @@ void main() {
     llm.holdRewrite = true;
     await _tap(tester, find.byKey(const ValueKey('profile-rewrite-run')));
     expect(find.text('Kept as you built it'), findsOneWidget);
+    // Kept verbatim, so the box waits, read-only and dimmed, until the
+    // rewrite ends: typing now would be thrown away.
+    TextField descField() => tester.widget<TextField>(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-box-description')),
+        matching: find.byType(TextField),
+      ),
+    );
+    expect(descField().readOnly, isTrue);
+    expect(
+      tester
+          .widget<Opacity>(
+            find
+                .ancestor(
+                  of: find.byKey(const ValueKey('profile-box-description')),
+                  matching: find.byType(Opacity),
+                )
+                .first,
+          )
+          .opacity,
+      0.35,
+    );
     await _tap(tester, find.byKey(const ValueKey('profile-rewrite-stop')));
+    expect(descField().readOnly, isFalse, reason: 'editable again after Stop');
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-box-description')),
+      'Typed after the rewrite.',
+    );
+    expect(state.descController.text, 'Typed after the rewrite.');
+  });
+
+  testWidgets('Profile facts: typing the hours changes the hours and leaves '
+      'the work days alone', (tester) async {
+    final state = CreatorState();
+    addTearDown(state.dispose);
+    state.generatedCard = CharacterCard(name: _name);
+    state
+      ..realismHours = '9am–5pm'
+      ..realismWorkDays = const [1, 2];
+    await tester.binding.setSurfaceSize(const Size(1000, 1400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: ListenableBuilder(
+              listenable: state,
+              builder: (_, _) =>
+                  ProfileFactsCard(state: state, onReread: () {}),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('· Mon, Tue'), findsOneWidget, reason: 'days outside');
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-hours')),
+      '6pm–6am',
+    );
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(state.realismHours, '6pm–6am');
+    expect(state.realismWorkDays, [1, 2]);
   });
 }

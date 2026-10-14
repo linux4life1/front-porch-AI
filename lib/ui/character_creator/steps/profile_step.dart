@@ -75,6 +75,7 @@ class ProfileStep extends StatelessWidget {
                     ? 'Kept as you built it'
                     : 'Writing…',
                 statusAmber: !kept,
+                locked: rewriting && kept,
               ),
               CreatorTextCard(
                 title: 'Personality',

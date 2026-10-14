@@ -19,11 +19,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_text_card.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/profile_chip_list.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/profile_fact_fields.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
-import 'package:front_porch_ai/ui/widgets/synced_text_field.dart';
 
 const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -100,7 +99,7 @@ class ProfileFactsCard extends StatelessWidget {
               state.realismOccupation,
               (v) => _set(() => state.realismOccupation = v),
             ),
-            _readOnly(context, 'HOURS · WORK DAYS', _hours()),
+            _hoursField(context),
           ]),
           _row([
             _field(
@@ -152,14 +151,43 @@ class ProfileFactsCard extends StatelessWidget {
     );
   }
 
-  String _hours() {
+  String _days() {
     final days = state.realismWorkDays;
-    final dayText = days == null || days.isEmpty
+    return days == null || days.isEmpty
         ? 'Mon–Fri'
         : days.map((d) => _weekdays[(d - 1).clamp(0, 6)]).join(', ');
-    final hours = state.realismHours;
-    return hours.isEmpty ? 'No set hours' : '$hours · $dayText';
   }
+
+  /// The hours are edited here, as on the phone; the work days are the
+  /// Realism step's, a muted suffix outside the field (a long suffix never
+  /// goes inside a narrow field).
+  Widget _hoursField(BuildContext context) => _labelled(
+    'HOURS · WORK DAYS',
+    Row(
+      spacing: 8,
+      children: [
+        Expanded(
+          child: factField(
+            context,
+            key: const ValueKey('profile-hours'),
+            value: state.realismHours,
+            onChanged: (v) => _set(() => state.realismHours = v),
+            hint: 'No set hours',
+          ),
+        ),
+        Flexible(
+          child: Text(
+            '· ${_days()}',
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(
+              fontSize: 13,
+              color: StudioColors.mutedOf(context),
+            ),
+          ),
+        ),
+      ],
+    ),
+  );
 
   Widget _row(List<Widget> cells) => Row(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -167,52 +195,17 @@ class ProfileFactsCard extends StatelessWidget {
     children: [for (final c in cells) Expanded(child: c)],
   );
 
-  Widget _labelled(String label, Widget child) => Column(
-    crossAxisAlignment: CrossAxisAlignment.start,
-    spacing: 6,
-    children: [CreatorInputLabel(label), child],
-  );
+  Widget _labelled(String label, Widget child) => factLabelled(label, child);
 
   Widget _field(
     BuildContext context,
     String label,
     String value,
     ValueChanged<String> onChanged,
-  ) => _labelled(
-    label,
-    SyncedTextField(
-      value: value,
-      onChanged: onChanged,
-      style: TextStyle(fontSize: 14, color: StudioColors.inkOf(context)),
-      decoration: const InputDecoration(
-        isDense: true,
-        contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 11),
-      ),
-    ),
-  );
+  ) => _labelled(label, factField(context, value: value, onChanged: onChanged));
 
   Widget _readOnly(BuildContext context, String label, String value) =>
-      _labelled(
-        label,
-        Container(
-          height: 40,
-          alignment: Alignment.centerLeft,
-          padding: const EdgeInsets.symmetric(horizontal: 12),
-          decoration: BoxDecoration(
-            color: StudioColors.bgOf(context),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: StudioColors.lineOf(context)),
-          ),
-          child: Text(
-            value,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 14,
-              color: StudioColors.proseOf(context),
-            ),
-          ),
-        ),
-      );
+      _labelled(label, factReadOnly(context, value));
 
   Widget _chips(
     BuildContext context,

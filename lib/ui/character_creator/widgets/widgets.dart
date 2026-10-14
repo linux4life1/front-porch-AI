@@ -28,6 +28,7 @@ export 'mode_card.dart';
 export 'narrative_voice_selector.dart';
 export 'outfit_hint.dart';
 export 'profile_chip_list.dart';
+export 'profile_fact_fields.dart';
 export 'profile_facts_card.dart';
 export 'profile_hint.dart';
 export 'reasoning_toggle.dart';
