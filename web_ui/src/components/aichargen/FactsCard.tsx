@@ -138,6 +138,11 @@ function Chips({
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
   const commit = () => {
+    if (disabled) {
+      setDraft('');
+      setAdding(false);
+      return;
+    }
     const v = draft.trim();
     if (v && !values.includes(v)) onChange([...values, v]);
     setDraft('');
@@ -145,15 +150,15 @@ function Chips({
   };
   return (
     <div className="cg-p-chips">
-      {values.map((v) => (
-        <span className="cg-p-chip" key={v}>
+      {values.map((v, i) => (
+        <span className="cg-p-chip" key={`${i}-${v}`}>
           {v}
           <button
             type="button"
             className="cg-p-chip-x"
             aria-label={`Remove ${v}`}
             disabled={disabled}
-            onClick={() => onChange(values.filter((x) => x !== v))}
+            onClick={() => onChange(values.filter((_, j) => j !== i))}
           >
             <CloseIcon />
           </button>
@@ -164,6 +169,7 @@ function Chips({
           className="cg-p-chip-input"
           aria-label={`Add to ${label.toLowerCase()}`}
           autoFocus
+          disabled={disabled}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}

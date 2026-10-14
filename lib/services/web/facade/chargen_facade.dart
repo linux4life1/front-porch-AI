@@ -148,12 +148,24 @@ class ChargenFacade {
     if (!svc.isReady) {
       return {'ok': false, 'error': 'the LLM backend is not ready'};
     }
+    // One model call at a time across the creator, on every entry point:
+    // a create while anything is written (a create, the rest of a card, a
+    // rewrite, a greeting) would share the model with it.
+    final reason = _busyReason();
+    if (reason != null) return {'ok': false, 'status': 409, 'error': reason};
     if (fields['pauseAtProfile'] == true) {
       return _profile.startPaused(name, fields, svc);
     }
+    // A one-shot create replaces a waiting profile too, so a later Next
+    // cannot save that one as a second character.
+    unawaited(_profile.dropPending());
     _create.startOneShot(name, fields, svc);
     return {'ok': true};
   }
+
+  /// Whether [characterId] is in the library.
+  bool hasCharacter(String characterId) =>
+      _characters.cardByDbId(characterId) != null;
 
   /// See [ChargenProfile.profile].
   Future<Map<String, dynamic>> profile({String characterId = ''}) =>

@@ -94,7 +94,7 @@ export const GreetingsStep = forwardRef<
       });
     writingStatus(id)
       .then((s) => alive && setChanged(s.profileChanged === true))
-      .catch(() => undefined);
+      .catch((err) => console.warn('[creator] could not ask whether the profile changed', err));
     return () => {
       alive = false;
     };
@@ -146,6 +146,9 @@ export const GreetingsStep = forwardRef<
     if (allRef.current === null) return;
     allRef.current = null;
     setRewritingAll(false);
+    // The run is over whether or not its last greeting said so.
+    writingRef.current = null;
+    setWriting(null);
     if (rewritten) setChanged(false);
   }, []);
 
@@ -171,13 +174,17 @@ export const GreetingsStep = forwardRef<
         if ((await writingStatus(id)).writing === w.index) return;
         const fresh = await loadGreetings(id);
         finish(w.index, (w.index === 0 ? fresh.first : fresh.alts[w.index - 1]) ?? null);
-      } catch {
-        // The next reconnect asks again.
+      } catch (err) {
+        console.warn('[creator] the greetings could not be read again', err);
       }
     };
     const socket = new ChatSocket((e: WsEvent) => {
       if (e.event === 'connected') {
         void resync();
+        // Ask again whether the profile changed (a first ask may have failed).
+        writingStatus(id)
+          .then((s) => setChanged(s.profileChanged === true))
+          .catch((err) => console.warn('[creator] could not ask whether the profile changed', err));
         review.current?.onEvent(e);
         return;
       }
@@ -185,7 +192,14 @@ export const GreetingsStep = forwardRef<
         review.current?.onEvent(e);
         return;
       }
-      if (!e.event.startsWith('chargen_greeting') || String(e.characterId ?? '') !== id) return;
+      if (!e.event.startsWith('chargen_greeting')) return;
+      // The end of a rewrite-all is ours even if an older relay leaves the id off.
+      const ours = String(e.characterId ?? '') === id;
+      if (e.event === 'chargen_greetings_rewritten' && (ours || e.characterId === undefined)) {
+        endAll(true);
+        return;
+      }
+      if (!ours) return;
       const index = typeof e.index === 'number' ? e.index : -1;
       if (e.event === 'chargen_greeting_progress') {
         setWriting((w) => (w && w.index === index ? { index, text: e.text ?? '' } : w));
@@ -204,8 +218,6 @@ export const GreetingsStep = forwardRef<
       } else if (e.event === 'chargen_greeting_stopped') {
         finish(index, null);
         endAll(false);
-      } else if (e.event === 'chargen_greetings_rewritten') {
-        endAll(true);
       }
     });
     socket.connect();

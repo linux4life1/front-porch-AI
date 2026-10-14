@@ -55,9 +55,10 @@ IdentityFacts identityFactsOfCard(CharacterCard card) {
 
 /// Write [f] onto [card] exactly as the author left it: unlike
 /// [applyIdentityFacts], an emptied list or field stays empty, because on
-/// the Profile step an empty value is the author's choice.
-void writeEditedFacts(CharacterCard card, IdentityFacts f) {
-  applyIdentityFacts(card, f);
+/// the Profile step an empty value is the author's choice. Without [nsfw]
+/// the intimate lists are cleared, as [applyIdentityFacts] clears them.
+void writeEditedFacts(CharacterCard card, IdentityFacts f, {bool nsfw = true}) {
+  applyIdentityFacts(card, f, nsfw: nsfw);
   final e = card.frontPorchExtensions!;
   e
     ..birthday = f.birthday
@@ -69,8 +70,8 @@ void writeEditedFacts(CharacterCard card, IdentityFacts f) {
     ..planLines = List.unmodifiable(f.planLines)
     ..likes = List.unmodifiable(f.likes)
     ..dislikes = List.unmodifiable(f.dislikes)
-    ..intimateInto = List.unmodifiable(f.intimateInto)
-    ..intimateNotInto = List.unmodifiable(f.intimateNotInto);
+    ..intimateInto = nsfw ? List.unmodifiable(f.intimateInto) : const []
+    ..intimateNotInto = nsfw ? List.unmodifiable(f.intimateNotInto) : const [];
   card.creatorNotes = f.creatorNotes;
 }
 

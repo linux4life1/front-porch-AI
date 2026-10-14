@@ -79,6 +79,14 @@ class PendingProfileStore {
     }
   }
 
+  /// Drop the waiting run, file and all: a new create replaces it. The
+  /// cache is cleared at once and the file is never read back after this.
+  Future<void> discard() {
+    _loaded = true;
+    value = null;
+    return save();
+  }
+
   /// Write [value], or remove the file when there is none.
   Future<void> save() async {
     final f = _file;
@@ -97,6 +105,31 @@ class PendingProfileStore {
   }
 }
 
+/// What the Profile step shows for [run] (`chargen_profile`, the GET):
+/// the texts, the facts, the interview and its question count, and the
+/// switches the step reads (mode, the user's own scenario, 18+, age).
+Map<String, dynamic> profileViewOf(
+  GenPausedRun run, {
+  required String mode,
+  String? characterId,
+}) => {
+  'characterId': ?characterId,
+  'name': run.card.name.isEmpty ? run.inputs.name : run.card.name,
+  'description': run.card.description,
+  'personality': run.card.personality,
+  'scenario': run.card.scenario,
+  'facts': (run.facts ?? identityFactsOfCard(run.card)).toJson(),
+  'transcriptQuestions': RegExp(
+    r'^Q: ',
+    multiLine: true,
+  ).allMatches(run.interviewTranscript).length,
+  'transcript': run.interviewTranscript,
+  'userScenario': run.inputs.userScenario,
+  'mode': mode,
+  'nsfw': run.inputs.nsfwEnabled,
+  'age': run.inputs.age,
+};
+
 /// Saved character [id] as a paused run, so the Profile step can rewrite
 /// it after the phone went Back from Greetings: a copy of its card, its
 /// interview from the greeting recipe, the inputs it was created with when
@@ -108,13 +141,17 @@ GenPausedRun? savedProfileRun(
 ) {
   final card = characters.cardByDbId(id);
   if (card == null) return null;
-  final recipe = readGreetingRecipe(card) ?? const GreetingRecipe();
+  final stamped = readGreetingRecipe(card);
+  final recipe = stamped ?? const GreetingRecipe();
   final voice = readNarrativeVoice(card);
+  final ask = create.loreAskFor(id, card);
   final inputs =
       create.inputsFor(id) ??
       GenRunInputs(
         name: card.name,
-        concept: card.description,
+        concept: ask.concept,
+        loreCategories: ask.loreCategories,
+        loreDepth: ask.loreDepth,
         sex: voice.sex,
         narrativePerspective: voice.perspective,
         narrativeTense: voice.tense,
@@ -122,7 +159,9 @@ GenPausedRun? savedProfileRun(
         greetingTones: recipe.tones,
         characterContext: recipe.characterContext,
         worldLore: recipe.worldLore,
-        nsfwEnabled: recipe.nsfwEnabled,
+        // Unknown (no stamp) counts as on, so a re-read never clears
+        // intimate preferences the card already has.
+        nsfwEnabled: stamped?.nsfwEnabled ?? true,
         reasoningEnabled: recipe.reasoningEnabled,
         includeDynamicMacros: recipe.includeDynamicMacros,
       );

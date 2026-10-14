@@ -44,13 +44,18 @@ export const ProfileStep = forwardRef<
   { initial: ProfileView | null; characterId?: string; onWritingChange?: (writing: boolean) => void }
 >(function ProfileStep({ initial, characterId, onWritingChange }, ref) {
   const { isPhone } = useLayout();
-  const [view, setView] = useState<ProfileView | null>(characterId ? null : initial);
+  const seed = characterId ? null : initial;
+  const [view, setView] = useState<ProfileView | null>(seed);
   const [loadError, setLoadError] = useState('');
   const [steer, setSteer] = useState('');
-  /** The model call running here: a rewrite (with its progress) or a re-read. */
-  const [rewrite, setRewrite] = useState<ProfileProgress | null>(null);
-  const [rereading, setRereading] = useState(false);
+  /** The model call running here: a rewrite (with its progress) or a
+   *  re-read. A restored view says which one the relay is running. */
+  const [rewrite, setRewrite] = useState<ProfileProgress | null>(() =>
+    seed?.writing === 'rewrite' ? progressOf({}) : null,
+  );
+  const [rereading, setRereading] = useState(() => seed?.writing === 'facts');
   const [error, setError] = useState('');
+  const [notice, setNotice] = useState('');
   const [transcriptOpen, setTranscriptOpen] = useState(false);
 
   const viewRef = useRef(view);
@@ -58,16 +63,43 @@ export const ProfileStep = forwardRef<
   const busyRef = useRef(false);
   busyRef.current = rewrite !== null || rereading;
 
+  /** Take what the relay has: its texts and facts, and whether a rewrite
+   *  or re-read is still running on them. */
+  const adopt = useCallback((fresh: ProfileView) => {
+    setView(fresh);
+    if (fresh.writing === 'rewrite') {
+      busyRef.current = true;
+      setRewrite((r) => r ?? progressOf({}));
+      setRereading(false);
+    } else if (fresh.writing === 'facts') {
+      busyRef.current = true;
+      setRewrite(null);
+      setRereading(true);
+    } else {
+      busyRef.current = false;
+      setRewrite(null);
+      setRereading(false);
+    }
+  }, []);
+
   useEffect(() => {
     if (!characterId) return;
     let alive = true;
+    const gone = 'This character could not be loaded. Open it from the library instead.';
     loadSaved(characterId)
-      .then((v) => alive && setView(v))
-      .catch(() => alive && setLoadError('This character could not be loaded. Open it from the library instead.'));
+      .then((v) => {
+        if (!alive) return;
+        if (v) adopt(v);
+        else setLoadError(gone);
+      })
+      .catch((err) => {
+        console.warn('[creator] the profile could not be loaded', err);
+        if (alive) setLoadError(gone);
+      });
     return () => {
       alive = false;
     };
-  }, [characterId]);
+  }, [characterId, adopt]);
 
   useImperativeHandle(
     ref,
@@ -86,34 +118,41 @@ export const ProfileStep = forwardRef<
   }, [rewrite, rereading, onWritingChange]);
 
   const finish = useCallback(() => {
+    busyRef.current = false;
     setRewrite(null);
     setRereading(false);
   }, []);
 
-  useEffect(() => {
-    // A phone that slept may have missed the end: ask, then take the
-    // relay's texts if the call is over.
-    const resync = async () => {
-      if (!busyRef.current) return;
-      try {
-        const fresh = characterId ? await loadSaved(characterId) : (await loadPending()).pending;
-        if (!fresh || fresh.writing === 'rewrite' || fresh.writing === 'facts') return;
+  /** A phone that slept may have missed the end of a call: ask the relay,
+   *  and once the call is over take its texts and facts. */
+  const resync = useCallback(async () => {
+    try {
+      const fresh = characterId ? await loadSaved(characterId) : (await loadPending()).pending;
+      setNotice('');
+      if (!fresh) {
         finish();
-        if (!characterId) setView(fresh);
-      } catch {
-        // The next reconnect asks again.
+        return;
       }
-    };
+      if (fresh.writing === 'rewrite' || fresh.writing === 'facts') return;
+      adopt(fresh);
+    } catch (err) {
+      console.warn('[creator] the profile could not be read again', err);
+      setNotice('Lost touch with the app. It asks again when the connection comes back.');
+    }
+  }, [characterId, adopt, finish]);
+
+  useEffect(() => {
     const socket = new ChatSocket((e: WsEvent) => {
       if (e.event === 'connected') {
-        void resync();
+        if (busyRef.current) void resync();
         return;
       }
       if (!e.event.startsWith('chargen_profile_') && !e.event.startsWith('chargen_facts_')) return;
       if ((e.characterId ?? undefined) !== characterId) return;
       switch (e.event) {
         case 'chargen_profile_progress':
-          setRewrite((r) => (r ? progressOf(e) : r));
+          busyRef.current = true;
+          setRewrite(progressOf(e));
           return;
         case 'chargen_profile_done':
           finish();
@@ -130,7 +169,7 @@ export const ProfileStep = forwardRef<
           return;
         case 'chargen_facts_done':
           finish();
-          setView((v) => v && { ...v, facts: factsOf(e.facts) });
+          setView((v) => v && { ...v, facts: e.facts ? factsOf(e.facts) : v.facts });
           return;
         case 'chargen_profile_error':
         case 'chargen_facts_error':
@@ -143,7 +182,7 @@ export const ProfileStep = forwardRef<
     });
     socket.connect();
     return () => socket.close();
-  }, [characterId, finish]);
+  }, [characterId, finish, resync]);
 
   const texts = (v: ProfileView): ProfileTexts => ({
     description: v.description,
@@ -154,12 +193,13 @@ export const ProfileStep = forwardRef<
   const startRewrite = async () => {
     const v = viewRef.current;
     if (!v || busyRef.current) return;
+    busyRef.current = true;
     setError('');
     setRewrite(progressOf({}));
     try {
       await startProfileRewrite(texts(v), steer, characterId);
     } catch (err) {
-      setRewrite(null);
+      finish();
       setError(messageOf(err, 'The rewrite could not be started. Try again.'));
     }
   };
@@ -167,12 +207,13 @@ export const ProfileStep = forwardRef<
   const reread = async () => {
     const v = viewRef.current;
     if (!v || busyRef.current) return;
+    busyRef.current = true;
     setError('');
     setRereading(true);
     try {
       await startFactsReread(texts(v), characterId);
     } catch (err) {
-      setRereading(false);
+      finish();
       setError(messageOf(err, 'The facts could not be read again. Try again.'));
     }
   };
@@ -180,6 +221,9 @@ export const ProfileStep = forwardRef<
   const stop = async () => {
     try {
       if ((await stopProfile(characterId)).stopped) finish();
+      // Nothing was running any more: the end was missed. Take what the
+      // relay has.
+      else await resync();
     } catch (err) {
       setError(messageOf(err, 'Stop did not reach the app. Try again.'));
     }
@@ -189,14 +233,12 @@ export const ProfileStep = forwardRef<
   if (!view) return <p className="muted">Loading the profile…</p>;
 
   const set = (p: Partial<ProfileView>) => setView((v) => v && { ...v, ...p });
-  const states = boxStates(rewrite, view.mode);
+  const states = boxStates(rewrite, view.mode, view.userScenario);
   const writing = rewrite !== null;
+  // A box shows the rewrite's text once its turn has come (writing, or done
+  // and waiting for the rest), never while it waits or is kept.
   const streamed = (key: keyof ProfileTexts) =>
-    rewrite && states[key] === 'writing'
-      ? rewrite[key]
-      : rewrite && key === 'description' && states.description === null
-        ? rewrite.description || null
-        : null;
+    rewrite && (states[key] === 'writing' || (states[key] === null && rewrite[key])) ? rewrite[key] : null;
 
   return (
     <div className="cg-greetings cg-profile" data-testid="profile-step">
@@ -234,7 +276,7 @@ export const ProfileStep = forwardRef<
         onChange={(scenario) => set({ scenario })}
         rewriting={writing}
         state={states.scenario}
-        streamed={null}
+        streamed={streamed('scenario')}
         scenario
       />
 
@@ -275,6 +317,7 @@ export const ProfileStep = forwardRef<
               : 'Rewrites Description and Personality from the interview and your direction, then re-reads the facts below from the new profile. The box grows as you type. A scenario you typed yourself is kept.'}
         </p>
         {error && <p className="error cg-g-error">{error}</p>}
+        {notice && <p className="cg-p-caption">{notice}</p>}
       </section>
 
       <FactsCard

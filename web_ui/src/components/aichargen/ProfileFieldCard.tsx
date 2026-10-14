@@ -15,6 +15,7 @@ import { ExpandIcon } from './creatorIcons';
 const STATE_LABEL: Record<Exclude<BoxState, null>, string> = {
   writing: 'Writing…',
   waiting: 'Waiting for the description…',
+  waitingShort: 'Waiting…',
   kept: 'Kept as it is',
   built: 'Kept as you built it',
 };

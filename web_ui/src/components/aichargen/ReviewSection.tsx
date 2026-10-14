@@ -49,6 +49,7 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
   const [review, setReview] = useState<Review | null>(null);
   const [writing, setWriting] = useState<{ field: Field; text: string } | null>(null);
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
+  const [loadError, setLoadError] = useState('');
   const writingRef = useRef(writing);
   writingRef.current = writing;
   const timer = useRef<number | undefined>(undefined);
@@ -57,10 +58,15 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
     try {
       const r = await loadReview(id);
       setReview(r);
-      const w = r.writing;
-      setWriting((cur) => (w === 'mesExample' || w === 'lorebook' ? (cur?.field === w ? cur : { field: w, text: '' }) : null));
-    } catch {
-      // The next reconnect asks again.
+      setLoadError('');
+      const w: Field | null = r.writing === 'mesExample' || r.writing === 'lorebook' ? r.writing : null;
+      const next = (cur: { field: Field; text: string } | null) =>
+        w ? (cur?.field === w ? cur : { field: w, text: '' }) : null;
+      writingRef.current = next(writingRef.current);
+      setWriting(next);
+    } catch (err) {
+      console.warn('[creator] the review cards could not be loaded', err);
+      setLoadError('The example dialogue and lorebook could not be loaded.');
     }
   }, [id]);
 
@@ -77,7 +83,7 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
     () => ({
       onEvent: (e: WsEvent) => {
         if (e.event === 'connected') {
-          if (writingRef.current) void refresh();
+          void refresh();
           return;
         }
         if (!e.event.startsWith('chargen_rewrite_') || String(e.characterId ?? '') !== id) return;
@@ -86,12 +92,19 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
           setWriting((w) => (w && w.field === field ? { field, text: e.text ?? '' } : w));
           return;
         }
-        setWriting(null);
+        // Only the card being written ends here; a late event for the
+        // other one must not clear it while the relay still writes.
+        const active = writingRef.current;
+        if (active && active.field !== field) return;
+        if (active) {
+          writingRef.current = null;
+          setWriting(null);
+        }
         if (e.event === 'chargen_rewrite_done') {
           setReview((r) =>
             r && (field === 'lorebook' ? { ...r, lorebook: loreRowsOf(e.lorebook) } : { ...r, mesExample: e.text ?? '' }),
           );
-        } else if (e.event === 'chargen_rewrite_error') {
+        } else if (e.event === 'chargen_rewrite_error' && active) {
           setErrors((x) => ({ ...x, [field]: e.error || 'The rewrite failed.' }));
         }
       },
@@ -102,7 +115,9 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
   const start = async (field: Field, direction: string) => {
     if (writingRef.current) return;
     window.clearTimeout(timer.current);
-    if (field === 'mesExample' && review) await saveExampleDialogue(id, review.mesExample).catch(() => undefined);
+    if (field === 'mesExample' && review) await saveExampleDialogue(id, review.mesExample).catch((err) =>
+        console.warn('[creator] the example dialogue edit could not be saved', err),
+      );
     setErrors((x) => ({ ...x, [field]: undefined }));
     const w = { field, text: '' };
     writingRef.current = w;
@@ -134,7 +149,16 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
     }, SAVE_PAUSE_MS);
   };
 
-  if (!review) return null;
+  if (!review) {
+    return loadError ? (
+      <p className="error" data-testid="review-load-error">
+        {loadError}{' '}
+        <button type="button" className="cg-p-text-btn" onClick={() => void refresh()}>
+          Try again
+        </button>
+      </p>
+    ) : null;
+  }
   const busy = locked || writing !== null;
   const rows = review.lorebook;
   return (

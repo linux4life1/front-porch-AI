@@ -333,11 +333,11 @@ void main() {
       expect((body['pending'] as Map)['description'], profile['description']);
       expect((body['pending'] as Map)['writing'], isNull);
 
-      // A relay that restarts reads the pause back from its file.
-      (code, body) = await relay.get(
-        '/api/chargen/profile',
-        on: relay.restarted(),
-      );
+      // A relay that restarts reads the pause back from its file, and the
+      // rest of the card is written by that restarted relay: nothing of the
+      // first one's memory is used from here on.
+      final restarted = relay.restarted();
+      (code, body) = await relay.get('/api/chargen/profile', on: restarted);
       expect(code, 200);
       expect(
         (body['pending'] as Map?)?['description'],
@@ -349,13 +349,15 @@ void main() {
       final facts = Map<String, dynamic>.from(profile['facts'] as Map)
         ..['likes'] = ['hot tea']
         ..['ambitions'] = <String>[];
+      // Another fresh relay for Next, so Next itself must read the file.
+      final writer = relay.restarted();
       final done = relay.next('chargen_done', seconds: 60);
       (code, body) = await relay.post('/api/chargen/continue', {
         'description': 'EDITED {{char}} has salt-cracked hands.',
         'personality': profile['personality'],
         'scenario': profile['scenario'],
         'facts': facts,
-      });
+      }, on: writer);
       expect(code, 200, reason: '$body');
       expect(body, {'status': 'started', 'phase': 'complete'});
       final id = (await done)['id'].toString();
@@ -370,7 +372,7 @@ void main() {
       expect(saved.frontPorchExtensions!.occupation, 'lighthouse keeper');
       expect(saved.mesExample, isNotEmpty, reason: 'Next wrote the rest');
       expect(saved.firstMessage, isNotEmpty);
-      (code, body) = await relay.get('/api/chargen/profile');
+      (code, body) = await relay.get('/api/chargen/profile', on: writer);
       expect(body['pending'], isNull);
       (code, body) = await relay.get(
         '/api/chargen/profile',
@@ -381,8 +383,30 @@ void main() {
         'description': 'x',
         'personality': 'y',
         'scenario': 'z',
-      });
+      }, on: relay.restarted());
       expect(code, 404, reason: 'nothing is waiting any more');
+
+      // The saved card says how it was asked for, so a lorebook rewrite on
+      // a relay that never saw it asks with the same concept.
+      final lore = relay.next('chargen_rewrite_error', seconds: 30);
+      (code, body) = await relay.post('/api/chargen/rewrite/lorebook', {
+        'characterId': id,
+      }, on: relay.restarted());
+      expect(code, 200, reason: '$body');
+      await lore;
+      expect(
+        llm.prompts.lastWhere((p) => p.contains('WORLD-BUILDING')),
+        contains('Concept: A lighthouse keeper on a wet rock.'),
+      );
+      (code, body) = await relay.get(
+        '/api/chargen/profile?characterId=$id',
+        on: relay.restarted(),
+      );
+      expect(
+        (body['pending'] as Map)['mode'],
+        'guided',
+        reason: 'a saved card reports the mode it was made in',
+      );
     },
   );
 
@@ -761,6 +785,177 @@ void main() {
       );
       expect(names.toSet(), hasLength(names.length), reason: 'no repeats');
       expect(entries, hasLength(3), reason: '$names');
+    },
+  );
+
+  // ── One creator call at a time, on every entry point; a new create
+  // replaces the waiting run; Next twice saves once; Stop on the rest
+  // keeps the profile waiting ──────────────────────────────────────────
+  test(
+    'one call at a time; Next once; Stop the rest; a new create drops the wait',
+    () async {
+      final llm = StreamingChargenLlm();
+      final relay = await ChargenRelay.start(llm);
+      Future<Map<String, dynamic>> paused() async {
+        final profiled = relay.next('chargen_profile', seconds: 60);
+        final (code, body) = await relay.post('/api/chargen/create', {
+          'name': _name,
+          'mode': 'quick',
+          'concept': 'A lighthouse keeper.',
+          'pauseAtProfile': true,
+        });
+        expect(code, 200, reason: '$body');
+        return profiled;
+      }
+
+      int done() =>
+          relay.events.where((e) => e['event'] == 'chargen_done').length;
+      final profile = await paused();
+      final texts = {
+        'description': profile['description'],
+        'personality': profile['personality'],
+        'scenario': profile['scenario'],
+      };
+
+      // The rest is held at its first step (the example dialogue).
+      llm
+        ..streamMarker = 'Write example dialogue exchanges'
+        ..chunks = const [
+          '<START>\n{{user}}: Hi',
+          '\n{{char}}: Mind the steps.',
+        ]
+        ..holdNext = true;
+      final answers = await Future.wait([
+        relay.post('/api/chargen/continue', texts),
+        relay.post('/api/chargen/continue', texts),
+      ]);
+      expect(answers.map((a) => a.$1).toList()..sort(), [
+        200,
+        409,
+      ], reason: 'two quick Nexts: one runs, one waits');
+      for (var i = 0; i < 100 && !llm.holding; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 20));
+      }
+      expect(llm.holding, isTrue);
+
+      // While the rest is written, no create starts, paused or one-shot.
+      var (code, body) = await relay.post('/api/chargen/create', {
+        'name': 'Second',
+        'concept': 'Another.',
+      });
+      expect(code, 409, reason: 'a one-shot create waits too: $body');
+      (code, body) = await relay.post('/api/chargen/create', {
+        'name': 'Second',
+        'concept': 'Another.',
+        'pauseAtProfile': true,
+      });
+      expect(code, 409);
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect((body['pending'] as Map)['writing'], 'complete');
+
+      // Stop the rest: nothing is saved and the profile waits as it was.
+      final stopped = relay.next('chargen_profile_stopped');
+      (code, body) = await relay.post('/api/chargen/profile/stop', const {});
+      expect(body['stopped'], isTrue);
+      expect((await stopped)['phase'], 'complete');
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+      expect(done(), 0, reason: 'a stopped Next saves nothing');
+      expect(
+        relay.events.where((e) => e['event'] == 'chargen_error'),
+        isEmpty,
+        reason: 'a Stop is not an error',
+      );
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect((body['pending'] as Map)['writing'], isNull);
+      expect((body['pending'] as Map)['description'], profile['description']);
+
+      // Next again writes it, once.
+      llm.streamMarker = '';
+      final saved = relay.next('chargen_done', seconds: 60);
+      (code, body) = await relay.post('/api/chargen/continue', texts);
+      expect(code, 200, reason: '$body');
+      await saved;
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      expect(done(), 1);
+
+      // A one-shot create drops a waiting profile: Next finds nothing.
+      await paused();
+      final oneShot = relay.next('chargen_done', seconds: 60);
+      (code, body) = await relay.post('/api/chargen/create', {
+        'name': 'One Shot',
+        'concept': 'A ferryman.',
+      });
+      expect(code, 200, reason: '$body');
+      expect(body, {'status': 'started'});
+      (code, body) = await relay.get('/api/chargen/profile');
+      expect(body['pending'], isNull, reason: 'the new create replaced it');
+      await oneShot;
+      (code, body) = await relay.get(
+        '/api/chargen/profile',
+        on: relay.restarted(),
+      );
+      expect(body['pending'], isNull, reason: 'its file went too');
+      (code, body) = await relay.post('/api/chargen/continue', texts);
+      expect(code, 404, reason: 'nothing waits to be saved twice');
+      expect(done(), 2);
+    },
+  );
+
+  // ── Back from Greetings, edit, Next: the whole card is saved; 18+ off
+  // keeps the intimate lists empty; bad bodies and unknown ids answer ──
+  test(
+    'a saved profile keeps its edits; 18+ off; bad JSON; unknown id',
+    () async {
+      final relay = await ChargenRelay.start(StreamingChargenLlm());
+      final card = CharacterCard(
+        name: _name,
+        description: '{{char}} keeps the lighthouse.',
+        personality: 'Patient and dry.',
+        scenario: '{{user}} climbs the stairs.',
+        firstMessage: '*{{char}} trims the wick.*',
+        frontPorchExtensions: FrontPorchExtensions(likes: const ['salt wind']),
+      );
+      stampGreetingRecipe(card, const GreetingRecipe(nsfwEnabled: false));
+      final id = (await relay.characters.persistNewCard(
+        card,
+      ))!['id'].toString();
+
+      var (code, body) = await relay.get(
+        '/api/chargen/profile?characterId=$id',
+      );
+      final facts =
+          Map<String, dynamic>.from((body['pending'] as Map)['facts'] as Map)
+            ..['likes'] = ['hot tea']
+            ..['intimateInto'] = ['never with 18+ off']
+            ..['creatorNotes'] = 'ZZNOTES the keeper of the light.';
+      (code, body) = await relay.post('/api/chargen/continue', {
+        'characterId': id,
+        'description': 'ZZEDIT {{char}} keeps the lighthouse alone.',
+        'personality': 'Patient and dry.',
+        'scenario': '{{user}} climbs the stairs.',
+        'facts': facts,
+      });
+      expect(code, 200, reason: '$body');
+      expect(body, {'status': 'saved'});
+      final saved = relay.characters.cardByDbId(id)!;
+      expect(saved.frontPorchExtensions!.likes, ['hot tea']);
+      expect(saved.creatorNotes, 'ZZNOTES the keeper of the light.');
+      expect(saved.frontPorchExtensions!.intimateInto, isEmpty);
+      (code, body) = await relay.get('/api/characters/$id/detail');
+      expect(
+        body['description'],
+        'ZZEDIT {{char}} keeps the lighthouse alone.',
+      );
+
+      (code, body) = await relay.postRaw(
+        '/api/chargen/profile/rewrite',
+        '{"description": "cut off',
+      );
+      expect(code, 400, reason: 'a cut-off body is refused, not run blank');
+      (code, body) = await relay.post('/api/chargen/greeting/keep-profile', {
+        'characterId': 'no-such-character',
+      });
+      expect(code, 404);
     },
   );
 }

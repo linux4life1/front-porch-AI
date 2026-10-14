@@ -13,14 +13,16 @@ import 'package:front_porch_ai/services/web/facade/chargen/chargen_jobs.dart';
 import 'package:front_porch_ai/services/web/facade/chargen/chargen_pending.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
-/// The model call running for the Profile step: a rewrite, a facts
-/// re-read, or the rest of the card. [characterId] is null for the pending
-/// run, else the saved character it works on.
+/// The call running for the Profile step: a rewrite, a facts re-read, the
+/// rest of the card, or a saved character's profile being saved (no model,
+/// [gen] null). [characterId] is null for the pending run, else the saved
+/// character it works on. Held from the first check, before any await, so
+/// two quick taps cannot both start one.
 class _ProfileJob {
   _ProfileJob(this.kind, this.gen, this.characterId);
 
   final String kind;
-  final CharacterGenService gen;
+  final CharacterGenService? gen;
   final String? characterId;
 }
 
@@ -55,18 +57,23 @@ class ChargenProfile {
   // ── Phase A ─────────────────────────────────────────────────────────
 
   /// Start a create that stops after the profile. A run already waiting is
-  /// replaced (nothing of it was saved).
+  /// replaced (nothing of it was saved). The caller has checked that no
+  /// model call is running.
   Map<String, dynamic> startPaused(
     String name,
     Map<String, dynamic> fields,
     LLMService svc,
   ) {
-    final reason = _busyReason();
-    if (reason != null) return chargenRefuse(409, reason);
+    final busy = _refuseBusy();
+    if (busy != null) return busy;
     _create.creating = true;
     unawaited(_runProfile(name, fields, svc));
     return {'ok': true};
   }
+
+  /// A new create, paused or not, replaces the waiting run: drop it, file
+  /// and all, so a later Next cannot save it as a second character.
+  Future<void> dropPending() => _store.discard();
 
   Future<void> _runProfile(
     String name,
@@ -74,9 +81,7 @@ class ChargenProfile {
     LLMService svc,
   ) async {
     try {
-      await _store.load();
-      _store.value = null;
-      await _store.save();
+      await dropPending();
       final mode = fields['mode']?.toString() ?? 'quick';
       final run = await CharacterGenService(svc).generateProfile(
         inputs: chargenInputsFromFields(name, fields),
@@ -110,23 +115,7 @@ class ChargenProfile {
     GenPausedRun run, {
     required String mode,
     String? characterId,
-  }) => {
-    'characterId': ?characterId,
-    'name': run.card.name.isEmpty ? run.inputs.name : run.card.name,
-    'description': run.card.description,
-    'personality': run.card.personality,
-    'scenario': run.card.scenario,
-    'facts': (run.facts ?? identityFactsOfCard(run.card)).toJson(),
-    'transcriptQuestions': RegExp(
-      r'^Q: ',
-      multiLine: true,
-    ).allMatches(run.interviewTranscript).length,
-    'transcript': run.interviewTranscript,
-    'userScenario': run.inputs.userScenario,
-    'mode': mode,
-    'nsfw': run.inputs.nsfwEnabled,
-    'age': run.inputs.age,
-  };
+  }) => profileViewOf(run, mode: mode, characterId: characterId);
 
   Map<String, dynamic> _view(PendingProfile pending) =>
       _viewOf(pending.run, mode: pending.mode);
@@ -138,10 +127,17 @@ class ChargenProfile {
     if (characterId.isNotEmpty) {
       final run = savedProfileRun(_characters, _create, characterId);
       if (run == null) return chargenRefuse(404, 'character not found');
+      // The wizard mode it was created in (Automated keeps its description
+      // on a rewrite); `saved` only when the card does not say.
+      final stamped = readCreatorInputs(run.card)?.mode ?? '';
       return {
         'ok': true,
         'pending': {
-          ..._viewOf(run, mode: 'saved', characterId: characterId),
+          ..._viewOf(
+            run,
+            mode: stamped.isEmpty ? 'saved' : stamped,
+            characterId: characterId,
+          ),
           'writing': _writingFor(characterId),
         },
       };
@@ -195,6 +191,37 @@ class ChargenProfile {
     return reason == null ? null : chargenRefuse(409, reason);
   }
 
+  /// Check and hold the Profile step's one slot in the same synchronous
+  /// step (no await between them), or answer why not. [needsModel] is false
+  /// for a saved character's Next, which only saves.
+  ({_ProfileJob? job, Map<String, dynamic>? refusal}) _reserve(
+    String kind,
+    Map<String, dynamic> body, {
+    bool needsModel = true,
+  }) {
+    final busy = _refuseBusy();
+    if (busy != null) return (job: null, refusal: busy);
+    final svc = needsModel ? _create.readyService : null;
+    if (needsModel && svc == null) {
+      return (
+        job: null,
+        refusal: chargenRefuse(400, 'the LLM backend is not ready'),
+      );
+    }
+    final id = body['characterId']?.toString().trim() ?? '';
+    final job = _job = _ProfileJob(
+      kind,
+      svc == null ? null : CharacterGenService(svc),
+      id.isEmpty ? null : id,
+    );
+    return (job: job, refusal: null);
+  }
+
+  /// Let go of [job]'s slot if it still holds it.
+  void _release(_ProfileJob job) {
+    if (identical(_job, job)) _job = null;
+  }
+
   static const _nothingPending =
       'Nothing is waiting on the Profile step. Generate the character again.';
 
@@ -202,15 +229,14 @@ class ChargenProfile {
 
   /// Rewrite the profile from its interview, steered by `direction`.
   Future<Map<String, dynamic>> startRewrite(Map<String, dynamic> body) async {
-    final busy = _refuseBusy();
-    if (busy != null) return busy;
+    final (:job, :refusal) = _reserve('rewrite', body);
+    if (job == null) return refusal!;
     final target = await _target(body);
-    if (target == null) return chargenRefuse(404, _nothingPending);
-    final svc = _create.readyService;
-    if (svc == null) return chargenRefuse(400, 'the LLM backend is not ready');
-    final (run, id) = target;
-    final job = _job = _ProfileJob('rewrite', CharacterGenService(svc), id);
-    unawaited(_rewrite(job, run, body['direction']?.toString() ?? ''));
+    if (target == null) {
+      _release(job);
+      return chargenRefuse(404, _nothingPending);
+    }
+    unawaited(_rewrite(job, target.$1, body['direction']?.toString() ?? ''));
     return {'ok': true};
   }
 
@@ -222,7 +248,7 @@ class ChargenProfile {
     ProfileRewrite? result;
     Object? failure;
     try {
-      result = await job.gen.rewriteProfile(
+      result = await job.gen!.rewriteProfile(
         paused: run,
         description: run.card.description,
         personality: run.card.personality,
@@ -284,22 +310,25 @@ class ChargenProfile {
   /// the one before, so a thin answer never wipes a field.
   IdentityFacts _merged(GenPausedRun run, IdentityFacts? read) {
     if (read == null) return run.facts ?? identityFactsOfCard(run.card);
-    applyIdentityFacts(run.card, read);
+    applyIdentityFacts(run.card, read, nsfw: run.inputs.nsfwEnabled);
     final now = identityFactsOfCard(run.card);
     return IdentityFacts.fromJson({...now.toJson(), 'warmth': read.warmth});
   }
 
-  /// Stop the profile rewrite or re-read. Nothing it wrote is kept.
+  /// Stop the profile rewrite, the re-read, or the rest of the card being
+  /// written. Nothing it wrote is kept; a stopped Next leaves the profile
+  /// waiting as it was (the rest is written on a copy).
   bool stop(Map<String, dynamic> body) {
     final id = body['characterId']?.toString().trim() ?? '';
     final job = _job;
-    if (job == null || job.kind == 'complete') return false;
+    if (job == null || job.gen == null) return false;
     if ((job.characterId ?? '') != id) return false;
     _job = null;
-    job.gen.abort();
+    job.gen!.abort();
     _hub?.broadcast({
       'event': 'chargen_profile_stopped',
-      if (job.characterId != null) 'characterId': job.characterId,
+      'characterId': ?job.characterId,
+      if (job.kind == 'complete') 'phase': 'complete',
     });
     return true;
   }
@@ -308,15 +337,14 @@ class ChargenProfile {
 
   /// Read the identity facts again from the profile as the author has it.
   Future<Map<String, dynamic>> startFacts(Map<String, dynamic> body) async {
-    final busy = _refuseBusy();
-    if (busy != null) return busy;
+    final (:job, :refusal) = _reserve('facts', body);
+    if (job == null) return refusal!;
     final target = await _target(body);
-    if (target == null) return chargenRefuse(404, _nothingPending);
-    final svc = _create.readyService;
-    if (svc == null) return chargenRefuse(400, 'the LLM backend is not ready');
-    final (run, id) = target;
-    final job = _job = _ProfileJob('facts', CharacterGenService(svc), id);
-    unawaited(_facts(job, run));
+    if (target == null) {
+      _release(job);
+      return chargenRefuse(404, _nothingPending);
+    }
+    unawaited(_facts(job, target.$1));
     return {'ok': true};
   }
 
@@ -326,7 +354,7 @@ class ChargenProfile {
     };
     IdentityFacts? read;
     try {
-      read = await job.gen.rereadIdentityFacts(
+      read = await job.gen!.rereadIdentityFacts(
         paused: run,
         description: run.card.description,
         personality: run.card.personality,
@@ -369,39 +397,55 @@ class ChargenProfile {
   /// (`chargen_done`). For a saved character (`characterId`), the texts and
   /// facts are saved to it and nothing is written by the model.
   Future<Map<String, dynamic>> startContinue(Map<String, dynamic> body) async {
-    final busy = _refuseBusy();
-    if (busy != null) return busy;
+    final saved = (body['characterId']?.toString().trim() ?? '').isNotEmpty;
+    final (:job, :refusal) = _reserve(
+      saved ? 'save' : 'complete',
+      body,
+      needsModel: !saved,
+    );
+    if (job == null) return refusal!;
     final target = await _target(body);
-    if (target == null) return chargenRefuse(404, _nothingPending);
+    final pending = _store.value;
+    if (target == null || (!saved && pending == null)) {
+      _release(job);
+      return chargenRefuse(404, _nothingPending);
+    }
     final (run, id) = target;
     final rawFacts = body['facts'];
     final facts = rawFacts is Map
         ? IdentityFacts.fromJson(Map<String, dynamic>.from(rawFacts))
         : null;
-    if (id != null) return _saveProfile(id, run, facts);
-    if (facts != null) writeEditedFacts(run.card, facts);
-    final pending = _store.value!;
-    final edited = _store.value = pending.withRun(run.copyWith(facts: facts));
+    if (id != null) {
+      try {
+        return await _saveProfile(id, run, facts);
+      } finally {
+        _release(job);
+      }
+    }
+    final nsfw = run.inputs.nsfwEnabled;
+    if (facts != null) writeEditedFacts(run.card, facts, nsfw: nsfw);
+    final edited = _store.value = pending!.withRun(run.copyWith(facts: facts));
     await _store.save();
-    final svc = _create.readyService;
-    if (svc == null) return chargenRefuse(400, 'the LLM backend is not ready');
-    final job = _job = _ProfileJob('complete', CharacterGenService(svc), null);
     unawaited(_complete(job, edited));
     return {'ok': true, 'phase': 'complete'};
   }
 
   Future<void> _complete(_ProfileJob job, PendingProfile pending) async {
+    final gen = job.gen!;
     try {
-      final card = await job.gen.completeCharacter(
+      final card = await gen.completeCharacter(
         paused: pending.run,
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
       );
+      // Stopped: the profile waits as it was, and nothing is saved.
+      if (!identical(_job, job)) return;
       final id = await _create.saveGenerated(
         card,
-        job.gen,
+        gen,
         pending.run.inputs,
         pending.extras,
+        mode: pending.mode,
       );
       if (id != null && identical(_store.value, pending)) {
         _store.value = null;
@@ -421,12 +465,16 @@ class ChargenProfile {
   ) async {
     final card = _characters.cardByDbId(id);
     if (card == null) return chargenRefuse(404, 'character not found');
-    if (facts != null) writeEditedFacts(card, facts);
-    final ok = await _characters.update(id, {
-      'description': run.card.description,
-      'personality': run.card.personality,
-      'scenario': run.card.scenario,
-    });
+    // The whole card as edited, saved the way the other relay paths save
+    // it: change the live card, then write it through the shared update.
+    card
+      ..description = run.card.description
+      ..personality = run.card.personality
+      ..scenario = run.card.scenario;
+    if (facts != null) {
+      writeEditedFacts(card, facts, nsfw: run.inputs.nsfwEnabled);
+    }
+    final ok = await _characters.update(id, const {});
     if (!ok) return chargenRefuse(500, 'The profile could not be saved.');
     return {'ok': true, 'phase': 'saved'};
   }

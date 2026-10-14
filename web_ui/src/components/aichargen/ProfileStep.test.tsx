@@ -31,12 +31,15 @@ vi.mock('../../api/ws', () => ({
 
 type Call = { path: string; body: Record<string, unknown> };
 const posts: Call[] = [];
+/** What GET /api/chargen/profile answers, and what Stop says. */
+let pendingAnswer: unknown = null;
+let stopped = true;
 vi.mock('../../api/client', () => ({
   api: {
-    get: async () => ({ pending: null }),
+    get: async () => ({ pending: pendingAnswer }),
     post: async (path: string, body: Record<string, unknown>) => {
       posts.push({ path, body });
-      return path.endsWith('/stop') ? { stopped: true } : { status: 'started' };
+      return path.endsWith('/stop') ? { stopped } : { status: 'started' };
     },
   },
   ApiError: class ApiError extends Error {},
@@ -92,15 +95,22 @@ async function click(b: HTMLButtonElement) {
   });
 }
 
-function render(view: ProfileView) {
+function render(view: ProfileView | null, characterId?: string) {
   act(() => {
     root.render(
       createElement(ProfileStep, {
         ref: handle,
         initial: view,
+        characterId,
         onWritingChange: (w: boolean) => busy.push(w),
       }),
     );
+  });
+}
+
+async function settle() {
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 0));
   });
 }
 
@@ -108,6 +118,8 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   posts.length = 0;
   busy.length = 0;
+  pendingAnswer = null;
+  stopped = true;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -145,7 +157,8 @@ describe('ProfileStep', () => {
     expect(card('description').textContent).toContain('Writing…');
     expect($('[data-testid="profile-stream-description"]').textContent).toContain('ZZNEW tall');
     expect(card('personality').textContent).toContain('Waiting for the description…');
-    expect(card('scenario').textContent).toContain('Kept as it is');
+    expect(card('scenario').textContent).toContain('Waiting…');
+    expect(container.querySelector('[data-testid="profile-stream-scenario"]')?.textContent).not.toContain('ZZNEW');
     expect($('[data-testid="facts-card"]').className).toContain('dim');
     expect($('[data-testid="facts-card"]').textContent).toContain('Re-read after the rewrite');
     expect(button(container, /Re-read from the profile/).disabled).toBe(true);
@@ -162,12 +175,26 @@ describe('ProfileStep', () => {
     expect($('[data-testid="profile-stream-personality"]').textContent).toContain('ZZNEW blunt');
     expect($('[data-testid="profile-stream-description"]').textContent).toContain('ZZNEW tall and windburnt.');
 
+    // A generated scenario is written third.
+    act(() =>
+      emit({
+        event: 'chargen_profile_progress',
+        field: 'scenario',
+        description: 'ZZNEW tall and windburnt.',
+        personality: 'ZZNEW blunt and exact.',
+        scenario: 'ZZNEW the storm',
+      }),
+    );
+    expect(card('scenario').textContent).toContain('Writing…');
+    expect($('[data-testid="profile-stream-scenario"]').textContent).toContain('ZZNEW the storm');
+    expect(card('personality').textContent).not.toContain('Writing…');
+
     act(() =>
       emit({
         event: 'chargen_profile_done',
         description: 'ZZNEW tall and windburnt.',
         personality: 'ZZNEW blunt and exact.',
-        scenario: 'A storm closes the harbor.',
+        scenario: 'ZZNEW the storm closes the harbor.',
         facts: { ...EMPTY_FACTS, occupation: 'harbour pilot' },
       }),
     );
@@ -177,6 +204,9 @@ describe('ProfileStep', () => {
     );
     expect(($('[data-testid="facts-card"]').querySelectorAll('input')[1] as HTMLInputElement).value).toBe(
       'harbour pilot',
+    );
+    expect((card('scenario').querySelector('textarea') as HTMLTextAreaElement).value).toBe(
+      'ZZNEW the storm closes the harbor.',
     );
 
     // Stop leaves the text it had.
@@ -231,5 +261,79 @@ describe('ProfileStep', () => {
     act(() => emit({ event: 'chargen_profile_progress', field: 'description', description: 'model text' }));
     expect(card('description').textContent).toContain('Kept as you built it');
     expect(card('description').textContent).not.toContain('model text');
+    expect(card('personality').textContent).toContain('Waiting…');
+    expect(card('personality').textContent).not.toContain('Waiting for the description');
+  });
+
+  it('keeps a scenario the user typed as it is through the whole rewrite', async () => {
+    render({ ...VIEW, userScenario: true });
+    await click(button(container, /Rewrite the profile/));
+    act(() =>
+      emit({ event: 'chargen_profile_progress', field: 'scenario', description: 'D', personality: 'P', scenario: 'model' }),
+    );
+    expect(card('scenario').textContent).toContain('Kept as it is');
+    expect(card('scenario').textContent).not.toContain('model');
+    expect(card('scenario').textContent).toContain('A storm closes the harbor.');
+  });
+
+  it('picks up a rewrite still running after a reload, and its progress', async () => {
+    render({ ...VIEW, writing: 'rewrite' });
+    expect(busy.at(-1)).toBe(true);
+    expect(container.textContent).toContain('Stop');
+    act(() => emit({ event: 'chargen_profile_progress', field: 'description', description: 'ZZNEW after reload' }));
+    expect($('[data-testid="profile-stream-description"]').textContent).toContain('ZZNEW after reload');
+    // The chip field waits too: Enter during the rewrite changes nothing.
+    expect(button($('[data-testid="facts-card"]'), /Add to warms to/).disabled).toBe(true);
+  });
+
+  it('a facts re-read with no facts keeps the ones shown', async () => {
+    render({ ...VIEW, facts: { ...EMPTY_FACTS, occupation: 'keeper', shortTermBond: 15, warmth: 'warm' } });
+    await click(button(container, /Re-read from the profile/));
+    act(() => emit({ event: 'chargen_facts_done' }));
+    expect(handle.current!.current()!.facts.occupation).toBe('keeper');
+    expect(handle.current!.current()!.facts.shortTermBond).toBe(15);
+  });
+
+  it('two quick taps on Rewrite ask once', async () => {
+    render(VIEW);
+    const b = button(container, /Rewrite the profile/);
+    await act(async () => {
+      b.click();
+      b.click();
+    });
+    expect(posts.filter((c) => c.path === '/api/chargen/profile/rewrite')).toHaveLength(1);
+  });
+
+  it('a Stop the relay no longer needed takes the relay\'s profile and ends the wait', async () => {
+    render(VIEW);
+    await click(button(container, /Rewrite the profile/));
+    stopped = false;
+    pendingAnswer = { ...VIEW, description: 'ZZDONE written while the phone slept.', writing: null };
+    await click(button(container, /^Stop$/));
+    await settle();
+    expect(busy.at(-1)).toBe(false);
+    expect((card('description').querySelector('textarea') as HTMLTextAreaElement).value).toBe(
+      'ZZDONE written while the phone slept.',
+    );
+  });
+
+  it('a saved character resynced after a sleep shows the relay\'s new text', async () => {
+    pendingAnswer = { ...VIEW, characterId: '9' };
+    render(null, '9');
+    await settle();
+    await click(button(container, /Rewrite the profile/));
+    pendingAnswer = { ...VIEW, characterId: '9', description: 'ZZSAVED rewritten.', writing: null };
+    act(() => emit({ event: 'connected' }));
+    await settle();
+    expect(busy.at(-1)).toBe(false);
+    expect((card('description').querySelector('textarea') as HTMLTextAreaElement).value).toBe('ZZSAVED rewritten.');
+  });
+
+  it('a saved character that cannot be loaded says so', async () => {
+    pendingAnswer = null;
+    render(null, '404');
+    await settle();
+    expect(container.textContent).toContain('This character could not be loaded.');
+    expect(container.textContent).not.toContain('Loading the profile');
   });
 });

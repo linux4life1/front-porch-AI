@@ -84,7 +84,9 @@ const kChargenSteeredMarker = 'rewritten the way the author asked';
           'worn': ['oilskin coat'],
           'carrying': ['brass key'],
           'character_emotion': 'calm',
+          'emotion_intensity': 'mild',
           'time_of_day': 'evening',
+          'story_start_time': '19:30',
         }),
       ],
     );

@@ -24,7 +24,13 @@ import { LoreContext } from '../components/aichargen/LoreContext';
 import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
 import { ModeCards } from '../components/aichargen/ModeCards';
 import { ProfileStep, type ProfileStepHandle } from '../components/aichargen/ProfileStep';
-import { continueProfile, loadPending, viewOf, type ProfileView } from '../components/aichargen/profileApi';
+import {
+  continueProfile,
+  loadPending,
+  stopProfile,
+  viewOf,
+  type ProfileView,
+} from '../components/aichargen/profileApi';
 import { ArrowLeft, ArrowRight, Sparkle } from '../components/aichargen/creatorIcons';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import '../styles/studio.css';
@@ -56,7 +62,7 @@ export function CreateAiCharacterPage() {
   // Held in state and set with the step on chargen_profile, as the id is.
   // Read once, at mount: the URL this page sets itself later is not a
   // reload to restore from.
-  const [restoring] = useState(() => !createdId && params.get('profile') === 'pending');
+  const [restoring, setRestoring] = useState(() => !createdId && params.get('profile') === 'pending');
   const [pending, setPending] = useState<ProfileView | null>(null);
   const [step, setStep] = useState(() => (createdId ? GREETINGS : restoring ? PROFILE : 0));
   const [writing, setWriting] = useState(false);
@@ -103,6 +109,7 @@ export function CreateAiCharacterPage() {
     let alive = true;
     loadPending()
       .then(({ pending: p, creating }) => {
+        setError('');
         if (!alive) return;
         if (p) {
           setPending(p);
@@ -115,7 +122,11 @@ export function CreateAiCharacterPage() {
           navigate('/create-ai', { replace: true });
         }
       })
-      .catch(() => alive && setError('The profile could not be loaded. Check the connection, then reload.'));
+      .catch((err) => {
+        console.warn('[creator] the waiting profile could not be loaded', err);
+        if (alive) setError('The profile could not be loaded. Check the connection, then try again.');
+      })
+      .finally(() => alive && setRestoring(false));
     return () => {
       alive = false;
     };
@@ -146,6 +157,10 @@ export function CreateAiCharacterPage() {
       } else if (e.event === 'chargen_error') {
         setBusy(false);
         setError(e.error || 'Generation failed');
+      } else if (e.event === 'chargen_profile_stopped' && e.phase === 'complete') {
+        // Stop while the rest was written: the profile waits as it was.
+        setBusy(false);
+        setStep(PROFILE);
       }
     });
     socket.connect();
@@ -155,6 +170,8 @@ export function CreateAiCharacterPage() {
   const generate = async () => {
     if (!form.name.trim() || busy) return;
     setBusy(true);
+    // A new run replaces the one waiting on the relay.
+    setPending(null);
     setSteps([]);
     setError('');
     try {
@@ -166,6 +183,20 @@ export function CreateAiCharacterPage() {
     } catch (e) {
       setBusy(false);
       setError(e instanceof ApiError ? e.message : 'Could not start generation');
+    }
+  };
+
+  // Stop while the rest is written: the relay keeps the profile as it was
+  // and says so (chargen_profile_stopped, phase complete).
+  const stopRest = async () => {
+    try {
+      const r = await stopProfile();
+      if (!r.stopped) {
+        setBusy(false);
+        setStep(PROFILE);
+      }
+    } catch (e) {
+      setError(e instanceof ApiError ? e.message : 'Stop did not reach the app. Try again.');
     }
   };
 
@@ -274,6 +305,11 @@ export function CreateAiCharacterPage() {
                 >
                   {busy ? 'Generating…' : '✨ Generate character'}
                 </button>
+                {busy && pending && (
+                  <button type="button" className="cg-g-stop" onClick={() => void stopRest()}>
+                    Stop
+                  </button>
+                )}
                 {error && <p className="error">{error}</p>}
                 {steps.length > 0 && (
                   <ol className="chargen-steps">
@@ -294,7 +330,16 @@ export function CreateAiCharacterPage() {
                 onWritingChange={setWriting}
               />
             )}
-            {step === PROFILE && error && <p className="error">{error}</p>}
+            {step === PROFILE && error && (
+              <p className="error">
+                {error}{' '}
+                {!pending && !createdId && (
+                  <button type="button" className="cg-p-text-btn" onClick={() => setRestoring(true)}>
+                    Try again
+                  </button>
+                )}
+              </p>
+            )}
             {step === PROFILE && !createdId && !pending && (
               <p className="muted">{restoring ? 'Loading the profile…' : 'Generate a character first; its profile opens here.'}</p>
             )}

@@ -32,7 +32,8 @@ import '../../chargen/support/marker_chargen_llm.dart';
 /// [MarkerChargenLlm], except that a prompt containing [streamMarker]
 /// is answered in [chunks] a little apart (so throttled progress shows
 /// each), and with [holdNext] waits after the first chunk until
-/// abortGeneration lets it go, as a closed connection would.
+/// abortGeneration lets it go. An abort ends the stream there, as a closed
+/// connection would: nothing after it arrives.
 class StreamingChargenLlm extends MarkerChargenLlm {
   StreamingChargenLlm({super.toolAnswers, super.textAnswers});
 
@@ -40,11 +41,18 @@ class StreamingChargenLlm extends MarkerChargenLlm {
   List<String> chunks = const [];
   bool holdNext = false;
   Completer<void>? _held;
+  bool _cut = false;
+
+  /// Whether a held stream is waiting for Stop.
+  bool get holding => _held != null && !_held!.isCompleted;
 
   @override
   void abortGeneration() {
     final held = _held;
-    if (held != null && !held.isCompleted) held.complete();
+    if (held != null && !held.isCompleted) {
+      _cut = true;
+      held.complete();
+    }
   }
 
   @override
@@ -60,6 +68,10 @@ class StreamingChargenLlm extends MarkerChargenLlm {
         holdNext = false;
         final held = _held = Completer<void>();
         await held.future;
+        if (_cut) {
+          _cut = false;
+          return;
+        }
       } else {
         await Future<void>.delayed(const Duration(milliseconds: 160));
       }
@@ -99,10 +111,18 @@ class ChargenRelay {
     SharedPreferences.setMockInitialValues({});
     final db = AppDatabase.forTesting();
     addTearDown(db.close);
+    final library = Directory.systemTemp.createTempSync('fpai_chargen_relay_');
     final storage = StorageService();
-    await storage.setRootPath(
-      Directory.systemTemp.createTempSync('fpai_chargen_relay_').path,
-    );
+    await storage.setRootPath(library.path);
+    // Last to run: everything else is closed by then.
+    addTearDown(() {
+      for (final dir in {library.path, ?storage.rootPath}) {
+        final d = Directory(dir);
+        if (dir.startsWith(Directory.systemTemp.path) && d.existsSync()) {
+          d.deleteSync(recursive: true);
+        }
+      }
+    });
     final repo = CharacterRepository(db, storage);
     final characters = CharacterFacade(db, storage, null, null, repo);
     final tokens = StreamController<String>.broadcast();
@@ -157,8 +177,15 @@ class ChargenRelay {
 
   /// Requests go through the router in process (dart:io's client is mocked
   /// under the test binding); the hub is a real WebSocket.
-  Future<(int, Map<String, dynamic>)> post(String path, Object body) =>
-      _send(router, 'POST', path, jsonEncode(body));
+  Future<(int, Map<String, dynamic>)> post(
+    String path,
+    Object body, {
+    Router? on,
+  }) => _send(on ?? router, 'POST', path, jsonEncode(body));
+
+  /// A POST whose body is [raw] as sent, valid JSON or not.
+  Future<(int, Map<String, dynamic>)> postRaw(String path, String raw) =>
+      _send(router, 'POST', path, raw);
 
   Future<(int, Map<String, dynamic>)> get(String path, {Router? on}) =>
       _send(on ?? router, 'GET', path, null);

@@ -28,18 +28,29 @@ describe('boxStates', () => {
 
   it('writes the description first while personality waits', () => {
     const p = progressOf({ field: 'description', description: 'Tall' });
-    expect(boxStates(p, 'guided')).toEqual({ description: 'writing', personality: 'waiting', scenario: 'kept' });
+    expect(boxStates(p, 'guided')).toEqual({ description: 'writing', personality: 'waiting', scenario: 'waitingShort' });
     // Before the first key arrives the description is still the one being written.
     expect(boxStates(progressOf({}), 'guided').description).toBe('writing');
   });
 
   it('moves to personality when its key arrives', () => {
     const p = progressOf({ field: 'personality', description: 'Tall.', personality: 'Blunt' });
-    expect(boxStates(p, 'quick')).toEqual({ description: null, personality: 'writing', scenario: 'kept' });
+    expect(boxStates(p, 'quick')).toEqual({ description: null, personality: 'writing', scenario: 'waitingShort' });
+  });
+
+  it('writes a generated scenario third, and keeps one the user typed', () => {
+    const p = progressOf({ field: 'scenario', description: 'D.', personality: 'P.', scenario: 'S' });
+    expect(boxStates(p, 'quick')).toEqual({ description: null, personality: null, scenario: 'writing' });
+    expect(boxStates(p, 'quick', true).scenario).toBe('kept');
+    expect(boxStates(progressOf({ field: 'description' }), 'quick', true).scenario).toBe('kept');
   });
 
   it('keeps an Automated description as the author built it', () => {
-    expect(boxStates(progressOf({ field: 'description' }), 'automated').description).toBe('built');
+    const s0 = boxStates(progressOf({ field: 'description' }), 'automated');
+    expect(s0.description).toBe('built');
+    expect(s0.personality).toBe('waitingShort');
+    // A saved card whose mode is unknown is not treated as Automated.
+    expect(boxStates(progressOf({ field: 'description' }), 'saved').description).toBe('writing');
   });
 });
 

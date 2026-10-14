@@ -159,19 +159,27 @@ export function progressOf(e: { field?: string; description?: string; personalit
   };
 }
 
-/** How a box reads while the profile is rewritten. Description is written
- *  first; Personality waits for it; Scenario is kept as it is. In Automated
- *  mode the description is the author's own and stays. */
-export type BoxState = 'writing' | 'waiting' | 'kept' | 'built' | null;
+/** How a box reads while the profile is rewritten. The rewrite writes
+ *  Description, then Personality, then Scenario, each box "Writing…" in
+ *  turn and the later ones waiting for theirs (null once a box is done). A
+ *  scenario the user typed is kept as it is; in Automated mode the
+ *  description is the author's own and stays, and Personality just waits. */
+export type BoxState = 'writing' | 'waiting' | 'waitingShort' | 'kept' | 'built' | null;
 
-export function boxStates(p: ProfileProgress | null, mode: string): Record<keyof ProfileTexts, BoxState> {
+export function boxStates(
+  p: ProfileProgress | null,
+  mode: string,
+  userScenario = false,
+): Record<keyof ProfileTexts, BoxState> {
   if (!p) return { description: null, personality: null, scenario: null };
   const automated = mode === 'automated';
-  const personalityStarted = p.field === 'personality' || p.field === 'scenario';
+  const order = ['description', 'personality', 'scenario'];
+  const at = Math.max(0, order.indexOf(p.field));
+  const state = (i: number, waiting: BoxState): BoxState => (i < at ? null : i === at ? 'writing' : waiting);
   return {
-    description: automated ? 'built' : personalityStarted ? null : 'writing',
-    personality: personalityStarted ? 'writing' : 'waiting',
-    scenario: 'kept',
+    description: automated ? 'built' : state(0, 'writing'),
+    personality: state(1, automated ? 'waitingShort' : 'waiting'),
+    scenario: userScenario ? 'kept' : state(2, 'waitingShort'),
   };
 }
 

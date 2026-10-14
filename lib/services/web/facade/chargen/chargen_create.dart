@@ -71,6 +71,49 @@ Map<String, dynamic> chargenSaveExtras(Map<String, dynamic> f) => {
     if (f[k] != null) k: f[k],
 };
 
+/// Where a character created here keeps what it was asked for that its
+/// greeting recipe does not carry (the concept, the lore categories and
+/// depth, the wizard mode), so a lorebook rewrite or the Profile step after
+/// a restart asks the same way. Beside the recipe's own key; additive.
+const kCreatorInputsExtensionKey = 'creator_inputs';
+
+const _stampConceptChars = 4000;
+
+/// Write [inputs] and [mode] onto [card] (see [kCreatorInputsExtensionKey]).
+void stampCreatorInputs(CharacterCard card, GenRunInputs inputs, String mode) {
+  final raw = Map<String, dynamic>.from(card.rawExtensions ?? {});
+  final concept = inputs.concept;
+  raw[kCreatorInputsExtensionKey] = {
+    'concept': concept.length > _stampConceptChars
+        ? concept.substring(0, _stampConceptChars)
+        : concept,
+    'loreCategories': inputs.loreCategories,
+    'loreDepth': inputs.loreDepth,
+    if (mode.isNotEmpty) 'mode': mode,
+  };
+  card.rawExtensions = raw;
+}
+
+/// What a saved character was asked for, read back from its stamp; null
+/// when it carries none.
+({String concept, List<String> loreCategories, String loreDepth, String mode})?
+readCreatorInputs(CharacterCard? card) {
+  final raw = card?.rawExtensions?[kCreatorInputsExtensionKey];
+  if (raw is! Map) return null;
+  String text(String k) => raw[k] is String ? raw[k] as String : '';
+  final depth = text('loreDepth');
+  return (
+    concept: text('concept'),
+    loreCategories: [
+      if (raw['loreCategories'] is List)
+        for (final c in raw['loreCategories'] as List)
+          if (c is String && c.trim().isNotEmpty) c,
+    ],
+    loreDepth: depth.isEmpty ? 'Standard' : depth,
+    mode: text('mode'),
+  );
+}
+
 /// Creating a whole character and saving it: the one-shot create (both
 /// phases back to back, as before the Profile step) and the save every
 /// finished card goes through.
@@ -90,6 +133,30 @@ class ChargenCreate {
   final Map<String, GenRunInputs> _inputs = {};
 
   GenRunInputs? inputsFor(String characterId) => _inputs[characterId];
+
+  /// How a lorebook rewrite of saved [card] asks: as it was created (the
+  /// cache, else the card's stamp), else from its description.
+  ({String concept, List<String> loreCategories, String loreDepth}) loreAskFor(
+    String characterId,
+    CharacterCard card,
+  ) {
+    final cached = _inputs[characterId];
+    if (cached != null) {
+      return (
+        concept: cached.concept,
+        loreCategories: cached.loreCategories,
+        loreDepth: cached.loreDepth,
+      );
+    }
+    final stamp = readCreatorInputs(card);
+    return (
+      concept: (stamp?.concept ?? '').isEmpty
+          ? card.description
+          : stamp!.concept,
+      loreCategories: stamp?.loreCategories ?? const [],
+      loreDepth: stamp?.loreDepth ?? 'Standard',
+    );
+  }
 
   void _rememberInputs(String id, GenRunInputs inputs) {
     _inputs.remove(id);
@@ -145,7 +212,13 @@ class ChargenCreate {
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
       );
-      await saveGenerated(card, gen, i, fields);
+      await saveGenerated(
+        card,
+        gen,
+        i,
+        fields,
+        mode: fields['mode']?.toString() ?? '',
+      );
     } catch (e) {
       _hub?.broadcast({'event': 'chargen_error', 'error': '$e'});
     } finally {
@@ -156,12 +229,14 @@ class ChargenCreate {
   /// Save a finished [card] that [gen] wrote from [inputs]: the persona's
   /// birthday and picture from [extras], else a rendered portrait; then
   /// `chargen_done`. Returns the saved id, or null after a `chargen_error`.
+  /// [mode] is the wizard mode, stamped with the inputs.
   Future<String?> saveGenerated(
     CharacterCard? card,
     CharacterGenService gen,
     GenRunInputs inputs,
-    Map<String, dynamic> extras,
-  ) async {
+    Map<String, dynamic> extras, {
+    String mode = '',
+  }) async {
     if (card == null) {
       _hub?.broadcast({
         'event': 'chargen_error',
@@ -169,6 +244,7 @@ class ChargenCreate {
       });
       return null;
     }
+    stampCreatorInputs(card, inputs, mode);
     // A persona's birthday rides along, as the desktop's realismBirthday.
     final birthday = extras['birthday']?.toString().trim() ?? '';
     if (birthday.isNotEmpty) {

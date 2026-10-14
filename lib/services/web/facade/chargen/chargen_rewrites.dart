@@ -100,7 +100,7 @@ class ChargenRewrites {
     }
 
     final recipe = _recipeFor(job.characterId, card);
-    final inputs = _create.inputsFor(job.characterId);
+    final ask = _create.loreAskFor(job.characterId, card);
     String? text;
     Lorebook? book;
     Object? failure;
@@ -116,9 +116,9 @@ class ChargenRewrites {
         book = await job.gen.rewriteLorebook(
           card: card,
           recipe: recipe,
-          concept: inputs?.concept ?? card.description,
-          loreCategories: inputs?.loreCategories ?? const [],
-          loreDepth: inputs?.loreDepth ?? 'Standard',
+          concept: ask.concept,
+          loreCategories: ask.loreCategories,
+          loreDepth: ask.loreDepth,
           direction: dir,
           onProgress: progress,
         );

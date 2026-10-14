@@ -31,6 +31,8 @@ vi.mock('../../api/ws', () => ({
 type Call = { path: string; body: Record<string, unknown> };
 const posts: Call[] = [];
 let profileChanged = true;
+let statusFails = false;
+let reviewFails = false;
 const LORE = [
   { name: 'The Rock', content: 'A wet rock two miles out.', handEdited: false },
   { name: 'My Pub', content: 'The pub I wrote myself.', handEdited: true },
@@ -41,8 +43,12 @@ vi.mock('../../api/client', () => ({
   api: {
     get: async (path: string) => {
       if (path.includes('/detail')) return { firstMessage: '*She trims the wick.*', alternateGreetings: ['ALT ONE'] };
-      if (path.includes('/greeting/status')) return { writing: null, profileChanged };
+      if (path.includes('/greeting/status')) {
+        if (statusFails) throw new Error('offline');
+        return { writing: null, profileChanged };
+      }
       if (path.includes('/chargen/review')) {
+        if (reviewFails) throw new Error('offline');
         return { mesExample: '{{user}}: Hi\n{{char}}: Mind the steps.', lorebook: LORE, writing: null, sex: 'Female' };
       }
       return {};
@@ -96,6 +102,9 @@ beforeEach(async () => {
   posts.length = 0;
   busy.length = 0;
   profileChanged = true;
+  statusFails = false;
+  reviewFails = false;
+  vi.spyOn(console, 'warn').mockImplementation(() => {});
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
@@ -199,5 +208,55 @@ describe('GreetingsStep after the Profile step', () => {
     });
     await settle();
     expect(hint()).toBeNull();
+  });
+
+  it('ends a rewrite-all that never sent its last greeting, and takes the end without an id', async () => {
+    await click(button(hint()!, /Rewrite the greetings from it/));
+    act(() => emit({ event: 'chargen_greeting_done', characterId: '7', index: 0, text: 'New first.' }));
+    expect(card(1).textContent).toContain('Writing…');
+    act(() => emit({ event: 'chargen_greetings_rewritten' }));
+    expect(busy.at(-1)).toBe(false);
+    expect(card(1).textContent).not.toContain('Writing…');
+    expect(button(card(0), /Regenerate/).disabled).toBe(false);
+  });
+
+  it('a late event for the other review card does not end the one being written', async () => {
+    const dialogue = $('[data-testid="review-example-dialogue"]');
+    const lore = $('[data-testid="review-lorebook"]');
+    await click(button(lore, /Rewrite the lorebook/));
+    act(() => emit({ event: 'chargen_rewrite_done', characterId: '7', field: 'mesExample', text: 'stale' }));
+    expect(lore.textContent).toContain('Writing…');
+    expect(busy.at(-1)).toBe(true);
+    expect((dialogue.querySelector('textarea') as HTMLTextAreaElement).value).not.toBe('stale');
+  });
+
+  it('says when the review cards could not load, and loads them again', async () => {
+    act(() => root.unmount());
+    reviewFails = true;
+    root = createRoot(container);
+    act(() => {
+      root.render(createElement(GreetingsStep, { characterId: '7' }));
+    });
+    await settle();
+    expect($('[data-testid="review-load-error"]').textContent).toContain('could not be loaded');
+    reviewFails = false;
+    act(() => emit({ event: 'connected' }));
+    await settle();
+    expect(container.querySelector('[data-testid="review-cards"]')).not.toBeNull();
+  });
+
+  it('asks again whether the profile changed after a failed ask', async () => {
+    act(() => root.unmount());
+    statusFails = true;
+    root = createRoot(container);
+    act(() => {
+      root.render(createElement(GreetingsStep, { characterId: '7' }));
+    });
+    await settle();
+    expect(hint()).toBeNull();
+    statusFails = false;
+    act(() => emit({ event: 'connected' }));
+    await settle();
+    expect(hint()?.textContent).toContain('The profile changed');
   });
 });
