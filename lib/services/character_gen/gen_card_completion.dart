@@ -169,7 +169,8 @@ class GenCardCompletion {
 
     // ── The opening scene: outfit, pockets, mood, time ────────────
     // After the greeting so they match the opening beat. The identity facts
-    // pass already wrote the lists; this merges, never wipes them.
+    // pass already wrote the lists; this merges, never wipes them. Without
+    // that pass (a Scene Guest) this asks for the lists itself.
     onStatus?.call('Seeding wardrobe and ambitions...');
     onProgress?.call('');
     await _s.porchLife.seedIdentity(
@@ -177,7 +178,7 @@ class GenCardCompletion {
       name: name,
       interviewTranscript: transcript,
       nsfwEnabled: inputs.nsfwEnabled,
-      identityDone: true,
+      identityDone: inputs.includeIdentityFacts,
       onProgress: onProgress,
     );
     if (_state.isStale(epoch)) return null;

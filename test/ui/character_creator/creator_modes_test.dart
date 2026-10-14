@@ -608,6 +608,27 @@ Sure! Here's a name for your character:
         'A wandering elf ranger.. Physical appearance: Elf race/species',
       );
     });
+
+    test('without identity facts (a Scene Guest) no facts call is made and '
+        'Porch Life still asks for the lists', () async {
+      final llm = MarkerChargenLlm();
+      final card = await CharacterGenService(llm).generateCharacter(
+        name: 'Mira Holt',
+        concept: 'A cartographer of drowned coasts.',
+        altGreetingCount: 0,
+        generateLorebook: false,
+        includeIdentityFacts: false,
+      );
+      expect(card, isNotNull);
+      expect(llm.toolChoices, isNot(contains(kIdentityFactsToolName)));
+      expect(
+        llm.sent('Read the facts this character profile implies'),
+        isFalse,
+      );
+      final porch = llm.promptWith('Seed Porch Life identity');
+      expect(porch, contains('"ambitions"'));
+      expect(porch, contains('"likes"'));
+    });
   });
 
   group('Profile and review rewrites', () {

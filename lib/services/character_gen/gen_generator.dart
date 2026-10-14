@@ -301,22 +301,25 @@ class GenCharacterGenerator {
     if (override != null) card.description = override;
 
     // ── Step 3: Identity facts (birthday, work, stance, lists, notes) ──
-    onStatus?.call("Reading the character's facts...");
-    onProgress?.call('');
-    final facts = await _s.identity.read(
-      name: name,
-      age: age,
-      sex: sex,
-      relationship: relationship,
-      description: card.description,
-      personality: card.personality,
-      scenario: card.scenario,
-      interviewTranscript: interviewTranscript,
-      nsfwEnabled: nsfwEnabled,
-      onProgress: onProgress,
-    );
-    if (_state.isStale(currentEpoch)) return null;
-    if (facts != null) applyIdentityFacts(card, facts);
+    IdentityFacts? facts;
+    if (inputs.includeIdentityFacts) {
+      onStatus?.call("Reading the character's facts...");
+      onProgress?.call('');
+      facts = await _s.identity.read(
+        name: name,
+        age: age,
+        sex: sex,
+        relationship: relationship,
+        description: card.description,
+        personality: card.personality,
+        scenario: card.scenario,
+        interviewTranscript: interviewTranscript,
+        nsfwEnabled: nsfwEnabled,
+        onProgress: onProgress,
+      );
+      if (_state.isStale(currentEpoch)) return null;
+      if (facts != null) applyIdentityFacts(card, facts);
+    }
 
     return (
       GenPausedRun(

@@ -81,6 +81,9 @@ class SceneGuestFactory {
         // not supported" for the whole run. Nothing of the mint's own needs
         // clearing (_addGuestWithStatus already guards against a busy chat).
         abortInFlight: false,
+        // A passing NPC: no identity facts call; the Porch Life pass still
+        // seeds its lists.
+        includeIdentityFacts: false,
       );
     } catch (e) {
       debugPrint('[SceneGuest:mint] generation failed: $e');

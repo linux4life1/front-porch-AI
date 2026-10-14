@@ -37,6 +37,7 @@ class GenRunInputs {
     this.narrativePerspective = 'first',
     this.narrativeTense = 'present',
     this.descriptionOverride,
+    this.includeIdentityFacts = true,
   });
 
   final String name;
@@ -70,6 +71,11 @@ class GenRunInputs {
   /// The Automated mode's description, written verbatim over the model's
   /// once the profile is rewritten. Null keeps the model's.
   final String? descriptionOverride;
+
+  /// Run the identity facts pass in the profile phase. False for a Scene
+  /// Guest (a passing NPC): no facts call, and the greeting-time Porch Life
+  /// pass asks for the lists itself, as before the facts pass existed.
+  final bool includeIdentityFacts;
 
   /// The user typed a scenario: it is kept word for word, never rewritten.
   bool get userScenario => scenario.trim().isNotEmpty;
@@ -116,6 +122,7 @@ class GenRunInputs {
     'narrativePerspective': narrativePerspective,
     'narrativeTense': narrativeTense,
     'descriptionOverride': descriptionOverride,
+    'includeIdentityFacts': includeIdentityFacts,
   };
 
   /// [toJson] read back; a missing or odd value takes the default.
@@ -161,6 +168,7 @@ class GenRunInputs {
       descriptionOverride: j['descriptionOverride'] is String
           ? j['descriptionOverride'] as String
           : null,
+      includeIdentityFacts: b('includeIdentityFacts', d.includeIdentityFacts),
     );
   }
 }
