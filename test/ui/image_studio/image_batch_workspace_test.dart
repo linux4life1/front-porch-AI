@@ -148,4 +148,51 @@ void main() {
       });
     },
   );
+
+  testWidgets('Select visible ticks every card the search shows', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    final rig = await fixture.workspaceRig(tester);
+    late ImageBatchService queue;
+    await tester.runAsync(() async {
+      queue = ImageBatchService(rig.storage, rig.image);
+      await queue.ready;
+    });
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(
+            value: rig.repository,
+          ),
+        ],
+        child: MaterialApp(home: ImageBatchesPage(queue: queue)),
+      ),
+    );
+    for (var i = 0; i < 5; i++) {
+      await tester.runAsync(
+        () => Future<void>.delayed(const Duration(milliseconds: 10)),
+      );
+      await tester.pump();
+    }
+
+    await tester.tap(find.text('Select visible'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Prepare for 2 characters'), findsOneWidget);
+
+    await tester.enterText(
+      find.widgetWithText(TextField, 'Find characters'),
+      'second',
+    );
+    await tester.tap(find.text('Clear selection'));
+    await tester.pump();
+    await tester.tap(find.text('Select visible'));
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.text('Prepare for 1 character'), findsOneWidget);
+    await tester.pumpWidget(const SizedBox.shrink());
+  });
 }
