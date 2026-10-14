@@ -11,6 +11,7 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { ApiError } from '../../api/client';
 import type { WsEvent } from '../../api/ws';
 import { MacroField } from '../MacroField';
+import { MacroText } from './macroText';
 import { ReviewRewriteCard } from './ReviewRewriteCard';
 import {
   dialogueSubtitle,
@@ -176,7 +177,7 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
       >
         {writing?.field === 'mesExample' ? (
           <div className="cg-g-stream" aria-live="polite">
-            {writing.text}
+            <MacroText text={writing.text} />
             <span className="cg-g-caret" />
           </div>
         ) : (

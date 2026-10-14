@@ -22,6 +22,7 @@ import { AutomatedConfig } from '../components/aichargen/AutomatedConfig';
 import { OutputSettings } from '../components/aichargen/OutputSettings';
 import { LoreContext } from '../components/aichargen/LoreContext';
 import { GreetingsStep, type GreetingsStepHandle } from '../components/aichargen/GreetingsStep';
+import { GeneratingPanel } from '../components/aichargen/GeneratingPanel';
 import { ModeCards } from '../components/aichargen/ModeCards';
 import { ProfileStep, type ProfileStepHandle } from '../components/aichargen/ProfileStep';
 import {
@@ -290,34 +291,37 @@ export function CreateAiCharacterPage() {
 
             {step === 2 && <OutputSettings form={form} set={set} />}
 
-            {step === 3 && (
+            {step === GENERATE && (
               <div className="cg-config">
-                <div className="cg-card cg-review">
-                  <div><span className="cg-review-key">Name</span><div>{form.name || '—'}</div></div>
-                  <div><span className="cg-review-key">Mode</span><div style={{ textTransform: 'capitalize' }}>{form.mode}</div></div>
-                  <div><span className="cg-review-key">Mature content</span><div>{form.nsfw ? 'On' : 'Off'}</div></div>
-                  <div><span className="cg-review-key">Lorebook</span><div>{form.generateLorebook ? `${form.loreDepth}` : 'Off'}</div></div>
-                </div>
-                <button
-                  className="primary cg-generate"
-                  disabled={busy || !form.name.trim() || available === false}
-                  onClick={generate}
-                >
-                  {busy ? 'Generating…' : '✨ Generate character'}
-                </button>
-                {busy && pending && (
-                  <button type="button" className="cg-g-stop" onClick={() => void stopRest()}>
-                    Stop
-                  </button>
+                {busy ? (
+                  // Writing: the desktop's Generate screen. Only the rest
+                  // after the Profile step can be stopped.
+                  <GeneratingPanel steps={steps} onStop={pending ? () => void stopRest() : undefined} />
+                ) : (
+                  <>
+                    <div className="cg-card cg-review">
+                      <div><span className="cg-review-key">Name</span><div>{form.name || '—'}</div></div>
+                      <div><span className="cg-review-key">Mode</span><div style={{ textTransform: 'capitalize' }}>{form.mode}</div></div>
+                      <div><span className="cg-review-key">Mature content</span><div>{form.nsfw ? 'On' : 'Off'}</div></div>
+                      <div><span className="cg-review-key">Lorebook</span><div>{form.generateLorebook ? `${form.loreDepth}` : 'Off'}</div></div>
+                    </div>
+                    <button
+                      className="primary cg-generate"
+                      disabled={!form.name.trim() || available === false}
+                      onClick={generate}
+                    >
+                      ✨ Generate character
+                    </button>
+                    {steps.length > 0 && (
+                      <ol className="chargen-steps">
+                        {steps.map((s, i) => (
+                          <li key={i} className="done">{s}</li>
+                        ))}
+                      </ol>
+                    )}
+                  </>
                 )}
                 {error && <p className="error">{error}</p>}
-                {steps.length > 0 && (
-                  <ol className="chargen-steps">
-                    {steps.map((s, i) => (
-                      <li key={i} className={i === steps.length - 1 && busy ? 'active' : 'done'}>{s}</li>
-                    ))}
-                  </ol>
-                )}
               </div>
             )}
 

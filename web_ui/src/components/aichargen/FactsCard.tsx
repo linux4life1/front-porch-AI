@@ -9,7 +9,7 @@
 
 import { useState } from 'react';
 import { useLayout } from '../../hooks/useBreakpoint';
-import { birthdayLabel, stanceOf, type Facts } from './profileApi';
+import { birthdayLabel, stanceOf, workDaysText, type Facts } from './profileApi';
 import { CloseIcon, RewriteIcon } from './creatorIcons';
 
 type ListKey = 'ambitions' | 'likes' | 'dislikes' | 'intimateInto' | 'intimateNotInto';
@@ -36,7 +36,7 @@ export function FactsCard({
   const { isPhone } = useLayout();
   const dim = rewriting || rereading;
   const set = (p: Partial<Facts>) => onChange({ ...facts, ...p });
-  const text = (key: 'birthday' | 'occupation' | 'hours' | 'currentTask', label: string) => (
+  const text = (key: 'birthday' | 'occupation' | 'currentTask', label: string) => (
     <label className="cg-field cg-p-fact">
       <span className="cg-field-label">{label}</span>
       <input value={facts[key]} disabled={dim} onChange={(e) => set({ [key]: e.target.value })} />
@@ -74,7 +74,20 @@ export function FactsCard({
       <div className="cg-p-grid3">
         {text('birthday', birthdayLabel(age, isPhone))}
         {text('occupation', 'OCCUPATION')}
-        {text('hours', 'HOURS · WORK DAYS')}
+        <label className="cg-field cg-p-fact">
+          <span className="cg-field-label">HOURS · WORK DAYS</span>
+          {/* The days are set on the desktop's Realism step: a muted note
+              beside the field, under it when there is no room. */}
+          <span className="cg-p-hours">
+            <input
+              value={facts.hours}
+              placeholder="No set hours"
+              disabled={dim}
+              onChange={(e) => set({ hours: e.target.value })}
+            />
+            {facts.hours.trim() && <span className="cg-p-days">· {workDaysText(facts.workDays)}</span>}
+          </span>
+        </label>
       </div>
       <div className="cg-p-grid2">
         {text('currentTask', 'OPENING TASK')}

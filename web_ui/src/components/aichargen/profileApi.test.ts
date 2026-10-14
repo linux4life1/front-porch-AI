@@ -17,6 +17,7 @@ import {
   loreRowsOf,
   progressOf,
   rowsFor,
+  workDaysText,
   stanceOf,
   viewOf,
 } from './profileApi';
@@ -111,5 +112,20 @@ describe('reads', () => {
     expect(loreRowsOf([{ name: 'Pub', content: 'Mine', handEdited: true }, null, 'x'])).toEqual([
       { name: 'Pub', content: 'Mine', handEdited: true },
     ]);
+  });
+});
+
+describe('workDaysText', () => {
+  it('collapses consecutive days into ranges', () => {
+    expect(workDaysText([1, 2, 3, 4, 5])).toBe('Mon–Fri');
+    expect(workDaysText([6, 7])).toBe('Sat–Sun');
+    expect(workDaysText([1, 2, 3, 4, 6])).toBe('Mon–Thu, Sat');
+  });
+
+  it('names a single day, every day, and the default', () => {
+    expect(workDaysText([3])).toBe('Wed');
+    expect(workDaysText([7, 1, 2, 3, 4, 5, 6])).toBe('Every day');
+    expect(workDaysText(null)).toBe('Mon–Fri');
+    expect(workDaysText([])).toBe('Mon–Fri');
   });
 });

@@ -106,6 +106,27 @@ afterEach(() => {
   container.remove();
 });
 
+it('the first pass shows the same screen with no Stop (the relay cannot stop a create)', async () => {
+  render('/create-ai');
+  await settle();
+  const name = container.querySelector('.cg-field input') as HTMLInputElement;
+  Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!.call(name, 'Aria Vale');
+  act(() => {
+    name.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  for (const label of [/^Next: Details/, /^Next: Output/, /^Next: Generate/]) {
+    await act(async () => {
+      buttonNamed(label).click();
+    });
+  }
+  await act(async () => {
+    buttonNamed(/Generate character/).click();
+  });
+  const panel = container.querySelector('[data-testid="generating-panel"]')!;
+  expect(panel).not.toBeNull();
+  expect(panel.querySelectorAll('button')).toHaveLength(0);
+});
+
 it('a reload that cannot reach the relay says so, and Try again brings the profile back', async () => {
   profileFails = true;
   render('/create-ai?profile=pending');
@@ -148,7 +169,15 @@ it('Stop while the rest is written goes back to the profile', async () => {
   await act(async () => {
     buttonNamed(/^Next: Greetings/).click();
   });
-  expect(container.textContent).toContain('Generating…');
+  // The Generate screen again: the status, the bar, and one button, Stop,
+  // in the panel (no disabled "Generating…" button beside it).
+  const panel = container.querySelector('[data-testid="generating-panel"]')!;
+  expect(panel.textContent).toContain('Generating…');
+  expect(panel.querySelector('[role="progressbar"]')).not.toBeNull();
+  expect(Array.from(panel.querySelectorAll('button')).map((b) => b.textContent)).toEqual(['Stop']);
+  expect(buttonNamed(/Generating…|Generate character/)).toBeUndefined();
+  emit({ event: 'chargen_status', data: 'Writing first message...' });
+  expect(panel.querySelector('.cg-gen-status')?.textContent).toBe('Writing first message...');
   await act(async () => {
     buttonNamed(/^Stop$/).click();
   });

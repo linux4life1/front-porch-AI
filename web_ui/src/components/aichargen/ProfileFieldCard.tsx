@@ -11,6 +11,7 @@ import { MacroField } from '../MacroField';
 import { useLayout } from '../../hooks/useBreakpoint';
 import type { BoxState } from './profileApi';
 import { ExpandIcon } from './creatorIcons';
+import { MacroText } from './macroText';
 
 const STATE_LABEL: Record<Exclude<BoxState, null>, string> = {
   writing: 'Writing…',
@@ -78,7 +79,7 @@ export function ProfileFieldCard({
           aria-live={writing ? 'polite' : undefined}
           data-testid={`profile-stream-${title.toLowerCase()}`}
         >
-          {streamed ?? value}
+          <MacroText text={streamed ?? value} />
           {writing && <span className="cg-g-caret" />}
         </div>
       ) : (

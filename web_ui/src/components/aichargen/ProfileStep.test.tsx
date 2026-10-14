@@ -156,6 +156,11 @@ describe('ProfileStep', () => {
     );
     expect(card('description').textContent).toContain('Writing…');
     expect($('[data-testid="profile-stream-description"]').textContent).toContain('ZZNEW tall');
+    // Streamed text keeps the finished box's macro colouring.
+    act(() =>
+      emit({ event: 'chargen_profile_progress', field: 'description', description: '{{char}} ZZNEW tall', personality: '' }),
+    );
+    expect($('[data-testid="profile-stream-description"] mark.macro-token').textContent).toBe('{{char}}');
     expect(card('personality').textContent).toContain('Waiting for the description…');
     expect(card('scenario').textContent).toContain('Waiting…');
     expect(container.querySelector('[data-testid="profile-stream-scenario"]')?.textContent).not.toContain('ZZNEW');

@@ -27,7 +27,7 @@ button.cg-g-icon {
   background: transparent; color: var(--studio-prose);
   display: flex; align-items: center; justify-content: center; flex-shrink: 0;
 }
-button.cg-g-icon:disabled { opacity: 0.45; }
+button.cg-g-icon:disabled { opacity: 0.4; }
 
 /* ── Macro-coloured text box (the editor's MacroField, and the stream) ── */
 .cg-g-card .macro-field { margin: 0; }
@@ -71,7 +71,7 @@ button.cg-g-regen { border: 1.5px solid var(--studio-amber); color: var(--studio
 button.cg-g-stop { border: 1.5px solid var(--studio-bad); color: var(--studio-bad); }
 button.cg-g-add-btn { border: 1.5px dashed var(--studio-amber); color: var(--studio-amber); }
 button.cg-g-regen:disabled,
-button.cg-g-add-btn:disabled { opacity: 0.45; }
+button.cg-g-add-btn:disabled { opacity: 0.4; }
 
 /* ── Alternates ────────────────────────────────────────────────── */
 .cg-g-alt-head { display: flex; align-items: baseline; gap: 10px; margin-top: 8px; }

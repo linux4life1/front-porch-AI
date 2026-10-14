@@ -38,7 +38,7 @@ button.cg-p-small-btn {
   background: transparent; border: 1.5px solid var(--studio-amber); color: var(--studio-amber);
   font-size: 13px; font-weight: 700; display: flex; align-items: center; gap: 6px;
 }
-button.cg-p-small-btn:disabled { opacity: 0.45; }
+button.cg-p-small-btn:disabled { opacity: 0.4; }
 .cg-p-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; }
 .cg-p-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; }
 .cg-scope .cg-p-fact input.cg-p-readonly { color: var(--studio-muted); }
@@ -94,7 +94,7 @@ button.cg-hint-dismiss {
   color: var(--studio-prose); font-size: 14px; font-weight: 500;
 }
 button.cg-hint-action:disabled,
-button.cg-hint-dismiss:disabled { opacity: 0.45; }
+button.cg-hint-dismiss:disabled { opacity: 0.4; }
 
 /* ── Review rewrites ──────────────────────────────────────────── */
 .cg-review-cards { display: flex; flex-direction: column; gap: 16px; margin-top: 8px; }
@@ -133,3 +133,34 @@ button.cg-p-text-btn {
 /* The review cards keep their subtitle on the phone (the count, the pronoun). */
 [data-layout="phone"] .cg-g-card-head .cg-r-sub { display: inline; }
 [data-layout="phone"] .cg-hint-actions { flex-direction: column; align-items: stretch; gap: 8px; }
+
+/* ── One dim level for every waiting control in the creator ───── */
+.cg-scope button:disabled { opacity: 0.4; }
+
+/* ── HOURS · WORK DAYS: the days beside the field, under it when
+   there is no room ────────────────────────────────────────────── */
+.cg-p-hours { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.cg-scope .cg-p-hours input { flex: 1 1 140px; min-width: 0; width: auto; }
+.cg-p-days { font-size: 12px; color: var(--studio-muted); white-space: nowrap; }
+
+/* ── The Generate screen while a run writes ───────────────────── */
+.cg-generating { display: flex; flex-direction: column; align-items: center; gap: 14px; padding: 12px 0; }
+.cg-gen-spark { color: var(--studio-amber); display: flex; }
+.cg-gen-spark svg { width: 64px; height: 64px; animation: cg-spin 2.4s linear infinite; }
+.cg-gen-status { margin: 0; font-size: 18px; font-weight: 500; color: var(--studio-ink); text-align: center; }
+.cg-gen-bar {
+  position: relative; width: 100%; max-width: 420px; height: 6px; border-radius: 8px; overflow: hidden;
+  background: var(--studio-raise);
+}
+.cg-gen-bar > span {
+  position: absolute; top: 0; bottom: 0; width: 35%; border-radius: 8px; background: var(--studio-amber);
+  animation: cg-bar 1.4s ease-in-out infinite;
+}
+button.cg-gen-stop { align-self: center; }
+.cg-generating .chargen-steps { align-self: stretch; }
+@keyframes cg-spin { to { transform: rotate(360deg); } }
+@keyframes cg-bar { from { left: -35%; } to { left: 100%; } }
+@media (prefers-reduced-motion: reduce) {
+  .cg-gen-spark svg, .cg-gen-bar > span { animation: none; }
+  .cg-gen-bar > span { left: 0; width: 100%; opacity: 0.5; }
+}

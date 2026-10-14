@@ -189,6 +189,31 @@ export function stanceOf(f: Facts): string {
   return `${w.charAt(0).toUpperCase()}${w.slice(1)} · bond ${f.shortTermBond} · trust ${f.trustLevel}`;
 }
 
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/** The work days beside the hours: consecutive days as a range ("Mon–Fri",
+ *  "Mon–Thu, Sat"), all seven as "Every day". None set is the Mon–Fri
+ *  default, as on the desktop. Days are `DateTime.weekday` (1 = Monday). */
+export function workDaysText(days: number[] | null): string {
+  const set = [...new Set((days ?? []).filter((d) => d >= 1 && d <= 7))].sort((a, b) => a - b);
+  if (set.length === 0) return 'Mon–Fri';
+  if (set.length === 7) return 'Every day';
+  const runs: string[] = [];
+  let start = set[0];
+  let prev = start;
+  const close = () => runs.push(start === prev ? WEEKDAYS[start - 1] : `${WEEKDAYS[start - 1]}–${WEEKDAYS[prev - 1]}`);
+  for (const d of set.slice(1)) {
+    if (d === prev + 1) {
+      prev = d;
+      continue;
+    }
+    close();
+    start = prev = d;
+  }
+  close();
+  return runs.join(', ');
+}
+
 /** The birthday row's label: the age from Setup when there is one. */
 export function birthdayLabel(age: string, phone: boolean): string {
   const n = age.match(/\d+/)?.[0];

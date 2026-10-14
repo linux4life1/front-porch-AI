@@ -144,7 +144,7 @@
   background: var(--studio-amber); color: var(--studio-amber-ink);
 }
 .cg-scope .cg-nav button.cg-next svg { order: -1; }
-.cg-scope .cg-nav button:disabled { opacity: 0.45; cursor: default; }
+.cg-scope .cg-nav button:disabled { opacity: 0.4; cursor: default; }
 
 /* ── Fields ────────────────────────────────────────────────────── */
 .cg-scope .cg-config { display: flex; flex-direction: column; gap: 16px; }
