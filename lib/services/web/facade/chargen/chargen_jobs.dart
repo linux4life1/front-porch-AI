@@ -2,7 +2,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
+
+/// Why a run that wrote nothing failed, in words the phone can show: what
+/// the engine reported ([reported], from its `onError`), else the failure
+/// it recorded (a backend refusal keeps the provider's own message), else
+/// [fallback].
+String chargenFailure(
+  CharacterGenService gen,
+  String? reported,
+  String fallback,
+) {
+  final recorded = gen.lastFailure?.trim() ?? '';
+  return reported ?? (recorded.isEmpty ? fallback : recorded);
+}
+
+/// A `chargen_error` event. `message` is additive and carries the same text
+/// as `error`, which older phones read.
+Map<String, dynamic> chargenErrorEvent(String text) => {
+  'event': 'chargen_error',
+  'error': text,
+  'message': text,
+};
 
 /// A relay refusal: the route answers [status] with [error].
 Map<String, dynamic> chargenRefuse(int status, String error) => {

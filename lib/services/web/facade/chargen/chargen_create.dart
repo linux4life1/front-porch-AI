@@ -8,6 +8,7 @@ import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
     show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
+import 'package:front_porch_ai/services/web/facade/chargen/chargen_jobs.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 /// The phone wizard's create fields as the generator's inputs. Quick,
@@ -180,6 +181,7 @@ class ChargenCreate {
     LLMService svc,
   ) async {
     creating = true;
+    String? reported;
     try {
       final i = chargenInputsFromFields(name, fields);
       final gen = CharacterGenService(svc);
@@ -211,6 +213,7 @@ class ChargenCreate {
         descriptionOverride: i.descriptionOverride,
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
+        onError: (m) => reported = m,
       );
       await saveGenerated(
         card,
@@ -218,9 +221,10 @@ class ChargenCreate {
         i,
         fields,
         mode: fields['mode']?.toString() ?? '',
+        failure: reported,
       );
     } catch (e) {
-      _hub?.broadcast({'event': 'chargen_error', 'error': '$e'});
+      _hub?.broadcast(chargenErrorEvent('$e'));
     } finally {
       creating = false;
     }
@@ -229,19 +233,23 @@ class ChargenCreate {
   /// Save a finished [card] that [gen] wrote from [inputs]: the persona's
   /// birthday and picture from [extras], else a rendered portrait; then
   /// `chargen_done`. Returns the saved id, or null after a `chargen_error`.
-  /// [mode] is the wizard mode, stamped with the inputs.
+  /// [mode] is the wizard mode, stamped with the inputs. With no card,
+  /// `chargen_error` says why: [failure] (what the engine reported), else
+  /// what [gen] recorded (a refusal keeps the provider's words).
   Future<String?> saveGenerated(
     CharacterCard? card,
     CharacterGenService gen,
     GenRunInputs inputs,
     Map<String, dynamic> extras, {
     String mode = '',
+    String? failure,
   }) async {
     if (card == null) {
-      _hub?.broadcast({
-        'event': 'chargen_error',
-        'error': 'generation produced no card',
-      });
+      _hub?.broadcast(
+        chargenErrorEvent(
+          chargenFailure(gen, failure, 'generation produced no card'),
+        ),
+      );
       return null;
     }
     stampCreatorInputs(card, inputs, mode);
@@ -267,10 +275,9 @@ class ChargenCreate {
       portraitPath: personaPortrait,
     );
     if (saved == null) {
-      _hub?.broadcast({
-        'event': 'chargen_error',
-        'error': 'failed to save the generated character',
-      });
+      _hub?.broadcast(
+        chargenErrorEvent('failed to save the generated character'),
+      );
       return null;
     }
     final id = saved['id']?.toString();

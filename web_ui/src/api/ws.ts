@@ -13,6 +13,9 @@ export type WsEvent = {
   id?: string | number;
   name?: string;
   error?: string;
+  // `chargen_error`: the same text as `error` (additive), the provider's
+  // own words when a backend refused the request.
+  message?: string;
   // `chargen_enhance_done` (AI Enhance): which character was enhanced and the
   // unsaved field proposal the client reviews before applying.
   characterId?: string;

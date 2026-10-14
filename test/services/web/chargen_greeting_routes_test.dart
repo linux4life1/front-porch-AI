@@ -35,6 +35,7 @@ import 'package:front_porch_ai/services/web/routes/chargen_routes.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 import '../../golden/support/fakes.dart';
+import '../chargen/support/failing_chargen_llm.dart';
 import 'support/chargen_relay.dart';
 
 const _name = 'Aria Vale';
@@ -956,6 +957,36 @@ void main() {
         'characterId': 'no-such-character',
       });
       expect(code, 404);
+    },
+  );
+
+  // ── A backend that refuses (auth, billing) is asked once, and the phone
+  // reads the provider's own words, not a generic "no card" ──────────────
+  test(
+    'a refused create is asked once and says what the provider said',
+    () async {
+      const said =
+          'This API key is set to subscription-only billing and cannot be '
+          'used here.';
+      final llm = FailingChargenLlm(
+        failOn: 'Create a roleplay character card',
+        error: 'API error: $said',
+      )..failing = true;
+      final relay = await ChargenRelay.start(llm);
+      for (final paused in [true, false]) {
+        final before = llm.failures;
+        final failed = relay.next('chargen_error', seconds: 30);
+        final (code, body) = await relay.post('/api/chargen/create', {
+          'name': _name,
+          'concept': 'A lighthouse keeper.',
+          'pauseAtProfile': paused,
+        });
+        expect(code, 200, reason: '$body');
+        final error = await failed;
+        expect(error['error'], contains(said), reason: 'paused: $paused');
+        expect(error['message'], error['error']);
+        expect(llm.failures - before, 1, reason: 'one call, no retries');
+      }
     },
   );
 }

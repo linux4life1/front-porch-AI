@@ -83,16 +83,20 @@ class ChargenProfile {
     try {
       await dropPending();
       final mode = fields['mode']?.toString() ?? 'quick';
-      final run = await CharacterGenService(svc).generateProfile(
+      final gen = CharacterGenService(svc);
+      String? reported;
+      final run = await gen.generateProfile(
         inputs: chargenInputsFromFields(name, fields),
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
+        onError: (m) => reported = m,
       );
       if (run == null) {
-        _hub?.broadcast({
-          'event': 'chargen_error',
-          'error': 'generation produced no profile',
-        });
+        _hub?.broadcast(
+          chargenErrorEvent(
+            chargenFailure(gen, reported, 'generation produced no profile'),
+          ),
+        );
         return;
       }
       final pending = _store.value = PendingProfile(
@@ -103,7 +107,7 @@ class ChargenProfile {
       await _store.save();
       _hub?.broadcast({'event': 'chargen_profile', ..._view(pending)});
     } catch (e) {
-      _hub?.broadcast({'event': 'chargen_error', 'error': '$e'});
+      _hub?.broadcast(chargenErrorEvent('$e'));
     } finally {
       _create.creating = false;
     }
@@ -276,8 +280,9 @@ class ChargenProfile {
       _hub?.broadcast({
         'event': 'chargen_profile_error',
         ...idField,
-        'error': failure != null
-            ? 'The profile could not be rewritten: $failure'
+        'error': failure != null || job.gen!.lastFailure != null
+            ? 'The profile could not be rewritten: '
+                  '${chargenFailure(job.gen!, failure?.toString(), '')}'
             : 'The rewrite came back the same as before, so nothing was '
                   'changed. Try a clearer direction, or check that your '
                   'model is running.',
@@ -369,9 +374,10 @@ class ChargenProfile {
       _hub?.broadcast({
         'event': 'chargen_facts_error',
         ...idField,
-        'error':
-            'The facts could not be read again. Check that your model is '
-            'running, then try again.',
+        'error': job.gen!.lastFailure != null
+            ? 'The facts could not be read again: ${job.gen!.lastFailure}'
+            : 'The facts could not be read again. Check that your model is '
+                  'running, then try again.',
       });
       return;
     }
@@ -432,11 +438,13 @@ class ChargenProfile {
 
   Future<void> _complete(_ProfileJob job, PendingProfile pending) async {
     final gen = job.gen!;
+    String? reported;
     try {
       final card = await gen.completeCharacter(
         paused: pending.run,
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
+        onError: (m) => reported = m,
       );
       // Stopped: the profile waits as it was, and nothing is saved.
       if (!identical(_job, job)) return;
@@ -446,13 +454,14 @@ class ChargenProfile {
         pending.run.inputs,
         pending.extras,
         mode: pending.mode,
+        failure: reported,
       );
       if (id != null && identical(_store.value, pending)) {
         _store.value = null;
         await _store.save();
       }
     } catch (e) {
-      _hub?.broadcast({'event': 'chargen_error', 'error': '$e'});
+      _hub?.broadcast(chargenErrorEvent('$e'));
     } finally {
       if (identical(_job, job)) _job = null;
     }
@@ -462,20 +471,5 @@ class ChargenProfile {
     String id,
     GenPausedRun run,
     IdentityFacts? facts,
-  ) async {
-    final card = _characters.cardByDbId(id);
-    if (card == null) return chargenRefuse(404, 'character not found');
-    // The whole card as edited, saved the way the other relay paths save
-    // it: change the live card, then write it through the shared update.
-    card
-      ..description = run.card.description
-      ..personality = run.card.personality
-      ..scenario = run.card.scenario;
-    if (facts != null) {
-      writeEditedFacts(card, facts, nsfw: run.inputs.nsfwEnabled);
-    }
-    final ok = await _characters.update(id, const {});
-    if (!ok) return chargenRefuse(500, 'The profile could not be saved.');
-    return {'ok': true, 'phase': 'saved'};
-  }
+  ) => saveProfileToCard(_characters, id, run, facts);
 }

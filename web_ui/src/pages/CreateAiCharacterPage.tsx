@@ -157,7 +157,8 @@ export function CreateAiCharacterPage() {
         navigate(`/create-ai?greetings=${encodeURIComponent(id)}`, { replace: true });
       } else if (e.event === 'chargen_error') {
         setBusy(false);
-        setError(e.error || 'Generation failed');
+        // As received: a refusing backend's own words come through here.
+        setError(e.error || e.message || 'Generation failed');
       } else if (e.event === 'chargen_profile_stopped' && e.phase === 'complete') {
         // Stop while the rest was written: the profile waits as it was.
         setBusy(false);

@@ -131,8 +131,9 @@ class ChargenRewrites {
     if (text == null && book == null) {
       return _error(
         job,
-        failure != null
-            ? 'The rewrite failed: $failure'
+        failure != null || job.gen.lastFailure != null
+            ? 'The rewrite failed: '
+                  '${chargenFailure(job.gen, failure?.toString(), '')}'
             : 'Nothing usable came back from the model, so it was left as '
                   'it was. Check that your model is running, then try again.',
       );

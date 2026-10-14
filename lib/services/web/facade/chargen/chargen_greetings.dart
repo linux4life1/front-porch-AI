@@ -301,11 +301,12 @@ class ChargenGreetings {
     if (text == null) {
       return _greetingError(
         job,
-        failure == null
+        failure == null && job.gen.lastFailure == null
             ? 'Nothing came back from the model, so the greeting was left '
                   'as it was. Check that your model is running, then try '
                   'again.'
-            : 'The greeting could not be written: $failure',
+            : 'The greeting could not be written: '
+                  '${failure ?? job.gen.lastFailure}',
       );
     }
     if (!await _saveGreeting(job.characterId, job.index, text)) {

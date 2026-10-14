@@ -105,6 +105,29 @@ class PendingProfileStore {
   }
 }
 
+/// Next on a saved character's Profile step: [run]'s texts and the
+/// author's [facts] onto the live card, saved the way the other relay paths
+/// save it (change the live card, then the shared update).
+Future<Map<String, dynamic>> saveProfileToCard(
+  CharacterFacade characters,
+  String id,
+  GenPausedRun run,
+  IdentityFacts? facts,
+) async {
+  final card = characters.cardByDbId(id);
+  if (card == null) return chargenRefuse(404, 'character not found');
+  card
+    ..description = run.card.description
+    ..personality = run.card.personality
+    ..scenario = run.card.scenario;
+  if (facts != null) {
+    writeEditedFacts(card, facts, nsfw: run.inputs.nsfwEnabled);
+  }
+  final ok = await characters.update(id, const {});
+  if (!ok) return chargenRefuse(500, 'The profile could not be saved.');
+  return {'ok': true, 'phase': 'saved'};
+}
+
 /// What the Profile step shows for [run] (`chargen_profile`, the GET):
 /// the texts, the facts, the interview and its question count, and the
 /// switches the step reads (mode, the user's own scenario, 18+, age).
