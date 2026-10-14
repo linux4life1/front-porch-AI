@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
@@ -46,6 +47,26 @@ class _ProfileChipListState extends State<ProfileChipList> {
   bool _adding = false;
 
   @override
+  void didUpdateWidget(ProfileChipList old) {
+    super.didUpdateWidget(old);
+    // Locked while it was open: close it, nothing typed is added.
+    if (!widget.enabled && _adding) {
+      _box.clear();
+      _adding = false;
+    }
+  }
+
+  /// Escape closes the add box without adding.
+  KeyEventResult _onKey(FocusNode node, KeyEvent e) {
+    if (e is! KeyDownEvent || e.logicalKey != LogicalKeyboardKey.escape) {
+      return KeyEventResult.ignored;
+    }
+    _box.clear();
+    setState(() => _adding = false);
+    return KeyEventResult.handled;
+  }
+
+  @override
   void dispose() {
     _box.dispose();
     _focus.dispose();
@@ -70,31 +91,35 @@ class _ProfileChipListState extends State<ProfileChipList> {
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         for (final v in widget.values) _chip(context, v),
-        if (_adding)
+        if (_adding && widget.enabled)
           SizedBox(
             width: 220,
             height: 34,
-            child: TextField(
-              controller: _box,
-              focusNode: _focus,
-              autofocus: true,
-              style: TextStyle(
-                fontSize: 13,
-                color: StudioColors.inkOf(context),
-              ),
-              onSubmitted: _submit,
-              onTapOutside: (_) => _submit(_box.text),
-              decoration: InputDecoration(
-                isDense: true,
-                filled: true,
-                fillColor: StudioColors.raiseOf(context),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 9,
+            child: Focus(
+              onKeyEvent: _onKey,
+              child: TextField(
+                key: const ValueKey('profile-chip-add-box'),
+                controller: _box,
+                focusNode: _focus,
+                autofocus: true,
+                style: TextStyle(
+                  fontSize: 13,
+                  color: StudioColors.inkOf(context),
                 ),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide.none,
+                onSubmitted: _submit,
+                onTapOutside: (_) => _submit(_box.text),
+                decoration: InputDecoration(
+                  isDense: true,
+                  filled: true,
+                  fillColor: StudioColors.raiseOf(context),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 9,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),

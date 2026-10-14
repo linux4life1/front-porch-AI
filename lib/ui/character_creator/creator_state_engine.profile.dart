@@ -92,6 +92,11 @@ class CreatorProfileWriter {
       ..factsError = null;
     state.notify();
     ProfileRewrite? result;
+    // Why the rewrite gave nothing: a thrown error, or the model failing
+    // every attempt (the engine retries and says so through onProgress).
+    // Only a clean answer with no change is "the same as before".
+    Object? failure;
+    var retried = false;
     try {
       result = await gen.rewriteProfile(
         paused: paused,
@@ -101,19 +106,32 @@ class CreatorProfileWriter {
         direction: p.steer.text.trim(),
         onProgress: (s) {
           if (!identical(p.activeGen, gen)) return;
+          if (s.startsWith('[Retrying')) {
+            retried = true;
+            return;
+          }
           p.stream = parseProfileStream(s);
           state.notify();
         },
       );
     } catch (e) {
       debugPrint('CharacterCreator: profile rewrite failed: $e');
+      failure = e;
     }
     if (!identical(p.activeGen, gen)) return; // stopped, or the wizard reset
     p
       ..activeGen = null
       ..rewriting = false
       ..stream = const ProfileStreamView();
-    if (result == null) {
+    if (failure != null) {
+      p.error =
+          'The rewrite failed: $failure. Nothing was changed. Check that '
+          'your model is running, then try again.';
+    } else if (result == null && retried) {
+      p.error =
+          'The rewrite failed: the model did not answer. Nothing was '
+          'changed. Check that your model is running, then try again.';
+    } else if (result == null) {
       p.error =
           'The rewrite came back the same as before, so nothing was '
           'changed. Try saying more plainly what is wrong.';
@@ -159,6 +177,7 @@ class CreatorProfileWriter {
       ..factsError = null;
     state.notify();
     IdentityFacts? facts;
+    Object? failure;
     try {
       facts = await gen.rereadIdentityFacts(
         paused: paused,
@@ -168,12 +187,17 @@ class CreatorProfileWriter {
       );
     } catch (e) {
       debugPrint('CharacterCreator: facts re-read failed: $e');
+      failure = e;
     }
     if (!identical(p.factsGen, gen)) return;
     p
       ..factsGen = null
       ..rereadingFacts = false;
-    if (facts == null || facts.isEmpty) {
+    if (failure != null) {
+      p.factsError =
+          'The facts re-read failed: $failure. Nothing was changed. Check '
+          'that your model is running, then try again.';
+    } else if (facts == null || facts.isEmpty) {
       p.factsError =
           'The facts could not be read from the profile. Nothing was '
           'changed. Try again, or edit them below.';
@@ -192,7 +216,7 @@ class CreatorProfileWriter {
       ..personality = state.personalityController.text
       ..scenario = state.scenarioController.text;
     if (facts != null) {
-      applyIdentityFacts(card, facts);
+      applyIdentityFacts(card, facts, nsfw: p.paused!.inputs.nsfwEnabled);
       p.facts = facts;
       state.generatedCard?.creatorNotes = card.creatorNotes;
       CreatorGenerationCore(state).applyIdentityRealism(card);

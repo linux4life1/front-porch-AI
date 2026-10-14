@@ -40,10 +40,12 @@ Widget factField(
   required String value,
   required ValueChanged<String> onChanged,
   String? hint,
+  bool readOnly = false,
 }) => SyncedTextField(
   key: key,
   value: value,
   onChanged: onChanged,
+  readOnly: readOnly,
   style: TextStyle(fontSize: 14, color: StudioColors.inkOf(context)),
   decoration: InputDecoration(
     isDense: true,

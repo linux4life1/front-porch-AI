@@ -27,6 +27,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -128,6 +129,9 @@ class _ProfileLlm extends LLMService {
 
   final List<String> prompts = [];
   bool holdRewrite = false;
+
+  /// Hold the rewrite again once its scenario has started.
+  bool holdScenario = false;
   String occupation = 'lighthouse keeper';
   int factsReads = 0;
   int greetings = 0;
@@ -141,7 +145,10 @@ class _ProfileLlm extends LLMService {
       prompts.lastWhere((p) => p.contains(marker), orElse: () => '');
 
   @override
-  void abortGeneration() {
+  void abortGeneration() => release();
+
+  /// Let a held rewrite go on.
+  void release() {
     final held = _held;
     if (held != null && !held.isCompleted) held.complete();
   }
@@ -164,7 +171,14 @@ class _ProfileLlm extends LLMService {
         _held = null;
       }
       yield '"personality": "Rewritten personality $n.", '
-          '"scenario": "{{user}} climbs the tower stairs at dusk."}';
+          '"scenario": "Rewritten scenario $n';
+      if (holdScenario) {
+        holdScenario = false;
+        final held = _held = Completer<void>();
+        await held.future;
+        _held = null;
+      }
+      yield ': {{user}} climbs the tower stairs at dusk, soaked to the bone."}';
       return;
     }
     if (p.contains('Seed Porch Life identity')) {
@@ -248,6 +262,23 @@ class _ProfileLlm extends LLMService {
 
   @override
   String get backendName => 'scripted-test';
+}
+
+/// A model whose backend is down for the profile rewrite.
+class _FailingRewriteLlm extends LLMService {
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    if (params.prompt.contains('Rewrite the profile the way')) {
+      throw Exception('connection refused');
+    }
+    yield '{}';
+  }
+
+  @override
+  bool get isReady => true;
+
+  @override
+  String get backendName => 'failing-test';
 }
 
 class _Provider extends FakeLLMProvider {
@@ -651,6 +682,21 @@ void main() {
     expect(find.text('Also written from the interview'), findsOneWidget);
     expect(find.text('Next: Greetings'), findsOneWidget);
 
+    // ── Escape closes a chip list's add box without adding ──
+    Finder inChips(String list, Finder f) => find.descendant(
+      of: find.byKey(ValueKey('profile-chips-$list')),
+      matching: f,
+    );
+    final ambitionsBefore = [...state.realismAmbitions];
+    await _tap(tester, inChips('ambitions', find.text('+ add')));
+    final addBox = find.byKey(const ValueKey('profile-chip-add-box'));
+    expect(addBox, findsOneWidget);
+    await tester.enterText(addBox, 'a stray thought');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await _settle(tester);
+    expect(addBox, findsNothing, reason: 'Escape closes the add box');
+    expect(state.realismAmbitions, ambitionsBefore, reason: 'nothing added');
+
     // ── A steered rewrite, held after the description: Description
     // streams first, Personality waits; Back and Next wait ──
     await tester.enterText(
@@ -662,10 +708,25 @@ void main() {
     expect(state.profile.rewriting, isTrue);
     expect(find.text('Writing…'), findsOneWidget); // the Description card
     expect(find.text('Waiting for the description…'), findsOneWidget);
-    expect(find.text('Kept as it is'), findsOneWidget);
+    // A generated scenario is rewritten too, third: it waits, locked.
+    expect(find.text('Waiting…'), findsOneWidget);
+    expect(find.text('Kept as it is'), findsNothing);
     expect(find.textContaining('Rewritten description 1'), findsOneWidget);
     expect(find.text('Re-read after the rewrite'), findsOneWidget);
     expect(find.byKey(const ValueKey('profile-rewrite-stop')), findsOneWidget);
+    // What lands would overwrite edits made now, so the facts wait too.
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('profile-fact-occupation')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .readOnly,
+      isTrue,
+    );
+    expect(inChips('ambitions', find.text('+ add')), findsNothing);
     expect(_navButton(tester, 'Back').onPressed, isNull);
     expect(_navButton(tester, 'Next: Greetings').onPressed, isNull);
     expect(
@@ -682,17 +743,41 @@ void main() {
     expect(llm.factsReads, factsBefore, reason: 'no facts read after Stop');
     expect(_navButton(tester, 'Next: Greetings').onPressed, isNotNull);
 
-    // ── The same rewrite, to the end: both boxes, then the facts ──
-    llm.occupation = 'harbour pilot';
+    // ── The same rewrite, to the end: the three boxes, then the facts.
+    // Held once the scenario starts: it streams, locked, like the rest ──
+    llm
+      ..occupation = 'harbour pilot'
+      ..holdScenario = true;
     await _tap(tester, find.byKey(const ValueKey('profile-rewrite-run')));
+    expect(find.textContaining('Rewritten scenario 2'), findsOneWidget);
+    expect(find.text('Writing…'), findsNWidgets(3));
+    expect(
+      find.descendant(
+        of: find.byKey(const ValueKey('profile-box-scenario')),
+        matching: find.byType(TextField),
+      ),
+      findsNothing,
+      reason: 'the scenario box is a writing box while it streams',
+    );
+    llm.release();
+    await _settle(tester);
     expect(box('description').text, 'Rewritten description 2.');
     expect(box('personality').text, 'Rewritten personality 2.');
+    expect(
+      box('scenario').text,
+      'Rewritten scenario 2: {{user}} climbs the tower stairs at dusk, soaked '
+      'to the bone.',
+    );
     expect(state.realismOccupation, 'harbour pilot', reason: 're-read after');
 
     // ── Re-read from the profile refreshes the facts card only ──
     llm.occupation = 'net mender';
+    // 18+ is off on the form: a re-read leaves no intimate lists behind.
+    state.realismIntimateInto = const ['moonlight swims'];
     await _tap(tester, find.byKey(const ValueKey('profile-reread')));
     expect(state.realismOccupation, 'net mender');
+    expect(state.realismIntimateInto, isEmpty);
+    expect(find.text('INTIMATE PREFERENCES · 18+ IS ON'), findsNothing);
     expect(box('description').text, 'Rewritten description 2.');
 
     // ── Next writes the rest from the profile as it is, lands on
@@ -828,6 +913,39 @@ void main() {
       'Typed after the rewrite.',
     );
     expect(state.descController.text, 'Typed after the rewrite.');
+
+    // ── A scenario the user typed is kept: "Kept as it is", locked ──
+    state.creatorMode = CreatorMode.quick;
+    state.quickScenarioController.text =
+        'Rain on the harbour. {{user}} brings {{char}} a stolen chart.';
+    await state.generateFromMode(
+      llmProvider: provider,
+      storage: storage,
+      personaService: personas,
+    );
+    await _settle(tester);
+    expect(state.currentStep, 4);
+    final typedScenario = box('scenario').text;
+    await tester.enterText(
+      find.byKey(const ValueKey('profile-rewrite-steer')),
+      'sharper',
+    );
+    llm.holdRewrite = true;
+    await _tap(tester, find.byKey(const ValueKey('profile-rewrite-run')));
+    expect(find.text('Kept as it is'), findsOneWidget);
+    expect(
+      tester
+          .widget<TextField>(
+            find.descendant(
+              of: find.byKey(const ValueKey('profile-box-scenario')),
+              matching: find.byType(TextField),
+            ),
+          )
+          .readOnly,
+      isTrue,
+    );
+    await _tap(tester, find.byKey(const ValueKey('profile-rewrite-stop')));
+    expect(box('scenario').text, typedScenario);
   });
 
   testWidgets('Profile facts: typing the hours changes the hours and leaves '
@@ -862,5 +980,35 @@ void main() {
     await tester.pump(const Duration(milliseconds: 600));
     expect(state.realismHours, '6pm–6am');
     expect(state.realismWorkDays, [1, 2]);
+  });
+
+  testWidgets('Profile: a rewrite the model fails says it failed, not that '
+      'it came back the same', (tester) async {
+    final llm = _FailingRewriteLlm();
+    final provider = _Provider(llm);
+    addTearDown(provider.dispose);
+    final state = CreatorState();
+    addTearDown(state.dispose);
+    final card = CharacterCard(
+      name: _name,
+      description: _ProfileLlm.baseDesc,
+      personality: _ProfileLlm.basePers,
+      scenario: '{{user}} climbs the tower stairs at dusk.',
+    );
+    state.generatedCard = card;
+    state.profile.paused = GenPausedRun(
+      inputs: const GenRunInputs(name: _name, concept: 'A keeper.'),
+      card: card,
+      interviewTranscript: 'Q: Who are you?\nA: The keeper.',
+    );
+    state.descController.text = card.description;
+    state.personalityController.text = card.personality;
+    state.scenarioController.text = card.scenario;
+    state.profile.steer.text = 'warmer';
+    // The engine retries a failing model with real waits (2s, 4s).
+    await tester.runAsync(() => state.rewriteProfile(llmProvider: provider));
+    expect(state.profile.error, startsWith('The rewrite failed'));
+    expect(state.profile.error, isNot(contains('the same as before')));
+    expect(state.descController.text, _ProfileLlm.baseDesc);
   });
 }

@@ -48,7 +48,8 @@ class InterviewTranscriptRow extends StatelessWidget {
     final row = InkWell(
       key: const ValueKey('profile-transcript'),
       borderRadius: BorderRadius.circular(12),
-      onTap: enabled ? onToggle : null,
+      // Disabled blocks opening only: an open transcript still closes.
+      onTap: enabled || open ? onToggle : null,
       child: Container(
         height: 44,
         padding: const EdgeInsets.symmetric(horizontal: 14),

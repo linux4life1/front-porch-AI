@@ -40,6 +40,10 @@ class ProfileFactsCard extends StatelessWidget {
   final CreatorState state;
   final VoidCallback onReread;
 
+  /// A rewrite or re-read is out: what lands would overwrite edits made
+  /// now, so every field and list waits with the card.
+  bool get _locked => state.profile.busy;
+
   void _set(VoidCallback write) {
     write();
     state.notify();
@@ -173,6 +177,7 @@ class ProfileFactsCard extends StatelessWidget {
             value: state.realismHours,
             onChanged: (v) => _set(() => state.realismHours = v),
             hint: 'No set hours',
+            readOnly: _locked,
           ),
         ),
         Flexible(
@@ -202,7 +207,16 @@ class ProfileFactsCard extends StatelessWidget {
     String label,
     String value,
     ValueChanged<String> onChanged,
-  ) => _labelled(label, factField(context, value: value, onChanged: onChanged));
+  ) => _labelled(
+    label,
+    factField(
+      context,
+      key: ValueKey('profile-fact-${label.split(' ').first.toLowerCase()}'),
+      value: value,
+      onChanged: onChanged,
+      readOnly: _locked,
+    ),
+  );
 
   Widget _readOnly(BuildContext context, String label, String value) =>
       _labelled(label, factReadOnly(context, value));
@@ -212,7 +226,15 @@ class ProfileFactsCard extends StatelessWidget {
     String label,
     List<String> values,
     ValueChanged<List<String>> onChanged,
-  ) => _labelled(label, ProfileChipList(values: values, onChanged: onChanged));
+  ) => _labelled(
+    label,
+    ProfileChipList(
+      key: ValueKey('profile-chips-${label.split(' ').first.toLowerCase()}'),
+      values: values,
+      onChanged: onChanged,
+      enabled: !_locked,
+    ),
+  );
 
   Widget _intimate(BuildContext context) {
     Widget sub(String text) => Text(
@@ -227,11 +249,13 @@ class ProfileFactsCard extends StatelessWidget {
         children: [
           sub('into'),
           ProfileChipList(
+            enabled: !_locked,
             values: state.realismIntimateInto,
             onChanged: (v) => _set(() => state.realismIntimateInto = v),
           ),
           sub('not into'),
           ProfileChipList(
+            enabled: !_locked,
             values: state.realismIntimateNotInto,
             onChanged: (v) => _set(() => state.realismIntimateNotInto = v),
           ),

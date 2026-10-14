@@ -45,6 +45,10 @@ class ProfileStep extends StatelessWidget {
     final kept = paused.inputs.descriptionOverride != null;
     final descStarted = s.started(ProfileField.description);
     final persStarted = s.started(ProfileField.personality);
+    final scenStarted = s.started(ProfileField.scenario);
+    // The engine keeps a scenario the user typed; a generated one is
+    // rewritten with the rest, third in the stream.
+    final scenKept = paused.inputs.userScenario;
 
     return SingleChildScrollView(
       key: const ValueKey('profile'),
@@ -93,10 +97,12 @@ class ProfileStep extends StatelessWidget {
                     !s.finished.contains(ProfileField.personality),
                 status: !rewriting
                     ? null
-                    : persStarted || kept
+                    : persStarted
                     ? 'Writing…'
+                    : kept
+                    ? 'Waiting…'
                     : 'Waiting for the description…',
-                statusAmber: persStarted || kept,
+                statusAmber: persStarted,
               ),
               CreatorTextCard(
                 title: 'Scenario',
@@ -104,7 +110,20 @@ class ProfileStep extends StatelessWidget {
                 controller: state.scenarioController,
                 boxKey: const ValueKey('profile-box-scenario'),
                 onChanged: (_) => state.scheduleSave(),
-                status: rewriting ? 'Kept as it is' : null,
+                writingText: rewriting && !scenKept
+                    ? (scenStarted ? s.scenario : state.scenarioController.text)
+                    : null,
+                caret:
+                    scenStarted && !s.finished.contains(ProfileField.scenario),
+                status: !rewriting
+                    ? null
+                    : scenKept
+                    ? 'Kept as it is'
+                    : scenStarted
+                    ? 'Writing…'
+                    : 'Waiting…',
+                statusAmber: !scenKept && scenStarted,
+                locked: rewriting && scenKept,
               ),
               _rewriteCard(context, llm),
               ProfileFactsCard(
@@ -205,6 +224,8 @@ class ProfileStep extends StatelessWidget {
         ElevatedButton.icon(
           onPressed: () {
             state.generationPreview = '';
+            // A retry must never see a stale pause or stream.
+            state.profile.reset();
             state.currentStep = 2;
           },
           icon: const Icon(Icons.arrow_back),

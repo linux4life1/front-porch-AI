@@ -43,6 +43,7 @@ class SyncedTextField extends StatefulWidget {
     this.decoration,
     this.keyboardType,
     this.inputFormatters,
+    this.readOnly = false,
   });
 
   final String value;
@@ -51,6 +52,9 @@ class SyncedTextField extends StatefulWidget {
   final InputDecoration? decoration;
   final TextInputType? keyboardType;
   final List<TextInputFormatter>? inputFormatters;
+
+  /// Shown but not editable (a value something else is about to rewrite).
+  final bool readOnly;
 
   @override
   State<SyncedTextField> createState() => _SyncedTextFieldState();
@@ -91,6 +95,7 @@ class _SyncedTextFieldState extends State<SyncedTextField> {
       decoration: widget.decoration,
       keyboardType: widget.keyboardType,
       inputFormatters: widget.inputFormatters,
+      readOnly: widget.readOnly,
       onChanged: widget.onChanged,
     );
   }
