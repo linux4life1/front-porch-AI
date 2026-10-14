@@ -155,8 +155,7 @@ extension ChatServiceSessionManage on ChatService {
         storyStartTime: extSeed.storyStartTime,
       );
       _applySeededPassageOfTime();
-      _characterEmotion = extSeed.characterEmotion;
-      _emotionIntensity = extSeed.emotionIntensity;
+      _mood.seed(extSeed.characterEmotion, extSeed.emotionIntensity);
       _nsfwService.seedFromV2OrExt(
         // OR-override for consistency with realism above (imported cards).
         nsfwCooldownEnabled:

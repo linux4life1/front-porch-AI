@@ -127,8 +127,7 @@ extension ChatServiceGreetingSeed on ChatService {
       longTermBond: resolved.longTermBond,
       trustLevel: resolved.trustLevel,
     );
-    _characterEmotion = resolved.characterEmotion;
-    _emotionIntensity = resolved.emotionIntensity;
+    _mood.seed(resolved.characterEmotion, resolved.emotionIntensity);
     // Reload re-applies authored mood/needs. It must not invent a
     // Day-1 / today clock over a lived-in session row (HIGH-1).
     if (scheduleEval) {
@@ -286,6 +285,9 @@ extension ChatServiceGreetingSeed on ChatService {
       slot.trust = resolved.trustLevel;
       slot.emotion = resolved.characterEmotion;
       slot.emotionIntensity = resolved.emotionIntensity;
+      // An authored starting mood has no cause and no hold.
+      slot.emotionCause = '';
+      slot.emotionHeldTurns = 0;
       slot.spatialStance = '';
       if (_needsSimEnabled) {
         slot.needs = resolved.needsBaselines;

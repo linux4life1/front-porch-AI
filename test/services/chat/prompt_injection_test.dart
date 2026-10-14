@@ -17,6 +17,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/mood_effects.dart';
+import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart';
@@ -991,5 +993,108 @@ void main() {
         expect(composer.buildRealismStateInjection(), contains('{{user}}'));
       },
     );
+  });
+
+  group('mood with bite (docs/design/mood-with-bite.md)', () {
+    EmotionInjection mood({
+      String emotion = 'furious',
+      String intensity = 'strong',
+      String cause = 'he lied about the money',
+      int held = 0,
+    }) => EmotionInjection(
+      getRealismEnabled: () => true,
+      getCharacterEmotion: () => emotion,
+      getEmotionIntensity: () => intensity,
+      getEmotionCause: () => cause,
+      getEmotionHeldTurns: () => held,
+    );
+
+    test('the mood line scales with intensity and names the cause', () {
+      expect(
+        mood(intensity: 'mild').buildEmotionInjection(),
+        startsWith(
+          'Mood: Furious, mild, since he lied about the money — it '
+          'colours tone',
+        ),
+      );
+      expect(
+        mood(intensity: 'moderate').buildEmotionInjection(),
+        contains(
+          'Mood: Furious, moderate, because he lied about the money — '
+          'it shapes what they say and do this turn.',
+        ),
+      );
+      expect(
+        mood().buildEmotionInjection(),
+        contains(
+          'Mood: Furious, strong, because he lied about the money — it '
+          'leads this reply: they act on it before anything else.',
+        ),
+      );
+    });
+
+    test('the hold is said in words, never as a count', () {
+      expect(mood(held: 1).buildEmotionInjection(), isNot(contains('still')));
+      expect(mood(held: 3).buildEmotionInjection(), contains(', still —'));
+      expect(
+        mood(held: 7).buildEmotionInjection(),
+        contains(', for a while now —'),
+      );
+      expect(
+        RegExp(r'\d').hasMatch(mood(held: 7).buildEmotionInjection()),
+        isFalse,
+      );
+    });
+
+    test(
+      'the effects line speaks at moderate and strong, in their own way',
+      () {
+        final strong = mood().buildEmotionInjection();
+        expect(
+          strong,
+          contains('\nIn their own way: the grievance comes first'),
+        );
+        expect(strong, contains('may refuse, argue, withdraw or leave'));
+        expect(
+          mood(intensity: 'moderate').buildEmotionInjection(),
+          contains('\nIn their own way: less patience'),
+        );
+        expect(
+          mood(intensity: 'mild').buildEmotionInjection(),
+          isNot(contains('In their own way')),
+        );
+        expect(
+          mood(emotion: 'undone').buildEmotionInjection(),
+          isNot(contains('In their own way')),
+          reason: 'a word the family map does not know gets no pull',
+        );
+      },
+    );
+
+    test('never an instruction to comply', () {
+      for (final tone in MoodTone.values) {
+        final (moderate, strong) = kMoodEffectsCopy[tone]!;
+        for (final copy in [moderate, strong]) {
+          expect(copy, isNot(contains('must')));
+          expect(copy, isNot(contains('compl')));
+          expect(copy, isNot(contains('obey')));
+        }
+      }
+    });
+
+    test('one fragment: no blank line between the two mood lines', () {
+      final text = mood().buildEmotionInjection();
+      expect('\n'.allMatches(text).length, 1);
+      expect(text, isNot(contains('\n\n')));
+    });
+
+    test('no cause and no hold reads like the old line; neutral is silent', () {
+      expect(
+        mood(cause: '', intensity: 'mild').buildEmotionInjection(),
+        'Mood: Furious, mild — it colours tone and word choice.',
+      );
+      expect(mood(emotion: 'neutral').buildEmotionInjection(), isEmpty);
+      expect(mood(emotion: '').buildEmotionInjection(), isEmpty);
+    });
   });
 }

@@ -11,6 +11,7 @@
 // Send and regen both run this before the realism judges, so a regen of a
 // long skip's reply starts from the same settled state the first reply did.
 
+import 'package:front_porch_ai/services/chat/mood_registers.dart';
 import 'package:front_porch_ai/services/chat/realism_scope.dart';
 
 class LongSkipSettle {
@@ -21,8 +22,9 @@ class LongSkipSettle {
   void settle() {
     final rel = _scope.relationship();
     final ext = _scope.activeCharacter()?.frontPorchExtensions;
-    _scope.setEmotion(ext?.characterEmotion ?? '');
-    _scope.setIntensity(ext?.emotionIntensity ?? '');
+    MoodRegisters(
+      _scope,
+    ).seed(ext?.characterEmotion ?? '', ext?.emotionIntensity ?? '');
     rel.updateFixationFromEvalResult('none');
     rel.setSpatialStance('');
     if (_scope.activeGroup() == null) return;
@@ -32,6 +34,8 @@ class LongSkipSettle {
       final cardExt = card.frontPorchExtensions;
       member.emotion = cardExt?.characterEmotion ?? '';
       member.emotionIntensity = cardExt?.emotionIntensity ?? '';
+      member.emotionCause = '';
+      member.emotionHeldTurns = 0;
       member.fixation = '';
       member.fixationLifespan = 0;
       member.spatialStance = '';

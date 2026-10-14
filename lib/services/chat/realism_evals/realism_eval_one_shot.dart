@@ -88,6 +88,8 @@ class RealismEvalOneShot {
       emotion: evals.getCharacterEmotion(),
       emotionIntensity: evals.getEmotionIntensity(),
       posture: evals.relationshipService.spatialStance,
+      emotionCause: evals.getEmotionCause?.call() ?? '',
+      emotionHeldTurns: evals.getEmotionHeldTurns?.call() ?? 0,
     );
     final arousalEnabled = evals.nsfwService.nsfwCooldownEnabled;
     final labels = evals.getExpressionEnabled()
@@ -253,21 +255,10 @@ class RealismEvalOneShot {
       }
 
       // ── Scene fields ──
-      final emotionMatch = RegExp(
-        r'"emotion"\s*:\s*"([^"]+)"',
-      ).firstMatch(textForOneShot);
-      if (emotionMatch != null) {
-        evals.setCharacterEmotion(emotionMatch.group(1)!.toLowerCase().trim());
-      }
-
-      final intensityMatch = RegExp(
-        r'"emotion_intensity"\s*:\s*"([^"]+)"',
-      ).firstMatch(textForOneShot);
-      if (intensityMatch != null) {
-        evals.setEmotionIntensity(
-          intensityMatch.group(1)!.toLowerCase().trim(),
-        );
-      }
+      // The ONE mood apply (cause, hold, easing — mood-with-bite.md), shared
+      // with the emotional judge so the two transports cannot drift. Arousal
+      // was applied above with the relationship deltas.
+      await support.applyEmotionalResults(textForOneShot, applyArousal: false);
 
       // NO POSTURE HERE. One-shot is a PRE-generation optimisation and
       // posture stopped being a pre-generation question on 2026-08-08 — it is

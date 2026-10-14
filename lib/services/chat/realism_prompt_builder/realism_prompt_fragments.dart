@@ -120,7 +120,14 @@ class RealismPromptFragments {
       'it through who $charName is: a stoic in deep pain reads "guarded", not "devastated"; a harsh '
       'character genuinely touched reads "flustered" or "disarmed", not "loving".\n'
       '${allowedLabels.isNotEmpty ? '  ${RealismPromptBuilder.emotionLabelConstraint(allowedLabels)}\n' : ''}'
-      '- "emotion_intensity": mild, moderate, or strong.\n';
+      '- "emotion_intensity": mild, moderate, or strong.\n'
+      '- "emotion_cause": why $charName feels this, in at most twelve words, in '
+      '$charName\'s own terms — never a quote of the other person. "none" when '
+      'neutral.\n'
+      '- "emotion_change": "held" if this is the mood going in, carrying on; '
+      '"stoked" if it is the same feeling but this turn fed it afresh; "moved" '
+      'if $charName feels something else now. A feeling that holds eases on '
+      'its own; do not name it stronger just to keep it.\n';
 
   static String arousalSection(
     String charName,

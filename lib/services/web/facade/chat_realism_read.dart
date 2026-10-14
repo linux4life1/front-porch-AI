@@ -17,7 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show NeedsSimulation, visibleNeedsFor;
+    show NeedsSimulation, moodDisplayLine, visibleNeedsFor;
 import 'package:front_porch_ai/services/services.dart';
 
 /// Realism-READ leaf for [ChatFacade] (web server). Pure reads of existing
@@ -45,6 +45,7 @@ class ChatRealismRead {
       final rel = _chat.relationshipService;
       final emotion = _chat.getEmotionForGroupCharacter(card) ?? '';
       final intensity = _chat.getEmotionIntensityForGroupCharacter(card) ?? '';
+      final memberMood = _chat.getMoodForGroupCharacter(card);
       final bondScore = _chat.getAffectionForGroupCharacter(card);
       final trustLevel = _chat.getTrustForGroupCharacter(card);
       final arousalLevel = _chat.getArousalForGroupCharacter(card);
@@ -78,6 +79,11 @@ class ChatRealismRead {
         'emotion': emotion,
         'emotionIntensity': intensity,
         'mood': intensity.isNotEmpty ? '$emotion ($intensity)' : emotion,
+        // Cause, hold and the one-line row (docs/design/mood-with-bite.md);
+        // additive, so an older phone build keeps reading `mood`.
+        'emotionCause': memberMood?.cause ?? '',
+        'emotionHeld': memberMood?.held ?? 0,
+        'moodLine': memberMood == null ? '' : moodDisplayLine(memberMood),
         'arousal': {
           'level': arousalLevel,
           'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
@@ -132,6 +138,11 @@ class ChatRealismRead {
       'emotion': _chat.characterEmotion,
       'emotionIntensity': _chat.emotionIntensity,
       'mood': _chat.moodLabel,
+      // Cause, hold and the one-line row (docs/design/mood-with-bite.md);
+      // additive, so an older phone build keeps reading `mood`.
+      'emotionCause': _chat.emotionCause,
+      'emotionHeld': _chat.emotionHeldTurns,
+      'moodLine': _chat.moodLine,
       'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
       'fixation': rel.activeFixation,
       // The bars show while Needs run (the gate, not the chat's stored

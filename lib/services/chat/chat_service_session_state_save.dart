@@ -234,6 +234,8 @@ extension ChatServiceSessionStateSave on ChatService {
         realismEnabled: drift.Value(_realismEnabled),
         characterEmotion: drift.Value(_characterEmotion),
         emotionIntensity: drift.Value(_emotionIntensity),
+        emotionCause: drift.Value(_emotionCause),
+        emotionHeldTurns: drift.Value(_emotionHeldTurns),
         timeOfDay: drift.Value(_timeService.timeOfDay),
         dayCount: drift.Value(_timeService.dayCount),
         startDayOfWeek: drift.Value(_timeService.startDayOfWeekAnchor),

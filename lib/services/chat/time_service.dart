@@ -209,7 +209,16 @@ class TimeService {
     if (dayCount == dayBefore) return;
     clearTodayLine();
     await onStoryDayChanged?.call();
+    // Forward only: a backward nudge rewinds nothing here, the stamps do.
+    final days = dayCount - dayBefore;
+    if (days > 0) await onStoryDaysCrossed?.call(days);
   }
+
+  /// Fires with the number of story days crossed when the day moved
+  /// forward (one for "next morning", 27 for a month's skip). The mood
+  /// eases a step per day (docs/design/mood-with-bite.md). Optional so
+  /// hosts and tests without it construct the service as before.
+  final FutureOr<void> Function(int days)? onStoryDaysCrossed;
 
   // Tools transport for the scene-time and posture evals (nullable — tests and
   // any host without the tools door stay on the text path).
@@ -223,6 +232,7 @@ class TimeService {
     required this.onSetPendingRealismMetadata,
     required this.onPatchLastMessageRealismState,
     this.onStoryDayChanged,
+    this.onStoryDaysCrossed,
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,

@@ -85,6 +85,8 @@ class RealismEvalCalls {
       trustLevel: evals.relationshipService.trustLevel,
       emotion: evals.getCharacterEmotion(),
       emotionIntensity: evals.getEmotionIntensity(),
+      emotionCause: evals.getEmotionCause?.call() ?? '',
+      emotionHeldTurns: evals.getEmotionHeldTurns?.call() ?? 0,
     );
 
     String buildPrompt({required bool toolsMode}) =>
@@ -194,6 +196,8 @@ class RealismEvalCalls {
       trustLevel: evals.relationshipService.trustLevel,
       emotion: evals.getCharacterEmotion(),
       emotionIntensity: evals.getEmotionIntensity(),
+      emotionCause: evals.getEmotionCause?.call() ?? '',
+      emotionHeldTurns: evals.getEmotionHeldTurns?.call() ?? 0,
     );
     final arousalEnabled = evals.nsfwService.nsfwCooldownEnabled;
     final labels = evals.getExpressionEnabled()
@@ -381,6 +385,8 @@ class RealismEvalCalls {
       trustLevel: evals.relationshipService.trustLevel,
       emotion: evals.getCharacterEmotion(),
       emotionIntensity: evals.getEmotionIntensity(),
+      emotionCause: evals.getEmotionCause?.call() ?? '',
+      emotionHeldTurns: evals.getEmotionHeldTurns?.call() ?? 0,
     );
     String buildPrompt({required bool toolsMode}) =>
         RealismPromptBuilder.narrativeEvalPrompt(

@@ -21,11 +21,18 @@ part of '../chat_service.dart';
 enum PlannerTodayFate { done, abandoned, dayAte }
 
 extension ChatServicePlannerResolve on ChatService {
-  void _nudgePlannerMood(PlannerTodayFate fate) {
-    _characterEmotion = switch (fate) {
-      PlannerTodayFate.done => 'content',
-      PlannerTodayFate.abandoned || PlannerTodayFate.dayAte => 'annoyed',
-    };
+  /// The planner's today line is the first feature to move the mood through
+  /// the one door (docs/design/mood-with-bite.md): a fresh feeling with the
+  /// line as its cause, stamped on the reply so regen rewinds it.
+  void _nudgePlannerMood(PlannerTodayFate fate, String line) {
+    switch (fate) {
+      case PlannerTodayFate.done:
+        _mood.set('content', 'moderate', cause: line);
+      case PlannerTodayFate.abandoned:
+        _mood.set('annoyed', 'moderate', cause: 'let go of: $line');
+      case PlannerTodayFate.dayAte:
+        _mood.set('annoyed', 'moderate', cause: 'the day ran out on: $line');
+    }
   }
 
   Future<void> _persistTodayObjectiveId(String? id) async {
@@ -163,7 +170,7 @@ extension ChatServicePlannerResolve on ChatService {
     if (!_storageService.realismSettings.plannerEnabled) return;
     // Taken now, while the turn that resolved the line is still running.
     final cite = _objectiveTurnCite();
-    _nudgePlannerMood(fate);
+    _nudgePlannerMood(fate, line);
     if (fate == PlannerTodayFate.abandoned) return;
     final sessionId = _currentSessionId;
     final card = _activeCharacter;

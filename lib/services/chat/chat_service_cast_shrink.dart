@@ -200,10 +200,7 @@ extension ChatServiceCastShrink on ChatService {
       _realismEnabled = true;
       _needsSimEnabled = wasNeedsOn;
       _relationshipService.restoreFromMessageState(snapshot);
-      _characterEmotion =
-          (snapshot['characterEmotion'] as String?) ?? _characterEmotion;
-      _emotionIntensity =
-          (snapshot['emotionIntensity'] as String?) ?? _emotionIntensity;
+      _mood.restoreFromStamp(snapshot);
       _nsfwService.restoreNsfwFromMessageState(snapshot);
       _clockWriter.syncLoadedSlotClocks();
       if (wasNeedsOn) {
@@ -287,10 +284,7 @@ extension ChatServiceCastShrink on ChatService {
     if (realismOn) {
       _realismEnabled = true;
       _relationshipService.restoreFromMessageState(state);
-      _characterEmotion =
-          (state['characterEmotion'] as String?) ?? _characterEmotion;
-      _emotionIntensity =
-          (state['emotionIntensity'] as String?) ?? _emotionIntensity;
+      _mood.restoreFromStamp(state);
       _nsfwService.restoreNsfwFromMessageState(state);
       _clockWriter.syncLoadedSlotClocks();
       if (needsEnabled) {

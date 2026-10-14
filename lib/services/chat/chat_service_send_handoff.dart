@@ -438,9 +438,7 @@ extension ChatServiceSendHandoff on ChatService {
       );
       _realismDance.saveScalarsIntoGroup(sid);
       // The save skips an empty mood; a first-turn member had none.
-      _groupStore.memberForWrite(sid)
-        ..emotion = stamp['characterEmotion'] as String? ?? ''
-        ..emotionIntensity = stamp['emotionIntensity'] as String? ?? '';
+      _mood.writeMemberFromStamp(sid, stamp);
     }
   }
 
@@ -462,8 +460,7 @@ extension ChatServiceSendHandoff on ChatService {
   /// Bond/trust/feelings, mood and arousal from one realism stamp.
   void _restoreScoredRegisters(Map<String, dynamic> s) {
     _relationshipService.restoreFromMessageState(s);
-    _characterEmotion = s['characterEmotion'] as String? ?? _characterEmotion;
-    _emotionIntensity = s['emotionIntensity'] as String? ?? _emotionIntensity;
+    _mood.restoreFromStamp(s);
     _nsfwService.restoreNsfwFromRealismState(s);
   }
 

@@ -108,6 +108,10 @@ class Sessions extends Table {
       text().withDefault(const Constant(''))(); // e.g. "amused"
   TextColumn get emotionIntensity =>
       text().withDefault(const Constant(''))(); // mild/moderate/strong
+  // v57 — why the mood is what it is, and how many judge passes kept it
+  // (docs/design/mood-with-bite.md).
+  TextColumn get emotionCause => text().withDefault(const Constant(''))();
+  IntColumn get emotionHeldTurns => integer().withDefault(const Constant(0))();
   TextColumn get timeOfDay =>
       text().withDefault(const Constant('morning'))(); // dawn/morning/etc
   IntColumn get dayCount =>

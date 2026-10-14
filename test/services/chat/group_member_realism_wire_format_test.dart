@@ -160,6 +160,35 @@ void main() {
       expect(m.valueFor(GroupRealismKeys.turnsSinceDecayCheck), 7);
     });
 
+    test('mood cause and hold are runtime keys with typed accessors', () {
+      final m = GroupMemberRealism()
+        ..emotion = 'furious'
+        ..emotionIntensity = 'strong'
+        ..emotionCause = 'he lied about the money'
+        ..emotionHeldTurns = 3;
+      expect(
+        m.valueFor(GroupRealismKeys.emotionCause),
+        'he lied about the money',
+      );
+      expect(m.valueFor(GroupRealismKeys.emotionHeldTurns), 3);
+      m.setValue(GroupRealismKeys.emotionHeldTurns, 4);
+      expect(m.emotionHeldTurns, 4);
+
+      final back = GroupMemberRealism.fromJson(jsonDecode(jsonEncode(m)));
+      expect(back.emotionCause, 'he lied about the money');
+      expect(back.emotionHeldTurns, 4);
+    });
+
+    test('a member saved before cause and hold reads them as absent', () {
+      final m = GroupMemberRealism.fromJson({
+        'emotion': 'joy',
+        'emotionIntensity': 'mild',
+      });
+      expect(m.emotionCause, isNull);
+      expect(m.emotionHeldTurns, isNull);
+      expect(jsonDecode(jsonEncode(m)), isNot(contains('emotionCause')));
+    });
+
     test('the REAL encode site shape: jsonEncode sees through the wrapper', () {
       // The sessions save writes jsonEncode({'perChar': _groupRealism, ...})
       // and relies on jsonEncode calling toJson() implicitly — a path the

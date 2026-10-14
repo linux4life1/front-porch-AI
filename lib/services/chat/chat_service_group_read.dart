@@ -128,6 +128,13 @@ extension ChatServiceGroupRead on ChatService {
     return (raw != null && raw.isNotEmpty) ? raw : null;
   }
 
+  /// The member's whole mood (label, intensity, cause, hold) for the member
+  /// card and the phone, or null outside active group realism.
+  MoodState? getMoodForGroupCharacter(CharacterCard character) {
+    if (!isGroupRealismActive) return null;
+    return _mood.memberState(_getCharacterIdFromCard(character));
+  }
+
   /// Returns the remaining lifespan (in turns) for the current fixation of the
   /// given group character, if any. Returns null if not in active group realism
   /// or no fixation data.

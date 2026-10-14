@@ -1597,6 +1597,30 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _emotionCauseMeta = const VerificationMeta(
+    'emotionCause',
+  );
+  @override
+  late final GeneratedColumn<String> emotionCause = GeneratedColumn<String>(
+    'emotion_cause',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _emotionHeldTurnsMeta = const VerificationMeta(
+    'emotionHeldTurns',
+  );
+  @override
+  late final GeneratedColumn<int> emotionHeldTurns = GeneratedColumn<int>(
+    'emotion_held_turns',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
   static const VerificationMeta _timeOfDayMeta = const VerificationMeta(
     'timeOfDay',
   );
@@ -2137,6 +2161,8 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
     moodDecayCounter,
     characterEmotion,
     emotionIntensity,
+    emotionCause,
+    emotionHeldTurns,
     timeOfDay,
     dayCount,
     startDayOfWeek,
@@ -2377,6 +2403,24 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         emotionIntensity.isAcceptableOrUnknown(
           data['emotion_intensity']!,
           _emotionIntensityMeta,
+        ),
+      );
+    }
+    if (data.containsKey('emotion_cause')) {
+      context.handle(
+        _emotionCauseMeta,
+        emotionCause.isAcceptableOrUnknown(
+          data['emotion_cause']!,
+          _emotionCauseMeta,
+        ),
+      );
+    }
+    if (data.containsKey('emotion_held_turns')) {
+      context.handle(
+        _emotionHeldTurnsMeta,
+        emotionHeldTurns.isAcceptableOrUnknown(
+          data['emotion_held_turns']!,
+          _emotionHeldTurnsMeta,
         ),
       );
     }
@@ -2832,6 +2876,14 @@ class $SessionsTable extends Sessions with TableInfo<$SessionsTable, Session> {
         DriftSqlType.string,
         data['${effectivePrefix}emotion_intensity'],
       )!,
+      emotionCause: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}emotion_cause'],
+      )!,
+      emotionHeldTurns: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}emotion_held_turns'],
+      )!,
       timeOfDay: attachedDatabase.typeMapping.read(
         DriftSqlType.string,
         data['${effectivePrefix}time_of_day'],
@@ -3039,6 +3091,8 @@ class Session extends DataClass implements Insertable<Session> {
   final int moodDecayCounter;
   final String characterEmotion;
   final String emotionIntensity;
+  final String emotionCause;
+  final int emotionHeldTurns;
   final String timeOfDay;
   final int dayCount;
   final int startDayOfWeek;
@@ -3160,6 +3214,8 @@ class Session extends DataClass implements Insertable<Session> {
     required this.moodDecayCounter,
     required this.characterEmotion,
     required this.emotionIntensity,
+    required this.emotionCause,
+    required this.emotionHeldTurns,
     required this.timeOfDay,
     required this.dayCount,
     required this.startDayOfWeek,
@@ -3245,6 +3301,8 @@ class Session extends DataClass implements Insertable<Session> {
     map['mood_decay_counter'] = Variable<int>(moodDecayCounter);
     map['character_emotion'] = Variable<String>(characterEmotion);
     map['emotion_intensity'] = Variable<String>(emotionIntensity);
+    map['emotion_cause'] = Variable<String>(emotionCause);
+    map['emotion_held_turns'] = Variable<int>(emotionHeldTurns);
     map['time_of_day'] = Variable<String>(timeOfDay);
     map['day_count'] = Variable<int>(dayCount);
     map['start_day_of_week'] = Variable<int>(startDayOfWeek);
@@ -3365,6 +3423,8 @@ class Session extends DataClass implements Insertable<Session> {
       moodDecayCounter: Value(moodDecayCounter),
       characterEmotion: Value(characterEmotion),
       emotionIntensity: Value(emotionIntensity),
+      emotionCause: Value(emotionCause),
+      emotionHeldTurns: Value(emotionHeldTurns),
       timeOfDay: Value(timeOfDay),
       dayCount: Value(dayCount),
       startDayOfWeek: Value(startDayOfWeek),
@@ -3474,6 +3534,8 @@ class Session extends DataClass implements Insertable<Session> {
       moodDecayCounter: serializer.fromJson<int>(json['moodDecayCounter']),
       characterEmotion: serializer.fromJson<String>(json['characterEmotion']),
       emotionIntensity: serializer.fromJson<String>(json['emotionIntensity']),
+      emotionCause: serializer.fromJson<String>(json['emotionCause']),
+      emotionHeldTurns: serializer.fromJson<int>(json['emotionHeldTurns']),
       timeOfDay: serializer.fromJson<String>(json['timeOfDay']),
       dayCount: serializer.fromJson<int>(json['dayCount']),
       startDayOfWeek: serializer.fromJson<int>(json['startDayOfWeek']),
@@ -3571,6 +3633,8 @@ class Session extends DataClass implements Insertable<Session> {
       'moodDecayCounter': serializer.toJson<int>(moodDecayCounter),
       'characterEmotion': serializer.toJson<String>(characterEmotion),
       'emotionIntensity': serializer.toJson<String>(emotionIntensity),
+      'emotionCause': serializer.toJson<String>(emotionCause),
+      'emotionHeldTurns': serializer.toJson<int>(emotionHeldTurns),
       'timeOfDay': serializer.toJson<String>(timeOfDay),
       'dayCount': serializer.toJson<int>(dayCount),
       'startDayOfWeek': serializer.toJson<int>(startDayOfWeek),
@@ -3646,6 +3710,8 @@ class Session extends DataClass implements Insertable<Session> {
     int? moodDecayCounter,
     String? characterEmotion,
     String? emotionIntensity,
+    String? emotionCause,
+    int? emotionHeldTurns,
     String? timeOfDay,
     int? dayCount,
     int? startDayOfWeek,
@@ -3718,6 +3784,8 @@ class Session extends DataClass implements Insertable<Session> {
     moodDecayCounter: moodDecayCounter ?? this.moodDecayCounter,
     characterEmotion: characterEmotion ?? this.characterEmotion,
     emotionIntensity: emotionIntensity ?? this.emotionIntensity,
+    emotionCause: emotionCause ?? this.emotionCause,
+    emotionHeldTurns: emotionHeldTurns ?? this.emotionHeldTurns,
     timeOfDay: timeOfDay ?? this.timeOfDay,
     dayCount: dayCount ?? this.dayCount,
     startDayOfWeek: startDayOfWeek ?? this.startDayOfWeek,
@@ -3845,6 +3913,12 @@ class Session extends DataClass implements Insertable<Session> {
       emotionIntensity: data.emotionIntensity.present
           ? data.emotionIntensity.value
           : this.emotionIntensity,
+      emotionCause: data.emotionCause.present
+          ? data.emotionCause.value
+          : this.emotionCause,
+      emotionHeldTurns: data.emotionHeldTurns.present
+          ? data.emotionHeldTurns.value
+          : this.emotionHeldTurns,
       timeOfDay: data.timeOfDay.present ? data.timeOfDay.value : this.timeOfDay,
       dayCount: data.dayCount.present ? data.dayCount.value : this.dayCount,
       startDayOfWeek: data.startDayOfWeek.present
@@ -3986,6 +4060,8 @@ class Session extends DataClass implements Insertable<Session> {
           ..write('moodDecayCounter: $moodDecayCounter, ')
           ..write('characterEmotion: $characterEmotion, ')
           ..write('emotionIntensity: $emotionIntensity, ')
+          ..write('emotionCause: $emotionCause, ')
+          ..write('emotionHeldTurns: $emotionHeldTurns, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('dayCount: $dayCount, ')
           ..write('startDayOfWeek: $startDayOfWeek, ')
@@ -4057,6 +4133,8 @@ class Session extends DataClass implements Insertable<Session> {
     moodDecayCounter,
     characterEmotion,
     emotionIntensity,
+    emotionCause,
+    emotionHeldTurns,
     timeOfDay,
     dayCount,
     startDayOfWeek,
@@ -4127,6 +4205,8 @@ class Session extends DataClass implements Insertable<Session> {
           other.moodDecayCounter == this.moodDecayCounter &&
           other.characterEmotion == this.characterEmotion &&
           other.emotionIntensity == this.emotionIntensity &&
+          other.emotionCause == this.emotionCause &&
+          other.emotionHeldTurns == this.emotionHeldTurns &&
           other.timeOfDay == this.timeOfDay &&
           other.dayCount == this.dayCount &&
           other.startDayOfWeek == this.startDayOfWeek &&
@@ -4195,6 +4275,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
   final Value<int> moodDecayCounter;
   final Value<String> characterEmotion;
   final Value<String> emotionIntensity;
+  final Value<String> emotionCause;
+  final Value<int> emotionHeldTurns;
   final Value<String> timeOfDay;
   final Value<int> dayCount;
   final Value<int> startDayOfWeek;
@@ -4262,6 +4344,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.moodDecayCounter = const Value.absent(),
     this.characterEmotion = const Value.absent(),
     this.emotionIntensity = const Value.absent(),
+    this.emotionCause = const Value.absent(),
+    this.emotionHeldTurns = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.dayCount = const Value.absent(),
     this.startDayOfWeek = const Value.absent(),
@@ -4330,6 +4414,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     this.moodDecayCounter = const Value.absent(),
     this.characterEmotion = const Value.absent(),
     this.emotionIntensity = const Value.absent(),
+    this.emotionCause = const Value.absent(),
+    this.emotionHeldTurns = const Value.absent(),
     this.timeOfDay = const Value.absent(),
     this.dayCount = const Value.absent(),
     this.startDayOfWeek = const Value.absent(),
@@ -4398,6 +4484,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Expression<int>? moodDecayCounter,
     Expression<String>? characterEmotion,
     Expression<String>? emotionIntensity,
+    Expression<String>? emotionCause,
+    Expression<int>? emotionHeldTurns,
     Expression<String>? timeOfDay,
     Expression<int>? dayCount,
     Expression<int>? startDayOfWeek,
@@ -4468,6 +4556,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       if (moodDecayCounter != null) 'mood_decay_counter': moodDecayCounter,
       if (characterEmotion != null) 'character_emotion': characterEmotion,
       if (emotionIntensity != null) 'emotion_intensity': emotionIntensity,
+      if (emotionCause != null) 'emotion_cause': emotionCause,
+      if (emotionHeldTurns != null) 'emotion_held_turns': emotionHeldTurns,
       if (timeOfDay != null) 'time_of_day': timeOfDay,
       if (dayCount != null) 'day_count': dayCount,
       if (startDayOfWeek != null) 'start_day_of_week': startDayOfWeek,
@@ -4549,6 +4639,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     Value<int>? moodDecayCounter,
     Value<String>? characterEmotion,
     Value<String>? emotionIntensity,
+    Value<String>? emotionCause,
+    Value<int>? emotionHeldTurns,
     Value<String>? timeOfDay,
     Value<int>? dayCount,
     Value<int>? startDayOfWeek,
@@ -4619,6 +4711,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
       moodDecayCounter: moodDecayCounter ?? this.moodDecayCounter,
       characterEmotion: characterEmotion ?? this.characterEmotion,
       emotionIntensity: emotionIntensity ?? this.emotionIntensity,
+      emotionCause: emotionCause ?? this.emotionCause,
+      emotionHeldTurns: emotionHeldTurns ?? this.emotionHeldTurns,
       timeOfDay: timeOfDay ?? this.timeOfDay,
       dayCount: dayCount ?? this.dayCount,
       startDayOfWeek: startDayOfWeek ?? this.startDayOfWeek,
@@ -4746,6 +4840,12 @@ class SessionsCompanion extends UpdateCompanion<Session> {
     }
     if (emotionIntensity.present) {
       map['emotion_intensity'] = Variable<String>(emotionIntensity.value);
+    }
+    if (emotionCause.present) {
+      map['emotion_cause'] = Variable<String>(emotionCause.value);
+    }
+    if (emotionHeldTurns.present) {
+      map['emotion_held_turns'] = Variable<int>(emotionHeldTurns.value);
     }
     if (timeOfDay.present) {
       map['time_of_day'] = Variable<String>(timeOfDay.value);
@@ -4921,6 +5021,8 @@ class SessionsCompanion extends UpdateCompanion<Session> {
           ..write('moodDecayCounter: $moodDecayCounter, ')
           ..write('characterEmotion: $characterEmotion, ')
           ..write('emotionIntensity: $emotionIntensity, ')
+          ..write('emotionCause: $emotionCause, ')
+          ..write('emotionHeldTurns: $emotionHeldTurns, ')
           ..write('timeOfDay: $timeOfDay, ')
           ..write('dayCount: $dayCount, ')
           ..write('startDayOfWeek: $startDayOfWeek, ')

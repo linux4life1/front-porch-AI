@@ -45,6 +45,18 @@ extension ChatServiceWiringRealism on ChatService {
           await _deactivateTodayObjective();
         }();
       },
+      // A story day crossed eases the mood one step (mood-with-bite.md):
+      // the live registers AND every group member's record, since the day
+      // is the chat's, not the loaded speaker's. The post-reply restamp then
+      // writes the eased mood onto the reply so a swipe back shows it.
+      onStoryDaysCrossed: (days) {
+        _mood.easeForDays(days);
+        _mood.easeMembersForDays(days);
+        // A calendar or chevron day roll runs outside a turn, where no
+        // restamp follows: the visible reply's stamp takes the eased mood
+        // here, or a swipe back would restore the one from before the roll.
+        if (!(_isTurnBusy || _inObjectiveTurn)) _mood.patchTipStamp();
+      },
       getPorchLifePassageOfTime: () =>
           _storageService.realismSettings.passageOfTimeDefault,
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
@@ -161,6 +173,10 @@ extension ChatServiceWiringRealism on ChatService {
     setEmotion: (v) => _characterEmotion = v,
     intensity: () => _emotionIntensity,
     setIntensity: (v) => _emotionIntensity = v,
+    cause: () => _emotionCause,
+    setCause: (v) => _emotionCause = v,
+    heldTurns: () => _emotionHeldTurns,
+    setHeldTurns: (v) => _emotionHeldTurns = v,
     saveChat: _saveChat,
     notify: notifyListeners,
   );

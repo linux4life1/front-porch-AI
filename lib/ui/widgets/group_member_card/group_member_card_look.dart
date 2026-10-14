@@ -40,6 +40,7 @@ class GroupMemberCardLook {
     required this.isRealism,
     required this.emotion,
     required this.intensity,
+    this.moodLine,
     required this.affection,
     required this.longTerm,
     required this.trust,
@@ -71,6 +72,10 @@ class GroupMemberCardLook {
   final bool isRealism;
   final String? emotion;
   final String? intensity;
+
+  /// Label, intensity, cause and hold in words (docs/design/mood-with-bite.md);
+  /// null falls back to label + intensity.
+  final String? moodLine;
   final int affection;
   final int longTerm;
   final int trust;
@@ -110,7 +115,8 @@ class GroupMemberCardLook {
           ),
           const SizedBox(width: 6),
           Text(
-            '${(emotion ?? 'neutral')[0].toUpperCase()}${(emotion ?? 'neutral').substring(1)}${intensity != null && intensity.isNotEmpty ? ' ($intensity)' : ''}',
+            moodLine ??
+                '${(emotion ?? 'neutral')[0].toUpperCase()}${(emotion ?? 'neutral').substring(1)}${intensity != null && intensity.isNotEmpty ? ' ($intensity)' : ''}',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,

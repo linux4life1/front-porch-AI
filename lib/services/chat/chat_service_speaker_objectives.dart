@@ -348,10 +348,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
       state,
       groupSpeakerId: groupSpeakerId,
     );
-    _characterEmotion =
-        state['characterEmotion'] as String? ?? _characterEmotion;
-    _emotionIntensity =
-        state['emotionIntensity'] as String? ?? _emotionIntensity;
+    _mood.restoreFromStamp(state);
 
     _nsfwService.restoreNsfwFromRealismState(state);
 

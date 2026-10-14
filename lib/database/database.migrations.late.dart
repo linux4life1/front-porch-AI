@@ -288,6 +288,24 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 57) {
+      // v56→v57: the mood gains a cause and a hold count
+      // (docs/design/mood-with-bite.md). Defaults match what every existing
+      // chat reads today: no cause, a fresh feeling. Additive, so a downgrade
+      // keeps reading sessions.
+      for (final ddl in const [
+        "ALTER TABLE sessions ADD COLUMN emotion_cause TEXT NOT NULL DEFAULT ''",
+        'ALTER TABLE sessions ADD COLUMN emotion_held_turns '
+            'INTEGER NOT NULL DEFAULT 0',
+      ]) {
+        try {
+          await customStatement(ddl);
+          debugPrint('[DB] v57: $ddl');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

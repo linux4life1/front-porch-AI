@@ -85,6 +85,12 @@ export interface Realism {
   emotion: string;
   emotionIntensity: string;
   mood: string;
+  /** Why the mood is what it is, and how many judge passes have kept it;
+   *  `moodLine` is the one-line row the desktop shows. Absent on an older
+   *  desktop build, which still sends `mood`. */
+  emotionCause?: string;
+  emotionHeld?: number;
+  moodLine?: string;
   arousal: { level: number; tier: string };
   fixation: string;
   needsEnabled: boolean;

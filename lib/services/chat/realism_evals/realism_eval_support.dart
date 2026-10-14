@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/eval_json_merge.dart';
+import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_evals.dart';
 import 'package:front_porch_ai/services/chat/realism_prompt_builder.dart';
@@ -54,14 +55,40 @@ class RealismEvalSupport {
   }) async {
     if (evals.isEvalCancelled()) return;
     final emotionMatch = RegExp(r'"emotion"\s*:\s*"([^"]+)"').firstMatch(text);
-    if (emotionMatch != null) {
-      evals.setCharacterEmotion(emotionMatch.group(1)!.toLowerCase().trim());
-    }
-
     final intensityMatch = RegExp(
       r'"emotion_intensity"\s*:\s*"([^"]+)"',
     ).firstMatch(text);
-    if (intensityMatch != null) {
+    if (emotionMatch != null) {
+      // Mood with bite (docs/design/mood-with-bite.md): the judge's answer
+      // is applied to the mood going in — held eases on the schedule,
+      // stoked restarts it, moved replaces it — through the one pure rule,
+      // so the emotional judge and one-shot cannot drift.
+      final causeMatch = RegExp(
+        r'"emotion_cause"\s*:\s*"([^"]*)"',
+      ).firstMatch(text);
+      final changeMatch = RegExp(
+        r'"emotion_change"\s*:\s*"?([A-Za-z]+)"?',
+      ).firstMatch(text);
+      final stored = MoodState(
+        label: evals.getCharacterEmotion(),
+        intensity: evals.getEmotionIntensity(),
+        cause: evals.getEmotionCause?.call() ?? '',
+        held: evals.getEmotionHeldTurns?.call() ?? 0,
+      );
+      final next = applyMoodJudge(
+        stored: stored,
+        judged: MoodJudgeResult(
+          label: emotionMatch.group(1)!.toLowerCase().trim(),
+          intensity: intensityMatch?.group(1)?.toLowerCase().trim() ?? '',
+          cause: causeMatch?.group(1),
+          change: parseMoodChange(changeMatch?.group(1)),
+        ),
+      );
+      evals.setCharacterEmotion(next.label);
+      evals.setEmotionIntensity(next.intensity);
+      evals.setEmotionCause?.call(next.cause);
+      evals.setEmotionHeldTurns?.call(next.held);
+    } else if (intensityMatch != null) {
       evals.setEmotionIntensity(intensityMatch.group(1)!.toLowerCase().trim());
     }
 

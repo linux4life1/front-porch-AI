@@ -84,8 +84,7 @@ extension ChatServiceGroupEntry on ChatService {
       // Defensive: zero key 1:1 scalars so rapid 1:1↔group toggles cannot observe
       // stale values in the brief window before group per-speaker loads take over.
       // (Full reset happens on return to any 1:1 via setActiveCharacter.)
-      _characterEmotion = '';
-      _emotionIntensity = '';
+      _mood.reset();
       // Realism/Needs are per-chat and were never zeroed here. The promotion
       // block below only fires when the group definition carries member realism
       // seeds, so a group authored without them simply INHERITED the previous

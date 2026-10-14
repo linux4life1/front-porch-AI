@@ -360,7 +360,12 @@ class RealismDirectorRules {
         // field nothing in the app has ever read.)
         ? ' Preserve the needs delta keys (hunger_delta/energy_delta/etc or plain names) + reason. The model is trusted to interpret the full erotic narrative (physical descriptions, self-touch, leaking, charging/aching, dominance, power exchange) and assign reasonable deltas like the other realism evals (bond/emotion etc). Only correct if the numbers clearly contradict what is actually written in the scene or pre-state. Keep scene-faithful numbers.'
         : (kind == 'oneShot')
-        ? ' Preserve full shape: include "relationship_delta", "trust_delta", "emotion", "emotion_intensity", "arousal_delta" (when the prompt asked for it), "proposed_objective", "fixation_topic", "reason". Only correct unsupported values; keep well-supported deltas. Omitted keys are not zeros.'
+        ? ' Preserve full shape: include "relationship_delta", "trust_delta", "emotion", "emotion_intensity", "emotion_cause", "emotion_change", "arousal_delta" (when the prompt asked for it), "proposed_objective", "fixation_topic", "reason". Only correct unsupported values; keep well-supported deltas. Omitted keys are not zeros.'
+        : (kind == 'emotional_state')
+        // The rewrite is what gets parsed (the "serves_ambition" lesson
+        // above): a cause or change the Director drops is a cause or change
+        // the mood never gets.
+        ? ' Preserve full shape: include "emotion", "emotion_intensity", "emotion_cause" and "emotion_change" ("held", "stoked" or "moved") — carry cause and change through unchanged unless you changed the emotion itself.'
         : '';
     final emotionConstraint =
         (bundle['injections'] as Map<String, dynamic>?)?['emotion_constraint']

@@ -226,6 +226,14 @@ class RealismEvals {
   final String Function() getEmotionIntensity;
   final void Function(String) setEmotionIntensity;
 
+  /// The mood's cause and hold count (docs/design/mood-with-bite.md).
+  /// Optional: a host that does not wire them judges with no cause and a
+  /// fresh hold every turn, which is exactly how the judge ran before.
+  final String Function()? getEmotionCause;
+  final void Function(String)? setEmotionCause;
+  final int Function()? getEmotionHeldTurns;
+  final void Function(int)? setEmotionHeldTurns;
+
   // Services for owned state (avoids duplicating scalars/cbs in god for this leaf)
   final RelationshipService relationshipService;
   final NsfwService nsfwService;
@@ -307,6 +315,10 @@ class RealismEvals {
     required this.setCharacterEmotion,
     required this.getEmotionIntensity,
     required this.setEmotionIntensity,
+    this.getEmotionCause,
+    this.setEmotionCause,
+    this.getEmotionHeldTurns,
+    this.setEmotionHeldTurns,
     required this.relationshipService,
     required this.nsfwService,
     required this.timeService,

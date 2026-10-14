@@ -44,6 +44,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getRealismEnabled: () => _realismEnabled,
       getCharacterEmotion: () => _characterEmotion,
       getEmotionIntensity: () => _emotionIntensity,
+      getEmotionCause: () => _emotionCause,
+      getEmotionHeldTurns: () => _emotionHeldTurns,
     );
   }
 

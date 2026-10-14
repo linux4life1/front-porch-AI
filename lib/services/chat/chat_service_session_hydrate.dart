@@ -159,6 +159,8 @@ extension ChatServiceSessionHydrate on ChatService {
     _realismEnabled = s.realismEnabled;
     _characterEmotion = s.characterEmotion;
     _emotionIntensity = s.emotionIntensity;
+    _emotionCause = s.emotionCause;
+    _emotionHeldTurns = s.emotionHeldTurns;
     _timeService.loadTimeScalars(
       timeOfDay: s.timeOfDay,
       dayCount: s.dayCount,

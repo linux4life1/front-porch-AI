@@ -133,8 +133,9 @@ void main() {
 
     final first = await hydrateOnce();
     // 2026-10-11: v56 adds sessions.chaos_nsfw_enabled (the 1:1 Chaos spicy
-    // switch), so the ladder now ends at 56.
-    expect(first['_meta']!['user_version'], 56);
+    // switch). 2026-10-13: v57 adds sessions.emotion_cause and
+    // emotion_held_turns (mood with bite), so the ladder now ends at 57.
+    expect(first['_meta']!['user_version'], 57);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
@@ -159,7 +160,7 @@ void main() {
     }
 
     final second = await hydrateOnce();
-    expect(second['_meta']!['user_version'], 56);
+    expect(second['_meta']!['user_version'], 57);
     for (final spec in chats) {
       final label = spec['label'] as String;
       expect(second[label]!['clock'], first[label]!['clock']);

@@ -219,9 +219,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                   const SizedBox(width: 5),
                   Expanded(
                     child: Text(
-                      '${chat.characterEmotion.substring(0, 1).toUpperCase()}'
-                      '${chat.characterEmotion.substring(1)} '
-                      '(${chat.emotionIntensity})',
+                      // Label, intensity, cause and hold in words
+                      // (docs/design/mood-with-bite.md).
+                      chat.moodLine,
                       style: TextStyle(
                         fontSize: 12,
                         color: AppColors.textSecondary(context),
