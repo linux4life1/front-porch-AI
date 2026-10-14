@@ -25,6 +25,15 @@ import 'package:front_porch_ai/services/storage_service.dart';
 
 /// Prompt delegation for [ImageGenService]: assembles the typed
 /// [ImageGenContext] and hands it to [ImagePromptBuilder].
+const Map<String, String> imageStyleLabels = {
+  'photorealistic': 'Photorealistic',
+  'anime': 'Anime / Manga',
+  'fantasy_art': 'Fantasy Art',
+  'oil_painting': 'Oil Painting',
+  'digital_art': 'Digital Art',
+  'watercolor': 'Watercolor',
+};
+
 class ImageGenPrompts {
   ImageGenPrompts(this._storage);
 

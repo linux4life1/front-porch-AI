@@ -84,3 +84,4 @@ export 'output_sanitizer_rule_editor.dart';
 export 'planner_feature_row.dart';
 export 'vision_projector_field.dart';
 export 'character_voice_picker.dart';
+export 'sidebar_navigation_item.dart';

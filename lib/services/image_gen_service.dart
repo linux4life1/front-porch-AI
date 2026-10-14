@@ -25,9 +25,7 @@ import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/image_gen/image_gen.dart';
 
-// ImageGenMode / ImageGenBackend / ImageModelInfo now live in the pure leaf
-// image/image_gen_types.dart (imported above via the image/ barrel);
-// re-exported so every existing importer of this file stays unaffected.
+// Preserve the public image type exports.
 export 'image/image_gen_types.dart';
 export 'image_gen/image_gen_local_admin.dart' show refreshA1111LorasAt;
 
@@ -42,6 +40,14 @@ export 'image_gen/image_gen_local_admin.dart' show refreshA1111LorasAt;
 /// static `...On` twins, which run the double-safe path.
 class ImageGenService extends ChangeNotifier {
   final StorageService _storage;
+  ImageBatchService? _batches;
+  ImageBatchService get batches =>
+      _batches ??= ImageBatchService(_storage, this);
+  @override
+  void dispose() {
+    _batches?.dispose();
+    super.dispose();
+  }
 
   late final ImageGenStatus _status = ImageGenStatus(notifyListeners);
   late final ImageGenClients _clients = ImageGenClients(_storage);
@@ -151,14 +157,7 @@ class ImageGenService extends ChangeNotifier {
   }
 
   /// Available style labels for UI display.
-  static const Map<String, String> styleLabels = {
-    'photorealistic': 'Photorealistic',
-    'anime': 'Anime / Manga',
-    'fantasy_art': 'Fantasy Art',
-    'oil_painting': 'Oil Painting',
-    'digital_art': 'Digital Art',
-    'watercolor': 'Watercolor',
-  };
+  static const Map<String, String> styleLabels = imageStyleLabels;
 
   /// Use the active LLM to craft a concise, effective image prompt from raw context.
   ///

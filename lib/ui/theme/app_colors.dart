@@ -483,4 +483,9 @@ class AppColors {
 
   /// Developer check (hub `#c0c7d1`). Same silhouette as gold/blue.
   static const Color stoopCheckSilver = Color(0xFFC0C7D1);
+  static Color navigationSelectionOf(BuildContext context) => resolve(
+    context,
+    Colors.white.withValues(alpha: 0.08),
+    const Color(0xFFBFDBFE),
+  );
 }

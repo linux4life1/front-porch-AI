@@ -182,6 +182,7 @@ void main() {
       ),
     );
 
+    await tester.ensureVisible(find.text('Worlds'));
     await tester.tap(find.text('Worlds'));
     await tester.pumpAndSettle();
     expect(find.text(_question), findsOneWidget);
@@ -189,6 +190,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(appState.selectedIndex, 1);
 
+    await tester.ensureVisible(find.text('Worlds'));
     await tester.tap(find.text('Worlds'));
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('unsaved-discard')));
@@ -196,6 +198,7 @@ void main() {
     expect(appState.selectedIndex, 5);
 
     dirty = false;
+    await tester.ensureVisible(find.text('Home'));
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
     expect(find.text(_question), findsNothing);

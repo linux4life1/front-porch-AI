@@ -81,6 +81,10 @@ class CharacterRepository extends ChangeNotifier {
     }
   }
 
+  Future<CharacterCard?> getActiveCharacterCardById(String id) =>
+      _writer.activeCardById(id, _characters);
+  CharacterMediaStore get batchMedia => _media;
+
   CharacterRepository(this._db, this._storage) {
     loadCharacters();
   }
@@ -441,13 +445,7 @@ class CharacterRepository extends ChangeNotifier {
     String? label,
   ) => _media.addAvatar(characterId, characterName, imageBytes, label);
 
-  /// Add a gallery LOOK — a plain alternate avatar (a new outfit, a scene), NOT
-  /// an expression image. Non-destructive: written to the character's SEPARATE
-  /// `looks/` folder and tagged [AvatarImage.lookLabel] so it stays out of the
-  /// emotion pipeline. Returns the new avatar id, or `''` when the bytes were
-  /// applied as the **portrait only** (no gallery look row) because the card
-  /// had no face or only a solid-color placeholder. Selecting a look (per chat)
-  /// remains the caller's job when a real look id is returned.
+  /// Add a gallery look without changing an existing portrait.
   Future<String> addLook(
     String characterId,
     String characterName,

@@ -1,0 +1,23 @@
+/* Copyright (C) 2026 Front Porch AI
+ * SPDX-License-Identifier: AGPL-3.0-or-later */
+.image-batches { max-width: 1200px; margin: auto; padding: 16px; }
+.image-batches header, .batch-status, .batch-tabs, .batch-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.image-batches header { justify-content: space-between; }
+.batch-tabs { margin: 16px 0; }
+.batch-tabs button { border-bottom: 3px solid transparent; }
+.batch-tabs button[aria-pressed="true"] { border-bottom-color: var(--accent); }
+.image-batches fieldset { border: 0; padding: 0; min-width: 0; }
+.image-batches label { display: block; margin: 16px 0; }
+.image-batches textarea, .image-batches select { display: block; width: 100%; margin-top: 8px; }
+.batch-characters { max-height: 320px; overflow: auto; margin-bottom: 16px; }
+.batch-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px; }
+.batch-results img { width: 100%; max-height: 320px; object-fit: contain; }
+.batch-actions { margin-top: 16px; }
+
+.batch-characters label { display: flex; align-items: center; gap: 12px; }
+.batch-characters img, .batch-portrait-placeholder { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; }
+.batch-characters small { display: block; opacity: .75; }
+.batch-configuration { margin: 20px 0; }
+.batch-configuration summary { cursor: pointer; padding: 12px 0; }
+.fp-config-only .fp-desk-body { display: block; }
+.fp-config-only .fp-desk-stove { width: 100%; min-width: 0; }

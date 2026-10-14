@@ -34,6 +34,27 @@ class CharacterCardWriter {
   final CharacterMediaStore _media;
   final String Function(String stored) _resolveImagePath;
 
+  Future<CharacterCard?> activeCardById(
+    String id,
+    List<CharacterCard> knownCards,
+  ) async {
+    final query = _db().select(_db().characters)
+      ..where((row) => row.id.equals(id) & row.deletedAt.isNull());
+    final row = await query.getSingleOrNull();
+    if (row == null) return null;
+    final card = characterFromRow(row);
+    final knownPath = knownCards
+        .where((c) => c.dbId == id)
+        .firstOrNull
+        ?.imagePath;
+    if (knownPath != null && toBasename(knownPath) == card.imagePath) {
+      card.imagePath = knownPath;
+    } else if (card.imagePath != null) {
+      card.imagePath = absoluteImagePath(card.imagePath!);
+    }
+    return card;
+  }
+
   /// Absolute path for [imagePath]; bare basenames resolve into Characters/.
   String absoluteImagePath(String imagePath) =>
       p.isAbsolute(imagePath) ? imagePath : _resolveImagePath(imagePath);

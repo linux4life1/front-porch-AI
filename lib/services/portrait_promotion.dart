@@ -26,6 +26,7 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/placeholder_portrait_probe.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/v2_card_service.dart';
 
 /// Deletes a character's canonical portrait by PROMOTING a gallery look in
 /// its place: the ★ starred look when the star points at one, else the first
@@ -71,6 +72,8 @@ AvatarImage? promotionCandidate(List<AvatarImage> looks, String? favoriteId) {
 Future<String> promoteLookOverPortrait({
   required CharacterCard card,
   required StorageService storage,
+  String? candidateId,
+  bool preserveMetadata = false,
   required Future<void> Function(CharacterCard card) updateCharacter,
   required Future<void> Function(String characterId, String avatarId)
   removeAvatar,
@@ -89,7 +92,9 @@ Future<String> promoteLookOverPortrait({
     throw StateError('Cannot delete the portrait with no gallery avatars');
   }
   final favId = card.frontPorchExtensions?.favoriteAvatarId;
-  final promoted = promotionCandidate(looks, favId)!;
+  final promoted = candidateId == null
+      ? promotionCandidate(looks, favId)!
+      : looks.firstWhere((look) => look.id == candidateId);
   final bytes = await promoted
       .resolveFile(storage.characterBaseDir(card.name).path)
       .readAsBytes();
@@ -110,7 +115,18 @@ Future<String> promoteLookOverPortrait({
   }
 
   final target = portraitWriteTarget(card: card, storage: storage);
-  await target.writeAsBytes(bytes);
+  if (preserveMetadata) {
+    await V2CardService().replacePortraitPixels(
+      fallbackCard: card,
+      outputPath: target.path,
+      pixels: bytes,
+      metadataSourcePath: oldPath == null
+          ? null
+          : storage.resolveCharacterImage(oldPath).path,
+    );
+  } else {
+    await target.writeAsBytes(bytes);
+  }
   // Same path, new bytes — evict so Image.file doesn't serve stale pixels.
   await FileImage(target).evict();
 
