@@ -3,35 +3,38 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_pill.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// NSFW sections are always pink, regardless of the mode accent.
-Color _nsfwPink(BuildContext context) =>
-    AppColors.resolve(context, Colors.pinkAccent, const Color(0xFF9D174D));
+/// NSFW sections always take terracotta, whatever the step accent.
+Color _nsfwAccent(BuildContext context) => StudioColors.terraOf(context);
 
-Widget _chipRowLabel(BuildContext context, String label, Color accent, bool isNsfw) =>
-    Padding(
-      padding: const EdgeInsets.only(bottom: 6),
-      child: Row(
-        children: [
-          if (isNsfw) ...[
-            Icon(Icons.local_fire_department, size: 12, color: accent),
-            const SizedBox(width: 4),
-          ],
-          Text(
-            label,
-            style: TextStyle(
-              color: isNsfw ? accent : AppColors.textSecondary(context),
-              fontSize: 12,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
+Widget _chipRowLabel(
+  BuildContext context,
+  String label,
+  Color accent,
+  bool isNsfw,
+) => Padding(
+  padding: const EdgeInsets.only(bottom: 6),
+  child: Row(
+    children: [
+      if (isNsfw) ...[
+        Icon(Icons.local_fire_department, size: 12, color: accent),
+        const SizedBox(width: 4),
+      ],
+      Text(
+        label,
+        style: TextStyle(
+          color: isNsfw ? accent : StudioColors.proseOf(context),
+          fontSize: 12,
+          fontWeight: FontWeight.w500,
+        ),
       ),
-    );
+    ],
+  ),
+);
 
 /// A labelled row of single-select pills. Tapping the selected pill clears it
-/// (passes '' to [onChanged]). Themed by [accent] (mode colour); NSFW → pink.
+/// (passes '' to [onChanged]). Themed by [accent] (mode colour); NSFW → nsfw.
 class SingleSelectChipRow extends StatelessWidget {
   final String label;
   final String value;
@@ -52,7 +55,7 @@ class SingleSelectChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pillAccent = isNsfw ? _nsfwPink(context) : accent;
+    final pillAccent = isNsfw ? _nsfwAccent(context) : accent;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(
@@ -80,7 +83,7 @@ class SingleSelectChipRow extends StatelessWidget {
   }
 }
 
-/// A labelled row of multi-select pills. Themed by [accent]; NSFW → pink.
+/// A labelled row of multi-select pills. Themed by [accent]; NSFW → nsfw.
 class MultiSelectChipRow extends StatelessWidget {
   final String label;
   final Set<String> selected;
@@ -101,7 +104,7 @@ class MultiSelectChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pillAccent = isNsfw ? _nsfwPink(context) : accent;
+    final pillAccent = isNsfw ? _nsfwAccent(context) : accent;
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Column(

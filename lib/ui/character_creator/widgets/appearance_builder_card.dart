@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/chip_select_row.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Blue-bordered "Character Appearance" card. Restored from the pre-refactor
 /// automated config step: race (+ custom), body/hair/skin, notable features,
@@ -27,15 +27,11 @@ class AppearanceBuilderCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pink = AppColors.resolve(
-      context,
-      Colors.pinkAccent,
-      const Color(0xFF9D174D),
-    );
+    final nsfw = StudioColors.terraOf(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: StudioColors.cardOf(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.25)),
       ),
@@ -49,7 +45,7 @@ class AppearanceBuilderCard extends StatelessWidget {
               Text(
                 'Character Appearance',
                 style: TextStyle(
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -58,7 +54,7 @@ class AppearanceBuilderCard extends StatelessWidget {
               Text(
                 'All optional',
                 style: TextStyle(
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.mutedOf(context),
                   fontSize: 10,
                 ),
               ),
@@ -108,7 +104,7 @@ class AppearanceBuilderCard extends StatelessWidget {
             accent: accent,
             onChanged: (v) => _set(() => state.notableFeatures = v),
           ),
-          Divider(color: AppColors.borderOf(context), height: 16),
+          Divider(color: StudioColors.lineOf(context), height: 16),
           SingleSelectChipRow(
             label: 'Abs / Core',
             value: state.absCore,
@@ -145,12 +141,12 @@ class AppearanceBuilderCard extends StatelessWidget {
             onChanged: (v) => _set(() => state.waist = v),
           ),
           if (state.nsfwEnabled) ...[
-            Divider(color: pink, height: 24),
+            Divider(color: nsfw, height: 24),
             SingleSelectChipRow(
               label: 'Chest Size',
               value: state.chestSize,
               options: CreatorOptions.chestSizes,
-              accent: pink,
+              accent: nsfw,
               onChanged: (v) => _set(() => state.chestSize = v),
               isNsfw: true,
             ),
@@ -158,7 +154,7 @@ class AppearanceBuilderCard extends StatelessWidget {
               label: 'Butt Size',
               value: state.buttSize,
               options: CreatorOptions.buttSizes,
-              accent: pink,
+              accent: nsfw,
               onChanged: (v) => _set(() => state.buttSize = v),
               isNsfw: true,
             ),
@@ -176,7 +172,7 @@ class AppearanceBuilderCard extends StatelessWidget {
           Text(
             'Custom: ',
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color: StudioColors.mutedOf(context),
               fontSize: 12,
             ),
           ),
@@ -185,13 +181,13 @@ class AppearanceBuilderCard extends StatelessWidget {
             child: TextField(
               controller: state.customRaceController,
               style: TextStyle(
-                color: AppColors.textPrimary(context),
+                color: StudioColors.inkOf(context),
                 fontSize: 13,
               ),
               decoration: InputDecoration(
                 hintText: 'e.g. Kitsune, Arachnid, Void-born...',
                 hintStyle: TextStyle(
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.faintOf(context),
                   fontSize: 12,
                 ),
                 isDense: true,
@@ -200,14 +196,14 @@ class AppearanceBuilderCard extends StatelessWidget {
                   vertical: 8,
                 ),
                 filled: true,
-                fillColor: AppColors.surfaceContainerOf(context),
+                fillColor: StudioColors.bgOf(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.borderOf(context)),
+                  borderSide: BorderSide(color: StudioColors.lineOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
-                  borderSide: BorderSide(color: AppColors.borderOf(context)),
+                  borderSide: BorderSide(color: StudioColors.lineOf(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),

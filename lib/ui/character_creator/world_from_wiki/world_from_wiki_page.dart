@@ -7,9 +7,10 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/steps/steps.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Studio wizard: wiki → lorebook cards → a real World in the library.
 class WorldFromWikiPage extends StatefulWidget {
@@ -109,65 +110,6 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
     }
   }
 
-  Widget _stepDot(BuildContext context, int step, String label) {
-    final isActive = worldState.currentStep >= step;
-    final isCurrent = worldState.currentStep == step;
-    final dotColor = isActive
-        ? AppColors.porchAmberOf(context)
-        : AppColors.surfaceContainerOf(context);
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: dotColor,
-            border: Border.all(
-              color: isCurrent
-                  ? AppColors.textPrimary(context)
-                  : AppColors.borderOf(context).withValues(alpha: 0.3),
-              width: isCurrent ? 2 : 1,
-            ),
-          ),
-          child: Center(
-            child: isActive && !isCurrent
-                ? Icon(Icons.check, size: 14, color: AppColors.onChaosAccent)
-                : Text(
-                    '${step + 1}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      color: isActive
-                          ? AppColors.onChaosAccent
-                          : AppColors.textTertiary(context),
-                    ),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 10,
-            color: isActive
-                ? AppColors.textSecondary(context)
-                : AppColors.textTertiary(context),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _stepLine(BuildContext context) {
-    return Container(
-      width: 20,
-      height: 2,
-      margin: const EdgeInsets.only(bottom: 14),
-      color: AppColors.borderOf(context).withValues(alpha: 0.35),
-    );
-  }
-
   Widget _nav() {
     final step = worldState.currentStep;
     final busy = worldState.busy;
@@ -208,71 +150,65 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
                 );
               };
       case 3:
+        // Writing: Stop in `bad` (the spec's outlined action); stopped: Back.
         return Padding(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              if (worldState.writing)
-                ElevatedButton.icon(
-                  key: const Key('world-from-wiki-stop-nav'),
-                  onPressed: worldState.abortWrite,
-                  icon: const Icon(Icons.stop, size: 18),
-                  label: const Text('Stop'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
+          padding: const EdgeInsets.only(top: 18, bottom: 24),
+          child: Center(
+            child: worldState.writing
+                ? SizedBox(
+                    height: 44,
+                    child: OutlinedButton.icon(
+                      key: const Key('world-from-wiki-stop-nav'),
+                      onPressed: worldState.abortWrite,
+                      icon: const Icon(Icons.stop, size: 18),
+                      label: const Text(
+                        'Stop',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: StudioColors.badOf(context),
+                        side: BorderSide(
+                          color: StudioColors.badOf(context),
+                          width: 1.5,
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 18),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  )
+                : CreatorNavBar(
+                    busy: false,
+                    showBack: true,
+                    onBack: () {
+                      worldState.currentStep = 2;
+                      worldState.notify();
+                    },
+                    onNext: null,
+                    nextLabel: '',
+                    showNext: false,
                   ),
-                )
-              else
-                OutlinedButton.icon(
-                  onPressed: () {
-                    worldState.currentStep = 2;
-                    worldState.notify();
-                  },
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  label: const Text('Back'),
-                ),
-            ],
           ),
         );
       default:
         nextLabel = 'Save World';
         onNext = busy ? null : _saveAndFinish;
     }
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (step > 0 && step != 3)
-            OutlinedButton.icon(
-              onPressed: busy
-                  ? null
-                  : () {
-                      worldState.currentStep = step - 1;
-                      worldState.notify();
-                    },
-              icon: const Icon(Icons.arrow_back, size: 18),
-              label: const Text('Back'),
-            ),
-          if (step > 0 && step != 3) const SizedBox(width: 16),
-          SizedBox(
-            width: 280,
-            height: 48,
-            child: ElevatedButton.icon(
-              key: const Key('world-from-wiki-next'),
-              onPressed: onNext,
-              icon: Icon(step >= 4 ? Icons.check : Icons.arrow_forward),
-              label: Text(nextLabel),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
-              ),
-            ),
-          ),
-        ],
-      ),
+    return CreatorNavBar(
+      busy: busy,
+      showBack: step > 0,
+      onBack: () {
+        worldState.currentStep = step - 1;
+        worldState.notify();
+      },
+      onNext: onNext,
+      nextLabel: nextLabel,
+      isLast: step >= 4,
+      nextKey: const Key('world-from-wiki-next'),
     );
   }
 
@@ -290,7 +226,7 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
               height: 16,
               child: CircularProgressIndicator(
                 strokeWidth: 2,
-                color: AppColors.porchAmberOf(context),
+                color: StudioColors.amberOf(context),
               ),
             ),
             const SizedBox(width: 10),
@@ -300,7 +236,7 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
               worldFromWikiToolsCopy(gate) ?? '',
               key: const Key('world-from-wiki-tools-copy'),
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color: StudioColors.proseOf(context),
                 height: 1.4,
               ),
             ),
@@ -320,43 +256,57 @@ class _WorldFromWikiPageState extends State<WorldFromWikiPage> {
     );
   }
 
+  static const _stepLabels = ['Setup', 'Book', 'Review', 'Write', 'Preview'];
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      CreatorTheme(child: Builder(builder: _scaffold));
+
+  Widget _scaffold(BuildContext context) {
     return Scaffold(
-      backgroundColor: AppColors.backgroundOf(context),
+      backgroundColor: StudioColors.bgOf(context),
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceOf(context),
-        leading: IconButton(
-          icon: Icon(worldState.writing ? Icons.stop : Icons.arrow_back),
-          tooltip: worldState.writing ? 'Stop' : 'Back',
-          onPressed: worldState.writing
-              ? worldState.abortWrite
-              : () => Navigator.of(context).pop(),
-        ),
+        toolbarHeight: 56,
+        backgroundColor: StudioColors.sideOf(context),
+        shape: Border(bottom: BorderSide(color: StudioColors.lineOf(context))),
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
         title: Row(
+          spacing: 14,
           children: [
+            SizedBox.square(
+              dimension: 40,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: Icon(worldState.writing ? Icons.stop : Icons.arrow_back),
+                tooltip: worldState.writing ? 'Stop' : 'Back',
+                color: StudioColors.proseOf(context),
+                onPressed: worldState.writing
+                    ? worldState.abortWrite
+                    : () => Navigator.of(context).pop(),
+              ),
+            ),
             Icon(
               Icons.menu_book_outlined,
-              color: AppColors.porchAmberOf(context),
+              color: StudioColors.amberOf(context),
               size: 22,
             ),
-            const SizedBox(width: 8),
             Text(
               'World from Wiki',
-              style: TextStyle(color: AppColors.textPrimary(context)),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: StudioColors.inkOf(context),
+              ),
             ),
             const Spacer(),
-            _stepDot(context, 0, 'Setup'),
-            _stepLine(context),
-            _stepDot(context, 1, 'Book'),
-            _stepLine(context),
-            _stepDot(context, 2, 'Review'),
-            _stepLine(context),
-            _stepDot(context, 3, 'Write'),
-            _stepLine(context),
-            _stepDot(context, 4, 'Preview'),
+            CreatorStepIndicator(
+              labels: _stepLabels,
+              current: worldState.currentStep,
+            ),
           ],
         ),
+        actions: const [SizedBox(width: 16)],
       ),
       body: Column(
         children: [

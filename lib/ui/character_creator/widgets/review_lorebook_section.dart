@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Lorebook cherry-pick section of the review step: per-entry checkboxes to
 /// include/exclude generated world lore. Faithful restoration of the
@@ -29,7 +29,7 @@ class ReviewLorebookSection extends StatelessWidget {
 
   const ReviewLorebookSection({super.key, required this.state});
 
-  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
+  Color _accent(BuildContext context) => StudioColors.amberOf(context);
 
   @override
   Widget build(BuildContext context) {
@@ -45,7 +45,7 @@ class ReviewLorebookSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Divider(color: AppColors.borderOf(context), height: 32),
+        Divider(color: StudioColors.lineOf(context), height: 32),
         Row(
           children: [
             Icon(Icons.menu_book, color: _accent(context), size: 18),
@@ -62,7 +62,7 @@ class ReviewLorebookSection extends StatelessWidget {
             Text(
               '$enabledCount/${lorebook.entries.length} enabled',
               style: TextStyle(
-                color: AppColors.textTertiary(context),
+                color: StudioColors.mutedOf(context),
                 fontSize: 11,
               ),
             ),
@@ -71,10 +71,7 @@ class ReviewLorebookSection extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'Uncheck entries you don\'t want included in the saved character.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
         ),
         const SizedBox(height: 12),
         ...List.generate(lorebook.entries.length, (i) {
@@ -84,14 +81,12 @@ class ReviewLorebookSection extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: enabled
-                  ? AppColors.surfaceContainerOf(context)
-                  : AppColors.backgroundOf(context),
-              borderRadius: BorderRadius.circular(10),
+              color: StudioColors.bgOf(context),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: enabled
-                    ? _accent(context).withValues(alpha: 0.3)
-                    : AppColors.borderOf(context).withValues(alpha: 0.2),
+                    ? StudioColors.lineOf(context)
+                    : StudioColors.lineOf(context).withValues(alpha: 0.4),
               ),
             ),
             child: Row(
@@ -116,7 +111,7 @@ class ReviewLorebookSection extends StatelessWidget {
                         Text(
                           entry.name,
                           style: TextStyle(
-                            color: AppColors.textPrimary(context),
+                            color: StudioColors.inkOf(context),
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
                           ),
@@ -133,7 +128,7 @@ class ReviewLorebookSection extends StatelessWidget {
                         Text(
                           entry.content,
                           style: TextStyle(
-                            color: AppColors.textSecondary(context),
+                            color: StudioColors.proseOf(context),
                             fontSize: 12,
                             height: 1.4,
                           ),

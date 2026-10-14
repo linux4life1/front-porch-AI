@@ -5,16 +5,16 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/chip_select_row.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_hint_field.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Pink-tinted "Sexual Traits" card shown only when NSFW is enabled. Restored
+/// Terracotta-edged "Sexual Traits" card shown only when NSFW is enabled. Restored
 /// from the pre-refactor automated config step: experience, dominance, kinks
 /// (+ custom), and outfit vibe.
 class SexualTraitsCard extends StatelessWidget {
   final CreatorState state;
 
   /// Accepted for API symmetry with the other automated cards, but this card is
-  /// intrinsically pink (NSFW) and ignores the mode accent for its theming.
+  /// intrinsically nsfw (NSFW) and ignores the mode accent for its theming.
   final Color accent;
 
   const SexualTraitsCard({
@@ -31,39 +31,25 @@ class SexualTraitsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pink = AppColors.resolve(
-      context,
-      Colors.pinkAccent,
-      const Color(0xFF9D174D),
-    );
+    final nsfw = StudioColors.terraOf(context);
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.pinkAccent.withValues(alpha: 0.12),
-          Colors.pinkAccent.withValues(alpha: 0.05),
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.pinkAccent.withValues(alpha: 0.35),
-            Colors.pinkAccent.withValues(alpha: 0.2),
-          ),
-        ),
+        color: StudioColors.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: nsfw.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.local_fire_department, color: pink, size: 18),
+              Icon(Icons.local_fire_department, color: nsfw, size: 18),
               const SizedBox(width: 8),
               Text(
                 'Sexual Traits',
                 style: TextStyle(
-                  color: pink,
+                  color: nsfw,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -72,7 +58,7 @@ class SexualTraitsCard extends StatelessWidget {
               Text(
                 'All optional',
                 style: TextStyle(
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.mutedOf(context),
                   fontSize: 10,
                 ),
               ),
@@ -83,7 +69,7 @@ class SexualTraitsCard extends StatelessWidget {
             label: 'Experience',
             value: state.experience,
             options: CreatorOptions.experienceOptions,
-            accent: pink,
+            accent: nsfw,
             onChanged: (v) => _set(() => state.experience = v),
             isNsfw: true,
           ),
@@ -91,7 +77,7 @@ class SexualTraitsCard extends StatelessWidget {
             label: 'Dominance',
             value: state.dominance,
             options: CreatorOptions.dominanceOptions,
-            accent: pink,
+            accent: nsfw,
             onChanged: (v) => _set(() => state.dominance = v),
             isNsfw: true,
           ),
@@ -99,7 +85,7 @@ class SexualTraitsCard extends StatelessWidget {
             label: 'Kinks',
             selected: state.selectedKinks,
             options: CreatorOptions.kinkOptions,
-            accent: pink,
+            accent: nsfw,
             onChanged: (v) => _set(() => state.selectedKinks = v),
             isNsfw: true,
           ),
@@ -110,16 +96,12 @@ class SexualTraitsCard extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Icon(
-                      Icons.local_fire_department,
-                      size: 12,
-                      color: pink,
-                    ),
+                    Icon(Icons.local_fire_department, size: 12, color: nsfw),
                     const SizedBox(width: 4),
                     Text(
                       'Custom Kinks',
                       style: TextStyle(
-                        color: pink,
+                        color: nsfw,
                         fontSize: 12,
                         fontWeight: FontWeight.w500,
                       ),
@@ -139,7 +121,7 @@ class SexualTraitsCard extends StatelessWidget {
             label: 'Outfit Vibe',
             value: state.outfitVibe,
             options: CreatorOptions.outfitVibes,
-            accent: pink,
+            accent: nsfw,
             onChanged: (v) => _set(() => state.outfitVibe = v),
             isNsfw: true,
           ),

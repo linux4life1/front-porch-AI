@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// AI "Character Vision" panel for the guided creator. Lets the user write
 /// their vision freeform, drop in scenario seeds, or have the AI generate a
@@ -36,23 +36,19 @@ class GuidedVisionPanel extends StatelessWidget {
     );
     if (result == null || !context.mounted) return;
 
-    final teal = AppColors.resolve(
-      context,
-      Colors.tealAccent,
-      const Color(0xFF0D7377),
-    );
+    final amber = StudioColors.amberOf(context);
     final accepted = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceContainerOf(ctx),
+        backgroundColor: StudioColors.raiseOf(ctx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Row(
           children: [
-            Icon(Icons.auto_fix_high, color: teal, size: 22),
+            Icon(Icons.auto_fix_high, color: amber, size: 22),
             const SizedBox(width: 8),
             Text(
               'Generated Description',
-              style: TextStyle(color: AppColors.textPrimary(ctx), fontSize: 18),
+              style: TextStyle(color: StudioColors.inkOf(ctx), fontSize: 18),
             ),
           ],
         ),
@@ -66,7 +62,7 @@ class GuidedVisionPanel extends StatelessWidget {
                 Text(
                   'AI generated this description from your details:',
                   style: TextStyle(
-                    color: AppColors.textTertiary(ctx),
+                    color: StudioColors.mutedOf(ctx),
                     fontSize: 12,
                   ),
                 ),
@@ -74,14 +70,14 @@ class GuidedVisionPanel extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerOf(ctx),
+                    color: StudioColors.raiseOf(ctx),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: teal.withValues(alpha: 0.3)),
+                    border: Border.all(color: amber.withValues(alpha: 0.3)),
                   ),
                   child: SelectableText(
                     result,
                     style: TextStyle(
-                      color: AppColors.textSecondary(ctx),
+                      color: StudioColors.proseOf(ctx),
                       fontSize: 13,
                       height: 1.5,
                     ),
@@ -91,7 +87,7 @@ class GuidedVisionPanel extends StatelessWidget {
                 Text(
                   'This will replace the current vision text. You can edit it after.',
                   style: TextStyle(
-                    color: AppColors.textTertiary(ctx),
+                    color: StudioColors.mutedOf(ctx),
                     fontSize: 11,
                   ),
                 ),
@@ -104,12 +100,12 @@ class GuidedVisionPanel extends StatelessWidget {
             onPressed: () => Navigator.pop(ctx, false),
             child: Text(
               'Discard',
-              style: TextStyle(color: AppColors.textTertiary(ctx)),
+              style: TextStyle(color: StudioColors.mutedOf(ctx)),
             ),
           ),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(backgroundColor: teal),
+            style: ElevatedButton.styleFrom(backgroundColor: amber),
             child: const Text('Use This'),
           ),
         ],
@@ -124,37 +120,23 @@ class GuidedVisionPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final teal = AppColors.resolve(
-      context,
-      Colors.tealAccent,
-      const Color(0xFF0D7377),
-    );
+    final amber = StudioColors.amberOf(context);
     final placeholderIdx =
         state.nameController.text.hashCode.abs() %
         CreatorOptions.guidedVisionPlaceholders.length;
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.tealAccent.withValues(alpha: 0.08),
-          Colors.teal.shade100.withValues(alpha: 0.6),
-        ),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.tealAccent.withValues(alpha: 0.3),
-            Colors.teal.shade200.withValues(alpha: 0.5),
-          ),
-        ),
+        color: StudioColors.cardOf(context),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: StudioColors.lineOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
-              Icon(Icons.edit_note, color: teal, size: 20),
+              Icon(Icons.edit_note, color: amber, size: 20),
               const SizedBox(width: 8),
               Expanded(
                 child: Column(
@@ -165,7 +147,7 @@ class GuidedVisionPanel extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.textPrimary(context),
+                        color: StudioColors.inkOf(context),
                       ),
                     ),
                     const SizedBox(height: 2),
@@ -173,7 +155,7 @@ class GuidedVisionPanel extends StatelessWidget {
                       'Write your idea, or let AI generate a description from the details above.',
                       style: TextStyle(
                         fontSize: 11,
-                        color: AppColors.textTertiary(context),
+                        color: StudioColors.mutedOf(context),
                       ),
                     ),
                   ],
@@ -187,7 +169,7 @@ class GuidedVisionPanel extends StatelessWidget {
             maxLines: null,
             minLines: 6,
             style: TextStyle(
-              color: AppColors.textPrimary(context),
+              color: StudioColors.inkOf(context),
               fontSize: 14,
               height: 1.5,
             ),
@@ -195,23 +177,23 @@ class GuidedVisionPanel extends StatelessWidget {
             decoration: InputDecoration(
               hintText: CreatorOptions.guidedVisionPlaceholders[placeholderIdx],
               hintStyle: TextStyle(
-                color: AppColors.textTertiary(context),
+                color: StudioColors.faintOf(context),
                 fontSize: 13,
               ),
               hintMaxLines: 3,
               filled: true,
-              fillColor: AppColors.surfaceContainerOf(context),
+              fillColor: StudioColors.bgOf(context),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.borderOf(context)),
+                borderSide: BorderSide(color: StudioColors.lineOf(context)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.borderOf(context)),
+                borderSide: BorderSide(color: StudioColors.lineOf(context)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: teal),
+                borderSide: BorderSide(color: amber),
               ),
               contentPadding: const EdgeInsets.all(16),
             ),
@@ -242,14 +224,14 @@ class GuidedVisionPanel extends StatelessWidget {
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerOf(context),
+                    color: StudioColors.raiseOf(context),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.borderOf(context)),
+                    border: Border.all(color: StudioColors.lineOf(context)),
                   ),
                   child: Text(
                     seed,
                     style: TextStyle(
-                      color: AppColors.textTertiary(context),
+                      color: StudioColors.mutedOf(context),
                       fontSize: 11,
                     ),
                   ),
@@ -272,13 +254,13 @@ class GuidedVisionPanel extends StatelessWidget {
                         height: 16,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: teal,
+                          color: amber,
                         ),
                       ),
                       const SizedBox(width: 8),
                       Text(
                         'Generating description...',
-                        style: TextStyle(color: teal, fontSize: 12),
+                        style: TextStyle(color: amber, fontSize: 12),
                       ),
                     ],
                   ),
@@ -294,24 +276,11 @@ class GuidedVisionPanel extends StatelessWidget {
                     style: TextStyle(fontSize: 13),
                   ),
                   style: ElevatedButton.styleFrom(
-                    // Filled buttons need the DARK accent as the background (so
-                    // white text reads) — the opposite of borders/icons, which
-                    // use the bright accent. A bright-mint fill + white text is
-                    // unreadable in dark mode.
-                    backgroundColor: AppColors.resolve(
-                      context,
-                      const Color(0xFF0D7377),
-                      Colors.tealAccent,
-                    ),
-                    foregroundColor: AppColors.resolve(
-                      context,
-                      Colors.white,
-                      Colors.black87,
-                    ),
-                    disabledBackgroundColor: AppColors.surfaceContainerOf(
-                      context,
-                    ),
-                    disabledForegroundColor: AppColors.textTertiary(context),
+                    // A primary button: amber fill, amber-ink label.
+                    backgroundColor: StudioColors.amberOf(context),
+                    foregroundColor: StudioColors.amberInkOf(context),
+                    disabledBackgroundColor: StudioColors.raiseOf(context),
+                    disabledForegroundColor: StudioColors.mutedOf(context),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
                     ),

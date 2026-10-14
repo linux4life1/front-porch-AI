@@ -164,7 +164,7 @@ class CreatorState extends ChangeNotifier {
   /// and macro, "dialogue" and *action* colouring. Made with its text, so
   /// no spell-check pass is queued until someone types.
   TextEditingController newGreetingBox([String text = '']) =>
-      StyledTextController(text: text, preset: StyledTextPreset.prose);
+      StyledTextController(text: text, preset: StyledTextPreset.studioProse);
 
   // Generation state (lifted)
   String generationStatus = '';

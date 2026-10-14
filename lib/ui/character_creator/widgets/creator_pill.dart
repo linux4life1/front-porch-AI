@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// The single, shared "bubble" used across every character-creation mode
 /// (Quick / Guided / Automated). One look, themed per mode by [accent] — so
@@ -29,36 +29,23 @@ class CreatorPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fg = selected ? accent : AppColors.textSecondary(context);
+    // The spec's chip: `raise` fill, 13px ink; selected is a solid accent
+    // fill with amber-ink text.
+    final fg = selected
+        ? StudioColors.amberInkOf(context)
+        : StudioColors.inkOf(context);
     return Material(
-      color: Colors.transparent,
+      type: MaterialType.transparency,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(10),
         child: AnimatedContainer(
           duration: const Duration(milliseconds: 150),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: selected
-                ? accent.withValues(alpha: 0.16)
-                : AppColors.surfaceContainerOf(context),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(
-              color: selected
-                  ? accent
-                  : AppColors.borderOf(context).withValues(alpha: 0.9),
-              width: selected ? 1.5 : 1,
-            ),
-            boxShadow: selected
-                ? [
-                    BoxShadow(
-                      color: accent.withValues(alpha: 0.25),
-                      blurRadius: 8,
-                      spreadRadius: -2,
-                    ),
-                  ]
-                : null,
+            color: selected ? accent : StudioColors.raiseOf(context),
+            borderRadius: BorderRadius.circular(10),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
@@ -71,7 +58,7 @@ class CreatorPill extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: fg,
-                  fontSize: 12,
+                  fontSize: 13,
                   fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
                 ),
               ),

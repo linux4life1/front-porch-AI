@@ -6,7 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
 import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
 import 'package:front_porch_ai/ui/widgets/age_gender_row.dart';
@@ -40,49 +40,42 @@ class AutomatedConfigStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.resolve(
-      context,
-      Colors.amberAccent,
-      const Color(0xFFB45309),
-    );
-    final pink = AppColors.resolve(
-      context,
-      Colors.pinkAccent,
-      const Color(0xFF9D174D),
-    );
-    return Center(
+    final amber = StudioColors.amberOf(context);
+    final nsfw = StudioColors.terraOf(context);
+    return Align(
+      alignment: Alignment.topCenter,
       key: const ValueKey('automated-config'),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
+          constraints: const BoxConstraints(maxWidth: 860),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'Bring Your Character to Life',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: StudioColors.inkOf(context),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Give us a name and a concept — the AI will do the rest. '
                 'It will generate a complete character card with personality, '
                 'backstory, dialogue examples, and a custom avatar.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.mutedOf(context),
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               NsfwToggle(
                 value: state.nsfwEnabled,
-                accentColor: pink,
+                accentColor: nsfw,
                 subtitle: 'Unlock spicy appearance & relationship options',
                 onChanged: (val) {
                   state.nsfwEnabled = val;
@@ -152,7 +145,7 @@ class AutomatedConfigStep extends StatelessWidget {
               ),
 
               if (state.nsfwEnabled) ...[
-                SexualTraitsCard(state: state, accent: pink),
+                SexualTraitsCard(state: state, accent: nsfw),
                 const SizedBox(height: 16),
               ],
 
@@ -205,7 +198,7 @@ class AutomatedConfigStep extends StatelessWidget {
                     'Select a persona to tailor greetings, or "None" for '
                     'public cards.',
                     style: TextStyle(
-                      color: AppColors.textTertiary(context),
+                      color: StudioColors.mutedOf(context),
                       fontSize: 11,
                     ),
                   ),
@@ -291,7 +284,7 @@ class AutomatedConfigStep extends StatelessWidget {
                     'Perspective and tense for the first message, alternates, '
                     'and example dialogue.',
                     style: TextStyle(
-                      color: AppColors.textTertiary(context),
+                      color: StudioColors.mutedOf(context),
                       fontSize: 11,
                     ),
                   ),

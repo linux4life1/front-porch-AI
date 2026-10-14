@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/mode_card.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Step 1: Mode selection (Automated / Guided / Quick).
 class ModeSelectStep extends StatelessWidget {
@@ -20,49 +20,37 @@ class ModeSelectStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.resolve(
-      context,
-      Colors.amberAccent,
-      const Color(0xFFB45309),
-    );
-    final teal = AppColors.resolve(
-      context,
-      Colors.tealAccent,
-      const Color(0xFF0D7377),
-    );
-    final green = AppColors.resolve(
-      context,
-      Colors.greenAccent,
-      const Color(0xFF15803D),
-    );
+    // One accent across the creator (docs/design/creator-ui-spec.md).
+    final amber = StudioColors.amberOf(context);
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       key: const ValueKey('mode-select'),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(32, 32, 32, 16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
+          constraints: const BoxConstraints(maxWidth: 960),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
                 'How do you want to create?',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: StudioColors.inkOf(context),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Choose the creation mode that fits your workflow.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.mutedOf(context),
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
               ModeCard(
                 title: 'Automated Creator',
@@ -96,7 +84,7 @@ class ModeSelectStep extends StatelessWidget {
                   '"Help me expand this" AI assist',
                 ],
                 icon: Icons.edit_note,
-                accentColor: teal,
+                accentColor: amber,
                 isSelected: state.creatorMode == CreatorMode.guided,
                 onTap: () => _select(CreatorMode.guided),
               ),
@@ -115,7 +103,7 @@ class ModeSelectStep extends StatelessWidget {
                   'Full pipeline in ~2 min',
                 ],
                 icon: Icons.bolt,
-                accentColor: green,
+                accentColor: amber,
                 isSelected: state.creatorMode == CreatorMode.quick,
                 onTap: () => _select(CreatorMode.quick),
               ),

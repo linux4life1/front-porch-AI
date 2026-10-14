@@ -7,7 +7,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_hint_field.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// The magic-wand "Description" generator: a label + generate button (or a
 /// progress spinner while running) above a description field that stays locked
@@ -96,15 +96,11 @@ class DescriptionGeneratorSection extends StatelessWidget {
                   onTap: () => _generate(context),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.resolve(
+                      color: StudioColors.raiseOf(
                         context,
-                        Colors.black12,
-                        Colors.black12.withValues(alpha: 0.04),
-                      ),
+                      ).withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: accent.withValues(alpha: 0.2),
-                      ),
+                      border: Border.all(color: accent.withValues(alpha: 0.2)),
                     ),
                     child: Center(
                       child: Row(

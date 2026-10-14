@@ -114,6 +114,12 @@ class StudioColors {
   static Color badOf(BuildContext context) =>
       AppColors.resolve(context, bad, badLight);
 
+  /// Asterisk narration inside the creator's macro-coloured text boxes
+  /// (docs/design/creator-ui-spec.md). Light mode reuses `muted`.
+  static const Color narration = Color(0xFFD9C7B2);
+  static Color narrationOf(BuildContext context) =>
+      AppColors.resolve(context, narration, mutedLight);
+
   /// Text on an amber fill.
   static const Color amberInk = Color(0xFF2A1A08);
   static const Color amberInkLight = Color(0xFFFFFDF9);

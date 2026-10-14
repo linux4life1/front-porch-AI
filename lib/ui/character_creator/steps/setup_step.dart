@@ -9,7 +9,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/setup_backend_picker.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 import 'package:front_porch_ai/ui/character_creator/steps/setup_step_fields.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/setup_step_status_dot.dart';
@@ -26,7 +26,8 @@ class SetupStep extends StatelessWidget {
     final activeBackend = llmProvider.activeBackend;
     final isKobold = activeBackend == BackendType.kobold;
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       key: const ValueKey('setup'),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -38,21 +39,21 @@ class SetupStep extends StatelessWidget {
               Text(
                 'Backend & Model Setup',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: StudioColors.inkOf(context),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Choose your AI backend and model before configuring your character.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.mutedOf(context),
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
 
               SetupBackendPicker(state: state),
               const SizedBox(height: 24),
@@ -101,7 +102,7 @@ class SetupStep extends StatelessWidget {
                       );
                     }
                   },
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -109,9 +110,9 @@ class SetupStep extends StatelessWidget {
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerOf(context),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.borderOf(context)),
+                      color: StudioColors.bgOf(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: StudioColors.lineOf(context)),
                     ),
                     child: Row(
                       children: [
@@ -122,7 +123,7 @@ class SetupStep extends StatelessWidget {
                               Text(
                                 'Model',
                                 style: TextStyle(
-                                  color: AppColors.textTertiary(context),
+                                  color: StudioColors.mutedOf(context),
                                   fontSize: 11,
                                 ),
                               ),
@@ -133,8 +134,8 @@ class SetupStep extends StatelessWidget {
                                     : p.basename(state.selectedLocalModelPath),
                                 style: TextStyle(
                                   color: state.selectedLocalModelPath.isEmpty
-                                      ? AppColors.textTertiary(context)
-                                      : AppColors.textPrimary(context),
+                                      ? StudioColors.mutedOf(context)
+                                      : StudioColors.inkOf(context),
                                   fontSize: 14,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -144,7 +145,7 @@ class SetupStep extends StatelessWidget {
                         ),
                         Icon(
                           Icons.arrow_drop_down,
-                          color: AppColors.iconSecondary(context),
+                          color: StudioColors.mutedOf(context),
                         ),
                       ],
                     ),
@@ -159,11 +160,11 @@ class SetupStep extends StatelessWidget {
                         phase == KoboldPhase.starting ||
                         phase == KoboldPhase.loading;
                     final dotColor = switch (phase) {
-                      KoboldPhase.ready => Colors.green.shade300,
-                      KoboldPhase.unloaded => AppColors.slateFaintOf(ctx),
+                      KoboldPhase.ready => StudioColors.tealOf(ctx),
+                      KoboldPhase.unloaded => StudioColors.faintOf(ctx),
                       KoboldPhase.starting ||
-                      KoboldPhase.loading => Colors.orange.shade300,
-                      KoboldPhase.stopped => Colors.red.shade300,
+                      KoboldPhase.loading => StudioColors.honeyOf(ctx),
+                      KoboldPhase.stopped => StudioColors.badOf(ctx),
                     };
                     final label = switch (phase) {
                       KoboldPhase.ready => 'Ready',
@@ -193,11 +194,9 @@ class SetupStep extends StatelessWidget {
                   builder: (context, setLocalState) {
                     return Container(
                       decoration: BoxDecoration(
-                        color: Theme.of(context).cardColor,
+                        color: StudioColors.cardOf(context),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.07),
-                        ),
+                        border: Border.all(color: StudioColors.lineOf(context)),
                       ),
                       child: Column(
                         children: [
@@ -215,9 +214,9 @@ class SetupStep extends StatelessWidget {
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(
+                                  Icon(
                                     Icons.tune,
-                                    color: Color(0xFF00D4AA),
+                                    color: StudioColors.amberOf(context),
                                     size: 18,
                                   ),
                                   const SizedBox(width: 10),
@@ -234,9 +233,9 @@ class SetupStep extends StatelessWidget {
                                         ? 0.5
                                         : 0,
                                     duration: const Duration(milliseconds: 200),
-                                    child: const Icon(
+                                    child: Icon(
                                       Icons.keyboard_arrow_down,
-                                      color: Colors.white54,
+                                      color: StudioColors.mutedOf(context),
                                       size: 20,
                                     ),
                                   ),
@@ -311,9 +310,9 @@ class SetupStep extends StatelessWidget {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isAnyRunning
-                              ? Colors.redAccent
-                              : Colors.green.shade700,
-                          foregroundColor: Colors.white,
+                              ? StudioColors.badOf(ctx)
+                              : StudioColors.amberOf(ctx),
+                          foregroundColor: StudioColors.amberInkOf(ctx),
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
@@ -365,7 +364,7 @@ class SetupStep extends StatelessWidget {
                       });
                     }
                   },
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(10),
                   child: Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -373,9 +372,9 @@ class SetupStep extends StatelessWidget {
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.surfaceContainerOf(context),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: AppColors.borderOf(context)),
+                      color: StudioColors.bgOf(context),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: StudioColors.lineOf(context)),
                     ),
                     child: Row(
                       children: [
@@ -386,7 +385,7 @@ class SetupStep extends StatelessWidget {
                               Text(
                                 'Model',
                                 style: TextStyle(
-                                  color: AppColors.textTertiary(context),
+                                  color: StudioColors.mutedOf(context),
                                   fontSize: 11,
                                 ),
                               ),
@@ -397,8 +396,8 @@ class SetupStep extends StatelessWidget {
                                     : state.selectedModelId,
                                 style: TextStyle(
                                   color: state.selectedModelId.isEmpty
-                                      ? AppColors.textTertiary(context)
-                                      : AppColors.textPrimary(context),
+                                      ? StudioColors.mutedOf(context)
+                                      : StudioColors.inkOf(context),
                                   fontSize: 14,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -408,7 +407,7 @@ class SetupStep extends StatelessWidget {
                         ),
                         Icon(
                           Icons.arrow_drop_down,
-                          color: AppColors.iconSecondary(context),
+                          color: StudioColors.mutedOf(context),
                         ),
                       ],
                     ),
@@ -421,7 +420,7 @@ class SetupStep extends StatelessWidget {
                 'The selected backend and model will be used for all AI generation in this wizard.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.mutedOf(context),
                 ),
               ),
             ],

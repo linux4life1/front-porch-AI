@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
 import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_tone_selector.dart';
@@ -26,7 +26,7 @@ class QuickConfigStep extends StatelessWidget {
         Text(
           text,
           style: TextStyle(
-            color: AppColors.textSecondary(context),
+            color: StudioColors.proseOf(context),
             fontSize: 12,
             fontWeight: FontWeight.w500,
           ),
@@ -36,7 +36,7 @@ class QuickConfigStep extends StatelessWidget {
           Text(
             helper,
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color: StudioColors.mutedOf(context),
               fontSize: 11,
             ),
           ),
@@ -57,25 +57,25 @@ class QuickConfigStep extends StatelessWidget {
   }) {
     return TextField(
       controller: controller,
-      style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
+      style: TextStyle(color: StudioColors.inkOf(context), fontSize: 14),
       maxLines: maxLines,
       minLines: minLines,
       onChanged: (_) => state.scheduleSave(),
       decoration: InputDecoration(
         hintText: hint,
         hintStyle: TextStyle(
-          color: AppColors.textTertiary(context),
+          color: StudioColors.faintOf(context),
           fontSize: 12,
         ),
         filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
+        fillColor: StudioColors.bgOf(context),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
+          borderSide: BorderSide(color: StudioColors.lineOf(context)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
+          borderSide: BorderSide(color: StudioColors.lineOf(context)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
@@ -91,23 +91,16 @@ class QuickConfigStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final quickAccent = AppColors.resolve(
-      context,
-      Colors.greenAccent,
-      const Color(0xFF15803D),
-    );
-    final nsfwAccent = AppColors.resolve(
-      context,
-      Colors.pinkAccent,
-      const Color(0xFF9D174D),
-    );
+    final quickAccent = StudioColors.amberOf(context);
+    final nsfwAccent = StudioColors.terraOf(context);
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       key: const ValueKey('quick-config'),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
+          constraints: const BoxConstraints(maxWidth: 860),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -118,7 +111,7 @@ class QuickConfigStep extends StatelessWidget {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: quickAccent.withValues(alpha: 0.12),
+                      color: quickAccent.withValues(alpha: 0.14),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(Icons.bolt, color: quickAccent, size: 22),
@@ -132,15 +125,16 @@ class QuickConfigStep extends StatelessWidget {
                           'Quick Create',
                           style: TextStyle(
                             fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary(context),
+                            fontWeight: FontWeight.w700,
+                            color: StudioColors.inkOf(context),
                           ),
                         ),
                         Text(
                           'Name it, describe it, generate.',
                           style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textTertiary(context),
+                            fontSize: 14,
+                            height: 1.5,
+                            color: StudioColors.mutedOf(context),
                           ),
                         ),
                       ],

@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// The Realism step's note after the first message was rewritten on the
 /// Greetings step (#370): the outfit still follows the old one, and nothing
@@ -41,7 +41,7 @@ class OutfitHint extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber = StudioColors.amberOf(context);
     final text = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 4,
@@ -49,18 +49,18 @@ class OutfitHint extends StatelessWidget {
         Text(
           'The first message changed',
           style: TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary(context),
+            color: StudioColors.inkOf(context),
           ),
         ),
         Text(
           'The outfit below was set from the old first message. Nothing '
           'was changed for you.',
           style: TextStyle(
-            fontSize: 13,
+            fontSize: 14,
             height: 1.5,
-            color: AppColors.textSecondary(context),
+            color: StudioColors.proseOf(context),
           ),
         ),
         if (error != null)
@@ -68,9 +68,9 @@ class OutfitHint extends StatelessWidget {
             error!,
             key: const ValueKey('outfit-hint-error'),
             style: TextStyle(
-              fontSize: 13,
+              fontSize: 14,
               height: 1.5,
-              color: AppColors.alertRedOf(context),
+              color: StudioColors.badOf(context),
             ),
           ),
       ],
@@ -93,15 +93,15 @@ class OutfitHint extends StatelessWidget {
               : const Icon(Icons.refresh, size: 18),
           label: Text(
             reading ? 'Reading the outfit…' : 'Re-read the outfit from it',
-            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
           ),
           style: OutlinedButton.styleFrom(
             foregroundColor: amber,
             disabledForegroundColor: amber,
-            side: BorderSide(color: amber),
+            side: BorderSide(color: amber, width: 1.5),
             padding: const EdgeInsets.symmetric(horizontal: 16),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
         ),
@@ -112,10 +112,10 @@ class OutfitHint extends StatelessWidget {
           key: const ValueKey('outfit-keep'),
           onPressed: reading ? null : onKeep,
           style: TextButton.styleFrom(
-            foregroundColor: AppColors.textSecondary(context),
+            foregroundColor: StudioColors.proseOf(context),
             padding: const EdgeInsets.symmetric(horizontal: 12),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(10),
             ),
           ),
           child: const Text(
@@ -127,11 +127,12 @@ class OutfitHint extends StatelessWidget {
     ];
     return Container(
       key: const ValueKey('outfit-hint'),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      // The spec's hint box: `raise` fill, a 1px amber edge at 50%.
+      padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       decoration: BoxDecoration(
-        color: amber.withValues(alpha: 0.10),
+        color: StudioColors.raiseOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: amber.withValues(alpha: 0.40)),
+        border: Border.all(color: amber.withValues(alpha: 0.5)),
       ),
       child: LayoutBuilder(
         builder: (context, c) {
@@ -160,7 +161,7 @@ class OutfitHint extends StatelessWidget {
                   Expanded(child: text),
                 ],
               ),
-              Wrap(spacing: 12, runSpacing: 8, children: buttons),
+              Wrap(spacing: 18, runSpacing: 8, children: buttons),
             ],
           );
         },

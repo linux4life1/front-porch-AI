@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Mode selection card for the character creator (Automated / Guided / Quick).
 ///
@@ -33,10 +33,9 @@ class ModeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final borderColor = isSelected
-        ? accentColor
-        : AppColors.borderOf(context);
-
+    final muted = StudioColors.mutedOf(context);
+    // The spec's mode card: `card` fill and a `line` border; the chosen one
+    // takes a 2px amber border over an 8% amber wash.
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(16),
@@ -46,22 +45,25 @@ class ModeCard extends StatelessWidget {
         decoration: BoxDecoration(
           color: isSelected
               ? accentColor.withValues(alpha: 0.08)
-              : AppColors.surfaceContainerOf(context),
+              : StudioColors.cardOf(context),
           borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: borderColor, width: isSelected ? 2 : 1),
+          border: Border.all(
+            color: isSelected ? accentColor : StudioColors.lineOf(context),
+            width: isSelected ? 2 : 1,
+          ),
         ),
         child: Row(
+          spacing: 12,
           children: [
             Container(
-              width: 56,
-              height: 56,
+              width: 52,
+              height: 52,
               decoration: BoxDecoration(
-                color: accentColor.withValues(alpha: 0.12),
+                color: accentColor.withValues(alpha: 0.14),
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Icon(icon, color: accentColor, size: 28),
             ),
-            const SizedBox(width: 16),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,10 +74,8 @@ class ModeCard extends StatelessWidget {
                         title,
                         style: TextStyle(
                           fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: isSelected
-                              ? AppColors.textPrimary(context)
-                              : AppColors.textSecondary(context),
+                          fontWeight: FontWeight.w700,
+                          color: StudioColors.inkOf(context),
                         ),
                       ),
                       const Spacer(),
@@ -86,8 +86,8 @@ class ModeCard extends StatelessWidget {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: accentColor.withValues(alpha: 0.12),
-                            borderRadius: BorderRadius.circular(12),
+                            color: accentColor.withValues(alpha: 0.14),
+                            borderRadius: BorderRadius.circular(10),
                           ),
                           child: Text(
                             'Selected',
@@ -104,20 +104,14 @@ class ModeCard extends StatelessWidget {
                   Text(
                     subtitle,
                     style: TextStyle(
-                      color: isSelected
-                          ? accentColor
-                          : AppColors.textTertiary(context),
+                      color: StudioColors.proseOf(context),
                       fontSize: 13,
                     ),
                   ),
                   const SizedBox(height: 8),
                   Text(
                     description,
-                    style: TextStyle(
-                      color: AppColors.textTertiary(context),
-                      fontSize: 12,
-                      height: 1.4,
-                    ),
+                    style: TextStyle(color: muted, fontSize: 12, height: 1.5),
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -131,19 +125,12 @@ class ModeCard extends StatelessWidget {
                               Icon(
                                 Icons.check_circle_outline,
                                 size: 12,
-                                color: isSelected
-                                    ? accentColor
-                                    : AppColors.textTertiary(context),
+                                color: isSelected ? accentColor : muted,
                               ),
                               const SizedBox(width: 4),
                               Text(
                                 f,
-                                style: TextStyle(
-                                  color: isSelected
-                                      ? AppColors.textSecondary(context)
-                                      : AppColors.textTertiary(context),
-                                  fontSize: 11,
-                                ),
+                                style: TextStyle(color: muted, fontSize: 11),
                               ),
                             ],
                           ),

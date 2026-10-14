@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// A field caption for [SetupStep], with a red `*` when [required].
@@ -23,21 +23,12 @@ class SetupInputLabel extends StatelessWidget {
           text,
           style: TextStyle(
             fontSize: 12,
-            color: AppColors.textSecondary(context),
+            color: StudioColors.proseOf(context),
             fontWeight: FontWeight.w500,
           ),
         ),
         if (required)
-          Text(
-            ' *',
-            style: TextStyle(
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
-            ),
-          ),
+          Text(' *', style: TextStyle(color: StudioColors.badOf(context))),
       ],
     );
   }
@@ -91,7 +82,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerOf(context),
+              color: StudioColors.raiseOf(context),
               borderRadius: BorderRadius.circular(8),
             ),
             child: hardwareService.isDetecting
@@ -103,9 +94,9 @@ class SetupExtraSettingsBody extends StatelessWidget {
                     ),
                   )
                 : hardwareService.hardwareInfo == null
-                ? const Text(
+                ? Text(
                     'Hardware not detected.',
-                    style: TextStyle(color: Colors.redAccent),
+                    style: TextStyle(color: StudioColors.badOf(context)),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +170,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
                 'KV Quantization:',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.proseOf(context),
                 ),
               ),
               const SizedBox(width: 12),
@@ -207,17 +198,14 @@ Widget _buildInfoRow(BuildContext context, String label, String value) {
       children: [
         Text(
           label,
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 12),
         ),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             value,
             style: TextStyle(
-              color: AppColors.textPrimary(context),
+              color: StudioColors.inkOf(context),
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
@@ -239,13 +227,13 @@ Widget _buildSettingsTextField(
   return TextField(
     controller: controller,
     keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-    style: TextStyle(color: AppColors.textPrimary(context)),
+    style: TextStyle(color: StudioColors.inkOf(context)),
     onChanged: onChanged,
     decoration: InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AppColors.textSecondary(context)),
+      labelStyle: TextStyle(color: StudioColors.proseOf(context)),
       filled: true,
-      fillColor: AppColors.surfaceContainerOf(context),
+      fillColor: StudioColors.bgOf(context),
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,

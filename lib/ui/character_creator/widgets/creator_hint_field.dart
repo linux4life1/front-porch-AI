@@ -5,7 +5,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Hint-only styled text field used across the automated creator step
 /// (relationship, custom kinks, backstory notes, description). Restored from
@@ -69,8 +69,8 @@ class _CreatorHintFieldState extends State<CreatorHintField> {
       minLines: widget.minLines,
       style: TextStyle(
         color: enabled
-            ? AppColors.textPrimary(context)
-            : AppColors.textTertiary(context),
+            ? StudioColors.inkOf(context)
+            : StudioColors.mutedOf(context),
         fontSize: 14,
       ),
       onChanged: (_) {
@@ -81,22 +81,22 @@ class _CreatorHintFieldState extends State<CreatorHintField> {
       decoration: InputDecoration(
         hintText: widget.hint,
         hintStyle: TextStyle(
-          color: AppColors.textTertiary(context),
+          color: StudioColors.faintOf(context),
           fontSize: 13,
         ),
         filled: true,
-        fillColor: AppColors.surfaceContainerOf(context),
+        fillColor: StudioColors.bgOf(context),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
+          borderSide: BorderSide(color: StudioColors.lineOf(context)),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.borderOf(context)),
+          borderSide: BorderSide(color: StudioColors.lineOf(context)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: const BorderSide(color: AppColors.formMasterAccent),
+          borderSide: BorderSide(color: StudioColors.amberOf(context)),
         ),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 16,

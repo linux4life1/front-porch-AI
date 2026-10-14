@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 class WorldFromWikiPreviewStep extends StatelessWidget {
   const WorldFromWikiPreviewStep({super.key, required this.state});
@@ -27,22 +27,22 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 'Same shelves as Create World. Save drops it in Worlds.',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(color: StudioColors.proseOf(context)),
               ),
               const SizedBox(height: 20),
               TextField(
                 controller: state.nameController,
-                style: TextStyle(color: AppColors.textPrimary(context)),
+                style: TextStyle(color: StudioColors.inkOf(context)),
                 decoration: InputDecoration(
                   labelText: 'Name',
                   filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
+                  fillColor: StudioColors.bgOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -53,11 +53,11 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                 controller: state.descController,
                 minLines: 3,
                 maxLines: 6,
-                style: TextStyle(color: AppColors.textPrimary(context)),
+                style: TextStyle(color: StudioColors.inkOf(context)),
                 decoration: InputDecoration(
                   labelText: 'Description',
                   filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
+                  fillColor: StudioColors.bgOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -70,7 +70,7 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                   'Off: no biome json. Atmosphere and gravity stay silent.',
                 ),
                 value: state.climateEnabled,
-                activeTrackColor: AppColors.porchAmberOf(context),
+                activeTrackColor: StudioColors.amberOf(context),
                 onChanged: (v) {
                   state.climateEnabled = v;
                   state.notify();
@@ -81,14 +81,14 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                 'Lorebook (${state.entries.length})',
                 style: TextStyle(
                   fontWeight: FontWeight.w600,
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                 ),
               ),
               const SizedBox(height: 8),
               if (state.entries.isEmpty)
                 Text(
                   'No cards yet. Go back and Write, or save an empty place.',
-                  style: TextStyle(color: AppColors.textTertiary(context)),
+                  style: TextStyle(color: StudioColors.mutedOf(context)),
                 )
               else
                 for (final e in state.entries)
@@ -98,9 +98,9 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        color: AppColors.surfaceContainerOf(context),
+                        color: StudioColors.raiseOf(context),
                         borderRadius: BorderRadius.circular(8),
-                        border: Border.all(color: AppColors.borderOf(context)),
+                        border: Border.all(color: StudioColors.lineOf(context)),
                       ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -109,7 +109,7 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                             e.name.isEmpty ? '(untitled)' : e.name,
                             style: TextStyle(
                               fontWeight: FontWeight.w600,
-                              color: AppColors.textPrimary(context),
+                              color: StudioColors.inkOf(context),
                             ),
                           ),
                           const SizedBox(height: 4),
@@ -118,7 +118,7 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                             maxLines: 6,
                             overflow: TextOverflow.ellipsis,
                             style: TextStyle(
-                              color: AppColors.textSecondary(context),
+                              color: StudioColors.proseOf(context),
                               height: 1.35,
                             ),
                           ),
@@ -130,7 +130,7 @@ class WorldFromWikiPreviewStep extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   state.error!,
-                  style: TextStyle(color: AppColors.taskAccentOf(context)),
+                  style: TextStyle(color: StudioColors.honeyOf(context)),
                 ),
               ],
             ],

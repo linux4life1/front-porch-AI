@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Step 4, in all three modes: the first message and the alternates, one
 /// card each (#370). Edit in place, rewrite one (steered by a line of
@@ -64,7 +64,7 @@ class GreetingsStep extends StatelessWidget {
 
     return SingleChildScrollView(
       key: const ValueKey('greetings'),
-      padding: const EdgeInsets.fromLTRB(24, 28, 24, 32),
+      padding: const EdgeInsets.fromLTRB(24, 32, 24, 16),
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 860),
@@ -96,8 +96,9 @@ class GreetingsStep extends StatelessWidget {
                   Text(
                     'Writes a new one right away',
                     style: TextStyle(
-                      fontSize: 13,
-                      color: AppColors.textSecondary(context),
+                      fontSize: 12,
+                      height: 1.5,
+                      color: StudioColors.mutedOf(context),
                     ),
                   ),
                 ],
@@ -119,7 +120,7 @@ class GreetingsStep extends StatelessWidget {
           style: TextStyle(
             fontSize: 24,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary(context),
+            color: StudioColors.inkOf(context),
           ),
         ),
         Text(
@@ -129,7 +130,7 @@ class GreetingsStep extends StatelessWidget {
           style: TextStyle(
             fontSize: 14,
             height: 1.5,
-            color: AppColors.textSecondary(context),
+            color: StudioColors.mutedOf(context),
           ),
         ),
       ],
@@ -147,16 +148,13 @@ class GreetingsStep extends StatelessWidget {
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w700,
-            color: AppColors.textPrimary(context),
+            color: StudioColors.inkOf(context),
           ),
         ),
         Text(
           '$count of ${CreatorGreetings.maxAlternates}',
           key: const ValueKey('greeting-count'),
-          style: TextStyle(
-            fontSize: 13,
-            color: AppColors.textSecondary(context),
-          ),
+          style: TextStyle(fontSize: 13, color: StudioColors.faintOf(context)),
         ),
       ],
     );
@@ -172,13 +170,13 @@ class GreetingsStep extends StatelessWidget {
           Icon(
             Icons.error_outline,
             size: 64,
-            color: AppColors.negativeAccentOf(context),
+            color: StudioColors.badOf(context),
           ),
           const SizedBox(height: 16),
           Text(
             'Generation failed. The LLM did not produce valid output.',
             style: TextStyle(
-              color: AppColors.textSecondary(context),
+              color: StudioColors.proseOf(context),
               fontSize: 16,
             ),
           ),
@@ -191,8 +189,8 @@ class GreetingsStep extends StatelessWidget {
             icon: const Icon(Icons.arrow_back),
             label: const Text('Try Again'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: StudioColors.amberOf(context),
+              foregroundColor: StudioColors.amberInkOf(context),
             ),
           ),
         ],

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// The "Model Thinking" reasoning toggle shared by all creation modes.
 /// Restored from the god file's `_buildReasoningToggle`.
@@ -29,12 +29,12 @@ class ReasoningToggle extends StatelessWidget {
         decoration: BoxDecoration(
           color: enabled
               ? accentColor.withValues(alpha: 0.08)
-              : AppColors.surfaceContainerOf(context),
+              : StudioColors.raiseOf(context),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: enabled
                 ? accentColor.withValues(alpha: 0.5)
-                : AppColors.borderOf(context).withValues(alpha: 0.2),
+                : StudioColors.lineOf(context).withValues(alpha: 0.2),
             width: enabled ? 2 : 1,
           ),
         ),
@@ -42,7 +42,7 @@ class ReasoningToggle extends StatelessWidget {
           children: [
             Icon(
               Icons.psychology,
-              color: enabled ? accentColor : AppColors.textTertiary(context),
+              color: enabled ? accentColor : StudioColors.mutedOf(context),
               size: 20,
             ),
             const SizedBox(width: 12),
@@ -54,8 +54,8 @@ class ReasoningToggle extends StatelessWidget {
                     'Model Thinking',
                     style: TextStyle(
                       color: enabled
-                          ? AppColors.textPrimary(context)
-                          : AppColors.textSecondary(context),
+                          ? StudioColors.inkOf(context)
+                          : StudioColors.proseOf(context),
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -66,7 +66,7 @@ class ReasoningToggle extends StatelessWidget {
                     style: TextStyle(
                       color: enabled
                           ? accentColor.withValues(alpha: 0.6)
-                          : AppColors.textTertiary(context),
+                          : StudioColors.mutedOf(context),
                       fontSize: 11,
                     ),
                   ),
@@ -77,7 +77,7 @@ class ReasoningToggle extends StatelessWidget {
               value: enabled,
               onChanged: onChanged,
               // Switches are porch amber app-wide; [accentColor] tints the card.
-              activeTrackColor: AppColors.porchAmberOf(context),
+              activeTrackColor: StudioColors.amberOf(context),
             ),
           ],
         ),

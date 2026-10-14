@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/dynamic_macros_toggle.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Blue-bordered "Auto-generate World Lore" card: a master switch, lore depth
 /// selector (Light/Standard/Deep), and optional focus-area filter chips.
@@ -35,7 +35,7 @@ class LorebookGenerationCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: StudioColors.cardOf(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
@@ -50,7 +50,7 @@ class LorebookGenerationCard extends StatelessWidget {
                 child: Text(
                   'Auto-generate World Lore',
                   style: TextStyle(
-                    color: AppColors.textPrimary(context),
+                    color: StudioColors.inkOf(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -73,7 +73,7 @@ class LorebookGenerationCard extends StatelessWidget {
                 Text(
                   'Depth:',
                   style: TextStyle(
-                    color: AppColors.textSecondary(context),
+                    color: StudioColors.proseOf(context),
                     fontSize: 12,
                   ),
                 ),
@@ -86,7 +86,7 @@ class LorebookGenerationCard extends StatelessWidget {
                   child: Icon(
                     Icons.info_outline,
                     size: 14,
-                    color: AppColors.textTertiary(context),
+                    color: StudioColors.mutedOf(context),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -105,20 +105,16 @@ class LorebookGenerationCard extends StatelessWidget {
                         _save();
                       },
                       selectedColor: accent,
-                      backgroundColor: AppColors.surfaceContainerOf(context),
+                      backgroundColor: StudioColors.raiseOf(context),
                       labelStyle: TextStyle(
                         color: isSelected
-                            ? AppColors.resolve(
-                                context,
-                                Colors.white,
-                                Colors.black87,
-                              )
-                            : AppColors.textSecondary(context),
+                            ? StudioColors.amberInkOf(context)
+                            : StudioColors.proseOf(context),
                       ),
                       side: BorderSide(
                         color: isSelected
                             ? accent
-                            : AppColors.borderOf(context),
+                            : StudioColors.lineOf(context),
                       ),
                       visualDensity: VisualDensity.compact,
                     ),
@@ -130,7 +126,7 @@ class LorebookGenerationCard extends StatelessWidget {
             Text(
               'Focus areas (optional):',
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color: StudioColors.proseOf(context),
                 fontSize: 12,
               ),
             ),
@@ -151,16 +147,16 @@ class LorebookGenerationCard extends StatelessWidget {
                     }
                     _save();
                   },
-                  selectedColor: accent.withValues(alpha: 0.3),
-                  backgroundColor: AppColors.surfaceContainerOf(context),
-                  checkmarkColor: accent,
+                  selectedColor: accent,
+                  backgroundColor: StudioColors.raiseOf(context),
+                  checkmarkColor: StudioColors.amberInkOf(context),
                   labelStyle: TextStyle(
                     color: isSelected
-                        ? accent
-                        : AppColors.textTertiary(context),
+                        ? StudioColors.amberInkOf(context)
+                        : StudioColors.inkOf(context),
                   ),
                   side: BorderSide(
-                    color: isSelected ? accent : AppColors.borderOf(context),
+                    color: isSelected ? accent : StudioColors.lineOf(context),
                   ),
                   visualDensity: VisualDensity.compact,
                 );

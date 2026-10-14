@@ -24,7 +24,7 @@ import 'package:front_porch_ai/ui/avatar_creation/avatar_generation_panel.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/review_lorebook_section.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Review & edit step: the shared Portrait & Avatars panel in the left rail
@@ -38,7 +38,7 @@ class ReviewStep extends StatelessWidget {
 
   const ReviewStep({super.key, required this.state});
 
-  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
+  Color _accent(BuildContext context) => StudioColors.amberOf(context);
 
   @override
   Widget build(BuildContext context) {
@@ -51,17 +51,13 @@ class ReviewStep extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
+              color: StudioColors.badOf(context),
             ),
             const SizedBox(height: 16),
             Text(
               'Generation failed. The LLM did not produce valid output.',
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color: StudioColors.proseOf(context),
                 fontSize: 16,
               ),
             ),
@@ -75,6 +71,7 @@ class ReviewStep extends StatelessWidget {
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accent(context),
+                foregroundColor: StudioColors.amberInkOf(context),
               ),
             ),
           ],
@@ -120,7 +117,7 @@ class ReviewStep extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary(context),
+                    color: StudioColors.inkOf(context),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -137,12 +134,10 @@ class ReviewStep extends StatelessWidget {
                               tag,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.textSecondary(context),
+                                color: StudioColors.proseOf(context),
                               ),
                             ),
-                            backgroundColor: AppColors.surfaceContainerOf(
-                              context,
-                            ),
+                            backgroundColor: StudioColors.raiseOf(context),
                             side: BorderSide.none,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -161,18 +156,19 @@ class ReviewStep extends StatelessWidget {
                 Text(
                   'Review & Edit',
                   style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary(context),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: StudioColors.inkOf(context),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
                   'The AI generated the following character card. Review and '
                   'edit before saving.',
                   style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 13,
+                    color: StudioColors.mutedOf(context),
+                    fontSize: 14,
+                    height: 1.5,
                   ),
                 ),
                 const SizedBox(height: 24),
@@ -258,6 +254,10 @@ class ReviewStep extends StatelessWidget {
     TextEditingController controller, {
     int maxLines = 3,
   }) {
+    OutlineInputBorder outline(Color c) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(12),
+      borderSide: BorderSide(color: c),
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 20),
       child: Column(
@@ -275,31 +275,22 @@ class ReviewStep extends StatelessWidget {
           AppTextField(
             controller: controller,
             maxLines: maxLines,
+            // The spec's text box: `bg`, 1px `line`, radius 12, 15 / 1.55.
             style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 13,
-              height: 1.5,
+              color: StudioColors.inkOf(context),
+              fontSize: 15,
+              height: 1.55,
             ),
             decoration: InputDecoration(
               filled: true,
-              fillColor: AppColors.surfaceContainerOf(context),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.2),
-                ),
+              fillColor: StudioColors.bgOf(context),
+              border: outline(StudioColors.lineOf(context)),
+              enabledBorder: outline(StudioColors.lineOf(context)),
+              focusedBorder: outline(_accent(context)),
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 12,
               ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.2),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _accent(context)),
-              ),
-              contentPadding: const EdgeInsets.all(14),
             ),
           ),
         ],

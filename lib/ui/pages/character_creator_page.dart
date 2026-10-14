@@ -19,22 +19,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
+import 'package:front_porch_ai/ui/character_creator/steps/steps.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/mode_select_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/quick_config_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/guided_config_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/automated_config_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/generating_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/greetings_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/realism_step.dart';
-import 'package:front_porch_ai/ui/character_creator/steps/review_step.dart';
 
 /// AI character creator wizard. Delegates state to [CreatorState].
-/// Top-bar step dots + labels, [AnimatedSwitcher] for step content,
-/// `_buildNavButtons` at the bottom. No side menus, tab bars, or free-jumping.
+/// Top-bar [CreatorStepIndicator], [AnimatedSwitcher] for step content,
+/// [CreatorNavBar] at the bottom. No side menus, tab bars, or free-jumping.
+/// Wrapped in [CreatorTheme] so every Material widget inside follows the
+/// studio palette (docs/design/creator-ui-spec.md).
 class CharacterCreatorPage extends StatefulWidget {
   const CharacterCreatorPage({super.key, this.seed});
 
@@ -111,30 +107,48 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        backgroundColor: AppColors.surfaceOf(ctx),
-        title: Text(
-          'Start Over?',
-          style: TextStyle(color: AppColors.textPrimary(ctx)),
+        title: Row(
+          spacing: 10,
+          children: [
+            Icon(
+              Icons.note_add_outlined,
+              size: 22,
+              color: StudioColors.amberOf(ctx),
+            ),
+            const Text('Start Over?'),
+          ],
         ),
-        content: Text(
+        content: const Text(
           'This will clear every field and generated data. This cannot be undone.',
-          style: TextStyle(color: AppColors.textSecondary(ctx)),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('Cancel'),
+          SizedBox(
+            height: 44,
+            child: TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              style: TextButton.styleFrom(
+                foregroundColor: StudioColors.proseOf(ctx),
+              ),
+              child: const Text('Cancel'),
+            ),
           ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.resolve(
-                ctx,
-                Colors.orangeAccent,
-                Colors.orange.shade700,
+          SizedBox(
+            height: 44,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: StudioColors.badOf(ctx),
+                foregroundColor: StudioColors.amberInkOf(ctx),
+                elevation: 0,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: const Text(
+                'Clear Everything',
+                style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
               ),
             ),
-            child: const Text('Clear Everything'),
           ),
         ],
       ),
@@ -178,121 +192,51 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
         SnackBar(
           content: Text(
             creatorState.engineError ?? 'Failed to save character.',
-            // Dark ink on dark mode's bright red, white on light mode's deep
-            // red: theme text ink was dark on dark red in light mode.
-            style: TextStyle(
-              color: AppColors.resolve(
-                context,
-                AppColors.onChaosAccent,
-                Colors.white,
-              ),
-            ),
+            // Amber ink reads on `bad` in both themes: dark on dark mode's
+            // bright red, near-white on light mode's deep red.
+            style: TextStyle(color: StudioColors.amberInkOf(context)),
           ),
-          backgroundColor: AppColors.negativeAccentOf(context),
+          backgroundColor: StudioColors.badOf(context),
           behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
-  // Step indicator (exact pattern from create_character_page.dart: horizontal dots + labels + connecting lines in AppBar, driven by creatorState.currentStep int).
-  Widget _buildStepIndicator(BuildContext context) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        _stepDot(context, 0, 'Setup'),
-        _stepLine(context),
-        _stepDot(context, 1, 'Mode'),
-        _stepLine(context),
-        _stepDot(context, 2, 'Configure'),
-        _stepLine(context),
-        _stepDot(context, 3, 'Generate'),
-        _stepLine(context),
-        _stepDot(context, 4, 'Greetings'),
-        _stepLine(context),
-        _stepDot(context, 5, 'Realism'),
-        _stepLine(context),
-        _stepDot(context, 6, 'Review'),
-      ],
-    );
+  static const _stepLabels = [
+    'Setup',
+    'Mode',
+    'Configure',
+    'Generate',
+    'Greetings',
+    'Realism',
+    'Review',
+  ];
+
+  /// The last step's index; its Next is "Save & Finish".
+  static const _lastStep = 6;
+
+  /// Next on the current step: Configure starts the generation, the last
+  /// step saves, every other step moves one on.
+  void _next() {
+    final step = creatorState.currentStep;
+    if (step == 2) {
+      creatorState.generateFromMode(
+        llmProvider: Provider.of<LLMProvider>(context, listen: false),
+        storage: Provider.of<StorageService>(context, listen: false),
+        personaService: Provider.of<UserPersonaService>(context, listen: false),
+      );
+      return;
+    }
+    if (step == _lastStep) {
+      _saveAndFinish();
+      return;
+    }
+    creatorState.currentStep = step + 1;
   }
 
-  Widget _stepDot(BuildContext context, int step, String label) {
-    final isActive = creatorState.currentStep >= step;
-    final isCurrent = creatorState.currentStep == step;
-    final dotColor = isActive
-        ? AppColors.porchAmberOf(context)
-        : AppColors.surfaceContainerOf(context);
-    final borderColor = isCurrent
-        ? AppColors.textPrimary(context)
-        : AppColors.borderOf(context);
-    final numberOrCheckColor = isActive
-        ? AppColors.onChaosAccent
-        : AppColors.textTertiary(context);
-    final labelColor = isActive
-        ? AppColors.textSecondary(context)
-        : AppColors.textTertiary(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Container(
-          width: 24,
-          height: 24,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: dotColor,
-            border: isCurrent
-                ? Border.all(color: borderColor, width: 2)
-                : Border.all(
-                    color: AppColors.borderOf(context).withValues(alpha: 0.3),
-                  ),
-          ),
-          child: Center(
-            child: isActive && !isCurrent
-                ? Icon(Icons.check, size: 14, color: numberOrCheckColor)
-                : Text(
-                    '${step + 1}',
-                    style: TextStyle(fontSize: 11, color: numberOrCheckColor),
-                  ),
-          ),
-        ),
-        const SizedBox(height: 2),
-        Text(label, style: TextStyle(fontSize: 10, color: labelColor)),
-      ],
-    );
-  }
-
-  Widget _stepLine(BuildContext context) {
-    return Container(
-      width: 24,
-      height: 2,
-      margin: const EdgeInsets.only(bottom: 14),
-      color: AppColors.borderOf(context).withValues(alpha: 0.35),
-    );
-  }
-
-  // _buildNavButtons at the bottom of each step (per wizard flow; modeled exactly on create_character_page.dart).
-  Widget _buildNavButtons({
-    required int currentStep,
-    String? nextLabel,
-    VoidCallback? onNext,
-    bool showBack = true,
-  }) {
-    final labels = [
-      'Mode',
-      'Configure',
-      'Generate',
-      'Greetings',
-      'Realism',
-      'Review',
-    ];
-    final nextText =
-        nextLabel ??
-        (currentStep < labels.length
-            ? 'Next: ${labels[currentStep]}'
-            : 'Save & Finish');
-
+  Widget _navBar() {
+    final step = creatorState.currentStep;
     // Same lock the AppBar's back arrow and reset action already take. Without
     // it, Back → Generate started a SECOND generation over the first (only the
     // newest one is reachable from Abort, and whichever finished last stomped
@@ -303,138 +247,102 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     // same way; that card's Stop is the way out. The AppBar keeps today's
     // lock: leaving or starting over stops the write instead.
     final busy = creatorState.isGenerating || creatorState.greetings.busy;
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 32),
-      // Waiting buttons at 45%, as the Greetings sketch draws them: the amber
-      // Next keeps its colour when disabled, so it otherwise looks live.
-      child: Opacity(
-        opacity: busy ? 0.45 : 1,
-        child: Center(
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (showBack && currentStep > 0)
-                SizedBox(
-                  height: 52,
-                  child: OutlinedButton.icon(
-                    onPressed: busy
-                        ? null
-                        : () => creatorState.currentStep = currentStep - 1,
-                    icon: const Icon(Icons.arrow_back, size: 18),
-                    label: const Text('Back', style: TextStyle(fontSize: 14)),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.textSecondary(context),
-                      side: BorderSide(color: AppColors.borderOf(context)),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
-                  ),
-                ),
-              if (showBack && currentStep > 0) const SizedBox(width: 16),
-              SizedBox(
-                width: 280,
-                height: 52,
-                child: ElevatedButton.icon(
-                  onPressed: busy
-                      ? null
-                      : onNext ??
-                            () {
-                              if (currentStep == 2) {
-                                creatorState.generateFromMode(
-                                  llmProvider: Provider.of<LLMProvider>(
-                                    context,
-                                    listen: false,
-                                  ),
-                                  storage: Provider.of<StorageService>(
-                                    context,
-                                    listen: false,
-                                  ),
-                                  personaService:
-                                      Provider.of<UserPersonaService>(
-                                        context,
-                                        listen: false,
-                                      ),
-                                );
-                                return;
-                              }
-                              if (currentStep == 6) {
-                                _saveAndFinish();
-                                return;
-                              }
-                              creatorState.currentStep = currentStep + 1;
-                            },
-                  icon: Icon(
-                    currentStep >= 6 ? Icons.check : Icons.arrow_forward,
-                    size: 20,
-                  ),
-                  label: Text(nextText, style: const TextStyle(fontSize: 16)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
+    return CreatorNavBar(
+      busy: busy,
+      showBack: step > 0,
+      onBack: () => creatorState.currentStep = step - 1,
+      onNext: _next,
+      nextLabel: step < _lastStep
+          ? 'Next: ${_stepLabels[step + 1]}'
+          : 'Save & Finish',
+      isLast: step >= _lastStep,
     );
   }
+
+  Widget _stepBody() => switch (creatorState.currentStep) {
+    0 => SetupStep(state: creatorState),
+    1 => ModeSelectStep(state: creatorState),
+    2 => switch (creatorState.creatorMode) {
+      CreatorMode.guided => GuidedConfigStep(state: creatorState),
+      CreatorMode.quick => QuickConfigStep(state: creatorState),
+      _ => AutomatedConfigStep(state: creatorState),
+    },
+    3 => GeneratingStep(state: creatorState),
+    4 => GreetingsStep(state: creatorState),
+    5 => RealismStep(state: creatorState),
+    _ => ReviewStep(state: creatorState),
+  };
 
   /// The typed inputs are kept in preferences; a generated character is
   /// not, until Save.
   @override
   Widget build(BuildContext context) => UnsavedChangesGuard(
     isDirty: () => !_saved && creatorState.generatedCard != null,
-    child: _scaffold(context),
+    child: CreatorTheme(child: Builder(builder: _scaffold)),
   );
 
   Widget _scaffold(BuildContext context) {
+    final line = StudioColors.lineOf(context);
     return Scaffold(
-      backgroundColor: AppColors.backgroundOf(context),
+      backgroundColor: StudioColors.bgOf(context),
       appBar: AppBar(
-        backgroundColor: AppColors.surfaceOf(context),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: creatorState.isGenerating
-              ? null
-              : () => Navigator.of(context).maybePop(),
-        ),
+        toolbarHeight: 56,
+        backgroundColor: StudioColors.sideOf(context),
+        shape: Border(bottom: BorderSide(color: line)),
+        automaticallyImplyLeading: false,
+        titleSpacing: 16,
         title: Row(
+          spacing: 14,
           children: [
+            SizedBox.square(
+              dimension: 40,
+              child: IconButton(
+                padding: EdgeInsets.zero,
+                icon: const Icon(Icons.arrow_back),
+                color: StudioColors.proseOf(context),
+                onPressed: creatorState.isGenerating
+                    ? null
+                    : () => Navigator.of(context).maybePop(),
+              ),
+            ),
             Icon(
               Icons.auto_awesome,
-              color: AppColors.resolve(
-                context,
-                Colors.amberAccent,
-                Colors.amber.shade700,
-              ),
+              color: StudioColors.amberOf(context),
               size: 22,
             ),
-            const SizedBox(width: 8),
             Text(
               'AI Character Creator',
-              style: TextStyle(color: AppColors.textPrimary(context)),
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w600,
+                color: StudioColors.inkOf(context),
+              ),
             ),
             const Spacer(),
-            _buildStepIndicator(context),
+            CreatorStepIndicator(
+              labels: _stepLabels,
+              current: creatorState.currentStep,
+            ),
           ],
         ),
         actions: [
           if (!creatorState.isGenerating)
-            Tooltip(
-              message: 'Start a new character (clears all fields)',
-              child: IconButton(
-                icon: const Icon(Icons.note_add_outlined, size: 22),
-                onPressed: _confirmReset,
+            Padding(
+              padding: const EdgeInsets.only(left: 10),
+              child: Tooltip(
+                message: 'Start a new character (clears all fields)',
+                child: SizedBox.square(
+                  dimension: 40,
+                  child: IconButton(
+                    padding: EdgeInsets.zero,
+                    icon: const Icon(Icons.note_add_outlined, size: 22),
+                    color: StudioColors.proseOf(context),
+                    onPressed: _confirmReset,
+                  ),
+                ),
               ),
             ),
-          const SizedBox(width: 4),
+          const SizedBox(width: 16),
         ],
       ),
       body: Column(
@@ -442,26 +350,10 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
           Expanded(
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
-              child: creatorState.currentStep == 0
-                  ? SetupStep(state: creatorState)
-                  : creatorState.currentStep == 1
-                  ? ModeSelectStep(state: creatorState)
-                  : creatorState.currentStep == 2
-                  ? (creatorState.creatorMode == CreatorMode.guided
-                        ? GuidedConfigStep(state: creatorState)
-                        : creatorState.creatorMode == CreatorMode.quick
-                        ? QuickConfigStep(state: creatorState)
-                        : AutomatedConfigStep(state: creatorState))
-                  : creatorState.currentStep == 3
-                  ? GeneratingStep(state: creatorState)
-                  : creatorState.currentStep == 4
-                  ? GreetingsStep(state: creatorState)
-                  : creatorState.currentStep == 5
-                  ? RealismStep(state: creatorState)
-                  : ReviewStep(state: creatorState),
+              child: _stepBody(),
             ),
           ),
-          _buildNavButtons(currentStep: creatorState.currentStep),
+          _navBar(),
         ],
       ),
     );
