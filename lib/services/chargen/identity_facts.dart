@@ -187,8 +187,7 @@ IdentityFacts parseIdentityFacts(
   String text(String key, int max) {
     final v = map[key];
     if (v is! String) return '';
-    final t = v.trim();
-    return t.length > max ? t.substring(0, max).trim() : t;
+    return cutAtWord(v.trim(), max);
   }
 
   final occupation = text('occupation', 60);

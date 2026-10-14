@@ -263,4 +263,42 @@ void main() {
     expect(ext.intimateNotInto, isEmpty);
     expect(ext.ambitions, ['a boat']);
   });
+
+  // The live run saved "…keep the wat" and "…no one to fai" as ambitions:
+  // a sentence-long item was cut at a fixed count, mid-word, and the cut
+  // text went into the card.
+  group('long list items', () {
+    test('a sentence under the cap is kept whole', () {
+      const item =
+          'Keep the light manned through one more winter without asking '
+          'the town for a relief keeper';
+      expect(item.length, greaterThan(80));
+      expect(
+        _parse({
+          'ambitions': [item],
+        }).ambitions,
+        [item],
+      );
+    });
+
+    test('an item over the cap is cut at a word, never mid-word', () {
+      final words = List.filled(12, 'thirteenchars');
+      final f = _parse({
+        'likes': [words.join(' ')],
+      });
+      expect(f.likes.single, words.take(8).join(' '));
+    });
+
+    test('a scalar over its cap is cut at a word too', () {
+      final f = _parse({
+        'occupation':
+            'warden of the outer light and keeper of the harbour '
+            'charts office',
+      });
+      expect(
+        f.occupation,
+        'warden of the outer light and keeper of the harbour charts',
+      );
+    });
+  });
 }

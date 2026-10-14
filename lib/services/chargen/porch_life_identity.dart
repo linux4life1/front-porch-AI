@@ -358,9 +358,11 @@ PorchLifeIdentity porchLifeIdentityOf(FrontPorchExtensions? ext) {
 }
 
 /// A model's list as chips: trimmed, no `{{user}}` belongings, each cut to
-/// [maxLen], case-insensitive duplicates dropped, at most [cap]. Shared by
-/// the Porch Life seed and the identity facts pass.
-List<String> porchLifeChips(Object? raw, {int cap = 8, int maxLen = 80}) {
+/// [maxLen] on a word ([cutAtWord]), case-insensitive duplicates dropped, at
+/// most [cap]. Shared by the Porch Life seed and the identity facts pass.
+/// The cap is a runaway guard, not a style: the model is asked for short
+/// phrases and a sentence-long ambition should still land whole.
+List<String> porchLifeChips(Object? raw, {int cap = 8, int maxLen = 120}) {
   if (raw is! List) return const [];
   final seen = <String>{};
   final out = <String>[];
@@ -368,7 +370,7 @@ List<String> porchLifeChips(Object? raw, {int cap = 8, int maxLen = 80}) {
     var s = item.toString().trim();
     if (s.isEmpty) continue;
     if (s.contains('{{user}}')) continue;
-    if (s.length > maxLen) s = s.substring(0, maxLen).trim();
+    s = cutAtWord(s, maxLen);
     final key = s.toLowerCase();
     if (seen.contains(key)) continue;
     seen.add(key);
@@ -376,4 +378,15 @@ List<String> porchLifeChips(Object? raw, {int cap = 8, int maxLen = 80}) {
     if (out.length >= cap) break;
   }
   return out;
+}
+
+/// [text] cut to at most [maxLen] characters on a word boundary, trailing
+/// separators dropped. A fixed-count cut saved "…keep the wat" into a card
+/// (live run, 2026-10-14). A single word longer than the cap is cut hard.
+String cutAtWord(String text, int maxLen) {
+  if (text.length <= maxLen) return text;
+  final head = text.substring(0, maxLen);
+  final space = head.lastIndexOf(RegExp(r'\s'));
+  final cut = space > 0 ? head.substring(0, space) : head;
+  return cut.replaceFirst(RegExp(r'[\s,;:\-–—]+$'), '').trim();
 }
