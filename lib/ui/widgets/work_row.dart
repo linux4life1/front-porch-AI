@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// Fields inside the Work identity card. Header/card chrome lives on
 /// [IdentityChipLists] so Work matches Ambitions / Likes.
@@ -129,7 +130,8 @@ class _WorkRowState extends State<WorkRow> {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber =
+        context.creatorPalette?.amber ?? AppColors.porchAmberOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -171,7 +173,9 @@ class _WorkRowState extends State<WorkRow> {
                 '–',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textTertiary(context),
+                  color:
+                      context.creatorPalette?.muted ??
+                      AppColors.textTertiary(context),
                 ),
               ),
             ),
@@ -204,7 +208,9 @@ class _WorkRowState extends State<WorkRow> {
           'Days',
           style: TextStyle(
             fontSize: 11,
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
           ),
         ),
         const SizedBox(height: 4),
@@ -222,7 +228,9 @@ class _WorkRowState extends State<WorkRow> {
           style: TextStyle(
             fontSize: 11,
             height: 1.35,
-            color: AppColors.textSecondary(context),
+            color:
+                context.creatorPalette?.prose ??
+                AppColors.textSecondary(context),
           ),
         ),
       ],
@@ -244,7 +252,10 @@ class _WorkRowState extends State<WorkRow> {
         alignment: Alignment.center,
         padding: const EdgeInsets.symmetric(vertical: 7),
         decoration: BoxDecoration(
-          color: on ? amber : AppColors.surfaceContainerOf(context),
+          color: on
+              ? amber
+              : context.creatorPalette?.raise ??
+                    AppColors.surfaceContainerOf(context),
           border: Border.all(color: amber.withValues(alpha: on ? 1 : .5)),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -254,8 +265,8 @@ class _WorkRowState extends State<WorkRow> {
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: on
-                ? AppColors.onChaosAccent
-                : AppColors.textPrimary(context),
+                ? context.creatorPalette?.amberInk ?? AppColors.onChaosAccent
+                : context.creatorPalette?.ink ?? AppColors.textPrimary(context),
           ),
         ),
       ),
@@ -272,7 +283,8 @@ class _WorkRowState extends State<WorkRow> {
     String? helper,
     int maxLines = 1,
   }) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber =
+        context.creatorPalette?.amber ?? AppColors.porchAmberOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -280,7 +292,9 @@ class _WorkRowState extends State<WorkRow> {
           label,
           style: TextStyle(
             fontSize: 11,
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
           ),
         ),
         const SizedBox(height: 4),
@@ -289,20 +303,28 @@ class _WorkRowState extends State<WorkRow> {
           initialValue: initial,
           onChanged: onChanged,
           maxLines: maxLines,
-          style: TextStyle(fontSize: 13, color: AppColors.textPrimary(context)),
+          style: TextStyle(
+            fontSize: 13,
+            color:
+                context.creatorPalette?.ink ?? AppColors.textPrimary(context),
+          ),
           decoration: InputDecoration(
             isDense: true,
             hintText: hint,
             hintStyle: TextStyle(
               fontSize: 13,
-              color: AppColors.textTertiary(context),
+              color:
+                  context.creatorPalette?.muted ??
+                  AppColors.textTertiary(context),
             ),
             helperText: helper,
             helperMaxLines: 2,
             helperStyle: TextStyle(
               fontSize: 11,
               height: 1.35,
-              color: AppColors.textSecondary(context),
+              color:
+                  context.creatorPalette?.prose ??
+                  AppColors.textSecondary(context),
             ),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 10,
@@ -310,7 +332,10 @@ class _WorkRowState extends State<WorkRow> {
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
+              borderSide: BorderSide(
+                color:
+                    context.creatorPalette?.line ?? AppColors.borderOf(context),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
@@ -337,7 +362,9 @@ class _WorkRowState extends State<WorkRow> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerOf(context),
+          color:
+              context.creatorPalette?.raise ??
+              AppColors.surfaceContainerOf(context),
           border: Border.all(color: amber.withValues(alpha: .5)),
           borderRadius: BorderRadius.circular(8),
         ),
@@ -349,7 +376,9 @@ class _WorkRowState extends State<WorkRow> {
               label,
               style: TextStyle(
                 fontSize: 10,
-                color: AppColors.textTertiary(context),
+                color:
+                    context.creatorPalette?.muted ??
+                    AppColors.textTertiary(context),
               ),
             ),
             const SizedBox(height: 2),
@@ -363,8 +392,10 @@ class _WorkRowState extends State<WorkRow> {
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
                 color: _rangeSet
-                    ? AppColors.textPrimary(context)
-                    : AppColors.textTertiary(context),
+                    ? context.creatorPalette?.ink ??
+                          AppColors.textPrimary(context)
+                    : context.creatorPalette?.muted ??
+                          AppColors.textTertiary(context),
               ),
             ),
           ],

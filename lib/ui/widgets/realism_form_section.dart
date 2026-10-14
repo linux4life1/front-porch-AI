@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
@@ -241,7 +242,7 @@ class RealismFormSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final labelStyle = TextStyle(
-      color: AppColors.textSecondary(context),
+      color: context.creatorPalette?.prose ?? AppColors.textSecondary(context),
       fontSize: 12,
       fontWeight: FontWeight.w600,
       letterSpacing: 0.5,
@@ -260,10 +261,10 @@ class RealismFormSection extends StatelessWidget {
         // the engine. Do not hide them behind [enabled].
         const SizedBox(height: 20),
         if (showTimeAndDay) ...[
-          const RealismSectionHeader(
+          RealismSectionHeader(
             Icons.schedule,
             'Time & Day',
-            AppColors.timeDayAccent,
+            context.creatorPalette?.amber ?? AppColors.timeDayAccent,
           ),
           const SizedBox(height: 12),
           RealismTimeDayCard(
@@ -294,10 +295,10 @@ class RealismFormSection extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const SizedBox(height: sectionHeaderGap),
-              const RealismSectionHeader(
+              RealismSectionHeader(
                 Icons.favorite,
                 'Relationship',
-                AppColors.relationshipAccent,
+                context.creatorPalette?.amber ?? AppColors.relationshipAccent,
               ),
               const SizedBox(height: 12),
               RealismRelationshipCard(
@@ -311,10 +312,10 @@ class RealismFormSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: sectionHeaderGap),
-          const RealismSectionHeader(
+          RealismSectionHeader(
             Icons.mood,
             'Starting Emotion',
-            AppColors.emotionAccent,
+            context.creatorPalette?.amber ?? AppColors.emotionAccent,
           ),
           const SizedBox(height: 12),
           RealismEmotionCard(
@@ -325,10 +326,10 @@ class RealismFormSection extends StatelessWidget {
             labelStyle: labelStyle,
           ),
           const SizedBox(height: 20),
-          const RealismSectionHeader(
+          RealismSectionHeader(
             Icons.tune,
             'Optional Features',
-            AppColors.optionalAccent,
+            context.creatorPalette?.amber ?? AppColors.optionalAccent,
           ),
           const SizedBox(height: 12),
           RealismOptionalFeaturesCard(
@@ -352,18 +353,21 @@ class RealismFormSection extends StatelessWidget {
         ],
         if (showChaosToggle && !enabled) ...[
           const SizedBox(height: 20),
-          const RealismSectionHeader(
+          RealismSectionHeader(
             Icons.tune,
             'Optional Features',
-            AppColors.optionalAccent,
+            context.creatorPalette?.amber ?? AppColors.optionalAccent,
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: AppColors.cardOf(context),
+              color: context.creatorPalette?.card ?? AppColors.cardOf(context),
               borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: AppColors.borderOf(context)),
+              border: Border.all(
+                color:
+                    context.creatorPalette?.line ?? AppColors.borderOf(context),
+              ),
             ),
             child: buildRealismToggleRow(
               icon: Icons.casino,

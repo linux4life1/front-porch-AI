@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 
 class DescriptionDetailChipRow extends StatelessWidget {
   const DescriptionDetailChipRow({
@@ -27,7 +28,10 @@ class DescriptionDetailChipRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = accentColor ?? AppColors.formMasterAccent;
+    // Inside the AI Character Creator a selected chip is solid amber.
+    final p = CreatorPalette.maybeOf(context);
+    final accent =
+        p?.chipSelectedFill ?? accentColor ?? AppColors.formMasterAccent;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -35,7 +39,9 @@ class DescriptionDetailChipRow extends StatelessWidget {
           Text(
             subtitle!,
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color:
+                  context.creatorPalette?.muted ??
+                  AppColors.textTertiary(context),
               fontSize: 11,
             ),
           ),
@@ -51,16 +57,24 @@ class DescriptionDetailChipRow extends StatelessWidget {
               selected: isSelected,
               onSelected: (_) => onChanged(label),
               selectedColor: accent,
-              backgroundColor: AppColors.surfaceContainerOf(context),
+              backgroundColor:
+                  p?.raise ?? AppColors.surfaceContainerOf(context),
               labelStyle: TextStyle(
                 color: isSelected
-                    ? AppColors.resolve(context, Colors.white, Colors.black87)
-                    : AppColors.textSecondary(context),
+                    ? p?.chipSelectedInk ??
+                          AppColors.resolve(
+                            context,
+                            Colors.white,
+                            Colors.black87,
+                          )
+                    : p?.ink ?? AppColors.textSecondary(context),
                 fontSize: 13,
               ),
-              side: BorderSide(
-                color: isSelected ? accent : AppColors.borderOf(context),
-              ),
+              side: p != null
+                  ? BorderSide.none
+                  : BorderSide(
+                      color: isSelected ? accent : AppColors.borderOf(context),
+                    ),
             );
           }).toList(),
         ),

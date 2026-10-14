@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// Realism Engine master switch card.
 class RealismMasterToggle extends StatelessWidget {
@@ -35,12 +36,13 @@ class RealismMasterToggle extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: enabled
-              ? AppColors.formMasterAccent.withValues(alpha: 0.4)
-              : AppColors.borderOf(context),
+              ? (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+                    .withValues(alpha: 0.4)
+              : context.creatorPalette?.line ?? AppColors.borderOf(context),
         ),
       ),
       child: Row(
@@ -50,17 +52,20 @@ class RealismMasterToggle extends StatelessWidget {
             height: 44,
             decoration: BoxDecoration(
               color: enabled
-                  ? AppColors.formMasterAccent.withValues(alpha: 0.2)
-                  : AppColors.surfaceContainerOf(
-                      context,
-                    ).withValues(alpha: 0.6),
+                  ? (context.creatorPalette?.amber ??
+                            AppColors.formMasterAccent)
+                        .withValues(alpha: 0.2)
+                  : (context.creatorPalette?.raise ??
+                            AppColors.surfaceContainerOf(context))
+                        .withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               Icons.psychology,
               color: enabled
-                  ? AppColors.formMasterAccent
-                  : AppColors.iconSecondary(context),
+                  ? context.creatorPalette?.amber ?? AppColors.formMasterAccent
+                  : context.creatorPalette?.muted ??
+                        AppColors.iconSecondary(context),
               size: 24,
             ),
           ),
@@ -72,7 +77,9 @@ class RealismMasterToggle extends StatelessWidget {
                 Text(
                   'Enable Realism Engine',
                   style: TextStyle(
-                    color: AppColors.textPrimary(context),
+                    color:
+                        context.creatorPalette?.ink ??
+                        AppColors.textPrimary(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -85,8 +92,10 @@ class RealismMasterToggle extends StatelessWidget {
                             'Bond, mood and Needs stay off.',
                   style: TextStyle(
                     color: enabled
-                        ? AppColors.formMasterAccent
-                        : AppColors.textTertiary(context),
+                        ? context.creatorPalette?.amber ??
+                              AppColors.formMasterAccent
+                        : context.creatorPalette?.muted ??
+                              AppColors.textTertiary(context),
                     fontSize: 12,
                   ),
                 ),
@@ -96,8 +105,11 @@ class RealismMasterToggle extends StatelessWidget {
           Switch(
             value: enabled,
             onChanged: onEnabledChanged,
-            activeTrackColor: AppColors.formMasterAccent.withValues(alpha: 0.5),
-            activeThumbColor: AppColors.formMasterAccent,
+            activeTrackColor:
+                (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+                    .withValues(alpha: 0.5),
+            activeThumbColor:
+                context.creatorPalette?.amber ?? AppColors.formMasterAccent,
           ),
         ],
       ),

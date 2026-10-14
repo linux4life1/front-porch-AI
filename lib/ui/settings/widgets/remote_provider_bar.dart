@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// One-row host switcher (KoboldCpp / OpenRouter / Nano-GPT / xAI /
 /// LM Studio / oMLX / Custom). oMLX is omitted unless [showOmlx] is true (macOS).
@@ -124,17 +125,21 @@ class _Pill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.porchAmberOf(context);
+    final accent =
+        context.creatorPalette?.amber ?? AppColors.porchAmberOf(context);
     final bg = !enabled
-        ? AppColors.surfaceContainerOf(context).withValues(alpha: 0.5)
+        ? (context.creatorPalette?.raise ??
+                  AppColors.surfaceContainerOf(context))
+              .withValues(alpha: 0.5)
         : selected
         ? accent
-        : AppColors.surfaceContainerOf(context);
+        : context.creatorPalette?.raise ??
+              AppColors.surfaceContainerOf(context);
     final fg = !enabled
-        ? AppColors.textTertiary(context)
+        ? context.creatorPalette?.muted ?? AppColors.textTertiary(context)
         : selected
-        ? AppColors.onChaosAccent
-        : AppColors.textSecondary(context);
+        ? context.creatorPalette?.amberInk ?? AppColors.onChaosAccent
+        : context.creatorPalette?.prose ?? AppColors.textSecondary(context);
     return Material(
       color: bg,
       borderRadius: BorderRadius.circular(999),
@@ -150,7 +155,9 @@ class _Pill extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(999),
             border: Border.all(
-              color: selected && enabled ? accent : AppColors.borderOf(context),
+              color: selected && enabled
+                  ? accent
+                  : context.creatorPalette?.line ?? AppColors.borderOf(context),
             ),
           ),
           child: Text(

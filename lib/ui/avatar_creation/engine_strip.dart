@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/ui/dialogs/image_gen_settings_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'avatar_creation_controller.dart';
 import 'avatar_studio_line.dart';
@@ -40,9 +41,11 @@ class EngineStrip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(
+          color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -59,7 +62,9 @@ class EngineStrip extends StatelessWidget {
                 TextButton(
                   onPressed: c.testingConnection ? null : c.refreshEngine,
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.textSecondary(context),
+                    foregroundColor:
+                        context.creatorPalette?.prose ??
+                        AppColors.textSecondary(context),
                     visualDensity: VisualDensity.compact,
                   ),
                   child: const Text('Test', style: TextStyle(fontSize: 12)),
@@ -69,7 +74,9 @@ class EngineStrip extends StatelessWidget {
                 icon: Icon(
                   Icons.tune,
                   size: 18,
-                  color: AppColors.iconSecondary(context),
+                  color:
+                      context.creatorPalette?.muted ??
+                      AppColors.iconSecondary(context),
                 ),
                 onPressed: () async {
                   await showDialog(
@@ -90,7 +97,9 @@ class EngineStrip extends StatelessWidget {
             'per task, so a model left in the Edit tab can\'t poison base '
             'generation here.',
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color:
+                  context.creatorPalette?.muted ??
+                  AppColors.textTertiary(context),
               fontSize: 10.5,
               height: 1.35,
             ),
@@ -106,7 +115,7 @@ class EngineStrip extends StatelessWidget {
       fontSize: 10.5,
       letterSpacing: 0.8,
       fontWeight: FontWeight.w700,
-      color: AppColors.textTertiary(context),
+      color: context.creatorPalette?.muted ?? AppColors.textTertiary(context),
     ),
   );
 
@@ -114,8 +123,13 @@ class EngineStrip extends StatelessWidget {
     return DropdownButtonHideUnderline(
       child: DropdownButton<ImageGenBackend>(
         value: c.backend,
-        dropdownColor: AppColors.surfaceContainerOf(context),
-        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12.5),
+        dropdownColor:
+            context.creatorPalette?.raise ??
+            AppColors.surfaceContainerOf(context),
+        style: TextStyle(
+          color: context.creatorPalette?.ink ?? AppColors.textPrimary(context),
+          fontSize: 12.5,
+        ),
         items: ImageGenBackend.values
             .map((b) => DropdownMenuItem(value: b, child: Text(b.label)))
             .toList(),
@@ -140,19 +154,23 @@ class EngineStrip extends StatelessWidget {
       );
     }
     if (c.testingConnection) {
-      return const SizedBox(
+      return SizedBox(
         width: 14,
         height: 14,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: AppColors.formMasterAccent,
+          color: context.creatorPalette?.amber ?? AppColors.formMasterAccent,
         ),
       );
     }
     if (c.connectionOk == null) {
       return Text(
         'Not tested',
-        style: TextStyle(color: AppColors.textTertiary(context), fontSize: 12),
+        style: TextStyle(
+          color:
+              context.creatorPalette?.muted ?? AppColors.textTertiary(context),
+          fontSize: 12,
+        ),
       );
     }
     return _statusDot(
@@ -168,7 +186,9 @@ class EngineStrip extends StatelessWidget {
     required String text,
   }) {
     // logReady = the app-wide green "connected" status hue (AppColors const).
-    final color = ok ? AppColors.logReady : AppColors.formMasterAccent;
+    final color = ok
+        ? AppColors.logReady
+        : context.creatorPalette?.amber ?? AppColors.formMasterAccent;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

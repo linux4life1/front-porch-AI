@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/studio_colors.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// A field caption for [SetupStep], with a red `*` when [required].
@@ -17,18 +18,23 @@ class SetupInputLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Inside the creator, the spec's label; hosted elsewhere (AI Enhance),
+    // the app's caption.
+    if (CreatorPalette.maybeOf(context) != null) {
+      return CreatorInputLabel(text, required: required);
+    }
     return Row(
       children: [
         Text(
           text,
           style: TextStyle(
             fontSize: 12,
-            color: StudioColors.proseOf(context),
+            color: CreatorPalette.of(context).prose,
             fontWeight: FontWeight.w500,
           ),
         ),
         if (required)
-          Text(' *', style: TextStyle(color: StudioColors.badOf(context))),
+          Text(' *', style: TextStyle(color: CreatorPalette.of(context).bad)),
       ],
     );
   }
@@ -82,7 +88,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: StudioColors.raiseOf(context),
+              color: CreatorPalette.of(context).raise,
               borderRadius: BorderRadius.circular(8),
             ),
             child: hardwareService.isDetecting
@@ -96,7 +102,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
                 : hardwareService.hardwareInfo == null
                 ? Text(
                     'Hardware not detected.',
-                    style: TextStyle(color: StudioColors.badOf(context)),
+                    style: TextStyle(color: CreatorPalette.of(context).bad),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -170,7 +176,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
                 'KV Quantization:',
                 style: TextStyle(
                   fontSize: 13,
-                  color: StudioColors.proseOf(context),
+                  color: CreatorPalette.of(context).prose,
                 ),
               ),
               const SizedBox(width: 12),
@@ -198,14 +204,17 @@ Widget _buildInfoRow(BuildContext context, String label, String value) {
       children: [
         Text(
           label,
-          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 12),
+          style: TextStyle(
+            color: CreatorPalette.of(context).muted,
+            fontSize: 12,
+          ),
         ),
         const SizedBox(width: 8),
         Flexible(
           child: Text(
             value,
             style: TextStyle(
-              color: StudioColors.inkOf(context),
+              color: CreatorPalette.of(context).ink,
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
@@ -227,13 +236,13 @@ Widget _buildSettingsTextField(
   return TextField(
     controller: controller,
     keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-    style: TextStyle(color: StudioColors.inkOf(context)),
+    style: TextStyle(color: CreatorPalette.of(context).ink),
     onChanged: onChanged,
     decoration: InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: StudioColors.proseOf(context)),
+      labelStyle: TextStyle(color: CreatorPalette.of(context).prose),
       filled: true,
-      fillColor: StudioColors.bgOf(context),
+      fillColor: CreatorPalette.of(context).fieldFill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,

@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'realism_form_controls.dart';
 
@@ -46,9 +47,11 @@ class RealismRelationshipCard extends StatelessWidget {
       key: const Key('relationship-card'),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(
+          color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+        ),
       ),
       child: Column(
         children: [

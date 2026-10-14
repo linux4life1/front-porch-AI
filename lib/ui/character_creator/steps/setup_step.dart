@@ -9,7 +9,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/setup_backend_picker.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/model_search_dialog.dart';
-import 'package:front_porch_ai/ui/theme/studio_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'package:front_porch_ai/ui/character_creator/steps/setup_step_fields.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/setup_step_status_dot.dart';
@@ -41,7 +41,7 @@ class SetupStep extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w700,
-                  color: StudioColors.inkOf(context),
+                  color: CreatorPalette.of(context).ink,
                 ),
               ),
               const SizedBox(height: 6),
@@ -49,7 +49,7 @@ class SetupStep extends StatelessWidget {
                 'Choose your AI backend and model before configuring your character.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: StudioColors.mutedOf(context),
+                  color: CreatorPalette.of(context).muted,
                   height: 1.5,
                 ),
               ),
@@ -110,9 +110,11 @@ class SetupStep extends StatelessWidget {
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: StudioColors.bgOf(context),
+                      color: CreatorPalette.of(context).fieldFill,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: StudioColors.lineOf(context)),
+                      border: Border.all(
+                        color: CreatorPalette.of(context).line,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -123,7 +125,7 @@ class SetupStep extends StatelessWidget {
                               Text(
                                 'Model',
                                 style: TextStyle(
-                                  color: StudioColors.mutedOf(context),
+                                  color: CreatorPalette.of(context).muted,
                                   fontSize: 11,
                                 ),
                               ),
@@ -134,8 +136,8 @@ class SetupStep extends StatelessWidget {
                                     : p.basename(state.selectedLocalModelPath),
                                 style: TextStyle(
                                   color: state.selectedLocalModelPath.isEmpty
-                                      ? StudioColors.mutedOf(context)
-                                      : StudioColors.inkOf(context),
+                                      ? CreatorPalette.of(context).muted
+                                      : CreatorPalette.of(context).ink,
                                   fontSize: 14,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -145,7 +147,7 @@ class SetupStep extends StatelessWidget {
                         ),
                         Icon(
                           Icons.arrow_drop_down,
-                          color: StudioColors.mutedOf(context),
+                          color: CreatorPalette.of(context).muted,
                         ),
                       ],
                     ),
@@ -160,11 +162,11 @@ class SetupStep extends StatelessWidget {
                         phase == KoboldPhase.starting ||
                         phase == KoboldPhase.loading;
                     final dotColor = switch (phase) {
-                      KoboldPhase.ready => StudioColors.tealOf(ctx),
-                      KoboldPhase.unloaded => StudioColors.faintOf(ctx),
+                      KoboldPhase.ready => CreatorPalette.of(ctx).ok,
+                      KoboldPhase.unloaded => CreatorPalette.of(ctx).faint,
                       KoboldPhase.starting ||
-                      KoboldPhase.loading => StudioColors.honeyOf(ctx),
-                      KoboldPhase.stopped => StudioColors.badOf(ctx),
+                      KoboldPhase.loading => CreatorPalette.of(ctx).warn,
+                      KoboldPhase.stopped => CreatorPalette.of(ctx).bad,
                     };
                     final label = switch (phase) {
                       KoboldPhase.ready => 'Ready',
@@ -194,9 +196,11 @@ class SetupStep extends StatelessWidget {
                   builder: (context, setLocalState) {
                     return Container(
                       decoration: BoxDecoration(
-                        color: StudioColors.cardOf(context),
+                        color: CreatorPalette.of(context).card,
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: StudioColors.lineOf(context)),
+                        border: Border.all(
+                          color: CreatorPalette.of(context).line,
+                        ),
                       ),
                       child: Column(
                         children: [
@@ -216,7 +220,7 @@ class SetupStep extends StatelessWidget {
                                 children: [
                                   Icon(
                                     Icons.tune,
-                                    color: StudioColors.amberOf(context),
+                                    color: CreatorPalette.of(context).amber,
                                     size: 18,
                                   ),
                                   const SizedBox(width: 10),
@@ -235,7 +239,7 @@ class SetupStep extends StatelessWidget {
                                     duration: const Duration(milliseconds: 200),
                                     child: Icon(
                                       Icons.keyboard_arrow_down,
-                                      color: StudioColors.mutedOf(context),
+                                      color: CreatorPalette.of(context).muted,
                                       size: 20,
                                     ),
                                   ),
@@ -310,9 +314,9 @@ class SetupStep extends StatelessWidget {
                         ),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: isAnyRunning
-                              ? StudioColors.badOf(ctx)
-                              : StudioColors.amberOf(ctx),
-                          foregroundColor: StudioColors.amberInkOf(ctx),
+                              ? CreatorPalette.of(ctx).bad
+                              : CreatorPalette.of(ctx).amber,
+                          foregroundColor: CreatorPalette.of(ctx).amberInk,
                           padding: const EdgeInsets.symmetric(vertical: 16),
                         ),
                       ),
@@ -372,9 +376,11 @@ class SetupStep extends StatelessWidget {
                       vertical: 14,
                     ),
                     decoration: BoxDecoration(
-                      color: StudioColors.bgOf(context),
+                      color: CreatorPalette.of(context).fieldFill,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: StudioColors.lineOf(context)),
+                      border: Border.all(
+                        color: CreatorPalette.of(context).line,
+                      ),
                     ),
                     child: Row(
                       children: [
@@ -385,7 +391,7 @@ class SetupStep extends StatelessWidget {
                               Text(
                                 'Model',
                                 style: TextStyle(
-                                  color: StudioColors.mutedOf(context),
+                                  color: CreatorPalette.of(context).muted,
                                   fontSize: 11,
                                 ),
                               ),
@@ -396,8 +402,8 @@ class SetupStep extends StatelessWidget {
                                     : state.selectedModelId,
                                 style: TextStyle(
                                   color: state.selectedModelId.isEmpty
-                                      ? StudioColors.mutedOf(context)
-                                      : StudioColors.inkOf(context),
+                                      ? CreatorPalette.of(context).muted
+                                      : CreatorPalette.of(context).ink,
                                   fontSize: 14,
                                 ),
                                 overflow: TextOverflow.ellipsis,
@@ -407,7 +413,7 @@ class SetupStep extends StatelessWidget {
                         ),
                         Icon(
                           Icons.arrow_drop_down,
-                          color: StudioColors.mutedOf(context),
+                          color: CreatorPalette.of(context).muted,
                         ),
                       ],
                     ),
@@ -420,7 +426,7 @@ class SetupStep extends StatelessWidget {
                 'The selected backend and model will be used for all AI generation in this wizard.',
                 style: TextStyle(
                   fontSize: 12,
-                  color: StudioColors.mutedOf(context),
+                  color: CreatorPalette.of(context).muted,
                 ),
               ),
             ],

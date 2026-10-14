@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/synced_text_field.dart';
 
 const _intensityOptions = ['mild', 'moderate', 'strong'];
@@ -44,9 +45,11 @@ class RealismEmotionCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(
+          color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+        ),
       ),
       child: Row(
         children: [
@@ -60,25 +63,34 @@ class RealismEmotionCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Container(
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerOf(context),
+                    color:
+                        context.creatorPalette?.raise ??
+                        AppColors.surfaceContainerOf(context),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.borderOf(context)),
+                    border: Border.all(
+                      color:
+                          context.creatorPalette?.line ??
+                          AppColors.borderOf(context),
+                    ),
                   ),
                   // See the Day Number field: the controller must be
                   // owned, or mid-word edits jump to the end of the text.
                   child: SyncedTextField(
                     value: emotion,
                     style: TextStyle(
-                      color: AppColors.textPrimary(context),
+                      color:
+                          context.creatorPalette?.ink ??
+                          AppColors.textPrimary(context),
                       fontSize: 14,
                     ),
                     onChanged: onEmotionChanged,
                     decoration: InputDecoration(
                       hintText: 'e.g. curious, guarded, amused',
                       hintStyle: TextStyle(
-                        color: AppColors.textTertiary(
-                          context,
-                        ).withValues(alpha: 0.6),
+                        color:
+                            (context.creatorPalette?.muted ??
+                                    AppColors.textTertiary(context))
+                                .withValues(alpha: 0.6),
                         fontSize: 13,
                       ),
                       border: InputBorder.none,
@@ -103,17 +115,27 @@ class RealismEmotionCard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerOf(context),
+                    color:
+                        context.creatorPalette?.raise ??
+                        AppColors.surfaceContainerOf(context),
                     borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: AppColors.borderOf(context)),
+                    border: Border.all(
+                      color:
+                          context.creatorPalette?.line ??
+                          AppColors.borderOf(context),
+                    ),
                   ),
                   child: DropdownButton<String>(
                     value: emotionIntensity,
                     isExpanded: true,
-                    dropdownColor: AppColors.surfaceContainerOf(context),
+                    dropdownColor:
+                        context.creatorPalette?.raise ??
+                        AppColors.surfaceContainerOf(context),
                     underline: const SizedBox(),
                     style: TextStyle(
-                      color: AppColors.textPrimary(context),
+                      color:
+                          context.creatorPalette?.ink ??
+                          AppColors.textPrimary(context),
                       fontSize: 14,
                     ),
                     items: _intensityOptions

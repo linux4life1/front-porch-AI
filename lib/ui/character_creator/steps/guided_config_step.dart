@@ -82,38 +82,25 @@ class GuidedConfigStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──
-              Row(
-                children: [
-                  Icon(Icons.edit_note, color: guidedAccent, size: 28),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Guided Character Creator',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: StudioColors.inkOf(context),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "Describe your character — we'll help you flesh them out.",
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: StudioColors.mutedOf(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              // The spec's page title: h1 24 / 700 and a muted intro.
+              Text(
+                'Guided Character Creator',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: StudioColors.inkOf(context),
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 6),
+              Text(
+                'Write your vision in your own words. The AI fleshes out the rest.',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: StudioColors.mutedOf(context),
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // ── Basic info ──
               _sectionHeading(

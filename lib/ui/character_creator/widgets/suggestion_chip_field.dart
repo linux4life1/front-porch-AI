@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_pill.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
@@ -51,11 +52,10 @@ class SuggestionChipField extends StatelessWidget {
               ],
               Expanded(
                 child: Text(
-                  label,
-                  style: TextStyle(
-                    color: isNsfw ? pillAccent : StudioColors.proseOf(context),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  label.toUpperCase(),
+                  style: CreatorInputLabel.styleOf(
+                    context,
+                    color: isNsfw ? pillAccent : null,
                   ),
                 ),
               ),

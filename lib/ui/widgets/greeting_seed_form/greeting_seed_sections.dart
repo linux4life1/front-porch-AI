@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form/greeting_seed_chrome.dart';
 import 'package:front_porch_ai/ui/widgets/needs_clock_off_note.dart';
 import 'package:front_porch_ai/ui/widgets/slider_with_input.dart';
@@ -87,7 +88,9 @@ class GreetingSeedTimeSection extends StatelessWidget {
                             }
                           },
                           style: TextStyle(
-                            color: AppColors.textPrimary(context),
+                            color:
+                                context.creatorPalette?.ink ??
+                                AppColors.textPrimary(context),
                             fontSize: 14,
                           ),
                           decoration: seedDeco(context, 'inherit (day 1)'),
@@ -237,7 +240,9 @@ class GreetingSeedEmotionSection extends StatelessWidget {
                             ),
                           ),
                           style: TextStyle(
-                            color: AppColors.textPrimary(context),
+                            color:
+                                context.creatorPalette?.ink ??
+                                AppColors.textPrimary(context),
                             fontSize: 14,
                           ),
                           decoration: seedDeco(
@@ -276,7 +281,9 @@ class GreetingSeedEmotionSection extends StatelessWidget {
                       ),
                     ),
                     style: TextStyle(
-                      color: AppColors.textPrimary(context),
+                      color:
+                          context.creatorPalette?.ink ??
+                          AppColors.textPrimary(context),
                       fontSize: 14,
                     ),
                     decoration: seedDeco(
@@ -384,7 +391,9 @@ class GreetingSeedNeedsSection extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 12,
                   height: 1.35,
-                  color: AppColors.textSecondary(context),
+                  color:
+                      context.creatorPalette?.prose ??
+                      AppColors.textSecondary(context),
                 ),
               ),
               const SizedBox(height: 8),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 
 class StyledDropdown<T> extends StatelessWidget {
   const StyledDropdown({
@@ -23,17 +24,24 @@ class StyledDropdown<T> extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12),
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerOf(context),
+          color:
+              context.creatorPalette?.raise ??
+              AppColors.surfaceContainerOf(context),
           borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: AppColors.borderOf(context)),
+          border: Border.all(
+            color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+          ),
         ),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<T>(
             value: value,
             isExpanded: true,
-            dropdownColor: AppColors.surfaceContainerOf(context),
+            dropdownColor:
+                context.creatorPalette?.raise ??
+                AppColors.surfaceContainerOf(context),
             style: TextStyle(
-              color: AppColors.textPrimary(context),
+              color:
+                  context.creatorPalette?.ink ?? AppColors.textPrimary(context),
               fontSize: 13,
             ),
             items: items,

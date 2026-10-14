@@ -4,29 +4,46 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Section heading label with an optional red required asterisk. Restored from
-/// the pre-refactor creator step's `_inputLabel`.
+/// The spec's label above a field (docs/design/creator-ui-spec.md): 11px /
+/// 600, upper-cased, 0.4px tracking, `muted`, with an amber `*` when
+/// [required].
 class CreatorInputLabel extends StatelessWidget {
   final String text;
   final bool required;
 
-  const CreatorInputLabel(this.text, {super.key, this.required = false});
+  /// Overrides the `muted` colour (the 18+ rows label in terracotta).
+  final Color? color;
+
+  const CreatorInputLabel(
+    this.text, {
+    super.key,
+    this.required = false,
+    this.color,
+  });
+
+  /// The label style, for labels that sit in their own row layout.
+  static TextStyle styleOf(BuildContext context, {Color? color}) => TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.4,
+    color: color ?? StudioColors.mutedOf(context),
+  );
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            color: StudioColors.inkOf(context),
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (required)
-          Text(' *', style: TextStyle(color: StudioColors.badOf(context))),
-      ],
+    final style = styleOf(context, color: color);
+    return Text.rich(
+      TextSpan(
+        text: text.toUpperCase(),
+        children: [
+          if (required)
+            TextSpan(
+              text: ' *',
+              style: style.copyWith(color: StudioColors.amberOf(context)),
+            ),
+        ],
+      ),
+      style: style,
     );
   }
 }

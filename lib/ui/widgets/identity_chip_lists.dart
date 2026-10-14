@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 // Sibling in this file's OWN barrel directory — importing widgets.dart here
 // would be a self-import (the structural exemption in CLAUDE.md).
 import 'package:front_porch_ai/ui/widgets/chip_list_editor.dart';
@@ -193,9 +194,11 @@ class IdentityChipLists extends StatelessWidget {
   Widget _card(BuildContext context, Widget child) => Container(
     padding: const EdgeInsets.all(16),
     decoration: BoxDecoration(
-      color: AppColors.cardOf(context),
+      color: context.creatorPalette?.card ?? AppColors.cardOf(context),
       borderRadius: BorderRadius.circular(14),
-      border: Border.all(color: AppColors.borderOf(context)),
+      border: Border.all(
+        color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+      ),
     ),
     child: child,
   );
@@ -300,7 +303,11 @@ class IdentityChipLists extends StatelessWidget {
         ],
 
         if (hasBirthday) ...[
-          _header(Icons.cake_outlined, 'Birthday', AppColors.formMasterAccent),
+          _header(
+            Icons.cake_outlined,
+            'Birthday',
+            context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+          ),
           const SizedBox(height: 12),
           _card(
             context,
@@ -318,7 +325,7 @@ class IdentityChipLists extends StatelessWidget {
           _header(
             Icons.favorite_outline,
             'Likes & Dislikes',
-            AppColors.formMasterAccent,
+            context.creatorPalette?.amber ?? AppColors.formMasterAccent,
           ),
           const SizedBox(height: 12),
           _card(
@@ -393,7 +400,9 @@ class IdentityChipLists extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 12,
                     height: 1.35,
-                    color: AppColors.textSecondary(context),
+                    color:
+                        context.creatorPalette?.prose ??
+                        AppColors.textSecondary(context),
                   ),
                 ),
                 const SizedBox(height: 14),

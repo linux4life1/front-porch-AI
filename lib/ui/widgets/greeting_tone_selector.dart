@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 
 class GreetingToneSelector extends StatelessWidget {
   const GreetingToneSelector({
@@ -36,6 +37,7 @@ class GreetingToneSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final p = CreatorPalette.maybeOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -45,7 +47,9 @@ class GreetingToneSelector extends StatelessWidget {
                   ? 'Tone for the first message.'
                   : 'Select up to ${greetingCount + 1} \u2014 one per greeting.'),
           style: TextStyle(
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
             fontSize: 11,
           ),
         ),
@@ -74,20 +78,27 @@ class GreetingToneSelector extends StatelessWidget {
                     }
                     onChanged(updated);
                   },
-                  selectedColor: accentColor.withValues(alpha: 0.15),
-                  backgroundColor: AppColors.surfaceContainerOf(context),
-                  checkmarkColor: accentColor,
+                  // Inside the AI Character Creator a selected chip is
+                  // solid amber.
+                  selectedColor:
+                      p?.chipSelectedFill ??
+                      accentColor.withValues(alpha: 0.15),
+                  backgroundColor:
+                      p?.raise ?? AppColors.surfaceContainerOf(context),
+                  checkmarkColor: p?.chipSelectedInk ?? accentColor,
                   labelStyle: TextStyle(
                     color: isSelected
-                        ? accentColor
-                        : AppColors.textSecondary(context),
+                        ? p?.chipSelectedInk ?? accentColor
+                        : p?.ink ?? AppColors.textSecondary(context),
                     fontSize: 13,
                   ),
-                  side: BorderSide(
-                    color: isSelected
-                        ? accentColor
-                        : AppColors.borderOf(context),
-                  ),
+                  side: p != null
+                      ? BorderSide.none
+                      : BorderSide(
+                          color: isSelected
+                              ? accentColor
+                              : AppColors.borderOf(context),
+                        ),
                 );
               })
               .toList(),

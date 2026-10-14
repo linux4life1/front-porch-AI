@@ -48,6 +48,9 @@ class CreatorSectionCard extends StatelessWidget {
         clipBehavior: Clip.antiAlias,
         child: ExpansionTile(
           initiallyExpanded: initiallyExpanded,
+          // Fields and labels start at the left edge, as the spec draws them.
+          expandedAlignment: Alignment.centerLeft,
+          expandedCrossAxisAlignment: CrossAxisAlignment.start,
           // No divider lines above and below the open tile.
           shape: const Border(),
           collapsedShape: const Border(),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 Widget _buildApp() {
@@ -735,5 +736,72 @@ void main() {
       expect(ranges.first.start, 0);
       expect(ranges.first.end, '«Bonjour»'.length);
     });
+  });
+
+  group('StyledTextController priority path reads the preset', () {
+    const text = '*{{char}} waves* "hi"';
+
+    // Colour of the span whose text is [piece].
+    Color? colourOf(TextSpan root, String piece) {
+      Color? found;
+      root.visitChildren((s) {
+        if (s is TextSpan && s.text == piece) {
+          found = s.style?.color;
+          return false;
+        }
+        return true;
+      });
+      return found;
+    }
+
+    for (final dark in [false, true]) {
+      final theme = dark ? 'dark' : 'light';
+
+      testWidgets('studioProse uses the studio palette — $theme', (
+        tester,
+      ) async {
+        await tester.pumpWidget(dark ? _buildDarkApp() : _buildApp());
+        final context = _pumpContext(tester);
+        final ctrl = StyledTextController(
+          text: text,
+          preset: StyledTextPreset.studioProse,
+        );
+        final span = ctrl.buildTextSpan(
+          context: context,
+          style: const TextStyle(),
+          withComposing: false,
+        );
+        expect(colourOf(span, '"hi"'), StudioColors.honeyOf(context));
+        expect(colourOf(span, '{{char}}'), StudioColors.tealOf(context));
+        expect(colourOf(span, ' waves*'), StudioColors.narrationOf(context));
+        ctrl.dispose();
+      });
+
+      testWidgets('the default preset keeps its colours — $theme', (
+        tester,
+      ) async {
+        await tester.pumpWidget(dark ? _buildDarkApp() : _buildApp());
+        final context = _pumpContext(tester);
+        final ctrl = StyledTextController(text: text);
+        final span = ctrl.buildTextSpan(
+          context: context,
+          style: const TextStyle(),
+          withComposing: false,
+        );
+        expect(
+          colourOf(span, '"hi"'),
+          dark ? Colors.amberAccent : const Color(0xFFB45309),
+        );
+        expect(
+          colourOf(span, '{{char}}'),
+          dark ? Colors.tealAccent : const Color(0xFF0D9488),
+        );
+        expect(
+          colourOf(span, ' waves*'),
+          dark ? const Color(0xFF90CAF9) : const Color(0xFF1565C0),
+        );
+        ctrl.dispose();
+      });
+    }
   });
 }

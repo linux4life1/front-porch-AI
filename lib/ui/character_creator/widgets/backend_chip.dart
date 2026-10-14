@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/studio_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// Backend selector pill (lifted from original _backendChip, made public per plan).
 /// Uses AppColors exclusively.
@@ -23,12 +23,12 @@ class BackendChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bg = isSelected
-        ? StudioColors.raiseOf(context)
-        : StudioColors.cardOf(context);
-    final fg = StudioColors.inkOf(context);
+        ? CreatorPalette.of(context).raise
+        : CreatorPalette.of(context).card;
+    final fg = CreatorPalette.of(context).ink;
     final border = isSelected
-        ? StudioColors.amberOf(context)
-        : StudioColors.lineOf(context);
+        ? CreatorPalette.of(context).amber
+        : CreatorPalette.of(context).line;
 
     return InkWell(
       onTap: onTap,

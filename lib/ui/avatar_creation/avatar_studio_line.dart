@@ -8,6 +8,7 @@ import 'package:front_porch_ai/services/image/image_studio_remote.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// The Comfy file the desk will actually run. Not a leftover checkpoint name.
 class AvatarStudioLine extends StatelessWidget {
@@ -43,7 +44,11 @@ class AvatarStudioLine extends StatelessWidget {
     final shown = file.isEmpty ? 'Choose a model on the desk' : file;
     return Text(
       edit ? 'Edit model: $shown' : 'Create model: $shown',
-      style: TextStyle(color: AppColors.textSecondary(context), fontSize: 12),
+      style: TextStyle(
+        color:
+            context.creatorPalette?.prose ?? AppColors.textSecondary(context),
+        fontSize: 12,
+      ),
     );
   }
 }

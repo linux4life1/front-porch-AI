@@ -14,6 +14,7 @@ export 'creator_nav_bar.dart';
 export 'creator_pill.dart';
 export 'creator_section_card.dart';
 export 'creator_step_indicator.dart';
+export 'creator_text_card.dart';
 export 'description_generator_section.dart';
 export 'dynamic_macros_toggle.dart';
 export 'greeting_card.dart';

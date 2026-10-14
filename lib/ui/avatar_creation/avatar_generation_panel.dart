@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/capability/vision_support_resolver.dart'
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/image_studio/vision_gate.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'avatar_creation_controller.dart';
 import 'avatar_generation_panel/avatar_generation_panel.dart';
@@ -161,10 +162,16 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
         ElevatedButton(
           onPressed: _c.canRun ? _c.run : null,
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.formMasterAccent,
-            foregroundColor: AppColors.onChaosAccent,
-            disabledBackgroundColor: AppColors.surfaceContainerOf(context),
-            disabledForegroundColor: AppColors.textTertiary(context),
+            backgroundColor:
+                context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+            foregroundColor:
+                context.creatorPalette?.amberInk ?? AppColors.onChaosAccent,
+            disabledBackgroundColor:
+                context.creatorPalette?.raise ??
+                AppColors.surfaceContainerOf(context),
+            disabledForegroundColor:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
             padding: const EdgeInsets.symmetric(vertical: 13),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
@@ -181,7 +188,9 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
           'gallery.',
           textAlign: TextAlign.center,
           style: TextStyle(
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
             fontSize: 11,
           ),
         ),

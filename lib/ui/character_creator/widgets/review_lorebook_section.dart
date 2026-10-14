@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_text_card.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Lorebook cherry-pick section of the review step: per-entry checkboxes to
@@ -42,43 +43,18 @@ class ReviewLorebookSection extends StatelessWidget {
         .where((v) => v)
         .length;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+    return CreatorCardShell(
+      title: 'Lorebook',
+      subtitle: '$enabledCount/${lorebook.entries.length} entries kept',
       children: [
-        Divider(color: StudioColors.lineOf(context), height: 32),
-        Row(
-          children: [
-            Icon(Icons.menu_book, color: _accent(context), size: 18),
-            const SizedBox(width: 8),
-            Text(
-              'World Lore Entries',
-              style: TextStyle(
-                color: _accent(context),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const Spacer(),
-            Text(
-              '$enabledCount/${lorebook.entries.length} enabled',
-              style: TextStyle(
-                color: StudioColors.mutedOf(context),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
         Text(
           'Uncheck entries you don\'t want included in the saved character.',
-          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 12),
         ),
-        const SizedBox(height: 12),
         ...List.generate(lorebook.entries.length, (i) {
           final entry = lorebook.entries[i];
           final enabled = state.lorebookEntryEnabled[i] ?? true;
           return Container(
-            margin: const EdgeInsets.only(bottom: 8),
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: StudioColors.bgOf(context),

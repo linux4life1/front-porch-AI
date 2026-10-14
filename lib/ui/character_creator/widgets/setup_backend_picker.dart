@@ -13,7 +13,7 @@ import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/backend_chip.dart';
 import 'package:front_porch_ai/ui/settings/widgets/remote_provider_apply.dart';
 import 'package:front_porch_ai/ui/settings/widgets/remote_provider_bar.dart';
-import 'package:front_porch_ai/ui/theme/studio_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// Kobold / Remote API / oMLX chips, plus OpenRouter / Nano-GPT / xAI /
 /// LM Studio / Custom when the remote door is open. Shared by AI Character Creator and World
@@ -121,7 +121,7 @@ class SetupBackendPicker extends StatelessWidget {
                 : 'Each provider keeps its own key. Pick a model after you switch.',
             style: TextStyle(
               fontSize: 12,
-              color: StudioColors.mutedOf(context),
+              color: CreatorPalette.of(context).muted,
             ),
           ),
         ],
@@ -134,7 +134,7 @@ class SetupBackendPicker extends StatelessWidget {
       text,
       style: TextStyle(
         fontSize: 12,
-        color: StudioColors.proseOf(context),
+        color: CreatorPalette.of(context).prose,
         fontWeight: FontWeight.w500,
       ),
     );
@@ -199,13 +199,13 @@ class _CustomUrlFieldState extends State<_CustomUrlField> {
       key: const ValueKey('creator-custom-url'),
       controller: _controller,
       focusNode: _focus,
-      style: TextStyle(color: StudioColors.inkOf(context)),
+      style: TextStyle(color: CreatorPalette.of(context).ink),
       decoration: InputDecoration(
         labelText: 'Server address',
         hintText: 'https://your-server.example/v1',
-        labelStyle: TextStyle(color: StudioColors.proseOf(context)),
+        labelStyle: TextStyle(color: CreatorPalette.of(context).prose),
         filled: true,
-        fillColor: StudioColors.bgOf(context),
+        fillColor: CreatorPalette.of(context).fieldFill,
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide.none,

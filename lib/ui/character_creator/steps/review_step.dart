@@ -22,10 +22,9 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/avatar_creation/avatar_generation_panel.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
-import 'package:front_porch_ai/ui/character_creator/widgets/review_lorebook_section.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Review & edit step: the shared Portrait & Avatars panel in the left rail
 /// (phase #12 — it replaced the bespoke avatar generation controls) + editable
@@ -171,126 +170,72 @@ class ReviewStep extends StatelessWidget {
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 24),
-                _editableField(
-                  context,
-                  'Description',
-                  state.descController,
-                  maxLines: 6,
-                ),
-                _editableField(
-                  context,
-                  'Personality',
-                  state.personalityController,
-                  maxLines: 4,
-                ),
-                _editableField(
-                  context,
-                  'Scenario',
-                  state.scenarioController,
-                  maxLines: 3,
-                ),
-                _editableField(
-                  context,
-                  'First Message',
-                  state.firstMessageController,
-                  maxLines: 6,
-                ),
-                ...state.altGreetingControllers.asMap().entries.map((e) {
-                  final idx = e.key;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _editableField(
-                          context,
-                          'Alternate greeting ${idx + 1}',
-                          e.value,
-                          maxLines: 4,
-                        ),
-                        GreetingSeedForm(
-                          seed: idx < state.greetingSeeds.length
-                              ? state.greetingSeeds[idx]
-                              : null,
-                          showNeeds: true,
-                          showInventory: true,
-                          onChanged: (next) {
-                            while (state.greetingSeeds.length <= idx) {
-                              state.greetingSeeds.add(null);
-                            }
-                            state.greetingSeeds[idx] = next;
-                            state.notify();
-                          },
-                        ),
-                      ],
+                const SizedBox(height: 16),
+                // One spec card per section, 16px apart.
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 16,
+                  children: [
+                    CreatorTextCard(
+                      title: 'Description',
+                      subtitle: 'Who they are, as the card will carry it',
+                      controller: state.descController,
+                      maxLines: 6,
                     ),
-                  );
-                }),
-                _editableField(
-                  context,
-                  'Example Dialogue',
-                  state.exampleDialogueController,
-                  maxLines: 6,
+                    CreatorTextCard(
+                      title: 'Personality',
+                      subtitle: 'How they act and speak',
+                      controller: state.personalityController,
+                      maxLines: 4,
+                    ),
+                    CreatorTextCard(
+                      title: 'Scenario',
+                      subtitle: 'Where the first chat starts',
+                      controller: state.scenarioController,
+                    ),
+                    CreatorTextCard(
+                      title: 'First Message',
+                      subtitle: 'Opens every new chat',
+                      controller: state.firstMessageController,
+                      maxLines: 6,
+                    ),
+                    for (final (idx, alt)
+                        in state.altGreetingControllers.indexed)
+                      CreatorTextCard(
+                        title: 'Alternate greeting ${idx + 1}',
+                        controller: alt,
+                        maxLines: 4,
+                        below: [
+                          GreetingSeedForm(
+                            seed: idx < state.greetingSeeds.length
+                                ? state.greetingSeeds[idx]
+                                : null,
+                            showNeeds: true,
+                            showInventory: true,
+                            onChanged: (next) {
+                              while (state.greetingSeeds.length <= idx) {
+                                state.greetingSeeds.add(null);
+                              }
+                              state.greetingSeeds[idx] = next;
+                              state.notify();
+                            },
+                          ),
+                        ],
+                      ),
+                    CreatorTextCard(
+                      title: 'Example Dialogue',
+                      controller: state.exampleDialogueController,
+                      maxLines: 6,
+                    ),
+                    CreatorTextCard(
+                      title: 'System Prompt',
+                      controller: state.systemPromptController,
+                      maxLines: 4,
+                    ),
+                    ReviewLorebookSection(state: state),
+                  ],
                 ),
-                _editableField(
-                  context,
-                  'System Prompt',
-                  state.systemPromptController,
-                  maxLines: 4,
-                ),
-                ReviewLorebookSection(state: state),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _editableField(
-    BuildContext context,
-    String label,
-    TextEditingController controller, {
-    int maxLines = 3,
-  }) {
-    OutlineInputBorder outline(Color c) => OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
-      borderSide: BorderSide(color: c),
-    );
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: _accent(context),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          AppTextField(
-            controller: controller,
-            maxLines: maxLines,
-            // The spec's text box: `bg`, 1px `line`, radius 12, 15 / 1.55.
-            style: TextStyle(
-              color: StudioColors.inkOf(context),
-              fontSize: 15,
-              height: 1.55,
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: StudioColors.bgOf(context),
-              border: outline(StudioColors.lineOf(context)),
-              enabledBorder: outline(StudioColors.lineOf(context)),
-              focusedBorder: outline(_accent(context)),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14,
-                vertical: 12,
-              ),
             ),
           ),
         ],

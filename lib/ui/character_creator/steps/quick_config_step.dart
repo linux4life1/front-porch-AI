@@ -23,25 +23,19 @@ class QuickConfigStep extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          text,
-          style: TextStyle(
-            color: StudioColors.proseOf(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        CreatorInputLabel(text),
         if (helper != null) ...[
           const SizedBox(height: 4),
           Text(
             helper,
             style: TextStyle(
               color: StudioColors.mutedOf(context),
-              fontSize: 11,
+              fontSize: 12,
+              height: 1.5,
             ),
           ),
         ],
-        const SizedBox(height: 8),
+        const SizedBox(height: 6),
       ],
     );
   }
@@ -104,45 +98,25 @@ class QuickConfigStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header
-              Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: quickAccent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(Icons.bolt, color: quickAccent, size: 22),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Quick Create',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w700,
-                            color: StudioColors.inkOf(context),
-                          ),
-                        ),
-                        Text(
-                          'Name it, describe it, generate.',
-                          style: TextStyle(
-                            fontSize: 14,
-                            height: 1.5,
-                            color: StudioColors.mutedOf(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              // The spec's page title: h1 24 / 700 and a muted intro.
+              Text(
+                'Quick Create',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: StudioColors.inkOf(context),
+                ),
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 6),
+              Text(
+                'Name it, describe it, generate.',
+                style: TextStyle(
+                  fontSize: 14,
+                  height: 1.5,
+                  color: StudioColors.mutedOf(context),
+                ),
+              ),
+              const SizedBox(height: 16),
 
               // The Basics
               CreatorSectionCard(

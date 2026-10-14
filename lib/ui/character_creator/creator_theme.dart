@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Wraps the AI Character Creator so every Material widget inside it
@@ -45,6 +46,9 @@ class CreatorTheme extends StatelessWidget {
     final bg = StudioColors.bgOf(context);
     final side = StudioColors.sideOf(context);
     final raise = StudioColors.raiseOf(context);
+    // Every style below starts from the app's body style, so it keeps the
+    // app's font (a bare TextStyle would drop the family).
+    final body = base.textTheme.bodyMedium ?? const TextStyle();
     RoundedRectangleBorder rounded(double r) => RoundedRectangleBorder(
       borderRadius: BorderRadius.circular(r),
       side: BorderSide(color: line),
@@ -74,11 +78,11 @@ class CreatorTheme extends StatelessWidget {
       inputDecorationTheme: InputDecorationThemeData(
         filled: true,
         fillColor: bg,
-        hintStyle: TextStyle(
+        hintStyle: body.copyWith(
           fontSize: 14,
           color: StudioColors.faintOf(context),
         ),
-        labelStyle: TextStyle(color: muted),
+        labelStyle: body.copyWith(color: muted),
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 12,
           vertical: 10,
@@ -116,28 +120,32 @@ class CreatorTheme extends StatelessWidget {
         backgroundColor: raise,
         selectedColor: amber,
         side: BorderSide.none,
-        labelStyle: TextStyle(fontSize: 13, color: ink),
+        labelStyle: body.copyWith(fontSize: 13, color: ink),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
       popupMenuTheme: PopupMenuThemeData(
         color: side,
-        textStyle: TextStyle(fontSize: 14, color: ink),
+        textStyle: body.copyWith(fontSize: 14, color: ink),
         shape: rounded(10),
       ),
       dialogTheme: DialogThemeData(
         backgroundColor: card,
         surfaceTintColor: card,
         shape: rounded(20),
-        titleTextStyle: TextStyle(
+        titleTextStyle: body.copyWith(
           fontSize: 20,
           fontWeight: FontWeight.w700,
           color: ink,
         ),
-        contentTextStyle: TextStyle(fontSize: 14, height: 1.5, color: prose),
+        contentTextStyle: body.copyWith(
+          fontSize: 14,
+          height: 1.5,
+          color: prose,
+        ),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: raise,
-        contentTextStyle: TextStyle(color: ink),
+        contentTextStyle: body.copyWith(color: ink),
         actionTextColor: amber,
         behavior: SnackBarBehavior.floating,
         shape: rounded(8),
@@ -148,7 +156,7 @@ class CreatorTheme extends StatelessWidget {
           borderRadius: BorderRadius.circular(6),
           border: Border.all(color: line),
         ),
-        textStyle: TextStyle(fontSize: 12, color: ink),
+        textStyle: body.copyWith(fontSize: 12, color: ink),
       ),
       progressIndicatorTheme: ProgressIndicatorThemeData(
         color: amber,
@@ -167,6 +175,11 @@ class CreatorTheme extends StatelessWidget {
         elevation: 0,
         scrolledUnderElevation: 0,
       ),
+      // Shared widgets read this to draw in the creator's palette.
+      extensions: [
+        ...base.extensions.values.where((e) => e is! CreatorPalette),
+        CreatorPalette.studio(context),
+      ],
       splashColor: amber.withValues(alpha: 0.08),
       highlightColor: amber.withValues(alpha: 0.06),
       hoverColor: amber.withValues(alpha: 0.05),

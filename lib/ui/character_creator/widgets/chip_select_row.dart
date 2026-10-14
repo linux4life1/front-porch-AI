@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_pill.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
@@ -22,11 +23,10 @@ Widget _chipRowLabel(
         const SizedBox(width: 4),
       ],
       Text(
-        label,
-        style: TextStyle(
-          color: isNsfw ? accent : StudioColors.proseOf(context),
-          fontSize: 12,
-          fontWeight: FontWeight.w500,
+        label.toUpperCase(),
+        style: CreatorInputLabel.styleOf(
+          context,
+          color: isNsfw ? accent : null,
         ),
       ),
     ],
@@ -34,7 +34,7 @@ Widget _chipRowLabel(
 );
 
 /// A labelled row of single-select pills. Tapping the selected pill clears it
-/// (passes '' to [onChanged]). Themed by [accent] (mode colour); NSFW → nsfw.
+/// (passes '' to [onChanged]). Themed by [accent] (mode colour); NSFW → terracotta.
 class SingleSelectChipRow extends StatelessWidget {
   final String label;
   final String value;
@@ -83,7 +83,7 @@ class SingleSelectChipRow extends StatelessWidget {
   }
 }
 
-/// A labelled row of multi-select pills. Themed by [accent]; NSFW → nsfw.
+/// A labelled row of multi-select pills. Themed by [accent]; NSFW → terracotta.
 class MultiSelectChipRow extends StatelessWidget {
   final String label;
   final Set<String> selected;
