@@ -174,6 +174,12 @@ class GenCharacterGenerator {
       _state.lastRawOutput = baseOutput; // Store for image prompt extraction
 
       if (baseOutput == null) {
+        // A refusal (auth, billing) answers the same every time: stop here
+        // and say what the backend said.
+        if (_state.refused) {
+          onError?.call('The model refused the request: ${_state.lastFailure}');
+          return null;
+        }
         attempts++;
         continue;
       }

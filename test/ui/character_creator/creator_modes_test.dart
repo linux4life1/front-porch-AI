@@ -649,6 +649,79 @@ Sure! Here's a name for your character:
       expect(porch, contains('"ambitions"'));
       expect(porch, contains('"likes"'));
     });
+
+    test('a billing refusal stops at one call and says why', () async {
+      const said =
+          'This API key is set to subscription-only billing and cannot '
+          'spend from your balance (requested model: test-model)';
+      final llm = FailingChargenLlm(
+        failOn: 'Create a roleplay character card',
+        error: 'API error: $said',
+      )..failing = true;
+      final errors = <String>[];
+      final gen = CharacterGenService(llm);
+      final paused = await gen.generateProfile(
+        inputs: inputs,
+        onError: errors.add,
+      );
+
+      expect(paused, isNull);
+      expect(llm.failures, 1, reason: 'a refusal is never asked again');
+      expect(gen.lastFailure, said);
+      expect(errors, ['The model refused the request: $said']);
+      expect(llm.sent('Question: '), isFalse);
+    });
+
+    test('an unreadable reply keeps its retries and its parse text', () async {
+      final llm = MarkerChargenLlm(cardJson: 'not a card at all, sorry. ' * 8);
+      final errors = <String>[];
+      final gen = CharacterGenService(llm, retryDelay: (_) => Duration.zero);
+      final paused = await gen.generateProfile(
+        inputs: inputs,
+        onError: errors.add,
+      );
+
+      expect(paused, isNull);
+      expect(
+        llm.prompts.where((p) => p.contains('Create a roleplay character')),
+        hasLength(3),
+      );
+      expect(errors, [
+        'Failed to parse base card JSON after multiple attempts. Try a '
+            'different model or prompt.',
+      ]);
+      expect(gen.lastFailure, isNull);
+    });
+
+    test('the desktop failed state shows the refusal', () async {
+      const said = 'Insufficient balance on this API key.';
+      final storage = await makeGoldenStorage();
+      final llm = FailingChargenLlm(
+        failOn: 'Create a roleplay character card',
+        error: 'API error: $said',
+      )..failing = true;
+      final provider = _makeProvider(llm, storage);
+      addTearDown(provider.dispose);
+      final persona = await _makePersonaService();
+      final state = CreatorState();
+      addTearDown(state.dispose);
+      state.creatorMode = CreatorMode.quick;
+      state.nameController.text = 'Mira Holt';
+      state.conceptController.text = 'A cartographer of drowned coasts.';
+
+      await state.generateFromMode(
+        llmProvider: provider,
+        storage: storage,
+        personaService: persona,
+      );
+
+      expect(llm.failures, 1);
+      expect(
+        state.generationStatus,
+        'Error: The model refused the request: $said',
+      );
+      expect(state.isGenerating, isFalse);
+    });
   });
 
   group('Profile and review rewrites', () {

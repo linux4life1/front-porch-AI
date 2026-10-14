@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/character_gen/gen_refusal.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -174,6 +175,14 @@ class GenLlmCaller {
         if (e is SilentMandatoryReasoningStarveException) {
           debugPrint('CharacterGen: $e — failing this step (no more retries)');
           _state.lastFailure = '$e';
+          return null;
+        }
+        if (isBackendRefusal(e)) {
+          // Auth / billing / permission: the same answer every time, and
+          // possibly a charge per call. No retry.
+          debugPrint('CharacterGen: backend refused the request: $e');
+          _state.lastFailure = refusalMessage(e);
+          _state.refused = true;
           return null;
         }
         lastError = '$e';

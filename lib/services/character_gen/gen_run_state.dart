@@ -28,6 +28,10 @@ class GenRunState {
   /// model answered the same" (null) from "the backend failed" (set).
   String? lastFailure;
 
+  /// True when [lastFailure] is the backend refusing the request (auth,
+  /// billing, permission): asking again will not help.
+  bool refused = false;
+
   /// The raw LLM output from the last base card generation, for image prompt extraction.
   String? lastRawOutput;
   String? generatedImagePrompt;
@@ -72,6 +76,7 @@ class GenRunState {
     generationEpoch++;
     aborted = false;
     lastFailure = null;
+    refused = false;
     this.abortInFlight = abortInFlight;
     if (abortInFlight) llm.abortGeneration();
     this.reasoningEnabled = reasoningEnabled;
