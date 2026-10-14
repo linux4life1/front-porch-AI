@@ -70,3 +70,68 @@ Widget factReadOnly(BuildContext context, String value) => Container(
     style: TextStyle(fontSize: 14, color: StudioColors.proseOf(context)),
   ),
 );
+
+const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+/// Work days as a person says them, the twin of the phone's `workDaysText`:
+/// runs of days collapse ("Mon–Fri", "Mon–Thu, Sat"), one day is its name,
+/// all seven are "Every day", and none is the Mon–Fri default.
+String workDaysText(List<int>? days) {
+  final set = {...?days}.where((d) => d >= 1 && d <= 7).toList()..sort();
+  if (set.isEmpty) return 'Mon–Fri';
+  if (set.length == 7) return 'Every day';
+  final runs = <String>[];
+  var start = set.first;
+  var prev = start;
+  void close() => runs.add(
+    start == prev
+        ? _weekdays[start - 1]
+        : '${_weekdays[start - 1]}–${_weekdays[prev - 1]}',
+  );
+  for (final d in set.skip(1)) {
+    if (d == prev + 1) {
+      prev = d;
+      continue;
+    }
+    close();
+    start = prev = d;
+  }
+  close();
+  return runs.join(', ');
+}
+
+/// [field] with a muted [suffix] beside it, or under it when the two do
+/// not fit side by side with the field at least 120px wide.
+Widget factFieldWithSuffix(
+  BuildContext context, {
+  required Widget field,
+  required String suffix,
+}) {
+  final style = TextStyle(fontSize: 13, color: StudioColors.mutedOf(context));
+  final text = Text(suffix, style: style);
+  return LayoutBuilder(
+    builder: (context, c) {
+      final painter = TextPainter(
+        text: TextSpan(text: suffix, style: style),
+        textDirection: Directionality.of(context),
+        textScaler: MediaQuery.textScalerOf(context),
+      )..layout();
+      final fits = painter.width + 8 + 120 <= c.maxWidth;
+      painter.dispose();
+      if (fits) {
+        return Row(
+          spacing: 8,
+          children: [
+            Expanded(child: field),
+            text,
+          ],
+        );
+      }
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        spacing: 4,
+        children: [field, text],
+      );
+    },
+  );
+}

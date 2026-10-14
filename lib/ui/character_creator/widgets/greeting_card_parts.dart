@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/character_creator/widgets/streamed_text.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -41,21 +42,8 @@ class GreetingWritingBox extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: StudioColors.lineOf(context)),
       ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(text: text),
-            WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Container(
-                width: 2,
-                height: 16,
-                margin: const EdgeInsets.only(left: 2),
-                color: StudioColors.amberOf(context),
-              ),
-            ),
-          ],
-        ),
+      child: StreamedText(
+        text: text,
         style: TextStyle(
           fontSize: 15,
           height: 1.55,

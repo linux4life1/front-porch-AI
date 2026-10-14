@@ -40,6 +40,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
 import '../../golden/support/fakes.dart';
@@ -956,7 +957,7 @@ void main() {
       ),
     );
     await tester.pump();
-    expect(find.text('· Mon, Tue'), findsOneWidget, reason: 'days outside');
+    expect(find.text('· Mon–Tue'), findsOneWidget, reason: 'days outside');
     await tester.enterText(
       find.byKey(const ValueKey('profile-hours')),
       '6pm–6am',
@@ -999,5 +1000,48 @@ void main() {
     expect(state.profile.error, contains('connection refused'));
     expect(state.profile.error, isNot(contains('the same as before')));
     expect(state.descController.text, _ProfileLlm.baseDesc);
+  });
+
+  group('workDaysText (the phone\'s twin)', () {
+    test('collapses consecutive days into ranges', () {
+      expect(workDaysText([1, 2, 3, 4, 5]), 'Mon–Fri');
+      expect(workDaysText([6, 7]), 'Sat–Sun');
+      expect(workDaysText([1, 2, 3, 4, 6]), 'Mon–Thu, Sat');
+    });
+
+    test('names a single day, every day, and the default', () {
+      expect(workDaysText([3]), 'Wed');
+      expect(workDaysText([7, 1, 2, 3, 4, 5, 6]), 'Every day');
+      expect(workDaysText(null), 'Mon–Fri');
+      expect(workDaysText([]), 'Mon–Fri');
+    });
+  });
+
+  testWidgets('streamed text is coloured as the finished box will be', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: StreamedText(
+            text: '*{{char}} looks up.* "Late again."',
+            style: TextStyle(fontSize: 15),
+          ),
+        ),
+      ),
+    );
+    final context = tester.element(find.byType(StreamedText));
+    final colours = <String, Color?>{};
+    tester.widget<RichText>(find.byType(RichText).first).text.visitChildren((
+      span,
+    ) {
+      if (span is TextSpan && span.text != null) {
+        colours[span.text!] = span.style?.color;
+      }
+      return true;
+    });
+    expect(colours['{{char}}'], StudioColors.tealOf(context));
+    expect(colours['"Late again."'], StudioColors.honeyOf(context));
+    expect(colours['*'], StudioColors.narrationOf(context));
   });
 }

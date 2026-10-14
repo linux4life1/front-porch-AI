@@ -36,4 +36,5 @@ export 'relationship_select_section.dart';
 export 'review_lorebook_section.dart';
 export 'review_rewrite_card.dart';
 export 'sexual_traits_card.dart';
+export 'streamed_text.dart';
 export 'suggestion_chip_field.dart';

@@ -24,8 +24,6 @@ import 'package:front_porch_ai/ui/character_creator/widgets/profile_chip_list.da
 import 'package:front_porch_ai/ui/character_creator/widgets/profile_fact_fields.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-
 /// "Also written from the interview" (docs/design/creator-ui-spec.md,
 /// "Profile step"): every Front Porch fact the identity pass wrote, in the
 /// spec's grid; edits go straight to the Realism values Save reads. It
@@ -155,42 +153,22 @@ class ProfileFactsCard extends StatelessWidget {
     );
   }
 
-  String _days() {
-    final days = state.realismWorkDays;
-    return days == null || days.isEmpty
-        ? 'Mon–Fri'
-        : days.map((d) => _weekdays[(d - 1).clamp(0, 6)]).join(', ');
-  }
-
   /// The hours are edited here, as on the phone; the work days are the
-  /// Realism step's, a muted suffix outside the field (a long suffix never
-  /// goes inside a narrow field).
+  /// Realism step's, a muted suffix beside the field, or under it when it
+  /// does not fit (a long suffix never goes inside a narrow field).
   Widget _hoursField(BuildContext context) => _labelled(
     'HOURS · WORK DAYS',
-    Row(
-      spacing: 8,
-      children: [
-        Expanded(
-          child: factField(
-            context,
-            key: const ValueKey('profile-hours'),
-            value: state.realismHours,
-            onChanged: (v) => _set(() => state.realismHours = v),
-            hint: 'No set hours',
-            readOnly: _locked,
-          ),
-        ),
-        Flexible(
-          child: Text(
-            '· ${_days()}',
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 13,
-              color: StudioColors.mutedOf(context),
-            ),
-          ),
-        ),
-      ],
+    factFieldWithSuffix(
+      context,
+      field: factField(
+        context,
+        key: const ValueKey('profile-hours'),
+        value: state.realismHours,
+        onChanged: (v) => _set(() => state.realismHours = v),
+        hint: 'No set hours',
+        readOnly: _locked,
+      ),
+      suffix: '· ${workDaysText(state.realismWorkDays)}',
     ),
   );
 
