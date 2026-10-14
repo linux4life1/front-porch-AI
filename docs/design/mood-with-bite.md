@@ -139,6 +139,7 @@ Verified against the tree on 2026-10-13. Several ChatService parts sit within te
 Left alone on purpose: the card's authored starting mood and the group baseline seed carry no cause (the first judge pass supplies one); `moodLabel` stays verbatim for the portrait swiper and older web clients; the call strip is unchanged.
 
 ## Status
+- 2026-10-13, reviewed: the independent review found one real bug and one gap, both fixed. The day-roll patch of the visible reply fired on an OOC skip too (the skip is applied before any busy flag), so the clock applier now says which rolls are made by hand (`manual`, from the chevrons and the calendar dialog) and only those patch stamps; in a group that patch covers every member's latest reply. A dead door was removed and two missing test cases added. Rewinds: a reply's own clock pass is restamped afterwards; a skip on the way to a reply belongs to that reply's capture; a manual roll patches the latest replies.
 
 - 2026-10-13: draft written from the diagnosis; mechanics, schedule and prompt copy above are proposals awaiting the maintainer's word.
 - 2026-10-13, ruling: a strong sour mood may refuse the user outright; the copy keeps that bite and must never force cooperation (self-determination, not a puppet).

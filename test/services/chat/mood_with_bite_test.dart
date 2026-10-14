@@ -277,6 +277,44 @@ void main() {
       expect(lastStamp()['characterEmotion'], isEmpty);
     });
 
+    test('an OOC skip at the start of a send leaves the previous reply\'s '
+        'mood alone, so deleting the new reply puts it back', () async {
+      await turn('You said the money was yours.');
+      expect(chat.emotionIntensity, 'strong');
+      final previous = chat.messages.last;
+      final dayBefore = chat.timeService.dayCount;
+
+      // Two weeks ease the fury to nothing before the judge runs, so the
+      // judge meets no standing mood and names what the new scene holds.
+      llm
+        ..label = 'wistful'
+        ..intensity = 'mild'
+        ..cause = 'the quiet weeks'
+        ..change = 'moved';
+      await turn('Two weeks later.');
+      expect(
+        chat.timeService.dayCount,
+        greaterThan(dayBefore),
+        reason: 'the OOC skip moved the clock',
+      );
+      expect(chat.characterEmotion, 'wistful');
+      expect(chat.emotionCause, 'the quiet weeks');
+      // The skip belongs to the reply being written. The previous reply
+      // ended furious and its stamp must still say so (the generating flag
+      // was not up when the skip was applied — the planner-door lesson).
+      final previousStamp = previous.activeMetadata!['realism_state'] as Map;
+      expect(previousStamp['characterEmotion'], 'furious');
+      expect(previousStamp['emotionIntensity'], 'strong');
+
+      chat.deleteMessage(chat.messages.length - 1);
+      await _until(
+        () => chat.characterEmotion == 'furious',
+        'the delete to restore the pre-skip mood',
+      );
+      expect(chat.emotionIntensity, 'strong');
+      expect(chat.emotionCause, _lie);
+    });
+
     test('a next-morning reply eases the mood inside the turn and the '
         'post-reply restamp carries it onto the reply', () async {
       await turn('You said the money was yours.');

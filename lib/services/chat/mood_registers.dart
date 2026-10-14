@@ -76,8 +76,8 @@ class MoodRegisters {
   }
 
   /// Writes the live mood onto the visible reply's stamp. For a change made
-  /// outside a turn (the today line's X, a calendar day roll): inside one,
-  /// the capture and the post-reply restamp do this.
+  /// outside a turn (the today line's X): inside one, the capture and the
+  /// post-reply restamp do this.
   void patchTipStamp() {
     for (final m in _scope.messages.reversed) {
       if (m.isUser || m.sender == 'System') continue;
@@ -89,14 +89,34 @@ class MoodRegisters {
     }
   }
 
+  /// A chevron or calendar day roll eased every mood at once: the latest
+  /// reply of EACH speaker takes their eased mood, so a swipe or delete that
+  /// restores any member's last stamp finds the mood after the roll. 1:1 is
+  /// the tip alone.
+  void patchLatestReplyStamps() {
+    if (_scope.activeGroup() == null) {
+      patchTipStamp();
+      return;
+    }
+    final seen = <String>{};
+    for (final m in _scope.messages.reversed) {
+      if (m.isUser || m.sender == 'System') continue;
+      final sid = m.characterId ?? '';
+      if (sid.isEmpty || !seen.add(sid)) continue;
+      final member = _scope.groups.members[sid];
+      final rs = m.activeMetadata?['realism_state'];
+      if (member != null && rs is Map && rs.containsKey(kMoodStampLabel)) {
+        rs.addAll(memberMood(member).toStamp());
+      }
+      if (seen.length >= _scope.groups.members.length) return;
+    }
+  }
+
   void reset() => _write(MoodState.neutral);
 
   /// A card's authored starting mood or a greeting seed: no cause, no hold.
   void seed(String label, String intensity) =>
       _write(MoodState(label: label, intensity: intensity));
-
-  void applyJudge(MoodJudgeResult judged) =>
-      _write(applyMoodJudge(stored: state, judged: judged));
 
   /// Story days crossed: the live registers ease one step per day.
   void easeForDays(int days) => _write(easeMoodForDays(state, days));

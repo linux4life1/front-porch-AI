@@ -96,4 +96,25 @@ void main() {
     expect(row.characterId, 'char-1');
     expect(row.realismEnabled, isTrue);
   });
+
+  test('a rename keeps the mood cause and hold count (v57)', () async {
+    await db.insertSession(
+      SessionsCompanion.insert(
+        id: 's-mood',
+        characterId: const Value('char-1'),
+        name: const Value('Old title'),
+        characterEmotion: const Value('furious'),
+        emotionIntensity: const Value('strong'),
+        emotionCause: const Value('he lied about the money'),
+        emotionHeldTurns: const Value(3),
+      ),
+    );
+    await db.updateSession(
+      const SessionsCompanion(id: Value('s-mood'), name: Value('New title')),
+    );
+    final row = await db.getSessionById('s-mood');
+    expect(row!.name, 'New title');
+    expect(row.emotionCause, 'he lied about the money');
+    expect(row.emotionHeldTurns, 3);
+  });
 }
