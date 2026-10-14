@@ -38,10 +38,19 @@ export 'package:front_porch_ai/services/character_gen/greeting_recipe.dart';
 /// 2. First message (dedicated call for quality)
 /// 3. Alternate greetings (one per call, with prior context for uniqueness)
 class CharacterGenService {
-  CharacterGenService(this._llmService);
+  /// [retryDelay] is how long a failed model call waits before each retry
+  /// (default 2 s, 4 s); tests pass zero.
+  CharacterGenService(
+    this._llmService, {
+    Duration Function(int attempt)? retryDelay,
+  }) : _retryDelay = retryDelay;
 
   final LLMService _llmService;
-  late final GenRunState _state = GenRunState(_llmService);
+  final Duration Function(int attempt)? _retryDelay;
+  late final GenRunState _state = GenRunState(
+    _llmService,
+    retryDelay: _retryDelay,
+  );
   late final GenStages _stages = GenStages(_state);
   late final GenCharacterGenerator _generator = GenCharacterGenerator(_stages);
   late final GenEnhancer _enhancer = GenEnhancer(_stages);
@@ -63,6 +72,13 @@ class CharacterGenService {
   set greetingRecipe(GreetingRecipe? value) => _state.greetingRecipe = value;
 
   bool get isAborted => _state.aborted;
+
+  /// Why the last call of the last run failed after its retries (the
+  /// backend's error text), or null when nothing failed since that run
+  /// began. A Stop never sets it. When a rewrite, re-read or regenerate
+  /// returns null, null here means the model answered the same or nothing
+  /// usable; set means it failed: "The rewrite failed: [lastFailure]".
+  String? get lastFailure => _state.lastFailure;
 
   /// Abort the current generation. Signals the LLM service to close its
   /// HTTP connection and sets a flag so inter-step checks bail out.

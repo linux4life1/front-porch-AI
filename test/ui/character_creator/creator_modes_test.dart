@@ -63,6 +63,7 @@ import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state_engine.dart';
 
 import '../../golden/support/creator_test_support.dart';
+import '../../services/chargen/support/failing_chargen_llm.dart';
 import '../../services/chargen/support/marker_chargen_llm.dart';
 
 /// A scripted LLM that (a) records every prompt it was asked to generate from
@@ -845,6 +846,63 @@ Sure! Here's a name for your character:
           ),
         ),
       );
+    });
+
+    test('a dead backend fails the rewrite with its reason', () async {
+      const marker = 'You have just completed an in-character';
+      final llm = FailingChargenLlm(failOn: marker);
+      final paused = await pause(llm);
+      llm.failing = true;
+
+      final gen = CharacterGenService(llm, retryDelay: (_) => Duration.zero);
+      final clock = Stopwatch()..start();
+      final rewrite = await gen.rewriteProfile(
+        paused: paused,
+        description: 'Short and plain.',
+        personality: 'Cheerful.',
+        scenario: typedScenario,
+        direction: 'Colder.',
+      );
+
+      expect(rewrite, isNull);
+      expect(llm.failures, 3, reason: 'the real retry loop ran');
+      expect(gen.lastFailure, contains('connection refused'));
+      expect(clock.elapsed, lessThan(const Duration(seconds: 2)));
+    });
+
+    test('a rewrite that comes back the same is not a failure', () async {
+      final llm = llmFor();
+      final paused = await pause(llm);
+      final gen = CharacterGenService(llm, retryDelay: (_) => Duration.zero);
+      final rewrite = await gen.rewriteProfile(
+        paused: paused,
+        description: paused.card.description,
+        personality: paused.card.personality,
+        scenario: paused.card.scenario,
+      );
+      expect(rewrite, isNull);
+      expect(gen.lastFailure, isNull);
+    });
+
+    test('a Stop during the rewrite is not a failure', () async {
+      const marker = 'You have just completed an in-character';
+      final llm = FailingChargenLlm(failOn: marker);
+      final paused = await pause(llm);
+      llm.failing = true;
+      final gen = CharacterGenService(llm, retryDelay: (_) => Duration.zero);
+      llm.onPrompt = (p) {
+        if (p.contains(marker)) gen.abort();
+      };
+      // Stop is pressed as the failing call goes out: no retry, no reason.
+      final rewrite = await gen.rewriteProfile(
+        paused: paused,
+        description: 'Short and plain.',
+        personality: 'Cheerful.',
+        scenario: typedScenario,
+      );
+      expect(rewrite, isNull);
+      expect(gen.isAborted, isTrue);
+      expect(gen.lastFailure, isNull);
     });
   });
 }
