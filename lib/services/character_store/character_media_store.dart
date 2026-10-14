@@ -62,9 +62,13 @@ class CharacterMediaStore {
     String characterId,
     String characterName,
     Uint8List imageBytes,
-    String? label,
-  ) async {
+    String? label, {
+    String? mediaId,
+  }) async {
     try {
+      if (mediaId != null && await _db().getAvatarById(mediaId) != null) {
+        return mediaId;
+      }
       debugPrint(
         '[CharacterRepository] addAvatar: started, characterId=$characterId, label=$label',
       );
@@ -79,7 +83,7 @@ class CharacterMediaStore {
       debugPrint('[CharacterRepository] addAvatar: file written');
 
       final displayOrder = await _db().countAvatarsForCharacter(characterId);
-      final avatarId = const Uuid().v4();
+      final avatarId = mediaId ?? const Uuid().v4();
       debugPrint(
         '[CharacterRepository] addAvatar: inserting DB record, filename=$filename, displayOrder=$displayOrder',
       );
@@ -109,14 +113,16 @@ class CharacterMediaStore {
   Future<String> addLook(
     String characterId,
     String characterName,
-    Uint8List imageBytes,
-  ) async {
+    Uint8List imageBytes, {
+    bool bootstrapMissingPortrait = true,
+    String? mediaId,
+  }) async {
     // First real image on a missing/placeholder portrait becomes the portrait
     // alone. Writing a look *and* overwriting the portrait produced a dupe
     // (same face twice in the gallery) and left home stuck on the placeholder
     // until a ★ click forced a different cover path.
     final card = await _cardById(characterId);
-    if (card != null) {
+    if (card != null && bootstrapMissingPortrait) {
       final needsPortrait =
           !hasUsablePortrait(card, _storage) ||
           await isPlaceholderPortrait(card, _storage);
@@ -130,23 +136,28 @@ class CharacterMediaStore {
         if (wrote) return '';
       }
     }
-    return _writeLook(characterId, characterName, imageBytes);
+    return _writeLook(characterId, characterName, imageBytes, mediaId: mediaId);
   }
 
   Future<String> _writeLook(
     String characterId,
     String characterName,
-    Uint8List imageBytes,
-  ) async {
+    Uint8List imageBytes, {
+    String? mediaId,
+  }) async {
+    if (mediaId != null && await _db().getAvatarById(mediaId) != null) {
+      return mediaId;
+    }
     final looksDir = _mediaDir(characterName, 'looks');
     if (!await looksDir.exists()) {
       await looksDir.create(recursive: true);
     }
-    final filename = 'look_${DateTime.now().millisecondsSinceEpoch}.png';
+    final filename =
+        'look_${mediaId ?? DateTime.now().millisecondsSinceEpoch}.png';
     await File(p.join(looksDir.path, filename)).writeAsBytes(imageBytes);
 
     final displayOrder = await _db().countAvatarsForCharacter(characterId);
-    final avatarId = const Uuid().v4();
+    final avatarId = mediaId ?? const Uuid().v4();
     await _db().insertAvatar(
       AvatarImagesCompanion(
         id: Value(avatarId),

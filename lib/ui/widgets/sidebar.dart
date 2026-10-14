@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'sidebar_navigation_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
@@ -33,6 +34,7 @@ class Sidebar extends StatelessWidget {
   /// Every nav label below; the sidebar widens until the longest fits.
   static const labels = [
     'Home',
+    'Image batches',
     'The Stoop',
     'AI Character Creator',
     'Create Character',
@@ -89,11 +91,17 @@ class Sidebar extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _SidebarItem(
+                  SidebarNavigationItem(
                     icon: Icons.home_outlined,
                     label: 'Home',
                     isSelected: appState.selectedIndex == 0,
                     onTap: () => _goTo(context, appState, 0),
+                  ),
+                  SidebarNavigationItem(
+                    icon: Icons.collections_outlined,
+                    label: 'Image batches',
+                    isSelected: appState.selectedIndex == 6,
+                    onTap: () => _goTo(context, appState, 6),
                   ),
                   // The Stoop (community character hub) — a flagship destination, so it
                   // sits right under Home.
@@ -197,7 +205,7 @@ class Sidebar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _SidebarItem(
+                  SidebarNavigationItem(
                     icon: Icons.add_circle_outline,
                     label: 'Create Character',
                     isSelected: appState.selectedIndex == 1,
@@ -245,25 +253,25 @@ class Sidebar extends StatelessWidget {
                       ),
                     ),
                   ),
-                  _SidebarItem(
+                  SidebarNavigationItem(
                     icon: Icons.dns_outlined,
                     label: 'Manage Models',
                     isSelected: appState.selectedIndex == 2,
                     onTap: () => _goTo(context, appState, 2),
                   ),
-                  _SidebarItem(
+                  SidebarNavigationItem(
                     icon: Icons.settings_outlined,
                     label: 'Settings',
                     isSelected: appState.selectedIndex == 3,
                     onTap: () => _goTo(context, appState, 3),
                   ),
-                  _SidebarItem(
+                  SidebarNavigationItem(
                     icon: Icons.person_outline,
                     label: 'User Persona',
                     isSelected: appState.selectedIndex == 4,
                     onTap: () => _goTo(context, appState, 4),
                   ),
-                  _SidebarItem(
+                  SidebarNavigationItem(
                     icon: Icons.public_outlined,
                     label: 'Worlds',
                     isSelected: appState.selectedIndex == 5,
@@ -423,72 +431,6 @@ class Sidebar extends StatelessWidget {
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _SidebarItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool isSelected;
-  final VoidCallback onTap;
-
-  const _SidebarItem({
-    required this.icon,
-    required this.label,
-    required this.isSelected,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 4.0),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
-        child: Container(
-          decoration: BoxDecoration(
-            // Subtle selection: light blue tint in light mode (paper bg), low-alpha white in dark.
-            // Reuses AppColors.resolve (existing scaffold) — no new helper or private method.
-            color: isSelected
-                ? AppColors.resolve(
-                    context,
-                    Colors.white.withValues(alpha: 0.08),
-                    const Color(0xFFBFDBFE),
-                  )
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(8),
-          ),
-          padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 12.0),
-          child: Row(
-            children: [
-              Icon(
-                icon,
-                color: isSelected
-                    ? AppColors.textPrimary(context)
-                    : AppColors.textSecondary(context),
-                size: 22,
-              ),
-              const SizedBox(width: 12),
-              Flexible(
-                child: Text(
-                  label,
-                  style: TextStyle(
-                    color: isSelected
-                        ? AppColors.textPrimary(context)
-                        : AppColors.textSecondary(context),
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

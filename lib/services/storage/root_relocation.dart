@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
@@ -35,6 +36,7 @@ const kRootDirsToMove = [
   'koboldcpp_bin',
   'groups',
   'custom_backgrounds',
+  'ImageBatches',
 ];
 
 /// The MOVE half of a storage-root change: refuse-check, copy-everything,
@@ -180,5 +182,35 @@ Future<void> repointCustomBackgroundsAfterRootMove({
           ? path.join(newRoot, path.relative(filePath, from: oldRoot))
           : filePath,
     );
+  }
+}
+
+class RootRelocationGate {
+  bool isMoving = false;
+  Completer<void>? _completion;
+  Future<void> get settled => _completion?.future ?? Future<void>.value();
+  final Set<String? Function()> blockers = {};
+
+  String? get refusal {
+    if (isMoving) return 'A data directory move is already in progress.';
+    for (final blocker in blockers) {
+      final refusal = blocker();
+      if (refusal != null) return refusal;
+    }
+    return null;
+  }
+
+  Future<String?> move(Future<String?> Function() relocate) async {
+    final blocked = refusal;
+    if (blocked != null) return blocked;
+    isMoving = true;
+    _completion = Completer<void>();
+    try {
+      return await relocate();
+    } finally {
+      isMoving = false;
+      _completion!.complete();
+      _completion = null;
+    }
   }
 }

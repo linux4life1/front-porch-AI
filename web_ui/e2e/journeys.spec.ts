@@ -1021,3 +1021,35 @@ test('expression intensity rerolls Strong and can follow the pack again', async 
     await page.request.post('/api/image/config',{data:{backend:saved.backend,localUrl:saved.localUrl,currentPassword:process.env.FPAI_PASSWORD}});
   }
 });
+
+test('image batches prepare full expressions with rules and persist across navigation', async ({page}) => {
+  const original=await (await page.request.get('/api/image/config')).json() as {backend:string;localUrl:string;model:string};
+  let created: string[]=[];
+  try {
+    expect((await page.request.post('/api/image/config',{data:{backend:'a1111',model:'synthetic-checkpoint',localUrl:'http://127.0.0.1:9',currentPassword:process.env.FPAI_PASSWORD}})).ok()).toBe(true);
+    await openRoute(page,'/images');
+    await expect(page.getByRole('heading',{name:'Image batches',exact:true})).toBeVisible();
+    await page.getByLabel('Find characters').fill('Porch Tester');
+    await page.getByRole('button',{name:'Select visible',exact:true}).click();
+    await page.getByLabel('Save destination',{exact:true}).selectOption('expressions');
+    await page.getByLabel('Expression set',{exact:true}).selectOption('full');
+    await page.getByRole('button',{name:'Prompt rules · global defaults',exact:true}).click();
+    const dialog=page.getByRole('dialog',{name:'Prompt rules'});
+    await dialog.getByLabel('Prefix',{exact:true}).fill('Preserve the costume.');
+    await dialog.getByRole('button',{name:'Use for this pack',exact:true}).click();
+    await page.getByRole('button',{name:'Prepare for 1 character',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Start 28 images',exact:true})).toBeVisible();
+    const queue=await (await page.request.get('/api/image/batches')).json() as {jobs:{id:string;prompt:string;kind:string;state:string}[]};
+    created=queue.jobs.filter(j=>j.state==='waiting').map(j=>j.id);
+    expect(created).toHaveLength(28);
+    expect(queue.jobs.filter(j=>created.includes(j.id)).every(j=>j.prompt.startsWith('Preserve the costume.') && j.kind==='expressions')).toBe(true);
+    await openRoute(page,'/models'); await openRoute(page,'/images');
+    await page.getByRole('button',{name:'Queue',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Start 28 images',exact:true})).toBeVisible();
+    await page.reload(); await page.getByRole('button',{name:'Queue',exact:true}).click();
+    await expect(page.getByRole('button',{name:'Start 28 images',exact:true})).toBeVisible();
+  } finally {
+    for (const id of created) await page.request.post(`/api/image/batches/${id}/review`,{data:{action:'discard'}});
+    await page.request.post('/api/image/config',{data:{backend:original.backend,model:original.model,localUrl:original.localUrl,currentPassword:process.env.FPAI_PASSWORD}});
+  }
+});

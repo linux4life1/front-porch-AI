@@ -33,3 +33,4 @@ export 'kobold_chat_template_routes.dart';
 export 'civitai_routes.dart';
 export 'expression_pack_routes.dart';
 export 'image_desk_routes.dart';
+export 'image_batch_routes.dart';

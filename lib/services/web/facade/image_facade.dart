@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/image/image.dart';
+import 'package:front_porch_ai/services/web/facade/image/image_batches_facade.dart';
 
 export 'package:front_porch_ai/services/web/facade/image/image_desk_rules.dart';
 export 'package:front_porch_ai/services/web/facade/image/phone_lora_facts.dart';
@@ -81,6 +82,21 @@ class ImageFacade {
     _storage,
     _packBoard,
   );
+  late final ImageBatchesFacade _batches = ImageBatchesFacade(
+    _image,
+    _storage,
+    _characters,
+    _rules,
+  );
+  ImageBatchService get batches => _image.batches;
+  Future<void> prepareBatch(Map<String, dynamic> body) =>
+      _batches.prepareBatch(body);
+  Future<Map<String, Object>> previewBatchPrompts(Map<String, dynamic> body) =>
+      _batches.previewBatchPrompts(body);
+  Future<void> reviewBatch(String id, Map<String, dynamic> body) =>
+      _batches.reviewBatch(id, body);
+  Future<void> saveBatch() => _batches.saveBatch();
+
   late final ImageStudioPacks _packs = ImageStudioPacks(
     _image,
     _storage,
