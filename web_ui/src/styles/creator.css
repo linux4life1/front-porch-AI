@@ -1,0 +1,325 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   The AI Character Creator's palette, chrome and form parts, transcribed from
+   docs/design/creator-ui-spec.md (the approved sketch). The palette is Porch
+   Stories' (studio.css --studio-* tokens). Base rules are the desktop chrome
+   (wide web); every phone delta sits under [data-layout="phone"]. The page's
+   Greetings step is in greetings.css.
+*/
+
+/* ── Scope: system type, and the app tokens mapped onto the studio's, so
+   shared parts inside the creator (buttons, inputs, MacroField, notes) wear
+   the creator's palette too. ─────────────────────────────────────── */
+.cg-scope {
+  --bg: var(--studio-bg);
+  --surface: var(--studio-side);
+  --surface-2: var(--studio-raise);
+  --card: var(--studio-card);
+  --border: var(--studio-line);
+  --text: var(--studio-ink);
+  --text-strong: var(--studio-ink);
+  --muted: var(--studio-muted);
+  --faint: var(--studio-faint);
+  --accent: var(--studio-amber);
+  --accent-ink: var(--studio-amber-ink);
+  --on-accent: var(--studio-amber-ink);
+  --porch-amber: var(--studio-amber);
+  --porch-honey: var(--studio-honey);
+  --porch-terracotta: var(--studio-terra);
+  --sparkle: var(--studio-amber);
+  --danger: var(--studio-bad);
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+}
+.page.cg-scope {
+  max-width: none; margin: 0; padding: 0; height: 100%; min-height: 0;
+  display: flex; flex-direction: column;
+}
+.cg-scope .muted { color: var(--studio-muted); }
+.cg-scope .error { color: var(--studio-bad); }
+.cg-scope .macro-token { color: var(--studio-teal); font-weight: inherit; }
+[data-layout="phone"] .cg-scope .macro-token { font-weight: 700; }
+
+/* ── Phone top bar (the app's header while the creator is open) ─── */
+[data-layout="phone"] .app-shell:has(.cg-scope) .app-header {
+  height: calc(44px + env(safe-area-inset-top)); flex: none; gap: 12px;
+  padding: env(safe-area-inset-top) 12px 0;
+  background: var(--studio-side); border-bottom: 1px solid var(--studio-line);
+}
+[data-layout="phone"] .app-shell:has(.cg-scope) .hamburger {
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--studio-ink); font-size: 22px;
+}
+[data-layout="phone"] .app-shell:has(.cg-scope) .app-title {
+  font-size: 19px; font-weight: 700; color: var(--studio-ink);
+}
+
+/* ── Desktop app bar: back, sparkle, title, then the step dots ──── */
+.cg-scope .cg-bar {
+  flex: none; height: 56px; display: flex; align-items: center; gap: 14px;
+  padding: 0 16px; background: var(--studio-side); border-bottom: 1px solid var(--studio-line);
+}
+.cg-scope .page-head.cg-head {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center;
+  justify-content: flex-start; gap: 14px; margin: 0;
+}
+.cg-scope .cg-head button.cg-library {
+  width: 40px; height: 40px; padding: 0; border: 0; border-radius: 10px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center; gap: 6px;
+  background: transparent; color: var(--studio-ink); font-size: 14px; font-weight: 500;
+}
+.cg-scope .cg-head button.cg-library svg { width: 22px; height: 22px; }
+.cg-scope .cg-library-label { display: none; }
+.cg-scope .cg-head .cg-spark { width: 22px; height: 22px; color: var(--studio-amber); flex-shrink: 0; }
+.cg-scope .cg-head h2 {
+  margin: 0; font-size: 20px; font-weight: 600; color: var(--studio-ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Step dots (StepIndicator variant="porch"). Desktop: a right-aligned row of
+   52px columns (60px for Generate and Greetings), no lines. */
+.cg-scope .step-indicator.porch { flex: none; padding: 0; overflow: visible; }
+.cg-scope .step-indicator.porch .step-seg { flex: none; align-items: flex-start; }
+.cg-scope .step-indicator.porch .step-line { display: none; }
+.cg-scope .step-indicator.porch .step-dot {
+  width: 52px; gap: 3px; padding: 0; border: 0; background: transparent; color: var(--studio-muted);
+}
+/* Generate and Greetings: the 4th and 5th of the web's steps. */
+.cg-scope .step-indicator.porch .step-seg:nth-child(4) .step-dot,
+.cg-scope .step-indicator.porch .step-seg:nth-child(5) .step-dot { width: 60px; }
+.cg-scope .step-indicator.porch .step-dot:disabled { opacity: 1; }
+.cg-scope .step-indicator.porch .step-num {
+  width: 24px; height: 24px; border-radius: 12px; border: 0; box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--studio-raise); color: var(--studio-muted); font-size: 11px; font-weight: 600;
+}
+.cg-scope .step-indicator.porch .step-dot.done .step-num {
+  background: var(--studio-amber); color: var(--studio-amber-ink); font-size: 0;
+}
+/* The done check: the sketch's stroke-3 tick, in the dot's ink. */
+.cg-scope .step-indicator.porch .step-dot.done .step-num::after {
+  content: ''; width: 13px; height: 13px; background: currentColor;
+  -webkit-mask: var(--cg-check) center / contain no-repeat;
+  mask: var(--cg-check) center / contain no-repeat;
+}
+.cg-scope {
+  --cg-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 6L9 17l-5-5'/%3E%3C/svg%3E");
+}
+.cg-scope .step-indicator.porch .step-dot.current .step-num {
+  background: var(--studio-amber); color: var(--studio-amber-ink);
+  border: 2px solid var(--studio-ink); font-weight: 700;
+}
+.cg-scope .step-indicator.porch .step-label { font-size: 10px; color: var(--studio-faint); }
+.cg-scope .step-indicator.porch .step-dot.done .step-label { color: var(--studio-muted); }
+.cg-scope .step-indicator.porch .step-dot.current .step-label { color: var(--studio-ink); }
+
+/* ── Content: a centred column (860px; 960px on Mode) ──────────── */
+.cg-scope .cg-content { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+.cg-scope .cg-column {
+  width: 100%; max-width: calc(860px + 64px); margin: 0 auto; padding: 32px 32px 8px;
+  display: flex; flex-direction: column; gap: 16px;
+}
+.cg-scope .cg-column.cg-column-mode { max-width: calc(960px + 64px); }
+.cg-scope .wizard-body { gap: 16px; }
+.cg-scope .cg-intro { display: flex; flex-direction: column; gap: 6px; }
+.cg-scope .cg-intro h2 { margin: 0; font-size: 24px; font-weight: 700; color: var(--studio-ink); }
+.cg-scope .cg-intro p { margin: 0; font-size: 14px; line-height: 1.5; color: var(--studio-muted); }
+
+/* ── Bottom nav: a centred row ─────────────────────────────────── */
+.cg-scope .wizard-nav.cg-nav {
+  flex: none; display: flex; justify-content: center; align-items: center; gap: 14px;
+  margin: 0; padding: 18px 16px 24px; border: 0; background: var(--studio-bg);
+}
+.cg-scope .cg-nav button {
+  display: flex; align-items: center; justify-content: center; gap: 10px;
+  font-size: 16px; font-weight: 500; cursor: pointer;
+}
+.cg-scope .cg-nav button.cg-back {
+  height: 52px; padding: 0 24px; border-radius: 14px;
+  border: 1px solid var(--studio-line); background: var(--studio-card); color: var(--studio-ink);
+}
+.cg-scope .cg-nav button.cg-next {
+  width: 280px; height: 56px; padding: 0 16px; border-radius: 16px; border: 0;
+  background: var(--studio-amber); color: var(--studio-amber-ink);
+}
+.cg-scope .cg-nav button.cg-next svg { order: -1; }
+.cg-scope .cg-nav button:disabled { opacity: 0.45; cursor: default; }
+
+/* ── Fields ────────────────────────────────────────────────────── */
+.cg-scope .cg-config { display: flex; flex-direction: column; gap: 16px; }
+.cg-scope .cg-field { display: flex; flex-direction: column; gap: 6px; margin: 0; color: var(--studio-ink); }
+.cg-scope .cg-field-label,
+.cg-scope .cg-review-key {
+  font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px;
+  color: var(--studio-muted);
+}
+.cg-scope .cg-field-label .small { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.cg-scope .cg-field input:not([type='checkbox']):not([type='range']),
+.cg-scope .cg-field select,
+.cg-scope .cg-lore-url input {
+  height: 40px; margin: 0; padding: 0 12px; border-radius: 10px;
+  background: var(--studio-bg); border: 1px solid var(--studio-line);
+  color: var(--studio-ink); font-size: 14px;
+}
+.cg-scope .cg-field textarea {
+  margin: 0; padding: 10px 12px; border-radius: 10px; line-height: 1.45;
+  background: var(--studio-bg); border: 1px solid var(--studio-line);
+  color: var(--studio-ink); font-size: 14px;
+}
+.cg-scope .cg-field input::placeholder,
+.cg-scope .cg-field textarea::placeholder,
+.cg-scope .cg-lore-url input::placeholder { color: var(--studio-faint); }
+.cg-scope .cg-field input[type='range'] { accent-color: var(--studio-amber); }
+.cg-scope .cg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px 20px; }
+.cg-scope .cg-toggle {
+  flex-direction: row; align-items: center; gap: 10px; font-size: 14px; color: var(--studio-ink);
+}
+.cg-scope .cg-toggle input { width: auto; margin: 0; accent-color: var(--studio-amber); }
+.cg-scope .cg-subhead {
+  margin: 8px 0 0; padding-top: 16px; border-top: 1px solid var(--studio-line);
+  font-size: 16px; font-weight: 700; color: var(--studio-ink);
+}
+.cg-scope .cg-subhead .small { font-size: 12px; font-weight: 400; color: var(--studio-muted); }
+
+/* ── Chips ─────────────────────────────────────────────────────── */
+.cg-scope .cg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cg-scope button.cg-chip {
+  height: 34px; padding: 0 10px; border: 0; border-radius: 10px;
+  display: inline-flex; align-items: center;
+  background: var(--studio-raise); color: var(--studio-ink); font-size: 13px;
+}
+.cg-scope button.cg-chip.on { background: var(--studio-amber); color: var(--studio-amber-ink); font-weight: 700; }
+
+/* ── Mode cards ────────────────────────────────────────────────── */
+.cg-scope .cg-mode-cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.cg-scope button.cg-mode-card {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 12px; text-align: left;
+  padding: 20px; border-radius: 16px; border: 1px solid var(--studio-line);
+  background: var(--studio-card); color: var(--studio-ink);
+}
+.cg-scope button.cg-mode-card.on {
+  border: 2px solid var(--studio-amber); padding: 19px;
+  background: color-mix(in srgb, var(--studio-amber) 8%, var(--studio-card));
+}
+.cg-scope .cg-mode-tile {
+  width: 52px; height: 52px; flex: none; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--studio-amber) 14%, transparent); color: var(--studio-amber);
+}
+.cg-scope .cg-mode-tile svg { width: 28px; height: 28px; }
+.cg-scope .cg-mode-text { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.cg-scope .cg-mode-title { font-size: 18px; font-weight: 700; color: var(--studio-ink); }
+.cg-scope .cg-mode-sub { font-size: 13px; color: var(--studio-prose); }
+.cg-scope .cg-mode-desc { font-size: 12px; line-height: 1.5; color: var(--studio-muted); }
+.cg-scope .cg-mode-features {
+  display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--studio-muted);
+}
+
+/* ── Generate: summary card, button, live steps ────────────────── */
+.cg-scope .cg-card {
+  background: var(--studio-card); border: 1px solid var(--studio-line); border-radius: 16px;
+  padding: 20px; margin: 0;
+}
+.cg-scope .cg-review { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px 20px; color: var(--studio-ink); }
+.cg-scope .cg-review > div { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.cg-scope button.cg-generate {
+  align-self: flex-start; height: 48px; padding: 0 20px; border: 0; border-radius: 12px;
+  background: var(--studio-amber); color: var(--studio-amber-ink); font-size: 16px; font-weight: 700;
+}
+.cg-scope .chargen-steps { margin: 0; padding-left: 20px; font-size: 14px; }
+.cg-scope .chargen-steps li { padding: 2px 0; color: var(--studio-muted); }
+.cg-scope .chargen-steps li.done { color: var(--studio-ink); }
+.cg-scope .chargen-steps li.active { color: var(--studio-amber); font-weight: 600; }
+
+/* ── Lore context ──────────────────────────────────────────────── */
+.cg-scope .cg-lore { border-top: 1px solid var(--studio-line); padding-top: 16px; margin-top: 4px; }
+.cg-scope .cg-lore > p { margin: 0; font-size: 12px; line-height: 1.5; color: var(--studio-muted); }
+.cg-scope .cg-lore-url { display: flex; gap: 8px; align-items: stretch; }
+.cg-scope .cg-lore-url input { flex: 1; }
+.cg-scope .cg-lore-url button.primary {
+  height: 40px; padding: 0 16px; border: 0; border-radius: 10px;
+  background: var(--studio-amber); color: var(--studio-amber-ink); font-size: 14px; font-weight: 700;
+}
+.cg-scope .cg-lore-file { display: inline-flex; align-self: flex-start; margin: 0; cursor: pointer; }
+.cg-scope .cg-lore-file > span {
+  display: inline-flex; align-items: center; height: 36px; padding: 0 12px; border-radius: 10px;
+  border: 1.5px solid var(--studio-amber); color: var(--studio-amber); font-size: 13px; font-weight: 700;
+}
+.cg-scope .link-btn { color: var(--studio-amber); }
+
+/* ── Phone ─────────────────────────────────────────────────────── */
+[data-layout="phone"] .cg-scope .cg-bar {
+  height: auto; display: block; padding: 0; background: transparent; border: 0;
+}
+[data-layout="phone"] .cg-scope .page-head.cg-head { gap: 4px; padding: 10px 12px 0; }
+[data-layout="phone"] .cg-scope .cg-head button.cg-library {
+  width: auto; height: 44px; padding: 0 8px; color: var(--studio-muted);
+}
+[data-layout="phone"] .cg-scope .cg-head button.cg-library svg { width: 18px; height: 18px; }
+[data-layout="phone"] .cg-scope .cg-library-label { display: inline; }
+[data-layout="phone"] .cg-scope .cg-head .cg-spark { width: 18px; height: 18px; }
+[data-layout="phone"] .cg-scope .cg-spark-small { display: none; }
+[data-layout="phone"] .cg-scope .cg-head h2 { font-size: 17px; font-weight: 700; }
+
+[data-layout="phone"] .cg-scope .step-indicator.porch { display: flex; padding: 10px 16px 0; }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-seg { flex: 1 1 auto; min-width: 0; }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-seg:first-child { flex: 0 0 auto; }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-line {
+  display: block; flex: 1 1 auto; height: 2px; margin: 11px 4px 0;
+  background: color-mix(in srgb, var(--studio-line) 60%, transparent);
+}
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-dot,
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-seg .step-dot { width: auto; }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-num {
+  border: 1px solid color-mix(in srgb, var(--studio-line) 30%, transparent);
+}
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-dot.done .step-num { border: 0; }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-dot.current .step-num { border: 2px solid var(--studio-ink); }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-dot.done .step-num::after { width: 12px; height: 12px; }
+[data-layout="phone"] .cg-scope .step-indicator.porch .step-dot.current .step-label { color: var(--studio-prose); }
+
+[data-layout="phone"] .cg-scope .cg-column,
+[data-layout="phone"] .cg-scope .cg-column.cg-column-mode { max-width: none; padding: 18px 16px; gap: 14px; }
+[data-layout="phone"] .cg-scope .wizard-body,
+[data-layout="phone"] .cg-scope .cg-config { gap: 14px; }
+
+[data-layout="phone"] .cg-scope .wizard-nav.cg-nav {
+  justify-content: flex-start; gap: 10px; padding: 12px 16px 16px;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+  border-top: 1px solid var(--studio-line);
+}
+[data-layout="phone"] .cg-scope .cg-nav button { gap: 8px; }
+[data-layout="phone"] .cg-scope .cg-nav button.cg-back {
+  flex: 0 0 128px; height: 56px; padding: 0; border-radius: 16px; background: transparent;
+}
+[data-layout="phone"] .cg-scope .cg-nav button.cg-next { flex: 1 1 auto; width: auto; font-weight: 700; }
+[data-layout="phone"] .cg-scope .cg-nav button.cg-next svg { order: 0; }
+
+[data-layout="phone"] .cg-scope .cg-field input:not([type='checkbox']):not([type='range']),
+[data-layout="phone"] .cg-scope .cg-field select,
+[data-layout="phone"] .cg-scope .cg-lore-url input { height: 44px; }
+[data-layout="phone"] .cg-scope button.cg-chip { height: 36px; }
+[data-layout="phone"] .cg-scope .cg-grid2,
+[data-layout="phone"] .cg-scope .cg-review { grid-template-columns: 1fr; }
+[data-layout="phone"] .cg-scope .cg-card { padding: 16px; }
+
+/* The phone's mode cards are rows: tile, then title and subtitle. */
+[data-layout="phone"] .cg-scope .cg-mode-cards { grid-template-columns: 1fr; gap: 10px; }
+[data-layout="phone"] .cg-scope button.cg-mode-card {
+  flex-direction: row; align-items: center; gap: 14px; padding: 14px 16px;
+}
+[data-layout="phone"] .cg-scope button.cg-mode-card.on { padding: 13px 15px; }
+[data-layout="phone"] .cg-scope .cg-mode-tile { width: 44px; height: 44px; border-radius: 12px; }
+[data-layout="phone"] .cg-scope .cg-mode-tile svg { width: 24px; height: 24px; }
+[data-layout="phone"] .cg-scope .cg-mode-text { gap: 3px; }
+[data-layout="phone"] .cg-scope .cg-mode-title { font-size: 16px; }
+[data-layout="phone"] .cg-scope .cg-mode-sub { font-size: 12px; line-height: 1.4; color: var(--studio-muted); }
+[data-layout="phone"] .cg-scope .cg-mode-desc,
+[data-layout="phone"] .cg-scope .cg-mode-features { display: none; }
+
+/* Tablet widths: the desktop chrome, with the dots allowed under the title. */
+[data-layout="tablet"] .cg-scope .cg-bar { height: auto; min-height: 56px; flex-wrap: wrap; padding: 8px 16px; }
+@media (max-width: 1100px) {
+  .cg-scope .cg-mode-cards { grid-template-columns: 1fr; }
+}
