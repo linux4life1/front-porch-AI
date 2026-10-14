@@ -123,52 +123,67 @@ class GreetingIconButton extends StatelessWidget {
   }
 }
 
-/// The one-line steer: "start at the harbor at dawn".
+/// The spec's steer field: `raise` fill, no border, radius 12, 14px ink,
+/// a faint placeholder. One line at 44px ("start at the harbor at dawn"),
+/// or, when [grows], a box that grows with its text from 44px (the
+/// profile rewrite).
 class GreetingSteerField extends StatelessWidget {
   const GreetingSteerField({
     super.key,
     required this.controller,
     required this.enabled,
+    this.hint = 'Steer it (optional), e.g. start at the harbor at dawn',
+    this.grows = false,
+    this.onChanged,
   });
 
   final TextEditingController? controller;
   final bool enabled;
+  final String hint;
+  final bool grows;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: AppTextField(
-        controller: controller,
-        enabled: enabled,
-        maxLines: 1,
-        textAlignVertical: TextAlignVertical.center,
-        style: TextStyle(
+    final field = AppTextField(
+      controller: controller,
+      enabled: enabled,
+      maxLines: grows ? null : 1,
+      minLines: grows ? 1 : null,
+      onChanged: onChanged,
+      textAlignVertical: grows ? null : TextAlignVertical.center,
+      style: TextStyle(
+        fontSize: 14,
+        height: grows ? 1.4 : null,
+        color: enabled
+            ? StudioColors.inkOf(context)
+            : StudioColors.proseOf(context),
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: hint,
+        hintStyle: TextStyle(
           fontSize: 14,
-          color: enabled
-              ? StudioColors.inkOf(context)
-              : StudioColors.proseOf(context),
+          color: StudioColors.faintOf(context),
         ),
-        decoration: InputDecoration(
-          isDense: true,
-          hintText: 'Steer it (optional), e.g. start at the harbor at dawn',
-          hintStyle: TextStyle(
-            fontSize: 14,
-            color: StudioColors.faintOf(context),
-          ),
-          filled: true,
-          fillColor: StudioColors.raiseOf(context),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+        filled: true,
+        fillColor: StudioColors.raiseOf(context),
+        contentPadding: grows
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
       ),
     );
+    if (grows) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: field,
+      );
+    }
+    return SizedBox(height: 44, child: field);
   }
 }
 
@@ -188,9 +203,17 @@ const _label = TextStyle(fontSize: 14, fontWeight: FontWeight.w700);
 
 /// Rewrite this greeting (with the steer, when there is one).
 class GreetingRegenerateButton extends StatelessWidget {
-  const GreetingRegenerateButton({super.key, required this.onPressed});
+  const GreetingRegenerateButton({
+    super.key,
+    required this.onPressed,
+    this.label = 'Regenerate',
+  });
 
   final VoidCallback? onPressed;
+
+  /// The outlined action's words ("Rewrite the profile", "Rewrite the
+  /// lorebook").
+  final String label;
 
   @override
   Widget build(BuildContext context) {
@@ -202,7 +225,7 @@ class GreetingRegenerateButton extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: onPressed,
           icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('Regenerate', style: _label),
+          label: Text(label, style: _label),
           style: _outlined(context, amber, amber),
         ),
       ),

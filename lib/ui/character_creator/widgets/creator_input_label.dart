@@ -21,6 +21,13 @@ class CreatorInputLabel extends StatelessWidget {
     this.color,
   });
 
+  /// [text] upper-cased, except its macros: `{{user}}` stays `{{user}}`.
+  static String upper(String text) => text.splitMapJoin(
+    RegExp(r'\{\{[^}]*\}\}'),
+    onMatch: (m) => m[0]!,
+    onNonMatch: (s) => s.toUpperCase(),
+  );
+
   /// The label style, for labels that sit in their own row layout.
   static TextStyle styleOf(BuildContext context, {Color? color}) => TextStyle(
     fontSize: 11,
@@ -34,7 +41,7 @@ class CreatorInputLabel extends StatelessWidget {
     final style = styleOf(context, color: color);
     return Text.rich(
       TextSpan(
-        text: text.toUpperCase(),
+        text: upper(text),
         children: [
           if (required)
             TextSpan(

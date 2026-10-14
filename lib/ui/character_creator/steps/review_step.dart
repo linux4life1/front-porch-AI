@@ -153,7 +153,7 @@ class ReviewStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Review & Edit',
+                  'Review',
                   style: TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
@@ -162,8 +162,9 @@ class ReviewStep extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'The AI generated the following character card. Review and '
-                  'edit before saving.',
+                  'Everything the creator wrote, in one place. The profile and '
+                  'greetings are above. Example dialogue and the lorebook take '
+                  'the same line of direction as the rest.',
                   style: TextStyle(
                     color: StudioColors.mutedOf(context),
                     fontSize: 14,
@@ -222,11 +223,7 @@ class ReviewStep extends StatelessWidget {
                           ),
                         ],
                       ),
-                    CreatorTextCard(
-                      title: 'Example Dialogue',
-                      controller: state.exampleDialogueController,
-                      maxLines: 6,
-                    ),
+                    _dialogueCard(context),
                     CreatorTextCard(
                       title: 'System Prompt',
                       controller: state.systemPromptController,
@@ -240,6 +237,50 @@ class ReviewStep extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  /// "How {they} answer": the pronoun from the Sex field, "they" when it
+  /// says nothing the creator can read.
+  String _they() {
+    final sex = state.sexController.text.trim().toLowerCase();
+    if (RegExp(r'^(f|female|woman|girl|she)\b').hasMatch(sex)) return 'she';
+    if (RegExp(r'^(m|male|man|boy|he)\b').hasMatch(sex)) return 'he';
+    return 'they';
+  }
+
+  Widget _dialogueCard(BuildContext context) {
+    const kind = ReviewRewrite.dialogue;
+    final r = state.review;
+    final writing = r.writing(kind);
+    final llm = Provider.of<LLMProvider>(context, listen: false);
+    return CreatorTextCard(
+      key: const ValueKey('review-dialogue'),
+      title: 'Example dialogue',
+      subtitle: 'How ${_they()} answer, learned from the interview',
+      controller: state.exampleDialogueController,
+      boxKey: const ValueKey('review-dialogue-box'),
+      maxLines: 6,
+      writingText: writing
+          ? (r.dialogueText.isEmpty
+                ? state.exampleDialogueController.text
+                : r.dialogueText)
+          : null,
+      caret: writing && r.dialogueText.isNotEmpty,
+      status: writing ? 'Writing…' : null,
+      statusAmber: true,
+      below: [
+        ReviewRewriteRow(
+          id: 'review-dialogue',
+          steer: r.dialogueSteer,
+          hint: 'Steer it (optional), e.g. shorter lines, more bite',
+          action: 'Regenerate',
+          writing: writing,
+          onRun: () => state.regenerateExampleDialogue(llmProvider: llm),
+          onStop: () => state.stopReviewRewrite(kind),
+          error: r.errorOf(kind),
+        ),
+      ],
     );
   }
 }

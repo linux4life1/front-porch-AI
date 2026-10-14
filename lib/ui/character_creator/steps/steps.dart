@@ -9,6 +9,7 @@ export 'greetings_step.dart';
 export 'guided_config_step.dart';
 export 'guided_output_settings.dart';
 export 'mode_select_step.dart';
+export 'profile_step.dart';
 export 'quick_config_step.dart';
 export 'realism_step.dart';
 export 'review_step.dart';

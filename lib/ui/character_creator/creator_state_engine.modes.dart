@@ -52,7 +52,7 @@ class CreatorModeAssemblers {
       llmProvider: llmProvider,
       storage: storage,
       personaService: personaService,
-      build: (gen, worldLore, persona) => gen.generateCharacter(
+      inputs: (worldLore, persona) => GenRunInputs(
         name: state.nameController.text.trim(),
         concept: quickConcept,
         personalityKeywords: '',
@@ -79,9 +79,6 @@ class CreatorModeAssemblers {
         nsfwEnabled: state.nsfwEnabled,
         reasoningEnabled: state.reasoningEnabled,
         imageGenPromptParadigm: storage.imageGenSettings.imageGenPromptParadigm,
-        onProgress: _core.onProgress,
-        onStatus: _core.onStatus,
-        onError: _core.onError,
       ),
     );
   }
@@ -153,7 +150,7 @@ class CreatorModeAssemblers {
       llmProvider: llmProvider,
       storage: storage,
       personaService: personaService,
-      build: (gen, worldLore, persona) => gen.generateCharacter(
+      inputs: (worldLore, persona) => GenRunInputs(
         name: state.nameController.text.trim(),
         concept: parts.join('. '),
         personalityKeywords: state.guidedPersonalityController.text.trim(),
@@ -188,9 +185,6 @@ class CreatorModeAssemblers {
         nsfwEnabled: state.nsfwEnabled,
         reasoningEnabled: state.reasoningEnabled,
         imageGenPromptParadigm: storage.imageGenSettings.imageGenPromptParadigm,
-        onProgress: _core.onProgress,
-        onStatus: _core.onStatus,
-        onError: _core.onError,
       ),
     );
   }
@@ -274,68 +268,61 @@ class CreatorModeAssemblers {
       llmProvider: llmProvider,
       storage: storage,
       personaService: personaService,
-      build: (gen, worldLore, persona) async {
-        final card = await gen.generateCharacter(
-          name: state.nameController.text.trim(),
-          concept: enriched,
-          personalityKeywords: keywords,
-          artStyle: state.artStyle,
-          greetingLength: state.greetingLength,
-          altGreetingCount: state.altGreetingCount,
-          greetingTones: state.selectedTones.toList(),
-          generateLorebook: state.generateLorebook,
-          loreCategories: state.selectedLoreCategories.toList(),
-          loreDepth: state.loreDepth,
-          includeDynamicMacros: state.includeDynamicMacros,
-          narrativePerspective: state.narrativePerspective,
-          narrativeTense: state.narrativeTense,
-          descriptionDetail:
-              CreatorState.generationDetailOptions[state.generationDetail] ??
-              '2-3 paragraphs',
-          age: state.ageController.text.trim(),
-          sex: state.sexController.text.trim(),
-          worldLore: worldLore,
-          relationship: relationship,
-          backstory: [
-            if (state.backstoryOrigin.isNotEmpty) state.backstoryOrigin,
-            if (state.backstoryTone.isNotEmpty) '${state.backstoryTone} tone',
-            if (state.backstoryEra.isNotEmpty) '${state.backstoryEra} era',
-            if (state.backstoryNotesController.text.trim().isNotEmpty)
-              state.backstoryNotesController.text.trim(),
-          ].join(', '),
-          characterContext: [
-            if (effectiveRace.isNotEmpty) 'Race/Species: $effectiveRace',
-            if (state.ageController.text.trim().isNotEmpty)
-              'Age: ${state.ageController.text.trim()}',
-            if (state.sexController.text.trim().isNotEmpty)
-              'Sex: ${state.sexController.text.trim()}',
-            if (appearance.isNotEmpty) 'Appearance: ${appearance.join(", ")}',
-            if (relationship.isNotEmpty)
-              'Relationship to {{user}}: $relationship',
-            if (state.backstoryOrigin.isNotEmpty)
-              'Backstory origin: ${state.backstoryOrigin}',
-            if (state.backstoryTone.isNotEmpty)
-              'Story tone: ${state.backstoryTone}',
-            if (state.backstoryEra.isNotEmpty)
-              'Era/setting: ${state.backstoryEra}',
-            if (state.backstoryNotesController.text.trim().isNotEmpty)
-              'Backstory: ${state.backstoryNotesController.text.trim()}',
-            if (state.nsfwEnabled && nsfwParts.isNotEmpty) nsfwParts.join(', '),
-          ].join('\n'),
-          userPersonaContext: persona,
-          nsfwEnabled: state.nsfwEnabled,
-          reasoningEnabled: state.reasoningEnabled,
-          imageGenPromptParadigm:
-              storage.imageGenSettings.imageGenPromptParadigm,
-          // The automated flow injects the (possibly magic-wand authored)
-          // description verbatim rather than trusting the model's rewrite.
-          descriptionOverride: enriched,
-          onProgress: _core.onProgress,
-          onStatus: _core.onStatus,
-          onError: _core.onError,
-        );
-        return card;
-      },
+      inputs: (worldLore, persona) => GenRunInputs(
+        name: state.nameController.text.trim(),
+        concept: enriched,
+        personalityKeywords: keywords,
+        artStyle: state.artStyle,
+        greetingLength: state.greetingLength,
+        altGreetingCount: state.altGreetingCount,
+        greetingTones: state.selectedTones.toList(),
+        generateLorebook: state.generateLorebook,
+        loreCategories: state.selectedLoreCategories.toList(),
+        loreDepth: state.loreDepth,
+        includeDynamicMacros: state.includeDynamicMacros,
+        narrativePerspective: state.narrativePerspective,
+        narrativeTense: state.narrativeTense,
+        descriptionDetail:
+            CreatorState.generationDetailOptions[state.generationDetail] ??
+            '2-3 paragraphs',
+        age: state.ageController.text.trim(),
+        sex: state.sexController.text.trim(),
+        worldLore: worldLore,
+        relationship: relationship,
+        backstory: [
+          if (state.backstoryOrigin.isNotEmpty) state.backstoryOrigin,
+          if (state.backstoryTone.isNotEmpty) '${state.backstoryTone} tone',
+          if (state.backstoryEra.isNotEmpty) '${state.backstoryEra} era',
+          if (state.backstoryNotesController.text.trim().isNotEmpty)
+            state.backstoryNotesController.text.trim(),
+        ].join(', '),
+        characterContext: [
+          if (effectiveRace.isNotEmpty) 'Race/Species: $effectiveRace',
+          if (state.ageController.text.trim().isNotEmpty)
+            'Age: ${state.ageController.text.trim()}',
+          if (state.sexController.text.trim().isNotEmpty)
+            'Sex: ${state.sexController.text.trim()}',
+          if (appearance.isNotEmpty) 'Appearance: ${appearance.join(", ")}',
+          if (relationship.isNotEmpty)
+            'Relationship to {{user}}: $relationship',
+          if (state.backstoryOrigin.isNotEmpty)
+            'Backstory origin: ${state.backstoryOrigin}',
+          if (state.backstoryTone.isNotEmpty)
+            'Story tone: ${state.backstoryTone}',
+          if (state.backstoryEra.isNotEmpty)
+            'Era/setting: ${state.backstoryEra}',
+          if (state.backstoryNotesController.text.trim().isNotEmpty)
+            'Backstory: ${state.backstoryNotesController.text.trim()}',
+          if (state.nsfwEnabled && nsfwParts.isNotEmpty) nsfwParts.join(', '),
+        ].join('\n'),
+        userPersonaContext: persona,
+        nsfwEnabled: state.nsfwEnabled,
+        reasoningEnabled: state.reasoningEnabled,
+        imageGenPromptParadigm: storage.imageGenSettings.imageGenPromptParadigm,
+        // The automated flow injects the (possibly magic-wand authored)
+        // description verbatim rather than trusting the model's rewrite.
+        descriptionOverride: enriched,
+      ),
     );
   }
 }

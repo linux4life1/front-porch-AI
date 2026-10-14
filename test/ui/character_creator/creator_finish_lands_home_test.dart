@@ -122,7 +122,7 @@ void main() {
 
     // A card the Portrait panel already saved, now on Review.
     state.generatedCard = CharacterCard(dbId: 'juniper-db', name: 'Juniper');
-    state.currentStep = 6;
+    state.currentStep = 7; // Review (step 7 since #530 added Profile)
     state.notify();
     await _settle(tester);
 
@@ -201,7 +201,7 @@ void main() {
     final dynamic page = tester.state(find.byType(CharacterCreatorPage));
     final state = page.creatorState as CreatorState;
     state.generatedCard = CharacterCard(dbId: 'juniper-db', name: 'Juniper');
-    state.currentStep = 6;
+    state.currentStep = 7; // Review (step 7 since #530 added Profile)
     state.notify();
     await _settle(tester);
 

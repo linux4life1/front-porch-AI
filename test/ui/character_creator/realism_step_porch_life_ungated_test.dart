@@ -23,8 +23,10 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state_engine.core.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/realism_step.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
+import 'package:front_porch_ai/ui/widgets/realism_form_section/realism_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -155,4 +157,51 @@ void main() {
       );
     },
   );
+
+  testWidgets('shows the values generation seeded, through the same controls', (
+    tester,
+  ) async {
+    final state = _seedState(engineOn: true);
+    addTearDown(state.dispose);
+    // What Phase A (the facts) and Phase B (mood, time, outfit) write on
+    // the card, applied the way the creator applies it.
+    final card = CharacterCard(name: 'Aria Vale')
+      ..frontPorchExtensions = FrontPorchExtensions(
+        shortTermBond: 15,
+        trustLevel: 12,
+        characterEmotion: 'wistful',
+        emotionIntensity: 'strong',
+        timeOfDay: 'evening',
+        occupation: 'lighthouse keeper',
+        birthday: '1998-03-14',
+        currentTask: 'Trim the lamp before the storm.',
+      );
+    CreatorGenerationCore(state).applyGeneratedRealism(card);
+
+    await tester.pumpWidget(_app(state));
+    await tester.pumpAndSettle();
+
+    RealismSliderRow slider(String label) => tester
+        .widgetList<RealismSliderRow>(find.byType(RealismSliderRow))
+        .firstWhere((w) => w.label == label);
+    expect(slider('Short-Term Bond').value, 15);
+    expect(slider('Trust Level').value, 12);
+    final mood = tester.widget<RealismEmotionCard>(
+      find.byType(RealismEmotionCard),
+    );
+    expect(mood.emotion, 'wistful');
+    expect(mood.emotionIntensity, 'strong');
+    expect(
+      tester
+          .widget<RealismTimeDayCard>(find.byType(RealismTimeDayCard))
+          .timeOfDay,
+      'evening',
+    );
+    final identity = tester.widget<IdentityChipLists>(
+      find.byType(IdentityChipLists),
+    );
+    expect(identity.occupation, 'lighthouse keeper');
+    expect(identity.birthday, '1998-03-14');
+    expect(state.realismCurrentTask, 'Trim the lamp before the storm.');
+  });
 }

@@ -208,18 +208,26 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     'Mode',
     'Configure',
     'Generate',
+    'Profile',
     'Greetings',
     'Realism',
     'Review',
   ];
 
   /// The last step's index; its Next is "Save & Finish".
-  static const _lastStep = 6;
+  static const _lastStep = 7;
 
-  /// Next on the current step: Configure starts the generation, the last
-  /// step saves, every other step moves one on.
+  /// Next on the current step: Configure starts the generation (it stops on
+  /// Profile), Profile writes the rest (once), the last step saves, every
+  /// other step moves one on.
   void _next() {
     final step = creatorState.currentStep;
+    if (step == 4 && !creatorState.profile.completed) {
+      creatorState.continueGeneration(
+        llmProvider: Provider.of<LLMProvider>(context, listen: false),
+      );
+      return;
+    }
     if (step == 2) {
       creatorState.generateFromMode(
         llmProvider: Provider.of<LLMProvider>(context, listen: false),
@@ -243,10 +251,15 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
     // the card + review fields), and Next jumped to the Realism step, which
     // reports "Generation failed" for a null card while the first is still
     // streaming. Abort Generation on the step itself remains the way out.
-    // A greeting being written (or the outfit being re-read) holds them the
-    // same way; that card's Stop is the way out. The AppBar keeps today's
-    // lock: leaving or starting over stops the write instead.
-    final busy = creatorState.isGenerating || creatorState.greetings.busy;
+    // A greeting being written (or the outfit being re-read), and a
+    // profile rewrite or facts re-read, hold them the same way; that card's
+    // Stop is the way out. The Review rewrites lock only their own card
+    // (the spec's "States"). The AppBar keeps today's lock: leaving or
+    // starting over stops the write instead.
+    final busy =
+        creatorState.isGenerating ||
+        creatorState.greetings.busy ||
+        creatorState.profile.busy;
     return CreatorNavBar(
       busy: busy,
       showBack: step > 0,
@@ -268,8 +281,9 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       _ => AutomatedConfigStep(state: creatorState),
     },
     3 => GeneratingStep(state: creatorState),
-    4 => GreetingsStep(state: creatorState),
-    5 => RealismStep(state: creatorState),
+    4 => ProfileStep(state: creatorState),
+    5 => GreetingsStep(state: creatorState),
+    6 => RealismStep(state: creatorState),
     _ => ReviewStep(state: creatorState),
   };
 

@@ -66,8 +66,11 @@ class CreatorGreetings {
 
   final Map<TextEditingController, TextEditingController> _steers = {};
 
-  /// Back and Next wait while either model call is out.
-  bool get busy => writingIndex != null || rereadingOutfit;
+  /// "Rewrite the greetings from it" is going through every greeting.
+  bool rewritingAll = false;
+
+  /// Back and Next wait while any model call is out.
+  bool get busy => writingIndex != null || rereadingOutfit || rewritingAll;
 
   /// The one-line steer box of the greeting that [box] edits.
   TextEditingController steerFor(TextEditingController box) =>
@@ -116,6 +119,7 @@ class CreatorGreetings {
     outfitGen?.abort();
     outfitGen = null;
     rereadingOutfit = false;
+    rewritingAll = false;
   }
 
   /// The wizard is closing.

@@ -36,7 +36,10 @@ class CreatorBackendModels {
     state.generationStatus = 'Generation aborted.';
     state.generationPreview = '';
     state.progress = 0.0;
-    state.setStep(2); // Return to config step
+    // Phase A goes back to Configure; Phase B back to the Profile step,
+    // whose pause it never touched.
+    state.profile.continuing = false;
+    state.setStep(state.profile.paused != null ? 4 : 2);
     state.activeGenService = null;
     state.notify();
   }

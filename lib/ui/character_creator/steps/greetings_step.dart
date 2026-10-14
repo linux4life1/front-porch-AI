@@ -24,7 +24,7 @@ import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Step 4, in all three modes: the first message and the alternates, one
+/// Step 5, in all three modes: the first message and the alternates, one
 /// card each (#370). Edit in place, rewrite one (steered by a line of
 /// direction), add one, delete an alternate. One greeting is written at a
 /// time; the rest wait. Each greeting's starting state stays on Review.
@@ -73,6 +73,20 @@ class GreetingsStep extends StatelessWidget {
             spacing: 16,
             children: [
               _intro(context),
+              // The profile was rewritten (or edited) after these greetings
+              // were written: read from the text, never from the action.
+              if (state.profile.profileChangedSince(
+                state.descController.text,
+                state.personalityController.text,
+                g.recipe,
+                name: state.profile.fingerprintName(state.generatedCard!.name),
+              ))
+                ProfileHint(
+                  rewriting: g.rewritingAll,
+                  onRewrite: () =>
+                      state.rewriteAllGreetings(llmProvider: llm()),
+                  onKeep: state.keepGreetings,
+                ),
               card(0, state.firstMessageController),
               Padding(
                 padding: const EdgeInsets.only(top: 8),

@@ -188,6 +188,9 @@ current copy. (The template picker above them is PR 3.)
   creator restyles them under its own scope and bridges the old token names
   to the studio ones there, so shared pieces rendered inside the creator
   (global buttons and inputs, the macro field, notes) take the palette too.
+- The birthday field shows and edits the stored date (`YYYY-MM-DD`); the
+  label carries the age it must match. The sketch's "14 March" was a
+  stand-in for that value.
 - The web app is dark-only today (nothing sets a light theme); the studio
   light tokens are in place for when it gains one. The app shell around the
   creator (side rail, drawer, top bar outside the creator) keeps the app

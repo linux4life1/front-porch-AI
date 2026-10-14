@@ -24,6 +24,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_profile.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.models.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.prefs.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state/creator_form_reset.dart';
@@ -35,8 +36,8 @@ enum CreatorMode { automated, guided, quick }
 /// Shared state for the AI character creator wizard: form fields,
 /// controllers, prefs, load/save/reset, step index, and generation.
 class CreatorState extends ChangeNotifier {
-  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=greetings,
-  // 5=realism, 6=review)
+  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=profile,
+  // 5=greetings, 6=realism, 7=review)
   int _currentStep = 0;
   int get currentStep => _currentStep;
   set currentStep(int value) {
@@ -146,10 +147,12 @@ class CreatorState extends ChangeNotifier {
   final loreUrlsController = TextEditingController();
   List<PlatformFile> loreFiles = [];
 
-  // Review editable controllers (lifted)
-  final descController = TextEditingController();
-  final personalityController = TextEditingController();
-  final scenarioController = TextEditingController();
+  /// The profile boxes (the Profile step and Review share them). Replaced by
+  /// styled boxes made with their text when a profile arrives
+  /// ([adoptProfileBoxes]), like the greeting boxes.
+  TextEditingController descController = TextEditingController();
+  TextEditingController personalityController = TextEditingController();
+  TextEditingController scenarioController = TextEditingController();
 
   /// Replaced by [newGreetingBox] when a generated card's greetings arrive,
   /// like the alternates.
@@ -159,12 +162,29 @@ class CreatorState extends ChangeNotifier {
   List<TextEditingController> altGreetingControllers = [];
   List<GreetingRealismSeed?> greetingSeeds = [];
   final greetings = CreatorGreetings();
+  final profile = CreatorProfile();
+  final review = CreatorReview();
 
   /// A generated greeting's box: the character editor's, with spell check
   /// and macro, "dialogue" and *action* colouring. Made with its text, so
   /// no spell-check pass is queued until someone types.
   TextEditingController newGreetingBox([String text = '']) =>
       StyledTextController(text: text, preset: StyledTextPreset.studioProse);
+
+  /// A generated profile: its three boxes become styled boxes made with
+  /// their text (never at construction: the spell-check timer). The old
+  /// boxes may still be on screen this frame.
+  void adoptProfileBoxes(String description, String personality, String scen) {
+    final old = [descController, personalityController, scenarioController];
+    descController = newGreetingBox(description);
+    personalityController = newGreetingBox(personality);
+    scenarioController = newGreetingBox(scen);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final c in old) {
+        c.dispose();
+      }
+    });
+  }
 
   // Generation state (lifted)
   String generationStatus = '';
@@ -218,6 +238,9 @@ class CreatorState extends ChangeNotifier {
   /// sketch §4). Card-resident like the rest of this state.
   List<String> realismAmbitions = const [];
   List<String> realismPlanLines = const [];
+
+  /// The opening task (saved as `currentTask`), from the facts pass.
+  String realismCurrentTask = '';
   String realismOccupation = '';
   String realismOccupationBrief = '';
   String realismBirthday = '';
@@ -399,6 +422,8 @@ class CreatorState extends ChangeNotifier {
     if (_saveTimer?.isActive ?? false) saveState();
     // A greeting still being written must not land in a disposed box.
     greetings.dispose();
+    profile.dispose();
+    review.dispose();
     nameController.dispose();
     conceptController.dispose();
     keywordsController.dispose();

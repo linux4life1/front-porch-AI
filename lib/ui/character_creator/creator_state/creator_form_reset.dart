@@ -58,6 +58,9 @@ void clearCreatorForm(CreatorState s) {
 
   // Greetings step: stop a write first, so nothing lands in a box below.
   s.greetings.reset();
+  s.profile.reset();
+  s.review.reset();
+  s.realismCurrentTask = '';
 
   // Review controllers
   s.descController.clear();

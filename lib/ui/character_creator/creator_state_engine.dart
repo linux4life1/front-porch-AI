@@ -22,10 +22,14 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/ui/character_creator/creator_profile.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state_engine.core.dart';
 
 import 'package:front_porch_ai/ui/character_creator/creator_state_engine.greetings.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state_engine.modes.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state_engine.profile.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state_engine.review.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state_engine.tools.dart';
 
 /// The real generation + save engine for the AI character creator, restored
@@ -68,6 +72,40 @@ extension CreatorEngine on CreatorState {
         return modes.automated(llmProvider, storage, personaService);
     }
   }
+
+  // ── Profile step (creator_state_engine.profile.dart, .core.dart) ────
+
+  /// Next on the Profile step: write the rest (Phase B) and land on
+  /// Greetings.
+  Future<void> continueGeneration({required LLMProvider llmProvider}) =>
+      CreatorGenerationCore(this).continueGeneration(llmProvider);
+
+  /// Rewrite the profile, steered by the rewrite card's steer box.
+  Future<void> rewriteProfile({required LLMProvider llmProvider}) =>
+      CreatorProfileWriter(this).rewriteProfile(llmProvider: llmProvider);
+
+  /// Stop the profile rewrite; the old text stays.
+  void stopProfile() => CreatorProfileWriter(this).stopProfile();
+
+  /// Re-read the facts card from the profile as it is now.
+  Future<void> rereadFacts({required LLMProvider llmProvider}) =>
+      CreatorProfileWriter(this).rereadFacts(llmProvider: llmProvider);
+
+  // ── Review rewrites (creator_state_engine.review.dart) ───────────────
+
+  /// New example dialogue, steered by its steer box.
+  Future<void> regenerateExampleDialogue({required LLMProvider llmProvider}) =>
+      CreatorReviewRewriter(
+        this,
+      ).regenerateExampleDialogue(llmProvider: llmProvider);
+
+  /// A new lorebook that keeps entries edited by hand.
+  Future<void> rewriteLorebook({required LLMProvider llmProvider}) =>
+      CreatorReviewRewriter(this).rewriteLorebook(llmProvider: llmProvider);
+
+  /// Stop one Review rewrite; its card keeps what it had.
+  void stopReviewRewrite(ReviewRewrite kind) =>
+      CreatorReviewRewriter(this).stop(kind);
 
   // ── Field tools (creator_state_engine.tools.dart) ────────────────────
 
@@ -126,6 +164,14 @@ extension CreatorEngine on CreatorState {
   /// "Keep this outfit": the outfit now stands for today's first message.
   void keepOutfit() => CreatorGreetingWriter(this).keepOutfit();
 
+  /// "Rewrite the greetings from it": every greeting, from the profile as
+  /// it is now.
+  Future<void> rewriteAllGreetings({required LLMProvider llmProvider}) =>
+      CreatorGreetingWriter(this).rewriteAll(llmProvider: llmProvider);
+
+  /// "Keep them": the greetings stand for the profile as it reads now.
+  void keepGreetings() => CreatorGreetingWriter(this).keepGreetings();
+
   /// Persist the generated (and possibly edited) card. Returns true on success;
   /// the caller shows the SnackBar and pops on true, or surfaces [engineError]
   /// on false.
@@ -169,6 +215,7 @@ extension CreatorEngine on CreatorState {
         enjoysLowHygiene: realismEnjoysLowHygiene,
         ambitions: realismAmbitions,
         planLines: realismPlanLines,
+        currentTask: realismCurrentTask,
         occupation: realismOccupation,
         occupationBrief: realismOccupationBrief,
         hours: realismHours,
