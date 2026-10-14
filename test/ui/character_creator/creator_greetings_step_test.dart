@@ -43,6 +43,7 @@ import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
 import '../../golden/support/fakes.dart';
+import '../../services/chargen/support/failing_chargen_llm.dart';
 import '../../golden/support/fakes_storage.dart';
 
 const _name = 'Aria Vale';
@@ -262,23 +263,6 @@ class _ProfileLlm extends LLMService {
 
   @override
   String get backendName => 'scripted-test';
-}
-
-/// A model whose backend is down for the profile rewrite.
-class _FailingRewriteLlm extends LLMService {
-  @override
-  Stream<String> generateStream(GenerationParams params) async* {
-    if (params.prompt.contains('Rewrite the profile the way')) {
-      throw Exception('connection refused');
-    }
-    yield '{}';
-  }
-
-  @override
-  bool get isReady => true;
-
-  @override
-  String get backendName => 'failing-test';
 }
 
 class _Provider extends FakeLLMProvider {
@@ -984,11 +968,15 @@ void main() {
 
   testWidgets('Profile: a rewrite the model fails says it failed, not that '
       'it came back the same', (tester) async {
-    final llm = _FailingRewriteLlm();
+    final llm = FailingChargenLlm(failOn: 'Rewrite the profile the way')
+      ..failing = true;
     final provider = _Provider(llm);
     addTearDown(provider.dispose);
     final state = CreatorState();
     addTearDown(state.dispose);
+    // No retry waits: the failure arrives at once.
+    state.newGenService = (llm) =>
+        CharacterGenService(llm, retryDelay: (_) => Duration.zero);
     final card = CharacterCard(
       name: _name,
       description: _ProfileLlm.baseDesc,
@@ -1005,9 +993,10 @@ void main() {
     state.personalityController.text = card.personality;
     state.scenarioController.text = card.scenario;
     state.profile.steer.text = 'warmer';
-    // The engine retries a failing model with real waits (2s, 4s).
     await tester.runAsync(() => state.rewriteProfile(llmProvider: provider));
+    expect(llm.failures, greaterThan(1), reason: 'it retried, then gave up');
     expect(state.profile.error, startsWith('The rewrite failed'));
+    expect(state.profile.error, contains('connection refused'));
     expect(state.profile.error, isNot(contains('the same as before')));
     expect(state.descController.text, _ProfileLlm.baseDesc);
   });

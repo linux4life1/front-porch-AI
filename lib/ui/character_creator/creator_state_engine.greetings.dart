@@ -139,7 +139,7 @@ class CreatorGreetingWriter {
       state.notify();
       return;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     g
       ..rereadingOutfit = true
       ..outfitGen = gen
@@ -192,7 +192,7 @@ class CreatorGreetingWriter {
       state.notify();
       return;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     g
       ..clearError()
       ..writingIndex = index

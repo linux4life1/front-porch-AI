@@ -82,7 +82,7 @@ class CreatorProfileWriter {
       state.notify();
       return;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     final paused = p.paused!.copyWith(card: profileCardNow(state));
     p
       ..rewriting = true
@@ -92,11 +92,10 @@ class CreatorProfileWriter {
       ..factsError = null;
     state.notify();
     ProfileRewrite? result;
-    // Why the rewrite gave nothing: a thrown error, or the model failing
-    // every attempt (the engine retries and says so through onProgress).
-    // Only a clean answer with no change is "the same as before".
+    // Why the rewrite gave nothing: a thrown error, or a call that gave up
+    // after its retries (`lastFailure`). Only a clean answer with no change
+    // is "the same as before"; a Stop says nothing.
     Object? failure;
-    var retried = false;
     try {
       result = await gen.rewriteProfile(
         paused: paused,
@@ -106,10 +105,6 @@ class CreatorProfileWriter {
         direction: p.steer.text.trim(),
         onProgress: (s) {
           if (!identical(p.activeGen, gen)) return;
-          if (s.startsWith('[Retrying')) {
-            retried = true;
-            return;
-          }
           p.stream = parseProfileStream(s);
           state.notify();
         },
@@ -123,14 +118,13 @@ class CreatorProfileWriter {
       ..activeGen = null
       ..rewriting = false
       ..stream = const ProfileStreamView();
-    if (failure != null) {
+    final reason = failure ?? (result == null ? gen.lastFailure : null);
+    if (reason != null) {
       p.error =
-          'The rewrite failed: $failure. Nothing was changed. Check that '
+          'The rewrite failed: $reason. Nothing was changed. Check that '
           'your model is running, then try again.';
-    } else if (result == null && retried) {
-      p.error =
-          'The rewrite failed: the model did not answer. Nothing was '
-          'changed. Check that your model is running, then try again.';
+    } else if (result == null && gen.isAborted) {
+      p.error = null; // stopped
     } else if (result == null) {
       p.error =
           'The rewrite came back the same as before, so nothing was '
@@ -169,7 +163,7 @@ class CreatorProfileWriter {
       state.notify();
       return;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     final paused = p.paused!.copyWith(card: profileCardNow(state));
     p
       ..rereadingFacts = true
@@ -193,10 +187,13 @@ class CreatorProfileWriter {
     p
       ..factsGen = null
       ..rereadingFacts = false;
-    if (failure != null) {
+    final reason = failure ?? (facts == null ? gen.lastFailure : null);
+    if (reason != null) {
       p.factsError =
-          'The facts re-read failed: $failure. Nothing was changed. Check '
-          'that your model is running, then try again.';
+          'The facts could not be read from the profile: $reason. Nothing '
+          'was changed. Check that your model is running, then try again.';
+    } else if (facts == null && gen.isAborted) {
+      p.factsError = null; // stopped
     } else if (facts == null || facts.isEmpty) {
       p.factsError =
           'The facts could not be read from the profile. Nothing was '

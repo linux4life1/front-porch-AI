@@ -69,7 +69,7 @@ class CreatorGenerationCore {
 
     final persona = _personaContext(personaService);
     final worldLore = await _extractWorldLore(llmProvider, storage);
-    final genService = CharacterGenService(llmService);
+    final genService = state.newGenService(llmService);
     state.activeGenService = genService;
 
     final paused = await genService.generateProfile(
@@ -130,7 +130,7 @@ class CreatorGenerationCore {
     state.setStep(3);
     state.notify();
 
-    final gen = CharacterGenService(llmService);
+    final gen = state.newGenService(llmService);
     state.activeGenService = gen;
     final card = await gen.completeCharacter(
       paused: run,

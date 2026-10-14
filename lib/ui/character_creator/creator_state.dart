@@ -287,6 +287,10 @@ class CreatorState extends ChangeNotifier {
   final contextSizeController = TextEditingController();
   CharacterGenService? activeGenService;
 
+  /// Makes each run's service. A test swaps in one with no retry waits.
+  CharacterGenService Function(LLMService llm) newGenService =
+      CharacterGenService.new;
+
   // Options (lifted statics)
   static const generationDetailOptions = {
     'Brief': '1 short paragraph (80-150 words max)',

@@ -135,7 +135,7 @@ class CreatorReviewRewriter {
       state.notify();
       return null;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     r.start(kind, gen);
     state.notify();
     return gen;
