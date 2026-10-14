@@ -665,4 +665,102 @@ void main() {
       expect((body['lorebook'] as List), hasLength(entries.length));
     },
   );
+
+  // ── A lorebook edited in the phone's character editor still knows which
+  // entries the creator wrote: the editor gets each entry's stored JSON
+  // from /detail and sends it back, so the fingerprint survives the save.
+  // One entry edited there is kept by a rewrite; the others are replaced,
+  // not repeated.
+  test(
+    'a lorebook saved from the phone editor keeps the creator stamp',
+    () async {
+      final llm = StreamingChargenLlm(
+        textAnswers: {
+          'Generate WORLD-BUILDING lorebook entries': jsonEncode({
+            'lorebook': [
+              {
+                'name': 'The Rock',
+                'category': 'premise',
+                'key': 'rock, sea',
+                'content': 'ZZLORE A wet rock two miles out.',
+              },
+              {
+                'name': 'The Harbor',
+                'category': 'location',
+                'key': 'harbor, town',
+                'content': 'ZZLORE A harbor town of gulls and tar.',
+              },
+            ],
+          }),
+        },
+      );
+      final relay = await ChargenRelay.start(llm);
+      final book = Lorebook(
+        entries: [
+          LorebookEntry(
+            name: 'Old Rock',
+            keys: ['rock'],
+            content: 'Generated rock.',
+          ),
+          LorebookEntry(
+            name: 'My Pub',
+            keys: ['pub'],
+            content: 'Generated pub.',
+          ),
+          LorebookEntry(
+            name: 'Old Harbor',
+            keys: ['harbor'],
+            content: 'Generated harbor.',
+          ),
+        ],
+      );
+      stampLoreFingerprints(book);
+      final card = CharacterCard(
+        name: _name,
+        description: '{{char}} keeps the lighthouse.',
+        personality: 'Patient and dry.',
+        firstMessage: '*{{char}} trims the wick.*',
+        lorebook: book,
+      );
+      final id = (await relay.characters.persistNewCard(
+        card,
+      ))!['id'].toString();
+
+      // The phone editor: load the rows, change one entry's text, save all.
+      var (code, body) = await relay.get('/api/characters/$id/detail');
+      expect(code, 200, reason: '$body');
+      final rows = [
+        for (final r in ((body['lorebook'] as Map)['entries'] as List))
+          Map<String, dynamic>.from(r as Map),
+      ];
+      expect(rows, hasLength(3));
+      rows.firstWhere((r) => r['name'] == 'My Pub')['content'] =
+          'The pub I wrote myself.';
+      (code, body) = await relay.post('/api/characters/$id', {
+        'lorebook': rows,
+      });
+      expect(code, 200, reason: '$body');
+
+      final done = relay.next('chargen_rewrite_done');
+      (code, body) = await relay.post('/api/chargen/rewrite/lorebook', {
+        'characterId': id,
+      });
+      expect(code, 200, reason: '$body');
+      await done;
+      final entries = relay.characters.cardByDbId(id)!.lorebook!.entries;
+      final names = entries.map((e) => e.name).toList();
+      expect(
+        entries.firstWhere((e) => e.name == 'My Pub').content,
+        'The pub I wrote myself.',
+        reason: 'the entry edited on the phone is kept as written',
+      );
+      expect(
+        names,
+        isNot(anyOf(contains('Old Rock'), contains('Old Harbor'))),
+        reason: 'entries the creator wrote are replaced, not kept: $names',
+      );
+      expect(names.toSet(), hasLength(names.length), reason: 'no repeats');
+      expect(entries, hasLength(3), reason: '$names');
+    },
+  );
 }

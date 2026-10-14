@@ -21,7 +21,9 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/facade/chargen_facade.dart';
+import 'package:front_porch_ai/services/web/routes/character_routes.dart';
 import 'package:front_porch_ai/services/web/routes/chargen_routes.dart';
+import 'package:front_porch_ai/services/web/util/image_thumbnails.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 import '../../../golden/support/fakes.dart';
@@ -119,6 +121,12 @@ class ChargenRelay {
     WebChargenRoutes(
       ChargenFacade(provider, characters, hub, null, storage),
       router,
+    );
+    // The character routes the phone's editor uses (detail, update).
+    WebCharacterRoutes(
+      characters,
+      router,
+      thumbnails: ThumbnailCache(storage.webThumbnailCacheDir),
     );
     final relay = ChargenRelay._(router, characters, storage, provider, hub);
     final server = await shelf_io.serve(router.call, 'localhost', 0);
