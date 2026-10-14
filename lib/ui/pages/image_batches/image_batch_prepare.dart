@@ -36,6 +36,7 @@ class _ImageBatchPrepareState extends State<ImageBatchPrepare> {
   bool _missing = true;
   bool _fullSet = false;
   ExpressionPromptRules? _rules;
+  FolderService? _folders;
 
   @override
   void dispose() {
@@ -50,11 +51,14 @@ class _ImageBatchPrepareState extends State<ImageBatchPrepare> {
   Future<void> _action(Future<void> Function() action) =>
       widget.onAction(action);
   @override
-  Widget build(BuildContext context) =>
-      _prepare(widget.queue, widget.repository, widget.busy);
+  Widget build(BuildContext context) {
+    // Watched here, not in _folderPath: Select visible calls it from onPressed.
+    _folders = context.watch<FolderService?>();
+    return _prepare(widget.queue, widget.repository, widget.busy);
+  }
 
   String _folderPath(String? imagePath) {
-    final folders = context.watch<FolderService?>();
+    final folders = _folders;
     final folder = imagePath == null
         ? null
         : folders?.getFolderForCharacter(imagePath);
