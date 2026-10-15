@@ -48,7 +48,9 @@ Automated where the phone has two, so the desktop writes both canonical
 keys from its box and reads the active mode's; Quick's own tones, count and
 18+ on the desktop are saved from the active mode and filled on both sets
 on load. A phone template re-saved on the desktop loses the inactive
-mode's concept if the two differed; accepted.
+mode's concept if the two differed; accepted. The phone has no archetype
+or reasoning control, so those two keys ride through the merge untouched
+by a phone save.
 
 ### Built-ins
 
