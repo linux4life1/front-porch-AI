@@ -95,6 +95,9 @@ theme's font.
 | Mode card | `card`, 1px `line`, radius 16, padding 20, 12px gap; icon tile 52px radius 14 amber-at-14% fill with a 28px amber icon; title 18px / 700; subtitle 13px `prose`; description 12px / 1.5 `muted`; feature list 11px `muted`. Phone: a row card, 44px icon tile, title 16px / 700, subtitle 12px. |
 | Dialog | `card`, 1px `line`, radius 20, padding 24, 16px gap, 520px wide; title 20px / 700 with a 22px amber icon; body 14px / 1.5 `prose`; Cancel `prose` text button 44px, confirm amber 44px radius 12 14px / 700. Phone: a bottom sheet, radius 20 on top, 40×4 handle, stacked buttons (confirm 52px, Cancel 44px). |
 | Menu | `side` fill, 1px `line`, radius 10, 6px padding, items 36px tall 10px padding radius 8 14px; destructive in `bad`. |
+| Template picker card (Mode step) | Desktop: a card (padding 18×20×20, 14px gap) above the mode cards; header row 10px gap: bookmark icon 20px amber, title `Start from a template` 16px / 700, subtitle 12px `muted`. Tiles 176px wide in a 12px-gap row that wraps: `bg` fill, 1px `line`, radius 12, padding 12×12×10, 6px gap; name 14px / 600 `ink` (a button), summary 12px / 1.4 `muted`, `Saved {d Mon}` 11px `faint`; a ⋯ button 28×28 radius 14 at the top right (menu: Load, Rename, Delete in `bad`); a built-in tile carries the `Built in` pill (11px / 600 amber, 1px amber at 50%, radius 8, padding 1×7) and no menu; the selected tile has a 1.5px amber border; the last tile is dashed (`lineStrong`), `All 15 built in ›` 14px / 600 amber with a 12px `muted` line under it. Phone: h3 row (icon 18px, `Start from a template` 15px / 700) then a horizontal scroll of 168px tiles (`card` fill, padding 12) and a 120px dashed tile. |
+| Configure header (desktop) | Title and intro as today; when started from a template, under the intro: a pill 28px tall, 10px side padding, radius 14, amber at 12% fill, amber 12px / 600 with a 14px bookmark, `Started from: {name}`, then the caption `Changes stay on this form until you save them to the template.` 12px `faint`; at the header's right the outlined action button `Save as template` (44px, 16px padding, radius 12, 1.5px amber, amber 14px / 700, 18px bookmark). Phone: the pill and caption above a full-width outlined `Save as template` at the bottom of the Output step. |
+| Save-as-template dialog | The Dialog component: bookmark icon 22px amber + `Save as a template` 20px / 700; body 14px / 1.5 `prose`; field label `TEMPLATE NAME`, a steer-style field (`raise` fill, no border, radius 12, 44px, 14px side padding) prefilled with the started-from name; under it either the name problem in `bad` or the replace caption in amber; `Cancel` (`prose` text button 44px) and `Save template` (amber 44px radius 12 14px / 700, disabled on a problem). Phone: the bottom sheet (radius 20 top, 40×4 handle, stacked buttons, confirm 52px). Rename uses the same field; Delete confirms with the warm dialog's destructive form. |
 | Interview card | A card (padding 20 desktop / 16 phone, 14px gap / 12px). Header: title 16px / 700; intro 12px / 1.5 `muted`; pill row: pill 26px tall, 10px side padding, radius 13, amber at 12% fill, amber 12px / 600, then (desktop) a 12px `faint` caption; at the right the text button `Reset to the standard questions` (phone: `Reset`, 32px tall, 8px padding). Rows 8px apart, each a row with 10px gap (8 on the phone): handle 24×44 `faint`, six dots (1.6px radius), grab cursor; number 22×44 (20 on the phone) 13px / 600 `muted`; text area flex, `bg` fill, 1px `line`, radius 12, padding 10×14 (10×12 phone), 14px / 1.45 `ink` (16px phone), grows with its text, no resize handle; remove button 40×44 transparent `muted` × 18px. Conditional row: 1px dashed `#4E4134` border, text `#E8DDCF`, a pill under it 11px / 600 amber, 1px amber at 50%, radius 8, padding 1×7, and a 40px spacer in place of the remove button. Edited row: 1.5px amber border and a pill 11px / 600 `muted`, 1px `line`, radius 8. Footer: `Add a question` 40px tall, 14px side padding, radius 10, 1px dashed amber, transparent, amber 14px / 700 with a 16px plus (phone: full width, 44px tall, radius 12); count caption 12px `muted` (centred on the phone). |
 
 ## Screens, sections and labels
@@ -170,6 +173,35 @@ is kept.` Last button `Save & Finish`.
 the creation mode that fits your workflow.`; the three mode cards keep their
 current copy. (The template picker above them is PR 3.)
 
+**Mode step, templates.** Card title `Start from a template`; desktop
+subtitle `Every box filled the way you saved it. Pick one, or choose a mode
+below to start blank.`; phone intro `Pick a template, or a mode to start
+blank.` (the phone keeps its Name field and its mature-content switch above
+the picker). Tiles: your templates newest first (`{Mode} · {1st|3rd}
+person, {present|past} · lore on · 18+`, the parts that apply; `Saved {d
+Mon}`, with the year when it is not this year), then `Tsundere` and
+`Kuudere` with the `Built in` pill and a blurb from the archetype's
+keywords (two on the desktop, one on the phone), then `All 15 built in`
+with `Yandere, Femme Fatale, Dark Lord and the rest`, which opens the
+`Built-in templates` picker. Menu items `Load`, `Rename`, `Delete`; a file
+that cannot be read shows `This file can't be read` and only Delete.
+
+**Configure header** (desktop, every mode) and the phone's Output step:
+`Started from: {name}`, `Changes stay on this form until you save them to
+the template.`, button `Save as template`.
+
+**Save as a template.** Title `Save as a template`. Desktop body `Keeps
+every box on this form the way it is now: the mode, your vision and the
+interview boxes, output settings, lore, 18+ and the rest. Not the
+character's name.` Phone body `Keeps every box on this form the way it is
+now, in every step. Not the character's name. It shows on the desktop
+too.` Field `TEMPLATE NAME`. Captions: `A template with this name already
+exists. Saving replaces it.`; problems `Give the template a name.`, `Keep
+the name to 80 characters or fewer.`, `{Name} is a built-in template and
+can't be changed. Give yours another name.`; on rename `Another template
+already has this name.` Buttons `Cancel`, `Save template`. Delete asks
+`Delete this template?` with `Delete` in `bad`.
+
 **Interview card** (every mode; directly after the card that holds the
 Narrative voice selector: the Output settings card on the desktop Configure
 step, the end of the phone's Output step). Title `Interview`. Desktop intro:
@@ -219,6 +251,17 @@ and are the copy on both surfaces.
   end of the phone's Output step, which the phone's "Details" board stood
   in for). The phone rows carry the same six-dot handle as the desktop and
   drag by pointer, since reorder must exist on both surfaces.
+- Templates: the app ships fifteen archetypes, not the sketch's fourteen,
+  so the tile reads `All 15 built in` and a test pins the count to the
+  label. The sketch's "2nd person" summary does not exist; summaries say
+  1st or 3rd person. Built-in blurbs come from the archetype's keywords.
+  The desktop tile row wraps when there are more templates than fit; the
+  phone scrolls sideways. The phone keeps its Name field and mature switch
+  on the Mode step and shows the `Started from` pill and caption above its
+  Save button on the Output step, which the phone board does not draw. The
+  shared warm dialog reads the creator palette when opened inside the
+  creator, so Save, Rename, Delete and the built-ins picker match the
+  Dialog row without a second dialog primitive.
 - The web app is dark-only today (nothing sets a light theme); the studio
   light tokens are in place for when it gains one. The app shell around the
   creator (side rail, drawer, top bar outside the creator) keeps the app

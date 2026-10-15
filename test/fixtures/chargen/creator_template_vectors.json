@@ -1,0 +1,135 @@
+{
+  "note": "Shared by test/services/chargen/creator_templates_test.dart and web_ui/src/components/aichargen/templatesApi.test.ts. Slug: trimmed, lowercased; runs of [a-z0-9] joined by '-', capped at 48 (no trailing '-'); a name with any non-ASCII character, or an empty result, takes FNV-1a-32 (8 hex, over the lowered name's UTF-16 code units) appended with '-' (alone when the ASCII part is empty); Windows device names get '-template'.",
+  "slugs": [
+    {
+      "name": "Harbor town, slow burn",
+      "slug": "harbor-town-slow-burn"
+    },
+    {
+      "name": "  Modern 18+ quick ",
+      "slug": "modern-18-quick"
+    },
+    {
+      "name": "Tsundere",
+      "slug": "tsundere"
+    },
+    {
+      "name": "Café noir",
+      "slug": "caf-noir-e68f8894"
+    },
+    {
+      "name": "!!!",
+      "slug": "2d53a722"
+    },
+    {
+      "name": "con",
+      "slug": "con-template"
+    },
+    {
+      "name": "A A A A A A A A A A A A A A A A A A A A A A A A A A A A A A Z",
+      "slug": "a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a-a"
+    },
+    {
+      "name": "Dark Lord",
+      "slug": "dark-lord"
+    },
+    {
+      "name": "Yandere--Soft/Hard",
+      "slug": "yandere-soft-hard"
+    },
+    {
+      "name": "ÉLAN",
+      "slug": "lan-3efcfeef"
+    }
+  ],
+  "problems": [
+    {
+      "name": "",
+      "problem": "Give the template a name."
+    },
+    {
+      "name": "   ",
+      "problem": "Give the template a name."
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "problem": "Keep the name to 80 characters or fewer."
+    },
+    {
+      "name": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+      "problem": null
+    },
+    {
+      "name": "tsundere",
+      "problem": "Tsundere is a built-in template and can't be changed. Give yours another name."
+    },
+    {
+      "name": "Femme  Fatale",
+      "problem": "Femme Fatale is a built-in template and can't be changed. Give yours another name."
+    },
+    {
+      "name": "Harbor town, slow burn",
+      "problem": null
+    }
+  ],
+  "takenProblem": "Another template already has this name.",
+  "replacesCaption": "A template with this name already exists. Saving replaces it.",
+  "summaryLines": [
+    {
+      "form": {
+        "mode": "guided",
+        "narrativePerspective": "third",
+        "narrativeTense": "past",
+        "generateLorebook": true,
+        "nsfw": true
+      },
+      "desktop": "Guided · 3rd person, past · lore on · 18+",
+      "phone": "Guided · lore on · 18+"
+    },
+    {
+      "form": {
+        "mode": "quick",
+        "narrativePerspective": "first",
+        "narrativeTense": "present",
+        "generateLorebook": false,
+        "nsfw": true
+      },
+      "desktop": "Quick · 1st person, present · 18+",
+      "phone": "Quick · 18+"
+    },
+    {
+      "form": {
+        "mode": "automated",
+        "narrativePerspective": "first",
+        "narrativeTense": "present",
+        "generateLorebook": true,
+        "nsfw": false
+      },
+      "desktop": "Automated · 1st person, present · lore on",
+      "phone": "Automated · lore on"
+    }
+  ],
+  "savedLabels": [
+    {
+      "savedAt": "2026-10-04T12:00:00Z",
+      "now": "2026-10-14T12:00:00Z",
+      "label": "Saved 4 Oct"
+    },
+    {
+      "savedAt": "2025-12-25T12:00:00Z",
+      "now": "2026-10-14T12:00:00Z",
+      "label": "Saved 25 Dec 2025"
+    },
+    {
+      "savedAt": "2026-01-01T12:00:00Z",
+      "now": "2026-10-14T12:00:00Z",
+      "label": "Saved 1 Jan"
+    }
+  ],
+  "builtInCount": 15,
+  "builtInLabel": "All 15 built in",
+  "featured": [
+    "Tsundere",
+    "Kuudere"
+  ]
+}
