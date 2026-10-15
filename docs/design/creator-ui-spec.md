@@ -95,6 +95,7 @@ theme's font.
 | Mode card | `card`, 1px `line`, radius 16, padding 20, 12px gap; icon tile 52px radius 14 amber-at-14% fill with a 28px amber icon; title 18px / 700; subtitle 13px `prose`; description 12px / 1.5 `muted`; feature list 11px `muted`. Phone: a row card, 44px icon tile, title 16px / 700, subtitle 12px. |
 | Dialog | `card`, 1px `line`, radius 20, padding 24, 16px gap, 520px wide; title 20px / 700 with a 22px amber icon; body 14px / 1.5 `prose`; Cancel `prose` text button 44px, confirm amber 44px radius 12 14px / 700. Phone: a bottom sheet, radius 20 on top, 40×4 handle, stacked buttons (confirm 52px, Cancel 44px). |
 | Menu | `side` fill, 1px `line`, radius 10, 6px padding, items 36px tall 10px padding radius 8 14px; destructive in `bad`. |
+| Interview card | A card (padding 20 desktop / 16 phone, 14px gap / 12px). Header: title 16px / 700; intro 12px / 1.5 `muted`; pill row: pill 26px tall, 10px side padding, radius 13, amber at 12% fill, amber 12px / 600, then (desktop) a 12px `faint` caption; at the right the text button `Reset to the standard questions` (phone: `Reset`, 32px tall, 8px padding). Rows 8px apart, each a row with 10px gap (8 on the phone): handle 24×44 `faint`, six dots (1.6px radius), grab cursor; number 22×44 (20 on the phone) 13px / 600 `muted`; text area flex, `bg` fill, 1px `line`, radius 12, padding 10×14 (10×12 phone), 14px / 1.45 `ink` (16px phone), grows with its text, no resize handle; remove button 40×44 transparent `prose` × 18px. Conditional row: 1px dashed `#4E4134` border, text `#E8DDCF`, a pill under it 11px / 600 amber, 1px amber at 50%, radius 8, padding 1×7, and a 40px spacer in place of the remove button. Edited row: 1.5px amber border and a pill 11px / 600 `muted`, 1px `line`, radius 8. Footer: `Add a question` 40px tall, 14px side padding, radius 10, 1px dashed amber, transparent, amber 14px / 700 with a 16px plus (phone: full width, 44px tall, radius 12); count caption 12px `muted` (centred on the phone). |
 
 ## Screens, sections and labels
 
@@ -169,6 +170,27 @@ is kept.` Last button `Save & Finish`.
 the creation mode that fits your workflow.`; the three mode cards keep their
 current copy. (The template picker above them is PR 3.)
 
+**Interview card** (every mode; directly after the card that holds the
+Narrative voice selector: the Output settings card on the desktop Configure
+step, the end of the phone's Output step). Title `Interview`. Desktop intro:
+`The character is interviewed before the profile is written. Every answer
+reaches every later step. Edit any question, drag to reorder, or add your
+own. Each one is a model call, so fewer is faster on a local model. Voice
+first and appearance last works best.` Phone intro: `Asked before the
+profile is written. Each question is a model call. Voice first, appearance
+last works best.` Pill: `Answered in {first|third} person, {present|past}`;
+desktop caption beside it: `Follows Narrative voice above.` in the first
+person, `Follows Narrative voice above. {Her} own words are quoted when
+{she} speaks.` in the third (pronouns from the Sex field; `Their … they`
+when unknown). Text button `Reset to the standard questions` (phone
+`Reset`). Conditional pills: `Asked only when a relationship is set`, `Asked
+only when 18+ is on`. Edited pill: `Edited · kept as written`. Footer
+button `Add a question`; caption desktop `{n} of 12 · remove them all and
+the profile comes straight from your settings, no interview`, phone `{n} of
+12 · none means no interview`. The eleven standard questions and their
+first-person twins live in `lib/services/chargen/interview_questions.dart`
+and are the copy on both surfaces.
+
 ## Parts the sketch does not draw (settled during the build, both surfaces)
 
 - Selected chips: amber fill, amberInk text. Selected mode card: 2px amber
@@ -191,6 +213,12 @@ current copy. (The template picker above them is PR 3.)
 - The birthday field shows and edits the stored date (`YYYY-MM-DD`); the
   label carries the age it must match. The sketch's "14 March" was a
   stand-in for that value.
+- The Interview card: the sketch's dimmed "Narrative voice" row above it
+  stands for the existing selector, so the card follows the card that holds
+  that selector (the Output settings card on the desktop Configure step; the
+  end of the phone's Output step, which the phone's "Details" board stood
+  in for). The phone rows carry the same six-dot handle as the desktop and
+  drag by pointer, since reorder must exist on both surfaces.
 - The web app is dark-only today (nothing sets a light theme); the studio
   light tokens are in place for when it gains one. The app shell around the
   creator (side rail, drawer, top bar outside the creator) keeps the app

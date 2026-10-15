@@ -16,4 +16,5 @@ export 'interview_cap.dart';
 export 'lore_fingerprint.dart';
 export 'lorebook_mechanics.dart';
 export 'porch_life_identity.dart';
+export 'interview_questions.dart';
 export 'profile_stream.dart';
