@@ -511,6 +511,114 @@ test('the creator\'s Interview card: edit, remove, add and drag a question, then
   }
 });
 
+// Creator templates through the real relay and library: a template made on
+// the desktop (written here through the relay, with the desktop-only art
+// style, the third person and an edited interview question) loads on the
+// phone with the typed name left alone; saved back under its own name (the
+// replace caption shows) it keeps the art style; then it is renamed and
+// deleted through its ⋯ menu. Anything left is deleted whatever happens.
+test('creator templates: load a desktop-made template, save it back, rename and delete it', async ({ page }) => {
+  const project = test.info().project.name;
+  const NAME = `Templates Journey ${project}`;
+  const RENAMED = `${NAME} renamed`;
+  const EDITED = 'What does the keeper hear in the fog that nobody else does?';
+  // The slug rule for a plain ASCII name (templatesApi.ts has the whole rule).
+  const slugOf = (name: string) => (name.toLowerCase().match(/[a-z0-9]+/g) ?? []).join('-');
+  type Listed = { slug: string; name: string; form: Record<string, unknown> };
+  const list = async () =>
+    ((await (await page.request.get('/api/chargen/templates')).json()) as { templates: Listed[] }).templates;
+  try {
+    const made = await page.request.put(`/api/chargen/templates/${slugOf(NAME)}`, {
+      data: {
+        name: NAME,
+        form: {
+          mode: 'guided',
+          artStyle: 'Watercolor',
+          narrativePerspective: 'third',
+          narrativeTense: 'past',
+          guidedVision: 'A lighthouse keeper on a rock off a small harbor town.',
+          interviewQuestions: [
+            { key: 'voice', text: EDITED, condition: null },
+            { key: 'wants', text: null, condition: null },
+          ],
+        },
+      },
+    });
+    expect(made.ok(), `PUT the desktop template: ${made.status()}`).toBe(true);
+
+    await openRoute(page, '/create-ai');
+    const nameField = page.locator('.cg-field', { hasText: 'Name' }).locator('input').first();
+    await nameField.fill('Maren Holt');
+    const picker = page.getByTestId('template-picker');
+    await picker.getByRole('button', { name: NAME, exact: true }).click();
+    await expect(picker.getByTestId('template-tile').filter({ hasText: NAME }).first()).toHaveClass(/\bon\b/);
+    await expect(page.getByRole('button', { name: /Guided Creator/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(nameField).toHaveValue('Maren Holt');
+
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await expect(page.getByLabel('Your vision')).toHaveValue('A lighthouse keeper on a rock off a small harbor town.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+    await expect(page.getByRole('button', { name: 'Third person', exact: true })).toHaveClass(/\bon\b/);
+    await expect(page.getByRole('button', { name: 'Past', exact: true })).toHaveClass(/\bon\b/);
+    const card = page.getByTestId('interview-card');
+    await expect(card.getByText('Answered in third person, past')).toBeVisible();
+    await expect(card.getByTestId('interview-row')).toHaveCount(2);
+    await expect(card.getByLabel('Question 1', { exact: true })).toHaveValue(EDITED);
+    await expect(card.getByTestId('interview-row').first().getByText('Edited · kept as written')).toBeVisible();
+
+    // Save it back under the same name: the dialog says it replaces it.
+    const bar = page.getByTestId('template-save');
+    await expect(bar.getByText(`Started from: ${NAME}`)).toBeVisible();
+    await bar.getByRole('button', { name: 'Save as template' }).click();
+    const save = page.getByRole('dialog', { name: 'Save as a template' });
+    await expect(save.getByLabel('TEMPLATE NAME')).toHaveValue(NAME);
+    await expect(save.getByText('A template with this name already exists. Saving replaces it.')).toBeVisible();
+    await save.getByRole('button', { name: 'Save template', exact: true }).click();
+    await expect(save).toHaveCount(0);
+    await expect
+      .poll(async () => (await list()).find((t) => t.slug === slugOf(NAME))?.form.artStyle, {
+        message: 'the desktop-only art style survives the phone save',
+      })
+      .toBe('Watercolor');
+    const saved = (await list()).find((t) => t.slug === slugOf(NAME))!;
+    expect(saved.form).toMatchObject({ mode: 'guided', narrativePerspective: 'third', narrativeTense: 'past' });
+    expect((saved.form.interviewQuestions as { key: string; text: string | null }[])[0]).toMatchObject({
+      key: 'voice',
+      text: EDITED,
+    });
+    expect(saved.form, 'the character name is never in a template').not.toHaveProperty('name');
+
+    // Rename it through its ⋯ menu on the Mode step.
+    await page.locator('.step-dot', { hasText: 'Mode' }).click();
+    await picker.getByRole('button', { name: `More for ${NAME}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Rename' }).click();
+    const rename = page.getByRole('dialog', { name: 'Rename template' });
+    await rename.getByLabel('TEMPLATE NAME').fill(RENAMED);
+    await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+    await expect(rename).toHaveCount(0);
+    await expect(picker.getByRole('button', { name: RENAMED, exact: true })).toBeVisible();
+    await expect(picker.getByRole('button', { name: NAME, exact: true })).toHaveCount(0);
+    const slugs = (await list()).map((t) => t.slug);
+    expect(slugs).toContain(slugOf(RENAMED));
+    expect(slugs).not.toContain(slugOf(NAME));
+
+    // Delete it through the menu, after the confirm.
+    await picker.getByRole('button', { name: `More for ${RENAMED}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Delete this template?' });
+    await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(picker.getByRole('button', { name: RENAMED, exact: true })).toHaveCount(0);
+    expect((await list()).some((t) => t.slug === slugOf(RENAMED))).toBe(false);
+  } finally {
+    const left = (await list()).filter((t) => t.slug === slugOf(NAME) || t.slug === slugOf(RENAMED));
+    for (const t of left) {
+      const gone = await page.request.delete(`/api/chargen/templates/${t.slug}`);
+      expect(gone.ok(), `deleting the journey template ${t.slug}: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
 // Library card → Manage Chats → Start new chat → persona → a fresh chat,
 // on a character made for this test (so Porch Tester's chats stay as the
 // conversation journeys left them). Start new chat is offered even though

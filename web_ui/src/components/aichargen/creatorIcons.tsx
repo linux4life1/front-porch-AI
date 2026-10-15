@@ -98,6 +98,29 @@ export const PlusIcon = () => (
   </svg>
 );
 
+/** The templates' bookmark (picker header, Started from pill, Save). */
+export const BookmarkIcon = ({ size = 18 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size}>
+    <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />
+  </svg>
+);
+
+/** The Delete confirm's icon. */
+export const TrashIcon = ({ size = 22 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size}>
+    <path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6M10 11v6M14 11v6" />
+  </svg>
+);
+
+/** A template tile's ⋯ menu button. */
+export const MoreIcon = () => (
+  <svg viewBox="0 0 24 24" width={16} height={16} fill="currentColor" aria-hidden>
+    <circle cx="5" cy="12" r="2" />
+    <circle cx="12" cy="12" r="2" />
+    <circle cx="19" cy="12" r="2" />
+  </svg>
+);
+
 export const BubblesIcon = () => (
   <svg {...stroke}>
     <circle cx="7" cy="8" r="3" />

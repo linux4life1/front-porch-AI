@@ -75,13 +75,25 @@ export const rowText = (row: InterviewRow, standardTextByKey: Record<string, str
 export const toPayload = (rows: InterviewRow[]): InterviewPayloadRow[] =>
   rows.map(({ key, text, condition }) => ({ key, text, condition }));
 
+/** Rows from a stored list (a template's): the first use of a standard key
+ *  takes the id the card gives that key, so a re-fetch in a new voice
+ *  finds it; every other row gets its own. */
+export function rowsFromPayload(list: InterviewPayloadRow[]): InterviewRow[] {
+  const seen = new Set<string>();
+  return list.map((r, i) => {
+    const standard = r.key !== null && !seen.has(r.key);
+    if (r.key !== null) seen.add(r.key);
+    return { id: standard ? `std-${r.key}` : `tpl-${i}`, key: r.key, text: r.text, condition: r.condition };
+  });
+}
+
 /** The untouched standard set: every standard row, in order, none edited.
  *  The form keeps null for it, so the create body leaves the field out. */
 export const isStandardList = (rows: InterviewRow[], standard: StandardQuestion[]): boolean =>
   rows.length === standard.length && rows.every((r, i) => r.key === standard[i].key && r.text === null);
 
 const str = (v: unknown) => (typeof v === 'string' ? v : '');
-const conditionOf = (v: unknown): InterviewCondition | null =>
+export const conditionOf = (v: unknown): InterviewCondition | null =>
   v === 'relationship' || v === 'nsfw' ? v : null;
 
 /** The relay's answer read defensively. An answer with no rows is a

@@ -24,10 +24,19 @@ export interface MenuState {
 const WIDTH = 210;
 const ITEM_H = 38;
 
-export function CardMenu({ menu, onClose }: { menu: MenuState; onClose: () => void }) {
+export function CardMenu({
+  menu,
+  onClose,
+  width = WIDTH,
+}: {
+  menu: MenuState;
+  onClose: () => void;
+  /** The creator's template menu is narrower (its spec draws 150px). */
+  width?: number;
+}) {
   // Clamp into the viewport so a kebab near the right/bottom edge stays visible.
   const [pos] = useState(() => {
-    const maxLeft = window.innerWidth - WIDTH - 8;
+    const maxLeft = window.innerWidth - width - 8;
     const maxTop = window.innerHeight - menu.items.length * ITEM_H - 8;
     return {
       left: Math.max(8, Math.min(menu.x, maxLeft)),
@@ -74,7 +83,7 @@ export function CardMenu({ menu, onClose }: { menu: MenuState; onClose: () => vo
       <div
         ref={listRef}
         className="card-menu"
-        style={{ left: pos.left, top: pos.top, width: WIDTH }}
+        style={{ left: pos.left, top: pos.top, width }}
         onClick={(e) => e.stopPropagation()}
         onKeyDown={onMenuKey}
         role="menu"

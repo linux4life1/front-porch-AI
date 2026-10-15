@@ -33,9 +33,15 @@ import {
   type ProfileView,
 } from '../components/aichargen/profileApi';
 import { ArrowLeft, ArrowRight, Sparkle } from '../components/aichargen/creatorIcons';
+import { TemplatePicker } from '../components/aichargen/TemplatePicker';
+import { TemplateSaveBar } from '../components/aichargen/TemplateSaveBar';
+import { templateToForm } from '../components/aichargen/templateForm';
+import { useTemplates, type CreatorTemplate, type TemplateStart } from '../components/aichargen/templatesApi';
+import { useLayout } from '../hooks/useBreakpoint';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import '../styles/studio.css';
 import '../styles/creator.css';
+import '../styles/creator-templates.css';
 import '../styles/profile.css';
 
 const STEPS = ['Mode', 'Details', 'Output', 'Generate', 'Profile', 'Greetings'];
@@ -58,6 +64,15 @@ export function CreateAiCharacterPage() {
   }, [urlId]);
   const [form, setForm] = useState<ChargenForm>(DEFAULT_FORM);
   const set = (p: Partial<ChargenForm>) => setForm((f) => ({ ...f, ...p }));
+  const { isPhone } = useLayout();
+  // Templates: the form was loaded from [startedFrom] (page state only, so a
+  // fresh visit starts clean); it clears once the character is saved.
+  const templates = useTemplates();
+  const [startedFrom, setStartedFrom] = useState<TemplateStart | null>(null);
+  const loadTemplate = (t: CreatorTemplate) => {
+    setForm((f) => templateToForm(t.form, f));
+    setStartedFrom({ slug: t.slug, name: t.name, builtIn: t.builtIn });
+  };
   // A create pauses after the profile; the run waits on the relay (which
   // keeps it in a file), so ?profile=pending finds it again after a reload.
   // Held in state and set with the step on chargen_profile, as the id is.
@@ -150,6 +165,7 @@ export function CreateAiCharacterPage() {
         const id = String(e.id);
         setBusy(false);
         setCreatedId(id);
+        setStartedFrom(null);
         setStep(GREETINGS);
         leaveWithoutAsking();
         // Replace, so the browser's Back leaves the creator instead of
@@ -271,12 +287,31 @@ export function CreateAiCharacterPage() {
               <div className="cg-config">
                 <div className="cg-intro">
                   <h2>How do you want to create?</h2>
-                  <p>Choose the creation mode that fits your workflow.</p>
+                  <p>
+                    {isPhone
+                      ? 'Pick a template, or a mode to start blank.'
+                      : 'Choose the creation mode that fits your workflow.'}
+                  </p>
                 </div>
                 <label className="cg-field">
                   <span className="cg-field-label">Name</span>
                   <input value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="e.g. Aria Vale" />
                 </label>
+                <TemplatePicker
+                  templates={templates.templates}
+                  error={templates.error}
+                  onRetry={() => void templates.reload()}
+                  selected={startedFrom?.slug ?? null}
+                  onLoad={loadTemplate}
+                  onRenamed={(from, to) => {
+                    setStartedFrom((s) => (s?.slug === from ? to : s));
+                    void templates.reload();
+                  }}
+                  onDeleted={(slug) => {
+                    setStartedFrom((s) => (s?.slug === slug ? null : s));
+                    void templates.reload();
+                  }}
+                />
                 <ModeCards mode={form.mode} onPick={(mode) => set({ mode })} />
                 <label className="cg-field cg-toggle">
                   <input type="checkbox" checked={form.nsfw} onChange={(e) => set({ nsfw: e.target.checked })} />
@@ -291,6 +326,17 @@ export function CreateAiCharacterPage() {
             {step === 1 && <LoreContext form={form} set={set} />}
 
             {step === 2 && <OutputSettings form={form} set={set} />}
+            {step === 2 && (
+              <TemplateSaveBar
+                form={form}
+                templates={templates.templates ?? []}
+                startedFrom={startedFrom}
+                onSaved={(to) => {
+                  setStartedFrom(to);
+                  void templates.reload();
+                }}
+              />
+            )}
 
             {step === GENERATE && (
               <div className="cg-config">
