@@ -8,23 +8,29 @@ export const kWorkerDualLocalMessage =
   'time — they would fight over the GPU. Use a cloud/API host for one of ' +
   'them, or turn the worker off.';
 
-function isLoopbackOrLan(url: string): boolean {
+function bareHostname(hostname: string): string {
+  const host = hostname.toLowerCase();
+  if (host.startsWith('[') && host.endsWith(']')) {
+    return host.slice(1, -1);
+  }
+  return host;
+}
+
+function isByte(part: string): boolean {
+  return /^\d{1,3}$/.test(part) && Number(part) <= 255;
+}
+
+/// This machine only: localhost, 127.0.0.0/8, ::1, 0.0.0.0.
+/// WHATWG hostname keeps the brackets on [::1].
+function isThisMachineUrl(url: string): boolean {
   try {
-    const host = new URL(url.trim()).hostname.toLowerCase();
+    const host = bareHostname(new URL(url.trim()).hostname);
     if (!host) return false;
-    if (
-      host === 'localhost' ||
-      host === '127.0.0.1' ||
-      host === '0.0.0.0' ||
-      host === '::1'
-    ) {
+    if (host === 'localhost' || host === '0.0.0.0' || host === '::1') {
       return true;
     }
-    if (host.endsWith('.local')) return true;
-    if (host.startsWith('192.168.') || host.startsWith('10.')) return true;
-    if (/^172\.(1[6-9]|2\d|3[0-1])\./.test(host)) return true;
-    if (/^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./.test(host)) return true;
-    return false;
+    const parts = host.split('.');
+    return parts.length === 4 && parts[0] === '127' && parts.every(isByte);
   } catch {
     return isLmStudioUrl(url) || isOmlxUrl(url);
   }
@@ -36,7 +42,7 @@ export function backendLaneIsLocal(backend: string, url: string): boolean {
     case 'omlx':
       return true;
     case 'openRouter':
-      return isLoopbackOrLan(url);
+      return isThisMachineUrl(url);
     default:
       return false;
   }
