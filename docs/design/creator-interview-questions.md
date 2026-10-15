@@ -105,4 +105,31 @@ header, and renders its text areas at 16px.
 
 ## Files
 
-Filled from the implementation plan (see the PR).
+- Engine: `lib/services/chargen/interview_questions.dart` (the set, the row
+  model, the renderer, the seed, the phone's view), `interview_cap.dart`
+  (16,000), `lib/services/character_gen/gen_interview_steps.dart`
+  (`runInterview` takes the rendered questions and the voice; no questions,
+  no call), `gen_generator.dart`, `gen_enhancer.dart`, `gen_run_inputs.dart`
+  (`interviewQuestions`), `gen_card_completion.dart`, `gen_identity_facts.dart`,
+  `gen_porch_life.dart` (no empty interview headings),
+  `character_gen_service.dart`.
+- Relay: `lib/services/web/facade/chargen/chargen_create.dart` (body, stamp,
+  `readCreatorInputs`), `chargen_pending.dart` (the saved-run fallback),
+  `lib/services/web/routes/chargen_routes.dart` (`GET /api/chargen/interview`).
+- Desktop: `lib/ui/character_creator/creator_interview.dart` (the rows and
+  their controllers), `widgets/interview_questions_card.dart`,
+  `widgets/interview_question_row.dart`, `widgets/creator_dashed_outline.dart`
+  (shared with "Add another greeting"), the three Configure steps, the
+  Profile step's transcript row, `creator_state*.dart` (prefs key
+  `chargen_interview_questions`, reset, the three run sites),
+  `lib/ui/theme/studio_colors.dart` (`lineStrong`).
+- Web: `web_ui/src/components/aichargen/interviewRows.ts`, `InterviewCard.tsx`,
+  `chargenForm.ts`, `OutputSettings.tsx`, `ProfileStep.tsx`, `creatorIcons.tsx`,
+  `styles/creator.css`, `styles/studio.css` (`--studio-line-strong`); the
+  scripted backend `integration_test/support/fake_backend_chargen.dart`
+  answers third-person interviews; one journey in `web_ui/e2e/journeys.spec.ts`.
+- Tests: `test/services/chargen/interview_questions_test.dart`,
+  `character_gen_enhance_test.dart` (the seven-question pin is now nine),
+  `test/services/web/chargen_greeting_routes_test.dart`,
+  `test/ui/character_creator/creator_interview_card_test.dart`, the vitest
+  files beside the web sources.
