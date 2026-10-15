@@ -18,6 +18,7 @@ import { CloseIcon, DotsIcon, PlusIcon } from './creatorIcons';
 import {
   INTERVIEW_CAP,
   addRow,
+  asksNothing,
   countCaption,
   editRow,
   followsCaption,
@@ -71,12 +72,17 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
   }, [form.sex, sex]);
 
   const { narrativePerspective: perspective, narrativeTense: tense } = form;
+  // The voice the loaded set was rendered for: until it matches, the rows
+  // still show the previous wording and stay locked.
+  const [loadedFor, setLoadedFor] = useState('');
+  const wantFor = `${perspective}|${tense}|${sex}`;
   useEffect(() => {
     let alive = true;
     loadStandard(perspective, tense, sex)
       .then((s) => {
         if (!alive) return;
         setStandard(s);
+        setLoadedFor(`${perspective}|${tense}|${sex}`);
         setLoadFailed(false);
       })
       .catch((err) => {
@@ -95,7 +101,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
     () => Object.fromEntries((standard?.rows ?? []).map((q) => [q.key, q.text])),
     [standard],
   );
-  const locked = standard === null;
+  const locked = standard === null || loadedFor !== wantFor;
 
   const commit = (next: InterviewRow[]) => {
     if (next === rowsRef.current) return;
@@ -281,7 +287,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
           Add a question
         </button>
         <span className="cg-iv-count" data-testid="interview-count">
-          {countCaption(rows.length, isPhone)}
+          {countCaption(rows.length, isPhone, asksNothing(rows, textByKey))}
         </span>
       </div>
     </section>

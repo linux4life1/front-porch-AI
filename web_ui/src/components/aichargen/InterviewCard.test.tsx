@@ -249,6 +249,37 @@ describe('InterviewCard', () => {
     expect(container.querySelector('.cg-iv-row.edited')).toBeNull();
   });
 
+  it('the count caption says no interview once only the conditional rows are left', async () => {
+    // Grok, 2026-10-14: the conditional rows cannot be removed, so the hint
+    // to remove them all would be a lie once nothing else is left.
+    await render(1280);
+    await answerLast();
+    for (let i = 0; i < 3; i++) await click(button(/^Remove question 1$/));
+    for (let i = 0; i < 5; i++) await click(button(/^Remove question 2$/));
+    await click(button(/^Remove question 3$/));
+    expect(rowsShown()).toHaveLength(2);
+    expect(keys()).toEqual(['relationship', 'intimacy']);
+    expect(container.textContent).toContain('2 of 12 · no interview: the profile comes straight from your settings');
+  });
+
+  it('a new voice locks the rows until the matching set arrives', async () => {
+    // Grok, 2026-10-14: the pill followed the form at once while the rows
+    // kept the old wording and stayed editable until the fetch returned.
+    await render(1280);
+    await answerLast();
+    expect(rowsShown()[0].querySelector('textarea')!.disabled).toBe(false);
+    await act(async () => {
+      setForm({ narrativePerspective: 'third' });
+    });
+    await settle();
+    expect(container.textContent).toContain('Answered in third person, present');
+    expect(rowsShown()[0].querySelector('textarea')!.disabled).toBe(true);
+    expect(button(/^Add a question$/).disabled).toBe(true);
+    await answerLast();
+    expect(rowsShown()[0].querySelector('textarea')!.disabled).toBe(false);
+    expect(textOf(0)).toBe('voice in third present');
+  });
+
   it('a drag on the handle reorders the rows as the pointer passes them', async () => {
     // Each row 50px tall, 60px apart, in the order the page shows them.
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {

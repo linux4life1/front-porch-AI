@@ -57,6 +57,20 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
   void initState() {
     super.initState();
     _interview.applyVoice(_voice, _pronouns);
+    // Guided and Automated save the Sex box without a notify, so the
+    // pronouns follow the box itself rather than a rebuild.
+    _state.sexController.addListener(_sexChanged);
+  }
+
+  @override
+  void dispose() {
+    _state.sexController.removeListener(_sexChanged);
+    super.dispose();
+  }
+
+  void _sexChanged() {
+    if (!mounted) return;
+    setState(() => _interview.applyVoice(_voice, _pronouns));
   }
 
   /// The page rebuilds the step on every change, so a new voice or Sex
@@ -119,7 +133,7 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
               },
               itemBuilder: (context, i) => _item(i, rows[i]),
             ),
-            _footer(context, rows.length),
+            _footer(context, rows),
           ],
         ),
       ),
@@ -264,9 +278,20 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
     );
   }
 
-  Widget _footer(BuildContext context, int count) {
+  Widget _footer(BuildContext context, List<InterviewRow> rows) {
     final amber = StudioColors.amberOf(context);
     final canAdd = !_interview.atCap;
+    final count = rows.length;
+    // The two conditional rows cannot be removed, so once nothing else is
+    // left the hint to remove them all would be a lie.
+    final none = interviewAsksNothing(
+      [for (final r in rows) r.q],
+      voice: _voice,
+      pronouns: _pronouns,
+    );
+    final caption = none
+        ? '$count of $kInterviewQuestionCap · no interview: the profile comes straight from your settings'
+        : '$count of $kInterviewQuestionCap · remove them all and the profile comes straight from your settings, no interview';
     return Row(
       spacing: 12,
       children: [
@@ -309,7 +334,7 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
         ),
         Expanded(
           child: Text(
-            '$count of $kInterviewQuestionCap · remove them all and the profile comes straight from your settings, no interview',
+            caption,
             key: const ValueKey('interview-count'),
             style: TextStyle(
               fontSize: 12,

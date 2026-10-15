@@ -114,7 +114,19 @@ export function followsCaption(perspective: 'first' | 'third', pronouns: Standar
   return `Follows Narrative voice above. ${possessive.charAt(0).toUpperCase()}${possessive.slice(1)} own words are quoted when ${subject} ${verb}.`;
 }
 
-export const countCaption = (n: number, phone: boolean) =>
-  phone
+export const countCaption = (n: number, phone: boolean, none = false) => {
+  if (none) {
+    return phone
+      ? `${n} of ${INTERVIEW_CAP} · no interview: the profile comes from your settings`
+      : `${n} of ${INTERVIEW_CAP} · no interview: the profile comes straight from your settings`;
+  }
+  return phone
     ? `${n} of ${INTERVIEW_CAP} · none means no interview`
     : `${n} of ${INTERVIEW_CAP} · remove them all and the profile comes straight from your settings, no interview`;
+};
+
+/** No unconditional row with text is left, so the run asks nothing: the
+ *  two conditional rows cannot be removed, and the engine drops them on
+ *  their own. */
+export const asksNothing = (rows: InterviewRow[], textByKey: Record<string, string>) =>
+  !rows.some((r) => !r.condition && rowText(r, textByKey).trim() !== '');

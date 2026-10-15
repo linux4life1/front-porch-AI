@@ -178,6 +178,33 @@ void main() {
       },
     );
 
+    test('a blank custom row does not keep the conditional rows alive', () {
+      // Grok, 2026-10-14: the gate once ran before blanks were dropped, so
+      // a blank unconditional row let the two conditional questions run on
+      // their own.
+      final rows = [
+        const InterviewQuestion(key: 'voice', text: '   '),
+        ...standardInterviewQuestions().where((q) => q.isConditional),
+      ];
+      expect(_render(rows, relationship: 'rival', nsfw: true), isEmpty);
+      expect(
+        interviewAsksNothing(
+          rows,
+          voice: _first,
+          pronouns: NarrativePronouns.they,
+        ),
+        isTrue,
+      );
+      expect(
+        interviewAsksNothing(
+          standardInterviewQuestions(),
+          voice: _first,
+          pronouns: NarrativePronouns.they,
+        ),
+        isFalse,
+      );
+    });
+
     test('no rows, or only the conditional rows, means no interview', () {
       expect(_render(const []), isEmpty);
       final onlyConditional = standardInterviewQuestions()

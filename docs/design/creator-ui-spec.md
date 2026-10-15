@@ -239,3 +239,8 @@ and are the copy on both surfaces.
   as that text.
 - The Review rewrites lock their own card while writing, with Stop; the
   other card and the nav stay live.
+- The Interview card's count caption switches to `{n} of 12 · no
+  interview: the profile comes straight from your settings` (phone `… comes
+  from your settings`) once no unconditional row with text is left, since the
+  two conditional rows cannot be removed. On the phone the rows and Add lock
+  while the standard set for a new voice or Sex is being fetched.

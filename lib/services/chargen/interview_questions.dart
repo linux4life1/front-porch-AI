@@ -270,9 +270,9 @@ List<String> renderInterviewQuestions(
   final rows = (questions ?? standardInterviewQuestions())
       .take(kInterviewQuestionCap)
       .toList();
-  if (!rows.any((q) => !q.isConditional)) return const [];
   final hasRelationship = hasRelationshipToUser(relationship);
   final out = <String>[];
+  var unconditional = false;
   for (final q in rows) {
     if (q.condition == InterviewCondition.relationship && !hasRelationship) {
       continue;
@@ -284,10 +284,29 @@ List<String> renderInterviewQuestions(
       pronouns: pronouns,
     ).replaceAll(kRelationshipSlot, relationship.trim()).trim();
     if (text.isEmpty) continue;
+    if (!q.isConditional) unconditional = true;
     out.add(text);
   }
-  return out;
+  // Decided after blanks are dropped: a blank custom row must not keep the
+  // two conditional questions alive on their own.
+  return unconditional ? out : const [];
 }
+
+/// Whether [rows] would ask nothing: no unconditional row with text, which
+/// the editors show as "no interview" in place of the remove-them-all hint.
+bool interviewAsksNothing(
+  List<InterviewQuestion> rows, {
+  required NarrativeVoice voice,
+  required NarrativePronouns pronouns,
+}) => !rows.any(
+  (q) =>
+      !q.isConditional &&
+      interviewQuestionText(
+        q,
+        voice: voice,
+        pronouns: pronouns,
+      ).trim().isNotEmpty,
+);
 
 String _clip(String s, int max) => s.length > max ? s.substring(0, max) : s;
 

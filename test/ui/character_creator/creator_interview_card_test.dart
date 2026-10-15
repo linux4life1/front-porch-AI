@@ -258,6 +258,58 @@ void main() {
     );
   });
 
+  testWidgets('typing Sex in Guided re-renders the third-person pronouns', (
+    tester,
+  ) async {
+    // Grok, 2026-10-14: Guided and Automated save the Sex box without a
+    // notify, so the card listens to the box itself.
+    final state = await _pumpConfig(
+      tester,
+      CreatorMode.guided,
+      seed: (s) => s.narrativePerspective = 'third',
+    );
+    await tester.ensureVisible(find.byKey(const ValueKey('interview-card')));
+    await tester.pumpAndSettle();
+    expect(_text(1, tester), startsWith('What do they want today'));
+    final sex = find.byWidgetPredicate(
+      (w) => w is EditableText && w.controller == state.sexController,
+    );
+    await tester.ensureVisible(sex);
+    await tester.enterText(sex, 'male');
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 600));
+    expect(_text(1, tester), startsWith('What does he want today'));
+  });
+
+  testWidgets(
+    'the count caption says no interview once only the conditional rows '
+    'are left',
+    (tester) async {
+      // Grok, 2026-10-14: the two conditional rows cannot be removed, so the
+      // hint to remove them all would be a lie once nothing else is left.
+      await _pumpConfig(tester, CreatorMode.quick);
+      for (var i = 0; i < 9; i++) {
+        await _tap(
+          tester,
+          find
+              .descendant(
+                of: find.byType(InterviewQuestionRow),
+                matching: find.byType(IconButton),
+              )
+              .first,
+        );
+      }
+      expect(find.byType(InterviewQuestionRow), findsNWidgets(2));
+      expect(
+        find.text(
+          '2 of 12 · no interview: the profile comes straight from your '
+          'settings',
+        ),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('remove, add up to twelve, then Reset brings back the eleven', (
     tester,
   ) async {
