@@ -12,29 +12,8 @@ import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import '../../helpers/expression_workspace_harness.dart' as fixture;
 
-Future<void> finish(WidgetTester tester, Future<void> Function() action) async {
-  var done = false;
-  Object? failure;
-  await tester.runAsync(() async {
-    action().then<void>(
-      (_) {
-        done = true;
-      },
-      onError: (Object e) {
-        failure = e;
-        done = true;
-      },
-    );
-  });
-  for (var i = 0; i < 300 && !done; i++) {
-    await tester.runAsync(
-      () => Future<void>.delayed(const Duration(milliseconds: 10)),
-    );
-    await tester.pump();
-  }
-  expectSync(done, isTrue);
-  if (failure != null) throw failure!;
-}
+Future<void> finish(WidgetTester tester, Future<void> Function() action) =>
+    fixture.finishReal(tester, action);
 
 void main() {
   testWidgets('settings changes during preparation refuse the entire pass', (

@@ -16,29 +16,8 @@ void main() {
     'batch survives navigation, pauses, persists review and saves additional portraits without promotion',
     (tester) async {
       final rig = await fixture.workspaceRig(tester);
-      Future<void> finish(Future<void> Function() action) async {
-        var done = false;
-        Object? failure;
-        await tester.runAsync(() async {
-          action().then<void>(
-            (_) {
-              done = true;
-            },
-            onError: (Object e) {
-              failure = e;
-              done = true;
-            },
-          );
-        });
-        for (var i = 0; i < 200 && !done; i++) {
-          await tester.runAsync(
-            () => Future<void>.delayed(const Duration(milliseconds: 10)),
-          );
-          await tester.pump();
-        }
-        expect(done, isTrue, reason: 'real I/O action did not complete');
-        if (failure != null) throw failure!;
-      }
+      Future<void> finish(Future<void> Function() action) =>
+          fixture.finishReal(tester, action);
 
       late ImageBatchService queue;
       final initialPath = rig.first.imagePath;
