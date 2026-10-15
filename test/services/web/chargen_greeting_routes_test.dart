@@ -32,6 +32,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/character_facade.dart';
 import 'package:front_porch_ai/services/web/facade/chargen_facade.dart';
 import 'package:front_porch_ai/services/web/routes/chargen_routes.dart';
+import 'package:front_porch_ai/services/web/routes/chargen_template_routes.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
 import '../../golden/support/fakes.dart';
@@ -1136,5 +1137,246 @@ void main() {
     expect(rows[3]['condition'], 'relationship');
     expect(rows[3]['text'], contains(kRelationshipSlot));
     expect(rows[9]['condition'], 'nsfw');
+  });
+
+  // ── Templates on the phone: the list, save, rename and delete, in the
+  // one library folder the desktop uses ──────────────────────────────────
+  group('templates through the relay', () {
+    Future<(int, Map<String, dynamic>)> send(
+      Router router,
+      String method,
+      String path, [
+      String? body,
+    ]) async {
+      final res = await router.call(
+        shelf.Request(
+          method,
+          Uri.parse('http://localhost$path'),
+          headers: {'content-type': 'application/json'},
+          body: body,
+        ),
+      );
+      return (
+        res.statusCode,
+        jsonDecode(await res.readAsString()) as Map<String, dynamic>,
+      );
+    }
+
+    Future<(int, Map<String, dynamic>)> put(
+      ChargenRelay relay,
+      String slug,
+      Object body,
+    ) => send(
+      relay.router,
+      'PUT',
+      '/api/chargen/templates/$slug',
+      jsonEncode(body),
+    );
+
+    Future<(int, Map<String, dynamic>)> del(ChargenRelay relay, String slug) =>
+        send(relay.router, 'DELETE', '/api/chargen/templates/$slug');
+
+    List<Map<String, dynamic>> listed(Map<String, dynamic> body) => [
+      for (final t in body['templates'] as List) t as Map<String, dynamic>,
+    ];
+
+    test('GET lists yours newest first with summary and form, then the '
+        'built-ins; PUT creates, replaces and refuses', () async {
+      final relay = await ChargenRelay.start(StreamingChargenLlm());
+      var (code, body) = await relay.get('/api/chargen/templates');
+      expect(code, 200, reason: '$body');
+      var rows = listed(body);
+      expect(rows.map((t) => t['name']), [
+        for (final t in kBuiltInTemplates) t.name,
+      ]);
+      expect(rows.first['builtIn'], isTrue);
+      expect(
+        rows.first['summary'],
+        containsPair(
+          'blurb',
+          'sharp-tongued, secretly caring, stubborn, easily flustered',
+        ),
+      );
+
+      (code, body) = await put(relay, 'harbor-town-slow-burn', {
+        'name': 'Harbor town, slow burn',
+        'form': {
+          'mode': 'guided',
+          'narrativePerspective': 'third',
+          'narrativeTense': 'past',
+          'nsfw': true,
+          'name': 'Aria Vale',
+        },
+      });
+      expect(code, 200, reason: '$body');
+      expect(body['replaced'], isFalse);
+      expect((body['template'] as Map)['slug'], 'harbor-town-slow-burn');
+      (code, body) = await put(relay, 'modern-18-quick', {
+        'name': 'Modern 18+ quick',
+        'form': {'mode': 'quick'},
+      });
+      expect(code, 200, reason: '$body');
+      (code, body) = await put(relay, 'harbor-town-slow-burn', {
+        'name': 'Harbor town, slow burn',
+        'form': {'generateLorebook': false},
+      });
+      expect(code, 200, reason: '$body');
+      expect(body['replaced'], isTrue);
+
+      (code, body) = await relay.get('/api/chargen/templates');
+      rows = listed(body);
+      expect(rows.take(3).map((t) => t['name']), [
+        'Harbor town, slow burn',
+        'Modern 18+ quick',
+        'Tsundere',
+      ]);
+      expect(rows, hasLength(2 + kBuiltInTemplates.length));
+      final harbor = rows.first;
+      expect(harbor['builtIn'], isFalse);
+      expect(harbor['savedAt'], isA<String>());
+      expect(harbor['summary'], {
+        'mode': 'guided',
+        'perspective': 'third',
+        'tense': 'past',
+        'lore': false,
+        'nsfw': true,
+        'blurb': null,
+      });
+      final form = harbor['form'] as Map;
+      expect(
+        form['mode'],
+        'guided',
+        reason: 'the replace kept the stored keys',
+      );
+      expect(form.containsKey('name'), isFalse, reason: "no character's name");
+
+      for (final (slug, name, status, reason) in [
+        ('x', '', 400, null),
+        ('harbor', 'Harbor town, slow burn', 400, null),
+        ('tsundere', 'Tsundere', 409, 'builtIn'),
+        ('femme-fatale', 'Femme  Fatale', 409, 'builtIn'),
+      ]) {
+        (code, body) = await put(relay, slug, {'name': name, 'form': {}});
+        expect((code, body['reason']), (status, reason), reason: '$body');
+      }
+      (code, body) = await put(relay, 'x', {'name': '', 'form': {}});
+      expect(body['error'], 'Give the template a name.');
+      (code, body) = await put(relay, 'harbor', {
+        'name': 'Harbor town, slow burn',
+        'form': {},
+      });
+      expect(body['error'], contains('/harbor-town-slow-burn'));
+      (code, body) = await put(relay, 'harbor-town-slow-burn', {
+        'name': 'Harbor town, slow burn',
+        'form': ['not', 'an', 'object'],
+      });
+      expect(code, 400, reason: '$body');
+    });
+
+    test('rename and delete: 404 when it is gone, 409 for a built-in or a '
+        'taken name', () async {
+      final relay = await ChargenRelay.start(StreamingChargenLlm());
+      await put(relay, 'harbor', {
+        'name': 'Harbor',
+        'form': {'mode': 'guided'},
+      });
+      await put(relay, 'dock', {'name': 'Dock', 'form': {}});
+
+      var (code, body) = await relay.post(
+        '/api/chargen/templates/harbor/rename',
+        {'name': 'Harbor at night'},
+      );
+      expect(code, 200, reason: '$body');
+      final renamed = body['template'] as Map;
+      expect(renamed['slug'], 'harbor-at-night');
+      expect(renamed['name'], 'Harbor at night');
+      expect((renamed['form'] as Map)['mode'], 'guided');
+      (code, body) = await relay.post('/api/chargen/templates/harbor/rename', {
+        'name': 'Anything',
+      });
+      expect(code, 404, reason: '$body');
+      (code, body) = await relay.post('/api/chargen/templates/dock/rename', {
+        'name': 'harbor at  night',
+      });
+      expect((code, body['reason']), (409, 'taken'));
+      expect(body['error'], kTemplateTakenProblem);
+      (code, body) = await relay.post(
+        '/api/chargen/templates/tsundere/rename',
+        {'name': 'Mine'},
+      );
+      expect((code, body['reason']), (409, 'builtIn'));
+      (code, body) = await relay.post('/api/chargen/templates/dock/rename', {
+        'name': 'Kuudere',
+      });
+      expect((code, body['reason']), (409, 'builtIn'));
+
+      (code, body) = await del(relay, 'dock');
+      expect((code, body['deleted']), (200, true));
+      (code, body) = await del(relay, 'dock');
+      expect(code, 404, reason: '$body');
+      (code, body) = await del(relay, 'tsundere');
+      expect((code, body['reason']), (409, 'builtIn'));
+      (code, body) = await relay.get('/api/chargen/templates');
+      expect(
+        [
+          for (final t in listed(body))
+            if (t['builtIn'] != true) t['slug'],
+        ],
+        ['harbor-at-night'],
+      );
+    });
+
+    test('a library save shows in GET and a PUT is read by the library: one '
+        'folder, one code path', () async {
+      final relay = await ChargenRelay.start(StreamingChargenLlm());
+      final desktop = ChargenTemplateLibrary.under(relay.storage.rootPath)!;
+      await desktop.save('Made on the desktop', {
+        'mode': 'guided',
+        'artStyle': 'Painterly',
+      });
+      var (code, body) = await relay.get('/api/chargen/templates');
+      expect(code, 200, reason: '$body');
+      final row = listed(body).first;
+      expect(row['name'], 'Made on the desktop');
+      expect((row['form'] as Map)['artStyle'], 'Painterly');
+
+      // The phone saves it back without the desktop's key.
+      (code, body) = await put(relay, 'made-on-the-desktop', {
+        'name': 'Made on the desktop',
+        'form': {'mode': 'quick', 'quickKeywords': 'salt'},
+        'basedOn': 'made-on-the-desktop',
+      });
+      expect(code, 200, reason: '$body');
+      final read = await desktop.read('made-on-the-desktop');
+      expect(read?.form['mode'], 'quick');
+      expect(read?.form['quickKeywords'], 'salt');
+      expect(read?.form['artStyle'], 'Painterly');
+      expect(await desktop.listMine(), hasLength(1));
+    });
+
+    test('a body that is not JSON is refused and writes nothing; no library '
+        'folder answers 503', () async {
+      final relay = await ChargenRelay.start(StreamingChargenLlm());
+      var (code, body) = await send(
+        relay.router,
+        'PUT',
+        '/api/chargen/templates/harbor',
+        '{"name": "Harbor", "form": {',
+      );
+      expect((code, body['error']), (400, 'invalid JSON'));
+      await put(relay, 'dock', {'name': 'Dock', 'form': {}});
+      (code, body) = await relay.postRaw(
+        '/api/chargen/templates/dock/rename',
+        'not json',
+      );
+      expect((code, body['error']), (400, 'invalid JSON'));
+      final library = ChargenTemplateLibrary.under(relay.storage.rootPath)!;
+      expect([for (final t in await library.listMine()) t.slug], ['dock']);
+
+      final bare = Router();
+      WebChargenTemplateRoutes(() => null, bare);
+      (code, body) = await send(bare, 'GET', '/api/chargen/templates');
+      expect(code, 503, reason: '$body');
+    });
   });
 }

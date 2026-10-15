@@ -24,6 +24,7 @@ import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chargen_facade.dart';
 import 'package:front_porch_ai/services/web/routes/chargen_profile_routes.dart';
+import 'package:front_porch_ai/services/web/routes/chargen_template_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// AI character creator endpoints. Generation runs in the background and reports
@@ -47,6 +48,8 @@ class WebChargenRoutes {
     router.get('/api/chargen/greeting/status', _greetingStatus);
     // The Profile step and the review rewrites.
     WebChargenProfileRoutes(_facade, router);
+    // Templates, in the one library the desktop uses.
+    WebChargenTemplateRoutes(() => _facade.templates, router);
   }
 
   final ChargenFacade _facade;

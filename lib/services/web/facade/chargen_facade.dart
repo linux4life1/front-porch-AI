@@ -90,6 +90,11 @@ class ChargenFacade {
     busyReason: () => _busyReason(rewrites: false),
   );
 
+  /// The creator's templates, in the library folder the desktop uses; null
+  /// while there is none. Read per call, so a moved library follows.
+  ChargenTemplateLibrary? get templates =>
+      ChargenTemplateLibrary.under(_storage?.rootPath);
+
   /// Why a new model call must wait, or null. One call at a time across
   /// the creator; each part checks its own job itself, so it is left out.
   String? _busyReason({
