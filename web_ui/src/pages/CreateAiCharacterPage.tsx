@@ -329,7 +329,7 @@ export function CreateAiCharacterPage() {
             {step === 2 && (
               <TemplateSaveBar
                 form={form}
-                templates={templates.templates ?? []}
+                templates={templates.templates}
                 startedFrom={startedFrom}
                 onSaved={(to) => {
                   setStartedFrom(to);

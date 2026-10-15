@@ -172,6 +172,19 @@ describe('Save as template', () => {
     await act$(() => confirmButton().click());
     expect(relay.calls.map((c) => c.path)).toEqual(['/api/chargen/templates/harbor-town-winter']);
     expect(onSaved).toHaveBeenCalledWith({ slug: 'harbor-town-winter', name: 'Harbor town, winter', builtIn: false });
+    // Grok, 2026-10-14: a new name has no stored file to merge over, so the
+    // desktop-only keys survive only through basedOn.
+    expect((relay.calls[0].body as { basedOn?: string }).basedOn).toBe(HARBOR.slug);
+  });
+
+  it('Save waits until the template list has arrived, so a built-in name cannot slip through', async () => {
+    // Grok, 2026-10-14: with the list unknown the sheet knew no built-ins
+    // and let "Tsundere" through with Save enabled.
+    (window as { innerWidth: number }).innerWidth = 1280;
+    await act$(() => root.render(createElement(TemplateSaveBar, { form: FORM, templates: null, startedFrom: null, onSaved })));
+    expect(button('Save as template').disabled).toBe(true);
+    await act$(() => root.render(createElement(TemplateSaveBar, { form: FORM, templates: LIST, startedFrom: null, onSaved })));
+    expect(button('Save as template').disabled).toBe(false);
   });
 
   it('a refused save stays open with the relay\'s words', async () => {

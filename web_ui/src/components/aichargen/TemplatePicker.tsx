@@ -83,15 +83,16 @@ export function TemplatePicker({
         )}
       </div>
 
-      {error ? (
+      {error && (
         <p className="cg-tpl-error">
           {error}{' '}
           <button type="button" className="cg-tpl-retry" onClick={onRetry}>
             Try again
           </button>
         </p>
-      ) : templates === null ? (
-        <p className="cg-tpl-loading">Loading templates…</p>
+      )}
+      {templates === null ? (
+        !error && <p className="cg-tpl-loading">Loading templates…</p>
       ) : (
         <div className="cg-tpl-tiles">
           {mine.map((t) => (

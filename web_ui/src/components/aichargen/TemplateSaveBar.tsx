@@ -19,11 +19,14 @@ export function TemplateSaveBar({
   onSaved,
 }: {
   form: ChargenForm;
-  templates: CreatorTemplate[];
+  /** Null until the relay's list has arrived: the sheet cannot refuse a
+   *  built-in's name without it, so Save waits. */
+  templates: CreatorTemplate[] | null;
   startedFrom: TemplateStart | null;
   onSaved: (to: TemplateStart) => void;
 }) {
   const [open, setOpen] = useState(false);
+  const ready = templates !== null;
   return (
     <div className="cg-tpl-save" data-testid="template-save">
       {startedFrom && (
@@ -35,11 +38,17 @@ export function TemplateSaveBar({
           <span className="cg-tpl-from-caption">Changes stay on this form until you save them to the template.</span>
         </div>
       )}
-      <button type="button" className="cg-tpl-save-btn" onClick={() => setOpen(true)}>
+      <button
+        type="button"
+        className="cg-tpl-save-btn"
+        disabled={!ready}
+        title={ready ? undefined : 'Loading the templates…'}
+        onClick={() => setOpen(true)}
+      >
         <BookmarkIcon size={18} />
         Save as template
       </button>
-      {open && (
+      {open && templates && (
         <SaveTemplateSheet
           form={form}
           templates={templates}

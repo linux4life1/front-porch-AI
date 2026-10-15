@@ -258,6 +258,12 @@ describe('TemplatePicker', () => {
     await render(390, { templates: null });
     expect(container.textContent).toContain('Loading templates…');
     await render(390, { templates: null, error: 'The templates could not be loaded. Check the connection, then try again.' });
+    expect(tiles()).toHaveLength(0);
+    // Grok, 2026-10-14: a failed reload after a good list hid the tiles.
+    await render(1280, { error: 'The templates could not be loaded. Check the connection, then try again.' });
+    expect(container.querySelector('.cg-tpl-error')).not.toBeNull();
+    expect(tiles().length).toBeGreaterThan(0);
+    await render(390, { templates: null, error: 'The templates could not be loaded. Check the connection, then try again.' });
     expect(container.textContent).toContain('The templates could not be loaded.');
     expect(container.textContent).not.toContain('Loading templates…');
     await click(button('Try again'));
