@@ -448,18 +448,21 @@ class ChargenProfile {
       );
       // Stopped: the profile waits as it was, and nothing is saved.
       if (!identical(_job, job)) return;
-      final id = await _create.saveGenerated(
+      // The waiting run goes before `chargen_done` does: a client that
+      // reloads on that event must not find it still pending.
+      await _create.saveGenerated(
         card,
         gen,
         pending.run.inputs,
         pending.extras,
         mode: pending.mode,
         failure: reported,
+        beforeDone: () async {
+          if (!identical(_store.value, pending)) return;
+          _store.value = null;
+          await _store.save();
+        },
       );
-      if (id != null && identical(_store.value, pending)) {
-        _store.value = null;
-        await _store.save();
-      }
     } catch (e) {
       _hub?.broadcast(chargenErrorEvent('$e'));
     } finally {

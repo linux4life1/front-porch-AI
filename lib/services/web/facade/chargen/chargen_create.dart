@@ -255,6 +255,8 @@ class ChargenCreate {
   /// [mode] is the wizard mode, stamped with the inputs. With no card,
   /// `chargen_error` says why: [failure] (what the engine reported), else
   /// what [gen] recorded (a refusal keeps the provider's words).
+  /// [beforeDone] runs after the save and before `chargen_done`, so a client
+  /// that reacts to the event already sees what it settles.
   Future<String?> saveGenerated(
     CharacterCard? card,
     CharacterGenService gen,
@@ -262,6 +264,7 @@ class ChargenCreate {
     Map<String, dynamic> extras, {
     String mode = '',
     String? failure,
+    Future<void> Function()? beforeDone,
   }) async {
     if (card == null) {
       _hub?.broadcast(
@@ -304,6 +307,7 @@ class ChargenCreate {
       _rememberInputs(id, inputs);
       onSaved?.call(id, gen.greetingRecipe);
     }
+    await beforeDone?.call();
     _hub?.broadcast({
       'event': 'chargen_done',
       'id': saved['id'],
