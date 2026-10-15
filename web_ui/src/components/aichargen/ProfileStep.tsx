@@ -5,9 +5,10 @@
 // anything else is built. Description, Personality and Scenario in the
 // editor's boxes; a steered rewrite that streams into them (Stop keeps the
 // old text); the facts the identity pass wrote, editable, re-read on demand;
-// the interview, read only. The page's Next sends the texts and facts as
-// they stand (`current`). A pending run comes from the page; a saved
-// character (Back from Greetings) is loaded here by id.
+// the interview, read only (no row when no questions were asked). The
+// page's Next sends the texts and facts as they stand (`current`). A pending
+// run comes from the page; a saved character (Back from Greetings) is
+// loaded here by id.
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { ApiError } from '../../api/client';
@@ -330,23 +331,28 @@ export const ProfileStep = forwardRef<
         onReread={() => void reread()}
       />
 
-      <button
-        type="button"
-        className={`cg-p-row${transcriptOpen ? ' open' : ''}`}
-        aria-expanded={transcriptOpen}
-        disabled={writing}
-        onClick={() => setTranscriptOpen((o) => !o)}
-      >
-        <ChevronIcon open={transcriptOpen} />
-        <span className="cg-p-row-title">Interview transcript</span>
-        <span className="cg-p-row-note">
-          {view.transcriptQuestions} questions, read only, so you can see where the rewrite came from
-        </span>
-      </button>
-      {transcriptOpen && (
-        <div className="cg-g-stream cg-p-transcript" data-testid="interview-transcript">
-          {view.transcript || 'This character has no interview on record.'}
-        </div>
+      {/* No questions, no interview: the profile came from the settings. */}
+      {view.transcript.trim() && (
+        <>
+          <button
+            type="button"
+            className={`cg-p-row${transcriptOpen ? ' open' : ''}`}
+            aria-expanded={transcriptOpen}
+            disabled={writing}
+            onClick={() => setTranscriptOpen((o) => !o)}
+          >
+            <ChevronIcon open={transcriptOpen} />
+            <span className="cg-p-row-title">Interview transcript</span>
+            <span className="cg-p-row-note">
+              {view.transcriptQuestions} questions, read only, so you can see where the rewrite came from
+            </span>
+          </button>
+          {transcriptOpen && (
+            <div className="cg-g-stream cg-p-transcript" data-testid="interview-transcript">
+              {view.transcript}
+            </div>
+          )}
+        </>
       )}
     </div>
   );

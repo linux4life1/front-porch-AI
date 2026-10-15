@@ -79,9 +79,22 @@ export const ChevronIcon = ({ open }: { open: boolean }) => (
   </svg>
 );
 
-export const CloseIcon = () => (
-  <svg {...stroke} width={14} height={14}>
+export const CloseIcon = ({ size = 14 }: { size?: number }) => (
+  <svg {...stroke} width={size} height={size}>
     <path d="M18 6L6 18M6 6l12 12" />
+  </svg>
+);
+
+/** The Interview card's six-dot drag handle. */
+export const DotsIcon = () => (
+  <svg viewBox="0 0 24 24" width={18} height={18} fill="currentColor" aria-hidden>
+    {[6, 12, 18].map((y) => [9, 15].map((x) => <circle key={`${x}-${y}`} cx={x} cy={y} r={1.6} />))}
+  </svg>
+);
+
+export const PlusIcon = () => (
+  <svg {...stroke} width={16} height={16} strokeWidth={2.4}>
+    <path d="M12 5v14M5 12h14" />
   </svg>
 );
 

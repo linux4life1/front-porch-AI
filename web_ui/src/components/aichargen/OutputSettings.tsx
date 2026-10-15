@@ -2,9 +2,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Shared output settings for all three modes: greeting length + count + tones,
-// lorebook generation (toggle + categories + depth), and description detail.
+// lorebook generation (toggle + categories + depth), description detail, the
+// narrative voice, and last the Interview card, which follows that voice.
 
 import { MultiChipSelect, ChipSelect, Field } from './fields';
+import { InterviewCard } from './InterviewCard';
 import {
   GREETING_LENGTHS, TONE_OPTIONS, LORE_CATEGORIES, LORE_DEPTHS,
   GENERATION_DETAIL, type ChargenForm,
@@ -134,6 +136,8 @@ export function OutputSettings({
         />
         <span>Dynamic macros</span>
       </label>
+
+      <InterviewCard form={form} set={set} />
     </div>
   );
 }

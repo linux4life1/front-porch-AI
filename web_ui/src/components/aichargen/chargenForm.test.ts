@@ -100,3 +100,29 @@ describe('buildPayload — the Profile step', () => {
     }
   });
 });
+
+describe('buildPayload — the interview questions', () => {
+  it('leaves the field out while the list is the standard set', () => {
+    for (const mode of ['quick', 'guided', 'automated'] as const) {
+      expect('interviewQuestions' in buildPayload(form({ mode, name: 'X' }))).toBe(false);
+    }
+  });
+
+  it('sends a changed list without the card\'s row ids, and an empty one as []', () => {
+    const p = buildPayload(form({
+      mode: 'guided',
+      name: 'X',
+      interviewQuestions: [
+        { id: 'new-1', key: null, text: 'What does she keep in her coat?', condition: null },
+        { id: 'std-voice', key: 'voice', text: null, condition: null },
+        { id: 'std-relationship', key: 'relationship', text: 'Who is {{user}} to her?', condition: 'relationship' },
+      ],
+    }));
+    expect(p.interviewQuestions).toEqual([
+      { key: null, text: 'What does she keep in her coat?', condition: null },
+      { key: 'voice', text: null, condition: null },
+      { key: 'relationship', text: 'Who is {{user}} to her?', condition: 'relationship' },
+    ]);
+    expect(buildPayload(form({ mode: 'quick', name: 'X', interviewQuestions: [] })).interviewQuestions).toEqual([]);
+  });
+});

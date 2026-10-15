@@ -21,8 +21,9 @@ const kChargenSteeredMarker = 'rewritten the way the author asked';
   if (has('Create a roleplay character card as a single JSON object')) {
     return (stage: 'chargen-base', pieces: [_baseCard]);
   }
-  if (has('Answer each question in first person, fully in-character') &&
-      has('Question: ')) {
+  // Every voice's interview seed says "fully in-character" (first or third
+  // person, present or past), so a third-person interview is answered too.
+  if (has('fully in-character') && has('Question: ')) {
     return (
       stage: 'chargen-interview',
       pieces: [

@@ -341,4 +341,12 @@ describe('ProfileStep', () => {
     expect(container.textContent).toContain('This character could not be loaded.');
     expect(container.textContent).not.toContain('Loading the profile');
   });
+
+  it('a profile written with no interview has no transcript row', async () => {
+    render({ ...VIEW, transcript: '  ', transcriptQuestions: 0 });
+    await settle();
+    expect(container.textContent).toContain('Also written from the interview');
+    expect(container.textContent).not.toContain('Interview transcript');
+    expect(container.querySelector('[data-testid="interview-transcript"]')).toBeNull();
+  });
 });

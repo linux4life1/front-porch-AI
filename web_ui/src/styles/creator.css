@@ -248,6 +248,77 @@
 }
 .cg-scope .link-btn { color: var(--studio-amber); }
 
+/* ── Interview card (the end of the Output step) ───────────────── */
+.cg-scope .cg-iv {
+  background: var(--studio-card); border: 1px solid var(--studio-line); border-radius: 16px;
+  padding: 20px; display: flex; flex-direction: column; gap: 14px;
+}
+.cg-scope .cg-iv-head { display: flex; align-items: flex-start; gap: 12px; }
+.cg-scope .cg-iv-head-text { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.cg-scope .cg-iv-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--studio-ink); }
+.cg-scope .cg-iv-intro { margin: 0; font-size: 12px; line-height: 1.5; color: var(--studio-muted); }
+.cg-scope .cg-iv-voice { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
+.cg-scope .cg-iv-pill {
+  display: inline-flex; align-items: center; gap: 6px; height: 26px; padding: 0 10px; border-radius: 13px;
+  background: color-mix(in srgb, var(--studio-amber) 12%, transparent); color: var(--studio-amber);
+  font-size: 12px; font-weight: 600; white-space: nowrap;
+}
+.cg-scope .cg-iv-follows { font-size: 12px; color: var(--studio-faint); }
+.cg-scope button.cg-iv-reset {
+  height: 36px; padding: 0 12px; border: 0; border-radius: 10px; flex: 0 0 auto;
+  background: transparent; color: var(--studio-amber); font-size: 13px; font-weight: 600; white-space: nowrap;
+}
+.cg-scope .cg-iv-loading { margin: 0; font-size: 12px; color: var(--studio-muted); }
+.cg-scope .cg-iv-error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--studio-bad); }
+.cg-scope button.cg-iv-retry {
+  height: auto; padding: 0; border: 0; background: transparent;
+  color: var(--studio-amber); font-size: 12px; font-weight: 600;
+}
+.cg-scope .cg-iv-rows { display: flex; flex-direction: column; gap: 8px; }
+.cg-scope .cg-iv-row { display: flex; align-items: flex-start; gap: 10px; }
+.cg-scope button.cg-iv-handle {
+  width: 24px; height: 44px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--studio-faint); cursor: grab; touch-action: none;
+}
+.cg-scope button.cg-iv-handle:disabled { cursor: default; }
+.cg-scope .cg-iv-row.dragging button.cg-iv-handle { cursor: grabbing; color: var(--studio-amber); }
+.cg-scope .cg-iv-num {
+  width: 22px; height: 44px; flex: 0 0 auto; display: flex; align-items: center;
+  font-size: 13px; font-weight: 600; color: var(--studio-muted);
+}
+.cg-scope .cg-iv-body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.cg-scope textarea.cg-iv-text {
+  display: block; width: 100%; min-height: 44px; margin: 0; box-sizing: border-box; resize: none; overflow: hidden;
+  background: var(--studio-bg); border: 1px solid var(--studio-line); border-radius: 12px;
+  padding: 10px 14px; font-size: 14px; line-height: 1.45; color: var(--studio-ink);
+}
+.cg-scope textarea.cg-iv-text:disabled { color: var(--studio-muted); }
+.cg-scope .cg-iv-row.conditional textarea.cg-iv-text {
+  border-style: dashed; border-color: var(--studio-line-strong); color: var(--studio-prose);
+}
+.cg-scope .cg-iv-row.edited textarea.cg-iv-text { border: 1.5px solid var(--studio-amber); }
+.cg-scope .cg-iv-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+.cg-scope .cg-iv-cond,
+.cg-scope .cg-iv-edited { font-size: 11px; font-weight: 600; border-radius: 8px; padding: 1px 7px; }
+.cg-scope .cg-iv-cond {
+  color: var(--studio-amber); border: 1px solid color-mix(in srgb, var(--studio-amber) 50%, transparent);
+}
+.cg-scope .cg-iv-edited { color: var(--studio-muted); border: 1px solid var(--studio-line); }
+.cg-scope button.cg-iv-remove {
+  width: 40px; height: 44px; flex: 0 0 auto; padding: 0; border: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--studio-muted);
+}
+.cg-scope .cg-iv-spacer { width: 40px; flex: 0 0 auto; }
+.cg-scope .cg-iv-foot { display: flex; align-items: center; gap: 12px; }
+.cg-scope button.cg-iv-add {
+  height: 40px; padding: 0 14px; border-radius: 10px; border: 1px dashed var(--studio-amber);
+  display: flex; align-items: center; gap: 8px;
+  background: transparent; color: var(--studio-amber); font-size: 14px; font-weight: 700;
+}
+.cg-scope .cg-iv-count { font-size: 12px; color: var(--studio-muted); }
+
 /* ── Phone ─────────────────────────────────────────────────────── */
 [data-layout="phone"] .cg-scope .cg-bar {
   height: auto; display: block; padding: 0; background: transparent; border: 0;
@@ -305,6 +376,25 @@
 [data-layout="phone"] .cg-scope .cg-grid2,
 [data-layout="phone"] .cg-scope .cg-review { grid-template-columns: 1fr; }
 [data-layout="phone"] .cg-scope .cg-card { padding: 16px; }
+
+/* The phone's Interview card: the header stacks (title and Reset, then the
+   intro, then the pill), the number column narrows, the boxes are 16px and
+   Add a question runs the card's width. */
+[data-layout="phone"] .cg-scope .cg-iv { padding: 16px; gap: 12px; }
+[data-layout="phone"] .cg-scope .cg-iv-head { flex-direction: column; align-items: stretch; gap: 6px; }
+[data-layout="phone"] .cg-scope .cg-iv-title-row { display: flex; align-items: center; gap: 8px; }
+[data-layout="phone"] .cg-scope .cg-iv-title-row .cg-iv-title { flex: 1 1 auto; }
+[data-layout="phone"] .cg-scope .cg-iv-voice { margin-top: 0; }
+[data-layout="phone"] .cg-scope button.cg-iv-reset { height: 32px; padding: 0 8px; border-radius: 8px; }
+[data-layout="phone"] .cg-scope .cg-iv-row { gap: 8px; }
+[data-layout="phone"] .cg-scope .cg-iv-num { width: 20px; }
+[data-layout="phone"] .cg-scope textarea.cg-iv-text { padding: 10px 12px; font-size: 16px; }
+/* A conditional row has no remove button, so its pill may run on over the
+   empty spacer instead of breaking onto a second line. */
+[data-layout="phone"] .cg-scope .cg-iv-row.conditional .cg-iv-pills { margin-right: -48px; }
+[data-layout="phone"] .cg-scope .cg-iv-foot { flex-direction: column; align-items: stretch; gap: 8px; }
+[data-layout="phone"] .cg-scope button.cg-iv-add { height: 44px; border-radius: 12px; justify-content: center; }
+[data-layout="phone"] .cg-scope .cg-iv-count { text-align: center; }
 
 /* The phone's mode cards are rows: tile, then title and subtitle. */
 [data-layout="phone"] .cg-scope .cg-mode-cards { grid-template-columns: 1fr; gap: 10px; }

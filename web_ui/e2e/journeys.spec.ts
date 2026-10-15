@@ -407,6 +407,110 @@ test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then
   }
 });
 
+// The Interview card on the Output step, through a real create (the
+// stand-in backend answers every interview question): edit a question,
+// remove one, add your own and drag it to the top, switch to the third
+// person; the Profile step's transcript asks exactly that list, in that
+// order, the standard questions worded for the third person. Back on
+// Output, Reset is the standard eleven again. Next saves the character so
+// nothing is left waiting on the relay; it is deleted whatever happens.
+test('the creator\'s Interview card: edit, remove, add and drag a question, then the transcript asks them', async ({
+  page,
+}) => {
+  const name = `Interview Journey ${test.info().project.name}`;
+  const EDITED = 'What would the keeper trade the lamp for, if anyone asked?';
+  const CUSTOM = 'Which ship does the keeper still watch for every night?';
+  let id = '';
+  try {
+    await openRoute(page, '/create-ai');
+    await page.locator('.cg-field', { hasText: 'Name' }).locator('input').fill(name);
+    await page.getByRole('button', { name: /Quick Create/ }).click();
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await page.getByLabel('Concept').fill('A lighthouse keeper on a wet rock.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+
+    const card = page.getByTestId('interview-card');
+    const rows = card.getByTestId('interview-row');
+    const question = (n: number) => card.getByLabel(`Question ${n}`, { exact: true });
+    await expect(rows).toHaveCount(11);
+    await expect(question(1)).toBeEnabled();
+    await expect(card.getByText('Answered in first person, present')).toBeVisible();
+
+    // Edit the second question: it is kept as written.
+    await question(2).fill(EDITED);
+    await expect(rows.nth(1).getByText('Edited · kept as written')).toBeVisible();
+
+    // Remove the sixth (the one about being cornered).
+    await expect(question(6)).toHaveValue(/cornered/);
+    await card.getByRole('button', { name: 'Remove question 6', exact: true }).click();
+    await expect(rows).toHaveCount(10);
+
+    // Add one of your own, then drag it by its handle to the top. Held at
+    // the top of the scrolling column, the page scrolls on under it.
+    await card.getByRole('button', { name: 'Add a question' }).click();
+    await expect(rows).toHaveCount(11);
+    await question(11).fill(CUSTOM);
+    const handle = card.getByRole('button', { name: 'Move question 11', exact: true });
+    await handle.scrollIntoViewIfNeeded();
+    const grip = (await handle.boundingBox())!;
+    const column = (await page.locator('.cg-content').boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2, column.y + 8, { steps: 12 });
+    await expect(question(1)).toHaveValue(CUSTOM, { timeout: 15_000 });
+    await page.mouse.up();
+    await expect(question(3)).toHaveValue(EDITED);
+
+    // Third person: the standard questions are worded again, the edited and
+    // the custom ones stay as written.
+    await page.getByRole('button', { name: 'Third person', exact: true }).click();
+    await expect(card.getByText('Answered in third person, present')).toBeVisible();
+    await expect(question(2)).toHaveValue(/^How does .+ talk\?/);
+    await expect(question(1)).toHaveValue(CUSTOM);
+    await expect(question(3)).toHaveValue(EDITED);
+
+    await page.getByRole('button', { name: /^Next: Generate/ }).click();
+    await page.getByRole('button', { name: /Generate character/ }).click();
+    const step = page.getByTestId('profile-step');
+    await expect(step).toBeVisible({ timeout: 120_000 });
+
+    // The transcript asked the list as it was left. Quick mode sets no
+    // relationship and 18+ is off, so the two conditional rows are not asked.
+    await step.getByRole('button', { name: /Interview transcript/ }).click();
+    await expect(step).toContainText('9 questions, read only');
+    const transcript = await page.getByTestId('interview-transcript').innerText();
+    const asked = transcript.split('\n').filter((l) => l.startsWith('Q: '));
+    expect(asked).toHaveLength(9);
+    expect(asked[0]).toBe(`Q: ${CUSTOM}`);
+    expect(asked[1]).toMatch(/^Q: How does .+ talk\?/);
+    expect(asked[2]).toBe(`Q: ${EDITED}`);
+    expect(asked.some((q) => q.includes('cornered')), 'the removed question is not asked').toBe(false);
+    expect(asked.filter((q) => /\byou\b/i.test(q)), 'every question is in the third person').toEqual([]);
+
+    // Next writes the rest and saves the character.
+    await page.getByRole('button', { name: /^Next: Greetings/ }).click();
+    await expect(page.getByTestId('greetings-step')).toBeVisible({ timeout: 120_000 });
+    id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
+    expect(id, 'the saved character is in the URL').not.toBe('');
+
+    // Back on Output, Reset brings the standard eleven back.
+    await page.locator('.step-dot', { hasText: 'Output' }).click();
+    await expect(rows).toHaveCount(11);
+    await card.getByRole('button', { name: 'Reset to the standard questions' }).click();
+    await expect(rows).toHaveCount(11);
+    await expect(card.getByText('Edited · kept as written')).toHaveCount(0);
+    await expect(question(1)).toHaveValue(/^How does .+ talk\?/);
+    await expect(card.getByTestId('interview-count')).toHaveText(/^11 of 12 · /);
+    const after = (await (await page.request.get('/api/chargen/profile')).json()) as { pending: unknown };
+    expect(after.pending, 'nothing is left waiting on the relay').toBeNull();
+  } finally {
+    if (id) {
+      const gone = await page.request.post(`/api/characters/${id}/delete`);
+      expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
 // Library card → Manage Chats → Start new chat → persona → a fresh chat,
 // on a character made for this test (so Porch Tester's chats stay as the
 // conversation journeys left them). Start new chat is offered even though
