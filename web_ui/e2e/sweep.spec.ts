@@ -107,9 +107,17 @@ async function label(page: Page, id: number): Promise<string> {
     .catch(() => '');
 }
 
-/** Number the clickable, non-link controls not yet numbered. */
+/**
+ * Number the clickable, non-link controls not yet numbered. Numbering from 0
+ * starts the screen over, so it first drops the old numbers: going back to the
+ * same hash route keeps the document, and a control that survived the
+ * re-render would otherwise share its number with a newly mounted one.
+ */
 async function tag(page: Page, from: number): Promise<number> {
   return page.evaluate((start) => {
+    if (start === 0) {
+      document.querySelectorAll('[data-sweep]').forEach((e) => e.removeAttribute('data-sweep'));
+    }
     let n = start;
     for (const el of Array.from(document.querySelectorAll('button, summary, [role="button"]'))) {
       if (el.hasAttribute('data-sweep') || el.closest('.drawer-backdrop, [role="dialog"]')) continue;
