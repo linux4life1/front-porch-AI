@@ -281,6 +281,47 @@ void main() {
     expect(defaults.keys.toSet(), hasLength(kTemplateFields.length));
   });
 
+  test('a link in the folder is neither listed nor read, and a save replaces '
+      'an empty folder in its place', () async {
+    await library.save('Mine', {'mode': 'quick'});
+    // A link to a file outside the folder, named like a template.
+    final outside = File(p.join(root.path, 'outside.json'))
+      ..writeAsStringSync(jsonEncode(stored('mine')));
+    await Link(file('outside.json').path).create(outside.path);
+    expect((await library.listMine()).map((t) => t.slug), ['mine']);
+    expect(await library.read('outside'), isNull);
+
+    Directory(file('harbor.json').path).createSync();
+    final listed = await library.listMine();
+    expect(listed.singleWhere((t) => t.slug == 'harbor').broken, isTrue);
+    await library.save('Harbor', {'mode': 'guided'});
+    expect((await library.read('harbor'))?.form['mode'], 'guided');
+    expect(file('harbor.json').existsSync(), isTrue);
+    for (final left in ['harbor.json.bak', 'harbor.json.tmp']) {
+      expect(
+        FileSystemEntity.typeSync(file(left).path),
+        FileSystemEntityType.notFound,
+        reason: left,
+      );
+    }
+  }, skip: Platform.isWindows ? 'making a link needs a privilege' : false);
+
+  test('a replace that fails leaves the old copy in place and the new bytes '
+      'in the temp file', () async {
+    // A folder in the file's place that cannot move aside, because a folder
+    // with something in it already holds the aside name.
+    Directory(file('harbor.json').path).createSync(recursive: true);
+    Directory(file('harbor.json.bak').path).createSync();
+    File(p.join(file('harbor.json.bak').path, 'keep')).writeAsStringSync('');
+    await expectLater(
+      library.save('Harbor', {'mode': 'guided'}),
+      throwsA(isA<FileSystemException>()),
+    );
+    expect(Directory(file('harbor.json').path).existsSync(), isTrue);
+    final temp = jsonDecode(file('harbor.json.tmp').readAsStringSync());
+    expect((temp as Map)['form'], {'mode': 'guided'});
+  });
+
   group('the vectors both surfaces read', () {
     test('slugs', () {
       for (final v in _rows('slugs')) {

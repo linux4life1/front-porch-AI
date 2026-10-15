@@ -29,7 +29,10 @@ every key. Both surfaces map to and from it: the desktop from
 `ChargenForm`. A key one surface does not know survives the other's save:
 saving merges the incoming keys over the stored file (and over the
 template it was started from), so a template made on the desktop keeps its
-art style after a phone edit.
+art style after a phone edit. Precedence, lowest first: the stored file,
+then the template it was started from (`basedOn`), then the incoming form.
+So saving a built-in's edit over an older template of the same name takes
+the built-in's other keys, and a key the form carries always wins.
 
 In: the mode and each mode's inputs (Automated's archetype and bubbles,
 Guided's vision and every section, Quick's concept and scenario), the
@@ -112,7 +115,9 @@ the KoboldCpp presets.
   `basedOn` carries them; the name key is never stored; slug, problem,
   summary and saved-label vectors from one fixture both surfaces read;
   built-ins counted against the label, featured first, refused on save,
-  rename and delete.
+  rename and delete; a link in the folder is neither listed nor read; a
+  save replaces an empty folder in its place; a replace that fails leaves
+  the old copy where it was and the new bytes in the temp file.
 - Relay: the list's order, summary and form; PUT create, replace, 400, 409;
   rename and delete with 404; a library save shows in GET and a PUT is read
   by the library.
@@ -128,4 +133,38 @@ the KoboldCpp presets.
 
 ## Files
 
-Filled from the implementation plan (see the PR).
+- Schema and data: `lib/services/chargen/creator_template_schema.dart`
+  (the canonical form, its surfaces, the merge, slug and name rules, the
+  shared copy), `creator_template.dart` (`CreatorTemplate`,
+  `TemplateSummary`, the built-ins), `archetype_presets.dart` (the
+  archetype data, moved out of the desktop's options so the built-ins and
+  both surfaces read one copy).
+- Library: `lib/services/chargen/creator_template_library.dart`, the
+  files under `<library>/chargen/templates/`: list, read, save
+  (`basedOn`), rename, delete, each refusal with the relay's status. The
+  writes go one at a time per folder, each to a temp file renamed into
+  place; the old copy is only moved aside, never deleted first.
+- Relay: `lib/services/web/routes/chargen_template_routes.dart` and
+  `facade/chargen_facade.dart`.
+- Desktop: `lib/ui/character_creator/creator_templates.dart` (the list,
+  Load, Save, Rename, Delete and the started-from mark),
+  `creator_state/creator_template_form.dart` (`CreatorState` to and from
+  the form), `creator_state.prefs.dart` (the mark and the fields the
+  round trip needed), `creator_state/creator_form_reset.dart`;
+  `widgets/template_picker_card.dart`, `template_tile.dart`,
+  `template_name_dialog.dart`, `template_dialogs.dart`,
+  `creator_config_header.dart`; `steps/mode_select_step.dart` and the
+  three Configure steps; `widgets/mode_card.dart` (the spec's grid);
+  `lib/ui/widgets/warm_dialog.dart` reads the creator palette inside the
+  creator; `lib/ui/theme/studio_colors.dart` adds the scrim.
+- Web: `web_ui/src/components/aichargen/templatesApi.ts`,
+  `templateForm.ts` (`ChargenForm` to and from the form),
+  `TemplatePicker.tsx`, `TemplateSheets.tsx`, `TemplateSaveBar.tsx`,
+  `styles/creator-templates.css`; `pages/CreateAiCharacterPage.tsx`
+  wires them; `library/CardMenu.tsx` gained a danger item.
+- Tests: `test/services/chargen/creator_templates_test.dart`,
+  `test/services/web/chargen_greeting_routes_test.dart` (the relay
+  group), `test/ui/character_creator/creator_templates_test.dart`, the
+  Mode and Configure goldens, `web_ui/src/components/aichargen/*.test.*`,
+  `web_ui/e2e/journeys.spec.ts`, and the fixture both surfaces read,
+  `test/fixtures/chargen/creator_template_vectors.json`.

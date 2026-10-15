@@ -72,6 +72,9 @@ class ChargenTemplateLibrary {
     }
     final mine = <CreatorTemplate>[];
     for (final entry in entries) {
+      // A link could read a file from outside the folder; only what is
+      // really in it counts (a folder named like a file is listed as broken).
+      if (entry is Link) continue;
       final base = p.basename(entry.path);
       if (!base.endsWith('.json') || base.length == '.json'.length) continue;
       final slug = base.substring(0, base.length - '.json'.length);
@@ -96,7 +99,11 @@ class ChargenTemplateLibrary {
   Future<CreatorTemplate?> read(String slug) async {
     final path = _pathOf(slug);
     if (path == null || builtInTemplate(slug) != null) return null;
-    if (!await _exists(path)) return null;
+    final type = await FileSystemEntity.type(path, followLinks: false);
+    if (type == FileSystemEntityType.notFound ||
+        type == FileSystemEntityType.link) {
+      return null;
+    }
     return _open(path, slug);
   }
 
@@ -187,15 +194,8 @@ class ChargenTemplateLibrary {
     final path = _pathOf(slug);
     if (path == null) throw const TemplateRefused(404, _gone);
     return _inLine(() async {
-      final type = await FileSystemEntity.type(path, followLinks: false);
-      if (type == FileSystemEntityType.notFound) {
-        throw const TemplateRefused(404, _gone);
-      }
-      if (type == FileSystemEntityType.directory) {
-        await Directory(path).delete();
-      } else {
-        await File(path).delete();
-      }
+      if (!await _exists(path)) throw const TemplateRefused(404, _gone);
+      await _remove(path);
     });
   }
 
@@ -244,24 +244,62 @@ class ChargenTemplateLibrary {
 
   Future<void> _write(CreatorTemplate t) async {
     await Directory(dir).create(recursive: true);
-    final target = File(p.join(dir, '${t.slug}.json'));
-    final temp = File('${target.path}.tmp');
+    final target = p.join(dir, '${t.slug}.json');
+    final temp = File('$target.tmp');
     await temp.writeAsString(
       const JsonEncoder.withIndent('  ').convert(t.toFile()),
       flush: true,
     );
     try {
-      await temp.rename(target.path);
+      await temp.rename(target);
     } on FileSystemException {
-      // Windows will not rename over a file another process has open.
+      // Windows will not rename over a file another process has open, and
+      // nothing renames over a folder. The old copy moves aside and is only
+      // deleted once the new one is in place; a second failure puts it back
+      // and leaves the new bytes in the temp file. Nothing is deleted first.
+      final aside = '$target.bak';
       try {
-        if (await target.exists()) await target.delete();
-        await temp.rename(target.path);
+        await _move(target, aside);
+        await temp.rename(target);
       } on FileSystemException catch (e) {
-        debugPrint('[Templates] could not write ${target.path}: $e');
-        if (await temp.exists()) await temp.delete();
+        debugPrint('[Templates] could not write $target: $e');
+        if (await _exists(aside) && !await _exists(target)) {
+          try {
+            await _move(aside, target);
+          } on FileSystemException catch (e) {
+            debugPrint('[Templates] the old copy is at $aside: $e');
+          }
+        }
         rethrow;
+      }
+      try {
+        await _remove(aside);
+      } on FileSystemException catch (e) {
+        debugPrint('[Templates] the old copy is still at $aside: $e');
       }
     }
   }
+
+  /// Moves whatever is at [from] (a file, a folder or a link) to [to].
+  static Future<void> _move(String from, String to) async {
+    final type = await FileSystemEntity.type(from, followLinks: false);
+    if (type != FileSystemEntityType.notFound) {
+      await _entity(from, type).rename(to);
+    }
+  }
+
+  /// Deletes the file, link or empty folder at [path], if any.
+  static Future<void> _remove(String path) async {
+    final type = await FileSystemEntity.type(path, followLinks: false);
+    if (type != FileSystemEntityType.notFound) {
+      await _entity(path, type).delete();
+    }
+  }
+
+  static FileSystemEntity _entity(String path, FileSystemEntityType type) =>
+      type == FileSystemEntityType.directory
+      ? Directory(path)
+      : type == FileSystemEntityType.link
+      ? Link(path)
+      : File(path);
 }
