@@ -24,6 +24,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_interview.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_profile.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.models.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.prefs.dart';
@@ -164,6 +165,7 @@ class CreatorState extends ChangeNotifier {
   final greetings = CreatorGreetings();
   final profile = CreatorProfile();
   final review = CreatorReview();
+  final interview = CreatorInterview();
 
   /// A generated greeting's box: the character editor's, with spell check
   /// and macro, "dialogue" and *action* colouring. Made with its text, so
@@ -428,6 +430,7 @@ class CreatorState extends ChangeNotifier {
     greetings.dispose();
     profile.dispose();
     review.dispose();
+    interview.dispose();
     nameController.dispose();
     conceptController.dispose();
     keywordsController.dispose();

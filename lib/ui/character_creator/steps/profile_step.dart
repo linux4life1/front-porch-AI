@@ -130,15 +130,17 @@ class ProfileStep extends StatelessWidget {
                 state: state,
                 onReread: () => state.rereadFacts(llmProvider: llm()),
               ),
-              InterviewTranscriptRow(
-                transcript: paused.interviewTranscript,
-                open: p.transcriptOpen,
-                enabled: !rewriting,
-                onToggle: () {
-                  p.transcriptOpen = !p.transcriptOpen;
-                  state.notify();
-                },
-              ),
+              // No questions, no interview: nothing to show.
+              if (paused.interviewTranscript.trim().isNotEmpty)
+                InterviewTranscriptRow(
+                  transcript: paused.interviewTranscript,
+                  open: p.transcriptOpen,
+                  enabled: !rewriting,
+                  onToggle: () {
+                    p.transcriptOpen = !p.transcriptOpen;
+                    state.notify();
+                  },
+                ),
             ],
           ),
         ),

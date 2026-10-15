@@ -316,6 +316,9 @@ class AutomatedConfigStep extends StatelessWidget {
                 ],
               ),
 
+              // ── Interview: after the card holding the voice selector ──
+              InterviewQuestionsCard(state: state),
+
               // ── World Lore ──
               CreatorSectionCard(
                 title: 'World Lore',

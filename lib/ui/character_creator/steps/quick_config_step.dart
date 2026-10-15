@@ -245,7 +245,12 @@ class QuickConfigStep extends StatelessWidget {
                       state.saveState();
                       state.notify();
                     },
-                    onSexChanged: state.scheduleSave,
+                    // Notify too: the Interview card's third-person
+                    // questions take their pronouns from this box.
+                    onSexChanged: () {
+                      state.scheduleSave();
+                      state.notify();
+                    },
                   ),
                   const SizedBox(height: 16),
                   DynamicMacrosToggle(
@@ -259,6 +264,9 @@ class QuickConfigStep extends StatelessWidget {
                   ),
                 ],
               ),
+
+              // Interview: after the card holding the voice selector
+              InterviewQuestionsCard(state: state),
 
               // World Lore
               CreatorSectionCard(

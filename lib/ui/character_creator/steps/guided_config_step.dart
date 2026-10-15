@@ -376,6 +376,9 @@ class GuidedConfigStep extends StatelessWidget {
               // ── Output settings ──
               GuidedOutputSettings(state: state),
 
+              // ── Interview: after the card holding the voice selector ──
+              InterviewQuestionsCard(state: state),
+
               const SizedBox(height: 24),
 
               // ── Validation hint ──

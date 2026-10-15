@@ -124,6 +124,7 @@ void clearCreatorForm(CreatorState s) {
   s.narrativePerspective = 'first';
   s.narrativeTense = 'present';
   s.generationDetail = 'Standard';
+  s.interview.reset();
 
   // Generation state
   s.generationStatus = '';

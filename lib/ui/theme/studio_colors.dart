@@ -60,6 +60,13 @@ class StudioColors {
   static Color lineOf(BuildContext context) =>
       AppColors.resolve(context, line, lineLight);
 
+  /// A stronger hairline: the dashed border of the creator interview's
+  /// conditional rows.
+  static const Color lineStrong = Color(0xFF4E4134);
+  static const Color lineStrongLight = Color(0xFFBFB6AA);
+  static Color lineStrongOf(BuildContext context) =>
+      AppColors.resolve(context, lineStrong, lineStrongLight);
+
   /// Text.
   static const Color ink = Color(0xFFEFE6DA);
   static const Color inkLight = Color(0xFF2A231C);

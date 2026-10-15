@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_dashed_outline.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/streamed_text.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -258,7 +259,7 @@ class GreetingAddButton extends StatelessWidget {
     return Opacity(
       opacity: onPressed == null ? _kWaitingOpacity : 1,
       child: CustomPaint(
-        foregroundPainter: _DashedOutline(color: amber, radius: 12),
+        foregroundPainter: CreatorDashedOutline(color: amber, radius: 12),
         child: SizedBox(
           height: 44,
           child: TextButton.icon(
@@ -278,36 +279,4 @@ class GreetingAddButton extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A 1.5px dashed rounded outline (Flutter borders cannot dash).
-class _DashedOutline extends CustomPainter {
-  const _DashedOutline({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    final outline = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          (Offset.zero & size).deflate(0.75),
-          Radius.circular(radius),
-        ),
-      );
-    for (final metric in outline.computeMetrics()) {
-      for (double d = 0; d < metric.length; d += 7) {
-        canvas.drawPath(metric.extractPath(d, d + 4), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedOutline old) =>
-      old.color != color || old.radius != radius;
 }

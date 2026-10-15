@@ -66,6 +66,7 @@ class CreatorModeAssemblers {
         includeDynamicMacros: state.includeDynamicMacros,
         narrativePerspective: state.narrativePerspective,
         narrativeTense: state.narrativeTense,
+        interviewQuestions: state.interview.forRun,
         descriptionDetail: '2-3 paragraphs',
         age: '',
         sex: state.sexController.text.trim(),
@@ -164,6 +165,7 @@ class CreatorModeAssemblers {
         includeDynamicMacros: state.includeDynamicMacros,
         narrativePerspective: state.narrativePerspective,
         narrativeTense: state.narrativeTense,
+        interviewQuestions: state.interview.forRun,
         descriptionDetail:
             CreatorState.generationDetailOptions[state.generationDetail] ??
             '2-3 paragraphs',
@@ -282,6 +284,7 @@ class CreatorModeAssemblers {
         includeDynamicMacros: state.includeDynamicMacros,
         narrativePerspective: state.narrativePerspective,
         narrativeTense: state.narrativeTense,
+        interviewQuestions: state.interview.forRun,
         descriptionDetail:
             CreatorState.generationDetailOptions[state.generationDetail] ??
             '2-3 paragraphs',

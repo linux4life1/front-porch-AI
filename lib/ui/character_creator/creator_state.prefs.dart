@@ -97,6 +97,9 @@ class CreatorFormPrefs {
   static const _prefGuidedNsfwClothing = 'chargen_guided_nsfw_clothing';
   static const _prefGuidedNsfwPersonality = 'chargen_guided_nsfw_personality';
 
+  /// The Interview card's list: `''` is the standard set.
+  static const _prefInterviewQuestions = 'chargen_interview_questions';
+
   /// The last save in line. Saves write one after another: a slow first
   /// save (every key missing) could otherwise finish after a newer one and
   /// put older text back.
@@ -229,6 +232,7 @@ class CreatorFormPrefs {
         prefs.getString(_prefGuidedNsfwClothing) ?? '';
     s.guidedNsfwPersonalityController.text =
         prefs.getString(_prefGuidedNsfwPersonality) ?? '';
+    s.interview.restore(prefs.getString(_prefInterviewQuestions) ?? '');
   }
 
   /// Every saved wizard field, keyed by its preference. Read in one go,
@@ -306,6 +310,7 @@ class CreatorFormPrefs {
     _prefGuidedNsfwKinks: s.guidedNsfwKinksController.text,
     _prefGuidedNsfwClothing: s.guidedNsfwClothingController.text,
     _prefGuidedNsfwPersonality: s.guidedNsfwPersonalityController.text,
+    _prefInterviewQuestions: s.interview.toPrefs(),
   };
 
   /// Writes only the fields whose value changed. On Windows and Linux every
