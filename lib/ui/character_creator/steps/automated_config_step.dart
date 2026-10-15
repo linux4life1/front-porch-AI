@@ -52,24 +52,13 @@ class AutomatedConfigStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Bring Your Character to Life',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: StudioColors.inkOf(context),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Give us a name and a concept — the AI will do the rest. '
-                'It will generate a complete character card with personality, '
-                'backstory, dialogue examples, and a custom avatar.',
-                style: TextStyle(
-                  fontSize: 14,
-                  color: StudioColors.mutedOf(context),
-                  height: 1.5,
-                ),
+              CreatorConfigHeader(
+                state: state,
+                title: 'Bring Your Character to Life',
+                intro:
+                    'Give us a name and a concept — the AI will do the rest. '
+                    'It will generate a complete character card with personality, '
+                    'backstory, dialogue examples, and a custom avatar.',
               ),
               const SizedBox(height: 16),
 

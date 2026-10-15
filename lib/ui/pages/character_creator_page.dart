@@ -24,6 +24,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/steps.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// AI character creator wizard. Delegates state to [CreatorState].
@@ -69,6 +70,11 @@ class _CharacterCreatorPageState extends State<CharacterCreatorPage> {
       if (!mounted) return;
       try {
         final storage = Provider.of<StorageService>(context, listen: false);
+        // The templates folder; the Mode step lists it (built-ins until then).
+        creatorState.templates.library = ChargenTemplateLibrary.under(
+          storage.rootPath,
+        );
+        creatorState.templates.refresh();
         creatorState.scanLocalModels(storage);
         creatorState.scanLocalPresets(storage);
         creatorState.initLocalSettingsControllers(storage);

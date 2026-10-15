@@ -29,6 +29,7 @@ import 'package:front_porch_ai/ui/character_creator/creator_profile.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.models.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.prefs.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state/creator_form_reset.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_templates.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Creator mode selection.
@@ -166,6 +167,9 @@ class CreatorState extends ChangeNotifier {
   final profile = CreatorProfile();
   final review = CreatorReview();
   final interview = CreatorInterview();
+
+  /// The Mode step's templates and the form's `Started from` mark.
+  late final templates = CreatorTemplates(notifyListeners, save: saveState);
 
   /// A generated greeting's box: the character editor's, with spell check
   /// and macro, "dialogue" and *action* colouring. Made with its text, so

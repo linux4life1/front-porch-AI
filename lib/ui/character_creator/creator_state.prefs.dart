@@ -18,6 +18,7 @@
 
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_templates.dart';
 
 /// Loads, saves, and clears the wizard form through SharedPreferences.
 /// Saves run one after another through [_saveQueue].
@@ -99,6 +100,17 @@ class CreatorFormPrefs {
 
   /// The Interview card's list: `''` is the standard set.
   static const _prefInterviewQuestions = 'chargen_interview_questions';
+
+  // Quick's own tones, count and 18+, and the rest a template holds.
+  static const _prefQuickNsfw = 'chargen_quick_nsfw';
+  static const _prefQuickTones = 'chargen_quick_tones';
+  static const _prefQuickGreetingCount = 'chargen_quick_greeting_count';
+  static const _prefReasoning = 'chargen_reasoning';
+  static const _prefArchetype = 'chargen_archetype';
+  static const _prefLoreUrls = 'chargen_lore_urls';
+
+  /// The `Started from` mark: `''` for none.
+  static const _prefTemplateStartedFrom = 'chargen_template_started_from';
 
   /// The last save in line. Saves write one after another: a slow first
   /// save (every key missing) could otherwise finish after a newer one and
@@ -233,6 +245,19 @@ class CreatorFormPrefs {
     s.guidedNsfwPersonalityController.text =
         prefs.getString(_prefGuidedNsfwPersonality) ?? '';
     s.interview.restore(prefs.getString(_prefInterviewQuestions) ?? '');
+    s.quickNsfwEnabled = prefs.getBool(_prefQuickNsfw) ?? false;
+    final quickTones = (prefs.getString(_prefQuickTones) ?? 'Neutral')
+        .split(',')
+        .where((t) => t.isNotEmpty)
+        .toList();
+    s.quickSelectedTones = quickTones.isEmpty ? ['Neutral'] : quickTones;
+    s.quickGreetingCount = prefs.getInt(_prefQuickGreetingCount) ?? 0;
+    s.reasoningEnabled = prefs.getBool(_prefReasoning) ?? false;
+    s.selectedArchetype = prefs.getString(_prefArchetype) ?? '';
+    s.loreUrlsController.text = prefs.getString(_prefLoreUrls) ?? '';
+    s.templates.startedFrom = TemplateStart.fromPrefs(
+      prefs.getString(_prefTemplateStartedFrom) ?? '',
+    );
   }
 
   /// Every saved wizard field, keyed by its preference. Read in one go,
@@ -311,6 +336,13 @@ class CreatorFormPrefs {
     _prefGuidedNsfwClothing: s.guidedNsfwClothingController.text,
     _prefGuidedNsfwPersonality: s.guidedNsfwPersonalityController.text,
     _prefInterviewQuestions: s.interview.toPrefs(),
+    _prefQuickNsfw: s.quickNsfwEnabled,
+    _prefQuickTones: s.quickSelectedTones.join(','),
+    _prefQuickGreetingCount: s.quickGreetingCount,
+    _prefReasoning: s.reasoningEnabled,
+    _prefArchetype: s.selectedArchetype,
+    _prefLoreUrls: s.loreUrlsController.text,
+    _prefTemplateStartedFrom: TemplateStart.toPrefs(s.templates.startedFrom),
   };
 
   /// Writes only the fields whose value changed. On Windows and Linux every
@@ -346,8 +378,15 @@ class CreatorFormPrefs {
 
   /// Clear the core saved-form prefs after a character is successfully created,
   /// so the next visit starts fresh. Mirrors the original review-step save.
+  /// The `Started from` mark goes too: the next character starts unmarked.
   Future<void> clearAfterSave() => _queuePrefsWrite((prefs) async {
-    for (final key in [_prefName, _prefConcept, _prefKeywords, _prefArtStyle]) {
+    for (final key in [
+      _prefName,
+      _prefConcept,
+      _prefKeywords,
+      _prefArtStyle,
+      _prefTemplateStartedFrom,
+    ]) {
       await prefs.remove(key);
     }
   });

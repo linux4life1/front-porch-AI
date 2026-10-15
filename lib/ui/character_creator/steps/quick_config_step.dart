@@ -98,23 +98,10 @@ class QuickConfigStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // The spec's page title: h1 24 / 700 and a muted intro.
-              Text(
-                'Quick Create',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: StudioColors.inkOf(context),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Name it, describe it, generate.',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: StudioColors.mutedOf(context),
-                ),
+              CreatorConfigHeader(
+                state: state,
+                title: 'Quick Create',
+                intro: 'Name it, describe it, generate.',
               ),
               const SizedBox(height: 16),
 

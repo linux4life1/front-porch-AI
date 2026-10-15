@@ -82,23 +82,11 @@ class GuidedConfigStep extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // The spec's page title: h1 24 / 700 and a muted intro.
-              Text(
-                'Guided Character Creator',
-                style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.w700,
-                  color: StudioColors.inkOf(context),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Write your vision in your own words. The AI fleshes out the rest.',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.5,
-                  color: StudioColors.mutedOf(context),
-                ),
+              CreatorConfigHeader(
+                state: state,
+                title: 'Guided Character Creator',
+                intro:
+                    'Write your vision in your own words. The AI fleshes out the rest.',
               ),
               const SizedBox(height: 16),
 

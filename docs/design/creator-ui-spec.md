@@ -171,7 +171,10 @@ is kept.` Last button `Save & Finish`.
 
 **Mode step** (desktop): title `How do you want to create?`; intro `Choose
 the creation mode that fits your workflow.`; the three mode cards keep their
-current copy. (The template picker above them is PR 3.)
+current copy and sit in a three-column grid of column cards under the
+template picker, as the board draws them (icon tile, title, subtitle,
+description, feature list); the selected card is the 2px amber border on
+the 8% fill, with no "Selected" pill.
 
 **Mode step, templates.** Card title `Start from a template`; desktop
 subtitle `Every box filled the way you saved it. Pick one, or choose a mode

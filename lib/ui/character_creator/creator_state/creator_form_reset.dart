@@ -125,6 +125,16 @@ void clearCreatorForm(CreatorState s) {
   s.narrativeTense = 'present';
   s.generationDetail = 'Standard';
   s.interview.reset();
+  s.reasoningEnabled = false;
+
+  // Quick's own scenario, tones, count and 18+
+  s.quickScenarioController.clear();
+  s.quickSelectedTones = ['Neutral'];
+  s.quickGreetingCount = 0;
+  s.quickNsfwEnabled = false;
+
+  // A cleared form was started from nothing.
+  s.templates.clearStartedFrom();
 
   // Generation state
   s.generationStatus = '';

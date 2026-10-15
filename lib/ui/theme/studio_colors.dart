@@ -133,6 +133,10 @@ class StudioColors {
   static Color amberInkOf(BuildContext context) =>
       AppColors.resolve(context, amberInk, amberInkLight);
 
+  /// The creator's dialog scrim, `rgba(12, 8, 4, 0.62)` in both themes
+  /// (docs/design/creator-ui-spec.md).
+  static const Color scrim = Color(0x9E0C0804);
+
   /// Shelf cover gradient (sketch H).
   static const Color coverStart = Color(0xFF4A3421);
   static const Color coverEnd = Color(0xFF251E17);

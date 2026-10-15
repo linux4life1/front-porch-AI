@@ -122,6 +122,10 @@ class CreatorInterview {
       ? ''
       : jsonEncode(InterviewQuestion.listToJson([for (final r in _rows) r.q]));
 
+  /// A template's rows: null is the standard set.
+  void restoreList(List<InterviewQuestion>? qs) =>
+      qs == null ? reset() : _replace(qs);
+
   /// Reads what [toPrefs] wrote. Empty is the standard set; unreadable
   /// JSON is logged and gives the standard set.
   void restore(String raw) {

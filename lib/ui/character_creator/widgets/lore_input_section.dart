@@ -52,10 +52,11 @@ class LoreInputSection extends StatelessWidget {
           style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
         ),
         const SizedBox(height: 8),
-        // No onChanged: the URLs are read when generating and are never
-        // saved between visits, so typing here has nothing to save.
+        // Saved between visits (and in a template), once typing pauses,
+        // like every creator box.
         TextField(
           controller: state.loreUrlsController,
+          onChanged: (_) => state.scheduleSave(),
           style: TextStyle(color: StudioColors.inkOf(context), fontSize: 13),
           maxLines: 4,
           minLines: 2,

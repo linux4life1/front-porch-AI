@@ -142,6 +142,7 @@ class CreatorTheme extends StatelessWidget {
           height: 1.5,
           color: prose,
         ),
+        barrierColor: StudioColors.scrim,
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: raise,
