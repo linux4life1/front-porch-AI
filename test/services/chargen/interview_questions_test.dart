@@ -5,8 +5,13 @@
 // wording, rendered for the chosen voice and pronouns; the row model the
 // editors and the relay share; what one run asks.
 
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
+
+import 'support/marker_chargen_llm.dart';
 
 const _first = NarrativeVoice();
 const _thirdPast = NarrativeVoice(
@@ -285,6 +290,232 @@ void main() {
         pronouns: NarrativePronouns.they,
       );
       expect(they, contains("quote Rook's own words when they speak"));
+    });
+  });
+
+  group('the run inputs carry the list', () {
+    GenRunInputs trip(GenRunInputs inputs) => GenRunInputs.fromJson(
+      jsonDecode(jsonEncode(inputs.toJson())) as Map<String, dynamic>,
+    );
+
+    test('a list round-trips, [] stays [], absent stays null', () {
+      const custom = [
+        InterviewQuestion(key: 'voice'),
+        InterviewQuestion(text: 'What does {{char}} keep in her boots?'),
+        InterviewQuestion(
+          key: 'intimacy',
+          text: 'EDITED What does she want at night?',
+          condition: InterviewCondition.nsfw,
+        ),
+      ];
+      final kept = trip(
+        const GenRunInputs(
+          name: 'Mara',
+          concept: 'x',
+          interviewQuestions: custom,
+        ),
+      ).interviewQuestions;
+      expect(kept?.map((q) => q.toJson()), custom.map((q) => q.toJson()));
+
+      final none = trip(
+        const GenRunInputs(name: 'Mara', concept: 'x', interviewQuestions: []),
+      ).interviewQuestions;
+      expect(
+        none,
+        isNotNull,
+        reason: '[] is "no interview", not the standard set',
+      );
+      expect(none, isEmpty);
+
+      expect(
+        trip(const GenRunInputs(name: 'Mara', concept: 'x')).interviewQuestions,
+        isNull,
+      );
+      expect(
+        GenRunInputs.fromJson(const {'name': 'Mara'}).interviewQuestions,
+        isNull,
+        reason:
+            'a pending file written before the editor asks the standard set',
+      );
+    });
+  });
+
+  group('the creator asks the run\'s questions in its voice', () {
+    String asked(String prompt) => prompt.substring(
+      prompt.lastIndexOf('Question: ') + 'Question: '.length,
+      prompt.lastIndexOf('\n\n'),
+    );
+    List<String> interviewPrompts(MarkerChargenLlm llm) => [
+      for (final p in llm.prompts)
+        if (p.contains('Question: ')) p,
+    ];
+    final markerCard = jsonDecode(markerCardJson()) as Map<String, dynamic>;
+
+    test('third person past, she: the list in order, the seed and the lead '
+        'in that voice', () async {
+      const custom = 'What does {{char}} keep under the chart-room floor?';
+      final llm = MarkerChargenLlm();
+      final paused = await CharacterGenService(llm).generateProfile(
+        inputs: const GenRunInputs(
+          name: 'Mira Holt',
+          concept: 'A cartographer of drowned coasts.',
+          sex: 'female',
+          relationship: 'old friend',
+          narrativePerspective: 'third',
+          narrativeTense: 'past',
+          altGreetingCount: 0,
+          interviewQuestions: [
+            InterviewQuestion(key: 'voice'),
+            InterviewQuestion(text: custom),
+            InterviewQuestion(
+              key: 'relationship',
+              condition: InterviewCondition.relationship,
+            ),
+            InterviewQuestion(key: 'wound'),
+            InterviewQuestion(
+              key: 'intimacy',
+              condition: InterviewCondition.nsfw,
+            ),
+            InterviewQuestion(key: 'appearance'),
+          ],
+        ),
+      );
+
+      final prompts = interviewPrompts(llm);
+      expect(prompts.map(asked).toList(), [
+        _sketchShe[0],
+        custom,
+        _sketchShe[3].replaceAll(kRelationshipSlot, 'old friend'),
+        _sketchShe[2],
+        _sketchShe[10],
+      ], reason: 'the 18+ row is dropped with 18+ off');
+      for (final p in prompts) {
+        expect(p, startsWith('You are narrating Mira Holt.\n'));
+        expect(
+          p,
+          contains(
+            'Answer each question in third person, past tense, about Mira '
+            'Holt (she/her/her)',
+          ),
+        );
+        expect(p, contains('In the questions, {{char}} is Mira Holt.'));
+        expect(p, endsWith('\n\nAnswer: '));
+      }
+      expect(paused!.interviewTranscript, contains('Q: $custom\nA: '));
+    });
+
+    test('first person present asks the standard set with the seed the '
+        'creator always sent', () async {
+      final llm = MarkerChargenLlm();
+      await CharacterGenService(llm).generateProfile(
+        inputs: const GenRunInputs(
+          name: 'Mira Holt',
+          concept: 'A cartographer of drowned coasts.',
+          altGreetingCount: 0,
+        ),
+      );
+      final prompts = interviewPrompts(llm);
+      expect(prompts, hasLength(9));
+      // The seed exactly as gen_interview_steps.dart wrote it before the
+      // questions became editable.
+      final oldSeed =
+          'You are Mira Holt.\n'
+          'Your personality: ${markerCard['personality']}\n'
+          'Your scenario: ${markerCard['scenario']}\n\n'
+          'Answer each question in first person, fully in-character. Be '
+          'specific, vivid, and emotionally honest — but keep each answer '
+          'TIGHT: a few sharp sentences, under ~150 words. Depth over length; '
+          'do not ramble. Respond as Mira Holt would speak — use their '
+          'vocabulary, cadence, and emotional register.';
+      expect(
+        prompts.first,
+        '$oldSeed\n\n'
+        'Question: How do you talk? Give me two quick samples of your voice: '
+        'first, how you\'d explain something to someone you\'re trying to '
+        'impress — then how you\'d say the same thing to someone you '
+        'completely trust.\n\n'
+        'Mira Holt: ',
+      );
+      expect(prompts.last, endsWith('Be specific.\n\nMira Holt: '));
+    });
+
+    test('[] asks nothing: no transcript, the facts still read, and Phase B '
+        'still writes the example dialogue', () async {
+      final llm = MarkerChargenLlm(
+        toolAnswers: {
+          kIdentityFactsToolName: {
+            'occupation': 'cartographer',
+            'ambitions': ['map the drowned city'],
+            'likes': ['salt wind'],
+          },
+        },
+      );
+      final gen = CharacterGenService(llm);
+      final paused = await gen.generateProfile(
+        inputs: const GenRunInputs(
+          name: 'Mira Holt',
+          concept: 'A cartographer of drowned coasts.',
+          altGreetingCount: 0,
+          generateLorebook: false,
+          interviewQuestions: [],
+        ),
+      );
+
+      expect(paused, isNotNull);
+      expect(
+        llm.sent('Question: '),
+        isFalse,
+        reason: '[] is not the standard set',
+      );
+      expect(paused!.interviewTranscript, '');
+      expect(
+        llm.sent('You have just completed an in-character'),
+        isFalse,
+        reason: 'no interview, no interview rewrite',
+      );
+      expect(llm.toolChoices, contains(kIdentityFactsToolName));
+      expect(paused.facts?.occupation, 'cartographer');
+      final facts = llm.promptWith('Read the facts this character profile');
+      expect(facts, isNot(contains('INTERVIEW (their own words)')));
+
+      final card = await gen.completeCharacter(paused: paused);
+      expect(card, isNotNull);
+      final dialogue = llm.promptWith('Write example dialogue exchanges');
+      expect(
+        dialogue,
+        isNotEmpty,
+        reason: 'dialogue is written with no interview',
+      );
+      expect(dialogue, isNot(contains('SOURCE MATERIAL')));
+      expect(card!.mesExample, contains('mapped every one of them twice'));
+      expect(
+        llm.promptWith('Seed Porch Life identity'),
+        isNot(contains('INTERVIEW (their own words)')),
+      );
+
+      // The Profile step's rewrite reads no transcript and says so.
+      await gen.rewriteProfile(
+        paused: paused,
+        description: 'Short and plain.',
+        personality: 'Cheerful.',
+        scenario: paused.card.scenario,
+        direction: 'Make her braver.',
+      );
+      final rewrite = llm.promptWith('You have just completed an in-character');
+      expect(
+        rewrite,
+        startsWith(
+          'You have just completed an in-character interview with Mira '
+          'Holt.\n',
+        ),
+      );
+      expect(
+        rewrite,
+        contains(
+          'INTERVIEW TRANSCRIPT:\n(No interview was run. Work from the current '
+          'fields and the direction.)\n',
+        ),
+      );
     });
   });
 }

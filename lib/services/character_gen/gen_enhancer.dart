@@ -87,12 +87,23 @@ class GenEnhancer {
     _state.narrativeSex = resolved.sex;
 
     // ── Interview, grounded in the real chat (always runs) ─────────
+    // Enhance has no question editor: the standard set, in the card's voice.
+    final pronouns = resolveNarrativePronouns(resolved.sex);
+    final questions = renderInterviewQuestions(
+      null,
+      voice: resolved.voice,
+      pronouns: pronouns,
+      relationship: '',
+      nsfwEnabled: nsfwEnabled,
+    );
     onStatus?.call('Interviewing $name about the chat...');
     onProgress?.call('');
     final interviewTranscript = await _s.interview.runInterview(
       card: card,
       name: name,
-      nsfwEnabled: nsfwEnabled,
+      questions: questions,
+      voice: resolved.voice,
+      pronouns: pronouns,
       onStatus: onStatus,
       onProgress: onProgress,
       chatGrounding: chatGrounding,

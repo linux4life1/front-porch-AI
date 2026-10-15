@@ -187,6 +187,7 @@ GenPausedRun? savedProfileRun(
         nsfwEnabled: stamped?.nsfwEnabled ?? true,
         reasoningEnabled: recipe.reasoningEnabled,
         includeDynamicMacros: recipe.includeDynamicMacros,
+        interviewQuestions: readCreatorInputs(card)?.interviewQuestions,
       );
   final CharacterCard copy = GenPausedRun.copyCard(card.toJson()) ?? card;
   return GenPausedRun(

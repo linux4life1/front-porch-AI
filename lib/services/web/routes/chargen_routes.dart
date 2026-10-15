@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chargen_facade.dart';
 import 'package:front_porch_ai/services/web/routes/chargen_profile_routes.dart';
@@ -31,6 +32,7 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 class WebChargenRoutes {
   WebChargenRoutes(this._facade, Router router) {
     router.get('/api/chargen/status', _status);
+    router.get('/api/chargen/interview', _interview);
     router.post('/api/chargen/create', _create);
     router.post('/api/chargen/enhance', _enhance);
     router.post('/api/chargen/enhance-chats', _enhanceChats);
@@ -120,6 +122,20 @@ class WebChargenRoutes {
 
   shelf.Response _status(shelf.Request r) =>
       JsonResponse.ok({'available': _facade.available});
+
+  /// `?perspective=&tense=&sex=`: the standard interview questions in that
+  /// voice, for the phone's editor (`{cap, pronouns, rows}`, see
+  /// `standardInterviewView`).
+  shelf.Response _interview(shelf.Request r) {
+    final q = r.url.queryParameters;
+    return JsonResponse.ok(
+      standardInterviewView(
+        perspective: q['perspective'],
+        tense: q['tense'],
+        sex: q['sex'],
+      ),
+    );
+  }
 
   Future<shelf.Response> _create(shelf.Request r) async {
     Map<String, dynamic> body;

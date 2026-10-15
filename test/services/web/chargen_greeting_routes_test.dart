@@ -989,4 +989,152 @@ void main() {
       }
     },
   );
+
+  // ── The interview the phone shaped: its questions reach the model in
+  // order, in the card's voice, through the pending file, onto the record ─
+  test('the body\'s questions are asked in order, survive a restart and Next, '
+      'and are stamped on the saved card', () async {
+    const custom = 'What does {{char}} keep in the lamp room?';
+    const edited = 'EDITED How does {{char}} sound at dawn?';
+    final llm = StreamingChargenLlm();
+    final relay = await ChargenRelay.start(llm);
+    final profiled = relay.next('chargen_profile', seconds: 60);
+    var (code, body) = await relay.post('/api/chargen/create', {
+      'name': _name,
+      'mode': 'guided',
+      'concept': 'A lighthouse keeper on a wet rock.',
+      'sex': 'male',
+      'narrativePerspective': 'third',
+      'pauseAtProfile': true,
+      'interviewQuestions': [
+        {'key': 'appearance'},
+        {'text': custom},
+        {'key': 'voice', 'text': edited},
+      ],
+    });
+    expect(code, 200, reason: '$body');
+    final profile = await profiled;
+    expect(profile['transcriptQuestions'], 3);
+    final prompts = [
+      for (final p in llm.prompts)
+        if (p.contains('Question: ')) p,
+    ];
+    expect(
+      [
+        for (final p in prompts)
+          p.substring(
+            p.lastIndexOf('Question: ') + 'Question: '.length,
+            p.lastIndexOf('\n\n'),
+          ),
+      ],
+      [
+        'Now describe his physical appearance — what he looks like, how he '
+            'carries himself, and what he is wearing and carrying in this '
+            'opening scene. Be specific.',
+        custom,
+        edited,
+      ],
+    );
+    for (final p in prompts) {
+      expect(
+        p,
+        contains('third person, present tense, about $_name (he/him/his)'),
+      );
+      expect(p, endsWith('\n\nAnswer: '));
+    }
+
+    // Next on a relay that restarted: the run comes back from its file.
+    final writer = relay.restarted();
+    final done = relay.next('chargen_done', seconds: 60);
+    (code, body) = await relay.post('/api/chargen/continue', {
+      'description': profile['description'],
+      'personality': profile['personality'],
+      'scenario': profile['scenario'],
+    }, on: writer);
+    expect(code, 200, reason: '$body');
+    final id = (await done)['id'].toString();
+    final saved = relay.characters.cardByDbId(id)!;
+    final stamp = saved.rawExtensions?['creator_inputs'] as Map?;
+    expect(stamp?['interviewQuestions'], [
+      {'key': 'appearance', 'text': null, 'condition': null},
+      {'key': null, 'text': custom, 'condition': null},
+      {'key': 'voice', 'text': edited, 'condition': null},
+    ], reason: 'the list survived the pending file and is on the record');
+    expect(
+      readGreetingRecipe(saved)?.interviewTranscript,
+      contains('Q: $custom\nA: '),
+    );
+  });
+
+  test('a body without questions asks the standard nine; [] asks none, paused '
+      'or one-shot', () async {
+    final llm = StreamingChargenLlm();
+    final relay = await ChargenRelay.start(llm);
+    int asked() => llm.prompts.where((p) => p.contains('Question: ')).length;
+
+    var profiled = relay.next('chargen_profile', seconds: 60);
+    var (code, body) = await relay.post('/api/chargen/create', {
+      'name': _name,
+      'concept': 'A lighthouse keeper.',
+      'pauseAtProfile': true,
+    });
+    expect(code, 200, reason: '$body');
+    var profile = await profiled;
+    expect(profile['transcriptQuestions'], 9);
+    expect(asked(), 9);
+    expect(
+      llm.promptWith('Question: '),
+      contains('Question: How do you talk?'),
+      reason: 'an older phone gets the standard set, first person',
+    );
+
+    profiled = relay.next('chargen_profile', seconds: 60);
+    (code, body) = await relay.post('/api/chargen/create', {
+      'name': _name,
+      'concept': 'A lighthouse keeper.',
+      'pauseAtProfile': true,
+      'interviewQuestions': <Object>[],
+    });
+    expect(code, 200, reason: '$body');
+    profile = await profiled;
+    expect(profile['transcriptQuestions'], 0);
+    expect(profile['transcript'], '');
+    expect(asked(), 9, reason: 'no question was asked');
+
+    final done = relay.next('chargen_done', seconds: 60);
+    (code, body) = await relay.post('/api/chargen/create', {
+      'name': 'Tam Rook',
+      'concept': 'A ferryman.',
+      'interviewQuestions': <Object>[],
+    });
+    expect(code, 200, reason: '$body');
+    final id = (await done)['id'].toString();
+    expect(asked(), 9, reason: 'the one-shot create asked none either');
+    final saved = relay.characters.cardByDbId(id)!;
+    expect(
+      (saved.rawExtensions?['creator_inputs'] as Map?)?['interviewQuestions'],
+      <Object>[],
+    );
+    expect(saved.mesExample, contains('mapped every one of them twice'));
+  });
+
+  test('GET /api/chargen/interview answers the standard set in the asked '
+      'voice', () async {
+    final relay = await ChargenRelay.start(StreamingChargenLlm());
+    final (code, body) = await relay.get(
+      '/api/chargen/interview?perspective=third&sex=male',
+    );
+    expect(code, 200, reason: '$body');
+    expect(body['cap'], 12);
+    expect(body['pronouns'], {'subject': 'he', 'possessive': 'his'});
+    final rows = [for (final r in body['rows'] as List) r as Map];
+    expect(rows.map((r) => r['key']), kStandardInterviewKeys);
+    expect(
+      rows.first['text'],
+      startsWith('How does {{char}} talk? Give two quick samples of his voice'),
+    );
+    expect(rows[3]['condition'], 'relationship');
+    expect(rows[3]['text'], contains(kRelationshipSlot));
+    expect(rows[9]['condition'], 'nsfw');
+  });
 }

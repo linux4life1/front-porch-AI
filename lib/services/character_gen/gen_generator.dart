@@ -272,20 +272,32 @@ class GenCharacterGenerator {
     if (_state.isStale(currentEpoch)) return null;
 
     // ── Step 2: Character Interview (voice enrichment) ────────────
-    // Run 5 in-character Q&A turns to establish authentic voice.
-    // Use the accumulated answers to rewrite description + personality,
-    // enrich lorebook entries, and pass the transcript into greeting prompts.
-    onStatus?.call('Running character interview...');
-    onProgress?.call('');
-    final interviewTranscript = await _s.interview.runInterview(
-      card: card,
-      name: name,
-      nsfwEnabled: nsfwEnabled,
+    // The user's questions (null: the standard set), in the run's voice,
+    // one in-character answer each. The answers rewrite the profile and
+    // reach every later step. No questions: no interview, no transcript.
+    final pronouns = resolveNarrativePronouns(_state.narrativeSex);
+    final questions = renderInterviewQuestions(
+      inputs.interviewQuestions,
+      voice: _state.narrativeVoice,
+      pronouns: pronouns,
       relationship: relationship,
-      onStatus: onStatus,
-      onProgress: onProgress,
-      worldLore: worldLore,
+      nsfwEnabled: nsfwEnabled,
     );
+    var interviewTranscript = '';
+    if (questions.isNotEmpty) {
+      onStatus?.call('Running character interview...');
+      onProgress?.call('');
+      interviewTranscript = await _s.interview.runInterview(
+        card: card,
+        name: name,
+        questions: questions,
+        voice: _state.narrativeVoice,
+        pronouns: pronouns,
+        onStatus: onStatus,
+        onProgress: onProgress,
+        worldLore: worldLore,
+      );
+    }
 
     if (interviewTranscript.isNotEmpty) {
       // Rewrite description and personality using the interview voice

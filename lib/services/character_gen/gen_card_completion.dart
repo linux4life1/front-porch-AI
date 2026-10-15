@@ -69,16 +69,16 @@ class GenCardCompletion {
 
     // ── Example dialogue (dedicated step) ────────────────────────
     // After enrichment so it reads the final personality. Raw text, not JSON.
-    if (transcript.isNotEmpty) {
-      onStatus?.call('Writing example dialogue...');
-      onProgress?.call('');
-      await _s.interview.generateExampleDialogue(
-        card: card,
-        name: name,
-        interviewTranscript: transcript,
-        onProgress: onProgress,
-      );
-    }
+    // Written with no interview too (the user removed every question): the
+    // prompt then works from the personality alone.
+    onStatus?.call('Writing example dialogue...');
+    onProgress?.call('');
+    await _s.interview.generateExampleDialogue(
+      card: card,
+      name: name,
+      interviewTranscript: transcript,
+      onProgress: onProgress,
+    );
     if (_state.isStale(epoch)) return null;
 
     // ── Lorebook (after the interview, if not written inline) ─────

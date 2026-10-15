@@ -81,7 +81,11 @@ class GenPorchLife {
     bool identityDone = false,
     void Function(String)? onProgress,
   }) async {
-    final excerpt = capInterview(interviewTranscript);
+    // No interview (the user removed every question): no empty heading.
+    final interview = interviewTranscript.trim().isEmpty
+        ? ''
+        : 'INTERVIEW (their own words):\n${capInterview(interviewTranscript)}'
+              '\n\n';
     final greeting = card.firstMessage.length > 800
         ? '${card.firstMessage.substring(0, 800)}...'
         : card.firstMessage;
@@ -107,10 +111,7 @@ ${card.description.length > 500 ? card.description.substring(0, 500) : card.desc
 
 ${card.personality.length > 400 ? card.personality.substring(0, 400) : card.personality}
 
-INTERVIEW (their own words):
-$excerpt
-
-$keys
+$interview$keys
 Rules: no {{user}}'s belongings. No paragraphs. Invent only what the scene already implies.
 
 Respond with ONLY the JSON:''';

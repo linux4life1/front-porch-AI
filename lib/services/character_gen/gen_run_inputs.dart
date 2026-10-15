@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:front_porch_ai/services/character_gen/greeting_recipe.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 
 /// Everything one AI Create run is asked for, as one value: the form's
 /// answers and switches, without the callbacks. A paused run keeps it so
@@ -38,6 +39,7 @@ class GenRunInputs {
     this.narrativeTense = 'present',
     this.descriptionOverride,
     this.includeIdentityFacts = true,
+    this.interviewQuestions,
   });
 
   final String name;
@@ -76,6 +78,10 @@ class GenRunInputs {
   /// Guest (a passing NPC): no facts call, and the greeting-time Porch Life
   /// pass asks for the lists itself, as before the facts pass existed.
   final bool includeIdentityFacts;
+
+  /// The interview the user shaped, in order. Null asks the standard set;
+  /// an empty list runs no interview (see `renderInterviewQuestions`).
+  final List<InterviewQuestion>? interviewQuestions;
 
   /// The user typed a scenario: it is kept word for word, never rewritten.
   bool get userScenario => scenario.trim().isNotEmpty;
@@ -123,6 +129,10 @@ class GenRunInputs {
     'narrativeTense': narrativeTense,
     'descriptionOverride': descriptionOverride,
     'includeIdentityFacts': includeIdentityFacts,
+    'interviewQuestions': switch (interviewQuestions) {
+      final qs? => InterviewQuestion.listToJson(qs),
+      null => null,
+    },
   };
 
   /// [toJson] read back; a missing or odd value takes the default.
@@ -169,6 +179,9 @@ class GenRunInputs {
           ? j['descriptionOverride'] as String
           : null,
       includeIdentityFacts: b('includeIdentityFacts', d.includeIdentityFacts),
+      interviewQuestions: InterviewQuestion.listFromJson(
+        j['interviewQuestions'],
+      ),
     );
   }
 }

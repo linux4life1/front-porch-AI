@@ -111,6 +111,11 @@ class GenIdentityFacts {
         ? '- "intimate_into": 2-5 short suggestive tastes for 18+ scenes\n'
               '- "intimate_not_into": 2-4 hard limits / not interested\n'
         : 'Do NOT emit intimate_into or intimate_not_into.\n';
+    // No interview (the user removed every question): no empty heading.
+    final interview = interviewTranscript.trim().isEmpty
+        ? ''
+        : 'INTERVIEW (their own words):\n${capInterview(interviewTranscript)}'
+              '\n\n';
     return '''Read the facts this character profile implies for $name. Output ONLY a JSON object.
 No markdown. No explanation.
 
@@ -128,10 +133,7 @@ $personality
 SCENARIO (the opening situation):
 $scenario
 
-INTERVIEW (their own words):
-${capInterview(interviewTranscript)}
-
-Keys:
+${interview}Keys:
 - "birthday_month": 1-12 and "birthday_day": 1-31, your choice (the year comes from the age)
 $yearLine- "occupation": their job, or "" when the profile implies none. Never invent a job
 - "occupation_brief": one sentence on what that work is like ("" without a job)

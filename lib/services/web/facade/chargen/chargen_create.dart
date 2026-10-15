@@ -4,6 +4,7 @@
 import 'dart:async';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'
     show withoutCity96Ask;
 import 'package:front_porch_ai/services/services.dart';
@@ -49,6 +50,8 @@ GenRunInputs chargenInputsFromFields(String name, Map<String, dynamic> f) {
     descriptionOverride: mode == 'automated' && concept.isNotEmpty
         ? concept
         : null,
+    // Absent (an older phone) asks the standard set; [] asks nothing.
+    interviewQuestions: InterviewQuestion.listFromJson(f['interviewQuestions']),
   );
 }
 
@@ -74,16 +77,19 @@ Map<String, dynamic> chargenSaveExtras(Map<String, dynamic> f) => {
 
 /// Where a character created here keeps what it was asked for that its
 /// greeting recipe does not carry (the concept, the lore categories and
-/// depth, the wizard mode), so a lorebook rewrite or the Profile step after
-/// a restart asks the same way. Beside the recipe's own key; additive.
+/// depth, the wizard mode, the interview questions), so a lorebook rewrite
+/// or the Profile step after a restart asks the same way. Beside the
+/// recipe's own key; additive.
 const kCreatorInputsExtensionKey = 'creator_inputs';
 
 const _stampConceptChars = 4000;
 
 /// Write [inputs] and [mode] onto [card] (see [kCreatorInputsExtensionKey]).
+/// The questions are written only when the run had its own list.
 void stampCreatorInputs(CharacterCard card, GenRunInputs inputs, String mode) {
   final raw = Map<String, dynamic>.from(card.rawExtensions ?? {});
   final concept = inputs.concept;
+  final questions = inputs.interviewQuestions;
   raw[kCreatorInputsExtensionKey] = {
     'concept': concept.length > _stampConceptChars
         ? concept.substring(0, _stampConceptChars)
@@ -91,13 +97,22 @@ void stampCreatorInputs(CharacterCard card, GenRunInputs inputs, String mode) {
     'loreCategories': inputs.loreCategories,
     'loreDepth': inputs.loreDepth,
     if (mode.isNotEmpty) 'mode': mode,
+    if (questions != null)
+      'interviewQuestions': InterviewQuestion.listToJson(questions),
   };
   card.rawExtensions = raw;
 }
 
 /// What a saved character was asked for, read back from its stamp; null
-/// when it carries none.
-({String concept, List<String> loreCategories, String loreDepth, String mode})?
+/// when it carries none. `interviewQuestions` is null when the run asked
+/// the standard set.
+({
+  String concept,
+  List<String> loreCategories,
+  String loreDepth,
+  String mode,
+  List<InterviewQuestion>? interviewQuestions,
+})?
 readCreatorInputs(CharacterCard? card) {
   final raw = card?.rawExtensions?[kCreatorInputsExtensionKey];
   if (raw is! Map) return null;
@@ -112,6 +127,9 @@ readCreatorInputs(CharacterCard? card) {
     ],
     loreDepth: depth.isEmpty ? 'Standard' : depth,
     mode: text('mode'),
+    interviewQuestions: InterviewQuestion.listFromJson(
+      raw['interviewQuestions'],
+    ),
   );
 }
 
@@ -211,6 +229,7 @@ class ChargenCreate {
         nsfwEnabled: i.nsfwEnabled,
         reasoningEnabled: i.reasoningEnabled,
         descriptionOverride: i.descriptionOverride,
+        interviewQuestions: i.interviewQuestions,
         onStatus: (s) =>
             _hub?.broadcast({'event': 'chargen_status', 'data': s}),
         onError: (m) => reported = m,
