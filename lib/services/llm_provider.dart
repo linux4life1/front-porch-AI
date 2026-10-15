@@ -229,14 +229,15 @@ class LLMProvider extends ChangeNotifier {
   /// (127.0.0.1 is a loopback, so it is local). Not [isLocal], which means
   /// the managed KoboldCpp only.
   bool get modelIsLocal =>
-      backendLaneIsLocal(_activeBackend.name, _openRouterService.apiUrl);
+      evalLaneIsHomeNetwork(_activeBackend.name, _openRouterService.apiUrl);
 
-  /// [modelIsLocal] for the helper model, by the rule the helper pairing
-  /// uses. It answers only while [workerService] is on.
+  /// [modelIsLocal] for the helper model. One-Shot Auto reads it: a helper
+  /// on the home network stays multi-call. It answers only while
+  /// [workerService] is on. The pair gate is [backendLaneIsLocal].
   bool get workerModelIsLocal {
     final type = _storageService.workerBackendType;
     final url = _storageService.workerRemoteApiUrl;
-    return backendLaneIsLocal(type, resolvedLaneApiUrl(type, url));
+    return evalLaneIsHomeNetwork(type, resolvedLaneApiUrl(type, url));
   }
 
   /// Whether the active backend manages a local subprocess.

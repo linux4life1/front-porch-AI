@@ -19,6 +19,7 @@
 import 'dart:io' show InternetAddress;
 
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -171,6 +172,21 @@ bool backendLaneIsLocal(String backendType, String apiUrl) {
       return true;
     case 'openRouter':
       return _openAiUrlIsThisMachine(resolvedLaneApiUrl('openRouter', apiUrl));
+    default:
+      return false;
+  }
+}
+
+/// Home network for One-Shot Auto. Kobold and oMLX always. An
+/// OpenAI-compatible URL uses [isLocalRemoteUrl], so a LAN or `.local`
+/// helper stays multi-call. The pair gate is [backendLaneIsLocal].
+bool evalLaneIsHomeNetwork(String backendType, String apiUrl) {
+  switch (backendType.trim()) {
+    case 'kobold':
+    case 'omlx':
+      return true;
+    case 'openRouter':
+      return isLocalRemoteUrl(resolvedLaneApiUrl('openRouter', apiUrl));
     default:
       return false;
   }

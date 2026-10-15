@@ -100,6 +100,7 @@ void main() {
         reason: url,
       );
       expect(isLocalRemoteUrl(url), isTrue, reason: url);
+      expect(evalLaneIsHomeNetwork('openRouter', url), isTrue, reason: url);
     }
   });
 
