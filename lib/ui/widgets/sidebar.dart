@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
 import 'package:front_porch_ai/ui/widgets/sidebar_width.dart';
 import 'package:front_porch_ai/ui/widgets/unsaved_changes_guard.dart';
+import 'package:front_porch_ai/ui/widgets/version_chip.dart';
 
 class Sidebar extends StatelessWidget {
   const Sidebar({super.key});
@@ -394,10 +395,8 @@ class Sidebar extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 16.0,
-              vertical: 8.0,
-            ),
+            // VersionChip pads its own 4px tap target; the text stays at 16.
+            padding: const EdgeInsets.fromLTRB(12, 6, 16, 6),
             child: Consumer<UpdateService>(
               builder: (context, updateService, _) {
                 final version = updateService.currentVersion.isNotEmpty
@@ -405,12 +404,7 @@ class Sidebar extends StatelessWidget {
                     : 'v0.0.0';
                 return Row(
                   children: [
-                    Text(
-                      version,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: AppColors.textTertiary(context),
-                      ),
-                    ),
+                    Flexible(child: VersionChip(version: version)),
                     if (updateService.updateAvailable) ...[
                       const SizedBox(width: 8),
                       GestureDetector(
