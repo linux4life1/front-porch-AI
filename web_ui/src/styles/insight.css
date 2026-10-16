@@ -12,18 +12,24 @@
  * Each row wraps independently so Realism never bleeds into the Needs line. */
 .chips-block { display: flex; flex-direction: column; gap: 3px; align-self: flex-start; max-width: 85%; margin: 4px 0 2px; }
 .chips-row { display: flex; flex-wrap: wrap; gap: 4px; }
+/* One line per chip: a long label (a Pockets receipt) ends in an ellipsis
+ * inside the bubble's width, the ⓘ stays visible, and a tap shows it whole. */
 .chip {
   font-size: 0.68rem; padding: 2px 7px; border-radius: 999px;
   background: var(--surface-2); color: var(--muted); white-space: nowrap;
+  display: inline-flex; align-items: center; max-width: 100%; min-width: 0;
 }
+.chip-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .chip.up { background: rgba(105, 240, 174, 0.16); color: var(--ok); }
 .chip.down { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
 .chip.mood { background: rgba(59, 130, 246, 0.18); color: var(--accent); }
 .chip.time { background: rgba(255, 255, 255, 0.08); color: var(--muted); }
+.chip.warn { background: color-mix(in srgb, var(--bond-low) 16%, transparent); color: var(--bond-low); }
+.chip.pocket { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }
 /* A chip with a delta reason is tappable (touch) + hoverable (desktop title). */
 .chip.has-reason { cursor: pointer; }
 .chip.has-reason.open { outline: 1px solid var(--border); }
-.chip-info { opacity: 0.6; font-size: 0.62rem; }
+.chip-info { opacity: 0.6; font-size: 0.62rem; flex: none; margin-left: 0.3em; }
 /* The revealed reason text for the currently-open chip. */
 .chip-reason {
   font-size: 0.72rem; line-height: 1.4; color: var(--text);

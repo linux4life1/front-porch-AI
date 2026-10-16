@@ -41,6 +41,12 @@ export interface Chips {
   enabledNeeds?: string[];
   /** Display name of the speaker the enabled set belongs to. */
   needsSpeaker?: string;
+  /** Pockets & Wardrobe receipts ("picked up: car keys"), one chip each. */
+  pocketChanges?: string[];
+  /** Director verifier: 'accepted' | 'corrected'; passes = reprocess count. */
+  directorStatus?: string;
+  directorPasses?: number;
+  directorReason?: string;
 }
 
 export interface Message {

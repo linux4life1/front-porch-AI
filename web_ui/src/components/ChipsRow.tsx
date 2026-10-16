@@ -52,6 +52,17 @@ export function ChipsRow({
   const toolName = chips.toolName;
   const toolOk = chips.toolOk;
   if (toolName) realism.push({ key: 'tool', label: toolOk === false ? `${toolName} — nothing` : toolName, cls: 'time', reason: toolName });
+  // Desktop twin: message_bubble.realism_chips.dart (verifier + Pockets chips).
+  const director = chips.directorStatus?.trim();
+  if (director) {
+    const passes = chips.directorPasses ?? 0;
+    const label = director === 'accepted' ? '✓ Director accepted' : `🕵️ Director corrected (${passes} reprocess${passes === 1 ? '' : 'es'})`;
+    realism.push({ key: 'director', label, cls: director === 'accepted' ? 'up' : 'warn', reason: chips.directorReason?.trim() || 'Realism Verification result' });
+  }
+  (chips.pocketChanges ?? []).forEach((raw, i) => {
+    const text = typeof raw === 'string' ? raw.trim() : '';
+    if (text) realism.push({ key: `pocket-${i}`, label: `🧥 ${text}`, cls: 'pocket', reason: `Pockets & Wardrobe: ${text}` });
+  });
 
   const needs: Pill[] = [];
   for (const [k, v] of Object.entries(chips.needsDeltas ?? {})) {
@@ -83,7 +94,7 @@ export function ChipsRow({
         onClick={hasReason ? () => toggle(p.key) : undefined}
         onKeyDown={hasReason ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(p.key); } } : undefined}
       >
-        {p.label}{hasReason && <span className="chip-info" aria-hidden> ⓘ</span>}
+        <span className="chip-label">{p.label}</span>{hasReason && <span className="chip-info" aria-hidden> ⓘ</span>}
       </span>
     );
   };
