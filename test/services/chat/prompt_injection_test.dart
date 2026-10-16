@@ -17,6 +17,8 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/chat/chaos_mode_service.dart';
+import 'package:front_porch_ai/services/chat/mood_effects.dart';
+import 'package:front_porch_ai/services/chat/mood_physics.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
 import 'package:front_porch_ai/services/chat/refractory.dart';
@@ -310,17 +312,61 @@ Map<String, int> satedVector() => {
 
 void main() {
   group('fragment builders (words-only)', () {
+    // 2026-10-16 (objectives that keep up): the goals block speaks in two
+    // voices instead of the depth tiers ("PRIMARY OBJECTIVE", "AUTONOMOUS
+    // GOAL", "Current Task"): a goal the user set is story direction, a goal
+    // the character chose is what they want. Same fixture; the words changed.
     test('author_note / objective: primary + secondary with tasks', () {
       final objs = [
         _mkObj('Main quest', depth: 1),
-        _mkObj('Side goal', depth: 5, primary: false),
+        {
+          ..._mkObj('Side goal', depth: 5, primary: false),
+          'origin': 'character',
+        },
       ];
       final b = createTestAuthorNote(activeObjectives: objs);
       final txt = b.buildObjectiveInjection();
-      expect(txt, contains('PRIMARY OBJECTIVE'));
-      expect(txt, contains('AUTONOMOUS GOAL'));
-      expect(txt, contains('Current Task'));
+      expect(txt, contains('[Story direction: Main quest. Next:'));
+      expect(txt, contains('{{char}} also wants: Side goal.'));
+      expect(txt, contains("What they'd do next:"));
     });
+
+    // 2026-10-16 (objectives that keep up): a goal set aside puts nothing in
+    // the prompt, and a goal that came with the card is story direction even
+    // though the character "has" it.
+    test(
+      'author_note / objective: set aside is silent, a card goal directs',
+      () {
+        final objs = <dynamic>[
+          {..._mkObj('Open the bakery', depth: 1), 'origin': 'card'},
+          {
+            ..._mkObj('Learn the fiddle', depth: 5, primary: false),
+            'origin': 'character',
+            'status': 'dormant',
+          },
+          {
+            ..._mkObj('Mend the porch', depth: 5, primary: false),
+            'origin': 'character',
+            'tasks': _mkTasks('paint it', completed: ['buy nails']),
+          },
+        ];
+        final txt = createTestAuthorNote(
+          activeObjectives: objs,
+        ).buildObjectiveInjection();
+        expect(
+          txt,
+          contains('[Story direction: Open the bakery. Next: step1.]'),
+        );
+        expect(txt, isNot(contains('Learn the fiddle')));
+        expect(
+          txt,
+          contains(
+            "{{char}} also wants: Mend the porch. Already done: buy nails. "
+            "What they'd do next: paint it.",
+          ),
+        );
+      },
+    );
 
     test(
       'relationship 1:1: words only — no scores, tiers, or mechanic labels',
@@ -991,5 +1037,108 @@ void main() {
         expect(composer.buildRealismStateInjection(), contains('{{user}}'));
       },
     );
+  });
+
+  group('mood with bite (docs/design/mood-with-bite.md)', () {
+    EmotionInjection mood({
+      String emotion = 'furious',
+      String intensity = 'strong',
+      String cause = 'he lied about the money',
+      int held = 0,
+    }) => EmotionInjection(
+      getRealismEnabled: () => true,
+      getCharacterEmotion: () => emotion,
+      getEmotionIntensity: () => intensity,
+      getEmotionCause: () => cause,
+      getEmotionHeldTurns: () => held,
+    );
+
+    test('the mood line scales with intensity and names the cause', () {
+      expect(
+        mood(intensity: 'mild').buildEmotionInjection(),
+        startsWith(
+          'Mood: Furious, mild, since he lied about the money — it '
+          'colours tone',
+        ),
+      );
+      expect(
+        mood(intensity: 'moderate').buildEmotionInjection(),
+        contains(
+          'Mood: Furious, moderate, because he lied about the money — '
+          'it shapes what they say and do this turn.',
+        ),
+      );
+      expect(
+        mood().buildEmotionInjection(),
+        contains(
+          'Mood: Furious, strong, because he lied about the money — it '
+          'leads this reply: they act on it before anything else.',
+        ),
+      );
+    });
+
+    test('the hold is said in words, never as a count', () {
+      expect(mood(held: 1).buildEmotionInjection(), isNot(contains('still')));
+      expect(mood(held: 3).buildEmotionInjection(), contains(', still —'));
+      expect(
+        mood(held: 7).buildEmotionInjection(),
+        contains(', for a while now —'),
+      );
+      expect(
+        RegExp(r'\d').hasMatch(mood(held: 7).buildEmotionInjection()),
+        isFalse,
+      );
+    });
+
+    test(
+      'the effects line speaks at moderate and strong, in their own way',
+      () {
+        final strong = mood().buildEmotionInjection();
+        expect(
+          strong,
+          contains('\nIn their own way: the grievance comes first'),
+        );
+        expect(strong, contains('may refuse, argue, withdraw or leave'));
+        expect(
+          mood(intensity: 'moderate').buildEmotionInjection(),
+          contains('\nIn their own way: less patience'),
+        );
+        expect(
+          mood(intensity: 'mild').buildEmotionInjection(),
+          isNot(contains('In their own way')),
+        );
+        expect(
+          mood(emotion: 'undone').buildEmotionInjection(),
+          isNot(contains('In their own way')),
+          reason: 'a word the family map does not know gets no pull',
+        );
+      },
+    );
+
+    test('never an instruction to comply', () {
+      for (final tone in MoodTone.values) {
+        final (moderate, strong) = kMoodEffectsCopy[tone]!;
+        for (final copy in [moderate, strong]) {
+          expect(copy, isNot(contains('must')));
+          expect(copy, isNot(contains('compl')));
+          expect(copy, isNot(contains('obey')));
+        }
+      }
+    });
+
+    test('one fragment: no blank line between the two mood lines', () {
+      final text = mood().buildEmotionInjection();
+      expect('\n'.allMatches(text).length, 1);
+      expect(text, isNot(contains('\n\n')));
+    });
+
+    test('no cause and no hold reads like the old line; neutral is silent', () {
+      expect(
+        mood(cause: '', intensity: 'mild').buildEmotionInjection(),
+        'Mood: Furious, mild — it colours tone and word choice.',
+      );
+      expect(mood(emotion: 'neutral').buildEmotionInjection(), isEmpty);
+      expect(mood(emotion: '').buildEmotionInjection(), isEmpty);
+    });
   });
 }

@@ -23,81 +23,68 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/eval_traffic.dart';
-import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
-    show recentExchange;
 import 'package:front_porch_ai/services/chat/objective_check_skip.dart';
+import 'package:front_porch_ai/services/chat/objective_eval_fire.dart';
 import 'package:front_porch_ai/services/chat/objective_eval_tools.dart';
-import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
+import 'package:front_porch_ai/services/chat/objective_origin.dart';
+import 'package:front_porch_ai/services/chat/objective_sync.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/services.dart';
 
-/// Objective proposal: autonomous "none" vs value + dedup, auto-tasks only
-/// for autonomous proposals, generateObjectiveTasks, and background
-/// task-completion checks. Proposal target is the speaking character even
-/// under group impersonation. All-tasks-done quests deactivate so the
-/// primary slot frees for the next autonomous quest.
+/// The objectives leaf ChatService holds: step generation for a goal, and
+/// the goal sync (ObjectiveSync) behind the per-turn check and "Check now".
+/// The target of step generation is the speaking character even under group
+/// impersonation. A goal that is finished or let go leaves the list, so the
+/// main slot frees for the next want.
 class ObjectiveProposal {
-  // Engine-provided central strip (via god thins) for &lt;think&gt; in gen/check (2000
-  // budget paths for thinking models).
+  /// Central `<think>` strip for the step-generation and sync answers.
   final String Function(String) stripThinkBlocks;
 
-  // LLM access for direct stream (gen uses temp 0.7/2000 creative; check uses
-  // 0.1/2000 strict YES/NO; not the eval fire 4000/0.1/no-reasoning).
+  /// The side lane the objective calls answer on.
   final LLMService Function() getLlmService;
 
-  // Character/group/mode for guards + gen prompt target (correct speaker under
-  // group impersonation for autonomous proposal).
   final CharacterCard? Function() getActiveCharacter;
   final GroupChat? Function() getActiveGroup;
   final bool Function() getIsObserverMode;
-
-  // Context + flags
   final String Function() getUserName;
   final bool Function() getRealismEnabled;
   final List<ChatMessage> Function() getMessages;
 
-  // Objective mgmt cbs (thin/stayed in god per plan; mutation/list/load/save/deact
-  // coordination stays in god; leaf uses for snapshot/iter + taskless deact).
   final List<Objective> Function() getActiveObjectives;
   final List<Map<String, dynamic>> Function(Objective) tasksForObjective;
   final Future<void> Function() loadActiveObjectives;
+
+  /// Step generation's own write (not a turn op, as it never was).
   final Future<void> Function(String objectiveId, String tasksJson)
   saveObjectiveTasks;
-  final Future<void> Function(String objectiveId) deactivateObjective;
-  final Future<void> Function(Objective, String)
-  markTaskCompleted; // thin; god owns find+mutate 'completed':true + save+load (task auto side-effect only for currentTask YES path)
-  /// Durable `stale: true` on the current open task. Never sets completed.
-  final Future<void> Function(Objective, String)? markTaskStale;
 
-  /// Consecutive explicit objective_relevant=NO before the quest retires.
-  /// 0 = off, else 1 / 2 / 4. Default 2. Does not apply to task stale.
-  final int Function()? getObjectiveStaleThresholdN;
+  /// The sync's writes. ChatService records each as a turn op while the
+  /// turn-path check is armed, so regen and delete undo them.
+  final Future<void> Function(Objective, List<Map<String, dynamic>>)
+  writeSyncedTasks;
+  final Future<void> Function(Objective, ObjectiveEnd) retireObjective;
+  final Future<void> Function(Objective, bool dormant) setObjectiveDormant;
+
+  /// The planner's held today row (a dormant answer does not apply to it).
+  final bool Function(Objective)? isHeldToday;
+
   final bool Function() getIsCheckingCompletion;
   final void Function(bool) setIsCheckingCompletion;
-
-  // Notify for UI after check completion (onNotify only; save via god paths).
   final VoidCallback onNotify;
 
-  /// Fired once per check when any task/objective completed — the Journal
-  /// uses it to flag a significant event for its next maintenance pass
-  /// (design §4.2 event-triggered cadence). Optional: null in dedicated
-  /// tests that don't exercise the journal hook.
+  /// A step or a whole goal was won this check: the Journal and Growth
+  /// salience kick. Optional for tests that do not exercise the hook.
   final VoidCallback? onObjectiveCompleted;
 
-  /// Fired when a WHOLE quest retires as achieved (final task done, or a
-  /// taskless objective completed) — with the row, so the consumer knows
-  /// whose ambition it may have advanced (Living Time §6). Fire-and-forget.
-  /// Never invoked for stale retirement.
+  /// A WHOLE goal achieved, with its row, so the consumer knows whose
+  /// ambition it may have advanced. Never invoked for a goal let go.
   final void Function(Objective obj)? onQuestAchieved;
 
-  /// Fired when a quest retires as overtaken / abandoned — Today maps this
-  /// to abandoned (never the Today-completed win path). Never credits
-  /// ambition or journal-done.
+  /// A goal let go (overtaken, or every step skipped). The today line maps
+  /// it to abandoned. Never credits an ambition.
   final void Function(Objective obj)? onObjectiveStale;
 
-  /// Same tools door TimeService / Realism evals use. Null = text only
-  /// (dedicated tests that never wired the probe).
+  /// The tools door every eval shares. Null = text only.
   final Object? fireToolEval;
   final ToolTransportProbe? probe;
   final String Function()? getBackendIdentity;
@@ -116,43 +103,86 @@ class ObjectiveProposal {
     required this.tasksForObjective,
     required this.loadActiveObjectives,
     required this.saveObjectiveTasks,
-    required this.deactivateObjective,
-    required this.markTaskCompleted,
+    required this.writeSyncedTasks,
+    required this.retireObjective,
+    required this.setObjectiveDormant,
     required this.getIsCheckingCompletion,
     required this.setIsCheckingCompletion,
     required this.onNotify,
+    this.isHeldToday,
     this.onObjectiveCompleted,
     this.onQuestAchieved,
     this.onObjectiveStale,
-    this.markTaskStale,
-    this.getObjectiveStaleThresholdN,
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,
     this.getPreferTextEvals,
   });
 
-  /// Generate subtasks for the current objective using the LLM.
-  /// Clears existing tasks first so regen always produces a clean slate.
-  /// (thin delegation for objective mgmt; full body here per step 11).
+  late final ObjectiveEvalDoor _door = ObjectiveEvalDoor(
+    getLlmService: getLlmService,
+    stripThinkBlocks: stripThinkBlocks,
+    fireToolEval: fireToolEval,
+    probe: probe,
+    getBackendIdentity: getBackendIdentity,
+    getPreferTextEvals: getPreferTextEvals,
+  );
+
+  /// Goals whose steps are being written now, and goals whose step
+  /// generation was retried once. In memory: a restart allows one more try.
+  final Set<String> _genInFlight = {};
+  final Set<String> _genRetried = {};
+
+  late final ObjectiveSync _sync = ObjectiveSync(
+    door: _door,
+    getLlmService: getLlmService,
+    getMessages: getMessages,
+    getActiveObjectives: getActiveObjectives,
+    tasksForObjective: tasksForObjective,
+    writeSyncedTasks: writeSyncedTasks,
+    retireObjective: retireObjective,
+    setObjectiveDormant: setObjectiveDormant,
+    getIsChecking: getIsCheckingCompletion,
+    setIsChecking: setIsCheckingCompletion,
+    onNotify: onNotify,
+    isGenInFlight: _genInFlight.contains,
+    wasGenRetried: _genRetried.contains,
+    retryGen: (obj) {
+      _genRetried.add(obj.id);
+      unawaited(generateObjectiveTasks(obj, taskCount: obj.isPrimary ? 5 : 3));
+    },
+    isHeldToday: isHeldToday,
+    onObjectiveCompleted: onObjectiveCompleted,
+    onQuestAchieved: onQuestAchieved,
+    onObjectiveStale: onObjectiveStale,
+  );
+
+  /// The overlay's Skip: the running sync's request is called off and none
+  /// of its answers apply, unless it is already applying them.
+  ObjectiveSkip skipCheck() => _sync.skip();
+
+  /// The goal sync. [elapsedSpan] is the "time has passed" line a re-plan
+  /// after a skip carries; empty on an ordinary check.
+  Future<ObjectiveSyncOutcome> checkTaskCompletionInBackground({
+    String elapsedSpan = '',
+  }) => _sync.run(elapsedSpan: elapsedSpan);
+
+  /// Generate steps for [obj] with the model. Clears the existing steps
+  /// first so a regeneration starts clean, and puts them back on failure.
   Future<void> generateObjectiveTasks(
     Objective obj, {
     int taskCount = 5,
     bool nsfw = false,
   }) async {
     final llmService = getLlmService();
-
-    // Snapshot existing tasks so we can restore on failure
     final previousTasks = tasksForObjective(obj);
-
-    // Clear tasks immediately — UI shows empty state while LLM works
+    _genInFlight.add(obj.id);
     await saveObjectiveTasks(obj.id, '[]');
     await loadActiveObjectives();
 
     try {
       if (!llmService.isReady) {
         debugPrint('[Objective] LLM not ready');
-        // Restore tasks since we cleared them
         await saveObjectiveTasks(obj.id, jsonEncode(previousTasks));
         await loadActiveObjectives();
         return;
@@ -163,7 +193,7 @@ class ObjectiveProposal {
       final scenario = char?.scenario ?? '';
       final userName = getUserName();
 
-      // Include recent chat history so tasks aren't redundant
+      // Recent history so the steps do not repeat what already happened.
       final msgs = getMessages();
       final recentMessages = msgs.length > 10
           ? msgs.sublist(msgs.length - 10)
@@ -178,13 +208,15 @@ class ObjectiveProposal {
                 'Match the tone and maturity level of the scenario and conversation.\n\n'
           : 'You are a creative writing assistant designing a character\'s own next steps for a roleplay scenario.\n\n';
 
-      // CHARACTER's own steps, never a quest handed to the player.
-      final responseText = await _fireObjectiveEval(
+      // The CHARACTER's own steps, never a quest handed to the player.
+      final responseText = await _door.fire(
         debugLabel: kObjectiveTasksTool,
         tools: kObjectiveTasksEvalTools,
         toolName: kObjectiveTasksTool,
         trafficLabel: 'objective_taskgen',
         temperature: 0.7,
+        callToText: (calls) =>
+            objectiveToolCallToJson(kObjectiveTasksTool, calls),
         buildPrompt: ({required bool toolsMode}) => buildObjectiveTaskGenPrompt(
           preamble: preamble,
           charName: charName,
@@ -199,301 +231,22 @@ class ObjectiveProposal {
 
       debugPrint('[Objective] Raw tasks response:\n$responseText');
       final uniqueTasks = parseObjectiveTasks(responseText, taskCount);
-
       if (uniqueTasks.isNotEmpty) {
         await saveObjectiveTasks(obj.id, jsonEncode(uniqueTasks));
-        await loadActiveObjectives();
         debugPrint('[Objective] Generated ${uniqueTasks.length} tasks');
       } else {
-        // Parse failed — restore previous tasks so we don't leave an empty list
         debugPrint(
           '[Objective] Could not parse tasks from response — restoring previous',
         );
         await saveObjectiveTasks(obj.id, jsonEncode(previousTasks));
-        await loadActiveObjectives();
       }
+      await loadActiveObjectives();
     } catch (e) {
       debugPrint('[Objective] Task generation failed: $e');
-      // Restore previous tasks on error
       await saveObjectiveTasks(obj.id, jsonEncode(previousTasks));
       await loadActiveObjectives();
-    }
-  }
-
-  /// Consecutive explicit objective_relevant=NO counts, keyed by objective
-  /// id. In-memory: a restart only delays retirement. The old 4-miss
-  /// force-completed path is gone — stale is never treated as achievement.
-  final ObjectiveStaleTracker _staleTracker = ObjectiveStaleTracker();
-
-  final ObjectiveCheckSkip _skip = ObjectiveCheckSkip();
-
-  /// The overlay's Skip: the running check's request is called off and none
-  /// of its verdicts apply, unless it is already applying them.
-  ObjectiveSkip skipCheck() => _skip.skip();
-
-  Future<void> checkTaskCompletionInBackground() async {
-    if (getIsCheckingCompletion() || getActiveObjectives().isEmpty) return;
-    setIsCheckingCompletion(true);
-    final cancel = _skip.begin();
-
-    var anyCompleted = false;
-    try {
-      final llmService = getLlmService();
-      if (!llmService.isReady) return;
-
-      // The one window builder + per-message clamp. This site was the worst
-      // offender in the maintainer's EvalTraffic capture — 50k chars of
-      // prompt for an 18-char verdict — because it read 8 messages of RAW
-      // `m.text`: think blocks included, no photo markers, no ceiling.
-      // recentExchange fixes all three at once (promptText + clamp).
-      final contextText = recentExchange(getMessages(), take: 8);
-
-      // Collect every item needing an LLM verdict, retiring already-finished
-      // quests without spending a single token on them. (A lingering
-      // completed primary blocked the character from proposing their next
-      // main quest; also self-heals quests stuck from before that fix.)
-      final pending = <(dynamic obj, List<dynamic> tasks, String? task)>[];
-      for (final obj in getActiveObjectives()) {
-        if (cancel.isCancelled) return;
-        final tasks = tasksForObjective(obj);
-        final currentTask = currentOpenTaskDescription(tasks);
-        if (currentTask == null && tasks.isNotEmpty) {
-          final fate = questExhaustion(tasks);
-          await deactivateObjective(obj.id);
-          _staleTracker.forget(obj.id);
-          if (fate == QuestExhaustion.stale) {
-            onObjectiveStale?.call(obj);
-            debugPrint(
-              '[Objective] No open tasks remain (stale steps) — '
-              'quest retired without achievement: ${obj.objective}',
-            );
-          } else {
-            anyCompleted = true;
-            debugPrint(
-              '[Objective] All tasks complete — quest retired: ${obj.objective}',
-            );
-          }
-          await loadActiveObjectives();
-          continue;
-        }
-        pending.add((obj, tasks, currentTask));
-      }
-      if (pending.isEmpty || cancel.isCancelled) return;
-
-      // ONE batched call for every objective (was one FULL LLM round-trip
-      // per objective, each re-paying prefill on the same 8-message context —
-      // 3 active quests on a 31B local model meant minutes of spinner before
-      // the reply could even start; maintainer report 2026-07-15). Verdicts
-      // come back as numbered YES/NO lines; anything unparsed counts as NO,
-      // so a confused model can never wrongly complete a quest.
-      final itemLines = <String>[];
-      for (var i = 0; i < pending.length; i++) {
-        final (obj, _, task) = pending[i];
-        itemLines.add(
-          task != null
-              ? '${i + 1}. Objective: "${obj.objective}" — Task to evaluate: "$task"'
-              : '${i + 1}. Objective to evaluate: "${obj.objective}"',
-        );
-      }
-      // Tools first (same fireStructuredEval fork as TimeService), text
-      // scrape as the floor. Unparsed / confused still counts as NO.
-      final verdicts = _fireObjectiveEval(
-        cancel: cancel,
-        debugLabel: kObjectiveVerdictsTool,
-        tools: kObjectiveVerdictsEvalTools,
-        toolName: kObjectiveVerdictsTool,
-        trafficLabel: 'objective_check',
-        temperature: 0.1,
-        reasoningOff: true,
-        buildPrompt: ({required bool toolsMode}) => buildObjectiveCheckPrompt(
-          contextText: contextText,
-          itemLines: itemLines,
-          toolsMode: toolsMode,
-        ),
-      );
-      // Skip answers at once, whatever the request is doing. The abandoned
-      // request then ends in the abort's error: logged, never left unhandled.
-      unawaited(
-        verdicts.then<void>(
-          (_) {},
-          onError: (Object e) => debugPrint('[Objective] Check ended: $e'),
-        ),
-      );
-      final responseText = await Future.any<String?>([
-        verdicts,
-        cancel.whenCancelled.then((_) => null),
-      ]);
-      if (responseText == null || cancel.isCancelled) {
-        debugPrint('[Objective] Check skipped — objectives left as they were');
-        return;
-      }
-      final rawPreview = responseText.replaceAll('\n', ' / ');
-      debugPrint(
-        '[Objective] Batched verdicts raw: '
-        '"${rawPreview.length > 300 ? rawPreview.substring(0, 300) : rawPreview}"',
-      );
-
-      final parsed = parseObjectiveCheck(responseText, pending.length);
-      // Dart short-circuit after parse. The LLM call already ran — this
-      // does NOT save tokens. No signal = retain current, no retire.
-      if (!parsed.hadSignal) {
-        debugPrint(
-          '[Objective] Check produced no usable verdicts — retaining current',
-        );
-        return;
-      }
-
-      // The last moment a skip stops everything; after it, all apply.
-      if (!_skip.startApplying(cancel)) return;
-      final threshold = normalizeObjectiveStaleThreshold(
-        getObjectiveStaleThresholdN?.call(),
-      );
-      for (var i = 0; i < pending.length; i++) {
-        final (obj, tasks, currentTask) = pending[i];
-        final v = parsed.items[i];
-        final retire = _staleTracker.noteObjectiveIrrelevant(
-          objectiveId: obj.id,
-          explicitIrrelevant: !v.objectiveRelevant,
-          thresholdN: threshold,
-        );
-        final apply = decideObjectiveApply(
-          tasks: List<Map<String, dynamic>>.from(tasks),
-          currentOpenTask: currentTask,
-          objectiveRelevant: v.objectiveRelevant,
-          taskRelevant: v.taskRelevant,
-          taskDone: v.taskDone,
-          retireObjectiveNow: retire,
-        );
-        debugPrint(
-          '[Objective] Check "${obj.objective}'
-          '${currentTask != null ? ' - $currentTask' : ''}": '
-          'rel=${v.objectiveRelevant} taskRel=${v.taskRelevant} '
-          'done=${v.taskDone} apply=${apply.kind}',
-        );
-        if (apply.kind == ObjectiveApplyKind.none) continue;
-        await _applyObjectiveDecision(obj, apply);
-        if (apply.creditsAchievement) anyCompleted = true;
-      }
-    } catch (e) {
-      debugPrint('[Objective] Completion check failed: $e');
     } finally {
-      _skip.end(cancel);
-      setIsCheckingCompletion(false);
-      // A completed step is a story beat worth journaling — flag it once
-      // (post-generation consumer; see onObjectiveCompleted doc).
-      if (anyCompleted) onObjectiveCompleted?.call();
-      onNotify();
+      _genInFlight.remove(obj.id);
     }
-  }
-
-  Future<void> _applyObjectiveDecision(
-    Objective obj,
-    ObjectiveApply apply,
-  ) async {
-    final desc = apply.taskDescription;
-    switch (apply.kind) {
-      case ObjectiveApplyKind.none:
-        return;
-      case ObjectiveApplyKind.completeOpenTask:
-        if (desc != null) await markTaskCompleted(obj, desc);
-      case ObjectiveApplyKind.completeOpenTaskAndAchieve:
-        if (desc != null) await markTaskCompleted(obj, desc);
-        await deactivateObjective(obj.id);
-        _staleTracker.forget(obj.id);
-        onQuestAchieved?.call(obj);
-        debugPrint(
-          '[Objective] Final task done — quest retired: ${obj.objective}',
-        );
-      case ObjectiveApplyKind.staleOpenTask:
-        if (desc != null) await markTaskStale?.call(obj, desc);
-      case ObjectiveApplyKind.staleOpenTaskAndRetire:
-        if (desc != null) await markTaskStale?.call(obj, desc);
-        await deactivateObjective(obj.id);
-        _staleTracker.forget(obj.id);
-        onObjectiveStale?.call(obj);
-        debugPrint(
-          '[Objective] Last open step stale — quest retired without '
-          'achievement: ${obj.objective}',
-        );
-      case ObjectiveApplyKind.retireObjectiveStale:
-        await deactivateObjective(obj.id);
-        _staleTracker.forget(obj.id);
-        onObjectiveStale?.call(obj);
-        debugPrint(
-          '[Objective] Objective no longer relevant — retired without '
-          'achievement: ${obj.objective}',
-        );
-      case ObjectiveApplyKind.achieveTaskless:
-        await deactivateObjective(obj.id);
-        _staleTracker.forget(obj.id);
-        onQuestAchieved?.call(obj);
-        debugPrint(
-          '[Objective] Taskless objective naturally completed: ${obj.objective}',
-        );
-    }
-    await loadActiveObjectives();
-  }
-
-  /// Tools-vs-text fork TimeService uses: `fireStructuredEval` when the
-  /// probe is wired, else the existing generateStream floor.
-  Future<String> _fireObjectiveEval({
-    required String debugLabel,
-    required List<Map<String, dynamic>> tools,
-    required String toolName,
-    required String trafficLabel,
-    required double temperature,
-    required String Function({required bool toolsMode}) buildPrompt,
-    bool reasoningOff = false,
-    LlmRequestCancel? cancel,
-  }) async {
-    Future<String?> fireText(
-      String prompt, {
-      void Function(String)? onChunk,
-    }) async {
-      final llm = getLlmService();
-      if (!llm.isReady) return null;
-      final params = GenerationParams(
-        prompt: prompt,
-        maxLength: 2000,
-        temperature: temperature,
-        reasoningEnabled: false,
-        reasoningMaxTokens: reasoningOff ? 0 : null,
-        mandatoryReasoningHeadroom: true,
-        stopSequences: const [],
-        cancel: cancel,
-      );
-      final trafficWatch = Stopwatch()..start();
-      var responseText = '';
-      await for (final chunk in llm.generateStream(params)) {
-        responseText += chunk;
-      }
-      EvalTraffic.current.record(
-        label: trafficLabel,
-        lane: 'raw',
-        promptChars: params.prompt.length,
-        outputChars: responseText.length,
-        ms: trafficWatch.elapsedMilliseconds,
-      );
-      return responseText;
-    }
-
-    final raw = fireToolEval != null && probe != null
-        ? await fireStructuredEval(
-            probe: probe!,
-            backendIdentity: getBackendIdentity?.call() ?? '',
-            debugLabel: debugLabel,
-            tools: tools,
-            buildPrompt: buildPrompt,
-            callToText: (resp) => objectiveToolCallToJson(toolName, resp.calls),
-            fireToolEval: fireToolEval!,
-            fireTextEval: fireText,
-            toolChoice: toolName,
-            maxLength: 2000,
-            getPreferTextEvals: getPreferTextEvals,
-            cancel: cancel,
-            isCancelled: () => cancel?.isCancelled ?? false,
-          )
-        : await fireText(buildPrompt(toolsMode: false));
-    return stripThinkBlocks(raw ?? '');
   }
 }

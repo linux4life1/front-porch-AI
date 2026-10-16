@@ -12,7 +12,6 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 
 const _fixtures = 'test/fixtures/comfy_templates';

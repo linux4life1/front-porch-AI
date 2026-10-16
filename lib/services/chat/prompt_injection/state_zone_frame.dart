@@ -67,6 +67,9 @@
 /// runs — those genuinely ARE the user's, and attributing them to the app
 /// would be a new lie in place of the old one.
 ///
+/// The newest beat renders AFTER the zone (`latest_turn`), so the transcript
+/// is named as above-and-after rather than "above": the zone sits inside it.
+///
 /// Pronoun policy (§3): pronoun-free except the ungendered "they" — one text
 /// serves every character, no gender field.
 String buildStateZoneFrame({
@@ -79,13 +82,14 @@ String buildStateZoneFrame({
       : characterName.trim();
   // Leading \n (same convention as the recap and the journal): this block opens
   // the zone and the transcript carries no trailing newline, so without it the
-  // frame is glued to the last word the human typed — which is the precise
-  // misreading it exists to prevent.
+  // frame is glued to the transcript's last line — a misreading of who wrote
+  // it, the precise one it exists to prevent.
   return '\n[Story state — these notes are written by the app from its own '
       'records of this chat: what has happened, how $name feels and how they '
       'are right now, what they are working toward, and where they are. $who '
       'did not type them and nothing here needs a reply. The conversation '
-      'above is the record of what actually happened, so where these notes '
+      '(above, and its newest message after these notes) is the record of '
+      'what actually happened, so where these notes '
       'disagree with it about events the conversation is right and the notes '
       'are simply behind; on feelings and inner state, which the conversation '
       'does not record, the notes are the truer guide.]\n';

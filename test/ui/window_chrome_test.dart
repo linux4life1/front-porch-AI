@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/window_chrome.dart';
 import 'package:window_manager/window_manager.dart';
@@ -54,6 +55,17 @@ void main() {
     expect(win.backgroundColor, isNot(AppColors.background));
     expect(win.backgroundColor == null || win.backgroundColor!.a < 1.0, isTrue);
     expect(win.windowButtonVisibility, isTrue);
+  });
+
+  test('Rawhide and nightly builds name themselves in the window title', () {
+    expect(
+      windowTitleForVersion('1.2.0-rawhide.20261016.abc1234'),
+      'Front Porch AI Rawhide',
+    );
+    expect(windowTitleForVersion('1.2.0-nightly'), 'Front Porch AI Rawhide');
+    expect(windowTitleForVersion('1.2.0'), 'Front Porch AI');
+    expect(windowTitleForVersion('1.2.0-beta1'), 'Front Porch AI');
+    expect(mainWindowOptions().title, appWindowTitle);
   });
 
   test('host default follows this OS without requiring a Mac host', () {

@@ -199,7 +199,7 @@ export function ChatInsight({
         percent={realism.trust.percent}
         tone={realism.trust.level < 0 ? 'danger' : ''}
       />
-      <div className="stat-line"><span>Mood</span><span className="muted">{realism.mood || realism.emotion || '—'}</span></div>
+      <div className="stat-line"><span>Mood</span><span className="muted">{realism.moodLine || realism.mood || realism.emotion || '—'}</span></div>
       <div className="stat-line"><span>Lust</span><span className="muted">{realism.arousal.tier} · {realism.arousal.level}</span></div>
       </>
       )}

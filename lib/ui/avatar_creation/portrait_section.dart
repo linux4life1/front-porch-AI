@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'avatar_creation_controller.dart';
 import 'engine_strip.dart';
@@ -50,7 +51,9 @@ class PortraitSection extends StatelessWidget {
             fontSize: 10.5,
             letterSpacing: 0.8,
             fontWeight: FontWeight.w700,
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
           ),
         ),
         const SizedBox(height: 8),
@@ -83,7 +86,9 @@ class PortraitSection extends StatelessWidget {
             'No portrait for now — later, open Avatar Gallery and use '
             'Set portrait (or Add avatar + ★) on the home screen.',
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color:
+                  context.creatorPalette?.muted ??
+                  AppColors.textTertiary(context),
               fontSize: 11.5,
             ),
           ),
@@ -100,7 +105,8 @@ class PortraitSection extends StatelessWidget {
       bool enabled = true,
     }) {
       final selected = c.source == s;
-      final accent = AppColors.formMasterAccent;
+      final accent =
+          context.creatorPalette?.amber ?? AppColors.formMasterAccent;
       return Expanded(
         child: GestureDetector(
           onTap: (enabled && !c.running) ? () => c.setSource(s) : null,
@@ -111,10 +117,14 @@ class PortraitSection extends StatelessWidget {
             decoration: BoxDecoration(
               color: selected
                   ? accent.withValues(alpha: 0.10)
-                  : AppColors.surfaceContainerOf(context),
+                  : context.creatorPalette?.raise ??
+                        AppColors.surfaceContainerOf(context),
               borderRadius: BorderRadius.circular(9),
               border: Border.all(
-                color: selected ? accent : AppColors.borderOf(context),
+                color: selected
+                    ? accent
+                    : context.creatorPalette?.line ??
+                          AppColors.borderOf(context),
               ),
             ),
             // FittedBox(scaleDown) so the icon + label shrink a hair instead of
@@ -133,10 +143,12 @@ class PortraitSection extends StatelessWidget {
                     icon,
                     size: 15,
                     color: !enabled
-                        ? AppColors.textTertiary(context)
+                        ? context.creatorPalette?.muted ??
+                              AppColors.textTertiary(context)
                         : selected
                         ? accent
-                        : AppColors.iconSecondary(context),
+                        : context.creatorPalette?.muted ??
+                              AppColors.iconSecondary(context),
                   ),
                   const SizedBox(width: 6),
                   Text(
@@ -145,10 +157,12 @@ class PortraitSection extends StatelessWidget {
                       fontSize: 12.5,
                       fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
                       color: !enabled
-                          ? AppColors.textTertiary(context)
+                          ? context.creatorPalette?.muted ??
+                                AppColors.textTertiary(context)
                           : selected
                           ? accent
-                          : AppColors.textSecondary(context),
+                          : context.creatorPalette?.prose ??
+                                AppColors.textSecondary(context),
                     ),
                   ),
                 ],
@@ -178,10 +192,12 @@ class PortraitSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: AppColors.formMasterAccent.withValues(alpha: 0.08),
+        color: (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+            .withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(9),
         border: Border.all(
-          color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+          color: (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+              .withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -191,7 +207,9 @@ class PortraitSection extends StatelessWidget {
               'Generate is unavailable — no image engine is set up. Configure '
               'one, or upload images instead.',
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color:
+                    context.creatorPalette?.prose ??
+                    AppColors.textSecondary(context),
                 fontSize: 12,
                 height: 1.35,
               ),
@@ -206,7 +224,8 @@ class PortraitSection extends StatelessWidget {
               c.refreshEngine();
             },
             style: TextButton.styleFrom(
-              foregroundColor: AppColors.formMasterAccent,
+              foregroundColor:
+                  context.creatorPalette?.amber ?? AppColors.formMasterAccent,
             ),
             child: const Text('Set up', style: TextStyle(fontSize: 12)),
           ),
@@ -227,7 +246,9 @@ class PortraitSection extends StatelessWidget {
                 fontSize: 10.5,
                 letterSpacing: 0.8,
                 fontWeight: FontWeight.w700,
-                color: AppColors.textTertiary(context),
+                color:
+                    context.creatorPalette?.muted ??
+                    AppColors.textTertiary(context),
               ),
             ),
             const SizedBox(width: 8),
@@ -235,7 +256,9 @@ class PortraitSection extends StatelessWidget {
               'seeded from your description — edit freely',
               style: TextStyle(
                 fontSize: 11,
-                color: AppColors.textTertiary(context),
+                color:
+                    context.creatorPalette?.muted ??
+                    AppColors.textTertiary(context),
               ),
             ),
           ],
@@ -246,24 +269,43 @@ class PortraitSection extends StatelessWidget {
           enabled: c.promptEditable,
           maxLines: 3,
           minLines: 2,
-          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
+          style: TextStyle(
+            color:
+                context.creatorPalette?.ink ?? AppColors.textPrimary(context),
+            fontSize: 13,
+          ),
           decoration: InputDecoration(
             hintText: 'Describe the character portrait…',
-            hintStyle: TextStyle(color: AppColors.textTertiary(context)),
+            hintStyle: TextStyle(
+              color:
+                  context.creatorPalette?.muted ??
+                  AppColors.textTertiary(context),
+            ),
             filled: true,
-            fillColor: AppColors.surfaceContainerOf(context),
+            fillColor:
+                context.creatorPalette?.raise ??
+                AppColors.surfaceContainerOf(context),
             contentPadding: const EdgeInsets.all(12),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
+              borderSide: BorderSide(
+                color:
+                    context.creatorPalette?.line ?? AppColors.borderOf(context),
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
+              borderSide: BorderSide(
+                color:
+                    context.creatorPalette?.line ?? AppColors.borderOf(context),
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.formMasterAccent),
+              borderSide: BorderSide(
+                color:
+                    context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+              ),
             ),
           ),
         ),
@@ -287,7 +329,9 @@ class PortraitSection extends StatelessWidget {
         Text(
           'Saved & set as the card image.',
           style: TextStyle(
-            color: AppColors.textSecondary(context),
+            color:
+                context.creatorPalette?.prose ??
+                AppColors.textSecondary(context),
             fontSize: 11.5,
           ),
         ),
@@ -331,7 +375,9 @@ class PortraitSection extends StatelessWidget {
               : 'First image is the portrait; add more as gallery looks, or '
                     'tag one with an emotion to make it an expression image.',
           style: TextStyle(
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
             fontSize: 11,
             height: 1.35,
           ),
@@ -353,12 +399,15 @@ class PortraitSection extends StatelessWidget {
         width: 64,
         height: 80,
         decoration: BoxDecoration(
-          color: AppColors.surfaceContainerOf(context),
+          color:
+              context.creatorPalette?.raise ??
+              AppColors.surfaceContainerOf(context),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
             color: bytes != null
-                ? AppColors.borderOf(context)
-                : AppColors.textTertiary(context),
+                ? context.creatorPalette?.line ?? AppColors.borderOf(context)
+                : context.creatorPalette?.muted ??
+                      AppColors.textTertiary(context),
           ),
           image: bytes != null
               ? DecorationImage(image: MemoryImage(bytes), fit: BoxFit.cover)
@@ -370,7 +419,9 @@ class PortraitSection extends StatelessWidget {
                   caption == '＋' ? '＋' : '⬆',
                   style: TextStyle(
                     fontSize: 18,
-                    color: AppColors.textTertiary(context),
+                    color:
+                        context.creatorPalette?.muted ??
+                        AppColors.textTertiary(context),
                   ),
                 ),
               )
@@ -378,9 +429,10 @@ class PortraitSection extends StatelessWidget {
                 alignment: Alignment.bottomCenter,
                 child: Container(
                   width: double.infinity,
-                  color: AppColors.backgroundOf(
-                    context,
-                  ).withValues(alpha: 0.65),
+                  color:
+                      (context.creatorPalette?.bg ??
+                              AppColors.backgroundOf(context))
+                          .withValues(alpha: 0.65),
                   padding: const EdgeInsets.symmetric(vertical: 1),
                   child: Text(
                     caption,
@@ -388,7 +440,9 @@ class PortraitSection extends StatelessWidget {
                     overflow: TextOverflow.ellipsis,
                     style: TextStyle(
                       fontSize: 9,
-                      color: AppColors.textSecondary(context),
+                      color:
+                          context.creatorPalette?.prose ??
+                          AppColors.textSecondary(context),
                     ),
                   ),
                 ),

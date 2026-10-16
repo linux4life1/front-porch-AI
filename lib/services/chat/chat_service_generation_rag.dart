@@ -280,8 +280,10 @@ extension ChatServiceGenerationRag on ChatService {
               final rebudget = await _buildChatHistoryWithBudget(
                 t.historyBudget - memTokens,
                 depthLore: t.loreDepth,
+                splitLatestTurn: true,
               );
               t.history = rebudget.history;
+              t.latestTurn = rebudget.latestTurn;
               // Keep the retrieval's inContextStart lag (spec: messages
               // evicted by this second walk become retrievable next turn);
               // the budget map below reports the final dropped count.

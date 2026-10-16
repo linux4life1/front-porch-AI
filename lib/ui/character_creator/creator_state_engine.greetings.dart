@@ -74,13 +74,53 @@ class CreatorGreetingWriter {
     WidgetsBinding.instance.addPostFrameCallback((_) => box.dispose());
   }
 
+  /// "Rewrite the greetings from it" (the profile-changed hint): the first
+  /// message, then each alternate, one at a time, from the profile as it is
+  /// now. Stop ends the loop and keeps what was written so far; only a
+  /// full pass marks the greetings as written from this profile.
+  Future<void> rewriteAll({required LLMProvider llmProvider}) async {
+    final g = state.greetings;
+    if (g.busy || state.generatedCard == null) return;
+    g.rewritingAll = true;
+    state.notify();
+    var whole = true;
+    for (var i = 0; i <= state.altGreetingControllers.length; i++) {
+      await _writeGreeting(llmProvider, i, inPass: true);
+      if (!g.rewritingAll || g.errorIndex == i) {
+        whole = false;
+        break;
+      }
+    }
+    g.rewritingAll = false;
+    if (whole) keepGreetings();
+    state.notify();
+  }
+
+  /// "Keep them": the greetings now stand for the profile as it reads
+  /// today, so the hint goes until it changes again. Nothing is rewritten.
+  void keepGreetings() {
+    final g = state.greetings;
+    final card = state.generatedCard;
+    g.recipe = g.recipe.withProfileFingerprint(
+      profileFingerprintOf(
+        state.descController.text,
+        state.personalityController.text,
+        name: state.profile.fingerprintName(card?.name ?? ''),
+      ),
+    );
+    if (card != null) stampGreetingRecipe(card, g.recipe);
+    state.notify();
+  }
+
   /// Stop the greeting being written. Its box never changed, so the old
   /// text is simply still there; a greeting being added just goes away.
+  /// A rewrite of every greeting stops with it.
   void stopGreeting() {
     final gen = state.greetings.activeGen;
     if (gen == null) return;
     gen.abort();
     state.greetings
+      ..rewritingAll = false
       ..activeGen = null
       ..writingIndex = null
       ..writingText = '';
@@ -99,7 +139,7 @@ class CreatorGreetingWriter {
       state.notify();
       return;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     g
       ..rereadingOutfit = true
       ..outfitGen = gen
@@ -141,16 +181,18 @@ class CreatorGreetingWriter {
     LLMProvider llmProvider,
     int index, {
     String direction = '',
+    bool inPass = false,
   }) async {
     final g = state.greetings;
-    if (g.busy || state.generatedCard == null) return;
+    final held = inPass ? g.writingIndex != null || g.rereadingOutfit : g.busy;
+    if (held || state.generatedCard == null) return;
     final llm = llmProvider.serviceForModel(state.selectedModelId);
     if (llm == null) {
       g.setError(index, _noModel(llmProvider));
       state.notify();
       return;
     }
-    final gen = CharacterGenService(llm);
+    final gen = state.newGenService(llm);
     g
       ..clearError()
       ..writingIndex = index

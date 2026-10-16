@@ -51,6 +51,9 @@ extension ChatServiceGenerationRequest on ChatService {
     // 'system' role message and the transcript zone the 'user' message —
     // the server applies the model's instruct template server-side.
     t.plan.section('history').text = t.history;
+    t.plan.section('latest_turn').text = t.latestTurn.isEmpty
+        ? ''
+        : '\n${t.latestTurn}';
     t.plan.section('memories').text = t.memoriesBlock;
     t.plan.section('idle_cue').text = idleCue != null ? '\n$idleCue' : '';
     t.plan.section('suffix').text = t.suffix;

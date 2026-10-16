@@ -226,6 +226,14 @@ class RealismEvals {
   final String Function() getEmotionIntensity;
   final void Function(String) setEmotionIntensity;
 
+  /// The mood's cause and hold count (docs/design/mood-with-bite.md).
+  /// Optional: a host that does not wire them judges with no cause and a
+  /// fresh hold every turn, which is exactly how the judge ran before.
+  final String Function()? getEmotionCause;
+  final void Function(String)? setEmotionCause;
+  final int Function()? getEmotionHeldTurns;
+  final void Function(int)? setEmotionHeldTurns;
+
   // Services for owned state (avoids duplicating scalars/cbs in god for this leaf)
   final RelationshipService relationshipService;
   final NsfwService nsfwService;
@@ -275,6 +283,14 @@ class RealismEvals {
   /// When true, one-shot tools/prompt include `today_sentence`. Default off.
   final bool Function()? getPlannerEnabled;
 
+  /// The proposal gate's inputs (objectives-that-keep-up.md part 3), all
+  /// optional: unwired means no "lately" line, no cooldown, no cap and no
+  /// name tokens ignored, which is how a bare test host has always run.
+  final Future<List<String>> Function()? getRecentEndedObjectives;
+  final Set<String> Function()? getObjectiveIgnoreTokens;
+  final bool Function()? isSideQuestCooldownActive;
+  final int Function()? getSideQuestCap;
+
   final Future<void> Function(
     String objectiveText, {
     bool isPrimary,
@@ -307,12 +323,20 @@ class RealismEvals {
     required this.setCharacterEmotion,
     required this.getEmotionIntensity,
     required this.setEmotionIntensity,
+    this.getEmotionCause,
+    this.setEmotionCause,
+    this.getEmotionHeldTurns,
+    this.setEmotionHeldTurns,
     required this.relationshipService,
     required this.nsfwService,
     required this.timeService,
     required this.getExpressionEnabled,
     required this.getCharacterDossier,
     this.getObjectivesEnabled,
+    this.getRecentEndedObjectives,
+    this.getObjectiveIgnoreTokens,
+    this.isSideQuestCooldownActive,
+    this.getSideQuestCap,
     required this.getPrimaryObjective,
     required this.getActiveObjectives,
     this.getAmbitions,

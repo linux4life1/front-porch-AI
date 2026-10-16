@@ -124,6 +124,9 @@ class _GenTurn {
 
   // ── plan phase → rag/request phases ──
   String history = '';
+
+  /// Latest beat, cut off [history]; renders after the state zone.
+  String latestTurn = '';
   int droppedMessages = 0;
   int historyBudget = 0;
   late PromptPlan plan;

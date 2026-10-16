@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 
 class NsfwToggle extends StatelessWidget {
   const NsfwToggle({
@@ -28,12 +29,13 @@ class NsfwToggle extends StatelessWidget {
       decoration: BoxDecoration(
         color: value
             ? accentColor.withValues(alpha: 0.08)
-            : AppColors.surfaceContainerOf(context),
+            : context.creatorPalette?.raise ??
+                  AppColors.surfaceContainerOf(context),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: value
               ? accentColor.withValues(alpha: 0.5)
-              : AppColors.borderOf(context),
+              : context.creatorPalette?.line ?? AppColors.borderOf(context),
           width: value ? 2 : 1,
         ),
       ),
@@ -41,7 +43,10 @@ class NsfwToggle extends StatelessWidget {
         children: [
           Icon(
             Icons.local_fire_department,
-            color: value ? accentColor : AppColors.textTertiary(context),
+            color: value
+                ? accentColor
+                : context.creatorPalette?.muted ??
+                      AppColors.textTertiary(context),
             size: 18,
           ),
           const SizedBox(width: 8),
@@ -54,7 +59,8 @@ class NsfwToggle extends StatelessWidget {
                   style: TextStyle(
                     color: value
                         ? accentColor
-                        : AppColors.textSecondary(context),
+                        : context.creatorPalette?.prose ??
+                              AppColors.textSecondary(context),
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
                   ),
@@ -65,7 +71,8 @@ class NsfwToggle extends StatelessWidget {
                   style: TextStyle(
                     color: value
                         ? accentColor.withValues(alpha: 0.6)
-                        : AppColors.textTertiary(context),
+                        : context.creatorPalette?.muted ??
+                              AppColors.textTertiary(context),
                     fontSize: 10,
                   ),
                 ),
@@ -75,7 +82,9 @@ class NsfwToggle extends StatelessWidget {
           Switch(
             value: value,
             // Switches are porch amber app-wide; [accentColor] tints the card.
-            activeTrackColor: AppColors.porchAmberOf(context),
+            activeTrackColor:
+                context.creatorPalette?.amber ??
+                AppColors.porchAmberOf(context),
             onChanged: onChanged,
           ),
         ],

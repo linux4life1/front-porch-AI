@@ -7,9 +7,15 @@ import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'studio_desk_copy.dart';
+import 'studio_refresh_button.dart';
+
+/// The files a Change sheet lists, and which of them look wrong by name.
+typedef StudioModelListing = ({List<String> items, Set<String> unfit});
 
 /// Change model. Rows are grouped by family. A typed name is kept when
-/// the connected app has not listed that file yet.
+/// the connected app has not listed that file yet. [onRefresh] asks the
+/// connected app for its files again: when the sheet opens, so a model added
+/// since the desk last listed shows up, and on the refresh button.
 class StudioModelSheet extends StatefulWidget {
   const StudioModelSheet({
     super.key,
@@ -17,6 +23,7 @@ class StudioModelSheet extends StatefulWidget {
     required this.items,
     required this.onPick,
     this.unfit = const {},
+    this.onRefresh,
   });
 
   final bool edit;
@@ -27,12 +34,47 @@ class StudioModelSheet extends StatefulWidget {
   /// because a name is only a guess.
   final Set<String> unfit;
 
+  final Future<StudioModelListing> Function()? onRefresh;
+
   @override
   State<StudioModelSheet> createState() => _StudioModelSheetState();
 }
 
 class _StudioModelSheetState extends State<StudioModelSheet> {
   String _query = '';
+  late List<String> _items = widget.items;
+  late Set<String> _unfit = widget.unfit;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.onRefresh != null) {
+      _refreshing = true;
+      _read();
+    }
+  }
+
+  void _refresh() {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    _read();
+  }
+
+  Future<void> _read() async {
+    try {
+      final listing = await widget.onRefresh!();
+      if (!mounted) return;
+      setState(() {
+        _items = listing.items;
+        _unfit = listing.unfit;
+      });
+    } catch (e) {
+      debugPrint('studio model list refresh failed: ${e.runtimeType}');
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -42,7 +84,7 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
     // name is only a guess.
     final groups = <ModelFamily, List<String>>{};
     final odd = <ModelFamily, List<String>>{};
-    for (final item in widget.items) {
+    for (final item in _items) {
       if (query.isNotEmpty &&
           !item.toLowerCase().contains(query) &&
           !ImageModelFamily.detectFromName(
@@ -51,13 +93,13 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
         continue;
       }
       final family = ImageModelFamily.detectFromName(item);
-      final into = widget.unfit.contains(item) ? odd : groups;
+      final into = _unfit.contains(item) ? odd : groups;
       into.putIfAbsent(family, () => []).add(item);
     }
     final typed = _query.trim();
     final offerTyped =
         typed.isNotEmpty &&
-        !widget.items.any((item) => item.toLowerCase() == typed.toLowerCase());
+        !_items.any((item) => item.toLowerCase() == typed.toLowerCase());
     List<ModelFamily> order(Map<ModelFamily, List<String>> from) => [
       for (final family in ModelFamily.values)
         if (from.containsKey(family)) family,
@@ -74,6 +116,15 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.onRefresh != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: StudioRefreshButton(
+                  label: 'Refresh models',
+                  refreshing: _refreshing,
+                  onPressed: _refresh,
+                ),
+              ),
             TextField(
               autofocus: true,
               decoration: const InputDecoration(

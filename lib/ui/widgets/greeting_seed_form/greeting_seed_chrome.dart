@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 // Shared section chrome for the greeting seed form: the same cards and
 // headers as RealismFormSection.
@@ -27,19 +28,24 @@ Widget seedHeader(
 Widget seedCard(BuildContext context, Widget child) => Container(
   padding: const EdgeInsets.all(16),
   decoration: BoxDecoration(
-    color: AppColors.cardOf(context),
+    color: context.creatorPalette?.card ?? AppColors.cardOf(context),
     borderRadius: BorderRadius.circular(14),
-    border: Border.all(color: AppColors.borderOf(context)),
+    border: Border.all(
+      color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+    ),
   ),
   child: child,
 );
 
-TextStyle seedLabelStyle(BuildContext context) => TextStyle(
-  color: AppColors.textSecondary(context),
-  fontSize: 12,
-  fontWeight: FontWeight.w600,
-  letterSpacing: 0.5,
-);
+/// Inside the AI Character Creator, the spec's field label.
+TextStyle seedLabelStyle(BuildContext context) =>
+    context.creatorPalette?.labelStyle ??
+    TextStyle(
+      color: AppColors.textSecondary(context),
+      fontSize: 12,
+      fontWeight: FontWeight.w600,
+      letterSpacing: 0.5,
+    );
 
 Widget seedDropdown(
   BuildContext context, {
@@ -51,7 +57,8 @@ Widget seedDropdown(
 }) {
   final selected = value != null && items.contains(value) ? value : null;
   final inheritStyle = TextStyle(
-    color: AppColors.textTertiary(context).withValues(alpha: 0.6),
+    color: (context.creatorPalette?.muted ?? AppColors.textTertiary(context))
+        .withValues(alpha: 0.6),
     fontSize: 13,
   );
   return seedLabeledField(
@@ -60,12 +67,17 @@ Widget seedDropdown(
     child: Container(
       padding: const EdgeInsets.symmetric(horizontal: 12),
       decoration: BoxDecoration(
-        color: AppColors.surfaceContainerOf(context),
+        color:
+            context.creatorPalette?.fieldFill ??
+            AppColors.surfaceContainerOf(context),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(
+          color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+        ),
       ),
       child: DropdownButtonFormField<String>(
         key: ValueKey('$label-${selected ?? 'inherit'}'),
+        isExpanded: true,
         initialValue: selected,
         hint: Text(hint, style: inheritStyle),
         items: [
@@ -81,8 +93,13 @@ Widget seedDropdown(
           border: InputBorder.none,
           contentPadding: EdgeInsets.symmetric(vertical: 10),
         ),
-        dropdownColor: AppColors.surfaceContainerOf(context),
-        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
+        dropdownColor:
+            context.creatorPalette?.raise ??
+            AppColors.surfaceContainerOf(context),
+        style: TextStyle(
+          color: context.creatorPalette?.ink ?? AppColors.textPrimary(context),
+          fontSize: 14,
+        ),
       ),
     ),
   );
@@ -96,7 +113,10 @@ Widget seedLabeledField(
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(label, style: seedLabelStyle(context)),
+      Text(
+        context.creatorPalette != null ? label.toUpperCase() : label,
+        style: seedLabelStyle(context),
+      ),
       const SizedBox(height: 8),
       child,
     ],
@@ -106,9 +126,13 @@ Widget seedLabeledField(
 Widget seedBoxedField(BuildContext context, Widget child) {
   return Container(
     decoration: BoxDecoration(
-      color: AppColors.surfaceContainerOf(context),
+      color:
+          context.creatorPalette?.raise ??
+          AppColors.surfaceContainerOf(context),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.borderOf(context)),
+      border: Border.all(
+        color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+      ),
     ),
     child: child,
   );
@@ -118,7 +142,8 @@ InputDecoration seedDeco(BuildContext context, String? hint) {
   return InputDecoration(
     hintText: hint,
     hintStyle: TextStyle(
-      color: AppColors.textTertiary(context).withValues(alpha: 0.6),
+      color: (context.creatorPalette?.muted ?? AppColors.textTertiary(context))
+          .withValues(alpha: 0.6),
       fontSize: 13,
     ),
     border: InputBorder.none,

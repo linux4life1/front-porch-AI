@@ -98,10 +98,8 @@ ObjectiveProposal createTestObjectiveProposal({
   Future<void> Function(String, String)? saveTasks,
   Future<void> Function(String)? deactObj,
   Future<void> Function(Objective, String)? markTaskCompletedCb,
-  Future<void> Function(Objective, String)? markTaskStaleCb,
   void Function(Objective)? onQuestAchieved,
   void Function(Objective)? onObjectiveStale,
-  int staleThreshold = 2,
   bool isChecking = false,
   bool llmReady = true,
   String Function()? getLlmJson,
@@ -155,16 +153,30 @@ ObjectiveProposal createTestObjectiveProposal({
         (id, j) async {
           saved[id] = j;
         },
-    deactivateObjective:
-        deactObj ??
-        (id) async {
-          deacts.add(id);
-        },
-    markTaskCompleted:
-        markTaskCompletedCb ??
-        (obj, desc) async {
-          marks.add('${obj.id}:$desc');
-        },
+    // 2026-10-16 (objectives that keep up): the goal sync writes the whole
+    // step list and retires a goal with how it ended. The helper maps those
+    // writes back onto the callbacks these cases already observe — a step
+    // newly ticked is a "mark", a retirement is a "deact" — and reloads the
+    // list after each write, the way ChatService's own writers do.
+    writeSyncedTasks: (obj, tasks) async {
+      final before = (tasksFor ?? (o) => const [])(obj);
+      for (var i = 0; i < tasks.length; i++) {
+        final was = i < before.length && before[i]['completed'] == true;
+        if (tasks[i]['completed'] == true && !was) {
+          await (markTaskCompletedCb ??
+              (o, d) async => marks.add('${o.id}:$d'))(
+            obj,
+            tasks[i]['description'] as String,
+          );
+        }
+      }
+      await (loadObjs ?? () async => loads.add('load'))();
+    },
+    retireObjective: (obj, end) async {
+      await (deactObj ?? (id) async => deacts.add(id))(obj.id);
+      await (loadObjs ?? () async => loads.add('load'))();
+    },
+    setObjectiveDormant: (obj, dormant) async {},
     getIsCheckingCompletion: () => isChecking,
     setIsCheckingCompletion: (v) {},
     onNotify:
@@ -175,8 +187,6 @@ ObjectiveProposal createTestObjectiveProposal({
     onObjectiveCompleted: onObjectiveCompleted,
     onQuestAchieved: onQuestAchieved,
     onObjectiveStale: onObjectiveStale,
-    markTaskStale: markTaskStaleCb,
-    getObjectiveStaleThresholdN: () => staleThreshold,
   );
 }
 
@@ -256,57 +266,63 @@ void main() {
       },
     );
 
-    test('check task YES path (load via cb + markTaskCompleted thin called for mutation)', () async {
-      final loads = <String>[];
-      final marks = <String>[];
-      final p = createTestObjectiveProposal(
-        getLlmJson: () => 'YES',
-        actives: [_mkObj('o5', 'g', primary: true)],
-        loadObjs: () async {
-          loads.add('l');
-        },
-        tasksFor: (o) => [
-          {'description': 'do', 'completed': false},
-        ],
-        markTaskCompletedCb: (o, d) async {
-          marks.add('${o.id}:$d');
-        },
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(loads, isNotEmpty);
-      expect(
-        marks,
-        contains('o5:do'),
-      ); // covers mark actually invoked for task case (taskless uses deact)
-    });
+    test(
+      'check task YES path (load via cb + markTaskCompleted thin called for mutation)',
+      () async {
+        final loads = <String>[];
+        final marks = <String>[];
+        final p = createTestObjectiveProposal(
+          getLlmJson: () => 'YES',
+          actives: [_mkObj('o5', 'g', primary: true)],
+          loadObjs: () async {
+            loads.add('l');
+          },
+          tasksFor: (o) => [
+            {'description': 'do', 'completed': false},
+          ],
+          markTaskCompletedCb: (o, d) async {
+            marks.add('${o.id}:$d');
+          },
+        );
+        await p.checkTaskCompletionInBackground();
+        expect(loads, isNotEmpty);
+        expect(
+          marks,
+          contains('o5:do'),
+        ); // covers mark actually invoked for task case (taskless uses deact)
+      },
+    );
 
-    test('all tasks already completed → quest retired (deact, no mark, journal event)', () async {
-      final calls = <String>[];
-      final deacts = <String>[];
-      var completedEvents = 0;
-      final p = createTestObjectiveProposal(
-        getLlmJson: () => 'YES',
-        actives: [_mkObj('oNo', 'g')],
-        tasksFor: (o) => [
-          {'description': 'already', 'completed': true},
-        ],
-        markTaskCompletedCb: (o, d) async {
-          calls.add(d);
-        },
-        deactObj: (id) async {
-          deacts.add(id);
-        },
-        onObjectiveCompleted: () => completedEvents++,
-      );
-      await p.checkTaskCompletionInBackground();
-      // All tasks done means the quest itself is complete: retired via deact
-      // (frees the primary slot for the next autonomous main quest — the old
-      // `continue` left it active forever), no task mark, and the journal
-      // event kick fires once. Also the self-heal path for old stuck chats.
-      expect(calls, isEmpty);
-      expect(deacts, contains('oNo'));
-      expect(completedEvents, 1);
-    });
+    test(
+      'all tasks already completed → quest retired (deact, no mark, journal event)',
+      () async {
+        final calls = <String>[];
+        final deacts = <String>[];
+        var completedEvents = 0;
+        final p = createTestObjectiveProposal(
+          getLlmJson: () => 'YES',
+          actives: [_mkObj('oNo', 'g')],
+          tasksFor: (o) => [
+            {'description': 'already', 'completed': true},
+          ],
+          markTaskCompletedCb: (o, d) async {
+            calls.add(d);
+          },
+          deactObj: (id) async {
+            deacts.add(id);
+          },
+          onObjectiveCompleted: () => completedEvents++,
+        );
+        await p.checkTaskCompletionInBackground();
+        // All tasks done means the quest itself is complete: retired via deact
+        // (frees the primary slot for the next autonomous main quest — the old
+        // `continue` left it active forever), no task mark, and the journal
+        // event kick fires once. Also the self-heal path for old stuck chats.
+        expect(calls, isEmpty);
+        expect(deacts, contains('oNo'));
+        expect(completedEvents, 1);
+      },
+    );
 
     test(
       'task YES retires quest only when it was the last open task',
@@ -477,38 +493,38 @@ void main() {
       expect(deacts, isEmpty);
     });
 
-    test(
-      'two consecutive STALE|NA|NA retires without quest achievement',
-      () async {
-        final deacts = <String>[];
-        final quests = <String>[];
-        final stales = <String>[];
-        var completedEvents = 0;
-        final p = createTestObjectiveProposal(
-          getLlmJson: () => '1: STALE|NA|NA',
-          actives: [_mkObj('oA', 'find the keeper', primary: true)],
-          tasksFor: (o) => [
-            {'description': 'ask', 'completed': false},
-          ],
-          deactObj: (id) async => deacts.add(id),
-          onQuestAchieved: (o) => quests.add(o.id),
-          onObjectiveStale: (o) => stales.add(o.id),
-          onObjectiveCompleted: () => completedEvents++,
-        );
-        await p.checkTaskCompletionInBackground();
-        expect(deacts, isEmpty);
-        await p.checkTaskCompletionInBackground();
-        expect(deacts, ['oA']);
-        expect(stales, ['oA']);
-        expect(quests, isEmpty);
-        expect(completedEvents, 0);
-      },
-    );
+    // 2026-10-16 (objectives that keep up): the KEEP|STALE text format and
+    // the two-in-a-row retire are gone with the YES/NO check. These four
+    // cases now speak the goal sync's line format; what they guard stands:
+    // a goal let go is never a win, a non-answer never retires anything,
+    // nothing is forced done, and one member's goal does not take another's.
+    test('one overtaken answer lets the goal go without achievement', () async {
+      final deacts = <String>[];
+      final quests = <String>[];
+      final stales = <String>[];
+      var completedEvents = 0;
+      final p = createTestObjectiveProposal(
+        getLlmJson: () => '1: overtaken | none | none',
+        actives: [_mkObj('oA', 'find the keeper', primary: true)],
+        tasksFor: (o) => [
+          {'description': 'ask', 'completed': false},
+        ],
+        deactObj: (id) async => deacts.add(id),
+        onQuestAchieved: (o) => quests.add(o.id),
+        onObjectiveStale: (o) => stales.add(o.id),
+        onObjectiveCompleted: () => completedEvents++,
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(deacts, ['oA']);
+      expect(stales, ['oA']);
+      expect(quests, isEmpty);
+      expect(completedEvents, 0);
+    });
 
-    test('one STALE|NA|NA keeps the quest', () async {
+    test('a dormant answer keeps the goal', () async {
       final deacts = <String>[];
       final p = createTestObjectiveProposal(
-        getLlmJson: () => '1: STALE|NA|NA',
+        getLlmJson: () => '1: dormant | none | none',
         actives: [_mkObj('oOne', 'g')],
         deactObj: (id) async => deacts.add(id),
         tasksFor: (o) => const [],
@@ -517,12 +533,12 @@ void main() {
       expect(deacts, isEmpty);
     });
 
-    test('four completion NOs never force-done (4-miss removed)', () async {
+    test('four on_track answers never force-done (4-miss removed)', () async {
       final marks = <String>[];
       final deacts = <String>[];
       final quests = <String>[];
       final p = createTestObjectiveProposal(
-        getLlmJson: () => '1: KEEP|RELEVANT|NO',
+        getLlmJson: () => '1: on_track | none | none',
         actives: [_mkObj('oMiss', 'g')],
         tasksFor: (o) => [
           {'description': 'do', 'completed': false},
@@ -539,12 +555,12 @@ void main() {
       expect(quests, isEmpty);
     });
 
-    test('taskless KEEP + YES achieves; taskless STALE×2 does not', () async {
+    test('taskless done achieves; taskless overtaken does not', () async {
       final quests = <String>[];
       final stales = <String>[];
       var completedEvents = 0;
       final pYes = createTestObjectiveProposal(
-        getLlmJson: () => '1: KEEP|NA|YES',
+        getLlmJson: () => '1: done | none | none',
         actives: [_mkObj('oTl', 'tl')],
         tasksFor: (o) => const [],
         onQuestAchieved: (o) => quests.add(o.id),
@@ -561,7 +577,7 @@ void main() {
       final stales2 = <String>[];
       var completed2 = 0;
       final pStale = createTestObjectiveProposal(
-        getLlmJson: () => '1: STALE|NA|NA',
+        getLlmJson: () => '1: overtaken | none | none',
         actives: [_mkObj('oTl2', 'tl')],
         tasksFor: (o) => const [],
         deactObj: (id) async => deacts.add(id),
@@ -570,25 +586,24 @@ void main() {
         onObjectiveCompleted: () => completed2++,
       );
       await pStale.checkTaskCompletionInBackground();
-      await pStale.checkTaskCompletionInBackground();
       expect(deacts, ['oTl2']);
       expect(stales2, ['oTl2']);
       expect(quests2, isEmpty);
       expect(completed2, 0);
     });
 
-    test('group A stale does not retire B', () async {
+    test('group A let go does not retire B', () async {
       final deacts = <String>[];
       final stales = <String>[];
       final p = createTestObjectiveProposal(
-        getLlmJson: () => '1: STALE|NA|NA\n2: KEEP|NA|NO',
+        getLlmJson: () =>
+            '1: overtaken | none | none\n2: on_track | none | none',
         actives: [_mkObj('charA', 'A quest'), _mkObj('charB', 'B quest')],
         tasksFor: (o) => const [],
         deactObj: (id) async => deacts.add(id),
         onObjectiveStale: (o) => stales.add(o.id),
         onQuestAchieved: (o) => fail('B must not achieve: ${o.id}'),
       );
-      await p.checkTaskCompletionInBackground();
       await p.checkTaskCompletionInBackground();
       expect(deacts, ['charA']);
       expect(stales, ['charA']);

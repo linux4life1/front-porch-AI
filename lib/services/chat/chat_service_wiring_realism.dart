@@ -45,6 +45,23 @@ extension ChatServiceWiringRealism on ChatService {
           await _deactivateTodayObjective();
         }();
       },
+      // A story day crossed eases the mood one step (mood-with-bite.md):
+      // the live registers AND every group member's record, since the day
+      // is the chat's, not the loaded speaker's. The post-reply restamp then
+      // writes the eased mood onto the reply so a swipe back shows it.
+      onStoryDaysCrossed: (days, {manual = false}) {
+        _mood.easeForDays(days);
+        _mood.easeMembersForDays(days);
+        // Only a chevron or calendar roll, made by hand outside any turn,
+        // writes the eased mood onto the latest replies: no restamp follows
+        // it, and a swipe back would otherwise restore the mood from before
+        // the roll. A reply's own clock pass is restamped afterwards, and an
+        // OOC skip at the start of a send belongs to the reply being written:
+        // the previous reply keeps the mood it ended with, so deleting the
+        // new one puts the pre-skip mood back. (The busy flags cannot tell
+        // these apart: the generating flag rises after the skip is applied.)
+        if (manual) _mood.patchLatestReplyStamps();
+      },
       getPorchLifePassageOfTime: () =>
           _storageService.realismSettings.passageOfTimeDefault,
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
@@ -161,6 +178,10 @@ extension ChatServiceWiringRealism on ChatService {
     setEmotion: (v) => _characterEmotion = v,
     intensity: () => _emotionIntensity,
     setIntensity: (v) => _emotionIntensity = v,
+    cause: () => _emotionCause,
+    setCause: (v) => _emotionCause = v,
+    heldTurns: () => _emotionHeldTurns,
+    setHeldTurns: (v) => _emotionHeldTurns = v,
     saveChat: _saveChat,
     notify: notifyListeners,
   );

@@ -87,12 +87,23 @@ class GenEnhancer {
     _state.narrativeSex = resolved.sex;
 
     // ── Interview, grounded in the real chat (always runs) ─────────
+    // Enhance has no question editor: the standard set, in the card's voice.
+    final pronouns = resolveNarrativePronouns(resolved.sex);
+    final questions = renderInterviewQuestions(
+      null,
+      voice: resolved.voice,
+      pronouns: pronouns,
+      relationship: '',
+      nsfwEnabled: nsfwEnabled,
+    );
     onStatus?.call('Interviewing $name about the chat...');
     onProgress?.call('');
     final interviewTranscript = await _s.interview.runInterview(
       card: card,
       name: name,
-      nsfwEnabled: nsfwEnabled,
+      questions: questions,
+      voice: resolved.voice,
+      pronouns: pronouns,
       onStatus: onStatus,
       onProgress: onProgress,
       chatGrounding: chatGrounding,
@@ -242,21 +253,57 @@ class GenEnhancer {
       final sourceExt =
           source.frontPorchExtensions ??
           FrontPorchExtensions(needsSimEnabled: true);
+      // The proposal starts with no lists: Review shows only what this
+      // pass proposed and merges it over the original at "Use this".
+      final proposal = sourceExt.copyWith(
+        ambitions: const [],
+        likes: const [],
+        dislikes: const [],
+        intimateInto: const [],
+        intimateNotInto: const [],
+        inventory: const {},
+      );
       if (selection.greetings) {
-        card.frontPorchExtensions = sourceExt.copyWith(
+        card.frontPorchExtensions = proposal.copyWith(
           greetingSeeds: compactRewrittenGreetingAlts(
             card.alternateGreetings,
             card.frontPorchExtensions?.greetingSeeds,
           ).seeds,
         );
       } else {
-        card.frontPorchExtensions = sourceExt.copyWith();
+        card.frontPorchExtensions = proposal;
+      }
+      // The lists come from the identity facts pass, as at creation; only
+      // the lists are proposed (Review never shows the other facts, so it
+      // must not carry them onto the copy).
+      final facts = await _s.identity.read(
+        name: name,
+        age: '',
+        sex: resolved.sex,
+        relationship: '',
+        description: card.description,
+        personality: card.personality,
+        scenario: card.scenario,
+        interviewTranscript: interviewTranscript,
+        nsfwEnabled: nsfwEnabled,
+      );
+      if (_state.isStale(currentEpoch)) return null;
+      if (facts != null) {
+        card.frontPorchExtensions = card.frontPorchExtensions!.copyWith(
+          ambitions: facts.ambitions,
+          likes: facts.likes,
+          dislikes: facts.dislikes,
+          intimateInto: facts.intimateInto,
+          intimateNotInto: facts.intimateNotInto,
+        );
       }
       await _s.porchLife.seedIdentity(
         card: card,
         name: name,
         interviewTranscript: interviewTranscript,
         nsfwEnabled: nsfwEnabled,
+        // A facts call that gave nothing leaves the lists to this pass.
+        identityDone: facts != null,
         onProgress: onProgress,
       );
     }

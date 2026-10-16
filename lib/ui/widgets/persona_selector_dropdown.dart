@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../../services/user_persona_service.dart';
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 import 'styled_dropdown.dart';
 
 class PersonaSelectorDropdown extends StatelessWidget {
@@ -31,12 +32,18 @@ class PersonaSelectorDropdown extends StatelessWidget {
               Icon(
                 Icons.person_off,
                 size: 16,
-                color: AppColors.textTertiary(context),
+                color:
+                    context.creatorPalette?.muted ??
+                    AppColors.textTertiary(context),
               ),
               const SizedBox(width: 8),
               Text(
                 'None (Blank Slate)',
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(
+                  color:
+                      context.creatorPalette?.prose ??
+                      AppColors.textSecondary(context),
+                ),
               ),
             ],
           ),
@@ -46,7 +53,13 @@ class PersonaSelectorDropdown extends StatelessWidget {
             value: p.id,
             child: Row(
               children: [
-                Icon(Icons.person, size: 16, color: AppColors.formMasterAccent),
+                Icon(
+                  Icons.person,
+                  size: 16,
+                  color:
+                      context.creatorPalette?.amber ??
+                      AppColors.formMasterAccent,
+                ),
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(p.displayLabel, overflow: TextOverflow.ellipsis),

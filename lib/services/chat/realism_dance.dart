@@ -16,6 +16,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/needs_pass.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
+import 'package:front_porch_ai/services/chat/mood_registers.dart';
 import 'package:front_porch_ai/services/chat/realism_judges.dart';
 import 'package:front_porch_ai/services/chat/realism_scope.dart';
 import 'package:front_porch_ai/services/chat/realism_snapshot.dart';
@@ -92,9 +93,7 @@ class RealismDance {
   RelationshipService get _relationshipService => _scope.relationship();
   NsfwService get _nsfwService => _scope.nsfw();
   String get _characterEmotion => _scope.emotion();
-  set _characterEmotion(String v) => _scope.setEmotion(v);
-  String get _emotionIntensity => _scope.intensity();
-  set _emotionIntensity(String v) => _scope.setIntensity(v);
+  late final MoodRegisters _mood = MoodRegisters(_scope);
   Map<String, dynamic>? get _pendingRealismMetadata => _scope.pending();
   set _pendingRealismMetadata(Map<String, dynamic>? v) => _scope.setPending(v);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
@@ -379,9 +378,7 @@ class RealismDance {
     // Note: group uses 'arousal' key (historical) vs snapshot 'arousalLevel' for compat.
     _nsfwService.loadNsfwScalarsForSpeaker(charId);
 
-    _characterEmotion = _scope.groups.members[charId]?.emotion ?? '';
-    _emotionIntensity =
-        _scope.groups.members[charId]?.emotionIntensity ?? 'moderate';
+    _mood.loadFromMember(charId);
 
     // Needs vector. No stored map → empty (never invent needDefaults here;
     // first decay / live-add seed from the card instead).
@@ -401,12 +398,7 @@ class RealismDance {
     // Note: group uses 'arousal' key (historical) vs snapshot 'arousalLevel' for compat.
     _nsfwService.saveNsfwScalarsToGroup(charId);
 
-    if (_characterEmotion.isNotEmpty) {
-      _scope.groups.memberForWrite(charId).emotion = _characterEmotion;
-    }
-    if (_emotionIntensity.isNotEmpty) {
-      _scope.groups.memberForWrite(charId).emotionIntensity = _emotionIntensity;
-    }
+    _mood.saveToMember(charId);
 
     // Persist current needs vector for this speaker
     if (_needsSimulation.vector.isNotEmpty) {

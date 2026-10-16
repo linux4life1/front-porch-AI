@@ -11,6 +11,7 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/birthday.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
+import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/persona/user_persona.dart';
@@ -251,6 +252,7 @@ class BirthdaySync {
         chatId: drift.Value(currentSessionId()),
         active: const drift.Value(true),
         isPrimary: const drift.Value(false),
+        origin: const drift.Value(kObjectiveOriginPlanner),
       ),
     );
     await reloadActiveObjectives();

@@ -7,7 +7,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/steps/guided_output_settings.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/age_gender_row.dart';
 import 'package:front_porch_ai/ui/widgets/character_name_input.dart';
 import 'package:front_porch_ai/ui/widgets/nsfw_toggle.dart';
@@ -35,83 +35,60 @@ class GuidedConfigStep extends StatelessWidget {
 
   /// Section heading used for the (non-collapsible) basic-info block.
   Widget _sectionHeading(BuildContext context, String title, String helper) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w600,
-            color: AppColors.textPrimary(context),
+    // A section sub-heading: 16 / 700 under a 1px `line` rule.
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.only(top: 12),
+      decoration: BoxDecoration(
+        border: Border(top: BorderSide(color: StudioColors.lineOf(context))),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: StudioColors.inkOf(context),
+            ),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          helper,
-          style: TextStyle(
-            fontSize: 12,
-            color: AppColors.textTertiary(context),
-            height: 1.4,
+          const SizedBox(height: 4),
+          Text(
+            helper,
+            style: TextStyle(
+              fontSize: 12,
+              color: StudioColors.mutedOf(context),
+              height: 1.4,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final guidedAccent = AppColors.resolve(
-      context,
-      Colors.tealAccent,
-      const Color(0xFF0D7377),
-    );
-    final nsfwAccent = AppColors.resolve(
-      context,
-      Colors.pinkAccent,
-      const Color(0xFF9D174D),
-    );
+    final guidedAccent = StudioColors.amberOf(context);
+    final nsfwAccent = StudioColors.terraOf(context);
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       key: const ValueKey('guided-config'),
       child: SingleChildScrollView(
-        padding: const EdgeInsets.all(32),
+        padding: const EdgeInsets.fromLTRB(32, 24, 32, 16),
         child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 700),
+          constraints: const BoxConstraints(maxWidth: 860),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──
-              Row(
-                children: [
-                  Icon(Icons.edit_note, color: guidedAccent, size: 28),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Guided Character Creator',
-                          style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.bold,
-                            color: AppColors.textPrimary(context),
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          "Describe your character — we'll help you flesh them out.",
-                          style: TextStyle(
-                            fontSize: 13,
-                            color: AppColors.textTertiary(context),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+              CreatorConfigHeader(
+                state: state,
+                title: 'Guided Character Creator',
+                intro:
+                    'Write your vision in your own words. The AI fleshes out the rest.',
               ),
-              const SizedBox(height: 24),
+              const SizedBox(height: 16),
 
               // ── Basic info ──
               _sectionHeading(
@@ -387,6 +364,9 @@ class GuidedConfigStep extends StatelessWidget {
               // ── Output settings ──
               GuidedOutputSettings(state: state),
 
+              // ── Interview: after the card holding the voice selector ──
+              InterviewQuestionsCard(state: state),
+
               const SizedBox(height: 24),
 
               // ── Validation hint ──
@@ -405,32 +385,28 @@ class GuidedConfigStep extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.amber.withValues(alpha: 0.15),
-          Colors.amber.withValues(alpha: 0.08),
-        ),
-        borderRadius: BorderRadius.circular(10),
+        color: StudioColors.raiseOf(context),
+        borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.amber.withValues(alpha: 0.4),
-            Colors.amber.withValues(alpha: 0.25),
-          ),
+          color: StudioColors.amberOf(context).withValues(alpha: 0.5),
         ),
       ),
       child: Row(
         children: [
-          const Icon(
+          Icon(
             Icons.lightbulb_outline,
-            color: Colors.amberAccent,
+            color: StudioColors.amberOf(context),
             size: 16,
           ),
           const SizedBox(width: 8),
-          const Expanded(
+          Expanded(
             child: Text(
               'Tip: The more detail you provide, the better the AI can capture your vision.',
-              style: TextStyle(color: Colors.amberAccent, fontSize: 12),
+              style: TextStyle(
+                color: StudioColors.proseOf(context),
+                fontSize: 12,
+                height: 1.5,
+              ),
             ),
           ),
         ],

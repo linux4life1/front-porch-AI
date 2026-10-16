@@ -285,17 +285,23 @@ List<Widget> realismEventAndReceiptChips(
               color: AppColors.porchAmberOf(context),
             ),
             const SizedBox(width: 4),
-            Text(
-              text,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: AppColors.porchAmberOf(context),
+            // Bounded: receipts are free-form model phrases, and one longer
+            // than the bubble overflowed it. The tooltip keeps the full text.
+            Flexible(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.porchAmberOf(context),
+                ),
               ),
             ),
           ],
         ),
-        'Pockets & Wardrobe',
+        'Pockets & Wardrobe: $text',
       ),
     );
   }

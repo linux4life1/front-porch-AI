@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'avatar_creation_widgets.dart';
 
@@ -42,9 +43,11 @@ class ExpressionsSection extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(11),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(
+          color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -55,7 +58,9 @@ class ExpressionsSection extends StatelessWidget {
               fontSize: 10.5,
               letterSpacing: 0.8,
               fontWeight: FontWeight.w700,
-              color: AppColors.textTertiary(context),
+              color:
+                  context.creatorPalette?.muted ??
+                  AppColors.textTertiary(context),
             ),
           ),
           const SizedBox(height: 10),
@@ -67,7 +72,8 @@ class ExpressionsSection extends StatelessWidget {
               _label(context, 'Generate pack'),
               Switch(
                 value: packOn,
-                activeTrackColor: AppColors.formMasterAccent,
+                activeTrackColor:
+                    context.creatorPalette?.amber ?? AppColors.formMasterAccent,
                 onChanged: (c.packPossible && !c.running)
                     ? c.setPackEnabled
                     : null,
@@ -79,7 +85,9 @@ class ExpressionsSection extends StatelessWidget {
                       ? null
                       : () => editCreatorPromptRules(context, c),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.formMasterAccent,
+                    foregroundColor:
+                        context.creatorPalette?.amber ??
+                        AppColors.formMasterAccent,
                   ),
                   child: const Text('Prompt rules…'),
                 ),
@@ -87,17 +95,21 @@ class ExpressionsSection extends StatelessWidget {
                 const SizedBox(width: 4),
                 _label(context, 'Vision QC'),
                 c.resolvingVision
-                    ? const SizedBox(
+                    ? SizedBox(
                         width: 14,
                         height: 14,
                         child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.formMasterAccent,
+                          color:
+                              context.creatorPalette?.amber ??
+                              AppColors.formMasterAccent,
                         ),
                       )
                     : Switch(
                         value: c.qcEnabled,
-                        activeTrackColor: AppColors.formMasterAccent,
+                        activeTrackColor:
+                            context.creatorPalette?.amber ??
+                            AppColors.formMasterAccent,
                         onChanged: c.running ? null : c.setQcEnabled,
                       ),
               ],
@@ -114,7 +126,9 @@ class ExpressionsSection extends StatelessWidget {
               '(e.g. qwen-image-max-edit), not a leftover Comfy '
               '.ckpt, in the Edit model slot.',
               style: TextStyle(
-                color: AppColors.textTertiary(context),
+                color:
+                    context.creatorPalette?.muted ??
+                    AppColors.textTertiary(context),
                 fontSize: 11,
                 height: 1.35,
               ),
@@ -133,7 +147,7 @@ class ExpressionsSection extends StatelessWidget {
       fontSize: 10.5,
       letterSpacing: 0.8,
       fontWeight: FontWeight.w700,
-      color: AppColors.textTertiary(context),
+      color: context.creatorPalette?.muted ?? AppColors.textTertiary(context),
     ),
   );
 
@@ -141,8 +155,13 @@ class ExpressionsSection extends StatelessWidget {
     return DropdownButtonHideUnderline(
       child: DropdownButton<bool>(
         value: c.fullSet,
-        dropdownColor: AppColors.surfaceContainerOf(context),
-        style: TextStyle(color: AppColors.textPrimary(context), fontSize: 12.5),
+        dropdownColor:
+            context.creatorPalette?.raise ??
+            AppColors.surfaceContainerOf(context),
+        style: TextStyle(
+          color: context.creatorPalette?.ink ?? AppColors.textPrimary(context),
+          fontSize: 12.5,
+        ),
         items: [
           DropdownMenuItem(
             value: false,
@@ -214,7 +233,8 @@ class ExpressionsSection extends StatelessWidget {
         'img2img fallback — this engine can\'t run instruction-edit models; '
         'the pack still works, identity anchored by the base portrait.',
         style: TextStyle(
-          color: AppColors.textTertiary(context),
+          color:
+              context.creatorPalette?.muted ?? AppColors.textTertiary(context),
           fontSize: 11,
           height: 1.35,
         ),
@@ -229,7 +249,9 @@ class ExpressionsSection extends StatelessWidget {
     required String text,
   }) {
     // logReady = the app-wide green "ready" status hue (AppColors const).
-    final color = ok ? AppColors.logReady : AppColors.formMasterAccent;
+    final color = ok
+        ? AppColors.logReady
+        : context.creatorPalette?.amber ?? AppColors.formMasterAccent;
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -263,7 +285,9 @@ class ExpressionsSection extends StatelessWidget {
               : 'Upload expression images instead: tag uploads above with an '
                     'emotion, or import an emotion-named ZIP sprite pack.',
           style: TextStyle(
-            color: AppColors.textTertiary(context),
+            color:
+                context.creatorPalette?.muted ??
+                AppColors.textTertiary(context),
             fontSize: 11,
             height: 1.4,
           ),
@@ -275,8 +299,12 @@ class ExpressionsSection extends StatelessWidget {
             icon: const Icon(Icons.folder_zip_outlined, size: 15),
             label: const Text('Import ZIP', style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
-              foregroundColor: AppColors.formMasterAccent,
-              side: const BorderSide(color: AppColors.formMasterAccent),
+              foregroundColor:
+                  context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+              side: BorderSide(
+                color:
+                    context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+              ),
               visualDensity: VisualDensity.compact,
             ),
           ),

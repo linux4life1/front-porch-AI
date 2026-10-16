@@ -17,7 +17,17 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 // Live ObjectiveProposal through the tools-vs-text fork. Canned LLM
-// payloads — not source greps. Confused/unparsed must never fake a YES.
+// payloads — not source greps. Confused/unparsed must never fake a win.
+//
+// 2026-10-16 (objectives that keep up): the YES/NO completion check became
+// the goal sync — per goal a status (on_track / done / overtaken / dormant),
+// steps done in any order, and a rewritten next step. The checker cases below
+// were rewritten to that answer; what they assert is unchanged in spirit
+// (a usable tool call does not text-retry, garbage never wins, the text floor
+// and preferText still work, a goal let go is never a win). The KEEP/STALE
+// relevance cases and the two-in-a-row retire are gone because the behaviour
+// is gone: one "overtaken" answer replaces them. Step-generation cases are
+// unchanged.
 
 import 'dart:convert';
 
@@ -28,7 +38,10 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/objective_eval_tools.dart';
+import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/objective_proposal.dart';
+import 'package:front_porch_ai/services/chat/objective_sync.dart';
+import 'package:front_porch_ai/services/chat/objective_sync_tools.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/tool_eval_spec.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -39,6 +52,7 @@ class _FakeLlm extends LLMService {
   final Stream<String> Function(GenerationParams) _streamFactory;
   bool _ready = true;
   int streamCalls = 0;
+  final List<String> prompts = [];
 
   @override
   bool get isReady => _ready;
@@ -50,6 +64,7 @@ class _FakeLlm extends LLMService {
   @override
   Stream<String> generateStream(GenerationParams params) {
     streamCalls++;
+    prompts.add(params.prompt);
     return _streamFactory(params);
   }
 
@@ -66,7 +81,13 @@ class _FakeLlm extends LLMService {
   void dispose() {}
 }
 
-Objective _mkObj(String id, String o) => Objective(
+Objective _mkObj(
+  String id,
+  String o, {
+  String? origin,
+  String? status,
+  String tasks = '[]',
+}) => Objective(
   id: id,
   characterId: 'c1',
   objective: o,
@@ -75,21 +96,27 @@ Objective _mkObj(String id, String o) => Objective(
   isPrimary: true,
   injectionDepth: 3,
   checkFrequency: 3,
-  tasks: '[]',
+  tasks: tasks,
   createdAt: DateTime.now(),
+  origin: origin,
+  status: status,
 );
+
+/// What the sync wrote, in order.
+class _Writes {
+  final tasks = <String, List<Map<String, dynamic>>>{};
+  final ends = <String, ObjectiveEnd>{};
+  final dormant = <String, bool>{};
+  final saved = <String, String>{};
+  final achieved = <String>[];
+  final letGo = <String>[];
+}
 
 ObjectiveProposal _live({
   required _FakeLlm llm,
   required List<Objective> actives,
+  required _Writes w,
   List<Map<String, dynamic>> Function(Objective)? tasksFor,
-  Future<void> Function(String, String)? saveTasks,
-  Future<void> Function(Objective, String)? mark,
-  Future<void> Function(Objective, String)? markStale,
-  Future<void> Function(String)? deact,
-  void Function(Objective)? onQuest,
-  void Function(Objective)? onStale,
-  int staleThreshold = 2,
   LlmToolResponse? Function(ToolEvalSpec spec)? onTool,
   bool preferText = false,
 }) {
@@ -104,15 +131,16 @@ ObjectiveProposal _live({
     getRealismEnabled: () => true,
     getMessages: () => const <ChatMessage>[],
     getActiveObjectives: () => actives,
-    tasksForObjective: tasksFor ?? (o) => const [],
+    tasksForObjective:
+        tasksFor ??
+        (o) => (jsonDecode(o.tasks) as List).cast<Map<String, dynamic>>(),
     loadActiveObjectives: () async {},
-    saveObjectiveTasks: saveTasks ?? (id, j) async {},
-    deactivateObjective: deact ?? (id) async {},
-    markTaskCompleted: mark ?? (obj, desc) async {},
-    markTaskStale: markStale,
-    getObjectiveStaleThresholdN: () => staleThreshold,
-    onQuestAchieved: onQuest,
-    onObjectiveStale: onStale,
+    saveObjectiveTasks: (id, j) async => w.saved[id] = j,
+    writeSyncedTasks: (o, t) async => w.tasks[o.id] = t,
+    retireObjective: (o, end) async => w.ends[o.id] = end,
+    setObjectiveDormant: (o, d) async => w.dormant[o.id] = d,
+    onQuestAchieved: (o) => w.achieved.add(o.id),
+    onObjectiveStale: (o) => w.letGo.add(o.id),
     getIsCheckingCompletion: () => false,
     setIsCheckingCompletion: (v) {},
     onNotify: () {},
@@ -123,30 +151,9 @@ ObjectiveProposal _live({
   );
 }
 
-LlmToolResponse _verdicts(List<dynamic> verdicts) => LlmToolResponse(
+LlmToolResponse _sync(List<Map<String, dynamic>> goals) => LlmToolResponse(
   calls: [
-    LlmToolCall(
-      name: kObjectiveVerdictsTool,
-      arguments: {'verdicts': verdicts},
-    ),
-  ],
-  text: '',
-);
-
-LlmToolResponse _check({
-  required List<dynamic> relevant,
-  required List<dynamic> taskRelevant,
-  required List<dynamic> done,
-}) => LlmToolResponse(
-  calls: [
-    LlmToolCall(
-      name: kObjectiveVerdictsTool,
-      arguments: {
-        'objective_relevant': relevant,
-        'task_relevant': taskRelevant,
-        'task_done': done,
-      },
-    ),
+    LlmToolCall(name: kObjectiveSyncTool, arguments: {'goals': goals}),
   ],
   text: '',
 );
@@ -158,24 +165,43 @@ LlmToolResponse _tasks(List<String> tasks) => LlmToolResponse(
   text: '',
 );
 
+const _twoSteps =
+    '[{"description":"ask at the dock","completed":false},'
+    '{"description":"walk the cliff path","completed":false}]';
+
 void main() {
   group('live checker — tools payload', () {
-    test('YES tool call marks the open task complete', () async {
-      final marks = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('1: YES from text — ignore'));
+    test('a sync tool call ticks steps in any order and rewrites the next '
+        'step of the character\'s own goal', () async {
+      final w = _Writes();
+      final llm = _FakeLlm((_) => Stream.value('1: done | none | none'));
       final p = _live(
         llm: llm,
-        actives: [_mkObj('o1', 'find the keeper')],
-        tasksFor: (o) => [
-          {'description': 'ask at the dock', 'completed': false},
+        w: w,
+        actives: [
+          _mkObj(
+            'o1',
+            'find the keeper',
+            origin: kObjectiveOriginCharacter,
+            tasks: _twoSteps,
+          ),
         ],
-        mark: (obj, desc) async => marks.add('${obj.id}:$desc'),
-        // Boolean true, not the string "YES" — the text scrape's
-        // contains('YES') fallback must not be what makes this pass.
-        onTool: (_) => _verdicts([true]),
+        onTool: (_) => _sync([
+          {
+            'goal': 1,
+            'status': 'on_track',
+            'steps_done': [2],
+            'next_step': 'wait for the ferry',
+          },
+        ]),
       );
-      await p.checkTaskCompletionInBackground();
-      expect(marks, ['o1:ask at the dock']);
+      final outcome = await p.checkTaskCompletionInBackground();
+      expect(outcome, ObjectiveSyncOutcome.applied);
+      final tasks = w.tasks['o1']!;
+      expect(tasks[0]['description'], 'wait for the ferry');
+      expect(tasks[0]['completed'], isFalse);
+      expect(tasks[1]['completed'], isTrue);
+      expect(w.ends, isEmpty);
       expect(
         llm.streamCalls,
         0,
@@ -183,44 +209,100 @@ void main() {
       );
     });
 
-    test('NO / garbage / empty verdicts never fake a win', () async {
+    test('garbage / empty / unknown statuses never fake a win', () async {
       for (final payload in [
-        _verdicts(['NO']),
-        _verdicts(['HUH']),
-        _verdicts([]),
-        _verdicts(['maybe later']),
+        _sync([
+          {
+            'goal': 1,
+            'status': 'HUH',
+            'steps_done': [1],
+            'next_step': 'none',
+          },
+        ]),
+        _sync([]),
+        _sync([
+          {'goal': 7, 'status': 'done', 'steps_done': [], 'next_step': 'none'},
+        ]),
       ]) {
-        final marks = <String>[];
-        final deacts = <String>[];
+        final w = _Writes();
         final llm = _FakeLlm((_) => Stream.value('1: YES'));
         final p = _live(
           llm: llm,
-          actives: [_mkObj('oNo', 'find the keeper')],
-          tasksFor: (o) => [
-            {'description': 'ask at the dock', 'completed': false},
-          ],
-          mark: (obj, desc) async => marks.add(desc),
-          deact: (id) async => deacts.add(id),
+          w: w,
+          actives: [_mkObj('oNo', 'find the keeper', tasks: _twoSteps)],
           onTool: (_) => payload,
         );
         await p.checkTaskCompletionInBackground();
-        expect(marks, isEmpty, reason: '$payload must not complete');
-        expect(deacts, isEmpty, reason: '$payload must not retire the quest');
-        expect(llm.streamCalls, 0);
+        expect(w.tasks, isEmpty, reason: '$payload must not tick');
+        expect(w.ends, isEmpty, reason: '$payload must not retire the goal');
       }
+    });
+
+    test('overtaken lets the goal go and is never a win', () async {
+      final w = _Writes();
+      final p = _live(
+        llm: _FakeLlm((_) => const Stream.empty()),
+        w: w,
+        actives: [_mkObj('oO', 'win the race', tasks: _twoSteps)],
+        onTool: (_) => _sync([
+          {
+            'goal': 1,
+            'status': 'overtaken',
+            'steps_done': [],
+            'next_step': 'none',
+          },
+        ]),
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(w.ends['oO'], ObjectiveEnd.letGo);
+      expect(w.letGo, ['oO']);
+      expect(w.achieved, isEmpty);
+    });
+
+    // Set aside is for the character's own wants; a goal the user set keeps
+    // its place in the prompt (live run 2026-10-16).
+    test('dormant sets the character\'s goal aside without retiring it, and '
+        'leaves the user\'s goal alone', () async {
+      final w = _Writes();
+      final p = _live(
+        llm: _FakeLlm((_) => const Stream.empty()),
+        w: w,
+        actives: [
+          _mkObj(
+            'oD',
+            'visit the island',
+            tasks: _twoSteps,
+            origin: kObjectiveOriginCharacter,
+          ),
+          _mkObj('oU', 'learn why she left', tasks: _twoSteps),
+        ],
+        onTool: (_) => _sync([
+          for (final g in [1, 2])
+            {
+              'goal': g,
+              'status': 'dormant',
+              'steps_done': [],
+              'next_step': 'none',
+            },
+        ]),
+      );
+      await p.checkTaskCompletionInBackground();
+      expect(w.dormant['oD'], isTrue);
+      expect(w.dormant.containsKey('oU'), isFalse);
+      expect(w.ends, isEmpty);
     });
   });
 
   group('live task gen — tools payload', () {
     test('tasks array is saved', () async {
-      final saved = <String, String>{};
+      final w = _Writes();
       final llm = _FakeLlm(
         (_) => Stream.value('gibberish that must not parse'),
       );
       final p = _live(
         llm: llm,
+        w: w,
         actives: const [],
-        saveTasks: (id, j) async => saved[id] = j,
         tasksFor: (o) => const [],
         onTool: (_) => _tasks([
           'Nia asks the harbour master about the keeper',
@@ -231,7 +313,7 @@ void main() {
         _mkObj('oT', 'find the keeper'),
         taskCount: 2,
       );
-      final parsed = (jsonDecode(saved['oT']!) as List)
+      final parsed = (jsonDecode(w.saved['oT']!) as List)
           .cast<Map<String, dynamic>>();
       expect(parsed.map((t) => t['description']), [
         'Nia asks the harbour master about the keeper',
@@ -243,35 +325,28 @@ void main() {
   });
 
   group('text path still scrapes', () {
-    test('1: YES completes', () async {
-      final marks = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('1: YES'));
-      final p = _live(
-        llm: llm,
-        actives: [_mkObj('oY', 'g')],
-        tasksFor: (o) => [
-          {'description': 'do the thing', 'completed': false},
-        ],
-        mark: (obj, desc) async => marks.add(desc),
-        onTool: (_) => null,
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(marks, ['do the thing']);
+    test('the line floor ticks a step; the old 1: YES still does', () async {
+      for (final answer in ['1: on_track | 1 | none', '1: YES']) {
+        final w = _Writes();
+        final p = _live(
+          llm: _FakeLlm((_) => Stream.value(answer)),
+          w: w,
+          actives: [_mkObj('oY', 'g', tasks: _twoSteps)],
+          onTool: (_) => null,
+        );
+        await p.checkTaskCompletionInBackground();
+        expect(w.tasks['oY']![0]['completed'], isTrue, reason: answer);
+      }
     });
 
     test('1. do the thing saves a task', () async {
-      final saved = <String, String>{};
+      final w = _Writes();
       final llm = _FakeLlm(
         (_) => Stream.value('1. do the thing\n2. then this'),
       );
-      final p = _live(
-        llm: llm,
-        actives: const [],
-        saveTasks: (id, j) async => saved[id] = j,
-        onTool: (_) => null,
-      );
+      final p = _live(llm: llm, w: w, actives: const [], onTool: (_) => null);
       await p.generateObjectiveTasks(_mkObj('oL', 'g'), taskCount: 2);
-      final parsed = (jsonDecode(saved['oL']!) as List)
+      final parsed = (jsonDecode(w.saved['oL']!) as List)
           .cast<Map<String, dynamic>>();
       expect(parsed.map((t) => t['description']), [
         'do the thing',
@@ -279,203 +354,110 @@ void main() {
       ]);
     });
 
-    test('preferText skips the tool even when a YES call is waiting', () async {
-      final marks = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('1: NO'));
-      var toolCalls = 0;
+    test(
+      'preferText skips the tool even when a done call is waiting',
+      () async {
+        final w = _Writes();
+        final llm = _FakeLlm((_) => Stream.value('1: on_track | none | none'));
+        var toolCalls = 0;
+        final p = _live(
+          llm: llm,
+          w: w,
+          actives: [_mkObj('oP', 'g', tasks: _twoSteps)],
+          preferText: true,
+          onTool: (_) {
+            toolCalls++;
+            return _sync([
+              {
+                'goal': 1,
+                'status': 'done',
+                'steps_done': [],
+                'next_step': 'none',
+              },
+            ]);
+          },
+        );
+        await p.checkTaskCompletionInBackground();
+        expect(toolCalls, 0);
+        expect(w.ends, isEmpty);
+        expect(llm.streamCalls, 1);
+      },
+    );
+
+    test('a re-plan carries the elapsed span into the prompt', () async {
+      final llm = _FakeLlm((_) => Stream.value('1: on_track | none | none'));
       final p = _live(
         llm: llm,
-        actives: [_mkObj('oP', 'g')],
-        tasksFor: (o) => [
-          {'description': 'do', 'completed': false},
+        w: _Writes(),
+        actives: [_mkObj('oS', 'g', tasks: _twoSteps)],
+        onTool: (_) => null,
+      );
+      await p.checkTaskCompletionInBackground(
+        elapsedSpan:
+            'About 2 weeks have passed since these goals were last '
+            'looked at.',
+      );
+      expect(llm.prompts.single, contains('About 2 weeks have passed'));
+      expect(llm.prompts.single, contains('Evaluate EACH item below'));
+    });
+  });
+
+  group('a newborn goal of the character waits for its steps', () {
+    test('no steps yet: it is left out, its steps are generated once, and a '
+        'lenient answer cannot win it', () async {
+      final w = _Writes();
+      var syncCalls = 0;
+      final llm = _FakeLlm((_) => Stream.value('1: YES'));
+      final p = _live(
+        llm: llm,
+        w: w,
+        actives: [
+          _mkObj('oN', 'learn the shanty', origin: kObjectiveOriginCharacter),
         ],
-        mark: (obj, desc) async => marks.add(desc),
-        preferText: true,
-        onTool: (_) {
-          toolCalls++;
-          return _verdicts(['YES']);
+        onTool: (spec) {
+          if (spec.toolChoice == kObjectiveSyncTool) {
+            syncCalls++;
+            return _sync([
+              {
+                'goal': 1,
+                'status': 'done',
+                'steps_done': [],
+                'next_step': 'none',
+              },
+            ]);
+          }
+          return _tasks(['Nia hums it on the pier', 'Nia sings it aloud']);
         },
       );
-      await p.checkTaskCompletionInBackground();
-      expect(toolCalls, 0);
-      expect(marks, isEmpty);
-      expect(llm.streamCalls, 1);
-    });
-  });
-
-  group('parsers', () {
-    test('JSON verdicts align to the batch; extras dropped; shorts are NO', () {
-      expect(parseObjectiveVerdicts('{"verdicts":["YES","NO","YES"]}', 2), [
-        true,
-        false,
-      ]);
-      expect(parseObjectiveVerdicts('{"verdicts":["YES"]}', 2), [true, false]);
-      expect(parseObjectiveVerdicts('{"verdicts":[]}', 1), [false]);
+      final outcome = await p.checkTaskCompletionInBackground();
+      expect(outcome, ObjectiveSyncOutcome.notRun);
+      expect(syncCalls, 0, reason: 'a goal with no steps is not asked about');
+      expect(w.ends, isEmpty);
+      await pumpEventQueue();
+      expect(w.saved['oN'], contains('Nia hums it on the pier'));
     });
 
-    test('numbered scrape still reads 1: YES', () {
-      expect(parseObjectiveVerdicts('1: YES\n2: NO', 2), [true, false]);
-      expect(parseObjectiveVerdicts('1. YES', 1), [true]);
-    });
-
-    test('missing / unsure relevance KEEPS; only explicit NO retires', () {
-      final missing = parseObjectiveCheck('{"task_done":["NO"]}', 1);
-      expect(missing.hadSignal, isTrue);
-      expect(missing.items.single.objectiveRelevant, isTrue);
-      expect(missing.items.single.taskRelevant, isTrue);
-      expect(missing.items.single.taskDone, isFalse);
-
-      final unsure = parseObjectiveCheck(
-        '{"objective_relevant":["HUH"],"task_relevant":["maybe"],'
-        '"task_done":["NO"]}',
-        1,
-      );
-      expect(unsure.items.single.objectiveRelevant, isTrue);
-      expect(unsure.items.single.taskRelevant, isTrue);
-
-      final stale = parseObjectiveCheck(
-        '{"objective_relevant":["NO"],"task_relevant":["NA"],'
-        '"task_done":["NA"]}',
-        1,
-      );
-      expect(stale.items.single.objectiveRelevant, isFalse);
-    });
-
-    test('text floor KEEP|RELEVANT|NO / STALE|NA|NA / KEEP|STALE|NA', () {
-      final p = parseObjectiveCheck(
-        '1: KEEP|RELEVANT|NO\n2: STALE|NA|NA\n3: KEEP|STALE|NA',
-        3,
-      );
-      expect(p.hadSignal, isTrue);
-      expect(p.items[0].objectiveRelevant, isTrue);
-      expect(p.items[0].taskRelevant, isTrue);
-      expect(p.items[0].taskDone, isFalse);
-      expect(p.items[1].objectiveRelevant, isFalse);
-      expect(p.items[1].taskRelevant, isTrue);
-      expect(p.items[1].taskDone, isFalse);
-      expect(p.items[2].objectiveRelevant, isTrue);
-      expect(p.items[2].taskRelevant, isFalse);
-      expect(p.items[2].taskDone, isFalse);
-    });
-
-    test('text-floor uncertain / empty keeps and does not signal', () {
-      expect(parseObjectiveCheck('the weather is fine', 1).hadSignal, isFalse);
-      expect(
-        parseObjectiveCheck(
-          'the weather is fine',
-          1,
-        ).items.single.objectiveRelevant,
-        isTrue,
-      );
-      expect(
-        parseObjectiveCheck('the weather is fine', 1).items.single.taskRelevant,
-        isTrue,
-      );
-    });
-  });
-
-  group('live checker — relevance vs completion', () {
-    test('two consecutive objective NO retires without achievement', () async {
-      final deacts = <String>[];
-      final quests = <String>[];
-      final stales = <String>[];
-      final marks = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('ignore'));
-      final p = _live(
-        llm: llm,
-        actives: [_mkObj('oStale', 'find the keeper')],
-        tasksFor: (o) => [
-          {'description': 'ask at the dock', 'completed': false},
-        ],
-        mark: (obj, desc) async => marks.add(desc),
-        deact: (id) async => deacts.add(id),
-        onQuest: (o) => quests.add(o.id),
-        onStale: (o) => stales.add(o.id),
-        onTool: (_) =>
-            _check(relevant: ['NO'], taskRelevant: ['NA'], done: ['NA']),
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(deacts, isEmpty);
-      expect(stales, isEmpty);
-      await p.checkTaskCompletionInBackground();
-      expect(deacts, ['oStale']);
-      expect(stales, ['oStale']);
-      expect(quests, isEmpty);
-      expect(marks, isEmpty);
-    });
-
-    test('one objective NO keeps the quest', () async {
-      final deacts = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('ignore'));
-      final p = _live(
-        llm: llm,
-        actives: [_mkObj('oKeep', 'find the keeper')],
-        tasksFor: (o) => [
-          {'description': 'ask at the dock', 'completed': false},
-        ],
-        deact: (id) async => deacts.add(id),
-        onTool: (_) =>
-            _check(relevant: ['NO'], taskRelevant: ['NA'], done: ['NA']),
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(deacts, isEmpty);
-    });
-
-    test('task stale does not set completed', () async {
-      final marks = <String>[];
-      final stales = <String>[];
-      final quests = <String>[];
-      final deacts = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('ignore'));
-      final p = _live(
-        llm: llm,
-        actives: [_mkObj('oStep', 'find the keeper')],
-        tasksFor: (o) => [
-          {'description': 'ask at the dock', 'completed': false},
-          {'description': 'walk the cliff', 'completed': false},
-        ],
-        mark: (obj, desc) async => marks.add(desc),
-        markStale: (obj, desc) async => stales.add(desc),
-        deact: (id) async => deacts.add(id),
-        onQuest: (o) => quests.add(o.id),
-        onTool: (_) =>
-            _check(relevant: ['YES'], taskRelevant: ['NO'], done: ['NA']),
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(stales, ['ask at the dock']);
-      expect(marks, isEmpty);
-      expect(deacts, isEmpty);
-      expect(quests, isEmpty);
-    });
-
-    test('last open task stale retires the objective as stale', () async {
-      final marks = <String>[];
-      final stales = <String>[];
-      final quests = <String>[];
-      final deacts = <String>[];
-      final objStale = <String>[];
-      final llm = _FakeLlm((_) => Stream.value('ignore'));
-      final p = _live(
-        llm: llm,
-        actives: [_mkObj('oLast', 'find the keeper')],
-        tasksFor: (o) => [
-          {'description': 'already', 'completed': true},
-          {'description': 'last one', 'completed': false},
-        ],
-        mark: (obj, desc) async => marks.add(desc),
-        markStale: (obj, desc) async => stales.add(desc),
-        deact: (id) async => deacts.add(id),
-        onQuest: (o) => quests.add(o.id),
-        onStale: (o) => objStale.add(o.id),
-        onTool: (_) =>
-            _check(relevant: ['YES'], taskRelevant: ['NO'], done: ['NA']),
-      );
-      await p.checkTaskCompletionInBackground();
-      expect(stales, ['last one']);
-      expect(marks, isEmpty);
-      expect(deacts, ['oLast']);
-      expect(objStale, ['oLast']);
-      expect(quests, isEmpty);
-    });
+    test(
+      'a goal the user typed has no steps by design and is asked about',
+      () async {
+        final w = _Writes();
+        final p = _live(
+          llm: _FakeLlm((_) => const Stream.empty()),
+          w: w,
+          actives: [_mkObj('oU', 'make it to the dance')],
+          onTool: (_) => _sync([
+            {
+              'goal': 1,
+              'status': 'done',
+              'steps_done': [],
+              'next_step': 'none',
+            },
+          ]),
+        );
+        await p.checkTaskCompletionInBackground();
+        expect(w.ends['oU'], ObjectiveEnd.achieved);
+        expect(w.achieved, ['oU']);
+      },
+    );
   });
 }

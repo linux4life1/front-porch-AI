@@ -3,63 +3,117 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/character_gen/gen_card_completion.dart';
 import 'package:front_porch_ai/services/character_gen/gen_parsing.dart';
+import 'package:front_porch_ai/services/character_gen/gen_paused_run.dart';
 import 'package:front_porch_ai/services/character_gen/gen_prompts.dart';
+import 'package:front_porch_ai/services/character_gen/gen_run_inputs.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
 import 'package:front_porch_ai/services/character_gen/gen_stages.dart';
-import 'package:front_porch_ai/services/character_gen/greeting_recipe.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// The AI Create pipeline: base card, interview, enrichment, dialogue,
-/// lorebook, greetings, Porch Life, and the image prompt.
+/// The AI Create pipeline in two phases. Phase A, the profile: base card,
+/// interview, the interview rewrite, the identity facts. Phase B
+/// ([GenCardCompletion]): dialogue, lorebook, greetings, the opening scene,
+/// the image prompt and the stamps.
 class GenCharacterGenerator {
-  GenCharacterGenerator(this._s);
+  GenCharacterGenerator(this._s) : _completion = GenCardCompletion(_s);
 
   final GenStages _s;
+  final GenCardCompletion _completion;
   GenRunState get _state => _s.state;
 
-  /// Generate a complete character card from user-provided creative inputs.
-  ///
-  /// Uses multi-step generation: base card first, then greetings separately.
-  Future<CharacterCard?> run({
-    required String name,
-    required String concept,
-    required String personalityKeywords,
-    required String artStyle,
-    required String imageGenPromptParadigm,
-    required String greetingLength,
-    required int altGreetingCount,
-    required List<String> greetingTones,
-    required bool generateLorebook,
-    required List<String> loreCategories,
-    required String loreDepth,
-    required String apiSystemPrompt,
-    required String age,
-    required String sex,
-    required String relationship,
-    required String descriptionDetail,
-    required String backstory,
-    required String scenario,
-    required String characterContext,
-    required String userPersonaContext,
-    required String? worldLore,
-    required bool generateDescription,
-    required bool nsfwEnabled,
-    required bool reasoningEnabled,
-    required bool includeDynamicMacros,
-    required String narrativePerspective,
-    required String narrativeTense,
+  /// Both phases back to back in one run, on one card: what
+  /// `generateCharacter` has always done (Scene Guest, the one-shot relay).
+  Future<CharacterCard?> run(
+    GenRunInputs inputs, {
     required bool abortInFlight,
     required void Function(String accumulated)? onProgress,
     required void Function(String error)? onError,
     required void Function(String status)? onStatus,
   }) async {
+    final started = await _profile(
+      inputs,
+      abortInFlight: abortInFlight,
+      onProgress: onProgress,
+      onError: onError,
+      onStatus: onStatus,
+    );
+    if (started == null) return null;
+    final (paused, epoch) = started;
+    return _completion.finish(
+      paused: paused,
+      card: paused.card,
+      epoch: epoch,
+      onProgress: onProgress,
+      onStatus: onStatus,
+    );
+  }
+
+  /// Phase A alone: stops once the profile and its facts are written.
+  /// Null when stopped or when no card could be read.
+  Future<GenPausedRun?> generateProfile(
+    GenRunInputs inputs, {
+    required bool abortInFlight,
+    required void Function(String accumulated)? onProgress,
+    required void Function(String error)? onError,
+    required void Function(String status)? onStatus,
+  }) async {
+    final started = await _profile(
+      inputs,
+      abortInFlight: abortInFlight,
+      onProgress: onProgress,
+      onError: onError,
+      onStatus: onStatus,
+    );
+    if (started == null) return null;
+    onStatus?.call('Profile ready');
+    return started.$1;
+  }
+
+  /// Phase B of [paused] as its own run (see [GenCardCompletion.complete]).
+  Future<CharacterCard?> complete({
+    required GenPausedRun paused,
+    required bool abortInFlight,
+    required void Function(String accumulated)? onProgress,
+    required void Function(String error)? onError,
+    required void Function(String status)? onStatus,
+  }) => _completion.complete(
+    paused: paused,
+    abortInFlight: abortInFlight,
+    onProgress: onProgress,
+    onError: onError,
+    onStatus: onStatus,
+  );
+
+  /// Phase A, returning the pause and the run's epoch so [run] can go on
+  /// in the same run.
+  Future<(GenPausedRun, int)?> _profile(
+    GenRunInputs inputs, {
+    required bool abortInFlight,
+    required void Function(String accumulated)? onProgress,
+    required void Function(String error)? onError,
+    required void Function(String status)? onStatus,
+  }) async {
+    final name = inputs.name;
+    final concept = inputs.concept;
+    final personalityKeywords = inputs.personalityKeywords;
+    final apiSystemPrompt = inputs.apiSystemPrompt;
+    final age = inputs.age;
+    final sex = inputs.sex;
+    final relationship = inputs.relationship;
+    final backstory = inputs.backstory;
+    final scenario = inputs.scenario;
+    final worldLore = inputs.worldLore;
+    final nsfwEnabled = inputs.nsfwEnabled;
+    final reasoningEnabled = inputs.reasoningEnabled;
+
     // Voice must be set BEFORE the base-card prompt so description /
     // personality pick up tense and third-person pronouns.
     _state.narrativeVoice = NarrativeVoice.parse(
-      perspective: narrativePerspective,
-      tense: narrativeTense,
+      perspective: inputs.narrativePerspective,
+      tense: inputs.narrativeTense,
     );
     _state.narrativeSex = sex;
 
@@ -71,15 +125,15 @@ class GenCharacterGenerator {
       name: name,
       concept: concept,
       personalityKeywords: personalityKeywords,
-      generateLorebook: generateLorebook,
-      loreCategories: loreCategories,
-      loreDepth: loreDepth,
+      generateLorebook: inputs.generateLorebook,
+      loreCategories: inputs.loreCategories,
+      loreDepth: inputs.loreDepth,
       apiSystemPrompt: apiSystemPrompt,
       age: age,
       sex: sex,
       relationship: relationship,
-      descriptionDetail: descriptionDetail,
-      generateDescription: generateDescription,
+      descriptionDetail: inputs.descriptionDetail,
+      generateDescription: inputs.generateDescription,
       scenario: scenario,
       worldLore: worldLore,
     );
@@ -97,7 +151,7 @@ class GenCharacterGenerator {
     final int currentEpoch = _state.beginRun(
       abortInFlight: abortInFlight,
       reasoningEnabled: reasoningEnabled,
-      includeDynamicMacros: includeDynamicMacros,
+      includeDynamicMacros: inputs.includeDynamicMacros,
     );
 
     int attempts = 0;
@@ -120,6 +174,12 @@ class GenCharacterGenerator {
       _state.lastRawOutput = baseOutput; // Store for image prompt extraction
 
       if (baseOutput == null) {
+        // A refusal (auth, billing) answers the same every time: stop here
+        // and say what the backend said.
+        if (_state.refused) {
+          onError?.call('The model refused the request: ${_state.lastFailure}');
+          return null;
+        }
         attempts++;
         continue;
       }
@@ -212,20 +272,32 @@ class GenCharacterGenerator {
     if (_state.isStale(currentEpoch)) return null;
 
     // ── Step 2: Character Interview (voice enrichment) ────────────
-    // Run 5 in-character Q&A turns to establish authentic voice.
-    // Use the accumulated answers to rewrite description + personality,
-    // enrich lorebook entries, and pass the transcript into greeting prompts.
-    onStatus?.call('Running character interview...');
-    onProgress?.call('');
-    final interviewTranscript = await _s.interview.runInterview(
-      card: card,
-      name: name,
-      nsfwEnabled: nsfwEnabled,
+    // The user's questions (null: the standard set), in the run's voice,
+    // one in-character answer each. The answers rewrite the profile and
+    // reach every later step. No questions: no interview, no transcript.
+    final pronouns = resolveNarrativePronouns(_state.narrativeSex);
+    final questions = renderInterviewQuestions(
+      inputs.interviewQuestions,
+      voice: _state.narrativeVoice,
+      pronouns: pronouns,
       relationship: relationship,
-      onStatus: onStatus,
-      onProgress: onProgress,
-      worldLore: worldLore,
+      nsfwEnabled: nsfwEnabled,
     );
+    var interviewTranscript = '';
+    if (questions.isNotEmpty) {
+      onStatus?.call('Running character interview...');
+      onProgress?.call('');
+      interviewTranscript = await _s.interview.runInterview(
+        card: card,
+        name: name,
+        questions: questions,
+        voice: _state.narrativeVoice,
+        pronouns: pronouns,
+        onStatus: onStatus,
+        onProgress: onProgress,
+        worldLore: worldLore,
+      );
+    }
 
     if (interviewTranscript.isNotEmpty) {
       // Rewrite description and personality using the interview voice
@@ -241,190 +313,42 @@ class GenCharacterGenerator {
     }
     if (_state.isStale(currentEpoch)) return null;
 
-    // ── Step 2c: Generate example dialogue (dedicated step) ────────
-    // Runs after enrichment so we have the final personality text.
-    // Uses raw text output (not JSON) for reliability.
-    if (interviewTranscript.isNotEmpty) {
-      onStatus?.call('Writing example dialogue...');
+    // The Automated mode's description, verbatim over the model's rewrite,
+    // so the profile step and the facts read the text the user built.
+    final override = inputs.descriptionOverride;
+    if (override != null) card.description = override;
+
+    // ── Step 3: Identity facts (birthday, work, stance, lists, notes) ──
+    IdentityFacts? facts;
+    if (inputs.includeIdentityFacts) {
+      onStatus?.call("Reading the character's facts...");
       onProgress?.call('');
-      await _s.interview.generateExampleDialogue(
-        card: card,
+      facts = await _s.identity.read(
         name: name,
-        interviewTranscript: interviewTranscript,
-        onProgress: onProgress,
-      );
-    }
-    if (_state.isStale(currentEpoch)) return null;
-
-    // ── Step 2b: Lorebook generation (after interview) ────────────
-    // Runs after interview so transcript context makes entries richer.
-    // Only fires if lorebook was requested and not yet generated inline.
-    if (generateLorebook &&
-        (card.lorebook == null || card.lorebook!.entries.isEmpty)) {
-      debugPrint('CharacterGen: Generating lorebook after interview...');
-      onStatus?.call('Generating world lore...');
-      onProgress?.call('');
-      await _s.lore.generateLorebookSeparately(
-        card: card,
-        name: name,
-        concept: concept,
-        loreCategories: loreCategories,
-        loreDepth: loreDepth,
-        interviewTranscript: interviewTranscript,
-        worldLore: worldLore,
-        onProgress: onProgress,
-      );
-    }
-    if (_state.isStale(currentEpoch)) return null;
-
-    // Kept so the creator's Greetings step can write one more greeting the
-    // way these were written (regenerateGreeting).
-    _state.greetingRecipe = GreetingRecipe(
-      greetingLength: greetingLength,
-      tones: greetingTones,
-      characterContext: characterContext,
-      userPersonaContext: userPersonaContext,
-      interviewTranscript: interviewTranscript,
-      worldLore: worldLore,
-      includeDynamicMacros: includeDynamicMacros,
-      reasoningEnabled: reasoningEnabled,
-      nsfwEnabled: nsfwEnabled,
-    );
-
-    // ── Step 3: Generate first message ────────────────────────
-    onStatus?.call('Writing first message...');
-    onProgress?.call(''); // Clear preview
-    final firstMsgPrompt = _s.greetingPrompt(
-      name: name,
-      description: card.description,
-      personality: card.personality,
-      scenario: card.scenario,
-      length: greetingLength,
-      tone: greetingTones.isNotEmpty ? greetingTones[0] : 'Neutral',
-      previousGreetings: [],
-      characterContext: characterContext,
-      userPersonaContext: userPersonaContext,
-      interviewTranscript: interviewTranscript,
-      worldLore: worldLore,
-    );
-
-    final firstMsgOutput = await _s.llm.call(
-      firstMsgPrompt,
-      maxLen: 4096,
-      minLen: 512,
-      onProgress: onProgress,
-    );
-    if (firstMsgOutput != null && firstMsgOutput.trim().isNotEmpty) {
-      card.firstMessage = cleanGeneratedGreeting(firstMsgOutput);
-    }
-    if (_state.isStale(currentEpoch)) return null;
-
-    // ── Step 4: Generate alternate greetings ──────────────────
-    if (altGreetingCount > 0) {
-      // Generate distinct meeting scenarios for each alt greeting upfront.
-      // This is the key difference: each alt gets its own unique context
-      // (chance coffee shop encounter, shared umbrella in a rainstorm, etc.)
-      // so they're structurally different stories, not just mood variations.
-      onStatus?.call('Planning alternate scenarios...');
-      onProgress?.call('');
-      final altScenarios = await _s.interview.generateAltScenarios(
-        name: name,
-        concept: concept,
-        defaultScenario: card.scenario,
+        age: age,
+        sex: sex,
+        relationship: relationship,
+        description: card.description,
         personality: card.personality,
-        count: altGreetingCount,
-        worldLore: worldLore,
+        scenario: card.scenario,
+        interviewTranscript: interviewTranscript,
+        nsfwEnabled: nsfwEnabled,
         onProgress: onProgress,
       );
-
-      final alts = <String>[];
-      for (int i = 0; i < altGreetingCount; i++) {
-        onStatus?.call(
-          'Writing alternate greeting ${i + 1} of $altGreetingCount...',
-        );
-        onProgress?.call(''); // Clear preview
-
-        // Use the unique scenario for this alt; fall back to default if generation failed.
-        final altScenario =
-            (i < altScenarios.length && altScenarios[i].isNotEmpty)
-            ? altScenarios[i]
-            : card.scenario;
-
-        final altPrompt = _s.greetingPrompt(
-          name: name,
-          description: card.description,
-          personality: card.personality,
-          scenario: altScenario,
-          length: greetingLength,
-          tone: greetingTones.isNotEmpty
-              ? greetingTones[(i + 1) % greetingTones.length]
-              : 'Neutral',
-          previousGreetings: [card.firstMessage, ...alts],
-          characterContext: characterContext,
-          userPersonaContext: userPersonaContext,
-          interviewTranscript: interviewTranscript,
-          worldLore: worldLore,
-        );
-
-        final altOutput = await _s.llm.call(
-          altPrompt,
-          maxLen: 4096,
-          minLen: 512,
-          onProgress: onProgress,
-        );
-        if (altOutput != null && altOutput.trim().isNotEmpty) {
-          alts.add(cleanGeneratedGreeting(altOutput));
-        }
+      if (_state.isStale(currentEpoch)) return null;
+      if (facts != null) {
+        applyIdentityFacts(card, facts, nsfw: nsfwEnabled);
       }
-      // Seeds are not authored with these rewritten alts — compact against
-      // empty so leftover source furious cannot land on Get out.
-      card.assignRewrittenAlternateGreetings(alts);
     }
-    if (_state.isStale(currentEpoch)) return null;
 
-    // ── Step 4b: Porch Life identity (ambitions / wardrobe / tastes) ──
-    // After the greeting exists so worn/carrying match the opening beat.
-    // Tools first when the backend speaks them; text JSON is the floor.
-    onStatus?.call('Seeding wardrobe and ambitions...');
-    onProgress?.call('');
-    await _s.porchLife.seedIdentity(
-      card: card,
-      name: name,
-      interviewTranscript: interviewTranscript,
-      nsfwEnabled: nsfwEnabled,
-      onProgress: onProgress,
+    return (
+      GenPausedRun(
+        inputs: inputs,
+        card: card,
+        interviewTranscript: interviewTranscript,
+        facts: facts,
+      ),
+      currentEpoch,
     );
-    if (_state.isStale(currentEpoch)) return null;
-
-    // ── Step 5: Generate Tailored Image Prompt ────────────────
-    onStatus?.call('Drafting illustration prompt...');
-    onProgress?.call('');
-    _state.generatedImagePrompt = await _s.lore.generateImagePrompt(
-      name: name,
-      description: card.description,
-      scenario: card.scenario,
-      artStyle: artStyle,
-      imageGenPromptParadigm: imageGenPromptParadigm,
-      onProgress: onProgress,
-    );
-
-    // Models don't reliably emit {{char}} for description/personality even when
-    // instructed to, and a literal name baked into the card can confuse models
-    // mid-chat. Normalize every generated text field to the portable macro.
-    // (Logic lives in chargen/char_macro.dart so it stays unit-testable.)
-    applyCharMacroToCard(card, name);
-    stampNarrativeVoice(
-      card,
-      voice: _state.narrativeVoice,
-      sex: _state.narrativeSex,
-    );
-    // Beside the voice: how the greetings were written, so a rewrite after a
-    // reload or a restart matches them (the desktop save and the web create
-    // both persist this card).
-    final recipe = _state.greetingRecipe;
-    if (recipe != null) stampGreetingRecipe(card, recipe);
-
-    onStatus?.call('Character generated!');
-    return card;
   }
 }

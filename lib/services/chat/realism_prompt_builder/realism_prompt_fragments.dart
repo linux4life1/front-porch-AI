@@ -120,7 +120,14 @@ class RealismPromptFragments {
       'it through who $charName is: a stoic in deep pain reads "guarded", not "devastated"; a harsh '
       'character genuinely touched reads "flustered" or "disarmed", not "loving".\n'
       '${allowedLabels.isNotEmpty ? '  ${RealismPromptBuilder.emotionLabelConstraint(allowedLabels)}\n' : ''}'
-      '- "emotion_intensity": mild, moderate, or strong.\n';
+      '- "emotion_intensity": mild, moderate, or strong.\n'
+      '- "emotion_cause": why $charName feels this, in at most twelve words, in '
+      '$charName\'s own terms — never a quote of the other person. "none" when '
+      'neutral.\n'
+      '- "emotion_change": "held" if this is the mood going in, carrying on; '
+      '"stoked" if it is the same feeling but this turn fed it afresh; "moved" '
+      'if $charName feels something else now. A feeling that holds eases on '
+      'its own; do not name it stronger just to keep it.\n';
 
   static String arousalSection(
     String charName,
@@ -195,8 +202,10 @@ class RealismPromptFragments {
     String charName,
     String userName,
     String? primaryObjective,
-    List<({String text, int progress})> ambitions,
-  ) {
+    List<({String text, int progress})> ambitions, {
+    List<String> openGoals = const [],
+    List<String> recentEnded = const [],
+  }) {
     final hasAmbitions = ambitionRoster(ambitions).isNotEmpty;
     final body = primaryObjective != null
         ? '- "proposed_objective": a meaningful, emotionally-driven goal $charName independently wants to '
@@ -212,7 +221,28 @@ class RealismPromptFragments {
               'into concrete steps. Triggered by a strong, specific event THIS turn.\n'
               '  Default to "none" — the overwhelming majority of turns produce "none". Only propose one if '
               '$charName would genuinely lose sleep over it.\n';
-    return '$body${ambitionSteer(charName, hasAmbitions)}${servesAmbitionField(hasAmbitions)}';
+    return '$body${knownGoals(openGoals, recentEnded)}${ambitionSteer(charName, hasAmbitions)}${servesAmbitionField(hasAmbitions)}';
+  }
+
+  /// What the character already wants and has lately finished or let go
+  /// (objectives-that-keep-up.md part 3), so a proposal is a new want and
+  /// not a rewording. Empty when there is nothing to list.
+  static String knownGoals(List<String> openGoals, List<String> recentEnded) {
+    if (openGoals.isEmpty && recentEnded.isEmpty) return '';
+    final sb = StringBuffer();
+    if (openGoals.isNotEmpty) {
+      sb.write(
+        '  Already wants: ${openGoals.map((g) => '"$g"').join('; ')}.\n',
+      );
+    }
+    if (recentEnded.isNotEmpty) {
+      sb.write('  Lately ${recentEnded.join('; ')}.\n');
+    }
+    sb.write(
+      '  Propose only a want that is NOT one of these and not a rewording of '
+      'one; otherwise "none".\n',
+    );
+    return sb.toString();
   }
 
   static String fixationSection(String charName) =>

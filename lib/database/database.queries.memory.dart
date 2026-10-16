@@ -319,7 +319,16 @@ extension AppDatabaseMemoryQueries on AppDatabase {
 
   Future<void> insertObjective(ObjectivesCompanion entry) async {
     final id = entry.id.present ? entry.id.value : const Uuid().v4();
-    await into(objectives).insert(entry.copyWith(id: Value(id)));
+    // Existing libraries got `created_at DEFAULT 0` from the v8 CREATE, so
+    // the table default never applied there: stamp it once, for every insert.
+    await into(objectives).insert(
+      entry.copyWith(
+        id: Value(id),
+        createdAt: entry.createdAt.present
+            ? entry.createdAt
+            : Value(DateTime.now()),
+      ),
+    );
   }
 
   Future<void> updateObjective(ObjectivesCompanion entry) => (update(

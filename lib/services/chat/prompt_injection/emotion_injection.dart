@@ -16,35 +16,46 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-/// Mood fragment for the words-only state block
-/// (docs/design/prompt-state-injection.md §3): one line, salience-gated.
-/// Neutral or unset emotion emits NOTHING — the neutral state is the absence
-/// of a mood note, not a "Mood: neutral" line the model would dutifully act
-/// on. The composer wraps; no per-fragment brackets.
-///
-/// Group parity rides the same mechanism as before: by assembly time the
-/// per-speaker load-into-scalars dance has already set the emotion scalar the
-/// [getCharacterEmotion] cb reads, so this fragment is per-speaker in groups
-/// without any group branch of its own.
+import 'package:front_porch_ai/services/chat/mood_effects.dart';
+import 'package:front_porch_ai/services/chat/mood_physics.dart';
+
+/// The mood fragment of the state block (docs/design/mood-with-bite.md):
+/// one line that scales with intensity and names the cause, and at
+/// moderate and strong a second line with the pull the feeling has, in the
+/// character's own way. One fragment, one slot, so the block's order holds.
 class EmotionInjection {
   final bool Function() getRealismEnabled;
   final String Function() getCharacterEmotion;
   final String Function() getEmotionIntensity;
 
+  /// Cause and hold are optional so a host that has neither (older callers,
+  /// tests) gets the plain mood line, cause-less and fresh.
+  final String Function() getEmotionCause;
+  final int Function() getEmotionHeldTurns;
+
   EmotionInjection({
     required this.getRealismEnabled,
     required this.getCharacterEmotion,
     required this.getEmotionIntensity,
-  });
+    String Function()? getEmotionCause,
+    int Function()? getEmotionHeldTurns,
+  }) : getEmotionCause = getEmotionCause ?? _noCause,
+       getEmotionHeldTurns = getEmotionHeldTurns ?? _noHold;
+
+  static String _noCause() => '';
+  static int _noHold() => 0;
 
   String buildEmotionInjection() {
     if (!getRealismEnabled()) return '';
-    final emo = getCharacterEmotion().trim();
-    if (emo.isEmpty || emo.toLowerCase() == 'neutral') return '';
-    final intensity = getEmotionIntensity().trim();
-    final cap = emo[0].toUpperCase() + emo.substring(1);
-    final suffix = intensity.isEmpty ? '' : ', $intensity';
-    return 'Mood: $cap$suffix — let it subtly color tone, body language, and '
-        'word choice.';
+    final mood = MoodState(
+      label: getCharacterEmotion().trim(),
+      intensity: getEmotionIntensity().trim(),
+      cause: getEmotionCause(),
+      held: getEmotionHeldTurns(),
+    );
+    if (mood.isNeutral) return '';
+    final line = moodPromptLine(mood);
+    final effects = moodEffectsLine(mood);
+    return effects.isEmpty ? line : '$line\n$effects';
   }
 }

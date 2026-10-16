@@ -225,14 +225,13 @@ Character Details (weave these naturally into the scene — SHOW through action,
 $characterContext''';
   }
 
-  // Inject interview transcript as voice reference — capped to avoid bloating context.
-  // The LLM uses this to match the cadence, vocabulary, and emotional register
-  // already established in the interview rather than inventing a new voice.
+  // Inject interview transcript as voice reference (the whole interview, under
+  // the shared cap). The LLM uses this to match the cadence, vocabulary, and
+  // emotional register already established in the interview rather than
+  // inventing a new voice.
   String voiceSection = '';
   if (interviewTranscript.isNotEmpty) {
-    final excerpt = interviewTranscript.length > 1000
-        ? interviewTranscript.substring(0, 1000) + '...'
-        : interviewTranscript;
+    final excerpt = capInterview(interviewTranscript);
     voiceSection =
         '''
 
@@ -291,4 +290,17 @@ $lengthEnforcement
 This is MANDATORY — do NOT write less. Fill the space with rich, immersive prose.$previousContext$directionSection
 
 Begin:''';
+}
+
+/// The author's one-line steer for a rewrite of the profile, the example
+/// dialogue or the lorebook, placed just before the answer is asked for.
+/// [ask] names the job ("Rewrite the profile"). An empty steer adds
+/// nothing, so a creation prompt stays byte-identical.
+String authorDirection(String direction, String ask) {
+  final steer = direction.trim();
+  if (steer.isEmpty) return '';
+  return '== DIRECTION FROM THE AUTHOR ==\n'
+      '$ask the way the author asked: $steer\n'
+      'Keep everything the interview established that the direction does '
+      'not change.\n\n';
 }

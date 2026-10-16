@@ -7,7 +7,7 @@ import 'package:front_porch_ai/services/chat/birthday.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/needs_form_section.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -32,17 +32,13 @@ class RealismStep extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
+              color: StudioColors.badOf(context),
             ),
             const SizedBox(height: 16),
             Text(
               'Generation failed. The LLM did not produce valid output.',
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color: StudioColors.proseOf(context),
                 fontSize: 16,
               ),
             ),
@@ -55,8 +51,8 @@ class RealismStep extends StatelessWidget {
               icon: const Icon(Icons.arrow_back),
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: StudioColors.amberOf(context),
+                foregroundColor: StudioColors.amberInkOf(context),
               ),
             ),
           ],
@@ -64,7 +60,8 @@ class RealismStep extends StatelessWidget {
       );
     }
 
-    return Center(
+    return Align(
+      alignment: Alignment.topCenter,
       key: const ValueKey('realism'),
       child: SingleChildScrollView(
         padding: const EdgeInsets.all(32),
@@ -76,23 +73,24 @@ class RealismStep extends StatelessWidget {
               Text(
                 'Porch Life',
                 style: TextStyle(
-                  fontSize: 28,
-                  fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
+                  fontSize: 24,
+                  fontWeight: FontWeight.w700,
+                  color: StudioColors.inkOf(context),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               Text(
                 'Wardrobe, likes, the story clock and Chaos work with or without '
-                'the Realism Engine. Turn the engine on only if you want bond, '
-                'trust, mood and Needs to seed the first chat.',
+                'the Realism Engine. This switch starts where Porch Life has '
+                'the engine; with it on, bond, trust, mood and Needs seed the '
+                'first chat.',
                 style: TextStyle(
                   fontSize: 14,
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.mutedOf(context),
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 16),
               RealismFormSection(
                 enabled: state.realismStepEnabled,
                 onEnabledChanged: (v) {

@@ -243,27 +243,24 @@ void main() {
           getSecondaryObjectives: () => const [],
         );
 
-    test('a named step carries the "tracking lags the story" hedge once', () {
+    // 2026-10-16 (objectives that keep up): the hedge is gone on purpose.
+    // It existed because the tracker lagged the story; the goal sync now
+    // rewrites the next step to fit where the story is, so the block names
+    // the step plainly and never tells the model its own notes are stale.
+    test('a named step is said plainly, with no "tracking lags" hedge', () {
       final txt = builderFor([
         {'description': 'Kneel before the sentinel', 'completed': false},
       ]).buildObjectiveInjection();
-      expect(txt, contains('Current Task: Kneel before the sentinel'));
-      expect(
-        txt,
-        contains('Progress is tracked in the background and can lag'),
-      );
-      expect(txt, contains('carry on from there instead of staging it again'));
-      expect('Progress is tracked'.allMatches(txt).length, 1);
+      expect(txt, contains('Next: Kneel before the sentinel'));
+      expect(txt, isNot(contains('Progress is tracked')));
+      expect(txt, isNot(contains('actively drive')));
     });
 
-    test(
-      'an objective with no step at all gets no hedge (nothing to hedge)',
-      () {
-        final txt = builderFor(const []).buildObjectiveInjection();
-        expect(txt, contains('Current Primary Objective'));
-        expect(txt, isNot(contains('Progress is tracked')));
-      },
-    );
+    test('an objective with no step at all is still named', () {
+      final txt = builderFor(const []).buildObjectiveInjection();
+      expect(txt, contains('[Story direction: Reach the sentinel.]'));
+      expect(txt, isNot(contains('Progress is tracked')));
+    });
   });
 
   test('END TO END: the whole state zone rides the USER turn after the '
@@ -344,8 +341,11 @@ void main() {
     // ── one frame, and it opens the zone ──
     expect(system, isNot(contains('Story state —')));
     expect('Story state —'.allMatches(user).length, 1);
+    // The newest line now renders AFTER the zone (latest_turn), so the
+    // transcript the frame defers to is pinned by the greeting instead; the
+    // newest-line placement is the last test in this file.
     expect(
-      user.indexOf('And then what happened?'),
+      user.indexOf('The hall is cold.'),
       lessThan(user.indexOf('Story state —')),
       reason: 'the frame must come after the transcript it defers to',
     );
@@ -394,4 +394,99 @@ void main() {
       reason: 'the strip emptied the zone, so the frame introduces nothing',
     );
   });
+
+  test(
+    'END TO END: the latest beat renders after the state zone, last before '
+    'the speaker — on send, the next send, regenerate and Continue',
+    () async {
+      // Local models replayed recent beats as new ("sends" an announcement it
+      // already sent, re-reads texts it already read) while API models did
+      // not: the newest user line sat ABOVE the whole state zone, so the last
+      // prose a small model read before writing was notes and its own long
+      // replies. The newest beat now renders after the zone, right before the
+      // speaker's name. Put it back inside the transcript and this goes red.
+      HttpOverrides.global = null;
+      SharedPreferences.setMockInitialValues({
+        'update_auto_check': false,
+        'realism_default': false,
+      });
+      final backend = await FakeBackendServer.start(
+        replyPieces: ['The sentinel does not move.'],
+      );
+      final llm = OpenRouterService(
+        apiUrl: '${backend.baseUrl}/v1',
+        modelName: 'smoke-model',
+      );
+      final db = AppDatabase.forTesting();
+      final storage = StorageService();
+      final chat =
+          ChatService(
+              KoboldService(storage),
+              UserPersonaService(db),
+              storage,
+              WorldRepository(storage, db),
+            )
+            ..setDatabase(db)
+            ..testLlmServiceOverride = llm;
+      addTearDown(() async {
+        await disposeChatThenCloseDb(chat, db);
+        await backend.close();
+      });
+      await chat.setActiveCharacter(
+        CharacterCard(
+          name: 'Malumbra',
+          description: 'Exists only inside the latest-beat placement test.',
+          firstMessage: 'The hall is cold.',
+          frontPorchExtensions: FrontPorchExtensions(
+            realismEnabled: false,
+            needsSimEnabled: false,
+            chaosModeEnabled: false,
+            likes: const ['thunderstorms'],
+          ),
+        )..dbId = 'char-latestbeat',
+      );
+      String userTurn() =>
+          ((jsonDecode(backend.lastChatBody) as Map)['messages'] as List)
+                  .last['content']
+              as String;
+      const first = 'Where does the sentinel look?';
+      const second = 'What happens at dawn?';
+
+      await chat.sendMessage(first);
+      var user = userTurn();
+      expect(
+        user.indexOf('The hall is cold.'),
+        lessThan(user.indexOf('Story state —')),
+        reason: 'the transcript still opens the user turn, ahead of the zone',
+      );
+      expect(
+        user.indexOf('drawn to thunderstorms'),
+        lessThan(user.indexOf(first)),
+        reason: 'the newest line comes after the zone\'s last member',
+      );
+      expect(user, endsWith('$first\nMalumbra:'));
+      expect(first.allMatches(user).length, 1, reason: 'moved, not copied');
+
+      // Next turn: the old newest line goes back into the transcript (the
+      // cached prefix only grows) and the new one takes the end.
+      await chat.sendMessage(second);
+      user = userTurn();
+      expect(user.indexOf(first), lessThan(user.indexOf('Story state —')));
+      expect(user, endsWith('$second\nMalumbra:'));
+      expect(second.allMatches(user).length, 1);
+
+      // Regenerate answers the same turn, so it ends the same way.
+      await chat.regenerateLastMessage();
+      user = userTurn();
+      expect(user, endsWith('$second\nMalumbra:'));
+      expect(second.allMatches(user).length, 1);
+
+      // Continue has no zone, but its partial still follows the newest line.
+      await chat.continueGeneration();
+      user = userTurn();
+      expect(user.indexOf(first), lessThan(user.indexOf(second)));
+      expect(user.indexOf(second), lessThan(user.indexOf('[CRITICAL RULE')));
+      expect(second.allMatches(user).length, 1);
+    },
+  );
 }

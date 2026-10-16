@@ -23,6 +23,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/group_card_service.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -137,6 +138,7 @@ class GroupCardExporter {
                   'active': o.active,
                   'checkFrequency': o.checkFrequency,
                   'injectionDepth': o.injectionDepth,
+                  'origin': objectiveOrigin(o),
                 },
               )
               .toList();

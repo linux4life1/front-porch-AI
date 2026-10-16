@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/chip_select_row.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_hint_field.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Blue-bordered "Backstory" card: origin / tone / era chip rows plus a
 /// free-form custom backstory notes field. Restored from the pre-refactor
@@ -27,7 +27,7 @@ class BackstoryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: StudioColors.cardOf(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.2)),
       ),
@@ -41,7 +41,7 @@ class BackstoryCard extends StatelessWidget {
               Text(
                 'Backstory',
                 style: TextStyle(
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -50,7 +50,7 @@ class BackstoryCard extends StatelessWidget {
               Text(
                 'All optional',
                 style: TextStyle(
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.mutedOf(context),
                   fontSize: 10,
                 ),
               ),
@@ -86,7 +86,7 @@ class BackstoryCard extends StatelessWidget {
                 Text(
                   'Custom Backstory Notes',
                   style: TextStyle(
-                    color: AppColors.textSecondary(context),
+                    color: StudioColors.proseOf(context),
                     fontSize: 12,
                     fontWeight: FontWeight.w500,
                   ),

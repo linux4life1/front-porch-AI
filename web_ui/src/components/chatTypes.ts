@@ -41,6 +41,12 @@ export interface Chips {
   enabledNeeds?: string[];
   /** Display name of the speaker the enabled set belongs to. */
   needsSpeaker?: string;
+  /** Pockets & Wardrobe receipts ("picked up: car keys"), one chip each. */
+  pocketChanges?: string[];
+  /** Director verifier: 'accepted' | 'corrected'; passes = reprocess count. */
+  directorStatus?: string;
+  directorPasses?: number;
+  directorReason?: string;
 }
 
 export interface Message {
@@ -85,6 +91,12 @@ export interface Realism {
   emotion: string;
   emotionIntensity: string;
   mood: string;
+  /** Why the mood is what it is, and how many judge passes have kept it;
+   *  `moodLine` is the one-line row the desktop shows. Absent on an older
+   *  desktop build, which still sends `mood`. */
+  emotionCause?: string;
+  emotionHeld?: number;
+  moodLine?: string;
   arousal: { level: number; tier: string };
   fixation: string;
   needsEnabled: boolean;

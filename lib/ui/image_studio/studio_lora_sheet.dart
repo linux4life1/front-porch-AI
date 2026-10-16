@@ -8,6 +8,14 @@ import 'package:front_porch_ai/services/image/model_family.dart';
 import 'package:front_porch_ai/services/image/studio_desk_logic.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import 'studio_refresh_button.dart';
+
+/// The LoRA files a sheet lists and what is known about their base models.
+typedef StudioLoraListing = ({
+  List<String> files,
+  Map<String, DeskLoraCheck> facts,
+});
+
 Widget _groupTitle(BuildContext context, String label) {
   return Padding(
     padding: const EdgeInsets.fromLTRB(0, 8, 0, 4),
@@ -52,6 +60,8 @@ class StudioLoraMismatch extends StatelessWidget {
 }
 
 /// LoRA files from the connected backend, and the eight slots they fill.
+/// [onRefresh] asks the backend for its files again when the sheet opens and
+/// on the refresh button.
 class StudioLoraSheet extends StatefulWidget {
   const StudioLoraSheet({
     super.key,
@@ -61,6 +71,7 @@ class StudioLoraSheet extends StatefulWidget {
     this.facts = const {},
     required this.onPick,
     this.onWeight,
+    this.onRefresh,
   });
 
   final List<ImageGenLoraSlot> slots;
@@ -69,6 +80,7 @@ class StudioLoraSheet extends StatefulWidget {
   final Map<String, DeskLoraCheck> facts;
   final void Function(int index, String file) onPick;
   final void Function(int index, double weight)? onWeight;
+  final Future<StudioLoraListing> Function()? onRefresh;
 
   @override
   State<StudioLoraSheet> createState() => _StudioLoraSheetState();
@@ -76,6 +88,39 @@ class StudioLoraSheet extends StatefulWidget {
 
 class _StudioLoraSheetState extends State<StudioLoraSheet> {
   late List<ImageGenLoraSlot> _slots = widget.slots;
+  late List<String> _files = widget.files;
+  late Map<String, DeskLoraCheck> _facts = widget.facts;
+  bool _refreshing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.onRefresh != null) {
+      _refreshing = true;
+      _read();
+    }
+  }
+
+  void _refresh() {
+    if (_refreshing) return;
+    setState(() => _refreshing = true);
+    _read();
+  }
+
+  Future<void> _read() async {
+    try {
+      final listing = await widget.onRefresh!();
+      if (!mounted) return;
+      setState(() {
+        _files = listing.files;
+        _facts = listing.facts;
+      });
+    } catch (e) {
+      debugPrint('studio LoRA list refresh failed: ${e.runtimeType}');
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
+  }
 
   void _put(int index, String file) {
     widget.onPick(index, file);
@@ -93,11 +138,11 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
   }
 
   ModelFamily _familyOf(String file) {
-    return widget.facts[file]?.family ?? ImageModelFamily.detectFromName(file);
+    return _facts[file]?.family ?? ImageModelFamily.detectFromName(file);
   }
 
   LoraCompat _compat(String file, ModelFamily primary) {
-    final fact = widget.facts[file];
+    final fact = _facts[file];
     return ImageModelFamily.compatibility(
       _familyOf(file),
       primary,
@@ -159,7 +204,7 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
     final primary = ImageModelFamily.detectFromName(widget.primaryFile);
     final matching = <String>[];
     final other = <String>[];
-    for (final file in widget.files) {
+    for (final file in _files) {
       if (_compat(file, primary) == LoraCompat.certain) {
         other.add(file);
       } else {
@@ -179,8 +224,17 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            if (widget.onRefresh != null)
+              Align(
+                alignment: Alignment.centerRight,
+                child: StudioRefreshButton(
+                  label: 'Refresh LoRAs',
+                  refreshing: _refreshing,
+                  onPressed: _refresh,
+                ),
+              ),
             Text(
-              widget.files.isEmpty
+              _files.isEmpty
                   ? 'No LoRA files were listed by the connected app.'
                   : 'These are the LoRA files the connected app listed. '
                         'A tap fills the first empty slot.',
@@ -285,7 +339,7 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
   }
 
   String _fitLabel(String file, ModelFamily primary) {
-    final fact = widget.facts[file];
+    final fact = _facts[file];
     final family = fact?.family ?? ImageModelFamily.detectFromName(file);
     final compat = ImageModelFamily.compatibility(
       family,

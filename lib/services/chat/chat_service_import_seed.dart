@@ -199,6 +199,8 @@ extension ChatServiceImportSeed on ChatService {
         ..._relationshipService.captureCadenceAndFeelings(),
       'character_emotion': _characterEmotion,
       'emotion_intensity': _emotionIntensity,
+      'emotion_cause': _emotionCause,
+      'emotion_held_turns': _emotionHeldTurns,
       'active_fixation': _relationshipService.activeFixation,
       'fixation_lifespan': _relationshipService.fixationLifespan,
       'spatial_stance': _relationshipService.spatialStance,
@@ -263,6 +265,9 @@ extension ChatServiceImportSeed on ChatService {
         'characterEmotion': head['character_emotion'],
       if (head['emotion_intensity'] != null)
         'emotionIntensity': head['emotion_intensity'],
+      if (head['emotion_cause'] != null) 'emotionCause': head['emotion_cause'],
+      if (head['emotion_held_turns'] != null)
+        'emotionHeldTurns': head['emotion_held_turns'],
       if (head['active_fixation'] != null)
         'activeFixation': head['active_fixation'],
       if (head['fixation_lifespan'] != null)

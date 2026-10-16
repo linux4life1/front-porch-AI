@@ -50,6 +50,9 @@ extension ChatServicePackageExtras on ChatService {
           'check_frequency': o.checkFrequency,
           'injection_depth': o.injectionDepth,
           if (o.servedAmbition != null) 'served_ambition': o.servedAmbition,
+          // v58: who the goal is from, and where it stands.
+          'origin': objectiveOrigin(o),
+          if (o.status != null) 'status': o.status,
         });
       }
     }
@@ -127,6 +130,10 @@ extension ChatServicePackageExtras on ChatService {
             (m['injection_depth'] as num?)?.toInt() ?? 4,
           ),
           servedAmbition: drift.Value(m['served_ambition'] as String?),
+          // A package from before v58 carries neither: the read-time rule
+          // (objectiveOrigin) classifies it the way the ladder would.
+          origin: drift.Value(m['origin'] as String?),
+          status: drift.Value(m['status'] as String?),
         ),
       );
     }

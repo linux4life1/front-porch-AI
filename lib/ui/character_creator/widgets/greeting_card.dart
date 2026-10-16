@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/widgets/greeting_card_parts.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// One greeting on the AI creator's Greetings step: its text in the
@@ -67,15 +67,15 @@ class GreetingCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber = StudioColors.amberOf(context);
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: StudioColors.cardOf(context),
         borderRadius: BorderRadius.circular(16),
         border: writing
             ? Border.all(color: amber.withValues(alpha: 0.6), width: 1.5)
-            : Border.all(color: AppColors.borderOf(context)),
+            : Border.all(color: StudioColors.lineOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -103,7 +103,7 @@ class GreetingCard extends StatelessWidget {
             style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w700,
-              color: AppColors.textPrimary(context),
+              color: StudioColors.inkOf(context),
             ),
           ),
           if (subtitle != null) ...[
@@ -112,7 +112,7 @@ class GreetingCard extends StatelessWidget {
               subtitle!,
               style: TextStyle(
                 fontSize: 12,
-                color: AppColors.textSecondary(context),
+                color: StudioColors.mutedOf(context),
               ),
             ),
           ],
@@ -166,20 +166,20 @@ class GreetingCard extends StatelessWidget {
         minLines: 4,
         maxLines: 8,
         style: TextStyle(
-          color: AppColors.textPrimary(context),
+          color: StudioColors.inkOf(context),
           fontSize: 15,
           height: 1.55,
         ),
         decoration: InputDecoration(
           filled: true,
-          fillColor: AppColors.backgroundOf(context),
+          fillColor: StudioColors.bgOf(context),
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 14,
             vertical: 12,
           ),
-          border: outline(AppColors.borderOf(context)),
-          enabledBorder: outline(AppColors.borderOf(context)),
-          focusedBorder: outline(AppColors.porchAmberOf(context)),
+          border: outline(StudioColors.lineOf(context)),
+          enabledBorder: outline(StudioColors.lineOf(context)),
+          focusedBorder: outline(StudioColors.amberOf(context)),
         ),
       ),
     );

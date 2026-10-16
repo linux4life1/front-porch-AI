@@ -15,7 +15,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/image/local_model_roots.dart';
-import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 
 ComfyMachineLayout _layout(String home, List<String> yamls) {
   return ComfyMachineLayout(

@@ -15,7 +15,6 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:image/image.dart' as img;
 
-import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/image/expression_pack_board.dart';
 import 'package:front_porch_ai/services/capability/image_reference_role.dart';
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart'

@@ -6,7 +6,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_gen/gen_llm_caller.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
-import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show Pockets, StoryClock;
 import 'package:front_porch_ai/services/llm_service.dart';
 
 /// After the greeting exists, seed ambitions / tastes / wardrobe (and
@@ -19,11 +20,16 @@ class GenPorchLife {
   final GenRunState _state;
   final GenLlmCaller _llm;
 
+  /// Read the opening scene and write it onto [card]. [identityDone]: the
+  /// identity facts pass already wrote the lists, so this asks only for the
+  /// outfit, pockets, mood and time. Either way an empty answer keeps what
+  /// the card had: a mute read never wipes a list.
   Future<void> seedIdentity({
     required CharacterCard card,
     required String name,
     required String interviewTranscript,
     required bool nsfwEnabled,
+    bool identityDone = false,
     void Function(String)? onProgress,
   }) async {
     final identity = await readIdentity(
@@ -31,27 +37,36 @@ class GenPorchLife {
       name: name,
       interviewTranscript: interviewTranscript,
       nsfwEnabled: nsfwEnabled,
+      identityDone: identityDone,
       onProgress: onProgress,
     );
     if (identity == null) return;
     final prior =
         card.frontPorchExtensions ??
         FrontPorchExtensions(needsSimEnabled: true);
+    final merged = mergePorchLifeIdentity(porchLifeIdentityOf(prior), identity);
+    final outfitRead = identity.worn.isNotEmpty || identity.carrying.isNotEmpty;
+    String? scene(String v) => v.isEmpty ? null : v;
     card.frontPorchExtensions = prior.copyWith(
-      ambitions: identity.ambitions,
-      likes: identity.likes,
-      dislikes: identity.dislikes,
-      intimateInto: identity.intimateInto,
-      intimateNotInto: identity.intimateNotInto,
-      inventory: Pockets.cardJsonFrom(
-        worn: identity.worn,
-        carrying: identity.carrying,
-      ),
+      ambitions: merged.ambitions,
+      likes: merged.likes,
+      dislikes: merged.dislikes,
+      intimateInto: merged.intimateInto,
+      intimateNotInto: merged.intimateNotInto,
+      inventory: outfitRead || prior.inventory.isEmpty
+          ? Pockets.cardJsonFrom(worn: merged.worn, carrying: merged.carrying)
+          : null,
+      characterEmotion: scene(identity.characterEmotion),
+      emotionIntensity: scene(identity.emotionIntensity),
+      timeOfDay: scene(identity.timeOfDay),
+      storyStartTime: scene(identity.storyStartTime),
     );
     debugPrint(
       'CharacterGen: Porch Life seeded '
       'ambitions=${identity.ambitions.length} worn=${identity.worn.length} '
-      'carrying=${identity.carrying.length} intimate=${identity.intimateInto.length}',
+      'carrying=${identity.carrying.length} '
+      'intimate=${identity.intimateInto.length} '
+      'mood=${identity.characterEmotion} time=${identity.timeOfDay}',
     );
   }
 
@@ -63,18 +78,26 @@ class GenPorchLife {
     required String name,
     required String interviewTranscript,
     required bool nsfwEnabled,
+    bool identityDone = false,
     void Function(String)? onProgress,
   }) async {
-    final excerpt = interviewTranscript.length > 1400
-        ? '${interviewTranscript.substring(0, 1400)}...'
-        : interviewTranscript;
+    // No interview (the user removed every question): no empty heading.
+    final interview = interviewTranscript.trim().isEmpty
+        ? ''
+        : 'INTERVIEW (their own words):\n${capInterview(interviewTranscript)}'
+              '\n\n';
     final greeting = card.firstMessage.length > 800
         ? '${card.firstMessage.substring(0, 800)}...'
         : card.firstMessage;
-    final intimateBlock = nsfwEnabled
-        ? '- "intimate_into": 2-5 short suggestive tastes for 18+ scenes\n'
-              '- "intimate_not_into": 2-4 hard limits / not interested\n'
-        : 'Do NOT emit intimate_into or intimate_not_into.\n';
+    final keys = identityDone
+        ? _openingSceneKeys(card.scenario)
+        : '''Keys (arrays of short phrases, one thing per string):
+- "ambitions": 2-4 long-term goals across the whole story, not today's to-do
+- "likes": 3-6 small specific things they warm to
+- "dislikes": 2-4 things that make them bristle
+- "worn": what they are wearing as the greeting opens. "sundress (rain-soaked)" is the shape
+- "carrying": pockets and hands in that same opening beat
+${_intimateKeys(nsfwEnabled)}''';
 
     final prompt =
         '''Seed Porch Life identity lists for $name. Output ONLY a JSON object.
@@ -88,16 +111,7 @@ ${card.description.length > 500 ? card.description.substring(0, 500) : card.desc
 
 ${card.personality.length > 400 ? card.personality.substring(0, 400) : card.personality}
 
-INTERVIEW (their own words):
-$excerpt
-
-Keys (arrays of short phrases, one thing per string):
-- "ambitions": 2-4 long-term goals across the whole story, not today's to-do
-- "likes": 3-6 small specific things they warm to
-- "dislikes": 2-4 things that make them bristle
-- "worn": what they are wearing as the greeting opens. "sundress (rain-soaked)" is the shape
-- "carrying": pockets and hands in that same opening beat
-$intimateBlock
+$interview$keys
 Rules: no {{user}}'s belongings. No paragraphs. Invent only what the scene already implies.
 
 Respond with ONLY the JSON:''';
@@ -118,7 +132,7 @@ Respond with ONLY the JSON:''';
           mandatoryReasoningHeadroom: true,
           toolChoice: kPorchLifeToolName,
         ),
-        porchLifeToolSchema(nsfw: nsfwEnabled),
+        porchLifeToolSchema(nsfw: nsfwEnabled, identityDone: identityDone),
       );
       if (toolsResp != null) {
         for (final call in toolsResp.calls) {
@@ -148,4 +162,24 @@ Respond with ONLY the JSON:''';
         ? parsePorchLifeIdentity(data['raw'], nsfw: nsfwEnabled)
         : parsePorchLifeIdentity(data, nsfw: nsfwEnabled);
   }
+
+  /// The 18+ list keys for the full read, or the instruction to leave them.
+  String _intimateKeys(bool nsfwEnabled) => nsfwEnabled
+      ? '- "intimate_into": 2-5 short suggestive tastes for 18+ scenes\n'
+            '- "intimate_not_into": 2-4 hard limits / not interested\n'
+      : 'Do NOT emit intimate_into or intimate_not_into.\n';
+
+  /// The keys the greeting decides, once the facts pass wrote the lists.
+  String _openingSceneKeys(String scenario) =>
+      '''SCENARIO (when and where the greeting takes place):
+$scenario
+
+Keys:
+- "worn": array, what they are wearing as the greeting opens. "sundress (rain-soaked)" is the shape
+- "carrying": array, pockets and hands in that same opening beat
+- "character_emotion": one word for how they feel as the greeting opens
+- "emotion_intensity": mild, moderate or strong
+- "time_of_day": one of ${StoryClock.periods.join(', ')}
+- "story_start_time": the clock as the greeting opens, 24-hour "HH:MM"
+''';
 }

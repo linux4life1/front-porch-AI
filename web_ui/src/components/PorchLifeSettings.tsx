@@ -37,7 +37,6 @@ interface PorchLifeState {
   passageOfTimeDefault: boolean;
   timeSkipBridgeEnabled: boolean;
   objectivesEnabled: boolean;
-  objectiveStaleThreshold: number;
   weatherEnabled: boolean;
   weatherFahrenheit: boolean;
   journalEnabled: boolean;
@@ -74,7 +73,6 @@ const DEFAULTS: PorchLifeState = {
   passageOfTimeDefault: true,
   timeSkipBridgeEnabled: true,
   objectivesEnabled: true,
-  objectiveStaleThreshold: 2,
   weatherEnabled: true,
   weatherFahrenheit: false,
   journalEnabled: true,
@@ -565,30 +563,10 @@ export function PorchLifeSettings() {
           icon="🎯"
           label="Objectives"
           need="alone"
-          blurb="Short-lived quests a character works toward — set your own, or let them decide what they want. Needs nothing else to run, but it does check in with the AI to see whether a task got done: every turn while the Realism Engine is on, and every few messages while it is off. Switching this off is the way to stop that cost — your quests are kept either way."
+          blurb="Short-lived quests a character works toward — set your own, or let them decide what they want. Needs nothing else to run, but it does check in with the AI every few messages (and after a time skip) to see where each goal stands. Switching this off is the way to stop that cost — your quests are kept either way."
           value={objectivesOn}
           onChange={(v) => set('objectivesEnabled', v)}
-        >
-          <label className="pl-substitch">
-            <span className="pl-sub-body">
-              <span className="pl-sub-label">Retire a leftover quest after</span>
-              <span className="pl-sub-blurb">
-                How many times the AI must say a quest is no longer relevant before it is
-                retired as overtaken — not completed. A leftover step is skipped immediately.
-              </span>
-            </span>
-            <select
-              aria-label="Retire a leftover quest after"
-              value={st.objectiveStaleThreshold}
-              onChange={(e) => set('objectiveStaleThreshold', Number(e.target.value))}
-            >
-              <option value={0}>never (off)</option>
-              <option value={1}>1 check</option>
-              <option value={2}>2 checks</option>
-              <option value={4}>4 checks</option>
-            </select>
-          </label>
-        </FeatureRow>
+        />
         <FeatureRow
           icon="🚩"
           label="Ambitions"

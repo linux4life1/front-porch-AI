@@ -46,30 +46,55 @@ extension ChatServiceObjectiveTasks on ChatService {
     nsfw: nsfw,
   );
 
-  /// Marks the first uncompleted task matching taskDesc as completed (best-effort side-effect
-  /// for auto-complete in checkTaskCompletionInBackground currentTask YES path).
-  /// (Thin delegation; full mutation logic here in god per plan for step 11 to keep list/db
-  /// mutation thin/stayed in god; leaf calls via cb. Matches toggleTask pattern exactly.)
-  Future<void> markTaskCompleted(Objective obj, String taskDesc) async {
-    final tasks = tasksForObjective(obj);
-    final idx = tasks.indexWhere(
-      (t) => (t['description'] as String) == taskDesc && objectiveTaskIsOpen(t),
+  /// The goal sync's step list: ticks in any order and a rewritten next
+  /// step, written once and rewound together by regen (one tasks_changed op
+  /// holding the pre-sync list).
+  Future<void> _writeSyncedTasks(
+    Objective obj,
+    List<Map<String, dynamic>> tasks,
+  ) => _writeCheckDrivenTasks(obj, tasks);
+
+  /// The sync retires a goal: finished or let go, with when. The turn op
+  /// keeps the status it had so a regen puts the goal back exactly.
+  Future<void> _retireObjectiveFromSync(Objective obj, ObjectiveEnd end) async {
+    if (_objectiveTurnOpsArmed) {
+      _recordObjectiveTurnOp({
+        'op': 'deactivated',
+        'id': obj.id,
+        'prevStatus': obj.status,
+      });
+    }
+    await _db.updateObjective(
+      ObjectivesCompanion(
+        id: drift.Value(obj.id),
+        active: const drift.Value(false),
+        status: drift.Value(
+          end == ObjectiveEnd.achieved
+              ? kObjectiveStatusDone
+              : kObjectiveStatusOvertaken,
+        ),
+        endedAt: drift.Value(DateTime.now()),
+      ),
     );
-    if (idx < 0) return;
-    tasks[idx]['completed'] = true;
-    await _writeCheckDrivenTasks(obj, tasks);
+    await _loadActiveObjectives();
   }
 
-  /// Durable skip: `stale: true`, never `completed: true`. Regen rewinds via
-  /// the same tasks_changed turn-op as a completion.
-  Future<void> markTaskStale(Objective obj, String taskDesc) async {
-    final tasks = tasksForObjective(obj);
-    final idx = tasks.indexWhere(
-      (t) => (t['description'] as String) == taskDesc && objectiveTaskIsOpen(t),
+  /// The sync sets a goal aside, or wakes it.
+  Future<void> _setObjectiveDormant(Objective obj, bool dormant) async {
+    if (_objectiveTurnOpsArmed) {
+      _recordObjectiveTurnOp({
+        'op': 'status',
+        'id': obj.id,
+        'prev': obj.status,
+      });
+    }
+    await _db.updateObjective(
+      ObjectivesCompanion(
+        id: drift.Value(obj.id),
+        status: drift.Value(dormant ? kObjectiveStatusDormant : null),
+      ),
     );
-    if (idx < 0) return;
-    tasks[idx]['stale'] = true;
-    await _writeCheckDrivenTasks(obj, tasks);
+    await _loadActiveObjectives();
   }
 
   Future<void> _writeCheckDrivenTasks(

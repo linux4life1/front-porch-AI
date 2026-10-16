@@ -16,7 +16,11 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 
 /// The most alternate greetings the creator writes or lets you add, on the
 /// desktop and through the web relay alike.
@@ -37,6 +41,7 @@ class GreetingRecipe {
     this.includeDynamicMacros = false,
     this.reasoningEnabled = false,
     this.nsfwEnabled = false,
+    this.profileFingerprint = '',
   });
 
   final String greetingLength;
@@ -48,6 +53,26 @@ class GreetingRecipe {
   final bool includeDynamicMacros;
   final bool reasoningEnabled;
   final bool nsfwEnabled;
+
+  /// [profileFingerprintOf] the description and personality these greetings
+  /// were written from; '' when unknown (a card stamped before it existed).
+  /// A different fingerprint now means the profile changed under them.
+  final String profileFingerprint;
+
+  /// This recipe, written from the profile whose fingerprint is [fp]
+  /// ("Keep them" re-stamps with the current one).
+  GreetingRecipe withProfileFingerprint(String fp) => GreetingRecipe(
+    greetingLength: greetingLength,
+    tones: tones,
+    characterContext: characterContext,
+    userPersonaContext: userPersonaContext,
+    interviewTranscript: interviewTranscript,
+    worldLore: worldLore,
+    includeDynamicMacros: includeDynamicMacros,
+    reasoningEnabled: reasoningEnabled,
+    nsfwEnabled: nsfwEnabled,
+    profileFingerprint: fp,
+  );
 
   /// The tone creation gave greeting [index] (0 = the first message): the
   /// first tone, then round the list for the alternates.
@@ -64,12 +89,13 @@ class GreetingRecipe {
     if (characterContext.isNotEmpty)
       'context': _cut(characterContext, _stampContextChars),
     if (interviewTranscript.isNotEmpty)
-      'interview': _cut(interviewTranscript, _stampInterviewChars),
+      'interview': _cut(interviewTranscript, kInterviewTranscriptCap),
     if ((worldLore ?? '').trim().isNotEmpty)
       'lore': _cut(worldLore!, _stampLoreChars),
     'macros': includeDynamicMacros,
     'reasoning': reasoningEnabled,
     'nsfw': nsfwEnabled,
+    if (profileFingerprint.isNotEmpty) 'profile': profileFingerprint,
   };
 
   /// A stamp read back; null when [raw] is not one. Odd values fall back to
@@ -93,6 +119,7 @@ class GreetingRecipe {
       includeDynamicMacros: raw['macros'] == true,
       reasoningEnabled: raw['reasoning'] == true,
       nsfwEnabled: raw['nsfw'] == true,
+      profileFingerprint: text('profile'),
     );
   }
 }
@@ -102,13 +129,26 @@ class GreetingRecipe {
 /// matches the others.
 const kGreetingRecipeExtensionKey = 'greeting_recipe';
 
-/// The prompts read the interview's first 1,400 characters at most; lore
-/// past 8,000 would weigh down every export of the card.
-const _stampInterviewChars = 1400;
+/// The interview is kept up to the cap every prompt reads it under
+/// ([kInterviewTranscriptCap]); lore past 8,000 would weigh down every
+/// export of the card.
 const _stampLoreChars = 8000;
 const _stampContextChars = 4000;
 
 String _cut(String s, int max) => s.length > max ? s.substring(0, max) : s;
+
+/// A fingerprint of a profile's [description] and [personality], the same
+/// whether the character's [name] is written out or as `{{char}}`.
+String profileFingerprintOf(
+  String description,
+  String personality, {
+  String name = '',
+}) {
+  String norm(String s) => applyCharMacro(s, name).trim();
+  return sha1
+      .convert(utf8.encode(jsonEncode([norm(description), norm(personality)])))
+      .toString();
+}
 
 /// Write [recipe] onto [card], as [stampNarrativeVoice] writes the voice.
 void stampGreetingRecipe(CharacterCard card, GreetingRecipe recipe) {

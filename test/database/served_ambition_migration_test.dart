@@ -32,7 +32,7 @@
 // the Drift table definition, the migration ladder's ALTER, and the repair
 // path's column list. Same trio v45 pinned; they have drifted before.
 
-import 'package:drift/drift.dart' show Value, Variable;
+import 'package:drift/drift.dart' show Migrator, Value, Variable;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -118,6 +118,57 @@ void main() {
             'this is the field AmbitionService reads to skip re-asking '
             'which ambition a completed quest belonged to',
       );
+    });
+  });
+
+  // 2026-10-16, objectives that keep up (v58). Old libraries have the v8
+  // objectives table: created_at DEFAULT 0 and no origin column. The upgrade
+  // must say who each existing goal came from, and every new goal must get a
+  // real creation time, or "how long since this goal began" reads 1970.
+  group('v58 on an old library', () {
+    late AppDatabase old;
+
+    setUp(() async {
+      old = AppDatabase.forTesting(sameIsolate: true);
+      await old.customStatement('DROP TABLE objectives');
+      await old.customStatement(
+        'CREATE TABLE objectives (id TEXT NOT NULL, '
+        'character_id TEXT NOT NULL, chat_id TEXT, objective TEXT NOT NULL, '
+        "tasks TEXT NOT NULL DEFAULT '[]', active INTEGER NOT NULL DEFAULT 1, "
+        'is_primary INTEGER NOT NULL DEFAULT 0, '
+        'check_frequency INTEGER NOT NULL DEFAULT 3, '
+        'injection_depth INTEGER NOT NULL DEFAULT 4, served_ambition TEXT, '
+        'created_at INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (id))',
+      );
+    });
+    tearDown(() async => old.close());
+
+    test('origin is backfilled from served ambition', () async {
+      await old.customStatement(
+        'INSERT INTO objectives (id, character_id, objective, served_ambition) '
+        "VALUES ('mine', 'c', 'bake bread', 'open a bakery'), "
+        "('yours', 'c', 'find the key', NULL)",
+      );
+      await old.migration.onUpgrade(Migrator(old), 57, old.schemaVersion);
+      final rows = {
+        for (final o in await old.getObjectivesForCharacter('c')) o.id: o,
+      };
+      expect(rows['mine']!.origin, 'character');
+      expect(rows['yours']!.origin, 'user');
+      expect(rows['yours']!.status, isNull, reason: 'still open, not ended');
+    });
+
+    test('a goal made after the upgrade gets a real creation time', () async {
+      await old.migration.onUpgrade(Migrator(old), 57, old.schemaVersion);
+      await old.insertObjective(
+        ObjectivesCompanion.insert(
+          id: 'new',
+          characterId: 'c',
+          objective: 'mend the porch',
+        ),
+      );
+      final row = (await old.getObjectivesForCharacter('c')).single;
+      expect(row.createdAt.year, greaterThan(2000));
     });
   });
 }

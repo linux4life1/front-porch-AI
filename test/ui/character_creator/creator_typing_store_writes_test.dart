@@ -142,7 +142,8 @@ Map<TextEditingController, String?> _prefKeyOf(CreatorState s) => {
   s.guidedNsfwKinksController: 'chargen_guided_nsfw_kinks',
   s.guidedNsfwClothingController: 'chargen_guided_nsfw_clothing',
   s.guidedNsfwPersonalityController: 'chargen_guided_nsfw_personality',
-  s.loreUrlsController: null,
+  // Saved since templates: a template holds the URLs, so the preferences do.
+  s.loreUrlsController: 'chargen_lore_urls',
 };
 
 CreatorState _stateOf(WidgetTester tester) {

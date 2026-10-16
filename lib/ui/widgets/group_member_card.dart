@@ -111,6 +111,9 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
     final intensity = isRealism
         ? chat.getEmotionIntensityForGroupCharacter(widget.character)
         : null;
+    final memberMood = isRealism
+        ? chat.getMoodForGroupCharacter(widget.character)
+        : null;
     final affection = isRealism
         ? chat.getAffectionForGroupCharacter(widget.character)
         : 0;
@@ -229,6 +232,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       isRealism: isRealism,
       emotion: emotion,
       intensity: intensity,
+      moodLine: memberMood == null ? null : moodDisplayLine(memberMood),
       affection: affection,
       longTerm: longTerm,
       trust: trust,

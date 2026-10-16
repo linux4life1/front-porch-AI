@@ -44,20 +44,28 @@ class ChargenGreetings {
     this._llm,
     this._characters,
     this._hub, {
-    required bool Function() isCreating,
-  }) : _isCreating = isCreating;
+    required String? Function() busyReason,
+  }) : _busyReason = busyReason;
 
   final LLMProvider _llm;
   final CharacterFacade _characters;
   final StreamHub? _hub;
 
-  /// Whether a whole character is being created right now.
-  final bool Function() _isCreating;
+  /// Why another model call must wait (a create, a profile rewrite, a
+  /// review rewrite), or null.
+  final String? Function() _busyReason;
 
   /// The one greeting being written, and a cache of how characters created
   /// here wrote their greetings (the card's own stamp is the record).
   _GreetingJob? _greetingJob;
   final Map<String, GreetingRecipe> _recipes = {};
+
+  /// "Rewrite the greetings from it": the character whose greetings are
+  /// being written one after another, and the last index to write.
+  ({String characterId, int last})? _all;
+
+  /// Whether a greeting, or a run of them, is being written.
+  bool get busy => _greetingJob != null || _all != null;
 
   /// Rewrite greeting `index` (0 = the first message) of `characterId`,
   /// steered by `direction`; with [add], write a new alternate instead.
@@ -70,15 +78,8 @@ class ChargenGreetings {
     if (id.isEmpty) return _refuse(400, 'characterId is required');
     final card = _characters.cardByDbId(id);
     if (card == null) return _refuse(404, 'character not found');
-    if (_greetingJob != null) {
-      return _refuse(
-        409,
-        'A greeting is already being written. Stop it or wait for it.',
-      );
-    }
-    if (_isCreating()) {
-      return _refuse(409, 'A character is still being created. Wait for it.');
-    }
+    final busy = _refuseBusy();
+    if (busy != null) return busy;
     final alts = card.alternateGreetings.length;
     final int index;
     if (add) {
@@ -99,15 +100,102 @@ class ChargenGreetings {
     }
     final svc = _llm.activeService;
     if (!svc.isReady) return _refuse(400, 'the LLM backend is not ready');
+    _startJob(id, card, index, add ? '' : body['direction']?.toString() ?? '');
+    return {'ok': true, 'index': index};
+  }
+
+  Map<String, dynamic>? _refuseBusy() {
+    if (busy) {
+      return _refuse(
+        409,
+        'A greeting is already being written. Stop it or wait for it.',
+      );
+    }
+    final reason = _busyReason();
+    return reason == null ? null : _refuse(409, reason);
+  }
+
+  void _startJob(String id, CharacterCard card, int index, String direction) {
     final job = _greetingJob = _GreetingJob(
       id,
       index,
-      CharacterGenService(svc),
+      CharacterGenService(_llm.activeService),
     );
-    unawaited(
-      _writeGreeting(job, card, add ? '' : body['direction']?.toString() ?? ''),
+    unawaited(_writeGreeting(job, card, direction));
+  }
+
+  /// "Rewrite the greetings from it": write the first message and every
+  /// alternate again, one after another, from the profile as it is now.
+  /// Stop ends the run (what was written so far stays). When the last one
+  /// is done the greetings count as written from this profile.
+  Map<String, dynamic> startRewriteAll(Map<String, dynamic> body) {
+    final id = body['characterId']?.toString().trim() ?? '';
+    if (id.isEmpty) return _refuse(400, 'characterId is required');
+    final card = _characters.cardByDbId(id);
+    if (card == null) return _refuse(404, 'character not found');
+    final busy = _refuseBusy();
+    if (busy != null) return busy;
+    if (!_llm.activeService.isReady) {
+      return _refuse(400, 'the LLM backend is not ready');
+    }
+    final count = card.alternateGreetings.length + 1;
+    _all = (characterId: id, last: count - 1);
+    _startJob(id, card, 0, '');
+    return {'ok': true, 'count': count};
+  }
+
+  /// After greeting [job] was saved: the next one of a rewrite-all, or its
+  /// end.
+  Future<void> _advanceAll(_GreetingJob job) async {
+    final all = _all;
+    if (all == null || all.characterId != job.characterId) return;
+    final card = _characters.cardByDbId(job.characterId);
+    if (card != null && job.index < all.last) {
+      return _startJob(job.characterId, card, job.index + 1, '');
+    }
+    _all = null;
+    if (card == null) return;
+    await keepProfile(job.characterId);
+    _hub?.broadcast({
+      'event': 'chargen_greetings_rewritten',
+      'characterId': job.characterId,
+    });
+  }
+
+  /// Whether [characterId]'s profile changed since its greetings were
+  /// written: the fingerprint stamped then against the profile now. A card
+  /// with no stamp says nothing (false).
+  bool profileChanged(String characterId) {
+    final card = _characters.cardByDbId(characterId);
+    if (card == null) return false;
+    final stamp = recipeFor(characterId, card).profileFingerprint;
+    if (stamp.isEmpty) return false;
+    return stamp !=
+        profileFingerprintOf(
+          card.description,
+          card.personality,
+          name: card.name,
+        );
+  }
+
+  /// "Keep them": the greetings count as written from the profile as it is
+  /// now. False when the character is gone or could not be saved.
+  Future<bool> keepProfile(String characterId) async {
+    final card = _characters.cardByDbId(characterId);
+    if (card == null) return false;
+    final fp = profileFingerprintOf(
+      card.description,
+      card.personality,
+      name: card.name,
     );
-    return {'ok': true, 'index': index};
+    final stamped = (readGreetingRecipe(card) ?? const GreetingRecipe())
+        .withProfileFingerprint(fp);
+    stampGreetingRecipe(card, stamped);
+    final cached = _recipes[characterId];
+    if (cached != null) {
+      _recipes[characterId] = cached.withProfileFingerprint(fp);
+    }
+    return _characters.update(characterId, const {});
   }
 
   /// Which greeting of [characterId] is being written, or null. A phone that
@@ -123,6 +211,7 @@ class ChargenGreetings {
     final job = _greetingJob;
     if (job == null || job.characterId != characterId) return false;
     _greetingJob = null;
+    if (_all?.characterId == characterId) _all = null;
     job.gen.abort();
     _hub?.broadcast({
       'event': 'chargen_greeting_stopped',
@@ -137,7 +226,7 @@ class ChargenGreetings {
     String characterId,
     int index,
   ) async {
-    if (_greetingJob != null) {
+    if (busy) {
       return _refuse(409, 'Wait for the greeting being written first.');
     }
     final card = _characters.cardByDbId(characterId);
@@ -162,7 +251,7 @@ class ChargenGreetings {
   /// How [card] wrote its greetings: the full recipe when this run created
   /// it (the cache, persona and all lore included), else the stamp the card
   /// carries since creation, which survives a reload and a restart.
-  GreetingRecipe _recipeFor(String characterId, CharacterCard card) =>
+  GreetingRecipe recipeFor(String characterId, CharacterCard card) =>
       _recipes[characterId] ??
       readGreetingRecipe(card) ??
       const GreetingRecipe();
@@ -190,7 +279,7 @@ class ChargenGreetings {
         card: card,
         index: job.index,
         direction: direction,
-        recipe: _recipeFor(job.characterId, card),
+        recipe: recipeFor(job.characterId, card),
         onProgress: (s) {
           // The hub paints every ~33 ms anyway; a phone needs far fewer.
           final now = DateTime.now();
@@ -212,11 +301,12 @@ class ChargenGreetings {
     if (text == null) {
       return _greetingError(
         job,
-        failure == null
+        failure == null && job.gen.lastFailure == null
             ? 'Nothing came back from the model, so the greeting was left '
                   'as it was. Check that your model is running, then try '
                   'again.'
-            : 'The greeting could not be written: $failure',
+            : 'The greeting could not be written: '
+                  '${failure ?? job.gen.lastFailure}',
       );
     }
     if (!await _saveGreeting(job.characterId, job.index, text)) {
@@ -229,6 +319,7 @@ class ChargenGreetings {
       'text': text,
       ..._greetingsOf(job.characterId),
     });
+    await _advanceAll(job);
   }
 
   /// Put [text] in greeting [index] of the card as it is NOW (edits saved
@@ -262,12 +353,15 @@ class ChargenGreetings {
     };
   }
 
-  void _greetingError(_GreetingJob job, String error) => _hub?.broadcast({
-    'event': 'chargen_greeting_error',
-    'characterId': job.characterId,
-    'index': job.index,
-    'error': error,
-  });
+  void _greetingError(_GreetingJob job, String error) {
+    if (_all?.characterId == job.characterId) _all = null;
+    _hub?.broadcast({
+      'event': 'chargen_greeting_error',
+      'characterId': job.characterId,
+      'index': job.index,
+      'error': error,
+    });
+  }
 
   Map<String, dynamic> _refuse(int status, String error) => {
     'ok': false,

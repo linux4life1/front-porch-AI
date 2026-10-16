@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
-    show AmbitionServedChip;
+    show AmbitionServedChip, ObjectiveSetAsideTag;
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import 'objective_text_prompt.dart';
@@ -105,6 +105,7 @@ class GroupObjectiveCard extends StatelessWidget {
           // Same chip the 1:1 sidebar shows (v46) — a group member's quest
           // names the ambition it climbs exactly as a 1:1 partner's does.
           AmbitionServedChip(servedAmbition: obj.servedAmbition),
+          ObjectiveSetAsideTag(dormant: objectiveIsDormant(obj)),
           if (tasks.isNotEmpty) ...[
             const SizedBox(height: 6),
             Text(

@@ -336,3 +336,94 @@ function act_change(selector: string, p: { save: unknown }) {
   const el = field(selector);
   el.click();
 }
+
+describe('Refresh models', () => {
+  it('lists a model added to ComfyUI after the sheet opened', async () => {
+    await boot();
+    click('Change model');
+    await settle();
+    expect(sheetText()).not.toContain('qwen_image_2512_fp8.safetensors');
+
+    serve({
+      'GET /api/image/studio/ready': readyFacts,
+      'GET /api/image/comfy-catalog': {
+        ...catalog,
+        deskDiscovery: [...catalog.deskDiscovery, 'qwen_image_2512_fp8.safetensors'],
+      },
+    });
+    const before = gets('/api/image/comfy-catalog').length;
+    click('Refresh models');
+    await settle();
+
+    expect(gets('/api/image/comfy-catalog')).toHaveLength(before + 1);
+    expect(sheetText()).toContain('qwen_image_2512_fp8.safetensors');
+    expect(button('Refresh models')?.disabled).toBe(false);
+  });
+
+  it('lists a LoRA added to ComfyUI after the sheet opened', async () => {
+    await boot({}, { 'GET /api/image/comfy-catalog': { ...catalog, loras: ['zit_style.safetensors'] } });
+    click('Add');
+    await settle();
+    expect(sheetText()).not.toContain('new_style.safetensors');
+
+    serve({
+      'GET /api/image/studio/ready': readyFacts,
+      'GET /api/image/comfy-catalog': { ...catalog, loras: ['zit_style.safetensors', 'new_style.safetensors'] },
+    });
+    click('Refresh LoRAs');
+    await settle();
+
+    expect(sheetText()).toContain('new_style.safetensors');
+  });
+
+  it('keeps the list and says so when the read fails', async () => {
+    await boot();
+    click('Change model');
+    await settle();
+
+    serve({
+      'GET /api/image/studio/ready': readyFacts,
+      'GET /api/image/comfy-catalog': refuse(502, 'down'),
+    });
+    click('Refresh models');
+    await settle();
+
+    expect(sheetText()).toContain('The list could not be read.');
+    expect(sheetText()).toContain('flux1-dev-fp8.safetensors');
+  });
+});
+
+describe('Refresh list on Draw Things', () => {
+  const drawThings = { ...baseConfig, backend: 'drawthings' };
+
+  it('lists a model added to Draw Things after the sheet opened', async () => {
+    await boot({ cfg: drawThings }, { 'GET /api/image/local-catalog': { models: ['flux_dev.ckpt'], loras: [] } });
+    click('Change model');
+    await settle();
+    expect(sheetText()).not.toContain('qwen_image.ckpt');
+
+    serve({
+      'GET /api/image/studio/ready': readyFacts,
+      'GET /api/image/local-catalog': { models: ['flux_dev.ckpt', 'qwen_image.ckpt'], loras: [] },
+    });
+    click('Refresh models');
+    await settle();
+
+    expect(sheetText()).toContain('qwen_image.ckpt');
+  });
+
+  it('keeps the files already listed when Draw Things answers with none', async () => {
+    await boot({ cfg: drawThings }, { 'GET /api/image/local-catalog': { models: ['flux_dev.ckpt'], loras: [] } });
+    click('Change model');
+    await settle();
+
+    serve({
+      'GET /api/image/studio/ready': readyFacts,
+      'GET /api/image/local-catalog': { models: [], loras: [] },
+    });
+    click('Refresh models');
+    await settle();
+
+    expect(sheetText()).toContain('flux_dev.ckpt');
+  });
+});

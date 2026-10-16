@@ -50,6 +50,22 @@ final Map<String, Map<String, dynamic>> _emotionalFields = {
     'type': 'string',
     'enum': ['mild', 'moderate', 'strong'],
   },
+  // Mood with bite (docs/design/mood-with-bite.md): why, and whether the
+  // feeling carried on, was freshly fed, or changed. emotion_change is
+  // REQUIRED in the tool lists below: tool-calling models skip optional
+  // fields (the is_climax lesson), and a missing answer would read as
+  // "held" by family every turn.
+  'emotion_cause': _strField(
+    'Why the character feels this, in at most twelve words, in their own '
+    'terms; "none" when neutral.',
+  ),
+  'emotion_change': {
+    'type': 'string',
+    'enum': ['held', 'stoked', 'moved'],
+    'description':
+        'held: the same feeling carrying on. stoked: the same feeling, '
+        'freshly fed by this turn. moved: a different feeling now.',
+  },
   'arousal_delta': _intField(
     'Physical desire shift this turn (only when asked for in the prompt).',
   ),
@@ -119,7 +135,7 @@ final List<Map<String, dynamic>> kEmotionalEvalTools = [
     kEmotionalTool,
     'Report what the character truly feels right now.',
     _emotionalFields,
-    const ['emotion', 'emotion_intensity'],
+    const ['emotion', 'emotion_intensity', 'emotion_change'],
   ),
 ];
 
@@ -150,7 +166,13 @@ final List<Map<String, dynamic>> kOneShotEvalTools = [
     kOneShotTool,
     'Report the full realism evaluation for this exchange in one call.',
     _oneShotFields,
-    const ['relationship_delta', 'trust_delta', 'emotion', 'emotion_intensity'],
+    const [
+      'relationship_delta',
+      'trust_delta',
+      'emotion',
+      'emotion_intensity',
+      'emotion_change',
+    ],
   ),
 ];
 

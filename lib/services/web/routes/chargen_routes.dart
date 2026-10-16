@@ -20,8 +20,11 @@ import 'package:flutter/foundation.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/web/facade/chargen_facade.dart';
+import 'package:front_porch_ai/services/web/routes/chargen_profile_routes.dart';
+import 'package:front_porch_ai/services/web/routes/chargen_template_routes.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
 /// AI character creator endpoints. Generation runs in the background and reports
@@ -30,6 +33,7 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 class WebChargenRoutes {
   WebChargenRoutes(this._facade, Router router) {
     router.get('/api/chargen/status', _status);
+    router.get('/api/chargen/interview', _interview);
     router.post('/api/chargen/create', _create);
     router.post('/api/chargen/enhance', _enhance);
     router.post('/api/chargen/enhance-chats', _enhanceChats);
@@ -42,6 +46,10 @@ class WebChargenRoutes {
     router.post('/api/chargen/greeting/delete', _greetingDelete);
     router.post('/api/chargen/greeting/stop', _greetingStop);
     router.get('/api/chargen/greeting/status', _greetingStatus);
+    // The Profile step and the review rewrites.
+    WebChargenProfileRoutes(_facade, router);
+    // Templates, in the one library the desktop uses.
+    WebChargenTemplateRoutes(() => _facade.templates, router);
   }
 
   final ChargenFacade _facade;
@@ -98,12 +106,16 @@ class WebChargenRoutes {
     );
   }
 
-  /// `?characterId=`: `{writing}` is the greeting being written, or null.
-  shelf.Response _greetingStatus(shelf.Request r) => JsonResponse.ok({
-    'writing': _facade.writingGreeting(
-      r.url.queryParameters['characterId']?.trim() ?? '',
-    ),
-  });
+  /// `?characterId=`: `{writing}` is the greeting being written, or null;
+  /// `profileChanged` whether the profile changed since the greetings were
+  /// written.
+  shelf.Response _greetingStatus(shelf.Request r) {
+    final id = r.url.queryParameters['characterId']?.trim() ?? '';
+    return JsonResponse.ok({
+      'writing': _facade.writingGreeting(id),
+      'profileChanged': _facade.profileChanged(id),
+    });
+  }
 
   /// Body: `{characterId}`. `{stopped}` is false when nothing was running.
   Future<shelf.Response> _greetingStop(shelf.Request r) async {
@@ -113,6 +125,20 @@ class WebChargenRoutes {
 
   shelf.Response _status(shelf.Request r) =>
       JsonResponse.ok({'available': _facade.available});
+
+  /// `?perspective=&tense=&sex=`: the standard interview questions in that
+  /// voice, for the phone's editor (`{cap, pronouns, rows}`, see
+  /// `standardInterviewView`).
+  shelf.Response _interview(shelf.Request r) {
+    final q = r.url.queryParameters;
+    return JsonResponse.ok(
+      standardInterviewView(
+        perspective: q['perspective'],
+        tense: q['tense'],
+        sex: q['sex'],
+      ),
+    );
+  }
 
   Future<shelf.Response> _create(shelf.Request r) async {
     Map<String, dynamic> body;
@@ -124,11 +150,14 @@ class WebChargenRoutes {
     final result = _facade.startCreate(body);
     if (result['ok'] != true) {
       return JsonResponse.error(
-        400,
+        (result['status'] as int?) ?? 400,
         result['error']?.toString() ?? 'Bad request',
       );
     }
-    return JsonResponse.ok({'status': 'started'});
+    return JsonResponse.ok({
+      'status': 'started',
+      if (body['pauseAtProfile'] == true) 'phase': 'profile',
+    });
   }
 
   /// Start an AI Enhance run (see [ChargenFacade.startEnhance]); the result

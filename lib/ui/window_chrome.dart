@@ -4,6 +4,7 @@
 import 'dart:io' show Platform;
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -32,6 +33,6 @@ WindowOptions mainWindowOptions({Size? size, bool? isMacOS}) {
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
     windowButtonVisibility: true,
-    title: 'Front Porch AI',
+    title: appWindowTitle,
   );
 }

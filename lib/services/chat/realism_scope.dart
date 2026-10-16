@@ -44,6 +44,10 @@ class RealismScope {
     required this.setEmotion,
     required this.intensity,
     required this.setIntensity,
+    required this.cause,
+    required this.setCause,
+    required this.heldTurns,
+    required this.setHeldTurns,
     required this.saveChat,
     required this.notify,
   });
@@ -84,6 +88,14 @@ class RealismScope {
   final void Function(String) setEmotion;
   final String Function() intensity;
   final void Function(String) setIntensity;
+
+  /// Why the mood is what it is, and how many judge passes have kept it
+  /// (docs/design/mood-with-bite.md). Read and written only through
+  /// MoodRegisters.
+  final String Function() cause;
+  final void Function(String) setCause;
+  final int Function() heldTurns;
+  final void Function(int) setHeldTurns;
   final Future<void> Function() saveChat;
   final void Function() notify;
 }

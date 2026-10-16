@@ -23,9 +23,26 @@ export interface ObjectiveView {
   completedCount?: number;
   countableCount?: number;
   servedAmbition?: string | null;
+  /** Set aside by the goal sync: still theirs, out of the prompt for now.
+   *  Absent on an older desktop build. */
+  dormant?: boolean;
+  /** user | card | character | planner. Absent on an older desktop build. */
+  origin?: string;
 }
 
 const TASK_COUNTS = [3, 4, 5, 6, 7, 8, 10];
+
+function SetAsideTag({ dormant }: { dormant?: boolean }) {
+  if (!dormant) return null;
+  return (
+    <div
+      className="obj-set-aside"
+      title="Set aside for now: the story cannot act on it yet. It comes back when it can."
+    >
+      <span aria-hidden>🌙</span> set aside
+    </div>
+  );
+}
 
 function taskIsStale(task: ObjectiveTask) {
   return task.stale === true;
@@ -117,7 +134,7 @@ export function ObjectivesPanel({
         )}
         {obj ? (
           <>
-            <div className="stat-line">
+            <div className={`stat-line${obj.dormant ? ' obj-dormant' : ''}`}>
               <strong>{obj.objective}</strong>
             </div>
             {obj.servedAmbition?.trim() && (
@@ -125,6 +142,7 @@ export function ObjectivesPanel({
                 🧭 {obj.servedAmbition.trim()}
               </div>
             )}
+            <SetAsideTag dormant={obj.dormant} />
             {obj.tasks.length > 0 && (
               <ul className="task-list">
                 {obj.tasks.map((task, i) => (
@@ -210,7 +228,7 @@ export function ObjectivesPanel({
             <div className="muted small side-quest-label">Side quests</div>
             {secondary.map((sq) => {
               return (
-                <div className="side-quest" key={sq.id}>
+                <div className={`side-quest${sq.dormant ? ' obj-dormant' : ''}`} key={sq.id}>
                   <div className="stat-line">
                     <strong>{sq.objective}</strong>
                     {sq.tasks.length > 0 && (
@@ -222,6 +240,7 @@ export function ObjectivesPanel({
                       🧭 {sq.servedAmbition.trim()}
                     </div>
                   )}
+                  <SetAsideTag dormant={sq.dormant} />
                   {sq.tasks.length > 0 && (
                     <ul className="task-list">
                       {sq.tasks.map((task, i) => (

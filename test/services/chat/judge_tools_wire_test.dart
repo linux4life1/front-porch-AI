@@ -30,6 +30,32 @@ void main() {
           .toList();
       expect(names, [kRelationshipTool, kEmotionalTool, kNarrativeTool]);
     });
+
+    test('the emotional and one-shot tools carry cause and change; change is '
+        'required (mood with bite)', () {
+      for (final tool in [kEmotionalTool, kOneShotTool]) {
+        final fields = realismToolFieldsByTool[tool]!;
+        expect(fields, contains('emotion_cause'), reason: tool);
+        expect(fields, contains('emotion_change'), reason: tool);
+        expect((fields['emotion_change']!['enum'] as List), [
+          'held',
+          'stoked',
+          'moved',
+        ]);
+      }
+      List<String> requiredOf(List<Map<String, dynamic>> tools) {
+        final fn = tools.single['function'] as Map;
+        final params = fn['parameters'] as Map;
+        return (params['required'] as List).cast<String>();
+      }
+
+      // A tool-calling model fills what the schema demands and skips what
+      // it does not (the is_climax lesson): optional, the answer would be
+      // missing on every tools-capable backend and read as "held" by family.
+      expect(requiredOf(kEmotionalEvalTools), contains('emotion_change'));
+      expect(requiredOf(kOneShotEvalTools), contains('emotion_change'));
+      expect(requiredOf(kEmotionalEvalTools), isNot(contains('emotion_cause')));
+    });
   });
 
   group('judge call sites', () {

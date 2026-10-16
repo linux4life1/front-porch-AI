@@ -7,8 +7,11 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
+import 'package:front_porch_ai/services/character_gen/character_gen.dart';
 import 'package:front_porch_ai/services/character_gen_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+
+import 'support/marker_chargen_llm.dart';
 
 void main() {
   group('parsePorchLifeIdentity', () {
@@ -143,6 +146,115 @@ thanks
       expect(llm.textFallbackCalls, 0);
       expect(card!.frontPorchExtensions?.intimateInto, ['slow mornings']);
       expect(card.frontPorchExtensions?.ambitions, ['stay fed']);
+    });
+  });
+
+  group('opening scene read (identityDone)', () {
+    test('mood and time are read and validated', () {
+      final ok = parsePorchLifeIdentity({
+        'character_emotion': ' Wary ',
+        'emotion_intensity': 'Strong',
+        'time_of_day': 'late morning',
+        'story_start_time': '7:05',
+      }, nsfw: false);
+      expect(ok.characterEmotion, 'wary');
+      expect(ok.emotionIntensity, 'strong');
+      expect(ok.timeOfDay, 'late_morning');
+      expect(ok.storyStartTime, '07:05');
+
+      final bad = parsePorchLifeIdentity({
+        'character_emotion': '{{user}} is sad',
+        'emotion_intensity': 'extreme',
+        'time_of_day': 'noonish',
+        'story_start_time': '25:00',
+      }, nsfw: false);
+      expect(bad.characterEmotion, '');
+      expect(bad.emotionIntensity, '');
+      expect(bad.timeOfDay, '');
+      expect(bad.storyStartTime, '');
+    });
+
+    test('mood and time survive mangled text', () {
+      const blob =
+          'ok {"worn": ["coat"], "character_emotion": "tired", '
+          '"time_of_day": "evening", "story_start_time": "19:30", "x": "a"b"}';
+      final id = parsePorchLifeIdentity(blob, nsfw: false);
+      expect(id.worn, ['coat']);
+      expect(id.characterEmotion, 'tired');
+      expect(id.timeOfDay, 'evening');
+      expect(id.storyStartTime, '19:30');
+    });
+
+    Set<String> keys(List<Map<String, dynamic>> schema) =>
+        ((schema.single['function'] as Map)['parameters'] as Map)['properties']
+            .keys
+            .cast<String>()
+            .toSet();
+
+    test('identityDone asks only what the greeting decides', () {
+      expect(keys(porchLifeToolSchema(nsfw: true, identityDone: true)), {
+        'worn',
+        'carrying',
+        'character_emotion',
+        'emotion_intensity',
+        'time_of_day',
+        'story_start_time',
+      });
+    });
+
+    test('the default schema keeps its keys', () {
+      expect(keys(porchLifeToolSchema(nsfw: true)), {
+        'ambitions',
+        'likes',
+        'dislikes',
+        'worn',
+        'carrying',
+        'intimate_into',
+        'intimate_not_into',
+      });
+    });
+
+    test('an empty read keeps the lists the facts pass wrote, and the '
+        'mood and time land', () async {
+      final llm = MarkerChargenLlm(
+        toolAnswers: {
+          kPorchLifeToolName: {
+            'worn': ['rain-soaked coat'],
+            'carrying': <String>[],
+            'character_emotion': 'wary',
+            'emotion_intensity': 'moderate',
+            'time_of_day': 'evening',
+            'story_start_time': '19:30',
+          },
+        },
+      );
+      final card = CharacterCard(
+        name: 'Nina',
+        firstMessage: 'I shake the rain off.',
+        frontPorchExtensions: FrontPorchExtensions(
+          ambitions: const ['stay fed'],
+          likes: const ['hot coffee'],
+          inventory: const {
+            'carrying': ['shop keys'],
+          },
+        ),
+      );
+      await GenStages(GenRunState(llm)).porchLife.seedIdentity(
+        card: card,
+        name: 'Nina',
+        interviewTranscript: '',
+        nsfwEnabled: false,
+        identityDone: true,
+      );
+      final ext = card.frontPorchExtensions!;
+      expect(ext.ambitions, ['stay fed']);
+      expect(ext.likes, ['hot coffee']);
+      expect(porchLifeIdentityOf(ext).worn, ['rain-soaked coat']);
+      expect(porchLifeIdentityOf(ext).carrying, ['shop keys']);
+      expect(ext.characterEmotion, 'wary');
+      expect(ext.emotionIntensity, 'moderate');
+      expect(ext.timeOfDay, 'evening');
+      expect(ext.storyStartTime, '19:30');
     });
   });
 }

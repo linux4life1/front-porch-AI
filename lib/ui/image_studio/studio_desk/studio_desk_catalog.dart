@@ -168,20 +168,28 @@ class StudioDeskCatalog {
   }
 
   /// Lists what the connected backend has. Reading never writes a setting.
-  Future<void> refresh(ImageGenSettings settings, {bool force = false}) async {
+  /// A [soft] read (a Change sheet opening or refreshing) lists again but
+  /// never takes files away: one that fails, or comes back empty, leaves what
+  /// was listed, where Check says the backend is not answering.
+  Future<void> refresh(
+    ImageGenSettings settings, {
+    bool force = false,
+    bool soft = false,
+  }) async {
     final backend = settings.imageGenBackend;
     if (backend == 'a1111' || backend == 'drawthings') {
-      await _refreshLocal(settings, force: force);
+      await _refreshLocal(settings, force: force || soft, soft: soft);
     } else if (backend == 'comfyui') {
-      await _refreshComfy(settings, force: force);
+      await _refreshComfy(settings, force: force || soft);
     } else if (backend == 'remote') {
-      await _refreshRemote(settings, force: force);
+      await _refreshRemote(settings, force: force || soft, soft: soft);
     }
   }
 
   Future<void> _refreshLocal(
     ImageGenSettings settings, {
     required bool force,
+    bool soft = false,
   }) async {
     final drawThings = settings.imageGenBackend == 'drawthings';
     final url = drawThings
@@ -191,6 +199,7 @@ class StudioDeskCatalog {
     final gen = _service();
     if (gen == null) return;
     final up = force ? await gen.testLocalConnection(url) : true;
+    if (soft && !up) return;
     final models = !up
         ? const <String>[]
         : drawThings
@@ -216,14 +225,15 @@ class StudioDeskCatalog {
         ? [for (final l in await gen.fetchA1111Loras(url)) l.name]
         : const <String>[];
     if (!_host.mounted) return;
+    final loras = drawThings ? listing.names : a1111Loras;
     _applyCatalog(
-      models: models,
-      loras: drawThings ? listing.names : a1111Loras,
-      samplers: samplers,
-      schedulers: schedulers,
+      models: soft && models.isEmpty ? _models : models,
+      loras: soft && loras.isEmpty ? _loras : loras,
+      samplers: soft && samplers.isEmpty ? _samplers : samplers,
+      schedulers: soft && schedulers.isEmpty ? _schedulers : schedulers,
       url: force ? (up ? 'up:$url' : 'down:$url') : url,
     );
-    if (drawThings) {
+    if (drawThings && !(soft && loras.isEmpty)) {
       _rememberLoraFacts(
         listing.facts,
         dtLoraVersions: listing.versions,
@@ -272,6 +282,7 @@ class StudioDeskCatalog {
   Future<void> _refreshRemote(
     ImageGenSettings settings, {
     required bool force,
+    bool soft = false,
   }) async {
     final url = settings.imageRemoteApiUrl;
     if (!force && _catalogUrl == url) return;
@@ -280,6 +291,7 @@ class StudioDeskCatalog {
     if (gen == null) return;
     final listed = await gen.fetchImageModels();
     if (!_host.mounted) return;
+    if (soft && _remoteListed && isBundledImageCatalog(listed)) return;
     _applyCatalog(
       models: [for (final model in listed) model.id],
       remoteModels: listed,

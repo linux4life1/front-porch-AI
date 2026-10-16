@@ -32,10 +32,12 @@ class _Store extends FakeStorageService {
 }
 
 class _Llm extends FakeLLMProvider {
-  _Llm(this.superGrok) : super(activeBackend: BackendType.openRouter);
+  _Llm(this._superGrok) : super(activeBackend: BackendType.openRouter);
+
+  final SuperGrokAuth _superGrok;
 
   @override
-  final SuperGrokAuth superGrok;
+  SuperGrokAuth get superGrok => _superGrok;
 }
 
 SuperGrokAuth _auth({String? session}) =>

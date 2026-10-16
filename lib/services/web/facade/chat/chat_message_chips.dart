@@ -50,12 +50,15 @@ Map<String, dynamic>? webMessageChips(
   // it, since Passage of Time runs with the engine off.
   final needs = md['needs_deltas'];
   final verif = md[RealismVerification.kMetaKey];
+  final verifStatus = verif is Map && verif['status'] is String
+      ? (verif['status'] as String).trim()
+      : '';
   final scored =
       (md['emotion_label'] is String &&
           (md['emotion_label'] as String).isNotEmpty) ||
       (needs is Map && needs.isNotEmpty) ||
       md[kNeedsUnaffectedMeta] == true ||
-      (verif is Map && (verif['status'] as String? ?? '').trim().isNotEmpty);
+      verifStatus.isNotEmpty;
   // The judge ran and could not be read: one "not scored" chip, never a
   // made-up "unchanged". Same rule as the desktop bubble.
   final unscored =
@@ -136,6 +139,26 @@ Map<String, dynamic>? webMessageChips(
       out['wikiQuery'] = q;
       out['wikiOk'] = wiki['ok'] == true;
     }
+  }
+  // Director verifier chip, same fields the desktop bubble reads.
+  if (verif is Map && verifStatus.isNotEmpty) {
+    out['directorStatus'] = verifStatus;
+    final passes = verif['passes'];
+    out['directorPasses'] = passes is num ? passes.toInt() : 0;
+    final reason = verif['reason'];
+    if (reason is String && reason.trim().isNotEmpty) {
+      out['directorReason'] = reason.trim();
+    }
+  }
+  // Pockets & Wardrobe receipts. Pockets runs with Realism off, so these can
+  // be the only chips on a reply.
+  final pocketChanges = md['pocket_changes'];
+  if (pocketChanges is List) {
+    final receipts = [
+      for (final raw in pocketChanges)
+        if (raw is String && raw.trim().isNotEmpty) raw.trim(),
+    ];
+    if (receipts.isNotEmpty) out['pocketChanges'] = receipts;
   }
   final toolReceipt = md['tool_receipt'];
   if (toolReceipt is Map) {

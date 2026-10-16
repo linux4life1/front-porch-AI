@@ -66,6 +66,43 @@ const List<String> _kInnerSpecials = [
   '<|start|>',
 ];
 
+/// What a provider that hides the think channel server-side can leave at the
+/// head of the content: the tail of the closing tag it cut mid-token.
+/// Nano-GPT on Kimi K2.6 thinking with `reasoning.exclude`, 2026-10-14:
+/// three live captures opened with `hin` + `k> To impress…`; chat showed
+/// `think>`. No `<` reaches the app, so the fences above cannot see it.
+/// Head of the reply only, and at least three characters ending in `>`,
+/// so a quoted line (`> …`) or a bare `k>` is never eaten.
+const List<String> kStrippedCloseTails = [
+  '</think>',
+  '/think>',
+  'think>',
+  'hink>',
+  'ink>',
+  'nk>',
+];
+
+final RegExp _leadingCloseTail = RegExp(
+  r'^\s*(?:</think>|/think>|think>|hink>|ink>|nk>)',
+  caseSensitive: false,
+);
+
+String _dropLeadingCloseTail(String text) {
+  final m = _leadingCloseTail.firstMatch(text);
+  return m == null ? text : text.substring(m.end);
+}
+
+/// Whether [head] (whitespace allowed before it) could still grow into one
+/// of [kStrippedCloseTails]: the stream has not shown enough to decide.
+bool _couldBecomeCloseTail(String head) {
+  final t = head.trimLeft().toLowerCase();
+  if (t.isEmpty) return true;
+  for (final tail in kStrippedCloseTails) {
+    if (tail.length > t.length && tail.startsWith(t)) return true;
+  }
+  return false;
+}
+
 int get _maxOpenLen {
   var n = 1;
   for (final f in kReasoningFences) {
@@ -89,6 +126,7 @@ bool reasoningMarkersMayBePresent(String text) {
       text.contains('begin_of_thinking')) {
     return true;
   }
+  if (_leadingCloseTail.hasMatch(text)) return true;
   return text.startsWith('thought\n') || text.startsWith('thought\r');
 }
 
@@ -125,6 +163,7 @@ String _stripInnerSpecials(String s) {
 /// on already-canonical text. Unclosed open (cut mid-think) stays open.
 String canonicalizeReasoning(String text) {
   if (text.isEmpty || !reasoningMarkersMayBePresent(text)) return text;
+  text = _dropLeadingCloseTail(text);
   final buf = StringBuffer();
   var i = 0;
   var emitted = false;
@@ -173,6 +212,9 @@ class ReasoningMarkerRewriter {
   ReasoningFence? _open;
   bool _emitted = false;
 
+  /// The head of the stream has been judged for a stripped close tail.
+  bool _headChecked = false;
+
   String push(String delta) {
     if (delta.isEmpty) return '';
     _hold.write(delta);
@@ -184,6 +226,17 @@ class ReasoningMarkerRewriter {
   String _drain({required bool end}) {
     final out = StringBuffer();
     var s = _hold.toString();
+    if (!_headChecked && _open == null) {
+      final tail = _leadingCloseTail.firstMatch(s);
+      if (tail != null) {
+        s = s.substring(tail.end);
+        _headChecked = true;
+      } else if (!end && _couldBecomeCloseTail(s)) {
+        return '';
+      } else {
+        _headChecked = true;
+      }
+    }
     var i = 0;
     while (i < s.length) {
       if (_open != null) {

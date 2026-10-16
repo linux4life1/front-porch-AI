@@ -19,8 +19,6 @@
 import 'dart:convert';
 
 import 'package:front_porch_ai/services/chat/chaos/chaos_frequency.dart';
-import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
-    show normalizeObjectiveStaleThreshold;
 import 'package:front_porch_ai/services/storage/settings/realism/one_shot_mode.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -33,7 +31,6 @@ class RealismPrefsSnapshot {
   final bool needsSimDefault;
   final bool standaloneClockEnabled;
   final bool objectivesEnabled;
-  final int objectiveStaleThreshold;
   final bool pocketsEnabled;
   final bool standingMoodEnabled;
   final bool intimateAgencyEnabled;
@@ -66,10 +63,9 @@ class RealismPrefsSnapshot {
       needsSimDefault = prefs?.getBool(k('needs_sim_default')) ?? true,
       standaloneClockEnabled =
           prefs?.getBool(k('standalone_clock_enabled')) ?? false,
+      // (objective_stale_threshold, the old "retire after N" picker, is no
+      // longer read: one "overtaken" answer from the goal sync replaced it.)
       objectivesEnabled = prefs?.getBool(k('objectives_enabled')) ?? true,
-      objectiveStaleThreshold = normalizeObjectiveStaleThreshold(
-        prefs?.getInt(k('objective_stale_threshold')),
-      ),
       pocketsEnabled = prefs?.getBool(k('pockets_enabled')) ?? false,
       standingMoodEnabled = prefs?.getBool(k('standing_mood_enabled')) ?? false,
       intimateAgencyEnabled =

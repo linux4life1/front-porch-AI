@@ -20,6 +20,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/chat.dart'
+    show
+        kObjectiveOriginCharacter,
+        kObjectiveStatusDormant,
+        lastObjectiveSyncStamp;
 
 import '../../../integration_test/support/fake_backend.dart';
 import '../../helpers/chat_db_teardown.dart';
@@ -232,5 +237,109 @@ void main() {
       reason: 'both YES verdicts apply: never half while claiming none',
     );
     expect(h.chat.guestActivityStatus, _tooLate);
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  // 2026-10-16, objectives that keep up: the goal check became a goal sync.
+  // It reads where the story is and moves every goal at once, and the
+  // changes still ride the reply, so a regen undoes them.
+  Future<void> settled(_Harness h) => _until(
+    () => !h.chat.isGenerating && !h.chat.isSettlingTurn,
+    'the turn to settle',
+  );
+
+  Future<_Harness> characterGoal(String verdict, List<String> steps) async {
+    final h = await _harness(verdict: verdict, held: false);
+    await h.chat.clearObjective(h.chat.activeObjectives.single);
+    await h.chat.setObjective(
+      'Win back her trust',
+      origin: kObjectiveOriginCharacter,
+    );
+    await h.chat.updateCheckFrequency(h.chat.activeObjectives.single, 1);
+    for (final s in steps) {
+      await h.chat.addManualTask(h.chat.activeObjectives.single, s);
+    }
+    return h;
+  }
+
+  List<(String, bool)> steps(_Harness h) => [
+    for (final t in h.chat.tasksForObjective(h.chat.activeObjectives.single))
+      (t['description'] as String, t['completed'] == true),
+  ];
+
+  test('the goal sync ticks steps out of order, rewrites the character\'s '
+      'next step, and regen puts the steps back', () async {
+    final h = await characterGoal(
+      '1: on_track | 3,1 | Ask what she is reading',
+      ['Pour two glasses', 'Pat the swing seat', 'Tell the porch board story'],
+    );
+    final before = steps(h);
+
+    await h.chat
+        .sendMessage('Want some lemonade?')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(steps(h), [
+      ('Pour two glasses', true),
+      ('Ask what she is reading', false),
+      ('Tell the porch board story', true),
+    ]);
+
+    await h.chat.regenerateLastMessage().timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(steps(h), before, reason: 'the sync rode the rejected reply');
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('a goal the sync sets aside is marked so, and regen wakes it', () async {
+    final h = await characterGoal('1: dormant | none | none', ['Pour two']);
+
+    await h.chat
+        .sendMessage('Want some lemonade?')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.chat.activeObjectives.single.status, kObjectiveStatusDormant);
+
+    await h.chat.regenerateLastMessage().timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.chat.activeObjectives.single.status, isNull);
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('two weeks skipped re-plans the goals past the cadence, says how long '
+      'it has been, and the last sync survives a reload', () async {
+    // No word of this goal is in the chat, so only the cadence or the skip
+    // can start a sync (the canned reply mentions lemonade).
+    final h = await characterGoal('1: on_track | none | none', ['Oil a hinge']);
+    final charId = h.chat.activeObjectives.single.characterId;
+
+    await h.chat
+        .sendMessage('Want some lemonade?')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.backend.objectiveCheckRequests, 1);
+    expect(lastObjectiveSyncStamp(h.chat.messages, charId), isNotNull);
+
+    await h.chat.updateCheckFrequency(h.chat.activeObjectives.single, 50);
+    await h.chat
+        .sendMessage('The crickets are loud tonight.')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.backend.objectiveCheckRequests, 1, reason: 'off the cadence');
+
+    await h.chat
+        .sendMessage('*Two weeks later, I knock on the door again.*')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.backend.objectiveCheckRequests, 2, reason: 'the skip re-plans');
+    expect(
+      h.backend.objectiveCheckPrompts.last,
+      contains('About 2 weeks have passed since these goals were last'),
+    );
+
+    final stamp = lastObjectiveSyncStamp(h.chat.messages, charId)!;
+    expect(stamp.day, h.chat.timeService.dayCount);
+    await h.chat.loadSession(h.chat.currentSessionId!);
+    expect(
+      lastObjectiveSyncStamp(h.chat.messages, charId)?.clockIso,
+      stamp.clockIso,
+    );
   }, timeout: const Timeout(Duration(seconds: 60)));
 }

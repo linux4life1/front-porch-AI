@@ -159,6 +159,18 @@ extension ChatServiceGenerationPlanRegister on ChatService {
       label: 'Needs Catastrophe',
       text: needsCatastropheBlock,
     );
+    // The latest beat (latestTurnStart), cut off the transcript and rendered
+    // here: the last thing the model reads before the speaker's name is the
+    // turn it answers, not the notes above or its own long replies. Local
+    // models replayed recent beats as new when the state zone sat between
+    // them and the reply. Cache cost: one moved message is re-read per turn;
+    // the transcript prefix before it is untouched.
+    plan.add(
+      id: 'latest_turn',
+      label: 'Chat History',
+      text: '',
+      counted: false, // paid for inside the history budget walk
+    );
     plan.add(
       id: 'idle_cue',
       text: '',

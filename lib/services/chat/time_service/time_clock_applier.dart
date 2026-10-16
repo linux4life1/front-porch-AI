@@ -60,8 +60,10 @@ class TimeClockApplier {
   onPatchLastMessageRealismState;
 
   /// Clears the today line and fires the day-roll hook when the story day
-  /// moved off [dayBefore].
-  final Future<void> Function(int dayBefore) onDayChanged;
+  /// moved off [dayBefore]. [manual] marks the chevrons and the calendar
+  /// dialog: a roll made by hand, outside any turn, as opposed to one a
+  /// reply, a skip or time away produced on the way to a reply.
+  final Future<void> Function(int dayBefore, {bool manual}) onDayChanged;
 
   // ── Manual control (chevrons + calendar dialog) ───────────────────────────
 
@@ -83,7 +85,7 @@ class TimeClockApplier {
       state.dayCount,
       state.storyClockIso,
     );
-    await onDayChanged(dayBefore);
+    await onDayChanged(dayBefore, manual: true);
   }
 
   /// All-away skip banner: no reply to score, so no LLM. AFK uses the
@@ -114,7 +116,7 @@ class TimeClockApplier {
       state.dayCount,
       state.storyClockIso,
     );
-    await onDayChanged(dayBefore);
+    await onDayChanged(dayBefore, manual: true);
   }
 
   /// Regen of a skip/AFK reply: the rejected slot already moved

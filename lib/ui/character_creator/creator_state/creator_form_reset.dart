@@ -58,6 +58,9 @@ void clearCreatorForm(CreatorState s) {
 
   // Greetings step: stop a write first, so nothing lands in a box below.
   s.greetings.reset();
+  s.profile.reset();
+  s.review.reset();
+  s.realismCurrentTask = '';
 
   // Review controllers
   s.descController.clear();
@@ -85,6 +88,7 @@ void clearCreatorForm(CreatorState s) {
   s.realismVerificationMaxReprocesses = 1;
   s.realismVerificationStrictness = 3;
   s.realismNeedsDirectorAuthority = false;
+  s.realismStepEnabled = s.porchLifeRealism;
 
   // Appearance dropdowns
   s.race = '';
@@ -121,6 +125,17 @@ void clearCreatorForm(CreatorState s) {
   s.narrativePerspective = 'first';
   s.narrativeTense = 'present';
   s.generationDetail = 'Standard';
+  s.interview.reset();
+  s.reasoningEnabled = false;
+
+  // Quick's own scenario, tones, count and 18+
+  s.quickScenarioController.clear();
+  s.quickSelectedTones = ['Neutral'];
+  s.quickGreetingCount = 0;
+  s.quickNsfwEnabled = false;
+
+  // A cleared form was started from nothing.
+  s.templates.clearStartedFrom();
 
   // Generation state
   s.generationStatus = '';

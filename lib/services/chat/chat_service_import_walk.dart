@@ -40,8 +40,7 @@ extension ChatServiceImportWalk on ChatService {
       );
       _applySeededPassageOfTime();
     }
-    _characterEmotion = ext.characterEmotion;
-    _emotionIntensity = ext.emotionIntensity;
+    _mood.seed(ext.characterEmotion, ext.emotionIntensity);
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: keepNsfwCooldown);
     _nsfwService.resetRuntimeArousalAndCooldown();
 

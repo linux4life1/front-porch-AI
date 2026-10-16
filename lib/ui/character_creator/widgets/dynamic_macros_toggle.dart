@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Opt-in "Dynamic macros" toggle, shared across the Quick / Guided / Automated
 /// creator config steps so the choice is a config-time decision in EVERY mode.
@@ -35,7 +35,7 @@ class DynamicMacrosToggle extends StatelessWidget {
                 child: Text(
                   'Dynamic macros',
                   style: TextStyle(
-                    color: AppColors.textPrimary(context),
+                    color: StudioColors.inkOf(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w600,
                   ),
@@ -53,7 +53,7 @@ class DynamicMacrosToggle extends StatelessWidget {
                 child: Icon(
                   Icons.info_outline,
                   size: 14,
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.mutedOf(context),
                 ),
               ),
             ],
@@ -62,7 +62,7 @@ class DynamicMacrosToggle extends StatelessWidget {
         Switch(
           value: value,
           // Switches are porch amber app-wide; [accentColor] tints the icon.
-          activeTrackColor: AppColors.porchAmberOf(context),
+          activeTrackColor: StudioColors.amberOf(context),
           onChanged: onChanged,
         ),
       ],

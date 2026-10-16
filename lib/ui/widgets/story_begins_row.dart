@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// Story Calendar authoring row (story-calendar.md §3a): "Story begins…" —
 /// the day the chat starts (default, what every pre-calendar card meant) or
@@ -49,7 +50,8 @@ class StoryBeginsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber =
+        context.creatorPalette?.amber ?? AppColors.porchAmberOf(context);
     final anchor = StoryClock.parse(storyStartDate);
     final hhmm = StoryClock.parseHHMM(storyStartTime);
 
@@ -66,12 +68,14 @@ class StoryBeginsRow extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
-            color: AppColors.surfaceContainerOf(context),
+            color:
+                context.creatorPalette?.raise ??
+                AppColors.surfaceContainerOf(context),
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
               color: isSet
                   ? amber.withValues(alpha: 0.55)
-                  : AppColors.borderOf(context),
+                  : context.creatorPalette?.line ?? AppColors.borderOf(context),
             ),
           ),
           child: Row(
@@ -85,8 +89,10 @@ class StoryBeginsRow extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11.5,
                     color: isSet
-                        ? AppColors.textPrimary(context)
-                        : AppColors.textTertiary(context),
+                        ? context.creatorPalette?.ink ??
+                              AppColors.textPrimary(context)
+                        : context.creatorPalette?.muted ??
+                              AppColors.textTertiary(context),
                   ),
                 ),
               ),
@@ -96,7 +102,9 @@ class StoryBeginsRow extends StatelessWidget {
                   child: Icon(
                     Icons.close,
                     size: 13,
-                    color: AppColors.iconSecondary(context),
+                    color:
+                        context.creatorPalette?.muted ??
+                        AppColors.iconSecondary(context),
                   ),
                 ),
             ],

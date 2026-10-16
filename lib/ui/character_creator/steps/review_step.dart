@@ -22,10 +22,9 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/avatar_creation/avatar_generation_panel.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
-import 'package:front_porch_ai/ui/character_creator/widgets/review_lorebook_section.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Review & edit step: the shared Portrait & Avatars panel in the left rail
 /// (phase #12 — it replaced the bespoke avatar generation controls) + editable
@@ -38,7 +37,7 @@ class ReviewStep extends StatelessWidget {
 
   const ReviewStep({super.key, required this.state});
 
-  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
+  Color _accent(BuildContext context) => StudioColors.amberOf(context);
 
   @override
   Widget build(BuildContext context) {
@@ -51,17 +50,13 @@ class ReviewStep extends StatelessWidget {
             Icon(
               Icons.error_outline,
               size: 64,
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
+              color: StudioColors.badOf(context),
             ),
             const SizedBox(height: 16),
             Text(
               'Generation failed. The LLM did not produce valid output.',
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color: StudioColors.proseOf(context),
                 fontSize: 16,
               ),
             ),
@@ -75,6 +70,7 @@ class ReviewStep extends StatelessWidget {
               label: const Text('Try Again'),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _accent(context),
+                foregroundColor: StudioColors.amberInkOf(context),
               ),
             ),
           ],
@@ -120,7 +116,7 @@ class ReviewStep extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary(context),
+                    color: StudioColors.inkOf(context),
                   ),
                   textAlign: TextAlign.center,
                 ),
@@ -137,12 +133,10 @@ class ReviewStep extends StatelessWidget {
                               tag,
                               style: TextStyle(
                                 fontSize: 11,
-                                color: AppColors.textSecondary(context),
+                                color: StudioColors.proseOf(context),
                               ),
                             ),
-                            backgroundColor: AppColors.surfaceContainerOf(
-                              context,
-                            ),
+                            backgroundColor: StudioColors.raiseOf(context),
                             side: BorderSide.none,
                             visualDensity: VisualDensity.compact,
                           ),
@@ -159,91 +153,85 @@ class ReviewStep extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Review & Edit',
+                  'Review',
                   style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    color: AppColors.textPrimary(context),
+                    fontSize: 24,
+                    fontWeight: FontWeight.w700,
+                    color: StudioColors.inkOf(context),
                   ),
                 ),
-                const SizedBox(height: 4),
+                const SizedBox(height: 6),
                 Text(
-                  'The AI generated the following character card. Review and '
-                  'edit before saving.',
+                  'Everything the creator wrote, in one place. The profile and '
+                  'greetings are above. Example dialogue and the lorebook take '
+                  'the same line of direction as the rest.',
                   style: TextStyle(
-                    color: AppColors.textTertiary(context),
-                    fontSize: 13,
+                    color: StudioColors.mutedOf(context),
+                    fontSize: 14,
+                    height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 24),
-                _editableField(
-                  context,
-                  'Description',
-                  state.descController,
-                  maxLines: 6,
-                ),
-                _editableField(
-                  context,
-                  'Personality',
-                  state.personalityController,
-                  maxLines: 4,
-                ),
-                _editableField(
-                  context,
-                  'Scenario',
-                  state.scenarioController,
-                  maxLines: 3,
-                ),
-                _editableField(
-                  context,
-                  'First Message',
-                  state.firstMessageController,
-                  maxLines: 6,
-                ),
-                ...state.altGreetingControllers.asMap().entries.map((e) {
-                  final idx = e.key;
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _editableField(
-                          context,
-                          'Alternate greeting ${idx + 1}',
-                          e.value,
-                          maxLines: 4,
-                        ),
-                        GreetingSeedForm(
-                          seed: idx < state.greetingSeeds.length
-                              ? state.greetingSeeds[idx]
-                              : null,
-                          showNeeds: true,
-                          showInventory: true,
-                          onChanged: (next) {
-                            while (state.greetingSeeds.length <= idx) {
-                              state.greetingSeeds.add(null);
-                            }
-                            state.greetingSeeds[idx] = next;
-                            state.notify();
-                          },
-                        ),
-                      ],
+                const SizedBox(height: 16),
+                // One spec card per section, 16px apart.
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  spacing: 16,
+                  children: [
+                    CreatorTextCard(
+                      title: 'Description',
+                      subtitle: 'Who they are, as the card will carry it',
+                      controller: state.descController,
+                      maxLines: 6,
                     ),
-                  );
-                }),
-                _editableField(
-                  context,
-                  'Example Dialogue',
-                  state.exampleDialogueController,
-                  maxLines: 6,
+                    CreatorTextCard(
+                      title: 'Personality',
+                      subtitle: 'How they act and speak',
+                      controller: state.personalityController,
+                      maxLines: 4,
+                    ),
+                    CreatorTextCard(
+                      title: 'Scenario',
+                      subtitle: 'Where the first chat starts',
+                      controller: state.scenarioController,
+                    ),
+                    CreatorTextCard(
+                      title: 'First Message',
+                      subtitle: 'Opens every new chat',
+                      controller: state.firstMessageController,
+                      maxLines: 6,
+                    ),
+                    for (final (idx, alt)
+                        in state.altGreetingControllers.indexed)
+                      CreatorTextCard(
+                        title: 'Alternate greeting ${idx + 1}',
+                        controller: alt,
+                        maxLines: 4,
+                        below: [
+                          GreetingSeedForm(
+                            seed: idx < state.greetingSeeds.length
+                                ? state.greetingSeeds[idx]
+                                : null,
+                            showNeeds: true,
+                            showInventory: true,
+                            onChanged: (next) {
+                              while (state.greetingSeeds.length <= idx) {
+                                state.greetingSeeds.add(null);
+                              }
+                              state.greetingSeeds[idx] = next;
+                              state.notify();
+                            },
+                          ),
+                        ],
+                      ),
+                    _dialogueCard(context),
+                    CreatorTextCard(
+                      title: 'System Prompt',
+                      controller: state.systemPromptController,
+                      maxLines: 4,
+                    ),
+                    ReviewLorebookSection(state: state),
+                  ],
                 ),
-                _editableField(
-                  context,
-                  'System Prompt',
-                  state.systemPromptController,
-                  maxLines: 4,
-                ),
-                ReviewLorebookSection(state: state),
               ],
             ),
           ),
@@ -252,58 +240,47 @@ class ReviewStep extends StatelessWidget {
     );
   }
 
-  Widget _editableField(
-    BuildContext context,
-    String label,
-    TextEditingController controller, {
-    int maxLines = 3,
-  }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: _accent(context),
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 6),
-          AppTextField(
-            controller: controller,
-            maxLines: maxLines,
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 13,
-              height: 1.5,
-            ),
-            decoration: InputDecoration(
-              filled: true,
-              fillColor: AppColors.surfaceContainerOf(context),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.2),
-                ),
-              ),
-              enabledBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.2),
-                ),
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
-                borderSide: BorderSide(color: _accent(context)),
-              ),
-              contentPadding: const EdgeInsets.all(14),
-            ),
-          ),
-        ],
-      ),
+  /// "How {they} answer": the pronoun from the Sex field, "they" when it
+  /// says nothing the creator can read.
+  String _they() {
+    final sex = state.sexController.text.trim().toLowerCase();
+    if (RegExp(r'^(f|female|woman|girl|she)\b').hasMatch(sex)) return 'she';
+    if (RegExp(r'^(m|male|man|boy|he)\b').hasMatch(sex)) return 'he';
+    return 'they';
+  }
+
+  Widget _dialogueCard(BuildContext context) {
+    const kind = ReviewRewrite.dialogue;
+    final r = state.review;
+    final writing = r.writing(kind);
+    final llm = Provider.of<LLMProvider>(context, listen: false);
+    return CreatorTextCard(
+      key: const ValueKey('review-dialogue'),
+      title: 'Example dialogue',
+      subtitle: 'How ${_they()} answer, learned from the interview',
+      controller: state.exampleDialogueController,
+      boxKey: const ValueKey('review-dialogue-box'),
+      maxLines: 6,
+      writingText: writing
+          ? (r.dialogueText.isEmpty
+                ? state.exampleDialogueController.text
+                : r.dialogueText)
+          : null,
+      caret: writing && r.dialogueText.isNotEmpty,
+      status: writing ? 'Writing…' : null,
+      statusAmber: true,
+      below: [
+        ReviewRewriteRow(
+          id: 'review-dialogue',
+          steer: r.dialogueSteer,
+          hint: 'Steer it (optional), e.g. shorter lines, more bite',
+          action: 'Regenerate',
+          writing: writing,
+          onRun: () => state.regenerateExampleDialogue(llmProvider: llm),
+          onStop: () => state.stopReviewRewrite(kind),
+          error: r.errorOf(kind),
+        ),
+      ],
     );
   }
 }

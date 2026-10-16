@@ -7,10 +7,40 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 
 import '../../golden/support/fakes.dart';
+
+/// A fake with one set-aside character goal and one card goal from before
+/// v58 (no origin column yet), for the web's objective JSON.
+class _GoalsChat extends FakeChatService {
+  _GoalsChat() : super(activeCharacter: CharacterCard(name: 'Vera'));
+
+  static Objective _o(String id, {bool primary = false, String? status}) =>
+      Objective(
+        id: id,
+        characterId: 'vera',
+        objective: 'goal $id',
+        tasks: '[]',
+        active: true,
+        isPrimary: primary,
+        checkFrequency: 3,
+        injectionDepth: 4,
+        servedAmbition: primary ? null : 'open a bakery',
+        createdAt: DateTime(2026),
+        origin: primary ? null : 'character',
+        status: status,
+      );
+
+  @override
+  List<Objective> getObjectivesForGroupCharacter(CharacterCard character) => [
+    _o('main', primary: true),
+    _o('side', status: 'dormant'),
+  ];
+}
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -70,6 +100,19 @@ void main() {
       final before = storage.memorySettings.journalInterval;
       await facade.applySettings({'journalInterval': 'not-an-int'});
       expect(storage.memorySettings.journalInterval, before);
+    });
+
+    // 2026-10-16, objectives that keep up: the web's goals panel shows a
+    // set-aside goal dimmed and needs to know who the goal is from.
+    test('objective JSON carries dormant and origin for the web', () {
+      final f = ChatToolsFacade(_GoalsChat(), storage, null);
+      final obj = f.state()['objectives'] as Map;
+      final primary = obj['primary'] as Map;
+      final side = (obj['secondary'] as List).single as Map;
+      expect(primary['dormant'], isFalse);
+      expect(primary['origin'], 'user', reason: 'pre-v58, no served ambition');
+      expect(side['dormant'], isTrue);
+      expect(side['origin'], 'character');
     });
 
     test('objective task ops return false when the id is unknown', () async {

@@ -15,7 +15,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
 import 'package:front_porch_ai/services/image/comfy_url_probe.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_desk.dart';
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 import 'app_text_field.dart';
 
 class CharacterNameInput extends StatelessWidget {
@@ -25,52 +26,57 @@ class CharacterNameInput extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Inside the AI Character Creator the spec's Field and label; the app's
+    // own look everywhere else.
+    final p = CreatorPalette.maybeOf(context);
+    OutlineInputBorder outline(Color c) => OutlineInputBorder(
+      borderRadius: BorderRadius.circular(10),
+      borderSide: BorderSide(color: c),
+    );
+    final line = p?.fieldBorder ?? AppColors.borderOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           children: [
-            _inputLabel(context, label, required: required),
+            _inputLabel(context, p, label, required: required),
             const Spacer(),
             Tooltip(
               message: tooltip,
               child: IconButton(
-                icon: Icon(Icons.casino, color: Colors.amberAccent, size: 20),
+                icon: Icon(
+                  Icons.casino,
+                  color: p?.iconAccent ?? Colors.amberAccent,
+                  size: 20,
+                ),
                 onPressed: onRandomize,
                 visualDensity: VisualDensity.compact,
               ),
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        SizedBox(height: p == null ? 8 : 6),
         AppTextField(
           controller: controller,
           onChanged: onChanged,
-          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 14),
+          style: TextStyle(
+            color: p?.ink ?? AppColors.textPrimary(context),
+            fontSize: 14,
+          ),
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-              color: AppColors.textTertiary(context),
-              fontSize: 13,
+              color: p?.faint ?? AppColors.textTertiary(context),
+              fontSize: p == null ? 13 : 14,
             ),
             filled: true,
-            fillColor: AppColors.surfaceContainerOf(context),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
-            ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
-            ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: AppColors.formMasterAccent),
-            ),
-            contentPadding: const EdgeInsets.symmetric(
-              horizontal: 16,
-              vertical: 14,
-            ),
+            fillColor: p?.fieldFill ?? AppColors.surfaceContainerOf(context),
+            border: outline(line),
+            enabledBorder: outline(line),
+            focusedBorder: outline(p?.amber ?? AppColors.formMasterAccent),
+            contentPadding: p == null
+                ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
+                : const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           ),
           maxLines: 1,
         ),
@@ -79,29 +85,34 @@ class CharacterNameInput extends StatelessWidget {
   }
 }
 
-Widget _inputLabel(BuildContext context, String text, {bool required = false}) {
-  return Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Text(
-        text,
-        style: TextStyle(
+Widget _inputLabel(
+  BuildContext context,
+  CreatorPalette? p,
+  String text, {
+  bool required = false,
+}) {
+  final style = p != null
+      ? p.labelStyle
+      : TextStyle(
           color: AppColors.textPrimary(context),
           fontSize: 15,
           fontWeight: FontWeight.w600,
-        ),
-      ),
+        );
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Text(p != null ? text.toUpperCase() : text, style: style),
       if (required)
         Text(
           ' *',
-          style: TextStyle(
-            color: AppColors.resolve(
-              context,
-              Colors.redAccent,
-              Colors.red.shade700,
-            ),
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
+          style: style.copyWith(
+            color:
+                p?.amber ??
+                AppColors.resolve(
+                  context,
+                  Colors.redAccent,
+                  Colors.red.shade700,
+                ),
           ),
         ),
     ],

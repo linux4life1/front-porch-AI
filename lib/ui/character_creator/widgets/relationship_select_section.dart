@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_hint_field.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// "{{user}} Relationship" multi-select chips (NSFW dynamics hidden until the
 /// toggle is on) plus a custom relationship field. Restored from the
@@ -21,16 +21,13 @@ class RelationshipSelectSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedFg = AppColors.resolve(context, Colors.white, Colors.black87);
+    final selectedFg = StudioColors.amberInkOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           'Select one or more dynamics',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
         ),
         const SizedBox(height: 8),
         Wrap(
@@ -46,11 +43,7 @@ class RelationshipSelectSection extends StatelessWidget {
                 final isSelected = state.selectedRelationships.contains(rel);
                 final isNsfw = CreatorState.nsfwRelationships.contains(rel);
                 final relAccent = isNsfw
-                    ? AppColors.resolve(
-                        context,
-                        Colors.pinkAccent,
-                        const Color(0xFF9D174D),
-                      )
+                    ? StudioColors.terraOf(context)
                     : accent;
                 return FilterChip(
                   label: Row(
@@ -62,11 +55,7 @@ class RelationshipSelectSection extends StatelessWidget {
                           size: 12,
                           color: isSelected
                               ? selectedFg
-                              : AppColors.resolve(
-                                  context,
-                                  Colors.pinkAccent,
-                                  const Color(0xFF9D174D),
-                                ),
+                              : StudioColors.terraOf(context),
                         ),
                         const SizedBox(width: 4),
                       ],
@@ -83,21 +72,19 @@ class RelationshipSelectSection extends StatelessWidget {
                     state.saveState();
                     state.notify();
                   },
-                  selectedColor: AppColors.resolve(
-                    context,
-                    relAccent.withValues(alpha: 0.25),
-                    relAccent.withValues(alpha: 0.12),
-                  ),
-                  backgroundColor: AppColors.surfaceContainerOf(context),
+                  selectedColor: relAccent,
+                  backgroundColor: StudioColors.raiseOf(context),
                   checkmarkColor: selectedFg,
                   labelStyle: TextStyle(
                     color: isSelected
                         ? selectedFg
-                        : AppColors.textSecondary(context),
+                        : StudioColors.proseOf(context),
                     fontSize: 12,
                   ),
                   side: BorderSide(
-                    color: isSelected ? relAccent : AppColors.borderOf(context),
+                    color: isSelected
+                        ? relAccent
+                        : StudioColors.lineOf(context),
                   ),
                 );
               })

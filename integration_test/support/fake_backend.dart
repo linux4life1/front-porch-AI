@@ -28,6 +28,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'fake_backend_chargen.dart';
 import 'fake_backend_studio.dart';
 
 class FakeBackendServer {
@@ -67,6 +68,9 @@ class FakeBackendServer {
   /// Goal-check (objective completion) requests received.
   int objectiveCheckRequests = 0;
 
+  /// Each goal-check prompt, in call order.
+  final List<String> objectiveCheckPrompts = [];
+
   /// The goal check's verdict text.
   String objectiveCheckVerdict = '1: NO';
 
@@ -87,6 +91,9 @@ class FakeBackendServer {
   /// Story pipeline stages served, in order (architect / acts / scenes /
   /// beats / prose) — the story suite asserts the exact sequence.
   final List<String> storyStagesServed = [];
+
+  /// AI Character Creator stages served, in order (fake_backend_chargen).
+  final List<String> chargenStagesServed = [];
 
   /// Tool-transport probes refused (forces the text eval fallback).
   int toolProbeRequests = 0;
@@ -290,6 +297,18 @@ class FakeBackendServer {
       await _streamSse(req, studio.pieces);
       return;
     }
+    // ── AI Character Creator stages (fake_backend_chargen.dart) ────────
+    // Greetings are not among them: they take the chat reply below.
+    final chargen = chargenReply(lastContent);
+    if (chargen != null) {
+      chargenStagesServed.add(chargen.stage);
+      await _streamSse(
+        req,
+        chargen.pieces,
+        delay: const Duration(milliseconds: 150),
+      );
+      return;
+    }
     // ── Story pipeline stages ──────────────────────────────────────────
     // Each stage prompt opens with a distinctive role sentence (verified
     // against story_pipeline_service.dart's prompt builders); none of them
@@ -459,8 +478,9 @@ class FakeBackendServer {
       return;
     }
     if (lastContent.contains('Evaluate EACH item below') ||
-        lastContent.contains('report_objective_verdicts')) {
+        lastContent.contains('report_objective_sync')) {
       objectiveCheckRequests++;
+      objectiveCheckPrompts.add(lastContent);
       final hold = holdObjectiveCheck;
       if (hold == null) {
         await _streamSse(req, [objectiveCheckVerdict]);

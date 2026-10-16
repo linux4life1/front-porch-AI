@@ -42,6 +42,8 @@ const Set<String> kFpchatRealismStateCoreKeys = {
   'interCharacterRelationships',
   'characterEmotion',
   'emotionIntensity',
+  'emotionCause',
+  'emotionHeldTurns',
   'timeOfDay',
   'dayCount',
   'startDayOfWeek',

@@ -12,7 +12,9 @@
 // Realism step. Pressing Next instead jumped to step 4, which shows
 // "Generation failed. The LLM did not produce valid output." for a card that is
 // still being written (step 4 was Realism then; it is Greetings since #370,
-// which shows the same message, so Next on this step reads "Next: Greetings").
+// and since #530 it is the Profile step, which shows the same message, so
+// Next on this step reads "Next: Profile". Changed because the wizard gained
+// the Profile step between Generate and Greetings; the lock is the same).
 //
 // Red-proved: dropping the `busy ? null :` guards makes both disabled-state
 // expectations fail (onPressed comes back non-null).
@@ -121,7 +123,7 @@ void main() {
       isNotNull,
       reason: 'sanity: nothing is running yet, so Back still works',
     );
-    expect(_button(tester, 'Next: Greetings').onPressed, isNotNull);
+    expect(_button(tester, 'Next: Profile').onPressed, isNotNull);
 
     state.isGenerating = true;
     state.notify();
@@ -133,10 +135,10 @@ void main() {
       reason: 'Back → Generate is how a second concurrent generation starts',
     );
     expect(
-      _button(tester, 'Next: Greetings').onPressed,
+      _button(tester, 'Next: Profile').onPressed,
       isNull,
       reason:
-          'Next lands on GreetingsStep, which calls a null card a failure '
+          'Next lands on ProfileStep, which calls a null card a failure '
           'while the generation is still streaming',
     );
 

@@ -288,6 +288,46 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 57) {
+      // v56→v57: the mood gains a cause and a hold count
+      // (docs/design/mood-with-bite.md). Defaults match what every existing
+      // chat reads today: no cause, a fresh feeling. Additive, so a downgrade
+      // keeps reading sessions.
+      for (final ddl in const [
+        "ALTER TABLE sessions ADD COLUMN emotion_cause TEXT NOT NULL DEFAULT ''",
+        'ALTER TABLE sessions ADD COLUMN emotion_held_turns '
+            'INTEGER NOT NULL DEFAULT 0',
+      ]) {
+        try {
+          await customStatement(ddl);
+          debugPrint('[DB] v57: $ddl');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+    }
+    if (from < 58) {
+      // v57→v58: objectives keep up (docs/design/objectives-that-keep-up.md).
+      // All nullable, so a downgrade keeps reading objectives. Origin is
+      // backfilled the way the rows were made: a quest that serves an
+      // ambition came from the judge, everything else from the user.
+      for (final ddl in const [
+        'ALTER TABLE objectives ADD COLUMN origin TEXT',
+        'ALTER TABLE objectives ADD COLUMN status TEXT',
+        'ALTER TABLE objectives ADD COLUMN ended_at INTEGER',
+      ]) {
+        try {
+          await customStatement(ddl);
+          debugPrint('[DB] v58: $ddl');
+        } catch (_) {
+          // already present (re-run / dual-version)
+        }
+      }
+      await customStatement(
+        "UPDATE objectives SET origin = CASE WHEN served_ambition IS NOT NULL "
+        "THEN 'character' ELSE 'user' END WHERE origin IS NULL",
+      );
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

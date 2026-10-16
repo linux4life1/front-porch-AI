@@ -264,6 +264,19 @@ class Objectives extends Table {
   TextColumn get servedAmbition => text().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 
+  /// v58 (docs/design/objectives-that-keep-up.md): where the goal came from
+  /// — user, card, character or planner — which decides the voice it is
+  /// injected in. Read through objectiveOrigin(), which applies the
+  /// backfill rule to a NULL.
+  TextColumn get origin => text().nullable()();
+
+  /// v58: dormant (set aside, still theirs), done or overtaken. NULL is an
+  /// open goal on track.
+  TextColumn get status => text().nullable()();
+
+  /// v58: when a goal was finished or let go; feeds "recently finished".
+  DateTimeColumn get endedAt => dateTime().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }

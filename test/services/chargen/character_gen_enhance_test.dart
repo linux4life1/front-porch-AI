@@ -11,7 +11,7 @@ import 'dart:convert';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_gen_service.dart';
-import 'package:front_porch_ai/services/chargen/chat_grounding.dart';
+import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 
 const _grounding = 'User: hello Nina\nNina: well well, look who wandered in';
@@ -116,8 +116,9 @@ void main() {
     );
 
     expect(result, isNotNull);
-    // 7 interview questions (no relationship, nsfw off) + 1 dialogue call.
-    expect(llm.prompts.where((p) => p.contains('Question:')).length, 7);
+    // 9 interview questions (no relationship, nsfw off) + 1 dialogue call.
+    // Was 7: the standard set gained the attraction and living questions.
+    expect(llm.prompts.where((p) => p.contains('Question:')).length, 9);
     expect(
       llm.prompts.where((p) => p.contains('Write example dialogue exchanges')),
       hasLength(1),
@@ -401,4 +402,54 @@ void main() {
       );
     },
   );
+
+  test('a card stamped third person past is interviewed in that voice: the '
+      'standard nine, in the third person, with her pronouns', () async {
+    final llm = _RoutedLlm();
+    final source = _sourceCard();
+    stampNarrativeVoice(
+      source,
+      voice: const NarrativeVoice(
+        perspective: NarrativePerspective.third,
+        tense: NarrativeTense.past,
+      ),
+      sex: 'female',
+    );
+    final result = await CharacterGenService(llm).enhanceCharacter(
+      source: source,
+      selection: const EnhanceSelection(
+        description: false,
+        personality: false,
+        exampleDialogue: true,
+      ),
+      chatGrounding: _grounding,
+    );
+
+    expect(result, isNotNull);
+    final asked = llm.prompts.where((p) => p.contains('Question:')).toList();
+    expect(asked, hasLength(9), reason: 'no relationship, 18+ off');
+    for (final p in asked) {
+      expect(
+        p,
+        contains(
+          'Answer each question in third person, past tense, about Nina '
+          '(she/her/her)',
+        ),
+      );
+      expect(p, contains(_grounding), reason: 'the chat still grounds it');
+      expect(p, endsWith('\n\nAnswer: '));
+      expect(p, isNot(contains('Question: How do you')));
+    }
+    expect(
+      asked.first,
+      contains(
+        'Question: How does {{char}} talk? Give two quick samples of her '
+        'voice',
+      ),
+    );
+    expect(
+      asked.last,
+      contains('Question: Now describe her physical appearance'),
+    );
+  });
 }

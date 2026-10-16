@@ -42,6 +42,11 @@ class _GenerationTabState extends State<GenerationTab> {
     final llmProvider = Provider.of<LLMProvider>(context);
     final isRemote = !llmProvider.isLocal;
     final accent = AppColors.porchAmberOf(context);
+    // Only what this backend's requests carry; a hidden value is kept.
+    final knobs = samplerKnobsFor(
+      llmProvider.activeBackend,
+      remoteApiUrl: storage.backendSettings.remoteApiUrl,
+    );
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -73,16 +78,17 @@ class _GenerationTabState extends State<GenerationTab> {
             showInput: true,
             decimalPlaces: 1,
           ),
-          SliderSetting(
-            label: 'Min-P',
-            value: storage.generationSettings.minP,
-            min: 0.0,
-            max: 1.0,
-            onChanged: (val) => storage.generationSettings.setMinP(val),
-            divisions: 100,
-            showInput: true,
-            decimalPlaces: 2,
-          ),
+          if (knobs.contains(SamplerKnob.minP))
+            SliderSetting(
+              label: 'Min-P',
+              value: storage.generationSettings.minP,
+              min: 0.0,
+              max: 1.0,
+              onChanged: (val) => storage.generationSettings.setMinP(val),
+              divisions: 100,
+              showInput: true,
+              decimalPlaces: 2,
+            ),
           SliderSetting(
             label: 'Top-P',
             value: storage.generationSettings.topP,
@@ -93,42 +99,43 @@ class _GenerationTabState extends State<GenerationTab> {
             showInput: true,
             decimalPlaces: 2,
           ),
-          SliderSetting(
-            label: 'Top-K',
-            value: storage.generationSettings.topK.toDouble(),
-            min: 0,
-            max: 200,
-            onChanged: (val) => storage.generationSettings.setTopK(val.toInt()),
-            divisions: 200,
-            showInput: true,
-            isInteger: true,
-          ),
-          SliderSetting(
-            label: 'Repeat Penalty',
-            value: storage.generationSettings.repeatPenalty,
-            min: 1.0,
-            max: 3.0,
-            onChanged: (val) =>
-                storage.generationSettings.setRepeatPenalty(val),
-            divisions: 200,
-            showInput: true,
-            decimalPlaces: 2,
-          ),
-          SliderSetting(
-            label: 'Repeat Penalty Tokens',
-            value: storage.generationSettings.repeatPenaltyTokens.toDouble(),
-            min: 0,
-            max: 2048,
-            onChanged: (val) =>
-                storage.generationSettings.setRepeatPenaltyTokens(val.toInt()),
-            divisions: 256,
-            showInput: true,
-            isInteger: true,
-          ),
-          // XTC and DRY are llama.cpp samplers — only the KoboldCpp
-          // backend honors them, so they are hidden (not just annotated)
-          // on oMLX/remote (maintainer request 2026-07-15).
-          if (llmProvider.activeBackend == BackendType.kobold) ...[
+          if (knobs.contains(SamplerKnob.topK))
+            SliderSetting(
+              label: 'Top-K',
+              value: storage.generationSettings.topK.toDouble(),
+              min: 0,
+              max: 200,
+              onChanged: (val) =>
+                  storage.generationSettings.setTopK(val.toInt()),
+              divisions: 200,
+              showInput: true,
+              isInteger: true,
+            ),
+          if (knobs.contains(SamplerKnob.repeatPenalty))
+            SliderSetting(
+              label: 'Repeat Penalty',
+              value: storage.generationSettings.repeatPenalty,
+              min: 1.0,
+              max: 3.0,
+              onChanged: (val) =>
+                  storage.generationSettings.setRepeatPenalty(val),
+              divisions: 200,
+              showInput: true,
+              decimalPlaces: 2,
+            ),
+          if (knobs.contains(SamplerKnob.repeatPenaltyTokens))
+            SliderSetting(
+              label: 'Repeat Penalty Tokens',
+              value: storage.generationSettings.repeatPenaltyTokens.toDouble(),
+              min: 0,
+              max: 2048,
+              onChanged: (val) => storage.generationSettings
+                  .setRepeatPenaltyTokens(val.toInt()),
+              divisions: 256,
+              showInput: true,
+              isInteger: true,
+            ),
+          if (knobs.contains(SamplerKnob.xtc)) ...[
             SliderSetting(
               label: 'XTC Threshold',
               value: storage.generationSettings.xtcThreshold,
@@ -151,6 +158,8 @@ class _GenerationTabState extends State<GenerationTab> {
               showInput: true,
               decimalPlaces: 2,
             ),
+          ],
+          if (knobs.contains(SamplerKnob.dry))
             SliderSetting(
               label: 'DRY Strength',
               value: storage.generationSettings.dryMultiplier,
@@ -162,35 +171,36 @@ class _GenerationTabState extends State<GenerationTab> {
               showInput: true,
               decimalPlaces: 2,
             ),
-          ],
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Text(
-                'Dynamic Temperature',
-                style: TextStyle(color: AppColors.textPrimary(context)),
-              ),
-              const Spacer(),
-              Switch(
-                value: storage.generationSettings.dynamicTempEnabled,
-                onChanged: (val) =>
-                    storage.generationSettings.setDynamicTempEnabled(val),
-                activeTrackColor: accent,
-              ),
-            ],
-          ),
-          if (storage.generationSettings.dynamicTempEnabled)
-            SliderSetting(
-              label: 'Dynatemp Range',
-              value: storage.generationSettings.dynamicTempRange,
-              min: 0.0,
-              max: 2.0,
-              onChanged: (val) =>
-                  storage.generationSettings.setDynamicTempRange(val),
-              divisions: 20,
-              showInput: true,
-              decimalPlaces: 1,
+          if (knobs.contains(SamplerKnob.dynamicTemp)) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Text(
+                  'Dynamic Temperature',
+                  style: TextStyle(color: AppColors.textPrimary(context)),
+                ),
+                const Spacer(),
+                Switch(
+                  value: storage.generationSettings.dynamicTempEnabled,
+                  onChanged: (val) =>
+                      storage.generationSettings.setDynamicTempEnabled(val),
+                  activeTrackColor: accent,
+                ),
+              ],
             ),
+            if (storage.generationSettings.dynamicTempEnabled)
+              SliderSetting(
+                label: 'Dynatemp Range',
+                value: storage.generationSettings.dynamicTempRange,
+                min: 0.0,
+                max: 2.0,
+                onChanged: (val) =>
+                    storage.generationSettings.setDynamicTempRange(val),
+                divisions: 20,
+                showInput: true,
+                decimalPlaces: 1,
+              ),
+          ],
           const SizedBox(height: 24),
 
           // ── Output Limits ──────────────────────────────────────────────
@@ -321,7 +331,7 @@ class _GenerationTabState extends State<GenerationTab> {
           const SizedBox(height: 24),
 
           // ── Banned Phrases (KoboldCpp only) ────────────────────────────
-          if (!isRemote) ...[
+          if (knobs.contains(SamplerKnob.bannedPhrases)) ...[
             const SectionHeader('Banned Phrases'),
             BannedPhrasesEditor(
               controller: widget.bannedPhrasesController,

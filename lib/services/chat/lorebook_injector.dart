@@ -52,7 +52,24 @@ List<String> spliceDepthLore(
   List<String> lines,
   List<LoreDepthEntry> depthLore,
 ) {
-  if (depthLore.isEmpty) return lines;
+  final split = spliceDepthLoreSplit(lines, depthLore, tailCount: 0);
+  return [...split.body, ...split.tail];
+}
+
+/// [spliceDepthLore], cut before the last [tailCount] lines. [tail] holds
+/// those lines plus any lore that lands among or after them (depth 0 rides
+/// with the newest line); lore at exactly depth [tailCount] stays at the end
+/// of [body]. Depths count against the WHOLE list, so the cut never moves
+/// where an entry sits relative to the messages.
+({List<String> body, List<String> tail}) spliceDepthLoreSplit(
+  List<String> lines,
+  List<LoreDepthEntry> depthLore, {
+  required int tailCount,
+}) {
+  final cut = lines.length - tailCount.clamp(0, lines.length);
+  if (depthLore.isEmpty) {
+    return (body: lines.sublist(0, cut), tail: lines.sublist(cut));
+  }
   final atFromEnd = <int, List<String>>{};
   for (final d in depthLore) {
     final maxFromEnd = lines.length < kDepthLoreMaxFromEnd
@@ -62,12 +79,14 @@ List<String> spliceDepthLore(
     atFromEnd.putIfAbsent(clamped, () => []).add(d.content);
   }
   final out = <String>[];
+  var split = 0;
   for (var i = 0; i <= lines.length; i++) {
     final insert = atFromEnd[lines.length - i];
     if (insert != null) out.addAll(insert);
+    if (i == cut) split = out.length;
     if (i < lines.length) out.add(lines[i]);
   }
-  return out;
+  return (body: out.sublist(0, split), tail: out.sublist(split));
 }
 
 /// Positioned lore buckets, ready for the prompt assemblers. Every string is

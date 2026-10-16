@@ -8,6 +8,8 @@
 // character matches a desktop-created one 1:1. Option lists are ported verbatim
 // from lib/ui/character_creator/creator_options.dart + creator_state.dart.
 
+import { toPayload, type InterviewRow } from './interviewRows';
+
 export type ChargenMode = 'quick' | 'guided' | 'automated';
 
 export interface ChargenForm {
@@ -28,6 +30,8 @@ export interface ChargenForm {
   narrativePerspective: 'first' | 'third';
   narrativeTense: 'present' | 'past';
   generationDetail: string; // label key into GENERATION_DETAIL
+  /** The Interview card's list; null is the untouched standard set. */
+  interviewQuestions: InterviewRow[] | null;
   // Quick
   quickConcept: string;
   quickKeywords: string;
@@ -99,6 +103,7 @@ export const DEFAULT_FORM: ChargenForm = {
   narrativePerspective: 'first',
   narrativeTense: 'present',
   generationDetail: 'Standard',
+  interviewQuestions: null,
   quickConcept: '',
   quickKeywords: '',
   quickScenario: '',
@@ -241,12 +246,17 @@ function outputSettings(f: ChargenForm): Record<string, unknown> {
     narrativePerspective: f.narrativePerspective,
     narrativeTense: f.narrativeTense,
     descriptionDetail: GENERATION_DETAIL[f.generationDetail] ?? '2-3 paragraphs',
+    // Only a list the user changed; absent asks the standard set, [] none.
+    ...(f.interviewQuestions ? { interviewQuestions: toPayload(f.interviewQuestions) } : {}),
   };
 }
 
-/** Build the POST /api/chargen/create body for the active mode. */
+/** Build the POST /api/chargen/create body for the active mode. The run
+ *  pauses after the profile, so the Profile step can show it before the
+ *  rest is written. */
 export function buildPayload(f: ChargenForm): Record<string, unknown> {
   const base = {
+    pauseAtProfile: true,
     name: f.name.trim(),
     mode: f.mode,
     nsfwEnabled: f.nsfw,

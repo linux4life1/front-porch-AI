@@ -1,0 +1,204 @@
+/* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
+/*
+   Creator templates, transcribed from docs/design/creator-ui-spec.md (rows
+   Template picker card, Configure header, Save-as-template dialog, Dialog,
+   Menu) and the approved boards: the Mode step's picker, the Output step's
+   Started from pill and Save button, and the template dialogs. Studio tokens
+   only. Base rules are the wide layout (the desktop boards); every phone
+   delta sits under [data-layout="phone"].
+*/
+
+/* ── Picker: a card whose tiles wrap ───────────────────────────── */
+.cg-scope .cg-tpl {
+  background: var(--studio-card); border: 1px solid var(--studio-line); border-radius: 16px;
+  padding: 18px 20px 20px; display: flex; flex-direction: column; gap: 14px; min-width: 0;
+}
+.cg-scope .cg-tpl-head { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.cg-scope .cg-tpl-head svg { flex: none; width: 20px; height: 20px; color: var(--studio-amber); }
+.cg-scope .cg-tpl-head h3 {
+  margin: 0; font-size: 16px; font-weight: 700; color: var(--studio-ink); white-space: nowrap;
+}
+.cg-scope .cg-tpl-sub { min-width: 0; font-size: 12px; color: var(--studio-muted); }
+.cg-scope .cg-tpl-loading { margin: 0; font-size: 12px; color: var(--studio-muted); }
+.cg-scope .cg-tpl-error { margin: 0; font-size: 12px; line-height: 1.5; color: var(--studio-bad); }
+.cg-scope button.cg-tpl-retry {
+  height: auto; padding: 0; border: 0; background: transparent;
+  color: var(--studio-amber); font-size: 12px; font-weight: 600;
+}
+
+/* Tiles are 176px; a row breaks at 168 so the board's five fit the 960px
+   column (where it draws them shrunk to 174), and grows back to 176. */
+.cg-scope .cg-tpl-tiles { display: flex; flex-wrap: wrap; gap: 12px; }
+.cg-scope .cg-tpl-tile {
+  flex: 1 0 168px; max-width: 176px; min-width: 0; display: flex; flex-direction: column; gap: 6px;
+  background: var(--studio-bg); border: 1px solid var(--studio-line); border-radius: 12px;
+  padding: 12px 12px 10px;
+}
+.cg-scope .cg-tpl-tile.on { border: 1.5px solid var(--studio-amber); }
+.cg-scope .cg-tpl-top { display: flex; align-items: flex-start; gap: 6px; }
+.cg-scope .cg-tpl-name,
+.cg-scope button.cg-tpl-name {
+  min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: transparent; text-align: left; overflow-wrap: anywhere;
+  color: var(--studio-ink); font-size: 14px; font-weight: 600; line-height: 1.3;
+}
+/* Beside the ⋯ button the name takes the row; a built-in's sits alone in
+   the column and keeps its own height. */
+.cg-scope .cg-tpl-top .cg-tpl-name { flex: 1 1 auto; }
+.cg-scope button.cg-tpl-more {
+  width: 28px; height: 28px; flex: none; margin: -4px -6px 0 0; padding: 0; border: 0; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--studio-muted);
+}
+.cg-scope button.cg-tpl-more.on { background: var(--studio-raise); color: var(--studio-ink); }
+.cg-scope .cg-tpl-line { font-size: 12px; line-height: 1.4; color: var(--studio-muted); }
+.cg-scope .cg-tpl-broken { font-size: 12px; line-height: 1.4; color: var(--studio-bad); }
+.cg-scope .cg-tpl-saved { font-size: 11px; color: var(--studio-faint); }
+.cg-scope .cg-tpl-pill {
+  display: inline-block; padding: 1px 7px; border-radius: 8px;
+  border: 1px solid color-mix(in srgb, var(--studio-amber) 50%, transparent);
+  color: var(--studio-amber); font-size: 11px; font-weight: 600;
+}
+.cg-scope .cg-tpl-tile.cg-tpl-all {
+  justify-content: center; gap: 4px; padding: 12px;
+  background: transparent; border: 1px dashed var(--studio-line-strong);
+}
+.cg-scope button.cg-tpl-all-btn {
+  display: flex; align-items: center; gap: 6px; margin: 0; padding: 0; border: 0; border-radius: 0;
+  background: transparent; text-align: left;
+  color: var(--studio-amber); font-size: 14px; font-weight: 600; line-height: 1.3;
+}
+.cg-scope button.cg-tpl-all-btn svg { width: 16px; height: 16px; flex: none; }
+
+/* The ⋯ menu (the shared CardMenu, in the spec's Menu). */
+.cg-scope .card-menu {
+  background: var(--studio-side); border: 1px solid var(--studio-line); border-radius: 10px; padding: 6px;
+}
+.cg-scope button.card-menu-item {
+  height: 36px; padding: 0 10px; border-radius: 8px; font-size: 14px; color: var(--studio-ink);
+}
+.cg-scope button.card-menu-item:hover { background: var(--studio-raise); }
+.cg-scope button.card-menu-item.danger { color: var(--studio-bad); }
+
+/* ── The Output step's foot: Started from, then Save as template ── */
+.cg-scope .cg-tpl-save { display: flex; flex-direction: column; gap: 10px; }
+.cg-scope .cg-tpl-started { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.cg-scope .cg-tpl-from {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 28px; padding: 0 10px;
+  border-radius: 14px; background: color-mix(in srgb, var(--studio-amber) 12%, transparent);
+  color: var(--studio-amber); font-size: 12px; font-weight: 600;
+}
+.cg-scope .cg-tpl-from svg { flex: none; }
+.cg-scope .cg-tpl-from-name { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cg-scope .cg-tpl-from-caption { font-size: 12px; color: var(--studio-faint); }
+.cg-scope button.cg-tpl-save-btn {
+  width: 100%; height: 44px; padding: 0 18px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  border: 1.5px solid var(--studio-amber); background: transparent;
+  color: var(--studio-amber); font-size: 14px; font-weight: 700;
+}
+
+/* ── Dialogs: 520px centred; the phone's is a bottom sheet ─────── */
+.cg-scope .cg-sheet-scrim {
+  position: fixed; inset: 0; z-index: 80; padding: 16px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--studio-scrim);
+}
+.cg-scope .cg-sheet {
+  width: 520px; max-width: 100%; max-height: calc(100% - 32px); overflow-y: auto; outline: none;
+  display: flex; flex-direction: column; gap: 16px; padding: 24px; border-radius: 20px;
+  background: var(--studio-card); border: 1px solid var(--studio-line); color: var(--studio-ink);
+  box-shadow: var(--studio-dialog-shadow);
+}
+.cg-scope .cg-sheet-handle {
+  flex: none; align-self: center; width: 40px; height: 4px; border-radius: 2px;
+  background: var(--studio-line-strong);
+}
+.cg-scope .cg-sheet-title { display: flex; align-items: center; gap: 10px; }
+.cg-scope .cg-sheet-title svg { flex: none; width: 22px; height: 22px; color: var(--studio-amber); }
+.cg-scope .cg-sheet-title h2 { margin: 0; font-size: 20px; font-weight: 700; color: var(--studio-ink); }
+.cg-scope .cg-sheet.danger .cg-sheet-title svg,
+.cg-scope .cg-sheet.danger .cg-sheet-title h2 { color: var(--studio-bad); }
+.cg-scope .cg-sheet-body { margin: 0; font-size: 14px; line-height: 1.5; color: var(--studio-prose); }
+.cg-scope .cg-sheet-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
+.cg-scope .cg-sheet-field label {
+  display: block; margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.4px; color: var(--studio-muted);
+}
+.cg-scope .cg-sheet-field input {
+  width: 100%; height: 44px; margin: 0; padding: 0 14px; border: 0; border-radius: 12px;
+  background: var(--studio-raise); color: var(--studio-ink); font-size: 14px;
+}
+.cg-scope .cg-sheet-field input::placeholder { color: var(--studio-faint); }
+.cg-scope .cg-sheet-caption { font-size: 12px; line-height: 1.5; color: var(--studio-amber); }
+.cg-scope .cg-sheet-problem { font-size: 12px; line-height: 1.5; color: var(--studio-bad); }
+.cg-scope .cg-sheet-actions {
+  display: flex; justify-content: flex-end; align-items: center; gap: 10px; margin-top: 4px;
+}
+.cg-scope button.cg-sheet-cancel {
+  height: 44px; padding: 0 16px; border: 0; border-radius: 12px;
+  background: transparent; color: var(--studio-prose); font-size: 14px; font-weight: 600;
+}
+.cg-scope button.cg-sheet-confirm {
+  height: 44px; padding: 0 20px; border: 0; border-radius: 12px;
+  background: var(--studio-amber); color: var(--studio-amber-ink); font-size: 14px; font-weight: 700;
+}
+.cg-scope button.cg-sheet-confirm.danger { background: var(--studio-bad); }
+/* Disabled as the desktop draws it: the fill at 40%, the ink at 70%. */
+.cg-scope button.cg-sheet-confirm:disabled {
+  opacity: 1; background: color-mix(in srgb, var(--studio-amber) 40%, transparent);
+  color: color-mix(in srgb, var(--studio-amber-ink) 70%, transparent);
+}
+.cg-scope button.cg-sheet-confirm.danger:disabled {
+  background: color-mix(in srgb, var(--studio-bad) 40%, transparent);
+}
+/* The fifteen scroll inside the dialog, so Cancel stays in view. */
+.cg-scope .cg-sheet-list {
+  flex: 0 1 auto; min-height: 0; overflow-y: auto; display: flex; flex-direction: column; gap: 6px;
+}
+.cg-scope .cg-sheet-list > * { flex: none; }
+.cg-scope button.cg-sheet-row {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; margin: 0; text-align: left;
+  padding: 10px 14px; border-radius: 12px; border: 1px solid var(--studio-line); background: var(--studio-bg);
+}
+.cg-scope .cg-sheet-row-name { font-size: 14px; font-weight: 600; color: var(--studio-ink); }
+.cg-scope .cg-sheet-row-line { font-size: 12px; line-height: 1.4; color: var(--studio-muted); }
+
+/* ── Phone ─────────────────────────────────────────────────────── */
+/* The picker: a heading, then tiles in a row that scrolls sideways and
+   runs to the screen's edges. */
+[data-layout="phone"] .cg-scope .cg-tpl {
+  padding: 0; gap: 10px; background: transparent; border: 0; border-radius: 0;
+}
+[data-layout="phone"] .cg-scope .cg-tpl-head { gap: 8px; }
+[data-layout="phone"] .cg-scope .cg-tpl-head svg { width: 18px; height: 18px; }
+[data-layout="phone"] .cg-scope .cg-tpl-head h3 { font-size: 15px; }
+[data-layout="phone"] .cg-scope .cg-tpl-tiles {
+  flex-wrap: nowrap; gap: 10px; overflow-x: auto; margin: 0 -16px; padding: 0 16px 4px;
+  scrollbar-width: none; -webkit-overflow-scrolling: touch;
+}
+[data-layout="phone"] .cg-scope .cg-tpl-tiles::-webkit-scrollbar { display: none; }
+[data-layout="phone"] .cg-scope .cg-tpl-tile {
+  flex: none; width: 168px; max-width: none; padding: 12px; background: var(--studio-card);
+}
+[data-layout="phone"] .cg-scope .cg-tpl-top { gap: 4px; }
+[data-layout="phone"] .cg-scope .cg-tpl-tile.cg-tpl-all {
+  width: 120px; flex-direction: row; align-items: center; background: transparent;
+}
+[data-layout="phone"] .cg-scope .cg-tpl + .cg-mode-cards { margin-top: 4px; }
+
+[data-layout="phone"] .cg-scope button.cg-tpl-save-btn { height: 48px; padding: 0 16px; font-size: 15px; }
+
+/* The dialog as a bottom sheet: the handle, then the blocks 14px apart,
+   the buttons stacked with the confirm first. */
+[data-layout="phone"] .cg-scope .cg-sheet-scrim { align-items: flex-end; padding: 0; }
+[data-layout="phone"] .cg-scope .cg-sheet {
+  width: 100%; max-height: calc(100% - 24px); gap: 14px; border-bottom: 0; border-radius: 20px 20px 0 0;
+  padding: 10px 20px calc(24px + env(safe-area-inset-bottom)); box-shadow: none;
+}
+[data-layout="phone"] .cg-scope .cg-sheet-title svg { width: 20px; height: 20px; }
+[data-layout="phone"] .cg-scope .cg-sheet-field input { height: 48px; font-size: 16px; }
+[data-layout="phone"] .cg-scope .cg-sheet-actions {
+  flex-direction: column; align-items: stretch; gap: 14px; margin-top: 0;
+}
+[data-layout="phone"] .cg-scope button.cg-sheet-confirm { height: 52px; border-radius: 14px; font-size: 16px; }
+[data-layout="phone"] .cg-scope button.cg-sheet-cancel { font-size: 15px; }

@@ -144,4 +144,44 @@ void main() {
       );
     });
   });
+
+  // 2026-10-16, objectives that keep up: the goals the character already has
+  // and lately ended change every few turns. They must ride after the shared
+  // prefix, or the prefix stops being shared the moment a goal lands.
+  test('open and ended goals ride after the prefix, never inside it', () {
+    final p = prefix();
+    const open = ['win the harvest fair'];
+    const ended = ['finished: mend the porch steps'];
+    final narr = RealismPromptBuilder.narrativeEvalPrompt(
+      charName: 'Vera',
+      userName: 'Sam',
+      dossier: 'DOSSIER\n',
+      standing: 'STANDING\n',
+      recent: 'Sam: hey',
+      preferences: 'PREFS\n',
+      ambitions: ambitions,
+      openGoals: open,
+      recentEnded: ended,
+    );
+    final oneShot = RealismPromptBuilder.oneShotEvalPrompt(
+      charName: 'Vera',
+      userName: 'Sam',
+      dossier: 'DOSSIER\n',
+      standing: 'STANDING\n',
+      recent: 'Sam: hey',
+      arousalEnabled: false,
+      arousalLevel: 0,
+      preferences: 'PREFS\n',
+      ambitions: ambitions,
+      openGoals: open,
+      recentEnded: ended,
+    );
+    for (final judge in [narr, oneShot]) {
+      expect(judge.startsWith(p), isTrue);
+      final tail = judge.substring(p.length);
+      expect(tail, contains('Already wants: "win the harvest fair"'));
+      expect(tail, contains('Lately finished: mend the porch steps'));
+    }
+    expect(p, isNot(contains('harvest fair')));
+  });
 }

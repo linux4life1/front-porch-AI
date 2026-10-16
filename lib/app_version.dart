@@ -42,6 +42,16 @@ bool get isNightlyBuild {
   return lower.contains('rawhide') || lower.contains('nightly');
 }
 
+/// Native window / task-switcher title for [version]. Rawhide builds say so,
+/// so they can be told apart from stable when both are running.
+String windowTitleForVersion(String version) {
+  final lower = version.toLowerCase();
+  final rawhide = lower.contains('rawhide') || lower.contains('nightly');
+  return rawhide ? 'Front Porch AI Rawhide' : 'Front Porch AI';
+}
+
+String get appWindowTitle => windowTitleForVersion(appVersion);
+
 /// The stable version number without the pre-release suffix.
 /// e.g. '0.9.0-alpha1' → '0.9.0'
 String get stableVersionBase => appVersion.split('-').first;

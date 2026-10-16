@@ -258,8 +258,7 @@ extension ChatServiceChatEntry on ChatService {
         // bleed would be written to the new chat's row and become permanent.
         _pockets = null;
         _realismEnabled = false;
-        _characterEmotion = '';
-        _emotionIntensity = '';
+        _mood.reset();
         // Time reset via extracted service (keeps multiple reset blocks in sync).
         // See time_service.dart and "keep reset blocks" comments (now lists needs/chaos/relationship/expression/time/nsfw/lorebook_scanner + prompt_injection (stateless builders; no reset calls needed) + llm_eval_engine (stateless or prompt-only; no reset calls needed; incomplete zeroing... now complete (see CLAUDE.md)) + needs_impact_evaluator (stateless or prompt-only; no reset calls needed) + realism_evals (stateless or prompt-only; no reset calls needed) + objective_proposal (stateless or prompt-only; no reset calls needed) + journal_maintenance (stateless or prompt-only; no reset calls needed)). (cross-ref setActiveCharacter:1572 etc)
         _timeService.resetForFreshChat();
@@ -345,8 +344,7 @@ extension ChatServiceChatEntry on ChatService {
               storyStartTime: ext.storyStartTime,
             );
             _applySeededPassageOfTime();
-            _characterEmotion = ext.characterEmotion;
-            _emotionIntensity = ext.emotionIntensity;
+            _mood.seed(ext.characterEmotion, ext.emotionIntensity);
             _nsfwService.seedFromV2OrExt(
               // Same OR-override rationale as realism above: a globally-enabled
               // NSFW cooldown applies to imported cards too.

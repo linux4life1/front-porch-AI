@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/pockets.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form/greeting_seed_form.dart';
 import 'package:front_porch_ai/ui/widgets/identity_chip_lists.dart';
 
@@ -92,12 +93,13 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: enabled
-              ? AppColors.formMasterAccent.withValues(alpha: 0.4)
-              : AppColors.borderOf(context),
+              ? (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+                    .withValues(alpha: 0.4)
+              : context.creatorPalette?.line ?? AppColors.borderOf(context),
         ),
       ),
       child: Row(
@@ -107,17 +109,20 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
             height: 44,
             decoration: BoxDecoration(
               color: enabled
-                  ? AppColors.formMasterAccent.withValues(alpha: 0.2)
-                  : AppColors.surfaceContainerOf(
-                      context,
-                    ).withValues(alpha: 0.6),
+                  ? (context.creatorPalette?.amber ??
+                            AppColors.formMasterAccent)
+                        .withValues(alpha: 0.2)
+                  : (context.creatorPalette?.raise ??
+                            AppColors.surfaceContainerOf(context))
+                        .withValues(alpha: 0.6),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(
               Icons.tune,
               color: enabled
-                  ? AppColors.formMasterAccent
-                  : AppColors.iconSecondary(context),
+                  ? context.creatorPalette?.amber ?? AppColors.formMasterAccent
+                  : context.creatorPalette?.muted ??
+                        AppColors.iconSecondary(context),
               size: 24,
             ),
           ),
@@ -129,7 +134,9 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
                 Text(
                   'Custom opening state',
                   style: TextStyle(
-                    color: AppColors.textPrimary(context),
+                    color:
+                        context.creatorPalette?.ink ??
+                        AppColors.textPrimary(context),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -143,8 +150,10 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
                             'greeting.',
                   style: TextStyle(
                     color: enabled
-                        ? AppColors.formMasterAccent
-                        : AppColors.textTertiary(context),
+                        ? context.creatorPalette?.amber ??
+                              AppColors.formMasterAccent
+                        : context.creatorPalette?.muted ??
+                              AppColors.textTertiary(context),
                     fontSize: 12,
                   ),
                 ),
@@ -163,8 +172,11 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
                 widget.onChanged(null);
               }
             },
-            activeTrackColor: AppColors.formMasterAccent.withValues(alpha: 0.5),
-            activeThumbColor: AppColors.formMasterAccent,
+            activeTrackColor:
+                (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+                    .withValues(alpha: 0.5),
+            activeThumbColor:
+                context.creatorPalette?.amber ?? AppColors.formMasterAccent,
           ),
         ],
       ),

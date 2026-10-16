@@ -20,6 +20,15 @@ static void first_frame_cb(MyApplication *self, FlView *view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
 }
 
+// window_manager's setTitle only changes the window title, and a header bar
+// with an explicit title ignores it. Mirror the window title into the bar so
+// the Dart-side title (e.g. the Rawhide channel name) shows on GNOME.
+static void sync_header_bar_title(GObject *window, GParamSpec *pspec,
+                                  gpointer header_bar) {
+  gtk_header_bar_set_title(GTK_HEADER_BAR(header_bar),
+                           gtk_window_get_title(GTK_WINDOW(window)));
+}
+
 // Implements GApplication::activate.
 static void my_application_activate(GApplication *application) {
   MyApplication *self = MY_APPLICATION(application);
@@ -49,6 +58,9 @@ static void my_application_activate(GApplication *application) {
     gtk_header_bar_set_title(header_bar, "Front Porch AI");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
+    gtk_window_set_title(window, "Front Porch AI");
+    g_signal_connect(window, "notify::title",
+                     G_CALLBACK(sync_header_bar_title), header_bar);
   } else {
     gtk_window_set_title(window, "Front Porch AI");
   }

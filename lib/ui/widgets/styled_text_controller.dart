@@ -154,32 +154,39 @@ class StyledTextController extends TextEditingController
           addSegment(text.substring(lastEnd, match.start), style, lastEnd);
         }
         TextStyle? segStyle;
-        switch (match.type) {
-          case StyledTokenType.dialogue:
-            segStyle = (style ?? const TextStyle()).copyWith(
-              color: AppColors.resolve(
-                context,
-                Colors.amberAccent,
-                const Color(0xFFB45309),
-              ),
-              fontWeight: FontWeight.w500,
-            );
-          case StyledTokenType.action:
-            segStyle = (style ?? const TextStyle()).copyWith(
-              color: AppColors.resolve(
-                context,
-                const Color(0xFF90CAF9),
-                const Color(0xFF1565C0),
-              ),
-            );
-          case StyledTokenType.macro:
-            segStyle = (style ?? const TextStyle()).copyWith(
-              color: AppColors.resolve(
-                context,
-                Colors.tealAccent,
-                const Color(0xFF0D9488),
-              ),
-            );
+        // A preset may colour tokens itself (the creator's studio palette);
+        // every other preset keeps the built-in colours below.
+        final tokenStyler = preset.tokenStyler;
+        if (tokenStyler != null) {
+          segStyle = tokenStyler(context, match.type, style);
+        } else {
+          switch (match.type) {
+            case StyledTokenType.dialogue:
+              segStyle = (style ?? const TextStyle()).copyWith(
+                color: AppColors.resolve(
+                  context,
+                  Colors.amberAccent,
+                  const Color(0xFFB45309),
+                ),
+                fontWeight: FontWeight.w500,
+              );
+            case StyledTokenType.action:
+              segStyle = (style ?? const TextStyle()).copyWith(
+                color: AppColors.resolve(
+                  context,
+                  const Color(0xFF90CAF9),
+                  const Color(0xFF1565C0),
+                ),
+              );
+            case StyledTokenType.macro:
+              segStyle = (style ?? const TextStyle()).copyWith(
+                color: AppColors.resolve(
+                  context,
+                  Colors.tealAccent,
+                  const Color(0xFF0D9488),
+                ),
+              );
+          }
         }
         addSegment(match.matchText, segStyle, match.start);
         lastEnd = match.end;

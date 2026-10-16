@@ -1812,4 +1812,44 @@ void main() {
       );
     },
   );
+
+  // 2026-10-16, objectives that keep up: every greeting swipe re-imports the
+  // card's authored task, and one library chat held five copies of it. The
+  // import now keeps the open goal it finds, and marks it as the card's.
+  test('swiping greetings keeps one copy of the card\'s goal', () async {
+    Future<void> drain() async {
+      for (var i = 0; i < 40; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    await db.insertCharacter(
+      CharactersCompanion.insert(
+        id: 'char-task',
+        name: 'Wren',
+        imagePath: const Value('/tmp/Wren_1.png'),
+        firstMessage: const Value('Evening.'),
+        alternateGreetings: const Value('["Go away."]'),
+      ),
+    );
+    final card = CharacterCard(
+      name: 'Wren',
+      imagePath: '/tmp/Wren_1.png',
+      firstMessage: 'Evening.',
+      alternateGreetings: const ['Go away.'],
+      frontPorchExtensions: FrontPorchExtensions(
+        currentTask: 'Guard the north gate',
+      ),
+    )..dbId = 'char-task';
+    await chat.setActiveCharacter(card);
+    await drain();
+    for (final i in [1, 0, 1]) {
+      await chat.selectGreeting(i);
+      await drain();
+    }
+
+    final goals = await chat.getActiveObjectivesFor(card);
+    expect(goals.map((o) => o.objective), ['Guard the north gate']);
+    expect(goals.single.origin, 'card');
+  });
 }

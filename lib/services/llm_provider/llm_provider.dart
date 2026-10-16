@@ -24,6 +24,7 @@ export 'lane_ids.dart';
 export 'live_status_sources.dart';
 export 'llm_provider_lane_api.dart';
 export 'managed_kobold_launcher.dart';
+export 'sampler_support.dart';
 export 'story_lane_hosts.dart';
 export 'worker_lane_config.dart';
 export 'worker_lane_swap.dart';

@@ -22,8 +22,15 @@ export const REASONING_FENCES: Fence[] = [
 
 const INNER = ['<|message|>', '<|end|>', '<|start|>assistant', '<|start|>']
 
+// A provider that hides the think channel server-side can leave the tail of
+// the closing tag at the head of the content (Nano-GPT on Kimi K2.6 thinking:
+// `hink> To impress…`). Head only, three characters or more ending in `>`,
+// so a quoted line or a bare `k>` is never eaten.
+const LEADING_CLOSE_TAIL = /^\s*(?:<\/think>|\/think>|think>|hink>|ink>|nk>)/i
+
 export function reasoningMarkersMayBePresent(text: string): boolean {
   if (!text) return false
+  if (LEADING_CLOSE_TAIL.test(text)) return true
   if (/<think/i.test(text)) return true
   if (text.includes('<|channel') || text.includes('<channel|')) return true
   if (text.includes('◁think')) return true
@@ -65,6 +72,7 @@ function earliestOpen(
 
 export function canonicalizeReasoning(text: string): string {
   if (!text || !reasoningMarkersMayBePresent(text)) return text
+  text = text.replace(LEADING_CLOSE_TAIL, '')
   let out = ''
   let i = 0
   let emitted = false

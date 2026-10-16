@@ -144,6 +144,10 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                 padding: const EdgeInsets.only(left: 8),
                 child: AmbitionServedChip(servedAmbition: pObj.servedAmbition),
               ),
+              Padding(
+                padding: const EdgeInsets.only(left: 8),
+                child: ObjectiveSetAsideTag(dormant: objectiveIsDormant(pObj)),
+              ),
 
               // NSFW toggle
               const SizedBox(height: 6),

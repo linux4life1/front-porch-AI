@@ -60,6 +60,13 @@ class StudioColors {
   static Color lineOf(BuildContext context) =>
       AppColors.resolve(context, line, lineLight);
 
+  /// A stronger hairline: the dashed border of the creator interview's
+  /// conditional rows.
+  static const Color lineStrong = Color(0xFF4E4134);
+  static const Color lineStrongLight = Color(0xFFBFB6AA);
+  static Color lineStrongOf(BuildContext context) =>
+      AppColors.resolve(context, lineStrong, lineStrongLight);
+
   /// Text.
   static const Color ink = Color(0xFFEFE6DA);
   static const Color inkLight = Color(0xFF2A231C);
@@ -114,11 +121,21 @@ class StudioColors {
   static Color badOf(BuildContext context) =>
       AppColors.resolve(context, bad, badLight);
 
+  /// Asterisk narration inside the creator's macro-coloured text boxes
+  /// (docs/design/creator-ui-spec.md). Light mode reuses `muted`.
+  static const Color narration = Color(0xFFD9C7B2);
+  static Color narrationOf(BuildContext context) =>
+      AppColors.resolve(context, narration, mutedLight);
+
   /// Text on an amber fill.
   static const Color amberInk = Color(0xFF2A1A08);
   static const Color amberInkLight = Color(0xFFFFFDF9);
   static Color amberInkOf(BuildContext context) =>
       AppColors.resolve(context, amberInk, amberInkLight);
+
+  /// The creator's dialog scrim, `rgba(12, 8, 4, 0.62)` in both themes
+  /// (docs/design/creator-ui-spec.md).
+  static const Color scrim = Color(0x9E0C0804);
 
   /// Shelf cover gradient (sketch H).
   static const Color coverStart = Color(0xFF4A3421);

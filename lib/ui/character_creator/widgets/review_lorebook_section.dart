@@ -17,135 +17,138 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/chargen/chargen.dart' show isHandEdited;
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_profile.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_state_engine.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_text_card.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/review_rewrite_card.dart';
+import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Lorebook cherry-pick section of the review step: per-entry checkboxes to
-/// include/exclude generated world lore. Faithful restoration of the
-/// pre-refactor god-file UI (lines 6972–7103).
-class ReviewLorebookSection extends StatelessWidget {
-  final CreatorState state;
-
+/// The Review step's Lorebook card (docs/design/creator-ui-spec.md, "Review
+/// step"): up to three entry rows and "and {n} more"; "Open the lorebook
+/// editor" lists every entry with its keep checkbox (an unchecked entry is
+/// left out of the saved character) and opens any of them for editing; an
+/// entry edited by hand says so and survives "Rewrite the lorebook".
+class ReviewLorebookSection extends StatefulWidget {
   const ReviewLorebookSection({super.key, required this.state});
 
-  Color _accent(BuildContext context) => AppColors.porchAmberOf(context);
+  final CreatorState state;
+
+  @override
+  State<ReviewLorebookSection> createState() => _ReviewLorebookSectionState();
+}
+
+class _ReviewLorebookSectionState extends State<ReviewLorebookSection> {
+  bool _editorOpen = false;
+
+  CreatorState get _s => widget.state;
+
+  Future<void> _edit(int i) async {
+    final book = _s.generatedCard?.lorebook;
+    if (book == null || i >= book.entries.length) return;
+    final edited = await showLorebookEntryDialog(
+      context: context,
+      existing: book.entries[i],
+    );
+    if (edited == null || !mounted) return;
+    book.entries[i] = edited;
+    _s.notify();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final lorebook = state.generatedCard?.lorebook;
+    final lorebook = _s.generatedCard?.lorebook;
     if (lorebook == null || lorebook.entries.isEmpty) {
       return const SizedBox.shrink();
     }
+    const kind = ReviewRewrite.lorebook;
+    final r = _s.review;
+    final writing = r.writing(kind);
+    final entries = lorebook.entries;
+    final shown = _editorOpen ? entries.length : entries.length.clamp(0, 3);
+    final more = entries.length - shown;
+    final amber = StudioColors.amberOf(context);
+    LLMProvider llm() => Provider.of<LLMProvider>(context, listen: false);
 
-    final enabledCount = state.lorebookEntryEnabled.values
-        .where((v) => v)
-        .length;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Divider(color: AppColors.borderOf(context), height: 32),
-        Row(
-          children: [
-            Icon(Icons.menu_book, color: _accent(context), size: 18),
-            const SizedBox(width: 8),
-            Text(
-              'World Lore Entries',
-              style: TextStyle(
-                color: _accent(context),
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-              ),
+    return CreatorCardShell(
+      key: const ValueKey('review-lorebook'),
+      title: 'Lorebook',
+      subtitle: '${entries.length} entries',
+      writing: writing,
+      trailing: SizedBox(
+        height: 36,
+        child: TextButton(
+          key: const ValueKey('review-lorebook-editor'),
+          onPressed: writing
+              ? null
+              : () => setState(() => _editorOpen = !_editorOpen),
+          style: TextButton.styleFrom(
+            foregroundColor: amber,
+            padding: const EdgeInsets.symmetric(horizontal: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
             ),
-            const Spacer(),
-            Text(
-              '$enabledCount/${lorebook.entries.length} enabled',
-              style: TextStyle(
-                color: AppColors.textTertiary(context),
-                fontSize: 11,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Uncheck entries you don\'t want included in the saved character.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
+          ),
+          child: Text(
+            'Open the lorebook editor',
+            style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ),
-        const SizedBox(height: 12),
-        ...List.generate(lorebook.entries.length, (i) {
-          final entry = lorebook.entries[i];
-          final enabled = state.lorebookEntryEnabled[i] ?? true;
-          return Container(
-            margin: const EdgeInsets.only(bottom: 8),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: enabled
-                  ? AppColors.surfaceContainerOf(context)
-                  : AppColors.backgroundOf(context),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(
-                color: enabled
-                    ? _accent(context).withValues(alpha: 0.3)
-                    : AppColors.borderOf(context).withValues(alpha: 0.2),
-              ),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Checkbox(
-                  value: enabled,
-                  activeColor: _accent(context),
-                  onChanged: (val) {
-                    state.lorebookEntryEnabled[i] = val ?? true;
-                    state.notify();
-                  },
-                  visualDensity: VisualDensity.compact,
+      ),
+      children: [
+        Opacity(
+          opacity: writing ? 0.45 : 1,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            spacing: 12,
+            children: [
+              for (var i = 0; i < shown; i++)
+                ReviewLoreRow(
+                  key: ValueKey('review-lore-$i'),
+                  entry: entries[i],
+                  editedByHand: isHandEdited(entries[i]),
+                  onEdit: () => _edit(i),
+                  kept: _editorOpen
+                      ? (_s.lorebookEntryEnabled[i] ?? true)
+                      : null,
+                  onToggle: _editorOpen
+                      ? (v) {
+                          _s.lorebookEntryEnabled[i] = v;
+                          _s.notify();
+                        }
+                      : null,
                 ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Opacity(
-                    opacity: enabled ? 1.0 : 0.4,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          entry.name,
-                          style: TextStyle(
-                            color: AppColors.textPrimary(context),
-                            fontSize: 13,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Keys: ${entry.key}',
-                          style: TextStyle(
-                            color: _accent(context),
-                            fontSize: 11,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          entry.content,
-                          style: TextStyle(
-                            color: AppColors.textSecondary(context),
-                            fontSize: 12,
-                            height: 1.4,
-                          ),
-                        ),
-                      ],
-                    ),
+              if (more > 0)
+                Text(
+                  'and $more more',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: StudioColors.faintOf(context),
                   ),
                 ),
-              ],
-            ),
-          );
-        }),
+            ],
+          ),
+        ),
+        ReviewRewriteRow(
+          id: 'review-lorebook',
+          steer: r.loreSteer,
+          hint:
+              'Steer it (optional), e.g. more about the town, less about '
+              'the sea',
+          action: 'Rewrite the lorebook',
+          writing: writing,
+          onRun: () => _s.rewriteLorebook(llmProvider: llm()),
+          onStop: () => _s.stopReviewRewrite(kind),
+          caption:
+              'Rewrites the entries from the profile and your direction. An '
+              'entry you edited by hand is kept.',
+          error: r.errorOf(kind),
+        ),
       ],
     );
   }

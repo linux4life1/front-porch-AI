@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Generating step: spinning icon, status, progress bar, abort, live preview.
 class GeneratingStep extends StatefulWidget {
@@ -46,11 +46,7 @@ class _GeneratingStepState extends State<GeneratingStep>
                 child: Icon(
                   Icons.auto_awesome,
                   size: 64,
-                  color: AppColors.resolve(
-                    context,
-                    Colors.amberAccent,
-                    Colors.amber.shade700,
-                  ),
+                  color: StudioColors.amberOf(context),
                 ),
               ),
               const SizedBox(height: 24),
@@ -60,7 +56,7 @@ class _GeneratingStepState extends State<GeneratingStep>
                     : state.generationStatus,
                 style: TextStyle(
                   fontSize: 18,
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                   fontWeight: FontWeight.w500,
                 ),
               ),
@@ -70,9 +66,9 @@ class _GeneratingStepState extends State<GeneratingStep>
                 borderRadius: BorderRadius.circular(8),
                 child: LinearProgressIndicator(
                   value: state.progress > 0 ? state.progress : null,
-                  backgroundColor: AppColors.borderOf(context),
+                  backgroundColor: StudioColors.lineOf(context),
                   valueColor: AlwaysStoppedAnimation(
-                    AppColors.porchAmberOf(context),
+                    StudioColors.amberOf(context),
                   ),
                   minHeight: 6,
                 ),
@@ -81,28 +77,25 @@ class _GeneratingStepState extends State<GeneratingStep>
               // Abort button
               if (state.isGenerating)
                 SizedBox(
-                  width: 200,
                   height: 44,
                   child: OutlinedButton.icon(
                     onPressed: state.abortGeneration,
-                    icon: const Icon(Icons.stop_circle_outlined, size: 20),
+                    icon: const Icon(Icons.stop_circle_outlined, size: 18),
                     label: const Text(
                       'Abort Generation',
-                      style: TextStyle(fontSize: 14),
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
+                    // The outlined action's shape in `bad`, like Stop.
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.resolve(
-                        context,
-                        Colors.redAccent,
-                        Colors.red.shade700,
-                      ),
+                      foregroundColor: StudioColors.badOf(context),
                       side: BorderSide(
-                        color: AppColors.resolve(
-                          context,
-                          Colors.redAccent,
-                          Colors.red.shade700,
-                        ),
+                        color: StudioColors.badOf(context),
+                        width: 1.5,
                       ),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -117,15 +110,15 @@ class _GeneratingStepState extends State<GeneratingStep>
                   constraints: const BoxConstraints(maxHeight: 400),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: AppColors.surfaceContainerOf(context),
+                    color: StudioColors.bgOf(context),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: AppColors.borderOf(context)),
+                    border: Border.all(color: StudioColors.lineOf(context)),
                   ),
                   child: SingleChildScrollView(
                     child: SelectableText(
                       state.generationPreview,
                       style: TextStyle(
-                        color: AppColors.textSecondary(context),
+                        color: StudioColors.proseOf(context),
                         fontSize: 12,
                         fontFamily: 'monospace',
                         height: 1.4,

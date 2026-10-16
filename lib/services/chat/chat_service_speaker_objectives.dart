@@ -170,7 +170,20 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final task = ext?.currentTask.trim() ?? '';
     if (task.isEmpty) return;
     Future.microtask(() async {
-      await setObjective(task, isPrimary: true, targetCharacter: target);
+      // Not twice: a chat that already has this goal open keeps the one it
+      // has (the library had one chat holding five copies of the same task).
+      final who = target ?? _activeCharacter;
+      if (who != null) {
+        final open = await getActiveObjectivesFor(who);
+        final same = task.toLowerCase();
+        if (open.any((o) => o.objective.trim().toLowerCase() == same)) return;
+      }
+      await setObjective(
+        task,
+        isPrimary: true,
+        targetCharacter: target,
+        origin: kObjectiveOriginCard,
+      );
       debugPrint(
         '[ChatService] Imported authored task'
         '${target != null ? ' for ${target.name}' : ''}: $task',
@@ -221,6 +234,10 @@ extension ChatServiceSpeakerObjectives on ChatService {
               ),
               injectionDepth: drift.Value(
                 (objMap['injectionDepth'] as num?)?.toInt() ?? 4,
+              ),
+              // A group card's goals were authored with the card.
+              origin: drift.Value(
+                objMap['origin'] as String? ?? kObjectiveOriginCard,
               ),
             ),
           );
@@ -348,10 +365,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
       state,
       groupSpeakerId: groupSpeakerId,
     );
-    _characterEmotion =
-        state['characterEmotion'] as String? ?? _characterEmotion;
-    _emotionIntensity =
-        state['emotionIntensity'] as String? ?? _emotionIntensity;
+    _mood.restoreFromStamp(state);
 
     _nsfwService.restoreNsfwFromRealismState(state);
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 
 class AvatarArtStyleSelector extends StatelessWidget {
   const AvatarArtStyleSelector({
@@ -26,6 +27,8 @@ class AvatarArtStyleSelector extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Inside the AI Character Creator a selected chip is solid amber.
+    final p = CreatorPalette.maybeOf(context);
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -35,15 +38,20 @@ class AvatarArtStyleSelector extends StatelessWidget {
           label: Text(style),
           selected: isSelected,
           onSelected: (_) => onChanged(style),
-          selectedColor: accentColor.withValues(alpha: 0.15),
-          backgroundColor: AppColors.surfaceContainerOf(context),
+          selectedColor:
+              p?.chipSelectedFill ?? accentColor.withValues(alpha: 0.15),
+          backgroundColor: p?.raise ?? AppColors.surfaceContainerOf(context),
           labelStyle: TextStyle(
-            color: isSelected ? accentColor : AppColors.textSecondary(context),
+            color: isSelected
+                ? p?.chipSelectedInk ?? accentColor
+                : p?.ink ?? AppColors.textSecondary(context),
             fontSize: 13,
           ),
-          side: BorderSide(
-            color: isSelected ? accentColor : AppColors.borderOf(context),
-          ),
+          side: p != null
+              ? BorderSide.none
+              : BorderSide(
+                  color: isSelected ? accentColor : AppColors.borderOf(context),
+                ),
         );
       }).toList(),
     );

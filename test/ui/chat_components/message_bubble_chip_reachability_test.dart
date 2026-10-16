@@ -16,7 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-// TWO CHIP SURFACES THAT WERE UNREACHABLE FOR THE USERS WHO NEEDED THEM MOST.
+// CHIP SURFACES THAT WERE UNREACHABLE OR BROKEN FOR THE USERS WHO NEEDED THEM
+// MOST.
 //
 // 1. Pockets & Wardrobe receipts. Pockets answers to its OWN switch and runs
 //    with the Realism Engine off (docs/design/feature-independence.md), so a
@@ -33,9 +34,15 @@
 //    on the message the user had just changed. The web twin (ChipsRow.tsx)
 //    renders the pills as a sibling of both rows; desktop now matches.
 //
-// Both proven to fail first: restoring the pre-fix early-return condition
-// reds test 1, and re-nesting the pills under `needsChipList.isNotEmpty` reds
-// tests 2 and 3.
+// 3. A sentence-length receipt overflowed its own chip. The classic row is a
+//    Wrap, but each receipt chip was an unbounded Text in a min-size Row, so a
+//    single receipt wider than the bubble painted the overflow stripe across
+//    the reply.
+//
+// All proven to fail first: restoring the pre-fix early-return condition
+// reds test 1, re-nesting the pills under `needsChipList.isNotEmpty` reds
+// tests 2 and 3, and restoring the unbounded receipt Text reds the long
+// receipt test.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -64,6 +71,7 @@ void main() {
   Future<void> pumpBubble(
     WidgetTester tester, {
     required ChatMessage message,
+    double width = 680,
   }) async {
     final character = CharacterCard(name: 'Aria Vale');
     final chat = FakeChatService(
@@ -89,7 +97,7 @@ void main() {
               ),
             ],
             child: SizedBox(
-              width: 680,
+              width: width,
               // index 0 == messages.length - 1, i.e. the last message, which
               // is what the reprocess pills require.
               child: MessageBubble(
@@ -182,20 +190,45 @@ void main() {
   );
 
   testWidgets(
-    'a message with nothing to report still renders no indicator',
+    'a long pockets receipt ellipsizes inside a narrow bubble instead of '
+    'overflowing it, and keeps the full text in its tooltip',
     (tester) async {
+      const receipt =
+          'put on: old, too-tight black tank top (clinging to heavy, sore '
+          'skin; damp and sweat-soaked from the long walk home in the heat)';
       await pumpBubble(
         tester,
+        width: 320,
         message: ChatMessage(
-          text: '"Evening," she said.',
+          text: '*She tugs the tank top on.*',
           sender: 'Aria Vale',
           isUser: false,
-          metadata: const {'pocket_changes': <String>[]},
+          metadata: const {
+            'pocket_changes': [receipt],
+          },
         ),
       );
 
-      expect(find.text('Manual Reprocess'), findsNothing);
-      expect(find.byIcon(Icons.checkroom_outlined), findsNothing);
+      expect(tester.takeException(), isNull);
+      expect(find.text(receipt), findsOneWidget);
+      expect(find.byTooltip('Pockets & Wardrobe: $receipt'), findsOneWidget);
     },
   );
+
+  testWidgets('a message with nothing to report still renders no indicator', (
+    tester,
+  ) async {
+    await pumpBubble(
+      tester,
+      message: ChatMessage(
+        text: '"Evening," she said.',
+        sender: 'Aria Vale',
+        isUser: false,
+        metadata: const {'pocket_changes': <String>[]},
+      ),
+    );
+
+    expect(find.text('Manual Reprocess'), findsNothing);
+    expect(find.byIcon(Icons.checkroom_outlined), findsNothing);
+  });
 }

@@ -5,7 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// A field caption for [SetupStep], with a red `*` when [required].
@@ -17,27 +18,23 @@ class SetupInputLabel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Inside the creator, the spec's label; hosted elsewhere (AI Enhance),
+    // the app's caption.
+    if (CreatorPalette.maybeOf(context) != null) {
+      return CreatorInputLabel(text, required: required);
+    }
     return Row(
       children: [
         Text(
           text,
           style: TextStyle(
             fontSize: 12,
-            color: AppColors.textSecondary(context),
+            color: CreatorPalette.of(context).prose,
             fontWeight: FontWeight.w500,
           ),
         ),
         if (required)
-          Text(
-            ' *',
-            style: TextStyle(
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
-            ),
-          ),
+          Text(' *', style: TextStyle(color: CreatorPalette.of(context).bad)),
       ],
     );
   }
@@ -91,7 +88,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.surfaceContainerOf(context),
+              color: CreatorPalette.of(context).raise,
               borderRadius: BorderRadius.circular(8),
             ),
             child: hardwareService.isDetecting
@@ -103,9 +100,9 @@ class SetupExtraSettingsBody extends StatelessWidget {
                     ),
                   )
                 : hardwareService.hardwareInfo == null
-                ? const Text(
+                ? Text(
                     'Hardware not detected.',
-                    style: TextStyle(color: Colors.redAccent),
+                    style: TextStyle(color: CreatorPalette.of(context).bad),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -179,7 +176,7 @@ class SetupExtraSettingsBody extends StatelessWidget {
                 'KV Quantization:',
                 style: TextStyle(
                   fontSize: 13,
-                  color: AppColors.textSecondary(context),
+                  color: CreatorPalette.of(context).prose,
                 ),
               ),
               const SizedBox(width: 12),
@@ -208,7 +205,7 @@ Widget _buildInfoRow(BuildContext context, String label, String value) {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.textTertiary(context),
+            color: CreatorPalette.of(context).muted,
             fontSize: 12,
           ),
         ),
@@ -217,7 +214,7 @@ Widget _buildInfoRow(BuildContext context, String label, String value) {
           child: Text(
             value,
             style: TextStyle(
-              color: AppColors.textPrimary(context),
+              color: CreatorPalette.of(context).ink,
               fontWeight: FontWeight.bold,
             ),
             overflow: TextOverflow.ellipsis,
@@ -239,13 +236,13 @@ Widget _buildSettingsTextField(
   return TextField(
     controller: controller,
     keyboardType: isNumber ? TextInputType.number : TextInputType.text,
-    style: TextStyle(color: AppColors.textPrimary(context)),
+    style: TextStyle(color: CreatorPalette.of(context).ink),
     onChanged: onChanged,
     decoration: InputDecoration(
       labelText: label,
-      labelStyle: TextStyle(color: AppColors.textSecondary(context)),
+      labelStyle: TextStyle(color: CreatorPalette.of(context).prose),
       filled: true,
-      fillColor: AppColors.surfaceContainerOf(context),
+      fillColor: CreatorPalette.of(context).fieldFill,
       border: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
         borderSide: BorderSide.none,

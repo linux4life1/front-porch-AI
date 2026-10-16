@@ -257,8 +257,16 @@ extension ChatServiceGenerationPlan on ChatService {
       // Must sit in a fixed prompt section so it is NEVER trimmed by the budget system.
       // (thin delegation to author_note_builder per step 8; state/CRUD in god)
       // Soft guests do not own quests — and `_activeObjectives` may still
-      // hold the last full speaker's list.
-      final objectiveBlock = liteTurn ? '' : _getObjectiveInjection();
+      // hold the last full speaker's list. Macro-resolved like every other
+      // block: `{{char}}` names the speaker, and a stored goal's `{{user}}`
+      // reaches the model as the user's name.
+      final objectiveBlock = liteTurn
+          ? ''
+          : _macroResolver.resolve(
+              _getObjectiveInjection(),
+              macroCtx,
+              section: 'objectives',
+            );
 
       // Mandatory Needs Catastrophe — when a hard-event need hit 0 during the
       // decay tick, the character's body/state fails in a specific way and the
@@ -312,8 +320,10 @@ extension ChatServiceGenerationPlan on ChatService {
         final result = await _buildChatHistoryWithBudget(
           t.historyBudget,
           depthLore: t.loreDepth,
+          splitLatestTurn: true,
         );
         t.history = result.history;
+        t.latestTurn = result.latestTurn;
         t.droppedMessages = result.droppedCount;
 
         // ── THE RECAP ONLY EARNS ITS PLACE WHEN IT COVERS WHAT THE
@@ -361,8 +371,10 @@ extension ChatServiceGenerationPlan on ChatService {
       // Zero/negative budget: last user line + everything after it (think-
       // stripped). Raw lastMsg.text re-injects <think> (audit 2026-08-11).
       if (t.historyBudget <= 0 && _messages.isNotEmpty) {
+        // All of it is the latest beat, so all of it renders last.
         final overflow = _overflowContinuityHistory();
-        t.history = overflow.history;
+        t.history = '';
+        t.latestTurn = overflow.history;
         t.droppedMessages = overflow.droppedCount;
       }
     } finally {

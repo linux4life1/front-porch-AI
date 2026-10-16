@@ -72,6 +72,17 @@ extension ChatServiceObjectiveCompletion on ChatService {
     }
 
     _messagesSinceLastCheck++;
+    // A story day crossed since these goals were last synced (an OOC skip
+    // at the start of this send, "next morning", time away) re-plans them
+    // now, whatever the cadence says, and the sync is told how long it has
+    // been (objectives-that-keep-up.md part 2). The clock alone retires
+    // nothing; only the answer does.
+    final charId = _activeObjectives.first.characterId;
+    final replanMinutes = objectiveReplanMinutes(
+      stamp: lastObjectiveSyncStamp(_messages, charId),
+      dayNow: _timeService.dayCount,
+      clockNow: _timeService.clock,
+    );
     // The per-objective cadence the UI exposes is the cadence, full stop.
     // The old realism-on override forced freq to one — a BLOCKING model
     // call, awaited before every reply — onto every single turn the moment
@@ -80,7 +91,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
     final freq =
         primaryObjective?.checkFrequency ??
         _activeObjectives.first.checkFrequency;
-    if (_messagesSinceLastCheck < freq) {
+    if (replanMinutes == null && _messagesSinceLastCheck < freq) {
       // Off-interval, the check still fires the moment the scene actually
       // touches a quest: a completion can only be shown by the exchange, and
       // the check reads exactly this window — so an exchange sharing none of
@@ -98,35 +109,45 @@ extension ChatServiceObjectiveCompletion on ChatService {
         for (final o in _activeObjectives)
           ...openQuestMentionTexts(o.objective, tasksForObjective(o)),
       ];
-      final ignore = <String>{
-        for (final c in [?_activeCharacter, ..._groupCharacters])
-          ...c.name.toLowerCase().split(RegExp(r'[^a-z0-9]+')),
-        ..._userPersonaService.persona.name.toLowerCase().split(
-          RegExp(r'[^a-z0-9]+'),
-        ),
-      }..remove('');
-      if (!objectivesMentionedIn(recentLower, quests, ignore: ignore)) {
+      if (!objectivesMentionedIn(
+        recentLower,
+        quests,
+        ignore: _objectiveIgnoreTokens(),
+      )) {
         return;
       }
       debugPrint('[Objective] Mention gate: quest touched — checking early');
     }
     _messagesSinceLastCheck = 0;
+    if (replanMinutes != null) {
+      debugPrint('[Objective] Story moved ${replanMinutes}m — re-planning');
+    }
 
     // Arm turn-op recording only for THIS turn-path check (see field doc):
     // its completions/retirements belong to the turn being generated and must
     // roll back on regen; manual "Check now" runs the same check unarmed.
     _objectiveTurnOpsArmed = true;
     try {
-      await _checkTaskCompletionInBackground(); // step 11 thin (full in objective_proposal)
+      final outcome = await _objectiveProposal.checkTaskCompletionInBackground(
+        elapsedSpan: replanMinutes == null
+            ? ''
+            : objectiveSpanLine(replanMinutes),
+      );
+      // "Last synced" rides the reply this turn writes: a restart reads it
+      // back; a regen or delete drops it with the sync's own changes.
+      if (outcome == ObjectiveSyncOutcome.applied) {
+        (_pendingRealismMetadata ??=
+            {})[kObjectiveSyncStampKey] = ObjectiveSyncStamp(
+          charId: charId,
+          day: _timeService.dayCount,
+          clockIso: _timeService.storyClockIso,
+        ).toJson();
+      }
     } finally {
       _objectiveTurnOpsArmed = false;
     }
   }
 
-  // Thin delegation (full _checkTaskCompletionInBackground + 2000 budget + central strip in
-  // objective_proposal step 11; objective mgmt coordination / isChecking flag / load / db
-  // updates stayed thin in god per plan for step9/11; "thin delegation here; full objective
-  // proposal in step 11").
   Future<void> _checkTaskCompletionInBackground() =>
       _objectiveProposal.checkTaskCompletionInBackground();
 
@@ -241,10 +262,26 @@ extension ChatServiceObjectiveCompletion on ChatService {
               );
             }
           case 'deactivated' || 'evicted':
+            // A sync retirement also stamped status and ended_at; put the
+            // status it had back (ops written before v58 carry no key).
+            final restoresStatus = entry.containsKey('prevStatus');
             await _db.updateObjective(
               ObjectivesCompanion(
                 id: drift.Value(id),
                 active: const drift.Value(true),
+                status: restoresStatus
+                    ? drift.Value(entry['prevStatus'] as String?)
+                    : const drift.Value.absent(),
+                endedAt: restoresStatus
+                    ? const drift.Value(null)
+                    : const drift.Value.absent(),
+              ),
+            );
+          case 'status':
+            await _db.updateObjective(
+              ObjectivesCompanion(
+                id: drift.Value(id),
+                status: drift.Value(entry['prev'] as String?),
               ),
             );
           case 'demoted':

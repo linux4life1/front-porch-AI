@@ -25,6 +25,7 @@ import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
 import 'package:front_porch_ai/services/llm_provider/llm_provider.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/open_router/open_router.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
@@ -39,10 +40,12 @@ export 'package:front_porch_ai/services/llm_provider/llm_provider.dart'
         BackendType,
         LLMProviderLaneApi,
         LaneHost,
+        SamplerKnob,
         kKoboldChatRole,
         kKoboldTrialRole,
         kKoboldWorkerRole,
-        remoteProviderLabel;
+        remoteProviderLabel,
+        samplerKnobsFor;
 
 /// Manages switching between LLM backends (local KoboldCPP, remote APIs).
 ///
@@ -229,14 +232,15 @@ class LLMProvider extends ChangeNotifier {
   /// (127.0.0.1 is a loopback, so it is local). Not [isLocal], which means
   /// the managed KoboldCpp only.
   bool get modelIsLocal =>
-      backendLaneIsLocal(_activeBackend.name, _openRouterService.apiUrl);
+      evalLaneIsHomeNetwork(_activeBackend.name, _openRouterService.apiUrl);
 
-  /// [modelIsLocal] for the helper model, by the rule the helper pairing
-  /// uses. It answers only while [workerService] is on.
+  /// [modelIsLocal] for the helper model. One-Shot Auto reads it: a helper
+  /// on the home network stays multi-call. It answers only while
+  /// [workerService] is on. The pair gate is [backendLaneIsLocal].
   bool get workerModelIsLocal {
     final type = _storageService.workerBackendType;
     final url = _storageService.workerRemoteApiUrl;
-    return backendLaneIsLocal(type, resolvedLaneApiUrl(type, url));
+    return evalLaneIsHomeNetwork(type, resolvedLaneApiUrl(type, url));
   }
 
   /// Whether the active backend manages a local subprocess.
@@ -274,7 +278,7 @@ class LLMProvider extends ChangeNotifier {
       // only by accident. Same literal LLMProvider configures on sync.
       return OpenRouterService(
         apiUrl: _activeBackend == BackendType.omlx
-            ? 'http://localhost:8000/v1'
+            ? kOmlxApiUrl
             : _storageService.backendSettings.remoteApiUrl,
         apiKey: _storageService.backendSettings.remoteApiKey,
         modelName: selectedModelId,
@@ -419,9 +423,7 @@ class LLMProvider extends ChangeNotifier {
   bool _configureMouth(BackendType type) {
     final b = _storageService.backendSettings;
     return _openRouterService.configure(
-      apiUrl: type == BackendType.omlx
-          ? 'http://localhost:8000/v1'
-          : b.remoteApiUrl,
+      apiUrl: type == BackendType.omlx ? kOmlxApiUrl : b.remoteApiUrl,
       apiKey: b.remoteApiKey,
       modelName: b.remoteModelName,
     );

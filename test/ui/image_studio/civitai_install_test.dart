@@ -16,7 +16,6 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/ui/image_studio/studio_civitai_install.dart';
 
 import '../../services/image/civitai_test_server.dart';

@@ -7,7 +7,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/web_search_settings.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -51,7 +51,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                 ),
               ),
               const SizedBox(height: 8),
@@ -60,18 +60,18 @@ class WorldFromWikiBookStep extends StatelessWidget {
                 'unless you turn it on. They will propose a shelf of cards from '
                 'the index — not one card per page.',
                 style: TextStyle(
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.proseOf(context),
                   height: 1.45,
                 ),
               ),
               const SizedBox(height: 24),
               TextField(
                 controller: state.nameController,
-                style: TextStyle(color: AppColors.textPrimary(context)),
+                style: TextStyle(color: StudioColors.inkOf(context)),
                 decoration: InputDecoration(
                   labelText: 'World name',
                   filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
+                  fillColor: StudioColors.bgOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -82,11 +82,11 @@ class WorldFromWikiBookStep extends StatelessWidget {
                 controller: state.premiseController,
                 minLines: 2,
                 maxLines: 4,
-                style: TextStyle(color: AppColors.textPrimary(context)),
+                style: TextStyle(color: StudioColors.inkOf(context)),
                 decoration: InputDecoration(
                   labelText: 'One-line premise',
                   filled: true,
-                  fillColor: AppColors.surfaceContainerOf(context),
+                  fillColor: StudioColors.bgOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -96,7 +96,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
               Text(
                 'Wiki',
                 style: TextStyle(
-                  color: AppColors.textSecondary(context),
+                  color: StudioColors.proseOf(context),
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -104,7 +104,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
               if (saved.isEmpty)
                 Text(
                   'Save a Fandom or Tiddly URL in Porch Life first.',
-                  style: TextStyle(color: AppColors.textTertiary(context)),
+                  style: TextStyle(color: StudioColors.mutedOf(context)),
                 )
               else
                 for (final url in saved)
@@ -123,15 +123,15 @@ class WorldFromWikiBookStep extends StatelessWidget {
                                 : Icons.radio_button_off,
                             size: 18,
                             color: state.wikiUrl == url
-                                ? AppColors.porchAmberOf(context)
-                                : AppColors.iconSecondary(context),
+                                ? StudioColors.amberOf(context)
+                                : StudioColors.mutedOf(context),
                           ),
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
                               wikiHostLabel(url),
                               style: TextStyle(
-                                color: AppColors.textPrimary(context),
+                                color: StudioColors.inkOf(context),
                               ),
                             ),
                           ),
@@ -145,7 +145,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
                   'On: they scout a shelf of cards; you sign which ones to write.',
                 ),
                 value: state.lorebooksOn,
-                activeTrackColor: AppColors.porchAmberOf(context),
+                activeTrackColor: StudioColors.amberOf(context),
                 onChanged: (v) {
                   state.lorebooksOn = v;
                   state.notify();
@@ -157,7 +157,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
                   'Off by default. Atmosphere and gravity stay silent.',
                 ),
                 value: state.climateEnabled,
-                activeTrackColor: AppColors.porchAmberOf(context),
+                activeTrackColor: StudioColors.amberOf(context),
                 onChanged: (v) {
                   state.climateEnabled = v;
                   state.notify();
@@ -182,16 +182,14 @@ class WorldFromWikiBookStep extends StatelessWidget {
                       height: 18,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: AppColors.porchAmberOf(context),
+                        color: StudioColors.amberOf(context),
                       ),
                     ),
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
                         state.status.isEmpty ? 'Scouting…' : state.status,
-                        style: TextStyle(
-                          color: AppColors.textSecondary(context),
-                        ),
+                        style: TextStyle(color: StudioColors.proseOf(context)),
                       ),
                     ),
                   ],
@@ -201,7 +199,7 @@ class WorldFromWikiBookStep extends StatelessWidget {
                 const SizedBox(height: 12),
                 Text(
                   state.error!,
-                  style: TextStyle(color: AppColors.taskAccentOf(context)),
+                  style: TextStyle(color: StudioColors.honeyOf(context)),
                 ),
               ],
             ],

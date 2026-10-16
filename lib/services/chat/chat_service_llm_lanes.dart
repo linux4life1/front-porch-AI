@@ -65,7 +65,7 @@ extension ChatServiceLlmLanes on ChatService {
     if (!_workerLaneActive) return _mouthModelIsLocal;
     final worker = testWorkerLlmServiceOverride;
     if (worker == null) return _llmProvider?.workerModelIsLocal ?? true;
-    return backendLaneIsLocal(
+    return evalLaneIsHomeNetwork(
       worker is KoboldService ? 'kobold' : 'openRouter',
       worker is LlmApiEndpoint ? (worker as LlmApiEndpoint).apiUrl : '',
     );

@@ -49,4 +49,38 @@ void main() {
     await tester.pump();
     expect(picked, 'qwen_image_lora.safetensors');
   });
+
+  testWidgets('a LoRA added since the desk last listed shows on refresh', (
+    tester,
+  ) async {
+    var reads = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: StudioLoraSheet(
+          slots: ImageGenLoraSlot.blank(),
+          files: const ['old_style.safetensors'],
+          primaryFile: 'qwen_image_bf16.safetensors',
+          onPick: (_, _) {},
+          onRefresh: () async {
+            reads++;
+            return (
+              files: [
+                'old_style.safetensors',
+                if (reads > 1) 'new_style.safetensors',
+              ],
+              facts: const <String, DeskLoraCheck>{},
+            );
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text('new_style.safetensors'), findsNothing);
+
+    await tester.tap(find.text('Refresh LoRAs'));
+    await tester.pump();
+
+    expect(reads, 2);
+    expect(find.text('new_style.safetensors'), findsOneWidget);
+  });
 }

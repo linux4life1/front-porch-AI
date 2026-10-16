@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Perspective + tense chips for AI Create output settings.
 ///
@@ -67,7 +67,7 @@ class NarrativeVoiceSelector extends StatelessWidget {
                 ? 'Third person uses the Sex field for he/she/they. Blank Sex defaults to they/them.'
                 : 'Third person uses Sex for he/she/they. Leave blank for they/them.',
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color: StudioColors.mutedOf(context),
               fontSize: 11,
             ),
           ),
@@ -77,30 +77,28 @@ class NarrativeVoiceSelector extends StatelessWidget {
               controller: sexController,
               onChanged: (_) => onSexChanged?.call(),
               style: TextStyle(
-                color: AppColors.textPrimary(context),
+                color: StudioColors.inkOf(context),
                 fontSize: 14,
               ),
               decoration: InputDecoration(
                 hintText: 'e.g. Female, Male, they/them',
                 hintStyle: TextStyle(
-                  color: AppColors.textTertiary(context),
+                  color: StudioColors.faintOf(context),
                   fontSize: 13,
                 ),
                 filled: true,
-                fillColor: AppColors.surfaceContainerOf(context),
+                fillColor: StudioColors.bgOf(context),
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.borderOf(context)),
+                  borderSide: BorderSide(color: StudioColors.lineOf(context)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: BorderSide(color: AppColors.borderOf(context)),
+                  borderSide: BorderSide(color: StudioColors.lineOf(context)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(10),
-                  borderSide: const BorderSide(
-                    color: AppColors.formMasterAccent,
-                  ),
+                  borderSide: BorderSide(color: StudioColors.amberOf(context)),
                 ),
                 contentPadding: const EdgeInsets.symmetric(
                   horizontal: 16,
@@ -127,7 +125,7 @@ class NarrativeVoiceSelector extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            color: AppColors.textSecondary(context),
+            color: StudioColors.proseOf(context),
             fontSize: 13,
             fontWeight: FontWeight.w500,
           ),
@@ -143,15 +141,15 @@ class NarrativeVoiceSelector extends StatelessWidget {
               selected: selected,
               onSelected: (_) => onChanged(opt.$1),
               selectedColor: accentColor,
-              backgroundColor: AppColors.surfaceContainerOf(context),
+              backgroundColor: StudioColors.raiseOf(context),
               labelStyle: TextStyle(
                 color: selected
-                    ? AppColors.resolve(context, Colors.white, Colors.black87)
-                    : AppColors.textSecondary(context),
+                    ? StudioColors.amberInkOf(context)
+                    : StudioColors.proseOf(context),
                 fontSize: 13,
               ),
               side: BorderSide(
-                color: selected ? accentColor : AppColors.borderOf(context),
+                color: selected ? accentColor : StudioColors.lineOf(context),
               ),
             );
           }).toList(),

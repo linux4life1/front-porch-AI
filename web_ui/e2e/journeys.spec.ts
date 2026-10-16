@@ -341,6 +341,284 @@ test('the creator\'s Greetings step: a steered rewrite, an edit, a delete and an
   }
 });
 
+// The creator's Profile step, through a real create: the stand-in backend
+// answers each creator stage (integration_test/support/fake_backend_chargen),
+// so Generate stops at the profile with nothing saved; a steered rewrite
+// streams in and lands; Re-read puts back the facts the profile implies; a
+// reload finds the pause again; Next writes the rest and lands on the
+// Greetings step with no "profile changed" hint and the two review cards.
+// The character is deleted whatever happens.
+test('the creator\'s Profile step: pause, steer a rewrite, re-read, reload, then Next', async ({ page }) => {
+  const name = `Profile Journey ${test.info().project.name}`;
+  let id = '';
+  try {
+    await openRoute(page, '/create-ai');
+    await page.locator('.cg-field', { hasText: 'Name' }).locator('input').fill(name);
+    await page.getByRole('button', { name: /Quick Create/ }).click();
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await page.getByLabel('Concept').fill('A lighthouse keeper on a wet rock.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+    await page.getByRole('button', { name: /^Next: Generate/ }).click();
+    await page.getByRole('button', { name: /Generate character/ }).click();
+
+    const step = page.getByTestId('profile-step');
+    await expect(step).toBeVisible({ timeout: 120_000 });
+    await expect(page).toHaveURL(/profile=pending/);
+    const description = page.getByLabel('Description text');
+    await expect(description).toHaveValue(/tall and windburnt/);
+    const facts = page.getByTestId('facts-card');
+    const occupation = facts.locator('.cg-field', { hasText: 'OCCUPATION' }).locator('input');
+    await expect(occupation).toHaveValue('lighthouse keeper');
+    const library = (await (await page.request.get('/api/characters')).json()) as { name: string }[];
+    expect(library.some((c) => c.name === name), 'nothing is saved before Next').toBe(false);
+
+    // A steered rewrite streams into the boxes and lands.
+    await page.locator('#cg-profile-steer').fill('Does not follow the Tsundere personality type');
+    await page.getByRole('button', { name: 'Rewrite the profile' }).click();
+    await expect(page.getByTestId('profile-card-description')).toContainText('Writing…', { timeout: 30_000 });
+    await expect(facts).toContainText('Re-read after the rewrite');
+    await expect(description).toHaveValue(/rewritten the way the author asked/, { timeout: 60_000 });
+
+    // Re-read puts back what the profile implies.
+    await occupation.fill('baker');
+    await facts.getByRole('button', { name: 'Re-read from the profile' }).click();
+    await expect(occupation).toHaveValue('lighthouse keeper', { timeout: 60_000 });
+
+    // A reload finds the pause again, with the rewritten profile.
+    await page.reload();
+    await expect(step).toBeVisible({ timeout: 20_000 });
+    await expect(description).toHaveValue(/rewritten the way the author asked/);
+
+    // Next writes the rest and lands on Greetings.
+    await page.getByRole('button', { name: /^Next: Greetings/ }).click();
+    await expect(page.getByTestId('greetings-step')).toBeVisible({ timeout: 120_000 });
+    id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
+    expect(id, 'the saved character is in the URL').not.toBe('');
+    await expect(page.getByTestId('creator-hint')).toHaveCount(0);
+    await expect(page.getByTestId('review-example-dialogue')).toContainText('Mind the third step');
+    await expect(page.getByTestId('review-lorebook')).toContainText('2 entries');
+    const after = (await (await page.request.get('/api/chargen/profile')).json()) as { pending: unknown };
+    expect(after.pending, 'the pause is gone once the card is saved').toBeNull();
+  } finally {
+    if (id) {
+      const gone = await page.request.post(`/api/characters/${id}/delete`);
+      expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
+// The Interview card on the Output step, through a real create (the
+// stand-in backend answers every interview question): edit a question,
+// remove one, add your own and drag it to the top, switch to the third
+// person; the Profile step's transcript asks exactly that list, in that
+// order, the standard questions worded for the third person. Back on
+// Output, Reset is the standard eleven again. Next saves the character so
+// nothing is left waiting on the relay; it is deleted whatever happens.
+test('the creator\'s Interview card: edit, remove, add and drag a question, then the transcript asks them', async ({
+  page,
+}) => {
+  const name = `Interview Journey ${test.info().project.name}`;
+  const EDITED = 'What would the keeper trade the lamp for, if anyone asked?';
+  const CUSTOM = 'Which ship does the keeper still watch for every night?';
+  let id = '';
+  try {
+    await openRoute(page, '/create-ai');
+    await page.locator('.cg-field', { hasText: 'Name' }).locator('input').fill(name);
+    await page.getByRole('button', { name: /Quick Create/ }).click();
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await page.getByLabel('Concept').fill('A lighthouse keeper on a wet rock.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+
+    const card = page.getByTestId('interview-card');
+    const rows = card.getByTestId('interview-row');
+    const question = (n: number) => card.getByLabel(`Question ${n}`, { exact: true });
+    await expect(rows).toHaveCount(11);
+    await expect(question(1)).toBeEnabled();
+    await expect(card.getByText('Answered in first person, present')).toBeVisible();
+
+    // Edit the second question: it is kept as written.
+    await question(2).fill(EDITED);
+    await expect(rows.nth(1).getByText('Edited · kept as written')).toBeVisible();
+
+    // Remove the sixth (the one about being cornered).
+    await expect(question(6)).toHaveValue(/cornered/);
+    await card.getByRole('button', { name: 'Remove question 6', exact: true }).click();
+    await expect(rows).toHaveCount(10);
+
+    // Add one of your own, then drag it by its handle to the top. Held at
+    // the top of the scrolling column, the page scrolls on under it.
+    await card.getByRole('button', { name: 'Add a question' }).click();
+    await expect(rows).toHaveCount(11);
+    await question(11).fill(CUSTOM);
+    const handle = card.getByRole('button', { name: 'Move question 11', exact: true });
+    await handle.scrollIntoViewIfNeeded();
+    const grip = (await handle.boundingBox())!;
+    const column = (await page.locator('.cg-content').boundingBox())!;
+    await page.mouse.move(grip.x + grip.width / 2, grip.y + grip.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(grip.x + grip.width / 2, column.y + 8, { steps: 12 });
+    await expect(question(1)).toHaveValue(CUSTOM, { timeout: 15_000 });
+    await page.mouse.up();
+    await expect(question(3)).toHaveValue(EDITED);
+
+    // Third person: the standard questions are worded again, the edited and
+    // the custom ones stay as written.
+    await page.getByRole('button', { name: 'Third person', exact: true }).click();
+    await expect(card.getByText('Answered in third person, present')).toBeVisible();
+    await expect(question(2)).toHaveValue(/^How does .+ talk\?/);
+    await expect(question(1)).toHaveValue(CUSTOM);
+    await expect(question(3)).toHaveValue(EDITED);
+
+    await page.getByRole('button', { name: /^Next: Generate/ }).click();
+    await page.getByRole('button', { name: /Generate character/ }).click();
+    const step = page.getByTestId('profile-step');
+    await expect(step).toBeVisible({ timeout: 120_000 });
+
+    // The transcript asked the list as it was left. Quick mode sets no
+    // relationship and 18+ is off, so the two conditional rows are not asked.
+    await step.getByRole('button', { name: /Interview transcript/ }).click();
+    await expect(step).toContainText('9 questions, read only');
+    const transcript = await page.getByTestId('interview-transcript').innerText();
+    const asked = transcript.split('\n').filter((l) => l.startsWith('Q: '));
+    expect(asked).toHaveLength(9);
+    expect(asked[0]).toBe(`Q: ${CUSTOM}`);
+    expect(asked[1]).toMatch(/^Q: How does .+ talk\?/);
+    expect(asked[2]).toBe(`Q: ${EDITED}`);
+    expect(asked.some((q) => q.includes('cornered')), 'the removed question is not asked').toBe(false);
+    expect(asked.filter((q) => /\byou\b/i.test(q)), 'every question is in the third person').toEqual([]);
+
+    // Next writes the rest and saves the character.
+    await page.getByRole('button', { name: /^Next: Greetings/ }).click();
+    await expect(page.getByTestId('greetings-step')).toBeVisible({ timeout: 120_000 });
+    id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
+    expect(id, 'the saved character is in the URL').not.toBe('');
+
+    // Back on Output, Reset brings the standard eleven back.
+    await page.locator('.step-dot', { hasText: 'Output' }).click();
+    await expect(rows).toHaveCount(11);
+    await card.getByRole('button', { name: 'Reset to the standard questions' }).click();
+    await expect(rows).toHaveCount(11);
+    await expect(card.getByText('Edited · kept as written')).toHaveCount(0);
+    await expect(question(1)).toHaveValue(/^How does .+ talk\?/);
+    await expect(card.getByTestId('interview-count')).toHaveText(/^11 of 12 · /);
+    const after = (await (await page.request.get('/api/chargen/profile')).json()) as { pending: unknown };
+    expect(after.pending, 'nothing is left waiting on the relay').toBeNull();
+  } finally {
+    if (id) {
+      const gone = await page.request.post(`/api/characters/${id}/delete`);
+      expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
+// Creator templates through the real relay and library: a template made on
+// the desktop (written here through the relay, with the desktop-only art
+// style, the third person and an edited interview question) loads on the
+// phone with the typed name left alone; saved back under its own name (the
+// replace caption shows) it keeps the art style; then it is renamed and
+// deleted through its ⋯ menu. Anything left is deleted whatever happens.
+test('creator templates: load a desktop-made template, save it back, rename and delete it', async ({ page }) => {
+  const project = test.info().project.name;
+  const NAME = `Templates Journey ${project}`;
+  const RENAMED = `${NAME} renamed`;
+  const EDITED = 'What does the keeper hear in the fog that nobody else does?';
+  // The slug rule for a plain ASCII name (templatesApi.ts has the whole rule).
+  const slugOf = (name: string) => (name.toLowerCase().match(/[a-z0-9]+/g) ?? []).join('-');
+  type Listed = { slug: string; name: string; form: Record<string, unknown> };
+  const list = async () =>
+    ((await (await page.request.get('/api/chargen/templates')).json()) as { templates: Listed[] }).templates;
+  try {
+    const made = await page.request.put(`/api/chargen/templates/${slugOf(NAME)}`, {
+      data: {
+        name: NAME,
+        form: {
+          mode: 'guided',
+          artStyle: 'Watercolor',
+          narrativePerspective: 'third',
+          narrativeTense: 'past',
+          guidedVision: 'A lighthouse keeper on a rock off a small harbor town.',
+          interviewQuestions: [
+            { key: 'voice', text: EDITED, condition: null },
+            { key: 'wants', text: null, condition: null },
+          ],
+        },
+      },
+    });
+    expect(made.ok(), `PUT the desktop template: ${made.status()}`).toBe(true);
+
+    await openRoute(page, '/create-ai');
+    const nameField = page.locator('.cg-field', { hasText: 'Name' }).locator('input').first();
+    await nameField.fill('Maren Holt');
+    const picker = page.getByTestId('template-picker');
+    await picker.getByRole('button', { name: NAME, exact: true }).click();
+    await expect(picker.getByTestId('template-tile').filter({ hasText: NAME }).first()).toHaveClass(/\bon\b/);
+    await expect(page.getByRole('button', { name: /Guided Creator/ })).toHaveAttribute('aria-pressed', 'true');
+    await expect(nameField).toHaveValue('Maren Holt');
+
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await expect(page.getByLabel('Your vision')).toHaveValue('A lighthouse keeper on a rock off a small harbor town.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+    await expect(page.getByRole('button', { name: 'Third person', exact: true })).toHaveClass(/\bon\b/);
+    await expect(page.getByRole('button', { name: 'Past', exact: true })).toHaveClass(/\bon\b/);
+    const card = page.getByTestId('interview-card');
+    await expect(card.getByText('Answered in third person, past')).toBeVisible();
+    await expect(card.getByTestId('interview-row')).toHaveCount(2);
+    await expect(card.getByLabel('Question 1', { exact: true })).toHaveValue(EDITED);
+    await expect(card.getByTestId('interview-row').first().getByText('Edited · kept as written')).toBeVisible();
+
+    // Save it back under the same name: the dialog says it replaces it.
+    const bar = page.getByTestId('template-save');
+    await expect(bar.getByText(`Started from: ${NAME}`)).toBeVisible();
+    await bar.getByRole('button', { name: 'Save as template' }).click();
+    const save = page.getByRole('dialog', { name: 'Save as a template' });
+    await expect(save.getByLabel('TEMPLATE NAME')).toHaveValue(NAME);
+    await expect(save.getByText('A template with this name already exists. Saving replaces it.')).toBeVisible();
+    await save.getByRole('button', { name: 'Save template', exact: true }).click();
+    await expect(save).toHaveCount(0);
+    await expect
+      .poll(async () => (await list()).find((t) => t.slug === slugOf(NAME))?.form.artStyle, {
+        message: 'the desktop-only art style survives the phone save',
+      })
+      .toBe('Watercolor');
+    const saved = (await list()).find((t) => t.slug === slugOf(NAME))!;
+    expect(saved.form).toMatchObject({ mode: 'guided', narrativePerspective: 'third', narrativeTense: 'past' });
+    expect((saved.form.interviewQuestions as { key: string; text: string | null }[])[0]).toMatchObject({
+      key: 'voice',
+      text: EDITED,
+    });
+    expect(saved.form, 'the character name is never in a template').not.toHaveProperty('name');
+
+    // Rename it through its ⋯ menu on the Mode step.
+    await page.locator('.step-dot', { hasText: 'Mode' }).click();
+    await picker.getByRole('button', { name: `More for ${NAME}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Rename' }).click();
+    const rename = page.getByRole('dialog', { name: 'Rename template' });
+    await rename.getByLabel('TEMPLATE NAME').fill(RENAMED);
+    await rename.getByRole('button', { name: 'Rename', exact: true }).click();
+    await expect(rename).toHaveCount(0);
+    await expect(picker.getByRole('button', { name: RENAMED, exact: true })).toBeVisible();
+    await expect(picker.getByRole('button', { name: NAME, exact: true })).toHaveCount(0);
+    const slugs = (await list()).map((t) => t.slug);
+    expect(slugs).toContain(slugOf(RENAMED));
+    expect(slugs).not.toContain(slugOf(NAME));
+
+    // Delete it through the menu, after the confirm.
+    await picker.getByRole('button', { name: `More for ${RENAMED}`, exact: true }).click();
+    await page.getByRole('menuitem', { name: 'Delete' }).click();
+    const confirm = page.getByRole('dialog', { name: 'Delete this template?' });
+    await confirm.getByRole('button', { name: 'Delete', exact: true }).click();
+    await expect(confirm).toHaveCount(0);
+    await expect(picker.getByRole('button', { name: RENAMED, exact: true })).toHaveCount(0);
+    expect((await list()).some((t) => t.slug === slugOf(RENAMED))).toBe(false);
+  } finally {
+    const left = (await list()).filter((t) => t.slug === slugOf(NAME) || t.slug === slugOf(RENAMED));
+    for (const t of left) {
+      const gone = await page.request.delete(`/api/chargen/templates/${t.slug}`);
+      expect(gone.ok(), `deleting the journey template ${t.slug}: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
 // Library card → Manage Chats → Start new chat → persona → a fresh chat,
 // on a character made for this test (so Porch Tester's chats stay as the
 // conversation journeys left them). Start new chat is offered even though

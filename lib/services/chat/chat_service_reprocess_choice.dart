@@ -138,6 +138,8 @@ const List<String> _kJudgedRegisters = [
   'fixationLifespan',
   'characterEmotion',
   'emotionIntensity',
+  'emotionCause',
+  'emotionHeldTurns',
 ];
 
 /// Reply metadata the judges own. A re-score replaces all of it.
@@ -462,16 +464,11 @@ extension ChatServiceFeelingsRescore on ChatService {
       state,
       groupSpeakerId: groupSid,
     );
-    final emotion = state['characterEmotion'];
-    if (emotion is String) _characterEmotion = emotion;
-    final intensity = state['emotionIntensity'];
-    if (intensity is String) _emotionIntensity = intensity;
+    _mood.restoreFromStamp(state);
     if (arousal is num) _nsfwService.setArousalLevel(arousal.toInt());
     if (groupSid == null) return;
     _realismDance.saveScalarsIntoGroup(groupSid);
     // The save skips an empty mood; a first-turn member had none.
-    _groupStore.memberForWrite(groupSid)
-      ..emotion = _characterEmotion
-      ..emotionIntensity = _emotionIntensity;
+    _mood.saveToMember(groupSid, evenIfEmpty: true);
   }
 }

@@ -71,10 +71,10 @@ class MilestoneFeed {
     try {
       final list = jsonDecode(sourceIdsJson);
       if (list is! List || list.isEmpty) return null;
-      return list.whereType<num>().map((n) => n.toInt()).fold<int?>(
-        null,
-        (max, v) => max == null || v > max ? v : max,
-      );
+      return list
+          .whereType<num>()
+          .map((n) => n.toInt())
+          .fold<int?>(null, (max, v) => max == null || v > max ? v : max);
     } catch (_) {
       return null;
     }
@@ -139,9 +139,7 @@ class MilestoneFeed {
       entries.add(
         MilestoneEntry(
           kind: 'chance',
-          text: m.text
-              .replaceAll('[🎰 CHANCE TIME! ', '')
-              .replaceAll(']', ''),
+          text: m.text.replaceAll('[🎰 CHANCE TIME! ', '').replaceAll(']', ''),
           position: i,
         ),
       );
@@ -165,14 +163,24 @@ class MilestoneFeed {
       chatId: sessionId,
     )) {
       if (o.active) continue;
+      // v58: the goal sync records how a goal ended. A goal finished with
+      // steps still open is achieved; one let go is not, whatever its steps.
+      // Rows retired before v58 have no status: all steps done is the rule.
       bool achieved;
-      try {
-        final tasks = jsonDecode(o.tasks);
-        achieved = tasks is List &&
-            tasks.isNotEmpty &&
-            tasks.every((t) => t is Map && t['completed'] == true);
-      } catch (_) {
+      if (o.status == 'done') {
+        achieved = true;
+      } else if (o.status != null) {
         achieved = false;
+      } else {
+        try {
+          final tasks = jsonDecode(o.tasks);
+          achieved =
+              tasks is List &&
+              tasks.isNotEmpty &&
+              tasks.every((t) => t is Map && t['completed'] == true);
+        } catch (_) {
+          achieved = false;
+        }
       }
       if (!achieved) continue;
       entries.add(

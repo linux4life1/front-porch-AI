@@ -18,7 +18,6 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 import 'package:front_porch_ai/services/image/image.dart';
-import 'package:front_porch_ai/services/image/studio_model_roots.dart';
 import 'package:front_porch_ai/services/web/routes/civitai_routes.dart';
 
 import 'civitai_route_support.dart';

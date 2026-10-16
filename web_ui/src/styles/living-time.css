@@ -216,6 +216,17 @@
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+/* The mirror of the desktop ObjectiveSetAsideTag: a goal the goal sync set
+   aside reads quieter, and the tag says why in words. */
+.obj-dormant {
+  opacity: 0.6;
+}
+.obj-set-aside {
+  margin: 0 0 4px;
+  font-size: 10.5px;
+  font-style: italic;
+  color: var(--muted);
+}
 
 /* ── Context Budget modal (desktop ContextViewerDialog parity) ──────────── */
 .ctxb-modal { max-height: 84vh; overflow-y: auto; width: min(500px, 94vw); }

@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:io' show InternetAddress;
+
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
@@ -149,9 +151,36 @@ String resolvedLaneApiUrl(String backendType, String storedUrl) {
   return storedUrl.trim();
 }
 
-/// Kobold and oMLX are always local. An OpenAI-compatible URL is local
-/// when it points at this machine or the LAN (LM Studio, llama.cpp, …).
+/// This machine only: `localhost`, 127.0.0.0/8, `::1`, `0.0.0.0`.
+///
+/// A LAN address, Tailscale address, or `.local` name is another computer.
+/// The wider home-network check used by thinking probes is unchanged.
+bool _openAiUrlIsThisMachine(String url) {
+  final host = (Uri.tryParse(url)?.host ?? '').toLowerCase();
+  if (host.isEmpty) return false;
+  if (host == 'localhost' || host == '0.0.0.0') return true;
+  final ip = InternetAddress.tryParse(host);
+  return ip != null && ip.isLoopback;
+}
+
+/// Kobold and oMLX are always local. An OpenAI-compatible URL is this
+/// machine only on loopback (LM Studio, llama.cpp on localhost).
 bool backendLaneIsLocal(String backendType, String apiUrl) {
+  switch (backendType.trim()) {
+    case 'kobold':
+    case 'omlx':
+      return true;
+    case 'openRouter':
+      return _openAiUrlIsThisMachine(resolvedLaneApiUrl('openRouter', apiUrl));
+    default:
+      return false;
+  }
+}
+
+/// Home network for One-Shot Auto. Kobold and oMLX always. An
+/// OpenAI-compatible URL uses [isLocalRemoteUrl], so a LAN or `.local`
+/// helper stays multi-call. The pair gate is [backendLaneIsLocal].
+bool evalLaneIsHomeNetwork(String backendType, String apiUrl) {
   switch (backendType.trim()) {
     case 'kobold':
     case 'omlx':

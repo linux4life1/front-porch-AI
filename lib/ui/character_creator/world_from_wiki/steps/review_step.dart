@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 class WorldFromWikiReviewStep extends StatelessWidget {
   const WorldFromWikiReviewStep({super.key, required this.state});
@@ -22,10 +22,7 @@ class WorldFromWikiReviewStep extends StatelessWidget {
             'Sign the cards they proposed. Default is off — no select-all. '
             '${state.signed.length} of ${state.proposed.length} signed'
             '${state.catalogTitleCount > 0 ? ' (${state.catalogTitleCount} index pages).' : '.'}',
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              height: 1.4,
-            ),
+            style: TextStyle(color: StudioColors.proseOf(context), height: 1.4),
           ),
         ),
         if (state.proposed.isEmpty)
@@ -33,7 +30,7 @@ class WorldFromWikiReviewStep extends StatelessWidget {
             padding: const EdgeInsets.all(32),
             child: Text(
               'No cards. Go back and Scout again.',
-              style: TextStyle(color: AppColors.textTertiary(context)),
+              style: TextStyle(color: StudioColors.mutedOf(context)),
             ),
           )
         else
@@ -48,7 +45,7 @@ class WorldFromWikiReviewStep extends StatelessWidget {
                 final sources = card.sourceTitles.join(', ');
                 return CheckboxListTile(
                   value: on,
-                  activeColor: AppColors.porchAmberOf(context),
+                  activeColor: StudioColors.amberOf(context),
                   title: Text(card.name),
                   subtitle: Text(
                     '${card.role.name}$group'

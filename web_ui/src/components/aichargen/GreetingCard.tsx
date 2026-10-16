@@ -9,6 +9,7 @@
 import { useState } from 'react';
 import { MacroField } from '../MacroField';
 import { useLayout } from '../../hooks/useBreakpoint';
+import { MacroText } from './macroText';
 
 const svg = {
   width: 18,
@@ -126,7 +127,7 @@ export function GreetingCard({
       </div>
       {isWriting || value === null ? (
         <div className="cg-g-stream" aria-live="polite" data-testid="greeting-stream">
-          {writing}
+          <MacroText text={writing ?? ''} />
           <span className="cg-g-caret" />
         </div>
       ) : (

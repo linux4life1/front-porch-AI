@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 import 'realism_form_controls.dart';
 
@@ -59,9 +60,11 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(
+          color: context.creatorPalette?.line ?? AppColors.borderOf(context),
+        ),
       ),
       child: Column(
         children: [
@@ -76,7 +79,10 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
             ),
             if (showChaosToggle)
               Divider(
-                color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                color:
+                    (context.creatorPalette?.line ??
+                            AppColors.borderOf(context))
+                        .withValues(alpha: 0.4),
                 height: 24,
               ),
           ],
@@ -96,7 +102,10 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
           if (showVerificationToggle) ...[
             if (showChaosToggle || showNsfwCooldownToggle)
               Divider(
-                color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                color:
+                    (context.creatorPalette?.line ??
+                            AppColors.borderOf(context))
+                        .withValues(alpha: 0.4),
                 height: 24,
               ),
             buildRealismToggleRow(
@@ -117,8 +126,10 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               'Max reprocess passes: $realismVerificationMaxReprocesses',
               style: TextStyle(
                 color: realismVerificationEnabled
-                    ? AppColors.textSecondary(context)
-                    : AppColors.textTertiary(context),
+                    ? context.creatorPalette?.prose ??
+                          AppColors.textSecondary(context)
+                    : context.creatorPalette?.muted ??
+                          AppColors.textTertiary(context),
                 fontSize: 11,
               ),
             ),
@@ -139,8 +150,10 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
               'Strictness (1=lenient … 5=strict): $realismVerificationStrictness',
               style: TextStyle(
                 color: realismVerificationEnabled
-                    ? AppColors.textSecondary(context)
-                    : AppColors.textTertiary(context),
+                    ? context.creatorPalette?.prose ??
+                          AppColors.textSecondary(context)
+                    : context.creatorPalette?.muted ??
+                          AppColors.textTertiary(context),
                 fontSize: 11,
               ),
             ),

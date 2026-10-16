@@ -23,6 +23,9 @@
   --studio-card: #251E17;
   --studio-raise: #30271E;
   --studio-line: #3E3328;
+  --studio-line-strong: #4E4134;
+  --studio-scrim: rgba(12, 8, 4, 0.62);
+  --studio-dialog-shadow: 0 24px 64px rgba(0, 0, 0, 0.5);
   --studio-ink: #EFE6DA;
   --studio-muted: #A89A89;
   --studio-faint: #7A6E62;
@@ -47,6 +50,9 @@
   --studio-card: #FFFDF9;
   --studio-raise: #E9E2D8;
   --studio-line: #D4CFC6;
+  --studio-line-strong: #BFB6AA;
+  --studio-scrim: rgba(12, 8, 4, 0.62);
+  --studio-dialog-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
   --studio-ink: #2A231C;
   --studio-muted: #6E6357;
   --studio-faint: #9A8E82;

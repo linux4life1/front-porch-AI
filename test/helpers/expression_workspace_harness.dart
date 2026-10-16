@@ -157,3 +157,27 @@ Future<WorkspaceRig> workspaceRig(WidgetTester tester) async {
   });
   return rig;
 }
+
+/// Runs [action] to the end on the real event loop, then pumps once.
+///
+/// The action's own `expect` calls run inside this single guarded call.
+/// Pumping while the action was still in flight let one of them land in
+/// the middle of a `pump` and fail as a guarded function conflict.
+Future<void> finishReal(
+  WidgetTester tester,
+  Future<void> Function() action, {
+  Duration limit = const Duration(seconds: 30),
+}) async {
+  Object? failure;
+  StackTrace? trace;
+  await tester.runAsync(() async {
+    try {
+      await action().timeout(limit);
+    } catch (error, stack) {
+      failure = error;
+      trace = stack;
+    }
+  });
+  if (failure != null) Error.throwWithStackTrace(failure!, trace!);
+  await tester.pump();
+}

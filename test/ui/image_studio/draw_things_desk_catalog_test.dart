@@ -84,6 +84,30 @@ class _VersionedDrawThings extends ImageGenService {
   }
 }
 
+/// A Draw Things whose files and reachability change while the desk is open.
+class _ChangingDrawThings extends ImageGenService {
+  _ChangingDrawThings(super.storage);
+
+  List<String> models = ['flux_dev.safetensors'];
+  bool up = true;
+
+  @override
+  Future<bool> testLocalConnection(String baseUrl) async => up;
+
+  @override
+  Future<List<String>> fetchDrawThingsModels(String baseUrl) async =>
+      up ? models : const [];
+
+  @override
+  Future<Map<String, String>> fetchDrawThingsModelVersions(
+    String baseUrl,
+  ) async => const {};
+
+  @override
+  Future<List<LoraOption>> fetchDrawThingsLoras(String baseUrl) async =>
+      const [];
+}
+
 void main() {
   test('Draw Things ready reports diffusion files and LoRAs', () async {
     final dir = Directory.systemTemp.createTempSync('dt-ready');
@@ -210,5 +234,53 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  Future<_ChangingDrawThings> openDesk(WidgetTester tester) async {
+    final dir = Directory.systemTemp.createTempSync('dt-refresh');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    final storage = StorageService.sandbox(dir.path);
+    await storage.imageGenSettings.setImageGenBackend('drawthings');
+    final gen = _ChangingDrawThings(storage);
+    await tester.binding.setSurfaceSize(const Size(1200, 1600));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: MultiProvider(
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<ImageGenService>.value(value: gen),
+          ],
+          child: const Scaffold(body: StudioDesk()),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    return gen;
+  }
+
+  testWidgets('Change model lists a model added after the desk opened', (
+    tester,
+  ) async {
+    final gen = await openDesk(tester);
+
+    gen.models = ['flux_dev.safetensors', 'later_model.safetensors'];
+    await tester.tap(find.text('Change model'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('later_model.safetensors'), findsOneWidget);
+    expect(find.text('flux_dev.safetensors'), findsOneWidget);
+  });
+
+  testWidgets('Change model keeps its files when Draw Things stops answering', (
+    tester,
+  ) async {
+    final gen = await openDesk(tester);
+
+    gen.up = false;
+    await tester.tap(find.text('Change model'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('flux_dev.safetensors'), findsOneWidget);
   });
 }

@@ -380,9 +380,11 @@ mixin ChatServiceFieldBag {
   // are mid-deactivation throw "Looking up a deactivated widget's ancestor".
   Timer? _evalChunkTimer;
 
-  // Emotional state
+  // Emotional state. Cause and hold go through MoodRegisters (`_mood`).
   String _characterEmotion = '';
   String _emotionIntensity = ''; // mild/moderate/strong
+  String _emotionCause = '';
+  int _emotionHeldTurns = 0;
 
   // Chaos Mode state lives on _chaosModeService. UI park flags stay here.
   bool _chanceTimePendingTrigger =

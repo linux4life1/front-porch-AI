@@ -205,11 +205,22 @@ class TimeService {
     todayLine = null;
   }
 
-  Future<void> _ifDayChanged(int dayBefore) async {
+  Future<void> _ifDayChanged(int dayBefore, {bool manual = false}) async {
     if (dayCount == dayBefore) return;
     clearTodayLine();
     await onStoryDayChanged?.call();
+    // Forward only: a backward nudge rewinds nothing here, the stamps do.
+    final days = dayCount - dayBefore;
+    if (days > 0) await onStoryDaysCrossed?.call(days, manual: manual);
   }
+
+  /// Fires with the number of story days crossed when the day moved
+  /// forward (one for "next morning", 27 for a month's skip). The mood
+  /// eases a step per day (docs/design/mood-with-bite.md). [manual] is a
+  /// chevron or calendar roll made outside any turn; a reply's own clock
+  /// pass, an OOC skip on the way to a reply and time away are not.
+  /// Optional so hosts and tests without it construct the service as before.
+  final FutureOr<void> Function(int days, {bool manual})? onStoryDaysCrossed;
 
   // Tools transport for the scene-time and posture evals (nullable — tests and
   // any host without the tools door stay on the text path).
@@ -223,6 +234,7 @@ class TimeService {
     required this.onSetPendingRealismMetadata,
     required this.onPatchLastMessageRealismState,
     this.onStoryDayChanged,
+    this.onStoryDaysCrossed,
     this.fireToolEval,
     this.probe,
     this.getBackendIdentity,

@@ -1,7 +1,8 @@
 /* Copyright (C) 2026 Front Porch AI — SPDX-License-Identifier: AGPL-3.0-or-later */
 /*
-   Chip toggles and wizard nav shared by the creators, thinking-strength
-   chips, and the AI character creator. (Porch Stories lives in studio.css.)
+   Chip toggles and wizard nav shared by the creators, and thinking-strength
+   chips. (Porch Stories lives in studio.css; the AI character creator in
+   creator.css.)
 */
 
 /* Shared creator bits */
@@ -40,21 +41,12 @@
 .wizard-nav { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
 .spinner.small { width: 20px; height: 20px; }
 
-/* AI character creator: live generation steps. */
-.chargen-steps { margin: 8px 0 0; padding-left: 20px; }
-.chargen-steps li { padding: 2px 0; color: var(--muted); }
-.chargen-steps li.done { color: var(--text); }
-.chargen-steps li.active { color: var(--accent); font-weight: 600; }
-
-/* ── AI character creator wizard (Quick / Guided / Automated) ───────────── */
+/* Form parts shared by the creation pages (group chat, World from Wiki, AI
+   Enhance, places). The AI character creator dresses them in its own palette
+   in creator.css. */
 .cg-config { display: flex; flex-direction: column; gap: 12px; }
 .cg-field { display: flex; flex-direction: column; gap: 6px; margin: 0; }
 .cg-field-label { font-size: 0.82rem; color: var(--muted); }
-.cg-grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.cg-subhead {
-  margin: 8px 0 0; font-size: 0.92rem; color: var(--text);
-  border-top: 1px solid var(--border); padding-top: 12px;
-}
 .cg-toggle { flex-direction: row; align-items: center; gap: 8px; }
 .cg-toggle input { width: auto; }
 .cg-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -64,30 +56,4 @@
 }
 .cg-chip:hover { border-color: var(--accent); }
 .cg-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
-.cg-mode-cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
-.cg-mode-card {
-  display: flex; flex-direction: column; gap: 6px; text-align: left;
-  padding: 16px; border-radius: var(--radius-card); cursor: pointer;
-  background: var(--card); border: 2px solid var(--border); color: var(--text);
-}
-.cg-mode-card:hover { border-color: var(--accent); }
-.cg-mode-title { font-weight: 700; font-size: 1rem; }
-.cg-mode-blurb { font-size: 0.8rem; color: var(--muted); line-height: 1.35; }
-.cg-mode-card.quick.on { border-color: var(--ok); box-shadow: 0 0 0 1px var(--ok); }
-.cg-mode-card.guided.on { border-color: var(--action); box-shadow: 0 0 0 1px var(--action); }
-.cg-mode-card.automated.on { border-color: var(--accent-amber); box-shadow: 0 0 0 1px var(--accent-amber); }
-.cg-review { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .cg-generate { align-self: flex-start; }
-.cg-lore { border-top: 1px solid var(--border); padding-top: 12px; margin-top: 4px; }
-.cg-lore-url { display: flex; gap: 8px; align-items: stretch; }
-.cg-lore-url input { flex: 1; }
-.cg-lore-file { display: inline-flex; align-self: flex-start; cursor: pointer; }
-.cg-lore-file > span {
-  background: var(--surface-2); border: 1px solid var(--border); color: var(--text);
-  border-radius: var(--radius); padding: 8px 12px; font-size: 0.85rem;
-}
-.cg-lore-file:hover > span { border-color: var(--accent); }
-@media (max-width: 768px) {
-  .cg-mode-cards, .cg-grid2, .cg-review { grid-template-columns: 1fr; }
-}
-

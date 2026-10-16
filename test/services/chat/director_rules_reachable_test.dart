@@ -29,6 +29,7 @@
 // no LLM critique.
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/realism_verification/realism_director_rules.dart';
 
 import 'realism_verification_test.dart' show createTestRealismVerification;
 
@@ -77,7 +78,8 @@ void main() {
       expect(
         r.correctedRaw,
         contains('"emotion_intensity": "mild"'),
-        reason: 'the evals parse the quoted enum, so a numeric damp would be '
+        reason:
+            'the evals parse the quoted enum, so a numeric damp would be '
             'a silent no-op',
       );
     });
@@ -105,6 +107,44 @@ void main() {
         maxPassesOverride: 0,
       );
       expect(r.status, 'accepted');
+    });
+  });
+
+  group('the critique prompt preserves the mood keys (mood with bite)', () {
+    // The Director REWRITES the eval text and the rewrite is what gets
+    // parsed, so a key the hint forgets is a key the mood never gets (the
+    // "serves_ambition" lesson in the rules file).
+    String hint(String kind) =>
+        RealismDirectorRules(
+          extractJsonInt: (_, _) => null,
+        ).buildReprocessCritiquePrompt(
+          originalRaw: '{"emotion": "sad", "emotion_intensity": "strong"}',
+          reason: 'strong emotion w/o support',
+          suggested: '{"emotion_intensity": "mild"}',
+          bundle: {
+            'eval_kind': kind,
+            'char_name': 'Vera',
+            'pre_state': <String, dynamic>{},
+            'scene': 'she pours the coffee',
+          },
+          strict: 3,
+        );
+
+    test('emotional_state names cause and change', () {
+      final h = hint('emotional_state');
+      expect(h, contains('"emotion_cause"'));
+      expect(h, contains('"emotion_change"'));
+      expect(h, contains('carry cause and change through unchanged'));
+    });
+
+    test('oneShot names cause and change', () {
+      final h = hint('oneShot');
+      expect(h, contains('"emotion_cause"'));
+      expect(h, contains('"emotion_change"'));
+    });
+
+    test('relationship does not invent them', () {
+      expect(hint('relationship'), isNot(contains('"emotion_cause"')));
     });
   });
 }

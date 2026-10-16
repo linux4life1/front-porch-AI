@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 import 'package:front_porch_ai/ui/widgets/needs_clock_off_note.dart';
 import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 
@@ -89,7 +90,9 @@ class NeedsFormSection extends StatelessWidget {
           style: TextStyle(
             fontWeight: FontWeight.w600,
             fontSize: 14,
-            color: AppColors.textSecondary(context),
+            color:
+                context.creatorPalette?.prose ??
+                AppColors.textSecondary(context),
           ),
         ),
         const SizedBox(height: 8),
@@ -98,9 +101,12 @@ class NeedsFormSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
+            color: context.creatorPalette?.card ?? AppColors.cardOf(context),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: AppColors.borderOf(context)),
+            border: Border.all(
+              color:
+                  context.creatorPalette?.line ?? AppColors.borderOf(context),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -183,7 +189,10 @@ class NeedsFormSection extends StatelessWidget {
 
                 const SizedBox(height: 16),
                 Divider(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  color:
+                      (context.creatorPalette?.line ??
+                              AppColors.borderOf(context))
+                          .withValues(alpha: 0.4),
                 ),
                 const SizedBox(height: 12),
 
@@ -200,14 +209,19 @@ class NeedsFormSection extends StatelessWidget {
 
                 const SizedBox(height: 16),
                 Divider(
-                  color: AppColors.borderOf(context).withValues(alpha: 0.4),
+                  color:
+                      (context.creatorPalette?.line ??
+                              AppColors.borderOf(context))
+                          .withValues(alpha: 0.4),
                 ),
                 const SizedBox(height: 12),
 
                 Text(
                   'Pace',
                   style: TextStyle(
-                    color: AppColors.textSecondary(context),
+                    color:
+                        context.creatorPalette?.prose ??
+                        AppColors.textSecondary(context),
                     fontSize: 12,
                   ),
                 ),
@@ -215,7 +229,9 @@ class NeedsFormSection extends StatelessWidget {
                 Text(
                   'How fast needs drop as time passes. A meal or a bath stays the same.',
                   style: TextStyle(
-                    color: AppColors.textTertiary(context),
+                    color:
+                        context.creatorPalette?.muted ??
+                        AppColors.textTertiary(context),
                     fontSize: 11,
                   ),
                 ),
@@ -255,7 +271,9 @@ class NeedsFormSection extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color:
+                    context.creatorPalette?.prose ??
+                    AppColors.textSecondary(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -265,7 +283,9 @@ class NeedsFormSection extends StatelessWidget {
             Text(
               '$value / 100',
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color:
+                    context.creatorPalette?.prose ??
+                    AppColors.textSecondary(context),
                 fontSize: 12,
               ),
             ),
@@ -288,11 +308,13 @@ class NeedsFormSection extends StatelessWidget {
         const SizedBox(height: 4),
         SliderTheme(
           data: SliderThemeData(
-            activeTrackColor: AppColors.emotionAccent,
-            inactiveTrackColor: AppColors.borderOf(
-              context,
-            ).withValues(alpha: 0.3),
-            thumbColor: AppColors.emotionAccent,
+            activeTrackColor:
+                context.creatorPalette?.amber ?? AppColors.emotionAccent,
+            inactiveTrackColor:
+                (context.creatorPalette?.line ?? AppColors.borderOf(context))
+                    .withValues(alpha: 0.3),
+            thumbColor:
+                context.creatorPalette?.amber ?? AppColors.emotionAccent,
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
             overlayShape: const RoundSliderOverlayShape(overlayRadius: 14),

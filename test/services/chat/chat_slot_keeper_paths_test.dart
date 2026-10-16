@@ -403,9 +403,13 @@ void main() {
       reason: 'the second reply came after helpers, so it was loaded for',
     );
     expect(log.where((r) => r.kind == 'load'), hasLength(1));
+    // A miss re-reads the whole prompt. A hit reads what the chat added plus
+    // the user's previous line: the newest beat renders after the state
+    // zone, so last turn's line moves back into the transcript (152 → 163 of
+    // ~315 tokens in this two-turn chat, where the zone is half the prompt).
     expect(
       saved.last.processed,
-      lessThan(saved.last.promptTokens ~/ 2),
+      lessThan(saved.last.promptTokens * 2 ~/ 3),
       reason: 'the reply read only what the chat added since the last one',
     );
   });

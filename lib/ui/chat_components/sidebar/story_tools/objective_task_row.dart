@@ -269,6 +269,48 @@ class AmbitionServedChip extends StatelessWidget {
   }
 }
 
+/// "Set aside" under a goal the goal sync marked dormant: still the
+/// character's, out of the prompt until the story can act on it again
+/// (objectives-that-keep-up.md). Words and an icon, not colour alone.
+class ObjectiveSetAsideTag extends StatelessWidget {
+  final bool dormant;
+
+  const ObjectiveSetAsideTag({super.key, required this.dormant});
+
+  @override
+  Widget build(BuildContext context) {
+    if (!dormant) return const SizedBox.shrink();
+    final color = AppColors.textTertiary(context);
+    return Semantics(
+      label: 'Set aside for now',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.only(top: 4),
+        child: Tooltip(
+          message:
+              'Set aside for now: the story cannot act on it yet. It '
+              'comes back when it can.',
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.bedtime_outlined, size: 11, color: color),
+              const SizedBox(width: 4),
+              Text(
+                'set aside',
+                style: TextStyle(
+                  fontSize: 9.5,
+                  fontStyle: FontStyle.italic,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// A secondary objective ("side quest") row — goal text, task progress badge,
 /// promote / clear buttons, and an expandable task list. AI-proposed side
 /// quests come with auto-generated subtasks that drive the story, so the row
@@ -297,8 +339,9 @@ class _SecondaryObjectiveRowState extends State<SecondaryObjectiveRow> {
     final tasks = widget.chatService.tasksForObjective(obj);
     final completedCount = completedQuestTaskCount(tasks);
     final countable = countableQuestTaskCount(tasks);
+    final dormant = objectiveIsDormant(obj);
 
-    return Container(
+    final row = Container(
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(6),
       decoration: BoxDecoration(
@@ -374,6 +417,10 @@ class _SecondaryObjectiveRowState extends State<SecondaryObjectiveRow> {
             padding: const EdgeInsets.only(left: 20),
             child: AmbitionServedChip(servedAmbition: obj.servedAmbition),
           ),
+          Padding(
+            padding: const EdgeInsets.only(left: 20),
+            child: ObjectiveSetAsideTag(dormant: dormant),
+          ),
           if (_expanded && tasks.isNotEmpty) ...[
             const SizedBox(height: 6),
             ...tasks.asMap().entries.map((entry) {
@@ -400,5 +447,7 @@ class _SecondaryObjectiveRowState extends State<SecondaryObjectiveRow> {
         ],
       ),
     );
+    // A goal set aside reads quieter; the tag says why in words.
+    return dormant ? Opacity(opacity: 0.6, child: row) : row;
   }
 }

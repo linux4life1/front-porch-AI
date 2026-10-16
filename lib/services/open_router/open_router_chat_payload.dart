@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/open_router/omlx_samplers.dart';
 import 'package:front_porch_ai/services/reasoning_effort.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_api_key_vault.dart';
 
@@ -38,7 +39,7 @@ Map<String, dynamic> openRouterChatPayload(
   // old conservative payload (frequency_penalty approximation, no
   // extensions). Everyone else (OpenRouter, Nano-GPT, vLLM, LM Studio)
   // supports or ignores the native sampler fields.
-  final strictOpenAi = apiUrl.contains('openai.com');
+  final strictOpenAi = remoteApiUrlIsStrictOpenAi(apiUrl);
   // xAI 400s `stop` and `reasoning_effort` on its reasoning models (Grok
   // 4 family) instead of ignoring them the way OpenRouter does. Send only
   // standard fields; the client-side stop trim still enforces stops.
@@ -72,6 +73,8 @@ Map<String, dynamic> openRouterChatPayload(
       'repetition_penalty': params.repeatPenalty,
       'min_p': params.minP,
       if (params.topK > 0) 'top_k': params.topK,
+      // Repeat Penalty Tokens, DRY Strength and XTC; only oMLX reads them.
+      if (isOmlxApiUrl(apiUrl)) ...omlxSamplerFields(params),
     },
   };
 
@@ -184,6 +187,10 @@ Map<String, dynamic> openRouterChatPayload(
   }
   return payload;
 }
+
+/// api.openai.com rejects unknown parameters, so it gets only the standard
+/// ones ([openRouterChatPayload]); the sampler table reads the same test.
+bool remoteApiUrlIsStrictOpenAi(String apiUrl) => apiUrl.contains('openai.com');
 
 /// Thinking-off 400/422 → Kimi salvage for [modelName], any host phrasing.
 bool openRouterThinkingOffRejected({

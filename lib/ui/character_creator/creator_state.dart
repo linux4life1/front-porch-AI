@@ -24,9 +24,12 @@ import 'package:file_picker/file_picker.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_greetings.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_interview.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_profile.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.models.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.prefs.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state/creator_form_reset.dart';
+import 'package:front_porch_ai/ui/character_creator/creator_templates.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Creator mode selection.
@@ -35,8 +38,8 @@ enum CreatorMode { automated, guided, quick }
 /// Shared state for the AI character creator wizard: form fields,
 /// controllers, prefs, load/save/reset, step index, and generation.
 class CreatorState extends ChangeNotifier {
-  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=greetings,
-  // 5=realism, 6=review)
+  // Step tracking (0=setup, 1=mode, 2=config, 3=generating, 4=profile,
+  // 5=greetings, 6=realism, 7=review)
   int _currentStep = 0;
   int get currentStep => _currentStep;
   set currentStep(int value) {
@@ -146,10 +149,12 @@ class CreatorState extends ChangeNotifier {
   final loreUrlsController = TextEditingController();
   List<PlatformFile> loreFiles = [];
 
-  // Review editable controllers (lifted)
-  final descController = TextEditingController();
-  final personalityController = TextEditingController();
-  final scenarioController = TextEditingController();
+  /// The profile boxes (the Profile step and Review share them). Replaced by
+  /// styled boxes made with their text when a profile arrives
+  /// ([adoptProfileBoxes]), like the greeting boxes.
+  TextEditingController descController = TextEditingController();
+  TextEditingController personalityController = TextEditingController();
+  TextEditingController scenarioController = TextEditingController();
 
   /// Replaced by [newGreetingBox] when a generated card's greetings arrive,
   /// like the alternates.
@@ -159,12 +164,33 @@ class CreatorState extends ChangeNotifier {
   List<TextEditingController> altGreetingControllers = [];
   List<GreetingRealismSeed?> greetingSeeds = [];
   final greetings = CreatorGreetings();
+  final profile = CreatorProfile();
+  final review = CreatorReview();
+  final interview = CreatorInterview();
+
+  /// The Mode step's templates and the form's `Started from` mark.
+  late final templates = CreatorTemplates(notifyListeners, save: saveState);
 
   /// A generated greeting's box: the character editor's, with spell check
   /// and macro, "dialogue" and *action* colouring. Made with its text, so
   /// no spell-check pass is queued until someone types.
   TextEditingController newGreetingBox([String text = '']) =>
-      StyledTextController(text: text, preset: StyledTextPreset.prose);
+      StyledTextController(text: text, preset: StyledTextPreset.studioProse);
+
+  /// A generated profile: its three boxes become styled boxes made with
+  /// their text (never at construction: the spell-check timer). The old
+  /// boxes may still be on screen this frame.
+  void adoptProfileBoxes(String description, String personality, String scen) {
+    final old = [descController, personalityController, scenarioController];
+    descController = newGreetingBox(description);
+    personalityController = newGreetingBox(personality);
+    scenarioController = newGreetingBox(scen);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      for (final c in old) {
+        c.dispose();
+      }
+    });
+  }
 
   // Generation state (lifted)
   String generationStatus = '';
@@ -195,7 +221,10 @@ class CreatorState extends ChangeNotifier {
   // Realism Engine seed values — written into the saved card's
   // FrontPorchExtensions when [realismStepEnabled] is true. The Realism step
   // edits these; save consumes them. (Verification fields already exist above.)
+  // The switch is not saved with the draft: every visit opens it on Porch
+  // Life's engine switch ([porchLifeRealism]); Clear Everything goes back.
   bool realismStepEnabled = false;
+  bool porchLifeRealism = false;
   int realismShortTermBond = 0;
   int realismLongTermBond = 0;
   int realismTrustLevel = 0;
@@ -218,6 +247,9 @@ class CreatorState extends ChangeNotifier {
   /// sketch §4). Card-resident like the rest of this state.
   List<String> realismAmbitions = const [];
   List<String> realismPlanLines = const [];
+
+  /// The opening task (saved as `currentTask`), from the facts pass.
+  String realismCurrentTask = '';
   String realismOccupation = '';
   String realismOccupationBrief = '';
   String realismBirthday = '';
@@ -263,6 +295,10 @@ class CreatorState extends ChangeNotifier {
   final gpuLayersController = TextEditingController();
   final contextSizeController = TextEditingController();
   CharacterGenService? activeGenService;
+
+  /// Makes each run's service. A test swaps in one with no retry waits.
+  CharacterGenService Function(LLMService llm) newGenService =
+      CharacterGenService.new;
 
   // Options (lifted statics)
   static const generationDetailOptions = {
@@ -381,6 +417,13 @@ class CreatorState extends ChangeNotifier {
   void initLocalSettingsControllers(StorageService storage) =>
       _models.initLocalSettingsControllers(storage);
 
+  /// Starts the Realism step's engine switch where Porch Life has it.
+  void seedRealismFromPorchLife(StorageService storage) {
+    porchLifeRealism = storage.realismSettings.realismDefault;
+    realismStepEnabled = porchLifeRealism;
+    notifyListeners();
+  }
+
   Future<void> reloadKoboldWithModel(
     String modelPath,
     LLMProvider llmProvider,
@@ -399,6 +442,9 @@ class CreatorState extends ChangeNotifier {
     if (_saveTimer?.isActive ?? false) saveState();
     // A greeting still being written must not land in a disposed box.
     greetings.dispose();
+    profile.dispose();
+    review.dispose();
+    interview.dispose();
     nameController.dispose();
     conceptController.dispose();
     keywordsController.dispose();

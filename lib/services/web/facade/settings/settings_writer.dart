@@ -203,12 +203,8 @@ class SettingsWriter {
       if (objs is bool) {
         await _storage.realismSettings.setObjectivesEnabled(objs);
       }
-      final staleN = realism['objectiveStaleThreshold'];
-      if (staleN is num) {
-        await _storage.realismSettings.setObjectiveStaleThreshold(
-          staleN.toInt(),
-        );
-      }
+      // 'objectiveStaleThreshold' from an older phone build is ignored: the
+      // goal sync's "overtaken" answer replaced the "retire after N" picker.
       final wx = realism['weatherEnabled'];
       if (wx is bool) await _storage.realismSettings.setWeatherEnabled(wx);
       final wf = realism['weatherFahrenheit'];

@@ -129,10 +129,13 @@ void main() {
 
   tearDown(() => disposeChatThenCloseDb(chat, db));
 
-  void expectAfterHistory(GenerationParams p) {
+  // [anchor] is a transcript line. A reply renders the newest line (the
+  // one just sent) after these sections, so its transcript ends at the
+  // greeting; impersonate keeps the sent line inside the transcript.
+  void expectAfterHistory(GenerationParams p, {String anchor = _history}) {
     final system = p.systemPrompt!;
     final user = p.prompt;
-    final historyAt = user.indexOf(_history);
+    final historyAt = user.indexOf(anchor);
     expect(historyAt, greaterThanOrEqualTo(0), reason: 'history is sent');
     for (final MapEntry(key: id, value: mark) in _markers.entries) {
       expect(system, isNot(contains(mark)), reason: '$id rode the system');
@@ -147,7 +150,7 @@ void main() {
   test('a chat reply carries the volatile sections after history', () async {
     await chat.sendMessage(_history);
     expect(llm.calls, isNotEmpty);
-    expectAfterHistory(llm.calls.last);
+    expectAfterHistory(llm.calls.last, anchor: 'The screen door sighs.');
   });
 
   test('impersonate carries the same sections after history', () async {

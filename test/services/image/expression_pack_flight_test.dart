@@ -14,8 +14,6 @@ import 'package:image/image.dart' as img;
 
 import 'package:front_porch_ai/services/capability/capability.dart';
 import 'package:front_porch_ai/services/expression_pack_service.dart';
-import 'package:front_porch_ai/services/image/expression_pack_board.dart';
-import 'package:front_porch_ai/services/image/expression_pack_flight.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/image_gen_service.dart';
 import 'package:front_porch_ai/services/image_prompt/expression_prompts.dart';

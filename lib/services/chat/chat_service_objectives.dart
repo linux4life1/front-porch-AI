@@ -106,6 +106,10 @@ extension ChatServiceObjectives on ChatService {
     /// serves none. Only the autonomous proposal paths pass it; a quest the
     /// user typed has no eval behind it to say which mountain it climbs.
     String? servedAmbition,
+
+    /// v58 — who the goal is from (objective_origin.dart): the user by
+    /// default; the narrative judge passes character, the card import card.
+    String origin = kObjectiveOriginUser,
   }) async {
     if (goal.trim().isEmpty) return;
     if (_currentSessionId == null) return;
@@ -192,10 +196,18 @@ extension ChatServiceObjectives on ChatService {
         active: const drift.Value(true),
         isPrimary: drift.Value(isPrimary),
         servedAmbition: drift.Value(servedAmbition),
+        origin: drift.Value(origin),
       ),
     );
     if (recordTurnOps) {
-      _recordObjectiveTurnOp({'op': 'created', 'id': newId, 'charId': charId});
+      // origin + primary let the side-quest cooldown read the turn ops.
+      _recordObjectiveTurnOp({
+        'op': 'created',
+        'id': newId,
+        'charId': charId,
+        'origin': origin,
+        'primary': isPrimary,
+      });
     }
 
     await _loadActiveObjectives();
@@ -263,6 +275,7 @@ extension ChatServiceObjectives on ChatService {
         active: const drift.Value(true),
         isPrimary: const drift.Value(false),
         servedAmbition: const drift.Value(null),
+        origin: const drift.Value(kObjectiveOriginPlanner),
       ),
     );
     if (_inObjectiveTurn) {
@@ -343,6 +356,35 @@ extension ChatServiceObjectives on ChatService {
       return await _db.getActiveObjectives(charId, chatId: _currentSessionId!);
     } catch (e) {
       debugPrint('[Objective] Failed to load for ${character.name}: $e');
+      return const [];
+    }
+  }
+
+  /// Cast and user name tokens: they appear in most goals AND most lines,
+  /// so counting them would make the mention gate always-on and make every
+  /// goal about the same person look like a duplicate to the proposal gate.
+  Set<String> _objectiveIgnoreTokens() => <String>{
+    for (final c in [?_activeCharacter, ..._groupCharacters])
+      ...c.name.toLowerCase().split(RegExp(r'[^a-z0-9]+')),
+    ..._userPersonaService.persona.name.toLowerCase().split(
+      RegExp(r'[^a-z0-9]+'),
+    ),
+  }..remove('');
+
+  /// The last few goals this character finished or let go in this chat, for
+  /// the narrative judge ("finished: X", "let go: Y").
+  Future<List<String>> _recentEndedObjectiveLines() async {
+    final sid = _currentSessionId;
+    final card = _activeCharacter;
+    if (sid == null || card == null) return const [];
+    try {
+      final rows = await _db.getObjectivesForCharacter(
+        _getCharacterIdFromCard(card),
+        chatId: sid,
+      );
+      return recentEndedObjectiveLines(rows);
+    } catch (e) {
+      debugPrint('[Objective] Could not read finished goals: $e');
       return const [];
     }
   }

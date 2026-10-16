@@ -25,6 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:front_porch_ai/app/app.dart';
+import 'package:front_porch_ai/app_version.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/database/data_migration_service.dart';
 import 'package:front_porch_ai/services/prefs_recovery.dart';
@@ -183,7 +184,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
       builder: (context, storage, child) {
         final isDark = storage.uiSettings.isDark;
         return MaterialApp(
-          title: 'Front Porch AI',
+          title: appWindowTitle,
           debugShowCheckedModeBanner: false,
           theme: ThemeData(
             brightness: isDark ? Brightness.dark : Brightness.light,

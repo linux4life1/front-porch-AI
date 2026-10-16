@@ -2,40 +2,55 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Section heading label with an optional red required asterisk. Restored from
-/// the pre-refactor creator step's `_inputLabel`.
+/// The spec's label above a field (docs/design/creator-ui-spec.md): 11px /
+/// 600, upper-cased, 0.4px tracking, `muted`, with an amber `*` when
+/// [required].
 class CreatorInputLabel extends StatelessWidget {
   final String text;
   final bool required;
 
-  const CreatorInputLabel(this.text, {super.key, this.required = false});
+  /// Overrides the `muted` colour (the 18+ rows label in terracotta).
+  final Color? color;
+
+  const CreatorInputLabel(
+    this.text, {
+    super.key,
+    this.required = false,
+    this.color,
+  });
+
+  /// [text] upper-cased, except its macros: `{{user}}` stays `{{user}}`.
+  static String upper(String text) => text.splitMapJoin(
+    RegExp(r'\{\{[^}]*\}\}'),
+    onMatch: (m) => m[0]!,
+    onNonMatch: (s) => s.toUpperCase(),
+  );
+
+  /// The label style, for labels that sit in their own row layout.
+  static TextStyle styleOf(BuildContext context, {Color? color}) => TextStyle(
+    fontSize: 11,
+    fontWeight: FontWeight.w600,
+    letterSpacing: 0.4,
+    color: color ?? StudioColors.mutedOf(context),
+  );
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Text(
-          text,
-          style: TextStyle(
-            color: AppColors.textPrimary(context),
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        if (required)
-          Text(
-            ' *',
-            style: TextStyle(
-              color: AppColors.resolve(
-                context,
-                Colors.redAccent,
-                Colors.red.shade700,
-              ),
+    final style = styleOf(context, color: color);
+    return Text.rich(
+      TextSpan(
+        text: upper(text),
+        children: [
+          if (required)
+            TextSpan(
+              text: ' *',
+              style: style.copyWith(color: StudioColors.amberOf(context)),
             ),
-          ),
-      ],
+        ],
+      ),
+      style: style,
     );
   }
 }

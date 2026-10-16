@@ -125,6 +125,7 @@ extension AppDatabaseMaintenance on AppDatabase {
         // which is a real answer and the only honest one for every objective
         // that predates the column.
         'served_ambition TEXT',
+        'origin TEXT', 'status TEXT', 'ended_at INTEGER', // v58
       ],
       'message_embeddings': [
         // Added to the MessageEmbeddings Table class during the Journal work
@@ -178,6 +179,8 @@ extension AppDatabaseMaintenance on AppDatabase {
         'mood_decay_counter INTEGER NOT NULL DEFAULT 0', // v13
         "character_emotion TEXT NOT NULL DEFAULT ''", // v13
         "emotion_intensity TEXT NOT NULL DEFAULT ''", // v13
+        "emotion_cause TEXT NOT NULL DEFAULT ''", // v57
+        'emotion_held_turns INTEGER NOT NULL DEFAULT 0', // v57
         "time_of_day TEXT NOT NULL DEFAULT 'morning'", // v13
         'day_count INTEGER NOT NULL DEFAULT 1', // v13
         'arousal_level INTEGER NOT NULL DEFAULT 0', // v15

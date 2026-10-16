@@ -11,7 +11,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/image/comfy_model_paths.dart';
 import 'package:front_porch_ai/services/image/comfy_url_probe.dart';
-import 'package:front_porch_ai/services/storage/settings/image_gen_settings.dart';
 
 import 'image_desk_harness.dart';
 

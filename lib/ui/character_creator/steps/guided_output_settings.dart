@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/alternate_greetings_slider.dart';
 import 'package:front_porch_ai/ui/widgets/avatar_art_style_selector.dart';
 import 'package:front_porch_ai/ui/widgets/description_detail_chip_row.dart';
@@ -30,7 +30,7 @@ class GuidedOutputSettings extends StatelessWidget {
     return Text(
       text,
       style: TextStyle(
-        color: AppColors.textSecondary(context),
+        color: StudioColors.proseOf(context),
         fontSize: 13,
         fontWeight: FontWeight.w500,
       ),
@@ -39,12 +39,8 @@ class GuidedOutputSettings extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.porchAmberOf(context);
-    final guidedAccent = AppColors.resolve(
-      context,
-      Colors.tealAccent,
-      const Color(0xFF0D7377),
-    );
+    final accent = StudioColors.amberOf(context);
+    final guidedAccent = StudioColors.amberOf(context);
 
     return CreatorSectionCard(
       title: 'Output Settings',
@@ -57,10 +53,7 @@ class GuidedOutputSettings extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'Select a persona to tailor greetings, or "None" for public cards.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
         ),
         const SizedBox(height: 8),
         PersonaSelectorDropdown(
@@ -139,10 +132,7 @@ class GuidedOutputSettings extends StatelessWidget {
         const SizedBox(height: 4),
         Text(
           'Perspective and tense for the first message, alternates, and example dialogue.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
         ),
         const SizedBox(height: 8),
         NarrativeVoiceSelector(
@@ -196,7 +186,7 @@ class GuidedOutputSettings extends StatelessWidget {
               child: Text(
                 'Auto-generate World Lore',
                 style: TextStyle(
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                   fontSize: 14,
                   fontWeight: FontWeight.w600,
                 ),
@@ -237,10 +227,7 @@ class GuidedOutputSettings extends StatelessWidget {
       children: [
         Text(
           'Depth:',
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-          ),
+          style: TextStyle(color: StudioColors.proseOf(context), fontSize: 12),
         ),
         Tooltip(
           message:
@@ -249,7 +236,7 @@ class GuidedOutputSettings extends StatelessWidget {
           child: Icon(
             Icons.info_outline,
             size: 14,
-            color: AppColors.textTertiary(context),
+            color: StudioColors.mutedOf(context),
           ),
         ),
         ...CreatorState.loreDepths.map((depth) {
@@ -269,19 +256,15 @@ class GuidedOutputSettings extends StatelessWidget {
               state.loreDepth = depth;
               _save();
             },
-            selectedColor: AppColors.resolve(
-              context,
-              AppColors.formMasterAccent.withValues(alpha: 0.25),
-              AppColors.formMasterAccent.withValues(alpha: 0.12),
-            ),
-            backgroundColor: AppColors.surfaceContainerOf(context),
+            selectedColor: StudioColors.amberOf(context),
+            backgroundColor: StudioColors.raiseOf(context),
             labelStyle: TextStyle(
               color: isSelected
-                  ? AppColors.resolve(context, Colors.white, Colors.black87)
-                  : AppColors.textSecondary(context),
+                  ? StudioColors.amberInkOf(context)
+                  : StudioColors.proseOf(context),
             ),
             side: BorderSide(
-              color: isSelected ? accent : AppColors.borderOf(context),
+              color: isSelected ? accent : StudioColors.lineOf(context),
             ),
             visualDensity: VisualDensity.compact,
           );

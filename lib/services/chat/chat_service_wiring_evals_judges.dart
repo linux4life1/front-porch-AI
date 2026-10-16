@@ -150,6 +150,10 @@ extension ChatServiceWiringEvalJudges on ChatService {
       setCharacterEmotion: (v) => _characterEmotion = v,
       getEmotionIntensity: () => _emotionIntensity,
       setEmotionIntensity: (v) => _emotionIntensity = v,
+      getEmotionCause: () => _emotionCause,
+      setEmotionCause: (v) => _emotionCause = v,
+      getEmotionHeldTurns: () => _emotionHeldTurns,
+      setEmotionHeldTurns: (v) => _emotionHeldTurns = v,
       relationshipService: _relationshipService,
       nsfwService: _nsfwService,
       timeService: _timeService,
@@ -220,6 +224,16 @@ extension ChatServiceWiringEvalJudges on ChatService {
         );
       },
       getPlannerEnabled: () => _storageService.realismSettings.plannerEnabled,
+      // The proposal gate (objectives-that-keep-up.md part 3). During the
+      // realism dance `_activeCharacter` is the speaker being evaluated.
+      getRecentEndedObjectives: _recentEndedObjectiveLines,
+      getObjectiveIgnoreTokens: _objectiveIgnoreTokens,
+      isSideQuestCooldownActive: () {
+        final card = _activeCharacter;
+        return card != null &&
+            sideQuestCooldownActive(_messages, _getCharacterIdFromCard(card));
+      },
+      getSideQuestCap: () => kMaxSecondaryObjectives,
       setObjective:
           (
             text, {
@@ -231,6 +245,8 @@ extension ChatServiceWiringEvalJudges on ChatService {
             isPrimary: isPrimary,
             autoGenerateTasks: autoGenerateTasks,
             servedAmbition: servedAmbition,
+            // The judge proposed it: the character's own want.
+            origin: kObjectiveOriginCharacter,
             // Eval-proposed objectives belong to the turn being generated —
             // record them so regen can roll them back (turn-ops; the UI's
             // direct setObjective calls stay unrecorded).
@@ -258,25 +274,12 @@ extension ChatServiceWiringEvalJudges on ChatService {
           ObjectivesCompanion(id: drift.Value(id), tasks: drift.Value(json)),
         );
       },
-      deactivateObjective: (id) async {
-        // Only the completion check retires through this cb (the UI's
-        // clearObjective has its own db call) — record the turn-op so regen
-        // can reactivate a quest the invalidated turn retired. Armed-gated:
-        // manual "Check now" retirements are user actions, not turn ops.
-        if (_objectiveTurnOpsArmed) {
-          _recordObjectiveTurnOp({'op': 'deactivated', 'id': id});
-        }
-        await _db.updateObjective(
-          ObjectivesCompanion(
-            id: drift.Value(id),
-            active: const drift.Value(false),
-          ),
-        );
-      },
-      markTaskCompleted: markTaskCompleted,
-      markTaskStale: markTaskStale,
-      getObjectiveStaleThresholdN: () =>
-          _storageService.realismSettings.objectiveStaleThreshold,
+      // The goal sync's writes; each records its turn op only while the
+      // turn-path check is armed, so a manual "Check now" stays the user's.
+      writeSyncedTasks: _writeSyncedTasks,
+      retireObjective: _retireObjectiveFromSync,
+      setObjectiveDormant: _setObjectiveDormant,
+      isHeldToday: _isHeldTodayObjective,
       getIsCheckingCompletion: () => _isCheckingCompletion,
       // Every flip notifies: the web relay pushes the phone's goal-check
       // overlay (and its Skip) from it. The pre-reply check had no notify.

@@ -50,10 +50,19 @@ String _wire(FakeBackendServer backend) {
 }
 
 /// The lore must reach the model on its own line, not run on from the
-/// user's question ("…out back?Context Info:").
+/// transcript's last line ("…out back?Context Info:"). The user's question
+/// itself now renders after the state zone (latest_turn), so what sits
+/// above the lore is whatever line ends the transcript.
 void _expectOakOnItsOwnLine(String wire) {
   expect(wire, contains('OAK_LORE_MARKER'));
-  expect(wire, contains('out back?\nContext Info:\nOAK_LORE_MARKER'));
+  expect(wire, contains('\nContext Info:\nOAK_LORE_MARKER'));
+  final at = wire.indexOf('Context Info:');
+  expect(wire[at - 1], '\n', reason: 'glued to the line above it');
+  expect(
+    wire.indexOf('Context Info:'),
+    lessThan(wire.indexOf('out back?')),
+    reason: 'the question is the newest line, so it renders last',
+  );
 }
 
 void main() {

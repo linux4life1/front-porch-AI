@@ -119,6 +119,67 @@ void main() {
     });
   });
 
+  // Nano-GPT hides the think channel of Kimi K2.6 thinking server-side
+  // (`reasoning.exclude`) and, after a long think, leaves the tail of the
+  // closing tag at the head of the content: three live captures opened
+  // with `hin` + `k> To impress…`; chat showed `think>`. No `<` ever
+  // reaches the app, so the fence sniff cannot see it.
+  group('stripped close-tag tail at the head of a reply', () {
+    test('full-string: the tail goes, the reply stays', () {
+      expect(
+        canonicalizeReasoning('hink> To impress, I stand.'),
+        ' To impress, I stand.',
+      );
+      expect(canonicalizeReasoning('think> Hi.'), ' Hi.');
+      expect(canonicalizeReasoning('\n</think>\nHi.'), '\nHi.');
+      expect(canonicalizeReasoning('nk> Hi.'), ' Hi.');
+    });
+
+    test('only at the head, never mid-reply, never a bare >', () {
+      expect(
+        canonicalizeReasoning('The link> stays as typed.'),
+        'The link> stays as typed.',
+      );
+      expect(canonicalizeReasoning('> quoted line'), '> quoted line');
+      expect(canonicalizeReasoning('k> too short'), 'k> too short');
+      expect(canonicalizeReasoning('thinking aloud'), 'thinking aloud');
+    });
+
+    test('streaming: the split tail is held, then dropped', () {
+      final r = ReasoningMarkerRewriter(keep: false);
+      expect(r.push('hin'), '');
+      expect(r.push('k> To impress'), ' To impress');
+      expect(r.push(', I stand.'), ', I stand.');
+      expect(r.finish(), '');
+    });
+
+    test('streaming: ordinary prose starting with t is not lost', () {
+      final r = ReasoningMarkerRewriter();
+      final a = r.push('t');
+      final b = r.push('hey left.');
+      expect('$a$b', 'they left.');
+      expect(r.finish(), '');
+    });
+
+    test('ingest with thinking off: the bubble never sees the tail', () {
+      final i = ReasoningIngest(wrap: false);
+      final a = i.onContent('hin');
+      final b = i.onContent('k> "Stay."');
+      final c = i.finish();
+      expect('$a$b$c', ' "Stay."');
+    });
+
+    test('an already-stored reply with the tail displays clean', () {
+      final msg = ChatMessage(
+        text: 'think> "Stay."',
+        sender: 'Nemu',
+        isUser: false,
+      );
+      expect(msg.displayText, '"Stay."');
+      expect(msg.toPromptHistoryLine(), isNot(contains('think>')));
+    });
+  });
+
   group('ChatMessage + strip floor', () {
     test('stored Gemma dump: Thought chip, spoken body, history-safe', () {
       final msg = ChatMessage(

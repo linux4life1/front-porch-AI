@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
 import 'package:front_porch_ai/ui/character_creator/widgets/creator_pill.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// A labelled multiline text field with tap-to-toggle suggestion pills, used by
 /// the Guided creator. Shares the [CreatorPill] look with every other mode;
-/// themed by [accent] (NSFW fields override to pink). [onChanged] fires on edits
+/// themed by [accent] (NSFW fields override to terracotta). [onChanged] fires on edits
 /// and pill taps so the caller can rebuild + persist.
 class SuggestionChipField extends StatelessWidget {
   final String label;
@@ -37,9 +38,7 @@ class SuggestionChipField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final pillAccent = isNsfw
-        ? AppColors.resolve(context, Colors.pinkAccent, const Color(0xFF9D174D))
-        : accent;
+    final pillAccent = isNsfw ? StudioColors.terraOf(context) : accent;
     return Padding(
       padding: const EdgeInsets.only(bottom: 16),
       child: Column(
@@ -48,20 +47,15 @@ class SuggestionChipField extends StatelessWidget {
           Row(
             children: [
               if (isNsfw) ...[
-                Icon(
-                  Icons.local_fire_department,
-                  size: 12,
-                  color: pillAccent,
-                ),
+                Icon(Icons.local_fire_department, size: 12, color: pillAccent),
                 const SizedBox(width: 4),
               ],
               Expanded(
                 child: Text(
-                  label,
-                  style: TextStyle(
-                    color: isNsfw ? pillAccent : AppColors.textSecondary(context),
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
+                  label.toUpperCase(),
+                  style: CreatorInputLabel.styleOf(
+                    context,
+                    color: isNsfw ? pillAccent : null,
                   ),
                 ),
               ),
@@ -73,26 +67,23 @@ class SuggestionChipField extends StatelessWidget {
             controller: controller,
             maxLines: maxLines,
             minLines: minLines,
-            style: TextStyle(
-              color: AppColors.textPrimary(context),
-              fontSize: 13,
-            ),
+            style: TextStyle(color: StudioColors.inkOf(context), fontSize: 13),
             onChanged: (_) => onChanged(),
             decoration: InputDecoration(
               hintText: hint,
               hintStyle: TextStyle(
-                color: AppColors.textTertiary(context),
+                color: StudioColors.faintOf(context),
                 fontSize: 12,
               ),
               filled: true,
-              fillColor: AppColors.surfaceContainerOf(context),
+              fillColor: StudioColors.bgOf(context),
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.borderOf(context)),
+                borderSide: BorderSide(color: StudioColors.lineOf(context)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),
-                borderSide: BorderSide(color: AppColors.borderOf(context)),
+                borderSide: BorderSide(color: StudioColors.lineOf(context)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(10),

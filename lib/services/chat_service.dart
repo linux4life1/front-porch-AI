@@ -211,6 +211,13 @@ class ChatService extends ChangeNotifier
   late final _needsRewinds = _buildNeedsRewinds();
   late final _needsReprocess = _buildNeedsReprocess();
   late final _standingMood = _buildStandingMood();
+  // The pre-reply quest check runs before the generating flag rises, so the
+  // objective-turn window counts as busy too: a mood the planner moves there
+  // rides the reply's capture, never a patch of the previous reply.
+  late final _mood = MoodRegisters(
+    _realismScope(),
+    isTurnBusy: () => _isTurnBusy || _inObjectiveTurn,
+  );
   late final _realismSnapshot = _buildRealismSnapshot();
   late final _realismJudges = _buildRealismJudges();
   late final _realismDance = _buildRealismDance();
@@ -431,6 +438,9 @@ class ChatService extends ChangeNotifier
   String get realismEvalStreamTextClean => _realismEvalStreamTextCleanImpl;
   String get characterEmotion => _characterEmotion;
   String get emotionIntensity => _emotionIntensity;
+  String get emotionCause => _emotionCause;
+  int get emotionHeldTurns => _emotionHeldTurns;
+  String get moodLine => _mood.displayLine;
 
   /// The chat's Needs switch; [needsActive] is the gate Needs run behind.
   bool get needsSimEnabled => _needsSimEnabled;

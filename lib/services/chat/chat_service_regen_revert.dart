@@ -218,12 +218,7 @@ extension ChatServiceRegenRevert on ChatService {
             groupSpeakerId: isGroupHostRegen ? regenSpeakerSid : null,
           );
         }
-        _characterEmotion =
-            previousMessageState['characterEmotion'] as String? ??
-            _characterEmotion;
-        _emotionIntensity =
-            previousMessageState['emotionIntensity'] as String? ??
-            _emotionIntensity;
+        _mood.restoreFromStamp(previousMessageState);
 
         _nsfwService.restoreNsfwFromMessageState(previousMessageState);
 

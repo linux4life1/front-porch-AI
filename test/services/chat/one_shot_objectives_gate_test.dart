@@ -29,7 +29,12 @@ import 'package:front_porch_ai/services/chat/time_service.dart';
 /// A RealismEvals wired over real relationship/nsfw/time services, with the LLM
 /// answer canned and every created objective recorded.
 class _Rig {
-  _Rig({required this.reply, required bool objectivesOn}) {
+  _Rig({
+    required this.reply,
+    required bool objectivesOn,
+    List<Objective> active = const [],
+    int? sideQuestCap,
+  }) {
     rel = RelationshipService(
       onNotify: () {},
       onSaveChat: () async {},
@@ -113,8 +118,9 @@ class _Rig {
         description: card.description,
       ),
       getObjectivesEnabled: () => objectivesOn,
-      getPrimaryObjective: () => null,
-      getActiveObjectives: () => const <Objective>[],
+      getPrimaryObjective: () => active.where((o) => o.isPrimary).firstOrNull,
+      getActiveObjectives: () => active,
+      getSideQuestCap: sideQuestCap == null ? null : () => sideQuestCap,
       setObjective:
           (
             t, {
@@ -142,7 +148,11 @@ class _Rig {
 
   final _char = CharacterCard(name: 'Aerin', personality: 'warm');
   final _messages = <ChatMessage>[
-    ChatMessage(text: 'want to help me find the key?', isUser: true, sender: 'User'),
+    ChatMessage(
+      text: 'want to help me find the key?',
+      isUser: true,
+      sender: 'User',
+    ),
     ChatMessage(text: 'maybe.', isUser: false, sender: 'Aerin'),
   ];
 }
@@ -188,6 +198,76 @@ void main() {
             'the two paths must make the identical decision — one-shot is a '
             'token optimisation, not a different feature',
       );
+    });
+  });
+
+  // 2026-10-16, objectives that keep up: the character keeps proposing the
+  // goal it already has in new words, and each one used to land as another
+  // quest. Both transports share one decision, so both must refuse it.
+  group('a proposed goal the character already has is not filed again', () {
+    Objective open(String text, {bool primary = true}) => Objective(
+      id: text,
+      characterId: 'aerin',
+      objective: text,
+      tasks: '[]',
+      active: true,
+      isPrimary: primary,
+      checkFrequency: 3,
+      injectionDepth: 4,
+      createdAt: DateTime(2026),
+    );
+
+    test('a rewording of an open goal is refused on both paths', () async {
+      for (final oneShot in [true, false]) {
+        final rig = _Rig(
+          reply: reply,
+          objectivesOn: true,
+          active: [open('Find the key that went missing')],
+        );
+        oneShot
+            ? await rig.evals.evaluateOneShotCall()
+            : await rig.evals.evaluateNarrativeCall();
+        expect(
+          rig.created,
+          isEmpty,
+          reason:
+              '"find the missing key" rewords the open goal '
+              '(${oneShot ? "one-shot" : "four-call"})',
+        );
+      }
+    });
+
+    test('at the side-quest cap nothing new is filed or evicted', () async {
+      for (final oneShot in [true, false]) {
+        final rig = _Rig(
+          reply: reply,
+          objectivesOn: true,
+          sideQuestCap: 1,
+          active: [
+            open('Win the harvest fair'),
+            open('Mend the porch steps', primary: false),
+          ],
+        );
+        oneShot
+            ? await rig.evals.evaluateOneShotCall()
+            : await rig.evals.evaluateNarrativeCall();
+        expect(
+          rig.created,
+          isEmpty,
+          reason: oneShot ? 'one-shot' : 'four-call',
+        );
+      }
+    });
+
+    test('a new want still lands in a side slot below the cap', () async {
+      final rig = _Rig(
+        reply: reply,
+        objectivesOn: true,
+        sideQuestCap: 2,
+        active: [open('Win the harvest fair')],
+      );
+      await rig.evals.evaluateOneShotCall();
+      expect(rig.created, ['find the missing key']);
     });
   });
 }

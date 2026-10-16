@@ -661,9 +661,15 @@ void main() {
         String emotion = '';
         final svc = createTestRealismEvals(
           setEmotionFn: (v) => emotion = v,
+          // 2026-10-13: emotion_change is a required field of the emotional
+          // tool (mood with bite), and a text reply only counts as a tool
+          // answer when it carries every required field — the same rule
+          // is_climax lives by. The fixture gained the key; nothing else moved.
           fireToolFn: (p, t) async => const LlmToolResponse(
             calls: [],
-            text: '{"emotion":"prickly","emotion_intensity":"strong"}',
+            text:
+                '{"emotion":"prickly","emotion_intensity":"strong",'
+                '"emotion_change":"moved"}',
           ),
           fireFn: (p, {onChunk}) async {
             fail('text path must not fire when the reply text was salvaged');

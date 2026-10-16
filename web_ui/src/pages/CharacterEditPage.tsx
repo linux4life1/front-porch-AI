@@ -30,6 +30,10 @@ interface RawLore {
   enabled?: boolean;
   constant?: boolean;
   stickyDepth?: number;
+  /** The entry's whole stored JSON; sent back untouched on save so what
+   *  the editor does not show (imported fields, the creator's fingerprint
+   *  that tells its own entries from hand-edited ones) survives. */
+  ext?: unknown;
 }
 interface CharDetail {
   id: string;
@@ -112,6 +116,7 @@ export function CharacterEditPage() {
             enabled: e.enabled ?? true,
             constant: e.constant ?? false,
             stickyDepth: e.stickyDepth ?? 1,
+            ...(e.ext !== undefined ? { ext: e.ext } : {}),
           })),
         );
       })

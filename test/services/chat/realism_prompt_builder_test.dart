@@ -63,8 +63,14 @@ void main() {
     test(
       'pathological card stays within budget and trims at a sentence boundary',
       () {
-        final hugePersonality = List.filled(200, 'Sharp sentence here.').join(' ');
-        final hugeDescription = List.filled(400, 'Endless lore text.').join(' ');
+        final hugePersonality = List.filled(
+          200,
+          'Sharp sentence here.',
+        ).join(' ');
+        final hugeDescription = List.filled(
+          400,
+          'Endless lore text.',
+        ).join(' ');
         final d = RealismPromptBuilder.characterDossier(
           name: 'Vera',
           personality: hugePersonality,
@@ -217,24 +223,30 @@ void main() {
       );
     });
 
-    test('narrative prompt varies by primary objective and stays in character', () {
-      final noPrimary = RealismPromptBuilder.narrativeEvalPrompt(
-        charName: 'Vera',
-        userName: 'User',
-        dossier: 'DOSSIER\n',
-        recent: 'User: hey',
-      );
-      expect(noPrimary, contains('OVERARCHING goal'));
-      expect(noPrimary, contains('not generic story beats'));
-      final withPrimary = RealismPromptBuilder.narrativeEvalPrompt(
-        charName: 'Vera',
-        userName: 'User',
-        dossier: 'DOSSIER\n',
-        recent: 'User: hey',
-        primaryObjective: 'win the duel',
-      );
-      expect(withPrimary, contains('DISTINCT from their current main quest ("win the duel")'));
-    });
+    test(
+      'narrative prompt varies by primary objective and stays in character',
+      () {
+        final noPrimary = RealismPromptBuilder.narrativeEvalPrompt(
+          charName: 'Vera',
+          userName: 'User',
+          dossier: 'DOSSIER\n',
+          recent: 'User: hey',
+        );
+        expect(noPrimary, contains('OVERARCHING goal'));
+        expect(noPrimary, contains('not generic story beats'));
+        final withPrimary = RealismPromptBuilder.narrativeEvalPrompt(
+          charName: 'Vera',
+          userName: 'User',
+          dossier: 'DOSSIER\n',
+          recent: 'User: hey',
+          primaryObjective: 'win the duel',
+        );
+        expect(
+          withPrimary,
+          contains('DISTINCT from their current main quest ("win the duel")'),
+        );
+      },
+    );
 
     test('JSON instruction lists the exact keys per prompt', () {
       expect(
@@ -260,5 +272,74 @@ void main() {
       expect(o, contains('"fixation_topic"'));
       expect(o, contains('"reason"'));
     });
+  });
+
+  group('mood with bite (docs/design/mood-with-bite.md)', () {
+    String standing({String cause = '', int held = 0}) =>
+        RealismPromptBuilder.standingContext(
+          charName: 'Vera',
+          userName: 'User',
+          shortTermTier: 'Cool',
+          longTermTier: 'Reserved',
+          trustTier: 'Guarded',
+          trustLevel: -12,
+          emotion: 'furious',
+          emotionIntensity: 'strong',
+          emotionCause: cause,
+          emotionHeldTurns: held,
+        );
+
+    test('the judge is told the cause and the hold, and asked to keep', () {
+      final s = standing(cause: 'he lied about the money', held: 3);
+      expect(s, contains('furious (strong), because he lied about the money'));
+      expect(s, contains('held for the last few exchanges'));
+      expect(s, contains('Keep that mood unless this turn genuinely moves it'));
+      expect(s, contains('does not vanish in one'));
+      expect(standing(held: 6), contains('held for a while now'));
+    });
+
+    test('no cause and a fresh feeling read as before', () {
+      final s = standing();
+      expect(s, isNot(contains('because')));
+      expect(s, isNot(contains('held for')));
+      expect(s, contains('furious (strong).'));
+    });
+
+    test(
+      'the emotion section asks for cause and change on every transport',
+      () {
+        final text = RealismPromptBuilder.emotionalEvalPrompt(
+          charName: 'Vera',
+          userName: 'User',
+          dossier: '',
+          standing: '',
+          recent: 'User: hey',
+          arousalEnabled: false,
+          arousalLevel: 0,
+        );
+        expect(text, contains('"emotion_cause"'));
+        expect(text, contains('"emotion_change"'));
+        expect(text, contains('"none" when neutral'));
+        expect(text, contains('do not name it stronger just to keep it'));
+        expect(
+          text,
+          contains(
+            'containing "emotion", "emotion_intensity", "emotion_cause", '
+            '"emotion_change"',
+          ),
+        );
+        final tools = RealismPromptBuilder.emotionalEvalPrompt(
+          charName: 'Vera',
+          userName: 'User',
+          dossier: '',
+          standing: '',
+          recent: 'User: hey',
+          arousalEnabled: false,
+          arousalLevel: 0,
+          toolsMode: true,
+        );
+        expect(tools, contains('"emotion_change"'));
+      },
+    );
   });
 }

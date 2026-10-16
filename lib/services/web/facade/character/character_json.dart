@@ -30,6 +30,10 @@ List<dynamic> decodeJsonList(String raw) {
 
 /// Normalize the DB lorebook blob (keys array / comment) into the frontend
 /// shape (comma-joined key string / name), as the legacy detail handler did.
+/// Each row also carries `ext`, the entry's whole stored JSON (its
+/// `extensions` map included: the generator's fingerprint, imported ST
+/// fields), which the web editor sends back untouched so a save from the
+/// phone keeps what it does not show (`buildLorebookFromJson`).
 Map<String, dynamic>? normalizeLorebookJson(String? raw) {
   if (raw == null) return null;
   try {
@@ -49,6 +53,7 @@ Map<String, dynamic>? normalizeLorebookJson(String? raw) {
         'enabled': e['enabled'] ?? true,
         'constant': e['constant'] ?? false,
         'stickyDepth': e['sticky_depth'] ?? e['insertion_order'] ?? 1,
+        'ext': e,
       };
     }).toList();
     return {'entries': entries};

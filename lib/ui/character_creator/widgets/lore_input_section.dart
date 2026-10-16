@@ -3,7 +3,8 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/creator_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_input_label.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -44,46 +45,37 @@ class LoreInputSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'World Lore / Wiki URLs (optional)',
-          style: TextStyle(
-            color: AppColors.textSecondary(context),
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
-        ),
+        const CreatorInputLabel('World Lore / Wiki URLs (optional)'),
         const SizedBox(height: 4),
         Text(
           'Paste one or more wiki/lore URLs separated by commas. You can also attach local files below.',
-          style: TextStyle(
-            color: AppColors.textTertiary(context),
-            fontSize: 11,
-          ),
+          style: TextStyle(color: StudioColors.mutedOf(context), fontSize: 11),
         ),
         const SizedBox(height: 8),
-        // No onChanged: the URLs are read when generating and are never
-        // saved between visits, so typing here has nothing to save.
+        // Saved between visits (and in a template), once typing pauses,
+        // like every creator box.
         TextField(
           controller: state.loreUrlsController,
-          style: TextStyle(color: AppColors.textPrimary(context), fontSize: 13),
+          onChanged: (_) => state.scheduleSave(),
+          style: TextStyle(color: StudioColors.inkOf(context), fontSize: 13),
           maxLines: 4,
           minLines: 2,
           decoration: InputDecoration(
             hintText:
                 'https://wowpedia.fandom.com/wiki/Demon_hunter, https://wowpedia.fandom.com/wiki/Illidan_Stormrage',
             hintStyle: TextStyle(
-              color: AppColors.textTertiary(context),
+              color: StudioColors.faintOf(context),
               fontSize: 12,
             ),
             filled: true,
-            fillColor: AppColors.surfaceContainerOf(context),
+            fillColor: StudioColors.bgOf(context),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
+              borderSide: BorderSide(color: StudioColors.lineOf(context)),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide(color: AppColors.borderOf(context)),
+              borderSide: BorderSide(color: StudioColors.lineOf(context)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -123,7 +115,7 @@ class LoreInputSection extends StatelessWidget {
                             child: Text(
                               f.name,
                               style: TextStyle(
-                                color: AppColors.textSecondary(context),
+                                color: StudioColors.proseOf(context),
                                 fontSize: 12,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -138,7 +130,7 @@ class LoreInputSection extends StatelessWidget {
                             child: Icon(
                               Icons.close,
                               size: 14,
-                              color: AppColors.textTertiary(context),
+                              color: StudioColors.mutedOf(context),
                             ),
                           ),
                         ],
@@ -148,16 +140,26 @@ class LoreInputSection extends StatelessWidget {
                   .toList(),
             ),
           ),
-        OutlinedButton.icon(
-          onPressed: () => _attach(context),
-          icon: const Icon(Icons.upload_file, size: 16),
-          label: const Text('Attach Lore File (.txt, .md, .pdf)'),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: AppColors.textSecondary(context),
-            side: BorderSide(color: AppColors.textTertiary(context)),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
+        // The spec's small outlined button.
+        SizedBox(
+          height: 36,
+          child: OutlinedButton.icon(
+            onPressed: () => _attach(context),
+            icon: const Icon(Icons.upload_file, size: 16),
+            label: const Text(
+              'Attach Lore File (.txt, .md, .pdf)',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: StudioColors.amberOf(context),
+              side: BorderSide(
+                color: StudioColors.amberOf(context),
+                width: 1.5,
+              ),
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(10),
+              ),
             ),
           ),
         ),

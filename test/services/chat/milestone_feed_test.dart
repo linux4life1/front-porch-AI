@@ -155,6 +155,34 @@ void main() {
     );
   });
 
+  // 2026-10-16, objectives that keep up: the goal sync can finish a goal
+  // whose leftover steps the story made moot, and let a goal go whose steps
+  // all happened to be ticked. The recorded ending decides, not the steps.
+  test('a goal finished with open steps counts; one let go does not',
+      () async {
+    Future<void> ended(String id, String text, String status, bool allDone) =>
+        db.into(db.objectives).insert(
+          ObjectivesCompanion(
+            id: Value(id),
+            characterId: const Value(cid),
+            chatId: const Value(sid),
+            objective: Value(text),
+            active: const Value(false),
+            status: Value(status),
+            tasks: Value(
+              jsonEncode([
+                {'description': 'a', 'completed': true},
+                {'description': 'b', 'completed': allDone},
+              ]),
+            ),
+          ),
+        );
+    await ended('o3', 'win the fair', 'done', false);
+    await ended('o4', 'learn the fiddle', 'overtaken', true);
+    final entries = await feed.entriesFor(sessionId: sid, characterId: cid);
+    expect(entries.map((e) => e.text), ['Objective achieved: win the fair']);
+  });
+
   test('ordering follows story position via receipts', () async {
     await addCard(
       content: 'late moment',

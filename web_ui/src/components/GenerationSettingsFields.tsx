@@ -58,6 +58,27 @@ export const CONTEXT_FLOOR_WORDS =
 
 const tokens = (n: number) => n.toLocaleString('en-US');
 
+/** A generation setting not every backend receives (the host's SamplerKnob
+ *  names). Temperature, Top-P, max output and context reach every backend. */
+export type SamplerKnob =
+  | 'minP'
+  | 'topK'
+  | 'repeatPenalty'
+  | 'repeatPenaltyTokens'
+  | 'xtc'
+  | 'dry'
+  | 'dynamicTemp'
+  | 'bannedPhrases';
+
+/** Whether to show [knob]: the host's list of what this backend's requests
+ *  carry (samplerKnobs). An older host sends no list, and the rule this
+ *  page had before stands: XTC, DRY and banned phrases on KoboldCpp only. */
+export function samplerKnobShown(knob: SamplerKnob, backend: string, knobs?: string[]): boolean {
+  if (knobs) return knobs.includes(knob);
+  if (knob === 'xtc' || knob === 'dry' || knob === 'bannedPhrases') return backend === 'kobold';
+  return true;
+}
+
 /** Said when the longest reply allowed takes up the whole context (the
  *  desktop's koboldReplyFillsContextWarning); null while it leaves room. */
 export function replyFillsContextWarning(context: number, maxOutput: number): string | null {
@@ -134,6 +155,7 @@ export function GenerationSettingsFields({
   reasoningMandatory,
   reasoningEfforts,
   reasoningLocalSupport,
+  samplerKnobs,
   patch,
   patchGen,
 }: {
@@ -155,11 +177,15 @@ export function GenerationSettingsFields({
   reasoningMandatory?: boolean;
   reasoningEfforts?: string[];
   reasoningLocalSupport?: string;
+  /** What this backend's requests carry; absent on an older host. */
+  samplerKnobs?: string[];
   patch: (p: Record<string, unknown>) => void;
   patchGen: (p: Partial<GenSettings>) => void;
 }) {
   const g = generation;
   const replyFills = replyFillsContextWarning(contextSize, g.maxLength);
+  // Only what this backend's requests carry; a hidden value is kept.
+  const shown = (knob: SamplerKnob) => samplerKnobShown(knob, backend, samplerKnobs);
   return (
     <section className="card">
       <h3>Generation</h3>
@@ -175,31 +201,37 @@ export function GenerationSettingsFields({
       )}
       <SliderField label="Temperature" value={g.temperature} min={0} max={2} step={0.05}
         onChange={(v) => patchGen({ temperature: v })} />
-      <SliderField label="Min-P" value={g.minP} min={0} max={1} step={0.01}
-        onChange={(v) => patchGen({ minP: v })} />
+      {shown('minP') && (
+        <SliderField label="Min-P" value={g.minP} min={0} max={1} step={0.01}
+          onChange={(v) => patchGen({ minP: v })} />
+      )}
       {g.topP !== undefined && (
         <SliderField label="Top-P" value={g.topP} min={0.1} max={1} step={0.01}
           onChange={(v) => patchGen({ topP: v })} />
       )}
-      {g.topK !== undefined && (
+      {g.topK !== undefined && shown('topK') && (
         <SliderField label="Top-K" value={g.topK} min={0} max={200} step={1}
           onChange={(v) => patchGen({ topK: Math.round(v) })} />
       )}
-      <SliderField label="Repeat penalty" value={g.repeatPenalty} min={1} max={3} step={0.01}
-        onChange={(v) => patchGen({ repeatPenalty: v })} />
-      <SliderField label="Rep pen tokens" value={g.repeatPenaltyTokens} min={0} max={2048} step={8}
-        onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })} />
-      {backend === 'kobold' && (
+      {shown('repeatPenalty') && (
+        <SliderField label="Repeat penalty" value={g.repeatPenalty} min={1} max={3} step={0.01}
+          onChange={(v) => patchGen({ repeatPenalty: v })} />
+      )}
+      {shown('repeatPenaltyTokens') && (
+        <SliderField label="Rep pen tokens" value={g.repeatPenaltyTokens} min={0} max={2048} step={8}
+          onChange={(v) => patchGen({ repeatPenaltyTokens: Math.round(v) })} />
+      )}
+      {shown('xtc') && (
         <>
           <SliderField label="XTC threshold" value={g.xtcThreshold} min={0} max={0.5} step={0.01}
             onChange={(v) => patchGen({ xtcThreshold: v })} />
           <SliderField label="XTC probability" value={g.xtcProbability} min={0} max={1} step={0.05}
             onChange={(v) => patchGen({ xtcProbability: v })} />
-          {g.dryMultiplier !== undefined && (
-            <SliderField label="DRY strength" value={g.dryMultiplier} min={0} max={3} step={0.05}
-              onChange={(v) => patchGen({ dryMultiplier: v })} />
-          )}
         </>
+      )}
+      {g.dryMultiplier !== undefined && shown('dry') && (
+        <SliderField label="DRY strength" value={g.dryMultiplier} min={0} max={3} step={0.05}
+          onChange={(v) => patchGen({ dryMultiplier: v })} />
       )}
       <SliderField label="Max output tokens" value={g.maxLength} min={16} max={16384} step={16}
         onChange={(v) => patchGen({ maxLength: Math.round(v) })} />
@@ -213,15 +245,17 @@ export function GenerationSettingsFields({
       {replyFills && (
         <div className="cpu-warn" data-testid="context-reply-warning">{replyFills}</div>
       )}
-      <label className="row-label">
-        <span>Dynamic temperature</span>
-        <input
-          type="checkbox"
-          checked={g.dynamicTempEnabled}
-          onChange={(e) => patchGen({ dynamicTempEnabled: e.target.checked })}
-        />
-      </label>
-      {g.dynamicTempEnabled && g.dynamicTempRange !== undefined && (
+      {shown('dynamicTemp') && (
+        <label className="row-label">
+          <span>Dynamic temperature</span>
+          <input
+            type="checkbox"
+            checked={g.dynamicTempEnabled}
+            onChange={(e) => patchGen({ dynamicTempEnabled: e.target.checked })}
+          />
+        </label>
+      )}
+      {shown('dynamicTemp') && g.dynamicTempEnabled && g.dynamicTempRange !== undefined && (
         <SliderField label="Dynatemp range" value={g.dynamicTempRange} min={0} max={2} step={0.1}
           onChange={(v) => patchGen({ dynamicTempRange: v })} />
       )}
@@ -362,7 +396,7 @@ export function GenerationSettingsFields({
           placeholder="e.g. \nUser:"
         />
       )}
-      {backend === 'kobold' && bannedPhrases !== undefined && (
+      {shown('bannedPhrases') && bannedPhrases !== undefined && (
         <label>
           Banned phrases
           <textarea

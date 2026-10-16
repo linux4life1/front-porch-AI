@@ -385,6 +385,8 @@ void main() {
           find.descendant(of: row.first, matching: find.text('Change')),
         );
         await tester.pump();
+        // The sheet lists the install again as it opens; let that read finish.
+        await settle(tester, comfy);
 
         expect(find.text('a_clip_l.safetensors'), findsOneWidget);
         expect(find.text('qwen_3_4b.safetensors'), findsWidgets);

@@ -108,6 +108,25 @@ void main() {
     expect(await cardsFor(chat, who), isEmpty);
   });
 
+  test('the mood the planner moves carries the line as its cause '
+      '(mood with bite)', () async {
+    final who = card();
+    await chat.setActiveCharacter(who);
+    chat.setTodaySentence('Hold the porch light.');
+
+    chat.abandonToday();
+    await _drain();
+
+    expect(chat.characterEmotion, 'annoyed');
+    expect(chat.emotionIntensity, 'moderate');
+    expect(chat.emotionCause, 'let go of: Hold the porch light');
+    expect(chat.emotionHeldTurns, 0);
+    expect(
+      chat.moodLine,
+      'Annoyed (moderate) · because let go of: Hold the porch light',
+    );
+  });
+
   test('done and dayAte journal kind today category moment', () async {
     final who = card();
     await chat.setActiveCharacter(who);

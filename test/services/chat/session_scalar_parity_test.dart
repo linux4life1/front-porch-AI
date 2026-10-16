@@ -262,5 +262,45 @@ void main() {
       expect(chat.relationshipService.fixationLifespan, 6);
       expect(chat.relationshipService.spatialStance, 'close');
     });
+
+    test('the mood cause and hold count survive a load (v57)', () async {
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: 'sess-mood',
+          characterId: const Value('char-a'),
+          characterEmotion: const Value('furious'),
+          emotionIntensity: const Value('strong'),
+          emotionCause: const Value('he lied about the money'),
+          emotionHeldTurns: const Value(4),
+        ),
+      );
+      await chat.setActiveCharacter(_card('Alice', 'char-a'));
+
+      expect(chat.characterEmotion, 'furious');
+      expect(chat.emotionIntensity, 'strong');
+      expect(chat.emotionCause, 'he lied about the money');
+      expect(chat.emotionHeldTurns, 4);
+      expect(
+        chat.moodLine,
+        'Furious (strong) · because he lied about the money · still',
+      );
+    });
+
+    test('a session row from before v57 reads as a fresh feeling', () async {
+      await db.insertSession(
+        SessionsCompanion.insert(
+          id: 'sess-mood-legacy',
+          characterId: const Value('char-a'),
+          characterEmotion: const Value('joy'),
+          emotionIntensity: const Value('mild'),
+        ),
+      );
+      await chat.setActiveCharacter(_card('Alice', 'char-a'));
+
+      expect(chat.characterEmotion, 'joy');
+      expect(chat.emotionCause, '');
+      expect(chat.emotionHeldTurns, 0);
+      expect(chat.moodLine, 'Joy (mild)');
+    });
   });
 }

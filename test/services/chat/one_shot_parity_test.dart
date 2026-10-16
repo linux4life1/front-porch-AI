@@ -318,5 +318,55 @@ void main() {
             'silently degrade to two.',
       );
     });
+
+    // Mood with bite (docs/design/mood-with-bite.md): the judge's answer is
+    // applied to the mood going in through ONE rule. Both paths must land on
+    // the same label and intensity, or one-shot would be the only mode
+    // whose feelings never hold.
+    const stoked =
+        '{"relationship_delta":0,"trust_delta":0,"bond_reason":"none",'
+        '"trust_reason":"none","emotion":"furious","emotion_intensity":"moderate",'
+        '"emotion_cause":"and now he denies it","emotion_change":"stoked",'
+        '"fixation_topic":"none","proposed_objective":"none",'
+        '"minutes_elapsed":5,"new_day":false,"reason":"scene"}';
+
+    test('a stoked feeling keeps its label on both paths', () async {
+      final four = _Rig(stoked)
+        ..emotion = 'furious'
+        ..intensity = 'strong';
+      await four.runFourCall();
+      final one = _Rig(stoked)
+        ..emotion = 'furious'
+        ..intensity = 'strong';
+      await one.runOneShot();
+      expect(four.emotion, 'furious');
+      expect(four.intensity, 'moderate');
+      expect(one.emotion, four.emotion);
+      expect(one.intensity, four.intensity);
+    });
+
+    const sameFamily =
+        '{"relationship_delta":0,"trust_delta":0,"bond_reason":"none",'
+        '"trust_reason":"none","emotion":"prickly","emotion_intensity":"mild",'
+        '"fixation_topic":"none","proposed_objective":"none",'
+        '"minutes_elapsed":5,"new_day":false,"reason":"scene"}';
+
+    test('a reworded same-family feeling with no change answer holds the '
+        'stored label on both paths', () async {
+      final four = _Rig(sameFamily)
+        ..emotion = 'furious'
+        ..intensity = 'strong';
+      await four.runFourCall();
+      final one = _Rig(sameFamily)
+        ..emotion = 'furious'
+        ..intensity = 'strong';
+      await one.runOneShot();
+      // "prickly" is anger, like "furious": held, not moved. A one-shot that
+      // kept its own emotion regex would write "prickly" here.
+      expect(four.emotion, 'furious');
+      expect(one.emotion, 'furious');
+      expect(four.intensity, 'mild', reason: 'the judge eased it faster');
+      expect(one.intensity, four.intensity);
+    });
   });
 }

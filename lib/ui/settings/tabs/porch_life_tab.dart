@@ -284,13 +284,12 @@ class PorchLifeTab extends StatelessWidget {
               blurb:
                   'Short-lived quests a character works toward — set your own, '
                   'or let them decide what they want. Needs nothing else to '
-                  'run, but it does check in with the AI to see whether a task '
-                  'got done: every turn while the Realism Engine is on, and '
-                  'every few messages while it is off. Switching this off is '
-                  'the way to stop that cost — your quests are kept either way.',
+                  'run, but it does check in with the AI every few messages '
+                  '(and after a time skip) to see where each goal stands. '
+                  'Switching this off is the way to stop that cost — your '
+                  'quests are kept either way.',
               value: objectivesOn,
               onChanged: storage.realismSettings.setObjectivesEnabled,
-              child: ObjectiveStaleThresholdPicker(storage: storage),
             ),
             FeatureRow(
               icon: Icons.flag_outlined,

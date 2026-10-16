@@ -85,4 +85,26 @@ void main() {
           'stays byte-identical (shared $shared of ${without.length})',
     );
   });
+
+  test('the latest-beat cut keeps every entry where it sat against the '
+      'messages', () {
+    const lore = [
+      LoreDepthEntry(depth: 0, content: 'AFTER-LAST'),
+      LoreDepthEntry(depth: 1, content: 'BEFORE-LAST'),
+      LoreDepthEntry(depth: 3, content: 'DEEPER'),
+    ];
+    final lines = ['A', 'B', 'C', 'D'];
+    final whole = spliceDepthLore(lines, lore);
+    final cut = spliceDepthLoreSplit(lines, lore, tailCount: 1);
+    // Rejoined, the cut is the plain splice: nothing moved or doubled.
+    expect([...cut.body, ...cut.tail], whole);
+    // Depth 0 rides with the newest line; depth 1 (exactly the cut) stays
+    // at the end of the body, right where the moved line used to start.
+    expect(cut.tail, ['D', 'AFTER-LAST']);
+    expect(cut.body, ['A', 'DEEPER', 'B', 'C', 'BEFORE-LAST']);
+    // No cut is the old splice.
+    expect(spliceDepthLoreSplit(lines, lore, tailCount: 0).tail, isEmpty);
+    // A cut wider than the window takes the whole window.
+    expect(spliceDepthLoreSplit(lines, const [], tailCount: 9).body, isEmpty);
+  });
 }

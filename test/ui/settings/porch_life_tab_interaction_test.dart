@@ -158,7 +158,6 @@ void main() {
         'Dreams',
         'Promises',
         'Objectives',
-        'Retire a leftover quest after',
         'Ambitions',
         'Welcome-back recap',
         'Character notices your absence',
@@ -308,73 +307,18 @@ void main() {
             'acknowledgement is switched on',
       );
 
-      // Pin 6: leftover-quest threshold — visible with Objectives on (the
-      // production default), tappable while the engine is still off, and
-      // hidden when Objectives is off. Objectives' onChanged is a ChatService
-      // extension, so the off-path is driven through storage, same as the
-      // Ambitions gate in objectives_toggle_test.
-      expect(storage.realismSettings.objectiveStaleThreshold, 2);
+      // Pin 6 (2026-10-16, objectives that keep up): the "Retire a leftover
+      // quest after" picker is gone. It set how many "no longer relevant"
+      // verdicts in a row retired a quest; the goal sync's single
+      // "overtaken" answer replaced that rule, so there is nothing left to
+      // set. The Objectives row itself stays, and says it checks after a
+      // time skip too.
       expect(storage.realismSettings.objectivesEnabled, isTrue);
-      final staleLabel = find.text('Retire a leftover quest after');
-      await scrollTo(staleLabel);
-      expect(
-        staleLabel,
-        findsOneWidget,
-        reason:
-            'the stale-threshold picker rides Objectives and must show '
-            'while that switch is on — including with the engine off',
-      );
-      expect(
-        find.text('2 checks'),
-        findsOneWidget,
-        reason: 'default N=2 is the production threshold',
-      );
-
-      final pickerRow = find
-          .ancestor(of: staleLabel, matching: find.byType(Row))
-          .first;
-      await tester.tap(
-        find.descendant(
-          of: pickerRow,
-          matching: find.byType(DropdownButton<int>),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('never (off)').last);
-      await tester.pumpAndSettle();
-      expect(
-        storage.realismSettings.objectiveStaleThreshold,
-        0,
-        reason:
-            'picking "never (off)" must write '
-            'storage.realismSettings.objectiveStaleThreshold',
-      );
-
-      await tester.tap(
-        find.descendant(
-          of: find.ancestor(of: staleLabel, matching: find.byType(Row)).first,
-          matching: find.byType(DropdownButton<int>),
-        ),
-      );
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('4 checks').last);
-      await tester.pumpAndSettle();
-      expect(
-        storage.realismSettings.objectiveStaleThreshold,
-        4,
-        reason: 'picking "4 checks" must write 4, not stay on the last tap',
-      );
-
-      await storage.realismSettings.setObjectivesEnabled(false);
-      await tester.pump(const Duration(milliseconds: 250));
-      await tester.pump(const Duration(milliseconds: 250));
-      expect(
-        find.text('Retire a leftover quest after'),
-        findsNothing,
-        reason:
-            'the picker is a FeatureRow child — it hides when Objectives '
-            'is off, the same way Away for at least hides with absence off',
-      );
+      final objectivesRow = find.text('Objectives');
+      await scrollTo(objectivesRow);
+      expect(objectivesRow, findsOneWidget);
+      expect(find.text('Retire a leftover quest after'), findsNothing);
+      expect(find.textContaining('and after a time skip'), findsOneWidget);
     },
   );
 }

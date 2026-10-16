@@ -8,51 +8,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/character_gen/gen_llm_caller.dart';
 import 'package:front_porch_ai/services/character_gen/gen_parsing.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
+import 'package:front_porch_ai/services/character_gen/gen_prompts.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
-
-// The interview is assembled in GenInterviewSteps.runInterview in a deliberate order:
-// VOICE first (it grounds the greeting + example dialogue, so establishing it
-// early keeps every later answer voice-consistent), then motive/wound, the
-// (conditional) relationship to {{user}}, the social gradient, pressure
-// behavior, joy, the (conditional) NSFW question, and APPEARANCE last (so the
-// character doesn't open with a vanity monologue before its voice exists). The
-// old "goal triad" (three overlapping questions about wants/plans/how) was
-// collapsed into one motive + one wound question.
-const _qVoice =
-    'How do you talk? Give me two quick samples of your voice: first, how you\'d '
-    'explain something to someone you\'re trying to impress — then how you\'d say '
-    'the same thing to someone you completely trust.';
-const _qWho =
-    'In your own words: who are you, and what do you want more than anything '
-    'right now?';
-const _qWound =
-    'Tell me about a moment from your past that shaped who you are — and what it '
-    'left you afraid of, or unable to do.';
-const _qSocial =
-    'How do you treat someone who\'s just met you versus someone you\'ve come to '
-    'trust completely? What changes?';
-const _qPressure =
-    'When you\'re cornered, or when someone truly angers you — what do you '
-    'actually do? Show me, don\'t tell me.';
-const _qJoy =
-    'What brings you genuine joy or peace — the thing that lets your guard down?';
-const _qAppearance =
-    'Now describe your physical appearance in your own words — what you look like, '
-    'how you carry yourself, and what you are wearing and carrying in this opening '
-    'scene. Be specific.';
-
-/// Only asked when a relationship to {{user}} is set — voices the bond so the
-/// greeting and example dialogue carry real history. Skipped for strangers /
-/// one-shots (an empty relationship), where invented shared history would hurt.
-String _relationshipQuestion(String relationship) =>
-    'Your relationship to {{user}} is: $relationship. Who are they to you, '
-    'really — what do you want from them, and what\'s unresolved or unspoken '
-    'between you?';
-
-const _nsfwInterviewQuestion =
-    'When it comes to sex and intimacy: what do you crave, where are your hard '
-    'limits, are you dominant or submissive — and if there\'s someone you '
-    'desire, what do they do to you?';
 
 /// The interview-grounded stages: alternate meeting scenarios, the
 /// in-character interview, the field rewrite it feeds, and example dialogue.
@@ -145,59 +102,37 @@ Respond with ONLY the JSON:''';
   //  Character Interview (Voice Enrichment)
   // ═════════════════════════════════════════════════════════════
 
-  /// Run a cumulative in-character interview, returning the full transcript.
-  /// Each answer is folded back into the next question's context — exactly as
-  /// EllipsisLM does — so the model's "voice" deepens with each turn.
-  /// When [nsfwEnabled] is true, an explicit sexual preference question is appended.
+  /// Run a cumulative in-character interview over [questions] (the run's
+  /// set, already rendered by `renderInterviewQuestions`), returning the
+  /// full transcript. Each answer is folded back into the next question's
+  /// context, so the voice deepens with each turn. The seed and the answer
+  /// lead follow [voice]. No questions asks nothing and returns ''.
+  /// [chatGrounding] (AI Enhance) is the chat the character already lived,
+  /// the source of truth for voice and history.
   Future<String> runInterview({
     required CharacterCard card,
     required String name,
-    bool nsfwEnabled = false,
-    String relationship = '',
+    required List<String> questions,
+    required NarrativeVoice voice,
+    required NarrativePronouns pronouns,
     void Function(String)? onStatus,
     void Function(String)? onProgress,
     String? worldLore,
     String chatGrounding = '',
   }) async {
+    if (questions.isEmpty) return '';
     final transcript = StringBuffer();
-    // Seed the LLM with who this character is so the first answer is grounded
-    final seed =
-        'You are $name.\n'
-        'Your personality: ${card.personality.length > 400 ? card.personality.substring(0, 400) : card.personality}\n'
-        'Your scenario: ${card.scenario.length > 200 ? card.scenario.substring(0, 200) : card.scenario}\n\n'
-        '${worldLore != null && worldLore.trim().isNotEmpty ? "You exist in the following established world. Use its terminology, locations, and facts:\n$worldLore\n\n" : ""}'
-        // AI Enhance: the character already LIVED a chat — the transcript is
-        // the source of truth for voice and history, stronger than any field.
-        '${chatGrounding.trim().isNotEmpty ? "How you have ACTUALLY been played in a real chat with {{user}} — this is the source of truth for your voice, manner, and history. Every answer must stay true to it:\n$chatGrounding\n\n" : ""}'
-        'Answer each question in first person, fully in-character. Be specific, '
-        'vivid, and emotionally honest — but keep each answer TIGHT: a few sharp '
-        'sentences, under ~150 words. Depth over length; do not ramble. Respond '
-        'as $name would speak — use their vocabulary, cadence, and emotional '
-        'register.';
-
-    // Skip the relationship question for strangers/one-shots — inventing shared
-    // history (what they want from {{user}}, unspoken tension) actively hurts a
-    // "you just met" card. Empty OR a stranger-like preset counts as no relationship.
-    final relLower = relationship.trim().toLowerCase();
-    final hasRelationship =
-        relLower.isNotEmpty &&
-        relLower != 'stranger' &&
-        relLower != 'strangers' &&
-        relLower != 'none';
-
-    // Voice → motive → wound → (relationship) → social → pressure → joy →
-    // (NSFW) → appearance. See the question constants for the rationale.
-    final questions = <String>[
-      _qVoice,
-      _qWho,
-      _qWound,
-      if (hasRelationship) _relationshipQuestion(relationship),
-      _qSocial,
-      _qPressure,
-      _qJoy,
-      if (nsfwEnabled) _nsfwInterviewQuestion,
-      _qAppearance,
-    ];
+    final seed = interviewSeed(
+      name: name,
+      personality: card.personality,
+      scenario: card.scenario,
+      worldLore: worldLore,
+      chatGrounding: chatGrounding,
+      voice: voice,
+      pronouns: pronouns,
+      definesChar: questions.any((q) => q.contains('{{char}}')),
+    );
+    final lead = interviewAnswerLead(name, voice);
 
     for (int i = 0; i < questions.length; i++) {
       final q = questions[i];
@@ -208,7 +143,7 @@ Respond with ONLY the JSON:''';
           '$seed\n\n'
           '${transcript.isNotEmpty ? 'Previous answers:\n$transcript\n\n' : ''}'
           'Question: $q\n\n'
-          '$name: ';
+          '$lead';
 
       // Tight cap: interview answers used to run to ~1200 tokens each, ballooning
       // the cumulative prompt to ~12k by the last question (slow on local models).
@@ -251,6 +186,7 @@ Respond with ONLY the JSON:''';
     bool preserveUserScenario = false,
     void Function(String)? onProgress,
     String chatGrounding = '',
+    String direction = '',
   }) async {
     // AI Enhance: real chat excerpts outrank invented detail — the rewrite
     // must sound like the character as PLAYED, not as originally sketched.
@@ -265,6 +201,12 @@ Respond with ONLY the JSON:''';
           pronouns: resolveNarrativePronouns(_state.narrativeSex),
         ) ??
         'Third-person';
+    // A run with no questions has no transcript; the header stays as it is
+    // (readers route on it) and the slot says so.
+    final transcriptText = interviewTranscript.trim().isEmpty
+        ? '(No interview was run. Work from the current fields and the '
+              'direction.)'
+        : interviewTranscript;
     final prompt =
         '''
 You have just completed an in-character interview with $name.
@@ -273,7 +215,7 @@ for this character card. Output ONLY a JSON object with exactly three keys.
 No markdown. No explanation. Just raw JSON.
 
 INTERVIEW TRANSCRIPT:
-$interviewTranscript
+$transcriptText
 $groundingSection
 CURRENT DESCRIPTION (physical appearance only):
 ${card.description}
@@ -299,7 +241,7 @@ Rewrite these fields using the specific details, voice, and texture revealed in 
 
 Use {{char}} for the character name and {{user}} for the user throughout.
 
-Respond with ONLY the JSON:''';
+${authorDirection(direction, 'Rewrite the profile')}Respond with ONLY the JSON:''';
 
     final output = await _llm.call(
       prompt,
@@ -365,6 +307,7 @@ Respond with ONLY the JSON:''';
     required String interviewTranscript,
     void Function(String)? onProgress,
     String chatGrounding = '',
+    String direction = '',
   }) async {
     // AI Enhance: real chat lines are the strongest possible voice reference —
     // invite the model to adapt the best genuine exchanges instead of
@@ -380,13 +323,16 @@ Respond with ONLY the JSON:''';
       pronouns: resolveNarrativePronouns(_state.narrativeSex),
     );
     final voiceRuleLine = voiceRule == null ? '' : '\n$voiceRule';
+    // No interview (a run with no questions): the exchanges come from the
+    // personality alone, with no empty source block.
+    final sourceSection = interviewTranscript.trim().isEmpty
+        ? ''
+        : "\nSOURCE MATERIAL — $name's own words from an in-character "
+              'interview:\n$interviewTranscript\n';
     final prompt =
         '''Write example dialogue exchanges for a roleplay character named $name.
 These examples teach the AI how $name speaks — their vocabulary, sentence structure, emotional reactions, and mannerisms.
-
-SOURCE MATERIAL — $name's own words from an in-character interview:
-$interviewTranscript
-$groundingSection
+$sourceSection$groundingSection
 CHARACTER PERSONALITY:
 ${card.personality}
 
@@ -412,7 +358,7 @@ RULES:
 - {{char}} responses should feel like they come from a real person with opinions, not a generic AI
 - Use {{char}} and {{user}} as placeholders — never real names$voiceRuleLine
 
-Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start directly with <START>:''';
+${authorDirection(direction, 'Write these exchanges')}Output ONLY the example dialogue. No commentary, no JSON, no explanation. Start directly with <START>:''';
 
     final output = await _llm.call(
       prompt,

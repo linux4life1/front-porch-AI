@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/app_colors.dart';
+import '../theme/creator_palette.dart';
 
 class AlternateGreetingsSlider extends StatelessWidget {
   const AlternateGreetingsSlider({
@@ -31,7 +32,8 @@ class AlternateGreetingsSlider extends StatelessWidget {
             max: 5,
             divisions: 5,
             activeColor: accentColor,
-            inactiveColor: AppColors.borderOf(context),
+            inactiveColor:
+                context.creatorPalette?.line ?? AppColors.borderOf(context),
             label: label,
             onChanged: (val) => onChanged(val.round()),
           ),
@@ -41,7 +43,9 @@ class AlternateGreetingsSlider extends StatelessWidget {
           child: Text(
             label,
             style: TextStyle(
-              color: AppColors.textSecondary(context),
+              color:
+                  context.creatorPalette?.prose ??
+                  AppColors.textSecondary(context),
               fontSize: 13,
             ),
           ),

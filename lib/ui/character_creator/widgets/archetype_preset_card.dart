@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 /// Amber-bordered "Quick Start" card of archetype preset chips. Tapping a chip
 /// auto-fills the concept + personality keywords (and name if empty) from the
@@ -20,11 +20,11 @@ class ArchetypePresetCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedFg = AppColors.resolve(context, Colors.white, Colors.black87);
+    final selectedFg = StudioColors.amberInkOf(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.cardOf(context),
+        color: StudioColors.cardOf(context),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: accent.withValues(alpha: 0.25)),
       ),
@@ -49,7 +49,7 @@ class ArchetypePresetCard extends StatelessWidget {
           Text(
             'Tap to auto-fill concept & personality',
             style: TextStyle(
-              color: AppColors.textTertiary(context),
+              color: StudioColors.mutedOf(context),
               fontSize: 11,
             ),
           ),
@@ -66,7 +66,7 @@ class ArchetypePresetCard extends StatelessWidget {
                     fontSize: 12,
                     color: isSelected
                         ? selectedFg
-                        : AppColors.textSecondary(context),
+                        : StudioColors.proseOf(context),
                   ),
                 ),
                 avatar: Icon(
@@ -75,10 +75,10 @@ class ArchetypePresetCard extends StatelessWidget {
                   color: isSelected ? selectedFg : accent,
                 ),
                 selected: isSelected,
-                selectedColor: accent.withValues(alpha: 0.2),
-                backgroundColor: AppColors.surfaceContainerOf(context),
+                selectedColor: accent,
+                backgroundColor: StudioColors.raiseOf(context),
                 side: BorderSide(
-                  color: isSelected ? accent : AppColors.borderOf(context),
+                  color: isSelected ? accent : StudioColors.lineOf(context),
                 ),
                 checkmarkColor: accent,
                 showCheckmark: false,

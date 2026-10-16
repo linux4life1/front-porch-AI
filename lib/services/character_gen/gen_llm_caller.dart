@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/character_gen/gen_refusal.dart';
 import 'package:front_porch_ai/services/character_gen/gen_run_state.dart';
 import 'package:front_porch_ai/services/kobold_service.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
@@ -37,6 +38,7 @@ class GenLlmCaller {
     final int myEpoch = _state.generationEpoch;
     final llm = _state.llm;
     final promptEstTokens = (prompt.length / 4).ceil();
+    String? lastError;
     debugPrint(
       'CharacterGen: Prompt size: ${prompt.length} chars (~$promptEstTokens tokens), maxLen: $maxLen',
     );
@@ -172,8 +174,18 @@ class GenLlmCaller {
         if (_state.isStale(myEpoch)) return null;
         if (e is SilentMandatoryReasoningStarveException) {
           debugPrint('CharacterGen: $e — failing this step (no more retries)');
+          _state.lastFailure = '$e';
           return null;
         }
+        if (isBackendRefusal(e)) {
+          // Auth / billing / permission: the same answer every time, and
+          // possibly a charge per call. No retry.
+          debugPrint('CharacterGen: backend refused the request: $e');
+          _state.lastFailure = refusalMessage(e);
+          _state.refused = true;
+          return null;
+        }
+        lastError = '$e';
         debugPrint(
           'CharacterGen: LLM error on attempt $attempt/$maxRetries: $e',
         );
@@ -181,7 +193,7 @@ class GenLlmCaller {
 
       // Wait before retrying (exponential backoff: 2s, 4s, 8s)
       if (attempt < maxRetries) {
-        final delay = Duration(seconds: 2 * (1 << (attempt - 1)));
+        final delay = _state.retryDelay(attempt);
         debugPrint('CharacterGen: Retrying in ${delay.inSeconds}s...');
         onProgress?.call(
           '[Retrying in ${delay.inSeconds}s... (attempt ${attempt + 1}/$maxRetries)]',
@@ -196,6 +208,9 @@ class GenLlmCaller {
     }
 
     debugPrint('CharacterGen: All $maxRetries attempts failed');
+    if (!_state.isStale(myEpoch)) {
+      _state.lastFailure = lastError ?? 'The model sent back nothing.';
+    }
     return null;
   }
 }

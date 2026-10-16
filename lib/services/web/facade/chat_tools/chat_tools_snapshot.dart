@@ -315,6 +315,10 @@ class ChatToolsSnapshot {
       // nullable — older web bundles ignore the key, and every objective
       // created before v46 legitimately has none.
       'servedAmbition': o.servedAmbition,
+      // v58 (objectives-that-keep-up.md): set aside by the goal sync, and
+      // who the goal is from. Additive; older bundles ignore both.
+      'dormant': objectiveIsDormant(o),
+      'origin': objectiveOrigin(o),
     };
   }
 }

@@ -83,6 +83,11 @@ abstract final class GroupRealismKeys {
   static const legacyCooldownTurnsTotal = RefractoryKeys.legacyTotal;
   static const emotion = 'emotion';
   static const emotionIntensity = 'emotionIntensity';
+
+  /// Why the mood is what it is, and how many judge passes have kept it
+  /// (docs/design/mood-with-bite.md). Absent on a member saved before them.
+  static const emotionCause = 'emotionCause';
+  static const emotionHeldTurns = 'emotionHeldTurns';
   static const needs = 'needs';
 
   /// Fractions of a point the clock has charged this member but not yet
@@ -123,6 +128,8 @@ abstract final class GroupRealismKeys {
     legacyCooldownTurnsTotal,
     emotion,
     emotionIntensity,
+    emotionCause,
+    emotionHeldTurns,
     needs,
     relationships,
   };
@@ -222,6 +229,10 @@ class GroupMemberRealism {
   String? get emotionIntensity => _string(GroupRealismKeys.emotionIntensity);
   set emotionIntensity(String? v) =>
       _data[GroupRealismKeys.emotionIntensity] = v;
+  String? get emotionCause => _string(GroupRealismKeys.emotionCause);
+  set emotionCause(String? v) => _data[GroupRealismKeys.emotionCause] = v;
+  int? get emotionHeldTurns => _int(GroupRealismKeys.emotionHeldTurns);
+  set emotionHeldTurns(int? v) => _data[GroupRealismKeys.emotionHeldTurns] = v;
 
   // ── Structured members ────────────────────────────────────────────────
   /// Raw needs vector, coerced, or null when the slot has never carried one —

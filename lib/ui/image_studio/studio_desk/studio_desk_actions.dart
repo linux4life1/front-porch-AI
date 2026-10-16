@@ -16,6 +16,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'studio_desk_catalog.dart';
 import 'studio_desk_host.dart';
+import 'studio_desk_listing.dart';
 import 'studio_desk_readiness.dart';
 
 /// What the person does on the desk. Every write here answers a tap; nothing
@@ -152,31 +153,26 @@ class StudioDeskActions {
         : token.contains('CLIP')
         ? 'Text encoder'
         : '';
-    final pool = role == 'VAE'
-        ? catalog.vaes
-        : role == 'Text encoder'
-        ? catalog.clips
-        : catalog.models;
-    // A name is a guess, so nothing is hidden: files that look wrong for
-    // this model are listed last and marked.
-    final unfit = role.isEmpty
-        ? const <String>{}
-        : {
-            for (final file in pool)
-              if (!supportFileFits(primary: primary, file: file, role: role))
-                file,
-          };
-    final items = [
-      for (final file in pool)
-        if (!unfit.contains(file)) file,
-      for (final file in pool)
-        if (unfit.contains(file)) file,
-    ];
+    StudioModelListing listing() => studioModelListing(
+      primary: primary,
+      role: role,
+      pool: role == 'VAE'
+          ? catalog.vaes
+          : role == 'Text encoder'
+          ? catalog.clips
+          : catalog.models,
+    );
+    final first = listing();
     return openSheet(
       (context) => StudioModelSheet(
         edit: _editing,
-        items: items,
-        unfit: unfit,
+        items: first.items,
+        unfit: first.unfit,
+        onRefresh: () async {
+          await catalog.refresh(settings, soft: true);
+          if (_host.mounted) readiness.check(force: true);
+          return listing();
+        },
         onPick: (file) {
           if (_configurationLocked) return;
           if (token != null && settings.imageGenBackend == 'comfyui') {
@@ -363,18 +359,27 @@ class StudioDeskActions {
   }
 
   Future<void> openLoras(ImageGenSettings settings, String primary) {
+    StudioLoraListing listing() => (
+      files: deskLoraFiles(
+        backend: settings.imageGenBackend,
+        files: catalog.loras,
+        loraVersions: catalog.dtLoraVersions,
+        modelVersions: catalog.dtModelVersions,
+        modelFile: primary,
+      ),
+      facts: catalog.loraFacts,
+    );
+    final first = listing();
     return openSheet(
       (context) => StudioLoraSheet(
         slots: settings.imageGenLoraSlots,
-        files: deskLoraFiles(
-          backend: settings.imageGenBackend,
-          files: catalog.loras,
-          loraVersions: catalog.dtLoraVersions,
-          modelVersions: catalog.dtModelVersions,
-          modelFile: primary,
-        ),
+        files: first.files,
         primaryFile: primary,
-        facts: catalog.loraFacts,
+        facts: first.facts,
+        onRefresh: () async {
+          await catalog.refresh(settings, soft: true);
+          return listing();
+        },
         onPick: (index, file) =>
             _write(() => settings.setImageGenLoraSlot(index, file: file)),
         onWeight: (index, weight) =>

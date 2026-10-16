@@ -30,6 +30,23 @@ int overflowHistoryStart(List<ChatMessage> messages) {
   return messages.length - 1;
 }
 
+/// Most messages a reply prompt moves after the state zone as the latest
+/// beat. A group can run several replies past the user's last line; past
+/// this many, only the newest stay together so the moved block (re-read
+/// in full every turn) stays small.
+const int kLatestTurnMaxMessages = 4;
+
+/// Where the latest beat starts: the latest user line and everything after
+/// it ([overflowHistoryStart]), capped to the newest
+/// [kLatestTurnMaxMessages]. A reply prompt renders these last, right
+/// before the speaker's name, so a small local model answers THIS turn
+/// instead of the long replies and state notes it read on the way down.
+int latestTurnStart(List<ChatMessage> messages) {
+  final start = overflowHistoryStart(messages);
+  final floor = messages.length - kLatestTurnMaxMessages;
+  return start > floor ? start : floor;
+}
+
 /// Clip + sanitize a cited line so it cannot break out of the guest-turn
 /// `[...]` wrapper or balloon the fixed prompt.
 String clipGuestCite(String text, {int max = 400}) {

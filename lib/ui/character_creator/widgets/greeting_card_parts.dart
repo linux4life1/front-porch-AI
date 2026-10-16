@@ -18,7 +18,9 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/creator_dashed_outline.dart';
+import 'package:front_porch_ai/ui/character_creator/widgets/streamed_text.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The Greetings sketch shows a waiting button at 45% instead of greyed out.
@@ -37,29 +39,16 @@ class GreetingWritingBox extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 96),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.backgroundOf(context),
+        color: StudioColors.bgOf(context),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.borderOf(context)),
+        border: Border.all(color: StudioColors.lineOf(context)),
       ),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(text: text),
-            WidgetSpan(
-              alignment: PlaceholderAlignment.middle,
-              child: Container(
-                width: 2,
-                height: 16,
-                margin: const EdgeInsets.only(left: 2),
-                color: AppColors.porchAmberOf(context),
-              ),
-            ),
-          ],
-        ),
+      child: StreamedText(
+        text: text,
         style: TextStyle(
           fontSize: 15,
           height: 1.55,
-          color: AppColors.textPrimary(context),
+          color: StudioColors.inkOf(context),
         ),
       ),
     );
@@ -74,7 +63,7 @@ class GreetingErrorLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final red = AppColors.alertRedOf(context);
+    final red = StudioColors.badOf(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       spacing: 8,
@@ -114,8 +103,8 @@ class GreetingIconButton extends StatelessWidget {
         tooltip: tooltip,
         onPressed: onPressed,
         icon: Icon(icon, size: size),
-        color: AppColors.textSecondary(context),
-        disabledColor: AppColors.textSecondary(context),
+        color: StudioColors.proseOf(context),
+        disabledColor: StudioColors.proseOf(context),
         constraints: const BoxConstraints.tightFor(width: 40, height: 40),
         padding: EdgeInsets.zero,
       ),
@@ -123,52 +112,67 @@ class GreetingIconButton extends StatelessWidget {
   }
 }
 
-/// The one-line steer: "start at the harbor at dawn".
+/// The spec's steer field: `raise` fill, no border, radius 12, 14px ink,
+/// a faint placeholder. One line at 44px ("start at the harbor at dawn"),
+/// or, when [grows], a box that grows with its text from 44px (the
+/// profile rewrite).
 class GreetingSteerField extends StatelessWidget {
   const GreetingSteerField({
     super.key,
     required this.controller,
     required this.enabled,
+    this.hint = 'Steer it (optional), e.g. start at the harbor at dawn',
+    this.grows = false,
+    this.onChanged,
   });
 
   final TextEditingController? controller;
   final bool enabled;
+  final String hint;
+  final bool grows;
+  final ValueChanged<String>? onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 44,
-      child: AppTextField(
-        controller: controller,
-        enabled: enabled,
-        maxLines: 1,
-        textAlignVertical: TextAlignVertical.center,
-        style: TextStyle(
+    final field = AppTextField(
+      controller: controller,
+      enabled: enabled,
+      maxLines: grows ? null : 1,
+      minLines: grows ? 1 : null,
+      onChanged: onChanged,
+      textAlignVertical: grows ? null : TextAlignVertical.center,
+      style: TextStyle(
+        fontSize: 14,
+        height: grows ? 1.4 : null,
+        color: enabled
+            ? StudioColors.inkOf(context)
+            : StudioColors.proseOf(context),
+      ),
+      decoration: InputDecoration(
+        isDense: true,
+        hintText: hint,
+        hintStyle: TextStyle(
           fontSize: 14,
-          color: enabled
-              ? AppColors.textPrimary(context)
-              : AppColors.textSecondary(context),
+          color: StudioColors.faintOf(context),
         ),
-        decoration: InputDecoration(
-          isDense: true,
-          hintText: 'Steer it (optional), e.g. start at the harbor at dawn',
-          hintStyle: TextStyle(
-            fontSize: 14,
-            color: AppColors.textTertiary(context),
-          ),
-          filled: true,
-          fillColor: AppColors.surfaceContainerOf(context),
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 14,
-            vertical: 13,
-          ),
-          border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(12),
-            borderSide: BorderSide.none,
-          ),
+        filled: true,
+        fillColor: StudioColors.raiseOf(context),
+        contentPadding: grows
+            ? const EdgeInsets.symmetric(horizontal: 14, vertical: 12)
+            : const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide.none,
         ),
       ),
     );
+    if (grows) {
+      return ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 44),
+        child: field,
+      );
+    }
+    return SizedBox(height: 44, child: field);
   }
 }
 
@@ -176,25 +180,33 @@ ButtonStyle _outlined(BuildContext context, Color fg, Color line) =>
     OutlinedButton.styleFrom(
       foregroundColor: fg,
       disabledForegroundColor: fg,
-      side: BorderSide(color: line),
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      side: BorderSide(color: line, width: 1.5),
+      padding: const EdgeInsets.symmetric(horizontal: 18),
       minimumSize: const Size(0, 44),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     );
 
 /// Button words: set on the Text so they keep the theme's font (a
 /// ButtonStyle textStyle replaces the theme's style instead of merging).
-const _label = TextStyle(fontSize: 14, fontWeight: FontWeight.w600);
+const _label = TextStyle(fontSize: 14, fontWeight: FontWeight.w700);
 
 /// Rewrite this greeting (with the steer, when there is one).
 class GreetingRegenerateButton extends StatelessWidget {
-  const GreetingRegenerateButton({super.key, required this.onPressed});
+  const GreetingRegenerateButton({
+    super.key,
+    required this.onPressed,
+    this.label = 'Regenerate',
+  });
 
   final VoidCallback? onPressed;
 
+  /// The outlined action's words ("Rewrite the profile", "Rewrite the
+  /// lorebook").
+  final String label;
+
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber = StudioColors.amberOf(context);
     return Opacity(
       opacity: onPressed == null ? _kWaitingOpacity : 1,
       child: SizedBox(
@@ -202,7 +214,7 @@ class GreetingRegenerateButton extends StatelessWidget {
         child: OutlinedButton.icon(
           onPressed: onPressed,
           icon: const Icon(Icons.refresh, size: 18),
-          label: const Text('Regenerate', style: _label),
+          label: Text(label, style: _label),
           style: _outlined(context, amber, amber),
         ),
       ),
@@ -222,12 +234,13 @@ class GreetingStopButton extends StatelessWidget {
       height: 44,
       child: OutlinedButton.icon(
         onPressed: onPressed,
-        icon: const Icon(Icons.stop, size: 14),
+        icon: const Icon(Icons.stop, size: 18),
         label: const Text('Stop', style: _label),
+        // The outlined action's shape in `bad` (creator-ui-spec.md).
         style: _outlined(
           context,
-          AppColors.textPrimary(context).withValues(alpha: 0.87),
-          AppColors.textTertiary(context),
+          StudioColors.badOf(context),
+          StudioColors.badOf(context),
         ),
       ),
     );
@@ -242,11 +255,11 @@ class GreetingAddButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final amber = AppColors.porchAmberOf(context);
+    final amber = StudioColors.amberOf(context);
     return Opacity(
       opacity: onPressed == null ? _kWaitingOpacity : 1,
       child: CustomPaint(
-        foregroundPainter: _DashedOutline(color: amber, radius: 12),
+        foregroundPainter: CreatorDashedOutline(color: amber, radius: 12),
         child: SizedBox(
           height: 44,
           child: TextButton.icon(
@@ -266,36 +279,4 @@ class GreetingAddButton extends StatelessWidget {
       ),
     );
   }
-}
-
-/// A 1px dashed rounded outline (Flutter borders cannot dash).
-class _DashedOutline extends CustomPainter {
-  const _DashedOutline({required this.color, required this.radius});
-
-  final Color color;
-  final double radius;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1;
-    final outline = Path()
-      ..addRRect(
-        RRect.fromRectAndRadius(
-          (Offset.zero & size).deflate(0.5),
-          Radius.circular(radius),
-        ),
-      );
-    for (final metric in outline.computeMetrics()) {
-      for (double d = 0; d < metric.length; d += 7) {
-        canvas.drawPath(metric.extractPath(d, d + 4), paint);
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedOutline old) =>
-      old.color != color || old.radius != radius;
 }

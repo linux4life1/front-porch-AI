@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// The labelled switch row the realism and needs forms share.
 Widget buildRealismToggleRow({
@@ -28,12 +29,15 @@ Widget buildRealismToggleRow({
   required ValueChanged<bool> onChanged,
   required BuildContext context,
 }) {
-  final onColor = AppColors.porchAmberOf(context);
+  final onColor =
+      context.creatorPalette?.amber ?? AppColors.porchAmberOf(context);
   return Row(
     children: [
       Icon(
         icon,
-        color: value ? onColor : AppColors.iconSecondary(context),
+        color: value
+            ? onColor
+            : context.creatorPalette?.muted ?? AppColors.iconSecondary(context),
         size: 20,
       ),
       const SizedBox(width: 12),
@@ -45,8 +49,10 @@ Widget buildRealismToggleRow({
               label,
               style: TextStyle(
                 color: value
-                    ? AppColors.textPrimary(context)
-                    : AppColors.textSecondary(context),
+                    ? context.creatorPalette?.ink ??
+                          AppColors.textPrimary(context)
+                    : context.creatorPalette?.prose ??
+                          AppColors.textSecondary(context),
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
               ),
@@ -55,7 +61,9 @@ Widget buildRealismToggleRow({
               Text(
                 subtitle,
                 style: TextStyle(
-                  color: AppColors.textTertiary(context),
+                  color:
+                      context.creatorPalette?.muted ??
+                      AppColors.textTertiary(context),
                   fontSize: 11,
                 ),
               ),
@@ -132,7 +140,9 @@ class RealismSliderRow extends StatelessWidget {
             Text(
               label,
               style: TextStyle(
-                color: AppColors.textSecondary(context),
+                color:
+                    context.creatorPalette?.prose ??
+                    AppColors.textSecondary(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
                 letterSpacing: 0.5,
@@ -160,9 +170,9 @@ class RealismSliderRow extends StatelessWidget {
         SliderTheme(
           data: SliderThemeData(
             activeTrackColor: color,
-            inactiveTrackColor: AppColors.borderOf(
-              context,
-            ).withValues(alpha: 0.3),
+            inactiveTrackColor:
+                (context.creatorPalette?.line ?? AppColors.borderOf(context))
+                    .withValues(alpha: 0.3),
             thumbColor: color,
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),

@@ -24,15 +24,75 @@ library;
 /// Content words too common to signal that a scene touches a quest. Only
 /// words of 4+ letters ever reach the check, so shorter ones are omitted.
 const Set<String> kObjectiveMentionStopwords = {
-  'about', 'after', 'again', 'their', 'there', 'these', 'those', 'thing',
-  'things', 'something', 'someone', 'somewhere', 'being', 'doing', 'going',
-  'gets', 'goes', 'have', 'having', 'into', 'just', 'like', 'make', 'makes',
-  'making', 'more', 'most', 'much', 'must', 'need', 'needs', 'other', 'over',
-  'some', 'take', 'takes', 'taking', 'than', 'that', 'them', 'then', 'they',
-  'this', 'time', 'truly', 'very', 'want', 'wants', 'what', 'when', 'where',
-  'which', 'while', 'will', 'with', 'without', 'would', 'your', 'yours',
-  'from', 'find', 'finds', 'finally', 'genuinely', 'herself', 'himself',
-  'themselves', 'toward', 'towards',
+  'about',
+  'after',
+  'again',
+  'their',
+  'there',
+  'these',
+  'those',
+  'thing',
+  'things',
+  'something',
+  'someone',
+  'somewhere',
+  'being',
+  'doing',
+  'going',
+  'gets',
+  'goes',
+  'have',
+  'having',
+  'into',
+  'just',
+  'like',
+  'make',
+  'makes',
+  'making',
+  'more',
+  'most',
+  'much',
+  'must',
+  'need',
+  'needs',
+  'other',
+  'over',
+  'some',
+  'take',
+  'takes',
+  'taking',
+  'than',
+  'that',
+  'them',
+  'then',
+  'they',
+  'this',
+  'time',
+  'truly',
+  'very',
+  'want',
+  'wants',
+  'what',
+  'when',
+  'where',
+  'which',
+  'while',
+  'will',
+  'with',
+  'without',
+  'would',
+  'your',
+  'yours',
+  'from',
+  'find',
+  'finds',
+  'finally',
+  'genuinely',
+  'herself',
+  'himself',
+  'themselves',
+  'toward',
+  'towards',
 };
 
 /// Does the recent exchange even TOUCH one of the open quests?
@@ -59,11 +119,7 @@ bool objectivesMentionedIn(
 }) {
   if (recentLowerText.trim().isEmpty) return false;
   for (final text in questTexts) {
-    for (final m in RegExp(r"[a-z][a-z']{3,}").allMatches(text.toLowerCase())) {
-      final w = m.group(0)!;
-      if (kObjectiveMentionStopwords.contains(w) || ignore.contains(w)) {
-        continue;
-      }
+    for (final w in objectiveContentWords(text, ignore: ignore)) {
       if (RegExp('\\b${RegExp.escape(w)}').hasMatch(recentLowerText)) {
         return true;
       }
@@ -71,3 +127,17 @@ bool objectivesMentionedIn(
   }
   return false;
 }
+
+/// The words of a goal that carry its content: four letters and up, not a
+/// stopword, not a cast or user name ([ignore]). In text order, repeats kept.
+/// Shared by the mention gate and the proposal gate, so "the same goal" means
+/// the same thing to both.
+List<String> objectiveContentWords(
+  String text, {
+  Set<String> ignore = const {},
+}) => [
+  for (final m in RegExp(r"[a-z][a-z']{3,}").allMatches(text.toLowerCase()))
+    if (!kObjectiveMentionStopwords.contains(m.group(0)!) &&
+        !ignore.contains(m.group(0)!))
+      m.group(0)!,
+];

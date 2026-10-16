@@ -19,6 +19,7 @@ table below are the source; the other two must match it exactly.
 | Card | `#251E17` | `#FFFDF9` | `StudioColors.card` | `--studio-card` |
 | Raised (selected nav, secondary button, inset) | `#30271E` | `#E9E2D8` | `StudioColors.raise` | `--studio-raise` |
 | Hairline | `#3E3328` | `#D4CFC6` | `StudioColors.line` | `--studio-line` |
+| Strong hairline (the creator's dashed conditional rows) | `#4E4134` | `#BFB6AA` | `StudioColors.lineStrong` | `--studio-line-strong` |
 | Text | `#EFE6DA` | `#2A231C` | `StudioColors.ink` | `--studio-ink` |
 | Muted text | `#A89A89` | `#6E6357` | `StudioColors.muted` | `--studio-muted` |
 | Faint text (placeholders, counts) | `#7A6E62` | `#9A8E82` | `StudioColors.faint` | `--studio-faint` |

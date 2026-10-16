@@ -73,6 +73,17 @@ extension ChatServiceHistory on ChatService {
     );
   }
 
+  /// How many of the window's newest lines are the latest beat
+  /// ([latestTurnStart]) — the lines a reply prompt moves after the state
+  /// zone. Blank lines never reach the window, so they are not counted.
+  int _latestTurnLineCount(List<String> formatted) {
+    var n = 0;
+    for (var i = latestTurnStart(_messages); i < formatted.length; i++) {
+      if (formatted[i].isNotEmpty) n++;
+    }
+    return n;
+  }
+
   String _buildChatHistory({List<LoreDepthEntry> depthLore = const []}) {
     final lines = _messages.map(_formatHistoryLine).toList();
     if (lines.any((l) => _macroPattern.hasMatch(l))) {
@@ -89,13 +100,19 @@ extension ChatServiceHistory on ChatService {
   /// [depthLore] entries are spliced in AFTER the budget walk (their tokens
   /// were already counted in the fixed content), relative to the included
   /// lines, so lore never evicts the history it positions against.
-  /// Returns ({String history, int droppedCount, int tokenCount}).
-  Future<({String history, int droppedCount, int tokenCount})>
+  /// [splitLatestTurn] (reply prompts) hands the latest beat back apart as
+  /// [latestTurn], still paid for out of [tokenBudget]; otherwise it is ''.
+  Future<
+    ({String history, String latestTurn, int droppedCount, int tokenCount})
+  >
   _buildChatHistoryWithBudget(
     int tokenBudget, {
     List<LoreDepthEntry> depthLore = const [],
+    bool splitLatestTurn = false,
   }) async {
-    if (_messages.isEmpty) return (history: '', droppedCount: 0, tokenCount: 0);
+    if (_messages.isEmpty) {
+      return (history: '', latestTurn: '', droppedCount: 0, tokenCount: 0);
+    }
 
     // Format all messages, skipping hidden group realism checkpoints
     final formatted = _messages.map(_formatHistoryLine).toList();
@@ -105,7 +122,12 @@ extension ChatServiceHistory on ChatService {
 
     // If budget is very large or negative (unlimited), return everything
     if (tokenBudget <= 0) {
-      return (history: formatted.join('\n'), droppedCount: 0, tokenCount: 0);
+      return (
+        history: formatted.join('\n'),
+        latestTurn: '',
+        droppedCount: 0,
+        tokenCount: 0,
+      );
     }
 
     // Walk from newest to oldest, accumulating messages that fit
@@ -197,10 +219,14 @@ extension ChatServiceHistory on ChatService {
       anchor.dropped = droppedCount;
     }
 
-    final spliced = spliceDepthLore(included, depthLore);
+    final spliced = spliceDepthLoreSplit(
+      included,
+      depthLore,
+      tailCount: splitLatestTurn ? _latestTurnLineCount(formatted) : 0,
+    );
 
     // If messages were dropped, prepend a separator
-    String history = spliced.join('\n');
+    String history = spliced.body.join('\n');
     if (droppedCount > 0) {
       history =
           '[Earlier messages truncated — see the recap below for context]\n$history';
@@ -208,6 +234,7 @@ extension ChatServiceHistory on ChatService {
 
     return (
       history: history,
+      latestTurn: spliced.tail.join('\n'),
       droppedCount: droppedCount,
       tokenCount: usedTokens,
     );

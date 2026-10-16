@@ -9,6 +9,8 @@
 // (at your option) any later version.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/mood_physics.dart';
+import 'package:front_porch_ai/services/chat/mood_registers.dart';
 import 'package:front_porch_ai/services/chat/needs_simulation.dart';
 import 'package:front_porch_ai/services/chat/needs_wear.dart';
 import 'package:front_porch_ai/services/chat/nsfw_service.dart';
@@ -66,8 +68,7 @@ class RealismSnapshot {
   NsfwService get _nsfwService => _scope.nsfw();
   TimeService get _timeService => _scope.time();
   CharacterCard? get _activeCharacter => _scope.activeCharacter();
-  String get _characterEmotion => _scope.emotion();
-  String get _emotionIntensity => _scope.intensity();
+  late final MoodRegisters _mood = MoodRegisters(_scope);
   String _getCharacterIdFromCard(CharacterCard c) => _scope.characterIdFor(c);
 
   Map<String, dynamic> capture({Map<String, int>? preTurn}) {
@@ -85,8 +86,8 @@ class RealismSnapshot {
       // restored while no decay logic read it — the real counter was, and is,
       // RelationshipService's.)
       ..._relationshipService.captureCadenceAndFeelings(),
-      'characterEmotion': _characterEmotion,
-      'emotionIntensity': _emotionIntensity,
+      // Label, intensity, cause and hold (docs/design/mood-with-bite.md).
+      ..._mood.state.toStamp(),
       'timeOfDay': _timeService.timeOfDay,
       'dayCount': _timeService.dayCount,
       'startDayOfWeek': _timeService.startDayOfWeekAnchor,
@@ -256,6 +257,13 @@ class RealismSnapshot {
     if (rs.containsKey('withUser')) {
       meta!.putIfAbsent(kWithUserPreTurn, () => rs['withUser']);
       rs['withUser'] = _relationshipService.withUser;
+    }
+    // The day roll and the planner door move the mood AFTER the reply was
+    // stamped (both run in the post-reply clock pass), so the reply's
+    // snapshot carries the eased mood and a swipe back shows it, not the
+    // one from before the clock moved.
+    if (rs.containsKey(kMoodStampLabel)) {
+      rs.addAll(_mood.state.toStamp());
     }
     // Pockets was captured pre-gen in [capture] and never
     // restamped, so swipe/delete restore put the PRE-ops kit back after a

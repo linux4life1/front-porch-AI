@@ -95,4 +95,68 @@ void main() {
 
     expect(picked, 'a_sd15_encoder.safetensors');
   });
+
+  Future<void> showRefreshable(
+    WidgetTester tester,
+    Future<StudioModelListing> Function() onRefresh,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(900, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StudioModelSheet(
+            edit: false,
+            items: items,
+            unfit: unfit,
+            onPick: (_) {},
+            onRefresh: onRefresh,
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('a model added since the desk last listed shows on open', (
+    tester,
+  ) async {
+    await showRefreshable(
+      tester,
+      () async => (items: [...items, 'new_model.safetensors'], unfit: unfit),
+    );
+    await tester.pump();
+
+    expect(find.text('new_model.safetensors'), findsOneWidget);
+  });
+
+  testWidgets('Refresh list reads the connected app again', (tester) async {
+    var reads = 0;
+    await showRefreshable(tester, () async {
+      reads++;
+      return (
+        items: [...items, if (reads > 1) 'later_model.safetensors'],
+        unfit: unfit,
+      );
+    });
+    await tester.pump();
+    expect(find.text('later_model.safetensors'), findsNothing);
+
+    await tester.tap(find.text('Refresh models'));
+    await tester.pump();
+
+    expect(reads, 2);
+    expect(find.text('later_model.safetensors'), findsOneWidget);
+  });
+
+  testWidgets('a failed refresh keeps the files already listed', (
+    tester,
+  ) async {
+    await showRefreshable(tester, () async => throw StateError('down'));
+    await tester.pump();
+
+    for (final file in items) {
+      expect(find.text(file), findsOneWidget, reason: file);
+    }
+    expect(tester.takeException(), isNull);
+  });
 }

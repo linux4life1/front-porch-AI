@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 class WorldFromWikiWriteStep extends StatelessWidget {
   const WorldFromWikiWriteStep({super.key, required this.state});
@@ -25,41 +25,56 @@ class WorldFromWikiWriteStep extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               if (state.writing)
-                CircularProgressIndicator(
-                  color: AppColors.porchAmberOf(context),
-                ),
+                CircularProgressIndicator(color: StudioColors.amberOf(context)),
               const SizedBox(height: 24),
               Text(
                 state.status.isEmpty ? 'Writing lorebook cards…' : state.status,
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   fontSize: 16,
-                  color: AppColors.textPrimary(context),
+                  color: StudioColors.inkOf(context),
                 ),
               ),
               const SizedBox(height: 8),
               Text(
                 '$done of $n cards. Nothing is saved until Preview.',
                 textAlign: TextAlign.center,
-                style: TextStyle(color: AppColors.textSecondary(context)),
+                style: TextStyle(color: StudioColors.proseOf(context)),
               ),
               if (state.error != null) ...[
                 const SizedBox(height: 16),
                 Text(
                   state.error!,
-                  style: TextStyle(color: AppColors.taskAccentOf(context)),
+                  style: TextStyle(color: StudioColors.honeyOf(context)),
                 ),
               ],
               if (state.writing || state.engine?.aborted == true) ...[
                 const SizedBox(height: 24),
-                ElevatedButton.icon(
-                  key: const Key('world-from-wiki-stop'),
-                  onPressed: state.writing ? state.abortWrite : null,
-                  icon: const Icon(Icons.stop, size: 18),
-                  label: const Text('Stop'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
+                // Stop: the outlined action's shape in `bad`.
+                SizedBox(
+                  height: 44,
+                  child: OutlinedButton.icon(
+                    key: const Key('world-from-wiki-stop'),
+                    onPressed: state.writing ? state.abortWrite : null,
+                    icon: const Icon(Icons.stop, size: 18),
+                    label: const Text(
+                      'Stop',
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: StudioColors.badOf(context),
+                      side: BorderSide(
+                        color: StudioColors.badOf(context),
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 18),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
                   ),
                 ),
               ],

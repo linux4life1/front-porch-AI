@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 enum StyledTokenType { macro, dialogue, action }
 
@@ -28,10 +29,21 @@ class StyledTextPreset {
   styler;
   final bool usePriorityTokenization;
 
+  /// Colours a token by its type on the priority path, where a split piece
+  /// of an *action* need not start with `*`. Null keeps the controller's
+  /// built-in priority colours.
+  final TextStyle Function(
+    BuildContext context,
+    StyledTokenType type,
+    TextStyle? base,
+  )?
+  tokenStyler;
+
   const StyledTextPreset(
     this.pattern,
     this.styler, {
     this.usePriorityTokenization = false,
+    this.tokenStyler,
   });
 
   static final prose = StyledTextPreset(
@@ -66,6 +78,45 @@ class StyledTextPreset {
     },
     usePriorityTokenization: true,
   );
+
+  /// [prose] in the studio palette, for the AI Character Creator's text
+  /// boxes (docs/design/creator-ui-spec.md): spoken lines honey,
+  /// `{{char}}` / `{{user}}` teal, *narration* in the narration tone.
+  /// [prose] in the studio palette, for the AI Character Creator's text
+  /// boxes (docs/design/creator-ui-spec.md): spoken lines honey,
+  /// `{{char}}` / `{{user}}` teal, *narration* in the narration tone.
+  static final studioProse = StyledTextPreset(
+    RegExp(r'("[^"]*")|(\*[^*]*\*)|({{[^}]*}})'),
+    (ctx, match, base) => _studioToken(
+      ctx,
+      match.startsWith('"')
+          ? StyledTokenType.dialogue
+          : match.startsWith('*')
+          ? StyledTokenType.action
+          : StyledTokenType.macro,
+      base,
+    ),
+    usePriorityTokenization: true,
+    tokenStyler: _studioToken,
+  );
+
+  static TextStyle _studioToken(
+    BuildContext ctx,
+    StyledTokenType type,
+    TextStyle? base,
+  ) {
+    final style = base ?? const TextStyle();
+    return switch (type) {
+      StyledTokenType.dialogue => style.copyWith(
+        color: StudioColors.honeyOf(ctx),
+        fontWeight: FontWeight.w500,
+      ),
+      StyledTokenType.action => style.copyWith(
+        color: StudioColors.narrationOf(ctx),
+      ),
+      StyledTokenType.macro => style.copyWith(color: StudioColors.tealOf(ctx)),
+    };
+  }
 
   static final chat = StyledTextPreset(RegExp(r'("[^"]*")|(\*[^*]*\*)'), (
     ctx,

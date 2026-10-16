@@ -19,8 +19,6 @@
 import 'dart:convert';
 
 import 'package:front_porch_ai/services/chat/chaos/chaos_frequency.dart';
-import 'package:front_porch_ai/services/chat/objective_stale_detector.dart'
-    show normalizeObjectiveStaleThreshold;
 import 'package:front_porch_ai/services/storage/settings/realism/one_shot_mode.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/realism_prefs_snapshot.dart';
 import 'package:front_porch_ai/services/storage/settings/realism/time_skip_bridge_setting.dart';
@@ -160,11 +158,6 @@ class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
   /// the only thing that moves ambition progress.
   bool _objectivesEnabled = true;
 
-  /// Consecutive explicit "this quest is no longer relevant" verdicts before
-  /// the quest retires as stale (not achieved). 0 = off. Allowed: 0, 1, 2, 4.
-  /// Default 2. Task-level stale is immediate and ignores this.
-  int _objectiveStaleThreshold = 2;
-
   /// Whether 18+ themes are on for this install. Gates the Porch Life
   /// "After Dark" group (approved sketch: that group is "shown only when 18+
   /// themes are enabled"), and will gate the intimate-preferences section in
@@ -208,9 +201,6 @@ class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
 
   /// See [_objectivesEnabled]. The switch Objectives never had.
   bool get objectivesEnabled => _objectivesEnabled;
-
-  /// See [_objectiveStaleThreshold].
-  int get objectiveStaleThreshold => _objectiveStaleThreshold;
 
   /// See [_pocketsEnabled]. Costs one short model call per turn while on.
   bool get pocketsEnabled => _pocketsEnabled;
@@ -307,7 +297,6 @@ class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
     _needsSimDefault = s.needsSimDefault;
     _standaloneClockEnabled = s.standaloneClockEnabled;
     _objectivesEnabled = s.objectivesEnabled;
-    _objectiveStaleThreshold = s.objectiveStaleThreshold;
     _pocketsEnabled = s.pocketsEnabled;
     _standingMoodEnabled = s.standingMoodEnabled;
     _intimateAgencyEnabled = s.intimateAgencyEnabled;
@@ -436,15 +425,6 @@ class RealismSettings with SettingsBase, TimeSkipBridgeSetting {
   Future<void> setObjectivesEnabled(bool value) {
     _objectivesEnabled = value;
     return _saveBool('objectives_enabled', value);
-  }
-
-  Future<void> setObjectiveStaleThreshold(int value) async {
-    _objectiveStaleThreshold = normalizeObjectiveStaleThreshold(value);
-    await prefs?.setInt(
-      k('objective_stale_threshold'),
-      _objectiveStaleThreshold,
-    );
-    notify();
   }
 
   Future<void> setPocketsEnabled(bool value) {

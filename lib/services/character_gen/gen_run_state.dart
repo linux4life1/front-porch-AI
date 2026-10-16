@@ -9,9 +9,28 @@ import 'package:front_porch_ai/services/llm_service.dart';
 /// the abort epoch, the per-run LLM switches, the narrative voice, and the
 /// outputs a caller reads back after a run.
 class GenRunState {
-  GenRunState(this.llm);
+  GenRunState(this.llm, {Duration Function(int attempt)? retryDelay})
+    : retryDelay = retryDelay ?? defaultRetryDelay;
 
   final LLMService llm;
+
+  /// How long a failed model call waits before try [attempt] + 1 (the
+  /// first retry is attempt 1). Tests pass zero.
+  final Duration Function(int attempt) retryDelay;
+
+  /// 2 s, then 4 s, then 8 s.
+  static Duration defaultRetryDelay(int attempt) =>
+      Duration(seconds: 2 * (1 << (attempt - 1)));
+
+  /// Why the last model call of this run gave up after its retries (the
+  /// backend's error, or that it sent back nothing). Null when no call has
+  /// failed since [beginRun]; a Stop never sets it. Lets a caller tell "the
+  /// model answered the same" (null) from "the backend failed" (set).
+  String? lastFailure;
+
+  /// True when [lastFailure] is the backend refusing the request (auth,
+  /// billing, permission): asking again will not help.
+  bool refused = false;
 
   /// The raw LLM output from the last base card generation, for image prompt extraction.
   String? lastRawOutput;
@@ -56,6 +75,8 @@ class GenRunState {
   }) {
     generationEpoch++;
     aborted = false;
+    lastFailure = null;
+    refused = false;
     this.abortInFlight = abortInFlight;
     if (abortInFlight) llm.abortGeneration();
     this.reasoningEnabled = reasoningEnabled;

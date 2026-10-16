@@ -64,6 +64,9 @@ interface Settings {
   // signal to fall back to the generic chips instead of claiming knowledge
   // we do not have.
   reasoningLocalSupport?: string;
+  /** The host's samplerKnobsFor: what this backend's requests carry.
+   *  Absent on older hosts (the old KoboldCpp-only rule then applies). */
+  samplerKnobs?: string[];
   generation: Gen;
   /** Dictionary tag ('en_US') or 'off'. Optional for the same reason. */
   spellCheckLanguage?: string;
@@ -537,6 +540,7 @@ export function SettingsPage() {
         reasoningMandatory={s.reasoningMandatory}
         reasoningEfforts={s.reasoningEfforts}
         reasoningLocalSupport={s.reasoningLocalSupport}
+        samplerKnobs={s.samplerKnobs}
         patch={(p) => patch(p as Partial<Settings>)}
         patchGen={patchGen}
       />
