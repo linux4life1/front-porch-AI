@@ -102,7 +102,10 @@ void main() {
       // v56: sessions.chaos_nsfw_enabled — the 1:1 Chaos spicy switch, which
       //      was never saved before. Guarded by
       //      test/services/chat/chaos/chaos_spicy_persist_test.dart.
-      expect(db.schemaVersion, 56);
+      // v57: sessions.emotion_cause + emotion_held_turns — the mood's cause
+      //      and hold count. Guarded by
+      //      test/services/chat/session_scalar_parity_test.dart.
+      expect(db.schemaVersion, 57);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
