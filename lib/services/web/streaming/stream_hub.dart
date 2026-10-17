@@ -112,7 +112,7 @@ class StreamHub {
   /// Broadcast a Realism / Objective `processing` frame and remember it for
   /// clients that connect while the engines are still busy.
   void broadcastProcessing(Map<String, dynamic> event) {
-    _activeProcessing = event['active'] == true ? event : null;
+    _activeProcessing = event['active'] == true ? Map.of(event) : null;
     broadcast(event);
   }
 
