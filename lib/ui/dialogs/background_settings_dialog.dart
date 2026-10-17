@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/background_settings/background_settings.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// (key, label, asset) for each built-in background; a null asset is None.
 const _builtInBackgrounds = <(String, String, String?)>[
@@ -91,7 +92,7 @@ class BackgroundSettingsDialog extends StatelessWidget {
     final allBackgrounds = [...builtInBackgrounds, ...customBackgrounds];
 
     return Dialog(
-      backgroundColor: const Color(0xFF1F2937),
+      backgroundColor: AppColors.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 500,
@@ -102,16 +103,19 @@ class BackgroundSettingsDialog extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
+                Text(
                   'Chat Background',
                   style: TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.textPrimary(context),
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70),
+                  icon: Icon(
+                    Icons.close,
+                    color: AppColors.textSecondary(context),
+                  ),
                   onPressed: () => Navigator.pop(context),
                 ),
               ],
@@ -126,7 +130,7 @@ class BackgroundSettingsDialog extends StatelessWidget {
                   icon: const Icon(Icons.add, size: 18),
                   label: const Text('Add Custom Background'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.textPrimary(context),
                     side: const BorderSide(color: Colors.white24),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(

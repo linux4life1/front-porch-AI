@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Data Bank action bar: Add Entry, Import File, and — while [unembedded]
 /// entries remain — the Embed button with its progress count.
@@ -49,7 +50,8 @@ class DataBankToolbar extends StatelessWidget {
           icon: const Icon(Icons.add, size: 16),
           label: const Text('Add Entry'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.purpleAccent,
+            backgroundColor: AppColors.porchAmberOf(context),
+            foregroundColor: AppColors.inkOn(AppColors.porchAmberOf(context)),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             textStyle: const TextStyle(fontSize: 12),
           ),
@@ -60,7 +62,8 @@ class DataBankToolbar extends StatelessWidget {
           icon: const Icon(Icons.file_upload, size: 16),
           label: const Text('Import File'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF374151),
+            backgroundColor: AppColors.surfaceContainerOf(context),
+            foregroundColor: AppColors.textPrimary(context),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             textStyle: const TextStyle(fontSize: 12),
           ),
@@ -70,12 +73,12 @@ class DataBankToolbar extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: embedding ? null : onEmbed,
             icon: embedding
-                ? const SizedBox(
+                ? SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.white,
+                      color: AppColors.textPrimary(context),
                     ),
                   )
                 : const Icon(Icons.memory, size: 16),
@@ -83,7 +86,8 @@ class DataBankToolbar extends StatelessWidget {
               embedding ? '$embeddedCount/$unembedded' : 'Embed ($unembedded)',
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF374151),
+              backgroundColor: AppColors.surfaceContainerOf(context),
+              foregroundColor: AppColors.textPrimary(context),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 12),
             ),

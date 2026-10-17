@@ -164,8 +164,8 @@ class _ExportPersonaDialogState extends State<ExportPersonaDialog> {
         ElevatedButton(
           onPressed: _export,
           style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF6366F1),
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.porchAmberOf(context),
+            foregroundColor: AppColors.inkOn(AppColors.porchAmberOf(context)),
           ),
           child: const Text('Export'),
         ),

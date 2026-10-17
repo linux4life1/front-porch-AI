@@ -38,19 +38,22 @@ void showDeleteBackgroundConfirmation(
   showDialog(
     context: context,
     builder: (ctx) => AlertDialog(
-      backgroundColor: const Color(0xFF1F2937),
-      title: const Text(
+      backgroundColor: AppColors.surfaceOf(ctx),
+      title: Text(
         'Delete Background',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AppColors.textPrimary(ctx)),
       ),
       content: Text(
         'Are you sure you want to delete "$name"? This action cannot be undone.',
-        style: const TextStyle(color: Colors.white70),
+        style: TextStyle(color: AppColors.textSecondary(ctx)),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.pop(ctx),
-          child: const Text('Cancel', style: TextStyle(color: Colors.white70)),
+          child: Text(
+            'Cancel',
+            style: TextStyle(color: AppColors.textSecondary(ctx)),
+          ),
         ),
         TextButton(
           onPressed: () {
@@ -89,10 +92,10 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
     context: context,
     builder: (ctx) => StatefulBuilder(
       builder: (context, setState) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2937),
-        title: const Text(
+        backgroundColor: AppColors.surfaceOf(context),
+        title: Text(
           'Add Custom Background',
-          style: TextStyle(color: Colors.white),
+          style: TextStyle(color: AppColors.textPrimary(context)),
         ),
         content: SizedBox(
           width: 350,
@@ -101,12 +104,14 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
             children: [
               TextField(
                 controller: nameController,
-                style: const TextStyle(color: Colors.white),
-                decoration: const InputDecoration(
+                style: TextStyle(color: AppColors.textPrimary(context)),
+                decoration: InputDecoration(
                   labelText: 'Name',
-                  labelStyle: TextStyle(color: Colors.white70),
+                  labelStyle: TextStyle(
+                    color: AppColors.textSecondary(context),
+                  ),
                   filled: true,
-                  fillColor: Color(0xFF374151),
+                  fillColor: AppColors.surfaceContainerOf(context),
                   border: OutlineInputBorder(),
                   focusedBorder: OutlineInputBorder(
                     borderSide: BorderSide(color: AppColors.formMasterAccent),
@@ -141,7 +146,7 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
                     selectedImagePath != null ? 'Change Image' : 'Browse',
                   ),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
+                    foregroundColor: AppColors.textPrimary(context),
                     side: const BorderSide(color: Colors.white24),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
@@ -167,9 +172,9 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text(
+            child: Text(
               'Cancel',
-              style: TextStyle(color: Colors.white70),
+              style: TextStyle(color: AppColors.textSecondary(context)),
             ),
           ),
           TextButton(
@@ -249,15 +254,20 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
               }
             },
             child: isUploading
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      valueColor: AlwaysStoppedAnimation<Color>(
+                        AppColors.textPrimary(context),
+                      ),
                     ),
                   )
-                : const Text('Upload', style: TextStyle(color: Colors.white)),
+                : Text(
+                    'Upload',
+                    style: TextStyle(color: AppColors.textPrimary(context)),
+                  ),
           ),
         ],
       ),

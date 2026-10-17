@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The Data Bank add/edit form: title, content, Cancel / Save. Fills the
@@ -47,23 +48,23 @@ class DataBankEditForm extends StatelessWidget {
         children: [
           Text(
             isNew ? 'New Entry' : 'Edit Entry',
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.bold,
-              color: Colors.white70,
+              color: AppColors.textSecondary(context),
             ),
           ),
           const SizedBox(height: 12),
           AppTextField(
             controller: titleController,
-            style: const TextStyle(color: Colors.white),
-            decoration: const InputDecoration(
+            style: TextStyle(color: AppColors.textPrimary(context)),
+            decoration: InputDecoration(
               labelText: 'Title',
-              labelStyle: TextStyle(color: Colors.white54),
+              labelStyle: TextStyle(color: AppColors.textSecondary(context)),
               hintText: 'e.g., "Backstory", "World Lore", "Character History"',
-              hintStyle: TextStyle(color: Colors.white24),
+              hintStyle: TextStyle(color: AppColors.textTertiary(context)),
               filled: true,
-              fillColor: Color(0xFF374151),
+              fillColor: AppColors.surfaceContainerOf(context),
               border: OutlineInputBorder(),
               isDense: true,
             ),
@@ -72,14 +73,17 @@ class DataBankEditForm extends StatelessWidget {
           Expanded(
             child: AppTextField(
               controller: contentController,
-              style: const TextStyle(color: Colors.white, fontSize: 13),
-              decoration: const InputDecoration(
+              style: TextStyle(
+                color: AppColors.textPrimary(context),
+                fontSize: 13,
+              ),
+              decoration: InputDecoration(
                 labelText: 'Content',
-                labelStyle: TextStyle(color: Colors.white54),
+                labelStyle: TextStyle(color: AppColors.textSecondary(context)),
                 hintText: 'Enter knowledge text...',
-                hintStyle: TextStyle(color: Colors.white24),
+                hintStyle: TextStyle(color: AppColors.textTertiary(context)),
                 filled: true,
-                fillColor: Color(0xFF374151),
+                fillColor: AppColors.surfaceContainerOf(context),
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
               ),
@@ -94,16 +98,19 @@ class DataBankEditForm extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: onCancel,
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(color: Colors.white54),
+                  style: TextStyle(color: AppColors.textSecondary(context)),
                 ),
               ),
               const SizedBox(width: 12),
               ElevatedButton(
                 onPressed: onSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purpleAccent,
+                  backgroundColor: AppColors.porchAmberOf(context),
+                  foregroundColor: AppColors.inkOn(
+                    AppColors.porchAmberOf(context),
+                  ),
                 ),
                 child: const Text('Save'),
               ),

@@ -27,6 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// The chat page's answer to "may this chat load images from the internet?".
 /// [allowed] is null until asked; [onDecided] rebuilds the owning page after
@@ -69,17 +70,17 @@ class ExternalImageConsent {
       context: context,
       barrierDismissible: false,
       builder: (ctx) => AlertDialog(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: AppColors.cardOf(ctx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         icon: const Icon(
           Icons.shield_outlined,
           color: Colors.orangeAccent,
           size: 36,
         ),
-        title: const Text(
+        title: Text(
           'External Image Detected',
           style: TextStyle(
-            color: Colors.white,
+            color: AppColors.textPrimary(ctx),
             fontSize: 18,
             fontWeight: FontWeight.bold,
           ),
@@ -88,25 +89,28 @@ class ExternalImageConsent {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
+            Text(
               'This message contains images hosted on an external server. '
               'Loading them carries security risks:',
               style: TextStyle(
-                color: Colors.white70,
+                color: AppColors.textSecondary(ctx),
                 fontSize: 13,
                 height: 1.5,
               ),
             ),
             const SizedBox(height: 12),
             _buildRiskItem(
+              ctx,
               Icons.visibility,
               'Your IP address will be exposed to the image host',
             ),
             _buildRiskItem(
+              ctx,
               Icons.bug_report,
               'Maliciously crafted images could potentially exploit vulnerabilities',
             ),
             _buildRiskItem(
+              ctx,
               Icons.track_changes,
               'The URL may be used for tracking',
             ),
@@ -124,9 +128,9 @@ class ExternalImageConsent {
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text(
+            child: Text(
               'Block Images',
-              style: TextStyle(color: Colors.white54),
+              style: TextStyle(color: AppColors.textSecondary(ctx)),
             ),
           ),
           ElevatedButton(
@@ -166,7 +170,7 @@ class ExternalImageConsent {
   }
 }
 
-Widget _buildRiskItem(IconData icon, String text) {
+Widget _buildRiskItem(BuildContext context, IconData icon, String text) {
   return Padding(
     padding: const EdgeInsets.only(bottom: 6),
     child: Row(
@@ -177,8 +181,8 @@ Widget _buildRiskItem(IconData icon, String text) {
         Expanded(
           child: Text(
             text,
-            style: const TextStyle(
-              color: Colors.white60,
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
               fontSize: 12,
               height: 1.4,
             ),

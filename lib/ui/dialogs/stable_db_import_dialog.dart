@@ -23,6 +23,7 @@ import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/app_version.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Glassmorphic modal overlay shown on first nightly launch when a stable DB
 /// is detected. Gives the user a choice to import their stable data into
@@ -96,13 +97,15 @@ class StableDbImportDialog extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF3B82F6).withValues(alpha: 0.15),
+                  color: AppColors.porchAmberOf(
+                    context,
+                  ).withValues(alpha: 0.15),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(
+                child: Icon(
                   Icons.cloud_upload_outlined,
                   size: 40,
-                  color: Color(0xFF60A5FA),
+                  color: AppColors.porchAmberOf(context),
                 ),
               ),
               const SizedBox(height: 20),
@@ -121,13 +124,13 @@ class StableDbImportDialog extends StatelessWidget {
               const SizedBox(height: 16),
 
               // Body
-              const Text(
+              Text(
                 'Would you like to import your stable database into this nightly '
                 'app to try the new features with your existing characters '
                 'and chats?',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                  color: Color(0xFFCBD5E1),
+                  color: AppColors.slateMutedOf(context),
                   fontSize: 15,
                   height: 1.55,
                 ),
@@ -145,12 +148,12 @@ class StableDbImportDialog extends StatelessWidget {
                     color: Colors.white.withValues(alpha: 0.06),
                   ),
                 ),
-                child: const Text(
+                child: Text(
                   'Note: your stable database will be unaffected and still '
                   'available with the stable app.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Color(0xFF94A3B8),
+                    color: AppColors.slateFaintOf(context),
                     fontSize: 13,
                     fontStyle: FontStyle.italic,
                     height: 1.45,
@@ -185,8 +188,10 @@ class StableDbImportDialog extends StatelessWidget {
                   ElevatedButton(
                     onPressed: () => _handleImport(context),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF3B82F6),
-                      foregroundColor: Colors.white,
+                      backgroundColor: AppColors.porchAmberOf(context),
+                      foregroundColor: AppColors.inkOn(
+                        AppColors.porchAmberOf(context),
+                      ),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 12,

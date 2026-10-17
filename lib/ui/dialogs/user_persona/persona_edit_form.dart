@@ -65,14 +65,17 @@ class PersonaEditForm extends StatelessWidget {
             children: [
               Text(
                 isNew ? 'Create Persona' : 'Edit Persona',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: AppColors.textPrimary(context),
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white54),
+                icon: Icon(
+                  Icons.close,
+                  color: AppColors.textSecondary(context),
+                ),
                 onPressed: onCancel,
               ),
             ],
@@ -103,10 +106,10 @@ class PersonaEditForm extends StatelessWidget {
                             border: Border.all(color: Colors.white24),
                           ),
                           child: avatarPath == null
-                              ? const Icon(
+                              ? Icon(
                                   Icons.add_a_photo,
                                   size: 32,
-                                  color: Colors.white54,
+                                  color: AppColors.textSecondary(context),
                                 )
                               : null,
                         ),
@@ -117,28 +120,44 @@ class PersonaEditForm extends StatelessWidget {
                           children: [
                             TextFormField(
                               controller: titleController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
+                              style: TextStyle(
+                                color: AppColors.textPrimary(context),
+                              ),
+                              decoration: InputDecoration(
                                 labelText: 'Title (optional)',
                                 hintText: 'Label to distinguish this persona',
-                                hintStyle: TextStyle(color: Colors.white30),
-                                labelStyle: TextStyle(color: Colors.white70),
+                                hintStyle: TextStyle(
+                                  color: AppColors.textTertiary(context),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
                                 filled: true,
-                                fillColor: Color(0xFF374151),
+                                fillColor: AppColors.surfaceContainerOf(
+                                  context,
+                                ),
                                 border: OutlineInputBorder(),
                               ),
                             ),
                             const SizedBox(height: 16),
                             TextFormField(
                               controller: nameController,
-                              style: const TextStyle(color: Colors.white),
-                              decoration: const InputDecoration(
+                              style: TextStyle(
+                                color: AppColors.textPrimary(context),
+                              ),
+                              decoration: InputDecoration(
                                 labelText: 'Name',
                                 hintText: 'Name sent to the AI',
-                                hintStyle: TextStyle(color: Colors.white30),
-                                labelStyle: TextStyle(color: Colors.white70),
+                                hintStyle: TextStyle(
+                                  color: AppColors.textTertiary(context),
+                                ),
+                                labelStyle: TextStyle(
+                                  color: AppColors.textSecondary(context),
+                                ),
                                 filled: true,
-                                fillColor: Color(0xFF374151),
+                                fillColor: AppColors.surfaceContainerOf(
+                                  context,
+                                ),
                                 border: OutlineInputBorder(),
                               ),
                               validator: (value) => value?.isEmpty ?? true
@@ -165,15 +184,19 @@ class PersonaEditForm extends StatelessWidget {
                     children: [
                       TextFormField(
                         controller: personaController,
-                        style: const TextStyle(color: Colors.white),
-                        decoration: const InputDecoration(
+                        style: TextStyle(color: AppColors.textPrimary(context)),
+                        decoration: InputDecoration(
                           labelText: 'Persona Text',
                           hintText:
                               'Describe who you are — appearance, personality, background...',
-                          hintStyle: TextStyle(color: Colors.white30),
-                          labelStyle: TextStyle(color: Colors.white70),
+                          hintStyle: TextStyle(
+                            color: AppColors.textTertiary(context),
+                          ),
+                          labelStyle: TextStyle(
+                            color: AppColors.textSecondary(context),
+                          ),
                           filled: true,
-                          fillColor: Color(0xFF374151),
+                          fillColor: AppColors.surfaceContainerOf(context),
                           border: OutlineInputBorder(),
                         ),
                         maxLines: 4,
@@ -218,9 +241,9 @@ class PersonaEditForm extends StatelessWidget {
             children: [
               TextButton(
                 onPressed: onCancel,
-                child: const Text(
+                child: Text(
                   'Cancel',
-                  style: TextStyle(color: Colors.white70),
+                  style: TextStyle(color: AppColors.textSecondary(context)),
                 ),
               ),
               const SizedBox(width: 16),
@@ -254,7 +277,7 @@ void showExpandPersonaTextDialog(
   showDialog(
     context: context,
     builder: (dialogContext) => Dialog(
-      backgroundColor: const Color(0xFF1F2937),
+      backgroundColor: AppColors.surfaceOf(dialogContext),
       insetPadding: const EdgeInsets.symmetric(horizontal: 40, vertical: 24),
       child: Container(
         constraints: const BoxConstraints(maxWidth: 600, maxHeight: 500),
@@ -264,17 +287,20 @@ void showExpandPersonaTextDialog(
           children: [
             Row(
               children: [
-                const Text(
+                Text(
                   'Edit Persona Text',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: AppColors.textPrimary(dialogContext),
                   ),
                 ),
                 const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54),
+                  icon: Icon(
+                    Icons.close,
+                    color: AppColors.textSecondary(dialogContext),
+                  ),
                   onPressed: () => Navigator.of(dialogContext).pop(),
                 ),
               ],
@@ -283,13 +309,15 @@ void showExpandPersonaTextDialog(
             Expanded(
               child: TextField(
                 controller: tempController,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AppColors.textPrimary(dialogContext)),
                 maxLines: null,
-                decoration: const InputDecoration(
+                decoration: InputDecoration(
                   hintText: 'Enter detailed persona info...',
-                  hintStyle: TextStyle(color: Colors.white30),
+                  hintStyle: TextStyle(
+                    color: AppColors.textTertiary(dialogContext),
+                  ),
                   filled: true,
-                  fillColor: Color(0xFF374151),
+                  fillColor: AppColors.surfaceContainerOf(dialogContext),
                   border: OutlineInputBorder(),
                   contentPadding: EdgeInsets.all(12),
                 ),
@@ -301,9 +329,11 @@ void showExpandPersonaTextDialog(
               children: [
                 TextButton(
                   onPressed: () => Navigator.of(dialogContext).pop(),
-                  child: const Text(
+                  child: Text(
                     'Cancel',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(
+                      color: AppColors.textSecondary(dialogContext),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),

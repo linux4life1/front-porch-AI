@@ -96,9 +96,12 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
                     child: Chip(
                       label: Text(
                         'Baseline seeded',
-                        style: TextStyle(fontSize: 10),
+                        style: TextStyle(
+                          fontSize: 10,
+                          color: AppColors.textPrimary(context),
+                        ),
                       ),
-                      backgroundColor: Colors.blueGrey,
+                      backgroundColor: AppColors.surfaceContainerOf(context),
                       padding: EdgeInsets.symmetric(horizontal: 6, vertical: 0),
                     ),
                   ),

@@ -56,9 +56,13 @@ class BackgroundThumbnail extends StatelessWidget {
               Image.asset(assetPath!, fit: BoxFit.cover)
             else
               Container(
-                color: const Color(0xFF111827),
-                child: const Center(
-                  child: Icon(Icons.block, color: Colors.white38, size: 28),
+                color: AppColors.sunkenSurfaceOf(context),
+                child: Center(
+                  child: Icon(
+                    Icons.block,
+                    color: AppColors.textTertiary(context),
+                    size: 28,
+                  ),
                 ),
               ),
             Positioned(
@@ -105,10 +109,14 @@ class CustomBackgroundThumbnail extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback onDelete;
 
-  Widget _brokenThumb() => Container(
-    color: const Color(0xFF111827),
-    child: const Center(
-      child: Icon(Icons.broken_image, color: Colors.white38, size: 28),
+  Widget _brokenThumb(BuildContext context) => Container(
+    color: AppColors.sunkenSurfaceOf(context),
+    child: Center(
+      child: Icon(
+        Icons.broken_image,
+        color: AppColors.textTertiary(context),
+        size: 28,
+      ),
     ),
   );
 
@@ -129,12 +137,12 @@ class CustomBackgroundThumbnail extends StatelessWidget {
           fit: StackFit.expand,
           children: [
             if (filePath.isEmpty)
-              _brokenThumb()
+              _brokenThumb(context)
             else
               Image.file(
                 File(filePath),
                 fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => _brokenThumb(),
+                errorBuilder: (_, _, _) => _brokenThumb(context),
               ),
             Positioned(
               left: 0,

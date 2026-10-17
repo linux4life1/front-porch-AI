@@ -265,7 +265,7 @@ class UpdateDialog extends StatelessWidget {
                   fontSize: 13,
                 ),
                 a: TextStyle(
-                  color: Colors.lightBlueAccent,
+                  color: AppColors.porchAmberOf(context),
                   decoration: TextDecoration.underline,
                 ),
                 em: TextStyle(

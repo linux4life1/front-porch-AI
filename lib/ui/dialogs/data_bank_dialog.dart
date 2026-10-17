@@ -28,6 +28,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/data_bank/data_bank.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -305,7 +306,7 @@ class _DataBankDialogState extends State<DataBankDialog> {
 
   Widget _dialog(int embeddedEntries, int unembedded) {
     return Dialog(
-      backgroundColor: const Color(0xFF1F2937),
+      backgroundColor: AppColors.surfaceOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Container(
         width: 650,
@@ -317,21 +318,27 @@ class _DataBankDialogState extends State<DataBankDialog> {
             // Header
             Row(
               children: [
-                const Icon(Icons.library_books, color: Colors.purpleAccent),
+                Icon(
+                  Icons.library_books,
+                  color: AppColors.porchAmberOf(context),
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Data Bank — ${widget.characterName}',
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
-                      color: Colors.white,
+                      color: AppColors.textPrimary(context),
                     ),
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white54),
+                  icon: Icon(
+                    Icons.close,
+                    color: AppColors.textSecondary(context),
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
@@ -339,7 +346,10 @@ class _DataBankDialogState extends State<DataBankDialog> {
             const SizedBox(height: 4),
             Text(
               '${_entries.length} entries, $embeddedEntries embedded${unembedded > 0 ? ', $unembedded need embedding' : ''}',
-              style: const TextStyle(fontSize: 11, color: Colors.white38),
+              style: TextStyle(
+                fontSize: 11,
+                color: AppColors.textTertiary(context),
+              ),
             ),
 
             // Import progress indicator
@@ -347,20 +357,20 @@ class _DataBankDialogState extends State<DataBankDialog> {
               const SizedBox(height: 8),
               Row(
                 children: [
-                  const SizedBox(
+                  SizedBox(
                     width: 14,
                     height: 14,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: Colors.purpleAccent,
+                      color: AppColors.porchAmberOf(context),
                     ),
                   ),
                   const SizedBox(width: 8),
                   Text(
                     _importStatus,
-                    style: const TextStyle(
+                    style: TextStyle(
                       fontSize: 11,
-                      color: Colors.purpleAccent,
+                      color: AppColors.porchAmberOf(context),
                     ),
                   ),
                 ],
@@ -388,9 +398,12 @@ class _DataBankDialogState extends State<DataBankDialog> {
                 onEmbed: _embedAll,
               ),
               const SizedBox(height: 4),
-              const Text(
+              Text(
                 'Supports: .txt, .md, .pdf, .json, .csv, .xml, .html, .yml',
-                style: TextStyle(fontSize: 10, color: Colors.white24),
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textTertiary(context),
+                ),
               ),
               const SizedBox(height: 8),
 

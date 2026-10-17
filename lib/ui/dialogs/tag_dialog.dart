@@ -21,6 +21,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Dialog shown after character import to let user add/edit tags.
@@ -115,7 +116,7 @@ class _TagDialogState extends State<TagDialog> {
     return UnsavedChangesGuard(
       isDirty: _isDirty,
       child: Dialog(
-        backgroundColor: const Color(0xFF1F2937),
+        backgroundColor: AppColors.surfaceOf(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         child: Container(
           width: 450,
@@ -137,10 +138,10 @@ class _TagDialogState extends State<TagDialog> {
                   Expanded(
                     child: Text(
                       'Tag "${widget.character.name}"',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                        color: AppColors.textPrimary(context),
                       ),
                       overflow: TextOverflow.ellipsis,
                     ),
@@ -152,7 +153,10 @@ class _TagDialogState extends State<TagDialog> {
                 widget.character.tags.isNotEmpty
                     ? 'Tags imported from card data. Add more or edit below.'
                     : 'Add tags to organize this character.',
-                style: const TextStyle(color: Colors.white54, fontSize: 13),
+                style: TextStyle(
+                  color: AppColors.textSecondary(context),
+                  fontSize: 13,
+                ),
               ),
               const SizedBox(height: 16),
 
@@ -175,16 +179,18 @@ class _TagDialogState extends State<TagDialog> {
                               (tag) => Chip(
                                 label: Text(
                                   tag,
-                                  style: const TextStyle(
-                                    color: Colors.white,
+                                  style: TextStyle(
+                                    color: AppColors.textPrimary(context),
                                     fontSize: 13,
                                   ),
                                 ),
-                                backgroundColor: const Color(0xFF374151),
-                                deleteIcon: const Icon(
+                                backgroundColor: AppColors.surfaceContainerOf(
+                                  context,
+                                ),
+                                deleteIcon: Icon(
                                   Icons.close,
                                   size: 16,
-                                  color: Colors.white54,
+                                  color: AppColors.textSecondary(context),
                                 ),
                                 onDeleted: () => _removeTag(tag),
                                 side: BorderSide.none,
@@ -204,12 +210,12 @@ class _TagDialogState extends State<TagDialog> {
               // Tag input
               TextField(
                 controller: _controller,
-                style: const TextStyle(color: Colors.white),
+                style: TextStyle(color: AppColors.textPrimary(context)),
                 decoration: InputDecoration(
                   hintText: 'Type a tag and press Enter...',
-                  hintStyle: const TextStyle(color: Colors.white38),
+                  hintStyle: TextStyle(color: AppColors.textTertiary(context)),
                   filled: true,
-                  fillColor: const Color(0xFF374151),
+                  fillColor: AppColors.surfaceContainerOf(context),
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                     borderSide: BorderSide.none,
@@ -234,7 +240,7 @@ class _TagDialogState extends State<TagDialog> {
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 150),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF374151),
+                      color: AppColors.surfaceContainerOf(context),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: ListView.builder(
@@ -245,15 +251,15 @@ class _TagDialogState extends State<TagDialog> {
                           dense: true,
                           title: Text(
                             _suggestions[index],
-                            style: const TextStyle(
-                              color: Colors.white70,
+                            style: TextStyle(
+                              color: AppColors.textSecondary(context),
                               fontSize: 13,
                             ),
                           ),
-                          leading: const Icon(
+                          leading: Icon(
                             Icons.label,
                             size: 16,
-                            color: Colors.white38,
+                            color: AppColors.textTertiary(context),
                           ),
                           onTap: () => _addTag(_suggestions[index]),
                         );
@@ -271,9 +277,9 @@ class _TagDialogState extends State<TagDialog> {
                 children: [
                   TextButton(
                     onPressed: () => Navigator.pop(context, null), // Skip
-                    child: const Text(
+                    child: Text(
                       'Skip',
-                      style: TextStyle(color: Colors.white54),
+                      style: TextStyle(color: AppColors.textSecondary(context)),
                     ),
                   ),
                   const SizedBox(width: 12),
