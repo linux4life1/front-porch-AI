@@ -9,6 +9,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 
@@ -40,6 +41,17 @@ class _GoalsChat extends FakeChatService {
     _o('main', primary: true),
     _o('side', status: 'dormant'),
   ];
+}
+
+/// The same goals, with a tally cached for [owner].
+class _TallyChat extends _GoalsChat {
+  _TallyChat(this.owner);
+
+  final String owner;
+
+  @override
+  ObjectiveTally get objectiveTally =>
+      ObjectiveTally(charId: owner, landed: 2, letGo: 1);
 }
 
 void _setupPathProviderMock() {
@@ -113,6 +125,21 @@ void main() {
       expect(primary['origin'], 'user', reason: 'pre-v58, no served ambition');
       expect(side['dormant'], isTrue);
       expect(side['origin'], 'character');
+    });
+
+    // 2026-10-16, objectives that keep up part 6: the phone shows the same
+    // "2 landed · 1 let go" line as the desktop panel, and only for the
+    // character whose goals are loaded.
+    test('objective JSON carries the loaded character\'s tally', () {
+      Map objectives(String owner) =>
+          ChatToolsFacade(
+                _TallyChat(owner),
+                storage,
+                null,
+              ).state()['objectives']
+              as Map;
+      expect(objectives('Vera')['tally'], '2 landed · 1 let go');
+      expect(objectives('Bram')['tally'], '');
     });
 
     test('objective task ops return false when the id is unknown', () async {

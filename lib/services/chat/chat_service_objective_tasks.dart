@@ -57,6 +57,8 @@ extension ChatServiceObjectiveTasks on ChatService {
   /// The sync retires a goal: finished or let go, with when. The turn op
   /// keeps the status it had so a regen puts the goal back exactly.
   Future<void> _retireObjectiveFromSync(Objective obj, ObjectiveEnd end) async {
+    // Taken now, while the turn that ended the goal is still running.
+    final cite = _objectiveTurnCite();
     if (_objectiveTurnOpsArmed) {
       _recordObjectiveTurnOp({
         'op': 'deactivated',
@@ -76,7 +78,65 @@ extension ChatServiceObjectiveTasks on ChatService {
         endedAt: drift.Value(DateTime.now()),
       ),
     );
+    await _rewardObjectiveEnd(obj, end, cite);
     await _loadActiveObjectives();
+  }
+
+  /// A goal of the character's own ended: the feeling it brings (unless a
+  /// stronger one stands) and a diary card cited at the turn's reply, so a
+  /// regen or delete takes both back with the goal.
+  Future<void> _rewardObjectiveEnd(
+    Objective obj,
+    ObjectiveEnd end,
+    List<int> cite,
+  ) async {
+    if (!objectiveEarnsRewards(obj)) return;
+    final owner = obj.characterId;
+    final group = _activeGroup != null;
+    if (_realismActiveThisMode) {
+      final current = group ? _mood.memberState(owner) : _mood.state;
+      final next = objectiveRewardMood(
+        current: current,
+        end: end,
+        primary: obj.isPrimary,
+        goal: obj.objective,
+      );
+      if (next != null && !group) {
+        _mood.set(next.label, next.intensity, cause: next.cause);
+      } else if (next != null) {
+        // The owner may not be this turn's speaker, whose stamp is the only
+        // one a regen restores, so the member's old mood rides the turn ops.
+        if (_objectiveTurnOpsArmed) {
+          _recordObjectiveTurnOp({
+            'op': 'mood',
+            'charId': owner,
+            'prev': current.toStamp(),
+          });
+        }
+        _mood.setMember(owner, next);
+        final loaded = _activeCharacter;
+        if (loaded != null && _getCharacterIdFromCard(loaded) == owner) {
+          _mood.set(next.label, next.intensity, cause: next.cause);
+        }
+      }
+    }
+    final sessionId = _currentSessionId;
+    if (!_storageService.memorySettings.journalEnabled || sessionId == null) {
+      return;
+    }
+    final mood = group ? _mood.memberState(owner) : _mood.state;
+    await _journalStore.addCard(
+      sessionId: sessionId,
+      characterId: owner,
+      content: objectiveDiaryLine(end, obj.objective),
+      category: 'moment',
+      kind: 'goal',
+      sourcePositions: cite,
+      storyDay: _timeService.dayCount,
+      storyClock: _timeService.storyClockIso,
+      emotionLabel: mood.isNeutral ? null : mood.label,
+      maxCards: _storageService.memorySettings.journalMaxCards,
+    );
   }
 
   /// The sync sets a goal aside, or wakes it.

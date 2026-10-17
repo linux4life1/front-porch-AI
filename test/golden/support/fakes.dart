@@ -36,6 +36,7 @@ import 'package:front_porch_ai/models/chat_participant.dart';
 import 'package:front_porch_ai/services/chat/context_viewer_snapshot.dart';
 import 'package:front_porch_ai/services/chat/mood_effects.dart';
 import 'package:front_porch_ai/services/chat/mood_physics.dart';
+import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/weather_segments.dart';
@@ -449,6 +450,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
   List<Objective> get secondaryObjectives => const [];
   @override
   bool get isCheckingCompletion => false;
+  @override
+  ObjectiveTally get objectiveTally => ObjectiveTally.none;
 
   // Context viewer surface.
   @override

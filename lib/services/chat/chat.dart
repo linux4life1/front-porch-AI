@@ -83,6 +83,7 @@ export 'objective_mention_gate.dart';
 export 'objective_eval_fire.dart';
 export 'objective_eval_tools.dart';
 export 'objective_origin.dart';
+export 'objective_rewards.dart';
 export 'objective_proposal_gate.dart';
 export 'objective_replan.dart';
 export 'objective_sync.dart';

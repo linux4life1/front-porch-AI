@@ -47,6 +47,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/database/database.dart' show Objective;
 import 'package:front_porch_ai/models/models.dart' show ChatMessage;
 import 'package:front_porch_ai/services/chat/chat.dart';
 
@@ -567,4 +568,115 @@ void main() {
       );
     },
   );
+
+  // 2026-10-16, objectives that keep up part 6: a character feels and
+  // remembers how their own goals ended. Only their own wants count; the
+  // user's goals are story direction and the planner moves the mood itself.
+  group('rewards for the character\'s own goals', () {
+    Objective row(
+      String id, {
+      String origin = kObjectiveOriginCharacter,
+      String? status = kObjectiveStatusDone,
+      bool active = false,
+      int minute = 0,
+    }) => Objective(
+      id: id,
+      characterId: 'c',
+      objective: 'goal $id',
+      tasks: '[]',
+      active: active,
+      isPrimary: false,
+      checkFrequency: 3,
+      injectionDepth: 4,
+      createdAt: DateTime(2026),
+      origin: origin,
+      status: status,
+      endedAt: DateTime(2026, 1, 1, 12, minute),
+    );
+
+    test('a win makes them proud, more so for the main goal; letting go '
+        'disappoints mildly', () {
+      final main = objectiveRewardMood(
+        current: MoodState.neutral,
+        end: ObjectiveEnd.achieved,
+        primary: true,
+        goal: 'Throw a block party',
+      )!;
+      expect((main.label, main.intensity), ('proud', 'strong'));
+      expect(main.cause, 'pulled off: Throw a block party');
+      final side = objectiveRewardMood(
+        current: MoodState.neutral,
+        end: ObjectiveEnd.achieved,
+        primary: false,
+        goal: 'x',
+      )!;
+      expect(side.intensity, 'moderate');
+      final lost = objectiveRewardMood(
+        current: MoodState.neutral,
+        end: ObjectiveEnd.letGo,
+        primary: true,
+        goal: 'Learn the fiddle',
+      )!;
+      expect((lost.label, lost.intensity), ('disappointed', 'mild'));
+      expect(lost.cause, 'had to let go of: Learn the fiddle');
+    });
+
+    test('a feeling as strong or stronger stays; a weaker one is replaced', () {
+      const furious = MoodState(label: 'furious', intensity: 'strong');
+      const content = MoodState(label: 'content', intensity: 'moderate');
+      const wistful = MoodState(label: 'wistful', intensity: 'mild');
+      MoodState? win(MoodState now, {bool primary = false}) =>
+          objectiveRewardMood(
+            current: now,
+            end: ObjectiveEnd.achieved,
+            primary: primary,
+            goal: 'g',
+          );
+      expect(win(furious, primary: true), isNull);
+      expect(win(content), isNull, reason: 'equal strength keeps the mood');
+      expect(win(content, primary: true)?.label, 'proud');
+      expect(win(wistful)?.label, 'proud');
+    });
+
+    test('the diary line is in their voice', () {
+      expect(
+        objectiveDiaryLine(ObjectiveEnd.achieved, 'Throw a block party.'),
+        'I pulled it off: Throw a block party.',
+      );
+      expect(
+        objectiveDiaryLine(ObjectiveEnd.letGo, 'Learn the fiddle'),
+        'I had to give up on this: Learn the fiddle.',
+      );
+    });
+
+    test('the tally counts only their own ended goals, newest first', () {
+      final tally = objectiveTallyFrom('c', [
+        row('a', minute: 1),
+        row('b', status: kObjectiveStatusOvertaken, minute: 3),
+        row('c', minute: 2),
+        row('u', origin: kObjectiveOriginUser),
+        row('p', origin: kObjectiveOriginPlanner),
+        row('open', status: null, active: true),
+        row('aside', status: kObjectiveStatusDormant, active: true),
+      ]);
+      expect(tally.label, '2 landed · 1 let go');
+      expect(tally.recent, [
+        ObjectiveEnd.letGo,
+        ObjectiveEnd.achieved,
+        ObjectiveEnd.achieved,
+      ]);
+      expect(objectiveTallyFrom('c', const []).label, '');
+    });
+
+    test('the model hears a streak in words, only when three agree', () {
+      const won = ObjectiveEnd.achieved;
+      const lost = ObjectiveEnd.letGo;
+      expect(objectiveStreakLine([won, won]), isNull);
+      expect(objectiveStreakLine([won, lost, won]), isNull);
+      final up = objectiveStreakLine([won, won, won])!;
+      expect(up, contains('coming together'));
+      expect(objectiveStreakLine([lost, lost, lost]), contains('falling'));
+      expect(RegExp(r'\d').hasMatch(up), isFalse, reason: 'never a number');
+    });
+  });
 }

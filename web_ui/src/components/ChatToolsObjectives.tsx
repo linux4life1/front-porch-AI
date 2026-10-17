@@ -58,6 +58,7 @@ export function ChatToolsObjectives({
       secondary={t.objectives.secondary}
       checking={t.objectives.isChecking}
       enabled={t.objectives.enabled !== false}
+      tally={t.objectives.tally ?? ''}
       query={q}
       apply={apply}
     />

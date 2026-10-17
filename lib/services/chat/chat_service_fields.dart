@@ -55,6 +55,7 @@ mixin ChatServiceFieldBag {
   ChatMessage? _suggestedActionsAnchor;
   // Objective/quest system
   List<Objective> _activeObjectives = [];
+  ObjectiveTally _objectiveTally = ObjectiveTally.none;
 
   // Sidebar task-generation prefs, hoisted from ObjectivePanel widget state:
   // the panel's State is recreated on sidebar rebuilds (every realism turn),

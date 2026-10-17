@@ -42,6 +42,7 @@ extension ChatServiceObjectives on ChatService {
     }
     if (_activeCharacter == null || _currentSessionId == null) {
       _activeObjectives = [];
+      _objectiveTally = ObjectiveTally.none;
       _messagesSinceLastCheck = 0;
       _isCheckingCompletion = false;
       _summaryPaused =
@@ -58,6 +59,10 @@ extension ChatServiceObjectives on ChatService {
       _activeObjectives = await _db.getActiveObjectives(
         charId,
         chatId: _currentSessionId!,
+      );
+      _objectiveTally = objectiveTallyFrom(
+        charId,
+        await _db.getObjectivesForCharacter(charId, chatId: _currentSessionId),
       );
       for (final obj in _activeObjectives) {
         debugPrint(

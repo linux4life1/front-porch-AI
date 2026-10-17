@@ -32,6 +32,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
       chatId: _currentSessionId,
     );
     _activeObjectives = objs.where((o) => o.active).toList();
+    _objectiveTally = objectiveTallyFrom(charId, objs);
     await _rebindTodayObjectiveFromDb();
     notifyListeners();
   }
@@ -121,6 +122,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     final speaker = nextCharacter ?? _groupCharacters.firstOrNull;
     if (speaker == null) {
       _activeObjectives = [];
+      _objectiveTally = ObjectiveTally.none;
       _messagesSinceLastCheck = 0;
       _isCheckingCompletion = false;
       _summaryPaused =
@@ -140,6 +142,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     );
 
     _activeObjectives = objs.where((o) => o.active).toList();
+    _objectiveTally = objectiveTallyFrom(charId, objs);
     await _rebindTodayObjectiveFromDb();
     notifyListeners();
   }

@@ -227,6 +227,12 @@
   font-style: italic;
   color: var(--muted);
 }
+/* The desktop panel's tally line under the Objectives header. */
+.obj-tally {
+  margin: 0 0 6px;
+  font-size: 11px;
+  color: var(--muted);
+}
 
 /* ── Context Budget modal (desktop ContextViewerDialog parity) ──────────── */
 .ctxb-modal { max-height: 84vh; overflow-y: auto; width: min(500px, 94vw); }

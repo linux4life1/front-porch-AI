@@ -91,6 +91,7 @@ export function ObjectivesPanel({
   enabled,
   query,
   apply,
+  tally = '',
 }: {
   primary: ObjectiveView | null;
   secondary: ObjectiveView[];
@@ -98,6 +99,8 @@ export function ObjectivesPanel({
   enabled: boolean;
   query: string;
   apply: (p: Promise<unknown>) => void;
+  /** "3 landed · 1 let go" — the character's own goals in this chat. */
+  tally?: string;
 }) {
   const [goal, setGoal] = useState('');
   const [taskDraft, setTaskDraft] = useState('');
@@ -127,6 +130,7 @@ export function ObjectivesPanel({
         {checking && <span className="obj-checking-tag"> · checking…</span>}
       </summary>
       <div className="tool-body">
+        {tally && <div className="obj-tally">{tally}</div>}
         {checking && (
           <div className="obj-checking">
             <span className="proc-spinner sm" aria-hidden /> Checking objective &amp; task completion…

@@ -18,6 +18,8 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getPrimaryObjective: () => primaryObjective,
       tasksForObjective: (o) => tasksForObjective(o),
       getSecondaryObjectives: () => secondaryObjectives,
+      getStreakLine: () =>
+          objectivesActive ? objectiveStreakLine(_objectiveTally.recent) : null,
     );
   }
 

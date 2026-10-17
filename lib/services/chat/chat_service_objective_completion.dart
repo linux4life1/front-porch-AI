@@ -245,6 +245,16 @@ extension ChatServiceObjectiveCompletion on ChatService {
         await _revertTodayPointer(entry);
         continue;
       }
+      if (entry['op'] == 'mood') {
+        // A group member's mood a goal moved; the speaker's own stamp is
+        // restored by the regen itself.
+        final charId = entry['charId'] as String?;
+        final prev = entry['prev'];
+        if (charId != null && prev is Map) {
+          _mood.writeMemberFromStamp(charId, prev);
+        }
+        continue;
+      }
       final id = entry['id'] as String?;
       if (id == null || id.isEmpty) continue;
       try {

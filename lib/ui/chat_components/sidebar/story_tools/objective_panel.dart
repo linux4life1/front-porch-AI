@@ -80,6 +80,17 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
                     )
                   : null,
             ),
+            // Their own goals won and let go in this chat.
+            if (!chatService.objectiveTally.isEmpty) ...[
+              const SizedBox(height: 4),
+              Text(
+                chatService.objectiveTally.label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: AppColors.textSecondary(context),
+                ),
+              ),
+            ],
             const SizedBox(height: 10),
 
             // Primary Objective Display

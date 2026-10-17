@@ -188,6 +188,14 @@ class MoodRegisters {
     _writeMember(_scope.groups.memberForWrite(charId), live);
   }
 
+  /// Another feature moving a member's mood while someone else may be
+  /// loaded (a goal won or lost): a fresh feeling on the record, picked up
+  /// at the member's next load.
+  void setMember(String charId, MoodState next) {
+    _writeMember(_scope.groups.memberForWrite(charId), next.copyWith(held: 0));
+    _scope.notify();
+  }
+
   /// A stamp's mood written straight onto a member record (a swipe or
   /// delete in a group puts the speaker's registers back without a load).
   void writeMemberFromStamp(String charId, Map<dynamic, dynamic> stamp) {

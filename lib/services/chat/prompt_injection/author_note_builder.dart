@@ -31,11 +31,16 @@ class AuthorNoteBuilder {
   final List<Map<String, dynamic>> Function(dynamic obj) tasksForObjective;
   final List<dynamic> Function() getSecondaryObjectives;
 
+  /// One line, in words, when the character's last goals all went the same
+  /// way (objectives-that-keep-up.md part 6); null otherwise.
+  final String? Function()? getStreakLine;
+
   AuthorNoteBuilder({
     required this.getActiveObjectives,
     required this.getPrimaryObjective,
     required this.tasksForObjective,
     required this.getSecondaryObjectives,
+    this.getStreakLine,
   });
 
   // Objective rows in the app, plain maps in tests.
@@ -82,10 +87,13 @@ class AuthorNoteBuilder {
   }
 
   String buildObjectiveInjection() {
-    if (getActiveObjectives().isEmpty) return '';
+    final streak = getStreakLine?.call()?.trim() ?? '';
     final lines = <String>[
-      if (getPrimaryObjective() case final p?) _line(p, primary: true),
-      for (final s in getSecondaryObjectives()) _line(s, primary: false),
+      if (getActiveObjectives().isNotEmpty) ...[
+        if (getPrimaryObjective() case final p?) _line(p, primary: true),
+        for (final s in getSecondaryObjectives()) _line(s, primary: false),
+      ],
+      if (streak.isNotEmpty) '[$streak]',
     ].where((l) => l.isNotEmpty).toList();
     if (lines.isEmpty) return '';
     return '${lines.join('\n')}\n\n';

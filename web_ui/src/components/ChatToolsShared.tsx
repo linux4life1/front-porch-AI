@@ -147,6 +147,9 @@ export interface ToolsState {
     isChecking: boolean;
     // Additive: absent on older hosts — treat missing as on (legacy always-on).
     enabled?: boolean;
+    // Additive: "3 landed · 1 let go" for the character's own goals; empty
+    // or absent when nothing has ended.
+    tally?: string;
   };
   focusedId?: string | null;
   group?: GroupBlock | null;

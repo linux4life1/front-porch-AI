@@ -173,4 +173,31 @@ describe('ObjectivesPanel', () => {
     expect(dimmed[0].textContent).toContain('Learn the fiddle');
     expect(dimmed[0].textContent).toContain('set aside');
   });
+
+  // 2026-10-16, objectives that keep up part 6: the character's own goals
+  // won and let go, the same line the desktop panel shows.
+  it('shows the tally line, and nothing before a goal has ended', () => {
+    const show = (tally: string) =>
+      act(() => {
+        root.render(
+          createElement(ObjectivesPanel, {
+            primary,
+            secondary: [],
+            checking: false,
+            enabled: true,
+            query: '',
+            apply: (p) => {
+              void p;
+            },
+            tally,
+          }),
+        );
+      });
+    show('3 landed · 1 let go');
+    expect(container.querySelector('.obj-tally')?.textContent).toBe(
+      '3 landed · 1 let go',
+    );
+    show('');
+    expect(container.querySelector('.obj-tally')).toBeNull();
+  });
 });

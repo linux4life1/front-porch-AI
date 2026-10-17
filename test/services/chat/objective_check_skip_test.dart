@@ -69,19 +69,27 @@ typedef _Harness = ({
   ChatService chat,
   FakeBackendServer backend,
   Completer<void> hold,
+  AppDatabase db,
 });
 
 /// A real ChatService on a loopback backend whose goal check answers
 /// [verdict]; [held] keeps that request open until the test lets it go.
-Future<_Harness> _harness({required String verdict, bool held = true}) async {
+/// [realism], [journal] and the card's starting [mood] are off by default.
+Future<_Harness> _harness({
+  required String verdict,
+  bool held = true,
+  bool realism = false,
+  bool journal = false,
+  String? mood,
+}) async {
   HttpOverrides.global = null;
   FlutterSecureStorage.setMockInitialValues({});
   SharedPreferences.setMockInitialValues({
     'update_auto_check': false,
     'backend_type': 'openRouter',
-    'realism_default': false,
+    'realism_default': realism,
     'pockets_enabled': false,
-    'journal_enabled': false,
+    'journal_enabled': journal,
   });
   final backend = await FakeBackendServer.start(
     replyPieces: ['The lemonade is ', 'still cold.'],
@@ -129,15 +137,17 @@ Future<_Harness> _harness({required String verdict, bool held = true}) async {
       description: 'Exists only inside the goal-check skip test.',
       firstMessage: 'Welcome to the porch.',
       frontPorchExtensions: FrontPorchExtensions(
-        realismEnabled: false,
+        realismEnabled: realism,
         needsSimEnabled: false,
         chaosModeEnabled: false,
+        characterEmotion: mood ?? '',
+        emotionIntensity: mood == null ? 'mild' : 'strong',
       ),
     )..dbId = 'char-goal-skip',
   );
   await chat.setObjective('Share porch lemonade before sunset');
   await chat.updateCheckFrequency(chat.activeObjectives.single, 1);
-  return (chat: chat, backend: backend, hold: hold);
+  return (chat: chat, backend: backend, hold: hold, db: db);
 }
 
 void _expectReplyLanded(_Harness h) {
@@ -247,8 +257,20 @@ void main() {
     'the turn to settle',
   );
 
-  Future<_Harness> characterGoal(String verdict, List<String> steps) async {
-    final h = await _harness(verdict: verdict, held: false);
+  Future<_Harness> characterGoal(
+    String verdict,
+    List<String> steps, {
+    bool realism = false,
+    bool journal = false,
+    String? mood,
+  }) async {
+    final h = await _harness(
+      verdict: verdict,
+      held: false,
+      realism: realism,
+      journal: journal,
+      mood: mood,
+    );
     await h.chat.clearObjective(h.chat.activeObjectives.single);
     await h.chat.setObjective(
       'Win back her trust',
@@ -341,5 +363,114 @@ void main() {
       lastObjectiveSyncStamp(h.chat.messages, charId)?.clockIso,
       stamp.clockIso,
     );
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  // 2026-10-16, objectives that keep up part 6: a character feels and
+  // remembers how a goal of their own ended. "Check now" runs the sync with
+  // no mood judge after it, so the feeling it leaves is the goal's.
+  Future<List<String>> goalCards(_Harness h) async => [
+    for (final c in await h.db.getJournalCardsForSession(
+      h.chat.currentSessionId!,
+    ))
+      if (c.content.startsWith('I pulled it off') ||
+          c.content.startsWith('I had to give up'))
+        c.content,
+  ];
+
+  Future<void> checkNow(_Harness h) async {
+    h.chat.forceCheckCompletion();
+    await _until(
+      () =>
+          h.backend.objectiveCheckRequests == 1 && !h.chat.isCheckingCompletion,
+      'the goal sync to finish',
+    );
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+  }
+
+  test('winning a goal of their own makes them proud, writes a diary card '
+      'and counts on the tally', () async {
+    final h = await characterGoal(
+      '1: done | 1 | none',
+      ['Pour two glasses'],
+      realism: true,
+      journal: true,
+    );
+    await checkNow(h);
+    expect(h.chat.activeObjectives, isEmpty);
+    expect(h.chat.characterEmotion, 'proud');
+    expect(h.chat.emotionIntensity, 'strong', reason: 'it was the main goal');
+    expect(h.chat.emotionCause, 'pulled off: Win back her trust');
+    expect(await goalCards(h), ['I pulled it off: Win back her trust.']);
+    expect(h.chat.objectiveTally.label, '1 landed');
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('a stronger feeling already standing stays; the win is still '
+      'remembered and counted', () async {
+    final h = await characterGoal(
+      '1: done | 1 | none',
+      ['Pour two glasses'],
+      realism: true,
+      journal: true,
+      mood: 'furious',
+    );
+    expect(h.chat.characterEmotion, 'furious');
+    await checkNow(h);
+    expect(h.chat.characterEmotion, 'furious');
+    expect(await goalCards(h), hasLength(1));
+    expect(h.chat.objectiveTally.label, '1 landed');
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('a goal the user set earns the character nothing', () async {
+    final h = await _harness(
+      verdict: '1: done | none | none',
+      held: false,
+      realism: true,
+      journal: true,
+    );
+    final before = h.chat.characterEmotion;
+    await checkNow(h);
+    expect(h.chat.activeObjectives, isEmpty, reason: 'the goal still ends');
+    expect(h.chat.characterEmotion, before);
+    expect(await goalCards(h), isEmpty);
+    expect(h.chat.objectiveTally.isEmpty, isTrue);
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('regenerating the reply takes back the diary card and the tally with '
+      'the goal', () async {
+    final h = await characterGoal('1: done | 1 | none', [
+      'Pour two glasses',
+    ], journal: true);
+    await h.chat
+        .sendMessage('Want some lemonade?')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.chat.activeObjectives, isEmpty);
+    expect(await goalCards(h), hasLength(1));
+    expect(h.chat.objectiveTally.label, '1 landed');
+
+    h.backend.objectiveCheckVerdict = '1: on_track | none | none';
+    await h.chat.regenerateLastMessage().timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(h.chat.activeObjectives.single.objective, 'Win back her trust');
+    expect(await goalCards(h), isEmpty);
+    expect(h.chat.objectiveTally.isEmpty, isTrue);
+  }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('deleting the reply takes back the diary card and the tally with the '
+      'goal', () async {
+    final h = await characterGoal('1: done | 1 | none', [
+      'Pour two glasses',
+    ], journal: true);
+    await h.chat
+        .sendMessage('Want some lemonade?')
+        .timeout(const Duration(seconds: 10));
+    await settled(h);
+    expect(await goalCards(h), hasLength(1));
+
+    await h.chat.deleteMessage(h.chat.messages.length - 1);
+    await settled(h);
+    expect(h.chat.activeObjectives.single.objective, 'Win back her trust');
+    expect(await goalCards(h), isEmpty);
+    expect(h.chat.objectiveTally.isEmpty, isTrue);
   }, timeout: const Timeout(Duration(seconds: 60)));
 }

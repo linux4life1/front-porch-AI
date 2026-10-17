@@ -160,6 +160,10 @@ class ChatService extends ChangeNotifier
   List<Objective> get secondaryObjectives =>
       _activeObjectives.where((o) => !o.isPrimary).toList();
 
+  /// The loaded character's goals won and let go in this chat. On the class
+  /// so [FakeChatService] can override it.
+  ObjectiveTally get objectiveTally => _objectiveTally;
+
   /// Whether a completion check is running, and the overlay's Skip for it.
   /// Kept in the class body (not the objectives extension) because
   /// [FakeChatService] overrides them in tests — extension members are

@@ -263,11 +263,15 @@ class ChatToolsSnapshot {
         secondary.add(o);
       }
     }
+    // "3 landed · 1 let go" for the character whose goals are loaded; empty
+    // for anyone else and before anything has ended. Additive.
+    final tally = _chat.objectiveTally;
     return {
       'enabled': _chat.objectivesActive,
       'primary': _objJson(primary),
       'secondary': secondary.map(_objJson).whereType<Map>().toList(),
       'isChecking': _chat.isCheckingCompletion,
+      'tally': tally.charId == _chat.characterIdFor(card) ? tally.label : '',
     };
   }
 
