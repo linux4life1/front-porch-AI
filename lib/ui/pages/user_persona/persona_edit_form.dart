@@ -60,11 +60,7 @@ class PersonaEditForm extends StatelessWidget {
           margin: const EdgeInsets.all(24),
           padding: const EdgeInsets.all(28),
           decoration: BoxDecoration(
-            color: AppColors.resolve(
-              context,
-              const Color(0xFF1E293B).withValues(alpha: 0.85),
-              AppColors.lightSurface.withValues(alpha: 0.95),
-            ),
+            color: AppColors.cardOf(context).withValues(alpha: 0.85),
             borderRadius: BorderRadius.circular(20),
             border: Border.all(color: AppColors.borderOf(context)),
             boxShadow: [

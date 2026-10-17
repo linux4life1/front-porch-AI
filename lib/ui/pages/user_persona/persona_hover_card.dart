@@ -96,16 +96,8 @@ class _PersonaHoverScaleCardState extends State<PersonaHoverScaleCard>
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: _isHovered
-                      ? AppColors.resolve(
-                          context,
-                          const Color(0xFF1E293B),
-                          AppColors.lightCard,
-                        )
-                      : AppColors.resolve(
-                          context,
-                          const Color(0xFF1E293B).withValues(alpha: 0.7),
-                          AppColors.lightCard.withValues(alpha: 0.85),
-                        ),
+                      ? AppColors.cardOf(context)
+                      : AppColors.cardOf(context).withValues(alpha: 0.7),
                   border: Border.all(
                     color: widget.isActive
                         ? widget.accentColor.withValues(

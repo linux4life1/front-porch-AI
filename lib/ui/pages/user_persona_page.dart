@@ -315,7 +315,10 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             ? null
             : [
                 IconButton(
-                  icon: const Icon(Icons.download, color: Colors.cyanAccent),
+                  icon: Icon(
+                    Icons.download,
+                    color: AppColors.porchAmberOf(context),
+                  ),
                   tooltip: 'Import Persona (JSON)',
                   onPressed: _importPersona,
                 ),

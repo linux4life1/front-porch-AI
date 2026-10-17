@@ -162,16 +162,8 @@ class _PersonaHeroHeader extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 accentColor.withValues(alpha: 0.08 + glow.value * 0.06),
-                AppColors.resolve(
-                  context,
-                  const Color(0xFF1E293B),
-                  AppColors.lightCard,
-                ).withValues(alpha: 0.9),
-                AppColors.resolve(
-                  context,
-                  const Color(0xFF0F172A),
-                  AppColors.lightBackground,
-                ).withValues(alpha: 0.95),
+                AppColors.cardOf(context).withValues(alpha: 0.9),
+                AppColors.backgroundOf(context).withValues(alpha: 0.95),
               ],
             ),
             border: Border.all(

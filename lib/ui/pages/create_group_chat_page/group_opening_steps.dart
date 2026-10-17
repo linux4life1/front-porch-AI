@@ -249,11 +249,7 @@ class GroupPromptsStep extends StatelessWidget {
                 children: [
                   Icon(
                     Icons.psychology_outlined,
-                    color: AppColors.resolve(
-                      context,
-                      const Color(0xFF0EA5E9),
-                      const Color(0xFF0284C8),
-                    ),
+                    color: AppColors.porchAmberOf(context),
                     size: 20,
                   ),
                   const SizedBox(width: 8),
@@ -262,11 +258,7 @@ class GroupPromptsStep extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.w600,
-                      color: AppColors.resolve(
-                        context,
-                        const Color(0xFF0EA5E9),
-                        const Color(0xFF0284C8),
-                      ),
+                      color: AppColors.porchAmberOf(context),
                     ),
                   ),
                 ],

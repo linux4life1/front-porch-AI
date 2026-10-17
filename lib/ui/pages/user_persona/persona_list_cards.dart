@@ -149,7 +149,7 @@ class PersonaGridCard extends StatelessWidget {
                           Icon(
                             Icons.upload,
                             size: 16,
-                            color: Colors.cyanAccent,
+                            color: AppColors.porchAmberOf(context),
                           ),
                           const SizedBox(width: 8),
                           Text(
@@ -336,18 +336,20 @@ class PersonaEmptyState extends StatelessWidget {
               const SizedBox(width: 12),
               OutlinedButton.icon(
                 onPressed: onImport,
-                icon: const Icon(
+                icon: Icon(
                   Icons.download,
                   size: 18,
-                  color: Colors.cyanAccent,
+                  color: AppColors.porchAmberOf(context),
                 ),
-                label: const Text(
+                label: Text(
                   'Import JSON',
-                  style: TextStyle(color: Colors.cyanAccent),
+                  style: TextStyle(color: AppColors.porchAmberOf(context)),
                 ),
                 style: OutlinedButton.styleFrom(
                   side: BorderSide(
-                    color: Colors.cyanAccent.withValues(alpha: 0.3),
+                    color: AppColors.porchAmberOf(
+                      context,
+                    ).withValues(alpha: 0.3),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
