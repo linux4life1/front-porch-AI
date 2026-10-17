@@ -61,13 +61,20 @@ class AuthorNoteBuilder {
     return ((o['servedAmbition'] as String?)?.trim().isNotEmpty) ?? false;
   }
 
+  /// A goal or step as a clause: the builder adds the full stop, so one the
+  /// text already ends with would read ".." (seen live 2026-10-16).
+  static String? _clause(String? s) =>
+      s?.trim().replaceAll(RegExp(r'[.!?;:,\s]+$'), '');
+
   String _line(dynamic o, {required bool primary}) {
-    final goal = _goal(o);
+    final goal = _clause(_goal(o)) ?? '';
     if (goal.isEmpty || _status(o) == kObjectiveStatusDormant) return '';
     final tasks = tasksForObjective(o);
-    final next = currentOpenTaskDescription(tasks);
+    final next = _clause(currentOpenTaskDescription(tasks));
     final done = tasks.where(objectiveTaskIsCompleted).toList();
-    final last = done.isEmpty ? null : done.last['description'] as String?;
+    final last = _clause(
+      done.isEmpty ? null : done.last['description'] as String?,
+    );
     if (_ownWant(o)) {
       final head = primary
           ? 'Most of all, {{char}} wants: $goal.'
@@ -76,12 +83,14 @@ class AuthorNoteBuilder {
       if (last != null && last.trim().isNotEmpty) {
         sb.write(' Already done: ${last.trim()}.');
       }
-      if (next != null) sb.write(" What they'd do next: $next.");
+      if (next != null && next.isNotEmpty) {
+        sb.write(" What they'd do next: $next.");
+      }
       sb.write(']');
       return sb.toString();
     }
     final sb = StringBuffer('[Story direction: $goal.');
-    if (next != null) sb.write(' Next: $next.');
+    if (next != null && next.isNotEmpty) sb.write(' Next: $next.');
     sb.write(']');
     return sb.toString();
   }

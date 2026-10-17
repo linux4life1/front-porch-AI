@@ -392,6 +392,31 @@ void main() {
       expect(note(const [], null).buildObjectiveInjection(), isEmpty);
     });
 
+    // Live run 2026-10-16: steps the task writer ends with a full stop read
+    // "...neighborhood.." in the prompt.
+    test(
+      'author_note / objective: a goal or step ending in a stop reads once',
+      () {
+        final txt = createTestAuthorNote(
+          activeObjectives: <dynamic>[
+            {
+              ..._mkObj('Open the bakery.'),
+              'origin': 'character',
+              'tasks': _mkTasks('Bake the bread.', completed: ['Buy flour.']),
+            },
+          ],
+        ).buildObjectiveInjection();
+        expect(txt, isNot(contains('..')));
+        expect(
+          txt,
+          contains(
+            'Most of all, {{char}} wants: Open the bakery. Already done: Buy '
+            "flour. What they'd do next: Bake the bread.]",
+          ),
+        );
+      },
+    );
+
     test(
       'relationship 1:1: words only — no scores, tiers, or mechanic labels',
       () {
