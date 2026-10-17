@@ -21,8 +21,10 @@
 // close other copies (the pre-fix misdiagnosis that sent a field report down
 // the wrong path), and vice versa.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/db_init_error_app.dart';
 
 void main() {
@@ -57,5 +59,16 @@ void main() {
     expect(find.textContaining('shared_preferences.json'), findsOneWidget);
     expect(find.textContaining('characters and chats'), findsOneWidget);
     expect(find.textContaining('full disk'), findsNothing);
+  });
+
+  testWidgets('scaffold paints the warm AppColors.background const', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const DbInitErrorApp(details: 'SqliteException: database is locked'),
+    );
+
+    final scaffold = tester.widget<Scaffold>(find.byType(Scaffold));
+    expect(scaffold.backgroundColor, AppColors.background);
   });
 }

@@ -20,6 +20,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// AppBar step dots for the 7-step manual creator.
 class CreatorStepIndicator extends StatelessWidget {
@@ -125,7 +126,7 @@ class CreatorTokenBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: context.creatorPalette?.card ?? AppColors.card,
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.4)),
         boxShadow: [

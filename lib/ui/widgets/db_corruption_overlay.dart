@@ -43,7 +43,7 @@ class DbCorruptionOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: Material(
-        color: const Color(0xFF0F172A),
+        color: AppColors.background,
         child: Center(
           child: SizedBox(
             width: 460,
@@ -102,7 +102,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                     constraints: const BoxConstraints(maxHeight: 220),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: AppColors.card,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: Colors.white.withValues(alpha: 0.1),
@@ -196,7 +196,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF1E293B),
+                      color: AppColors.card,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: Colors.orange.withValues(alpha: 0.3),

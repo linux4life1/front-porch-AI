@@ -17,10 +17,11 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Last-resort screen shown when startup dies before the real app can run.
-/// Deliberately self-contained — it runs before the theme/AppColors exist, so
-/// it hardcodes a dark bootstrap palette rather than depend on any provider.
+/// Deliberately self-contained — it runs before the theme exists, so it pins
+/// `AppColors` consts directly rather than depend on any provider or ThemeData.
 ///
 /// Two variants, because two very different failures land here and the advice
 /// for one is useless for the other:
@@ -63,7 +64,7 @@ class DbInitErrorApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       home: Scaffold(
-        backgroundColor: const Color(0xFF0F172A),
+        backgroundColor: AppColors.background,
         body: Center(
           child: Padding(
             padding: const EdgeInsets.all(32),

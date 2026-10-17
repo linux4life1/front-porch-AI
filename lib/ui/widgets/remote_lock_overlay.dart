@@ -39,7 +39,7 @@ class RemoteLockOverlay extends StatelessWidget {
 
         return Positioned.fill(
           child: Material(
-            color: const Color(0xFF0F172A),
+            color: AppColors.background,
             child: Center(
               child: SizedBox(
                 width: 480,
