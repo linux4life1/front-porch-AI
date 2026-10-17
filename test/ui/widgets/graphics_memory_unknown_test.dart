@@ -15,6 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/ui/widgets/local_model_card.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -82,5 +83,42 @@ void main() {
     );
     expect(find.textContaining('of available VRAM'), findsNothing);
     expect(find.text(kGraphicsMemoryUnknown), findsOneWidget);
+  });
+
+  testWidgets('the storage glyph stays downloading cyan and its tile is '
+      'no longer a blue wash', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: LocalModelCard(
+            model: LocalModelInfo(
+              path: '/models/Qwen3-30B-A3B-Q4_K_M.gguf',
+              filename: 'Qwen3-30B-A3B-Q4_K_M.gguf',
+              sizeBytes: 18_556_686_336,
+              modified: DateTime(2026, 1, 1),
+            ),
+            availableVramMb: 0,
+            onDelete: () {},
+          ),
+        ),
+      ),
+    );
+    final icon = tester.widget<Icon>(find.byIcon(Icons.storage_rounded));
+    expect(icon.color, DownloadStatusColors.downloading);
+    final tile = tester.widget<Container>(
+      find.ancestor(
+        of: find.byIcon(Icons.storage_rounded),
+        matching: find.byWidgetPredicate(
+          (widget) =>
+              widget is Container &&
+              widget.child is Icon &&
+              (widget.child as Icon).icon == Icons.storage_rounded,
+        ),
+      ),
+    );
+    expect(
+      (tile.decoration as BoxDecoration).color,
+      isNot(Colors.blue.withValues(alpha: 0.15)),
+    );
   });
 }

@@ -20,6 +20,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/ui/widgets/hf_quant_row.dart';
 
 /// Glassmorphic card displaying a HuggingFace model with expandable quant options.
@@ -110,8 +111,12 @@ class _HFModelCardState extends State<HFModelCard>
               color: AppColors.isLight(context)
                   ? AppColors.cardOf(context)
                   : (_isHovered
-                        ? Colors.indigo.withValues(alpha: 0.12)
-                        : Colors.indigo.withValues(alpha: 0.06)),
+                        ? AppColors.porchAmberOf(
+                            context,
+                          ).withValues(alpha: 0.12)
+                        : AppColors.porchAmberOf(
+                            context,
+                          ).withValues(alpha: 0.06)),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.borderOf(context), width: 1),
             ),
@@ -131,12 +136,14 @@ class _HFModelCardState extends State<HFModelCard>
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: Colors.purple.withValues(alpha: 0.2),
+                            color: AppColors.porchAmberOf(
+                              context,
+                            ).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
                           child: const Icon(
                             Icons.science_rounded,
-                            color: Color(0xFFB388FF),
+                            color: DownloadStatusColors.verifying,
                             size: 22,
                           ),
                         ),

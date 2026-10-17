@@ -387,8 +387,8 @@ class _ModelManagerPageState extends State<ModelManagerPage>
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
             color: AppColors.resolve(
               context,
-              Colors.blue.withValues(alpha: 0.1),
-              Colors.blue.withValues(alpha: 0.08),
+              AppColors.porchAmberOf(context).withValues(alpha: 0.1),
+              AppColors.porchAmberOf(context).withValues(alpha: 0.08),
             ),
             child: Text(
               modelManager.statusMessage,

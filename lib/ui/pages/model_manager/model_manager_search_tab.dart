@@ -75,7 +75,7 @@ class ModelManagerSearchTab extends StatelessWidget {
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: controller.focusNode.hasFocus
-                          ? Colors.indigoAccent
+                          ? AppColors.porchAmberOf(context)
                           : AppColors.borderOf(context).withValues(alpha: 0.4),
                     ),
                   ),
@@ -116,15 +116,9 @@ class ModelManagerSearchTab extends StatelessWidget {
                     : const Icon(Icons.search, size: 18),
                 label: Text(controller.isSearching ? 'Searching...' : 'Search'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.resolve(
-                    context,
-                    Colors.indigo.withValues(alpha: 0.3),
-                    Colors.indigo.withValues(alpha: 0.15),
-                  ),
-                  foregroundColor: AppColors.resolve(
-                    context,
-                    Colors.white,
-                    Colors.black87,
+                  backgroundColor: AppColors.porchAmberOf(context),
+                  foregroundColor: AppColors.inkOn(
+                    AppColors.porchAmberOf(context),
                   ),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,

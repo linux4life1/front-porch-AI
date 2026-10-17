@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Glassmorphic card displaying a locally installed model.
@@ -76,8 +77,12 @@ class _LocalModelCardState extends State<LocalModelCard> {
               color: AppColors.isLight(context)
                   ? AppColors.cardOf(context)
                   : (_isHovered
-                        ? Colors.indigo.withValues(alpha: 0.12)
-                        : Colors.indigo.withValues(alpha: 0.06)),
+                        ? AppColors.porchAmberOf(
+                            context,
+                          ).withValues(alpha: 0.12)
+                        : AppColors.porchAmberOf(
+                            context,
+                          ).withValues(alpha: 0.06)),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: AppColors.borderOf(context), width: 1),
             ),
@@ -89,12 +94,14 @@ class _LocalModelCardState extends State<LocalModelCard> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: Colors.blue.withValues(alpha: 0.15),
+                    color: AppColors.porchAmberOf(
+                      context,
+                    ).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: const Icon(
                     Icons.storage_rounded,
-                    color: Color(0xFF40C4FF),
+                    color: DownloadStatusColors.downloading,
                     size: 22,
                   ),
                 ),

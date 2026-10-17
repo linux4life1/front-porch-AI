@@ -21,6 +21,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/ui/widgets/download_queue_panel/download_queue_panel.dart';
 
 /// Collapsible panel showing active downloads with controls.
@@ -128,7 +129,7 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
           decoration: BoxDecoration(
             color: AppColors.isLight(context)
                 ? AppColors.surfaceContainerOf(context)
-                : Colors.indigo.withValues(alpha: 0.1),
+                : AppColors.porchAmberOf(context).withValues(alpha: 0.1),
             border: Border(top: BorderSide(color: AppColors.borderOf(context))),
           ),
           child: Column(
@@ -148,12 +149,14 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                       Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: Colors.blue.withValues(alpha: 0.2),
+                          color: AppColors.porchAmberOf(
+                            context,
+                          ).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: const Icon(
                           Icons.download_rounded,
-                          color: Color(0xFF40C4FF),
+                          color: DownloadStatusColors.downloading,
                           size: 18,
                         ),
                       ),
