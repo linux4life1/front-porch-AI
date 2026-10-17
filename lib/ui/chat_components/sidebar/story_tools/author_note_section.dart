@@ -98,7 +98,7 @@ class _AuthorNoteSectionState extends State<AuthorNoteSection> {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(8),
-              borderSide: BorderSide(color: AppColors.bondMidOf(context)),
+              borderSide: BorderSide(color: AppColors.porchAmberOf(context)),
             ),
             contentPadding: const EdgeInsets.all(10),
           ),

@@ -83,111 +83,111 @@ class ChatManagementMenu extends StatelessWidget {
           showDialog(context: context, builder: (_) => const KoboldLogDialog());
         }
       },
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'new_chat',
-          child: Row(
-            children: [
-              Icon(Icons.chat_bubble_outline, size: 20),
-              SizedBox(width: 12),
-              Text('New Chat'),
-            ],
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'history',
-          child: Row(
-            children: [
-              Icon(Icons.history, size: 20),
-              SizedBox(width: 12),
-              Text('Manage Chats'),
-            ],
-          ),
-        ),
-        PopupMenuItem(
-          value: 'import',
-          enabled:
-              !chatService.isGenerating &&
-              !chatService.isSettlingTurn &&
-              !chatService.isImporting,
-          child: Tooltip(
-            message: (!chatService.isGenerating && !chatService.isSettlingTurn)
-                ? 'Import a chat file'
-                : 'Wait until the current reply finishes, then import',
-            child: const Row(
+      itemBuilder: (context) {
+        final amber = AppColors.porchAmberOf(context);
+        return [
+          const PopupMenuItem(
+            value: 'new_chat',
+            child: Row(
               children: [
-                Icon(Icons.file_upload, size: 20),
+                Icon(Icons.chat_bubble_outline, size: 20),
                 SizedBox(width: 12),
-                Text('Import Chat'),
+                Text('New Chat'),
               ],
             ),
           ),
-        ),
-        const PopupMenuItem(
-          value: 'export',
-          child: Row(
-            children: [
-              Icon(Icons.file_download, size: 20),
-              SizedBox(width: 12),
-              Text('Export Chat'),
-            ],
+          const PopupMenuItem(
+            value: 'history',
+            child: Row(
+              children: [
+                Icon(Icons.history, size: 20),
+                SizedBox(width: 12),
+                Text('Manage Chats'),
+              ],
+            ),
           ),
-        ),
-        const PopupMenuItem(
-          value: 'context',
-          child: Row(
-            children: [
-              Icon(
-                Icons.analytics_outlined,
-                size: 20,
-                color: Colors.cyanAccent,
+          PopupMenuItem(
+            value: 'import',
+            enabled:
+                !chatService.isGenerating &&
+                !chatService.isSettlingTurn &&
+                !chatService.isImporting,
+            child: Tooltip(
+              message:
+                  (!chatService.isGenerating && !chatService.isSettlingTurn)
+                  ? 'Import a chat file'
+                  : 'Wait until the current reply finishes, then import',
+              child: const Row(
+                children: [
+                  Icon(Icons.file_upload, size: 20),
+                  SizedBox(width: 12),
+                  Text('Import Chat'),
+                ],
               ),
-              SizedBox(width: 12),
-              Text('Context Budget'),
-            ],
+            ),
           ),
-        ),
-        // Living Time §4: chat → novella. 1:1 only for now
-        // (multi-protagonist novelization is a future effort).
-        if (chatService.activeCharacter != null &&
-            chatService.activeGroup == null)
           const PopupMenuItem(
-            value: 'to_story',
+            value: 'export',
             child: Row(
               children: [
-                Icon(Icons.auto_stories_outlined, size: 20),
+                Icon(Icons.file_download, size: 20),
                 SizedBox(width: 12),
-                Text('Turn Into a Story…'),
+                Text('Export Chat'),
               ],
             ),
           ),
-        // (The old Character Evolution dialog was replaced by the
-        // Growth panel in the sidebar — Journal & Memory group —
-        // which hosts the toggle, timeline, and all actions.)
-        if (chatService.activeCharacter != null &&
-            chatService.activeGroup == null)
-          const PopupMenuItem(
-            value: 'fork_group',
+          PopupMenuItem(
+            value: 'context',
             child: Row(
               children: [
-                Icon(Icons.group_add, size: 20, color: Colors.purpleAccent),
+                Icon(Icons.analytics_outlined, size: 20, color: amber),
                 SizedBox(width: 12),
-                Text('Add Character (Group)…'),
+                Text('Context Budget'),
               ],
             ),
           ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'kobold_log',
-          child: Row(
-            children: [
-              Icon(Icons.terminal, size: 20, color: Colors.greenAccent),
-              SizedBox(width: 12),
-              Text('KoboldCpp Log'),
-            ],
+          // Living Time §4: chat → novella. 1:1 only for now
+          // (multi-protagonist novelization is a future effort).
+          if (chatService.activeCharacter != null &&
+              chatService.activeGroup == null)
+            const PopupMenuItem(
+              value: 'to_story',
+              child: Row(
+                children: [
+                  Icon(Icons.auto_stories_outlined, size: 20),
+                  SizedBox(width: 12),
+                  Text('Turn Into a Story…'),
+                ],
+              ),
+            ),
+          // (The old Character Evolution dialog was replaced by the
+          // Growth panel in the sidebar — Journal & Memory group —
+          // which hosts the toggle, timeline, and all actions.)
+          if (chatService.activeCharacter != null &&
+              chatService.activeGroup == null)
+            PopupMenuItem(
+              value: 'fork_group',
+              child: Row(
+                children: [
+                  Icon(Icons.group_add, size: 20, color: amber),
+                  SizedBox(width: 12),
+                  Text('Add Character (Group)…'),
+                ],
+              ),
+            ),
+          const PopupMenuDivider(),
+          const PopupMenuItem(
+            value: 'kobold_log',
+            child: Row(
+              children: [
+                Icon(Icons.terminal, size: 20, color: Colors.greenAccent),
+                SizedBox(width: 12),
+                Text('KoboldCpp Log'),
+              ],
+            ),
           ),
-        ),
-      ],
+        ];
+      },
     );
   }
 }
@@ -447,7 +447,7 @@ class ChatInputActionStrip {
           onNextCharacter: chatService.triggerNextCharacter,
           playColor: AppColors.porchAmberOf(context),
           pauseColor: Colors.orangeAccent,
-          nextColor: Colors.purpleAccent,
+          nextColor: Colors.purpleAccent, // theme-keep: director Next, not Play
         ),
       // Generate reply button (1:1 only) — shown when the AI is
       // "up next", i.e. the last message is the user's (e.g. the

@@ -407,18 +407,18 @@ void showNoMicDialog(BuildContext context) {
   showDialog(
     context: context,
     builder: (context) => AlertDialog(
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor: AppColors.cardOf(context),
       icon: const Icon(Icons.mic_off, color: Colors.redAccent, size: 40),
-      title: const Text(
+      title: Text(
         'No Microphone Detected',
-        style: TextStyle(color: Colors.white),
+        style: TextStyle(color: AppColors.textPrimary(context)),
       ),
-      content: const Text(
+      content: Text(
         'No microphone was found or microphone permission was denied.\n\n'
         '• Check that a microphone is connected\n'
         '• Grant microphone permission if prompted\n'
         '• Select a specific microphone in Settings → Voice Input',
-        style: TextStyle(color: Colors.white70, fontSize: 13),
+        style: TextStyle(color: AppColors.textSecondary(context), fontSize: 13),
       ),
       actions: [
         TextButton(
