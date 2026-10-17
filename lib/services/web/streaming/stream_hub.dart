@@ -59,12 +59,19 @@ class StreamHub {
   String? _pendingImpersonate;
   Timer? _impersonateFlush;
 
+  // `processing` is edge-triggered, so a socket that opens mid-eval (a page
+  // reload, a phone waking) would never see the overlay. Keep the latest
+  // active frame and replay it on register.
+  Map<String, dynamic>? _activeProcessing;
+
   /// Register a freshly-upgraded socket. The auth middleware has already
   /// validated the session cookie before the upgrade reaches here.
   void register(WebSocketChannel channel) {
     _clients.add(channel);
     _send(channel, {'event': 'connected'});
     if (_isGenerating()) _send(channel, {'event': 'generating'});
+    final processing = _activeProcessing;
+    if (processing != null) _send(channel, processing);
     channel.stream.listen(
       (msg) => _onClientMessage(channel, msg),
       onDone: () => _clients.remove(channel),
@@ -100,6 +107,13 @@ class StreamHub {
     _pendingImpersonate = null;
     if (data == null) return;
     broadcast({'event': 'impersonate', 'data': data});
+  }
+
+  /// Broadcast a Realism / Objective `processing` frame and remember it for
+  /// clients that connect while the engines are still busy.
+  void broadcastProcessing(Map<String, dynamic> event) {
+    _activeProcessing = event['active'] == true ? event : null;
+    broadcast(event);
   }
 
   /// Broadcast an arbitrary typed event to every connected client.

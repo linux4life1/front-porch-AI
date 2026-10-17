@@ -129,7 +129,7 @@ class WebLiveRelays {
             _lastProcessingTextLen = text.length;
             _lastProcessingVerifying = verifying;
             _lastProcessingObjective = objective;
-            streamHub.broadcast({
+            streamHub.broadcastProcessing({
               'event': 'processing',
               'active': true,
               'realism': realism,
@@ -141,7 +141,10 @@ class WebLiveRelays {
           }
         } else if (_wasEvaluatingRealism) {
           _lastProcessingTextLen = -1;
-          streamHub.broadcast({'event': 'processing', 'active': false});
+          streamHub.broadcastProcessing({
+            'event': 'processing',
+            'active': false,
+          });
         }
         _wasEvaluatingRealism = active;
 
