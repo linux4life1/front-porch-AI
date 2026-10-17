@@ -35,9 +35,8 @@ void main() {
     });
 
     test('sends a connected event then relays tokens and done', () async {
-      final client = WebSocketChannel.connect(
-        Uri.parse('ws://localhost:$port/api/ws'),
-      );
+      final client =
+          WebSocketChannel.connect(Uri.parse('ws://localhost:$port/api/ws'));
       await client.ready;
 
       final events = <Map<String, dynamic>>[];
@@ -61,9 +60,8 @@ void main() {
     });
 
     test('__ERROR__ sentinel becomes an error event', () async {
-      final client = WebSocketChannel.connect(
-        Uri.parse('ws://localhost:$port/api/ws'),
-      );
+      final client =
+          WebSocketChannel.connect(Uri.parse('ws://localhost:$port/api/ws'));
       await client.ready;
       final got = Completer<Map<String, dynamic>>();
       client.stream.listen((msg) {
