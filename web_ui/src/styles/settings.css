@@ -79,7 +79,7 @@
 }
 .grp-check {
   position: absolute; top: 6px; right: 6px; width: 20px; height: 20px; border-radius: 50%;
-  background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-size: 0.7rem;
+  background: var(--accent); color: var(--on-accent); display: grid; place-items: center; font-size: 0.7rem;
 }
 @media (max-width: 768px) { .grp-grid { grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); } }
 
@@ -114,7 +114,7 @@
   display: grid; place-items: center; background: var(--surface-2);
   color: var(--accent); font-weight: 700;
 }
-.persona-list li.active .persona-av { background: var(--accent); color: var(--accent-ink); }
+.persona-list li.active .persona-av { background: var(--accent); color: var(--on-accent); }
 .persona-main { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .persona-main .pname { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .persona-main .pactive { font-size: 0.66rem; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em; }

@@ -92,7 +92,7 @@
 a.model-switch-settings {
   display: inline-flex; align-items: center; justify-content: center;
   padding: 10px 14px; border-radius: 10px; background: var(--accent);
-  color: var(--accent-ink); font-weight: 600; text-decoration: none; text-align: center;
+  color: var(--on-accent); font-weight: 600; text-decoration: none; text-align: center;
 }
 [data-layout="phone"] .model-switch-chip { max-width: 8.5rem; }
 [data-layout="phone"] .drawer-backdrop.model-switch-overlay {

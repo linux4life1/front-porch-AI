@@ -68,7 +68,7 @@
   display: grid; place-items: center; border-radius: 6px; font-size: 0.85rem; font-weight: 700;
   background: var(--surface-2); border: 1px solid var(--border); color: var(--accent-ink);
 }
-.select-check.on { background: var(--accent); border-color: transparent; }
+.select-check.on { background: var(--accent); border-color: transparent; color: var(--on-accent); }
 .lib-card.selected { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 .card-menu-backdrop { position: fixed; inset: 0; z-index: 60; }
@@ -170,7 +170,7 @@
   color: var(--text); font-size: 0.82rem;
 }
 .chat-image-consent button {
-  background: var(--accent); color: var(--accent-ink);
+  background: var(--accent); color: var(--on-accent);
   border: none; font-weight: 600; cursor: pointer;
   padding: 4px 10px; border-radius: 8px;
 }

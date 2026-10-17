@@ -5,16 +5,17 @@
 */
 
 /* Palette mirrors the Flutter app's AppColors (lib/ui/theme/app_colors.dart)
-   AFTER the warm-porch overhaul: slate grounds (#0F172A/#1F2937/#1E293B) with
-   the warm accent family — terracotta #E29578, honey #E9C46A, amber #F4A259 —
-   replacing the old neon blue/purple chrome. Chat bubbles and bond semantics
-   keep their desktop constants (user bubble stays #3B82F6, bondMid #448AFF). */
+   AFTER the warm-porch overhaul: studio-brown grounds (#1B1611/#1F1913/
+   #251E17) with the warm accent family — terracotta #E29578, honey #E9C46A,
+   amber #F4A259 — replacing the old neon blue/purple chrome. Chat bubbles and
+   bond semantics keep their desktop constants (user bubble stays #3B82F6,
+   bondMid #448AFF). */
 :root {
-  --bg: #0f172a;
-  --surface: #1f2937;
-  --surface-2: #374151;
-  --card: #1e293b;
-  --border: #334155;
+  --bg: #1b1611;
+  --surface: #1f1913;
+  --surface-2: #30271e;
+  --card: #251e17;
+  --border: #3e3328;
   --text: #ffffff;
   --muted: rgba(255, 255, 255, 0.7);
   --faint: rgba(255, 255, 255, 0.38);
@@ -50,7 +51,7 @@
   /* Customizable chat bubble colors (default to the base tokens). */
   --chat-user-bubble: var(--user-bubble);
   --chat-user-text: var(--accent-ink);
-  --chat-ai-bubble: var(--surface-2);
+  --chat-ai-bubble: var(--ai-bubble);
   --chat-ai-text: var(--text);
   /* Reading size (Settings + in-chat theme drawer). 1 = default. Applied to
      bubbles, composer, edit, sidebar help — not nav/chips/chrome. */
@@ -123,7 +124,7 @@ button {
 }
 button:hover { filter: brightness(1.15); }
 button:disabled { opacity: 0.5; cursor: default; }
-button.primary { background: var(--accent); color: var(--accent-ink); border-color: transparent; font-weight: 600; }
+button.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
 .link-btn { background: none; border: none; color: var(--muted); padding: 4px 8px; }
 
 input, textarea, select, .search {

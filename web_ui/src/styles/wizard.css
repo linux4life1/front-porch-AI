@@ -19,7 +19,7 @@
   background: var(--surface-2); color: var(--muted); font-size: 0.8rem; border: 2px solid var(--border);
 }
 .step-dot.current .step-num { border-color: var(--accent); color: var(--accent); }
-.step-dot.done .step-num { background: var(--accent); color: var(--accent-ink); border-color: transparent; }
+.step-dot.done .step-num { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .step-label { font-size: 0.68rem; white-space: nowrap; }
 .step-dot.current .step-label, .step-dot.done .step-label { color: var(--text); }
 .wizard-body { display: flex; flex-direction: column; gap: 8px; flex: 1; }
@@ -44,7 +44,7 @@ button.danger:hover { background: rgba(255, 107, 107, 0.12); filter: none; }
 }
 .avatar-badge {
   position: absolute; top: 4px; left: 4px; font-size: 0.6rem; padding: 1px 6px;
-  border-radius: 999px; background: var(--accent); color: var(--accent-ink);
+  border-radius: 999px; background: var(--accent); color: var(--on-accent);
 }
 .avatar-actions {
   position: absolute; top: 2px; right: 2px; display: flex; gap: 2px;

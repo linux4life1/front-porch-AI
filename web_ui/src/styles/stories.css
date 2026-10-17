@@ -55,5 +55,5 @@
   border-radius: 999px; padding: 5px 12px; font-size: 0.82rem; cursor: pointer;
 }
 .cg-chip:hover { border-color: var(--accent); }
-.cg-chip.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.cg-chip.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .cg-generate { align-self: flex-start; }

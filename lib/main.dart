@@ -193,7 +193,7 @@ class _MyAppState extends State<MyApp> with WindowListener {
             // control — switches, sliders, buttons, progress bars, the text
             // cursor, tab indicators — warms up to match the chat sidebar and
             // the web UI (whose --accent is already porch amber). The scheme's
-            // surfaces are pinned back to the app's existing slate/warm-paper
+            // surfaces are pinned to the app's studio-brown/warm-paper
             // grounds so only the ACCENT roles change, not the backgrounds.
             colorScheme:
                 ColorScheme.fromSeed(

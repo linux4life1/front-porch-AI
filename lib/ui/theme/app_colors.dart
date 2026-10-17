@@ -7,13 +7,13 @@ class AppColors {
   AppColors._();
 
   /// Surface background for dialogs, containers, and panels.
-  static const Color surface = Color(0xFF1F2937);
+  static const Color surface = Color(0xFF1F1913);
 
   /// Deep background for scaffolds and page-level backgrounds.
-  static const Color background = Color(0xFF0F172A);
+  static const Color background = Color(0xFF1B1611);
 
   /// Card/container background for cards, dropdowns, and elevated surfaces.
-  static const Color card = Color(0xFF1E293B);
+  static const Color card = Color(0xFF251E17);
 
   // ---------------------------------------------------------------------------
   // Chat appearance defaults
@@ -52,7 +52,7 @@ class AppColors {
   // ---------------------------------------------------------------------------
 
   /// Dark container surface (slightly lighter than [card] for visual layering).
-  static const Color surfaceContainer = Color(0xFF374151);
+  static const Color surfaceContainer = Color(0xFF30271E);
 
   /// Light container surface for the same purpose (warmer paper tone).
   static const Color surfaceContainerLight = Color(0xFFEDE7DF);
@@ -132,7 +132,7 @@ class AppColors {
 
   /// Subtle border color for the current brightness (reuses resolve scaffold; no new logic).
   static Color borderOf(BuildContext context) =>
-      resolve(context, const Color(0xFF334155), lightBorder);
+      resolve(context, const Color(0xFF3E3328), lightBorder);
 
   // ---------------------------------------------------------------------------
   // Process log / terminal output colors
@@ -152,14 +152,6 @@ class AppColors {
 
   /// Default color for normal lines.
   static const Color logDefault = Color(0xFF86EFAC);
-
-  // ---------------------------------------------------------------------------
-  // Creator wizard selected card backgrounds (for mode/backend chips)
-  // ---------------------------------------------------------------------------
-
-  /// Selected background for creator mode and backend selection cards.
-  static const Color creatorSelectedCard = Color(0xFF1E3A5F);
-  static const Color creatorSelectedCardLight = Color(0xFFE0F2FE);
 
   // ---------------------------------------------------------------------------
   // Preset palette for color pickers
@@ -348,13 +340,13 @@ class AppColors {
       resolve(context, fixationAccent, fixationAccentLight);
 
   /// Inset wells (settings panels, sunken sub-surfaces). Light = warm paper.
-  static const Color sunkenSurface = Color(0xFF111827);
+  static const Color sunkenSurface = Color(0xFF14110E);
   static const Color sunkenSurfaceLight = Color(0xFFE9E2D8);
   static Color sunkenSurfaceOf(BuildContext context) =>
       resolve(context, sunkenSurface, sunkenSurfaceLight);
 
   /// Read-only text wells (deepest inset, e.g. evolution "original" text).
-  static const Color deepWell = Color(0xFF0D1117);
+  static const Color deepWell = Color(0xFF100E0B);
   static const Color deepWellLight = Color(0xFFF0EBE3);
   static Color deepWellOf(BuildContext context) =>
       resolve(context, deepWell, deepWellLight);
@@ -363,20 +355,20 @@ class AppColors {
   // 2026-10-04): slate text, an inset panel, and the parts of the preset
   // editor's memory bar (kcpps_memory_bar.dart; the old one in Settings →
   // Hardware & GPU is gone).
-  static const Color insetPanel = Color(0xFF172033);
+  static const Color insetPanel = Color(0xFF1A1510);
   static const Color insetPanelLight = Color(0xFFF3EEE6);
   static Color insetPanelOf(BuildContext context) =>
       resolve(context, insetPanel, insetPanelLight);
-  static const Color slateInk = Color(0xFFF3F4F6);
-  static const Color slateInkLight = Color(0xFF1F2937);
+  static const Color slateInk = Color(0xFFEFE6DA);
+  static const Color slateInkLight = Color(0xFF2A231C);
   static Color slateInkOf(BuildContext context) =>
       resolve(context, slateInk, slateInkLight);
-  static const Color slateMuted = Color(0xFFCBD5E1);
-  static const Color slateMutedLight = Color(0xFF475569);
+  static const Color slateMuted = Color(0xFFA89A89);
+  static const Color slateMutedLight = Color(0xFF6E6357);
   static Color slateMutedOf(BuildContext context) =>
       resolve(context, slateMuted, slateMutedLight);
-  static const Color slateFaint = Color(0xFF94A3B8);
-  static const Color slateFaintLight = Color(0xFF64748B);
+  static const Color slateFaint = Color(0xFF7A6E62);
+  static const Color slateFaintLight = Color(0xFF9A8E82);
   static Color slateFaintOf(BuildContext context) =>
       resolve(context, slateFaint, slateFaintLight);
 
@@ -396,13 +388,13 @@ class AppColors {
   static const Color onJournalAccent = Color(0xFF062B27);
   static const Color loadExperts = Color(0xFFA9612B);
   static const Color onLoadExperts = Color(0xFFFFF7EE);
-  static const Color loadWorking = Color(0xFF64748B);
-  static const Color loadEngine = Color(0xFF94A3B8);
-  static const Color onLoadEngine = Color(0xFF0F172A);
+  static const Color loadWorking = Color(0xFF7A6E62);
+  static const Color loadEngine = Color(0xFFA89A89);
+  static const Color onLoadEngine = Color(0xFF1B1611);
   static const Color loadOver = Color(0xFF7F1D1D);
   static const Color loadOverStripe = Color(0xFF991B1B);
   static const Color onLoadOver = Color(0xFFFEE2E2);
-  static const Color loadUnusedStripe = Color(0xFF334155);
+  static const Color loadUnusedStripe = Color(0xFF3E3328);
   static const Color loadUnusedStripeLight = Color(0xFFD4CFC6);
   static Color loadUnusedStripeOf(BuildContext context) =>
       resolve(context, loadUnusedStripe, loadUnusedStripeLight);
@@ -486,6 +478,6 @@ class AppColors {
   static Color navigationSelectionOf(BuildContext context) => resolve(
     context,
     Colors.white.withValues(alpha: 0.08),
-    const Color(0xFFBFDBFE),
+    const Color(0xFFF3E0C4),
   );
 }

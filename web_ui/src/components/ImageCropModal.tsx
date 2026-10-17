@@ -229,7 +229,7 @@ export function ImageCropModal({
         fill === 'white'
           ? '#ffffff'
           : getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() ||
-            '#0f172a';
+            '#1b1611';
       ctx.fillRect(0, 0, outW, outH);
     }
     // Draw only the image∩crop intersection at its offset — negative source

@@ -7,7 +7,7 @@
   inset: 0;
   z-index: 40;
   overflow: auto;
-  background: var(--bg, #0f172a);
+  background: var(--bg, #1b1611);
   padding: 24px;
 }
 .fp-pill {

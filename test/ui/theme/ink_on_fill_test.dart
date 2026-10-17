@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 double _contrast(Color a, Color b) {
   final la = a.computeLuminance(), lb = b.computeLuminance();
@@ -25,4 +26,11 @@ void main() {
       expect(_contrast(AppColors.inkOn(fill), fill), greaterThanOrEqualTo(4.5));
     });
   }
+
+  test('dark grounds are the studio browns', () {
+    expect(AppColors.background, StudioColors.bg);
+    expect(AppColors.card, StudioColors.card);
+    expect(AppColors.surface, StudioColors.side);
+    expect(AppColors.surfaceContainer, StudioColors.raise);
+  });
 }

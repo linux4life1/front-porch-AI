@@ -7,12 +7,12 @@
  * desktop's light pairs. */
 
 :root {
-  --kc-card: #1e293b;
-  --kc-inset: #172033;
-  --kc-sunken: #111827;
-  --kc-ink: #f3f4f6;
-  --kc-muted: #cbd5e1;
-  --kc-faint: #94a3b8;
+  --kc-card: #251e17;
+  --kc-inset: #1a1510;
+  --kc-sunken: #14110e;
+  --kc-ink: #efe6da;
+  --kc-muted: #a89a89;
+  --kc-faint: #7a6e62;
   --kc-amber: #f4a259;
   --kc-amber-solid: #f4a259;
   --kc-on-amber: #241505;
@@ -27,9 +27,9 @@
   --kc-card: #ffffff;
   --kc-inset: #f3eee6;
   --kc-sunken: #e9e2d8;
-  --kc-ink: #1f2937;
-  --kc-muted: #475569;
-  --kc-faint: #64748b;
+  --kc-ink: #2a231c;
+  --kc-muted: #6e6357;
+  --kc-faint: #9a8e82;
   --kc-amber: #b45309;
   --kc-honey: #8f6400;
   --kc-teal: #00796b;

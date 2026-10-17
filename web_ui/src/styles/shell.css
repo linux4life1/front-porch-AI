@@ -135,7 +135,7 @@ button.ghost { background: transparent; border-color: var(--border); }
   display: inline-block; text-decoration: none; border-radius: 10px;
   padding: 10px 14px; margin-top: 4px;
 }
-.btn-link.primary { background: var(--accent); color: var(--accent-ink); font-weight: 600; }
+.btn-link.primary { background: var(--accent); color: var(--on-accent); font-weight: 600; }
 .about-links { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .about-links .btn-link { border: 1px solid var(--border); color: var(--accent); }
 .help-link { display: inline-block; margin-top: 6px; color: var(--accent); font-size: 0.8rem; }
