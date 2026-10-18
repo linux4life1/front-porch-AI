@@ -333,6 +333,13 @@ void main() {
     await pumpDesk(tester, comfy: comfy);
     expect(find.textContaining('ponyRealism_V22'), findsWidgets);
     expect(find.textContaining('add-detail-xl'), findsWidgets);
+    // Automatic1111 isn't answering, so an empty chooser blames no folder.
+    await tester.tap(find.text('Change model').first);
+    await tester.pump();
+    await settle(tester, comfy);
+    expect(find.textContaining('lists no model files'), findsNothing);
+    await tester.tap(find.text('Close'));
+    await tester.pumpAndSettle();
 
     Future<void> change(String backend) async {
       await tester.tap(find.text('Change…'));

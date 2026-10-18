@@ -75,6 +75,14 @@ class StudioDeskCatalog {
     return (_catalogUrl ?? '').startsWith('up:');
   }
 
+  /// Why Change model is empty, once a local backend answered a listing.
+  /// Null while it is unread or not answering, which says nothing of its
+  /// folder.
+  String? emptyListWords(String backend, StudioReadyReport? report) {
+    if (backend == 'remote' || !reachable(backend, report)) return null;
+    return studioNothingListedWords(backend);
+  }
+
   /// Draw Things shows its file counts after a listing, or after Check
   /// says the server is up. A failed Check stays down.
   bool get _drawThingsListed {

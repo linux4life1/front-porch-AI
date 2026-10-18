@@ -37,8 +37,9 @@ class StudioModelSheet extends StatefulWidget {
 
   final Future<StudioModelListing> Function()? onRefresh;
 
-  /// Shown when a finished read lists no files at all.
-  final String? emptyNote;
+  /// Why a finished read listed no files at all, asked after each read.
+  /// Null when the app was not read (unreachable, or not listed yet).
+  final String? Function()? emptyNote;
 
   @override
   State<StudioModelSheet> createState() => _StudioModelSheetState();
@@ -100,6 +101,7 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
       final into = _unfit.contains(item) ? odd : groups;
       into.putIfAbsent(family, () => []).add(item);
     }
+    final empty = widget.emptyNote?.call();
     final typed = _query.trim();
     final offerTyped =
         typed.isNotEmpty &&
@@ -141,13 +143,11 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
             Expanded(
               child: ListView(
                 children: [
-                  if (_items.isEmpty &&
-                      !_refreshing &&
-                      widget.emptyNote != null)
+                  if (_items.isEmpty && !_refreshing && empty != null)
                     Padding(
                       padding: const EdgeInsets.all(8),
                       child: Text(
-                        widget.emptyNote!,
+                        empty,
                         style: TextStyle(
                           color: AppColors.textSecondary(context),
                         ),

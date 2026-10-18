@@ -168,7 +168,8 @@ class StudioDeskActions {
         edit: _editing,
         items: first.items,
         unfit: first.unfit,
-        emptyNote: studioNothingListedWords(settings.imageGenBackend),
+        emptyNote: () =>
+            catalog.emptyListWords(settings.imageGenBackend, readiness.report),
         onRefresh: () async {
           await catalog.refresh(settings, soft: true);
           if (_host.mounted) readiness.check(force: true);

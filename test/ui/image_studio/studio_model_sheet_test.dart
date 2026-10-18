@@ -168,12 +168,28 @@ void main() {
             edit: false,
             items: const [],
             onPick: (_) {},
-            emptyNote: 'ComfyUI lists no model files.',
+            emptyNote: () => 'ComfyUI lists no model files.',
           ),
         ),
       ),
     );
     expect(find.text('ComfyUI lists no model files.'), findsOneWidget);
+
+    // An app that was not read says nothing about its folder.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StudioModelSheet(
+            key: const ValueKey('unread'),
+            edit: false,
+            items: const [],
+            onPick: (_) {},
+            emptyNote: () => null,
+          ),
+        ),
+      ),
+    );
+    expect(find.textContaining('lists no model files'), findsNothing);
 
     await tester.pumpWidget(
       MaterialApp(
@@ -183,7 +199,7 @@ void main() {
             edit: false,
             items: items,
             onPick: (_) {},
-            emptyNote: 'ComfyUI lists no model files.',
+            emptyNote: () => 'ComfyUI lists no model files.',
           ),
         ),
       ),
