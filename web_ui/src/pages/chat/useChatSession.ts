@@ -40,6 +40,9 @@ export function useChatSession() {
   const [genStatus, setGenStatus] = useState<GenStatus | null>(null);
   // Realism/Objective engine overlay, driven by the `processing` WS event.
   const [processing, setProcessing] = useState<Processing>(NO_PROCESSING);
+  // Counts `processing` frames, so a refresh can tell whether one arrived
+  // while its state request was in flight.
+  const processingSeq = useRef(0);
   const [showSessions, setShowSessions] = useState(false);
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
   const [loadingSessions, setLoadingSessions] = useState(false);
@@ -58,6 +61,7 @@ export function useChatSession() {
   const refreshTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const refresh = useCallback(async () => {
+    const seqAtRequest = processingSeq.current;
     let s: ChatState;
     try {
       s = await api.get<ChatState>('/api/chat/state');
@@ -85,7 +89,15 @@ export function useChatSession() {
     // the processing overlay is dismissed even if its final WS event was missed
     // (e.g. a socket reconnect mid-eval). Never clears during an active eval —
     // refresh() doesn't run then (the `processing` event drives the overlay).
-    if (!s.isEvaluatingRealism && !s.isCheckingCompletion && !s.isGenerating) {
+    // A frame that landed while this request was in flight is newer than the
+    // idle snapshot (a check started just after the server answered), so the
+    // snapshot must not clear it.
+    if (
+      seqAtRequest === processingSeq.current &&
+      !s.isEvaluatingRealism &&
+      !s.isCheckingCompletion &&
+      !s.isGenerating
+    ) {
       setProcessing(NO_PROCESSING);
     }
   }, [setAuthenticated]);
@@ -188,6 +200,7 @@ export function useChatSession() {
             : next;
         });
       } else if (e.event === 'processing') {
+        processingSeq.current += 1;
         // Same bail-out treatment: the server already throttles these, but a
         // reconnect or an old server can still deliver identical payloads.
         setProcessing((prev) => {

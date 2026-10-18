@@ -113,3 +113,32 @@ describe('ProcessingOverlay Skip goal check', () => {
     expect(session.processing.active).toBe(false);
   });
 });
+
+describe('ProcessingOverlay and a slow state refresh', () => {
+  it('an idle snapshot that resolves after a processing frame keeps the overlay', async () => {
+    vi.stubGlobal('WebSocket', TestSocket);
+    const idle = { sessionId: 'c1', isGenerating: false, messages: [], character: { name: 'A', id: '1' } };
+    get.mockResolvedValue(idle);
+    let session!: ReturnType<typeof useChatSession>;
+    function Probe() {
+      session = useChatSession();
+      return null;
+    }
+    await act(async () => {
+      root.render(createElement(MemoryRouter, null, createElement(Probe)));
+    });
+    // A reload's refresh asks for state just before a goal check starts…
+    let answer!: (s: typeof idle) => void;
+    get.mockImplementation((url: string) =>
+      url === '/api/chat/state' ? new Promise((r) => { answer = r; }) : Promise.resolve(idle),
+    );
+    await act(async () => TestSocket.last.emit({ event: 'connected' }));
+    await act(async () =>
+      TestSocket.last.emit({ event: 'processing', active: true, realism: false, objective: true }),
+    );
+    // …and the idle answer lands after the check's frame.
+    await act(async () => answer(idle));
+    expect(session.processing.active).toBe(true);
+    get.mockReset();
+  });
+});
