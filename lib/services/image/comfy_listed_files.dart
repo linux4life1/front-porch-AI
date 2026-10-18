@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'comfy_edit_workflow.dart';
+
 /// The ComfyUI folder each loader input reads from, for the words that say
 /// where a missing file belongs.
 const _kLoaderFolders = <String, String>{
@@ -49,6 +51,18 @@ bool _listed(List<String> offered, String file) {
   return offered.any((o) => _sameSlashes(o) == want);
 }
 
+/// Loaders that read the same folder in another format: an empty
+/// `UNETLoader` list is not an empty folder while the GGUF loader lists one.
+const _kSiblingLoaders = <String, List<String>>{
+  'UNETLoader': ['UnetLoaderGGUF', 'UnetLoaderGGUFAdvanced'],
+  'CLIPLoader': ['CLIPLoaderGGUF'],
+};
+
+String _emptyFolderWords(String folder) =>
+    'ComfyUI lists no files in its models/$folder folder. Put a model there '
+    '(or add its folder to extra_model_paths.yaml), restart ComfyUI, then '
+    'press Check.';
+
 String _words(String file, String folder, List<String> offered) {
   if (offered.isEmpty) {
     return 'ComfyUI lists no files in its models/$folder folder, so it can’t '
@@ -91,6 +105,29 @@ String? comfyUnlistedFileWords({
     final file = lora.trim();
     if (file.isEmpty || _listed(offeredLoras, file)) continue;
     return _words(file, 'loras', offeredLoras);
+  }
+  return null;
+}
+
+/// Why an empty slot can't be filled, or null: ComfyUI lists nothing at all
+/// in the folder that slot reads, so "choose a file" has nothing to choose.
+String? comfyEmptySlotWords({
+  required List<ComfyModelSlot> slots,
+  required Set<String> unfilled,
+  required Map<String, dynamic> objectInfo,
+}) {
+  for (final slot in slots) {
+    if (!unfilled.contains(slot.token)) continue;
+    final offered = _offered(objectInfo, slot.loaderClass, slot.inputName);
+    if (offered == null || offered.isNotEmpty) continue;
+    final siblings = _kSiblingLoaders[slot.loaderClass] ?? const <String>[];
+    final elsewhere = siblings.any(
+      (loader) =>
+          (_offered(objectInfo, loader, slot.inputName) ?? const []).isNotEmpty,
+    );
+    if (elsewhere) continue;
+    final folder = slot.folderHint.isEmpty ? 'models' : slot.folderHint;
+    return _emptyFolderWords(folder);
   }
   return null;
 }

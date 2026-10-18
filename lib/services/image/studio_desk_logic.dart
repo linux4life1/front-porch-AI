@@ -355,13 +355,22 @@ StudioReadiness deskReadiness({
           objectInfo: objectInfo,
         );
   if (unfilled == null || unfilled.isNotEmpty) {
+    final emptyFolder = unfilled == null
+        ? null
+        : comfyEmptySlotWords(
+            slots: adapted.slots,
+            unfilled: unfilled,
+            objectInfo: objectInfo,
+          );
     return verdict(
       StudioReady.missingFile,
-      message: studioUnfilledWords(
-        unfilled: unfilled,
-        slots: adapted.slots,
-        primaryFile: primaryFile,
-      ),
+      message:
+          emptyFolder ??
+          studioUnfilledWords(
+            unfilled: unfilled,
+            slots: adapted.slots,
+            primaryFile: primaryFile,
+          ),
     );
   }
   final unlisted = comfyUnlistedFileWords(

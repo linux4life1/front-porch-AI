@@ -16,6 +16,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/services/image/comfy_gguf_city96_gate.dart';
+import 'package:front_porch_ai/services/image/comfy_create_presets.dart';
 import 'package:front_porch_ai/services/image/comfy_edit_presets.dart';
 import 'package:front_porch_ai/services/image/comfy_workflow_convert.dart';
 import 'package:front_porch_ai/services/image/image_studio_remote.dart';
@@ -310,7 +311,17 @@ void main() {
     tester,
   ) async {
     await initSettings();
-    final comfy = (await tester.runAsync(_serve))!;
+    // The bundled SD graph's nodes, so only its empty checkpoint list is
+    // missing.
+    final comfy = (await tester.runAsync(
+      () => _serve(
+        templates: {
+          'sd_nodes': {
+            for (final c in kSdCreatePreset.requiredNodes) c: {'class_type': c},
+          },
+        },
+      ),
+    ))!;
     final s = storage.imageGenSettings;
     await s.setComfyUiUrl(comfy.url);
     // Nothing answers Automatic1111 here, so its own lists stay empty.
@@ -336,6 +347,11 @@ void main() {
     expect(find.textContaining('ponyRealism_V22'), findsNothing);
     expect(find.textContaining('add-detail-xl'), findsNothing);
     expect(find.text('Ready to generate.'), findsNothing);
+    // This ComfyUI lists no checkpoints, so the line says where they go.
+    expect(
+      find.textContaining('lists no files in its models/checkpoints'),
+      findsWidgets,
+    );
 
     await change('Automatic1111');
     expect(s.imageGenModel, 'ponyRealism_V22.safetensors');

@@ -74,6 +74,13 @@ String studioUnfilledWords({
   return '${parts.join('; ')}.';
 }
 
+/// An empty Change model sheet: the connected app listed no model files.
+String studioNothingListedWords(String backend) {
+  final name = studioBackendName(backend);
+  return '$name lists no model files. Put one in its models folder, restart '
+      '$name, then press Refresh models.';
+}
+
 /// The line beside Generate: Ready, or what is missing and how to fix it.
 /// [loaderNoteShown] is true where the GGUF loader's own note already sits
 /// on screen, so the line does not repeat it.

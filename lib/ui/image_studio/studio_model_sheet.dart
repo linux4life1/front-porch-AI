@@ -24,6 +24,7 @@ class StudioModelSheet extends StatefulWidget {
     required this.onPick,
     this.unfit = const {},
     this.onRefresh,
+    this.emptyNote,
   });
 
   final bool edit;
@@ -35,6 +36,9 @@ class StudioModelSheet extends StatefulWidget {
   final Set<String> unfit;
 
   final Future<StudioModelListing> Function()? onRefresh;
+
+  /// Shown when a finished read lists no files at all.
+  final String? emptyNote;
 
   @override
   State<StudioModelSheet> createState() => _StudioModelSheetState();
@@ -137,6 +141,18 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
             Expanded(
               child: ListView(
                 children: [
+                  if (_items.isEmpty &&
+                      !_refreshing &&
+                      widget.emptyNote != null)
+                    Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: Text(
+                        widget.emptyNote!,
+                        style: TextStyle(
+                          color: AppColors.textSecondary(context),
+                        ),
+                      ),
+                    ),
                   if (offerTyped)
                     ListTile(
                       title: Text(typed),

@@ -391,6 +391,15 @@ describe('Refresh models', () => {
     expect(sheetText()).toContain('The list could not be read.');
     expect(sheetText()).toContain('flux1-dev-fp8.safetensors');
   });
+
+  it('says so when ComfyUI lists no model files', async () => {
+    await boot({}, { 'GET /api/image/comfy-catalog': { ...catalog, deskDiscovery: [] } });
+    click('Change model');
+    await settle();
+
+    expect(sheetText()).toContain('ComfyUI lists no model files');
+    expect(sheetText()).toContain('restart ComfyUI');
+  });
 });
 
 describe('Refresh list on Draw Things', () => {

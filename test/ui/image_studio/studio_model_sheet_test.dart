@@ -159,4 +159,35 @@ void main() {
     }
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('an empty list says why, once the read is done', (tester) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StudioModelSheet(
+            edit: false,
+            items: const [],
+            onPick: (_) {},
+            emptyNote: 'ComfyUI lists no model files.',
+          ),
+        ),
+      ),
+    );
+    expect(find.text('ComfyUI lists no model files.'), findsOneWidget);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StudioModelSheet(
+            key: const ValueKey('listed'),
+            edit: false,
+            items: items,
+            onPick: (_) {},
+            emptyNote: 'ComfyUI lists no model files.',
+          ),
+        ),
+      ),
+    );
+    expect(find.text('ComfyUI lists no model files.'), findsNothing);
+  });
 }

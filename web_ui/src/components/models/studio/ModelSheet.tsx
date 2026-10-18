@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from 'react';
 import { fetchCatalog, fetchLocalCatalog } from './deskApi';
+import { backendName } from './DeskConnection';
 import type { Mode } from './types';
 
 /**
@@ -88,6 +89,9 @@ export function ModelSheet(props: {
         onChange={(e) => setQuery(e.target.value)}
       />
       {failed ? <p>The list could not be read.</p> : null}
+      {listed && !failed && !refreshing && files.length === 0 ? (
+        <p>{`${backendName(props.backend)} lists no model files. Put one in its models folder, restart ${backendName(props.backend)}, then press Refresh models.`}</p>
+      ) : null}
       <ul>
         {shown.map((name) => (
           <li key={name}>

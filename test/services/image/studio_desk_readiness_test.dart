@@ -374,6 +374,28 @@ void main() {
       },
     );
 
+    test('with nothing picked, an empty folder still says so', () {
+      final ready = deskReadiness(
+        backend: 'comfyui',
+        primaryFile: '',
+        objectInfo: sdInfo([<String>[], <String, dynamic>{}]),
+        workflowId: 'sd',
+      );
+      expect(ready.kind, StudioReady.missingFile);
+      expect(ready.message, contains('lists no files'));
+      expect(ready.message, contains('models/checkpoints'));
+      final listed = deskReadiness(
+        backend: 'comfyui',
+        primaryFile: '',
+        objectInfo: sdInfo([
+          ['sdxl.safetensors'],
+          <String, dynamic>{},
+        ]),
+        workflowId: 'sd',
+      );
+      expect(listed.message, isNot(contains('lists no files')));
+    });
+
     test('a leftover LoRA ComfyUI does not have keeps Generate off', () {
       const lora = DeskLoraCheck('add-detail-xl.safetensors', ModelFamily.sdxl);
       StudioReadiness ready(List<String> loras) => deskReadiness(
