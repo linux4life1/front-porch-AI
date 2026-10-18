@@ -48,6 +48,7 @@ class StudioDeskCatalog {
   Map<String, String> _dtModelVersions = const {};
   String? _catalogUrl;
   String? _catalogPending;
+  String? _listedBackend;
   bool _remoteListed = false;
 
   List<String> get models => _models;
@@ -177,6 +178,13 @@ class StudioDeskCatalog {
     bool soft = false,
   }) async {
     final backend = settings.imageGenBackend;
+    // One backend's files never show (or survive a soft read) on another's.
+    if (_listedBackend != null && _listedBackend != backend) {
+      _catalogPending = null;
+      _applyCatalog();
+      _rememberLoraFacts(const {});
+    }
+    _listedBackend = backend;
     if (backend == 'a1111' || backend == 'drawthings') {
       await _refreshLocal(settings, force: force || soft, soft: soft);
     } else if (backend == 'comfyui') {
@@ -191,7 +199,8 @@ class StudioDeskCatalog {
     required bool force,
     bool soft = false,
   }) async {
-    final drawThings = settings.imageGenBackend == 'drawthings';
+    final backend = settings.imageGenBackend;
+    final drawThings = backend == 'drawthings';
     final url = drawThings
         ? '${settings.drawThingsGrpcHost}:${settings.drawThingsGrpcPort}'
         : settings.localImageGenUrl;
@@ -224,7 +233,7 @@ class StudioDeskCatalog {
     final a1111Loras = up && !drawThings
         ? [for (final l in await gen.fetchA1111Loras(url)) l.name]
         : const <String>[];
-    if (!_host.mounted) return;
+    if (!_host.mounted || settings.imageGenBackend != backend) return;
     final loras = drawThings ? listing.names : a1111Loras;
     _applyCatalog(
       models: soft && models.isEmpty ? _models : models,
@@ -262,7 +271,7 @@ class StudioDeskCatalog {
     }
     final samplers = await service.fetchSamplers();
     final schedulers = await service.fetchSchedulers();
-    if (!_host.mounted) return;
+    if (!_host.mounted || settings.imageGenBackend != 'comfyui') return;
     _applyCatalog(
       models: catalog.deskDiscovery,
       checkpoints: catalog.checkpoints,
@@ -290,7 +299,7 @@ class StudioDeskCatalog {
     final gen = _service();
     if (gen == null) return;
     final listed = await gen.fetchImageModels();
-    if (!_host.mounted) return;
+    if (!_host.mounted || settings.imageGenBackend != 'remote') return;
     if (soft && _remoteListed && isBundledImageCatalog(listed)) return;
     _applyCatalog(
       models: [for (final model in listed) model.id],

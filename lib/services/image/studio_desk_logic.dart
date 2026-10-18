@@ -9,6 +9,7 @@ import 'comfy_create_workflow.dart';
 import 'comfy_edit_presets.dart';
 import 'comfy_edit_workflow.dart';
 import 'comfy_gguf_loaders.dart';
+import 'comfy_listed_files.dart';
 import 'comfy_workflow_adapt.dart';
 import 'comfy_workflow_convert.dart';
 import 'model_family.dart';
@@ -362,6 +363,14 @@ StudioReadiness deskReadiness({
         primaryFile: primaryFile,
       ),
     );
+  }
+  final unlisted = comfyUnlistedFileWords(
+    graph: retarget.graph,
+    objectInfo: objectInfo,
+    loras: [for (final lora in loras) lora.file],
+  );
+  if (unlisted != null) {
+    return verdict(StudioReady.missingFile, message: unlisted);
   }
   if (!allowLoraMismatch && deskLoraBlocks(primaryFile, loras)) {
     return verdict(StudioReady.loraMismatch);

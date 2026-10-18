@@ -143,10 +143,33 @@ class ImageGenSettings
     notify();
   }
 
+  /// Each backend keeps its own model and LoRA picks: a file one backend
+  /// lists means nothing to another. Switching parks this backend's picks
+  /// and brings back the new one's, blank the first time it is chosen.
   Future<void> setImageGenBackend(String value) async {
+    final from = _imageGenBackend;
     _imageGenBackend = value;
     await prefs?.setString(k('image_gen_backend'), value);
+    if (from != value) await _swapBackendPicks(from, value);
     notify();
+  }
+
+  Future<void> _swapBackendPicks(String from, String to) async {
+    await prefs?.setString(
+      k('image_gen_picks_$from'),
+      jsonEncode({
+        'model': _imageGenModel,
+        'editModel': _imageGenEditModel,
+        'loras': ImageGenLoraSlot.encode(_imageGenLoraSlots),
+      }),
+    );
+    final parked = _decodeStringMap(prefs?.getString(k('image_gen_picks_$to')));
+    _imageGenModel = parked['model'] ?? '';
+    _imageGenEditModel = parked['editModel'] ?? '';
+    _imageGenLoraSlots = ImageGenLoraSlot.decode(parked['loras']);
+    await prefs?.setString(k('image_gen_model'), _imageGenModel);
+    await prefs?.setString(k('image_gen_edit_model'), _imageGenEditModel);
+    await _writeLoraSlots();
   }
 
   Future<void> setLocalImageGenUrl(String value) async {
@@ -223,13 +246,17 @@ class ImageGenSettings
   }
 
   Future<void> _persistLoraSlots() async {
+    await _writeLoraSlots();
+    notify();
+  }
+
+  Future<void> _writeLoraSlots() async {
     await prefs?.setString(
       k('image_gen_loras'),
       ImageGenLoraSlot.encode(_imageGenLoraSlots),
     );
     await prefs?.setString(k('image_gen_lora'), imageGenLora);
     await prefs?.setDouble(k('image_gen_lora_weight'), imageGenLoraWeight);
-    notify();
   }
 
   /// img2img denoising strength. Clamped to the meaningful 0.0–1.0 fraction

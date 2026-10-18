@@ -158,9 +158,15 @@ Future<_Comfy> _serve({
           (n as Map)['class_type'].toString(): <String, dynamic>{},
     },
     'CheckpointLoaderSimple': loader('ckpt_name', checkpoints),
-    'UNETLoader': loader('unet_name', ['flux-2-klein-4b.safetensors']),
+    'UNETLoader': loader('unet_name', [
+      'flux-2-klein-4b.safetensors',
+      'flux-2-klein-base-4b.safetensors',
+    ]),
     'CLIPLoader': loader('clip_name', clips),
-    'VAELoader': loader('vae_name', ['flux2-vae.safetensors']),
+    'VAELoader': loader('vae_name', [
+      'flux2-vae.safetensors',
+      'qwen_image_2.1_vae_bf16.safetensors',
+    ]),
   };
   final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
   final comfy = _Comfy(server);
@@ -299,6 +305,42 @@ void main() {
       await s.setComfyCreateModelChoice(_kleinId, e.key, e.value);
     }
   }
+
+  _deskTest('switching backend never carries the last one\'s picks', (
+    tester,
+  ) async {
+    await initSettings();
+    final comfy = (await tester.runAsync(_serve))!;
+    final s = storage.imageGenSettings;
+    await s.setComfyUiUrl(comfy.url);
+    // Nothing answers Automatic1111 here, so its own lists stay empty.
+    await s.setLocalImageGenUrl(comfy.url);
+    await s.setImageGenBackend('a1111');
+    await s.setImageGenModel('ponyRealism_V22.safetensors');
+    await s.setImageGenLoraSlot(0, file: 'add-detail-xl.safetensors');
+
+    await pumpDesk(tester, comfy: comfy);
+    expect(find.textContaining('ponyRealism_V22'), findsWidgets);
+    expect(find.textContaining('add-detail-xl'), findsWidgets);
+
+    Future<void> change(String backend) async {
+      await tester.tap(find.text('Change…'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(backend).last);
+      await tester.pump();
+      await settle(tester, comfy);
+    }
+
+    await change('ComfyUI');
+    expect(s.imageGenBackend, 'comfyui');
+    expect(find.textContaining('ponyRealism_V22'), findsNothing);
+    expect(find.textContaining('add-detail-xl'), findsNothing);
+    expect(find.text('Ready to generate.'), findsNothing);
+
+    await change('Automatic1111');
+    expect(s.imageGenModel, 'ponyRealism_V22.safetensors');
+    expect(find.textContaining('add-detail-xl'), findsWidgets);
+  });
 
   group('a template graph', () {
     _deskTest('is Ready and is not replaced by a bundled graph', (
