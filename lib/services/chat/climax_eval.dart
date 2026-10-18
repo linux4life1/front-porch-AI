@@ -18,6 +18,7 @@
 
 import 'package:flutter/foundation.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 
 /// Climax detection — the one thing that starts Afterglow's refractory.
@@ -77,7 +78,12 @@ class ClimaxEval {
   /// the fused reply-facts prompt (ReplyFactsEval), so the fused and
   /// standalone transports can never drift in what they ask. Do not re-inline
   /// this into either caller; the fusion parity test pins both.
-  static String rubric(String charName) =>
+  ///
+  /// [physiology] is the card's character input to the cooldown number
+  /// (`physiologyFor`). It was dropped in the August extraction (`e943ba20c`),
+  /// which is why every character started refracting at ~6 turns — an empty
+  /// slot omits the traits line and the judge defaults to its own bias.
+  static String rubric(String charName, [String physiology = '']) =>
       'CLIMAX DETECTION — "is_climax": true ONLY when $charName THEMSELVES '
       'reaches sexual orgasm / release in THIS scene — i.e. the text explicitly '
       'narrates their own climax (coming, finishing, a shuddering or spasming '
@@ -85,10 +91,35 @@ class ClimaxEval {
       'going limp or boneless right after the peak). High arousal, being '
       '"close", edging, begging, grinding, foreplay, or ONLY the partner/user '
       'climaxing are NOT a climax for $charName — answer false in those cases.\n'
+      '${physiology.isEmpty ? '' : 'Who $charName is — use their traits to decide the cooldown:\n"$physiology"\n'}'
       'When (and only when) "is_climax" is true, also give "refractory_turns" '
-      'as an int from 3 to 7 for how long the post-orgasm cooldown should last '
-      '(~6-7 for an intense, drawn-out or repeated climax; ~3 for a quick one). '
-      'When false, 0.\n\n';
+      'as an int from 0 to 12 (each is about 15 minutes of story time) for how '
+      'long the post-orgasm cooldown should last. A quick climax runs shorter '
+      'than a drawn-out or repeated one; a highly sexual character recovers '
+      'fast, a reserved one slowly. 0 is a valid, common answer — a character '
+      'who could easily go again needs no cooldown. When false, 0.\n\n';
+
+  /// The judge's view of who the character is, for [rubric]'s traits slot:
+  /// authored intimate preferences first, then the card's personality; an
+  /// empty personality (common on imported cards) falls back to the opening
+  /// of the description. Capped at 600 chars — the budget the April
+  /// personality-judge shipped with; the post-gen prompt window is tight.
+  static String physiologyFor(CharacterCard? card) {
+    if (card == null) return '';
+    final ext = card.frontPorchExtensions;
+    final parts = <String>[
+      if ((ext?.intimateInto ?? const []).isNotEmpty)
+        'Into: ${ext!.intimateInto.join('; ')}',
+      if ((ext?.intimateNotInto ?? const []).isNotEmpty)
+        'Not into: ${ext!.intimateNotInto.join('; ')}',
+      if (card.personality.trim().isNotEmpty)
+        card.personality.trim()
+      else if (card.description.trim().isNotEmpty)
+        card.description.trim(),
+    ];
+    final joined = parts.join('\n');
+    return joined.length > 600 ? joined.substring(0, 600) : joined;
+  }
 
   /// The criteria matter more than the question. Without them the model —
   /// especially a reasoning model, which will not guess at an undefined field —
@@ -111,17 +142,23 @@ class ClimaxEval {
     required String reply,
     required String recentExchange,
     required bool toolsMode,
+    String physiology = '',
   }) =>
       'Read the scene below and answer one question about $charName.\n\n'
-      '${rubric(charName)}'
+      '${rubric(charName, physiology)}'
       'The scene:\n$reply\n\n'
       '${recentExchange.trim().isEmpty ? '' : 'Recent exchange for context:\n$recentExchange\n\n'}'
       '${toolsMode ? 'Report by calling the $kClimaxTool tool. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "is_climax" and '
-            '"refractory_turns". Do NOT use markdown code blocks — raw JSON only.'}';
+                '"refractory_turns". Do NOT use markdown code blocks — raw JSON only.'}';
 
   /// Forgiving on purpose (local-model floor): tools mode yields a real bool,
   /// text mode may quote it, and a missing refractory falls back to the middle
   /// of the range rather than dropping a climax that was actually reported.
+  ///
+  /// 0 is a real answer ("no cooldown needed") and must survive: the old
+  /// `clamp(1, 10)` turned it into a 15-minute lock, making "no refractory"
+  /// inexpressible. 0 applies as no refractory at all
+  /// (`Refractory.fromJudgeTurns(0)` is `none`).
   static int? parseRefractory(String? raw) {
     if (raw == null) return null;
     final m = RegExp(
@@ -130,7 +167,7 @@ class ClimaxEval {
     ).firstMatch(raw);
     if (m == null || m.group(1)!.toLowerCase() != 'true') return null;
     final t = RegExp(r'"refractory_turns"\s*:\s*"?(-?\d+)"?').firstMatch(raw);
-    return (int.tryParse(t?.group(1) ?? '') ?? 5).clamp(1, 10);
+    return (int.tryParse(t?.group(1) ?? '') ?? 5).clamp(0, 12);
   }
 
   /// Returns the refractory length when the character climaxed, else null.
@@ -142,6 +179,7 @@ class ClimaxEval {
     required String charName,
     required String reply,
     String recentExchange = '',
+    String physiology = '',
   }) async {
     if (reply.trim().isEmpty) return null;
     try {
@@ -154,6 +192,7 @@ class ClimaxEval {
             reply: reply,
             recentExchange: recentExchange,
             toolsMode: toolsMode,
+            physiology: physiology,
           ),
         ),
       );

@@ -350,5 +350,18 @@ void main() {
       svc.loadNsfwScalars(nsfwCooldownEnabled: false, arousalLevel: -999);
       expect(svc.arousalLevel, -100);
     });
+
+    test('a climax with a 0-turn verdict starts NO refractory', () {
+      // PR 1 made "no cooldown needed" expressible end to end: the parser
+      // lets 0 through, and applying it must not leave the old
+      // parser-floor lock (1 turn = 15 min) behind. Arousal still resets,
+      // exactly as with any climax.
+      final svc = createTestNsfw();
+      svc.setArousalLevel(90);
+      svc.applyClimaxEffects(turns: 0);
+      expect(svc.refractoryMinutesRemaining, 0);
+      expect(svc.refractory.running, isFalse);
+      expect(svc.arousalLevel, 0);
+    });
   });
 }

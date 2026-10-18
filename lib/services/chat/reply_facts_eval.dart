@@ -88,7 +88,9 @@ class ReplyFactsEval {
 
   /// The composed prompt. [pockets] non-null means the inventory question is
   /// asked; [askClimax]/[askPosture] gate their sections the same way. Every
-  /// section is the standalone prompt's own fragment, verbatim.
+  /// section is the standalone prompt's own fragment, verbatim — including the
+  /// climax rubric's [physiology] slot, which the caller fills from the reply
+  /// speaker's card.
   static String buildPrompt({
     required String charName,
     required String reply,
@@ -101,6 +103,7 @@ class ReplyFactsEval {
     String emotionCtx = '',
     String postureCtx = '',
     String displayClock = '',
+    String physiology = '',
   }) {
     final askPockets = pockets != null;
     final keys = [
@@ -112,12 +115,12 @@ class ReplyFactsEval {
         '$charName\'s latest reply. They are separate records — answer all of '
         'them.\n\n'
         '${askPockets ? '${PocketsEval.wardrobeContext(charName, pockets)}${PocketsEval.opsRubric(others: others)}' : ''}'
-        '${askClimax ? ClimaxEval.rubric(charName) : ''}'
+        '${askClimax ? ClimaxEval.rubric(charName, physiology) : ''}'
         '${askPosture ? TimeService.postureQuestion(charName: charName, emotionCtx: emotionCtx, postureCtx: postureCtx, displayClock: displayClock) : ''}'
         'The reply:\n$reply\n\n'
         '${recentExchange.trim().isEmpty ? '' : 'Recent exchange for context:\n$recentExchange\n\n'}'
         '${toolsMode ? 'Report by calling the $kReplyFactsTool tool. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing ${keys.join(', ')}. '
-              'Do NOT use markdown code blocks — return raw JSON only.'}';
+                  'Do NOT use markdown code blocks — return raw JSON only.'}';
   }
 
   /// Fire the fused call and return the raw canonical text, or null on any
@@ -135,6 +138,7 @@ class ReplyFactsEval {
     String emotionCtx = '',
     String postureCtx = '',
     String displayClock = '',
+    String physiology = '',
   }) async {
     if (reply.trim().isEmpty) return null;
     try {
@@ -157,6 +161,7 @@ class ReplyFactsEval {
           emotionCtx: emotionCtx,
           postureCtx: postureCtx,
           displayClock: displayClock,
+          physiology: physiology,
         ),
       );
     } catch (e) {

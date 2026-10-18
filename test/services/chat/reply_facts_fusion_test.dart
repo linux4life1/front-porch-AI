@@ -167,6 +167,45 @@ void main() {
         ),
       );
     });
+
+    test('the physiology slot stays identical across transports', () {
+      // PR 1 gave the climax rubric a character-traits slot. Both transports
+      // must fill it from the same argument — if the fused lane ever drops
+      // or re-words it, fused turns silently judge without personality.
+      const phys = 'Into: long slow mornings; insatiable, recovers fast';
+      final fused = ReplyFactsEval.buildPrompt(
+        charName: 'Nia',
+        reply: 'r',
+        recentExchange: '',
+        toolsMode: false,
+        askClimax: true,
+        physiology: phys,
+      );
+      final standalone = ClimaxEval.buildPrompt(
+        charName: 'Nia',
+        reply: 'r',
+        recentExchange: '',
+        toolsMode: false,
+        physiology: phys,
+      );
+
+      expect(fused, contains(ClimaxEval.rubric('Nia', phys)));
+      expect(standalone, contains(ClimaxEval.rubric('Nia', phys)));
+      expect(fused, contains(phys));
+
+      final unfilled = ReplyFactsEval.buildPrompt(
+        charName: 'Nia',
+        reply: 'r',
+        recentExchange: '',
+        toolsMode: false,
+        askClimax: true,
+      );
+      expect(
+        unfilled,
+        isNot(contains(phys)),
+        reason: 'an absent slot is omitted, never invented',
+      );
+    });
   });
 
   group('the composed schema demands exactly the live features', () {

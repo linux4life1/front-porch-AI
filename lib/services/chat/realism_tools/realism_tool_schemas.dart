@@ -368,7 +368,8 @@ final Map<String, Map<String, dynamic>> kClimaxFields = {
     'description': 'True ONLY when the character themselves reached climax.',
   },
   'refractory_turns': _intField(
-    'Cooldown turns (3-7) when is_climax is true, else 0.',
+    'Cooldown turns (0-12, 0 = no cooldown needed) when is_climax is '
+    'true, else 0.',
   ),
 };
 

@@ -9,6 +9,7 @@
 // (at your option) any later version.
 
 import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/chat/climax_eval.dart';
 import 'package:front_porch_ai/services/chat/llm_eval_engine.dart';
 import 'package:front_porch_ai/services/chat/pockets_ledger.dart';
 import 'package:front_porch_ai/services/chat/realism_scope.dart';
@@ -118,6 +119,9 @@ class ReplyFacts {
       emotionCtx: emotionCtx,
       postureCtx: postureCtx,
       displayClock: _scope.time().displayClock,
+      // The speaker's card (the same impersonation the passes run under),
+      // so the fused and standalone climax lanes ask about one body.
+      physiology: ClimaxEval.physiologyFor(speaker),
     );
     this.raw = raw ?? '';
     debugPrint(

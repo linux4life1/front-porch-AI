@@ -102,6 +102,9 @@ class AfterglowPass {
             // The same window the needs eval uses, from the one shared helper —
             // this was a hand-rolled copy until Pockets needed a third.
             recentExchange: recentExchange(_messages),
+            // The speaker's own card — post-gen has already made the active
+            // character this turn's speaker, so groups judge the right body.
+            physiology: ClimaxEval.physiologyFor(speaker),
           );
     if (turns == null) return;
 
