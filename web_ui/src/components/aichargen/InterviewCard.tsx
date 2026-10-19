@@ -6,9 +6,13 @@
 // character is asked before the profile is written, each editable,
 // reorderable by its handle (pointer drag, mouse or touch, or the arrow
 // keys), removable unless it is conditional, up to twelve, and a reset to
-// the standard set. The wording follows the Perspective, Tense and Sex
-// fields above: the relay renders it, and a re-fetch rewords every row not
-// edited. Editing waits until the first wording arrives.
+// the standard set. An "Interview this character" switch skips the whole
+// interview — the create then sends `interviewQuestions: []`, which asks
+// nothing — while every row stays exactly as it is; editing a row or
+// adding one turns the interview back on. The wording follows the
+// Perspective, Tense and Sex fields above: the relay renders it, and a
+// re-fetch rewords every row not edited. Editing waits until the first
+// wording arrives.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { KeyboardEvent, PointerEvent } from 'react';
@@ -103,10 +107,15 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
   );
   const locked = standard === null || loadedFor !== wantFor;
 
-  const commit = (next: InterviewRow[]) => {
+  const commit = (next: InterviewRow[], wake = false) => {
     if (next === rowsRef.current) return;
     rowsRef.current = next;
-    set({ interviewQuestions: standard && isStandardList(next, standard.rows) ? null : next });
+    // Editing or adding a question means the user wants the answer: a
+    // skipped interview turns itself back on. Moves and removes do not.
+    set({
+      interviewQuestions: standard && isStandardList(next, standard.rows) ? null : next,
+      ...(wake ? { interviewSkipped: false } : {}),
+    });
   };
 
   // After Add or a keyboard move, the row's box or handle keeps the focus.
@@ -198,8 +207,23 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
     const next = addRow(rows);
     if (next === rows) return;
     focusNext.current = { id: next[next.length - 1].id, part: 'text' };
-    commit(next);
+    commit(next, true);
   };
+
+  const skipped = form.interviewSkipped;
+  const skipSwitch = (
+    <label className="cg-iv-skip">
+      <input
+        type="checkbox"
+        role="switch"
+        aria-label="Interview this character"
+        data-testid="interview-skip"
+        checked={!skipped}
+        onChange={(e) => set({ interviewSkipped: !e.target.checked })}
+      />
+      <span>Interview this character</span>
+    </label>
+  );
 
   const pill = voicePill(perspective, tense);
   const reset = (
@@ -207,7 +231,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
       type="button"
       className="cg-iv-reset"
       aria-label="Reset to the standard questions"
-      onClick={() => set({ interviewQuestions: null })}
+      onClick={() => set({ interviewQuestions: null, interviewSkipped: false })}
     >
       {isPhone ? 'Reset' : 'Reset to the standard questions'}
     </button>
@@ -219,6 +243,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
         <div className="cg-iv-head">
           <div className="cg-iv-title-row">
             <h3 className="cg-iv-title">Interview</h3>
+            {skipSwitch}
             {reset}
           </div>
           <p className="cg-iv-intro">{INTRO_PHONE}</p>
@@ -229,7 +254,10 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
       ) : (
         <div className="cg-iv-head">
           <div className="cg-iv-head-text">
-            <h3 className="cg-iv-title">Interview</h3>
+            <div className="cg-iv-title-row">
+              <h3 className="cg-iv-title">Interview</h3>
+              {skipSwitch}
+            </div>
             <p className="cg-iv-intro">{INTRO_DESKTOP}</p>
             <div className="cg-iv-voice">
               <span className="cg-iv-pill">{pill}</span>
@@ -254,7 +282,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
 
       <div
         ref={listEl}
-        className="cg-iv-rows"
+        className={skipped ? 'cg-iv-rows dimmed' : 'cg-iv-rows'}
         data-testid="interview-rows"
         onPointerMove={dragMove}
         onPointerUp={endDrag}
@@ -273,7 +301,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
               if (el) rowEls.current.set(row.id, el);
               else rowEls.current.delete(row.id);
             }}
-            onText={(t) => commit(editRow(rows, row.id, t))}
+            onText={(t) => commit(editRow(rows, row.id, t), true)}
             onRemove={() => commit(removeRow(rows, row.id))}
             onHandleDown={(e) => startDrag(e, row.id)}
             onHandleKey={(e) => keyMove(e, i, row.id)}
@@ -287,7 +315,7 @@ export function InterviewCard({ form, set }: { form: ChargenForm; set: (p: Parti
           Add a question
         </button>
         <span className="cg-iv-count" data-testid="interview-count">
-          {countCaption(rows.length, isPhone, asksNothing(rows, textByKey))}
+          {countCaption(rows.length, isPhone, skipped || asksNothing(rows, textByKey))}
         </span>
       </div>
     </section>

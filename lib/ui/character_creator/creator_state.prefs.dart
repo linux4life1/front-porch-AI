@@ -101,6 +101,9 @@ class CreatorFormPrefs {
   /// The Interview card's list: `''` is the standard set.
   static const _prefInterviewQuestions = 'chargen_interview_questions';
 
+  /// The Interview card's "Interview this character" switch.
+  static const _prefInterviewSkipped = 'chargen_interview_skipped';
+
   // Quick's own tones, count and 18+, and the rest a template holds.
   static const _prefQuickNsfw = 'chargen_quick_nsfw';
   static const _prefQuickTones = 'chargen_quick_tones';
@@ -245,6 +248,8 @@ class CreatorFormPrefs {
     s.guidedNsfwPersonalityController.text =
         prefs.getString(_prefGuidedNsfwPersonality) ?? '';
     s.interview.restore(prefs.getString(_prefInterviewQuestions) ?? '');
+    // Applied after restore, which rewrites rows but never the switch.
+    s.interview.skipped = prefs.getBool(_prefInterviewSkipped) ?? false;
     s.quickNsfwEnabled = prefs.getBool(_prefQuickNsfw) ?? false;
     final quickTones = (prefs.getString(_prefQuickTones) ?? 'Neutral')
         .split(',')
@@ -336,6 +341,7 @@ class CreatorFormPrefs {
     _prefGuidedNsfwClothing: s.guidedNsfwClothingController.text,
     _prefGuidedNsfwPersonality: s.guidedNsfwPersonalityController.text,
     _prefInterviewQuestions: s.interview.toPrefs(),
+    _prefInterviewSkipped: s.interview.skipped,
     _prefQuickNsfw: s.quickNsfwEnabled,
     _prefQuickTones: s.quickSelectedTones.join(','),
     _prefQuickGreetingCount: s.quickGreetingCount,

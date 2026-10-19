@@ -15,7 +15,7 @@ import type { InterviewRow } from './interviewRows';
 /** The canonical keys the phone writes (docs/design/creator-templates.md). */
 const CANONICAL_KEYS = [
   'mode', 'nsfw', 'age', 'sex', 'greetingLength', 'altGreetingCount', 'greetingTones', 'generationDetail',
-  'narrativePerspective', 'narrativeTense', 'includeDynamicMacros', 'interviewQuestions', 'generateLorebook',
+  'narrativePerspective', 'narrativeTense', 'includeDynamicMacros', 'interviewQuestions', 'skipInterview', 'generateLorebook',
   'loreCategories', 'loreDepth', 'quickConcept', 'quickKeywords', 'quickScenario', 'automatedConcept',
   'automatedKeywords', 'guidedVision', 'guidedBuild', 'guidedHair', 'guidedFeatures', 'guidedRace',
   'guidedPersonality', 'guidedSpeech', 'guidedSecret', 'guidedOrigin', 'guidedSetting', 'guidedTone',
@@ -101,6 +101,14 @@ describe('a round trip', () => {
     expect(formToTemplate({ ...DEFAULT_FORM, interviewQuestions: EDITED_ROWS }).interviewQuestions).toEqual(
       EDITED_ROWS.map(({ key, text, condition }) => ({ key, text, condition })),
     );
+  });
+
+  it('carries the skip switch, and an absent one loads as off', () => {
+    const t = formToTemplate({ ...DEFAULT_FORM, interviewSkipped: true });
+    expect(t.skipInterview).toBe(true);
+    expect(templateToForm(t, DEFAULT_FORM).interviewSkipped).toBe(true);
+    expect(templateToForm({}, DEFAULT_FORM).interviewSkipped).toBe(false);
+    expect(templateToForm({ skipInterview: 'yes' }, DEFAULT_FORM).interviewSkipped).toBe(false);
   });
 
   it('gives a repeated standard key and a custom row their own ids', () => {

@@ -110,7 +110,7 @@ function type(el: HTMLTextAreaElement, value: string) {
   });
 }
 
-async function click(b: HTMLButtonElement) {
+async function click(b: HTMLButtonElement | HTMLInputElement) {
   await act(async () => {
     b.click();
   });
@@ -278,6 +278,50 @@ describe('InterviewCard', () => {
     await answerLast();
     expect(rowsShown()[0].querySelector('textarea')!.disabled).toBe(false);
     expect(textOf(0)).toBe('voice in third present');
+  });
+
+  it('the switch skips the interview, keeps every row, and editing or adding turns it back on', async () => {
+    await render(1280);
+    await answerLast();
+    const skip = container.querySelector<HTMLInputElement>(
+      '[data-testid="interview-skip"]',
+    )!;
+    expect(skip.checked).toBe(true);
+
+    await click(skip);
+    expect(form.interviewSkipped).toBe(true);
+    // The rows stay on screen and editable, dimmed, exactly as they were.
+    expect(rowsShown()).toHaveLength(11);
+    expect(container.querySelector('.cg-iv-rows.dimmed')).not.toBeNull();
+    expect(rowsShown()[0].querySelector('textarea')!.disabled).toBe(false);
+    expect(container.textContent).toContain(
+      '11 of 12 · no interview: the profile comes straight from your settings',
+    );
+
+    // A typed row means the user wants the answer: the switch flips back.
+    type(rowsShown()[1].querySelector('textarea')!, 'What does she want from the sea?');
+    expect(form.interviewSkipped).toBe(false);
+    expect(container.querySelector('.cg-iv-rows.dimmed')).toBeNull();
+
+    await click(skip);
+    expect(form.interviewSkipped).toBe(true);
+    await click(button(/^Add a question$/));
+    expect(form.interviewSkipped).toBe(false); // an added row gets asked
+
+    // Reset is a working interview again: rows and switch both back.
+    await click(skip);
+    await click(button(/^Reset to the standard questions$/));
+    expect(form.interviewSkipped).toBe(false);
+    expect(form.interviewQuestions).toBeNull();
+  });
+
+  it('a form loaded with the switch off shows it off', async () => {
+    await render(1280, { interviewSkipped: true });
+    await answerLast();
+    expect(
+      container.querySelector<HTMLInputElement>('[data-testid="interview-skip"]')!.checked,
+    ).toBe(false);
+    expect(container.querySelector('.cg-iv-rows.dimmed')).not.toBeNull();
   });
 
   it('a drag on the handle reorders the rows as the pointer passes them', async () => {

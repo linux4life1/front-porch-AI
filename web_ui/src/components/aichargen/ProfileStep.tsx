@@ -247,8 +247,8 @@ export const ProfileStep = forwardRef<
         <h2>Profile</h2>
         <p>
           {isPhone
-            ? 'Who the interview wrote. Greetings and the rest are written after Next. Edit a box, or tell the rewrite what is wrong.'
-            : 'This is who the interview wrote. Read it before anything else is built: the greetings, lore, outfit and picture prompt are written after you press Next. Edit any box by hand, or tell the rewrite what is wrong.'}
+            ? `Who ${view.transcript.trim() ? 'the interview' : 'your settings'} wrote. Greetings and the rest are written after Next. Edit a box, or tell the rewrite what is wrong.`
+            : `This is who ${view.transcript.trim() ? 'the interview' : 'your settings'} wrote. Read it before anything else is built: the greetings, lore, outfit and picture prompt are written after you press Next. Edit any box by hand, or tell the rewrite what is wrong.`}
         </p>
       </div>
 

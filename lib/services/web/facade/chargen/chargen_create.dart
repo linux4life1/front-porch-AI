@@ -133,6 +133,18 @@ readCreatorInputs(CharacterCard? card) {
   );
 }
 
+/// Whether [card]'s stamp shows its run asked at least one unconditional
+/// question. A card with no stamp, or one that never pinned its list,
+/// reads as interviewed: only a stamped empty (or conditional-only) list
+/// says the interview was skipped.
+bool stampHadInterview(CharacterCard? card) {
+  final qs = readCreatorInputs(card)?.interviewQuestions;
+  if (qs == null) return true;
+  return qs.any(
+    (q) => !q.isConditional && (q.text?.trim().isNotEmpty ?? q.isStandard),
+  );
+}
+
 /// Creating a whole character and saving it: the one-shot create (both
 /// phases back to back, as before the Profile step) and the save every
 /// finished card goes through.

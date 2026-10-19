@@ -102,6 +102,7 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
   @override
   Widget build(BuildContext context) {
     final rows = _interview.rows;
+    final skipped = _interview.skipped;
     return Container(
       key: const ValueKey('interview-card'),
       margin: const EdgeInsets.only(bottom: 16),
@@ -120,18 +121,24 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
           spacing: 14,
           children: [
             _header(context),
-            ReorderableListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              buildDefaultDragHandles: false,
-              proxyDecorator: (child, _, _) =>
-                  Material(type: MaterialType.transparency, child: child),
-              itemCount: rows.length,
-              onReorderItem: (from, to) {
-                _interview.move(from, to);
-                _changed();
-              },
-              itemBuilder: (context, i) => _item(i, rows[i]),
+            // A skipped interview stays on screen, dimmed: the rows are
+            // exactly where the user left them, and editing one or adding
+            // another turns the interview back on.
+            Opacity(
+              opacity: skipped ? 0.55 : 1,
+              child: ReorderableListView.builder(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                buildDefaultDragHandles: false,
+                proxyDecorator: (child, _, _) =>
+                    Material(type: MaterialType.transparency, child: child),
+                itemCount: rows.length,
+                onReorderItem: (from, to) {
+                  _interview.move(from, to);
+                  _changed();
+                },
+                itemBuilder: (context, i) => _item(i, rows[i]),
+              ),
             ),
             _footer(context, rows),
           ],
@@ -193,13 +200,38 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             spacing: 6,
             children: [
-              Text(
-                'Interview',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w700,
-                  color: StudioColors.inkOf(context),
-                ),
+              Row(
+                spacing: 8,
+                children: [
+                  Text(
+                    'Interview',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w700,
+                      color: StudioColors.inkOf(context),
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Interview this character',
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600,
+                      color: StudioColors.mutedOf(context),
+                    ),
+                  ),
+                  // Off asks nothing: the profile is written straight from
+                  // the settings, every row kept exactly as it is.
+                  Switch(
+                    key: const ValueKey('interview-skip-switch'),
+                    value: !_interview.skipped,
+                    activeTrackColor: amber,
+                    onChanged: (val) {
+                      _interview.skipped = !val;
+                      _changed();
+                    },
+                  ),
+                ],
               ),
               Text(
                 'The character is interviewed before the profile is written. Every answer reaches every later step. Edit any question, drag to reorder, or add your own. Each one is a model call, so fewer is faster on a local model. Voice first and appearance last works best.',
@@ -283,12 +315,15 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
     final canAdd = !_interview.atCap;
     final count = rows.length;
     // The two conditional rows cannot be removed, so once nothing else is
-    // left the hint to remove them all would be a lie.
-    final none = interviewAsksNothing(
-      [for (final r in rows) r.q],
-      voice: _voice,
-      pronouns: _pronouns,
-    );
+    // left the hint to remove them all would be a lie. A switched-off
+    // card asks nothing whatever the rows hold.
+    final none =
+        _interview.skipped ||
+        interviewAsksNothing(
+          [for (final r in rows) r.q],
+          voice: _voice,
+          pronouns: _pronouns,
+        );
     final caption = none
         ? '$count of $kInterviewQuestionCap · no interview: the profile comes straight from your settings'
         : '$count of $kInterviewQuestionCap · remove them all and the profile comes straight from your settings, no interview';

@@ -134,7 +134,9 @@ List<String> _urls(String text) => [
 /// the Setup step, lore files and the Realism step on are not in it.
 Map<String, Object?> creatorTemplateForm(CreatorState s) {
   final quick = s.creatorMode == CreatorMode.quick;
-  final questions = s.interview.forRun;
+  // The rows as the card holds them, not as the run takes them: a skipped
+  // card saves its rows beside the switch, not an empty list.
+  final questions = s.interview.forTemplate;
   return {
     'mode': s.creatorMode.name,
     'nsfw': quick ? s.quickNsfwEnabled : s.nsfwEnabled,
@@ -145,6 +147,7 @@ Map<String, Object?> creatorTemplateForm(CreatorState s) {
     'interviewQuestions': questions == null
         ? null
         : InterviewQuestion.listToJson(questions),
+    'skipInterview': s.interview.skipped,
     'quickConcept': s.conceptController.text,
     'automatedConcept': s.conceptController.text,
     'loreUrls': _urls(s.loreUrlsController.text),
@@ -181,6 +184,7 @@ CreatorMode applyCreatorTemplateForm(
   s.selectedTones = tones.toSet();
   s.quickSelectedTones = List<String>.of(tones);
   s.interview.restoreList(form.interview());
+  s.interview.skipped = form.flag('skipInterview');
   s.loreUrlsController.text = form.words('loreUrls').join(', ');
   s.loreFiles.clear();
   for (final MapEntry(:key, :value) in _boxes(s).entries) {

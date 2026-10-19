@@ -32,6 +32,8 @@ export interface ChargenForm {
   generationDetail: string; // label key into GENERATION_DETAIL
   /** The Interview card's list; null is the untouched standard set. */
   interviewQuestions: InterviewRow[] | null;
+  /** The Interview card's switch: true asks nothing, rows kept. */
+  interviewSkipped: boolean;
   // Quick
   quickConcept: string;
   quickKeywords: string;
@@ -104,6 +106,7 @@ export const DEFAULT_FORM: ChargenForm = {
   narrativeTense: 'present',
   generationDetail: 'Standard',
   interviewQuestions: null,
+  interviewSkipped: false,
   quickConcept: '',
   quickKeywords: '',
   quickScenario: '',
@@ -246,8 +249,14 @@ function outputSettings(f: ChargenForm): Record<string, unknown> {
     narrativePerspective: f.narrativePerspective,
     narrativeTense: f.narrativeTense,
     descriptionDetail: GENERATION_DETAIL[f.generationDetail] ?? '2-3 paragraphs',
-    // Only a list the user changed; absent asks the standard set, [] none.
-    ...(f.interviewQuestions ? { interviewQuestions: toPayload(f.interviewQuestions) } : {}),
+    // The switch wins: skipped sends the empty list, which asks nothing,
+    // whatever the card holds. Else only a list the user changed; absent
+    // asks the standard set, [] none.
+    ...(f.interviewSkipped
+      ? { interviewQuestions: [] }
+      : f.interviewQuestions
+        ? { interviewQuestions: toPayload(f.interviewQuestions) }
+        : {}),
   };
 }
 

@@ -78,6 +78,8 @@ const List<TemplateField> kTemplateFields = [
   TemplateField('narrativeTense', 'present', options: ['present', 'past']),
   TemplateField('includeDynamicMacros', false),
   TemplateField('interviewQuestions', null),
+  // The Interview card's switch: true asks nothing, keeping the rows.
+  TemplateField('skipInterview', false),
   TemplateField('generateLorebook', true),
   TemplateField('loreCategories', <String>[]),
   TemplateField(
