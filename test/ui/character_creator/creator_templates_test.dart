@@ -42,8 +42,8 @@ import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/creator_test_support.dart';
-import '../../helpers/double_tap.dart';
 import '../../golden/support/fakes.dart';
+import '../../helpers/double_tap.dart';
 
 const _persona = 'persona-sam';
 
