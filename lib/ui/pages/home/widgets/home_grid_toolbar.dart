@@ -180,8 +180,7 @@ class HomeGridToolbar extends StatelessWidget {
         Expanded(
           child: LayoutBuilder(
             // The path is laid out first and may take the whole strip: its
-            // levels are the targets. The hint gets what is left, and in a
-            // folder on a narrow window it steps aside entirely.
+            // levels are the targets. The hint gets what is left.
             builder: (context, strip) => Row(
               children: [
                 if (inFolder) ...[
@@ -194,26 +193,36 @@ class HomeGridToolbar extends StatelessWidget {
                   const SizedBox(width: 8),
                   ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxWidth: math.max(0.0, strip.maxWidth - 56),
+                      // Back button and gaps; a wide strip also keeps the
+                      // hint a readable share.
+                      maxWidth: math.max(
+                        0.0,
+                        strip.maxWidth - 56 - (strip.maxWidth >= 600 ? 220 : 0),
+                      ),
                     ),
                     child: _breadcrumb(dropTargets: true),
                   ),
                   const SizedBox(width: 8),
                 ],
-                if (!inFolder || room >= 520)
-                  Expanded(
-                    child: Text(
-                      inFolder
-                          ? 'Drop on a folder, or on a level of the path'
-                          : 'Drop on a folder',
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        color: AppColors.textSecondary(context),
-                        fontSize: 13,
-                      ),
-                    ),
+                Expanded(
+                  // Only a hint with room to read; a sliver would show a
+                  // lone "…" that looks like a folded level.
+                  child: LayoutBuilder(
+                    builder: (context, left) => left.maxWidth < 120
+                        ? const SizedBox.shrink()
+                        : Text(
+                            inFolder
+                                ? 'Drop on a folder, or on a level of the path'
+                                : 'Drop on a folder',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textSecondary(context),
+                              fontSize: 13,
+                            ),
+                          ),
                   ),
+                ),
               ],
             ),
           ),

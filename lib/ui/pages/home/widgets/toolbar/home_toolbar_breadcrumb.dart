@@ -87,6 +87,8 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
               child: Text(
                 label,
                 maxLines: 1,
+                // Break mid-word: "My Characters" must still read "M…".
+                softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 style: crumbStyle,
               ),
@@ -237,6 +239,8 @@ class HomeToolbarLevelTarget extends StatelessWidget {
               child: Text(
                 label,
                 maxLines: 1,
+                // Break mid-word: "My Characters" must still read "M…".
+                softWrap: false,
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(
                   color: amber,
