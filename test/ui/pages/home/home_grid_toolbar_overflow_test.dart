@@ -241,6 +241,39 @@ void main() {
     await tester.tap(find.text('…'));
     expect(jumped, 'b');
   });
+
+  testWidgets('while a drag is live a deep path does not fold: every level '
+      'above the current folder takes a drop', (tester) async {
+    final folders = [
+      CharacterFolder(id: 'a', name: 'Porch'),
+      CharacterFolder(id: 'b', name: 'Steps', parentId: 'a'),
+      CharacterFolder(id: 'c', name: 'Elm', parentId: 'b'),
+      CharacterFolder(id: 'd', name: 'Swing', parentId: 'c'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            child: HomeToolbarBreadcrumb(
+              activeFolderId: 'd',
+              folders: folders,
+              onFolderJump: (_) {},
+              dropTargets: true,
+              onDropOnLevel: (_, _) {},
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(find.text('…'), findsNothing);
+    final targets = tester
+        .widgetList<HomeToolbarLevelTarget>(find.byType(HomeToolbarLevelTarget))
+        .map((t) => t.folderId)
+        .toList();
+    expect(targets, [null, 'a', 'b', 'c']);
+  });
 }
 
 class _Folders extends FakeFolderService {

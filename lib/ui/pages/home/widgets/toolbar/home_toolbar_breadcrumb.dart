@@ -96,17 +96,19 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
       '/',
       style: TextStyle(color: AppColors.textTertiary(context)),
     );
-    // Deep paths keep the top level and the parent; the levels between fold
-    // into one "…" that jumps to the deepest of them.
+    // Browsing, deep paths keep the top level and the parent; the levels
+    // between fold into one "…" that jumps to the deepest of them. While a
+    // drag is live every level stays out, since each one takes a drop.
     final ancestors = trail.isEmpty
         ? const <CharacterFolder>[]
         : trail.sublist(0, trail.length - 1);
-    final hidden = ancestors.length > 1
+    final fold = !dropTargets && ancestors.length > 1;
+    final hidden = fold
         ? ancestors.sublist(0, ancestors.length - 1)
         : const <CharacterFolder>[];
-    final parent = ancestors.isEmpty ? null : ancestors.last;
+    final shown = fold ? [ancestors.last] : ancestors;
     final current = trail.isEmpty ? null : trail.last;
-    final named = parent == null ? 1 : 2;
+    final named = 1 + shown.length;
     return LayoutBuilder(
       builder: (context, constraints) {
         // The folder you're standing in is laid out first. It keeps all but
@@ -128,13 +130,13 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
               separator,
               _HiddenLevels(
                 names: [for (final f in hidden) f.name],
-                onTap: dropTargets ? null : () => onFolderJump(hidden.last.id),
+                onTap: () => onFolderJump(hidden.last.id),
                 style: crumbStyle,
               ),
             ],
-            if (parent != null) ...[
+            for (final level in shown) ...[
               separator,
-              Flexible(child: crumb(parent.name, parent.id)),
+              Flexible(child: crumb(level.name, level.id)),
             ],
             if (current != null) ...[
               separator,
@@ -165,7 +167,7 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
 const _kCrumbFloor = 64.0;
 
 /// The "…" standing in for folded middle levels. Hovering names them; a tap
-/// jumps to the deepest. While a drag is live it is only a marker.
+/// jumps to the deepest.
 class _HiddenLevels extends StatelessWidget {
   const _HiddenLevels({
     required this.names,
@@ -174,7 +176,7 @@ class _HiddenLevels extends StatelessWidget {
   });
 
   final List<String> names;
-  final VoidCallback? onTap;
+  final VoidCallback onTap;
   final TextStyle style;
 
   @override
