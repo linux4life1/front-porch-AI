@@ -50,8 +50,10 @@ class RealismColors {
   static Color bondUpOf(BuildContext context) => socialOf(context);
   static Color bondDownOf(BuildContext context) =>
       AppColors.resolve(context, Colors.redAccent, const Color(0xFFB71C1C));
+
+  /// The bond meter's middle blue in dark mode.
   static Color trustUpOf(BuildContext context) =>
-      AppColors.resolve(context, Colors.blueAccent, const Color(0xFF1D4ED8));
+      AppColors.resolve(context, AppColors.bondMid, const Color(0xFF1D4ED8));
   static Color trustDownOf(BuildContext context) => funOf(context);
   static Color lustUpOf(BuildContext context) => AppColors.resolve(
     context,
