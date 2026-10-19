@@ -74,6 +74,12 @@ describe('labels', () => {
     expect(dialogueSubtitle('')).toBe('How they answer, learned from the interview');
   });
 
+  it('the interview was skipped: the answers came from the settings', () => {
+    expect(dialogueSubtitle('Female', false)).toBe('How she answers, straight from your settings');
+    expect(dialogueSubtitle('male', false)).toBe('How he answers, straight from your settings');
+    expect(dialogueSubtitle('', false)).toBe('How they answer, straight from your settings');
+  });
+
   it('grows the steer box with its text', () => {
     expect(rowsFor('')).toBe(1);
     expect(rowsFor('a\nb\nc')).toBe(3);

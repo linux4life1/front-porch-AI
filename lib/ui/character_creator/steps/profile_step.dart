@@ -60,7 +60,7 @@ class ProfileStep extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             spacing: 16,
             children: [
-              _intro(context),
+              _intro(context, paused.interviewTranscript.trim().isNotEmpty),
               CreatorTextCard(
                 title: 'Description',
                 subtitle: 'Who they are, as the card will carry it',
@@ -182,7 +182,7 @@ class ProfileStep extends StatelessWidget {
     );
   }
 
-  Widget _intro(BuildContext context) => Column(
+  Widget _intro(BuildContext context, bool hadInterview) => Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     spacing: 6,
     children: [
@@ -195,10 +195,10 @@ class ProfileStep extends StatelessWidget {
         ),
       ),
       Text(
-        'This is who the interview wrote. Read it before anything else is '
-        'built: the greetings, lore, outfit and picture prompt are written '
-        'after you press Next. Edit any box by hand, or tell the rewrite '
-        'what is wrong.',
+        'This is who ${hadInterview ? 'the interview' : 'your settings'} '
+        'wrote. Read it before anything else is built: the greetings, lore, '
+        'outfit and picture prompt are written after you press Next. Edit any '
+        'box by hand, or tell the rewrite what is wrong.',
         style: TextStyle(
           fontSize: 14,
           height: 1.5,

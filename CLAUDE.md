@@ -13,6 +13,28 @@ will rot, point at the live source instead of pinning it here.
 
 ---
 
+## Definition of done (read this first)
+
+A PR is done when a machine has checked it. People only judge looks.
+
+- **Hand-check items are tests.** Each line under `## Hand-check` in the PR
+  description names the test that does it, or starts `eye-only:` (looks,
+  real OS dialogs, hardware). Smoke does the `eye-only:` lines and looks at
+  the changed screens; it never re-runs what a test already does.
+- **A desktop journey gets its web twin** when the feature is on both.
+- **Create / save buttons:** the test calls `doubleTapNoFrame`
+  (`test/helpers/double_tap.dart`) and asserts exactly one write.
+- **Clocks:** code comparing against "now" takes it from the caller or an
+  injectable clock. A test never pins a date that the code under test
+  compares with the real clock (#559 went red on its own date).
+- **New screen, panel or sidebar:** check it at 400px and 1440px wide and
+  in a short window. Any overflow fails.
+- **Rendered text** never shows `{{char}}`, `{{user}}` or a raw enum name.
+- **Never commit screenshots of real chats or user data.** Evidence images
+  go in the PR thread, not the repo.
+
+---
+
 ## Product
 
 Front Porch AI is a Flutter desktop app (Windows / Linux / macOS) for

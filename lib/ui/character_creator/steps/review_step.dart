@@ -249,6 +249,15 @@ class ReviewStep extends StatelessWidget {
     return 'they';
   }
 
+  /// "How {they} answer": learned from the interview when one ran,
+  /// straight from your settings when it was skipped. A step without a
+  /// paused run keeps the interview line.
+  String _dialogueSubtitle() {
+    final paused = state.profile.paused;
+    final had = paused == null || paused.interviewTranscript.trim().isNotEmpty;
+    return 'How ${_they()} answer, ${had ? 'learned from the interview' : 'straight from your settings'}';
+  }
+
   Widget _dialogueCard(BuildContext context) {
     const kind = ReviewRewrite.dialogue;
     final r = state.review;
@@ -257,7 +266,7 @@ class ReviewStep extends StatelessWidget {
     return CreatorTextCard(
       key: const ValueKey('review-dialogue'),
       title: 'Example dialogue',
-      subtitle: 'How ${_they()} answer, learned from the interview',
+      subtitle: _dialogueSubtitle(),
       controller: state.exampleDialogueController,
       boxKey: const ValueKey('review-dialogue-box'),
       maxLines: 6,

@@ -35,6 +35,7 @@ export const TEMPLATE_FIELDS: readonly TemplateField[] = [
   { key: 'narrativeTense', field: 'narrativeTense', kind: 'tense' },
   { key: 'includeDynamicMacros', field: 'includeDynamicMacros', kind: 'flag' },
   { key: 'interviewQuestions', field: 'interviewQuestions', kind: 'interview' },
+  { key: 'skipInterview', field: 'interviewSkipped', kind: 'flag' },
   { key: 'generateLorebook', field: 'generateLorebook', kind: 'flag' },
   ...sameList('loreCategories'),
   { key: 'loreDepth', field: 'loreDepth', kind: 'choice', options: LORE_DEPTHS },

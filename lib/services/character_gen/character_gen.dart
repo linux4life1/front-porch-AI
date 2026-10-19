@@ -7,6 +7,7 @@
 /// the paused run, the profile rewrite).
 library;
 
+export 'creator_inputs_stamp.dart';
 export 'gen_card_completion.dart';
 export 'gen_enhancer.dart';
 export 'gen_generator.dart';

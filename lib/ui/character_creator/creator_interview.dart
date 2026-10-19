@@ -40,6 +40,11 @@ class InterviewRow {
 /// unedited standard row's box is rendered for the voice ([applyVoice]),
 /// and the run renders it again from its key, so a stale box never reaches
 /// the model.
+///
+/// [skipped] is the card's "Interview this character" switch. A skipped
+/// run asks nothing while the rows stay exactly as they were, so the switch
+/// back on restores the list; editing or adding a row turns the interview
+/// back on itself.
 class CreatorInterview {
   CreatorInterview() {
     _rows.addAll(_rowsFor(standardInterviewQuestions()));
@@ -50,6 +55,10 @@ class CreatorInterview {
   NarrativeVoice _voice = NarrativeVoice.defaults;
   NarrativePronouns _pronouns = NarrativePronouns.they;
   String _voiceKey = '';
+
+  /// The card's switch: on means the run asks none of the rows, while the
+  /// rows themselves stay exactly as they were.
+  bool skipped = false;
 
   List<InterviewRow> get rows => List.unmodifiable(_rows);
 
@@ -65,8 +74,14 @@ class CreatorInterview {
 
   bool get atCap => _rows.length >= kInterviewQuestionCap;
 
-  /// What a run is given: null for the untouched standard set.
-  List<InterviewQuestion>? get forRun =>
+  /// What a run is given: `[]` for a skipped interview — the rows stay
+  /// underneath so switching back on restores them — else null for the
+  /// untouched standard set.
+  List<InterviewQuestion>? get forRun => skipped ? const [] : forTemplate;
+
+  /// The rows as a template and the prefs hold them: null for the
+  /// untouched standard set, kept whole while [skipped] hides them.
+  List<InterviewQuestion>? get forTemplate =>
       isStandard ? null : [for (final r in _rows) r.q];
 
   /// Re-renders the boxes of unedited standard rows for [voice]. A call
@@ -85,8 +100,10 @@ class CreatorInterview {
 
   /// The user typed [text] into row [i]. A standard row is kept as written
   /// from now on, even when typed back to the standard words: Reset is the
-  /// way back.
+  /// way back. Typing into a skipped card means the user wants the answer:
+  /// the interview turns itself back on.
   void edit(int i, String text) {
+    skipped = false;
     final r = _rows[i];
     r.q = r.q.withText(text);
     if (r.c.text != text) r.c.text = text;
@@ -100,9 +117,11 @@ class CreatorInterview {
     return true;
   }
 
-  /// A blank custom row at the end. False at the cap.
+  /// A blank custom row at the end; the interview turns itself back on, so
+  /// the row a user adds is actually asked. False at the cap.
   bool add() {
     if (atCap) return false;
+    skipped = false;
     _rows.add(_row(const InterviewQuestion(text: '')));
     return true;
   }
@@ -114,8 +133,12 @@ class CreatorInterview {
     _rows.insert(newIndex, _rows.removeAt(oldIndex));
   }
 
-  /// The eleven standard rows, every custom row and edit dropped.
-  void reset() => _replace(standardInterviewQuestions());
+  /// The eleven standard rows, every custom row and edit dropped, the
+  /// switch back on: a reset card asks the standard interview.
+  void reset() {
+    skipped = false;
+    _replace(standardInterviewQuestions());
+  }
 
   /// `''` for the standard set, else the rows as JSON.
   String toPrefs() => isStandard

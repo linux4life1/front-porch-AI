@@ -23,6 +23,7 @@
 // Delete, the built-ins picker, Clear Everything, and a restart. The
 // library is the real one on a temp folder; its file I/O runs in real time.
 
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -42,6 +43,7 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
+import '../../helpers/double_tap.dart';
 
 const _persona = 'persona-sam';
 
@@ -612,4 +614,38 @@ void main() {
       expect(c.templates.startedFrom, isNull);
     },
   );
+
+  testWidgets('a double click on Save writes the template once', (
+    tester,
+  ) async {
+    final gate = Completer<void>();
+    final written = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: CreatorTheme(
+            child: TemplateNameDialog(
+              title: 'Save as template',
+              confirmLabel: 'Save',
+              initialName: 'Porch Cat',
+              check: (_) => (problem: null, replaces: false),
+              submit: (name) {
+                written.add(name);
+                return gate.future;
+              },
+              failure: 'Could not save.',
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await doubleTapNoFrame(
+      tester,
+      find.byKey(const ValueKey('template-name-confirm')),
+    );
+    await tester.pump();
+    expect(written, ['Porch Cat']);
+  });
 }
