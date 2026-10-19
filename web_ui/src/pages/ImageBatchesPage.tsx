@@ -31,6 +31,7 @@ export function batchCharacterPath(id: string | undefined, folders: Folder[]): s
 export function ImageBatchesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [queue, setQueue] = useState<Queue>();
   const [characters, setCharacters] = useState<Character[]>([]);
+  const [charactersLoaded, setCharactersLoaded] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const [search, setSearch] = useState('');
   const [kind, setKind] = useState('additional');
@@ -58,7 +59,7 @@ export function ImageBatchesPage({ embedded = false }: { embedded?: boolean } = 
   }, []);
   useEffect(() => {
     void refresh();
-    api.get<Character[]>('/api/characters?scope=allCharacters').then(setCharacters).catch(() => setError('Could not load characters.'));
+    api.get<Character[]>('/api/characters?scope=allCharacters').then((list) => { setCharacters(list); setCharactersLoaded(true); }).catch(() => setError('Could not load characters.'));
     api.get<{folders: Folder[]}>('/api/folders').then((result) => setFolders(result.folders)).catch(() => setError('Could not load character folders.'));
     const focus = () => void refresh();
     window.addEventListener('focus', focus);
@@ -131,7 +132,7 @@ export function ImageBatchesPage({ embedded = false }: { embedded?: boolean } = 
           {rules ? <button type="button" onClick={() => setRules(undefined)}>Follow global prompt rules</button> : null}
         </> : null}
         <label>Find characters<input value={search} onChange={(e) => setSearch(e.target.value)} /></label>
-        <div className="batch-actions"><button type="button" onClick={() => setSelected(characters.filter(c => `${c.name} ${batchCharacterPath(c.folderId, folders)}`.toLowerCase().includes(search.toLowerCase())).map(c => c.id))}>Select visible</button><button type="button" onClick={() => setSelected([])}>Clear selection</button></div>
+        <div className="batch-actions"><button type="button" disabled={!charactersLoaded} onClick={() => setSelected(characters.filter(c => `${c.name} ${batchCharacterPath(c.folderId, folders)}`.toLowerCase().includes(search.toLowerCase())).map(c => c.id))}>Select visible</button><button type="button" onClick={() => setSelected([])}>Clear selection</button></div>
         <div className="batch-characters">{characters.filter((c) => `${c.name} ${batchCharacterPath(c.folderId, folders)}`.toLowerCase().includes(search.toLowerCase())).map((c) => <label key={c.id}>
           <input type="checkbox" checked={selected.includes(c.id)} onChange={(e) => setSelected(e.target.checked ? [...selected, c.id] : selected.filter((id) => id !== c.id))} />{c.hasAvatar ? <img loading="lazy" src={api.avatarUrl(`/api/characters/${c.id}/avatar`, 80, c.avatarVersion)} alt="" /> : <span className="batch-portrait-placeholder" aria-hidden="true">?</span>}
           <span>{c.name}<small>{batchCharacterPath(c.folderId, folders)}{characters.filter(other => other.name === c.name).length > 1 ? ` · ${c.id.slice(0,8)}` : ''}</small></span>
