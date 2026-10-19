@@ -7,6 +7,8 @@
 // existing world down to a blank name is refused the same way. Header
 // AnimationController.repeat() — bounded pumps only, never pumpAndSettle.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -31,6 +33,19 @@ class _RecordingWorlds extends FakeWorldRepository {
   @override
   Future<void> renameWorld(model.World world, String newName) async =>
       renamed.add(newName);
+}
+
+/// Holds every save open until [release], like a slow disk.
+class _SlowWorlds extends _RecordingWorlds {
+  final _gate = Completer<void>();
+
+  void release() => _gate.complete();
+
+  @override
+  Future<void> saveWorld(model.World world) async {
+    saved.add(world);
+    await _gate.future;
+  }
 }
 
 Future<void> _bounded(WidgetTester tester) async {
@@ -108,5 +123,27 @@ void main() {
     expect(worlds.renamed, isEmpty);
     expect(existing.name, 'Harbor Town');
     expect(find.text('Give your world a name.'), findsOneWidget);
+  });
+
+  testWidgets('a second Create World tap during a slow save saves nothing', (
+    tester,
+  ) async {
+    final worlds = _SlowWorlds();
+    await _pumpPage(tester, worlds);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'New World'));
+    await _bounded(tester);
+
+    await tester.enterText(_nameField(), 'The Cinder Wastes');
+    final create = find.widgetWithText(ElevatedButton, 'Create World');
+    await tester.tap(create);
+    await _bounded(tester);
+    await tester.tap(create, warnIfMissed: false);
+    await _bounded(tester);
+    expect(worlds.saved, hasLength(1));
+
+    worlds.release();
+    await _bounded(tester);
+    expect(create, findsNothing);
+    expect(worlds.saved.single.name, 'The Cinder Wastes');
   });
 }
