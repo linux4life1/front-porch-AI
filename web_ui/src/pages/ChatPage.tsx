@@ -321,8 +321,9 @@ export function ChatPage() {
             </button>
           </div>
         )}
-        <FindSurfaceContext.Provider value={find.surface}>
-          <ChatMessageList
+        <div className="chat-find-host">
+          <FindSurfaceContext.Provider value={find.surface}>
+            <ChatMessageList
             sessionId={state.sessionId}
             messages={state.messages}
             castById={castById}
@@ -369,6 +370,7 @@ export function ChatPage() {
             onClose={find.close}
           />
         )}
+        </div>
 
         {evaluationView.error && <p role="alert">{evaluationView.error}</p>}
         <ProcessingOverlay minimized={evaluationView.minimized} onMinimizedChange={evaluationView.change} saving={evaluationView.saving} p={processing} onCancel={cancelRealism} onSkipObjective={skipObjectiveCheck} />

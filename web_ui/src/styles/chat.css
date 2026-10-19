@@ -319,6 +319,9 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 }
 
 /* ── ⌘F find-in-chat (docs/design/mockups/chat-find-bar.html) ──────── */
+/* Anchors the bar to the transcript, not the whole view — same placement
+ * as the desktop ChatFindLayer, and the header controls stay clickable. */
+.chat-find-host { position: relative; display: flex; flex: 1; min-height: 0; }
 .find-bar {
   position: absolute; top: 10px; right: 18px; z-index: 30;
   display: flex; flex-direction: column; gap: 2px;
