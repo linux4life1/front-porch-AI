@@ -17,6 +17,7 @@ import 'dart:io';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
+import 'package:front_porch_ai/services/backend/backend.dart';
 import 'package:front_porch_ai/services/backend_manager.dart';
 import 'package:front_porch_ai/services/kobold/kobold.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -85,16 +86,20 @@ void main() {
     return m;
   }
 
+  // Waits for the manager to announce the ROCm build. Polling is not
+  // enough: the look sets backendPath before it reads that build's version
+  // and notifies only after, so a poll can land between the two.
   Future<void> pickRocmAndWait(_LinuxManager m) async {
+    final announced = waitWhileBusy(
+      m,
+      () => m.backendPath?.endsWith(_rocm) != true || m.isDownloading,
+    );
     final b = storage.backendSettings;
     await b.setUseVulkan(false);
     await b.setUseRocm(true);
     await b.setUseCublas(false);
     await b.setUseMetal(false);
-    for (var i = 0; i < 400; i++) {
-      if (m.backendPath?.endsWith(_rocm) == true && !m.isDownloading) break;
-      await Future<void>.delayed(const Duration(milliseconds: 25));
-    }
+    await announced.timeout(const Duration(seconds: 10));
     expect(p.basename(m.backendPath!), _rocm);
   }
 
