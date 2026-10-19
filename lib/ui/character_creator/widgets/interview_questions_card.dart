@@ -212,24 +212,33 @@ class _InterviewQuestionsCardState extends State<InterviewQuestionsCard> {
                     ),
                   ),
                   const Spacer(),
-                  Text(
-                    'Interview this character',
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w600,
-                      color: StudioColors.mutedOf(context),
+                  // One node, so a screen reader names the switch.
+                  MergeSemantics(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      spacing: 8,
+                      children: [
+                        Text(
+                          'Interview this character',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: StudioColors.mutedOf(context),
+                          ),
+                        ),
+                        // Off asks nothing: the profile is written straight from
+                        // the settings, every row kept exactly as it is.
+                        Switch(
+                          key: const ValueKey('interview-skip-switch'),
+                          value: !_interview.skipped,
+                          activeTrackColor: amber,
+                          onChanged: (val) {
+                            _interview.skipped = !val;
+                            _changed();
+                          },
+                        ),
+                      ],
                     ),
-                  ),
-                  // Off asks nothing: the profile is written straight from
-                  // the settings, every row kept exactly as it is.
-                  Switch(
-                    key: const ValueKey('interview-skip-switch'),
-                    value: !_interview.skipped,
-                    activeTrackColor: amber,
-                    onChanged: (val) {
-                      _interview.skipped = !val;
-                      _changed();
-                    },
                   ),
                 ],
               ),

@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -336,6 +337,18 @@ void main() {
     expect(state.interview.skipped, isFalse, reason: 'an added row is asked');
   });
 
+  testWidgets('the switch carries its label for a screen reader', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _pumpConfig(tester, CreatorMode.quick);
+    final node = tester.getSemantics(
+      find.byKey(const ValueKey('interview-skip-switch')),
+    );
+    expect(node.label, contains('Interview this character'));
+    semantics.dispose();
+  });
+
   testWidgets('remove, add up to twelve, then Reset brings back the eleven', (
     tester,
   ) async {
@@ -597,6 +610,35 @@ void main() {
         transcript.isEmpty ? findsNothing : findsOneWidget,
         reason: transcript.isEmpty ? 'no interview' : 'one question',
       );
+    }
+  });
+
+  test('a desktop save stamps whether the run asked anything, so the web '
+      'review words a desktop-made character the same way', () async {
+    final storage = await makeGoldenStorage();
+    final db = AppDatabase.forTesting();
+    final repo = CharacterRepository(db, storage);
+    addTearDown(() async => db.close());
+    for (final (questions, had) in [
+      (const <InterviewQuestion>[], false),
+      (null, true),
+    ]) {
+      final state = CreatorState();
+      addTearDown(state.dispose);
+      final card = CharacterCard(name: 'Aria Vale', description: 'A keeper.');
+      state.generatedCard = card;
+      state.profile.paused = GenPausedRun(
+        inputs: GenRunInputs(
+          name: 'Aria Vale',
+          concept: 'A keeper.',
+          interviewQuestions: questions,
+        ),
+        card: card,
+        interviewTranscript: had ? 'Q: Who are you?\nA: The keeper.' : '',
+      );
+      expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+      expect(readCreatorInputs(card), isNotNull, reason: 'stamped');
+      expect(stampHadInterview(card), had);
     }
   });
 
