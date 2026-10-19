@@ -234,7 +234,7 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
-              foregroundColor: AppColors.onChaosAccent,
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             onPressed: () => feelings ? _submitFeelings() : _submit(),
             child: Text(feelings ? kReprocessFeelingsButton : 'Reprocess'),
@@ -252,7 +252,7 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
           style: TextStyle(
             fontSize: 12,
             color: on
-                ? AppColors.onChaosAccent
+                ? AppColors.onAccentOf(context)
                 : AppColors.textSecondary(context),
           ),
         ),
@@ -367,7 +367,7 @@ class _ReprocessNeedsDialogState extends State<ReprocessNeedsDialog> {
                     style: TextStyle(
                       fontSize: 12,
                       color: _selected.contains(need)
-                          ? AppColors.onChaosAccent
+                          ? AppColors.onAccentOf(context)
                           : AppColors.textSecondary(context),
                     ),
                   ),

@@ -213,11 +213,11 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // ── System prompt source (prompt-picker SOW) ──────────
-                    const Text(
+                    Text(
                       'System prompt',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                     ),
                     const SizedBox(height: 4),
@@ -270,7 +270,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                             setState(() => _gen.promptAmendmentsEnabled = val);
                             _save();
                           },
-                          activeTrackColor: AppColors.formMasterAccent,
+                          activeTrackColor: AppColors.formAccentOf(context),
                         ),
                       ],
                     ),
@@ -282,11 +282,11 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                     // thinking too (native chat_template_kwargs +
                     // reasoning_effort in openai_chat_stream.dart).
                     ...[
-                      const Text(
+                      Text(
                         'Thinking',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                         ),
                       ),
                       const SizedBox(height: 8),
@@ -322,11 +322,11 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                     ),
 
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       'Stop Sequences',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -344,11 +344,11 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                       const SizedBox(height: 24),
                       Row(
                         children: [
-                          const Text(
+                          Text(
                             'Banned Phrases',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
-                              color: AppColors.formMasterAccent,
+                              color: AppColors.formAccentOf(context),
                             ),
                           ),
                           const SizedBox(width: 6),
@@ -378,11 +378,11 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                     const SizedBox(height: 24),
                     Row(
                       children: [
-                        const Text(
+                        Text(
                           'Output Sanitizer',
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: AppColors.formMasterAccent,
+                            color: AppColors.formAccentOf(context),
                           ),
                         ),
                         const SizedBox(width: 6),
@@ -414,7 +414,7 @@ class _ChatSettingsDialogState extends State<ChatSettingsDialog> {
                             setState(() => _gen.outputSanitizerEnabled = val);
                             _save();
                           },
-                          activeTrackColor: AppColors.formMasterAccent,
+                          activeTrackColor: AppColors.formAccentOf(context),
                         ),
                       ],
                     ),

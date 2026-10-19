@@ -29,12 +29,11 @@ class WorldPlaceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.formMasterAccent;
+    final accent = AppColors.formAccentOf(context);
     final worldColor = WorldColors.getColorForWorld(world.name);
     final climate = world.biomeId;
-    final climateLabel = (climate != null &&
-            climate.isNotEmpty &&
-            climate != 'temperate')
+    final climateLabel =
+        (climate != null && climate.isNotEmpty && climate != 'temperate')
         ? climate
         : null;
 
@@ -264,8 +263,9 @@ class _CoverBackgroundState extends State<_CoverBackground> {
   }
 
   Widget _gradientFallback() {
-    final initial =
-        world.name.trim().isEmpty ? '?' : world.name.trim()[0].toUpperCase();
+    final initial = world.name.trim().isEmpty
+        ? '?'
+        : world.name.trim()[0].toUpperCase();
     return DecoratedBox(
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -273,7 +273,7 @@ class _CoverBackgroundState extends State<_CoverBackground> {
           end: Alignment.bottomRight,
           colors: [
             fallback.withValues(alpha: 0.85),
-            AppColors.formMasterAccent.withValues(alpha: 0.55),
+            AppColors.formAccentOf(context).withValues(alpha: 0.55),
           ],
         ),
       ),

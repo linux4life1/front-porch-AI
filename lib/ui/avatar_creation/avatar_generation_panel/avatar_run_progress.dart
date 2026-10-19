@@ -161,7 +161,7 @@ class AvatarRunProgress extends StatelessWidget {
     final color = done
         ? AppColors.logReady
         : active
-        ? AppColors.formMasterAccent
+        ? AppColors.formAccentOf(context)
         : AppColors.textTertiary(context);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -232,7 +232,7 @@ class AvatarRunProgress extends StatelessWidget {
               child: LinearProgressIndicator(
                 value: done / total,
                 minHeight: 5,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 backgroundColor: AppColors.surfaceContainerOf(context),
               ),
             ),

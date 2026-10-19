@@ -293,7 +293,7 @@ class _ThinkingSettingsBlockState extends State<ThinkingSettingsBlock> {
               onChanged: mandatory || localCannotThink
                   ? null
                   : widget.onEnabledChanged,
-              activeTrackColor: AppColors.formMasterAccent,
+              activeTrackColor: AppColors.formAccentOf(context),
             ),
           ],
         ),

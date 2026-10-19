@@ -243,9 +243,9 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         ),
         title: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.person_add,
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
               size: 22,
             ),
             const SizedBox(width: 8),

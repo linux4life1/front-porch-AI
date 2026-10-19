@@ -308,13 +308,17 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
           ),
           child: Center(
             child: isActive && !isCurrent
-                ? Icon(Icons.check, size: 14, color: AppColors.onChaosAccent)
+                ? Icon(
+                    Icons.check,
+                    size: 14,
+                    color: AppColors.onAccentOf(context),
+                  )
                 : Text(
                     '${step + 1}',
                     style: TextStyle(
                       fontSize: 12,
                       color: isActive
-                          ? AppColors.onChaosAccent
+                          ? AppColors.onAccentOf(context)
                           : AppColors.textTertiary(context),
                     ),
                   ),
@@ -377,7 +381,7 @@ class _WaifuWizardPageState extends State<WaifuWizardPage> {
                 label: Text(step == 0 ? 'Use this folder' : 'Next: Start'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
+                  foregroundColor: AppColors.onAccentOf(context),
                 ),
               ),
             ),

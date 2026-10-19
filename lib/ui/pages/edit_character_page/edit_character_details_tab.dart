@@ -174,7 +174,7 @@ class EditCharacterDetailsTab extends StatelessWidget {
               kit.sectionCard(
                 icon: Icons.badge_outlined,
                 title: 'Identity',
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 children: [
                   kit.styledField(controller: d.nameController, label: 'Name'),
                   const SizedBox(height: 16),
@@ -229,9 +229,9 @@ class EditCharacterDetailsTab extends StatelessWidget {
                       ),
                       const SizedBox(width: 8),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.add_circle,
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                         ),
                         tooltip: 'Add tag',
                         onPressed: () => _addTag(d.tagController.text),

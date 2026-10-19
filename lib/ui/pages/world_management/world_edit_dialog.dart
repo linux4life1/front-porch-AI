@@ -86,18 +86,19 @@ void showWorldEditDialog(
                                 width: 40,
                                 height: 40,
                                 decoration: BoxDecoration(
-                                  color: AppColors.formMasterAccent.withValues(
-                                    alpha: 0.1,
-                                  ),
+                                  color: AppColors.formAccentOf(
+                                    context,
+                                  ).withValues(alpha: 0.1),
                                   borderRadius: BorderRadius.circular(10),
                                   border: Border.all(
-                                    color: AppColors.formMasterAccent
-                                        .withValues(alpha: 0.2),
+                                    color: AppColors.formAccentOf(
+                                      context,
+                                    ).withValues(alpha: 0.2),
                                   ),
                                 ),
-                                child: const Icon(
+                                child: Icon(
                                   Icons.language,
-                                  color: AppColors.formMasterAccent,
+                                  color: AppColors.formAccentOf(context),
                                   size: 20,
                                 ),
                               ),
@@ -311,8 +312,8 @@ void showWorldEditDialog(
                               world == null ? 'Create World' : 'Save Changes',
                             ),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.formMasterAccent,
-                              foregroundColor: AppColors.onChaosAccent,
+                              backgroundColor: AppColors.formAccentOf(context),
+                              foregroundColor: AppColors.onAccentOf(context),
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 24,
                                 vertical: 12,

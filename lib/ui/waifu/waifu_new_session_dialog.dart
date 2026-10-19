@@ -68,7 +68,7 @@ class WaifuNewSessionDialog extends StatelessWidget {
             child: Text(
               initial.toUpperCase(),
               style: TextStyle(
-                color: AppColors.onChaosAccent,
+                color: AppColors.onAccentOf(context),
                 fontWeight: FontWeight.w900,
                 fontSize: 28,
               ),
@@ -96,7 +96,7 @@ class WaifuNewSessionDialog extends StatelessWidget {
           key: const Key('waifu-new-session-same'),
           style: FilledButton.styleFrom(
             backgroundColor: amber,
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           onPressed: () =>
               Navigator.pop(context, WaifuNewSessionChoice.sameCharacter),

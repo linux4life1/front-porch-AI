@@ -481,8 +481,8 @@ class _VoiceBrowserDialogState extends State<VoiceBrowserDialog> {
             icon: const Icon(Icons.download, size: 16),
             label: const Text('Download'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               textStyle: const TextStyle(fontSize: 13),
             ),

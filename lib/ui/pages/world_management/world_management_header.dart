@@ -39,7 +39,7 @@ class WorldManagementHeroHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accentColor = AppColors.formMasterAccent;
+    final accentColor = AppColors.formAccentOf(context);
 
     return AnimatedBuilder(
       animation: glow,
@@ -54,16 +54,8 @@ class WorldManagementHeroHeader extends StatelessWidget {
               end: Alignment.bottomRight,
               colors: [
                 accentColor.withValues(alpha: 0.08 + glow.value * 0.06),
-                AppColors.resolve(
-                  context,
-                  AppColors.card,
-                  AppColors.lightCard,
-                ).withValues(alpha: 0.9),
-                AppColors.resolve(
-                  context,
-                  AppColors.background,
-                  AppColors.lightBackground,
-                ).withValues(alpha: 0.95),
+                AppColors.cardOf(context).withValues(alpha: 0.9),
+                AppColors.backgroundOf(context).withValues(alpha: 0.95),
               ],
             ),
             border: Border.all(
@@ -154,7 +146,7 @@ class WorldManagementHeroHeader extends StatelessWidget {
                   IconButton(
                     icon: Icon(
                       Icons.travel_explore,
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                     ),
                     tooltip: 'Import Place (.fpworld)',
                     onPressed: () => importFpWorldFlow(context, repo),
@@ -164,8 +156,8 @@ class WorldManagementHeroHeader extends StatelessWidget {
                     icon: const Icon(Icons.menu_book_outlined, size: 18),
                     label: const Text('From Wiki'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.formMasterAccent,
-                      side: const BorderSide(color: AppColors.formMasterAccent),
+                      foregroundColor: AppColors.formAccentOf(context),
+                      side: BorderSide(color: AppColors.formAccentOf(context)),
                     ),
                     onPressed: () => Navigator.of(context).push(
                       MaterialPageRoute(
@@ -179,7 +171,7 @@ class WorldManagementHeroHeader extends StatelessWidget {
                     label: const Text('New World'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: accentColor,
-                      foregroundColor: AppColors.onChaosAccent,
+                      foregroundColor: AppColors.onAccentOf(context),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 16,
                         vertical: 8,
@@ -256,11 +248,9 @@ class WorldManagementStatsSection extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
-          color: AppColors.resolve(
+          color: AppColors.cardOf(
             context,
-            AppColors.card.withValues(alpha: 0.6),
-            AppColors.lightCard.withValues(alpha: 0.8),
-          ),
+          ).withValues(alpha: AppColors.isLight(context) ? 0.8 : 0.6),
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: AppColors.borderOf(context)),
         ),
@@ -271,7 +261,7 @@ class WorldManagementStatsSection extends StatelessWidget {
               icon: Icons.public,
               value: repo.placeWorlds.length.toString(),
               label: 'Places',
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
             ),
             _WorldStatItem(
               icon: Icons.library_books,
@@ -280,7 +270,7 @@ class WorldManagementStatsSection extends StatelessWidget {
                   .length
                   .toString(),
               label: 'Lore Entries',
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
             ),
             _WorldStatItem(
               icon: Icons.thermostat,
@@ -294,7 +284,7 @@ class WorldManagementStatsSection extends StatelessWidget {
                   .length
                   .toString(),
               label: 'Custom climates',
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
             ),
           ],
         ),

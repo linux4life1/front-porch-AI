@@ -334,7 +334,7 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                   onPressed: () => _startEditing(null),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
+                    foregroundColor: AppColors.onAccentOf(context),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 16,
                       vertical: 8,

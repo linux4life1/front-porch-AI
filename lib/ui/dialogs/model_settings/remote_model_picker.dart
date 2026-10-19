@@ -184,7 +184,7 @@ class _RemoteModelPickerDialogState extends State<RemoteModelPickerDialog> {
                       model.id,
                       style: TextStyle(
                         color: isSelected
-                            ? AppColors.formMasterAccent
+                            ? AppColors.formAccentOf(context)
                             : AppColors.textPrimary(context),
                         fontSize: 13,
                         fontWeight: isSelected
@@ -229,9 +229,9 @@ class _RemoteModelPickerDialogState extends State<RemoteModelPickerDialog> {
                       ],
                     ),
                     trailing: isSelected
-                        ? const Icon(
+                        ? Icon(
                             Icons.check_circle,
-                            color: AppColors.formMasterAccent,
+                            color: AppColors.formAccentOf(context),
                             size: 18,
                           )
                         : null,

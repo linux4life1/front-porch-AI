@@ -63,11 +63,11 @@ class TtsEngineSelector extends StatelessWidget {
           padding: const EdgeInsets.symmetric(vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? AppColors.formMasterAccent.withValues(alpha: 0.3)
+                ? AppColors.formAccentOf(context).withValues(alpha: 0.3)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
             border: selected
-                ? Border.all(color: AppColors.formMasterAccent, width: 1)
+                ? Border.all(color: AppColors.formAccentOf(context), width: 1)
                 : null,
           ),
           child: Column(
@@ -76,7 +76,7 @@ class TtsEngineSelector extends StatelessWidget {
                 label,
                 style: TextStyle(
                   color: selected
-                      ? AppColors.formMasterAccent
+                      ? AppColors.formAccentOf(context)
                       : AppColors.textSecondary(context),
                   fontSize: 12,
                   fontWeight: selected ? FontWeight.bold : FontWeight.normal,

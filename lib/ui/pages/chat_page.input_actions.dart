@@ -239,8 +239,8 @@ class ChatInputActionStrip {
               Icons.auto_awesome,
               color: AppColors.resolve(
                 context,
-                AppColors.formMasterAccent,
-                AppColors.formMasterAccent,
+                AppColors.formAccentOf(context),
+                AppColors.formAccentOf(context),
               ),
             ),
             padding: EdgeInsets.zero,
@@ -349,14 +349,14 @@ class ChatInputActionStrip {
             return const SizedBox.shrink();
           }
           if (sttService.isTranscribing) {
-            return const Padding(
+            return Padding(
               padding: EdgeInsets.symmetric(horizontal: 8.0),
               child: SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
             );

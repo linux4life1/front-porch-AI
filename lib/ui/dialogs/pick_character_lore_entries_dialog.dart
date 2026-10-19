@@ -299,16 +299,16 @@ class _PickCharacterLoreDialogState extends State<_PickCharacterLoreDialog> {
             ),
             leading: CircleAvatar(
               radius: 18,
-              backgroundColor: AppColors.formMasterAccent.withValues(
-                alpha: 0.18,
-              ),
+              backgroundColor: AppColors.formAccentOf(
+                context,
+              ).withValues(alpha: 0.18),
               backgroundImage: avatar,
               child: avatar != null
                   ? null
                   : Text(
                       initial,
                       style: TextStyle(
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         fontWeight: FontWeight.w700,
                         fontSize: 14,
                       ),

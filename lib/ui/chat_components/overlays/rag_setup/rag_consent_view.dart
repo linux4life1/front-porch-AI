@@ -87,12 +87,12 @@ class RagConsentView extends StatelessWidget {
               color: AppColors.borderOf(context).withValues(alpha: 0.12),
             ),
           ),
-          child: const Column(
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               InfoRow(
                 icon: Icons.download,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 text: 'Downloads a ~550 MB AI embedding model on first setup',
               ),
               SizedBox(height: 8),

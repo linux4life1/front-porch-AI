@@ -73,7 +73,7 @@ class ThinkingStrengthControl extends StatelessWidget {
         Text(
           caption.isEmpty
               ? 'How hard the model thinks before replying. The chips '
-                  'match the levels this model actually accepts.'
+                    'match the levels this model actually accepts.'
               : caption,
           style: TextStyle(
             color: AppColors.textTertiary(context),
@@ -107,9 +107,7 @@ class _StrengthChip extends StatelessWidget {
     final blurb = reasoningEffortBlurb(id);
 
     return Material(
-      color: selected
-          ? accent
-          : AppColors.surfaceContainerOf(context),
+      color: selected ? accent : AppColors.surfaceContainerOf(context),
       borderRadius: BorderRadius.circular(10),
       child: InkWell(
         onTap: onTap,
@@ -121,9 +119,7 @@ class _StrengthChip extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(10),
             border: Border.all(
-              color: selected
-                  ? accent
-                  : AppColors.borderOf(context),
+              color: selected ? accent : AppColors.borderOf(context),
               width: selected ? 1.5 : 1,
             ),
           ),
@@ -134,7 +130,7 @@ class _StrengthChip extends StatelessWidget {
                 title,
                 style: TextStyle(
                   color: selected
-                      ? AppColors.onChaosAccent
+                      ? AppColors.onAccentOf(context)
                       : AppColors.textPrimary(context),
                   fontWeight: FontWeight.w700,
                   fontSize: 14,
@@ -146,7 +142,7 @@ class _StrengthChip extends StatelessWidget {
                   blurb,
                   style: TextStyle(
                     color: selected
-                        ? AppColors.onChaosAccent.withValues(alpha: 0.85)
+                        ? AppColors.onAccentOf(context).withValues(alpha: 0.85)
                         : AppColors.textTertiary(context),
                     fontSize: 11,
                     height: 1.25,

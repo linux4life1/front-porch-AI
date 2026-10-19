@@ -84,10 +84,10 @@ class EditCharacterLorebookTab extends StatelessWidget {
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: accent
-            ? AppColors.formMasterAccent
+            ? AppColors.formAccentOf(context)
             : AppColors.surfaceContainerOf(context),
         foregroundColor: accent
-            ? AppColors.onChaosAccent
+            ? AppColors.onAccentOf(context)
             : AppColors.textPrimary(context),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),

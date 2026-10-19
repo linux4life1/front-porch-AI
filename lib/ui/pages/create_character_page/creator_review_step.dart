@@ -144,16 +144,16 @@ class CreatorReviewStep extends StatelessWidget {
                   Divider(color: AppColors.borderOf(context), height: 32),
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.menu_book,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         size: 18,
                       ),
                       const SizedBox(width: 8),
-                      const Text(
+                      Text(
                         'Lorebook Entries',
                         style: TextStyle(
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                         ),
@@ -177,9 +177,9 @@ class CreatorReviewStep extends StatelessWidget {
                         color: AppColors.cardOf(context),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: AppColors.formMasterAccent.withValues(
-                            alpha: 0.2,
-                          ),
+                          color: AppColors.formAccentOf(
+                            context,
+                          ).withValues(alpha: 0.2),
                         ),
                       ),
                       child: Column(
@@ -197,8 +197,8 @@ class CreatorReviewStep extends StatelessWidget {
                             const SizedBox(height: 2),
                             Text(
                               'Keys: ${entry.key}',
-                              style: const TextStyle(
-                                color: AppColors.formMasterAccent,
+                              style: TextStyle(
+                                color: AppColors.formAccentOf(context),
                                 fontSize: 11,
                               ),
                             ),

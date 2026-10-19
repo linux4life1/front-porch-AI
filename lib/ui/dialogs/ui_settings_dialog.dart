@@ -123,11 +123,11 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               const SizedBox(height: 20),
 
               // ── Chat Theme ──────────────────────────────────────────────
-              const Text(
+              Text(
                 'Chat Theme',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
               const SizedBox(height: 8),
@@ -199,11 +199,11 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               const SizedBox(height: 20),
 
               // ── Appearance ──────────────────────────────────────────────
-              const Text(
+              Text(
                 'Appearance',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
               const SizedBox(height: 12),
@@ -245,11 +245,11 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               const SizedBox(height: 20),
 
               // ── Chat Colors ─────────────────────────────────────────────
-              const Text(
+              Text(
                 'Chat Colors',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
               const SizedBox(height: 12),
@@ -271,11 +271,11 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
               const SizedBox(height: 20),
 
               // ── Chat Background ─────────────────────────────────────────
-              const Text(
+              Text(
                 'Chat Background',
                 style: TextStyle(
                   fontWeight: FontWeight.bold,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
               const SizedBox(height: 12),

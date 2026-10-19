@@ -214,8 +214,8 @@ class ElevenLabsTtsSettings extends StatelessWidget {
               icon: const Icon(Icons.refresh, size: 14),
               label: const Text('Refresh'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formAccentOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 14,

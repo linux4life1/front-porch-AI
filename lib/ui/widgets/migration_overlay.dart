@@ -58,9 +58,9 @@ class MigrationOverlay extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: AppColors.formMasterAccent.withValues(
-                          alpha: 0.3,
-                        ),
+                        color: AppColors.formAccentOf(
+                          context,
+                        ).withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
                       ),
@@ -111,7 +111,7 @@ class MigrationOverlay extends StatelessWidget {
                     minHeight: 8,
                     backgroundColor: Colors.white.withValues(alpha: 0.1),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      AppColors.formMasterAccent,
+                      AppColors.formAccentOf(context),
                     ),
                   ),
                 ),

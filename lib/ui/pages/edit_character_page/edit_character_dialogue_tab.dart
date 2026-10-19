@@ -50,7 +50,7 @@ class EditCharacterDialogueTab extends StatelessWidget {
               kit.sectionCard(
                 icon: Icons.chat_bubble_outline,
                 title: 'First Message',
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 children: [
                   kit.styledField(
                     controller: d.firstMessageController,
@@ -77,7 +77,7 @@ class EditCharacterDialogueTab extends StatelessWidget {
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add'),
                   style: TextButton.styleFrom(
-                    foregroundColor: AppColors.formMasterAccent,
+                    foregroundColor: AppColors.formAccentOf(context),
                   ),
                 ),
                 children: [

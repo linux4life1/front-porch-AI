@@ -185,6 +185,7 @@ class ChaosPanel extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                         color: chat.chaosModeService.hasPendingChaosEvent
                             ? AppColors.textTertiary(context)
+                            // theme-keep: ink on the chaos gold button.
                             : AppColors.onChaosAccent,
                         letterSpacing: 1.5,
                       ),

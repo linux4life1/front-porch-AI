@@ -230,7 +230,7 @@ class _WaifuLanguageHelpState extends State<WaifuLanguageHelp> {
                     onPressed: _addCustom,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: amber,
-                      foregroundColor: AppColors.onChaosAccent,
+                      foregroundColor: AppColors.onAccentOf(context),
                     ),
                     child: const Text('Add custom door'),
                   ),

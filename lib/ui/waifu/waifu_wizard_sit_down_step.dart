@@ -235,7 +235,7 @@ class WaifuWizardSitDownStep extends StatelessWidget {
                 label: Text(starting ? 'Starting…' : 'Start'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: amber,
-                  foregroundColor: AppColors.onChaosAccent,
+                  foregroundColor: AppColors.onAccentOf(context),
                   disabledBackgroundColor: AppColors.surfaceContainerOf(
                     context,
                   ),

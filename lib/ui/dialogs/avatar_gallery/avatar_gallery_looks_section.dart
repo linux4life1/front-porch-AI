@@ -83,7 +83,7 @@ class AvatarGalleryLooksSection extends StatelessWidget {
               : null,
           highlighted:
               _inChat && (selected == null || selected == kPortraitFaceId),
-          badgeColor: AppColors.formMasterAccent,
+          badgeColor: AppColors.formAccentOf(context),
         ),
       );
     } else {
@@ -110,7 +110,7 @@ class AvatarGalleryLooksSection extends StatelessWidget {
           onTap: _inChat ? () => controller.selectFaceInChat(look.id) : null,
           badge: _inChat && selected == look.id ? 'Showing' : null,
           highlighted: _inChat && selected == look.id,
-          badgeColor: AppColors.formMasterAccent,
+          badgeColor: AppColors.formAccentOf(context),
         ),
       );
     }
@@ -126,8 +126,8 @@ class AvatarGalleryLooksSection extends StatelessWidget {
           subtitle: _inChat
               ? 'Tap one to show it in this chat · ★ sets the default face'
               : portrait == null
-                  ? 'Set a portrait, or Add avatar · ★ is the card cover'
-                  : 'Outfits, scenes, moods · ★ sets the default + card cover',
+              ? 'Set a portrait, or Add avatar · ★ is the card cover'
+              : 'Outfits, scenes, moods · ★ sets the default + card cover',
         ),
         const SizedBox(height: 10),
         GridView.count(

@@ -152,8 +152,8 @@ class _LorebookExportPickerDialogState
           onChanged: (_) => _toggle(index),
           controlAffinity: ListTileControlAffinity.leading,
           dense: true,
-          activeColor: AppColors.formMasterAccent,
-          checkColor: AppColors.onChaosAccent,
+          activeColor: AppColors.formAccentOf(context),
+          checkColor: AppColors.onAccentOf(context),
           title: Text(
             title,
             maxLines: 2,
@@ -194,12 +194,14 @@ class _LorebookExportPickerDialogState
     final export = FilledButton(
       onPressed: _checked.isEmpty ? null : _export,
       style: FilledButton.styleFrom(
-        backgroundColor: AppColors.formMasterAccent,
-        foregroundColor: AppColors.onChaosAccent,
-        disabledBackgroundColor: AppColors.formMasterAccent.withValues(
-          alpha: 0.35,
-        ),
-        disabledForegroundColor: AppColors.onChaosAccent.withValues(alpha: 0.6),
+        backgroundColor: AppColors.formAccentOf(context),
+        foregroundColor: AppColors.onAccentOf(context),
+        disabledBackgroundColor: AppColors.formAccentOf(
+          context,
+        ).withValues(alpha: 0.35),
+        disabledForegroundColor: AppColors.onAccentOf(
+          context,
+        ).withValues(alpha: 0.6),
       ),
       child: const Text('Export'),
     );

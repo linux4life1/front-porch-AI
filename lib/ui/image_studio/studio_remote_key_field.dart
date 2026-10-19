@@ -80,7 +80,7 @@ class _StudioRemoteKeyFieldState extends State<StudioRemoteKeyField> {
                   onPressed: _save,
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
+                    foregroundColor: AppColors.onAccentOf(context),
                     shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,

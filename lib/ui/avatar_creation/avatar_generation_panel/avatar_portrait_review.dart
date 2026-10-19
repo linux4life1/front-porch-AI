@@ -150,8 +150,8 @@ class AvatarPortraitReviewCard extends StatelessWidget {
                 icon: const Icon(Icons.auto_awesome, size: 16),
                 label: Text('Use this → $n expression${n == 1 ? '' : 's'}'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
+                  backgroundColor: AppColors.formAccentOf(context),
+                  foregroundColor: AppColors.onAccentOf(context),
                   padding: const EdgeInsets.symmetric(vertical: 13),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),

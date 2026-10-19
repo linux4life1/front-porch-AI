@@ -95,7 +95,7 @@ class EditRecipeStrip extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 11.5,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                     ),
                   ),

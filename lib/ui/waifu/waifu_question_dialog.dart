@@ -132,7 +132,7 @@ class _WaifuQuestionDialogState extends State<WaifuQuestionDialog> {
           onPressed: canAnswer ? _submitCustom : null,
           style: FilledButton.styleFrom(
             backgroundColor: amber,
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           child: const Text('Answer'),
         ),

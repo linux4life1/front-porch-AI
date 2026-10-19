@@ -71,7 +71,7 @@ Future<void> showAttachPlacePicker(
               padding: const EdgeInsets.fromLTRB(16, 14, 8, 8),
               child: Row(
                 children: [
-                  Icon(Icons.public, color: AppColors.formMasterAccent),
+                  Icon(Icons.public, color: AppColors.formAccentOf(context)),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
@@ -103,7 +103,7 @@ Future<void> showAttachPlacePicker(
                     ),
                     leading: Icon(
                       Icons.public,
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                     ),
                     title: Text(
                       w.name,

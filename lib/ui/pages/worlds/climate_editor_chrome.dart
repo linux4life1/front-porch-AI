@@ -129,10 +129,7 @@ class ClimateEditorFooter extends StatelessWidget {
               foregroundColor: AppColors.textSecondary(context),
               side: BorderSide(color: AppColors.borderOf(context)),
               shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 20,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             ),
             onPressed: onCancel,
             child: const Text('Cancel'),
@@ -140,17 +137,16 @@ class ClimateEditorFooter extends StatelessWidget {
           const SizedBox(width: 10),
           FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
-              disabledBackgroundColor:
-                  AppColors.formMasterAccent.withValues(alpha: 0.45),
-              disabledForegroundColor:
-                  AppColors.onChaosAccent.withValues(alpha: 0.7),
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
+              disabledBackgroundColor: AppColors.formAccentOf(
+                context,
+              ).withValues(alpha: 0.45),
+              disabledForegroundColor: AppColors.onAccentOf(
+                context,
+              ).withValues(alpha: 0.7),
               shape: const StadiumBorder(),
-              padding: const EdgeInsets.symmetric(
-                horizontal: 22,
-                vertical: 10,
-              ),
+              padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 10),
               textStyle: const TextStyle(
                 fontSize: 13.5,
                 fontWeight: FontWeight.w600,

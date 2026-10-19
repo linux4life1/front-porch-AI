@@ -20,10 +20,6 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-// Theme-aware surfaces (dark values identical to the old hardcoded navy
-// tokens, so dark mode is unchanged; light mode finally gets light).
-const _borderFocus = AppColors.formMasterAccent;
-
 /// The character editor's shared section card, field and label builders,
 /// resolved against the [context] of the tab that builds them.
 class EditCharacterFormKit {
@@ -230,7 +226,7 @@ class EditCharacterFormKit {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: const BorderSide(color: _borderFocus),
+        borderSide: BorderSide(color: AppColors.formAccentOf(context)),
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),

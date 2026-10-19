@@ -28,9 +28,7 @@ Future<void> showExpandedEditorDialog({
       surfaceTintColor: Colors.transparent,
       elevation: 0,
       backgroundColor: AppColors.surfaceOf(ctx),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: SizedBox(
         width: double.infinity,
         height: double.infinity,
@@ -74,8 +72,8 @@ Future<void> showExpandedEditorDialog({
                     icon: const Icon(Icons.check, size: 16),
                     label: const Text('Apply'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.formMasterAccent,
-                      foregroundColor: AppColors.onChaosAccent,
+                      backgroundColor: AppColors.formAccentOf(context),
+                      foregroundColor: AppColors.onAccentOf(context),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -109,9 +107,7 @@ Future<void> showExpandedEditorDialog({
                   decoration: InputDecoration(
                     hoverColor: Colors.transparent,
                     hintText: hintText.isNotEmpty ? hintText : null,
-                    hintStyle: TextStyle(
-                      color: AppColors.textSecondary(ctx),
-                    ),
+                    hintStyle: TextStyle(color: AppColors.textSecondary(ctx)),
                     filled: true,
                     fillColor: AppColors.surfaceContainerOf(ctx),
                     border: OutlineInputBorder(
@@ -120,7 +116,9 @@ Future<void> showExpandedEditorDialog({
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.formMasterAccent),
+                      borderSide: BorderSide(
+                        color: AppColors.formAccentOf(context),
+                      ),
                     ),
                     contentPadding: const EdgeInsets.all(16),
                   ),
@@ -134,5 +132,7 @@ Future<void> showExpandedEditorDialog({
   );
   // Defer disposal to end of frame so the dialog's widget tree fully detaches
   // before the controller is invalidated.
-  WidgetsBinding.instance.addPostFrameCallback((_) => expandedController.dispose());
+  WidgetsBinding.instance.addPostFrameCallback(
+    (_) => expandedController.dispose(),
+  );
 }

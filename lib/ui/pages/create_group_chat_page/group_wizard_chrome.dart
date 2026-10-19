@@ -229,7 +229,7 @@ class GroupWizardNavButtons extends StatelessWidget {
                 label: Text(nextText, style: const TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
+                  foregroundColor: AppColors.onAccentOf(context),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

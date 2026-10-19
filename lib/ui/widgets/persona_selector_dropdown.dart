@@ -58,7 +58,7 @@ class PersonaSelectorDropdown extends StatelessWidget {
                   size: 16,
                   color:
                       context.creatorPalette?.amber ??
-                      AppColors.formMasterAccent,
+                      AppColors.formAccentOf(context),
                 ),
                 const SizedBox(width: 8),
                 Flexible(

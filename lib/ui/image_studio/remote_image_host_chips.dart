@@ -65,10 +65,10 @@ class _HostTile extends StatelessWidget {
     final accent = AppColors.porchAmberOf(context);
     final selected = tile.selected;
     final fg = selected
-        ? AppColors.onChaosAccent
+        ? AppColors.onAccentOf(context)
         : AppColors.textPrimary(context);
     final sub = selected
-        ? AppColors.onChaosAccent
+        ? AppColors.onAccentOf(context)
         : tile.usable
         ? AppColors.textSecondary(context)
         : accent;

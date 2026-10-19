@@ -73,7 +73,7 @@ class CharacterNameInput extends StatelessWidget {
             fillColor: p?.fieldFill ?? AppColors.surfaceContainerOf(context),
             border: outline(line),
             enabledBorder: outline(line),
-            focusedBorder: outline(p?.amber ?? AppColors.formMasterAccent),
+            focusedBorder: outline(p?.amber ?? AppColors.formAccentOf(context)),
             contentPadding: p == null
                 ? const EdgeInsets.symmetric(horizontal: 16, vertical: 14)
                 : const EdgeInsets.symmetric(horizontal: 12, vertical: 11),

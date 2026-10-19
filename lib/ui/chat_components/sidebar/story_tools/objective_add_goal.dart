@@ -140,7 +140,7 @@ class _ObjectiveAddGoalState extends State<ObjectiveAddGoal> {
               onPressed: () => _submitGoal(isPrimary: true),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.taskAccentOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+                foregroundColor: AppColors.onAccentOf(context),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 10,
                   vertical: 0,

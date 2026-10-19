@@ -39,7 +39,8 @@ class RagEngineCard extends StatelessWidget {
     final downloading = emb.isSettingUp;
     final progress = emb.setupProgress;
     final hasProgress = downloading && progress >= 0 && progress <= 1;
-    final failed = emb.setupError != null ||
+    final failed =
+        emb.setupError != null ||
         (!emb.isAvailable && emb.modelOnDisk && emb.lastEngineError != null);
     final needsDownload = !emb.isAvailable && !emb.modelOnDisk && !downloading;
 
@@ -73,7 +74,10 @@ class RagEngineCard extends StatelessWidget {
                 Container(
                   width: 8,
                   height: 8,
-                  decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
                 ),
               const SizedBox(width: 8),
               Expanded(
@@ -137,17 +141,17 @@ class RagEngineCard extends StatelessWidget {
                 icon: Icon(
                   failed ? Icons.refresh : Icons.download,
                   size: 14,
-                  color: AppColors.onChaosAccent,
+                  color: AppColors.onAccentOf(context),
                 ),
                 label: Text(
                   failed ? 'Retry setup' : 'Download model (~550 MB)',
                   style: TextStyle(
                     fontSize: 11,
-                    color: AppColors.onChaosAccent,
+                    color: AppColors.onAccentOf(context),
                   ),
                 ),
                 style: TextButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
+                  backgroundColor: AppColors.formAccentOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 10,
                     vertical: 6,
@@ -183,11 +187,7 @@ class RagEngineCard extends StatelessWidget {
       );
     }
     if (emb.setupError != null) {
-      return (
-        red,
-        'Setup failed',
-        _friendlyError(emb.setupError!),
-      );
+      return (red, 'Setup failed', _friendlyError(emb.setupError!));
     }
     if (emb.modelOnDisk) {
       if (emb.lastEngineError != null) {
@@ -209,11 +209,7 @@ class RagEngineCard extends StatelessWidget {
   /// Strip StateError/Exception noise so the sidebar shows a human line.
   String _friendlyError(String raw) {
     var s = raw.trim();
-    for (final prefix in const [
-      'Bad state: ',
-      'Exception: ',
-      'StateError: ',
-    ]) {
+    for (final prefix in const ['Bad state: ', 'Exception: ', 'StateError: ']) {
       if (s.startsWith(prefix)) s = s.substring(prefix.length);
     }
     if (s.length > 220) s = '${s.substring(0, 217)}…';

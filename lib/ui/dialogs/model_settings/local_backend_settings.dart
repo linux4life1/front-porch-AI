@@ -116,8 +116,8 @@ class LocalBackendSettings extends StatelessWidget {
                   : (koboldRunning ? 'Restart Backend' : 'Start Backend'),
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
               padding: const EdgeInsets.symmetric(vertical: 16),
             ),
           ),

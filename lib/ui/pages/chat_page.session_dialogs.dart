@@ -86,8 +86,8 @@ Future<void> importChatPackageFile(BuildContext context) async {
               ElevatedButton(
                 onPressed: () => Navigator.pop(ctx, true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
+                  backgroundColor: AppColors.formAccentOf(context),
+                  foregroundColor: AppColors.onAccentOf(context),
                 ),
                 child: const Text('Full restore'),
               ),
@@ -109,7 +109,10 @@ Future<void> importChatPackageFile(BuildContext context) async {
               : 'Chat imported (dialogue only)');
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: AppColors.formMasterAccent),
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: AppColors.formAccentOf(context),
+      ),
     );
   } catch (e) {
     if (!context.mounted) return;
@@ -139,7 +142,7 @@ Future<void> exportChatFile(BuildContext context) async {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('No chat to export'),
-          backgroundColor: AppColors.formMasterAccent,
+          backgroundColor: AppColors.formAccentOf(context),
         ),
       );
       return;
@@ -163,8 +166,8 @@ Future<void> exportChatFile(BuildContext context) async {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, 'fpchat'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             child: const Text('Full Front Porch'),
           ),
@@ -190,7 +193,7 @@ Future<void> exportChatFile(BuildContext context) async {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('No chat to export'),
-            backgroundColor: AppColors.formMasterAccent,
+            backgroundColor: AppColors.formAccentOf(context),
           ),
         );
         return;
@@ -213,7 +216,7 @@ Future<void> exportChatFile(BuildContext context) async {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: const Text('No chat to export'),
-            backgroundColor: AppColors.formMasterAccent,
+            backgroundColor: AppColors.formAccentOf(context),
           ),
         );
         return;
@@ -240,7 +243,7 @@ Future<void> exportChatFile(BuildContext context) async {
               ? 'Full Front Porch chat exported'
               : 'Transcript exported',
         ),
-        backgroundColor: AppColors.formMasterAccent,
+        backgroundColor: AppColors.formAccentOf(context),
       ),
     );
   } catch (e) {

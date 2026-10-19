@@ -73,7 +73,8 @@ class ExpressionsSection extends StatelessWidget {
               Switch(
                 value: packOn,
                 activeTrackColor:
-                    context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                    context.creatorPalette?.amber ??
+                    AppColors.formAccentOf(context),
                 onChanged: (c.packPossible && !c.running)
                     ? c.setPackEnabled
                     : null,
@@ -87,7 +88,7 @@ class ExpressionsSection extends StatelessWidget {
                   style: TextButton.styleFrom(
                     foregroundColor:
                         context.creatorPalette?.amber ??
-                        AppColors.formMasterAccent,
+                        AppColors.formAccentOf(context),
                   ),
                   child: const Text('Prompt rules…'),
                 ),
@@ -102,14 +103,14 @@ class ExpressionsSection extends StatelessWidget {
                           strokeWidth: 2,
                           color:
                               context.creatorPalette?.amber ??
-                              AppColors.formMasterAccent,
+                              AppColors.formAccentOf(context),
                         ),
                       )
                     : Switch(
                         value: c.qcEnabled,
                         activeTrackColor:
                             context.creatorPalette?.amber ??
-                            AppColors.formMasterAccent,
+                            AppColors.formAccentOf(context),
                         onChanged: c.running ? null : c.setQcEnabled,
                       ),
               ],
@@ -251,7 +252,7 @@ class ExpressionsSection extends StatelessWidget {
     // logReady = the app-wide green "ready" status hue (AppColors const).
     final color = ok
         ? AppColors.logReady
-        : context.creatorPalette?.amber ?? AppColors.formMasterAccent;
+        : context.creatorPalette?.amber ?? AppColors.formAccentOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -300,10 +301,12 @@ class ExpressionsSection extends StatelessWidget {
             label: const Text('Import ZIP', style: TextStyle(fontSize: 12)),
             style: OutlinedButton.styleFrom(
               foregroundColor:
-                  context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                  context.creatorPalette?.amber ??
+                  AppColors.formAccentOf(context),
               side: BorderSide(
                 color:
-                    context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                    context.creatorPalette?.amber ??
+                    AppColors.formAccentOf(context),
               ),
               visualDensity: VisualDensity.compact,
             ),

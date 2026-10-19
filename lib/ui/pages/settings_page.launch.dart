@@ -190,7 +190,7 @@ class AdvancedLaunchOptions extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           fontSize: 13,
                           color: isSelected
-                              ? AppColors.onChaosAccent
+                              ? AppColors.onAccentOf(context)
                               : AppColors.textTertiary(context),
                         ),
                       ),
@@ -269,7 +269,7 @@ class AdvancedLaunchOptions extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                           fontSize: 12,
                           color: isSelected
-                              ? AppColors.onChaosAccent
+                              ? AppColors.onAccentOf(context)
                               : AppColors.textTertiary(context),
                         ),
                       ),
@@ -333,7 +333,7 @@ class AdvancedLaunchOptions extends StatelessWidget {
                       ),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: accent,
-                        foregroundColor: AppColors.onChaosAccent,
+                        foregroundColor: AppColors.onAccentOf(context),
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),

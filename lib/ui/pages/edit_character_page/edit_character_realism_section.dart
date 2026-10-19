@@ -51,10 +51,10 @@ class EditCharacterRealismSection extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: AppColors.formMasterAccent.withValues(alpha: 0.08),
+            color: AppColors.formAccentOf(context).withValues(alpha: 0.08),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: AppColors.formMasterAccent.withValues(alpha: 0.2),
+              color: AppColors.formAccentOf(context).withValues(alpha: 0.2),
             ),
           ),
           child: Row(
@@ -67,7 +67,9 @@ class EditCharacterRealismSection extends StatelessWidget {
                   'These settings only affect new conversations with this character — '
                   'your existing chats won\'t be changed. No cheating with the relationship values!',
                   style: TextStyle(
-                    color: AppColors.formMasterAccent.withValues(alpha: 0.8),
+                    color: AppColors.formAccentOf(
+                      context,
+                    ).withValues(alpha: 0.8),
                     fontSize: 12,
                     height: 1.4,
                   ),

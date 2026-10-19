@@ -216,12 +216,12 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
           color: AppColors.cardOf(context),
           borderRadius: BorderRadius.circular(12),
         ),
-        child: const Center(
+        child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               CircularProgressIndicator(
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 strokeWidth: 2,
               ),
               SizedBox(height: 8),

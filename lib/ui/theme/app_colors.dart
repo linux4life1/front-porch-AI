@@ -209,13 +209,18 @@ class AppColors {
   static Color trustHighOf(BuildContext context) =>
       resolve(context, trustHigh, trustHighLight);
 
-  /// Generic "primary accent" for forms, dialogs, Image Studio, and the
-  /// avatar gallery (icons, badges, borders, primary buttons). Warm-porch:
-  /// this is now porch amber (was Colors.blueAccent) so the ~30 files that key
-  /// off it warm up in one place. It is a single const (not brightness-aware);
-  /// on an amber button background use [onChaosAccent] for the foreground so
-  /// text stays readable in dark mode (white-on-amber is too low-contrast).
+  /// Porch's form accent. UI code reads [formAccentOf] so the app theme
+  /// can retint it; this constant only seeds the Porch palette.
   static const Color formMasterAccent = porchAmber;
+
+  /// Accent for forms, dialogs, Image Studio and the avatar gallery (icons,
+  /// badges, borders, primary buttons). Put [onAccentOf] on a solid fill.
+  static Color formAccentOf(BuildContext context) =>
+      AppPalette.of(context).formAccent;
+
+  /// Text and icons on a solid accent fill.
+  static Color onAccentOf(BuildContext context) =>
+      AppPalette.of(context).onAccent;
 
   static const Color relationshipAccent = Colors.pinkAccent;
   static const Color relationshipAccentLight = Color(0xFFC2185B);
@@ -301,7 +306,8 @@ class AppColors {
   static Color chaosAccentDimOf(BuildContext context) =>
       resolve(context, chaosAccentDim, chaosAccentDimLight);
 
-  /// Text/icon color on the chaos gold button (both modes).
+  /// Text/icon color on the chaos gold button (both modes). On a themed
+  /// accent fill use [onAccentOf].
   static const Color onChaosAccent = Color(0xFF1A1200);
 
   /// Readable ink on a solid [fill]: dark on a bright one (dark mode's

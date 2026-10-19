@@ -60,19 +60,19 @@ class KokoroTtsSettings extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const SizedBox(
+                        SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppColors.formMasterAccent,
+                            color: AppColors.formAccentOf(context),
                           ),
                         ),
                         const SizedBox(width: 8),
                         Text(
                           'Downloading Kokoro model (${(tts.modelDownloadProgress * 100).toInt()}%)...',
-                          style: const TextStyle(
-                            color: AppColors.formMasterAccent,
+                          style: TextStyle(
+                            color: AppColors.formAccentOf(context),
                             fontSize: 11,
                           ),
                         ),
@@ -82,7 +82,7 @@ class KokoroTtsSettings extends StatelessWidget {
                     LinearProgressIndicator(
                       value: tts.modelDownloadProgress,
                       backgroundColor: AppColors.borderOf(context),
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                       minHeight: 4,
                       borderRadius: BorderRadius.circular(2),
                     ),
@@ -117,9 +117,9 @@ class KokoroTtsSettings extends StatelessWidget {
                     }
                     return Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.download_rounded,
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           size: 16,
                         ),
                         const SizedBox(width: 8),
@@ -156,8 +156,8 @@ class KokoroTtsSettings extends StatelessWidget {
                           icon: const Icon(Icons.download, size: 14),
                           label: const Text('Download'),
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.formMasterAccent,
-                            foregroundColor: AppColors.onChaosAccent,
+                            backgroundColor: AppColors.formAccentOf(context),
+                            foregroundColor: AppColors.onAccentOf(context),
                             padding: const EdgeInsets.symmetric(
                               horizontal: 12,
                               vertical: 6,
@@ -212,8 +212,8 @@ class KokoroTtsSettings extends StatelessWidget {
                 value: '__header_${entry.key}',
                 child: Text(
                   entry.key,
-                  style: const TextStyle(
-                    color: AppColors.formMasterAccent,
+                  style: TextStyle(
+                    color: AppColors.formAccentOf(context),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                   ),

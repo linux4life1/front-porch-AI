@@ -68,10 +68,10 @@ Future<String?> showUploadTagDialog(BuildContext context, Uint8List bytes) {
               ),
               const SizedBox(height: 14),
               ActionChip(
-                avatar: const Icon(
+                avatar: Icon(
                   Icons.checkroom,
                   size: 15,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
                 label: const Text('Gallery look (outfit / scene — no emotion)'),
                 labelStyle: TextStyle(

@@ -222,14 +222,14 @@ class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
                     Icon(
                       Icons.code,
                       size: 16,
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                     ),
                     SizedBox(width: 6),
                     Text(
                       'Group System Prompt',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         fontSize: 13,
                       ),
                     ),
@@ -274,8 +274,8 @@ class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: const BorderSide(
-                        color: AppColors.formMasterAccent,
+                      borderSide: BorderSide(
+                        color: AppColors.formAccentOf(context),
                       ),
                     ),
                     contentPadding: const EdgeInsets.all(10),

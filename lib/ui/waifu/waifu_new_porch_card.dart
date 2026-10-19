@@ -116,7 +116,7 @@ class _WaifuNewPorchCardState extends State<WaifuNewPorchCard> {
                           child: Icon(
                             Icons.add_rounded,
                             size: 44,
-                            color: AppColors.onChaosAccent,
+                            color: AppColors.onAccentOf(context),
                           ),
                         ),
                         const SizedBox(height: 14),

@@ -187,9 +187,12 @@ down.
 - Sync I/O (`existsSync`, `readAs*Sync`, `Process.runSync`, …) is banned in
   widget `build` / per-frame paths. CI `io-lint` fails **new** sync I/O under
   `lib/ui/**` unless the line has `// io-ok: <reason>`.
-- UI uses `AppColors` only. New chrome accents:
-  `AppColors.formMasterAccent` or `AppColors.porchAmberOf(context)`;
-  `AppColors.onChaosAccent` on solid amber. CI `theme-lint` fails new
+- UI uses `AppColors` only, through the `*Of(context)` helpers that read
+  the app theme (`AppPalette`). New chrome accents:
+  `AppColors.formAccentOf(context)` or `AppColors.porchAmberOf(context)`;
+  `AppColors.onAccentOf(context)` on a solid accent fill. A bare palette
+  constant (`formMasterAccent`, `onChaosAccent`, …) in UI code stays Porch
+  under every theme. CI `theme-lint` fails new
   `Colors.blueAccent` under `lib/` unless `// theme-keep: <reason>` and the
   colour is a genuine semantic status hue the maintainer approved **in this
   conversation**. Two ratchets in `test/hygiene/` (`raw_colors_ratchet_test`,

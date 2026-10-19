@@ -120,7 +120,7 @@ class CalendarMonthGrid extends StatelessWidget {
                 fontSize: 11,
                 fontWeight: isCurrent ? FontWeight.w700 : FontWeight.w400,
                 color: isCurrent
-                    ? AppColors.onChaosAccent
+                    ? AppColors.onAccentOf(context)
                     : inStory
                     ? AppColors.textPrimary(context)
                     : AppColors.textTertiary(context).withValues(alpha: 0.45),
@@ -134,7 +134,9 @@ class CalendarMonthGrid extends StatelessWidget {
                       height: 4,
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: isCurrent ? AppColors.onChaosAccent : amber,
+                        color: isCurrent
+                            ? AppColors.onAccentOf(context)
+                            : amber,
                       ),
                     )
                   : null,

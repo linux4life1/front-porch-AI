@@ -107,7 +107,7 @@ class CreatorPortraitStep extends StatelessWidget {
               label: const Text('Done', style: TextStyle(fontSize: 16)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+                foregroundColor: AppColors.onAccentOf(context),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),

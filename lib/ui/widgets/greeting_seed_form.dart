@@ -97,7 +97,8 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: enabled
-              ? (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+              ? (context.creatorPalette?.amber ??
+                        AppColors.formAccentOf(context))
                     .withValues(alpha: 0.4)
               : context.creatorPalette?.line ?? AppColors.borderOf(context),
         ),
@@ -110,7 +111,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
             decoration: BoxDecoration(
               color: enabled
                   ? (context.creatorPalette?.amber ??
-                            AppColors.formMasterAccent)
+                            AppColors.formAccentOf(context))
                         .withValues(alpha: 0.2)
                   : (context.creatorPalette?.raise ??
                             AppColors.surfaceContainerOf(context))
@@ -120,7 +121,8 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
             child: Icon(
               Icons.tune,
               color: enabled
-                  ? context.creatorPalette?.amber ?? AppColors.formMasterAccent
+                  ? context.creatorPalette?.amber ??
+                        AppColors.formAccentOf(context)
                   : context.creatorPalette?.muted ??
                         AppColors.iconSecondary(context),
               size: 24,
@@ -151,7 +153,7 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
                   style: TextStyle(
                     color: enabled
                         ? context.creatorPalette?.amber ??
-                              AppColors.formMasterAccent
+                              AppColors.formAccentOf(context)
                         : context.creatorPalette?.muted ??
                               AppColors.textTertiary(context),
                     fontSize: 12,
@@ -173,10 +175,12 @@ class _GreetingSeedFormState extends State<GreetingSeedForm> {
               }
             },
             activeTrackColor:
-                (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+                (context.creatorPalette?.amber ??
+                        AppColors.formAccentOf(context))
                     .withValues(alpha: 0.5),
             activeThumbColor:
-                context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                context.creatorPalette?.amber ??
+                AppColors.formAccentOf(context),
           ),
         ],
       ),

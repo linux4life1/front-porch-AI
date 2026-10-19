@@ -92,9 +92,9 @@ class _StopSequenceListState extends State<StopSequenceList> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.add_circle,
-                    color: AppColors.formMasterAccent,
+                    color: AppColors.formAccentOf(context),
                     size: 22,
                   ),
                   onPressed: () => _add(_controller.text),

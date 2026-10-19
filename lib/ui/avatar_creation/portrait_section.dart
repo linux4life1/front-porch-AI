@@ -106,7 +106,7 @@ class PortraitSection extends StatelessWidget {
     }) {
       final selected = c.source == s;
       final accent =
-          context.creatorPalette?.amber ?? AppColors.formMasterAccent;
+          context.creatorPalette?.amber ?? AppColors.formAccentOf(context);
       return Expanded(
         child: GestureDetector(
           onTap: (enabled && !c.running) ? () => c.setSource(s) : null,
@@ -192,12 +192,14 @@ class PortraitSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(11),
       decoration: BoxDecoration(
-        color: (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
-            .withValues(alpha: 0.08),
+        color:
+            (context.creatorPalette?.amber ?? AppColors.formAccentOf(context))
+                .withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(9),
         border: Border.all(
-          color: (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
-              .withValues(alpha: 0.3),
+          color:
+              (context.creatorPalette?.amber ?? AppColors.formAccentOf(context))
+                  .withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -225,7 +227,8 @@ class PortraitSection extends StatelessWidget {
             },
             style: TextButton.styleFrom(
               foregroundColor:
-                  context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                  context.creatorPalette?.amber ??
+                  AppColors.formAccentOf(context),
             ),
             child: const Text('Set up', style: TextStyle(fontSize: 12)),
           ),
@@ -304,7 +307,8 @@ class PortraitSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(10),
               borderSide: BorderSide(
                 color:
-                    context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                    context.creatorPalette?.amber ??
+                    AppColors.formAccentOf(context),
               ),
             ),
           ),

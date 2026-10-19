@@ -85,7 +85,7 @@ class EnhanceChatsCopyStep extends StatelessWidget {
               onPressed: copying ? null : onCopy,
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+                foregroundColor: AppColors.onAccentOf(context),
               ),
               icon: copying
                   ? const SizedBox(

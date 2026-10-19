@@ -24,11 +24,11 @@ class StudioSizePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final accent = AppColors.formMasterAccent;
+    final accent = AppColors.formAccentOf(context);
     return TextButton(
       onPressed: onPressed,
       style: TextButton.styleFrom(
-        foregroundColor: selected ? AppColors.onChaosAccent : accent,
+        foregroundColor: selected ? AppColors.onAccentOf(context) : accent,
         backgroundColor: selected ? accent : null,
         padding: tall
             ? const EdgeInsets.symmetric(horizontal: 16, vertical: 10)

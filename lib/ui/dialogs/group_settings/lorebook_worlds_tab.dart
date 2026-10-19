@@ -246,7 +246,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                 GroupSectionHeader(
                   'Places',
                   Icons.public,
-                  AppColors.formMasterAccent,
+                  AppColors.formAccentOf(context),
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -284,9 +284,9 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                         label: Text(label),
                         selected: selected,
                         onSelected: (_) => _toggleWorld(w),
-                        selectedColor: AppColors.formMasterAccent.withValues(
-                          alpha: 0.3,
-                        ),
+                        selectedColor: AppColors.formAccentOf(
+                          context,
+                        ).withValues(alpha: 0.3),
                       );
                     }).toList(),
                   ),
@@ -327,7 +327,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                       label: Text('Add Entry'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.orangeAccent,
-                        foregroundColor: AppColors.onChaosAccent,
+                        foregroundColor: AppColors.onAccentOf(context),
                       ),
                     ),
                   ],

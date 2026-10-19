@@ -192,7 +192,7 @@ class _StudioModelSheetState extends State<StudioModelSheet> {
           child: Text(
             family == ModelFamily.unknown ? 'Other' : family.label,
             style: TextStyle(
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
               fontSize: 12,
               fontWeight: FontWeight.w700,
             ),

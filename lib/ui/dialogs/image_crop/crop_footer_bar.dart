@@ -86,19 +86,19 @@ class CropFooterBar extends StatelessWidget {
           ElevatedButton.icon(
             onPressed: (isCropping || !ready) ? null : onCropAndSave,
             icon: isCropping
-                ? const SizedBox(
+                ? SizedBox(
                     width: 16,
                     height: 16,
                     child: CircularProgressIndicator(
                       strokeWidth: 2,
-                      color: AppColors.onChaosAccent,
+                      color: AppColors.onAccentOf(context),
                     ),
                   )
                 : const Icon(Icons.crop_sharp, size: 18),
             label: Text(isCropping ? 'Cropping...' : 'Crop & Save'),
             style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
-              foregroundColor: AppColors.onChaosAccent,
+              foregroundColor: AppColors.onAccentOf(context),
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),

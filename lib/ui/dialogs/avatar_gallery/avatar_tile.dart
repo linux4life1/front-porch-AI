@@ -100,7 +100,7 @@ class AvatarTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ring = badgeColor ?? AppColors.formMasterAccent;
+    final ring = badgeColor ?? AppColors.formAccentOf(context);
     final scrim = AppColors.resolve(
       context,
       Colors.black.withValues(alpha: 0.55),
@@ -167,7 +167,7 @@ class AvatarTile extends StatelessWidget {
                     ? 'Canonical avatar'
                     : 'Set as canonical avatar',
                 onTap: onStar,
-                bg: starred ? AppColors.formMasterAccent : scrim,
+                bg: starred ? AppColors.formAccentOf(context) : scrim,
                 fg: onScrim,
               ),
             ),

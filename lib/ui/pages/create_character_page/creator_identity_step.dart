@@ -116,9 +116,9 @@ class CreatorIdentityStep extends StatelessWidget {
             const SizedBox(width: 8),
             IconButton(
               onPressed: () => _addTag(draft.tagController.text),
-              icon: const Icon(
+              icon: Icon(
                 Icons.add_circle,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
               ),
               tooltip: 'Add tag',
             ),

@@ -149,8 +149,8 @@ class CreatorReviewField extends StatelessWidget {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              color: AppColors.formMasterAccent,
+            style: TextStyle(
+              color: AppColors.formAccentOf(context),
               fontSize: 13,
               fontWeight: FontWeight.w600,
             ),
@@ -177,7 +177,7 @@ class CreatorReviewField extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(color: AppColors.formMasterAccent),
+                borderSide: BorderSide(color: AppColors.formAccentOf(context)),
               ),
               contentPadding: const EdgeInsets.all(14),
             ),

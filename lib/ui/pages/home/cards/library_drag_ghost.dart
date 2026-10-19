@@ -172,7 +172,7 @@ class LibraryDragGhost extends StatelessWidget {
                     // sketch), white on the light theme's deep one.
                     color: AppColors.resolve(
                       context,
-                      AppColors.onChaosAccent,
+                      AppColors.onAccentOf(context),
                       AppColors.userTextLight,
                     ),
                   ),

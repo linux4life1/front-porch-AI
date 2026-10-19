@@ -311,7 +311,7 @@ Widget warmDialogConfirm(
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
       foregroundColor: onBright
-          ? AppColors.onChaosAccent
+          ? AppColors.onAccentOf(context)
           : AppColors.resolve(context, Colors.white, Colors.white),
     ),
     onPressed: onPressed,

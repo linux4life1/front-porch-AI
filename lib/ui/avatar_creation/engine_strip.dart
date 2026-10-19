@@ -159,7 +159,8 @@ class EngineStrip extends StatelessWidget {
         height: 14,
         child: CircularProgressIndicator(
           strokeWidth: 2,
-          color: context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+          color:
+              context.creatorPalette?.amber ?? AppColors.formAccentOf(context),
         ),
       );
     }
@@ -188,7 +189,7 @@ class EngineStrip extends StatelessWidget {
     // logReady = the app-wide green "connected" status hue (AppColors const).
     final color = ok
         ? AppColors.logReady
-        : context.creatorPalette?.amber ?? AppColors.formMasterAccent;
+        : context.creatorPalette?.amber ?? AppColors.formAccentOf(context);
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [

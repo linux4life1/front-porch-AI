@@ -56,9 +56,9 @@ class EditCharacterScaffold extends StatelessWidget {
         ),
         title: Row(
           children: [
-            const Icon(
+            Icon(
               Icons.edit_note,
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
               size: 22,
             ),
             const SizedBox(width: 8),
@@ -88,8 +88,8 @@ class EditCharacterScaffold extends StatelessWidget {
               ),
               label: Text(saveLabel),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formAccentOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),
@@ -103,9 +103,9 @@ class EditCharacterScaffold extends StatelessWidget {
         ],
         bottom: TabBar(
           controller: tabController,
-          labelColor: AppColors.formMasterAccent,
+          labelColor: AppColors.formAccentOf(context),
           unselectedLabelColor: AppColors.textTertiary(context),
-          indicatorColor: AppColors.formMasterAccent,
+          indicatorColor: AppColors.formAccentOf(context),
           indicatorWeight: 3,
           tabs: const [
             Tab(icon: Icon(Icons.person_outline, size: 18), text: 'Details'),
@@ -142,7 +142,7 @@ class EditCharacterScaffold extends StatelessWidget {
         ? AppColors.negativeAccentOf(context)
         : estimatedTokens > 2000
         ? AppColors.porchTerracottaOf(context)
-        : AppColors.formMasterAccent;
+        : AppColors.formAccentOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(

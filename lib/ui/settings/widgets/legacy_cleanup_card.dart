@@ -81,8 +81,8 @@ class _LegacyCleanupCardState extends State<LegacyCleanupCard> {
         ElevatedButton(
           onPressed: () => Navigator.of(context).pop(true),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.formMasterAccent,
-            foregroundColor: AppColors.onChaosAccent,
+            backgroundColor: AppColors.formAccentOf(context),
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           child: const Text('Delete old models'),
         ),
@@ -152,19 +152,19 @@ class _LegacyCleanupCardState extends State<LegacyCleanupCard> {
                 child: ElevatedButton.icon(
                   onPressed: _working ? null : _confirmAndReclaim,
                   icon: _working
-                      ? const SizedBox(
+                      ? SizedBox(
                           width: 14,
                           height: 14,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            color: AppColors.onChaosAccent,
+                            color: AppColors.onAccentOf(context),
                           ),
                         )
                       : const Icon(Icons.cleaning_services_outlined, size: 16),
                   label: Text('Reclaim ${formatBytes(total)}'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.formMasterAccent,
-                    foregroundColor: AppColors.onChaosAccent,
+                    backgroundColor: AppColors.formAccentOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
                   ),
                 ),
               ),

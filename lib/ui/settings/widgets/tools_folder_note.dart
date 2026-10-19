@@ -117,7 +117,7 @@ class _ToolsFolderNoteState extends State<ToolsFolderNote> {
             key: const Key('tools-choose-json'),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
-              foregroundColor: AppColors.onChaosAccent,
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             onPressed: _busy ? null : _chooseFiles,
             icon: const Icon(Icons.file_open, size: 16),

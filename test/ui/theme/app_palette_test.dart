@@ -5,6 +5,8 @@
 // far) must paint exactly what the hardcoded helpers painted, and any other
 // installed palette must reach every helper, including Porch Stories'.
 
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -33,6 +35,8 @@ Map<String, Color> _helpers(BuildContext c) => {
   'porchHoneyOf': AppColors.porchHoneyOf(c),
   'porchTerracottaOf': AppColors.porchTerracottaOf(c),
   'journalAccentOf': AppColors.journalAccentOf(c),
+  'formAccentOf': AppColors.formAccentOf(c),
+  'onAccentOf': AppColors.onAccentOf(c),
   'Studio bgOf': StudioColors.bgOf(c),
   'Studio sideOf': StudioColors.sideOf(c),
   'Studio cardOf': StudioColors.cardOf(c),
@@ -93,6 +97,8 @@ Map<String, Color> _porch(Brightness b) {
       AppColors.journalAccent,
       AppColors.journalAccentLight,
     ),
+    'formAccentOf': AppColors.formMasterAccent,
+    'onAccentOf': AppColors.onChaosAccent,
     'Studio bgOf': pick(StudioColors.bg, StudioColors.bgLight),
     'Studio sideOf': pick(StudioColors.side, StudioColors.sideLight),
     'Studio cardOf': pick(StudioColors.card, StudioColors.cardLight),
@@ -143,6 +149,8 @@ AppPalette _distinct(int base) {
     honey: next(),
     terracotta: next(),
     sage: next(),
+    formAccent: next(),
+    onAccent: next(),
     studioCard: next(),
     studioRaise: next(),
     studioLineStrong: next(),
@@ -242,5 +250,28 @@ void main() {
       Color.lerp(from.dark.surface, to.dark.surface, 0.5),
     );
     expect(from.lerp(to, 1).light.studioBad, to.light.studioBad);
+  });
+
+  test('UI code reads the form accent and its ink from the theme', () {
+    // The bare constants only seed the Porch palette; a screen that reads them
+    // directly stays Porch-colored under every other app theme.
+    final bare = RegExp(r'AppColors\.(formMasterAccent|onChaosAccent)\b');
+    final offenders = <String>[];
+    for (final file in Directory('lib').listSync(recursive: true)) {
+      if (file is! File || !file.path.endsWith('.dart')) continue;
+      if (file.path.contains(
+        '${Platform.pathSeparator}theme${Platform.pathSeparator}',
+      )) {
+        continue;
+      }
+      final lines = file.readAsLinesSync();
+      for (var i = 0; i < lines.length; i++) {
+        final keep = i > 0 && lines[i - 1].contains('theme-keep:');
+        if (bare.hasMatch(lines[i]) && !keep) {
+          offenders.add('${file.path}:${i + 1}');
+        }
+      }
+    }
+    expect(offenders, isEmpty);
   });
 }

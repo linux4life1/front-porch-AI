@@ -105,8 +105,8 @@ class PiperTtsSettings extends StatelessWidget {
               icon: const Icon(Icons.download, size: 16),
               label: const Text('Browse'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formAccentOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 12,
                   vertical: 14,

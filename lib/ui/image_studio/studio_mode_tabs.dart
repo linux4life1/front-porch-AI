@@ -59,7 +59,7 @@ class StudioModeTabs extends StatelessWidget {
 
   Widget _tab(BuildContext context, int index, String label, String sub) {
     final active = selected == index;
-    final accent = AppColors.formMasterAccent;
+    final accent = AppColors.formAccentOf(context);
     return Semantics(
       selected: active,
       button: true,

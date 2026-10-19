@@ -310,8 +310,8 @@ class _ExpressionPromptRulesEditorState
         ),
         FilledButton(
           style: FilledButton.styleFrom(
-            backgroundColor: AppColors.formMasterAccent,
-            foregroundColor: AppColors.onChaosAccent,
+            backgroundColor: AppColors.formAccentOf(context),
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           onPressed: preview == null || _saving
               ? null

@@ -65,7 +65,7 @@ class ChatPlacesPanel extends StatelessWidget {
             SidebarSubHeader(
               icon: Icons.public,
               label: 'Places',
-              accent: AppColors.formMasterAccent,
+              accent: AppColors.formAccentOf(context),
               trailing: places.isEmpty
                   ? null
                   : IconButton(
@@ -73,7 +73,7 @@ class ChatPlacesPanel extends StatelessWidget {
                       icon: Icon(
                         Icons.add,
                         size: 18,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                       visualDensity: VisualDensity.compact,
                       onPressed: () => showAttachPlacePicker(

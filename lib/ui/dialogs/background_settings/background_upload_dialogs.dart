@@ -114,7 +114,9 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
                   fillColor: AppColors.surfaceContainerOf(context),
                   border: OutlineInputBorder(),
                   focusedBorder: OutlineInputBorder(
-                    borderSide: BorderSide(color: AppColors.formMasterAccent),
+                    borderSide: BorderSide(
+                      color: AppColors.formAccentOf(context),
+                    ),
                   ),
                 ),
               ),

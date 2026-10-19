@@ -212,7 +212,7 @@ class PersonaEditForm extends StatelessWidget {
                       label: const Text('Save Persona'),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.porchAmberOf(context),
-                        foregroundColor: AppColors.onChaosAccent,
+                        foregroundColor: AppColors.onAccentOf(context),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 28,
                           vertical: 14,

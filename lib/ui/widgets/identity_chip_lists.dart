@@ -306,7 +306,7 @@ class IdentityChipLists extends StatelessWidget {
           _header(
             Icons.cake_outlined,
             'Birthday',
-            context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+            context.creatorPalette?.amber ?? AppColors.formAccentOf(context),
           ),
           const SizedBox(height: 12),
           _card(
@@ -325,7 +325,7 @@ class IdentityChipLists extends StatelessWidget {
           _header(
             Icons.favorite_outline,
             'Likes & Dislikes',
-            context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+            context.creatorPalette?.amber ?? AppColors.formAccentOf(context),
           ),
           const SizedBox(height: 12),
           _card(

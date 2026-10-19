@@ -442,7 +442,7 @@ class MessageBubbleAvatar extends StatelessWidget {
           CircleAvatar(
             radius: 16,
             backgroundColor: AppColors.porchAmberOf(context),
-            child: Icon(Icons.person, color: AppColors.onChaosAccent),
+            child: Icon(Icons.person, color: AppColors.onAccentOf(context)),
           ),
         if (chat != null)
           Padding(

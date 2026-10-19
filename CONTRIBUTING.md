@@ -163,8 +163,9 @@ often send a PR back:
   maintainer defers that item on the PR.
 - **Realism/Needs parity.** Observable behaviour must match in a 1:1 chat
   and a group.
-- **Theme system.** `AppColors` only. New chrome accents use
-  `AppColors.formMasterAccent` or `AppColors.porchAmberOf(context)`.
+- **Theme system.** `AppColors` only, through the `*Of(context)` helpers so
+  the app theme applies. New chrome accents use
+  `AppColors.formAccentOf(context)` or `AppColors.porchAmberOf(context)`.
 - **Barrel imports** where a barrel covers the file.
 - **Do not edit `pubspec.yaml` version** — CI/CD normalizes it.
 - **Database schema changes need a plan.** The Drift `onUpgrade` ladder is

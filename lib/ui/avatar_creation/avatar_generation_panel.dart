@@ -163,9 +163,11 @@ class _AvatarGenerationPanelState extends State<AvatarGenerationPanel> {
           onPressed: _c.canRun ? _c.run : null,
           style: ElevatedButton.styleFrom(
             backgroundColor:
-                context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                context.creatorPalette?.amber ??
+                AppColors.formAccentOf(context),
             foregroundColor:
-                context.creatorPalette?.amberInk ?? AppColors.onChaosAccent,
+                context.creatorPalette?.amberInk ??
+                AppColors.onAccentOf(context),
             disabledBackgroundColor:
                 context.creatorPalette?.raise ??
                 AppColors.surfaceContainerOf(context),

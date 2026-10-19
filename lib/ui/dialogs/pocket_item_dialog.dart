@@ -172,7 +172,7 @@ class _PocketItemDialogState extends State<_PocketItemDialog> {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: amber,
-              foregroundColor: AppColors.onChaosAccent,
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             onPressed: () => _submit(gift: false, correction: true),
             child: const Text("They're wearing this"),
@@ -181,7 +181,7 @@ class _PocketItemDialogState extends State<_PocketItemDialog> {
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: amber,
-              foregroundColor: AppColors.onChaosAccent,
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             onPressed: () => _submit(gift: true),
             child: Text('Hand to ${widget.characterName}'),

@@ -118,7 +118,7 @@ class HomeEmptyLibrary extends StatelessWidget {
                   label: const Text('AI Create'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
+                    foregroundColor: AppColors.onAccentOf(context),
                   ),
                 ),
                 ElevatedButton.icon(

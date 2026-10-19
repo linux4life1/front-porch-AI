@@ -95,7 +95,7 @@ class ExpressionPackGrid extends StatelessWidget {
                       child: LinearProgressIndicator(
                         value: total == 0 ? 0 : session.doneCount / total,
                         minHeight: 6,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         backgroundColor: AppColors.surfaceContainerOf(context),
                       ),
                     ),
@@ -248,8 +248,8 @@ class ExpressionPackGrid extends StatelessWidget {
                   : 'Import ${session.keptCount} expressions',
             ),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
             ),
           ),
         );
@@ -357,13 +357,13 @@ class _PackCell extends StatelessWidget {
                 gaplessPlayback: true,
               );
             }
-            return const Center(
+            return Center(
               child: SizedBox(
                 width: 20,
                 height: 20,
                 child: CircularProgressIndicator(
                   strokeWidth: 2,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
             );
@@ -397,7 +397,7 @@ class _PackCell extends StatelessWidget {
                       height: 24,
                       child: Checkbox(
                         value: slot.keep,
-                        activeColor: AppColors.formMasterAccent,
+                        activeColor: AppColors.formAccentOf(context),
                         onChanged: locked
                             ? null
                             : (v) => session.setKeep(index, v ?? false),

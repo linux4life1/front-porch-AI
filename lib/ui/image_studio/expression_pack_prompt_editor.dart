@@ -163,7 +163,7 @@ Future<void> showPackRerollEditor(
                         min: 0.30,
                         max: 0.85,
                         divisions: 11,
-                        activeColor: AppColors.formMasterAccent,
+                        activeColor: AppColors.formAccentOf(context),
                         inactiveColor: AppColors.borderOf(context),
                         onChanged: (v) => setState(() => denoise = v),
                       ),
@@ -186,7 +186,7 @@ Future<void> showPackRerollEditor(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
                   controlAffinity: ListTileControlAffinity.leading,
-                  activeColor: AppColors.formMasterAccent,
+                  activeColor: AppColors.formAccentOf(context),
                   title: Text(
                     'New random seed',
                     style: TextStyle(
@@ -221,8 +221,8 @@ Future<void> showPackRerollEditor(
             icon: const Icon(Icons.casino_outlined, size: 16),
             label: const Text('Re-roll'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
             ),
           ),
         ],

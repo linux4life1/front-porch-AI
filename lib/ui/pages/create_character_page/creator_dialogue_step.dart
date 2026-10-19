@@ -71,7 +71,7 @@ class CreatorDialogueStep extends StatelessWidget {
               icon: const Icon(Icons.add, size: 16),
               label: const Text('Add Greeting'),
               style: TextButton.styleFrom(
-                foregroundColor: AppColors.formMasterAccent,
+                foregroundColor: AppColors.formAccentOf(context),
               ),
             ),
           ],

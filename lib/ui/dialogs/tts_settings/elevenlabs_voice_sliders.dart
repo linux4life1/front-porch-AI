@@ -69,8 +69,8 @@ class _ElevenLabsVoiceSlidersState extends State<ElevenLabsVoiceSliders> {
             Text(
               (_dragElevenlabsStability ?? settings.elevenlabsStability)
                   .toStringAsFixed(2),
-              style: const TextStyle(
-                color: AppColors.formMasterAccent,
+              style: TextStyle(
+                color: AppColors.formAccentOf(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -82,7 +82,7 @@ class _ElevenLabsVoiceSlidersState extends State<ElevenLabsVoiceSliders> {
           min: 0.0,
           max: 1.0,
           divisions: 20,
-          activeColor: AppColors.formMasterAccent,
+          activeColor: AppColors.formAccentOf(context),
           inactiveColor: AppColors.borderOf(context),
           onChanged: (val) => setState(() => _dragElevenlabsStability = val),
           onChangeEnd: (val) {
@@ -129,8 +129,8 @@ class _ElevenLabsVoiceSlidersState extends State<ElevenLabsVoiceSliders> {
             Text(
               (_dragElevenlabsSimilarity ?? settings.elevenlabsSimilarity)
                   .toStringAsFixed(2),
-              style: const TextStyle(
-                color: AppColors.formMasterAccent,
+              style: TextStyle(
+                color: AppColors.formAccentOf(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -142,7 +142,7 @@ class _ElevenLabsVoiceSlidersState extends State<ElevenLabsVoiceSliders> {
           min: 0.0,
           max: 1.0,
           divisions: 20,
-          activeColor: AppColors.formMasterAccent,
+          activeColor: AppColors.formAccentOf(context),
           inactiveColor: AppColors.borderOf(context),
           onChanged: (val) => setState(() => _dragElevenlabsSimilarity = val),
           onChangeEnd: (val) {
@@ -189,8 +189,8 @@ class _ElevenLabsVoiceSlidersState extends State<ElevenLabsVoiceSliders> {
             Text(
               (_dragElevenlabsStyle ?? settings.elevenlabsStyle)
                   .toStringAsFixed(2),
-              style: const TextStyle(
-                color: AppColors.formMasterAccent,
+              style: TextStyle(
+                color: AppColors.formAccentOf(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -202,7 +202,7 @@ class _ElevenLabsVoiceSlidersState extends State<ElevenLabsVoiceSliders> {
           min: 0.0,
           max: 1.0,
           divisions: 20,
-          activeColor: AppColors.formMasterAccent,
+          activeColor: AppColors.formAccentOf(context),
           inactiveColor: AppColors.borderOf(context),
           onChanged: (val) => setState(() => _dragElevenlabsStyle = val),
           onChangeEnd: (val) {

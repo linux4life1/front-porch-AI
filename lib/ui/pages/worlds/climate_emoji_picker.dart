@@ -24,12 +24,42 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// what renames are for (acid mist, blood rain, ashfall), then the ordinary
 /// sky. Free typing below the grid covers anything not listed.
 const List<String> kClimateEmojiChoices = [
-  '🌪️', '🟠', '🧪', '☣️', '☢️', '🩸',
-  '🌋', '🔥', '🥵', '💨', '🌫️', '⚡',
-  '⛈️', '🌩️', '🌧️', '🌊', '☄️', '🪨',
-  '❄️', '🌨️', '🧊', '🥶', '🫧', '✨',
-  '☁️', '🌥️', '🌑', '🌕', '💀', '🦠',
-  '☀️', '🌤️', '🍂', '🌸', '🕷️', '⬛',
+  '🌪️',
+  '🟠',
+  '🧪',
+  '☣️',
+  '☢️',
+  '🩸',
+  '🌋',
+  '🔥',
+  '🥵',
+  '💨',
+  '🌫️',
+  '⚡',
+  '⛈️',
+  '🌩️',
+  '🌧️',
+  '🌊',
+  '☄️',
+  '🪨',
+  '❄️',
+  '🌨️',
+  '🧊',
+  '🥶',
+  '🫧',
+  '✨',
+  '☁️',
+  '🌥️',
+  '🌑',
+  '🌕',
+  '💀',
+  '🦠',
+  '☀️',
+  '🌤️',
+  '🍂',
+  '🌸',
+  '🕷️',
+  '⬛',
 ];
 
 /// Opens the weather-emoji picker. Resolves to the chosen emoji, `''` when
@@ -53,8 +83,9 @@ class _EmojiPickerDialog extends StatefulWidget {
 }
 
 class _EmojiPickerDialogState extends State<_EmojiPickerDialog> {
-  late final TextEditingController _typed =
-      TextEditingController(text: widget.current);
+  late final TextEditingController _typed = TextEditingController(
+    text: widget.current,
+  );
 
   @override
   void dispose() {
@@ -130,8 +161,10 @@ class _EmojiPickerDialogState extends State<_EmojiPickerDialog> {
                   fontSize: 12,
                   color: AppColors.textTertiary(context),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 8,
+                ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                   borderSide: BorderSide(color: AppColors.borderOf(context)),
@@ -149,9 +182,7 @@ class _EmojiPickerDialogState extends State<_EmojiPickerDialog> {
                   onPressed: () => Navigator.pop(context, ''),
                   child: Text(
                     'Clear',
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context),
-                    ),
+                    style: TextStyle(color: AppColors.textSecondary(context)),
                   ),
                 ),
                 const Spacer(),
@@ -159,24 +190,21 @@ class _EmojiPickerDialogState extends State<_EmojiPickerDialog> {
                   onPressed: () => Navigator.pop(context),
                   child: Text(
                     'Cancel',
-                    style: TextStyle(
-                      color: AppColors.textSecondary(context),
-                    ),
+                    style: TextStyle(color: AppColors.textSecondary(context)),
                   ),
                 ),
                 const SizedBox(width: 6),
                 FilledButton(
                   style: FilledButton.styleFrom(
-                    backgroundColor: AppColors.formMasterAccent,
-                    foregroundColor: AppColors.onChaosAccent,
+                    backgroundColor: AppColors.formAccentOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
                     shape: const StadiumBorder(),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 18,
                       vertical: 8,
                     ),
                   ),
-                  onPressed: () =>
-                      Navigator.pop(context, _typed.text.trim()),
+                  onPressed: () => Navigator.pop(context, _typed.text.trim()),
                   child: const Text('Use'),
                 ),
               ],

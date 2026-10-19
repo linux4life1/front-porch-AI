@@ -65,7 +65,7 @@ class WaifuDeleteSessionDialog extends StatelessWidget {
           key: const Key('waifu-delete-session-confirm'),
           style: FilledButton.styleFrom(
             backgroundColor: danger,
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           onPressed: () => Navigator.pop(context, true),
           child: const Text('Forget'),
