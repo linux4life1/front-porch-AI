@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/services/chat/objective_fixation.dart';
 import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
 
@@ -35,12 +36,17 @@ class AuthorNoteBuilder {
   /// way (objectives-that-keep-up.md part 6); null otherwise.
   final String? Function()? getStreakLine;
 
+  /// True for a goal the character has been pushing while the user steers
+  /// elsewhere (the fixation brake, issue #551): it is left out this turn.
+  final bool Function(dynamic obj)? isResting;
+
   AuthorNoteBuilder({
     required this.getActiveObjectives,
     required this.getPrimaryObjective,
     required this.tasksForObjective,
     required this.getSecondaryObjectives,
     this.getStreakLine,
+    this.isResting,
   });
 
   // Objective rows in the app, plain maps in tests.
@@ -69,8 +75,14 @@ class AuthorNoteBuilder {
   String _line(dynamic o, {required bool primary}) {
     final goal = _clause(_goal(o)) ?? '';
     if (goal.isEmpty || _status(o) == kObjectiveStatusDormant) return '';
+    if (isResting?.call(o) ?? false) return '';
     final tasks = tasksForObjective(o);
-    final next = _clause(currentOpenTaskDescription(tasks));
+    // A step that check after check has not moved is no longer named: the
+    // goal stays as a want, without an order the story keeps refusing.
+    final open = tasks.where(objectiveTaskIsOpen).firstOrNull;
+    final next = open == null || stepIsStuck(open)
+        ? null
+        : _clause(currentOpenTaskDescription(tasks));
     final done = tasks.where(objectiveTaskIsCompleted).toList();
     final last = _clause(
       done.isEmpty ? null : done.last['description'] as String?,

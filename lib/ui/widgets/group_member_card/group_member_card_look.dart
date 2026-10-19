@@ -28,7 +28,6 @@ import 'package:front_porch_ai/ui/theme/group_member_card_palette.dart';
 import 'package:front_porch_ai/ui/theme/tier_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
-import 'package:front_porch_ai/utils/utils.dart';
 
 /// Per-build snapshot of one group member's state, and the expanded
 /// (1:1-parity) and compact children built from it. NeedsGrid stays shared.
@@ -38,9 +37,6 @@ class GroupMemberCardLook {
     required this.onOpenObjectives,
     required this.chat,
     required this.isRealism,
-    required this.emotion,
-    required this.intensity,
-    this.moodLine,
     required this.affection,
     required this.longTerm,
     required this.trust,
@@ -70,12 +66,6 @@ class GroupMemberCardLook {
   final VoidCallback? onOpenObjectives;
   final ChatService chat;
   final bool isRealism;
-  final String? emotion;
-  final String? intensity;
-
-  /// Label, intensity, cause and hold in words (docs/design/mood-with-bite.md);
-  /// null falls back to label + intensity.
-  final String? moodLine;
   final int affection;
   final int longTerm;
   final int trust;
@@ -101,48 +91,34 @@ class GroupMemberCardLook {
   final bool isDirector;
 
   List<Widget> expandedChildren(BuildContext context) {
-    final emotion = this.emotion;
-    final intensity = this.intensity;
     final fixation = this.fixation;
     return [
       const SizedBox(height: 8),
-      // Emotion
-      Row(
-        children: [
-          Text(
-            EmotionLabels.emoji[emotion] ?? '🎭',
-            style: const TextStyle(fontSize: 15),
-          ),
-          const SizedBox(width: 6),
-          Flexible(
-            child: Text(
-              moodLine ??
-                  '${(emotion ?? 'neutral')[0].toUpperCase()}${(emotion ?? 'neutral').substring(1)}${intensity != null && intensity.isNotEmpty ? ' ($intensity)' : ''}',
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w600,
-                color: emotionRingColor(emotion ?? 'neutral'),
-              ),
-              // With a cause the line is a sentence: wrap to two lines
-              // instead of overflowing the row.
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          if (isDirector) ...[
-            const SizedBox(width: 6),
-            const Tooltip(
-              message: 'Held while you direct',
-              child: Icon(
+      // Mood lives on the chips under each reply now; the card only marks
+      // what holds while you direct.
+      if (isDirector) ...[
+        Tooltip(
+          message: 'Held while you direct',
+          child: Row(
+            children: [
+              Icon(
                 Icons.pause_circle_outline,
                 size: 12,
                 color: GroupMemberCardPalette.directorPaused,
               ),
-            ),
-          ],
-        ],
-      ),
-      const SizedBox(height: 10),
+              const SizedBox(width: 6),
+              Text(
+                'Feelings toward you held',
+                style: TextStyle(
+                  fontSize: 11,
+                  color: GroupMemberCardPalette.directorPaused,
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 10),
+      ],
 
       // Short-Term Bond (exact 1:1 treatment)
       RealismProgressRow(
@@ -308,29 +284,18 @@ class GroupMemberCardLook {
   }
 
   List<Widget> compactChildren(BuildContext context) {
-    final emotion = this.emotion;
     final fixation = this.fixation;
     return [
       const SizedBox(height: 6),
-      if (isRealism && emotion != null)
+      if (isRealism && fixation != null && fixation.isNotEmpty)
         Row(
           children: [
-            Text(
-              EmotionLabels.emoji[emotion] ?? '🎭',
-              style: const TextStyle(fontSize: 12),
-            ),
-            const SizedBox(width: 4),
-            Text(
-              emotion[0].toUpperCase() + emotion.substring(1),
-              style: TextStyle(fontSize: 10, color: emotionRingColor(emotion)),
-            ),
             const Spacer(),
-            if (fixation != null && fixation.isNotEmpty)
-              FixationChip(
-                topic: fixation,
-                lifespan: fixationLife,
-                compact: true,
-              ),
+            FixationChip(
+              topic: fixation,
+              lifespan: fixationLife,
+              compact: true,
+            ),
           ],
         ),
       if (isRealism) ...[

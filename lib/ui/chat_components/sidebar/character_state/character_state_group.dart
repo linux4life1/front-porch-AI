@@ -37,8 +37,8 @@ import 'time_strip.dart';
 import 'presence_word.dart';
 
 /// 🎭 Character State — the first warm-porch accordion: everything about who
-/// the character *is right now* in one card. 1:1 shows the emotion line,
-/// the unified bond/trust/lust bars (BondBars — the nsfw_section merge),
+/// the character *is right now* in one card. 1:1 shows the unified
+/// bond/trust/lust bars (BondBars — the nsfw_section merge),
 /// fixation, needs grid, and the time strip; group mode shows the focused
 /// member's GroupMemberCard (which renders the same shared bar widgets) plus
 /// the shared time strip. The gear opens an inline settings flyout
@@ -208,34 +208,6 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
             const SizedBox(height: 10),
           ],
           if (!widget.isGroup && realismOn) ...[
-            // ── Emotion line ──
-            if (chat.characterEmotion.isNotEmpty) ...[
-              Row(
-                children: [
-                  Text(
-                    _emotionEmoji(chat.characterEmotion),
-                    style: const TextStyle(fontSize: 13),
-                  ),
-                  const SizedBox(width: 5),
-                  Expanded(
-                    child: Text(
-                      // Label, intensity, cause and hold in words
-                      // (docs/design/mood-with-bite.md).
-                      chat.moodLine,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: AppColors.textSecondary(context),
-                      ),
-                      // The cause makes this a sentence; give it a second
-                      // line before the ellipsis takes the hold word.
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-            ],
             // ── Unified bars (bond / trust / lust) ──
             BondBars(chat: chat),
             // ── Fixation (replaces the old always-on chat_page banner; the
@@ -374,55 +346,5 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
         ],
       ),
     );
-  }
-
-  /// Emotion → emoji (ported verbatim from the old realism_section so the
-  /// nuanced-word coverage doesn't change).
-  String _emotionEmoji(String emotion) {
-    switch (emotion.toLowerCase()) {
-      case 'amused':
-      case 'playful':
-      case 'happy':
-        return '😄';
-      case 'angry':
-      case 'furious':
-        return '😠';
-      case 'sad':
-      case 'melancholy':
-        return '😢';
-      case 'anxious':
-      case 'nervous':
-      case 'worried':
-        return '😰';
-      case 'excited':
-      case 'thrilled':
-        return '🤩';
-      case 'flirtatious':
-      case 'aroused':
-        return '😏';
-      case 'calm':
-      case 'relaxed':
-      case 'content':
-        return '😌';
-      case 'suspicious':
-      case 'wary':
-        return '🤨';
-      case 'fearful':
-      case 'scared':
-        return '😨';
-      case 'embarrassed':
-      case 'flustered':
-        return '😳';
-      case 'annoyed':
-      case 'irritated':
-        return '😤';
-      case 'confused':
-      case 'conflicted':
-        return '😕';
-      case 'protective':
-        return '🛡️';
-      default:
-        return '🎭';
-    }
   }
 }

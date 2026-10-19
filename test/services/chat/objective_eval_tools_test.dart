@@ -38,6 +38,7 @@ import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/services/chat/objective_eval_tools.dart';
+import 'package:front_porch_ai/services/chat/objective_fixation.dart';
 import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/objective_proposal.dart';
 import 'package:front_porch_ai/services/chat/objective_sync.dart';
@@ -399,6 +400,39 @@ void main() {
       );
       expect(llm.prompts.single, contains('About 2 weeks have passed'));
       expect(llm.prompts.single, contains('Evaluate EACH item below'));
+    });
+
+    // Issue #551: "still on track" after "still on track" used to leave the
+    // same step open, named in every prompt, forever. The real sync writes
+    // its count back; on the fourth check the judge hears the step is stuck.
+    test('a step left open check after check is counted and flagged to the '
+        'judge', () async {
+      final llm = _FakeLlm((_) => Stream.value('1: on_track | none | none'));
+      final w = _Writes();
+      var current = (jsonDecode(_twoSteps) as List)
+          .cast<Map<String, dynamic>>();
+      final p = _live(
+        llm: llm,
+        w: w,
+        actives: [
+          _mkObj('oK', 'find the keeper', origin: kObjectiveOriginCharacter),
+        ],
+        tasksFor: (_) => current,
+        onTool: (_) => null,
+      );
+      for (var i = 0; i < 4; i++) {
+        await p.checkTaskCompletionInBackground();
+        current = w.tasks['oK'] ?? current;
+      }
+      expect(current[0][kStuckChecksKey], 4);
+      w.tasks.clear();
+      await p.checkTaskCompletionInBackground(countStuck: false);
+      expect(w.tasks, isEmpty, reason: '"Check now" does not count');
+      expect(llm.prompts[2], isNot(contains('no progress for several')));
+      expect(
+        llm.prompts[3],
+        contains('1. [ ] ask at the dock (no progress for several checks'),
+      );
     });
   });
 

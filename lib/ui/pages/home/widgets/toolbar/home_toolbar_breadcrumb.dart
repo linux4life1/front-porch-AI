@@ -16,15 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Clickable path — "My Characters / folder1 / folder2 / current". Every
-/// segment but the current one jumps straight there, so deep nesting never
-/// needs N back-taps to escape.
+/// Clickable path — "My Characters / … / parent / current". Every segment
+/// but the current one jumps straight there, so deep nesting never needs N
+/// back-taps to escape.
 /// While a drag is live ([dropTargets]) every level but the current one
 /// takes a drop instead (library phase 3).
 class HomeToolbarBreadcrumb extends StatelessWidget {
@@ -82,33 +84,113 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Text(label, style: crumbStyle),
+              child: _LevelLabel(
+                label: label,
+                isTop: target == null,
+                style: crumbStyle,
+              ),
             ),
           );
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      // Keep the tail (the folder you're standing in) visible on long paths.
-      reverse: true,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          crumb('My Characters', null),
-          for (var i = 0; i < trail.length; i++) ...[
-            Text('/', style: TextStyle(color: AppColors.textTertiary(context))),
-            if (i < trail.length - 1)
-              crumb(trail[i].name, trail[i].id)
-            else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  trail[i].name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+    final separator = Text(
+      '/',
+      style: TextStyle(color: AppColors.textTertiary(context)),
+    );
+    // Browsing, deep paths keep the top level and the parent; the levels
+    // between fold into one "…" that jumps to the deepest of them. While a
+    // drag is live every level stays out, since each one takes a drop.
+    final ancestors = trail.isEmpty
+        ? const <CharacterFolder>[]
+        : trail.sublist(0, trail.length - 1);
+    final fold = !dropTargets && ancestors.length > 1;
+    final hidden = fold
+        ? ancestors.sublist(0, ancestors.length - 1)
+        : const <CharacterFolder>[];
+    final shown = fold ? [ancestors.last] : ancestors;
+    final current = trail.isEmpty ? null : trail.last;
+    final named = 1 + shown.length;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // The folder you're standing in is laid out first. It keeps all but
+        // a floor for each level above it, and never less than 40% of the
+        // row, so the levels above ellipsize ("My… / Bletchfi…") and never
+        // collapse to nothing or slide under the back arrow.
+        final width = constraints.maxWidth;
+        final currentMax = width.isFinite
+            ? math.max(
+                width - named * _kCrumbFloor - (hidden.isEmpty ? 0 : 28),
+                // A drag shows every level, so the current folder gives
+                // up more of the row to keep each pill's label readable.
+                width * (dropTargets ? 0.25 : 0.4),
+              )
+            : double.infinity;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: crumb('My Characters', null)),
+            if (hidden.isNotEmpty) ...[
+              separator,
+              _HiddenLevels(
+                names: [for (final f in hidden) f.name],
+                onTap: () => onFolderJump(hidden.last.id),
+                style: crumbStyle,
+              ),
+            ],
+            for (final level in shown) ...[
+              separator,
+              Flexible(child: crumb(level.name, level.id)),
+            ],
+            if (current != null) ...[
+              separator,
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: currentMax),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    current.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
+            ],
           ],
-        ],
+        );
+      },
+    );
+  }
+}
+
+/// Room each level above the current folder is promised: "My…" plus its
+/// padding and separator.
+const _kCrumbFloor = 64.0;
+
+/// The "…" standing in for folded middle levels. Hovering names them; a tap
+/// jumps to the deepest.
+class _HiddenLevels extends StatelessWidget {
+  const _HiddenLevels({
+    required this.names,
+    required this.onTap,
+    required this.style,
+  });
+
+  final List<String> names;
+  final VoidCallback onTap;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: names.join(' / '),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Text('…', style: style),
+        ),
       ),
     );
   }
@@ -142,23 +224,63 @@ class HomeToolbarLevelTarget extends StatelessWidget {
           child: Container(
             height: 34,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: amber.withValues(alpha: over ? 0.15 : 0.10),
               borderRadius: BorderRadius.circular(8),
               border: over ? Border.all(color: amber, width: 2) : null,
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: amber,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+            // widthFactor keeps the pill hugging its label inside the
+            // breadcrumb's Flexible instead of stretching to the share.
+            child: Align(
+              widthFactor: 1,
+              child: _LevelLabel(
+                label: label,
+                isTop: folderId == null,
+                style: TextStyle(
+                  color: amber,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),
         );
       },
+    );
+  }
+}
+
+/// A level's name, ellipsized. Squeezed below a readable "My…", the top
+/// level turns into a house icon (its name in the tooltip) rather than an
+/// empty pill.
+class _LevelLabel extends StatelessWidget {
+  const _LevelLabel({
+    required this.label,
+    required this.isTop,
+    required this.style,
+  });
+
+  final String label;
+  final bool isTop;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    if (!isTop) return text;
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 32
+          ? Tooltip(
+              message: label,
+              child: Icon(Icons.home_outlined, size: 18, color: style.color),
+            )
+          : text,
     );
   }
 }

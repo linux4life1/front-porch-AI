@@ -70,6 +70,9 @@ final Map<String, Map<String, dynamic>> _emotionalFields = {
   'arousal_delta': _intField(
     'Physical desire shift this turn (only when asked for in the prompt).',
   ),
+  'arousal_reason': _strField(
+    'One brief in-character thought explaining the desire shift, or "none".',
+  ),
 };
 
 final Map<String, Map<String, dynamic>> _narrativeFields = {
@@ -373,6 +376,25 @@ final List<Map<String, dynamic>> kWithUserEvalTools = [
     kWithUserToolName,
     'Report whether the character is physically with the user.',
     kWithUserFields,
+    const ['with_user'],
+  ),
+];
+
+/// Director Mode twin of [kWithUserEvalTools]: same function and field, so
+/// the verdict parses the same, but nobody in a directed scene is the user.
+final List<Map<String, dynamic>> kInSceneEvalTools = [
+  _tool(
+    kWithUserToolName,
+    'Report whether the character is still in the scene with the cast.',
+    {
+      'with_user': {
+        'type': 'boolean',
+        'description':
+            'True when the character is still in the scene, in the same '
+            'place as the rest of the cast. False only when they have left '
+            'it (home, work, another room, phone only).',
+      },
+    },
     const ['with_user'],
   ),
 ];

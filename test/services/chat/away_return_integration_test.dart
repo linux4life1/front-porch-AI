@@ -16,6 +16,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/presence_derive.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import '../../helpers/chat_db_teardown.dart';
@@ -43,11 +44,19 @@ class _ScriptedLlm extends LLMService {
   String speak;
   int quietFires = 0;
   int beaQuietFires = 0;
+  int inSceneFires = 0;
   final List<String> spoken = [];
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     final p = params.prompt;
+    // Director Mode's scene question. Someone who just spoke in the scene,
+    // or is only glanced at in it, is still there.
+    if (p.contains('IN SCENE')) {
+      inSceneFires++;
+      yield '{"with_user": true}';
+      return;
+    }
     if (p.contains('WITH USER') || p.contains('"with_user"')) {
       final quiet = p.contains('they have not spoken this turn');
       final forBea = p.contains('about Bea');
@@ -424,6 +433,131 @@ void main() {
             'the next auto-play/skip path must still banner',
       );
       expect(chat.messages.last.text.toLowerCase(), contains('away'));
+    },
+  );
+
+  test('Director Mode: a member who just spoke stays With you', () async {
+    // The user directs from outside the scene. Asking "is she with the
+    // user" was false for every speaker, so the whole cast went Away.
+    await boot(anaQuiet: false, beaQuiet: false);
+    await enterGroup(beaAtWork: false);
+    for (final c in chat.groupCharacters) {
+      chat.debugSetGroupWithUser(chat.characterIdFor(c), true);
+    }
+    chat.setObserverMode(true);
+
+    await chat.triggerNextCharacter();
+    await drainTurn();
+
+    final last = chat.messages.last;
+    expect(last.sender, isNot('System'));
+    final speaker = chat.groupCharacters.firstWhere(
+      (c) => c.name == last.sender,
+    );
+    expect(llm.inSceneFires, greaterThan(0));
+    expect(
+      chat.withUserForGroupCharacter(speaker),
+      isTrue,
+      reason: 'the glance must ask about the scene, not the absent user',
+    );
+  });
+
+  test('Next with the whole cast Away glances them back', () async {
+    // No user send: the pulse cadence only counts present speakers, so an
+    // all-Away cast used to banner forever on Next / auto-chat.
+    await boot(anaQuiet: true, beaQuiet: false);
+    await enterGroup(beaAtWork: false);
+
+    await chat.triggerNextCharacter();
+    await drainTurn();
+
+    expect(
+      chat.messages.last.sender,
+      'Ana',
+      reason: 'all-Away must pulse on Next, not write another banner',
+    );
+  });
+
+  test('the per-send return cap does not outlive its own send', () async {
+    // A user send spends the one spoken return. Later Nexts are not that
+    // send: an all-Away cast must still be glanced back, or Director Mode
+    // (where every note is a send) piles up banners after the first note.
+    await boot(anaQuiet: true, beaQuiet: false);
+    await enterGroup(beaAtWork: false);
+    final anaId = chat.characterIdFor(
+      chat.groupCharacters.firstWhere((c) => c.name == 'Ana'),
+    );
+
+    await chat.sendMessage('Evening.');
+    await drainTurn();
+    expect(chat.messages.last.sender, 'Ana');
+
+    chat.debugSetGroupWithUser(anaId, false);
+    await chat.triggerNextCharacter();
+    await drainTurn();
+
+    expect(
+      chat.messages.last.sender,
+      'Ana',
+      reason: 'a Next after the send must still bring one Away member back',
+    );
+  });
+
+  test('@ or /speak of a member set Away by hand is their Back', () async {
+    await boot(anaQuiet: true, beaQuiet: false);
+    await enterGroup(beaAtWork: false);
+    final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+    final anaId = chat.characterIdFor(ana);
+    chat.debugSetGroupWithUser(
+      chat.characterIdFor(
+        chat.groupCharacters.firstWhere((c) => c.name == 'Bea'),
+      ),
+      true,
+    );
+
+    for (final line in ['@Ana you there?', '/speak Ana']) {
+      expect(await chat.setGroupMemberAway(anaId, away: true), isTrue);
+      await chat.sendMessage(line);
+      await drainTurn();
+      expect(chat.messages.last.sender, 'Ana', reason: line);
+      expect(
+        chat.groupMemberPresence(anaId),
+        PresenceWhere.withYou,
+        reason: '$line must bring a hand-set Away back, not talk from Away',
+      );
+    }
+  });
+
+  test(
+    'manual Away beats the pulse and the glance; only Back returns',
+    () async {
+      await boot(anaQuiet: true, beaQuiet: false);
+      await enterGroup(beaAtWork: false);
+      final ana = chat.groupCharacters.firstWhere((c) => c.name == 'Ana');
+      final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
+      final anaId = chat.characterIdFor(ana);
+      chat.debugSetGroupWithUser(anaId, true);
+      chat.debugSetGroupWithUser(chat.characterIdFor(bea), true);
+
+      expect(await chat.setGroupMemberAway(anaId, away: true), isTrue);
+      expect(chat.groupMemberPresence(anaId), PresenceWhere.away);
+
+      await chat.sendMessage('Evening.');
+      await drainTurn();
+
+      expect(
+        chat.messages.last.sender,
+        'Bea',
+        reason: 'a hand-set Away is not pulsed back by the quiet glance',
+      );
+      expect(chat.withUserForGroupCharacter(ana), isFalse);
+
+      expect(await chat.setGroupMemberAway(anaId, away: false), isTrue);
+      expect(chat.groupMemberPresence(anaId), PresenceWhere.withYou);
+      expect(
+        await chat.setGroupMemberAway('not-in-scene', away: true),
+        isFalse,
+      );
     },
   );
 }

@@ -6,6 +6,13 @@
 
 import 'dart:convert';
 
+/// Budget key older saves used for the dropped-message count.
+const kLegacyDroppedMessagesKey = 'Dropped Messages';
+
+/// First line of a trimmed Chat History, in the prompt and in the estimate.
+const kHistoryTruncatedMarker =
+    '[Earlier messages truncated — see the recap below for context]';
+
 /// Where the numbers currently shown in the Context Viewer came from.
 enum ContextBudgetSource {
   /// Nothing loaded yet.
@@ -26,12 +33,17 @@ class ContextViewerSnapshot {
   final DateTime? assembledAt;
   final int? contextLimit;
 
+  /// Oldest messages left out of Chat History to fit [contextLimit]. A
+  /// message count, never tokens, so it stays out of [budget].
+  final int droppedMessages;
+
   const ContextViewerSnapshot({
     required this.budget,
     required this.sections,
     this.source = ContextBudgetSource.lastSend,
     this.assembledAt,
     this.contextLimit,
+    this.droppedMessages = 0,
   });
 
   bool get isEmpty => budget.isEmpty;
@@ -42,6 +54,7 @@ class ContextViewerSnapshot {
     'source': source.name,
     if (assembledAt != null) 'assembledAt': assembledAt!.toIso8601String(),
     if (contextLimit != null) 'contextLimit': contextLimit,
+    if (droppedMessages > 0) 'droppedMessages': droppedMessages,
   };
 
   String toJsonString() => jsonEncode(toJson());
@@ -58,7 +71,14 @@ class ContextViewerSnapshot {
       final n = v is num ? v.toInt() : int.tryParse('$v');
       if (n != null && n > 0) budget['$k'] = n;
     });
+    // Saves before droppedMessages had its own field kept the count as a
+    // budget row, where it read as tokens and inflated the total.
+    final legacyDropped = budget.remove(kLegacyDroppedMessagesKey) ?? 0;
     if (budget.isEmpty) return null;
+    final droppedRaw = map['droppedMessages'];
+    final dropped = droppedRaw is num
+        ? droppedRaw.toInt()
+        : int.tryParse('${droppedRaw ?? ''}') ?? legacyDropped;
 
     final sections = <String, String>{};
     if (sectionsRaw is Map) {
@@ -91,6 +111,7 @@ class ContextViewerSnapshot {
       source: source,
       assembledAt: at,
       contextLimit: limit,
+      droppedMessages: dropped < 0 ? 0 : dropped,
     );
   }
 
@@ -121,12 +142,18 @@ class ContextViewerSnapshot {
   }
 }
 
+/// The viewer's line for [count] oldest messages left out of Chat History.
+String droppedMessagesNote(int count) =>
+    '$count older message${count == 1 ? '' : 's'} not sent — trimmed to fit '
+    'the context.';
+
 /// Live Context Budget state for the open chat.
 class ContextBudgetStore {
   Map<String, int> budget = {};
   Map<String, String> sections = const {};
   ContextBudgetSource source = ContextBudgetSource.none;
   DateTime? assembledAt;
+  int droppedMessages = 0;
 
   /// Last real send kept even while the UI shows a live estimate, so save
   /// still writes the real send.
@@ -142,6 +169,7 @@ class ContextBudgetStore {
     sections = const {};
     source = ContextBudgetSource.none;
     assembledAt = null;
+    droppedMessages = 0;
     _lastSendSticky = null;
   }
 
@@ -150,6 +178,7 @@ class ContextBudgetStore {
     sections = Map<String, String>.from(snap.sections);
     source = snap.source;
     assembledAt = snap.assembledAt ?? DateTime.now();
+    droppedMessages = snap.droppedMessages;
     if (snap.source == ContextBudgetSource.lastSend && !snap.isEmpty) {
       _lastSendSticky = ContextViewerSnapshot(
         budget: Map<String, int>.from(snap.budget),
@@ -157,6 +186,7 @@ class ContextBudgetStore {
         source: ContextBudgetSource.lastSend,
         assembledAt: assembledAt,
         contextLimit: snap.contextLimit,
+        droppedMessages: snap.droppedMessages,
       );
     }
   }
@@ -165,6 +195,7 @@ class ContextBudgetStore {
     required Map<String, int> budgetMap,
     required Map<String, String> sectionMap,
     int? contextLimit,
+    int droppedMessages = 0,
   }) {
     apply(
       ContextViewerSnapshot(
@@ -173,6 +204,7 @@ class ContextBudgetStore {
         source: ContextBudgetSource.lastSend,
         assembledAt: DateTime.now(),
         contextLimit: contextLimit,
+        droppedMessages: droppedMessages,
       ),
     );
   }
@@ -186,6 +218,7 @@ class ContextBudgetStore {
             source: ContextBudgetSource.lastSend,
             assembledAt: assembledAt,
             contextLimit: contextLimit,
+            droppedMessages: droppedMessages,
           )
         : _lastSendSticky;
     if (sticky == null || sticky.isEmpty) return null;
@@ -205,6 +238,7 @@ class ContextBudgetStore {
         source: ContextBudgetSource.lastSend,
         assembledAt: snap.assembledAt,
         contextLimit: snap.contextLimit,
+        droppedMessages: snap.droppedMessages,
       ),
     );
   }
@@ -223,8 +257,20 @@ class ContextBudgetEstimateInput {
   final String examples;
   final String postHistory;
   final String authorNote;
+
+  /// One prompt line per message, oldest first; blank lines stay so the
+  /// dropped count is in messages, as on a real send.
   final List<String> historyLines;
   final int contextLimit;
+
+  /// Tokens a send holds back for the reply (max length plus its margin).
+  final int reserveTokens;
+
+  /// A send's drop point is rounded up to this many messages.
+  final int trimChunk;
+
+  /// First message a send keeps when nothing but the fixed sections fit.
+  final int overflowStart;
 
   const ContextBudgetEstimateInput({
     this.userName = 'User',
@@ -239,7 +285,44 @@ class ContextBudgetEstimateInput {
     this.authorNote = '',
     this.historyLines = const [],
     this.contextLimit = 0,
+    this.reserveTokens = 0,
+    this.trimChunk = 1,
+    this.overflowStart = 0,
   });
+}
+
+/// The history a send would carry: the real walk (newest first, the oldest
+/// dropped once the budget is spent, the drop point rounded up to
+/// [trimChunk]) at the viewer's chars/4 count. A [budget] of zero or less
+/// keeps only the lines from [overflowStart] on, like a send does.
+({List<String> kept, int dropped}) fitHistoryEstimate(
+  List<String> lines, {
+  required int budget,
+  int trimChunk = 1,
+  int overflowStart = 0,
+}) {
+  if (budget <= 0) {
+    final start = overflowStart.clamp(0, lines.length);
+    return (kept: lines.sublist(start), dropped: start);
+  }
+  var used = 0;
+  var dropped = 0;
+  var anyKept = false;
+  for (var i = lines.length - 1; i >= 0; i--) {
+    if (lines[i].isEmpty) continue;
+    final tokens = ContextViewerSnapshot.estimateTokens(lines[i]);
+    if (used + tokens > budget && anyKept) {
+      dropped = i + 1;
+      break;
+    }
+    used += tokens;
+    anyKept = true;
+  }
+  if (dropped > 0 && trimChunk > 1) {
+    final rounded = ((dropped + trimChunk - 1) ~/ trimChunk) * trimChunk;
+    dropped = rounded.clamp(dropped, lines.length - 1);
+  }
+  return (kept: lines.sublist(dropped), dropped: dropped);
 }
 
 /// Pure estimate builder for the Context Viewer refresh button.
@@ -284,9 +367,29 @@ ContextViewerSnapshot buildContextBudgetEstimate(
   if (input.authorNote.trim().isNotEmpty) {
     add('Post-History', 'Author note: ${input.authorNote.trim()}\n');
   }
-  if (input.historyLines.isNotEmpty) {
-    add('Chat History', '${input.historyLines.join('\n')}\n');
+
+  var history = input.historyLines;
+  var dropped = 0;
+  var marked = false;
+  if (input.contextLimit > 0) {
+    final fixed = budget.values.fold<int>(0, (a, b) => a + b);
+    final room = input.contextLimit - fixed - input.reserveTokens;
+    final fit = fitHistoryEstimate(
+      history,
+      budget: room,
+      trimChunk: input.trimChunk,
+      overflowStart: input.overflowStart,
+    );
+    history = fit.kept;
+    dropped = fit.dropped;
+    // A send marks a budget trim; the overflow floor goes out unmarked.
+    marked = room > 0 && dropped > 0;
   }
+  final shown = [
+    if (marked) kHistoryTruncatedMarker,
+    ...history.where((l) => l.isNotEmpty),
+  ];
+  if (shown.isNotEmpty) add('Chat History', '${shown.join('\n')}\n');
 
   return ContextViewerSnapshot(
     budget: budget,
@@ -294,5 +397,6 @@ ContextViewerSnapshot buildContextBudgetEstimate(
     source: ContextBudgetSource.estimate,
     assembledAt: DateTime.now(),
     contextLimit: input.contextLimit,
+    droppedMessages: dropped,
   );
 }

@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
         kFeelingsUnscoredMeta,
         kFeelingsUnscoredTip,
         kNeedsUnaffectedMeta,
+        MoodBaseline,
         RealismVerification;
 import 'package:front_porch_ai/services/services.dart';
 
@@ -75,8 +76,10 @@ Map<String, dynamic>? webMessageChips(
   }
   for (final entry in const {
     'emotion_label': 'emotionLabel',
+    'emotion_cause': 'emotionCause',
     'bond_reason': 'bondReason',
     'trust_reason': 'trustReason',
+    'arousal_reason': 'arousalReason',
     'time_skip_to': 'timeSkipTo',
     'time_passed': 'timePassed',
     'chance_time_event': 'chanceTimeEvent',
@@ -123,6 +126,9 @@ Map<String, dynamic>? webMessageChips(
     out['needsRevertable'] = true;
   }
   if (md[kNeedsUnaffectedMeta] == true) out['needsUnaffected'] = true;
+  // What they walked in carrying: the desktop mood chip's "Came in …" line.
+  final standing = MoodBaseline.fromJson(md['mood_context'])?.summary ?? '';
+  if (standing.isNotEmpty) out['moodStanding'] = standing;
   final search = md['search_receipt'];
   if (search is Map) {
     final q = (search['query'] as String?)?.trim() ?? '';

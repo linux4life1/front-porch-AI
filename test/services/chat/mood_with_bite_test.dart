@@ -336,6 +336,15 @@ void main() {
         reason: 'the restamp, not the capture, is what a swipe back reads',
       );
     });
+
+    // The sidebar no longer prints the cause; the reply's Mood chip shows
+    // it on hover, so each reply files the cause it was judged with.
+    test('the reply carries its mood cause for the Mood chip', () async {
+      await turn('You said the money was yours.');
+      final meta = chat.messages.last.activeMetadata!;
+      expect(meta['emotion_label'], 'furious');
+      expect(meta['emotion_cause'], _lie);
+    });
   });
 
   group('group', () {

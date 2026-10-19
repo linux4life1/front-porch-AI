@@ -782,5 +782,88 @@ void main() {
         expect(probe.isXmlOnly('test-backend'), isFalse);
       },
     );
+
+    // The Lust chip shows why Lust moved, like Bond and Trust: the judge
+    // that owns arousal_delta writes arousal_reason beside it, on both
+    // the multi-call (emotional) and the fused one-shot path.
+    group('arousal_reason rides beside arousal_delta', () {
+      NsfwService lustOn() => NsfwService(
+        getGroupInt: (_, _) => 0,
+        getGroupValue: (_, _) => null,
+        setGroupValue: (_, _, _) {},
+      )..setNsfwCooldownEnabled(true);
+      int? arousalOnly(String t, String k) => k == 'arousal_delta' ? 7 : null;
+
+      test('multi-call: the emotional judge files the reason', () async {
+        Map<String, dynamic> pend = {};
+        final svc = createTestRealismEvals(
+          nsfw: lustOn(),
+          pendingFn: () => pend,
+          setPendingFn: (v) => pend = v ?? {},
+          fireFn: (p, {onChunk}) async =>
+              '{"emotion":"flustered","emotion_intensity":"moderate",'
+              '"emotion_change":"moved","arousal_delta":7,'
+              '"arousal_reason":"The way they said my name."}',
+          intFn: arousalOnly,
+        );
+        await svc.evaluateEmotionalStateCall();
+        expect(pend['arousal_delta'], 7);
+        expect(pend['arousal_reason'], 'The way they said my name.');
+      });
+
+      test('one-shot: the fused call files the reason', () async {
+        Map<String, dynamic> pend = {};
+        final svc = createTestRealismEvals(
+          nsfw: lustOn(),
+          pendingFn: () => pend,
+          setPendingFn: (v) => pend = v ?? {},
+          fireFn: (p, {onChunk}) async =>
+              '{"relationship_delta":0,"trust_delta":0,"emotion":"flustered",'
+              '"emotion_intensity":"strong","arousal_delta":7,'
+              '"arousal_reason":"Too close to think.","reason":"none"}',
+          intFn: (t, k) => k == 'arousal_delta'
+              ? 7
+              : (k == 'relationship_delta' || k == 'trust_delta')
+              ? 0
+              : null,
+        );
+        await svc.evaluateOneShotCall();
+        expect(pend['arousal_reason'], 'Too close to think.');
+      });
+
+      test('"none" leaves no reason, so the chip has no hover box', () async {
+        Map<String, dynamic> pend = {};
+        final svc = createTestRealismEvals(
+          nsfw: lustOn(),
+          pendingFn: () => pend,
+          setPendingFn: (v) => pend = v ?? {},
+          fireFn: (p, {onChunk}) async =>
+              '{"emotion":"calm","emotion_intensity":"mild",'
+              '"emotion_change":"held","arousal_delta":7,'
+              '"arousal_reason":"none"}',
+          intFn: arousalOnly,
+        );
+        await svc.evaluateEmotionalStateCall();
+        expect(pend['arousal_delta'], 7);
+        expect(pend.containsKey('arousal_reason'), isFalse);
+      });
+
+      test('both prompts ask for the reason when Lust is on', () async {
+        final prompts = <String>[];
+        final svc = createTestRealismEvals(
+          nsfw: lustOn(),
+          fireFn: (p, {onChunk}) async {
+            prompts.add(p);
+            return null;
+          },
+        );
+        await svc.evaluateEmotionalStateCall();
+        await svc.evaluateOneShotCall();
+        expect(prompts, hasLength(greaterThanOrEqualTo(2)));
+        for (final p in prompts) {
+          expect(p, contains('"arousal_reason"'));
+        }
+      });
+    });
   });
 }

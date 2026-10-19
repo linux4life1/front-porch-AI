@@ -397,6 +397,7 @@ extension ChatServiceWiringEvalJudges on ChatService {
     oneShotActive: () => _oneShotActive,
     personaName: () => _userPersonaService.persona.name,
     dispatchStagger: _kEvalDispatchStagger,
+    directing: () => _directing,
   );
 
   RealismDance _buildRealismDance() => RealismDance(

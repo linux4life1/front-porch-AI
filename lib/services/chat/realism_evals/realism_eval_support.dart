@@ -104,6 +104,7 @@ class RealismEvalSupport {
         if (arousalDelta != 0) {
           var pending = evals.getPendingRealismMetadata() ?? {};
           pending['arousal_delta'] = arousalDelta;
+          _putArousalReason(pending, text);
           evals.setPendingRealismMetadata(pending);
         }
       }
@@ -396,6 +397,7 @@ class RealismEvalSupport {
       if (arousalDelta != 0) {
         final pending = evals.getPendingRealismMetadata() ?? {};
         pending['arousal_delta'] = arousalDelta;
+        _putArousalReason(pending, text);
         evals.setPendingRealismMetadata(pending);
       }
       return (
@@ -413,7 +415,10 @@ class RealismEvalSupport {
     pending.remove(kFeelingsUnscoredMeta);
     pending['bond_delta'] = bondDelta;
     pending['trust_delta'] = trustDelta;
-    if (arousalDelta != 0) pending['arousal_delta'] = arousalDelta;
+    if (arousalDelta != 0) {
+      pending['arousal_delta'] = arousalDelta;
+      _putArousalReason(pending, text);
+    }
     evals.setPendingRealismMetadata(pending);
 
     // Reasons (for hover tooltips on chips). Always extract; set if present
@@ -445,5 +450,16 @@ class RealismEvalSupport {
       bondReason: bondReason,
       trustReason: trustReason,
     );
+  }
+
+  /// The Lust chip's hover reason, beside the delta it explains. "none" or
+  /// a missing answer leaves no key, and the chip shows no hover box.
+  void _putArousalReason(Map<String, dynamic> pending, String text) {
+    final raw = evalJsonString(text, 'arousal_reason')?.trim() ?? '';
+    if (raw.isEmpty || raw.toLowerCase() == 'none') {
+      pending.remove('arousal_reason');
+    } else {
+      pending['arousal_reason'] = raw;
+    }
   }
 }

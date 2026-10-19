@@ -86,6 +86,7 @@ extension ChatServiceSceneGuest on ChatService {
         _groupCharacters,
         promptText,
       );
+      if (target != null) _releaseHeldAway(target);
       if (target != null && !_groupSpeakerSkips(target)) {
         debugPrint(
           '[Cast] @-mention: ${target.name} forced as this turn\'s speaker.',

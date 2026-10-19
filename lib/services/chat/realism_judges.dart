@@ -54,7 +54,10 @@ class RealismJudges {
     required this.oneShotActive,
     required this.personaName,
     required this.dispatchStagger,
+    this.directing = _notDirecting,
   });
+
+  static bool _notDirecting() => false;
 
   final RealismScope _scope;
   final RealismEvals Function() realismEvals;
@@ -69,6 +72,9 @@ class RealismJudges {
   final bool Function() evalCancelled;
   final bool Function() oneShotActive;
   final String Function() personaName;
+
+  /// Director Mode: the glance asks "still in the scene", not "with you".
+  final bool Function() directing;
 
   /// Inter-call delay that keeps the staggered judges in wire order.
   final Duration dispatchStagger;
@@ -346,6 +352,7 @@ class RealismJudges {
       reply: clampEvalMessage(reply),
       recentExchange: recentExchange(_messages),
       stance: _relationshipService.spatialStance,
+      directing: directing(),
     );
     _relationshipService.applyWithUserVerdict(verdict);
     debugPrint(

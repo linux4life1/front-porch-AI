@@ -679,4 +679,156 @@ void main() {
       expect(RegExp(r'\d').hasMatch(up), isFalse, reason: 'never a number');
     });
   });
+
+  // Issue #551: models kept pushing an open goal and replayed the same scene
+  // while the user steered elsewhere. Two brakes, both read from what is
+  // already stored, so a regen decides the same way.
+  group('a character stuck on a goal (issue #551)', () {
+    const goal = ['find the lighthouse keeper'];
+    ChatMessage user(String t) =>
+        ChatMessage(text: t, sender: 'User', isUser: true);
+    ChatMessage bot(String t, {String? id}) =>
+        ChatMessage(text: t, sender: 'Nia', isUser: false, characterId: id);
+    final pushes = [
+      user('want to get dinner?'),
+      bot('First we must find the lighthouse keeper.'),
+      user('the soup here is great'),
+      bot('The keeper is out there somewhere.'),
+      user('try the bread'),
+      bot('I keep thinking about the lighthouse.'),
+      user('so, dessert?'),
+    ];
+
+    test('three replies pushing the goal past the user rest it', () {
+      expect(objectiveFixated(messages: pushes, questTexts: goal), isTrue);
+      expect(
+        objectiveFixated(messages: pushes.sublist(0, 5), questTexts: goal),
+        isFalse,
+        reason: 'two replies are not a run',
+      );
+    });
+
+    test('the user bringing the goal up is engagement, not fixation', () {
+      expect(
+        objectiveFixated(
+          messages: [...pushes, user('fine, where is the keeper?')],
+          questTexts: goal,
+        ),
+        isFalse,
+      );
+    });
+
+    test('the goal rests for three replies after the run, then returns', () {
+      final after = [...pushes];
+      for (var i = 0; i < 2; i++) {
+        after.addAll([bot('Dessert sounds lovely.'), user('great')]);
+        expect(
+          objectiveFixated(messages: after, questTexts: goal),
+          isTrue,
+          reason: 'reply ${i + 1} after the run',
+        );
+      }
+      after.addAll([bot('Cake, then.'), user('yes')]);
+      expect(objectiveFixated(messages: after, questTexts: goal), isFalse);
+    });
+
+    test('in a group only the owner\'s replies count', () {
+      final group = [
+        user('dinner?'),
+        bot('We must find the lighthouse keeper.', id: 'nia'),
+        bot('Dinner sounds good.', id: 'bo'),
+        bot('The keeper waits.', id: 'nia'),
+        bot('Pass the salt.', id: 'bo'),
+        bot('The lighthouse, though.', id: 'nia'),
+        user('dessert?'),
+      ];
+      expect(
+        objectiveFixated(messages: group, questTexts: goal, speakerId: 'nia'),
+        isTrue,
+      );
+      expect(
+        objectiveFixated(messages: group, questTexts: goal, speakerId: 'bo'),
+        isFalse,
+      );
+    });
+
+    List<Map<String, dynamic>> twoSteps() => [
+      {'description': 'ask at the dock', 'completed': false},
+      {'description': 'walk the cliff path', 'completed': false},
+    ];
+    List<Map<String, dynamic>> sync(
+      List<Map<String, dynamic>> tasks, {
+      Set<int> done = const {},
+      String? next,
+      bool authored = false,
+    }) =>
+        decideObjectiveSync(
+          tasks: tasks,
+          verdict: ObjectiveSyncVerdict(
+            status: 'on_track',
+            stepsDone: done,
+            nextStep: next,
+          ),
+          stepsAuthored: authored,
+        ).newTasks ??
+        tasks;
+
+    test('the character\'s step unmoved for three checks is stuck; the '
+        'user\'s steps and a manual check never count', () {
+      var tasks = twoSteps();
+      for (var i = 0; i < kStuckStepChecks; i++) {
+        expect(stepIsStuck(tasks[0]), isFalse);
+        tasks = sync(tasks);
+      }
+      expect(stepIsStuck(tasks[0]), isTrue);
+      expect(stuckChecksOf(tasks[1]), 0, reason: 'only the open step');
+      expect(sync(twoSteps(), authored: true), twoSteps());
+      expect(
+        decideObjectiveSync(
+          tasks: twoSteps(),
+          verdict: const ObjectiveSyncVerdict(status: 'on_track'),
+          stepsAuthored: false,
+          countStuck: false,
+        ).isNoop,
+        isTrue,
+        reason: '"Check now" is not the story stalling',
+      );
+    });
+
+    test('a tick or a new step is progress; set aside is not a check', () {
+      var tasks = sync(sync(twoSteps()));
+      expect(stuckChecksOf(tasks[0]), 2);
+      final ticked = sync(tasks, done: {1});
+      expect(stuckChecksOf(ticked[1]), 0, reason: 'a tick is progress');
+      final rewritten = sync(tasks, next: 'wait for the ferry');
+      expect(rewritten[0]['description'], 'wait for the ferry');
+      expect(stuckChecksOf(rewritten[0]), 0, reason: 'a new step is fresh');
+      final aside = decideObjectiveSync(
+        tasks: tasks,
+        verdict: const ObjectiveSyncVerdict(status: 'dormant'),
+        stepsAuthored: false,
+      );
+      expect(aside.newTasks, isNull);
+    });
+
+    test('the goal check is told which step has not moved', () {
+      String prompt({required bool fixed}) => buildObjectiveSyncPrompt(
+        contextText: 'User: hi',
+        toolsMode: false,
+        items: [
+          ObjectiveSyncItem(
+            goal: 'find the keeper',
+            stepsFixed: fixed,
+            steps: const [('ask at the dock', 'stuck'), ('walk', 'open')],
+          ),
+        ],
+      );
+      expect(prompt(fixed: false), contains('1. [ ] ask at the dock (no '));
+      expect(
+        prompt(fixed: true),
+        isNot(contains('no progress')),
+        reason: 'the user\'s steps get no new next_step',
+      );
+    });
+  });
 }

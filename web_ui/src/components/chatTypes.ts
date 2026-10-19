@@ -10,8 +10,14 @@ export interface Chips {
   trustDelta?: number;
   arousalDelta?: number;
   emotionLabel?: string;
+  /** Why they felt it, filed with this reply (desktop: `emotion_cause`). */
+  emotionCause?: string;
+  /** Standing Mood: what they walked in carrying ("Came in …"). */
+  moodStanding?: string;
   bondReason?: string;
   trustReason?: string;
+  /** Why Lust moved this reply, in the character's words. */
+  arousalReason?: string;
   timeSkipTo?: string;
   timePassed?: string;
   chanceTimeEvent?: string;

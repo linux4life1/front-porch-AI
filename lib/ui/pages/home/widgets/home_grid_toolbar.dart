@@ -114,7 +114,9 @@ class HomeGridToolbar extends StatelessWidget {
           onPressed: onFolderNavigateBack,
         ),
         const SizedBox(width: 8),
-        Flexible(child: _breadcrumb()),
+        // Expanded, and the row drops its Spacer in a folder, so a long
+        // path gets the free width instead of splitting it with the gap.
+        Expanded(child: _breadcrumb()),
       ];
     }
     // ConstrainedBox (not Flexible) so the toggle keeps its natural width
@@ -176,33 +178,53 @@ class HomeGridToolbar extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Row(
-            children: [
-              if (inFolder) ...[
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Up one level',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onFolderNavigateBack,
-                ),
-                const SizedBox(width: 8),
-                Flexible(child: _breadcrumb(dropTargets: true)),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: Text(
-                  inFolder
-                      ? 'Drop on a folder, or on a level of the path'
-                      : 'Drop on a folder',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.textSecondary(context),
-                    fontSize: 13,
+          child: LayoutBuilder(
+            // The path is laid out first and may take the whole strip: its
+            // levels are the targets. The hint gets what is left.
+            builder: (context, strip) => Row(
+              children: [
+                if (inFolder) ...[
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    tooltip: 'Up one level',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onFolderNavigateBack,
+                  ),
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      // Back button and gaps; a wide strip also keeps the
+                      // hint a readable share.
+                      maxWidth: math.max(
+                        0.0,
+                        strip.maxWidth - 56 - (strip.maxWidth >= 600 ? 220 : 0),
+                      ),
+                    ),
+                    child: _breadcrumb(dropTargets: true),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                Expanded(
+                  // Only a hint with room to read; a sliver would show a
+                  // lone "…" that looks like a folded level.
+                  child: LayoutBuilder(
+                    builder: (context, left) => left.maxWidth < 120
+                        ? const SizedBox.shrink()
+                        : Text(
+                            inFolder
+                                ? 'Drop on a folder, or on a level of the path'
+                                : 'Drop on a folder',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              color: AppColors.textSecondary(context),
+                              fontSize: 13,
+                            ),
+                          ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
         if (room >= 96) ...[
@@ -275,9 +297,23 @@ class HomeGridToolbar extends StatelessWidget {
           if (isSelecting || isOrganizing) return _pickingRow(context, width);
           // Content-area widths, not window sizes. Sidebar already ate its
           // share; these decide what still fits in the remaining strip.
-          final showSlider = width >= 720;
-          final labeledSort = width >= 520;
-          final inlineActions = width >= 440;
+          var showSlider = width >= 720;
+          var labeledSort = width >= 520;
+          var inlineActions = width >= 440;
+          // In a folder the path needs room to read: shed the slider, then
+          // the sort label, then the inline actions until it has it.
+          if (activeFolderId != null) {
+            double left() =>
+                width -
+                12 -
+                (labeledSort ? 190 : 48) -
+                (showSlider ? 120 : 0) -
+                (inlineActions ? 230 : 48);
+            const pathRoom = 280.0;
+            if (left() < pathRoom) showSlider = false;
+            if (left() < pathRoom) labeledSort = false;
+            if (left() < pathRoom) inlineActions = false;
+          }
           // High-side estimates so the toggle goes compact a few px early
           // rather than the row overflowing. Not a window-size assumption.
           var reserved = 12.0;
@@ -291,7 +327,7 @@ class HomeGridToolbar extends StatelessWidget {
               const SizedBox(width: 12),
               _sortControl(labeled: labeledSort),
               if (showSlider) _scaleSlider(),
-              const Spacer(),
+              if (activeFolderId == null) const Spacer(),
               if (inlineActions) ..._actionButtons(context),
               if (!inlineActions) _overflowActions(),
             ],

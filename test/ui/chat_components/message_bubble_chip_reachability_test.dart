@@ -231,4 +231,37 @@ void main() {
     expect(find.text('Manual Reprocess'), findsNothing);
     expect(find.byIcon(Icons.checkroom_outlined), findsNothing);
   });
+
+  // The Mood and Lust chips say why, like Bond and Trust. The sidebar no
+  // longer prints the mood's cause, so the chip is the only place it lives.
+  // Proven red: dropping the arousal_reason / emotion_cause tooltips in
+  // MessageRealismIndicator fails both finders.
+  testWidgets('Mood and Lust chips explain themselves on hover', (
+    tester,
+  ) async {
+    await pumpBubble(
+      tester,
+      message: ChatMessage(
+        text: '*She leans closer.*',
+        sender: 'Aria Vale',
+        isUser: false,
+        metadata: const {
+          'bond_delta': 2,
+          'trust_delta': 1,
+          'emotion_label': 'love',
+          'emotion_cause': 'he stayed when it got hard',
+          'arousal_delta': 8,
+          'arousal_reason': 'The way he said my name.',
+        },
+      ),
+    );
+
+    expect(find.text('Mood: love'), findsOneWidget);
+    expect(
+      find.byTooltip('Because he stayed when it got hard'),
+      findsOneWidget,
+    );
+    expect(find.text('Lust: +8'), findsOneWidget);
+    expect(find.byTooltip('The way he said my name.'), findsOneWidget);
+  });
 }

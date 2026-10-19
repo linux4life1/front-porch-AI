@@ -66,6 +66,10 @@ abstract final class GroupRealismKeys {
   static const fixationLifespan = 'fixationLifespan';
   static const spatialStance = 'spatialStance';
   static const withUser = 'withUser';
+
+  /// The user marked this member Away by hand. The model cannot bring them
+  /// back; only the user's Back clears it.
+  static const awayHeld = 'awayHeld';
   static const relationshipTier = 'relationshipTier';
   static const longTermTier = 'longTermTier';
   static const turnsSinceLongTermCheck = 'turnsSinceLongTermCheck';
@@ -205,11 +209,24 @@ class GroupMemberRealism {
   String? get spatialStance => _string(GroupRealismKeys.spatialStance);
   set spatialStance(String? v) => _data[GroupRealismKeys.spatialStance] = v;
   bool? get withUser => _bool(GroupRealismKeys.withUser);
+
+  /// A hand-set Away wins over every model write (glance, rewind, sync):
+  /// only clearing [awayHeld] — the user's Back — lets them return.
   set withUser(bool? v) {
+    if (awayHeld && v != false) return;
     if (v == null) {
       _data.remove(GroupRealismKeys.withUser);
     } else {
       _data[GroupRealismKeys.withUser] = v;
+    }
+  }
+
+  bool get awayHeld => _bool(GroupRealismKeys.awayHeld) ?? false;
+  set awayHeld(bool v) {
+    if (v) {
+      _data[GroupRealismKeys.awayHeld] = true;
+    } else {
+      _data.remove(GroupRealismKeys.awayHeld);
     }
   }
 

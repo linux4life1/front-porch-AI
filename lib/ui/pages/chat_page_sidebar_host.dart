@@ -30,8 +30,8 @@ import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Single AppBar for every chat. Driven by the unified [ChatService.cast]:
-/// a cast of one renders the classic single-character header (avatar + name +
-/// description); a cast of two or more renders stacked avatars (with emotion
+/// a cast of one renders the classic single-character header (avatar + name);
+/// a cast of two or more renders stacked avatars (with emotion
 /// rings when group realism is active) + a "N characters" subtitle. This is
 /// the same header whether the extra speakers are full group members or Scene
 /// Guests, so a 1:1 that gains a guest visually becomes a multi-speaker chat.
@@ -148,28 +148,13 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
     }
 
     final title = group?.name ?? (cast.isNotEmpty ? cast.first.name : '');
-    final String? subtitle;
-    if (isMulti) {
-      subtitle = group != null
-          ? '${cast.length} characters • ${group.turnOrder.name}'
-          : '${cast.length} characters';
-    } else {
-      // Card text is written in macros; the header shows it as read.
-      final desc = cast.isNotEmpty
-          ? cast.first.card.description
-                .replaceAll(
-                  RegExp(r'\{\{char\}\}', caseSensitive: false),
-                  cast.first.name,
-                )
-                .replaceAll(
-                  RegExp(r'\{\{user\}\}', caseSensitive: false),
-                  'you',
-                )
-          : '';
-      subtitle = desc.isEmpty
-          ? null
-          : (desc.length > 30 ? '${desc.substring(0, 30)}...' : desc);
-    }
+    // A cast of one shows the name alone: a 30-character cut of the card
+    // description told the reader nothing, and the card is a tap away.
+    final String? subtitle = !isMulti
+        ? null
+        : group != null
+        ? '${cast.length} characters • ${group.turnOrder.name}'
+        : '${cast.length} characters';
 
     return AppBar(
       backgroundColor: AppColors.surfaceOf(context),

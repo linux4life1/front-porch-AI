@@ -228,8 +228,7 @@ extension ChatServiceHistory on ChatService {
     // If messages were dropped, prepend a separator
     String history = spliced.body.join('\n');
     if (droppedCount > 0) {
-      history =
-          '[Earlier messages truncated — see the recap below for context]\n$history';
+      history = '$kHistoryTruncatedMarker\n$history';
     }
 
     return (

@@ -37,7 +37,14 @@ interface Budget {
   source?: string;
   assembledAt?: string | null;
   textPruned?: boolean;
+  /** Oldest messages left out of Chat History (a count, not tokens). */
+  droppedMessages?: number;
   sections: BudgetSection[];
+}
+
+// Mirrors droppedMessagesNote on desktop.
+export function droppedMessagesNote(count: number): string {
+  return `${count} older message${count === 1 ? '' : 's'} not sent — trimmed to fit the context.`;
 }
 
 function sourceLabel(source?: string): string {
@@ -99,6 +106,7 @@ export function ContextBudgetModal({
   };
 
   const sections = budget?.sections ?? [];
+  const dropped = budget?.droppedMessages ?? 0;
   const total = sections.reduce((a, s) => a + s.tokens, 0);
   const limit = budget?.contextLimit ?? 0;
   const usage = limit > 0 ? total / limit : 0;
@@ -171,6 +179,11 @@ export function ContextBudgetModal({
                 }}
               />
             </div>
+            {dropped > 0 && (
+              <p className="muted ctxb-dropped" style={{ fontSize: 11 }}>
+                {droppedMessagesNote(dropped)}
+              </p>
+            )}
             {budget?.textPruned && (
               <p className="muted" style={{ fontSize: 11 }}>
                 Only the token counts are kept for older replies.

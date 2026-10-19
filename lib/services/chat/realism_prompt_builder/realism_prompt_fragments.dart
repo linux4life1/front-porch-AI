@@ -203,6 +203,8 @@ class RealismPromptFragments {
       'breathing, focus, flushed skin, body language.\n'
       '  A non-sexual, non-romantic turn (food, work, errands, small talk, plain comfort) is 0 — and if '
       'current arousal is above 0 on such a turn, return roughly -5 to -10 so it cools back toward neutral.\n'
+      '- "arousal_reason": one brief in-character thought from $charName explaining the desire shift '
+      '(e.g. "The way they said my name." or "Not now, not like this."), or "none" if the delta is 0.\n'
       '${refractoryMinutesLeft > 0
           ? _refractoryNote(charName, userName, refractoryMinutesLeft, clockRunning, refractorySoft, mutualOpening: mutualOpening, surge: bondScoredHere)
           : warmthTailMinutes > 0

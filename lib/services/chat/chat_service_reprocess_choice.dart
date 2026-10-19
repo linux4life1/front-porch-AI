@@ -149,6 +149,7 @@ const List<String> _kJudgedMetaKeys = [
   'bond_reason',
   'trust_reason',
   'arousal_delta',
+  'arousal_reason',
   'trust_repair_verdict',
   'trust_repair_recovery',
   'trust_repair_reason',
@@ -377,6 +378,7 @@ extension ChatServiceFeelingsRescore on ChatService {
       if (pending.containsKey(k)) meta[k] = pending[k];
     }
     meta['emotion_label'] = _characterEmotion;
+    _mood.stampCause(meta);
     final verdict = pending[RealismVerification.kMetaKey];
     if (verdict is Map) {
       meta[RealismVerification.kMetaKey] = {

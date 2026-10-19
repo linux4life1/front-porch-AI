@@ -62,6 +62,8 @@ class MessageRealismIndicator extends StatelessWidget {
     final trustDelta = metadata['trust_delta'] as int? ?? 0;
     final bondReason = metadata['bond_reason'] as String? ?? '';
     final trustReason = metadata['trust_reason'] as String? ?? '';
+    final arousalReason = metadata['arousal_reason'] as String? ?? '';
+    final emotionCause = metadata['emotion_cause'] as String? ?? '';
     final timeSkipTo = metadata['time_skip_to'] as String? ?? '';
     final timePassed = metadata['time_passed'] as String? ?? '';
     final chanceTimeEvent = metadata['chance_time_event'] as String? ?? '';
@@ -226,28 +228,12 @@ class MessageRealismIndicator extends StatelessWidget {
             color = Colors.grey;
         }
 
-        final chip = Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 11, color: color),
-            const SizedBox(width: 4),
-            Text(
-              '$label ${delta > 0 ? '+$delta' : '$delta'}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: color,
-              ),
-            ),
-            if (reason.isNotEmpty) ...[
-              const SizedBox(width: 4),
-              Icon(
-                Icons.info_outline,
-                size: 10,
-                color: AppColors.textTertiary(context),
-              ),
-            ],
-          ],
+        final chip = realismDeltaChip(
+          context,
+          icon: icon,
+          label: '$label ${delta > 0 ? '+$delta' : '$delta'}',
+          color: color,
+          hasReason: reason.isNotEmpty,
         );
 
         needsChipList.add(maybeTooltip(chip, reason));
@@ -305,102 +291,62 @@ class MessageRealismIndicator extends StatelessWidget {
           : bondDelta > 0
           ? Colors.pinkAccent
           : Colors.redAccent;
-      final chip = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            bondUnchanged
-                ? Icons.favorite_border
-                : bondDelta > 0
-                ? Icons.favorite
-                : Icons.heart_broken,
-            size: 11,
-            color: bondColor,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            bondUnchanged
-                ? 'Bond unchanged'
-                : 'Bond: ${bondDelta > 0 ? '+$bondDelta' : '$bondDelta'}',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: bondColor,
-            ),
-          ),
-          if (bondReason.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            Icon(
-              Icons.info_outline,
-              size: 10,
-              color: AppColors.textTertiary(context),
-            ),
-          ],
-        ],
+      final chip = realismDeltaChip(
+        context,
+        icon: bondUnchanged
+            ? Icons.favorite_border
+            : bondDelta > 0
+            ? Icons.favorite
+            : Icons.heart_broken,
+        label: bondUnchanged
+            ? 'Bond unchanged'
+            : 'Bond: ${bondDelta > 0 ? '+$bondDelta' : '$bondDelta'}',
+        color: bondColor,
+        hasReason: bondReason.isNotEmpty,
       );
       chips.add(maybeTooltip(chip, bondReason));
     }
 
     if (emotionLabel.isNotEmpty) {
-      // The mood chip was the ONLY chip here with no hover reason — bond,
-      // trust, every need, the verifier and Chance Time all carry one, and
-      // this alone said "Mood: wistful" with nothing behind it. It could not
-      // have one: the emotional eval returns a label and an intensity, never a
-      // cause.
-      //
-      // Standing Mood answers the honest half. Not "why they feel this", which
-      // nothing knows, but what they walked in carrying — so a user can tell
-      // which part of their mood was the user and which part was their day.
-      // Absent (and the chip unchanged) when the feature is off or the day
-      // was unremarkable.
-      final moodReason =
+      // Why they feel this (the judge's cause, filed with this reply), then
+      // what they walked in carrying (Standing Mood). The sidebar no longer
+      // prints the cause, so this hover is where it lives.
+      final standing =
           MoodBaseline.fromJson(metadata['mood_context'])?.summary ?? '';
+      final moodTip = [
+        if (emotionCause.isNotEmpty) 'Because $emotionCause',
+        if (standing.isNotEmpty) 'Came in $standing',
+      ].join('\n');
       chips.add(
         maybeTooltip(
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.psychology, size: 11, color: Colors.purpleAccent),
-              const SizedBox(width: 4),
-              Text(
-                'Mood: $emotionLabel',
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: FontWeight.w600,
-                  color: Colors.purpleAccent,
-                ),
-              ),
-            ],
+          realismDeltaChip(
+            context,
+            icon: Icons.psychology,
+            label: 'Mood: $emotionLabel',
+            color: Colors.purpleAccent,
+            hasReason: moodTip.isNotEmpty,
           ),
-          moodReason.isEmpty ? '' : 'Came in $moodReason',
+          moodTip,
         ),
       );
     }
 
     if (arousalDelta != 0) {
       chips.add(
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              arousalDelta > 0 ? Icons.local_fire_department : Icons.ac_unit,
-              size: 11,
-              color: arousalDelta > 0
-                  ? Colors.deepOrangeAccent
-                  : Colors.lightBlueAccent,
-            ),
-            const SizedBox(width: 4),
-            Text(
-              'Lust: ${arousalDelta > 0 ? '+$arousalDelta' : '$arousalDelta'}',
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-                color: arousalDelta > 0
-                    ? Colors.deepOrangeAccent
-                    : Colors.lightBlueAccent,
-              ),
-            ),
-          ],
+        maybeTooltip(
+          realismDeltaChip(
+            context,
+            icon: arousalDelta > 0
+                ? Icons.local_fire_department
+                : Icons.ac_unit,
+            label:
+                'Lust: ${arousalDelta > 0 ? '+$arousalDelta' : '$arousalDelta'}',
+            color: arousalDelta > 0
+                ? Colors.deepOrangeAccent
+                : Colors.lightBlueAccent,
+            hasReason: arousalReason.isNotEmpty,
+          ),
+          arousalReason,
         ),
       );
     }
@@ -415,38 +361,18 @@ class MessageRealismIndicator extends StatelessWidget {
               Colors.deepPurpleAccent,
               const Color(0xFF7C3AED),
             );
-      final chip = Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            trustUnchanged
-                ? Icons.handshake_outlined
-                : trustDelta > 0
-                ? Icons.handshake
-                : Icons.gavel,
-            size: 11,
-            color: trustColor,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            trustUnchanged
-                ? 'Trust unchanged'
-                : 'Trust: ${trustDelta > 0 ? '+$trustDelta' : '$trustDelta'}',
-            style: TextStyle(
-              fontSize: 10,
-              fontWeight: FontWeight.w600,
-              color: trustColor,
-            ),
-          ),
-          if (trustReason.isNotEmpty) ...[
-            const SizedBox(width: 4),
-            Icon(
-              Icons.info_outline,
-              size: 10,
-              color: AppColors.textTertiary(context),
-            ),
-          ],
-        ],
+      final chip = realismDeltaChip(
+        context,
+        icon: trustUnchanged
+            ? Icons.handshake_outlined
+            : trustDelta > 0
+            ? Icons.handshake
+            : Icons.gavel,
+        label: trustUnchanged
+            ? 'Trust unchanged'
+            : 'Trust: ${trustDelta > 0 ? '+$trustDelta' : '$trustDelta'}',
+        color: trustColor,
+        hasReason: trustReason.isNotEmpty,
       );
       chips.add(maybeTooltip(chip, trustReason));
     }

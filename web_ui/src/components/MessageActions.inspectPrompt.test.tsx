@@ -79,4 +79,23 @@ describe('Inspect prompt', () => {
     expect(text).toContain('Only the token counts are kept for older replies.');
     expect(container.querySelector('button[title="Refresh estimate from this chat"]')).toBeNull();
   });
+
+  it('says how many older messages the reply left out, outside the total', async () => {
+    get.mockResolvedValue({
+      contextLimit: 8192,
+      source: 'reply',
+      droppedMessages: 48,
+      sections: [{ label: 'Chat History', tokens: 7000, text: 'Nia: hi' }],
+    });
+    render({ ...reply, hasContext: true });
+
+    const button = container.querySelector('button[title="Inspect prompt"]') as HTMLButtonElement;
+    await act(async () => {
+      button.click();
+    });
+
+    const text = container.textContent ?? '';
+    expect(text).toContain('48 older messages not sent — trimmed to fit the context.');
+    expect(text).toContain('Total: 7000 / 8192 tokens');
+  });
 });

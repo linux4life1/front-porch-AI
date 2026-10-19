@@ -253,12 +253,19 @@ export function ChatPage() {
           cast={cast}
           focusedId={focusedId}
           busy={state.isGenerating}
+          settling={!!state.isSettlingTurn}
           guestStatus={state.guestActivity?.status ?? null}
           guestIsError={state.guestActivity?.isError ?? false}
           pendingDetection={state.pendingDetection ?? null}
           onFocus={focusParticipant}
           onAdd={() => setShowPicker(true)}
           onCommand={sendMessage}
+          onSetAway={(id, away) => {
+            api
+              .post('/api/chat/cast/away', { id, away })
+              .then(() => refresh())
+              .catch((e) => reportActionFailure(away ? 'mark them away' : 'bring them back', e));
+          }}
           canRemoveMember={state.director?.canRemoveMember ?? true}
         />
         {state.director && (state.isGroupMode || cast.length > 1) && (

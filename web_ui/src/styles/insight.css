@@ -35,6 +35,7 @@
   font-size: 0.72rem; line-height: 1.4; color: var(--text);
   background: var(--surface-2); border: 1px solid var(--border);
   border-radius: 8px; padding: 6px 9px; max-width: 100%;
+  white-space: pre-line;
 }
 /* Director redo controls under the Needs row (last message only). */
 .needs-reprocess-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }

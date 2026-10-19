@@ -343,6 +343,7 @@ extension ChatServiceWiringMemory on ChatService {
           _setGuestStatus('Busy — try again in a moment.', isError: true);
           return;
         }
+        _releaseHeldAway(member);
         _groupManager?.setNextSpeaker(member);
         final tipBefore = _messages.lastOrNull;
         await _generateResponse(GenerationMode.normal, forceSpeaker: member);

@@ -33,8 +33,8 @@ class _OneOnOne extends FakeChatService {
 }
 
 void main() {
-  testWidgets('the chat header reads the description with names, not '
-      'macros', (tester) async {
+  testWidgets('a 1:1 chat header shows the name without a cut of the '
+      'description', (tester) async {
     final chat = _OneOnOne(
       CharacterCard(
         name: 'Mabel',
@@ -54,7 +54,8 @@ void main() {
         ),
       ),
     );
-    expect(find.text('Mabel lives next door to you.'), findsOneWidget);
+    expect(find.text('Mabel'), findsOneWidget);
+    expect(find.textContaining('lives next door'), findsNothing);
     expect(find.textContaining('{{'), findsNothing);
   });
 }

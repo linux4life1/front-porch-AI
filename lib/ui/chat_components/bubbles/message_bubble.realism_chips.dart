@@ -20,6 +20,41 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+/// One delta chip under a reply: icon, label, and an ⓘ when hovering it
+/// shows a reason. Bond, trust, mood, lust and every need draw through it,
+/// so a chip that has a reason always looks like one.
+Widget realismDeltaChip(
+  BuildContext context, {
+  required IconData icon,
+  required String label,
+  required Color color,
+  required bool hasReason,
+}) {
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 11, color: color),
+      const SizedBox(width: 4),
+      Text(
+        label,
+        style: TextStyle(
+          fontSize: 10,
+          fontWeight: FontWeight.w600,
+          color: color,
+        ),
+      ),
+      if (hasReason) ...[
+        const SizedBox(width: 4),
+        Icon(
+          Icons.info_outline,
+          size: 10,
+          color: AppColors.textTertiary(context),
+        ),
+      ],
+    ],
+  );
+}
+
 /// Event / receipt chips appended after the classic bond/mood/lust/trust
 /// chips in `MessageRealismIndicator`, in display order. [maybeTooltip] is
 /// the indicator's shared chip tooltip.

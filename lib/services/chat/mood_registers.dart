@@ -205,4 +205,15 @@ class MoodRegisters {
 
   /// `Furious (strong) · because he lied about the money · still`.
   String get displayLine => moodDisplayLine(state);
+
+  /// Files the cause beside a reply's `emotion_label` so that reply's Mood
+  /// chip can say why on hover. A neutral mood or an empty cause clears it.
+  void stampCause(Map<String, dynamic> meta) {
+    final cause = state.isNeutral ? '' : cleanMoodCause(state.cause);
+    if (meta['emotion_label'] is! String || cause.isEmpty) {
+      meta.remove('emotion_cause');
+    } else {
+      meta['emotion_cause'] = cause;
+    }
+  }
 }

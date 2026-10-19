@@ -5,18 +5,16 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Mood with bite (docs/design/mood-with-bite.md): the phone shows the same
-// one-line row the desktop does — label, intensity, cause and hold word —
-// and falls back to the older `mood` string from a desktop that predates it.
+// The mood moved off the insight panel: the Mood chip under each reply says
+// what they feel and why (ChipsRow), so the panel no longer repeats it, the
+// same as the desktop sidebar. The realism payload keeps its mood fields.
 describe('ChatInsight mood row', () => {
   const src = readFileSync(join(__dirname, 'ChatInsight.tsx'), 'utf8');
   const types = readFileSync(join(__dirname, 'chatTypes.ts'), 'utf8');
 
-  it('renders moodLine before the older mood string', () => {
-    const line = src.indexOf('realism.moodLine || realism.mood');
-    expect(line).toBeGreaterThan(-1);
-    const row = src.slice(src.lastIndexOf('<span>Mood</span>', line), line);
-    expect(row).toContain('Mood');
+  it('has no Mood row', () => {
+    expect(src).not.toContain('<span>Mood</span>');
+    expect(src).not.toContain('realism.moodLine');
   });
 
   it('types the three additive fields as optional', () => {

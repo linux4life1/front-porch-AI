@@ -320,7 +320,13 @@ class RealismPromptBuilder {
       '${arousalEnabled ? RealismPromptFragments.arousalSection(charName, userName, arousalLevel, refractoryMinutesLeft, clockRunning, refractorySoft: refractorySoft, warmthTailMinutes: warmthTailMinutes, mutualOpening: mutualOpening) : ''}'
       '\n'
       '${RealismPromptFragments.recentBlock(recent)}'
-      '${toolsMode ? RealismPromptFragments.toolInstruction('report_emotional_state') : RealismPromptFragments.jsonInstruction(['emotion', 'emotion_intensity', 'emotion_cause', 'emotion_change', if (arousalEnabled) 'arousal_delta'])}';
+      '${toolsMode ? RealismPromptFragments.toolInstruction('report_emotional_state') : RealismPromptFragments.jsonInstruction([
+              'emotion',
+              'emotion_intensity',
+              'emotion_cause',
+              'emotion_change',
+              if (arousalEnabled) ...['arousal_delta', 'arousal_reason'],
+            ])}';
 
   static String narrativeEvalPrompt({
     required String charName,
@@ -379,5 +385,19 @@ class RealismPromptBuilder {
       '${RealismPromptFragments.reasonSection()}'
       '\n'
       '${RealismPromptFragments.recentBlock(recent)}'
-      '${toolsMode ? RealismPromptFragments.toolInstruction('report_realism') : RealismPromptFragments.jsonInstruction(['relationship_delta', 'bond_reason', 'trust_delta', 'trust_reason', 'emotion', 'emotion_intensity', 'emotion_cause', 'emotion_change', if (arousalEnabled) 'arousal_delta', 'proposed_objective', if (RealismPromptFragments.ambitionRoster(ambitions).isNotEmpty) 'serves_ambition', 'fixation_topic', 'reason'])}';
+      '${toolsMode ? RealismPromptFragments.toolInstruction('report_realism') : RealismPromptFragments.jsonInstruction([
+              'relationship_delta',
+              'bond_reason',
+              'trust_delta',
+              'trust_reason',
+              'emotion',
+              'emotion_intensity',
+              'emotion_cause',
+              'emotion_change',
+              if (arousalEnabled) ...['arousal_delta', 'arousal_reason'],
+              'proposed_objective',
+              if (RealismPromptFragments.ambitionRoster(ambitions).isNotEmpty) 'serves_ambition',
+              'fixation_topic',
+              'reason',
+            ])}';
 }

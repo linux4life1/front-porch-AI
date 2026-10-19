@@ -37,6 +37,7 @@ import 'package:front_porch_ai/services/chat/prompt_injection/inventory_injectio
 import 'package:front_porch_ai/services/chat/prompt_injection/preferences_injection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/promise_debt_injection.dart';
 import 'package:front_porch_ai/services/chat/ambition_service.dart';
+import 'package:front_porch_ai/services/chat/objective_fixation.dart';
 import 'package:front_porch_ai/services/chat/promise_debt_service.dart';
 import 'package:front_porch_ai/services/chat/growth_store.dart';
 import 'package:front_porch_ai/services/chat/journal_store.dart';
@@ -418,6 +419,35 @@ void main() {
         );
       },
     );
+
+    // Issue #551: a step three goal checks have not moved is no longer named,
+    // and a goal the character keeps pushing past the user is left out.
+    test('author_note / objective: a stuck step is not named; a resting goal '
+        'is left out', () {
+      List<Map<String, dynamic>> tasks(int checks) => [
+        {'description': 'buy flour', 'completed': true},
+        {
+          'description': 'bake the bread',
+          'completed': false,
+          kStuckChecksKey: checks,
+        },
+      ];
+      String build(int checks, {bool resting = false}) => AuthorNoteBuilder(
+        getActiveObjectives: () => [_mkObj('Open the bakery')],
+        getPrimaryObjective: () => {
+          ..._mkObj('Open the bakery'),
+          'origin': 'character',
+        },
+        tasksForObjective: (_) => tasks(checks),
+        getSecondaryObjectives: () => const [],
+        isResting: (_) => resting,
+      ).buildObjectiveInjection();
+      expect(build(kStuckStepChecks - 1), contains('bake the bread'));
+      final stuck = build(kStuckStepChecks);
+      expect(stuck, contains('Most of all, {{char}} wants: Open the bakery'));
+      expect(stuck, isNot(contains('bake the bread')));
+      expect(build(0, resting: true), isEmpty);
+    });
 
     test(
       'relationship 1:1: words only — no scores, tiers, or mechanic labels',
