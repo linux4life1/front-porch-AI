@@ -16,15 +16,17 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Clickable path — "My Characters / folder1 / folder2 / current". Every
-/// segment but the current one jumps straight there, so deep nesting never
-/// needs N back-taps to escape.
+/// Clickable path — "My Characters / … / parent / current". Every segment
+/// but the current one jumps straight there, so deep nesting never needs N
+/// back-taps to escape.
 /// While a drag is live ([dropTargets]) every level but the current one
 /// takes a drop instead (library phase 3).
 class HomeToolbarBreadcrumb extends StatelessWidget {
@@ -94,28 +96,54 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
       '/',
       style: TextStyle(color: AppColors.textTertiary(context)),
     );
-    // The folder you're standing in is laid out first and keeps up to most
-    // of the row; the levels above it share what is left and ellipsize, so
-    // a squeezed toolbar reads "My Cha… / Bletchfield", never a clipped
-    // head.
+    // Deep paths keep the top level and the parent; the levels between fold
+    // into one "…" that jumps to the deepest of them.
+    final ancestors = trail.isEmpty
+        ? const <CharacterFolder>[]
+        : trail.sublist(0, trail.length - 1);
+    final hidden = ancestors.length > 1
+        ? ancestors.sublist(0, ancestors.length - 1)
+        : const <CharacterFolder>[];
+    final parent = ancestors.isEmpty ? null : ancestors.last;
+    final current = trail.isEmpty ? null : trail.last;
+    final named = parent == null ? 1 : 2;
     return LayoutBuilder(
-      builder: (context, constraints) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(child: crumb('My Characters', null)),
-          for (var i = 0; i < trail.length; i++) ...[
-            separator,
-            if (i < trail.length - 1)
-              Flexible(child: crumb(trail[i].name, trail[i].id))
-            else
+      builder: (context, constraints) {
+        // The folder you're standing in is laid out first. It keeps all but
+        // a floor for each level above it, and never less than 40% of the
+        // row, so the levels above ellipsize ("My… / Bletchfi…") and never
+        // collapse to nothing or slide under the back arrow.
+        final width = constraints.maxWidth;
+        final currentMax = width.isFinite
+            ? math.max(
+                width - named * _kCrumbFloor - (hidden.isEmpty ? 0 : 28),
+                width * 0.4,
+              )
+            : double.infinity;
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(child: crumb('My Characters', null)),
+            if (hidden.isNotEmpty) ...[
+              separator,
+              _HiddenLevels(
+                names: [for (final f in hidden) f.name],
+                onTap: dropTargets ? null : () => onFolderJump(hidden.last.id),
+                style: crumbStyle,
+              ),
+            ],
+            if (parent != null) ...[
+              separator,
+              Flexible(child: crumb(parent.name, parent.id)),
+            ],
+            if (current != null) ...[
+              separator,
               ConstrainedBox(
-                constraints: BoxConstraints(
-                  maxWidth: constraints.maxWidth * 0.7,
-                ),
+                constraints: BoxConstraints(maxWidth: currentMax),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4),
                   child: Text(
-                    trail[i].name,
+                    current.name,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: Theme.of(context).textTheme.titleLarge?.copyWith(
@@ -124,8 +152,42 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
                   ),
                 ),
               ),
+            ],
           ],
-        ],
+        );
+      },
+    );
+  }
+}
+
+/// Room each level above the current folder is promised: "My…" plus its
+/// padding and separator.
+const _kCrumbFloor = 64.0;
+
+/// The "…" standing in for folded middle levels. Hovering names them; a tap
+/// jumps to the deepest. While a drag is live it is only a marker.
+class _HiddenLevels extends StatelessWidget {
+  const _HiddenLevels({
+    required this.names,
+    required this.onTap,
+    required this.style,
+  });
+
+  final List<String> names;
+  final VoidCallback? onTap;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    return Tooltip(
+      message: names.join(' / '),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+          child: Text('…', style: style),
+        ),
       ),
     );
   }

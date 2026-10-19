@@ -14,6 +14,7 @@ import 'package:front_porch_ai/services/character_repository.dart';
 import 'package:front_porch_ai/services/folder_service.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_grid_toolbar.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/home_mode_toggle.dart';
+import 'package:front_porch_ai/ui/pages/home/widgets/toolbar/toolbar.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show FolderDialogAction;
 
@@ -174,6 +175,71 @@ void main() {
     );
     expect(root.left, greaterThanOrEqualTo(back.right));
     expect(current.left, greaterThan(root.right));
+  });
+
+  for (final width in [900.0, 700.0, 600.0, 360.0]) {
+    testWidgets('two levels deep at $width, the parent crumbs stay readable', (
+      tester,
+    ) async {
+      final nested = _Folders([
+        CharacterFolder(id: 'a', name: 'Bletchfield of the long valley road'),
+        CharacterFolder(
+          id: 'b',
+          name: 'Hollow porch steps under the elm',
+          parentId: 'a',
+        ),
+      ]);
+      addTearDown(nested.dispose);
+      await _pumpToolbar(
+        tester,
+        width: width,
+        repo: repo,
+        folders: nested,
+        activeFolderId: 'b',
+      );
+      expect(tester.takeException(), isNull);
+      for (final label in [
+        'My Characters',
+        'Bletchfield of the long valley road',
+      ]) {
+        expect(
+          tester.getSize(find.text(label)).width,
+          greaterThanOrEqualTo(20),
+          reason: '"$label" collapsed at $width px',
+        );
+      }
+    });
+  }
+
+  testWidgets('a deep path folds the middle into "…", which jumps to the '
+      'deepest hidden level', (tester) async {
+    String? jumped = 'unset';
+    final folders = [
+      CharacterFolder(id: 'a', name: 'Porch'),
+      CharacterFolder(id: 'b', name: 'Steps', parentId: 'a'),
+      CharacterFolder(id: 'c', name: 'Elm', parentId: 'b'),
+      CharacterFolder(id: 'd', name: 'Swing', parentId: 'c'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 400,
+            child: HomeToolbarBreadcrumb(
+              activeFolderId: 'd',
+              folders: folders,
+              onFolderJump: (id) => jumped = id,
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('Porch'), findsNothing);
+    expect(find.text('Steps'), findsNothing);
+    expect(find.text('Elm'), findsOneWidget);
+    expect(find.text('Swing'), findsOneWidget);
+    await tester.tap(find.text('…'));
+    expect(jumped, 'b');
   });
 }
 

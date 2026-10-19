@@ -114,7 +114,9 @@ class HomeGridToolbar extends StatelessWidget {
           onPressed: onFolderNavigateBack,
         ),
         const SizedBox(width: 8),
-        Flexible(child: _breadcrumb()),
+        // Expanded, and the row drops its Spacer in a folder, so a long
+        // path gets the free width instead of splitting it with the gap.
+        Expanded(child: _breadcrumb()),
       ];
     }
     // ConstrainedBox (not Flexible) so the toggle keeps its natural width
@@ -275,9 +277,23 @@ class HomeGridToolbar extends StatelessWidget {
           if (isSelecting || isOrganizing) return _pickingRow(context, width);
           // Content-area widths, not window sizes. Sidebar already ate its
           // share; these decide what still fits in the remaining strip.
-          final showSlider = width >= 720;
-          final labeledSort = width >= 520;
-          final inlineActions = width >= 440;
+          var showSlider = width >= 720;
+          var labeledSort = width >= 520;
+          var inlineActions = width >= 440;
+          // In a folder the path needs room to read: shed the slider, then
+          // the sort label, then the inline actions until it has it.
+          if (activeFolderId != null) {
+            double left() =>
+                width -
+                12 -
+                (labeledSort ? 190 : 48) -
+                (showSlider ? 120 : 0) -
+                (inlineActions ? 230 : 48);
+            const pathRoom = 280.0;
+            if (left() < pathRoom) showSlider = false;
+            if (left() < pathRoom) labeledSort = false;
+            if (left() < pathRoom) inlineActions = false;
+          }
           // High-side estimates so the toggle goes compact a few px early
           // rather than the row overflowing. Not a window-size assumption.
           var reserved = 12.0;
@@ -291,7 +307,7 @@ class HomeGridToolbar extends StatelessWidget {
               const SizedBox(width: 12),
               _sortControl(labeled: labeledSort),
               if (showSlider) _scaleSlider(),
-              const Spacer(),
+              if (activeFolderId == null) const Spacer(),
               if (inlineActions) ..._actionButtons(context),
               if (!inlineActions) _overflowActions(),
             ],
