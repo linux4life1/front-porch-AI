@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'external_image_widget.dart';
@@ -102,6 +103,11 @@ class StyledChatMessage extends StatefulWidget {
   final ChatThemePreset? themePreset;
   final ChatThemeOverrides? themeOverrides;
 
+  /// ⌘F highlight state for THIS message (null = no find or no hits).
+  /// Leaf spans self-split with the shared engine, counting body
+  /// occurrences in the same order the scanner used.
+  final FindLeafState? find;
+
   const StyledChatMessage({
     super.key,
     required this.text,
@@ -111,6 +117,7 @@ class StyledChatMessage extends StatefulWidget {
     this.character,
     this.themePreset,
     this.themeOverrides,
+    this.find,
   });
 
   @override
@@ -206,6 +213,10 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     final readingScaler = readingTextScaler(
       storageService.uiSettings.textScale,
     );
+    final findSplit = FindLeafSplit(
+      widget.find,
+      AppColors.porchHoneyOf(context),
+    );
 
     // Check for markdown images (cached per source text).
     if (!identical(text, _parseSource)) {
@@ -216,7 +227,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     final imageMatches = _imageMatches!;
     if (imageMatches.isEmpty) {
       // No images — use existing fast path
-      return _buildStyledText(text, readingScaler);
+      return _buildStyledText(text, readingScaler, findSplit);
     }
 
     // Split text into segments: [text, image, text, image, text]
@@ -228,7 +239,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
       if (match.start > lastEnd) {
         final textBefore = text.substring(lastEnd, match.start).trim();
         if (textBefore.isNotEmpty) {
-          widgets.add(_buildStyledText(textBefore, readingScaler));
+          widgets.add(_buildStyledText(textBefore, readingScaler, findSplit));
         }
       }
 
@@ -252,7 +263,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     if (lastEnd < text.length) {
       final textAfter = text.substring(lastEnd).trim();
       if (textAfter.isNotEmpty) {
-        widgets.add(_buildStyledText(textAfter, readingScaler));
+        widgets.add(_buildStyledText(textAfter, readingScaler, findSplit));
       }
     }
 
@@ -262,32 +273,31 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     );
   }
 
-  Widget _buildStyledText(String segment, TextScaler readingScaler) {
+  Widget _buildStyledText(
+    String segment,
+    TextScaler readingScaler,
+    FindLeafSplit findSplit,
+  ) {
     final tokens = _tokensFor(segment);
 
     final spans = <TextSpan>[];
     int lastEnd = 0;
     for (final t in tokens) {
       if (t.start > lastEnd) {
-        spans.add(
-          TextSpan(
-            text: segment.substring(lastEnd, t.start),
-            style: _plainStyle,
-          ),
+        spans.addAll(
+          findSplit.expand(segment.substring(lastEnd, t.start), _plainStyle),
         );
       }
-      spans.add(
-        TextSpan(
-          text: t.matchText,
-          style: t.type == StyledTokenType.dialogue
-              ? _dialogueStyle
-              : _actionStyle,
+      spans.addAll(
+        findSplit.expand(
+          t.matchText,
+          t.type == StyledTokenType.dialogue ? _dialogueStyle : _actionStyle,
         ),
       );
       lastEnd = t.end;
     }
     if (lastEnd < segment.length) {
-      spans.add(TextSpan(text: segment.substring(lastEnd), style: _plainStyle));
+      spans.addAll(findSplit.expand(segment.substring(lastEnd), _plainStyle));
     }
 
     if (spans.isEmpty) {

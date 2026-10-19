@@ -35,6 +35,8 @@ export 'stage/chat_resize_sidebar.dart';
 export 'stage/transcript_anchor.dart';
 export 'stage/transcript_auto_scroll.dart';
 export 'stage/transcript_window.dart';
+export 'chat_find_bar.dart';
+export 'chat_find_controller.dart';
 export 'sidebar/expandable_sidebar_text.dart';
 export 'chat_composer_hint.dart';
 export 'sidebar/emoji_burst.dart';

@@ -19,8 +19,11 @@ import { useLayout } from '../hooks/useBreakpoint';
 import { ChatHeader } from './chat/ChatHeader';
 import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
+import { useChatFind } from './chat/useChatFind';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
+import { FindBar } from '../components/FindBar';
+import { FindSurfaceContext } from '../components/chatSearch';
 import { useFollowStreamingReplies } from '../followStreaming';
 import { useUserMessageSide } from '../userMessageSide';
 
@@ -52,6 +55,13 @@ export function ChatPage() {
 
   // Living Time §2: sessions whose welcome-back banner was dismissed (ephemeral).
   const [absenceDismissed, setAbsenceDismissed] = useState<Set<string>>(new Set());
+  // ⌘F find-in-chat: server-scan counts + leaf highlight surface (parity
+  // with the desktop ChatFindController).
+  const lastTranscriptMsg = state?.messages?.[state.messages.length - 1];
+  const find = useChatFind({
+    sessionId: state?.sessionId,
+    transcriptVersion: `${state?.messages?.length ?? 0}|${lastTranscriptMsg?.text?.length ?? 0}`,
+  });
   // Composer draft mirror — powers the lorebook "would trigger next" preview.
   const [draft, setDraft] = useState('');
   // Resizable insight sidebar (desktop) — width persists across sessions.
@@ -311,35 +321,54 @@ export function ChatPage() {
             </button>
           </div>
         )}
-        <ChatMessageList
-          sessionId={state.sessionId}
-          messages={state.messages}
-          castById={castById}
-          multiCast={multiCast}
-          lastIndex={lastIndex}
-          busy={state.isGenerating}
-          settling={!!state.isSettlingTurn}
-          streaming={streaming}
-          followStreamingReplies={followStreamingReplies}
-          genStatus={state.isGenerating ? genStatus : null}
-          scrollRef={scrollRef}
-          onScroll={onTranscriptScroll}
-          canSpeak={!!voice?.ttsEnabled}
-          onBeginEdit={beginEdit}
-          onSwipe={swipe}
-          onRegenerate={regenerate}
-          lookupWeb={!!state.lookupSources?.web}
-          lookupWiki={!!state.lookupSources?.wiki}
-          onContinue={continueGen}
-          onFork={fork}
-          onDelete={del}
-          onReprocess={setReprocessIndex}
-          onRevert={revertNeeds}
-          greetCount={state.totalGreetings}
-          greetingIndex={state.greetingIndex}
-          onVariantPicked={refresh}
-          onActionFailed={reportActionFailure}
-        />
+        <FindSurfaceContext.Provider value={find.surface}>
+          <ChatMessageList
+            sessionId={state.sessionId}
+            messages={state.messages}
+            castById={castById}
+            multiCast={multiCast}
+            lastIndex={lastIndex}
+            busy={state.isGenerating}
+            settling={!!state.isSettlingTurn}
+            streaming={streaming}
+            followStreamingReplies={followStreamingReplies}
+            genStatus={state.isGenerating ? genStatus : null}
+            scrollRef={scrollRef}
+            onScroll={onTranscriptScroll}
+            canSpeak={!!voice?.ttsEnabled}
+            onBeginEdit={beginEdit}
+            onSwipe={swipe}
+            onRegenerate={regenerate}
+            lookupWeb={!!state.lookupSources?.web}
+            lookupWiki={!!state.lookupSources?.wiki}
+            onContinue={continueGen}
+            onFork={fork}
+            onDelete={del}
+            onReprocess={setReprocessIndex}
+            onRevert={revertNeeds}
+            greetCount={state.totalGreetings}
+            greetingIndex={state.greetingIndex}
+            onVariantPicked={refresh}
+            onActionFailed={reportActionFailure}
+            revealTarget={find.reveal}
+          />
+        </FindSurfaceContext.Provider>
+        {find.open && (
+          <FindBar
+            value={find.query}
+            onValue={find.setQuery}
+            regexOn={find.regexOn}
+            onToggleRegex={find.toggleRegex}
+            caseOn={find.caseOn}
+            onToggleCase={find.toggleCase}
+            waiting={find.waiting}
+            bad={find.bad}
+            counter={find.counter}
+            wildcardChip={find.wildcardChip}
+            onStep={find.step}
+            onClose={find.close}
+          />
+        )}
 
         {evaluationView.error && <p role="alert">{evaluationView.error}</p>}
         <ProcessingOverlay minimized={evaluationView.minimized} onMinimizedChange={evaluationView.change} saving={evaluationView.saving} p={processing} onCancel={cancelRealism} onSkipObjective={skipObjectiveCheck} />

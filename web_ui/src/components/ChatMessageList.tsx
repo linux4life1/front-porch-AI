@@ -6,7 +6,7 @@
 // the per-message action toolbar) plus the live streaming bubble. Message edit
 // is a fullscreen modal owned by ChatPage (MessageEditModal).
 
-import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useCallback, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react';
 import {
   classifyTranscriptGrowth,
   followTranscriptWhileStreaming,
@@ -16,7 +16,8 @@ import {
   transcriptHeadKey,
   transcriptTipKey,
 } from '../pages/chat/transcriptAutoScroll';
-import { applyTranscriptSpan, revealOlderSpan, type TranscriptSpan } from '../pages/chat/transcriptWindow';
+import { applyTranscriptSpan, revealOlderSpan, revealAroundSpan, type TranscriptSpan } from '../pages/chat/transcriptWindow';
+import { useFindSurface, findRanges } from './chatSearch';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -188,6 +189,27 @@ const TranscriptRows = memo(function TranscriptRows({
   onChatImageLoad,
 }: TranscriptProps) {
   const userHasReplied = messages.some((m) => m.isUser);
+  const find = useFindSurface();
+  const markSpeaker = (m: Message, name: string): ReactNode => {
+    if (!find) return name;
+    const ranges = findRanges(name, find.spec);
+    if (!ranges.length) return name;
+    const nodes: ReactNode[] = [];
+    let pos = 0;
+    ranges.forEach(([s, e], i) => {
+      if (s > pos) nodes.push(name.slice(pos, s));
+      const isActive =
+        find.activeMessageIndex === m.index && find.activeRegion === 'sender';
+      nodes.push(
+        <mark key={`sf${i}`} className={isActive ? 'find-hit active' : 'find-hit'}>
+          {name.slice(s, e)}
+        </mark>,
+      );
+      pos = e;
+    });
+    if (pos < name.length) nodes.push(name.slice(pos));
+    return nodes;
+  };
   return (
     <>
       {messages.map((m) => {
@@ -205,8 +227,8 @@ const TranscriptRows = memo(function TranscriptRows({
           );
         }
         return (
-          <div key={m.rowKey ?? m.index} className="msg-row">
-            {multiCast && speaker && <span className="msg-speaker">{speaker.name}</span>}
+          <div key={m.rowKey ?? m.index} data-msg-index={m.index} className="msg-row">
+            {multiCast && speaker && <span className="msg-speaker">{markSpeaker(m, speaker.name)}</span>}
             <span className={m.isUser ? 'msg-number user' : 'msg-number'}>
               #{(m.position ?? m.index) + 1}
             </span>
@@ -233,7 +255,7 @@ const TranscriptRows = memo(function TranscriptRows({
                 />
               )}
               {m.text ? (
-                <MessageContent text={m.text} />
+                <MessageContent text={m.text} find={find} msgIndex={m.index} />
               ) : !m.isUser && m.thinkingContent && !(busy && m.index === lastIndex) ? (
                 // Thought-only reply (the model spent its whole turn inside a
                 // <think> block): say so instead of a bare empty bubble.
@@ -299,6 +321,7 @@ export function ChatMessageList({
   scrollRef,
   onScroll,
   followStreamingReplies = true,
+  revealTarget,
   ...transcript
 }: TranscriptProps & {
   sessionId?: string | null;
@@ -307,6 +330,9 @@ export function ChatMessageList({
   scrollRef: RefObject<HTMLDivElement>;
   onScroll?: () => void;
   followStreamingReplies?: boolean;
+  /** ⌘F navigation: grow the mounted span around this row, then scroll
+   * it to center. New object identity per navigation retriggers the seek. */
+  revealTarget?: { index: number; tick: number } | null;
 }) {
   const pinnedOpen = useRef<string | null>(null);
   const stickToLatest = useRef(false);
@@ -346,6 +372,20 @@ export function ChatMessageList({
     prepended,
     nearTop: settled.current && nearTop.current,
   });
+  if (revealTarget && full.length > 0 && !opened) {
+    revealAroundSpan(
+      spanRef.current,
+      Math.min(revealTarget.index, full.length - 1),
+      full.length,
+    );
+  }
+  useLayoutEffect(() => {
+    if (!revealTarget) return;
+    const el = scrollRef.current?.querySelector(
+      `[data-msg-index="${revealTarget.index}"]`,
+    );
+    el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }, [revealTarget, scrollRef]);
   if (opened) settled.current = false;
   trackedFull.current = full.length;
   spanTip.current = fullTip;

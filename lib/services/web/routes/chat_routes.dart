@@ -69,6 +69,7 @@ class WebChatRoutes {
     router.post('/api/chat/lore-preview', _lorePreview);
     router.post('/api/chat/session', _session);
     router.post('/api/chat/history-older', _historyOlder);
+    router.get('/api/chat/search', _search);
   }
 
   final ChatFacade _facade;
@@ -253,6 +254,19 @@ class WebChatRoutes {
       'loaded': loaded,
       'hasOlderHistory': _facade.state()['hasOlderHistory'] == true,
     });
+  }
+
+  /// ⌘F find-in-chat scan. Awaits the server-side history backfill, so a
+  /// long-chat search may take a beat — the FindBar spins meanwhile.
+  Future<shelf.Response> _search(shelf.Request request) async {
+    final q = request.url.queryParameters['q'] ?? '';
+    return JsonResponse.ok(
+      await _facade.searchTranscript(
+        q,
+        regex: request.url.queryParameters['regex'] == '1',
+        caseSensitive: request.url.queryParameters['case'] == '1',
+      ),
+    );
   }
 
   Future<shelf.Response> _send(shelf.Request request) async {

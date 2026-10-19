@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Find-in-chat (⌘F) — Front Porch AI mockup</title>
+<style>
+  /* ── Tokens straight from the codebase ─────────────────────────────
+     AppColors.background #1B1611 · surface #1F1913 · card #251E17
+     surfaceContainer #30271E · divider-dark #3E3328
+     userBubble #3B82F6 · aiBubble #374151 · dialogue #FFD54F (preset)
+     action #90CAF9 · porchHoney #E9C46A (JumpFlash tint) · logError #FF6B6B
+     kReadingFontSize 14 · line height 1.4 (readingSurfaceStyle)      */
+  :root {
+    --background: #1B1611;
+    --surface: #1F1913;
+    --card: #251E17;
+    --container: #30271E;
+    --divider: #3E3328;
+    --userBubble: #3B82F6;
+    --aiBubble: #374151;
+    --dialogue: #FFD54F;
+    --action: #90CAF9;
+    --porchHoney: #E9C46A;
+    --porchTerracotta: #E29578;
+    --logError: #FF6B6B;
+    --ink: #F8F4ED;
+    --reading: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #12100C;
+    font-family: -apple-system, "Segoe UI", Arial, sans-serif; /* preset "sans-serif" → Arial on Windows */
+    color: var(--ink);
+    display: flex; flex-direction: column; align-items: center;
+    padding: 28px 16px 56px;
+  }
+  h1.doc { font-size: 15px; font-weight: 600; color: #CBB9A6; margin-bottom: 4px; }
+  p.doc-sub { font-size: 12.5px; color: #8A7A68; margin-bottom: 14px; }
+
+  /* state demo strip */
+  .states {
+    display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+    background: var(--card); border: 1px solid var(--divider);
+    border-radius: 10px; padding: 8px;
+  }
+  .states button {
+    background: var(--container); color: var(--ink);
+    border: 1px solid var(--divider); border-radius: 7px;
+    font: 500 12px/1 inherit; padding: 8px 11px; cursor: pointer;
+  }
+  .states button:hover { border-color: var(--porchHoney); color: var(--porchHoney); }
+  .states .kbd {
+    align-self: center; font-size: 11px; color: #8A7A68; padding: 0 6px;
+  }
+
+  /* ── app window ─────────────────────────────────────────────── */
+  .frame {
+    width: min(1280px, 96vw); height: 820px;
+    background: var(--background);
+    border: 1px solid var(--divider); border-radius: 14px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.55);
+    display: flex; flex-direction: column; overflow: hidden;
+    position: relative;
+  }
+  .titlebar {
+    height: 40px; display: flex; align-items: center; gap: 8px;
+    padding: 0 14px; background: var(--surface);
+    border-bottom: 1px solid var(--divider); flex: none;
+  }
+  .dot { width: 11px; height: 11px; border-radius: 50%; }
+  .dot.r { background: #FF5F57; } .dot.y { background: #FEBC2E; } .dot.g { background: #28C840; }
+  .titlebar .title { margin-left: 10px; font-size: 12.5px; color: #B9A78F; }
+  .titlebar .title b { color: var(--ink); font-weight: 600; }
+
+  .app { flex: 1; display: flex; min-height: 0; }
+
+  /* transcript column */
+  .chatcol { flex: 1; display: flex; flex-direction: column; min-width: 0; position: relative; }
+  .transcript {
+    flex: 1; overflow-y: auto; padding: 22px 26px 8px;
+    display: flex; flex-direction: column; gap: 18px;
+    scrollbar-width: thin; scrollbar-color: var(--container) transparent;
+  }
+  .msg { display: flex; gap: 10px; max-width: 76%; }
+  .msg.user { align-self: flex-end; flex-direction: row-reverse; }
+  .avatar {
+    width: 34px; height: 34px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-size: 13px; font-weight: 700;
+    background: linear-gradient(145deg, #5D4433, #35281E);
+    border: 1px solid var(--divider); color: var(--porchHoney);
+    margin-top: 20px;
+  }
+  .msg.user .avatar { background: linear-gradient(145deg, #1E3A8A, #172554); color: #BFDBFE; }
+  .bubblewrap { min-width: 0; }
+  .bhead {
+    display: flex; align-items: center; gap: 8px;
+    font-size: 11.5px; color: #9B8A76; margin: 0 4px 5px;
+  }
+  .bhead .name { font-weight: 600; color: #CBB9A6; letter-spacing: .02em; }
+  .bhead .tools { margin-left: auto; display: flex; gap: 6px; color: #6E5F4E; font-size: 11px; }
+  .bubble {
+    background: var(--aiBubble); color: #fff;
+    border-radius: 14px 14px 14px 4px;
+    padding: 11px 14px;
+    font-size: var(--reading); line-height: 1.4;
+  }
+  .msg.user .bubble { background: var(--userBubble); border-radius: 14px 14px 4px 14px; color: #fff; }
+  .dlg { color: var(--dialogue); font-weight: 500; }
+  .msg.user .dlg { color: #FEF3C7; }
+  .act { color: var(--action); }
+  .bubble mark {
+    background: rgba(233,196,106,.25); color: inherit;
+    border-radius: 3px; padding: 0 1px; font-weight: inherit;
+  }
+  .bubble mark.a {
+    background: var(--porchHoney); color: #241A05; font-weight: 600;
+    box-shadow: 0 0 0 2px rgba(233,196,106,.45);
+  }
+  .bhead mark { background: rgba(233,196,106,.25); color: inherit; border-radius: 3px; }
+  .bhead mark.a { background: var(--porchHoney); color: #241A05; font-weight: 600; }
+
+  /* JumpFlash landing tint — 450ms ease-in, hold, total 1.8s (chat_page.sidebar.dart) */
+  .bubble.flash { animation: jflash 1.8s ease-out; }
+  @keyframes jflash {
+    0% { box-shadow: 0 0 0 3px rgba(233,196,106,.6), inset 0 0 40px rgba(233,196,106,.16); }
+    60% { box-shadow: 0 0 0 3px rgba(233,196,106,.35), inset 0 0 40px rgba(233,196,106,.10); }
+    100% { box-shadow: none; }
+  }
+
+  .swipes {
+    margin: 6px 4px 0; font-size: 11px; color: #8A7A68;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .swipes .pill {
+    background: var(--container); border: 1px solid var(--divider);
+    border-radius: 20px; padding: 3px 9px; color: #B9A78F;
+  }
+
+  details.think {
+    margin: 0 4px 6px; background: var(--container);
+    border: 1px solid var(--divider); border-radius: 9px;
+    font-size: 12px; color: #A79681; overflow: hidden;
+  }
+  details.think summary {
+    cursor: pointer; padding: 6px 10px; list-style: none;
+    display: flex; gap: 6px; align-items: center;
+  }
+  details.think summary::before { content: "▸"; }
+  details.think[open] summary::before { content: "▾"; }
+  details.think .body { padding: 8px 12px 10px; border-top: 1px solid var(--divider); color: #8A7A68; font-style: italic; }
+
+  /* composer */
+  .composer {
+    flex: none; padding: 12px 22px 16px;
+    display: flex; gap: 10px; align-items: flex-end;
+  }
+  .composer .field {
+    flex: 1; background: var(--surface); border: 1px solid var(--divider);
+    border-radius: 12px; padding: 12px 14px; font-size: var(--reading);
+    color: #8A7A68; min-height: 46px; display: flex; align-items: center;
+  }
+  .send {
+    width: 46px; height: 46px; border-radius: 12px; flex: none;
+    background: var(--porchHoney); color: #241A05; border: none;
+    font-size: 17px; cursor: pointer;
+  }
+
+  /* right sidebar (framing only) */
+  .side {
+    width: 264px; flex: none; background: var(--surface);
+    border-left: 1px solid var(--divider); padding: 16px;
+    display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+  }
+  .side .portrait {
+    height: 150px; border-radius: 12px; border: 1px solid var(--divider);
+    background: linear-gradient(160deg, #4A3728, #2B211A 60%, #1F1913);
+    display: grid; place-items: center; color: #6E5F4E; font-size: 12px;
+  }
+  .side .cname { font-size: 15px; font-weight: 650; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    background: var(--container); border: 1px solid var(--divider);
+    color: #B9A78F; font-size: 11px; border-radius: 20px; padding: 4px 9px;
+  }
+  .receipt {
+    background: var(--card); border: 1px solid var(--divider); border-radius: 10px;
+    padding: 10px 11px; font-size: 12px; color: #A79681; cursor: pointer;
+  }
+  .receipt:hover { border-color: var(--porchHoney); }
+  .receipt .rhead { color: #4DB6AC; font-weight: 600; font-size: 11px; margin-bottom: 4px; } /* journalAccent */
+  .receipt b { color: #CBB9A6; }
+  .side .h { font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: #6E5F4E; }
+
+  /* ── find bar ───────────────────────────────────────────────── */
+  .find {
+    position: absolute; top: 52px; right: 20px; z-index: 30;
+    background: var(--card); border: 1px solid var(--divider);
+    border-radius: 12px; box-shadow: 0 14px 36px rgba(0,0,0,.55);
+    display: none; align-items: center; gap: 8px; padding: 8px 10px;
+    width: 392px;
+  }
+  .find.open { display: flex; }
+  .find input {
+    flex: 1; background: var(--background); border: 1px solid var(--divider);
+    border-radius: 8px; color: var(--ink); font-size: 13px;
+    padding: 8px 10px; outline: none; min-width: 0;
+  }
+  .find input:focus { border-color: var(--porchHoney); }
+  .find input::placeholder { color: #6E5F4E; }
+  .find .count {
+    font-size: 12px; color: #B9A78F; min-width: 58px; text-align: center;
+    white-space: nowrap; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .find .count.none { color: var(--logError); }
+  .find .nav, .find .close, .find .tg {
+    background: var(--container); border: 1px solid var(--divider);
+    color: #CBB9A6; border-radius: 7px; width: 28px; height: 28px;
+    display: grid; place-items: center; cursor: pointer; font-size: 13px;
+    flex: none;
+  }
+  .find .tg { width: auto; padding: 0 7px; font-size: 11px; font-weight: 700; letter-spacing: .02em; }
+  .find .tg.on, .find .tg.on:hover {
+    background: var(--porchHoney); border-color: var(--porchHoney); color: #241A05;
+  }
+  .find input.bad {
+    border-color: var(--logError);
+    box-shadow: 0 0 0 1px rgba(255,107,107,.6);
+  }
+  .find { width: 464px; }
+  .find .count { min-width: 72px; }
+  .find .nav:hover, .find .close:hover { border-color: var(--porchHoney); color: var(--porchHoney); }
+  .find .nav:disabled { opacity: .35; cursor: default; }
+  .spinner {
+    width: 14px; height: 14px; border-radius: 50%;
+    border: 2px solid var(--container); border-top-color: var(--porchHoney);
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .find .waitbar {
+    position: absolute; left: 10px; right: 10px; bottom: 4px; height: 3px;
+    background: var(--container); border-radius: 3px; overflow: hidden;
+    display: none;
+  }
+  .find .waitbar i {
+    display: block; height: 100%; width: 0%;
+    background: var(--porchHoney); transition: width .35s ease;
+  }
+  .find.waiting .waitbar { display: block; }
+  .find .hint {
+    position: absolute; top: calc(100% + 6px); right: 4px;
+    font-size: 10.5px; color: #6E5F4E; white-space: nowrap;
+  }
+  .find .hint kbd {
+    background: var(--container); border: 1px solid var(--divider);
+    border-radius: 4px; padding: 1px 5px; font: inherit; color: #9B8A76;
+  }
+
+  .wild {
+    background: rgba(233,196,106,.15); color: var(--porchHoney);
+    border: 1px solid rgba(233,196,106,.4); border-radius: 20px;
+    padding: 1px 8px; margin-right: 8px; font-size: 10px;
+  }
+
+  /* legend */
+  .legend {
+    width: min(1280px, 96vw); margin-top: 22px;
+    background: var(--card); border: 1px solid var(--divider); border-radius: 12px;
+    padding: 18px 22px; font-size: 12.5px; color: #A79681; line-height: 1.65;
+  }
+  .legend h2 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: #6E5F4E; margin-bottom: 10px; }
+  .legend ul { columns: 2; column-gap: 34px; padding-left: 18px; }
+  .legend li { margin-bottom: 7px; break-inside: avoid; }
+  .legend code { background: var(--container); border-radius: 4px; padding: 1px 5px; color: #CBB9A6; font-size: 11.5px; }
+  .legend .sw { display: inline-block; width: 10px; height: 10px; border-radius: 3px; vertical-align: -1px; margin-right: 2px; }
+</style>
+</head>
+<body>
+
+<h1 class="doc">Find in chat — ⌘F / Ctrl+F · state mockup</h1>
+<p class="doc-sub">Themed from live AppColors/chat tokens. The bar really searches the sample transcript: type, press Enter / Shift+Enter, Esc. Try <b>lanterns</b>, <b>*dog</b>, <b>cook*</b>, <b>\*</b>.</p>
+
+<div class="states">
+  <button onclick="openFind()">1 · Open find (⌘F)</button>
+  <button onclick="simulateLongChat()">2 · Open 11k-chat during backfill</button>
+  <button onclick="demoQuery()">3 · Results + navigation</button>
+  <button onclick="wildcardDemo()">3b · Wildcard: *dog</button>
+  <button onclick="regexDemo()">3c · Regex: lantern.*storm</button>
+  <button onclick="badPatternDemo()">3d · Bad pattern</button>
+  <button onclick="noMatch()">4 · No matches</button>
+  <button onclick="closeFind()">5 · Close (Esc)</button>
+  <span class="kbd">keys are live: ⌘F · ↵ · ⇧↵ · Esc — also try cook*</span>
+</div>
+
+<div class="frame">
+  <div class="titlebar">
+    <span class="dot r"></span><span class="dot y"></span><span class="dot g"></span>
+    <span class="title"><b>Juniper</b> — Evening on the Porch</span>
+  </div>
+
+  <div class="app">
+    <div class="chatcol">
+      <div class="transcript" id="transcript">
+
+        <div class="msg ai">
+          <div class="avatar">J</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>Juniper</span><span>7:12 PM</span>
+              <span class="tools">↻ ✎ ⑂ ⧉</span></div>
+            <div class="bubble" data-searchable><span class="act">*The porch swing creaks as Juniper leans back, chin tilted at the treeline.*</span> <span class="dlg">"Grandpa kept his oil lanterns up in the rafters — said the good ones only light on a night you truly need them."</span></div>
+          </div>
+        </div>
+
+        <div class="msg user">
+          <div class="avatar">Y</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>You</span><span>7:13 PM</span></div>
+            <div class="bubble" data-searchable>Wait — the brass one with the <span class="dlg">"cracked chimney"</span> engraving? The lantern from the storm story?</div>
+          </div>
+        </div>
+
+        <div class="msg ai">
+          <div class="avatar">J</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>Juniper</span><span>7:14 PM</span>
+              <span class="tools">↻ ✎ ⑂ ⧉</span></div>
+            <details class="think"><summary>thinking — not searched (visible-scope only)</summary>
+              <div class="body">He mentioned lantern oil twice in the last scene… I should keep the rafters detail consistent and not reveal the second lantern yet.</div>
+            </details>
+            <div class="bubble" data-searchable><span class="dlg">"That's the very lantern."</span> <span class="act">*She points the ember of her match toward the rafters, where two more lanterns hang in silhouette.*</span> Three brass lanterns up there. He lit one the night the creek rose.</div>
+            <div class="swipes"><span class="pill">‹</span><span class="pill">3 / 5 swipes — hidden branches out of scope</span><span class="pill">›</span></div>
+          </div>
+        </div>
+
+        <div class="msg user">
+          <div class="avatar">Y</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>You</span><span>7:15 PM</span></div>
+            <div class="bubble" data-searchable>Then let's light tonight's. Matchbook or lantern lighter?</div>
+          </div>
+        </div>
+
+        <div class="msg ai">
+          <div class="avatar">J</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>Juniper</span><span>7:16 PM</span>
+              <span class="tools">↻ ✎ ⑂ ⧉</span></div>
+            <div class="bubble" data-searchable><span class="act">*Juniper laughs softly, lantern-light catching the grime on the windowpane as the first flame blooms.*</span> <span class="dlg">"Lighter, obviously. A lantern answers a storm. A match just argues with it."</span></div>
+          </div>
+        </div>
+
+        <div class="msg ai">
+          <div class="avatar">J</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>Juniper</span><span>7:17 PM</span>
+              <span class="tools">↻ ✎ ⑂ ⧉</span></div>
+            <div class="bubble" data-searchable><span class="act">*She nudges the kettle aside — cookware clinks in the open cupboard, and the screen door thumps as a bulldog barrels past the porch.*</span> <span class="dlg">"That's Biscuit. He follows the cooking smell like it owes him money — half the yard's dogs trail after him."</span></div>
+          </div>
+        </div>
+
+        <div class="msg user">
+          <div class="avatar">Y</div>
+          <div class="bubblewrap">
+            <div class="bhead"><span class="name" data-searchable>You</span><span>7:18 PM</span></div>
+            <div class="bubble" data-searchable>Biscuit again? Poor mutt. Should we cook extra? The dogwood dropped half its branches on his kennel.</div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- the find bar -->
+      <div class="find" id="find" role="search">
+        <input id="q" type="text" placeholder="Find in chat…" autocomplete="off" spellcheck="false">
+        <div class="tg" id="tgCase" onclick="toggleCase()" title="Match case (Aa)">Aa</div>
+        <div class="tg" id="tgRe" onclick="toggleRegex()" title="Regular expression (.*)">.*</div>
+        <div class="count" id="count"><span id="countText"></span><div class="spinner" id="spin" hidden></div></div>
+        <div class="nav" id="prev" onclick="step(-1)" title="Previous (⇧↵)">↑</div>
+        <div class="nav" id="next" onclick="step(1)" title="Next (↵)">↓</div>
+        <div class="close" onclick="closeFind()" title="Close (Esc)">✕</div>
+        <div class="waitbar"><i id="waitFill"></i></div>
+        <div class="hint"><span class="wild" id="wildchip" hidden>✱ word wildcard</span><span class="wild" id="regexchip" hidden>.* regex</span><kbd>↵</kbd> next · <kbd>⇧↵</kbd> prev · <kbd>Esc</kbd> close</div>
+      </div>
+
+      <div class="composer">
+        <div class="field">Message Juniper…</div>
+        <button class="send">➤</button>
+      </div>
+    </div>
+
+    <div class="side">
+      <div class="portrait">portrait</div>
+      <div class="cname">Juniper</div>
+      <div class="chips"><span class="chip">Evening</span><span class="chip">Mood: wistful</span><span class="chip">Porch · storm coming</span></div>
+      <div class="h">Journal</div>
+      <div class="receipt" onclick="jumpDemo()" title="Existing tap-to-jump: revealAround + jumpToMessage + JumpFlash">
+        <div class="rhead">RECEIPT · tap to jump</div>
+        Memory: <b>“the brass lanterns in the rafters”</b> — from msg 3 ↗
+      </div>
+      <div class="h">Growth</div>
+      <div class="chips"><span class="chip">Keeps the storm story</span><span class="chip">Trust: high</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="legend">
+  <h2>Mapping to the codebase &amp; locked decisions</h2>
+  <ul>
+    <li><span class="sw" style="background:var(--porchHoney)"></span><b>Active match</b> = <code>AppColors.porchHoney #E9C46A</code> — the same tint language as the existing <code>JumpFlash</code>. Faint tint on every other match; bubble flashes (1.8 s) when the find lands, reusing that component.</li>
+    <li><b>Visible-scope only.</b> The collapsed <i>thinking</i> block above contains "lantern" and is NOT highlighted or counted; hidden swipe pills mark that branches are out of scope. Search runs on <code>displayText</code> + sender name.</li>
+    <li><b>Highlight plumbing:</b> leaf-span split inside <code>StyledChatMessage._buildStyledText</code> (HTML <code>&lt;mark&gt;</code> ≈ <code>TextSpan</code> background), delivered via a <code>FindHighlightScope</code> inherited widget — zero cost when find is closed.</li>
+    <li><b>Backfill wait (state 2):</b> if <code>isBackfillingHistory</code>, the bar awaits <code>_awaitHistoryHydrated()</code> with spinner + page progress; input stays editable, results land when hydration finishes. No partial counts — per your call.</li>
+    <li><b>Counter</b> is honest ("2 / 13"); the unbounded-vs-"999+" cap is still your open question. No-match uses <code>logError #FF6B6B</code>.</li>
+    <li><b>Sender-name matches</b> light the bubble header too (proposed; the Journal receipt jump on the right shows the existing jump machinery this reuses).</li>
+    <li><b>Web parity:</b> identical bar; matches come from <code>GET /api/chat/search?q=…</code> (same Dart scan), <code>&lt;mark&gt;</code> spans in the React renderer, same span-window <code>revealAround</code> equivalent.</li>
+    <li><b>Wildcards (word-anchored globs):</b> <code>*dog</code> → <i>bulldog</i> ✓ but <i>dogwood</i> and <i>dogs</i> ✗ (the word must <i>end</i> in dog — use <code>*dog*</code> for contains); <code>cook*</code> → <i>cook, cookware, cooking</i> ✓ but <i>undercook</i> ✗; <code>cook*ware</code> → <i>cookware</i> ✓, not across spaces. A <code>*</code> matches word characters only, and the match locks to whole words — naive <code>.*</code> would make <code>*dog</code> no better than typing <code>dog</code>. <code>\*</code> searches a literal asterisk (action text contains real <code>*</code>s — try it). No star typed → plain substring, unchanged. Counter caps at <code>999+</code> (locked). Boundary checks are manual (no lookbehind) so the Dart <code>RegExp</code> can mirror this engine exactly.</li>
+    <li><b>Regex mode (<code>.*</code> toggle, included):</b> input is taken verbatim as an ECMAScript <code>RegExp</code> — alternation (<code>lantern|Biscuit</code>), the cross-space window <code>lantern.*storm</code>, classes, anchors, groups. Same compile pipeline as globs, so ranges, highlighting, navigation and the 999+ cap are unchanged downstream. Invalid pattern = red glow + <i>bad pattern</i> live as you type. In this mode <code>*</code> is a regex quantifier, not a glob (wildcard chip only shows in glob mode). ReDoS blast radius is one message bubble per scan. <code>Aa</code> toggles case-sensitivity (default: insensitive). Dart compiles with <code>unicode: true</code> so <code>\p{...}</code>/<code>\w</code> match JS. The route gains a <code>mode</code> param.</li>
+    <li><b>Colors/fonts:</b> background <code>#1B1611</code>, card <code>#251E17</code>, AI bubble <code>#374151</code>, user bubble <code>#3B82F6</code>, dialogue <code>#FFD54F</code>, action <code>#90CAF9</code>, 14 px reading base · 1.4 leading (<code>kReadingFontSize</code>).</li>
+    <li><b>Keys:</b> ⌘/Ctrl+F opens (raw-key handler pattern from <code>chat_page.regen_shortcut.dart</code> so composer focus can't eat it); ↵/⇧↵ navigate; Esc closes; session switch auto-closes.</li>
+  </ul>
+</div>
+
+<script>
+const find = document.getElementById('find');
+const input = document.getElementById('q');
+const count = document.getElementById('count');
+const countText = document.getElementById('countText');
+const spin = document.getElementById('spin');
+const waitFill = document.getElementById('waitFill');
+const transcript = document.getElementById('transcript');
+let matches = [], active = -1, waiting = false;
+
+function openFind() {
+  find.classList.add('open');
+  input.focus(); input.select();
+}
+function closeFind() {
+  find.classList.remove('open', 'waiting');
+  clearMarks(); matches = []; active = -1; waiting = false;
+}
+function clearMarks() {
+  document.querySelectorAll('mark').forEach(m => {
+    const p = m.parentNode;
+    p.replaceChild(document.createTextNode(m.textContent), m);
+    p.normalize();
+  });
+  document.querySelectorAll('.bubble.flash').forEach(b => b.classList.remove('flash'));
+}
+function searchableNodes() {
+  const nodes = [];
+  document.querySelectorAll('[data-searchable]').forEach(el => {
+    const w = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    let n; while ((n = w.nextNode()))
+      if (!n.parentElement.closest('mark')) nodes.push(n);
+  });
+  return nodes;
+}
+const WORD_CH = /^[\p{L}\p{N}_]$/u;
+const SENT = '\uE000';
+const tgRe = document.getElementById('tgRe');
+const tgCase = document.getElementById('tgCase');
+let regexOn = false, caseOn = false;
+function toggleRegex() { regexOn = !regexOn; tgRe.classList.toggle('on', regexOn); runSearch(); }
+function toggleCase() { caseOn = !caseOn; tgCase.classList.toggle('on', caseOn); runSearch(); }
+function compile(raw) {
+  const flags = 'gu' + (caseOn ? '' : 'i');
+  if (regexOn) {
+    if (!raw) return { empty: true };
+    try { return { re: new RegExp(raw, flags) }; }
+    catch (e) { return { bad: true }; }
+  }
+  // Plain query (no unescaped *) → substring, unchanged behaviour.
+  // With * → word-anchored glob: match must cover whole words,
+  // * = any run of word chars (no spaces). \* = literal asterisk.
+  const t = (caseOn ? raw : raw.toLowerCase()).replace(/\\\*/g, SENT);
+  if (!t.includes('*')) return { plain: t.split(SENT).join('*') };
+  const W = '[\\p{L}\\p{N}_]*';
+  const parts = t.split('*')
+    .map(p => p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\uE000/g, '\\*'));
+  return { re: new RegExp(parts.join(W), flags), wild: true };
+}
+function boundaryOk(text, start, end) {
+  const before = start > 0 ? text[start - 1] : null;
+  const after = end < text.length ? text[end] : null;
+  return (before === null || !WORD_CH.test(before)) &&
+         (after === null || !WORD_CH.test(after));
+}
+function rescanAll(spec) {
+  matches = [];
+  for (const node of searchableNodes()) {
+    const text = node.textContent;
+    const spans = [];
+    if (spec.plain !== undefined) {
+      const hay = caseOn ? text : text.toLowerCase();
+      let idx = hay.indexOf(spec.plain), pos = 0;
+      while (idx !== -1 && spec.plain && spans.length < 999) {
+        spans.push([idx, idx + spec.plain.length]);
+        pos = idx + spec.plain.length;
+        idx = hay.indexOf(spec.plain, pos);
+      }
+    } else {
+      let m;
+      spec.re.lastIndex = 0;
+      while ((m = spec.re.exec(text)) && matches.length + spans.length < 999) {
+        if (m[0].length === 0) { spec.re.lastIndex++; continue; }
+        if (!spec.wild || boundaryOk(text, m.index, m.index + m[0].length))
+          spans.push([m.index, m.index + m[0].length]);
+      }
+    }
+    let pos = 0;
+    for (const [s, e] of spans) {
+      node.parentNode.insertBefore(document.createTextNode(text.substring(pos, s)), node);
+      const mark = document.createElement('mark');
+      mark.textContent = text.substring(s, e);
+      node.parentNode.insertBefore(mark, node);
+      matches.push(mark);
+      pos = e;
+    }
+    if (pos > 0) { node.textContent = text.slice(pos); if (!node.textContent) node.remove(); }
+  }
+}
+function runSearch() {
+  clearMarks(); active = -1;
+  if (waiting) return;
+  input.classList.remove('bad');
+  const spec = compile(input.value.trim());
+  document.getElementById('wildchip').hidden = !spec.wild;
+  document.getElementById('regexchip').hidden = !(regexOn && !spec.empty && !spec.bad);
+  count.classList.remove('none');
+  if (spec.bad) {
+    input.classList.add('bad');
+    count.classList.add('none');
+    countText.textContent = 'bad pattern';
+    updateNav();
+    return;
+  }
+  const empty = spec.empty || (spec.plain !== undefined && !spec.plain);
+  if (empty) { countText.textContent = ''; updateNav(); return; }
+  rescanAll(spec);
+  if (!matches.length) { count.classList.add('none'); countText.textContent = 'No matches'; }
+  else step(1);
+  updateNav();
+}
+function step(dir) {
+  if (!matches.length) return;
+  active = (active + dir + matches.length) % matches.length;
+  matches.forEach((m, i) => m.classList.toggle('a', i === active));
+  const m = matches[active];
+  m.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  const bubble = m.closest('.bubble');
+  if (bubble) {
+    bubble.classList.remove('flash'); void bubble.offsetWidth;
+    bubble.classList.add('flash');
+    setTimeout(() => bubble.classList.remove('flash'), 1800);
+  }
+  countText.textContent = (active + 1) + ' / ' + (matches.length >= 999 ? '999+' : matches.length);
+  updateNav();
+}
+function updateNav() {
+  const none = !matches.length;
+  document.getElementById('prev').disabled = none;
+  document.getElementById('next').disabled = none;
+}
+function demoQuery() { openFind(); input.value = 'lantern'; waiting = false; find.classList.remove('waiting'); runSearch(); }
+function wildcardDemo() { openFind(); input.value = '*dog'; waiting = false; find.classList.remove('waiting'); runSearch(); }
+function regexDemo() {
+  openFind();
+  if (!regexOn) toggleRegex();
+  input.value = 'lantern.*storm'; runSearch();
+}
+function badPatternDemo() {
+  openFind();
+  if (!regexOn) toggleRegex();
+  input.value = 'lantern['; runSearch();
+}
+function noMatch() { openFind(); input.value = 'kerosene moon'; waiting = false; find.classList.remove('waiting'); runSearch(); }
+function jumpDemo() {
+  openFind(); input.value = ''; runSearch();
+  const target = document.querySelectorAll('.bubble')[2];
+  target.classList.add('flash');
+  target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => target.classList.remove('flash'), 1800);
+}
+function simulateLongChat() {
+  closeFind(); openFind();
+  waiting = true; find.classList.add('waiting');
+  waitFill.style.width = '0%';
+  input.value = 'lantern'; input.placeholder = 'Waiting for older history…';
+  countText.textContent = ''; spin.hidden = false;
+  let pct = 0;
+  const pages = [[8,200],[24,2400],[47,6800],[69,9400],[88,11100],[100,11382]];
+  let i = 0;
+  const t = setInterval(() => {
+    if (i >= pages.length) {
+      clearInterval(t); waiting = false; find.classList.remove('waiting');
+      spin.hidden = true; input.placeholder = 'Find in chat…';
+      runSearch();
+      return;
+    }
+    pct = pages[i][0]; waitFill.style.width = pct + '%';
+    countText.textContent = (pages[i][1]).toLocaleString() + ' / 11,382';
+    i++;
+  }, 420);
+}
+
+let debounce;
+input.addEventListener('input', () => {
+  if (waiting) return;
+  clearTimeout(debounce); debounce = setTimeout(runSearch, 120);
+});
+input.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter') { e.preventDefault(); step(e.shiftKey ? -1 : 1); }
+  if (e.key === 'Escape') closeFind();
+});
+window.addEventListener('keydown', (e) => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openFind(); }
+  if (e.key === 'Escape' && find.classList.contains('open')) closeFind();
+});
+</script>
+</body>
+</html>

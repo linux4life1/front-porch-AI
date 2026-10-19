@@ -30,27 +30,30 @@ export function renderRpInline(
   text: string,
   keyBase: string,
   stripMarkers = true,
+  mark?: (plain: string, key: string) => ReactNode,
 ): ReactNode[] {
+  const run = (plain: string, key: string): ReactNode =>
+    mark ? mark(plain, key) : plain;
   const out: ReactNode[] = [];
   let last = 0;
   let m: RegExpExecArray | null;
   INLINE_RE.lastIndex = 0;
   while ((m = INLINE_RE.exec(text)) !== null) {
-    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m.index > last) out.push(run(text.slice(last, m.index), `${keyBase}-p${last}`));
     const key = `${keyBase}-${m.index}`;
     if (m[1]) {
       out.push(
-        <span key={key} className="act bold">{stripMarkers ? m[1].slice(2, -2) : m[1]}</span>,
+        <span key={key} className="act bold">{run(stripMarkers ? m[1].slice(2, -2) : m[1], `${key}-b`)}</span>,
       );
     } else if (m[2]) {
       out.push(
-        <span key={key} className="act">{stripMarkers ? m[2].slice(1, -1) : m[2]}</span>,
+        <span key={key} className="act">{run(stripMarkers ? m[2].slice(1, -1) : m[2], `${key}-a`)}</span>,
       );
     } else {
-      out.push(<span key={key} className="dlg">{m[3]}</span>);
+      out.push(<span key={key} className="dlg">{run(m[3], `${key}-d`)}</span>);
     }
     last = m.index + m[0].length;
   }
-  if (last < text.length) out.push(text.slice(last));
+  if (last < text.length) out.push(run(text.slice(last), `${keyBase}-p${last}`));
   return out;
 }

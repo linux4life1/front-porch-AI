@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 import '../widgets/inline_chat_image.dart';
@@ -118,6 +119,7 @@ List<Widget> messageBubbleContentChildren(
         character: widget.character ?? widget.chatService?.activeCharacter,
         themePreset: theme.preset,
         themeOverrides: theme.overrides,
+        find: FindHighlightScope.maybeOf(context)?.leafStateFor(message),
       ),
   ];
   return [

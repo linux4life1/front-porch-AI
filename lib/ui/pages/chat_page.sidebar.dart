@@ -92,6 +92,7 @@ class ChatTranscriptAnchors {
     required ScrollController controller,
     required void Function(VoidCallback fn) update,
     required ValueGetter<bool> isMounted,
+    double alignment = 0.0,
   }) async {
     if (position < 0 || position >= messages.length) return;
     final target = messages[position];
@@ -104,6 +105,7 @@ class ChatTranscriptAnchors {
       target: target,
       builtStart: window.start,
       builtEnd: window.end,
+      alignment: alignment,
       // This page's own keys. Null for a not-yet-built bubble — the seek
       // treats that as "keep paging"; the itemBuilder mints the key the
       // moment the bubble materializes.

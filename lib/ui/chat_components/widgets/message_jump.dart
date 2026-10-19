@@ -55,6 +55,7 @@ Future<void> jumpToMessage({
   required GlobalKey? Function(ChatMessage) keyOf,
   int builtStart = 0,
   int? builtEnd,
+  double alignment = 0.0,
 }) async {
   if (!controller.hasClients) return;
   final index = messages.indexWhere((m) => identical(m, target));
@@ -84,7 +85,7 @@ Future<void> jumpToMessage({
     if (ctx != null) {
       await Scrollable.ensureVisible(
         ctx,
-        alignment: 0.0,
+        alignment: alignment,
         duration: const Duration(milliseconds: 250),
         curve: Curves.easeOutCubic,
       );

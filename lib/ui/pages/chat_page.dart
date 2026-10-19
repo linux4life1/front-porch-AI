@@ -102,6 +102,12 @@ class _ChatPageState extends State<ChatPage> {
   /// Held so dispose removes the same handler initState added.
   late final KeyEventCallback _regenKeys = _onRegenShortcut;
 
+  /// ⌘F find-in-chat: bar state + the highlight truth bubbles read.
+  final ChatFindController _find = ChatFindController();
+  late final KeyEventCallback _findKeys = _onFindShortcut;
+  bool _onFindShortcut(KeyEvent event) =>
+      handleChatFindShortcut(event, this, _find);
+
   /// Guards the prompt-source picker against stacking while its dialog is
   /// open (every ChatService notify would otherwise re-offer it).
   bool _promptPickerOpen = false;
@@ -140,6 +146,14 @@ class _ChatPageState extends State<ChatPage> {
     _chatService = chat;
     chat.addListener(_onChatServiceChanged);
     chat.chatScreenOpened();
+    HardwareKeyboard.instance.addHandler(_findKeys);
+    _find.attach(
+      chat,
+      repaint: () {
+        if (mounted) setState(() {});
+      },
+    );
+    _find.onNavigate = (i) => _jumpToMessage(i, 0.5);
 
     // Resume timer if this is a pre-existing chat with history
     chat.resumeDynamicResponses();
@@ -271,18 +285,22 @@ class _ChatPageState extends State<ChatPage> {
     _refresh();
   }
 
-  Future<void> _jumpToMessage(int position) => _anchors.jumpTo(
-    position,
-    messages: Provider.of<ChatService>(context, listen: false).messages,
-    window: _transcriptWindow,
-    controller: _scrollController,
-    update: setState,
-    isMounted: () => mounted,
-  );
+  Future<void> _jumpToMessage(int position, [double alignment = 0.0]) =>
+      _anchors.jumpTo(
+        position,
+        messages: Provider.of<ChatService>(context, listen: false).messages,
+        window: _transcriptWindow,
+        controller: _scrollController,
+        update: setState,
+        isMounted: () => mounted,
+        alignment: alignment,
+      );
 
   @override
   void dispose() {
     HardwareKeyboard.instance.removeHandler(_regenKeys);
+    HardwareKeyboard.instance.removeHandler(_findKeys);
+    _find.dispose();
     _chatService?.pauseDynamicResponses();
     _chatService?.chatScreenClosed();
     _ttsService?.removeListener(_onTtsChanged);
@@ -367,22 +385,25 @@ class _ChatPageState extends State<ChatPage> {
                           },
                         ),
                         Expanded(
-                          child: ChatSurface(
-                            transcriptListKey: _transcriptListKey,
-                            character: character,
-                            messages: messages,
-                            isGroup: isGroup,
-                            controller: _controller,
-                            focusNode: _chatFocusNode,
-                            scrollController: _scrollController,
-                            window: _transcriptWindow,
-                            bgExistsCache: _bgExistsCache,
-                            resolveSpeaker: _speakers.resolveSpeaker,
-                            bubbleKeyFor: _anchors.keyFor,
-                            jumpFlash: _anchors.jumpFlash,
-                            externalImagesAllowed: _imageConsent.allowed,
-                            onRequestImagePermission: () =>
-                                _imageConsent.request(this.context),
+                          child: ChatFindLayer(
+                            controller: _find,
+                            transcript: ChatSurface(
+                              transcriptListKey: _transcriptListKey,
+                              character: character,
+                              messages: messages,
+                              isGroup: isGroup,
+                              controller: _controller,
+                              focusNode: _chatFocusNode,
+                              scrollController: _scrollController,
+                              window: _transcriptWindow,
+                              bgExistsCache: _bgExistsCache,
+                              resolveSpeaker: _speakers.resolveSpeaker,
+                              bubbleKeyFor: _anchors.keyFor,
+                              jumpFlash: _anchors.jumpFlash,
+                              externalImagesAllowed: _imageConsent.allowed,
+                              onRequestImagePermission: () =>
+                                  _imageConsent.request(this.context),
+                            ),
                           ),
                         ),
                         if (chatService.isGenerating)

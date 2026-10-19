@@ -25,6 +25,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -118,26 +119,41 @@ class MessageBubbleHeader extends StatelessWidget {
           Builder(
             builder: (context) {
               final chatService = this.chatService;
-              final nameWidget = Text(
-                message.sender,
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  color:
-                      senderColor ??
-                      theme.accent ??
-                      // Your own name sits on your bubble: same readable
-                      // tint, from the same inputs, as the quotes in it.
-                      (message.isUser
-                          ? storage?.uiSettings.userBubbleDialogueColorFor(
-                              character,
-                              themePreset: theme.preset,
-                              themeOverrides: theme.overrides,
-                            )
-                          : storage?.uiSettings.getDialogueColor(character)) ??
-                      AppColors.textPrimary(context),
-                ),
+              final nameStyle = TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 12,
+                color:
+                    senderColor ??
+                    theme.accent ??
+                    // Your own name sits on your bubble: same readable
+                    // tint, from the same inputs, as the quotes in it.
+                    (message.isUser
+                        ? storage?.uiSettings.userBubbleDialogueColorFor(
+                            character,
+                            themePreset: theme.preset,
+                            themeOverrides: theme.overrides,
+                          )
+                        : storage?.uiSettings.getDialogueColor(character)) ??
+                    AppColors.textPrimary(context),
               );
+              final findState = FindHighlightScope.maybeOf(
+                context,
+              )?.leafStateFor(message);
+              final senderSpans = FindLeafSplit(
+                findState,
+                AppColors.porchHoneyOf(context),
+                senderRegion: true,
+              ).expand(message.sender, nameStyle);
+              // No match inside the name = exactly the old plain Text: the
+              // header stays selectable/inspectable as before. Only a lit
+              // name becomes rich text.
+              final single =
+                  senderSpans.length == 1 &&
+                  senderSpans.single.text == message.sender &&
+                  senderSpans.single.style == nameStyle;
+              final nameWidget = single
+                  ? Text(message.sender, style: nameStyle)
+                  : Text.rich(TextSpan(children: senderSpans));
               if (chatService != null &&
                   chatService.isGroupMode &&
                   !message.isUser) {

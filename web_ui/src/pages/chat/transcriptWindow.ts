@@ -50,6 +50,24 @@ export function revealOlderSpan(span: TranscriptSpan, fullLength: number, page =
   return true
 }
 
+/** Put [index] inside the mounted span — ⌘F navigation (mirrors Dart
+ * TranscriptWindow.revealAround). The find bar scrolls to the row after
+ * this runs; without it a match outside the tail is simply not mounted. */
+export function revealAroundSpan(span: TranscriptSpan, index: number, fullLength: number): boolean {
+  if (fullLength <= 0) return false
+  const i = Math.max(0, Math.min(index, fullLength - 1))
+  if (i >= span.start && i < span.end) return false
+  let nextEnd = Math.min(i + TRANSCRIPT_TAIL / 2, fullLength)
+  if (nextEnd < i + 1) nextEnd = i + 1
+  let nextStart = Math.max(nextEnd - TRANSCRIPT_TAIL, 0)
+  if (i < nextStart) nextStart = i
+  if (i >= nextEnd) nextEnd = i + 1
+  span.start = nextStart
+  span.end = nextEnd
+  clampTranscriptSpan(span, fullLength)
+  return true
+}
+
 function clampTranscriptSpan(span: TranscriptSpan, fullLength: number): void {
   if (fullLength <= 0) {
     span.start = 0

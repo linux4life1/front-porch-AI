@@ -150,6 +150,38 @@ class ChatFacade {
     return true;
   }
 
+  /// ⌘F find-in-chat: engine scan of the open transcript — the single
+  /// semantic truth both surfaces highlight against (desktop re-scans
+  /// locally through the same engine). Awaits the history backfill, so the
+  /// bar shows its wait state while this resolves.
+  Future<Map<String, dynamic>> searchTranscript(
+    String query, {
+    bool regex = false,
+    bool caseSensitive = false,
+  }) async {
+    final outcome = await _chat.findInTranscript(
+      query,
+      regexMode: regex,
+      caseSensitive: caseSensitive,
+    );
+    return {
+      'bad': outcome.badPattern,
+      'stale': outcome.stale,
+      'capped': outcome.capped,
+      'totalMessages': outcome.totalMessages,
+      'matches': [
+        for (final m in outcome.matches)
+          {
+            'messageIndex': m.messageIndex,
+            'region': m.region,
+            'occurrence': m.occurrenceInRegion,
+            'start': m.startInRegion,
+            'end': m.endInRegion,
+          },
+      ],
+    };
+  }
+
   /// Open a group chat as the active conversation. Returns false if the group
   /// isn't found or groups aren't wired. Mirrors [select] for parity with the
   /// desktop (which loads the group's last session via setActiveGroup).
