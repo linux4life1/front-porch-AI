@@ -381,9 +381,13 @@ export function ChatMessageList({
   }
   useLayoutEffect(() => {
     if (!revealTarget) return;
-    const el = scrollRef.current?.querySelector(
-      `[data-msg-index="${revealTarget.index}"]`,
-    );
+    // Prefer the lit word itself; a tall bubble centered by its row would
+    // otherwise hide the match under the find bar.
+    const el =
+      scrollRef.current?.querySelector('mark.find-hit.active') ??
+      scrollRef.current?.querySelector(
+        `[data-msg-index="${revealTarget.index}"]`,
+      );
     el?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }, [revealTarget, scrollRef]);
   if (opened) settled.current = false;
