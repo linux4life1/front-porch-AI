@@ -120,8 +120,8 @@ done", so every hand-check item in a PR is already a test or marked
 | Tier | When | What the smoke tester does |
 |------|------|----------------------------|
 | 0. None | Nothing under `lib/ui/`, `web_ui/src/` or `lib/main*.dart` changed, or the PR is only tests, CI or docs | Nothing. CI is the gate |
-| 1. Look only | UI changed and every hand-check line names a test | Looks at screenshots of the changed screens. No item-by-item run |
-| 2. Full | Any `eye-only:` line that needs hands, or the PR touches the database or migrations, file pickers or OS dialogs, Windows-only code, a new screen or wizard, or import/export | Runs the `eye-only:` lines and walks the risky area |
+| 1. Look only | UI changed, and nothing from tier 2 | Looks at screenshots of the changed screens and does the `eye-only:` lines. No item-by-item run |
+| 2. Full | The PR touches the database or migrations, file pickers or OS dialogs, desktop platform code, import/export, or adds a screen | Does the `eye-only:` lines and walks the risky area |
 
 The hostile reviewer still sees every PR.
 

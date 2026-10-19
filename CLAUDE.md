@@ -18,8 +18,10 @@ will rot, point at the live source instead of pinning it here.
 A PR is done when a machine has checked it. People only judge looks.
 
 - **Hand-check items are tests.** Each line under `## Hand-check` in the PR
-  description names the test in this PR that does it, or starts
-  `eye-only:` (looks, real OS dialogs, hardware). Smoke runs only those.
+  description (add the heading if the template lacks it) names the test
+  that does it, or starts `eye-only:` (looks, real OS dialogs, hardware).
+  Smoke does the `eye-only:` lines and looks at the changed screens; it
+  never re-runs what a test already does.
 - **A desktop journey gets its web twin** when the feature is on both.
 - **Create / save buttons:** the test calls `doubleTapNoFrame`
   (`test/helpers/double_tap.dart`) and asserts exactly one write.
