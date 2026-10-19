@@ -215,9 +215,22 @@ class WorldRepository extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Saves run one at a time: the create path reads the taken names, picks a
+  /// free "Name (n)", then inserts, and two overlapping creates of one name
+  /// (a double-clicked Create World) would both pick the same "(n)" and the
+  /// second insert would hit the UNIQUE index on `worlds.name`.
+  Future<void> _saveChain = Future<void>.value();
+
   /// Throws [StateError] ([kWorldNameRequired]) for a blank name: a nameless
   /// world shows as "?" and cannot be told apart in any picker.
-  Future<void> saveWorld(model.World world) async {
+  Future<void> saveWorld(model.World world) {
+    final run = _saveChain.then((_) => _saveWorld(world));
+    // The caller gets [run]'s error; the chain only needs to keep going.
+    _saveChain = run.then<void>((_) {}, onError: (Object _) {});
+    return run;
+  }
+
+  Future<void> _saveWorld(model.World world) async {
     if (world.name.trim().isEmpty) throw StateError(kWorldNameRequired);
     if (world.id.isEmpty) {
       world.id = _uuid.v4();
@@ -238,10 +251,9 @@ class WorldRepository extends ChangeNotifier {
       // Name collision on create → auto-rename (Keep both).
       final taken = await _db.getWorldByName(world.name);
       if (taken != null && taken.id != world.id) {
-        world.name = uniqueWorldName(
-          world.name,
-          (n) => _worlds.any((w) => w.name == n && w.id != world.id),
-        );
+        // The database, not the cache: the cache can still be loading.
+        final names = {for (final w in await _db.getAllWorlds()) w.name};
+        world.name = uniqueWorldName(world.name, names.contains);
       }
       await _db.insertWorld(_toCompanion(world));
     }

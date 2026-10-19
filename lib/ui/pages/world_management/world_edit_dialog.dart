@@ -36,6 +36,9 @@ void showWorldEditDialog(
   required BuildContext pickerContext,
 }) {
   final draft = WorldEditDraft(world);
+  // A second Create World tap while the first save is in flight would build
+  // a second fresh World and save it too.
+  var saving = false;
 
   showDialog(
     context: context,
@@ -180,100 +183,126 @@ void showWorldEditDialog(
                           ),
                           const SizedBox(width: 12),
                           ElevatedButton.icon(
-                            onPressed: () async {
-                              final newName = draft.nameController.text.trim();
-                              if (newName.isEmpty) {
-                                setDialogState(
-                                  () => draft.nameError = kWorldNameRequired,
-                                );
-                                return;
-                              }
-                              final newWorld =
-                                  world ??
-                                  World(
-                                    name: '',
-                                    lorebook: Lorebook(entries: []),
-                                  );
-                              // Renames update the display name only — attachments
-                              // use stable world UUIDs (Living Worlds phase 0).
-                              if (world != null && newName != world.name) {
-                                try {
-                                  await repo.renameWorld(world, newName);
-                                } on StateError catch (e) {
-                                  if (ctx.mounted) {
-                                    ScaffoldMessenger.of(ctx).showSnackBar(
-                                      SnackBar(content: Text(e.message)),
-                                    );
-                                  }
-                                  return;
-                                }
-                              } else {
-                                newWorld.name = newName;
-                              }
-                              newWorld.description = draft.descController.text
-                                  .trim();
-                              newWorld.climateEnabled = draft.climateEnabled;
-                              // Lorebook-only worlds leave climate fields
-                              // untouched so a later re-enable restores them.
-                              if (draft.climateEnabled) {
-                                // 'custom' ⇒ biomeJson carries the climate and
-                                // biomeId clears; a built-in clears any stale
-                                // custom JSON (Biome.resolve prefers JSON).
-                                newWorld.biomeId =
-                                    draft.selectedBiomeId == 'custom'
-                                    ? null
-                                    : draft.selectedBiomeId;
-                                newWorld.biomeJson =
-                                    draft.selectedBiomeId == 'custom'
-                                    ? draft.customBiomeJson
-                                    : null;
-                                newWorld.atmosphere = draft.atmosphere;
-                                newWorld.gravity = draft.gravity;
-                              }
-                              newWorld.injectDescription =
-                                  draft.injectDescription;
-                              newWorld.coverImage = draft.coverImage;
+                            onPressed: saving
+                                ? null
+                                : () async {
+                                    final newName = draft.nameController.text
+                                        .trim();
+                                    if (newName.isEmpty) {
+                                      setDialogState(
+                                        () => draft.nameError =
+                                            kWorldNameRequired,
+                                      );
+                                      return;
+                                    }
+                                    setDialogState(() => saving = true);
+                                    try {
+                                      final newWorld =
+                                          world ??
+                                          World(
+                                            name: '',
+                                            lorebook: Lorebook(entries: []),
+                                          );
+                                      // Renames update the display name only — attachments
+                                      // use stable world UUIDs (Living Worlds phase 0).
+                                      if (world != null &&
+                                          newName != world.name) {
+                                        try {
+                                          await repo.renameWorld(
+                                            world,
+                                            newName,
+                                          );
+                                        } on StateError catch (e) {
+                                          if (ctx.mounted) {
+                                            ScaffoldMessenger.of(
+                                              ctx,
+                                            ).showSnackBar(
+                                              SnackBar(
+                                                content: Text(e.message),
+                                              ),
+                                            );
+                                          }
+                                          return;
+                                        }
+                                      } else {
+                                        newWorld.name = newName;
+                                      }
+                                      newWorld.description = draft
+                                          .descController
+                                          .text
+                                          .trim();
+                                      newWorld.climateEnabled =
+                                          draft.climateEnabled;
+                                      // Lorebook-only worlds leave climate fields
+                                      // untouched so a later re-enable restores them.
+                                      if (draft.climateEnabled) {
+                                        // 'custom' ⇒ biomeJson carries the climate and
+                                        // biomeId clears; a built-in clears any stale
+                                        // custom JSON (Biome.resolve prefers JSON).
+                                        newWorld.biomeId =
+                                            draft.selectedBiomeId == 'custom'
+                                            ? null
+                                            : draft.selectedBiomeId;
+                                        newWorld.biomeJson =
+                                            draft.selectedBiomeId == 'custom'
+                                            ? draft.customBiomeJson
+                                            : null;
+                                        newWorld.atmosphere = draft.atmosphere;
+                                        newWorld.gravity = draft.gravity;
+                                      }
+                                      newWorld.injectDescription =
+                                          draft.injectDescription;
+                                      newWorld.coverImage = draft.coverImage;
 
-                              // Update lorebook entries
-                              newWorld.lorebook.entries.clear();
-                              newWorld.lorebook.entries.addAll(
-                                draft.editingEntries,
-                              );
+                                      // Update lorebook entries
+                                      newWorld.lorebook.entries.clear();
+                                      newWorld.lorebook.entries.addAll(
+                                        draft.editingEntries,
+                                      );
 
-                              await repo.saveWorld(newWorld);
-                              if (!ctx.mounted) return;
-                              Navigator.pop(ctx);
+                                      await repo.saveWorld(newWorld);
+                                    } finally {
+                                      if (ctx.mounted) {
+                                        setDialogState(() => saving = false);
+                                      }
+                                    }
+                                    if (!ctx.mounted) return;
+                                    Navigator.pop(ctx);
 
-                              if (context.mounted) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Row(
-                                      children: [
-                                        const Icon(
-                                          Icons.check_circle,
-                                          color: Colors.greenAccent,
-                                          size: 18,
-                                        ),
-                                        const SizedBox(width: 8),
-                                        Text(
-                                          world == null
-                                              ? 'World created successfully'
-                                              : 'World updated successfully',
-                                          style: TextStyle(
-                                            color: AppColors.textPrimary(
-                                              context,
-                                            ),
+                                    if (context.mounted) {
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        SnackBar(
+                                          content: Row(
+                                            children: [
+                                              const Icon(
+                                                Icons.check_circle,
+                                                color: Colors.greenAccent,
+                                                size: 18,
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Text(
+                                                world == null
+                                                    ? 'World created successfully'
+                                                    : 'World updated successfully',
+                                                style: TextStyle(
+                                                  color: AppColors.textPrimary(
+                                                    context,
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
                                           ),
+                                          backgroundColor:
+                                              AppColors.surfaceContainerOf(
+                                                context,
+                                              ),
+                                          behavior: SnackBarBehavior.floating,
                                         ),
-                                      ],
-                                    ),
-                                    backgroundColor:
-                                        AppColors.surfaceContainerOf(context),
-                                    behavior: SnackBarBehavior.floating,
-                                  ),
-                                );
-                              }
-                            },
+                                      );
+                                    }
+                                  },
                             icon: const Icon(Icons.save, size: 18),
                             label: Text(
                               world == null ? 'Create World' : 'Save Changes',
