@@ -22,29 +22,39 @@ export interface CastMember {
   /** The picture is only the flat colour a character made without a portrait
    *  carries; draw no picture for it. Absent on older apps. */
   placeholderPortrait?: boolean;
+  /** Group members only: where they are. Absent on older apps and in 1:1. */
+  presence?: 'withYou' | 'away' | 'atWork' | null;
 }
+
+const PRESENCE_WORD = { withYou: 'with you', away: 'away', atWork: 'at work' } as const;
 
 export function CastBar({
   cast,
   focusedId,
   busy,
+  settling = false,
   guestStatus,
   guestIsError,
   pendingDetection,
   onFocus,
   onAdd,
   onCommand,
+  onSetAway,
   canRemoveMember = true,
 }: {
   cast: CastMember[];
   focusedId: string | null;
   busy: boolean;
+  /** Post-gen still settling: the server refuses Away / Back until done. */
+  settling?: boolean;
   guestStatus: string | null;
   guestIsError: boolean;
   pendingDetection: string | null;
   onFocus: (id: string) => void;
   onAdd: () => void;
   onCommand: (cmd: string) => void;
+  /** A group member's Away / Back (desktop's presence word). */
+  onSetAway?: (id: string, away: boolean) => void;
   /** False while directing with two characters left (one more exit would
    *  end Director Mode). Guests count too: they are cast members. */
   canRemoveMember?: boolean;
@@ -60,17 +70,28 @@ export function CastBar({
         {cast.map((c) => (
           <div
             key={c.id}
-            className={`cast-chip${c.id === focusedId ? ' focused' : ''}${c.isNext ? ' next' : ''}`}
+            className={`cast-chip${c.id === focusedId ? ' focused' : ''}${c.isNext ? ' next' : ''}${c.presence && c.presence !== 'withYou' ? ' away' : ''}`}
           >
             <button className="cast-chip-main" onClick={() => onFocus(c.id)} title="Focus this character">
               <span className="cast-name">{c.name}</span>
               <span className="cast-role">
                 {c.isHost ? 'host' : c.isLite ? 'guest' : 'member'}
                 {c.emotion ? ` · ${c.emotion}` : ''}
+                {c.presence ? ` · ${PRESENCE_WORD[c.presence]}` : ''}
               </span>
             </button>
             {!c.isHost && (
               <span className="cast-actions">
+                {onSetAway && (c.presence === 'withYou' || c.presence === 'away') && (
+                  <button
+                    className="ghost small"
+                    disabled={busy || settling}
+                    onClick={() => onSetAway(c.id, c.presence === 'withYou')}
+                    title={c.presence === 'withYou' ? 'Mark as away' : 'Bring back into the scene'}
+                  >
+                    {c.presence === 'withYou' ? 'Away' : 'Back'}
+                  </button>
+                )}
                 <button className="icon-btn" title="Speak now" disabled={busy} onClick={() => onCommand(`/speak ${c.name}`)}>🗣</button>
                 {c.isLite && (
                   <button

@@ -31,6 +31,11 @@ class WithUserEval {
   static const kWithUserTool = kWithUserToolName;
   static List<Map<String, dynamic>> get tools => kWithUserEvalTools;
 
+  /// Same function name, so the verdict parses the same way; only the words
+  /// change, because a directed scene has no user in it.
+  static List<Map<String, dynamic>> toolsFor({required bool directing}) =>
+      directing ? kInSceneEvalTools : kWithUserEvalTools;
+
   /// Stance is CONTEXT only — "where they already are", not a request to
   /// move them. Phone / their own place / next room = false.
   static String rubric(String charName, String userName) =>
@@ -42,6 +47,18 @@ class WithUserEval {
       'Same city is not enough. Do not move anyone — only report whether '
       'they are together.\\n\\n';
 
+  /// Director Mode: the user directs from outside and is never in the
+  /// scene, so "with the user" was false for every speaker and the whole
+  /// cast went Away. Here the anchor is the scene the cast shares.
+  static String sceneRubric(String charName) =>
+      'IN SCENE — "with_user": true when $charName is still in the scene '
+      'right now, in the same place as the rest of the cast (the room or '
+      'location where the conversation is happening). Nobody in this scene '
+      'is "the user" — never answer about one. False ONLY when the scene '
+      'shows $charName has left it: gone home, walked out, at work, in '
+      'another room, or only talking by phone / text / video. Do not move '
+      'anyone — only report whether they are still in the scene.\\n\\n';
+
   static String buildPrompt({
     required String charName,
     required String userName,
@@ -50,6 +67,7 @@ class WithUserEval {
     required String stance,
     required bool toolsMode,
     bool quiet = false,
+    bool directing = false,
   }) {
     final stanceLine = stance.trim().isEmpty
         ? ''
@@ -65,7 +83,7 @@ class WithUserEval {
         ? ''
         : 'Recent exchange for context:\\n$recentExchange\\n\\n';
     return 'Read the scene below and answer one yes/no about $charName.\\n\\n'
-        '${rubric(charName, userName)}'
+        '${directing ? sceneRubric(charName) : rubric(charName, userName)}'
         '$stanceLine'
         '$sceneLabel:\\n$sceneBody\\n\\n'
         '$recentBlock'
@@ -91,13 +109,14 @@ class WithUserEval {
     required String reply,
     String recentExchange = '',
     String stance = '',
+    bool directing = false,
   }) async {
     if (reply.trim().isEmpty) return null;
     try {
       return parseWithUser(
         await fire(
           debugLabel: 'with_user',
-          tools: tools,
+          tools: toolsFor(directing: directing),
           buildPrompt: ({required bool toolsMode}) => buildPrompt(
             charName: charName,
             userName: userName,
@@ -105,6 +124,7 @@ class WithUserEval {
             recentExchange: recentExchange,
             stance: stance,
             toolsMode: toolsMode,
+            directing: directing,
           ),
         ),
       );
@@ -121,13 +141,14 @@ class WithUserEval {
     required String userName,
     String recentExchange = '',
     String stance = '',
+    bool directing = false,
   }) async {
     if (recentExchange.trim().isEmpty && stance.trim().isEmpty) return null;
     try {
       return parseWithUser(
         await fire(
           debugLabel: 'with_user_quiet',
-          tools: tools,
+          tools: toolsFor(directing: directing),
           buildPrompt: ({required bool toolsMode}) => buildPrompt(
             charName: charName,
             userName: userName,
@@ -136,6 +157,7 @@ class WithUserEval {
             stance: stance,
             toolsMode: toolsMode,
             quiet: true,
+            directing: directing,
           ),
         ),
       );

@@ -195,19 +195,28 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
       libraryOccupationBrief: library?.frontPorchExtensions?.occupationBrief,
       libraryWorkDays: library?.frontPorchExtensions?.workDays,
     );
-    final presence = PresenceWord(
-      where: derivePresence(
-        occupation: work.occupation,
-        hours: work.hours,
-        clockMinutes: chat.timeService.clockMinutes,
-        weekday: chat.timeService.clock.weekday,
-        workDays: work.workDays,
-        inScene: inSceneForPresence(
-          stance: chat.spatialStanceForGroupCharacter(widget.character),
-          withUser: chat.withUserForGroupCharacter(widget.character),
-        ),
+    final where = derivePresence(
+      occupation: work.occupation,
+      hours: work.hours,
+      clockMinutes: chat.timeService.clockMinutes,
+      weekday: chat.timeService.clock.weekday,
+      workDays: work.workDays,
+      inScene: inSceneForPresence(
+        stance: chat.spatialStanceForGroupCharacter(widget.character),
+        withUser: chat.withUserForGroupCharacter(widget.character),
       ),
+    );
+    final presence = PresenceWord(
+      where: where,
       padTop: false,
+      // Same busy read the service refuses on, or a tap while post-gen
+      // settles looks live and does nothing.
+      onToggle: chat.isTurnBusy
+          ? null
+          : () => chat.setGroupMemberAway(
+              chat.characterIdFor(widget.character),
+              away: where == PresenceWhere.withYou,
+            ),
     );
     // While the user directs, the cast is still live (Needs, the clock and
     // their feelings for each other), so the card stays lit; only the feelings

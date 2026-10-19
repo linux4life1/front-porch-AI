@@ -102,4 +102,40 @@ void main() {
     expect(find.text('Promote'), findsNothing);
     expect(find.byType(TextButton), findsNothing);
   });
+
+  testWidgets('the Away switch is off while the turn is still settling', (
+    tester,
+  ) async {
+    // The service refuses Away / Back until post-gen settles, so a switch
+    // gated on isGenerating alone looked live and did nothing.
+    for (final busy in [true, false]) {
+      final chat = _AwayCardChat(busy: busy);
+      addTearDown(chat.dispose);
+      await _pumpCard(
+        tester,
+        width: 320,
+        character: CharacterCard(name: 'Mira'),
+        chat: chat,
+        isNext: false,
+      );
+      expect(
+        find.byKey(const ValueKey('presence-toggle')),
+        busy ? findsNothing : findsOneWidget,
+        reason: 'busy=$busy',
+      );
+    }
+  });
+}
+
+class _AwayCardChat extends FakeChatService {
+  _AwayCardChat({required this.busy});
+
+  final bool busy;
+
+  @override
+  bool get isTurnBusy => busy;
+
+  @override
+  String spatialStanceForGroupCharacter(CharacterCard character) =>
+      'left the room';
 }

@@ -185,6 +185,56 @@ describe('Director Mode on the web', () => {
     expect(removes[0].title).toContain('at least two characters');
   });
 
+  it('marks a member away and brings one back; at work has no switch', () => {
+    const onSetAway = vi.fn();
+    render(
+      createElement(CastBar, {
+        cast: [
+          { ...member('Ayla'), presence: 'withYou' },
+          { ...member('Bram'), presence: 'away' },
+          { ...member('Cleo'), presence: 'atWork' },
+        ],
+        focusedId: null,
+        busy: false,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus: () => {},
+        onAdd: () => {},
+        onCommand: () => {},
+        onSetAway,
+      }),
+    );
+    expect(container.textContent).toContain('with you');
+    act(() => button('Away')!.click());
+    expect(onSetAway).toHaveBeenLastCalledWith('Ayla', true);
+    act(() => button('Back')!.click());
+    expect(onSetAway).toHaveBeenLastCalledWith('Bram', false);
+    expect(onSetAway).toHaveBeenCalledTimes(2);
+    const chips = [...container.querySelectorAll('.cast-chip')];
+    expect(chips.map((c) => c.classList.contains('away'))).toEqual([false, true, true]);
+    expect(chips[2].textContent).not.toMatch(/Away|Back/);
+  });
+
+  it('holds Away / Back while the turn settles (the server refuses it)', () => {
+    render(
+      createElement(CastBar, {
+        cast: [{ ...member('Ayla'), presence: 'withYou' }],
+        focusedId: null,
+        busy: false,
+        settling: true,
+        guestStatus: null,
+        guestIsError: false,
+        pendingDetection: null,
+        onFocus: () => {},
+        onAdd: () => {},
+        onCommand: () => {},
+        onSetAway: () => {},
+      }),
+    );
+    expect(button('Away')!.disabled).toBe(true);
+  });
+
   it('cues a speaker, sends a beat, pins a goal, clears a whisper and sets the run', () => {
     const onCommand = vi.fn();
     const onGoal = vi.fn();

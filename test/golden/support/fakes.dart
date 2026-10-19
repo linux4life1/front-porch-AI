@@ -573,6 +573,8 @@ class FakeChatService extends ChangeNotifier implements ChatService {
 
   @override
   bool? withUserForGroupCharacter(CharacterCard character) => null;
+  @override
+  bool get isTurnBusy => false;
 
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);

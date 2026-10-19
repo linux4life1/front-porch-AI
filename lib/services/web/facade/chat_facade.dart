@@ -275,6 +275,13 @@ class ChatFacade {
     _notify();
   }
 
+  /// The roster's Away / Back (desktop's presence word twin).
+  Future<bool> setMemberAway(String memberId, {required bool away}) async {
+    final changed = await _chat.setGroupMemberAway(memberId, away: away);
+    if (changed) _notify();
+    return changed;
+  }
+
   /// The stopped-reply notice's dismiss (desktop's ✕ twin).
   void dismissStoppedReplyNotice() {
     _chat.dismissStoppedReplyNotice();

@@ -53,10 +53,14 @@ abstract final class AwayPulse {
   static bool cadenceDue(int presentSpeakerTurns) =>
       presentSpeakerTurns > 0 && presentSpeakerTurns % everyPresentTurns == 0;
 
+  /// [nobodyPresent]: the whole roster is Away / At work. The cadence only
+  /// counts turns someone present spoke, so without this an all-Away cast
+  /// could never be glanced back by Next / auto-chat — only banners.
   static bool shouldPulse({
     required bool fromUserSend,
     required int presentSpeakerTurns,
-  }) => fromUserSend || cadenceDue(presentSpeakerTurns);
+    bool nobodyPresent = false,
+  }) => fromUserSend || nobodyPresent || cadenceDue(presentSpeakerTurns);
 
   /// Live skip-banner gate. An `@` return must not latch suppression
   /// after [pendingReturnSpeakId] is consumed — the sigil only blocks
@@ -108,15 +112,19 @@ abstract final class AwayPulse {
   }
 
   /// Away members only. Mid-sentence names and vocatives go first
-  /// (quiet priority, not a force). At work / With you stay out.
+  /// (quiet priority, not a force). At work / With you stay out, and so
+  /// does anyone the user set Away by hand ([isHeld]).
   static List<CharacterCard> quietPulseTargets({
     required List<CharacterCard> roster,
     required String userText,
     required PresenceWhere Function(CharacterCard card) presenceOf,
+    bool Function(CharacterCard card)? isHeld,
   }) {
     final away = [
       for (final card in roster)
-        if (presenceOf(card) == PresenceWhere.away) card,
+        if (presenceOf(card) == PresenceWhere.away &&
+            !(isHeld?.call(card) ?? false))
+          card,
     ];
     if (away.length <= 1) return away;
     final mentioned = <CharacterCard>[];

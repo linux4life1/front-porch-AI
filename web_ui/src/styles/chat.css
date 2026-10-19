@@ -163,6 +163,8 @@ a.model-switch-settings {
 }
 .cast-chip.focused { border-color: var(--accent); }
 .cast-chip.next { box-shadow: 0 0 0 1px var(--ok) inset; }
+/* Away / At work: dimmed like the desktop card, still tappable. */
+.cast-chip.away .cast-chip-main { opacity: 0.55; }
 .cast-chip-main { display: flex; align-items: center; gap: 6px; background: none; border: none; padding: 2px 4px; }
 .cast-name { font-size: 0.82rem; font-weight: 600; }
 .cast-role { font-size: 0.62rem; color: var(--muted); text-transform: capitalize; }

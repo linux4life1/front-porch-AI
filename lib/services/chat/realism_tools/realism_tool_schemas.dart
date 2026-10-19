@@ -380,6 +380,25 @@ final List<Map<String, dynamic>> kWithUserEvalTools = [
   ),
 ];
 
+/// Director Mode twin of [kWithUserEvalTools]: same function and field, so
+/// the verdict parses the same, but nobody in a directed scene is the user.
+final List<Map<String, dynamic>> kInSceneEvalTools = [
+  _tool(
+    kWithUserToolName,
+    'Report whether the character is still in the scene with the cast.',
+    {
+      'with_user': {
+        'type': 'boolean',
+        'description':
+            'True when the character is still in the scene, in the same '
+            'place as the rest of the cast. False only when they have left '
+            'it (home, work, another room, phone only).',
+      },
+    },
+    const ['with_user'],
+  ),
+];
+
 /// Pockets & Wardrobe (PocketsEval). Declared here for the same reason the
 /// climax fields are: [realismToolFieldsByTool] is what makes the tools transport work,
 /// and an unregistered tool converts to null and falls back to text forever,

@@ -337,6 +337,8 @@ class ChatStateSnapshot {
                   ? _chat.getEmotionForGroupCharacter(card)
                   : _chat.characterEmotion),
         'isNext': card.dbId != null && card.dbId == nextDbId,
+        // Group members only: withYou / away / atWork (additive).
+        'presence': isGroup ? _chat.groupMemberPresence(p.id)?.name : null,
         'hasAvatar': card.imagePath != null && card.imagePath!.isNotEmpty,
         'avatarUrl': avatarUrl,
         // The picture is only the flat no-portrait colour: the header and

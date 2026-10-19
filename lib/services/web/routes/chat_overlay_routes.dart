@@ -25,7 +25,8 @@ import 'package:front_porch_ai/services/web/util/util.dart';
 /// The buttons on the chat's processing overlays: stop the reply during the
 /// Realism read, dismiss the notice that follows, skip the goal check; plus
 /// the transient UNDO after an exit, and Director Mode's auto-chat and
-/// standing directions (scene goal, whispers).
+/// standing directions (scene goal, whispers), and a group member's Away /
+/// Back.
 class WebChatOverlayRoutes {
   WebChatOverlayRoutes(this._facade, Router router) {
     router.post('/api/chat/cancel-realism', _cancelRealism);
@@ -37,6 +38,7 @@ class WebChatOverlayRoutes {
     router.post('/api/chat/director/budget', _budget);
     router.post('/api/chat/director/goal', _goal);
     router.post('/api/chat/director/whisper', _whisper);
+    router.post('/api/chat/cast/away', _memberAway);
   }
 
   final ChatFacade _facade;
@@ -101,6 +103,22 @@ class WebChatOverlayRoutes {
       return JsonResponse.badRequest('id and text are required');
     }
     await _facade.setDirectorWhisper(id, text);
+    return JsonResponse.ok({'status': 'ok'});
+  }
+
+  /// `{id, away}` sets or clears a group member's Away. 409 mid-turn or for
+  /// a member not in the scene.
+  Future<shelf.Response> _memberAway(shelf.Request request) async {
+    final body = await RequestBody.readJsonMap(request);
+    final id = body['id'];
+    final away = body['away'];
+    if (id is! String || id.isEmpty || away is! bool) {
+      return JsonResponse.badRequest('id and away are required');
+    }
+    final changed = await _facade.setMemberAway(id, away: away);
+    if (!changed) {
+      return JsonResponse.error(409, 'That member cannot change right now');
+    }
     return JsonResponse.ok({'status': 'ok'});
   }
 }
