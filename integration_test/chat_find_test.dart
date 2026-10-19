@@ -171,18 +171,18 @@ void main() {
       greaterThan(position.minScrollExtent),
       reason: 'the transcript must scroll for this check to mean anything',
     );
-    final away =
-        (position.pixels - position.minScrollExtent).abs() >
-            (position.maxScrollExtent - position.pixels).abs()
-        ? position.minScrollExtent
-        : position.maxScrollExtent;
-    position.jumpTo(away);
+    // The bottom: the active hit (the user line, near the top) is off screen.
+    position.jumpTo(position.maxScrollExtent);
     await tester.pump(const Duration(milliseconds: 300));
     final parked = position.pixels;
 
     // ignore: invalid_use_of_protected_member, invalid_use_of_visible_for_testing_member
     chatService.notifyListeners();
-    await tester.pump(const Duration(seconds: 2));
+    // Many short frames, not one long pump: the debounce, the scan and a
+    // scroll animation each need frames to run.
+    for (var i = 0; i < 12; i++) {
+      await tester.pump(const Duration(milliseconds: 250));
+    }
     expect(find.text('2 / 4'), findsOneWidget);
     expect(
       position.pixels,
