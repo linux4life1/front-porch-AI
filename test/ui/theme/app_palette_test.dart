@@ -266,7 +266,9 @@ void main() {
       }
       final lines = file.readAsLinesSync();
       for (var i = 0; i < lines.length; i++) {
-        final keep = i > 0 && lines[i - 1].contains('theme-keep:');
+        final keep =
+            lines[i].contains('theme-keep:') ||
+            (i > 0 && lines[i - 1].contains('theme-keep:'));
         if (bare.hasMatch(lines[i]) && !keep) {
           offenders.add('${file.path}:${i + 1}');
         }

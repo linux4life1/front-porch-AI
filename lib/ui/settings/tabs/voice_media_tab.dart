@@ -168,7 +168,7 @@ class _TtsSection extends StatelessWidget {
                 label: const Text('Configure'),
                 style: ElevatedButton.styleFrom(
                   // Warm-porch: was AppColors.userBubble (cool-blue chrome
-                  // misuse of a chat-bubble constant); onChaosAccent keeps
+                  // misuse of a chat-bubble constant); onAccentOf keeps
                   // the ink readable on the amber fill.
                   backgroundColor: AppColors.formAccentOf(context),
                   foregroundColor: AppColors.onAccentOf(context),

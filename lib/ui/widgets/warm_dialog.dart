@@ -310,9 +310,13 @@ Widget warmDialogConfirm(
     key: key,
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
-      foregroundColor: onBright
+      foregroundColor: !onBright
+          ? AppColors.resolve(context, Colors.white, Colors.white)
+          : bg == AppColors.porchAmberOf(context) ||
+                bg == AppColors.formAccentOf(context)
           ? AppColors.onAccentOf(context)
-          : AppColors.resolve(context, Colors.white, Colors.white),
+          // theme-keep: a danger or caller fill keeps Porch's dark ink.
+          : AppColors.onChaosAccent,
     ),
     onPressed: onPressed,
     child: Text(label),

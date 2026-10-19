@@ -327,7 +327,8 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                       label: Text('Add Entry'),
                       style: FilledButton.styleFrom(
                         backgroundColor: Colors.orangeAccent,
-                        foregroundColor: AppColors.onAccentOf(context),
+                        // theme-keep: ink on a fill the app theme never retints.
+                        foregroundColor: AppColors.onChaosAccent,
                       ),
                     ),
                   ],
