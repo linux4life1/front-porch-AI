@@ -72,8 +72,16 @@ class ChatColors {
     const Color(0xFFF59E0B),
     const Color(0xFF92400E),
   );
-  static const Color prefilling = Color(0xFFF97316);
-  static const Color thinking = Color(0xFFA855F7);
+  static Color prefillingOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFF97316),
+    const Color(0xFF9A3412),
+  );
+  static Color thinkingOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFA855F7),
+    const Color(0xFF6D28D9),
+  );
   static Color bufferingOf(BuildContext context) => AppColors.resolve(
     context,
     const Color(0xFF3B82F6),

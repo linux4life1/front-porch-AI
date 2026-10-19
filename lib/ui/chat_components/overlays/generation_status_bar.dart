@@ -226,7 +226,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
   (String, Color, IconData, bool) _prefillLabel(ChatService cs) {
     final elapsed = cs.prefillElapsedSeconds;
     final elapsedStr = elapsed >= 1 ? ' (${elapsed.toInt()}s)' : '';
-    const color = ChatColors.prefilling;
+    final color = ChatColors.prefillingOf(context);
 
     // The single-slot local backend serializes requests, so our reply can be
     // stuck behind a background pass — app-side knowledge, safely
@@ -383,7 +383,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
     }
     return (
       'Model is thinking...$detail',
-      ChatColors.thinking,
+      ChatColors.thinkingOf(context),
       Icons.psychology_rounded,
       false,
     );

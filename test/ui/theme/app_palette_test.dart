@@ -318,6 +318,8 @@ void main() {
               'continue': ChatColors.continueOf(c),
               'swipe': ChatColors.swipeOf(c),
               'preparing': ChatColors.preparingOf(c),
+              'prefilling': ChatColors.prefillingOf(c),
+              'thinking': ChatColors.thinkingOf(c),
               'buffering': ChatColors.bufferingOf(c),
               'generating': ChatColors.generatingOf(c),
               'speed': ChatColors.speedOf(c),
