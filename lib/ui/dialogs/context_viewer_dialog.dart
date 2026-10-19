@@ -93,6 +93,10 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
         final budget = snap?.budget ?? chat.lastPromptBudget;
         final sections = snap?.sections ?? chat.lastPromptSections;
         final textPruned = snap != null && snap.sections.isEmpty;
+        // Read only with a budget on screen: the empty state never needs it.
+        final dropped = budget.isEmpty
+            ? 0
+            : snap?.droppedMessages ?? chat.promptDroppedMessages;
         final totalTokens = budget.values.fold<int>(0, (a, b) => a + b);
         final contextLimit = snap?.contextLimit ?? chat.contextSize;
         final usage = contextLimit > 0 ? totalTokens / contextLimit : 0.0;
@@ -293,6 +297,17 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                             );
                           }).toList(),
                         ),
+                      ),
+                    ),
+                  ),
+                if (dropped > 0)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                    child: Text(
+                      droppedMessagesNote(dropped),
+                      style: TextStyle(
+                        color: AppColors.textTertiary(context),
+                        fontSize: 11,
                       ),
                     ),
                   ),

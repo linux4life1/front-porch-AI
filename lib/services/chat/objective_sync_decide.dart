@@ -21,6 +21,7 @@
 /// may ask about at all (part 4). Pure: the caller writes and records.
 library;
 
+import 'package:front_porch_ai/services/chat/objective_fixation.dart';
 import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
 import 'package:front_porch_ai/services/chat/objective_sync_parse.dart';
@@ -48,6 +49,7 @@ ObjectiveSyncApply decideObjectiveSync({
   required bool stepsAuthored,
   bool isHeldToday = false,
   bool wasDormant = false,
+  bool countStuck = true,
 }) {
   if (verdict.isUnsure) return ObjectiveSyncApply.none;
   final copy = [for (final t in tasks) Map<String, dynamic>.from(t)];
@@ -105,8 +107,8 @@ ObjectiveSyncApply decideObjectiveSync({
     );
   }
   final next = verdict.nextStep?.trim() ?? '';
-  if (next.isNotEmpty && !stepsAuthored && copy.isNotEmpty) {
-    final open = copy.indexWhere(objectiveTaskIsOpen);
+  final open = copy.indexWhere(objectiveTaskIsOpen);
+  if (next.isNotEmpty && !stepsAuthored && open >= 0) {
     // A "next step" that is already on the list (often one just ticked) is
     // not new: writing it would tell the model to do it again (live run
     // 2026-10-16).
@@ -114,10 +116,19 @@ ObjectiveSyncApply decideObjectiveSync({
     final known = copy.any(
       (t) => (t['description'] as String? ?? '').trim().toLowerCase() == lower,
     );
-    if (open >= 0 && !known) {
+    if (!known) {
       copy[open]['description'] = next;
+      copy[open].remove(kStuckChecksKey);
       changed = true;
     }
+  }
+  // Nothing ticked and no new step: the open step sat through one more
+  // check. Enough of those and the prompt stops naming it (issue #551).
+  // Only the character's own steps, and only on a turn's check: the user's
+  // steps stay named, and pressing "Check now" is not the story stalling.
+  if (countStuck && !stepsAuthored && !changed && open >= 0) {
+    copy[open][kStuckChecksKey] = stuckChecksOf(copy[open]) + 1;
+    changed = true;
   }
   return ObjectiveSyncApply(
     newTasks: changed ? copy : null,

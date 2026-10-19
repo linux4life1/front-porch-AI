@@ -162,10 +162,12 @@ class ObjectiveProposal {
   ObjectiveSkip skipCheck() => _sync.skip();
 
   /// The goal sync. [elapsedSpan] is the "time has passed" line a re-plan
-  /// after a skip carries; empty on an ordinary check.
+  /// after a skip carries; empty on an ordinary check. [countStuck] is false
+  /// for a manual "Check now".
   Future<ObjectiveSyncOutcome> checkTaskCompletionInBackground({
     String elapsedSpan = '',
-  }) => _sync.run(elapsedSpan: elapsedSpan);
+    bool countStuck = true,
+  }) => _sync.run(elapsedSpan: elapsedSpan, countStuck: countStuck);
 
   /// Generate steps for [obj] with the model. Clears the existing steps
   /// first so a regeneration starts clean, and puts them back on failure.

@@ -20,6 +20,19 @@ extension ChatServiceWiringInjectionLeaves on ChatService {
       getSecondaryObjectives: () => secondaryObjectives,
       getStreakLine: () =>
           objectivesActive ? objectiveStreakLine(_objectiveTally.recent) : null,
+      // In a group only the goal owner's replies count; the ids match because
+      // both are _getCharacterIdFromCard.
+      isResting: (o) =>
+          o is Objective &&
+          objectiveFixated(
+            messages: _messages,
+            questTexts: openQuestMentionTexts(
+              o.objective,
+              tasksForObjective(o),
+            ),
+            speakerId: _activeGroup != null ? o.characterId : null,
+            ignore: _objectiveIgnoreTokens(),
+          ),
     );
   }
 

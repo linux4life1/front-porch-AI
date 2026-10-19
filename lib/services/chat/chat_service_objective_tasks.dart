@@ -206,6 +206,8 @@ extension ChatServiceObjectiveTasks on ChatService {
     if (newDescription.trim().isEmpty) return;
 
     tasks[taskIndex]['description'] = newDescription.trim();
+    // A step the user rewrote starts fresh: the prompt names it again.
+    tasks[taskIndex].remove(kStuckChecksKey);
     await _db.updateObjective(
       ObjectivesCompanion(
         id: drift.Value(obj.id),
