@@ -489,4 +489,71 @@ void main() {
       expect(second.allMatches(user).length, 1);
     },
   );
+
+  // Issue #551: models fixed on an open goal replayed the same scene while
+  // the user talked about anything else, and regenerating sent the same
+  // order again. The real send path now leaves a goal out once the
+  // character has pushed it three replies running past the user, keeps it
+  // out on regen, and brings it back the moment the user raises it.
+  test('END TO END: a goal the character keeps pushing past the user rests, '
+      'regen agrees, and the user raising it brings it back', () async {
+    HttpOverrides.global = null;
+    SharedPreferences.setMockInitialValues({
+      'update_auto_check': false,
+      'realism_default': false,
+    });
+    final backend = await FakeBackendServer.start(
+      replyPieces: ['We must find the lighthouse keeper.'],
+    );
+    final db = AppDatabase.forTesting();
+    final storage = StorageService();
+    final chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..testLlmServiceOverride = OpenRouterService(
+            apiUrl: '${backend.baseUrl}/v1',
+            modelName: 'smoke-model',
+          );
+    addTearDown(() async {
+      await disposeChatThenCloseDb(chat, db);
+      await backend.close();
+    });
+    await chat.setActiveCharacter(
+      CharacterCard(
+        name: 'Malumbra',
+        description: 'Exists only inside the goal fixation test.',
+        firstMessage: 'The hall is cold.',
+        frontPorchExtensions: FrontPorchExtensions(
+          realismEnabled: false,
+          needsSimEnabled: false,
+          chaosModeEnabled: false,
+        ),
+      )..dbId = 'char-fixation',
+    );
+    await chat.setObjective('find the lighthouse keeper');
+    const goalLine = 'Story direction: find the lighthouse keeper.';
+    String userTurn() =>
+        ((jsonDecode(backend.lastChatBody) as Map)['messages'] as List)
+                .last['content']
+            as String;
+
+    for (final line in ['Dinner?', 'The soup is great.', 'Try the bread.']) {
+      await chat.sendMessage(line);
+      expect(userTurn(), contains(goalLine), reason: 'before the run: $line');
+    }
+    await chat.sendMessage('So, dessert?');
+    expect(userTurn(), isNot(contains('lighthouse keeper.]')));
+    expect(userTurn(), isNot(contains(goalLine)));
+
+    await chat.regenerateLastMessage();
+    expect(userTurn(), isNot(contains(goalLine)), reason: 'regen agrees');
+
+    await chat.sendMessage('Fine, where is this keeper?');
+    expect(userTurn(), contains(goalLine));
+  });
 }

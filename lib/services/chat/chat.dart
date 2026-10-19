@@ -79,6 +79,7 @@ export 'needs_rewinds.dart';
 export 'needs_reprocess.dart';
 export 'needs_pass.dart';
 export 'nsfw_service.dart';
+export 'objective_fixation.dart';
 export 'objective_mention_gate.dart';
 export 'objective_eval_fire.dart';
 export 'objective_eval_tools.dart';

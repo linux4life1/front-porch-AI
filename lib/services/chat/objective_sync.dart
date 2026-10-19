@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
     show recentExchange;
 import 'package:front_porch_ai/services/chat/objective_check_skip.dart';
 import 'package:front_porch_ai/services/chat/objective_eval_fire.dart';
+import 'package:front_porch_ai/services/chat/objective_fixation.dart';
 import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
 import 'package:front_porch_ai/services/chat/objective_sync_decide.dart';
@@ -113,7 +114,9 @@ class ObjectiveSync {
               (t['description'] as String?) ?? '',
               objectiveTaskIsStale(t)
                   ? 'skipped'
-                  : (objectiveTaskIsCompleted(t) ? 'done' : 'open'),
+                  : objectiveTaskIsCompleted(t)
+                  ? 'done'
+                  : (stepIsStuck(t) ? 'stuck' : 'open'),
             ),
         ],
       );
