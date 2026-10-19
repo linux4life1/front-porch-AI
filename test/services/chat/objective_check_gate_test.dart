@@ -247,14 +247,7 @@ void main() {
           verdict: verdict,
           stepsAuthored: true,
         );
-        // Was `isNoop`: since issue #551 an unmoved step is counted, so the
-        // user's list is written back with that count. The text still never
-        // changes.
-        expect(
-          authored.newTasks!.map((t) => t['description']),
-          steps().map((t) => t['description']),
-          reason: 'the user wrote those steps',
-        );
+        expect(authored.isNoop, isTrue, reason: 'the user wrote those steps');
       },
     );
 
@@ -780,16 +773,26 @@ void main() {
         ).newTasks ??
         tasks;
 
-    test('a step unmoved for three checks is stuck, user steps too', () {
-      for (final authored in [false, true]) {
-        var tasks = twoSteps();
-        for (var i = 0; i < kStuckStepChecks; i++) {
-          expect(stepIsStuck(tasks[0]), isFalse);
-          tasks = sync(tasks, authored: authored);
-        }
-        expect(stepIsStuck(tasks[0]), isTrue, reason: 'authored: $authored');
-        expect(stuckChecksOf(tasks[1]), 0, reason: 'only the open step');
+    test('the character\'s step unmoved for three checks is stuck; the '
+        'user\'s steps and a manual check never count', () {
+      var tasks = twoSteps();
+      for (var i = 0; i < kStuckStepChecks; i++) {
+        expect(stepIsStuck(tasks[0]), isFalse);
+        tasks = sync(tasks);
       }
+      expect(stepIsStuck(tasks[0]), isTrue);
+      expect(stuckChecksOf(tasks[1]), 0, reason: 'only the open step');
+      expect(sync(twoSteps(), authored: true), twoSteps());
+      expect(
+        decideObjectiveSync(
+          tasks: twoSteps(),
+          verdict: const ObjectiveSyncVerdict(status: 'on_track'),
+          stepsAuthored: false,
+          countStuck: false,
+        ).isNoop,
+        isTrue,
+        reason: '"Check now" is not the story stalling',
+      );
     });
 
     test('a tick or a new step is progress; set aside is not a check', () {

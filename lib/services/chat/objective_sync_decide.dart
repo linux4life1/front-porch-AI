@@ -49,6 +49,7 @@ ObjectiveSyncApply decideObjectiveSync({
   required bool stepsAuthored,
   bool isHeldToday = false,
   bool wasDormant = false,
+  bool countStuck = true,
 }) {
   if (verdict.isUnsure) return ObjectiveSyncApply.none;
   final copy = [for (final t in tasks) Map<String, dynamic>.from(t)];
@@ -123,7 +124,9 @@ ObjectiveSyncApply decideObjectiveSync({
   }
   // Nothing ticked and no new step: the open step sat through one more
   // check. Enough of those and the prompt stops naming it (issue #551).
-  if (!changed && open >= 0) {
+  // Only the character's own steps, and only on a turn's check: the user's
+  // steps stay named, and pressing "Check now" is not the story stalling.
+  if (countStuck && !stepsAuthored && !changed && open >= 0) {
     copy[open][kStuckChecksKey] = stuckChecksOf(copy[open]) + 1;
     changed = true;
   }

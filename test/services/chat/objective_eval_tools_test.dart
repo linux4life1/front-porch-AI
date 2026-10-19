@@ -425,6 +425,9 @@ void main() {
         current = w.tasks['oK'] ?? current;
       }
       expect(current[0][kStuckChecksKey], 4);
+      w.tasks.clear();
+      await p.checkTaskCompletionInBackground(countStuck: false);
+      expect(w.tasks, isEmpty, reason: '"Check now" does not count');
       expect(llm.prompts[2], isNot(contains('no progress for several')));
       expect(
         llm.prompts[3],
