@@ -166,7 +166,7 @@ export const ReviewSection = forwardRef<ReviewSectionHandle, Props>(function Rev
     <div className="cg-review-cards" data-testid="review-cards">
       <ReviewRewriteCard
         title="Example dialogue"
-        subtitle={dialogueSubtitle(review.sex)}
+        subtitle={dialogueSubtitle(review.sex, review.hadInterview)}
         placeholder="Steer it (optional), e.g. shorter lines, more bite"
         button="Regenerate"
         writing={writing?.field === 'mesExample'}

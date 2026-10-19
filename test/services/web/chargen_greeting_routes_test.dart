@@ -1119,6 +1119,39 @@ void main() {
     expect(saved.mesExample, contains('mapped every one of them twice'));
   });
 
+  test('the review payload says when the interview was skipped', () async {
+    final llm = StreamingChargenLlm();
+    final relay = await ChargenRelay.start(llm);
+
+    // A skipped run stamps an empty list, so the review card stops
+    // crediting an interview that never ran.
+    var done = relay.next('chargen_done', seconds: 60);
+    var (code, body) = await relay.post('/api/chargen/create', {
+      'name': 'Nula Vex',
+      'concept': 'A ferryman who never rings the bell.',
+      'interviewQuestions': <Object>[],
+    });
+    expect(code, 200, reason: '$body');
+    final skippedId = (await done)['id'].toString();
+    (code, body) = await relay.get(
+      '/api/chargen/review?characterId=$skippedId',
+    );
+    expect(code, 200, reason: '$body');
+    expect(body['hadInterview'], isFalse);
+
+    // A run that asked the standard set keeps the interview credit.
+    done = relay.next('chargen_done', seconds: 60);
+    (code, body) = await relay.post('/api/chargen/create', {
+      'name': 'Bram Holt',
+      'concept': 'A lighthouse keeper.',
+    });
+    expect(code, 200, reason: '$body');
+    final ranId = (await done)['id'].toString();
+    (code, body) = await relay.get('/api/chargen/review?characterId=$ranId');
+    expect(code, 200, reason: '$body');
+    expect(body['hadInterview'], isTrue, reason: 'the standard set was asked');
+  });
+
   test('GET /api/chargen/interview answers the standard set in the asked '
       'voice', () async {
     final relay = await ChargenRelay.start(StreamingChargenLlm());

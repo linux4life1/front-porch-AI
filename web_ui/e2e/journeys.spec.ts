@@ -547,6 +547,56 @@ test('the creator\'s Interview card: edit, remove, add and drag a question, then
   }
 });
 
+// The skip switch: switching "Interview this character" off asks nothing —
+// the eleven rows stay on screen, dimmed, and the count caption says so;
+// the Profile step has no interview transcript row; and the review card
+// at the foot of the Greetings step, read back through the card's stamp,
+// says the answers came straight from the settings. The character is
+// deleted whatever happens.
+test('the creator\'s Interview card switches off: no interview, and the stamp remembers', async ({
+  page,
+}) => {
+  const name = `Interview Skip Journey ${test.info().project.name}`;
+  let id = '';
+  try {
+    await openRoute(page, '/create-ai');
+    await page.locator('.cg-field', { hasText: 'Name' }).locator('input').fill(name);
+    await page.getByRole('button', { name: /Quick Create/ }).click();
+    await page.getByRole('button', { name: /^Next: Details/ }).click();
+    await page
+      .getByLabel('Concept')
+      .fill('A lighthouse keeper on a wet rock. Thirty years on one lamp, no illusions left, tea at midnight.');
+    await page.getByRole('button', { name: /^Next: Output/ }).click();
+
+    const card = page.getByTestId('interview-card');
+    await expect(card.getByTestId('interview-row')).toHaveCount(11);
+    await card.getByRole('switch', { name: 'Interview this character' }).setChecked(false);
+    await expect(card.getByTestId('interview-count')).toContainText('no interview');
+    await expect(card.getByTestId('interview-rows')).toHaveClass(/dimmed/);
+
+    await page.getByRole('button', { name: /^Next: Generate/ }).click();
+    await page.getByRole('button', { name: /Generate character/ }).click();
+    const step = page.getByTestId('profile-step');
+    await expect(step).toBeVisible({ timeout: 120_000 });
+    await expect(step.getByRole('button', { name: /Interview transcript/ })).toHaveCount(0);
+
+    // Next writes the rest and saves the character.
+    await page.getByRole('button', { name: /^Next: Greetings/ }).click();
+    await expect(page.getByTestId('greetings-step')).toBeVisible({ timeout: 120_000 });
+    id = new URL(page.url().replace('/#/', '/')).searchParams.get('greetings') ?? '';
+    expect(id, 'the saved character is in the URL').not.toBe('');
+
+    // The stamp says no unconditional question was asked, so the review
+    // card's subtitle stops crediting an interview that never ran.
+    await expect(page.getByTestId('review-example-dialogue')).toContainText('straight from your settings');
+  } finally {
+    if (id) {
+      const gone = await page.request.post(`/api/characters/${id}/delete`);
+      expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+    }
+  }
+});
+
 // Creator templates through the real relay and library: a template made on
 // the desktop (written here through the relay, with the desktop-only art
 // style, the third person and an edited interview question) loads on the

@@ -230,7 +230,14 @@ export function rowsFor(text: string, min = 1, max = 8): number {
 // ── The review rewrites (the foot of the phone's Greetings step) ──────────
 
 export type LoreRow = { name: string; content: string; handEdited: boolean };
-export type Review = { mesExample: string; lorebook: LoreRow[]; writing: string | null; sex: string };
+export type Review = {
+  mesExample: string;
+  lorebook: LoreRow[];
+  writing: string | null;
+  sex: string;
+  /** False only when the card's stamp pinned an empty question list. */
+  hadInterview: boolean;
+};
 
 export function loreRowsOf(raw: unknown): LoreRow[] {
   if (!Array.isArray(raw)) return [];
@@ -246,6 +253,7 @@ export async function loadReview(characterId: string): Promise<Review> {
     lorebook: loreRowsOf(r.lorebook),
     writing: typeof r.writing === 'string' ? r.writing : null,
     sex: str(r.sex),
+    hadInterview: r.hadInterview !== false,
   };
 }
 
@@ -262,12 +270,14 @@ export const saveExampleDialogue = (characterId: string, text: string) =>
   api.post(`/api/characters/${enc(characterId)}`, { mesExample: text });
 
 /** "How she answers, learned from the interview": the pronoun from the
- *  Sex field, "they" when unknown. */
-export function dialogueSubtitle(sex: string): string {
+ *  Sex field, "they" when unknown. When the run skipped the interview the
+ *  answers came straight from the settings instead. */
+export function dialogueSubtitle(sex: string, hadInterview = true): string {
+  const tail = hadInterview ? 'learned from the interview' : 'straight from your settings';
   const s = sex.trim().toLowerCase();
-  if (/^(f|female|woman|girl|she)\b/.test(s)) return 'How she answers, learned from the interview';
-  if (/^(m|male|man|boy|he)\b/.test(s)) return 'How he answers, learned from the interview';
-  return 'How they answer, learned from the interview';
+  if (/^(f|female|woman|girl|she)\b/.test(s)) return `How she answers, ${tail}`;
+  if (/^(m|male|man|boy|he)\b/.test(s)) return `How he answers, ${tail}`;
+  return `How they answer, ${tail}`;
 }
 
 // ── The profile-changed hint on the Greetings step ────────────────────────

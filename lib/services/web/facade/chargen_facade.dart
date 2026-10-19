@@ -212,7 +212,8 @@ class ChargenFacade {
 
   /// What the review cards show for a saved character: its example
   /// dialogue, its lorebook entries (hand-edited ones marked), the field
-  /// being rewritten and the sex the subtitle's pronoun reads.
+  /// being rewritten, the sex the subtitle's pronoun reads and whether its
+  /// run interviewed (its stamp's list, empty: skipped).
   Map<String, dynamic>? review(String characterId) {
     final card = _characters.cardByDbId(characterId);
     if (card == null) return null;
@@ -221,6 +222,7 @@ class ChargenFacade {
       'lorebook': lorebookRows(card.lorebook),
       'writing': _rewrites.writing(characterId),
       'sex': readNarrativeVoice(card).sex,
+      'hadInterview': stampHadInterview(card),
     };
   }
 

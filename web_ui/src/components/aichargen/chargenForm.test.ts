@@ -125,4 +125,15 @@ describe('buildPayload — the interview questions', () => {
     ]);
     expect(buildPayload(form({ mode: 'quick', name: 'X', interviewQuestions: [] })).interviewQuestions).toEqual([]);
   });
+
+  it('the skip switch wins: [] whatever the card holds', () => {
+    expect(buildPayload(form({ mode: 'quick', name: 'X', interviewSkipped: true })).interviewQuestions).toEqual([]);
+    const kept = buildPayload(form({
+      mode: 'guided',
+      name: 'X',
+      interviewSkipped: true,
+      interviewQuestions: [{ id: 'std-voice', key: 'voice', text: 'Say it your way.', condition: null }],
+    }));
+    expect(kept.interviewQuestions).toEqual([]);
+  });
 });

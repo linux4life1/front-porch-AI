@@ -30,6 +30,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/database/database.dart' hide World;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -310,6 +311,44 @@ void main() {
     },
   );
 
+  testWidgets('the switch skips the interview, keeps the rows dimmed, and '
+      'a typed or added row turns it back on', (tester) async {
+    final state = await _pumpConfig(tester, CreatorMode.quick);
+    final skip = find.byKey(const ValueKey('interview-skip-switch'));
+    await _tap(tester, skip);
+    expect(state.interview.skipped, isTrue);
+    // The rows stay on screen, dimmed: the list is exactly where the user
+    // left it, so switching back restores it.
+    expect(find.byType(InterviewQuestionRow), findsNWidgets(11));
+    expect(
+      find.text(
+        '11 of 12 · no interview: the profile comes straight from your '
+        'settings',
+      ),
+      findsOneWidget,
+    );
+
+    await _type(tester, 1, 'What is in the left coat pocket?');
+    expect(state.interview.skipped, isFalse, reason: 'a typed row is asked');
+
+    await _tap(tester, find.byKey(const ValueKey('interview-skip-switch')));
+    expect(state.interview.skipped, isTrue);
+    await _tap(tester, find.byKey(const ValueKey('interview-add')));
+    expect(state.interview.skipped, isFalse, reason: 'an added row is asked');
+  });
+
+  testWidgets('the switch carries its label for a screen reader', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await _pumpConfig(tester, CreatorMode.quick);
+    final node = tester.getSemantics(
+      find.byKey(const ValueKey('interview-skip-switch')),
+    );
+    expect(node.label, contains('Interview this character'));
+    semantics.dispose();
+  });
+
   testWidgets('remove, add up to twelve, then Reset brings back the eleven', (
     tester,
   ) async {
@@ -436,6 +475,31 @@ void main() {
     expect(c.interview.isStandard, isTrue);
   });
 
+  test('the skip switch survives a restart beside the rows, and Reset '
+      'clears it', () async {
+    SharedPreferences.setMockInitialValues({});
+    const skipKey = 'chargen_interview_skipped';
+    final a = CreatorState();
+    addTearDown(a.dispose);
+    a.interview.edit(1, 'Who keeps the lamp lit?');
+    a.interview.skipped = true;
+    await a.saveState();
+    final prefs = await SharedPreferences.getInstance();
+    expect(prefs.getBool(skipKey), isTrue);
+
+    final b = CreatorState();
+    addTearDown(b.dispose);
+    await b.loadSavedState();
+    expect(b.interview.skipped, isTrue);
+    expect(b.interview.forRun, isEmpty);
+    expect(b.interview.rows[1].c.text, 'Who keeps the lamp lit?');
+
+    // Reset restores a working interview: rows and switch both back.
+    b.interview.reset();
+    await b.saveState();
+    expect(prefs.getBool(skipKey), isFalse);
+  });
+
   test('Generate in every mode hands the edited list to the run, and the '
       'edited question reaches the model', () async {
     final storage = await makeGoldenStorage();
@@ -484,6 +548,41 @@ void main() {
     expect(seen.single.interviewQuestions, isNull, reason: 'standard set');
   });
 
+  test('a skipped interview hands the run [] in every mode, and the model '
+      'is asked no question', () async {
+    final storage = await makeGoldenStorage();
+    final personas = FakeUserPersonaService();
+    for (final mode in CreatorMode.values) {
+      final llm = MarkerChargenLlm();
+      final provider = _Provider(llm, storage);
+      addTearDown(provider.dispose);
+      final seen = <GenRunInputs>[];
+      final state = CreatorState()
+        ..creatorMode = mode
+        ..newGenService = (l) => _RecordingGen(l, seen);
+      addTearDown(state.dispose);
+      state.nameController.text = 'Wren Ashby';
+      state.interview.edit(1, 'What is in the left coat pocket, and why?');
+      state.interview.skipped = true;
+      await state.generateFromMode(
+        llmProvider: provider,
+        storage: storage,
+        personaService: personas,
+      );
+      expect(seen, hasLength(1), reason: '$mode');
+      expect(
+        seen.single.interviewQuestions,
+        isEmpty,
+        reason: '$mode: skipped is [], not the standard set',
+      );
+      expect(
+        llm.prompts.any((p) => p.contains('Question: ')),
+        isFalse,
+        reason: '$mode: no interview question reached the model',
+      );
+    }
+  });
+
   testWidgets('the Profile step shows no transcript row when nothing was '
       'asked', (tester) async {
     await tester.binding.setSurfaceSize(const Size(1000, 2400));
@@ -514,7 +613,65 @@ void main() {
     }
   });
 
+  test('a desktop save stamps whether the run asked anything, so the web '
+      'review words a desktop-made character the same way', () async {
+    final storage = await makeGoldenStorage();
+    final db = AppDatabase.forTesting();
+    final repo = CharacterRepository(db, storage);
+    addTearDown(() async => db.close());
+    for (final (questions, had) in [
+      (const <InterviewQuestion>[], false),
+      (null, true),
+    ]) {
+      final state = CreatorState();
+      addTearDown(state.dispose);
+      final card = CharacterCard(name: 'Aria Vale', description: 'A keeper.');
+      state.generatedCard = card;
+      state.profile.paused = GenPausedRun(
+        inputs: GenRunInputs(
+          name: 'Aria Vale',
+          concept: 'A keeper.',
+          interviewQuestions: questions,
+        ),
+        card: card,
+        interviewTranscript: had ? 'Q: Who are you?\nA: The keeper.' : '',
+      );
+      expect(await state.saveCharacter(repo: repo, storage: storage), isTrue);
+      expect(readCreatorInputs(card), isNotNull, reason: 'stamped');
+      expect(stampHadInterview(card), had);
+    }
+  });
+
   group('CreatorInterview', () {
+    test('skip hands the run an empty list and keeps the rows; editing or '
+        'adding turns the interview back on', () {
+      final iv = CreatorInterview();
+      addTearDown(iv.dispose);
+      expect(iv.skipped, isFalse);
+      expect(iv.forRun, isNull, reason: 'the untouched standard set');
+      iv.skipped = true;
+      expect(iv.forRun, isEmpty, reason: '[] is "no interview"');
+      // The rows underneath stay exactly as they were, so the switch back
+      // on restores the very list.
+      expect(iv.isStandard, isTrue);
+      expect(iv.forTemplate, isNull);
+      expect(iv.rows, hasLength(11));
+
+      iv.edit(1, 'What is in the left coat pocket?');
+      expect(iv.skipped, isFalse, reason: 'a typed row is meant to be asked');
+      expect(iv.forRun, isNotNull);
+      expect(iv.rows[1].c.text, 'What is in the left coat pocket?');
+
+      iv.skipped = true;
+      expect(iv.add(), isTrue);
+      expect(iv.skipped, isFalse);
+
+      iv.skipped = true;
+      iv.reset();
+      expect(iv.skipped, isFalse, reason: 'a reset card asks the standard set');
+      expect(iv.forRun, isNull);
+    });
+
     test('a box typed back to the standard words stays edited', () {
       final iv = CreatorInterview();
       addTearDown(iv.dispose);

@@ -22,6 +22,7 @@ import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/chargen/chargen.dart';
 import 'package:front_porch_ai/services/character_gen/character_gen.dart';
 
+export 'package:front_porch_ai/services/character_gen/creator_inputs_stamp.dart';
 export 'package:front_porch_ai/services/character_gen/gen_paused_run.dart';
 export 'package:front_porch_ai/services/character_gen/gen_profile_writer.dart'
     show ProfileRewrite;

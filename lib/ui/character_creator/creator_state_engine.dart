@@ -262,6 +262,11 @@ extension CreatorEngine on CreatorState {
       fpExt.ensureStableId();
       card.frontPorchExtensions = fpExt;
 
+      // The same stamp the web create writes, so the web review reads a
+      // desktop-made character's interview (or its skip) the same way.
+      final paused = profile.paused;
+      if (paused != null) stampCreatorInputs(card, paused.inputs, '');
+
       // Drop lorebook entries the user unchecked in the Review step.
       final lore = card.lorebook;
       if (lore != null && lorebookEntryEnabled.isNotEmpty) {

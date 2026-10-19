@@ -255,6 +255,13 @@
 }
 .cg-scope .cg-iv-head { display: flex; align-items: flex-start; gap: 12px; }
 .cg-scope .cg-iv-head-text { display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto; min-width: 0; }
+.cg-scope .cg-iv-title-row { display: flex; align-items: center; gap: 12px; }
+.cg-scope .cg-iv-title-row .cg-iv-title { flex: 1 1 auto; }
+.cg-scope .cg-iv-skip {
+  display: inline-flex; align-items: center; gap: 8px; flex: 0 0 auto; cursor: pointer;
+  font-size: 12px; font-weight: 600; color: var(--studio-muted); white-space: nowrap;
+}
+.cg-scope .cg-iv-skip input { width: auto; margin: 0; accent-color: var(--studio-amber); }
 .cg-scope .cg-iv-title { margin: 0; font-size: 16px; font-weight: 700; color: var(--studio-ink); }
 .cg-scope .cg-iv-intro { margin: 0; font-size: 12px; line-height: 1.5; color: var(--studio-muted); }
 .cg-scope .cg-iv-voice { display: flex; align-items: center; gap: 8px; margin-top: 2px; }
@@ -275,6 +282,8 @@
   color: var(--studio-amber); font-size: 12px; font-weight: 600;
 }
 .cg-scope .cg-iv-rows { display: flex; flex-direction: column; gap: 8px; }
+/* Skipped interview: the rows are kept, dimmed, exactly where they were. */
+.cg-scope .cg-iv-rows.dimmed { opacity: 0.55; }
 .cg-scope .cg-iv-row { display: flex; align-items: flex-start; gap: 10px; }
 .cg-scope button.cg-iv-handle {
   width: 24px; height: 44px; flex: 0 0 auto; padding: 0; border: 0; border-radius: 6px;
