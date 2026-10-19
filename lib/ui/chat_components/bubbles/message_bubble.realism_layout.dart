@@ -114,7 +114,7 @@ class MessageRealismChipLayout extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: InkColors.dim(0.07),
+              color: InkColors.chipWellOf(context, dark: InkColors.dim(0.07)),
               borderRadius: BorderRadius.circular(4),
               border: Border.all(color: InkColors.faintLineOf(context)),
             ),

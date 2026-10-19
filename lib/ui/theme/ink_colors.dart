@@ -38,9 +38,13 @@ class InkColors {
     Colors.black.withValues(alpha: 0.11),
   );
 
-  /// The well behind the realism chip row.
-  static Color chipWellOf(BuildContext context) =>
-      AppColors.resolve(context, Colors.black12, dim(0.06));
+  /// The well behind a realism chip row. Light mode backs it with the card,
+  /// because a chat theme can put a dark bubble under it in either mode and
+  /// light-mode chip inks are deep tones. [dark] keeps each row's dim.
+  static Color chipWellOf(
+    BuildContext context, {
+    Color dark = Colors.black12,
+  }) => AppColors.resolve(context, dark, AppColors.cardOf(context));
 
   /// A drag grip on a resizable edge.
   static Color gripOf(BuildContext context) =>

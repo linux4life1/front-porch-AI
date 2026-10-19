@@ -280,15 +280,17 @@ void main() {
 
   testWidgets('light-mode status, chip and chat inks clear 4.5:1 on the chip '
       'well', (t) async {
-    // Light mode takes deeper tones of the Material accents dark mode uses;
-    // the chip row sits on a dim well over the surface, the hardest ground.
+    // Light mode takes deeper tones of the Material accents dark mode uses.
+    // They are checked on the chip well over the surface, and on the
+    // surface itself, where the status bar and Memory setup draw them.
     late Map<String, Color> inks;
-    late Color ground;
+    late Color ground, surface;
     await t.pumpWidget(
       MaterialApp(
         theme: AppTheme.build(brightness: Brightness.light),
         home: Builder(
           builder: (c) {
+            surface = AppColors.surfaceOf(c);
             ground = Color.alphaBlend(
               InkColors.chipWellOf(c),
               AppColors.surfaceOf(c),
@@ -331,9 +333,10 @@ void main() {
     }
 
     final faint = [
-      for (final e in inks.entries)
-        if (contrast(e.value, ground) < 4.5)
-          '${e.key} ${contrast(e.value, ground).toStringAsFixed(2)}',
+      for (final g in [ground, surface])
+        for (final e in inks.entries)
+          if (contrast(e.value, g) < 4.5)
+            '${e.key} ${contrast(e.value, g).toStringAsFixed(2)}',
     ];
     expect(faint, isEmpty);
   });
