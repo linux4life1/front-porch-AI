@@ -169,6 +169,7 @@ class ChatFacade {
       'bad': outcome.badPattern,
       'stale': outcome.stale,
       'capped': outcome.capped,
+      'slow': outcome.tooSlow,
       'totalMessages': outcome.totalMessages,
       'matches': [
         for (final m in outcome.matches)

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 /// Find-in-chat (⌘F) query engine — the single semantic truth shared by the
-/// desktop scan, the web route (`GET /api/chat/search`), and both highlight
-/// renderers' leaf matching. Mirrors the reviewed mockup
+/// desktop scan and the web route (`GET /api/chat/search`). Both highlight
+/// renderers paint the ranges this scan returns; neither re-matches. Mirrors the reviewed mockup
 /// (docs/design/mockups/chat-find-bar.html) exactly:
 ///
 /// * no `*` typed        → plain substring, unchanged behaviour;
@@ -18,6 +18,9 @@
 /// * matches inside `![alt](url)` are invisible: the bubble renders those as
 ///   images, and find is scoped to what is visible.
 library;
+
+import 'dart:async';
+import 'dart:isolate';
 
 const findRegionSender = 1;
 const findRegionBody = 0;
@@ -64,8 +67,9 @@ ChatQuerySpec compileChatQuery(
       return const ChatQuerySpec._(bad: true);
     }
   }
-  final folded = caseSensitive ? query : query.toLowerCase();
-  final starred = folded.replaceAll(r'\*', _starSentinel);
+  // The query keeps its own case: the RegExp's caseSensitive flag folds both
+  // sides, and lowering here first broke `İstanbul` (it lowers to `i̇`).
+  final starred = query.replaceAll(r'\*', _starSentinel);
   if (!starred.contains('*')) {
     final needle = starred.replaceAll(_starSentinel, '*');
     return ChatQuerySpec._(
@@ -108,8 +112,7 @@ class ChatFindMatch {
   /// [findRegionBody] or [findRegionSender].
   final int region;
 
-  /// 0-based occurrence within (messageIndex, region) — the leaf highlighters
-  /// count in the same order and paint the active occurrence strong.
+  /// 0-based occurrence within (messageIndex, region).
   final int occurrenceInRegion;
 
   /// Range into the region's string (body = displayText, sender = sender).
@@ -125,8 +128,7 @@ class ChatFindMatch {
   });
 }
 
-/// Non-overlapping ranges of [spec] inside one string — the same pass leaf
-/// renderers use to split their spans. Manual word-boundary check for
+/// Non-overlapping ranges of [spec] inside one string. Manual word-boundary check for
 /// globs; image spans are skipped. Empty needles match nothing.
 List<({int start, int end})> chatQueryRanges(String text, ChatQuerySpec spec) {
   final out = <({int start, int end})>[];
@@ -199,19 +201,66 @@ List<ChatFindMatch> scanTranscript(
   return hits;
 }
 
+/// How long a regex-mode scan may run before find gives up on it.
+const Duration kFindRegexTimeout = Duration(seconds: 2);
+
+/// [scanTranscript] for regex mode, on a throwaway isolate that is killed
+/// after [timeout]. A user pattern like `(a+)+$` backtracks for minutes on
+/// a long transcript; on the UI (desktop) or server (web) isolate that
+/// would freeze the app. Returns null when the scan ran out of time.
+Future<List<ChatFindMatch>?> scanTranscriptBounded(
+  List<({String text, String sender})> messages,
+  String query, {
+  required bool regexMode,
+  required bool caseSensitive,
+  Duration timeout = kFindRegexTimeout,
+}) async {
+  final port = ReceivePort();
+  final isolate = await Isolate.spawn(_boundedScanEntry, (
+    port.sendPort,
+    messages,
+    query,
+    regexMode,
+    caseSensitive,
+  ));
+  try {
+    return await port.first.timeout(timeout) as List<ChatFindMatch>;
+  } on TimeoutException {
+    return null;
+  } finally {
+    isolate.kill(priority: Isolate.immediate);
+    port.close();
+  }
+}
+
+void _boundedScanEntry(
+  (SendPort, List<({String text, String sender})>, String, bool, bool) args,
+) {
+  final (reply, messages, query, regexMode, caseSensitive) = args;
+  final spec = compileChatQuery(
+    query,
+    regexMode: regexMode,
+    caseSensitive: caseSensitive,
+  );
+  reply.send(scanTranscript(messages, spec));
+}
+
 /// Outcome of one ⌘F find pass. [stale] means the session or the history
 /// epoch moved under the scan (the UI re-runs it); [capped] means hit
-/// collection stopped at [kFindMatchCap] and the counter must read "999+".
+/// collection stopped at [kFindMatchCap] and the counter must read "999+";
+/// [tooSlow] means a regex scan hit [kFindRegexTimeout] and was abandoned.
 class ChatFindOutcome {
   final bool badPattern;
   final bool stale;
   final bool capped;
+  final bool tooSlow;
   final List<ChatFindMatch> matches;
   final int totalMessages;
   const ChatFindOutcome({
     this.badPattern = false,
     this.stale = false,
     this.capped = false,
+    this.tooSlow = false,
     this.matches = const [],
     this.totalMessages = 0,
   });

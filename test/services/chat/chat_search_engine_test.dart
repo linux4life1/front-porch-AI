@@ -1,8 +1,14 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/chat/chat_search_engine.dart';
+import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
+
+import '../../golden/support/fakes_storage.dart';
 
 ({String text, String sender}) msg(String text, {String sender = 'Juniper'}) =>
     (text: text, sender: sender);
@@ -166,6 +172,108 @@ void main() {
       final r = scanTranscript(big, compileChatQuery('lantern'));
       expect(r.length, 999);
       // capped flag lives on the service outcome; scan length proves the cap
+    });
+  });
+
+  test('case-insensitive query keeps a dotted capital I', () {
+    final spec = compileChatQuery('İstanbul');
+    expect(ranges('to İstanbul by train', spec), [(start: 3, end: 11)]);
+  });
+
+  group('scanTranscriptBounded', () {
+    test('returns the same hits as the in-place scan', () async {
+      final msgs = [msg('lantern one'), msg('a storm and a lantern')];
+      final hits = await scanTranscriptBounded(
+        msgs,
+        'lantern|storm',
+        regexMode: true,
+        caseSensitive: false,
+      );
+      expect(hits!.map((h) => (h.messageIndex, h.startInRegion)), [
+        (0, 0),
+        (1, 2),
+        (1, 14),
+      ]);
+    });
+
+    test('a runaway pattern times out instead of hanging', () async {
+      final watch = Stopwatch()..start();
+      final hits = await scanTranscriptBounded(
+        [msg('${'a' * 40}b')],
+        r'(a+)+$',
+        regexMode: true,
+        caseSensitive: false,
+        timeout: const Duration(milliseconds: 300),
+      );
+      expect(hits, isNull);
+      expect(watch.elapsed, lessThan(const Duration(seconds: 5)));
+    });
+  });
+
+  // Bubbles paint the engine's ranges. Re-matching per quote/action/plain
+  // leaf lit `^.` at the start of every leaf and could not light a hit
+  // that crosses from an action into dialogue at all.
+  group('bubble paints engine ranges', () {
+    const body =
+        '*He sets the lantern down.* "The storm is coming," he says. '
+        'The lantern swings.';
+
+    Future<List<TextSpan>> marksFor(
+      WidgetTester tester,
+      String query, {
+      int active = 0,
+    }) async {
+      final hits = scanTranscript([
+        msg(body),
+      ], compileChatQuery(query, regexMode: true));
+      final inBody = hits.where((h) => h.region == findRegionBody).toList();
+      final state = FindLeafState.byMessage(hits, inBody[active])[0];
+      await tester.pumpWidget(
+        ChangeNotifierProvider<StorageService>.value(
+          value: FakeStorageService(),
+          child: MaterialApp(
+            home: Scaffold(
+              body: StyledChatMessage(text: body, isUser: false, find: state),
+            ),
+          ),
+        ),
+      );
+      final marks = <TextSpan>[];
+      for (final rt in tester.widgetList<RichText>(find.byType(RichText))) {
+        rt.text.visitChildren((span) {
+          if (span is TextSpan && span.style?.backgroundColor != null) {
+            marks.add(span);
+          }
+          return true;
+        });
+      }
+      return marks;
+    }
+
+    bool isActive(TextSpan s) => s.style?.fontWeight == FontWeight.w600;
+
+    testWidgets('an anchored pattern lights one hit, not one per leaf', (
+      tester,
+    ) async {
+      final marks = await marksFor(tester, '^.');
+      expect(marks.map((m) => m.text), ['*']);
+      expect(isActive(marks.single), isTrue);
+    });
+
+    testWidgets('a hit crossing action into dialogue is lit end to end', (
+      tester,
+    ) async {
+      final marks = await marksFor(tester, 'lantern.*storm');
+      expect(marks.map((m) => m.text).join(), 'lantern down.* "The storm');
+      expect(marks.every(isActive), isTrue);
+    });
+
+    testWidgets('the active hit is the one the scanner selected', (
+      tester,
+    ) async {
+      final marks = await marksFor(tester, 'lantern', active: 1);
+      expect(marks.length, 2);
+      expect(marks.map(isActive), [false, true]);
     });
   });
 }

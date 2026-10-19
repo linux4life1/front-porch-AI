@@ -4,7 +4,8 @@
 // ⌘F find-in-chat bar — desktop-parity overlay (docs/design/mockups/
 // chat-find-bar.html): input, Aa / .* toggles, honest counter, prev/next,
 // close. Counts come from the server scan; Enter / Shift+Enter step, Esc
-// closes. Bad regex glows red and says "bad pattern".
+// closes. Bad regex glows red and says "bad pattern"; a regex the server
+// gave up on (timeout) says "too slow".
 
 import { useEffect, useRef } from 'react';
 
@@ -17,6 +18,7 @@ export type FindBarProps = {
   onToggleCase: () => void;
   waiting: boolean;
   bad: boolean;
+  slow?: boolean;
   counter: string;
   wildcardChip: boolean;
   onStep: (dir: number) => void;
@@ -39,7 +41,7 @@ export function FindBar(props: FindBarProps) {
       <div className="find-row">
         <input
           ref={inputRef}
-          className={props.bad ? 'find-input bad' : 'find-input'}
+          className={props.bad || props.slow ? 'find-input bad' : 'find-input'}
           type="text"
           placeholder={props.waiting ? 'Waiting for older history…' : 'Find in chat…'}
           value={props.value}
@@ -72,8 +74,8 @@ export function FindBar(props: FindBarProps) {
         >
           .*
         </button>
-        <span className={props.bad || (props.counter === 'No matches' && props.value.trim()) ? 'find-count none' : 'find-count'}>
-          {props.waiting ? <span className="find-spinner" aria-label="Loading" /> : props.bad ? 'bad pattern' : props.value.trim() ? props.counter : ''}
+        <span className={props.bad || props.slow || (props.counter === 'No matches' && props.value.trim()) ? 'find-count none' : 'find-count'}>
+          {props.waiting ? <span className="find-spinner" aria-label="Loading" /> : props.slow ? 'too slow' : props.bad ? 'bad pattern' : props.value.trim() ? props.counter : ''}
         </span>
         <button type="button" className="find-btn" title="Previous (⇧↵)" onClick={() => props.onStep(-1)}>
           ↑

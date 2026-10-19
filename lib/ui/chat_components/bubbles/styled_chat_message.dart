@@ -104,8 +104,7 @@ class StyledChatMessage extends StatefulWidget {
   final ChatThemeOverrides? themeOverrides;
 
   /// ⌘F highlight state for THIS message (null = no find or no hits).
-  /// Leaf spans self-split with the shared engine, counting body
-  /// occurrences in the same order the scanner used.
+  /// Its ranges are offsets into [text]; every leaf passes its own offset.
   final FindLeafState? find;
 
   const StyledChatMessage({
@@ -227,7 +226,7 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     final imageMatches = _imageMatches!;
     if (imageMatches.isEmpty) {
       // No images — use existing fast path
-      return _buildStyledText(text, readingScaler, findSplit);
+      return _buildStyledText(text, 0, readingScaler, findSplit);
     }
 
     // Split text into segments: [text, image, text, image, text]
@@ -237,9 +236,11 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     for (final match in imageMatches) {
       // Text before this image
       if (match.start > lastEnd) {
-        final textBefore = text.substring(lastEnd, match.start).trim();
+        final (textBefore, at) = _trimmed(text, lastEnd, match.start);
         if (textBefore.isNotEmpty) {
-          widgets.add(_buildStyledText(textBefore, readingScaler, findSplit));
+          widgets.add(
+            _buildStyledText(textBefore, at, readingScaler, findSplit),
+          );
         }
       }
 
@@ -261,9 +262,9 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
 
     // Remaining text after last image
     if (lastEnd < text.length) {
-      final textAfter = text.substring(lastEnd).trim();
+      final (textAfter, at) = _trimmed(text, lastEnd, text.length);
       if (textAfter.isNotEmpty) {
-        widgets.add(_buildStyledText(textAfter, readingScaler, findSplit));
+        widgets.add(_buildStyledText(textAfter, at, readingScaler, findSplit));
       }
     }
 
@@ -273,8 +274,17 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     );
   }
 
+  /// `text.substring(start, end).trim()` plus where the trimmed run starts
+  /// in [text], so find ranges (offsets into the whole message) line up.
+  (String, int) _trimmed(String text, int start, int end) {
+    final raw = text.substring(start, end);
+    final lead = raw.length - raw.trimLeft().length;
+    return (raw.trim(), start + lead);
+  }
+
   Widget _buildStyledText(
     String segment,
+    int segmentOffset,
     TextScaler readingScaler,
     FindLeafSplit findSplit,
   ) {
@@ -285,19 +295,30 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
     for (final t in tokens) {
       if (t.start > lastEnd) {
         spans.addAll(
-          findSplit.expand(segment.substring(lastEnd, t.start), _plainStyle),
+          findSplit.expand(
+            segment.substring(lastEnd, t.start),
+            _plainStyle,
+            offset: segmentOffset + lastEnd,
+          ),
         );
       }
       spans.addAll(
         findSplit.expand(
           t.matchText,
           t.type == StyledTokenType.dialogue ? _dialogueStyle : _actionStyle,
+          offset: segmentOffset + t.start,
         ),
       );
       lastEnd = t.end;
     }
     if (lastEnd < segment.length) {
-      spans.addAll(findSplit.expand(segment.substring(lastEnd), _plainStyle));
+      spans.addAll(
+        findSplit.expand(
+          segment.substring(lastEnd),
+          _plainStyle,
+          offset: segmentOffset + lastEnd,
+        ),
+      );
     }
 
     if (spans.isEmpty) {

@@ -371,6 +371,7 @@ export function ChatPage() {
               onToggleCase={find.toggleCase}
               waiting={find.waiting}
               bad={find.bad}
+              slow={find.slow}
               counter={find.counter}
               wildcardChip={find.wildcardChip}
               onStep={find.step}

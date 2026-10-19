@@ -5,12 +5,12 @@
 // ChatFindController). Counts and navigation come from the Dart engine scan
 // (`GET /api/chat/search`) — the request parks until the history backfill
 // finishes, which is exactly the "waiting for older history" state, so the
-// bar spins while it is in flight. Leaves self-highlight locally through
-// FindSurfaceContext (chatSearch.ts mirror).
+// bar spins while it is in flight. Leaves paint the server's hit ranges
+// through FindSurfaceContext; nothing re-matches the query client-side.
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { api } from '../../api/client';
-import { compileFindQuery, type FindSurface } from '../../components/chatSearch';
+import type { FindMessageHits, FindSurface } from '../../components/chatSearch';
 
 export type FindHit = {
   messageIndex: number;
@@ -24,6 +24,8 @@ type SearchResponse = {
   bad: boolean;
   stale: boolean;
   capped: boolean;
+  /** A regex scan ran past the engine's timeout and was abandoned. */
+  slow?: boolean;
   matches: FindHit[];
 };
 
@@ -39,6 +41,7 @@ export function useChatFind(opts: {
   const [hits, setHits] = useState<FindHit[]>([]);
   const [active, setActive] = useState(-1);
   const [bad, setBad] = useState(false);
+  const [slow, setSlow] = useState(false);
   const [waiting, setWaiting] = useState(false);
   const [reveal, setReveal] = useState<{ index: number; tick: number } | null>(null);
   const { transcriptVersion } = opts;
@@ -56,6 +59,7 @@ export function useChatFind(opts: {
     setHits([]);
     setActive(-1);
     setBad(false);
+    setSlow(false);
     setWaiting(false);
     setReveal(null);
   }, []);
@@ -70,15 +74,7 @@ export function useChatFind(opts: {
       setHits([]);
       setActive(-1);
       setBad(false);
-      setWaiting(false);
-      return;
-    }
-    const spec = compileFindQuery(q, { regex: regexOn, caseSensitive: caseOn });
-    setBad(spec.bad);
-    if (spec.bad) {
-      shownKey.current = null;
-      setHits([]);
-      setActive(-1);
+      setSlow(false);
       setWaiting(false);
       return;
     }
@@ -94,6 +90,15 @@ export function useChatFind(opts: {
         // Session/epoch moved under the scan — try once more against the
         // new transcript (the same conversation reopen settles on).
         void scan();
+        return;
+      }
+      setBad(r.bad);
+      setSlow(!!r.slow);
+      if (r.bad || r.slow) {
+        shownKey.current = null;
+        setWaiting(false);
+        setHits([]);
+        setActive(-1);
         return;
       }
       const key = `${q}|${regexOn}|${caseOn}`;
@@ -150,15 +155,21 @@ export function useChatFind(opts: {
   );
 
   const surface: FindSurface | null = useMemo(() => {
-    if (!open || !query.trim() || bad) return null;
+    if (!open || !query.trim() || bad || slow || !hits.length) return null;
+    const byMessage = new Map<number, FindMessageHits>();
+    for (const h of hits) {
+      let entry = byMessage.get(h.messageIndex);
+      if (!entry) byMessage.set(h.messageIndex, (entry = { body: [], sender: [] }));
+      (h.region === 1 ? entry.sender : entry.body).push([h.start, h.end]);
+    }
     const hit = active >= 0 && active < hits.length ? hits[active] : null;
     return {
-      spec: compileFindQuery(query, { regex: regexOn, caseSensitive: caseOn }),
-      activeMessageIndex: hit ? hit.messageIndex : null,
-      activeRegion: hit && hit.region === 1 ? 'sender' : 'body',
-      activeOccurrence: hit ? hit.occurrence : -1,
+      byMessage,
+      active: hit
+        ? { messageIndex: hit.messageIndex, region: hit.region === 1 ? 'sender' : 'body', start: hit.start }
+        : null,
     };
-  }, [open, query, bad, active, hits, regexOn, caseOn]);
+  }, [open, query, bad, slow, active, hits]);
 
   const counter = hits.length
     ? `${active + 1} / ${hits.length >= 999 ? '999+' : hits.length}`
@@ -173,6 +184,7 @@ export function useChatFind(opts: {
     caseOn,
     toggleCase: () => setCaseOn((v) => !v),
     bad,
+    slow,
     waiting,
     hits,
     counter,

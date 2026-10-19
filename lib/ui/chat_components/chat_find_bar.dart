@@ -92,7 +92,8 @@ class ChatFindBar extends StatelessWidget {
     return AnimatedBuilder(
       animation: controller,
       builder: (context, _) {
-        final bad = controller.badPattern;
+        final slow = controller.tooSlow;
+        final bad = controller.badPattern || slow;
         final wild =
             controller.hasQuery &&
             !controller.regexOn &&
@@ -199,7 +200,9 @@ class ChatFindBar extends StatelessWidget {
                             ],
                           )
                         : Text(
-                            bad
+                            slow
+                                ? 'too slow'
+                                : bad
                                 ? 'bad pattern'
                                 : controller.text.text.trim().isEmpty
                                 ? ''

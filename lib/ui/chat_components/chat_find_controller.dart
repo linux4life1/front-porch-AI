@@ -29,37 +29,41 @@ class FindHighlightScope extends InheritedNotifier<Listenable> {
       ?.controller;
 }
 
-/// Splits finished leaf spans around engine matches of the active find
-/// query. Body leaves share one instance per message build so occurrences
-/// count in assembly order — the same numbering the scanner used — and
-/// exactly the active occurrence paints strong. [senderRegion] leaves are
-/// the bubble header: its active hit is occurrence 0 of the sender name.
+/// Splits finished leaf spans around the engine's hit ranges. Each leaf
+/// passes its own [offset] into the region string (displayText for the
+/// body, sender for the header), so a hit is painted exactly where the
+/// scanner found it, even when it crosses a quote/action boundary or starts
+/// with an anchor like `^` that a per-leaf re-match would misread. A hit
+/// split across leaves paints every piece; the active one is the hit whose
+/// start is [FindLeafState]'s active start.
 class FindLeafSplit {
   final FindLeafState? state;
   final Color honey;
   final bool senderRegion;
-  int _occurrence = 0;
 
-  FindLeafSplit(this.state, this.honey, {this.senderRegion = false});
+  const FindLeafSplit(this.state, this.honey, {this.senderRegion = false});
 
-  List<TextSpan> expand(String text, TextStyle? base) {
+  List<TextSpan> expand(String text, TextStyle? base, {int offset = 0}) {
     final st = state;
     if (st == null) return [TextSpan(text: text, style: base)];
-    final ranges = chatQueryRanges(text, st.spec);
-    if (ranges.isEmpty) return [TextSpan(text: text, style: base)];
+    final ranges = senderRegion ? st.sender : st.body;
+    final activeStart = senderRegion
+        ? st.activeSenderStart
+        : st.activeBodyStart;
+    final end = offset + text.length;
     final out = <TextSpan>[];
     var pos = 0;
     for (final r in ranges) {
-      if (r.start > pos) {
-        out.add(TextSpan(text: text.substring(pos, r.start), style: base));
+      if (r.end <= offset || r.start >= end) continue;
+      final from = (r.start - offset).clamp(0, text.length);
+      final to = (r.end - offset).clamp(0, text.length);
+      if (from > pos) {
+        out.add(TextSpan(text: text.substring(pos, from), style: base));
       }
-      final isActive = senderRegion
-          ? (_occurrence == 0 && st.activeSender)
-          : _occurrence == st.activeBodyOccurrence;
       out.add(
         TextSpan(
-          text: text.substring(r.start, r.end),
-          style: isActive
+          text: text.substring(from, to),
+          style: r.start == activeStart
               ? (base ?? const TextStyle()).copyWith(
                   backgroundColor: honey,
                   color: AppColors.inkOn(honey),
@@ -70,9 +74,9 @@ class FindLeafSplit {
                 ),
         ),
       );
-      _occurrence++;
-      pos = r.end;
+      pos = to;
     }
+    if (out.isEmpty) return [TextSpan(text: text, style: base)];
     if (pos < text.length) {
       out.add(TextSpan(text: text.substring(pos), style: base));
     }
@@ -80,20 +84,50 @@ class FindLeafSplit {
   }
 }
 
-/// What one bubble needs to paint its find highlights: the compiled query to
-/// self-split its leaf spans with, and which occurrence / the sender header
-/// is the ACTIVE one. Mirrors the reviewed mockup's leaf-level matching;
-/// matches may span formatting boundaries — those partials are a documented
-/// cosmetic caveat, counts and jumps stay exact.
+/// One bubble's find highlights: the engine's hit ranges per region, in
+/// order, and the start of the ACTIVE hit when it is in this bubble.
 class FindLeafState {
-  final ChatQuerySpec spec;
-  final int? activeBodyOccurrence;
-  final bool activeSender;
+  final List<({int start, int end})> body;
+  final List<({int start, int end})> sender;
+  final int? activeBodyStart;
+  final int? activeSenderStart;
   const FindLeafState({
-    required this.spec,
-    this.activeBodyOccurrence,
-    this.activeSender = false,
+    this.body = const [],
+    this.sender = const [],
+    this.activeBodyStart,
+    this.activeSenderStart,
   });
+
+  /// Groups [matches] by message. [active] is the selected hit, if any.
+  static Map<int, FindLeafState> byMessage(
+    List<ChatFindMatch> matches,
+    ChatFindMatch? active,
+  ) {
+    final body = <int, List<({int start, int end})>>{};
+    final sender = <int, List<({int start, int end})>>{};
+    for (final hit in matches) {
+      final into = hit.region == findRegionSender ? sender : body;
+      into.putIfAbsent(hit.messageIndex, () => []).add((
+        start: hit.startInRegion,
+        end: hit.endInRegion,
+      ));
+    }
+    return {
+      for (final i in {...body.keys, ...sender.keys})
+        i: FindLeafState(
+          body: body[i] ?? const [],
+          sender: sender[i] ?? const [],
+          activeBodyStart:
+              active?.messageIndex == i && active?.region == findRegionBody
+              ? active!.startInRegion
+              : null,
+          activeSenderStart:
+              active?.messageIndex == i && active?.region == findRegionSender
+              ? active!.startInRegion
+              : null,
+        ),
+    };
+  }
 }
 
 /// ⌘F find-in-chat state, owned by the chat page. Count/navigation truth is
@@ -155,6 +189,9 @@ class ChatFindController extends ChangeNotifier {
       Map<ChatMessage, FindLeafState>.identity();
 
   bool get badPattern => _spec.bad;
+
+  /// The last regex scan hit the engine's timeout and was abandoned.
+  bool tooSlow = false;
   bool get hasQuery => !_spec.isEmpty && !_spec.bad;
   String get counterLabel {
     if (matches.isEmpty) return 'No matches';
@@ -190,6 +227,7 @@ class ChatFindController extends ChangeNotifier {
   void close() {
     open = false;
     waiting = false;
+    tooSlow = false;
     _debounce?.cancel();
     _poll?.cancel();
     matches = const [];
@@ -256,6 +294,7 @@ class ChatFindController extends ChangeNotifier {
       regexMode: regexOn,
       caseSensitive: caseSensitive,
     );
+    tooSlow = false;
     if (_spec.bad) {
       matches = const [];
       active = -1;
@@ -278,6 +317,7 @@ class ChatFindController extends ChangeNotifier {
     }
     _poll?.cancel();
     waiting = false;
+    tooSlow = outcome.tooSlow;
     matches = outcome.matches;
     active = matches.isEmpty
         ? -1
@@ -319,21 +359,9 @@ class ChatFindController extends ChangeNotifier {
 
   void _rebuildLeafMap(List<ChatMessage> messages) {
     final next = Map<ChatMessage, FindLeafState>.identity();
-    for (final hit in matches) {
-      if (hit.messageIndex < 0 || hit.messageIndex >= messages.length) continue;
-      final message = messages[hit.messageIndex];
-      final isActive = identical(hit, activeHit);
-      final existing = next[message];
-      next[message] = FindLeafState(
-        spec: _spec,
-        activeBodyOccurrence: isActive && hit.region == findRegionBody
-            ? hit.occurrenceInRegion
-            : existing?.activeBodyOccurrence,
-        activeSender: isActive && hit.region == findRegionSender
-            ? true
-            : (existing?.activeSender ?? false),
-      );
-    }
+    FindLeafState.byMessage(matches, activeHit).forEach((index, state) {
+      if (index < messages.length) next[messages[index]] = state;
+    });
     _leafMap = next;
   }
 

@@ -188,14 +188,30 @@ extension ChatServiceFind on ChatService {
     if (epoch != _history.epoch || _currentSessionId != sessionId) {
       return const ChatFindOutcome(stale: true);
     }
-    final matches = scanTranscript([
+    final visible = [
       for (final m in _messages)
         (text: m.isStatusBanner ? '' : m.displayText, sender: m.sender),
-    ], spec);
+    ];
+    // Plain and glob queries are escaped literals and cannot backtrack;
+    // only a raw user regex needs the killable isolate.
+    final matches = regexMode
+        ? await scanTranscriptBounded(
+            visible,
+            query,
+            regexMode: true,
+            caseSensitive: caseSensitive,
+          )
+        : scanTranscript(visible, spec);
+    if (epoch != _history.epoch || _currentSessionId != sessionId) {
+      return const ChatFindOutcome(stale: true);
+    }
+    if (matches == null) {
+      return ChatFindOutcome(tooSlow: true, totalMessages: visible.length);
+    }
     return ChatFindOutcome(
       matches: matches,
       capped: matches.length >= kFindMatchCap,
-      totalMessages: _messages.length,
+      totalMessages: visible.length,
     );
   }
 

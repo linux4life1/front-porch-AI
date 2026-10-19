@@ -17,7 +17,7 @@ import {
   transcriptTipKey,
 } from '../pages/chat/transcriptAutoScroll';
 import { applyTranscriptSpan, revealOlderSpan, revealAroundSpan, type TranscriptSpan } from '../pages/chat/transcriptWindow';
-import { useFindSurface, findRanges } from './chatSearch';
+import { useFindSurface, markRanges } from './chatSearch';
 import { MessageContent } from './MessageContent';
 import { ChipsRow } from './ChipsRow';
 import { MessageActions } from './MessageActions';
@@ -190,25 +190,15 @@ const TranscriptRows = memo(function TranscriptRows({
 }: TranscriptProps) {
   const userHasReplied = messages.some((m) => m.isUser);
   const find = useFindSurface();
+  // The engine's sender hits index m.sender; only a header showing exactly
+  // that name can paint them.
   const markSpeaker = (m: Message, name: string): ReactNode => {
-    if (!find) return name;
-    const ranges = findRanges(name, find.spec);
-    if (!ranges.length) return name;
-    const nodes: ReactNode[] = [];
-    let pos = 0;
-    ranges.forEach(([s, e], i) => {
-      if (s > pos) nodes.push(name.slice(pos, s));
-      const isActive =
-        find.activeMessageIndex === m.index && find.activeRegion === 'sender';
-      nodes.push(
-        <mark key={`sf${i}`} className={isActive ? 'find-hit active' : 'find-hit'}>
-          {name.slice(s, e)}
-        </mark>,
-      );
-      pos = e;
-    });
-    if (pos < name.length) nodes.push(name.slice(pos));
-    return nodes;
+    const hits = find?.byMessage.get(m.index);
+    if (!find || !hits?.sender.length || name !== m.sender) return name;
+    const active = find.active;
+    const activeStart =
+      active && active.messageIndex === m.index && active.region === 'sender' ? active.start : null;
+    return markRanges(name, 0, hits.sender, activeStart, `sf${m.index}`);
   };
   return (
     <>

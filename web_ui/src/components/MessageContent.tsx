@@ -13,7 +13,7 @@
 
 import { memo, useEffect, useState, type ReactNode } from 'react';
 import { renderRpInline } from './rpText';
-import { findRanges, type FindSurface } from './chatSearch';
+import { markRanges, type FindSurface } from './chatSearch';
 
 // Desktop only matches http(s) — data:/javascript:/relative stay as text.
 const IMAGE_RE = /!\[([^\]]*)\]\((https?:\/\/[^)\s]+)\)/g;
@@ -76,10 +76,8 @@ function ExternalChatImage({ url, alt }: { url: string; alt: string }) {
 // every bubble. ExternalChatImage owns consent state so a grant still updates
 // already-mounted placeholders without busting this memo.
 //
-// ⌘F parity with the desktop: when a [find] surface is active the marks are
-// painted LEAF-side (each colored run self-splits on its own visible string,
-// occurrences counted in document order — the order the server numbered
-// them), so what lights up is exactly what is on screen.
+// ⌘F parity with the desktop: each colored run paints the slice of the
+// server's hit ranges that falls inside it, by its offset into [text].
 function MessageContentImpl({
   text,
   find,
@@ -89,35 +87,14 @@ function MessageContentImpl({
   find?: FindSurface | null;
   msgIndex?: number;
 }) {
-  const cursor = { n: 0 };
-  const mark =
-    find && msgIndex != null
-      ? (plain: string, key: string): ReactNode => {
-          const ranges = findRanges(plain, find.spec);
-          if (!ranges.length) return plain;
-          const nodes: ReactNode[] = [];
-          let pos = 0;
-          ranges.forEach(([s, e], i) => {
-            if (s > pos) nodes.push(plain.slice(pos, s));
-            const occ = cursor.n++;
-            const isActive =
-              find.activeMessageIndex === msgIndex &&
-              find.activeRegion === 'body' &&
-              occ === find.activeOccurrence;
-            nodes.push(
-              <mark
-                key={`${key}-f${i}`}
-                className={isActive ? 'find-hit active' : 'find-hit'}
-              >
-                {plain.slice(s, e)}
-              </mark>,
-            );
-            pos = e;
-          });
-          if (pos < plain.length) nodes.push(plain.slice(pos));
-          return nodes;
-        }
-      : undefined;
+  const hits = find && msgIndex != null ? find.byMessage.get(msgIndex) : undefined;
+  const active = find?.active;
+  const activeStart =
+    active && active.messageIndex === msgIndex && active.region === 'body' ? active.start : null;
+  const mark = hits?.body.length
+    ? (plain: string, key: string, offset: number): ReactNode =>
+        markRanges(plain, offset, hits.body, activeStart, key)
+    : undefined;
 
   const parts: ReactNode[] = [];
   let last = 0;
@@ -126,7 +103,7 @@ function MessageContentImpl({
   IMAGE_RE.lastIndex = 0;
   while ((match = IMAGE_RE.exec(text)) !== null) {
     if (match.index > last) {
-      parts.push(...renderRpInline(text.slice(last, match.index), `t${seg++}`, true, mark));
+      parts.push(...renderRpInline(text.slice(last, match.index), `t${seg++}`, true, mark, last));
     }
     const alt = match[1] || 'image';
     const url = match[2];
@@ -135,7 +112,7 @@ function MessageContentImpl({
     );
     last = match.index + match[0].length;
   }
-  if (last < text.length) parts.push(...renderRpInline(text.slice(last), `t${seg++}`, true, mark));
+  if (last < text.length) parts.push(...renderRpInline(text.slice(last), `t${seg++}`, true, mark, last));
 
   return (
     <>
