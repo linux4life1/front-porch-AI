@@ -232,9 +232,10 @@ extension ChatServiceGroupRead on ChatService {
 
   bool get autoPlayActive => _groupManager?.autoPlayActive ?? false;
 
-  /// The character who will speak next in group mode.
-  /// Fully delegated to GroupTurnManager (supports forced override + both turn orders + Director Mode).
-  CharacterCard? get nextCharacter => _groupManager?.nextSpeaker;
+  /// The character who will speak next in group mode: the rotation head,
+  /// moved past members who are Away or At work exactly as the pick does.
+  /// Null for random turn order (decided at pick time).
+  CharacterCard? get nextCharacter => _upcomingGroupSpeaker;
 
   /// True for group chats where the Realism Engine is enabled, Director Mode
   /// included: the per-character state still shows (held still while the

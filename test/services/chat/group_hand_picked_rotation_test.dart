@@ -185,6 +185,31 @@ void main() {
     timeout: const Timeout(Duration(minutes: 2)),
   );
 
+  test(
+    'an Away member: Next names who speaks, and the turn moves on',
+    () async {
+      await enterGroup();
+      final beaId = chat.characterIdFor(member('Bea'));
+      expect(await chat.setGroupMemberAway(beaId, away: true), isTrue);
+
+      await chat.sendMessage('Evening, all.');
+      await _drain();
+      expect(chat.messages.last.sender, 'Ada', reason: 'baseline: Ada first');
+      expect(chat.nextCharacter?.name, 'Cy', reason: 'Next: Cy, not Away Bea');
+
+      await chat.triggerNextCharacter();
+      await _drain();
+      expect(chat.messages.last.sender, 'Cy', reason: 'Cy, not Ada again');
+      expect(chat.nextCharacter?.name, 'Ada');
+
+      await chat.triggerNextCharacter();
+      await _drain();
+      expect(chat.messages.last.sender, 'Ada');
+      expect(chat.nextCharacter?.name, 'Cy');
+    },
+    timeout: const Timeout(Duration(minutes: 2)),
+  );
+
   test('/exit: the member after the leaver still gets the next turn', () async {
     await enterGroup();
     await chat.sendMessage('Evening, all.');
