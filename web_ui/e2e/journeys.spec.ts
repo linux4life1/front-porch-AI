@@ -188,6 +188,29 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect(editor).toBeHidden();
   });
 
+  test('find a word in the chat with Ctrl+F, step through it, and close', async ({ page }) => {
+    await openPorchChat(page);
+    await page.keyboard.press('ControlOrMeta+f');
+    const bar = page.locator('.find-bar');
+    await expect(bar).toBeVisible();
+    await bar.locator('input.find-input').fill('porch swing');
+    await expect(bar.locator('.find-count')).toHaveText(/^1 \/ \d+$/);
+    const lit = page.locator('mark.find-hit.active');
+    await expect(lit).toHaveCount(1);
+    await expect(lit).toHaveText(/porch swing/i);
+
+    // A word that is nowhere says so instead of counting.
+    await bar.locator('input.find-input').fill('zzqx-not-here');
+    await expect(bar.locator('.find-count')).toHaveText('No matches');
+    await expect(page.locator('mark.find-hit')).toHaveCount(0);
+
+    await bar.locator('input.find-input').fill('porch swing');
+    await expect(lit).toHaveCount(1);
+    await bar.locator('input.find-input').press('Escape');
+    await expect(bar).toBeHidden();
+    await expect(page.locator('mark.find-hit')).toHaveCount(0);
+  });
+
   test('regenerate with a note, then swipe between the two takes', async ({ page }) => {
     await openPorchChat(page);
     await action(lastRow(page), 'Regenerate').click();
