@@ -387,7 +387,7 @@ class _SourceChip extends StatelessWidget {
     final fg = !enabled
         ? AppColors.textTertiary(context)
         : selected
-        ? AppColors.onChaosAccent
+        ? AppColors.onAccentOf(context)
         : AppColors.textPrimary(context);
     return Material(
       color: !enabled

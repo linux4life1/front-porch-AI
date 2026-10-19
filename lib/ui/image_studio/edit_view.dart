@@ -344,10 +344,10 @@ class _EditViewState extends State<EditView> {
             const Spacer(),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
               ),
             ),
           ],

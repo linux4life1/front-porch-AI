@@ -58,11 +58,9 @@ class WorldBasicsSection extends StatelessWidget {
     return Container(
       padding: EdgeInsets.all(pad),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
+        color: AppColors.surfaceContainerOf(
           context,
-          AppColors.surfaceContainer.withValues(alpha: 0.3),
-          AppColors.surfaceContainerLight.withValues(alpha: 0.6),
-        ),
+        ).withValues(alpha: AppColors.isLight(context) ? 0.6 : 0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColors.borderOf(context).withValues(alpha: 0.2),
@@ -76,7 +74,7 @@ class WorldBasicsSection extends StatelessWidget {
               Icon(
                 Icons.info_outline,
                 size: 18,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
               ),
               const SizedBox(width: 8),
               Text(
@@ -155,7 +153,7 @@ class WorldBasicsSection extends StatelessWidget {
                           icon: const Icon(Icons.image_outlined, size: 16),
                           label: const Text('Choose…'),
                           style: TextButton.styleFrom(
-                            foregroundColor: AppColors.formMasterAccent,
+                            foregroundColor: AppColors.formAccentOf(context),
                           ),
                         ),
                         if (draft.coverImage != null &&
@@ -204,8 +202,8 @@ class WorldBasicsSection extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: AppColors.formMasterAccent,
+                borderSide: BorderSide(
+                  color: AppColors.formAccentOf(context),
                   width: 1.5,
                 ),
               ),
@@ -235,8 +233,8 @@ class WorldBasicsSection extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(8),
-                borderSide: const BorderSide(
-                  color: AppColors.formMasterAccent,
+                borderSide: BorderSide(
+                  color: AppColors.formAccentOf(context),
                   width: 1.5,
                 ),
               ),
@@ -315,7 +313,7 @@ class WorldBasicsSection extends StatelessWidget {
         ),
         Switch(
           value: value,
-          activeThumbColor: AppColors.formMasterAccent,
+          activeThumbColor: AppColors.formAccentOf(context),
           onChanged: onChanged,
         ),
       ],
@@ -336,10 +334,10 @@ class WorldBasicsSection extends StatelessWidget {
 
   Widget _coverPlaceholder(BuildContext context) {
     return ColoredBox(
-      color: AppColors.formMasterAccent.withValues(alpha: 0.12),
+      color: AppColors.formAccentOf(context).withValues(alpha: 0.12),
       child: Icon(
         Icons.public,
-        color: AppColors.formMasterAccent.withValues(alpha: 0.7),
+        color: AppColors.formAccentOf(context).withValues(alpha: 0.7),
         size: 28,
       ),
     );

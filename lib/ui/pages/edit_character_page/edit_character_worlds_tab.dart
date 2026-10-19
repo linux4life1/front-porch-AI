@@ -120,9 +120,9 @@ class EditCharacterWorldsTab extends StatelessWidget {
                           borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                             color: isLinked
-                                ? AppColors.formMasterAccent.withValues(
-                                    alpha: 0.4,
-                                  )
+                                ? AppColors.formAccentOf(
+                                    context,
+                                  ).withValues(alpha: 0.4)
                                 : AppColors.borderOf(
                                     context,
                                   ).withValues(alpha: 0.45),
@@ -134,9 +134,9 @@ class EditCharacterWorldsTab extends StatelessWidget {
                             height: 36,
                             decoration: BoxDecoration(
                               color: isLinked
-                                  ? AppColors.formMasterAccent.withValues(
-                                      alpha: 0.2,
-                                    )
+                                  ? AppColors.formAccentOf(
+                                      context,
+                                    ).withValues(alpha: 0.2)
                                   : AppColors.resolve(
                                       context,
                                       Colors.white.withValues(alpha: 0.05),
@@ -148,7 +148,7 @@ class EditCharacterWorldsTab extends StatelessWidget {
                               Icons.public,
                               size: 20,
                               color: isLinked
-                                  ? AppColors.formMasterAccent
+                                  ? AppColors.formAccentOf(context)
                                   : AppColors.textTertiary(context),
                             ),
                           ),
@@ -188,9 +188,10 @@ class EditCharacterWorldsTab extends StatelessWidget {
                               }
                               onChanged();
                             },
-                            activeTrackColor: AppColors.formMasterAccent
-                                .withValues(alpha: 0.5),
-                            activeThumbColor: AppColors.formMasterAccent,
+                            activeTrackColor: AppColors.formAccentOf(
+                              context,
+                            ).withValues(alpha: 0.5),
+                            activeThumbColor: AppColors.formAccentOf(context),
                           ),
                         ),
                       );

@@ -51,7 +51,7 @@ Future<VisionEvalFn?> resolveVisionFireWithExplainer(
       context,
       title: unknown ? 'Couldn\'t check vision' : 'No vision model',
       icon: Icons.visibility_off_outlined,
-      accent: AppColors.formMasterAccent,
+      accent: AppColors.formAccentOf(context),
       content: WarmDialogText(
         unknown
             ? 'The model server didn\'t answer the vision check (it may '

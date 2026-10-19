@@ -36,12 +36,12 @@ class ImportNameCollisionResult {
   final CharacterCard? replaceTarget;
 
   const ImportNameCollisionResult.keepBoth()
-      : keepBoth = true,
-        replaceTarget = null;
+    : keepBoth = true,
+      replaceTarget = null;
 
   const ImportNameCollisionResult.replace(CharacterCard target)
-      : keepBoth = false,
-        replaceTarget = target;
+    : keepBoth = false,
+      replaceTarget = target;
 }
 
 /// Asks what to do when importing a card whose display name already exists
@@ -57,10 +57,8 @@ Future<ImportNameCollisionResult?> showImportNameCollisionDialog(
   return showDialog<ImportNameCollisionResult>(
     context: context,
     barrierDismissible: true,
-    builder: (ctx) => _ImportNameCollisionDialog(
-      cardName: cardName,
-      existing: existing,
-    ),
+    builder: (ctx) =>
+        _ImportNameCollisionDialog(cardName: cardName, existing: existing),
   );
 }
 
@@ -101,10 +99,7 @@ Future<CharacterCard?> importCharacterWithNameCollision(
   if (choice.keepBoth) {
     return repo.importCharacter(file);
   }
-  return repo.importCharacter(
-    file,
-    forceReplaceTarget: choice.replaceTarget,
-  );
+  return repo.importCharacter(file, forceReplaceTarget: choice.replaceTarget);
 }
 
 class _ImportNameCollisionDialog extends StatefulWidget {
@@ -121,7 +116,8 @@ class _ImportNameCollisionDialog extends StatefulWidget {
       _ImportNameCollisionDialogState();
 }
 
-class _ImportNameCollisionDialogState extends State<_ImportNameCollisionDialog> {
+class _ImportNameCollisionDialogState
+    extends State<_ImportNameCollisionDialog> {
   late String? _selectedId;
 
   @override
@@ -166,12 +162,12 @@ class _ImportNameCollisionDialogState extends State<_ImportNameCollisionDialog> 
             WarmDialogText(
               multi
                   ? 'You already have ${widget.existing.length} characters named '
-                      '"${widget.cardName}". Keep both (add another), or replace '
-                      'one of the existing cards. Replacing keeps that card\'s '
-                      'chat history.'
+                        '"${widget.cardName}". Keep both (add another), or replace '
+                        'one of the existing cards. Replacing keeps that card\'s '
+                        'chat history.'
                   : 'You already have a character named "${widget.cardName}". '
-                      'Keep both (add another copy), or replace the existing '
-                      'card and keep its chat history.',
+                        'Keep both (add another copy), or replace the existing '
+                        'card and keep its chat history.',
             ),
             if (multi) ...[
               const SizedBox(height: 12),
@@ -234,9 +230,9 @@ class _ImportNameCollisionDialogState extends State<_ImportNameCollisionDialog> 
       actions: [
         warmDialogCancel(context),
         TextButton(
-          onPressed: () => Navigator.of(context).pop(
-            const ImportNameCollisionResult.keepBoth(),
-          ),
+          onPressed: () => Navigator.of(
+            context,
+          ).pop(const ImportNameCollisionResult.keepBoth()),
           child: Text(
             'Keep both',
             style: TextStyle(color: AppColors.textPrimary(context)),
@@ -245,7 +241,7 @@ class _ImportNameCollisionDialogState extends State<_ImportNameCollisionDialog> 
         ElevatedButton(
           style: ElevatedButton.styleFrom(
             backgroundColor: accent,
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           onPressed: () {
             CharacterCard? target;
@@ -257,9 +253,9 @@ class _ImportNameCollisionDialogState extends State<_ImportNameCollisionDialog> 
               }
             }
             target ??= widget.existing.first;
-            Navigator.of(context).pop(
-              ImportNameCollisionResult.replace(target),
-            );
+            Navigator.of(
+              context,
+            ).pop(ImportNameCollisionResult.replace(target));
           },
           child: const Text('Replace existing'),
         ),

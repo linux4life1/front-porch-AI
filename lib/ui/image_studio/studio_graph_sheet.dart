@@ -206,7 +206,7 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
                               child: Text(
                                 shown[i].group,
                                 style: TextStyle(
-                                  color: AppColors.formMasterAccent,
+                                  color: AppColors.formAccentOf(context),
                                   fontSize: 12,
                                   fontWeight: FontWeight.w700,
                                 ),
@@ -241,12 +241,12 @@ class _StudioGraphSheetState extends State<StudioGraphSheet> {
                           ),
                         ],
                         if (otherShown.isNotEmpty) ...[
-                          const Padding(
+                          Padding(
                             padding: EdgeInsets.fromLTRB(4, 12, 4, 4),
                             child: Text(
                               'Other mode — search found these',
                               style: TextStyle(
-                                color: AppColors.formMasterAccent,
+                                color: AppColors.formAccentOf(context),
                                 fontSize: 12,
                                 fontWeight: FontWeight.w700,
                               ),

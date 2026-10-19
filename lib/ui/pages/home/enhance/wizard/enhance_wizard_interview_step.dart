@@ -76,7 +76,7 @@ class EnhanceInterviewChecklist extends StatelessWidget {
         dense: true,
         controlAffinity: ListTileControlAffinity.leading,
         activeColor: AppColors.porchAmberOf(context),
-        checkColor: AppColors.onChaosAccent,
+        checkColor: AppColors.onAccentOf(context),
         contentPadding: EdgeInsets.zero,
         title: Text(
           label,

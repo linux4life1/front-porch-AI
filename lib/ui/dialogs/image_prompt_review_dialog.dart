@@ -115,8 +115,8 @@ class _ImagePromptReviewDialogState extends State<ImagePromptReviewDialog> {
           icon: const Icon(Icons.auto_awesome, size: 16),
           label: const Text('Generate'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: AppColors.formMasterAccent,
-            foregroundColor: AppColors.onChaosAccent,
+            backgroundColor: AppColors.formAccentOf(context),
+            foregroundColor: AppColors.onAccentOf(context),
           ),
         ),
       ],

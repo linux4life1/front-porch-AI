@@ -90,7 +90,7 @@ class _WaifuWholeDiskHonestyDialogState
           onPressed: _accepted ? () => Navigator.pop(context, true) : null,
           style: ElevatedButton.styleFrom(
             backgroundColor: amber,
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
             disabledBackgroundColor: AppColors.surfaceContainerOf(context),
           ),
           child: const Text('Allow whole disk'),

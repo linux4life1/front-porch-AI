@@ -215,15 +215,15 @@ class PersonaEditForm extends StatelessWidget {
                             child: Container(
                               padding: const EdgeInsets.all(6),
                               decoration: BoxDecoration(
-                                color: AppColors.formMasterAccent.withValues(
-                                  alpha: 0.15,
-                                ),
+                                color: AppColors.formAccentOf(
+                                  context,
+                                ).withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: const Icon(
+                              child: Icon(
                                 Icons.open_in_full,
                                 size: 16,
-                                color: AppColors.formMasterAccent,
+                                color: AppColors.formAccentOf(context),
                               ),
                             ),
                           ),
@@ -250,8 +250,8 @@ class PersonaEditForm extends StatelessWidget {
               ElevatedButton(
                 onPressed: onSave,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
+                  backgroundColor: AppColors.formAccentOf(context),
+                  foregroundColor: AppColors.onAccentOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 12,
@@ -343,8 +343,8 @@ void showExpandPersonaTextDialog(
                     Navigator.of(dialogContext).pop();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.formMasterAccent,
-                    foregroundColor: AppColors.onChaosAccent,
+                    backgroundColor: AppColors.formAccentOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
                   ),
                   child: const Text('Save'),
                 ),

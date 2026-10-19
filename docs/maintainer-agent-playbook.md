@@ -123,7 +123,17 @@ done", so every hand-check item in a PR is already a test or marked
 | 1. Look only | UI changed, and nothing from tier 2 | Looks at screenshots of the changed screens and does the `eye-only:` lines. No item-by-item run |
 | 2. Full | The PR touches the database or migrations, file pickers or OS dialogs, desktop platform code, import/export, or adds a screen | Does the `eye-only:` lines and walks the risky area |
 
-The hostile reviewer still sees every PR.
+The hostile reviewer still sees every PR. The **PR rules** check prints each
+PR's tier in its summary, and fails a UI PR whose `## Hand-check` lines don't
+each name a test or start `eye-only:`, or a PR that adds pictures outside
+goldens, `assets/` and `docs/screenshots/` (the `approved-images` label lets a
+deliberate one in).
+
+**Drafts wait.** A draft PR runs only the cheap CI jobs. E2E, Playwright,
+goldens and the Stoop pin start when it leaves draft, and a docs-only PR never
+runs them. Take PRs out of draft in merge-queue order and the head of the
+queue gets the runners first. So "CI green", for a review or smoke handoff,
+means a run after the PR left draft.
 
 ## What every review checks
 

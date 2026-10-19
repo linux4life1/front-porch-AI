@@ -40,7 +40,8 @@ class RealismMasterToggle extends StatelessWidget {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
           color: enabled
-              ? (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+              ? (context.creatorPalette?.amber ??
+                        AppColors.formAccentOf(context))
                     .withValues(alpha: 0.4)
               : context.creatorPalette?.line ?? AppColors.borderOf(context),
         ),
@@ -53,7 +54,7 @@ class RealismMasterToggle extends StatelessWidget {
             decoration: BoxDecoration(
               color: enabled
                   ? (context.creatorPalette?.amber ??
-                            AppColors.formMasterAccent)
+                            AppColors.formAccentOf(context))
                         .withValues(alpha: 0.2)
                   : (context.creatorPalette?.raise ??
                             AppColors.surfaceContainerOf(context))
@@ -63,7 +64,8 @@ class RealismMasterToggle extends StatelessWidget {
             child: Icon(
               Icons.psychology,
               color: enabled
-                  ? context.creatorPalette?.amber ?? AppColors.formMasterAccent
+                  ? context.creatorPalette?.amber ??
+                        AppColors.formAccentOf(context)
                   : context.creatorPalette?.muted ??
                         AppColors.iconSecondary(context),
               size: 24,
@@ -93,7 +95,7 @@ class RealismMasterToggle extends StatelessWidget {
                   style: TextStyle(
                     color: enabled
                         ? context.creatorPalette?.amber ??
-                              AppColors.formMasterAccent
+                              AppColors.formAccentOf(context)
                         : context.creatorPalette?.muted ??
                               AppColors.textTertiary(context),
                     fontSize: 12,
@@ -106,10 +108,12 @@ class RealismMasterToggle extends StatelessWidget {
             value: enabled,
             onChanged: onEnabledChanged,
             activeTrackColor:
-                (context.creatorPalette?.amber ?? AppColors.formMasterAccent)
+                (context.creatorPalette?.amber ??
+                        AppColors.formAccentOf(context))
                     .withValues(alpha: 0.5),
             activeThumbColor:
-                context.creatorPalette?.amber ?? AppColors.formMasterAccent,
+                context.creatorPalette?.amber ??
+                AppColors.formAccentOf(context),
           ),
         ],
       ),

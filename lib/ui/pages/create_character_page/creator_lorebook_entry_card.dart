@@ -49,7 +49,7 @@ class CreatorLorebookEntryCard extends StatelessWidget {
           color: entry.constant
               ? AppColors.porchAmberOf(context).withValues(alpha: 0.3)
               : entry.enabled
-              ? AppColors.formMasterAccent.withValues(alpha: 0.2)
+              ? AppColors.formAccentOf(context).withValues(alpha: 0.2)
               : AppColors.borderOf(context).withValues(alpha: 0.5),
         ),
       ),
@@ -64,7 +64,7 @@ class CreatorLorebookEntryCard extends StatelessWidget {
                 color: entry.constant
                     ? AppColors.porchAmberOf(context)
                     : entry.enabled
-                    ? AppColors.formMasterAccent
+                    ? AppColors.formAccentOf(context)
                     : AppColors.textTertiary(context),
               ),
               const SizedBox(width: 6),
@@ -108,13 +108,15 @@ class CreatorLorebookEntryCard extends StatelessWidget {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.formMasterAccent.withValues(alpha: 0.1),
+                    color: AppColors.formAccentOf(
+                      context,
+                    ).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: Text(
                     'Depth ${entry.stickyDepth}',
-                    style: const TextStyle(
-                      color: AppColors.formMasterAccent,
+                    style: TextStyle(
+                      color: AppColors.formAccentOf(context),
                       fontSize: 9,
                       fontWeight: FontWeight.w600,
                     ),
@@ -128,10 +130,10 @@ class CreatorLorebookEntryCard extends StatelessWidget {
                 child: Switch(
                   value: entry.enabled,
                   onChanged: onEnabledChanged,
-                  activeTrackColor: AppColors.formMasterAccent.withValues(
-                    alpha: 0.5,
-                  ),
-                  activeThumbColor: AppColors.formMasterAccent,
+                  activeTrackColor: AppColors.formAccentOf(
+                    context,
+                  ).withValues(alpha: 0.5),
+                  activeThumbColor: AppColors.formAccentOf(context),
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ),

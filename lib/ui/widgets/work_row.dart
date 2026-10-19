@@ -265,7 +265,8 @@ class _WorkRowState extends State<WorkRow> {
             fontSize: 12,
             fontWeight: FontWeight.w700,
             color: on
-                ? context.creatorPalette?.amberInk ?? AppColors.onChaosAccent
+                ? context.creatorPalette?.amberInk ??
+                      AppColors.onAccentOf(context)
                 : context.creatorPalette?.ink ?? AppColors.textPrimary(context),
           ),
         ),

@@ -197,7 +197,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
             dense: true,
             contentPadding: EdgeInsets.zero,
             controlAffinity: ListTileControlAffinity.leading,
-            activeColor: AppColors.formMasterAccent,
+            activeColor: AppColors.formAccentOf(context),
             title: Text(
               'Keep the $_existingInChosen you already have — generate only '
               'the missing ${_chosenSet.length - _existingInChosen}',
@@ -241,7 +241,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
                 min: 0.30,
                 max: 0.85,
                 divisions: 11,
-                activeColor: AppColors.formMasterAccent,
+                activeColor: AppColors.formAccentOf(context),
                 inactiveColor: AppColors.borderOf(context),
                 onChanged: (v) => setState(() => _denoise = v),
               ),
@@ -274,7 +274,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
               height: 20,
               child: Checkbox(
                 value: _replaceExisting,
-                activeColor: AppColors.formMasterAccent,
+                activeColor: AppColors.formAccentOf(context),
                 onChanged: (v) => setState(() => _replaceExisting = v ?? true),
               ),
             ),
@@ -337,8 +337,8 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
               icon: const Icon(Icons.auto_awesome, size: 16),
               label: Text('Start ($_effectiveCount)'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formAccentOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
               ),
             ),
           ],
@@ -355,7 +355,7 @@ class _ExpressionPackSetupState extends State<ExpressionPackSetup> {
     required List<String> emotions,
     required VoidCallback onTap,
   }) {
-    final accent = AppColors.formMasterAccent;
+    final accent = AppColors.formAccentOf(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(10),

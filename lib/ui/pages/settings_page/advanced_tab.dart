@@ -161,7 +161,7 @@ class DatabaseMaintenanceSection extends StatelessWidget {
                     onPressed: () => onScanAndClean(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.porchAmberOf(context),
-                      foregroundColor: AppColors.onChaosAccent,
+                      foregroundColor: AppColors.onAccentOf(context),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 14,
                         vertical: 6,

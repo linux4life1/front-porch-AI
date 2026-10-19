@@ -274,7 +274,7 @@ class SuperGrokCard extends StatelessWidget {
       label: Text(label),
       style: ElevatedButton.styleFrom(
         backgroundColor: AppColors.porchAmberOf(context),
-        foregroundColor: AppColors.onChaosAccent,
+        foregroundColor: AppColors.onAccentOf(context),
         padding: const EdgeInsets.symmetric(vertical: 12),
       ),
     ),

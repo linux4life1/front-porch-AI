@@ -98,25 +98,29 @@ class KoboldPresetSection extends StatelessWidget {
                 decoration: BoxDecoration(
                   // Retheme: was Colors.amber, matching the oMLX banner's
                   // formMasterAccent 0.12/0.3 fill+border pattern below.
-                  color: AppColors.formMasterAccent.withValues(alpha: 0.12),
+                  color: AppColors.formAccentOf(
+                    context,
+                  ).withValues(alpha: 0.12),
                   border: Border.all(
-                    color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+                    color: AppColors.formAccentOf(
+                      context,
+                    ).withValues(alpha: 0.3),
                   ),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
                   children: [
-                    const Icon(
+                    Icon(
                       Icons.info_outline,
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                       size: 18,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Controlled by preset: ${path_lib.basename(storage.backendSettings.activeKcppsPath!)}',
-                        style: const TextStyle(
-                          color: AppColors.formMasterAccent,
+                        style: TextStyle(
+                          color: AppColors.formAccentOf(context),
                           fontSize: 12,
                         ),
                       ),

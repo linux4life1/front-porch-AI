@@ -264,8 +264,8 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
             icon: const Icon(Icons.check, size: 16),
             label: const Text('Save'),
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -318,13 +318,15 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
                       vertical: 1,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.formMasterAccent.withValues(alpha: 0.15),
+                      color: AppColors.formAccentOf(
+                        context,
+                      ).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
                       '${_thinkingController.text.trim().length} chars',
                       style: TextStyle(
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
                       ),
@@ -375,7 +377,9 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
                   borderSide: BorderSide(
-                    color: AppColors.formMasterAccent.withValues(alpha: 0.5),
+                    color: AppColors.formAccentOf(
+                      context,
+                    ).withValues(alpha: 0.5),
                   ),
                 ),
                 contentPadding: const EdgeInsets.all(12),
@@ -410,7 +414,7 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: AppColors.formMasterAccent),
+          borderSide: BorderSide(color: AppColors.formAccentOf(context)),
         ),
         contentPadding: const EdgeInsets.all(16),
       ),
@@ -438,7 +442,7 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
               width: 6,
               height: 6,
               decoration: BoxDecoration(
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 shape: BoxShape.circle,
               ),
             ),
@@ -446,7 +450,7 @@ class _MessageEditDialogState extends State<_MessageEditDialog> {
             Text(
               'Unsaved',
               style: TextStyle(
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w500,
               ),

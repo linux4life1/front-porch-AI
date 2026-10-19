@@ -64,8 +64,8 @@ class ResultView extends StatelessWidget {
         border: Border.all(
           color: AppColors.resolve(
             context,
-            AppColors.formMasterAccent,
-            AppColors.formMasterAccent,
+            AppColors.formAccentOf(context),
+            AppColors.formAccentOf(context),
           ).withValues(alpha: 0.25),
           width: 1.5,
         ),
@@ -159,8 +159,8 @@ class ResultView extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.resolve(
                     context,
-                    AppColors.formMasterAccent,
-                    AppColors.formMasterAccent,
+                    AppColors.formAccentOf(context),
+                    AppColors.formAccentOf(context),
                   ),
                   foregroundColor: AppColors.textPrimary(context),
                   padding: const EdgeInsets.symmetric(
@@ -177,8 +177,8 @@ class ResultView extends StatelessWidget {
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.resolve(
                       context,
-                      AppColors.formMasterAccent,
-                      AppColors.formMasterAccent,
+                      AppColors.formAccentOf(context),
+                      AppColors.formAccentOf(context),
                     ),
                     foregroundColor: AppColors.textPrimary(context),
                     padding: const EdgeInsets.symmetric(

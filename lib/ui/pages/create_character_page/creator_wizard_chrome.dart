@@ -122,7 +122,7 @@ class CreatorTokenBadge extends StatelessWidget {
         ? Colors.redAccent
         : estimatedTokens > 2000
         ? Colors.orangeAccent
-        : AppColors.formMasterAccent;
+        : AppColors.formAccentOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
@@ -230,7 +230,7 @@ class CreatorNavButtons extends StatelessWidget {
                 label: Text(nextText, style: const TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
+                  foregroundColor: AppColors.onAccentOf(context),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

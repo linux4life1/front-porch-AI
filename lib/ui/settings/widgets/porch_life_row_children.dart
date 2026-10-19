@@ -189,7 +189,7 @@ class _WebSearchKeyFieldState extends State<WebSearchKeyField> {
             FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+                foregroundColor: AppColors.onAccentOf(context),
               ),
               onPressed: _saving ? null : _save,
               child: Text(_saving ? 'Saving…' : 'Save key'),

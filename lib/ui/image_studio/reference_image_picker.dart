@@ -114,7 +114,7 @@ class ReferenceImagePicker extends StatelessWidget {
               icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
               label: const Text('Choose image…'),
               style: OutlinedButton.styleFrom(
-                foregroundColor: AppColors.formMasterAccent,
+                foregroundColor: AppColors.formAccentOf(context),
                 side: BorderSide(color: AppColors.borderOf(context)),
               ),
             )
@@ -151,7 +151,7 @@ class ReferenceImagePicker extends StatelessWidget {
                         icon: const Icon(Icons.swap_horiz, size: 14),
                         label: const Text('Replace'),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.formMasterAccent,
+                          foregroundColor: AppColors.formAccentOf(context),
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
                             vertical: 2,
@@ -206,7 +206,7 @@ class _DenoiseSlider extends StatelessWidget {
           max: 0.9,
           divisions: 14,
           label: display.toStringAsFixed(2),
-          activeColor: AppColors.formMasterAccent,
+          activeColor: AppColors.formAccentOf(context),
           onChanged: isBusy
               ? null
               : (v) => context

@@ -88,7 +88,7 @@ class LaunchChoiceRow extends StatelessWidget {
               fontWeight: FontWeight.bold,
               fontSize: 12,
               color: selected
-                  ? AppColors.onChaosAccent
+                  ? AppColors.onAccentOf(context)
                   : AppColors.textTertiary(context),
             ),
           ),

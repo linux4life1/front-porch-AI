@@ -134,9 +134,9 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.analytics_outlined,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         size: 22,
                       ),
                       const SizedBox(width: 10),

@@ -22,7 +22,7 @@ Widget _groupTitle(BuildContext context, String label) {
     child: Text(
       label,
       style: TextStyle(
-        color: AppColors.formMasterAccent,
+        color: AppColors.formAccentOf(context),
         fontSize: 12,
         fontWeight: FontWeight.w700,
       ),
@@ -248,7 +248,7 @@ class _StudioLoraSheetState extends State<StudioLoraSheet> {
             Text(
               'Slots',
               style: TextStyle(
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 fontSize: 12,
                 fontWeight: FontWeight.w700,
               ),

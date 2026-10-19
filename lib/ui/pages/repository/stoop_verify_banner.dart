@@ -129,7 +129,7 @@ class _StoopVerifyBannerState extends State<StoopVerifyBanner> {
                       TextButton(
                         onPressed: _sending ? null : () => _resend(auth),
                         style: TextButton.styleFrom(
-                          foregroundColor: AppColors.onChaosAccent,
+                          foregroundColor: AppColors.onAccentOf(context),
                           backgroundColor: amber,
                           padding: const EdgeInsets.symmetric(
                             horizontal: 14,

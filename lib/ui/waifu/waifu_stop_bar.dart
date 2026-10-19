@@ -41,6 +41,7 @@ class WaifuStopBar extends StatelessWidget {
           label: const Text('Stop'),
           style: FilledButton.styleFrom(
             backgroundColor: danger,
+            // theme-keep: ink on the danger fill, not the theme accent.
             foregroundColor: AppColors.onChaosAccent,
             textStyle: const TextStyle(
               fontWeight: FontWeight.w900,

@@ -118,12 +118,14 @@ class CastRosterChip extends StatelessWidget {
                   child: TextButton(
                     onPressed: promoteEnabled ? onPromote : null,
                     style: TextButton.styleFrom(
-                      foregroundColor: AppColors.onChaosAccent,
-                      backgroundColor: AppColors.formMasterAccent,
-                      disabledForegroundColor: AppColors.onChaosAccent
-                          .withValues(alpha: 0.5),
-                      disabledBackgroundColor: AppColors.formMasterAccent
-                          .withValues(alpha: 0.4),
+                      foregroundColor: AppColors.onAccentOf(context),
+                      backgroundColor: AppColors.formAccentOf(context),
+                      disabledForegroundColor: AppColors.onAccentOf(
+                        context,
+                      ).withValues(alpha: 0.5),
+                      disabledBackgroundColor: AppColors.formAccentOf(
+                        context,
+                      ).withValues(alpha: 0.4),
                       padding: const EdgeInsets.symmetric(horizontal: 6),
                       minimumSize: const Size(0, 18),
                       tapTargetSize: MaterialTapTargetSize.shrinkWrap,

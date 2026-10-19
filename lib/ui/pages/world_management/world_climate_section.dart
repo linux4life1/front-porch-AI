@@ -204,10 +204,12 @@ class WorldClimateSection extends StatelessWidget {
               margin: const EdgeInsets.only(top: 10),
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.formMasterAccent.withValues(alpha: 0.08),
+                color: AppColors.formAccentOf(context).withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(10),
                 border: Border.all(
-                  color: AppColors.formMasterAccent.withValues(alpha: 0.22),
+                  color: AppColors.formAccentOf(
+                    context,
+                  ).withValues(alpha: 0.22),
                 ),
               ),
               child: Column(
@@ -218,13 +220,13 @@ class WorldClimateSection extends StatelessWidget {
                       Icon(
                         Icons.thermostat,
                         size: 16,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                       const SizedBox(width: 6),
                       Text(
                         'What it feels like',
                         style: TextStyle(
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
                         ),

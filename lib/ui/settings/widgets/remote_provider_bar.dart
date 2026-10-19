@@ -138,7 +138,7 @@ class _Pill extends StatelessWidget {
     final fg = !enabled
         ? context.creatorPalette?.muted ?? AppColors.textTertiary(context)
         : selected
-        ? context.creatorPalette?.amberInk ?? AppColors.onChaosAccent
+        ? context.creatorPalette?.amberInk ?? AppColors.onAccentOf(context)
         : context.creatorPalette?.prose ?? AppColors.textSecondary(context);
     return Material(
       color: bg,

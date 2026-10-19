@@ -73,9 +73,9 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
             // Header
             Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.archive_outlined,
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                   size: 24,
                 ),
                 const SizedBox(width: 10),
@@ -194,11 +194,11 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
 
                     // Persona preview
                     if (preview.persona.isNotEmpty) ...[
-                      const Text(
+                      Text(
                         'Persona',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           fontSize: 13,
                         ),
                       ),
@@ -214,11 +214,11 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                     // First message preview
                     if (preview.firstMessage != null &&
                         preview.firstMessage!.isNotEmpty) ...[
-                      const Text(
+                      Text(
                         'First Message',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           fontSize: 13,
                         ),
                       ),
@@ -330,8 +330,8 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
                   icon: const Icon(Icons.download, size: 18),
                   label: const Text('Import Character'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.formMasterAccent,
-                    foregroundColor: AppColors.onChaosAccent,
+                    backgroundColor: AppColors.formAccentOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 12,
@@ -398,10 +398,10 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.formMasterAccent.withValues(alpha: 0.1),
+        color: AppColors.formAccentOf(context).withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+          color: AppColors.formAccentOf(context).withValues(alpha: 0.3),
         ),
       ),
       // Own transparent Material so the tile's ink isn't hidden under the
@@ -413,8 +413,8 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
           onChanged: onChanged,
           title: Text(
             title,
-            style: const TextStyle(
-              color: AppColors.formMasterAccent,
+            style: TextStyle(
+              color: AppColors.formAccentOf(context),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -426,8 +426,8 @@ class _ByafImportDialogState extends State<ByafImportDialog> {
               fontSize: 11,
             ),
           ),
-          activeColor: AppColors.formMasterAccent,
-          checkColor: AppColors.onChaosAccent,
+          activeColor: AppColors.formAccentOf(context),
+          checkColor: AppColors.onAccentOf(context),
           contentPadding: EdgeInsets.zero,
           controlAffinity: ListTileControlAffinity.leading,
           dense: true,

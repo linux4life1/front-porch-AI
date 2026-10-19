@@ -115,7 +115,7 @@ class EngineStatusChip extends StatelessWidget {
                   label: Text(failed ? 'Retry' : 'Download'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.onChaosAccent,
+                    foregroundColor: AppColors.onAccentOf(context),
                     visualDensity: VisualDensity.compact,
                     textStyle: const TextStyle(fontSize: 12.5),
                   ),

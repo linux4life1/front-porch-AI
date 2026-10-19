@@ -58,11 +58,11 @@ class _SetupOverlayState extends State<SetupOverlay> {
             color: const Color(0xFF1E1E26),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+              color: AppColors.formAccentOf(context).withValues(alpha: 0.3),
             ),
             boxShadow: [
               BoxShadow(
-                color: AppColors.formMasterAccent.withValues(alpha: 0.1),
+                color: AppColors.formAccentOf(context).withValues(alpha: 0.1),
                 blurRadius: 20,
                 spreadRadius: 5,
               ),
@@ -71,9 +71,9 @@ class _SetupOverlayState extends State<SetupOverlay> {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(
+              Icon(
                 Icons.auto_awesome,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
                 size: 48,
               ),
               const SizedBox(height: 24),
@@ -93,8 +93,8 @@ class _SetupOverlayState extends State<SetupOverlay> {
                 ElevatedButton(
                   onPressed: () => setupService.runAutoSetup(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.formMasterAccent,
-                    foregroundColor: AppColors.onChaosAccent,
+                    backgroundColor: AppColors.formAccentOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
@@ -210,12 +210,12 @@ class _SetupOverlayState extends State<SetupOverlay> {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: highlighted
-              ? AppColors.formMasterAccent.withValues(alpha: 0.12)
+              ? AppColors.formAccentOf(context).withValues(alpha: 0.12)
               : Colors.white.withValues(alpha: 0.04),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: highlighted
-                ? AppColors.formMasterAccent.withValues(alpha: 0.6)
+                ? AppColors.formAccentOf(context).withValues(alpha: 0.6)
                 : Colors.white24,
           ),
         ),
@@ -224,7 +224,9 @@ class _SetupOverlayState extends State<SetupOverlay> {
           children: [
             Icon(
               icon,
-              color: highlighted ? AppColors.formMasterAccent : Colors.white70,
+              color: highlighted
+                  ? AppColors.formAccentOf(context)
+                  : Colors.white70,
               size: 22,
             ),
             const SizedBox(width: 12),
@@ -263,12 +265,12 @@ class _SetupOverlayState extends State<SetupOverlay> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         if (spinning)
-          const SizedBox(
+          SizedBox(
             width: 16,
             height: 16,
             child: CircularProgressIndicator(
               strokeWidth: 2,
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
             ),
           ),
         if (spinning) const SizedBox(width: 12),

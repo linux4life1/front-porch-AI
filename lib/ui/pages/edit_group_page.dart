@@ -387,9 +387,9 @@ class _EditGroupPageState extends State<EditGroupPage>
           title: const Text('Edit Group'),
           bottom: TabBar(
             controller: _tabController,
-            labelColor: AppColors.formMasterAccent,
+            labelColor: AppColors.formAccentOf(context),
             unselectedLabelColor: AppColors.textTertiary(context),
-            indicatorColor: AppColors.formMasterAccent,
+            indicatorColor: AppColors.formAccentOf(context),
             indicatorWeight: 3,
             isScrollable: true,
             tabs: const [

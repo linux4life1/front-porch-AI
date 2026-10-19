@@ -17,15 +17,14 @@ Future<List<LorebookEntry>?> showImportCharacterLoreDialog({
   required List<CharacterCard> characters,
   String? excludeCharacterName,
 }) {
-  final candidates = characters
-      .where((c) {
-        if (excludeCharacterName != null && c.name == excludeCharacterName) {
-          return false;
-        }
-        return (c.lorebook?.entries.length ?? 0) > 0;
-      })
-      .toList()
-    ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+  final candidates =
+      characters.where((c) {
+          if (excludeCharacterName != null && c.name == excludeCharacterName) {
+            return false;
+          }
+          return (c.lorebook?.entries.length ?? 0) > 0;
+        }).toList()
+        ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
   return showDialog<List<LorebookEntry>>(
     context: context,
@@ -44,7 +43,8 @@ class _ImportCharacterLoreDialog extends StatefulWidget {
       _ImportCharacterLoreDialogState();
 }
 
-class _ImportCharacterLoreDialogState extends State<_ImportCharacterLoreDialog> {
+class _ImportCharacterLoreDialogState
+    extends State<_ImportCharacterLoreDialog> {
   final _search = TextEditingController();
   String _query = '';
 
@@ -74,7 +74,9 @@ class _ImportCharacterLoreDialogState extends State<_ImportCharacterLoreDialog> 
     if (path == null || path.isEmpty) return null;
     return _avatarCache.putIfAbsent(
       path,
-      () => File(path).existsSync() // io-ok: memoized per dialog
+      () =>
+          File(path)
+              .existsSync() // io-ok: memoized per dialog
           ? FileImage(File(path))
           : null,
     );
@@ -111,12 +113,14 @@ class _ImportCharacterLoreDialogState extends State<_ImportCharacterLoreDialog> 
                     width: 40,
                     height: 40,
                     decoration: BoxDecoration(
-                      color: AppColors.formMasterAccent.withValues(alpha: 0.15),
+                      color: AppColors.formAccentOf(
+                        context,
+                      ).withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
                       Icons.person_search_rounded,
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                       size: 22,
                     ),
                   ),
@@ -192,7 +196,9 @@ class _ImportCharacterLoreDialogState extends State<_ImportCharacterLoreDialog> 
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide(
-                        color: AppColors.formMasterAccent.withValues(alpha: 0.7),
+                        color: AppColors.formAccentOf(
+                          context,
+                        ).withValues(alpha: 0.7),
                       ),
                     ),
                   ),
@@ -209,27 +215,26 @@ class _ImportCharacterLoreDialogState extends State<_ImportCharacterLoreDialog> 
                           'None of your other characters have lorebook entries yet.',
                     )
                   : filtered.isEmpty
-                      ? _EmptyState(
-                          icon: Icons.search_off,
-                          title: 'No matches',
-                          body: 'Try a different name.',
-                        )
-                      : ListView.separated(
-                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
-                          itemCount: filtered.length,
-                          separatorBuilder: (_, _) =>
-                              const SizedBox(height: 6),
-                          itemBuilder: (context, i) {
-                            final c = filtered[i];
-                            final count = c.lorebook!.entries.length;
-                            return _CharacterLoreTile(
-                              character: c,
-                              entryCount: count,
-                              avatar: _avatar(c),
-                              onTap: () => _pick(c),
-                            );
-                          },
-                        ),
+                  ? _EmptyState(
+                      icon: Icons.search_off,
+                      title: 'No matches',
+                      body: 'Try a different name.',
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 4, 16, 8),
+                      itemCount: filtered.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 6),
+                      itemBuilder: (context, i) {
+                        final c = filtered[i];
+                        final count = c.lorebook!.entries.length;
+                        return _CharacterLoreTile(
+                          character: c,
+                          entryCount: count,
+                          avatar: _avatar(c),
+                          onTap: () => _pick(c),
+                        );
+                      },
+                    ),
             ),
 
             // Footer
@@ -301,12 +306,12 @@ class _CharacterLoreTileState extends State<_CharacterLoreTile> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: _hover
-                  ? AppColors.formMasterAccent.withValues(alpha: 0.10)
+                  ? AppColors.formAccentOf(context).withValues(alpha: 0.10)
                   : AppColors.surfaceContainerOf(context),
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: _hover
-                    ? AppColors.formMasterAccent.withValues(alpha: 0.45)
+                    ? AppColors.formAccentOf(context).withValues(alpha: 0.45)
                     : AppColors.borderOf(context).withValues(alpha: 0.35),
               ),
             ),
@@ -314,15 +319,16 @@ class _CharacterLoreTileState extends State<_CharacterLoreTile> {
               children: [
                 CircleAvatar(
                   radius: 20,
-                  backgroundColor:
-                      AppColors.formMasterAccent.withValues(alpha: 0.18),
+                  backgroundColor: AppColors.formAccentOf(
+                    context,
+                  ).withValues(alpha: 0.18),
                   backgroundImage: avatar,
                   child: avatar != null
                       ? null
                       : Text(
                           c.name.isNotEmpty ? c.name[0].toUpperCase() : '?',
                           style: TextStyle(
-                            color: AppColors.formMasterAccent,
+                            color: AppColors.formAccentOf(context),
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
@@ -356,16 +362,20 @@ class _CharacterLoreTileState extends State<_CharacterLoreTile> {
                   ),
                 ),
                 Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
                   decoration: BoxDecoration(
-                    color: AppColors.formMasterAccent.withValues(alpha: 0.14),
+                    color: AppColors.formAccentOf(
+                      context,
+                    ).withValues(alpha: 0.14),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Text(
                     'Copy',
                     style: TextStyle(
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                       fontSize: 11,
                       fontWeight: FontWeight.w700,
                     ),

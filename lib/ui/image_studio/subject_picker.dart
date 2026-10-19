@@ -128,7 +128,7 @@ class SubjectPicker extends StatelessWidget {
           children: options.map((o) {
             final (mode, label, icon, enabled, onTap) = o;
             final isSel = mode == selected;
-            final accent = AppColors.formMasterAccent;
+            final accent = AppColors.formAccentOf(context);
             return OutlinedButton.icon(
               onPressed: enabled ? onTap : null,
               icon: Icon(

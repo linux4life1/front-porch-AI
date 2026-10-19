@@ -78,7 +78,7 @@ class GalleryAddTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: AppColors.formMasterAccent.withValues(alpha: 0.06),
+      color: AppColors.formAccentOf(context).withValues(alpha: 0.06),
       borderRadius: BorderRadius.circular(14),
       clipBehavior: Clip.antiAlias,
       child: InkWell(
@@ -87,7 +87,7 @@ class GalleryAddTile extends StatelessWidget {
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: AppColors.formMasterAccent.withValues(alpha: 0.45),
+              color: AppColors.formAccentOf(context).withValues(alpha: 0.45),
               width: 1.5,
             ),
           ),
@@ -95,13 +95,17 @@ class GalleryAddTile extends StatelessWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.add, color: AppColors.formMasterAccent, size: 26),
+                Icon(
+                  Icons.add,
+                  color: AppColors.formAccentOf(context),
+                  size: 26,
+                ),
                 const SizedBox(height: 5),
                 Text(
                   label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: AppColors.formMasterAccent,
+                    color: AppColors.formAccentOf(context),
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
                   ),

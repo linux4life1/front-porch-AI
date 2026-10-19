@@ -209,9 +209,12 @@ down.
 - Sync I/O (`existsSync`, `readAs*Sync`, `Process.runSync`, …) is banned in
   widget `build` / per-frame paths. CI `io-lint` fails **new** sync I/O under
   `lib/ui/**` unless the line has `// io-ok: <reason>`.
-- UI uses `AppColors` only. New chrome accents:
-  `AppColors.formMasterAccent` or `AppColors.porchAmberOf(context)`;
-  `AppColors.onChaosAccent` on solid amber. CI `theme-lint` fails new
+- UI uses `AppColors` only, through the `*Of(context)` helpers that read
+  the app theme (`AppPalette`). New chrome accents:
+  `AppColors.formAccentOf(context)` or `AppColors.porchAmberOf(context)`;
+  `AppColors.onAccentOf(context)` on a solid accent fill. A bare palette
+  constant (`formMasterAccent`, `onChaosAccent`, …) in UI code stays Porch
+  under every theme. CI `theme-lint` fails new
   `Colors.blueAccent` under `lib/` unless `// theme-keep: <reason>` and the
   colour is a genuine semantic status hue the maintainer approved **in this
   conversation**. Two ratchets in `test/hygiene/` (`raw_colors_ratchet_test`,
@@ -417,6 +420,11 @@ branch's copy.
 | `theme-lint` | New raw `Colors.blueAccent` under `lib/` |
 | `io-lint` | New sync I/O under `lib/ui/` |
 | `golden` | Pixel golden drift (Linux image) |
+| `PR rules` (`pr-rules.yml`) | A UI PR's `## Hand-check` lines don't each name a test or start `eye-only:`; a PR adds pictures outside goldens, `assets/`, `docs/screenshots/` (label `approved-images`) |
+
+A **draft** PR runs only the cheap jobs; `e2e-smoke`, `web-e2e`, `golden`
+and `stoop-live` start when it leaves draft, and never run on a docs-only
+PR. Open PRs as drafts; the merge queue takes them out of draft in order.
 
 `full-lint` is scheduled / branch-push and is **not** a hard PR gate (it
 ends `|| true`). Do not tell contributors the whole tree is analyzed on

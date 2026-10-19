@@ -128,7 +128,7 @@ void showPersonaTextExpandDialog(
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.porchAmberOf(dialogContext),
-                      foregroundColor: AppColors.onChaosAccent,
+                      foregroundColor: AppColors.onAccentOf(context),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),

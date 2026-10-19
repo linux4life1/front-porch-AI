@@ -1,0 +1,180 @@
+name: PR rules
+
+# CLAUDE.md "Definition of done", checked on every PR so it binds every
+# author, not only the agents that read CLAUDE.md.
+#
+# 1. Hand-check lines. A PR that changes UI (lib/ui/, lib/main*.dart,
+#    web_ui/src/ outside its tests) needs a `## Hand-check` section in its
+#    description. Every list line in it names the test that does the check
+#    (a `_test.dart`, `.spec.ts` or `.test.ts(x)` path that exists on the
+#    PR's head) or starts `eye-only:` for what only a person can judge. The
+#    smoke tester does the eye-only lines and looks at the changed screens.
+# 2. Images. A PR may not add a picture outside the places pictures belong
+#    (goldens, app assets, platform icons, docs/screenshots). Evidence
+#    screenshots go in the PR thread: #568 committed screenshots of a real
+#    chat library. The `approved-images` label lets a deliberate one in.
+# 3. Smoke tier. The job summary prints the tier the changed files call for
+#    (docs/maintainer-agent-playbook.md, "Which PRs get a smoke run").
+#
+# pull_request_target, like test-integrity.yml: the base branch's copy runs,
+# so a PR cannot loosen the check that gates it, and the description edit
+# that fixes a red re-runs it. SAFETY: this job never checks out or runs PR
+# code. It only reads the description, the changed paths, and whether a
+# named test file exists on the head. Keep it that way.
+
+on:
+  pull_request_target:
+    types: [opened, edited, synchronize, reopened, ready_for_review, labeled, unlabeled]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  rules:
+    name: PR rules (hand-check, images, smoke tier)
+    runs-on: ubuntu-latest
+    if: ${{ !startsWith(github.event.pull_request.head.ref, 'release/promote-') }}
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const labels = pr.labels.map((l) => l.name);
+            const files = await github.paginate(github.rest.pulls.listFiles, {
+              ...context.repo,
+              pull_number: pr.number,
+              per_page: 100,
+            });
+            const live = files.filter((f) => f.status !== 'removed');
+            const paths = live.map((f) => f.filename);
+            const errors = [];
+
+            const isTest = (p) =>
+              /_test\.dart$/.test(p) || /\.(test|spec)\.[cm]?[jt]sx?$/.test(p);
+            const isUi = (p) =>
+              (p.startsWith('lib/ui/') && p.endsWith('.dart')) ||
+              /^lib\/main(\.[\w.]+)?\.dart$/.test(p) ||
+              (p.startsWith('web_ui/src/') && !isTest(p));
+
+            // --- Images ------------------------------------------------------
+            const IMAGE = /\.(png|jpe?g|webp|gif|bmp|tiff?)$/i;
+            const imageHome = (p) =>
+              p.includes('/_goldens/') ||
+              p.includes('/goldens/') ||
+              p.startsWith('assets/') ||
+              p.startsWith('docs/screenshots/') ||
+              p.startsWith('docs/assets/images/') ||
+              p.startsWith('web_ui/public/') ||
+              /^(android|ios|linux|macos|windows|aur|aur-beta)\//.test(p);
+            const strayImages = live
+              .filter((f) => ['added', 'renamed', 'copied'].includes(f.status) && IMAGE.test(f.filename))
+              .map((f) => f.filename)
+              .filter((p) => !imageHome(p));
+            if (strayImages.length && !labels.includes('approved-images')) {
+              errors.push(
+                'Adds pictures outside goldens, assets/ and docs/screenshots/:\n' +
+                  strayImages.map((p) => `  - ${p}`).join('\n') +
+                  '\nPut evidence screenshots in the PR thread, not the repo. ' +
+                  'A deliberate one needs the `approved-images` label.',
+              );
+            }
+
+            // --- Hand-check --------------------------------------------------
+            const uiFiles = paths.filter(isUi);
+            const body = (pr.body || '').replace(/<!--[\s\S]*?-->/g, '');
+            const section = body.match(/^##\s+Hand-check\s*$([\s\S]*?)(?=^##\s|(?![\s\S]))/im);
+            const lines = section
+              ? section[1]
+                  .split('\n')
+                  .map((l) => l.trim())
+                  .filter((l) => /^([-*+]|\d+[.)])\s+/.test(l))
+                  .map((l) => l.replace(/^([-*+]|\d+[.)])\s+(\[[ xX]\]\s+)?/, ''))
+              : [];
+            const TEST_PATH = /(?:integration_test|test|web_ui)\/[\w./-]+?(?:_test\.dart|\.(?:test|spec)\.[cm]?[jt]sx?)/g;
+            const eyeOnly = lines.filter((l) => /^`?eye-only:/i.test(l));
+            const missingTests = [];
+            const untested = [];
+            for (const line of lines) {
+              if (/^`?eye-only:/i.test(line)) continue;
+              const named = line.match(TEST_PATH) || [];
+              if (!named.length) {
+                untested.push(line);
+                continue;
+              }
+              for (const p of named) {
+                if (paths.includes(p)) continue;
+                try {
+                  await github.rest.repos.getContent({
+                    ...context.repo,
+                    path: p,
+                    ref: pr.head.sha,
+                  });
+                } catch (e) {
+                  if (e.status !== 404) throw e;
+                  missingTests.push(p);
+                }
+              }
+            }
+            if (uiFiles.length) {
+              if (!section || !lines.length) {
+                errors.push(
+                  'Changes UI but the description has no `## Hand-check` list. ' +
+                    'Add one line per thing a person would check: the test ' +
+                    'that does it, or `eye-only: <what to look at>`.',
+                );
+              }
+            }
+            if (untested.length) {
+              errors.push(
+                'Hand-check lines that name no test and are not `eye-only:`:\n' +
+                  untested.map((l) => `  - ${l}`).join('\n'),
+              );
+            }
+            if (missingTests.length) {
+              errors.push(
+                'Hand-check lines name tests that are not on this branch:\n' +
+                  missingTests.map((p) => `  - ${p}`).join('\n'),
+              );
+            }
+
+            // --- Smoke tier --------------------------------------------------
+            const RISKY = [
+              /^lib\/database\//,
+              /^(windows|linux|macos)\//,
+              /(^|\/)[^/]*(picker|file_dialog|import|export)[^/]*$/i,
+            ];
+            const newScreens = live.filter(
+              (f) =>
+                f.status === 'added' &&
+                /^(lib\/ui\/pages\/|web_ui\/src\/pages\/)/.test(f.filename) &&
+                !isTest(f.filename),
+            );
+            const risky = paths.filter((p) => !isTest(p) && RISKY.some((r) => r.test(p)));
+            let tier;
+            let why;
+            if (!uiFiles.length) {
+              tier = 0;
+              why = 'no UI file changed';
+            } else if (risky.length || newScreens.length) {
+              tier = 2;
+              why = [
+                risky.length && `risky paths: ${risky.slice(0, 5).join(', ')}`,
+                newScreens.length && `new screen(s): ${newScreens.map((f) => f.filename).join(', ')}`,
+              ]
+                .filter(Boolean)
+                .join('; ');
+            } else {
+              tier = 1;
+              why = 'UI changed, no risky paths or new screens';
+            }
+            if (tier && eyeOnly.length) why += `; ${eyeOnly.length} eye-only line(s) to do by hand`;
+            const tierName = ['none', 'look only', 'full'][tier];
+            await core.summary
+              .addHeading(`Smoke tier ${tier}: ${tierName}`, 3)
+              .addRaw(`${why}.`)
+              .addEOL()
+              .write();
+            core.notice(`Smoke tier ${tier} (${tierName}): ${why}.`);
+
+            if (errors.length) core.setFailed(errors.join('\n\n'));

@@ -117,9 +117,9 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
                   ChoiceChip(
                     label: Text(name(o), style: const TextStyle(fontSize: 11)),
                     selected: o == value,
-                    selectedColor: AppColors.formMasterAccent.withValues(
-                      alpha: 0.25,
-                    ),
+                    selectedColor: AppColors.formAccentOf(
+                      context,
+                    ).withValues(alpha: 0.25),
                     onSelected: (_) => onChanged(o),
                   ),
               ],
@@ -206,7 +206,7 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
         FilledButton(
           style: FilledButton.styleFrom(
             backgroundColor: amber,
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
           ),
           onPressed: _creating ? null : _create,
           child: _creating

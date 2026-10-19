@@ -307,7 +307,10 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
       ),
       child: Row(
         children: [
-          Icon(Icons.photo_library_outlined, color: AppColors.formMasterAccent),
+          Icon(
+            Icons.photo_library_outlined,
+            color: AppColors.formAccentOf(context),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(

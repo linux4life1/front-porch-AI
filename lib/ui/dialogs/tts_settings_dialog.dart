@@ -136,9 +136,9 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.volume_up,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                       const SizedBox(width: 12),
                       Text(
@@ -183,7 +183,7 @@ class _TtsSettingsDialogState extends State<TtsSettingsDialog> {
                             ),
                           ),
                           value: storage.ttsSettings.ttsEnabled,
-                          activeTrackColor: AppColors.formMasterAccent,
+                          activeTrackColor: AppColors.formAccentOf(context),
                           contentPadding: EdgeInsets.zero,
                           onChanged: (val) async {
                             await storage.ttsSettings.setTtsEnabled(val);

@@ -207,11 +207,13 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                     margin: const EdgeInsets.only(bottom: 8),
                     decoration: BoxDecoration(
                       color: isActive
-                          ? AppColors.formMasterAccent.withValues(alpha: 0.1)
+                          ? AppColors.formAccentOf(
+                              context,
+                            ).withValues(alpha: 0.1)
                           : Colors.white.withValues(alpha: 0.05),
                       borderRadius: BorderRadius.circular(8),
                       border: isActive
-                          ? Border.all(color: AppColors.formMasterAccent)
+                          ? Border.all(color: AppColors.formAccentOf(context))
                           : null,
                     ),
                     child: Material(
@@ -291,8 +293,8 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                 icon: const Icon(Icons.add),
                 label: const Text('Add New Persona'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.formMasterAccent,
-                  foregroundColor: AppColors.onChaosAccent,
+                  backgroundColor: AppColors.formAccentOf(context),
+                  foregroundColor: AppColors.onAccentOf(context),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                 ),
               ),

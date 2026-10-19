@@ -89,11 +89,11 @@ class _MainLayoutState extends State<MainLayout> {
           content: Text(
             '⚠️ $engine hit an engine error — please report this on '
             'Discord.',
-            style: const TextStyle(color: AppColors.onChaosAccent),
+            style: TextStyle(color: AppColors.onAccentOf(context)),
           ),
           action: SnackBarAction(
             label: 'Copy details',
-            textColor: AppColors.onChaosAccent,
+            textColor: AppColors.onAccentOf(context),
             onPressed: () => Clipboard.setData(
               ClipboardData(text: EngineHealth.instance.buildReport()),
             ),

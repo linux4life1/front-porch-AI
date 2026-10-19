@@ -57,7 +57,7 @@ class AvatarLockToggle extends StatelessWidget {
         Switch(
           value: locked,
           onChanged: onChanged,
-          activeTrackColor: AppColors.formMasterAccent,
+          activeTrackColor: AppColors.formAccentOf(context),
         ),
       ],
     );
@@ -110,7 +110,7 @@ class UiSettingsSlider extends StatelessWidget {
           max: max,
           divisions: divisions,
           onChanged: onChanged,
-          activeColor: AppColors.formMasterAccent,
+          activeColor: AppColors.formAccentOf(context),
           inactiveColor: AppColors.borderOf(context),
         ),
       ],

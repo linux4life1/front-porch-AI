@@ -97,7 +97,7 @@ class _ChatThemePresetPickerState extends State<ChatThemePresetPicker> {
                         borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isSelected
-                              ? AppColors.formMasterAccent
+                              ? AppColors.formAccentOf(context)
                               : AppColors.borderOf(context),
                         ),
                       ),
@@ -126,7 +126,7 @@ class _ChatThemePresetPickerState extends State<ChatThemePresetPicker> {
                       borderRadius: BorderRadius.circular(8),
                       border: Border.all(
                         color: isSelected
-                            ? AppColors.formMasterAccent
+                            ? AppColors.formAccentOf(context)
                             : AppColors.borderOf(context),
                       ),
                     ),

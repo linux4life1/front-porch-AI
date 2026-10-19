@@ -222,7 +222,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
                   ),
                   child: Icon(
                     Icons.auto_awesome,
-                    color: AppColors.onChaosAccent,
+                    color: AppColors.onAccentOf(context),
                     size: 28,
                   ),
                 ),
@@ -240,7 +240,7 @@ class _WaifuHomeViewState extends State<WaifuHomeView> {
                           kWaifuCoderName,
                           style: Theme.of(context).textTheme.headlineMedium
                               ?.copyWith(
-                                color: AppColors.onChaosAccent,
+                                color: AppColors.onAccentOf(context),
                                 fontWeight: FontWeight.w900,
                                 letterSpacing: 0.6,
                               ),

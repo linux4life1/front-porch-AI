@@ -47,7 +47,10 @@ class ImageGenSettingsDialog extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.auto_awesome, color: AppColors.formMasterAccent),
+                  Icon(
+                    Icons.auto_awesome,
+                    color: AppColors.formAccentOf(context),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Text(

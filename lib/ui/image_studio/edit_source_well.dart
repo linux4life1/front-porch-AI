@@ -56,7 +56,7 @@ class EditSourceWell extends StatelessWidget {
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: has
-                ? AppColors.formMasterAccent
+                ? AppColors.formAccentOf(context)
                 : AppColors.borderOf(context),
             width: has ? 1.5 : 1,
           ),

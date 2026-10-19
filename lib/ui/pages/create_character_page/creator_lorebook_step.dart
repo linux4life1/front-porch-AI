@@ -93,8 +93,8 @@ class CreatorLorebookStep extends StatelessWidget {
               icon: const Icon(Icons.add, size: 18),
               label: const Text('Add Entry'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formAccentOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),
                 ),

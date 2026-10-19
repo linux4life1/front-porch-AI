@@ -36,11 +36,11 @@ class ChatSettingsGenerationSection extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Generation',
           style: TextStyle(
             fontWeight: FontWeight.bold,
-            color: AppColors.formMasterAccent,
+            color: AppColors.formAccentOf(context),
           ),
         ),
         const SizedBox(height: 8),
@@ -248,7 +248,7 @@ class ChatSettingsGenerationSection extends StatelessWidget {
                   gen.dynamicTempEnabled = val;
                   onChanged();
                 },
-                activeTrackColor: AppColors.formMasterAccent,
+                activeTrackColor: AppColors.formAccentOf(context),
               ),
             ],
           ),

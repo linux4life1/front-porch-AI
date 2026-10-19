@@ -77,7 +77,7 @@ class StudioDeskKnobs extends StatelessWidget {
                 _write(() => settings.setImageGenNegativePrompt(value)),
           ),
         if (backend == 'comfyui' && comfyShiftGraph != null)
-          ..._comfyShift(primary, comfyShiftGraph!),
+          ..._comfyShift(context, primary, comfyShiftGraph!),
         if (drawThings) ..._drawThings(context, primary),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
@@ -90,7 +90,7 @@ class StudioDeskKnobs extends StatelessWidget {
             '/image in chat pauses so you can edit the crafted prompt first.',
           ),
           value: settings.imageGenPromptReview,
-          activeTrackColor: AppColors.formMasterAccent,
+          activeTrackColor: AppColors.formAccentOf(context),
           onChanged: (value) =>
               _write(() => settings.setImageGenPromptReview(value)),
         ),
@@ -113,10 +113,11 @@ class StudioDeskKnobs extends StatelessWidget {
 
   /// Moving the slider sets Shift for this graph only. Until it is moved the
   /// graph posts its own value, which is where the slider starts.
-  List<Widget> _comfyShift(Color primary, String graph) {
+  List<Widget> _comfyShift(BuildContext context, Color primary, String graph) {
     final moved = settings.comfyShiftFor(graph, edit: edit);
     return [
       _shiftRow(
+        context,
         primary,
         moved ?? comfyOwnShift,
         (value) => settings.setComfyShift(graph, value, edit: edit),
@@ -147,6 +148,7 @@ class StudioDeskKnobs extends StatelessWidget {
         },
       ),
       _shiftRow(
+        context,
         primary,
         shift,
         (value) => edit
@@ -182,7 +184,7 @@ class StudioDeskKnobs extends StatelessWidget {
         dense: true,
         title: Text('TeaCache', style: TextStyle(color: primary)),
         value: settings.drawThingsTeaCache,
-        activeTrackColor: AppColors.formMasterAccent,
+        activeTrackColor: AppColors.formAccentOf(context),
         onChanged: (value) =>
             _write(() => settings.setDrawThingsTeaCache(value)),
       ),
@@ -191,7 +193,7 @@ class StudioDeskKnobs extends StatelessWidget {
         dense: true,
         title: Text('CFG Zero', style: TextStyle(color: primary)),
         value: settings.drawThingsCfgZeroStar,
-        activeTrackColor: AppColors.formMasterAccent,
+        activeTrackColor: AppColors.formAccentOf(context),
         onChanged: (value) =>
             _write(() => settings.setDrawThingsCfgZeroStar(value)),
       ),
@@ -200,6 +202,7 @@ class StudioDeskKnobs extends StatelessWidget {
 
   /// A shift slider. Comfy keeps one per graph; Draw Things keeps one per mode.
   Widget _shiftRow(
+    BuildContext context,
     Color primary,
     double shift,
     ValueChanged<double> onChanged,
@@ -214,7 +217,7 @@ class StudioDeskKnobs extends StatelessWidget {
             max: 10,
             divisions: 100,
             label: shift.toStringAsFixed(1),
-            activeColor: AppColors.formMasterAccent,
+            activeColor: AppColors.formAccentOf(context),
             onChanged: (value) => _write(() => onChanged(value)),
           ),
         ),

@@ -326,7 +326,7 @@ class PersonaEmptyState extends StatelessWidget {
                 label: const Text('Create Persona'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
+                  foregroundColor: AppColors.onAccentOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 24,
                     vertical: 14,

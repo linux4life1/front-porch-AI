@@ -49,6 +49,8 @@ class AppPalette {
     required this.honey,
     required this.terracotta,
     required this.sage,
+    required this.formAccent,
+    required this.onAccent,
     required this.studioCard,
     required this.studioRaise,
     required this.studioLineStrong,
@@ -103,6 +105,13 @@ class AppPalette {
   final Color terracotta;
   final Color sage;
 
+  /// Accent for forms, dialogs, Image Studio and the gallery: icons, badges,
+  /// borders and primary buttons.
+  final Color formAccent;
+
+  /// Text and icons drawn on a solid accent fill.
+  final Color onAccent;
+
   /// Porch Stories surfaces that have no app-wide twin.
   final Color studioCard;
   final Color studioRaise;
@@ -134,6 +143,8 @@ class AppPalette {
     honey: AppColors.porchHoney,
     terracotta: AppColors.porchTerracotta,
     sage: AppColors.journalAccent,
+    formAccent: AppColors.formMasterAccent,
+    onAccent: AppColors.onChaosAccent,
     studioCard: StudioColors.card,
     studioRaise: StudioColors.raise,
     studioLineStrong: StudioColors.lineStrong,
@@ -165,6 +176,9 @@ class AppPalette {
     honey: AppColors.porchHoneyLight,
     terracotta: AppColors.porchTerracottaLight,
     sage: AppColors.journalAccentLight,
+    // Porch has always used the dark-mode amber here in both modes.
+    formAccent: AppColors.formMasterAccent,
+    onAccent: AppColors.onChaosAccent,
     studioCard: StudioColors.cardLight,
     studioRaise: StudioColors.raiseLight,
     studioLineStrong: StudioColors.lineStrongLight,
@@ -206,6 +220,8 @@ class AppPalette {
       honey: c((p) => p.honey),
       terracotta: c((p) => p.terracotta),
       sage: c((p) => p.sage),
+      formAccent: c((p) => p.formAccent),
+      onAccent: c((p) => p.onAccent),
       studioCard: c((p) => p.studioCard),
       studioRaise: c((p) => p.studioRaise),
       studioLineStrong: c((p) => p.studioLineStrong),

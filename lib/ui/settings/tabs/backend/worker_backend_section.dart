@@ -403,7 +403,7 @@ class _ModePill extends StatelessWidget {
               fontSize: 12,
               fontWeight: FontWeight.w600,
               color: selected
-                  ? AppColors.onChaosAccent
+                  ? AppColors.onAccentOf(context)
                   : AppColors.textSecondary(context),
             ),
           ),

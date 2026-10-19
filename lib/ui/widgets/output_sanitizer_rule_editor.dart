@@ -118,8 +118,7 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor =
-        widget.backgroundColor ?? AppColors.cardOf(context);
+    final bgColor = widget.backgroundColor ?? AppColors.cardOf(context);
     // Computed per build (a trivial scan of a handful of short strings) so
     // the warning is always current — a cached set went stale on first open.
     final dangerousRuleIds = {
@@ -185,7 +184,7 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
                             borderSide: BorderSide(
                               color: _findError
                                   ? AppColors.negativeAccentOf(context)
-                                  : AppColors.formMasterAccent,
+                                  : AppColors.formAccentOf(context),
                             ),
                           ),
                         ),
@@ -227,16 +226,16 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
                           ),
                           focusedBorder: UnderlineInputBorder(
                             borderSide: BorderSide(
-                              color: AppColors.formMasterAccent,
+                              color: AppColors.formAccentOf(context),
                             ),
                           ),
                         ),
                       ),
                     ),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.add_circle,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                         size: 22,
                       ),
                       onPressed: _addRule,
@@ -291,7 +290,7 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
                                   Icons.stop_circle,
                                   size: 18,
                                   color: rule.stopAfterMatch
-                                      ? AppColors.formMasterAccent
+                                      ? AppColors.formAccentOf(context)
                                       : AppColors.textTertiary(context),
                                 ),
                               ),
@@ -322,7 +321,8 @@ class _OutputSanitizerRuleEditorState extends State<OutputSanitizerRuleEditor> {
                                       text: rule.find,
                                       style: TextStyle(
                                         fontWeight: FontWeight.bold,
-                                        color: dangerousRuleIds.contains(rule.id)
+                                        color:
+                                            dangerousRuleIds.contains(rule.id)
                                             ? AppColors.porchHoneyOf(context)
                                             : null,
                                       ),

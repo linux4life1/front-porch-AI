@@ -60,7 +60,7 @@ class _StudioGenProgressState extends State<StudioGenProgress> {
                   value: progress,
                   minHeight: 6,
                   backgroundColor: AppColors.surfaceContainerOf(context),
-                  color: AppColors.formMasterAccent,
+                  color: AppColors.formAccentOf(context),
                 ),
               ),
               const SizedBox(height: 6),

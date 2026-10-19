@@ -31,7 +31,7 @@ class DescriptionDetailChipRow extends StatelessWidget {
     // Inside the AI Character Creator a selected chip is solid amber.
     final p = CreatorPalette.maybeOf(context);
     final accent =
-        p?.chipSelectedFill ?? accentColor ?? AppColors.formMasterAccent;
+        p?.chipSelectedFill ?? accentColor ?? AppColors.formAccentOf(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

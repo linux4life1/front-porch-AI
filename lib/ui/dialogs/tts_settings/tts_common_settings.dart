@@ -68,8 +68,8 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
             const Spacer(),
             Text(
               '${settings.ttsSpeechRate.toStringAsFixed(1)}x',
-              style: const TextStyle(
-                color: AppColors.formMasterAccent,
+              style: TextStyle(
+                color: AppColors.formAccentOf(context),
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
               ),
@@ -81,7 +81,7 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
           min: 0.5,
           max: 2.0,
           divisions: 15,
-          activeColor: AppColors.formMasterAccent,
+          activeColor: AppColors.formAccentOf(context),
           inactiveColor: AppColors.borderOf(context),
           onChanged: (val) => setState(() => _dragTtsSpeechRate = val),
           onChangeEnd: (val) {
@@ -156,8 +156,8 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
               const Spacer(),
               Text(
                 '${(_dragTtsConcurrency ?? settings.ttsConcurrency.toDouble()).round()} workers',
-                style: const TextStyle(
-                  color: AppColors.formMasterAccent,
+                style: TextStyle(
+                  color: AppColors.formAccentOf(context),
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
@@ -169,7 +169,7 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
             min: 1,
             max: 8,
             divisions: 7,
-            activeColor: AppColors.formMasterAccent,
+            activeColor: AppColors.formAccentOf(context),
             inactiveColor: AppColors.borderOf(context),
             onChanged: (val) => setState(() => _dragTtsConcurrency = val),
             onChangeEnd: (val) {
@@ -224,7 +224,7 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
             ),
           ),
           value: settings.ttsAutoPlay,
-          activeTrackColor: AppColors.formMasterAccent,
+          activeTrackColor: AppColors.formAccentOf(context),
           contentPadding: EdgeInsets.zero,
           onChanged: (val) => settings.setTtsAutoPlay(val),
         ),
@@ -259,7 +259,7 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
             ),
           ),
           value: settings.ttsNarrateQuotedOnly,
-          activeTrackColor: AppColors.formMasterAccent,
+          activeTrackColor: AppColors.formAccentOf(context),
           contentPadding: EdgeInsets.zero,
           dense: true,
           onChanged: (val) => settings.setTtsNarrateQuotedOnly(val),
@@ -280,7 +280,7 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
             ),
           ),
           value: settings.ttsIgnoreAsterisks,
-          activeTrackColor: AppColors.formMasterAccent,
+          activeTrackColor: AppColors.formAccentOf(context),
           contentPadding: EdgeInsets.zero,
           dense: true,
           onChanged: (val) => settings.setTtsIgnoreAsterisks(val),
@@ -301,7 +301,7 @@ class _TtsCommonSettingsState extends State<TtsCommonSettings> {
             ),
           ),
           value: settings.ttsReplaceCurlyQuotes,
-          activeTrackColor: AppColors.formMasterAccent,
+          activeTrackColor: AppColors.formAccentOf(context),
           contentPadding: EdgeInsets.zero,
           dense: true,
           onChanged: (val) => settings.setTtsReplaceCurlyQuotes(val),

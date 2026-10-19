@@ -41,11 +41,9 @@ class WorldLorebookSection extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: AppColors.resolve(
+        color: AppColors.surfaceContainerOf(
           context,
-          AppColors.surfaceContainer.withValues(alpha: 0.3),
-          AppColors.surfaceContainerLight.withValues(alpha: 0.6),
-        ),
+        ).withValues(alpha: AppColors.isLight(context) ? 0.6 : 0.3),
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
           color: AppColors.borderOf(context).withValues(alpha: 0.2),

@@ -86,7 +86,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                         width: 3,
                         height: 18,
                         decoration: BoxDecoration(
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           borderRadius: BorderRadius.circular(2),
                         ),
                       ),

@@ -168,7 +168,7 @@ class EnhanceStepIndicator extends StatelessWidget {
         ? AppColors.porchAmberOf(context)
         : AppColors.surfaceContainerOf(context);
     final numberOrCheckColor = isActive
-        ? AppColors.onChaosAccent
+        ? AppColors.onAccentOf(context)
         : AppColors.textTertiary(context);
 
     return Column(
@@ -311,7 +311,7 @@ class EnhanceWizardNavBar extends StatelessWidget {
                 label: Text(nextLabel, style: const TextStyle(fontSize: 16)),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onChaosAccent,
+                  foregroundColor: AppColors.onAccentOf(context),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),

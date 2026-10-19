@@ -28,6 +28,7 @@ class SliderWithInput extends StatefulWidget {
   final String? tooltip;
   final bool isInteger;
   final int decimalPlaces;
+
   /// When true the number box stays empty and the slider is a visual rest
   /// — inherit, not a fake authored 0 / 80.
   final bool unset;
@@ -173,7 +174,7 @@ class _SliderWithInputState extends State<SliderWithInput> {
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
                     borderSide: BorderSide(
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                       width: 1.5,
                     ),
                   ),

@@ -70,9 +70,9 @@ class ChatPlaceSettingCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 8, 6, 8),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(10),
-        color: AppColors.formMasterAccent.withValues(alpha: 0.10),
+        color: AppColors.formAccentOf(context).withValues(alpha: 0.10),
         border: Border.all(
-          color: AppColors.formMasterAccent.withValues(alpha: 0.40),
+          color: AppColors.formAccentOf(context).withValues(alpha: 0.40),
         ),
       ),
       child: Row(
@@ -261,7 +261,7 @@ class ChatPlaceRolePill extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = accent
-        ? AppColors.formMasterAccent
+        ? AppColors.formAccentOf(context)
         : AppColors.textTertiary(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),

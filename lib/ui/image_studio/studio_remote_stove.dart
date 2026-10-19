@@ -248,7 +248,7 @@ class _StudioRemoteStoveState extends State<StudioRemoteStove> {
                           : null,
                       style: FilledButton.styleFrom(
                         backgroundColor: accent,
-                        foregroundColor: AppColors.onChaosAccent,
+                        foregroundColor: AppColors.onAccentOf(context),
                         shape: const StadiumBorder(),
                         padding: const EdgeInsets.symmetric(
                           horizontal: 28,

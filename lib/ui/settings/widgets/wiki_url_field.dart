@@ -125,7 +125,7 @@ class _WikiUrlFieldState extends State<WikiUrlField> {
             child: FilledButton(
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+                foregroundColor: AppColors.onAccentOf(context),
               ),
               onPressed: _save,
               child: const Text('Save wiki'),

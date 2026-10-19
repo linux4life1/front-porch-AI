@@ -55,7 +55,9 @@ class GeneratingImageBubble extends StatelessWidget {
                 color: AppColors.cardOf(context),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.formMasterAccent.withValues(alpha: 0.35),
+                  color: AppColors.formAccentOf(
+                    context,
+                  ).withValues(alpha: 0.35),
                 ),
               ),
               child: Column(
@@ -99,7 +101,7 @@ class GeneratingImageBubble extends StatelessWidget {
                       value: painting ? progress : null,
                       minHeight: 4,
                       backgroundColor: AppColors.surfaceContainerOf(context),
-                      color: AppColors.formMasterAccent,
+                      color: AppColors.formAccentOf(context),
                     ),
                   ),
                   const SizedBox(height: 6),

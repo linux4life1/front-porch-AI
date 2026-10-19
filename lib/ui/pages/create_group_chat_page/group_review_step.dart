@@ -179,7 +179,7 @@ class GroupReviewStep extends StatelessWidget {
           onPressed: () => actions.createGroup(enterChat: true),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.porchAmberOf(context),
-            foregroundColor: AppColors.onChaosAccent,
+            foregroundColor: AppColors.onAccentOf(context),
             minimumSize: const Size.fromHeight(52),
           ),
           icon: const Icon(Icons.check),

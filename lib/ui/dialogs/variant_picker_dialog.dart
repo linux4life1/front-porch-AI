@@ -166,7 +166,7 @@ class _VariantPickerBodyState extends State<_VariantPickerBody> {
               key: const Key('variant-jump-go'),
               style: FilledButton.styleFrom(
                 backgroundColor: AppColors.porchAmberOf(context),
-                foregroundColor: AppColors.onChaosAccent,
+                foregroundColor: AppColors.onAccentOf(context),
                 visualDensity: VisualDensity.compact,
                 padding: const EdgeInsets.symmetric(horizontal: 16),
               ),
@@ -249,7 +249,7 @@ class _VariantCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.w700,
-                          color: AppColors.onChaosAccent,
+                          color: AppColors.onAccentOf(context),
                         ),
                       ),
                     ),

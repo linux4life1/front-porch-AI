@@ -125,7 +125,7 @@ class WaifuAskDialog extends StatelessWidget {
             onPressed: () => answer(WaifuAskDecision.allowOnce),
             style: FilledButton.styleFrom(
               backgroundColor: amber,
-              foregroundColor: AppColors.onChaosAccent,
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             child: const Text('Allow once'),
           ),

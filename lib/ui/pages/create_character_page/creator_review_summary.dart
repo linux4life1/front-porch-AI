@@ -138,27 +138,27 @@ class CreatorReviewSummary extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: AppColors.formMasterAccent.withValues(alpha: 0.1),
+                color: AppColors.formAccentOf(context).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: AppColors.formMasterAccent.withValues(alpha: 0.3),
+                  color: AppColors.formAccentOf(context).withValues(alpha: 0.3),
                 ),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Row(
+                  Row(
                     children: [
                       Icon(
                         Icons.weekend,
                         size: 14,
-                        color: AppColors.formMasterAccent,
+                        color: AppColors.formAccentOf(context),
                       ),
                       SizedBox(width: 6),
                       Text(
                         'Porch Life',
                         style: TextStyle(
-                          color: AppColors.formMasterAccent,
+                          color: AppColors.formAccentOf(context),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -220,8 +220,8 @@ class CreatorReviewSummary extends StatelessWidget {
               icon: const Icon(Icons.check),
               label: const Text('Create Character'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppColors.formMasterAccent,
-                foregroundColor: AppColors.onChaosAccent,
+                backgroundColor: AppColors.formAccentOf(context),
+                foregroundColor: AppColors.onAccentOf(context),
                 padding: const EdgeInsets.symmetric(vertical: 14),
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(10),

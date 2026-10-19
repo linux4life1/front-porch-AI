@@ -44,7 +44,9 @@ class BackgroundThumbnail extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? AppColors.formMasterAccent : Colors.white24,
+            color: isSelected
+                ? AppColors.formAccentOf(context)
+                : Colors.white24,
             width: isSelected ? 3 : 1,
           ),
         ),
@@ -128,7 +130,9 @@ class CustomBackgroundThumbnail extends StatelessWidget {
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: Border.all(
-            color: isSelected ? AppColors.formMasterAccent : Colors.white24,
+            color: isSelected
+                ? AppColors.formAccentOf(context)
+                : Colors.white24,
             width: isSelected ? 3 : 1,
           ),
         ),

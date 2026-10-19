@@ -158,10 +158,10 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
 
     return ListTile(
       leading: isBranch
-          ? const Icon(
+          ? Icon(
               Icons.call_split,
               size: 18,
-              color: AppColors.formMasterAccent,
+              color: AppColors.formAccentOf(context),
             )
           : null,
       title: Text(s['preview'], style: const TextStyle(fontSize: 14)),
@@ -192,9 +192,9 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
           if (isBranch)
             Text(
               '↳ Branched at message #${(s['fork_index'] ?? 0) + 1}',
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
-                color: AppColors.formMasterAccent,
+                color: AppColors.formAccentOf(context),
               ),
             ),
         ],
@@ -344,12 +344,12 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
               await _reload();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.formMasterAccent,
-              foregroundColor: AppColors.onChaosAccent,
+              backgroundColor: AppColors.formAccentOf(context),
+              foregroundColor: AppColors.onAccentOf(context),
             ),
-            child: const Text(
+            child: Text(
               'Save',
-              style: TextStyle(color: AppColors.onChaosAccent),
+              style: TextStyle(color: AppColors.onAccentOf(context)),
             ),
           ),
         ],
