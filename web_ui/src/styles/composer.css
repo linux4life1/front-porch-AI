@@ -24,7 +24,7 @@
   background: var(--accent);
   transition: width 300ms ease;
 }
-.gen-status-fill.estimate { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+.gen-status-fill.estimate { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 /* RP text coloring (parity with desktop AppColors.dialogue / action): "quoted
    dialogue" → amber, *actions* → italic blue, **emphasis** → bold blue. Applied
    to BOTH bubbles (desktop colors user + AI alike); the user can recolor the user

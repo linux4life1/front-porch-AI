@@ -521,7 +521,7 @@ export function ChatMessageList({
                 />
                 <div
                   className="gen-status-fill"
-                  style={{ width: `${Math.round((confirmed ?? fraction) * 100)}%` }}
+                  style={{ width: `${Math.floor((confirmed ?? fraction) * 100)}%` }}
                 />
               </div>
             )}
