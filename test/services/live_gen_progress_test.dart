@@ -236,7 +236,7 @@ void main() {
     final stale = LiveGenProgress();
     stale.ingest(
       'Processing Prompt (10 / 100 tokens)',
-      now: DateTime.now().subtract(const Duration(minutes: 5)),
+      now: DateTime.now().subtract(const Duration(minutes: 31)),
     );
     expect(stale.promptFraction(), isNull);
     expect(stale.isFresh, isFalse);
@@ -260,7 +260,10 @@ void main() {
     );
     expect(p.promptConfirmed, 8192);
     expect(p.inFlightEnd, 16384);
-    expect(p.confirmedFraction(), closeTo(8192 / 22124, 0.0001));
+    expect(
+      p.confirmedFraction(now: t0.add(const Duration(seconds: 270))),
+      closeTo(8192 / 22124, 0.0001),
+    );
     p.ingest('Generating (1 / 512 tokens)');
     expect(p.promptConfirmed, 22124);
     expect(p.confirmedFraction(), 1.0);
@@ -323,5 +326,23 @@ void main() {
     // A count that did not grow is not a sample.
     a.add(16384, t0.add(const Duration(seconds: 300)));
     expect(a.lastAt, t0.add(const Duration(seconds: 250)));
+  });
+
+  test('a batch still running stays fresh past 120s; a finished count does '
+      'not', () {
+    final t0 = DateTime(2026, 10, 19, 12);
+    final kobold = LiveGenProgress();
+    kobold.ingest('Processing Prompt [BATCH] (8192 / 22124 tokens)', now: t0);
+    // Kobold prints a batch before running it: 5 minutes of silence is one
+    // slow 8192 batch, not a dead request.
+    final fiveMin = t0.add(const Duration(minutes: 5));
+    expect(kobold.freshAt(fiveMin), isTrue);
+    expect(kobold.confirmedFraction(now: fiveMin), 0.0);
+    expect(kobold.freshAt(t0.add(const Duration(minutes: 31))), isFalse);
+
+    final omlx = LiveGenProgress();
+    omlx.setPromptProgress(4000, 20000, now: t0);
+    expect(omlx.freshAt(t0.add(const Duration(seconds: 119))), isTrue);
+    expect(omlx.promptFraction(now: fiveMin), isNull);
   });
 }

@@ -269,28 +269,36 @@ class LiveGenProgress {
   }
 
   /// 0..1 while a prompt pass is underway, 1.0 when it finished, null when
-  /// no data (or stale beyond [freshness] — a request may have been aborted).
-  ///
-  /// The window is WIDE on purpose: sources report once per BATCH, so with
-  /// --batchsize 8192 on slow hardware consecutive updates can be 30-60s
-  /// apart — a short window would flicker the truthful display away
-  /// mid-prefill. Abandoned data self-heals: the next request's first
-  /// progress write resets the counts.
-  double? promptFraction({Duration freshness = const Duration(seconds: 120)}) {
-    final at = updatedAt;
-    if (at == null || promptTotal <= 0) return null;
-    if (DateTime.now().difference(at) > freshness) return null;
+  /// no data (or stale per [freshAt] — a request may have been aborted).
+  double? promptFraction({DateTime? now}) {
+    if (promptTotal <= 0 || !freshAt(now ?? DateTime.now())) return null;
     return (promptCurrent / promptTotal).clamp(0.0, 1.0);
   }
 
-  bool get isFresh =>
-      updatedAt != null &&
-      DateTime.now().difference(updatedAt!) < const Duration(seconds: 120);
+  bool get isFresh => freshAt(DateTime.now());
+
+  /// Whether the counts still describe a live request at [now]. Sources
+  /// report once per BATCH, so the window is WIDE: 120s between updates,
+  /// and while a batch is in flight up to [_inFlightFreshness] — an 8192
+  /// batch deep in a long prompt on slow hardware runs 4-5 minutes with no
+  /// line, and a 120s window dropped the bar mid-batch. Abandoned data
+  /// self-heals: the next request's first progress write resets the counts,
+  /// and consumers read this only while their own request is prefilling.
+  bool freshAt(DateTime now) {
+    final at = updatedAt;
+    if (at == null) return false;
+    final window = inFlightEnd != null
+        ? _inFlightFreshness
+        : const Duration(seconds: 120);
+    return now.difference(at) <= window;
+  }
+
+  static const _inFlightFreshness = Duration(minutes: 30);
 
   /// [promptFraction] for what is really finished: the solid part of the
   /// bar. 1.0 only once the source confirmed the whole prompt.
-  double? confirmedFraction() {
-    if (promptFraction() == null) return null;
+  double? confirmedFraction({DateTime? now}) {
+    if (promptFraction(now: now) == null) return null;
     return (promptConfirmed / promptTotal).clamp(0.0, 1.0);
   }
 
@@ -313,13 +321,13 @@ class LiveGenProgress {
     Duration? requestElapsed,
     DateTime? now,
   }) {
-    final raw = confirmedFraction();
+    final at = now ?? DateTime.now();
+    final raw = confirmedFraction(now: at);
     if (raw == null) return null;
     double result;
     if (raw >= 1.0) {
       result = 1.0;
     } else {
-      final at = now ?? DateTime.now();
       final rate = _rate(tokensPerSecond, requestElapsed, at);
       final from = _anchors.lastAt ?? updatedAt!;
       if (rate == null) {
@@ -344,9 +352,10 @@ class LiveGenProgress {
     Duration? requestElapsed,
     DateTime? now,
   }) {
-    final raw = confirmedFraction();
+    final at = now ?? DateTime.now();
+    final raw = confirmedFraction(now: at);
     if (raw == null || raw >= 1.0) return null;
-    final rate = _rate(tokensPerSecond, requestElapsed, now ?? DateTime.now());
+    final rate = _rate(tokensPerSecond, requestElapsed, at);
     if (rate == null) return null;
     final shown = _shownFraction > raw ? _shownFraction : raw;
     return promptTotal * (1 - shown) / rate;
