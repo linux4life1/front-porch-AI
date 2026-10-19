@@ -26,6 +26,7 @@ import 'package:front_porch_ai/services/chat/llm_eval_engine.dart'
     show recentExchange;
 import 'package:front_porch_ai/services/chat/objective_check_skip.dart';
 import 'package:front_porch_ai/services/chat/objective_eval_fire.dart';
+import 'package:front_porch_ai/services/chat/objective_fixation.dart';
 import 'package:front_porch_ai/services/chat/objective_origin.dart';
 import 'package:front_porch_ai/services/chat/objective_stale_detector.dart';
 import 'package:front_porch_ai/services/chat/objective_sync_decide.dart';
@@ -113,12 +114,19 @@ class ObjectiveSync {
               (t['description'] as String?) ?? '',
               objectiveTaskIsStale(t)
                   ? 'skipped'
-                  : (objectiveTaskIsCompleted(t) ? 'done' : 'open'),
+                  : objectiveTaskIsCompleted(t)
+                  ? 'done'
+                  : (stepIsStuck(t) ? 'stuck' : 'open'),
             ),
         ],
       );
 
-  Future<ObjectiveSyncOutcome> run({String elapsedSpan = ''}) async {
+  /// [countStuck] is false for a manual "Check now": only a turn's check
+  /// counts toward a stuck step.
+  Future<ObjectiveSyncOutcome> run({
+    String elapsedSpan = '',
+    bool countStuck = true,
+  }) async {
     if (getIsChecking() || getActiveObjectives().isEmpty) {
       return ObjectiveSyncOutcome.notRun;
     }
@@ -205,6 +213,7 @@ class ObjectiveSync {
           stepsAuthored: objectiveStepsAreAuthored(obj),
           isHeldToday: isHeldToday?.call(obj) ?? false,
           wasDormant: objectiveIsDormant(obj),
+          countStuck: countStuck,
         );
         debugPrint(
           '[Objective] Sync "${obj.objective}": '

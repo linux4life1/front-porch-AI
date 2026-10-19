@@ -101,7 +101,8 @@ class ObjectiveSyncItem {
 
   final String goal;
 
-  /// Each step's description and state: 'done', 'open' or 'skipped'.
+  /// Each step's description and state: 'done', 'open', 'stuck' (open, with
+  /// no progress for several checks) or 'skipped'.
   final List<(String, String)> steps;
   final bool dormant;
 
@@ -126,6 +127,12 @@ String _itemBlock(int n, ObjectiveSyncItem item) {
       _ => '[ ]',
     };
     sb.write('\n   ${i + 1}. $mark $text');
+    if (state == 'stuck' && !item.stepsFixed) {
+      sb.write(
+        ' (no progress for several checks: if the story is not heading '
+        'there, give a next_step that fits where it is now)',
+      );
+    }
   }
   if (item.stepsFixed) {
     sb.write('\n   (steps written by the user: next_step is "none")');

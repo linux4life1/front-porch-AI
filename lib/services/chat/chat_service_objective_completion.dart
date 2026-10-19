@@ -149,7 +149,7 @@ extension ChatServiceObjectiveCompletion on ChatService {
   }
 
   Future<void> _checkTaskCompletionInBackground() =>
-      _objectiveProposal.checkTaskCompletionInBackground();
+      _objectiveProposal.checkTaskCompletionInBackground(countStuck: false);
 
   // ── Objective turn-ops: regen rollback (mirrors the realism delta-revert) ──
   //
