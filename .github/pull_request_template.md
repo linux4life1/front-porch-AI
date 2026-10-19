@@ -37,6 +37,17 @@ Tested on: <!-- Windows / macOS / Linux — and which ones you couldn't check --
 - [ ] `flutter test` passes
 - [ ] Ran the app and exercised the change by hand
 
+## Hand-check
+
+<!-- Required when the PR changes UI (lib/ui/, lib/main*.dart, web_ui/src/).
+One line per thing a person would check. Each line names the test that does
+it, or starts `eye-only:` for what only eyes can judge (looks, real OS
+dialogs, hardware). See CLAUDE.md, "Definition of done".
+For example:
+- Saving twice saves once: `test/ui/pages/world_blank_name_test.dart`
+- eye-only: the header still fits at 400px wide
+-->
+
 ## Parity
 
 <!-- Only if your change is user-visible. Delete this section otherwise. -->

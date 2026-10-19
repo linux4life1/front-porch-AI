@@ -3,6 +3,8 @@
 
 import 'package:flutter/material.dart';
 
+import 'app_palette.dart';
+
 class AppColors {
   AppColors._();
 
@@ -62,7 +64,7 @@ class AppColors {
 
   /// Brightness-aware container surface.
   static Color surfaceContainerOf(BuildContext context) =>
-      resolve(context, surfaceContainer, surfaceContainerLight);
+      AppPalette.of(context).surfaceContainer;
 
   // ---------------------------------------------------------------------------
   // Chat appearance defaults — light mode
@@ -96,23 +98,23 @@ class AppColors {
 
   /// Primary text color for the current brightness.
   static Color textPrimary(BuildContext context) =>
-      isLight(context) ? Colors.black87 : Colors.white;
+      AppPalette.of(context).textPrimary;
 
   /// Secondary text color for the current brightness.
   static Color textSecondary(BuildContext context) =>
-      isLight(context) ? Colors.black54 : Colors.white70;
+      AppPalette.of(context).textSecondary;
 
   /// Tertiary text color for the current brightness.
   static Color textTertiary(BuildContext context) =>
-      isLight(context) ? Colors.black45 : Colors.white38;
+      AppPalette.of(context).textTertiary;
 
-  /// Primary icon color (reuses exact isLight + ternary scaffold of textPrimary; no new logic).
+  /// Primary icon color (same ramp as [textPrimary]).
   static Color iconPrimary(BuildContext context) =>
-      isLight(context) ? Colors.black87 : Colors.white;
+      AppPalette.of(context).textPrimary;
 
-  /// Secondary / muted icon color (matches textSecondary pattern).
+  /// Secondary / muted icon color (same ramp as [textSecondary]).
   static Color iconSecondary(BuildContext context) =>
-      isLight(context) ? Colors.black54 : Colors.white70;
+      AppPalette.of(context).textSecondary;
 
   /// Resolves a dark/light color pair based on current brightness.
   static Color resolve(BuildContext context, Color dark, Color light) =>
@@ -120,19 +122,17 @@ class AppColors {
 
   /// Background for the current brightness.
   static Color backgroundOf(BuildContext context) =>
-      resolve(context, background, lightBackground);
+      AppPalette.of(context).background;
 
   /// Card color for the current brightness.
-  static Color cardOf(BuildContext context) =>
-      resolve(context, card, lightCard);
+  static Color cardOf(BuildContext context) => AppPalette.of(context).card;
 
   /// Surface color for the current brightness.
   static Color surfaceOf(BuildContext context) =>
-      resolve(context, surface, lightSurface);
+      AppPalette.of(context).surface;
 
-  /// Subtle border color for the current brightness (reuses resolve scaffold; no new logic).
-  static Color borderOf(BuildContext context) =>
-      resolve(context, const Color(0xFF3E3328), lightBorder);
+  /// Subtle border color for the current brightness.
+  static Color borderOf(BuildContext context) => AppPalette.of(context).border;
 
   // ---------------------------------------------------------------------------
   // Process log / terminal output colors
@@ -250,26 +250,26 @@ class AppColors {
   static const Color porchTerracotta = Color(0xFFE29578);
   static const Color porchTerracottaLight = Color(0xFF9C4B2F);
   static Color porchTerracottaOf(BuildContext context) =>
-      resolve(context, porchTerracotta, porchTerracottaLight);
+      AppPalette.of(context).terracotta;
 
   /// 🎲 Story Tools section accent (warm honey).
   static const Color porchHoney = Color(0xFFE9C46A);
   static const Color porchHoneyLight = Color(0xFF8F6400);
   static Color porchHoneyOf(BuildContext context) =>
-      resolve(context, porchHoney, porchHoneyLight);
+      AppPalette.of(context).honey;
 
   /// Generic warm accent for buttons/badges in the sidebar family.
   static const Color porchAmber = Color(0xFFF4A259);
   static const Color porchAmberLight = Color(0xFFB45309);
   static Color porchAmberOf(BuildContext context) =>
-      resolve(context, porchAmber, porchAmberLight);
+      AppPalette.of(context).amber;
 
   /// 📖 Journal & Memory section accent — the recap, RAG, and evolution
   /// controls share this single supporting cool tone ("porch sage").
   static const Color journalAccent = Color(0xFF4DB6AC);
   static const Color journalAccentLight = Color(0xFF00796B);
   static Color journalAccentOf(BuildContext context) =>
-      resolve(context, journalAccent, journalAccentLight);
+      AppPalette.of(context).sage;
 
   /// Lust bar / spicy toggles / NSFW headers (warm rose).
   static const Color lustAccent = Color(0xFFFB7185);
@@ -343,13 +343,13 @@ class AppColors {
   static const Color sunkenSurface = Color(0xFF14110E);
   static const Color sunkenSurfaceLight = Color(0xFFE9E2D8);
   static Color sunkenSurfaceOf(BuildContext context) =>
-      resolve(context, sunkenSurface, sunkenSurfaceLight);
+      AppPalette.of(context).sunken;
 
   /// Read-only text wells (deepest inset, e.g. evolution "original" text).
   static const Color deepWell = Color(0xFF100E0B);
   static const Color deepWellLight = Color(0xFFF0EBE3);
   static Color deepWellOf(BuildContext context) =>
-      resolve(context, deepWell, deepWellLight);
+      AppPalette.of(context).deepWell;
 
   // ── KoboldCpp presets and the local model card (approved sketch,
   // 2026-10-04): slate text, an inset panel, and the parts of the preset
@@ -358,19 +358,18 @@ class AppColors {
   static const Color insetPanel = Color(0xFF1A1510);
   static const Color insetPanelLight = Color(0xFFF3EEE6);
   static Color insetPanelOf(BuildContext context) =>
-      resolve(context, insetPanel, insetPanelLight);
+      AppPalette.of(context).insetPanel;
   static const Color slateInk = Color(0xFFEFE6DA);
   static const Color slateInkLight = Color(0xFF2A231C);
-  static Color slateInkOf(BuildContext context) =>
-      resolve(context, slateInk, slateInkLight);
+  static Color slateInkOf(BuildContext context) => AppPalette.of(context).ink;
   static const Color slateMuted = Color(0xFFA89A89);
   static const Color slateMutedLight = Color(0xFF6E6357);
   static Color slateMutedOf(BuildContext context) =>
-      resolve(context, slateMuted, slateMutedLight);
+      AppPalette.of(context).muted;
   static const Color slateFaint = Color(0xFF7A6E62);
   static const Color slateFaintLight = Color(0xFF9A8E82);
   static Color slateFaintOf(BuildContext context) =>
-      resolve(context, slateFaint, slateFaintLight);
+      AppPalette.of(context).faint;
 
   /// A hairline at [alpha]: light on dark, dark on light.
   static Color hairlineOf(BuildContext context, double alpha) => resolve(
@@ -475,9 +474,6 @@ class AppColors {
 
   /// Developer check (hub `#c0c7d1`). Same silhouette as gold/blue.
   static const Color stoopCheckSilver = Color(0xFFC0C7D1);
-  static Color navigationSelectionOf(BuildContext context) => resolve(
-    context,
-    Colors.white.withValues(alpha: 0.08),
-    const Color(0xFFF3E0C4),
-  );
+  static Color navigationSelectionOf(BuildContext context) =>
+      AppPalette.of(context).navigationSelection;
 }

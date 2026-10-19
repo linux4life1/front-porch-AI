@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
+import 'app_palette.dart';
 
 /// The Porch Stories palette, transcribed from the approved story mockups.
 ///
@@ -33,105 +33,96 @@ class StudioColors {
   /// Page background.
   static const Color bg = Color(0xFF1B1611);
   static const Color bgLight = Color(0xFFF8F4ED);
-  static Color bgOf(BuildContext context) =>
-      AppColors.resolve(context, bg, bgLight);
+  static Color bgOf(BuildContext context) => AppPalette.of(context).background;
 
   /// Sidebar and header surface.
   static const Color side = Color(0xFF1F1913);
   static const Color sideLight = Color(0xFFF0EBE3);
-  static Color sideOf(BuildContext context) =>
-      AppColors.resolve(context, side, sideLight);
+  static Color sideOf(BuildContext context) => AppPalette.of(context).surface;
 
   /// Card fill.
   static const Color card = Color(0xFF251E17);
   static const Color cardLight = Color(0xFFFFFDF9);
   static Color cardOf(BuildContext context) =>
-      AppColors.resolve(context, card, cardLight);
+      AppPalette.of(context).studioCard;
 
   /// Raised fill: selected nav item, secondary buttons, insets.
   static const Color raise = Color(0xFF30271E);
   static const Color raiseLight = Color(0xFFE9E2D8);
   static Color raiseOf(BuildContext context) =>
-      AppColors.resolve(context, raise, raiseLight);
+      AppPalette.of(context).studioRaise;
 
   /// Hairline borders and dividers.
   static const Color line = Color(0xFF3E3328);
   static const Color lineLight = Color(0xFFD4CFC6);
-  static Color lineOf(BuildContext context) =>
-      AppColors.resolve(context, line, lineLight);
+  static Color lineOf(BuildContext context) => AppPalette.of(context).border;
 
   /// A stronger hairline: the dashed border of the creator interview's
   /// conditional rows.
   static const Color lineStrong = Color(0xFF4E4134);
   static const Color lineStrongLight = Color(0xFFBFB6AA);
   static Color lineStrongOf(BuildContext context) =>
-      AppColors.resolve(context, lineStrong, lineStrongLight);
+      AppPalette.of(context).studioLineStrong;
 
   /// Text.
   static const Color ink = Color(0xFFEFE6DA);
   static const Color inkLight = Color(0xFF2A231C);
-  static Color inkOf(BuildContext context) =>
-      AppColors.resolve(context, ink, inkLight);
+  static Color inkOf(BuildContext context) => AppPalette.of(context).ink;
 
   /// Muted text.
   static const Color muted = Color(0xFFA89A89);
   static const Color mutedLight = Color(0xFF6E6357);
-  static Color mutedOf(BuildContext context) =>
-      AppColors.resolve(context, muted, mutedLight);
+  static Color mutedOf(BuildContext context) => AppPalette.of(context).muted;
 
   /// Faint text: placeholders, counts.
   static const Color faint = Color(0xFF7A6E62);
   static const Color faintLight = Color(0xFF9A8E82);
-  static Color faintOf(BuildContext context) =>
-      AppColors.resolve(context, faint, faintLight);
+  static Color faintOf(BuildContext context) => AppPalette.of(context).faint;
 
   /// Prose: serif body text in the writer and reader.
   static const Color prose = Color(0xFFE8DDCF);
   static const Color proseLight = Color(0xFF2A231C);
   static Color proseOf(BuildContext context) =>
-      AppColors.resolve(context, prose, proseLight);
+      AppPalette.of(context).studioProse;
 
   /// Amber: primary action and selection.
   static const Color amber = Color(0xFFF4A259);
   static const Color amberLight = Color(0xFFB45309);
-  static Color amberOf(BuildContext context) =>
-      AppColors.resolve(context, amber, amberLight);
+  static Color amberOf(BuildContext context) => AppPalette.of(context).amber;
 
   /// Honey: sequence headings, planning chips, "new" badges.
   static const Color honey = Color(0xFFE9C46A);
   static const Color honeyLight = Color(0xFF8F6400);
-  static Color honeyOf(BuildContext context) =>
-      AppColors.resolve(context, honey, honeyLight);
+  static Color honeyOf(BuildContext context) => AppPalette.of(context).honey;
 
   /// Terracotta: tension bars, prose chips.
   static const Color terra = Color(0xFFE29578);
   static const Color terraLight = Color(0xFF9C4B2F);
   static Color terraOf(BuildContext context) =>
-      AppColors.resolve(context, terra, terraLight);
+      AppPalette.of(context).terracotta;
 
   /// Teal: written, pass, good.
   static const Color teal = Color(0xFF4DB6AC);
   static const Color tealLight = Color(0xFF00695C);
   static Color tealOf(BuildContext context) =>
-      AppColors.resolve(context, teal, tealLight);
+      AppPalette.of(context).studioTeal;
 
   /// Bad: fail, banned, destructive.
   static const Color bad = Color(0xFFE57373);
   static const Color badLight = Color(0xFFB3261E);
-  static Color badOf(BuildContext context) =>
-      AppColors.resolve(context, bad, badLight);
+  static Color badOf(BuildContext context) => AppPalette.of(context).studioBad;
 
   /// Asterisk narration inside the creator's macro-coloured text boxes
   /// (docs/design/creator-ui-spec.md). Light mode reuses `muted`.
   static const Color narration = Color(0xFFD9C7B2);
   static Color narrationOf(BuildContext context) =>
-      AppColors.resolve(context, narration, mutedLight);
+      AppPalette.of(context).studioNarration;
 
   /// Text on an amber fill.
   static const Color amberInk = Color(0xFF2A1A08);
   static const Color amberInkLight = Color(0xFFFFFDF9);
   static Color amberInkOf(BuildContext context) =>
-      AppColors.resolve(context, amberInk, amberInkLight);
+      AppPalette.of(context).studioAmberInk;
 
   /// The creator's dialog scrim, `rgba(12, 8, 4, 0.62)` in both themes
   /// (docs/design/creator-ui-spec.md).
