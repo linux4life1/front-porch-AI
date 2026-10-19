@@ -160,21 +160,21 @@ Future<Map<String, Color>> _capture(
   Brightness? localBrightness,
 }) async {
   late Map<String, Color> seen;
-  Widget probe = Builder(
+  final probe = Builder(
     builder: (c) {
       seen = _helpers(c);
       return const SizedBox();
     },
   );
-  if (localBrightness != null) {
-    probe = Builder(
-      builder: (c) => Theme(
-        data: Theme.of(c).copyWith(brightness: localBrightness),
-        child: probe,
-      ),
-    );
-  }
-  await tester.pumpWidget(MaterialApp(theme: theme, home: probe));
+  final home = localBrightness == null
+      ? probe
+      : Builder(
+          builder: (c) => Theme(
+            data: Theme.of(c).copyWith(brightness: localBrightness),
+            child: probe,
+          ),
+        );
+  await tester.pumpWidget(MaterialApp(theme: theme, home: home));
   return seen;
 }
 
