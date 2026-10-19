@@ -56,6 +56,9 @@ Dart: [docs/maintainer-agent-playbook.md](docs/maintainer-agent-playbook.md).
 
 ## Done means
 
-Path-complete checklist when chat/realism/memory is in scope. A 2–5 step
+CLAUDE.md's **Definition of done**: every `## Hand-check` line in the PR
+names its test or starts `eye-only:`; create/save buttons get a
+`doubleTapNoFrame` test; no real-clock time bombs; no screenshots of real
+chats in the repo. Path-complete checklist when chat/realism/memory is in scope. A 2–5 step
 poke script. `flutter analyze` clean on touched Dart. Web shipped or
 explicitly deferred. Green suite is not ship.

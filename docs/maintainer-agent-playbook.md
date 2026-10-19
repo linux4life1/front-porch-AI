@@ -111,6 +111,44 @@ Ten minutes of this catches more than another thousand unit tests.
 
 ---
 
+## Which PRs get a smoke run
+
+The changed files pick the tier. Agents follow CLAUDE.md's "Definition of
+done", so every hand-check item in a PR is already a test or marked
+`eye-only:`.
+
+| Tier | When | What the smoke tester does |
+|------|------|----------------------------|
+| 0. None | Nothing under `lib/ui/`, `web_ui/src/` or `lib/main*.dart` changed, or the PR is only tests, CI or docs | Nothing. CI is the gate |
+| 1. Look only | UI changed and every hand-check line names a test | Looks at screenshots of the changed screens. No item-by-item run |
+| 2. Full | Any `eye-only:` line that needs hands, or the PR touches the database or migrations, file pickers or OS dialogs, Windows-only code, a new screen or wizard, or import/export | Runs the `eye-only:` lines and walks the risky area |
+
+The hostile reviewer still sees every PR.
+
+## What every review checks
+
+These are the bug kinds smoke kept finding by hand. A reviewer checks each
+PR against all of them:
+
+1. **Narrow and short windows.** New or changed layout at 400px and 640px
+   wide (smoke found overflow in #513, #529, #561, #564, #568).
+2. **Double clicks and busy states.** A create or save that a fast second
+   tap can repeat (#569), or a control that looks live while a reply or its
+   settle is still running (#520, #566).
+3. **Switching.** A field that keeps the previous host's, chat's or
+   character's value after a switch (#521, #529).
+4. **Web.** The web page does what desktop does, including what happens on
+   a name clash (#569 overwrote a place on the web) and what it paints
+   (#568).
+5. **Clocks.** A test that pins a date while the code reads the real clock
+   (#559).
+6. **Private data.** Screenshots, chat text or names of real users in the
+   diff (#568).
+7. **Raw text.** `{{char}}`, `{{user}}` or an enum name such as
+   `roundRobin` on screen.
+
+---
+
 ## Hygiene gates
 
 Some drift fails CI by itself, so nobody has to spot it in review. These
