@@ -82,29 +82,46 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Text(label, style: crumbStyle),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: crumbStyle,
+              ),
             ),
           );
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      // Keep the tail (the folder you're standing in) visible on long paths.
-      reverse: true,
-      child: Row(
+    final separator = Text(
+      '/',
+      style: TextStyle(color: AppColors.textTertiary(context)),
+    );
+    // The folder you're standing in is laid out first and keeps up to most
+    // of the row; the levels above it share what is left and ellipsize, so
+    // a squeezed toolbar reads "My Cha… / Bletchfield", never a clipped
+    // head.
+    return LayoutBuilder(
+      builder: (context, constraints) => Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          crumb('My Characters', null),
+          Flexible(child: crumb('My Characters', null)),
           for (var i = 0; i < trail.length; i++) ...[
-            Text('/', style: TextStyle(color: AppColors.textTertiary(context))),
+            separator,
             if (i < trail.length - 1)
-              crumb(trail[i].name, trail[i].id)
+              Flexible(child: crumb(trail[i].name, trail[i].id))
             else
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 4),
-                child: Text(
-                  trail[i].name,
-                  style: Theme.of(
-                    context,
-                  ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxWidth: constraints.maxWidth * 0.7,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 4),
+                  child: Text(
+                    trail[i].name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
           ],
@@ -142,18 +159,24 @@ class HomeToolbarLevelTarget extends StatelessWidget {
           child: Container(
             height: 34,
             padding: const EdgeInsets.symmetric(horizontal: 10),
-            alignment: Alignment.center,
             decoration: BoxDecoration(
               color: amber.withValues(alpha: over ? 0.15 : 0.10),
               borderRadius: BorderRadius.circular(8),
               border: over ? Border.all(color: amber, width: 2) : null,
             ),
-            child: Text(
-              label,
-              style: TextStyle(
-                color: amber,
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
+            // widthFactor keeps the pill hugging its label inside the
+            // breadcrumb's Flexible instead of stretching to the share.
+            child: Align(
+              widthFactor: 1,
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(
+                  color: amber,
+                  fontSize: 15,
+                  fontWeight: FontWeight.w500,
+                ),
               ),
             ),
           ),

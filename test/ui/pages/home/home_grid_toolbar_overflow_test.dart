@@ -58,8 +58,7 @@ Future<void> _pumpToolbar(
             onGridScaleChangeEnd: (_) {},
             onToggleSelectMode: () {},
             onToggleOrganizeMode: () {},
-            onFolderDialogAction:
-                (FolderDialogAction _, {folder, parentId}) {},
+            onFolderDialogAction: (FolderDialogAction _, {folder, parentId}) {},
             onImport: (_) {},
           ),
         ),
@@ -140,11 +139,7 @@ void main() {
   ) async {
     final nested = _Folders([
       CharacterFolder(id: 'a', name: 'Summer porch parties'),
-      CharacterFolder(
-        id: 'b',
-        name: 'Guests who overstayed',
-        parentId: 'a',
-      ),
+      CharacterFolder(id: 'b', name: 'Guests who overstayed', parentId: 'a'),
     ]);
     addTearDown(nested.dispose);
     await _pumpToolbar(
@@ -156,6 +151,29 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(find.text('My Characters'), findsOneWidget);
+  });
+
+  testWidgets('squeezed breadcrumb ellipsizes the parent, never clips its '
+      'head under the back arrow', (tester) async {
+    final nested = _Folders([
+      CharacterFolder(id: 'a', name: 'Bletchfield of the long valley road'),
+    ]);
+    addTearDown(nested.dispose);
+    await _pumpToolbar(
+      tester,
+      width: 360,
+      repo: repo,
+      folders: nested,
+      activeFolderId: 'a',
+    );
+    expect(tester.takeException(), isNull);
+    final back = tester.getRect(find.byTooltip('Up one level'));
+    final root = tester.getRect(find.text('My Characters'));
+    final current = tester.getRect(
+      find.text('Bletchfield of the long valley road'),
+    );
+    expect(root.left, greaterThanOrEqualTo(back.right));
+    expect(current.left, greaterThan(root.right));
   });
 }
 
