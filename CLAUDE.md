@@ -420,6 +420,11 @@ branch's copy.
 | `theme-lint` | New raw `Colors.blueAccent` under `lib/` |
 | `io-lint` | New sync I/O under `lib/ui/` |
 | `golden` | Pixel golden drift (Linux image) |
+| `PR rules` (`pr-rules.yml`) | A UI PR's `## Hand-check` lines don't each name a test or start `eye-only:`; a PR adds pictures outside goldens, `assets/`, `docs/screenshots/` (label `approved-images`) |
+
+A **draft** PR runs only the cheap jobs; `e2e-smoke`, `web-e2e`, `golden`
+and `stoop-live` start when it leaves draft, and never run on a docs-only
+PR. Open PRs as drafts; the merge queue takes them out of draft in order.
 
 `full-lint` is scheduled / branch-push and is **not** a hard PR gate (it
 ends `|| true`). Do not tell contributors the whole tree is analyzed on
