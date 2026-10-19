@@ -94,17 +94,43 @@ extension ChatServiceTurnFlow on ChatService {
       }
     }
     final first = _pickNextGroupCharacter();
-    if (!_groupSpeakerSkips(first)) return first;
-    for (final card in _groupCharacters) {
-      if (_getCharacterIdFromCard(card) == _getCharacterIdFromCard(first)) {
-        continue;
-      }
-      if (!_groupSpeakerSkips(card)) {
-        _groupManager?.advanceAfterRegeneration(card);
-        return card;
+    final present = _presentFrom(first);
+    if (present == null || identical(present, first)) return first;
+    _groupManager?.advanceAfterRegeneration(present);
+    return present;
+  }
+
+  /// Who [_pickPresentGroupSpeaker] will pick, without taking the turn.
+  /// The Next tooltip, sidebar badge and web cast chip read this, so they
+  /// name the member who actually speaks.
+  CharacterCard? get _upcomingGroupSpeaker {
+    final manager = _groupManager;
+    if (manager == null || !manager.isActive) return null;
+    final head = manager.nextSpeaker;
+    if (manager.hasForcedSpeaker) return head;
+    final returnId = _awayPulse.pendingReturnSpeakId;
+    if (returnId != null) {
+      for (final card in _groupCharacters) {
+        if (_getCharacterIdFromCard(card) == returnId) return card;
       }
     }
-    return first;
+    if (head == null) return null;
+    return _presentFrom(head) ?? head;
+  }
+
+  /// First member With you walking the rotation from [head]: the member
+  /// after a skipped one, not the roster's first (that parked the rotation
+  /// on the skipped member and starved everyone behind them). Null when
+  /// the whole roster skips.
+  CharacterCard? _presentFrom(CharacterCard head) {
+    final cast = _groupCharacters;
+    final start = cast.indexWhere((c) => identical(c, head));
+    if (start < 0) return _groupSpeakerSkips(head) ? null : head;
+    for (var i = 0; i < cast.length; i++) {
+      final card = cast[(start + i) % cast.length];
+      if (!_groupSpeakerSkips(card)) return card;
+    }
+    return null;
   }
 
   String _presenceSkipBanner(CharacterCard card) {
