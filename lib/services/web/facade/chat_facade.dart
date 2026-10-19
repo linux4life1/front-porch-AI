@@ -104,6 +104,7 @@ class ChatFacade {
       'source': snap != null ? 'reply' : _chat.promptBudgetSource.name,
       'assembledAt': at?.toIso8601String(),
       if (snap != null) 'textPruned': snap.sections.isEmpty,
+      'droppedMessages': snap?.droppedMessages ?? _chat.promptDroppedMessages,
       'sections': [
         for (final e in (snap?.budget ?? _chat.lastPromptBudget).entries)
           {'label': e.key, 'tokens': e.value, 'text': texts[e.key] ?? ''},

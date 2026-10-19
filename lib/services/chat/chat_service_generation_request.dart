@@ -63,12 +63,10 @@ extension ChatServiceGenerationRequest on ChatService {
 
     // Context viewer: plan budget/sections (session-persisted on save).
     _contextBudget.recordLastSend(
-      budgetMap: {
-        ...t.plan.budgetEstimates(),
-        if (t.droppedMessages > 0) 'Dropped Messages': t.droppedMessages,
-      },
+      budgetMap: t.plan.budgetEstimates(),
       sectionMap: t.plan.sectionTexts(),
       contextLimit: contextSize,
+      droppedMessages: t.droppedMessages,
     );
 
     // Stop sequences, priority-ordered (stop_sequences.dart) so transports

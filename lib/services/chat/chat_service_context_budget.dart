@@ -102,14 +102,9 @@ extension ChatServiceContextBudget on ChatService {
       );
     }
 
-    final historyLines = <String>[];
-    for (final m in _messages) {
-      if (m.characterId == '__director__') {
-        historyLines.add(m.toPromptHistoryLine());
-      } else {
-        historyLines.add('${m.sender}: ${m.text}');
-      }
-    }
+    // The send's own line format (think blocks stripped) and trim rules,
+    // so the estimate shows what a send would carry, not the whole chat.
+    final historyLines = _messages.map(_formatHistoryLine).toList();
 
     final snap = buildContextBudgetEstimate(
       ContextBudgetEstimateInput(
@@ -125,6 +120,10 @@ extension ChatServiceContextBudget on ChatService {
         authorNote: _authorNote,
         historyLines: historyLines,
         contextLimit: contextSize,
+        reserveTokens:
+            _sessionGenSettings.resolveMaxLength(_storageService) + 50,
+        trimChunk: kHistoryTrimChunk,
+        overflowStart: overflowHistoryStart(_messages),
       ),
     );
 

@@ -387,6 +387,7 @@ class ChatService extends ChangeNotifier
   Map<String, String> get lastPromptSections => _contextBudget.sections;
   ContextBudgetSource get promptBudgetSource => _contextBudget.source;
   DateTime? get promptBudgetAssembledAt => _contextBudget.assembledAt;
+  int get promptDroppedMessages => _contextBudget.droppedMessages;
   Future<void> estimateContextBudgetNow() => _estimateContextBudgetNow();
   int get contextSize =>
       _sessionGenSettings.resolveContextSize(_storageService);
