@@ -38,6 +38,10 @@ export function useChatSession() {
   // backend streams one. Null = no image generating.
   const [imageProg, setImageProg] = useState<{ progress: number | null; preview: string | null } | null>(null);
   const [genStatus, setGenStatus] = useState<GenStatus | null>(null);
+  // Whether gen_status frames are live for the current turn. The page shows
+  // them only while state says isGenerating, and send()'s refresh lands
+  // before the server flips it, so the first live frame refreshes once.
+  const genLive = useRef(false);
   // Realism/Objective engine overlay, driven by the `processing` WS event.
   const [processing, setProcessing] = useState<Processing>(NO_PROCESSING);
   // Counts `processing` frames, so a refresh can tell whether one arrived
@@ -161,6 +165,7 @@ export function useChatSession() {
         // old order cleared the bubble, leaving the message blank until the GET
         // returned ~100-300ms later).
         tokenGateRef.current.replyOver();
+        genLive.current = false;
         setGenStatus(null);
         void refresh().finally(() => {
           setStreaming('');
@@ -171,6 +176,9 @@ export function useChatSession() {
         // prompt-reading progress + which background pass holds the slot.
         // Returning the previous object when nothing changed lets React bail
         // out of the re-render — these frames arrive ~2.5/s for whole turns.
+        const wasLive = genLive.current;
+        genLive.current = !!e.active;
+        if (e.active && !wasLive) void refresh();
         setGenStatus((prev) => {
           if (!e.active) return null;
           const next = {
@@ -258,6 +266,7 @@ export function useChatSession() {
         // strand it forever.
         tokenGateRef.current.replyOver();
         setStreaming('');
+        genLive.current = false;
         setGenStatus(null);
         void refresh();
       }
@@ -347,6 +356,7 @@ export function useChatSession() {
   const clearLiveTurnUi = () => {
     tokenGateRef.current.leaveChat(!!state?.isGenerating || streaming !== '');
     setStreaming('');
+    genLive.current = false;
     setGenStatus(null);
     setImageProg(null);
     setChance(null);
