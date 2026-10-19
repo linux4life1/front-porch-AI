@@ -276,8 +276,10 @@ class ChatFindBar extends StatelessWidget {
                 if (modeChip != null || controller.waiting)
                   Padding(
                     padding: const EdgeInsets.only(top: 4, right: 2),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
+                    child: Wrap(
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      runSpacing: 2,
                       children: [
                         if (modeChip != null) ...[
                           _chip(context, modeChip),

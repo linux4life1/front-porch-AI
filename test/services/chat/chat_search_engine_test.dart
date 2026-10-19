@@ -305,5 +305,23 @@ void main() {
     );
     expect(tester.takeException(), isNull);
     expect(tester.getSize(find.byType(TextField)).width, greaterThan(150));
+
+    // Narrower still, with the mode chip showing: it wraps too.
+    controller.regexOn = true;
+    controller.text.text = 'lantern';
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 60,
+              child: ChatFindBar(controller: controller),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(find.text('.* regex'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }
