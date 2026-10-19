@@ -186,6 +186,9 @@ void showWorldEditDialog(
                             onPressed: saving
                                 ? null
                                 : () async {
+                                    // A tap that lands before the rebuild still
+                                    // runs this closure.
+                                    if (saving) return;
                                     final newName = draft.nameController.text
                                         .trim();
                                     if (newName.isEmpty) {

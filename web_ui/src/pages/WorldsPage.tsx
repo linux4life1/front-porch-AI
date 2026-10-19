@@ -153,6 +153,7 @@ export function WorldsPage() {
         id: edit.id,
         name: edit.name,
         originalName: edit.originalName,
+        create: edit.id == null && edit.originalName == null,
         description: edit.description,
         biomeId: edit.biomeId,
         biome: edit.biomeId === 'custom' ? edit.biome : undefined,

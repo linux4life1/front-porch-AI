@@ -207,6 +207,7 @@ export function WorldFromWikiPage() {
     try {
       await api.post('/api/worlds', {
         name,
+        create: true,
         description: description || premise,
         climateEnabled: climateOn,
         injectDescription: true,
