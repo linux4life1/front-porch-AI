@@ -58,8 +58,21 @@ export function ChatPage() {
   // ⌘F find-in-chat: server-scan counts + leaf highlight surface (parity
   // with the desktop ChatFindController).
   const lastTranscriptMsg = state?.messages?.[state.messages.length - 1];
+  // Messages whose speaker label (multi-cast only) shows exactly the name
+  // the engine scanned; sender hits anywhere else have nothing to light.
+  const senderLabelShown = useMemo(() => {
+    const cast = state?.cast ?? [];
+    const shown = new Set<number>();
+    if (cast.length < 2) return shown;
+    const names = new Map(cast.map((c) => [c.id, c.name]));
+    for (const m of state?.messages ?? []) {
+      if (!m.isUser && m.characterId && names.get(m.characterId) === m.sender) shown.add(m.index);
+    }
+    return shown;
+  }, [state?.cast, state?.messages]);
   const find = useChatFind({
     sessionId: state?.sessionId,
+    senderLabelShown,
     transcriptVersion: `${state?.messages?.length ?? 0}|${lastTranscriptMsg?.text?.length ?? 0}`,
   });
   // Composer draft mirror — powers the lorebook "would trigger next" preview.

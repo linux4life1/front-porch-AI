@@ -196,6 +196,16 @@ void main() {
       ]);
     });
 
+    test('globs scan there too, word-anchored', () async {
+      final hits = await scanTranscriptBounded(
+        [msg('a bulldog and a dogwood')],
+        '*dog',
+        regexMode: false,
+        caseSensitive: false,
+      );
+      expect(hits!.map((h) => h.startInRegion), [2]);
+    });
+
     test('a runaway pattern times out instead of hanging', () async {
       final watch = Stopwatch()..start();
       final hits = await scanTranscriptBounded(
@@ -275,5 +285,25 @@ void main() {
       expect(marks.length, 2);
       expect(marks.map(isActive), [false, true]);
     });
+  });
+
+  testWidgets('a narrow find bar wraps its controls instead of crushing the '
+      'field', (tester) async {
+    final controller = ChatFindController();
+    addTearDown(controller.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 220,
+              child: ChatFindBar(controller: controller),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(find.byType(TextField)).width, greaterThan(150));
   });
 }

@@ -204,9 +204,22 @@ test.describe.serial('a conversation', { tag: SERIAL }, () => {
     await expect(bar.locator('.find-count')).toHaveText('No matches');
     await expect(page.locator('mark.find-hit')).toHaveCount(0);
 
+    // Every counted hit lights something. A 1:1 chat draws no speaker
+    // label, so the character's name only counts where it is in the text
+    // ("porch" alone hits the text and the name Porch Tester).
+    const scanned = page.waitForResponse((r) => r.url().includes('/api/chat/search?q=Porch'));
+    await bar.locator('input.find-input').fill('Porch');
+    await scanned;
+    const count = bar.locator('.find-count');
+    await expect(count).toHaveText(/^1 \/ \d+$/);
+    const total = Number(/\/ (\d+)$/.exec((await count.textContent()) ?? '')?.[1]);
+    await expect(page.locator('mark.find-hit')).toHaveCount(total);
+
     await bar.locator('input.find-input').fill('porch swing');
     await expect(lit).toHaveCount(1);
-    await bar.locator('input.find-input').press('Escape');
+    // Clicking a toggle leaves the keyboard in the field: Esc still closes.
+    await bar.getByTitle('Match case').click();
+    await page.keyboard.press('Escape');
     await expect(bar).toBeHidden();
     await expect(page.locator('mark.find-hit')).toHaveCount(0);
   });

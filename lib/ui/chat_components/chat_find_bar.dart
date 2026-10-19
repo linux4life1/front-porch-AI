@@ -36,6 +36,9 @@ bool handleChatFindShortcut(
 
 const double _kBarWidth = 464;
 
+/// Below this the input gets its own row (the fixed controls need ~290).
+const double _kOneRowMinWidth = 400;
+
 /// Stack wrapper: transcript + the find bar overlaid top-right of it
 /// (never over the sidebar — it rides the transcript column).
 class ChatFindLayer extends StatelessWidget {
@@ -104,29 +107,31 @@ class ChatFindBar extends StatelessWidget {
             : wild
             ? '✱ word wildcard'
             : null;
-        return Container(
-          width: _kBarWidth,
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-          decoration: BoxDecoration(
-            color: AppColors.cardOf(context),
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.borderOf(context)),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.45),
-                blurRadius: 24,
-                offset: const Offset(0, 10),
-              ),
-            ],
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
+        // One tap region with the field: clicking Aa / .* / the arrows
+        // must not unfocus the input, or Enter and Esc stop working.
+        return TextFieldTapRegion(
+          child: Container(
+            width: _kBarWidth,
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+            decoration: BoxDecoration(
+              color: AppColors.cardOf(context),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: AppColors.borderOf(context)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  blurRadius: 24,
+                  offset: const Offset(0, 10),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                LayoutBuilder(
+                  builder: (context, box) {
+                    final field = TextField(
                       controller: controller.text,
                       focusNode: controller.focus,
                       onChanged: (v) => controller.scheduleScan(),
@@ -165,103 +170,133 @@ class ChatFindBar extends StatelessWidget {
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  _toggle(
-                    context,
-                    label: 'Aa',
-                    active: controller.caseSensitive,
-                    tooltip: 'Match case',
-                    onTap: controller.toggleCase,
-                  ),
-                  const SizedBox(width: 4),
-                  _toggle(
-                    context,
-                    label: '.*',
-                    active: controller.regexOn,
-                    tooltip: 'Regular expression',
-                    onTap: controller.toggleRegex,
-                  ),
-                  const SizedBox(width: 8),
-                  SizedBox(
-                    width: 78,
-                    child: controller.waiting
-                        ? Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              SizedBox.square(
-                                dimension: 14,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: AppColors.porchHoneyOf(context),
+                    );
+                    final controls = <Widget>[
+                      const SizedBox(width: 6),
+                      _toggle(
+                        context,
+                        label: 'Aa',
+                        active: controller.caseSensitive,
+                        tooltip: 'Match case',
+                        onTap: controller.toggleCase,
+                      ),
+                      const SizedBox(width: 4),
+                      _toggle(
+                        context,
+                        label: '.*',
+                        active: controller.regexOn,
+                        tooltip: 'Regular expression',
+                        onTap: controller.toggleRegex,
+                      ),
+                      const SizedBox(width: 8),
+                      SizedBox(
+                        width: 78,
+                        child: controller.waiting
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.end,
+                                children: [
+                                  SizedBox.square(
+                                    dimension: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: AppColors.porchHoneyOf(context),
+                                    ),
+                                  ),
+                                ],
+                              )
+                            : Text(
+                                slow
+                                    ? 'too slow'
+                                    : bad
+                                    ? 'bad pattern'
+                                    : controller.text.text.trim().isEmpty
+                                    ? ''
+                                    : controller.counterLabel,
+                                textAlign: TextAlign.end,
+                                maxLines: 1,
+                                overflow: TextOverflow.clip,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color:
+                                      bad ||
+                                          (controller.hasQuery &&
+                                              controller.matches.isEmpty)
+                                      ? AppColors.logError
+                                      : AppColors.textSecondary(context),
                                 ),
                               ),
-                            ],
-                          )
-                        : Text(
-                            slow
-                                ? 'too slow'
-                                : bad
-                                ? 'bad pattern'
-                                : controller.text.text.trim().isEmpty
-                                ? ''
-                                : controller.counterLabel,
-                            textAlign: TextAlign.end,
-                            maxLines: 1,
-                            overflow: TextOverflow.clip,
+                      ),
+                      const SizedBox(width: 6),
+                      _icon(
+                        context,
+                        Icons.arrow_upward,
+                        'Previous (⇧↵)',
+                        () => controller.step(-1),
+                      ),
+                      const SizedBox(width: 4),
+                      _icon(
+                        context,
+                        Icons.arrow_downward,
+                        'Next (↵)',
+                        () => controller.step(1),
+                      ),
+                      const SizedBox(width: 4),
+                      _icon(
+                        context,
+                        Icons.close,
+                        'Close (Esc)',
+                        controller.close,
+                      ),
+                    ];
+                    // Too narrow for one row: the field takes the full width
+                    // and the controls wrap underneath instead of crushing it.
+                    if (box.maxWidth < _kOneRowMinWidth) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          field,
+                          const SizedBox(height: 6),
+                          Wrap(
+                            alignment: WrapAlignment.end,
+                            crossAxisAlignment: WrapCrossAlignment.center,
+                            runSpacing: 4,
+                            children: controls,
+                          ),
+                        ],
+                      );
+                    }
+                    return Row(
+                      children: [
+                        Expanded(child: field),
+                        ...controls,
+                      ],
+                    );
+                  },
+                ),
+                if (modeChip != null || controller.waiting)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 2),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (modeChip != null) ...[
+                          _chip(context, modeChip),
+                          const SizedBox(width: 8),
+                        ],
+                        if (controller.waiting && controller.totalCount > 0)
+                          Text(
+                            'Paging in history — '
+                            '${controller.loadedCount} / ${controller.totalCount}',
                             style: TextStyle(
-                              fontSize: 12,
-                              color:
-                                  bad ||
-                                      (controller.hasQuery &&
-                                          controller.matches.isEmpty)
-                                  ? AppColors.logError
-                                  : AppColors.textSecondary(context),
+                              fontSize: 10.5,
+                              color: AppColors.textTertiary(context),
                             ),
                           ),
-                  ),
-                  const SizedBox(width: 6),
-                  _icon(
-                    context,
-                    Icons.arrow_upward,
-                    'Previous (⇧↵)',
-                    () => controller.step(-1),
-                  ),
-                  const SizedBox(width: 4),
-                  _icon(
-                    context,
-                    Icons.arrow_downward,
-                    'Next (↵)',
-                    () => controller.step(1),
-                  ),
-                  const SizedBox(width: 4),
-                  _icon(context, Icons.close, 'Close (Esc)', controller.close),
-                ],
-              ),
-              if (modeChip != null || controller.waiting)
-                Padding(
-                  padding: const EdgeInsets.only(top: 4, right: 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      if (modeChip != null) ...[
-                        _chip(context, modeChip),
-                        const SizedBox(width: 8),
                       ],
-                      if (controller.waiting && controller.totalCount > 0)
-                        Text(
-                          'Paging in history — '
-                          '${controller.loadedCount} / ${controller.totalCount}',
-                          style: TextStyle(
-                            fontSize: 10.5,
-                            color: AppColors.textTertiary(context),
-                          ),
-                        ),
-                    ],
+                    ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         );
       },

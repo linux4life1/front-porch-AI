@@ -204,7 +204,7 @@ List<ChatFindMatch> scanTranscript(
 /// How long a regex-mode scan may run before find gives up on it.
 const Duration kFindRegexTimeout = Duration(seconds: 2);
 
-/// [scanTranscript] for regex mode, on a throwaway isolate that is killed
+/// [scanTranscript] for regex and glob queries, on a throwaway isolate that is killed
 /// after [timeout]. A user pattern like `(a+)+$` backtracks for minutes on
 /// a long transcript; on the UI (desktop) or server (web) isolate that
 /// would freeze the app. Returns null when the scan ran out of time.
@@ -216,15 +216,16 @@ Future<List<ChatFindMatch>?> scanTranscriptBounded(
   Duration timeout = kFindRegexTimeout,
 }) async {
   final port = ReceivePort();
-  final isolate = await Isolate.spawn(_boundedScanEntry, (
-    port.sendPort,
-    messages,
-    query,
-    regexMode,
-    caseSensitive,
-  ));
+  final isolate = await Isolate.spawn(
+    _boundedScanEntry,
+    (port.sendPort, messages, query, regexMode, caseSensitive),
+    // An uncaught error arrives as [message, stack] instead of the hits.
+    onError: port.sendPort,
+  );
   try {
-    return await port.first.timeout(timeout) as List<ChatFindMatch>;
+    final reply = await port.first.timeout(timeout);
+    if (reply is List<ChatFindMatch>) return reply;
+    throw StateError('find scan failed: $reply');
   } on TimeoutException {
     return null;
   } finally {

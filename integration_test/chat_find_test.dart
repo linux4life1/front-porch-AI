@@ -194,6 +194,14 @@ void main() {
     await typeQuery('lanter');
     await d.waitForWidget(find.text('1 / 4'));
 
+    // Clicking a toggle keeps the field focused: Enter still steps and Esc
+    // still closes without clicking back into the input.
+    await tester.tap(find.text('Aa'));
+    await tester.pump(const Duration(milliseconds: 400));
+    await d.waitForWidget(find.text('1 / 4'));
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await d.waitForWidget(find.text('2 / 4'));
+
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.byType(ChatFindBar), findsNothing);

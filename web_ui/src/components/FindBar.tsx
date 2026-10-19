@@ -31,6 +31,10 @@ export function FindBar(props: FindBarProps) {
     inputRef.current?.focus();
     inputRef.current?.select();
   }, []);
+  // A click on a toggle or arrow must leave focus in the input: Enter on a
+  // focused button would press it again (Aa flipped back off), and the
+  // Enter / Esc handlers live on the input.
+  const keepFocus = (e: { preventDefault(): void }) => e.preventDefault();
   const modeChip = props.regexOn && props.value.trim()
     ? '.* regex'
     : props.wildcardChip
@@ -60,6 +64,7 @@ export function FindBar(props: FindBarProps) {
         />
         <button
           type="button"
+          onMouseDown={keepFocus}
           className={props.caseOn ? 'find-toggle on' : 'find-toggle'}
           title="Match case"
           onClick={props.onToggleCase}
@@ -68,6 +73,7 @@ export function FindBar(props: FindBarProps) {
         </button>
         <button
           type="button"
+          onMouseDown={keepFocus}
           className={props.regexOn ? 'find-toggle on' : 'find-toggle'}
           title="Regular expression"
           onClick={props.onToggleRegex}
@@ -77,13 +83,31 @@ export function FindBar(props: FindBarProps) {
         <span className={props.bad || props.slow || (props.counter === 'No matches' && props.value.trim()) ? 'find-count none' : 'find-count'}>
           {props.waiting ? <span className="find-spinner" aria-label="Loading" /> : props.slow ? 'too slow' : props.bad ? 'bad pattern' : props.value.trim() ? props.counter : ''}
         </span>
-        <button type="button" className="find-btn" title="Previous (⇧↵)" onClick={() => props.onStep(-1)}>
+        <button
+          type="button"
+          onMouseDown={keepFocus}
+          className="find-btn"
+          title="Previous (⇧↵)"
+          onClick={() => props.onStep(-1)}
+        >
           ↑
         </button>
-        <button type="button" className="find-btn" title="Next (↵)" onClick={() => props.onStep(1)}>
+        <button
+          type="button"
+          onMouseDown={keepFocus}
+          className="find-btn"
+          title="Next (↵)"
+          onClick={() => props.onStep(1)}
+        >
           ↓
         </button>
-        <button type="button" className="find-btn" title="Close (Esc)" onClick={props.onClose}>
+        <button
+          type="button"
+          onMouseDown={keepFocus}
+          className="find-btn"
+          title="Close (Esc)"
+          onClick={props.onClose}
+        >
           ✕
         </button>
       </div>

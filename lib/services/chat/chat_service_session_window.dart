@@ -192,16 +192,25 @@ extension ChatServiceFind on ChatService {
       for (final m in _messages)
         (text: m.isStatusBanner ? '' : m.displayText, sender: m.sender),
     ];
-    // Plain and glob queries are escaped literals and cannot backtrack;
-    // only a raw user regex needs the killable isolate.
-    final matches = regexMode
-        ? await scanTranscriptBounded(
-            visible,
-            query,
-            regexMode: true,
-            caseSensitive: caseSensitive,
-          )
-        : scanTranscript(visible, spec);
+    // A plain query is an escaped literal and cannot backtrack. A raw regex
+    // can, and so can a many-star glob on a long unbroken token, so both
+    // run on the killable isolate.
+    final List<ChatFindMatch>? matches;
+    try {
+      matches = regexMode || spec.wordBounded
+          ? await scanTranscriptBounded(
+              visible,
+              query,
+              regexMode: regexMode,
+              caseSensitive: caseSensitive,
+            )
+          : scanTranscript(visible, spec);
+    } on StateError catch (e) {
+      // The pattern compiled but the scan itself failed: say "bad pattern"
+      // rather than pretending it was merely slow.
+      debugPrint('find-in-chat: $e');
+      return const ChatFindOutcome(badPattern: true);
+    }
     if (epoch != _history.epoch || _currentSessionId != sessionId) {
       return const ChatFindOutcome(stale: true);
     }

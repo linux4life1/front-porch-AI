@@ -188,7 +188,8 @@ class ChatFindController extends ChangeNotifier {
   Map<ChatMessage, FindLeafState> _leafMap =
       Map<ChatMessage, FindLeafState>.identity();
 
-  bool get badPattern => _spec.bad;
+  bool get badPattern => _spec.bad || _scanFailed;
+  bool _scanFailed = false;
 
   /// The last regex scan hit the engine's timeout and was abandoned.
   bool tooSlow = false;
@@ -295,6 +296,7 @@ class ChatFindController extends ChangeNotifier {
       caseSensitive: caseSensitive,
     );
     tooSlow = false;
+    _scanFailed = false;
     if (_spec.bad) {
       matches = const [];
       active = -1;
@@ -318,6 +320,7 @@ class ChatFindController extends ChangeNotifier {
     _poll?.cancel();
     waiting = false;
     tooSlow = outcome.tooSlow;
+    _scanFailed = outcome.badPattern;
     matches = outcome.matches;
     active = matches.isEmpty
         ? -1

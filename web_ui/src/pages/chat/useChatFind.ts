@@ -31,6 +31,8 @@ type SearchResponse = {
 
 export function useChatFind(opts: {
   sessionId?: string | null;
+  /** Message indexes whose sender label is on screen; other sender hits are dropped. */
+  senderLabelShown?: ReadonlySet<number>;
   /** Cheap transcript fingerprint; a change re-runs the (debounced) scan. */
   transcriptVersion: string;
 }) {
@@ -45,6 +47,8 @@ export function useChatFind(opts: {
   const [waiting, setWaiting] = useState(false);
   const [reveal, setReveal] = useState<{ index: number; tick: number } | null>(null);
   const { transcriptVersion } = opts;
+  const senderShown = useRef(opts.senderLabelShown);
+  senderShown.current = opts.senderLabelShown;
   const seq = useRef(0);
   const tick = useRef(0);
   // Query + modes of the hits on screen. A re-scan for the same key was a
@@ -104,14 +108,18 @@ export function useChatFind(opts: {
       const key = `${q}|${regexOn}|${caseOn}`;
       const fresh = shownKey.current !== key;
       shownKey.current = key;
+      // Count only what can light up: the 1:1 web transcript (and user rows)
+      // draws no speaker label, so its sender hits would be invisible stops.
+      const labels = senderShown.current;
+      const matches = r.matches.filter((h) => h.region !== 1 || !!labels?.has(h.messageIndex));
       setWaiting(false);
-      setHits(r.matches);
+      setHits(matches);
       if (fresh) {
-        const nextActive = r.matches.length ? 0 : -1;
+        const nextActive = matches.length ? 0 : -1;
         setActive(nextActive);
-        if (nextActive >= 0) setReveal({ index: r.matches[nextActive].messageIndex, tick: (tick.current += 1) });
+        if (nextActive >= 0) setReveal({ index: matches[nextActive].messageIndex, tick: (tick.current += 1) });
       } else {
-        setActive((a) => (r.matches.length ? Math.min(Math.max(a, 0), r.matches.length - 1) : -1));
+        setActive((a) => (matches.length ? Math.min(Math.max(a, 0), matches.length - 1) : -1));
       }
     } catch {
       if (my === seq.current) setWaiting(false);
