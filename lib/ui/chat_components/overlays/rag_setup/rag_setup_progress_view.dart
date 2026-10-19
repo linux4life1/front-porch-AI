@@ -21,7 +21,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/embedding_service.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The running / failed / finished view of RAG setup, driven by
 /// [embeddings]' setup status. [onRetry] restarts setup after the error has
@@ -52,20 +52,24 @@ class RagSetupProgressView extends StatelessWidget {
         Row(
           children: [
             if (isDone)
-              const Icon(
+              Icon(
                 Icons.check_circle,
-                color: Colors.greenAccent,
+                color: StatusColors.successOf(context),
                 size: 28,
               )
             else if (hasError)
-              const Icon(Icons.error_outline, color: Colors.redAccent, size: 28)
+              Icon(
+                Icons.error_outline,
+                color: StatusColors.dangerOf(context),
+                size: 28,
+              )
             else
-              const SizedBox(
+              SizedBox(
                 width: 24,
                 height: 24,
                 child: CircularProgressIndicator(
                   strokeWidth: 2.5,
-                  color: Colors.purpleAccent,
+                  color: ChatColors.memoryOf(context),
                 ),
               ),
             const SizedBox(width: 12),
@@ -78,9 +82,9 @@ class RagSetupProgressView extends StatelessWidget {
                     : 'Setting Up Memory...',
                 style: TextStyle(
                   color: isDone
-                      ? Colors.greenAccent
+                      ? StatusColors.successOf(context)
                       : hasError
-                      ? Colors.redAccent
+                      ? StatusColors.dangerOf(context)
                       : AppColors.textPrimary(context),
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
@@ -100,7 +104,7 @@ class RagSetupProgressView extends StatelessWidget {
             borderRadius: BorderRadius.circular(8),
             border: Border.all(
               color: hasError
-                  ? Colors.redAccent.withValues(alpha: 0.3)
+                  ? StatusColors.dangerOf(context).withValues(alpha: 0.3)
                   : AppColors.borderOf(context).withValues(alpha: 0.12),
             ),
           ),
@@ -111,7 +115,7 @@ class RagSetupProgressView extends StatelessWidget {
                 embeddings.setupStatus,
                 style: TextStyle(
                   color: hasError
-                      ? Colors.redAccent
+                      ? StatusColors.dangerOf(context)
                       : AppColors.textSecondary(context),
                   fontSize: 13,
                 ),
@@ -126,8 +130,8 @@ class RagSetupProgressView extends StatelessWidget {
                     backgroundColor: AppColors.borderOf(
                       context,
                     ).withValues(alpha: 0.12),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Colors.purpleAccent,
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      ChatColors.memoryOf(context),
                     ),
                   ),
                 ),
@@ -149,7 +153,7 @@ class RagSetupProgressView extends StatelessWidget {
                       context,
                     ).withValues(alpha: 0.12),
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      Colors.purpleAccent,
+                      ChatColors.memoryOf(context),
                     ),
                   ),
                 ),
@@ -161,7 +165,10 @@ class RagSetupProgressView extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             embeddings.setupError!,
-            style: const TextStyle(color: Colors.redAccent, fontSize: 11),
+            style: TextStyle(
+              color: StatusColors.dangerOf(context),
+              fontSize: 11,
+            ),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
@@ -171,27 +178,27 @@ class RagSetupProgressView extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.orangeAccent.withValues(alpha: 0.08),
+              color: StatusColors.warningOf(context).withValues(alpha: 0.08),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(
-                color: Colors.orangeAccent.withValues(alpha: 0.2),
+                color: StatusColors.warningOf(context).withValues(alpha: 0.2),
               ),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Row(
+                Row(
                   children: [
                     Icon(
                       Icons.lightbulb_outline,
                       size: 14,
-                      color: Colors.orangeAccent,
+                      color: StatusColors.warningOf(context),
                     ),
                     SizedBox(width: 6),
                     Text(
                       'Troubleshooting',
                       style: TextStyle(
-                        color: Colors.orangeAccent,
+                        color: StatusColors.warningOf(context),
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                       ),
@@ -297,8 +304,8 @@ class RagSetupProgressView extends StatelessWidget {
               ElevatedButton(
                 onPressed: () => Navigator.of(context).pop(true),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.greenAccent.shade700,
-                  foregroundColor: AppColors.textPrimary(context),
+                  backgroundColor: StatusColors.successFillOf(context),
+                  foregroundColor: StatusColors.onFill,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -322,8 +329,8 @@ class RagSetupProgressView extends StatelessWidget {
                 icon: Icon(Icons.refresh, size: 16),
                 label: Text('Retry'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purpleAccent,
-                  foregroundColor: AppColors.textPrimary(context),
+                  backgroundColor: ChatColors.memoryOf(context),
+                  foregroundColor: StatusColors.onFill,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),

@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'prompt_progress_bar.dart';
 
@@ -67,11 +67,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
     ) = switch (phase) {
       GenerationPhase.preparing => (
         'Assembling prompt...',
-        AppColors.resolve(
-          context,
-          const Color(0xFFF59E0B),
-          const Color(0xFFB45309),
-        ),
+        ChatColors.preparingOf(context),
         Icons.build_rounded,
         false,
       ),
@@ -79,21 +75,13 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
       GenerationPhase.thinking => _thinkingLabel(cs),
       GenerationPhase.buffering => (
         'Buffering tokens...',
-        AppColors.resolve(
-          context,
-          const Color(0xFF3B82F6),
-          const Color(0xFF1D4ED8),
-        ),
+        ChatColors.bufferingOf(context),
         Icons.hourglass_top_rounded,
         true,
       ),
       GenerationPhase.generating => (
         'Generating response...',
-        AppColors.resolve(
-          context,
-          const Color(0xFF10B981),
-          const Color(0xFF059669),
-        ),
+        ChatColors.generatingOf(context),
         Icons.bolt_rounded,
         true,
       ),
@@ -151,11 +139,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
                 Text(
                   '${cs.tokensPerSecond.toStringAsFixed(1)} t/s',
                   style: TextStyle(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.amberAccent,
-                      const Color(0xFFB45309),
-                    ),
+                    color: ChatColors.speedOf(context),
                     fontSize: 11,
                     fontWeight: FontWeight.bold,
                     fontFamily: 'monospace',
@@ -206,15 +190,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
         valueColor: AlwaysStoppedAnimation<Color>(
           Color.lerp(
             accentColor,
-            AppColors.resolve(
-              context,
-              AppColors.resolve(
-                context,
-                const Color(0xFF10B981),
-                const Color(0xFF059669),
-              ),
-              const Color(0xFF059669),
-            ),
+            ChatColors.generatingOf(context),
             cs.generationProgress,
           )!,
         ),
@@ -240,7 +216,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
     }
     return LinearProgressIndicator(
       minHeight: 4,
-      backgroundColor: Colors.white.withValues(alpha: 0.08),
+      backgroundColor: AppColors.hairlineOf(context, 0.08),
       valueColor: AlwaysStoppedAnimation<Color>(
         accentColor.withValues(alpha: 0.7),
       ),
@@ -250,7 +226,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
   (String, Color, IconData, bool) _prefillLabel(ChatService cs) {
     final elapsed = cs.prefillElapsedSeconds;
     final elapsedStr = elapsed >= 1 ? ' (${elapsed.toInt()}s)' : '';
-    const color = Color(0xFFF97316);
+    const color = ChatColors.prefilling;
 
     // The single-slot local backend serializes requests, so our reply can be
     // stuck behind a background pass — app-side knowledge, safely
@@ -407,7 +383,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
     }
     return (
       'Model is thinking...$detail',
-      const Color(0xFFA855F7),
+      ChatColors.thinking,
       Icons.psychology_rounded,
       false,
     );

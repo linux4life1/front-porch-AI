@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'message_bubble.realism.dart';
 
@@ -65,17 +65,9 @@ class MessageRealismChipLayout extends StatelessWidget {
     final classicBox = Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          AppColors.resolve(
-            context,
-            Colors.black12,
-            Colors.black.withValues(alpha: 0.06),
-          ),
-          Colors.black.withValues(alpha: 0.06),
-        ),
+        color: InkColors.chipWellOf(context),
         borderRadius: BorderRadius.circular(4),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: InkColors.faintLineOf(context)),
       ),
       child: classicRow,
     );
@@ -122,9 +114,9 @@ class MessageRealismChipLayout extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: Colors.black.withValues(alpha: 0.07),
+              color: InkColors.dim(0.07),
               borderRadius: BorderRadius.circular(4),
-              border: Border.all(color: Colors.white10),
+              border: Border.all(color: InkColors.faintLineOf(context)),
             ),
             // Wrap, not Row: all seven needs can carry a delta at once (a
             // manual reprocess routinely returns a full set) and seven chips
@@ -182,12 +174,8 @@ class MessageRealismChipLayout extends StatelessWidget {
         Tooltip(
           message: 'Redo the Needs or the Feelings for this reply',
           preferBelow: false,
-          textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white12),
-          ),
+          textStyle: RealismColors.tooltipText(context),
+          decoration: RealismColors.tooltipDecoration(context),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -243,12 +231,8 @@ class MessageRealismChipLayout extends StatelessWidget {
           message:
               'Restore previous Needs deltas and live state before the last reprocess',
           preferBelow: false,
-          textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-          decoration: BoxDecoration(
-            color: const Color(0xFF1F2937),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(color: Colors.white12),
-          ),
+          textStyle: RealismColors.tooltipText(context),
+          decoration: RealismColors.tooltipDecoration(context),
           child: Material(
             color: Colors.transparent,
             child: InkWell(

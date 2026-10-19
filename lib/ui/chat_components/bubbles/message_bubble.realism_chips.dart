@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// One delta chip under a reply: icon, label, and an ⓘ when hovering it
 /// shows a reason. Bond, trust, mood, lust and every need draw through it,
@@ -83,12 +83,8 @@ List<Widget> realismEventAndReceiptChips(
       Tooltip(
         message: 'Time is going backwards?!',
         preferBelow: false,
-        textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F2937),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white12),
-        ),
+        textStyle: RealismColors.tooltipText(context),
+        decoration: RealismColors.tooltipDecoration(context),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -97,12 +93,12 @@ List<Widget> realismEventAndReceiptChips(
               style: TextStyle(fontSize: 11),
             ), // Dizzy face with spirals
             const SizedBox(width: 4),
-            const Text(
+            Text(
               'Time Reversal',
               style: TextStyle(
                 fontSize: 10,
                 fontWeight: FontWeight.w600,
-                color: Colors.cyanAccent,
+                color: RealismColors.timeOddOf(context),
               ),
             ),
           ],
@@ -241,12 +237,8 @@ List<Widget> realismEventAndReceiptChips(
       Tooltip(
         message: chanceTimeEvent,
         preferBelow: false,
-        textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F2937),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white12),
-        ),
+        textStyle: RealismColors.tooltipText(context),
+        decoration: RealismColors.tooltipDecoration(context),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -256,10 +248,10 @@ List<Widget> realismEventAndReceiptChips(
               constraints: const BoxConstraints(maxWidth: 160),
               child: Text(
                 'Chance Time: ${chanceTimeEvent.length > 30 ? chanceTimeEvent.substring(0, 30) + '…' : chanceTimeEvent}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 10,
                   fontWeight: FontWeight.w600,
-                  color: Color(0xFFFFD166),
+                  color: AppColors.chaosAccentOf(context),
                 ),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -280,8 +272,8 @@ List<Widget> realismEventAndReceiptChips(
         : '🕵️ Director corrected ($verifPasses reprocess${verifPasses == 1 ? '' : 'es'})';
     final icon = isAccepted ? Icons.verified : Icons.fact_check;
     final chipColor = isAccepted
-        ? AppColors.resolve(context, Colors.greenAccent, Colors.green)
-        : AppColors.resolve(context, Colors.orangeAccent, Colors.deepOrange);
+        ? StatusColors.successOf(context)
+        : StatusColors.warningOf(context);
     final chip = Row(
       mainAxisSize: MainAxisSize.min,
       children: [

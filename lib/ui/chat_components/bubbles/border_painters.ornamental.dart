@@ -65,11 +65,13 @@ class VineBorderPainter extends ThemeBorderPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final vinePaint = Paint()
+      // theme-keep: the ornamental border's vine is drawn art.
       ..color = const Color(0xFF5D4037)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth * 1.5;
     const inset = 8.0;
     final leafPaint = Paint()
+      // theme-keep: the ornamental border's leaves are drawn art.
       ..color = const Color(0xFF1B5E20)
       ..style = PaintingStyle.fill;
 

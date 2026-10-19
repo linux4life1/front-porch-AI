@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Overlay controls for the avatar gallery: ‹ › chevrons pinned bottom-left and
 /// a small "n / N" counter centered along the bottom, drawn on top of the
@@ -56,10 +56,10 @@ class LookChevronBar extends StatelessWidget {
     // treatment as the emotion-badge overlay next to it.
     final scrim = AppColors.resolve(
       context,
-      Colors.black.withValues(alpha: 0.55),
-      Colors.black.withValues(alpha: 0.4),
+      InkColors.dim(0.55),
+      InkColors.dim(0.4),
     );
-    final fg = AppColors.resolve(context, Colors.white, Colors.white);
+    const fg = InkColors.onImage;
 
     return Stack(
       children: [

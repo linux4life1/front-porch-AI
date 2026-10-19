@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Shared layout constants for the warm-porch chat sidebar so every card,
 /// panel, and inset well agrees on geometry (the old sidebar had per-section
@@ -106,19 +106,8 @@ class SidebarSubHeader extends StatelessWidget {
 /// Per-character color palette for group chats (avatars, roster rings,
 /// member accents). Moved from chat_page's private static so sidebar widgets
 /// can share it.
-Color groupCharacterColor(int index) {
-  const colors = [
-    Color(0xFF8B5CF6), // Purple
-    Color(0xFF10B981), // Emerald
-    Color(0xFFF59E0B), // Amber
-    Color(0xFFEF4444), // Red
-    Color(0xFF3B82F6), // Blue
-    Color(0xFFEC4899), // Pink
-    Color(0xFF14B8A6), // Teal
-    Color(0xFFF97316), // Orange
-  ];
-  return colors[index % colors.length];
-}
+Color groupCharacterColor(int index) =>
+    ChatColors.groupMembers[index % ChatColors.groupMembers.length];
 
 /// Character State stays up for group soft guests so the GUEST status
 /// badge stays visible. Promote lives on the cast avatar strip, not

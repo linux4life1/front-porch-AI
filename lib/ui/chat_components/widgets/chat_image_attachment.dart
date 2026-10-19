@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:image/image.dart' as img;
 
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -281,7 +281,9 @@ class _PendingImageChipState extends State<PendingImageChip> {
         Icon(
           installed ? Icons.description_outlined : Icons.visibility_off,
           size: 13,
-          color: installed ? Colors.tealAccent : Colors.orangeAccent,
+          color: installed
+              ? StatusColors.infoOf(context)
+              : StatusColors.warningOf(context),
         ),
         const SizedBox(width: 4),
         Flexible(
@@ -292,7 +294,9 @@ class _PendingImageChipState extends State<PendingImageChip> {
                 : "Your model can't see images — the character will reply "
                       'without seeing this photo.',
             style: TextStyle(
-              color: installed ? Colors.tealAccent : Colors.orangeAccent,
+              color: installed
+                  ? StatusColors.infoOf(context)
+                  : StatusColors.warningOf(context),
               fontSize: 11,
             ),
           ),
@@ -310,11 +314,7 @@ class _PendingImageChipState extends State<PendingImageChip> {
       margin: const EdgeInsets.only(top: 8),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          const Color(0xFF3A2E14),
-          const Color(0xFFFDF3D7),
-        ),
+        color: ChatColors.noticePanelOf(context),
         borderRadius: BorderRadius.circular(8),
       ),
       child: Column(
@@ -379,9 +379,9 @@ class _PendingImageChipState extends State<PendingImageChip> {
               const SizedBox(height: 4),
               Text(
                 'Download failed: ${service.lastError}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11,
-                  color: Colors.orangeAccent,
+                  color: StatusColors.warningOf(context),
                 ),
               ),
             ],

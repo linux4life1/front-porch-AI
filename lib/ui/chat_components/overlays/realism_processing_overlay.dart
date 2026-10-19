@@ -3,7 +3,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/eval_pill.dart';
 
@@ -130,7 +130,7 @@ class RealismProcessingOverlayState extends State<RealismProcessingOverlay>
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               // A dark dim in both themes so the panel keeps the focus.
-              color: Colors.black.withValues(alpha: 0.55),
+              color: InkColors.dim(0.55),
               // Top-anchored, not centred: the card grows when the live
               // stream arrives, and a centred card would move its
               // Minimize button out from under the pointer.
@@ -408,11 +408,15 @@ class RealismProcessingOverlayState extends State<RealismProcessingOverlay>
                                           : () => widget.chatService
                                                 .cancelRealismEval(),
                                       style: ElevatedButton.styleFrom(
-                                        backgroundColor: Colors.redAccent,
+                                        backgroundColor: StatusColors.dangerOf(
+                                          context,
+                                        ),
                                       ),
                                       child: const Text(
                                         'Stop this reply',
-                                        style: TextStyle(color: Colors.white),
+                                        style: TextStyle(
+                                          color: StatusColors.onFill,
+                                        ),
                                       ),
                                     ),
                                   ),

@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/chat_components/sidebar/sidebar_tokens.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Drag handle + optional right pane. Extracted from ChatPage so Waifu Coder
 /// can sit the coworker portrait on the same chrome. Width 0 is closed;
@@ -62,11 +62,7 @@ class ChatResizeSidebar extends StatelessWidget {
                   width: 3,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.white24,
-                      Colors.black12,
-                    ),
+                    color: InkColors.gripOf(context),
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),

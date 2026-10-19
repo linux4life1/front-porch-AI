@@ -22,7 +22,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Renders an external image with consent gating. (public rename, extracted)
 class ExternalImageWidget extends StatefulWidget {
@@ -151,18 +151,22 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
                 errorBuilder: (context, error, stack) => Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: Colors.redAccent.withValues(alpha: 0.1),
+                    color: StatusColors.dangerOf(
+                      context,
+                    ).withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(
-                      color: Colors.redAccent.withValues(alpha: 0.3),
+                      color: StatusColors.dangerOf(
+                        context,
+                      ).withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.broken_image,
-                        color: Colors.redAccent,
+                        color: StatusColors.dangerOf(context),
                         size: 18,
                       ),
                       const SizedBox(width: 8),
@@ -170,7 +174,9 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
                         child: Text(
                           'Failed to load image',
                           style: TextStyle(
-                            color: Colors.redAccent.withValues(alpha: 0.8),
+                            color: StatusColors.dangerOf(
+                              context,
+                            ).withValues(alpha: 0.8),
                             fontSize: 12,
                           ),
                         ),
@@ -187,20 +193,28 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
         return Container(
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.redAccent.withValues(alpha: 0.1),
+            color: StatusColors.dangerOf(context).withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.3)),
+            border: Border.all(
+              color: StatusColors.dangerOf(context).withValues(alpha: 0.3),
+            ),
           ),
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.broken_image, color: Colors.redAccent, size: 18),
+              Icon(
+                Icons.broken_image,
+                color: StatusColors.dangerOf(context),
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
                   'Failed to load image',
                   style: TextStyle(
-                    color: Colors.redAccent.withValues(alpha: 0.8),
+                    color: StatusColors.dangerOf(
+                      context,
+                    ).withValues(alpha: 0.8),
                     fontSize: 12,
                   ),
                 ),
@@ -227,7 +241,10 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
               SizedBox(height: 8),
               Text(
                 'Loading image...',
-                style: TextStyle(color: Colors.white38, fontSize: 11),
+                style: TextStyle(
+                  color: AppColors.textTertiary(context),
+                  fontSize: 11,
+                ),
               ),
             ],
           ),
@@ -245,13 +262,13 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
             Icon(
               Icons.image_not_supported,
               size: 14,
-              color: Colors.white.withValues(alpha: 0.2),
+              color: AppColors.hairlineOf(context, 0.2),
             ),
             const SizedBox(width: 6),
             Text(
               'Image blocked',
               style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.2),
+                color: AppColors.hairlineOf(context, 0.2),
                 fontSize: 11,
               ),
             ),
@@ -266,9 +283,11 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
-          color: Colors.orangeAccent.withValues(alpha: 0.08),
+          color: StatusColors.warningOf(context).withValues(alpha: 0.08),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.3)),
+          border: Border.all(
+            color: StatusColors.warningOf(context).withValues(alpha: 0.3),
+          ),
         ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
@@ -278,14 +297,14 @@ class _ExternalImageWidgetState extends State<ExternalImageWidget> {
               height: 14,
               child: CircularProgressIndicator(
                 strokeWidth: 1.5,
-                color: Colors.orangeAccent.withValues(alpha: 0.7),
+                color: StatusColors.warningOf(context).withValues(alpha: 0.7),
               ),
             ),
             const SizedBox(width: 8),
             Text(
               'External image detected...',
               style: TextStyle(
-                color: Colors.orangeAccent.withValues(alpha: 0.8),
+                color: StatusColors.warningOf(context).withValues(alpha: 0.8),
                 fontSize: 12,
               ),
             ),

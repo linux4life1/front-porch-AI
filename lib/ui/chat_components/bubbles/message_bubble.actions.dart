@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/composer_draft_scope.dart';
 import '../widgets/regen_critique_field.dart';
@@ -82,8 +82,8 @@ class GreetingSwipeRow extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 '${chatService.greetingIndex + 1}/${allGreetings.length}',
-                style: const TextStyle(
-                  color: Colors.orangeAccent,
+                style: TextStyle(
+                  color: ChatColors.regenOf(context),
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
                 ),
@@ -190,11 +190,7 @@ class MessageActionRow extends StatelessWidget {
                       child: Icon(
                         Icons.refresh,
                         size: 20,
-                        color: AppColors.resolve(
-                          context,
-                          Colors.orangeAccent,
-                          Colors.orange.shade800,
-                        ),
+                        color: ChatColors.regenOf(context),
                       ),
                     ),
                   ),
@@ -214,12 +210,12 @@ class MessageActionRow extends StatelessWidget {
                       chatService.regenerateLastMessage,
                     ),
                     borderRadius: BorderRadius.circular(12),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(4),
                       child: Icon(
                         Icons.refresh,
                         size: 20,
-                        color: Colors.orangeAccent,
+                        color: ChatColors.regenOf(context),
                       ),
                     ),
                   ),
@@ -232,12 +228,12 @@ class MessageActionRow extends StatelessWidget {
                   child: InkWell(
                     onTap: () => chatService.continueGeneration(),
                     borderRadius: BorderRadius.circular(12),
-                    child: const Padding(
+                    child: Padding(
                       padding: EdgeInsets.all(4),
                       child: Icon(
                         Icons.arrow_downward,
                         size: 20,
-                        color: Colors.blue,
+                        color: ChatColors.continueOf(context),
                       ),
                     ),
                   ),
@@ -262,7 +258,7 @@ class MessageActionRow extends StatelessWidget {
                 Text(
                   '${message.swipeIndex + 1}/${message.swipes.length}',
                   style: TextStyle(
-                    color: Colors.greenAccent,
+                    color: ChatColors.swipeOf(context),
                     fontSize: 12,
                     fontWeight: FontWeight.bold,
                   ),
@@ -407,9 +403,9 @@ class SuggestActionsColumn extends StatelessWidget {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: Colors.white.withValues(alpha: 0.06),
+                          color: AppColors.hairlineOf(context, 0.06),
                           borderRadius: BorderRadius.circular(16),
-                          border: Border.all(color: Colors.white12),
+                          border: Border.all(color: InkColors.lineOf(context)),
                         ),
                         child: Text(
                           action,

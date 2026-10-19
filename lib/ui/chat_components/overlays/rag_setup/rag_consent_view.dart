@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'info_row.dart';
 
@@ -42,8 +42,8 @@ class RagConsentView extends StatelessWidget {
               width: 40,
               height: 40,
               decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  colors: [Colors.purpleAccent, Colors.deepPurple],
+                gradient: LinearGradient(
+                  colors: [ChatColors.memoryOf(context), ChatColors.memoryDeep],
                 ),
                 borderRadius: BorderRadius.circular(10),
               ),
@@ -98,14 +98,14 @@ class RagConsentView extends StatelessWidget {
               SizedBox(height: 8),
               InfoRow(
                 icon: Icons.memory,
-                color: Colors.tealAccent,
+                color: StatusColors.infoOf(context),
                 text:
                     'Runs inside the app on your CPU — no data leaves your machine',
               ),
               SizedBox(height: 8),
               InfoRow(
                 icon: Icons.search,
-                color: Colors.purpleAccent,
+                color: ChatColors.memoryOf(context),
                 text:
                     'Searches past messages for relevant context to include in prompts',
               ),
@@ -131,8 +131,8 @@ class RagConsentView extends StatelessWidget {
               icon: Icon(Icons.rocket_launch, size: 16),
               label: Text('Set Up & Enable'),
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.purpleAccent,
-                foregroundColor: AppColors.textPrimary(context),
+                backgroundColor: ChatColors.memoryOf(context),
+                foregroundColor: StatusColors.onFill,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),

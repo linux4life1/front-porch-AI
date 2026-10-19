@@ -24,7 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'message_bubble.actions.dart';
 import 'message_bubble.content.dart';
@@ -220,16 +220,10 @@ class _MessageBubbleState extends State<MessageBubble> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDirectorNote
-                        ? AppColors.resolve(
-                            context,
-                            AppColors.resolve(
-                              context,
-                              const Color(0xFFFFD166),
-                              const Color(0xFFF59E0B),
-                            ).withValues(alpha: 0.1 * bubbleOpacity),
-                            const Color(
-                              0xFFD97706,
-                            ).withValues(alpha: 0.12 * bubbleOpacity),
+                        ? ChatColors.directorOf(context).withValues(
+                            alpha:
+                                (AppColors.isLight(context) ? 0.12 : 0.1) *
+                                bubbleOpacity,
                           )
                         : message.isUser
                         ? (storage?.uiSettings
@@ -253,14 +247,8 @@ class _MessageBubbleState extends State<MessageBubble> {
                     borderRadius: theme.borderRadius,
                     border: isDirectorNote
                         ? Border.all(
-                            color: AppColors.resolve(
-                              context,
-                              AppColors.resolve(
-                                context,
-                                const Color(0xFFFFD166),
-                                const Color(0xFFF59E0B),
-                              ).withValues(alpha: 0.3),
-                              const Color(0xFFD97706).withValues(alpha: 0.35),
+                            color: ChatColors.directorOf(context).withValues(
+                              alpha: AppColors.isLight(context) ? 0.35 : 0.3,
                             ),
                           )
                         : null,

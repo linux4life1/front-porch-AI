@@ -214,7 +214,10 @@ down.
   `AppColors.formAccentOf(context)` or `AppColors.porchAmberOf(context)`;
   `AppColors.onAccentOf(context)` on a solid accent fill. A bare palette
   constant (`formMasterAccent`, `onChaosAccent`, …) in UI code stays Porch
-  under every theme. CI `theme-lint` fails new
+  under every theme. Status hues (danger, warning, success, info) come from
+  `StatusColors`, dims and faint lines from `InkColors`, the chips under a
+  reply from `RealismColors`, chat-only hues from `ChatColors`, all in
+  `lib/ui/theme/`. CI `theme-lint` fails new
   `Colors.blueAccent` under `lib/` unless `// theme-keep: <reason>` and the
   colour is a genuine semantic status hue the maintainer approved **in this
   conversation**. Two ratchets in `test/hygiene/` (`raw_colors_ratchet_test`,

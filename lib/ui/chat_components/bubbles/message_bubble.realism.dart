@@ -21,7 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'message_bubble.realism_chips.dart';
 import 'message_bubble.realism_layout.dart';
@@ -150,12 +150,8 @@ class MessageRealismIndicator extends StatelessWidget {
       return Tooltip(
         message: tip,
         preferBelow: false,
-        textStyle: const TextStyle(fontSize: 12, color: Colors.white),
-        decoration: BoxDecoration(
-          color: const Color(0xFF1F2937),
-          borderRadius: BorderRadius.circular(6),
-          border: Border.all(color: Colors.white12),
-        ),
+        textStyle: RealismColors.tooltipText(context),
+        decoration: RealismColors.tooltipDecoration(context),
         child: child,
       );
     }
@@ -181,51 +177,35 @@ class MessageRealismIndicator extends StatelessWidget {
         switch (need) {
           case 'hunger':
             icon = Icons.restaurant;
-            color = AppColors.resolve(
-              context,
-              Colors.orangeAccent,
-              const Color(0xFFEA580C),
-            );
+            color = RealismColors.hungerOf(context);
             break;
           case 'bladder':
             icon = Icons.water_drop;
-            color = Colors.lightBlueAccent;
+            color = RealismColors.bladderOf(context);
             break;
           case 'energy':
             icon = Icons.bolt;
-            color = AppColors.resolve(
-              context,
-              const Color(0xFFD97706),
-              const Color(0xFFB45309),
-            );
+            color = RealismColors.energyOf(context);
             break;
           case 'social':
             icon = Icons.people;
-            color = Colors.pinkAccent;
+            color = RealismColors.socialOf(context);
             break;
           case 'fun':
             icon = Icons.celebration;
-            color = AppColors.resolve(
-              context,
-              AppColors.resolve(
-                context,
-                Colors.deepPurpleAccent,
-                const Color(0xFF7C3AED),
-              ),
-              const Color(0xFF7C3AED),
-            );
+            color = RealismColors.funOf(context);
             break;
           case 'hygiene':
             icon = Icons.shower;
-            color = Colors.cyanAccent;
+            color = RealismColors.hygieneOf(context);
             break;
           case 'comfort':
             icon = Icons.chair;
-            color = Colors.greenAccent;
+            color = RealismColors.comfortOf(context);
             break;
           default:
             icon = Icons.circle;
-            color = Colors.grey;
+            color = RealismColors.otherNeedOf(context);
         }
 
         final chip = realismDeltaChip(
@@ -289,8 +269,8 @@ class MessageRealismIndicator extends StatelessWidget {
       final bondColor = bondUnchanged
           ? AppColors.textSecondary(context)
           : bondDelta > 0
-          ? Colors.pinkAccent
-          : Colors.redAccent;
+          ? RealismColors.bondUpOf(context)
+          : RealismColors.bondDownOf(context);
       final chip = realismDeltaChip(
         context,
         icon: bondUnchanged
@@ -323,7 +303,7 @@ class MessageRealismIndicator extends StatelessWidget {
             context,
             icon: Icons.psychology,
             label: 'Mood: $emotionLabel',
-            color: Colors.purpleAccent,
+            color: AppColors.emotionAccentOf(context),
             hasReason: moodTip.isNotEmpty,
           ),
           moodTip,
@@ -342,8 +322,8 @@ class MessageRealismIndicator extends StatelessWidget {
             label:
                 'Lust: ${arousalDelta > 0 ? '+$arousalDelta' : '$arousalDelta'}',
             color: arousalDelta > 0
-                ? Colors.deepOrangeAccent
-                : Colors.lightBlueAccent,
+                ? RealismColors.lustUpOf(context)
+                : RealismColors.lustDownOf(context),
             hasReason: arousalReason.isNotEmpty,
           ),
           arousalReason,
@@ -355,12 +335,8 @@ class MessageRealismIndicator extends StatelessWidget {
       final trustColor = trustUnchanged
           ? AppColors.textSecondary(context)
           : trustDelta > 0
-          ? Colors.blueAccent
-          : AppColors.resolve(
-              context,
-              Colors.deepPurpleAccent,
-              const Color(0xFF7C3AED),
-            );
+          ? RealismColors.trustUpOf(context)
+          : RealismColors.trustDownOf(context);
       final chip = realismDeltaChip(
         context,
         icon: trustUnchanged

@@ -26,7 +26,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'theme_border_resolver.dart';
@@ -86,15 +86,7 @@ class MessageBubbleHeader extends StatelessWidget {
           Icon(
             Icons.movie_creation,
             size: 14,
-            color: AppColors.resolve(
-              context,
-              AppColors.resolve(
-                context,
-                const Color(0xFFFFD166),
-                const Color(0xFFF59E0B),
-              ),
-              const Color(0xFFD97706),
-            ),
+            color: ChatColors.directorOf(context),
           ),
           const SizedBox(width: 6),
           Text(
@@ -102,15 +94,7 @@ class MessageBubbleHeader extends StatelessWidget {
             style: TextStyle(
               fontWeight: FontWeight.bold,
               fontSize: 12,
-              color: AppColors.resolve(
-                context,
-                AppColors.resolve(
-                  context,
-                  const Color(0xFFFFD166),
-                  const Color(0xFFF59E0B),
-                ),
-                const Color(0xFFD97706),
-              ),
+              color: ChatColors.directorOf(context),
               fontStyle: FontStyle.italic,
             ),
           ),
@@ -211,12 +195,12 @@ class MessageBubbleHeader extends StatelessWidget {
                           InkWell(
                             onTap: () => tts.stop(),
                             borderRadius: BorderRadius.circular(10),
-                            child: const Padding(
+                            child: Padding(
                               padding: EdgeInsets.all(2),
                               child: Icon(
                                 Icons.stop_circle,
                                 size: 16,
-                                color: Colors.redAccent,
+                                color: StatusColors.dangerOf(context),
                               ),
                             ),
                           ),
@@ -256,7 +240,7 @@ class MessageBubbleHeader extends StatelessWidget {
                           isSpeakingThis ? Icons.stop_circle : Icons.volume_up,
                           size: 16,
                           color: isSpeakingThis
-                              ? Colors.orangeAccent
+                              ? StatusColors.warningOf(context)
                               : AppColors.textTertiary(context),
                         ),
                         padding: EdgeInsets.zero,
@@ -432,9 +416,9 @@ class MessageBubbleAvatar extends StatelessWidget {
                 );
               }
               return const CircleAvatar(
-                backgroundColor: Colors.purple,
+                backgroundColor: ChatColors.avatarFallback,
                 radius: 16,
-                child: Icon(Icons.person, color: Colors.white),
+                child: Icon(Icons.person, color: InkColors.onImage),
               );
             },
           )

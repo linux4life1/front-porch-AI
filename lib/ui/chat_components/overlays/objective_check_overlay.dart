@@ -20,7 +20,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/eval_pill.dart';
 
@@ -99,7 +99,7 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
             filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
             child: Container(
               // A dark dim in both themes so the panel keeps the focus.
-              color: Colors.black.withValues(alpha: 0.55),
+              color: InkColors.dim(0.55),
               // Same top anchor as the Realism panel, so Minimize stays put
               // when the turn moves from the goal check to Realism.
               child: Align(

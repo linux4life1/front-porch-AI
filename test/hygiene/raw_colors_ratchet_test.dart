@@ -151,9 +151,9 @@ String _advice(RatchetHit hit) {
         'text and icons, AppColors.hairlineOf(context, alpha) for a faint '
         'line or fill';
   }
-  return 'the AppColors token for what it means: AppColors.porchAmberOf'
-      '(context) or formMasterAccent for an accent, negativeAccentOf(context) '
-      'for an error';
+  return 'the token for what it means: AppColors.porchAmberOf(context) or '
+      'formAccentOf(context) for an accent, StatusColors.dangerOf(context) '
+      'for an error, InkColors for a dim or a faint line';
 }
 
 void main() {

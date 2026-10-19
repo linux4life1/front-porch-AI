@@ -11,5 +11,9 @@
 export 'app_colors.dart';
 export 'app_palette.dart';
 export 'app_theme.dart';
+export 'chat_colors.dart';
+export 'ink_colors.dart';
 export 'reading_size.dart';
+export 'realism_colors.dart';
+export 'status_colors.dart';
 export 'tier_colors.dart';

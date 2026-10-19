@@ -21,7 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_find_controller.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/inline_chat_image.dart';
 import 'live_thought_body.dart';
@@ -59,11 +59,7 @@ List<Widget> messageBubbleContentChildren(
         margin: const EdgeInsets.only(bottom: 8, left: 20),
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: AppColors.resolve(
-            context,
-            const Color(0xFF1A2A3A),
-            const Color(0xFFE0F2FE),
-          ),
+          color: ChatColors.thoughtPanelOf(context),
           borderRadius: BorderRadius.circular(8),
           border: Border.all(color: AppColors.borderOf(context)),
         ),
@@ -77,7 +73,7 @@ List<Widget> messageBubbleContentChildren(
                   'Thought for ${(message.thinkingDurationMs / 1000).toStringAsFixed(1)}s',
                   style: TextStyle(
                     fontSize: 11,
-                    color: Colors.tealAccent,
+                    color: ChatColors.thoughtInkOf(context),
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -146,18 +142,14 @@ List<Widget> messageBubbleContentChildren(
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: AppColors.resolve(
-                      context,
-                      const Color(0xFF2A4A5A),
-                      const Color(0xFFE0F2FE),
-                    ),
+                    color: ChatColors.thoughtChipOf(context),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
                     'Thought',
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.tealAccent,
+                      color: ChatColors.thoughtInkOf(context),
                       fontWeight: FontWeight.w500,
                     ),
                   ),
