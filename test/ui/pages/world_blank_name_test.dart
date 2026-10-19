@@ -135,8 +135,9 @@ void main() {
 
     await tester.enterText(_nameField(), 'The Cinder Wastes');
     final create = find.widgetWithText(ElevatedButton, 'Create World');
+    // Back to back, no frame between: the second tap runs the closure the
+    // first tap's build handed out, before `saving` disables the button.
     await tester.tap(create);
-    await _bounded(tester);
     await tester.tap(create, warnIfMissed: false);
     await _bounded(tester);
     expect(worlds.saved, hasLength(1));

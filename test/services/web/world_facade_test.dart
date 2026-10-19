@@ -86,6 +86,25 @@ void main() {
       expect(facade.list().any((m) => m['name'] == 'Aetheria Prime'), isFalse);
     });
 
+    test('create with a taken name adds "(2)"; the original is kept', () async {
+      expect(
+        await facade.save({'name': 'Maple Run', 'description': 'Original'}),
+        isTrue,
+      );
+      expect(
+        await facade.save({
+          'name': 'Maple Run',
+          'description': 'Newcomer',
+          'create': true,
+        }),
+        isTrue,
+      );
+      final names = facade.list().map((m) => m['name']).toList();
+      expect(names, containsAll(['Maple Run', 'Maple Run (2)']));
+      expect(facade.detail('Maple Run')!['description'], 'Original');
+      expect(facade.detail('Maple Run (2)')!['description'], 'Newcomer');
+    });
+
     test('blank name rejected; unknown delete returns false', () async {
       expect(await facade.save({'name': '  '}), isFalse);
       expect(await facade.delete('nope'), isFalse);
