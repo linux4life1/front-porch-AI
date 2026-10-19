@@ -89,4 +89,14 @@ describe('a new place with no name', () => {
       expect.objectContaining({ name: 'Harbor Town' }),
     );
   });
+
+  it('saves as a new place, so a taken name cannot overwrite another place', async () => {
+    typeName('Maple Run');
+    post.mockResolvedValue({ worlds: [] });
+    await act(async () => button('Save place').click());
+    expect(post).toHaveBeenCalledWith(
+      '/api/worlds',
+      expect.objectContaining({ name: 'Maple Run', create: true }),
+    );
+  });
 });

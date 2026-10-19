@@ -90,16 +90,45 @@ void main() {
     });
 
     test('collision with an existing world name throws', () async {
-      final a = model.World(name: 'A', lorebook: Lorebook(entries: []));
-      final b = model.World(name: 'B', lorebook: Lorebook(entries: []));
+      final a = model.World(
+        name: 'A',
+        lorebook: Lorebook(entries: []),
+      );
+      final b = model.World(
+        name: 'B',
+        lorebook: Lorebook(entries: []),
+      );
       await repo.saveWorld(a);
       await repo.saveWorld(b);
 
       expect(() => repo.renameWorld(a, 'B'), throwsStateError);
     });
 
+    test(
+      'saveWorld: overlapping creates of one name each get their own name',
+      () async {
+        // A double-clicked Create World: both saves are in flight at once.
+        model.World make() => model.World(
+          name: 'The Cinder Wastes',
+          lorebook: Lorebook(entries: []),
+        );
+        await repo.saveWorld(make());
+        await Future.wait([repo.saveWorld(make()), repo.saveWorld(make())]);
+
+        final names = (await db.getAllWorlds()).map((w) => w.name).toSet();
+        expect(names, {
+          'The Cinder Wastes',
+          'The Cinder Wastes (2)',
+          'The Cinder Wastes (3)',
+        });
+      },
+    );
+
     test('empty and unchanged names are no-ops', () async {
-      final world = model.World(name: 'Keep', lorebook: Lorebook(entries: []));
+      final world = model.World(
+        name: 'Keep',
+        lorebook: Lorebook(entries: []),
+      );
       await repo.saveWorld(world);
       await repo.renameWorld(world, '  ');
       await repo.renameWorld(world, 'Keep');
@@ -165,12 +194,14 @@ void main() {
         isEmpty,
       );
       expect(prefs.getBool('purged_character_linked_worlds_v1'), isTrue);
-      final recovered = Directory(blocker.path)
-          .listSync()
-          .whereType<File>()
-          .where((f) => f.path.endsWith('.fpworld'));
-      expect(recovered, hasLength(1),
-          reason: 'the deleted clone must exist as a recovery .fpworld');
+      final recovered = Directory(
+        blocker.path,
+      ).listSync().whereType<File>().where((f) => f.path.endsWith('.fpworld'));
+      expect(
+        recovered,
+        hasLength(1),
+        reason: 'the deleted clone must exist as a recovery .fpworld',
+      );
     });
   });
 
@@ -192,74 +223,92 @@ void main() {
       await db.close();
     });
 
-    test('keeps custom climate, place traits, and lore; mints fresh id', () async {
-      final world = model.World(
-        name: 'The Cindermaw',
-        description: 'Black glass and live lava.',
-        lorebook: Lorebook(
-          entries: [
-            LorebookEntry(keys: ['White Peak'], content: 'The frozen mountain.'),
-          ],
-        ),
-      )..atmosphere = model.WorldAtmosphere.hostile;
-      final packageId = world.id;
-      final biome = Biome(
-        id: 'custom',
-        displayName: 'Cindermaw climate',
-        description: 'Furnace seasons.',
-        weights: {
-          for (final s in kSeasons) s: [50, 20, 12, 8, 4, 6, 0],
-        },
-        baseTemp: {'winter': 4, 'spring': 6, 'summer': 7, 'autumn': 6},
-        bandRange: (3, 6),
-        displayAnchorsC: {
-          'winter': 62,
-          'spring': 240,
-          'summer': 540,
-          'autumn': 205,
-        },
-        diurnalAmplitude: 2.6,
-        conditionSkin: {
-          'storm': ConditionSkin(
-            label: 'Pyroclastic Surge',
-            emoji: '🌋',
-            stance: WeatherStance.deadly,
+    test(
+      'keeps custom climate, place traits, and lore; mints fresh id',
+      () async {
+        final world = model.World(
+          name: 'The Cindermaw',
+          description: 'Black glass and live lava.',
+          lorebook: Lorebook(
+            entries: [
+              LorebookEntry(
+                keys: ['White Peak'],
+                content: 'The frozen mountain.',
+              ),
+            ],
           ),
-        },
-      );
-      expect(biome.validate(), isEmpty,
-          reason: 'the test climate itself must be engine-valid');
+        )..atmosphere = model.WorldAtmosphere.hostile;
+        final packageId = world.id;
+        final biome = Biome(
+          id: 'custom',
+          displayName: 'Cindermaw climate',
+          description: 'Furnace seasons.',
+          weights: {
+            for (final s in kSeasons) s: [50, 20, 12, 8, 4, 6, 0],
+          },
+          baseTemp: {'winter': 4, 'spring': 6, 'summer': 7, 'autumn': 6},
+          bandRange: (3, 6),
+          displayAnchorsC: {
+            'winter': 62,
+            'spring': 240,
+            'summer': 540,
+            'autumn': 205,
+          },
+          diurnalAmplitude: 2.6,
+          conditionSkin: {
+            'storm': ConditionSkin(
+              label: 'Pyroclastic Surge',
+              emoji: '🌋',
+              stance: WeatherStance.deadly,
+            ),
+          },
+        );
+        expect(
+          biome.validate(),
+          isEmpty,
+          reason: 'the test climate itself must be engine-valid',
+        );
 
-      final tmpDir = Directory.systemTemp.createTempSync('fpai_import_test_');
-      addTearDown(() => tmpDir.deleteSync(recursive: true));
-      final file = File(p.join(tmpDir.path, 'cindermaw.fpworld'));
-      await file.writeAsString(
-        encodeFpWorldString(world: world, biome: biome.toJson()),
-      );
+        final tmpDir = Directory.systemTemp.createTempSync('fpai_import_test_');
+        addTearDown(() => tmpDir.deleteSync(recursive: true));
+        final file = File(p.join(tmpDir.path, 'cindermaw.fpworld'));
+        await file.writeAsString(
+          encodeFpWorldString(world: world, biome: biome.toJson()),
+        );
 
-      final imported = await repo.importWorld(file);
+        final imported = await repo.importWorld(file);
 
-      expect(imported.id, isNot(packageId),
-          reason: 'import must mint a fresh local id');
-      expect(imported.sourceId, packageId,
-          reason: 'package id must be preserved as provenance');
-      expect(imported.name, 'The Cindermaw');
-      expect(imported.atmosphere, model.WorldAtmosphere.hostile);
-      expect(imported.lorebook.entries, hasLength(1));
+        expect(
+          imported.id,
+          isNot(packageId),
+          reason: 'import must mint a fresh local id',
+        );
+        expect(
+          imported.sourceId,
+          packageId,
+          reason: 'package id must be preserved as provenance',
+        );
+        expect(imported.name, 'The Cindermaw');
+        expect(imported.atmosphere, model.WorldAtmosphere.hostile);
+        expect(imported.lorebook.entries, hasLength(1));
 
-      final climate = Biome.tryParse(imported.biomeJson);
-      expect(climate, isNotNull,
-          reason: 'custom climate must survive as biomeJson');
-      expect(climate!.bandRange, (3, 6));
-      expect(climate.displayAnchorsC['summer'], 540);
-      expect(climate.conditionSkin['storm']?.label, 'Pyroclastic Surge');
-      expect(climate.conditionSkin['storm']?.stance, WeatherStance.deadly);
+        final climate = Biome.tryParse(imported.biomeJson);
+        expect(
+          climate,
+          isNotNull,
+          reason: 'custom climate must survive as biomeJson',
+        );
+        expect(climate!.bandRange, (3, 6));
+        expect(climate.displayAnchorsC['summer'], 540);
+        expect(climate.conditionSkin['storm']?.label, 'Pyroclastic Surge');
+        expect(climate.conditionSkin['storm']?.stance, WeatherStance.deadly);
 
-      // Importing the same file again keeps both (name uniquified).
-      final again = await repo.importWorld(file);
-      expect(again.id, isNot(imported.id));
-      expect(again.name, isNot(imported.name));
-    });
+        // Importing the same file again keeps both (name uniquified).
+        final again = await repo.importWorld(file);
+        expect(again.id, isNot(imported.id));
+        expect(again.name, isNot(imported.name));
+      },
+    );
   });
 
   group('WorldRepository.applyAddedCharacterWorldsToChats', () {
@@ -280,38 +329,53 @@ void main() {
       await db.close();
     });
 
-    Future<void> makeSession(String id, String characterId) =>
-        db.into(db.sessions).insert(
-              SessionsCompanion.insert(
-                id: id,
-                characterId: Value(characterId),
-              ),
-            );
+    Future<void> makeSession(String id, String characterId) => db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(id: id, characterId: Value(characterId)),
+        );
 
-    test('back-fills chats with no worlds, leaves chats that have one alone',
-        () async {
-      final world = model.World(name: 'Cindermaw', lorebook: Lorebook(entries: []));
-      final other = model.World(name: 'Green Vale', lorebook: Lorebook(entries: []));
-      await repo.saveWorld(world);
-      await repo.saveWorld(other);
+    test(
+      'back-fills chats with no worlds, leaves chats that have one alone',
+      () async {
+        final world = model.World(
+          name: 'Cindermaw',
+          lorebook: Lorebook(entries: []),
+        );
+        final other = model.World(
+          name: 'Green Vale',
+          lorebook: Lorebook(entries: []),
+        );
+        await repo.saveWorld(world);
+        await repo.saveWorld(other);
 
-      await makeSession('chat-empty', 'char-1');   // opened before the world existed
-      await makeSession('chat-owned', 'char-1');   // the user sent this one elsewhere
-      await makeSession('chat-other', 'char-2');   // a different character entirely
-      await repo.setChatWorlds('chat-owned', [other.id]);
+        await makeSession(
+          'chat-empty',
+          'char-1',
+        ); // opened before the world existed
+        await makeSession(
+          'chat-owned',
+          'char-1',
+        ); // the user sent this one elsewhere
+        await makeSession(
+          'chat-other',
+          'char-2',
+        ); // a different character entirely
+        await repo.setChatWorlds('chat-owned', [other.id]);
 
-      final touched = await repo.applyAddedCharacterWorldsToChats(
-        characterId: 'char-1',
-        addedRefs: ['Cindermaw'], // characters store world NAMES
-      );
+        final touched = await repo.applyAddedCharacterWorldsToChats(
+          characterId: 'char-1',
+          addedRefs: ['Cindermaw'], // characters store world NAMES
+        );
 
-      expect(touched, ['chat-empty']);
-      expect(await repo.getChatWorldIds('chat-empty'), [world.id]);
-      // A chat with its own attachment is never overridden…
-      expect(await repo.getChatWorldIds('chat-owned'), [other.id]);
-      // …and another character's chats are untouched.
-      expect(await repo.getChatWorldIds('chat-other'), isEmpty);
-    });
+        expect(touched, ['chat-empty']);
+        expect(await repo.getChatWorldIds('chat-empty'), [world.id]);
+        // A chat with its own attachment is never overridden…
+        expect(await repo.getChatWorldIds('chat-owned'), [other.id]);
+        // …and another character's chats are untouched.
+        expect(await repo.getChatWorldIds('chat-other'), isEmpty);
+      },
+    );
 
     test('no added worlds means no writes at all', () async {
       await makeSession('chat-x', 'char-9');
@@ -342,47 +406,65 @@ void main() {
       await db.close();
     });
 
-    Future<void> makeSession(String id) => db.into(db.sessions).insert(
+    Future<void> makeSession(String id) => db
+        .into(db.sessions)
+        .insert(
           SessionsCompanion.insert(id: id, characterId: const Value('c1')),
         );
 
-    test('a chat that predates the world gets it; a deliberate detach does not',
-        () async {
-      final w = model.World(name: 'Cindermaw', lorebook: Lorebook(entries: []));
-      await repo.saveWorld(w);
+    test(
+      'a chat that predates the world gets it; a deliberate detach does not',
+      () async {
+        final w = model.World(
+          name: 'Cindermaw',
+          lorebook: Lorebook(entries: []),
+        );
+        await repo.saveWorld(w);
 
-      // Chat opened before the character had any world — never decided.
-      await makeSession('old-chat');
-      expect(
-        await repo.backfillChatWorldsFromCharacter(
-            chatId: 'old-chat', characterWorldRefs: ['Cindermaw']),
-        isTrue,
-      );
-      expect(await repo.getChatWorldIds('old-chat'), [w.id]);
+        // Chat opened before the character had any world — never decided.
+        await makeSession('old-chat');
+        expect(
+          await repo.backfillChatWorldsFromCharacter(
+            chatId: 'old-chat',
+            characterWorldRefs: ['Cindermaw'],
+          ),
+          isTrue,
+        );
+        expect(await repo.getChatWorldIds('old-chat'), [w.id]);
 
-      // Now the user deliberately empties it. That IS a decision.
-      await repo.setChatWorlds('old-chat', const []);
-      expect(
-        await repo.backfillChatWorldsFromCharacter(
-            chatId: 'old-chat', characterWorldRefs: ['Cindermaw']),
-        isFalse,
-        reason: 'a deliberate detach must never be undone by a back-fill',
-      );
-      expect(await repo.getChatWorldIds('old-chat'), isEmpty);
-    });
+        // Now the user deliberately empties it. That IS a decision.
+        await repo.setChatWorlds('old-chat', const []);
+        expect(
+          await repo.backfillChatWorldsFromCharacter(
+            chatId: 'old-chat',
+            characterWorldRefs: ['Cindermaw'],
+          ),
+          isFalse,
+          reason: 'a deliberate detach must never be undone by a back-fill',
+        );
+        expect(await repo.getChatWorldIds('old-chat'), isEmpty);
+      },
+    );
 
     test('runs once — a second call is a no-op', () async {
-      final w = model.World(name: 'Vale', lorebook: Lorebook(entries: []));
+      final w = model.World(
+        name: 'Vale',
+        lorebook: Lorebook(entries: []),
+      );
       await repo.saveWorld(w);
       await makeSession('chat-2');
       expect(
         await repo.backfillChatWorldsFromCharacter(
-            chatId: 'chat-2', characterWorldRefs: ['Vale']),
+          chatId: 'chat-2',
+          characterWorldRefs: ['Vale'],
+        ),
         isTrue,
       );
       expect(
         await repo.backfillChatWorldsFromCharacter(
-            chatId: 'chat-2', characterWorldRefs: ['Vale']),
+          chatId: 'chat-2',
+          characterWorldRefs: ['Vale'],
+        ),
         isFalse,
       );
     });

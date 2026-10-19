@@ -147,7 +147,12 @@ class WorldFacade {
     if (id != null && id.isNotEmpty) {
       existing = _worlds.worldById(id);
     }
-    existing ??= _worlds.worldByName(f['originalName']?.toString() ?? name);
+    // `create: true` is a new place: a taken name gets "Name (2)" from
+    // saveWorld, as on desktop, instead of overwriting the world that has
+    // it. Without the flag a bare name still upserts.
+    if (f['create'] != true) {
+      existing ??= _worlds.worldByName(f['originalName']?.toString() ?? name);
+    }
 
     final world =
         existing ??
