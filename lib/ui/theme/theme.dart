@@ -9,5 +9,7 @@
 // (at your option) any later version.
 
 export 'app_colors.dart';
+export 'app_palette.dart';
+export 'app_theme.dart';
 export 'reading_size.dart';
 export 'tier_colors.dart';

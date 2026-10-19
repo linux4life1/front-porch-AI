@@ -20,7 +20,6 @@ import 'dart:io';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:window_manager/window_manager.dart';
 
@@ -177,45 +176,17 @@ class _MyAppState extends State<MyApp> with WindowListener {
   Widget build(BuildContext context) {
     // StorageService is the single source of truth for isDark (persisted + notifies on load/toggle).
     // The Consumer ensures the entire MaterialApp tree (and thus ThemeData) rebuilds when the user
-    // toggles or when the async prefs load completes. AppState was in the tuple historically but
-    // never read here — subscribing meant every sidebar NAV TAP re-ran ColorScheme.fromSeed and
-    // re-derived the whole app theme. MainLayout watches AppState itself for navigation.
+    // toggles or when the async prefs load completes. AppTheme caches the ThemeData, so a
+    // notify that doesn't change the theme doesn't re-derive it. MainLayout watches AppState
+    // itself for navigation.
     return Consumer<StorageService>(
       builder: (context, storage, child) {
         final isDark = storage.uiSettings.isDark;
         return MaterialApp(
           title: appWindowTitle,
           debugShowCheckedModeBanner: false,
-          theme: ThemeData(
+          theme: AppTheme.build(
             brightness: isDark ? Brightness.dark : Brightness.light,
-            // Warm-porch app-wide accent: seed the Material 3 color scheme from
-            // porch amber (was primarySwatch: Colors.blue) so every default
-            // control — switches, sliders, buttons, progress bars, the text
-            // cursor, tab indicators — warms up to match the chat sidebar and
-            // the web UI (whose --accent is already porch amber). The scheme's
-            // surfaces are pinned to the app's studio-brown/warm-paper
-            // grounds so only the ACCENT roles change, not the backgrounds.
-            colorScheme:
-                ColorScheme.fromSeed(
-                  seedColor: AppColors.porchAmber,
-                  brightness: isDark ? Brightness.dark : Brightness.light,
-                ).copyWith(
-                  primary: isDark
-                      ? AppColors.porchAmber
-                      : AppColors.porchAmberLight,
-                  onPrimary: isDark ? AppColors.onChaosAccent : Colors.white,
-                  surface: isDark ? AppColors.surface : AppColors.lightSurface,
-                ),
-            scaffoldBackgroundColor: isDark
-                ? AppColors.background
-                : AppColors.lightBackground, // warmer paper
-            cardColor: isDark ? AppColors.card : AppColors.lightCard,
-            textTheme: GoogleFonts.interTextTheme(Theme.of(context).textTheme)
-                .apply(
-                  bodyColor: isDark ? Colors.white : Colors.black87,
-                  displayColor: isDark ? Colors.white : Colors.black87,
-                ),
-            useMaterial3: true,
           ),
           home: Builder(
             builder: (context) {
