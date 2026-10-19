@@ -58,6 +58,8 @@ export interface StudioDeskProps {
   civitaiPollMs?: number;
   onSharedBusy?: (busy: boolean) => void;
   onConfigMode?: (mode: Mode) => void;
+  /** Image Studio's Batch tab, beside Create, Edit and Expression pack. */
+  batch?: ReactNode;
 }
 
 type Sheet =
@@ -76,7 +78,9 @@ function paddedSlots(cfg: ImageConfig): LoraSlot[] {
 export function StudioDesk(props: StudioDeskProps) {
   const { cfg } = props;
   const [mode, setMode] = useState<Mode>('create');
-  const [tab, setTab] = useState<Mode | 'pack'>('create');
+  const [tab, setTab] = useState<Mode | 'pack' | 'batch'>('create');
+  const tabs: readonly ('create' | 'edit' | 'pack' | 'batch')[] = props.batch
+    ? ['create', 'edit', 'pack', 'batch'] : ['create', 'edit', 'pack'];
   const [packVisited, setPackVisited] = useState(false);
   const [packBusy, setPackBusy] = useState(false);
   const [subject, setSubject] = useState<Subject>('free');
@@ -202,18 +206,17 @@ export function StudioDesk(props: StudioDeskProps) {
   return (
     <section className={`studio-desk${props.configurationOnly ? ' fp-config-only' : ''}`}>
       {!props.configurationOnly && <div role="tablist" aria-label="Image Studio workspace" className="fp-workspace-tabs">
-        {(['create', 'edit', 'pack'] as const).map((value) => (
+        {tabs.map((value) => (
           <button key={value} id={`studio-tab-${value}`} type="button" role="tab"
             aria-selected={tab === value} aria-pressed={tab === value}
             aria-expanded={value === 'pack' ? tab === 'pack' : undefined}
-            aria-controls={value === 'pack' ? 'studio-pack-panel' : 'studio-image-panel'}
+            aria-controls={value === 'pack' ? 'studio-pack-panel' : value === 'batch' ? 'studio-batch-panel' : 'studio-image-panel'}
             tabIndex={tab === value ? 0 : -1}
             onKeyDown={(e) => {
-              const values = ['create', 'edit', 'pack'] as const;
-              const index = values.indexOf(value);
-              const next = e.key === 'ArrowRight' ? values[(index + 1) % 3]
-                : e.key === 'ArrowLeft' ? values[(index + 2) % 3]
-                : e.key === 'Home' ? 'create' : e.key === 'End' ? 'pack' : null;
+              const index = tabs.indexOf(value);
+              const next = e.key === 'ArrowRight' ? tabs[(index + 1) % tabs.length]
+                : e.key === 'ArrowLeft' ? tabs[(index + tabs.length - 1) % tabs.length]
+                : e.key === 'Home' ? 'create' : e.key === 'End' ? tabs[tabs.length - 1] : null;
               if (next) {
                 e.preventDefault();
                 document.getElementById(`studio-tab-${next}`)?.click();
@@ -223,13 +226,15 @@ export function StudioDesk(props: StudioDeskProps) {
             onClick={() => {
               setTab(value);
               if (value === 'pack') setPackVisited(true);
-              else setMode(value);
+              else if (value !== 'batch') setMode(value);
             }}>
-            {value === 'pack' ? 'Expression pack' : value === 'create' ? 'Create' : 'Edit'}
+            {value === 'pack' ? 'Expression pack' : value === 'batch' ? 'Batch' : value === 'create' ? 'Create' : 'Edit'}
           </button>
         ))}
       </div>}
-      <div className="fp-desk-body">
+      {tab === 'batch' ? <div id="studio-batch-panel" role="tabpanel" aria-labelledby="studio-tab-batch">{props.batch}</div> : null}
+      {/* Kept mounted under the Batch tab, so a draft survives the trip. */}
+      <div className="fp-desk-body" style={tab === 'batch' ? { display: 'none' } : undefined}>
         {!props.configurationOnly && <div className="fp-desk-rail" id="studio-image-panel" role="tabpanel"
           aria-labelledby={`studio-tab-${mode}`} hidden={tab === 'pack'}>
         <DeskRail

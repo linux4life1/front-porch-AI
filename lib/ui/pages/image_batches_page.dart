@@ -11,8 +11,12 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/pages/image_batches/image_batches.dart';
 
 class ImageBatchesPage extends StatefulWidget {
-  const ImageBatchesPage({super.key, this.queue});
+  const ImageBatchesPage({super.key, this.queue, this.embedded = false});
   final ImageBatchService? queue;
+
+  /// Image Studio's Batch tab: the studio header replaces the app bar, so
+  /// "Save kept" moves into the queue row.
+  final bool embedded;
   @override
   State<ImageBatchesPage> createState() => _ImageBatchesPageState();
 }
@@ -54,23 +58,22 @@ class _ImageBatchesPageState extends State<ImageBatchesPage> {
             final kept = queue.jobs
                 .where((j) => j.state == 'review' && j.kept)
                 .length;
+            final save = TextButton(
+              onPressed: busy || kept == 0
+                  ? null
+                  : () async {
+                      if (!await confirmImageBatchSave(context, queue)) {
+                        return;
+                      }
+                      await _action(() => queue.saveKept(repo));
+                    },
+              child: Text('Save $kept kept'),
+            );
             return Scaffold(
-              appBar: AppBar(
-                title: const Text('Image batches'),
-                actions: [
-                  TextButton(
-                    onPressed: busy || kept == 0
-                        ? null
-                        : () async {
-                            if (!await confirmImageBatchSave(context, queue)) {
-                              return;
-                            }
-                            await _action(() => queue.saveKept(repo));
-                          },
-                    child: Text('Save $kept kept'),
-                  ),
-                ],
-              ),
+              backgroundColor: widget.embedded ? Colors.transparent : null,
+              appBar: widget.embedded
+                  ? null
+                  : AppBar(title: const Text('Image batches'), actions: [save]),
               body: Column(
                 children: [
                   if (queue.loadFailed)
@@ -102,6 +105,7 @@ class _ImageBatchesPageState extends State<ImageBatchesPage> {
                           ),
                         ),
                         const Text('Runs while the app remains open.'),
+                        if (widget.embedded) save,
                       ],
                     ),
                   ),

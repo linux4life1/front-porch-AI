@@ -4,7 +4,7 @@
 // Image-generation desk + generate, with one-tap insert into the active chat.
 // Thin over /api/image.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { api, ApiError } from '../../api/client';
 import { StudioDesk, type GenerateRequest } from './StudioDesk';
 import { PackBanner } from './studio/PackBanner';
@@ -15,8 +15,11 @@ const PROGRESS_MS = 1000;
 export function ImageGen({
   onError,
   progressMs = PROGRESS_MS,
+  batch,
 }: {
   onError: (s: string) => void;
+  /** The Batch tab, when the desk is Image Studio's own page. */
+  batch?: ReactNode;
   /** How often progress is asked for while a picture is made; for tests. */
   progressMs?: number;
 }) {
@@ -133,6 +136,7 @@ export function ImageGen({
         onConfig={setCfg}
         save={save}
         totpEnabled={totpEnabled}
+        batch={batch}
         prompt={prompt}
         onPrompt={setPrompt}
         onGenerate={generate}

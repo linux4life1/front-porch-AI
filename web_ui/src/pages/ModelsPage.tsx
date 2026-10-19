@@ -3,7 +3,8 @@
 //
 // Models & backends page. Thin orchestrator over focused components:
 // local backend status, hardware + recommendations, installed models
-// (switch/delete), the HuggingFace browser + download queue, and image gen.
+// (switch/delete), and the HuggingFace browser + download queue. Image
+// generation lives on the Image Studio page, as on the desktop.
 // On an Intel Mac host the KoboldCpp cards give way to the desktop's
 // sentence (`localUnsupported` on the status).
 
@@ -12,7 +13,6 @@ import { api, ApiError } from '../api/client';
 import { HardwarePanel } from '../components/models/HardwarePanel';
 import { LocalModels } from '../components/models/LocalModels';
 import { ModelDownloads } from '../components/models/ModelDownloads';
-import { ImageGen } from '../components/models/ImageGen';
 import { KoboldStatusCard } from '../components/models/KoboldStatusCard';
 import { type BackendStatus, type ModelSwitch } from '../components/models/types';
 import { INTEL_MAC_LOCAL_UNSUPPORTED } from '../backendOptions';
@@ -88,7 +88,6 @@ export function ModelsPage() {
       <HardwarePanel onPickQuery={pickQuery} />
       <LocalModels isLocal={local} reloadStatus={loadStatus} onError={setError} />
       <ModelDownloads query={query} setQuery={setQuery} searchNonce={searchNonce} onError={setError} />
-      <ImageGen onError={setError} />
     </div>
   );
 }

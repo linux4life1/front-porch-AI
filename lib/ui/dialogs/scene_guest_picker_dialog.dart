@@ -38,6 +38,9 @@ class SceneGuestPickerDialog extends StatefulWidget {
     required this.characters,
     required this.resolveImage,
     this.initialFilter = '',
+    this.title = 'Invite a character',
+    this.icon = Icons.group_add,
+    this.emptyText = 'No other characters are available to join.',
   });
 
   /// Candidates eligible to join (host + present guests already removed).
@@ -48,6 +51,11 @@ class SceneGuestPickerDialog extends StatefulWidget {
 
   /// Pre-fills the search box (e.g. the text typed after `/join`).
   final String initialFilter;
+
+  /// The same picker chooses an Image Studio subject from Home.
+  final String title;
+  final IconData icon;
+  final String emptyText;
 
   @override
   State<SceneGuestPickerDialog> createState() => _SceneGuestPickerDialogState();
@@ -106,12 +114,12 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
               color: accent.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(8),
             ),
-            child: Icon(Icons.group_add, color: accent, size: 22),
+            child: Icon(widget.icon, color: accent, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
-              'Invite a character',
+              widget.title,
               style: TextStyle(
                 color: AppColors.textPrimary(context),
                 fontSize: 18,
@@ -149,7 +157,7 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
                   ? Center(
                       child: Text(
                         widget.characters.isEmpty
-                            ? 'No other characters are available to join.'
+                            ? widget.emptyText
                             : 'No characters match “${_search.text.trim()}”.',
                         textAlign: TextAlign.center,
                         style: TextStyle(

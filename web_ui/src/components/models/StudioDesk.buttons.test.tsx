@@ -255,3 +255,28 @@ describe('Choose file', () => {
     expect(button('Use this graph')).toBeUndefined();
   });
 });
+
+describe('Batch tab', () => {
+  it('sits beside Create, Edit and Expression pack and swaps the desk for the batch workspace', async () => {
+    await boot({ batch: createElement('p', null, 'Batch workspace') });
+    const tabs = [...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent);
+    expect(tabs).toEqual(['Create', 'Edit', 'Expression pack', 'Batch']);
+    expect(text()).not.toContain('Batch workspace');
+
+    click('Batch');
+    await settle();
+
+    expect(text()).toContain('Batch workspace');
+    expect(container.querySelector<HTMLElement>('.fp-desk-body')?.style.display).toBe('none');
+    click('Create');
+    await settle();
+    expect(text()).not.toContain('Batch workspace');
+    expect(container.querySelector<HTMLElement>('.fp-desk-body')?.style.display).toBe('');
+  });
+
+  it('is absent where the desk has no batch workspace', async () => {
+    await boot();
+    const tabs = [...container.querySelectorAll('[role="tab"]')].map((t) => t.textContent);
+    expect(tabs).toEqual(['Create', 'Edit', 'Expression pack']);
+  });
+});

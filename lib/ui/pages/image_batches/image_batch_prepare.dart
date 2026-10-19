@@ -73,6 +73,16 @@ class _ImageBatchPrepareState extends State<ImageBatchPrepare> {
             ImageReferenceResolver.packEditMode(queue.storage.imageGenSettings))
       : _edit;
 
+  /// The backend, model and graph the batch will use, readable while folded.
+  String _engineLine(ImageBatchService queue) {
+    final shot = queue.snapshot();
+    final edit = _configurationEdit(queue);
+    final model = '${(edit ? shot['editModel'] : shot['model']) ?? ''}';
+    return '${studioBackendName('${shot['backend']}')} · '
+        '${model.isEmpty ? 'No model chosen' : model} · '
+        '${edit ? 'Edit' : 'Create'} graph';
+  }
+
   Future<void> _editRules(
     ImageBatchService queue,
     CharacterRepository repo,
@@ -118,6 +128,26 @@ class _ImageBatchPrepareState extends State<ImageBatchPrepare> {
         style: Theme.of(context).textTheme.titleLarge,
       ),
       const SizedBox(height: 12),
+      ExpansionTile(
+        title: const Text('Backend and model'),
+        subtitle: Text(_engineLine(queue)),
+        children: [
+          ChangeNotifierProvider<StorageService>.value(
+            value: queue.storage,
+            child: ChangeNotifierProvider<ImageGenService>.value(
+              value: queue.image,
+              child: StudioSettingsGate(
+                busy: busy,
+                child: StudioDesk(
+                  key: ValueKey(_configurationEdit(queue)),
+                  editMode: _configurationEdit(queue),
+                  showGenerate: false,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
       DropdownButtonFormField<String>(
         initialValue: _kind,
         decoration: const InputDecoration(labelText: 'Save destination'),
@@ -163,9 +193,6 @@ class _ImageBatchPrepareState extends State<ImageBatchPrepare> {
           onChanged: busy ? null : (v) => _update(() => _missing = v!),
           title: const Text('Only missing expressions'),
         ),
-      Text(
-        'Uses shared generation settings: ${queue.snapshot()['backend']} · ${_configurationEdit(queue) ? queue.snapshot()['editModel'] : queue.snapshot()['model']}',
-      ),
       const Text(
         'Source images and prompts are captured when prepared. Changing generation settings pauses older waiting work until those settings are restored.',
       ),
@@ -200,30 +227,6 @@ class _ImageBatchPrepareState extends State<ImageBatchPrepare> {
             child: const Text('Follow global prompt rules'),
           ),
       ],
-      ExpansionTile(
-        title: const Text('Generation settings'),
-        subtitle: Text(
-          _configurationEdit(queue)
-              ? 'Edit graph and model'
-              : 'Create graph and model',
-        ),
-        children: [
-          ChangeNotifierProvider<StorageService>.value(
-            value: queue.storage,
-            child: ChangeNotifierProvider<ImageGenService>.value(
-              value: queue.image,
-              child: StudioSettingsGate(
-                busy: busy,
-                child: StudioDesk(
-                  key: ValueKey(_configurationEdit(queue)),
-                  editMode: _configurationEdit(queue),
-                  showGenerate: false,
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
       TextField(
         decoration: const InputDecoration(labelText: 'Find characters'),
         onChanged: (v) => _update(() => _search = v.toLowerCase()),

@@ -4,6 +4,7 @@
 import { useEffect, useState } from 'react';
 import { api, ApiError } from '../api/client';
 import { StudioDesk } from '../components/models/StudioDesk';
+import { backendName } from '../components/models/studio/DeskConnection';
 import type { ImageConfig } from '../components/models/studio/types';
 
 export function BatchConfiguration(props: { expressions: boolean; edit: boolean; busy: boolean }) {
@@ -37,10 +38,16 @@ export function BatchConfiguration(props: { expressions: boolean; edit: boolean;
     ? cfg?.packConfigMode ?? (cfg?.backend === 'a1111' ? 'create' : 'edit')
     : props.edit ? 'edit' : 'create';
   return <details className="batch-configuration" onToggle={event => setExpanded(event.currentTarget.open)}>
-    <summary>Generation settings · {mode === 'edit' ? 'Edit graph and model' : 'Create graph and model'}</summary>
+    <summary>Backend and model{cfg ? ` · ${engineLine(cfg, mode)}` : ''}</summary>
     {error ? <p role="alert">{error}</p> : null}
     {expanded && cfg ? <StudioDesk cfg={cfg} onConfig={setCfg} save={save} totpEnabled={totpEnabled}
       configurationOnly configurationMode={mode} busy={props.busy}
       prompt="" onPrompt={() => {}} onGenerate={() => {}} /> : expanded ? <p>Loading generation settings…</p> : null}
   </details>;
+}
+
+/** The backend, model and graph the batch will use, readable while folded. */
+function engineLine(cfg: ImageConfig, mode: string): string {
+  const model = (mode === 'edit' ? cfg.editModel : cfg.model) ?? '';
+  return `${backendName(cfg.backend)} · ${model || 'No model chosen'} · ${mode === 'edit' ? 'Edit' : 'Create'} graph`;
 }

@@ -27,7 +27,8 @@ export function batchCharacterPath(id: string | undefined, folders: Folder[]): s
   return parts.join(' / ') || 'Library root';
 }
 
-export function ImageBatchesPage() {
+/** The Batch tab of Image Studio: many characters at once, through the queue. */
+export function ImageBatchesPage({ embedded = false }: { embedded?: boolean } = {}) {
   const [queue, setQueue] = useState<Queue>();
   const [characters, setCharacters] = useState<Character[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
@@ -85,7 +86,7 @@ export function ImageBatchesPage() {
   const rows = jobs.filter((j) => tab === 'review' ? ['review', 'saved', 'failed', 'interrupted'].includes(j.state) : j.state !== 'discarded');
   const save = async () => { if (await action('save')) setConfirmSave(false); };
   return <div className="image-batches">
-    <header><h2>Image batches</h2><button disabled={reviewLocked || !kept.length} onClick={() => {
+    <header>{embedded ? null : <h2>Image batches</h2>}<button disabled={reviewLocked || !kept.length} onClick={() => {
       if (kept.some((j) => j.kind === 'portrait')) setConfirmSave(true); else void save();
     }}>Save {kept.length} kept</button></header>
     <section className="card batch-status" aria-label="Queue status">
@@ -106,6 +107,7 @@ export function ImageBatchesPage() {
     {tab === 'prepare' ? <section className="card">
       <h3>Add work across characters</h3>
       <fieldset disabled={!!locked}>
+        <BatchConfiguration expressions={kind === 'expressions'} edit={edit} busy={!!locked} />
         <label>Save destination<select aria-label="Save destination" value={kind} onChange={(e) => setKind(e.target.value)}>
           <option value="additional">Additional portraits · character gallery</option>
           <option value="expressions">Expression set</option>
@@ -128,7 +130,6 @@ export function ImageBatchesPage() {
           }}>Prompt rules · {rules ? 'local override' : 'global defaults'}</button>
           {rules ? <button type="button" onClick={() => setRules(undefined)}>Follow global prompt rules</button> : null}
         </> : null}
-        <BatchConfiguration expressions={kind === 'expressions'} edit={edit} busy={!!locked} />
         <label>Find characters<input value={search} onChange={(e) => setSearch(e.target.value)} /></label>
         <div className="batch-actions"><button type="button" onClick={() => setSelected(characters.filter(c => `${c.name} ${batchCharacterPath(c.folderId, folders)}`.toLowerCase().includes(search.toLowerCase())).map(c => c.id))}>Select visible</button><button type="button" onClick={() => setSelected([])}>Clear selection</button></div>
         <div className="batch-characters">{characters.filter((c) => `${c.name} ${batchCharacterPath(c.folderId, folders)}`.toLowerCase().includes(search.toLowerCase())).map((c) => <label key={c.id}>

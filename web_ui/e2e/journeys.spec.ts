@@ -25,7 +25,7 @@ test('expression workspace keeps its own prompt and picture across tabs', async 
       data: { backend: 'a1111', localUrl: 'http://127.0.0.1:9', currentPassword: process.env.FPAI_PASSWORD },
     });
     expect(configured.ok()).toBe(true);
-    await openRoute(page, '/models');
+    await openRoute(page, '/images');
     const panel = page.locator('#studio-pack-panel');
     await page.getByRole('tab', { name: 'Expression pack', exact: true }).click();
     await panel.getByLabel('Character', { exact: true }).selectOption({ label: 'Porch Tester' });
@@ -62,7 +62,7 @@ test('the Remote API stove offers each host and asks a keyless one for its key',
       data: { backend: 'remote', imageRemoteHost: 'openrouter', currentPassword: process.env.FPAI_PASSWORD },
     });
     expect(configured.ok()).toBe(true);
-    await openRoute(page, '/models');
+    await openRoute(page, '/images');
     const stove = page.locator('.fp-remote');
     await expect(stove).toContainText('Remote API');
     const hosts = stove.getByRole('radiogroup', { name: 'Remote host' });
@@ -1238,7 +1238,7 @@ test('expression intensity rerolls Strong and can follow the pack again', async 
   const saved=await (await page.request.get('/api/image/config')).json() as {backend:string;localUrl:string};
   try {
     expect((await page.request.post('/api/image/config',{data:{backend:'a1111',localUrl:'http://127.0.0.1:9',currentPassword:process.env.FPAI_PASSWORD}})).ok()).toBe(true);
-    await openRoute(page,'/models');
+    await openRoute(page,'/images');
     await page.getByRole('tab',{name:'Expression pack',exact:true}).click();
     const panel=page.locator('#studio-pack-panel');
     await panel.getByLabel('Character',{exact:true}).selectOption({label:'Porch Tester'});
@@ -1287,7 +1287,8 @@ test('image batches prepare full expressions with rules and persist across navig
   try {
     expect((await page.request.post('/api/image/config',{data:{backend:'a1111',model:'synthetic-checkpoint',localUrl:'http://127.0.0.1:9',currentPassword:process.env.FPAI_PASSWORD}})).ok()).toBe(true);
     await openRoute(page,'/images');
-    await expect(page.getByRole('heading',{name:'Image batches',exact:true})).toBeVisible();
+    await expect(page.getByRole('heading',{name:'Image Studio',exact:true})).toBeVisible();
+    await page.getByRole('tab',{name:'Batch',exact:true}).click();
     await page.getByLabel('Find characters').fill('Porch Tester');
     await page.getByRole('button',{name:'Select visible',exact:true}).click();
     await page.getByLabel('Save destination',{exact:true}).selectOption('expressions');
@@ -1303,9 +1304,11 @@ test('image batches prepare full expressions with rules and persist across navig
     expect(created).toHaveLength(28);
     expect(queue.jobs.filter(j=>created.includes(j.id)).every(j=>j.prompt.startsWith('Preserve the costume.') && j.kind==='expressions')).toBe(true);
     await openRoute(page,'/models'); await openRoute(page,'/images');
+    await page.getByRole('tab',{name:'Batch',exact:true}).click();
     await page.getByRole('button',{name:'Queue',exact:true}).click();
     await expect(page.getByRole('button',{name:'Start 28 images',exact:true})).toBeVisible();
-    await page.reload(); await page.getByRole('button',{name:'Queue',exact:true}).click();
+    await page.reload(); await page.getByRole('tab',{name:'Batch',exact:true}).click();
+    await page.getByRole('button',{name:'Queue',exact:true}).click();
     await expect(page.getByRole('button',{name:'Start 28 images',exact:true})).toBeVisible();
   } finally {
     for (const id of created) await page.request.post(`/api/image/batches/${id}/review`,{data:{action:'discard'}});

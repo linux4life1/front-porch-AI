@@ -21,3 +21,7 @@
 .batch-configuration summary { cursor: pointer; padding: 12px 0; }
 .fp-config-only .fp-desk-body { display: block; }
 .fp-config-only .fp-desk-stove { width: 100%; min-width: 0; }
+
+/* Image Studio's own page: the desk and the Batch tab get the room batches had. */
+.page.image-studio-page { max-width: 1200px; }
+.image-studio-page .image-batches { padding: 0; }

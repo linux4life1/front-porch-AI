@@ -41,6 +41,7 @@ class StudioView extends StatelessWidget {
     this.groupShotActive = false,
     this.onPickGroupMember,
     this.onPickGroupShot,
+    this.onChooseCharacter,
     required this.prompt,
     required this.referenceBytes,
     required this.currentImageBytes,
@@ -70,6 +71,7 @@ class StudioView extends StatelessWidget {
     this.showEdit = false,
     this.workspaceIndex,
     this.expressionBody,
+    this.batchBody,
     this.draftBusy = false,
   });
 
@@ -79,6 +81,9 @@ class StudioView extends StatelessWidget {
   final bool groupShotActive;
   final ValueChanged<int>? onPickGroupMember;
   final VoidCallback? onPickGroupShot;
+
+  /// Home launch: the Character subject picks from the library.
+  final VoidCallback? onChooseCharacter;
   final String prompt;
   final Uint8List? referenceBytes;
   final Uint8List? currentImageBytes;
@@ -123,6 +128,11 @@ class StudioView extends StatelessWidget {
   final bool showEdit;
   final int? workspaceIndex;
   final Widget? expressionBody;
+
+  /// The Batch tab: many characters at once, through the shared queue. Built
+  /// only while that tab is open, so a studio pumped without the character
+  /// library never builds it.
+  final Widget? batchBody;
   final bool draftBusy;
 
   @override
@@ -169,6 +179,11 @@ class StudioView extends StatelessWidget {
                           excluding: workspaceIndex != 2,
                           child: expressionBody!,
                         ),
+                      if (batchBody != null)
+                        ExcludeFocus(
+                          excluding: workspaceIndex != 3,
+                          child: batchBody!,
+                        ),
                     ],
                   );
                 },
@@ -192,6 +207,7 @@ class StudioView extends StatelessWidget {
             onChanged: draftBusy ? null : onSelectSubject,
             onPickGroupMember: draftBusy ? null : onPickGroupMember,
             onPickGroupShot: draftBusy ? null : onPickGroupShot,
+            onChooseCharacter: onChooseCharacter,
           ),
           if (groupShotActive) ...[
             const SizedBox(height: 8),

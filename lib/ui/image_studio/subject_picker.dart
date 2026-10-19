@@ -41,8 +41,7 @@ class SubjectPicker extends StatelessWidget {
 
   /// In a group chat, the cast to choose from. When non-empty, the Character
   /// button opens a member picker instead of selecting directly.
-  final List<({String name, String description, String? dbId})>
-  groupCharacters;
+  final List<({String name, String description, String? dbId})> groupCharacters;
 
   final ValueChanged<ImageGenMode>? onChanged;
 
@@ -55,6 +54,10 @@ class SubjectPicker extends StatelessWidget {
   /// unreliably).
   final VoidCallback? onPickGroupShot;
 
+  /// Opened from Home, where no chat names the character: the Character
+  /// button chooses one from the library instead of selecting directly.
+  final VoidCallback? onChooseCharacter;
+
   const SubjectPicker({
     super.key,
     required this.selected,
@@ -63,16 +66,19 @@ class SubjectPicker extends StatelessWidget {
     this.groupCharacters = const [],
     this.onPickGroupMember,
     this.onPickGroupShot,
+    this.onChooseCharacter,
   });
 
   @override
   Widget build(BuildContext context) {
     final hasGroup = groupCharacters.isNotEmpty;
     final hasCharacter = (characterName ?? '').trim().isNotEmpty;
-    final characterEnabled = onChanged != null && (hasCharacter || hasGroup);
+    final choose = onChanged == null ? null : onChooseCharacter;
+    final characterEnabled =
+        onChanged != null && (hasCharacter || hasGroup || choose != null);
     final characterLabel = hasCharacter
         ? characterName!.trim()
-        : (hasGroup ? 'Character…' : 'Character');
+        : (hasGroup || choose != null ? 'Character…' : 'Character');
 
     // (mode, label, icon, enabled, onTap)
     final options = <(ImageGenMode, String, IconData, bool, VoidCallback?)>[
@@ -90,9 +96,10 @@ class SubjectPicker extends StatelessWidget {
         characterEnabled,
         !characterEnabled
             ? null
-            : (hasGroup
-                  ? () => _showMemberMenu(context)
-                  : () => onChanged!(ImageGenMode.characterPortrait)),
+            : choose ??
+                  (hasGroup
+                      ? () => _showMemberMenu(context)
+                      : () => onChanged!(ImageGenMode.characterPortrait)),
       ),
       (
         ImageGenMode.userAvatar,

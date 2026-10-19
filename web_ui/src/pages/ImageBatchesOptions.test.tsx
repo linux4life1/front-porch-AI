@@ -33,7 +33,7 @@ it('uses full sets and shared inline Edit settings with portrait selection', asy
   const sets = container.querySelectorAll<HTMLSelectElement>('select');
   act(() => { sets[1].value = 'full'; sets[1].dispatchEvent(new Event('change', {bubbles: true})); });
   expect(text()).toContain('Prompt rules');
-  expect(text()).toContain('Generation settings · Edit graph and model');
+  expect(text()).toContain('Backend and model · ComfyUI · No model chosen · Edit graph');
   expect(text()).not.toContain('Configure in Image Studio');
   act(() => { const settings = container.querySelector<HTMLDetailsElement>('.batch-configuration')!; settings.open = true; settings.dispatchEvent(new Event('toggle', {bubbles: true})); });
   await settle();

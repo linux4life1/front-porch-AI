@@ -20,11 +20,12 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// The Create | Edit switch under the Image Studio header. These are INTENT tabs
-/// — "make a new portrait" vs "change this one" — never pipeline names. The
+/// The Create | Edit | Expressions | Batch switch under the Image Studio
+/// header. These are INTENT tabs — "make a new portrait" vs "change this
+/// one" — never pipeline names. The
 /// single [ImageReferenceRole] router still decides what actually happens.
 class StudioModeTabs extends StatelessWidget {
-  /// 0 = Create, 1 = Edit, 2 = Expressions.
+  /// 0 = Create, 1 = Edit, 2 = Expressions, 3 = Batch.
   final int selected;
   final ValueChanged<int> onChanged;
   final bool enabled;
@@ -49,6 +50,8 @@ class StudioModeTabs extends StatelessWidget {
           Expanded(
             child: _tab(context, 2, 'Expressions', 'build an expression pack'),
           ),
+          const SizedBox(width: 8),
+          Expanded(child: _tab(context, 3, 'Batch', 'many characters at once')),
         ],
       ),
     );

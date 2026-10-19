@@ -23,8 +23,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image_prompt/image_prompt.dart';
-import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/utils/utils.dart';
+import 'package:front_porch_ai/ui/pages/pages.dart';
 
 import 'studio_shell/studio_shell.dart';
 import 'studio_widgets.dart';
@@ -76,6 +75,9 @@ class ImageStudio extends StatefulWidget {
   /// Fires after a pack import so the launcher refreshes the live card.
   final void Function(String characterDbId)? onExpressionsImported;
 
+  /// Home launch: picks the Character subject from the library. True = chosen.
+  final Future<bool> Function()? onChooseCharacter;
+
   const ImageStudio({
     super.key,
     required this.mode,
@@ -101,6 +103,7 @@ class ImageStudio extends StatefulWidget {
     this.characterDbId,
     this.characterImagePath,
     this.onExpressionsImported,
+    this.onChooseCharacter,
   });
 
   @override
@@ -108,11 +111,10 @@ class ImageStudio extends StatefulWidget {
 }
 
 class _ImageStudioState extends State<ImageStudio> {
-  // Session state (owned here; no god proliferation).
   late String _selectedStyle;
   late String _paradigm;
 
-  /// 0 = Create, 1 = Edit, 2 = Expressions.
+  /// 0 = Create, 1 = Edit, 2 = Expressions, 3 = Batch.
   int _studioTab = 0;
   final _expressionsKey = GlobalKey<StudioExpressionTabState>();
   bool _allowClose = false;
@@ -144,9 +146,7 @@ class _ImageStudioState extends State<ImageStudio> {
     _selectedStyle = storage.imageGenSettings.imageGenStyle;
     _paradigm = storage.imageGenSettings.imageGenPromptParadigm;
     _builder = ImagePromptBuilder(llmService: widget.llmService);
-    // No boilerplate prefill for ANY subject: an empty box until the user
-    // types or taps "Write it for me". Dumping the raw character description
-    // made a poor prompt.
+    // No prefill for any subject: a raw character description is a poor prompt.
     _editablePrompt = '';
     _storage = storage..addListener(_followStyleSettings);
   }
@@ -228,18 +228,9 @@ class _ImageStudioState extends State<ImageStudio> {
     });
   }
 
-  /// Pick a transient img2img reference (desktop file dialog; not persisted).
   Future<void> _pickReferenceImage() async {
-    final result = await GuardedPicker.pickFiles(
-      context,
-      category: PickerPrefs.catImage,
-      dialogTitle: 'Select a reference image',
-      type: FileType.image,
-    );
-    final bytes = await result?.firstBytes();
-    if (bytes != null && mounted) {
-      setState(() => _referenceImageBytes = bytes);
-    }
+    final bytes = await pickStudioReference(context);
+    if (bytes != null && mounted) setState(() => _referenceImageBytes = bytes);
   }
 
   Future<void> _variations() async {
@@ -426,6 +417,13 @@ class _ImageStudioState extends State<ImageStudio> {
         groupShotActive: _subject.groupShot,
         onPickGroupMember: _pickGroupSubject,
         onPickGroupShot: () => _pickGroupSubject(null),
+        onChooseCharacter: widget.onChooseCharacter == null
+            ? null
+            : () async {
+                if (await widget.onChooseCharacter!() && mounted) {
+                  _selectSubject(ImageGenMode.characterPortrait);
+                }
+              },
         prompt: _editablePrompt,
         referenceBytes: _referenceImageBytes,
         currentImageBytes: _currentImageBytes,
@@ -467,6 +465,9 @@ class _ImageStudioState extends State<ImageStudio> {
           onImported: widget.onExpressionsImported,
           onPackChanged: () => setState(() {}),
         ),
+        batchBody: _studioTab == 3
+            ? const ImageBatchesPage(embedded: true)
+            : null,
         modeTabs: StudioModeTabs(
           selected: _studioTab,
           onChanged: (i) {
@@ -476,9 +477,9 @@ class _ImageStudioState extends State<ImageStudio> {
               setState(() => _studioTab = i);
             }
           },
-          enabled: true,
         ),
         editBody: EditView(
+          key: ValueKey(widget.characterImagePath),
           onResultImage: (bytes) => setState(() => _lastStudioImage = bytes),
           onSendToChat: widget.onSendToChat,
           onAcceptBytes: hasAcceptAction(_subject.mode)

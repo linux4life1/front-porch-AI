@@ -24,6 +24,7 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
+import 'package:front_porch_ai/ui/image_studio/home_image_studio.dart';
 import 'package:front_porch_ai/ui/pages/pages.dart';
 import 'package:front_porch_ai/ui/widgets/sidebar_width.dart';
 import 'package:front_porch_ai/ui/widgets/unsaved_changes_guard.dart';
@@ -35,7 +36,7 @@ class Sidebar extends StatelessWidget {
   /// Every nav label below; the sidebar widens until the longest fits.
   static const labels = [
     'Home',
-    'Image batches',
+    'Image Studio',
     'The Stoop',
     'AI Character Creator',
     'Create Character',
@@ -98,11 +99,12 @@ class Sidebar extends StatelessWidget {
                     isSelected: appState.selectedIndex == 0,
                     onTap: () => _goTo(context, appState, 0),
                   ),
+                  // The chat's own Image Studio, opened with no chat behind it.
                   SidebarNavigationItem(
-                    icon: Icons.collections_outlined,
-                    label: 'Image batches',
-                    isSelected: appState.selectedIndex == 6,
-                    onTap: () => _goTo(context, appState, 6),
+                    icon: Icons.auto_awesome,
+                    label: 'Image Studio',
+                    isSelected: false,
+                    onTap: () => showHomeImageStudio(context),
                   ),
                   // The Stoop (community character hub) — a flagship destination, so it
                   // sits right under Home.

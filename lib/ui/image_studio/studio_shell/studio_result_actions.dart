@@ -24,6 +24,19 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
+
+/// Pick a transient img2img reference (desktop file dialog; not persisted).
+Future<Uint8List?> pickStudioReference(BuildContext context) async {
+  final result = await GuardedPicker.pickFiles(
+    context,
+    category: PickerPrefs.catImage,
+    dialogTitle: 'Select a reference image',
+    type: FileType.image,
+  );
+  return result?.firstBytes();
+}
 
 /// Run one Create generate. On no image, `error` carries the service's
 /// status (or the thrown message without its `Exception:` prefix).
