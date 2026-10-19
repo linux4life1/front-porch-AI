@@ -116,6 +116,7 @@ class _ImageStudioState extends State<ImageStudio> {
 
   /// 0 = Create, 1 = Edit, 2 = Expressions, 3 = Batch.
   int _studioTab = 0;
+  bool _batchOpened = false; // keeps the Prepare form once Batch was opened
   final _expressionsKey = GlobalKey<StudioExpressionTabState>();
   bool _allowClose = false;
   late final StudioSubject _subject = StudioSubject(widget.mode);
@@ -128,9 +129,8 @@ class _ImageStudioState extends State<ImageStudio> {
   bool _isGenerating = false;
   bool _saving = false;
 
-  /// Optional img2img reference (transient, never persisted). When set, Generate
-  /// runs img2img at the shared imageGenDenoise strength on the local backends;
-  /// remote APIs ignore it (the picker hides itself there).
+  /// Transient img2img reference at the shared denoise strength on local
+  /// backends; remote APIs ignore it (the picker hides itself there).
   Uint8List? _referenceImageBytes;
 
   // History: session-local thumbnails + restoreable prompt/bytes.
@@ -174,8 +174,7 @@ class _ImageStudioState extends State<ImageStudio> {
     });
   }
 
-  /// Re-apply the live style suffix to a non-empty prompt so Generate sends the
-  /// currently chosen style. No-op on an empty box (avoids glue+style synthesis).
+  /// Re-apply the live style suffix to a non-empty prompt (no-op when empty).
   void _reapplyStyle() {
     if (_editablePrompt.trim().isEmpty) return;
     _editablePrompt = reapplyCurrentStyleSuffix(
@@ -317,8 +316,7 @@ class _ImageStudioState extends State<ImageStudio> {
     };
   }
 
-  /// A refusal from the last generate no longer applies once the graph or a
-  /// model file has been changed on the desk.
+  /// A refusal is stale once the desk's graph or model file has changed.
   void _dropStaleError() {
     final settings = context.read<StorageService>().imageGenSettings;
     if (!_deskStamp.changed(settings) || _error.isEmpty) return;
@@ -327,8 +325,7 @@ class _ImageStudioState extends State<ImageStudio> {
     });
   }
 
-  /// Switch subject and clear the prompt box — no bleed between subjects,
-  /// and no raw-description prefill.
+  /// Switch subject and clear the prompt box (no bleed, no description prefill).
   void _selectSubject(ImageGenMode mode) => setState(() {
     _subject.select(mode);
     _editablePrompt = '';
@@ -465,16 +462,17 @@ class _ImageStudioState extends State<ImageStudio> {
           onImported: widget.onExpressionsImported,
           onPackChanged: () => setState(() {}),
         ),
-        batchBody: _studioTab == 3
-            ? const ImageBatchesPage(embedded: true)
-            : null,
+        batchBody: _batchOpened ? const ImageBatchesPage(embedded: true) : null,
         modeTabs: StudioModeTabs(
           selected: _studioTab,
           onChanged: (i) {
             if (i == 2) {
               _openExpressionPack();
             } else {
-              setState(() => _studioTab = i);
+              setState(() {
+                _studioTab = i;
+                _batchOpened |= i == 3;
+              });
             }
           },
         ),

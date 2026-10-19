@@ -77,6 +77,13 @@ void main() {
       expect(find.byType(ImageBatchesPage), findsOneWidget);
       expect(find.text('Prepare'), findsOneWidget);
       expect(find.text('Backend and model'), findsOneWidget);
+      // Leaving Batch keeps the Prepare form's state for the trip back.
+      final prepare = tester.state(find.byType(ImageBatchesPage));
+      await tester.tap(find.text('make a new portrait'));
+      await tester.pump();
+      await tester.tap(find.text('Batch'));
+      await tester.pump();
+      expect(tester.state(find.byType(ImageBatchesPage)), same(prepare));
       expect(tester.takeException(), isNull);
       await tester.pumpWidget(const SizedBox.shrink());
     },

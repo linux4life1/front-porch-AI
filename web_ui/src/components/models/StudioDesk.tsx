@@ -82,6 +82,7 @@ export function StudioDesk(props: StudioDeskProps) {
   const tabs: readonly ('create' | 'edit' | 'pack' | 'batch')[] = props.batch
     ? ['create', 'edit', 'pack', 'batch'] : ['create', 'edit', 'pack'];
   const [packVisited, setPackVisited] = useState(false);
+  const [batchVisited, setBatchVisited] = useState(false);
   const [packBusy, setPackBusy] = useState(false);
   const [subject, setSubject] = useState<Subject>('free');
   const [picture, setPicture] = useState<Picture | null>(null);
@@ -226,14 +227,16 @@ export function StudioDesk(props: StudioDeskProps) {
             onClick={() => {
               setTab(value);
               if (value === 'pack') setPackVisited(true);
-              else if (value !== 'batch') setMode(value);
+              else if (value === 'batch') setBatchVisited(true);
+              else setMode(value);
             }}>
             {value === 'pack' ? 'Expression pack' : value === 'batch' ? 'Batch' : value === 'create' ? 'Create' : 'Edit'}
           </button>
         ))}
       </div>}
-      {tab === 'batch' ? <div id="studio-batch-panel" role="tabpanel" aria-labelledby="studio-tab-batch">{props.batch}</div> : null}
-      {/* Kept mounted under the Batch tab, so a draft survives the trip. */}
+      {/* Both stay mounted once opened, so a draft or a batch setup survives a tab trip. */}
+      {batchVisited && props.batch ? <div id="studio-batch-panel" role="tabpanel" aria-labelledby="studio-tab-batch"
+        hidden={tab !== 'batch'}>{props.batch}</div> : null}
       <div className="fp-desk-body" style={tab === 'batch' ? { display: 'none' } : undefined}>
         {!props.configurationOnly && <div className="fp-desk-rail" id="studio-image-panel" role="tabpanel"
           aria-labelledby={`studio-tab-${mode}`} hidden={tab === 'pack'}>
