@@ -37,3 +37,19 @@ it('prepares additional portraits for multiple characters and reviews a separate
   expect(text()).toContain('review');
 });
 
+
+it('holds Select visible until the character list has arrived, so an early click cannot select nobody', async () => {
+  let arrive: (list: unknown) => void = () => {};
+  serve({
+    'GET /api/characters': () => new Promise((resolve) => { arrive = resolve; }),
+    'GET /api/image/batches': { running: false, working: false, jobs: [] },
+  });
+  mount(createElement(MemoryRouter, null, createElement(ImageBatchesPage)));
+  await settle();
+  const selectVisible = () => [...container.querySelectorAll('button')].find((b) => b.textContent === 'Select visible')!;
+  expect(selectVisible().disabled).toBe(true);
+  await act(async () => arrive([{ id: 'c1', name: 'First character' }]));
+  await settle();
+  click('Select visible');
+  expect(text()).toContain('Prepare for 1 character');
+});

@@ -8,6 +8,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/live_gen_progress.dart';
+import 'package:front_porch_ai/services/prefill_anchors.dart';
 
 void main() {
   test('parses batch-glued Processing Prompt updates, last match wins', () {
@@ -101,8 +102,15 @@ void main() {
       now: t0.add(const Duration(minutes: 1)),
     );
     expect(capped, lessThanOrEqualTo(0.99));
-    // A real completion line reports exactly 1.0.
+    // "(10000 / 10000)" is printed as the LAST batch starts, not when it
+    // ends (gpttype_adapter.cpp prints, then decodes): still below 100%.
     p.ingest('Processing Prompt [BATCH] (10000 / 10000 tokens)', now: t0);
+    expect(
+      p.estimatedPromptFraction(tokensPerSecond: 400, now: t0),
+      lessThan(1.0),
+    );
+    // Decode starting is the real completion and reports exactly 1.0.
+    p.ingest('Generating (1 / 40 tokens)', now: t0);
     expect(p.estimatedPromptFraction(tokensPerSecond: 400, now: t0), 1.0);
   });
 
@@ -232,5 +240,88 @@ void main() {
     );
     expect(stale.promptFraction(), isNull);
     expect(stale.isFresh, isFalse);
+  });
+
+  test('a Kobold batch line names the batch about to run: only the count '
+      'before it is confirmed', () {
+    final p = LiveGenProgress();
+    final t0 = DateTime(2026, 10, 19, 12);
+    p.ingest(
+      'Processing Prompt [BATCH] (0 / 22124 tokens)'
+      'Processing Prompt [BATCH] (8192 / 22124 tokens)',
+      now: t0,
+    );
+    expect(p.promptCurrent, 8192);
+    expect(p.promptConfirmed, 0);
+    expect(p.inFlightEnd, 8192);
+    p.ingest(
+      'Processing Prompt [BATCH] (16384 / 22124 tokens)',
+      now: t0.add(const Duration(seconds: 270)),
+    );
+    expect(p.promptConfirmed, 8192);
+    expect(p.inFlightEnd, 16384);
+    expect(p.confirmedFraction(), closeTo(8192 / 22124, 0.0001));
+    p.ingest('Generating (1 / 512 tokens)');
+    expect(p.promptConfirmed, 22124);
+    expect(p.confirmedFraction(), 1.0);
+  });
+
+  test("the Discord case: the estimate uses this prompt's own speed, not a "
+      "previous request's, and never runs past the batch in flight", () {
+    final p = LiveGenProgress();
+    final t0 = DateTime(2026, 10, 19, 12);
+    p.ingest('Processing Prompt [BATCH] (8192 / 22124 tokens)', now: t0);
+    final t1 = t0.add(const Duration(seconds: 270));
+    p.ingest('Processing Prompt [BATCH] (16384 / 22124 tokens)', now: t1);
+    // Batch one took 270s (~30 t/s). A previous request's 400 t/s must not
+    // win: a minute in, the guess is ~8,192 + 30 × 60.
+    final minuteIn = p.estimatedPromptFraction(
+      tokensPerSecond: 400,
+      now: t1.add(const Duration(seconds: 60)),
+    )!;
+    expect(minuteIn, closeTo((8192 + 8192 / 270 * 60) / 22124, 0.001));
+    // At 537s (the screenshot) the guess stops short of 16,384, the end of
+    // the batch still running, instead of claiming 21,303 (96%).
+    final atScreenshot = p.estimatedPromptFraction(
+      tokensPerSecond: 400,
+      now: t1.add(const Duration(seconds: 267)),
+    )!;
+    expect(atScreenshot, closeTo((8192 + 0.9 * 8192) / 22124, 0.001));
+    final left = p.estimatedPromptSecondsLeft(
+      tokensPerSecond: 400,
+      now: t1.add(const Duration(seconds: 267)),
+    )!;
+    expect(left, closeTo(22124 * (1 - atScreenshot) / (8192 / 270), 1));
+  });
+
+  test("before the pass proves a speed, this request's own average beats a "
+      "previous request's", () {
+    final p = LiveGenProgress();
+    final t0 = DateTime(2026, 10, 19, 12);
+    p.setPromptProgress(4000, 20000, now: t0);
+    // Sent 100s before those 4,000 tokens were counted (110s before now):
+    // 40 t/s.
+    final est = p.estimatedPromptFraction(
+      tokensPerSecond: 1000,
+      requestElapsed: const Duration(seconds: 110),
+      now: t0.add(const Duration(seconds: 10)),
+    );
+    expect(est, closeTo(4400 / 20000, 0.001));
+  });
+
+  test('prefill slows with depth: the next batch is assumed slower than the '
+      'last', () {
+    final a = PrefillAnchors();
+    final t0 = DateTime(2026, 10, 19, 12);
+    a.add(0, t0);
+    expect(a.rate, isNull);
+    a.add(8192, t0.add(const Duration(seconds: 100)));
+    expect(a.rate, closeTo(81.92, 0.01));
+    a.add(16384, t0.add(const Duration(seconds: 250)));
+    const latest = 8192 / 150;
+    expect(a.rate, closeTo(latest * (latest / 81.92), 0.01));
+    // A count that did not grow is not a sample.
+    a.add(16384, t0.add(const Duration(seconds: 300)));
+    expect(a.lastAt, t0.add(const Duration(seconds: 250)));
   });
 }

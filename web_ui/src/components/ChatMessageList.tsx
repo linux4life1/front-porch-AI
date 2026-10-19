@@ -28,30 +28,48 @@ import { DIRECTOR_CHARACTER_ID } from './DirectorStrip';
 /// Truthful generation status (desktop status-bar parity): live prompt-reading
 /// counts from the managed local backend + which background pass holds the
 /// single local slot. Null fields = no live data (remote backend). The server
-/// interpolates estFraction between the backend's per-batch console lines and
-/// flags promptDone only when the console confirmed completion.
+/// estimates estFraction / secondsLeft between the backend's per-batch lines
+/// and flags promptDone only when the backend confirmed completion. The words
+/// carry only confirmed counts; the estimate is the bar's lighter fill.
 export type GenStatus = {
   phase: string;
   elapsed?: number;
   busyWith: string | null;
   queued: number;
   promptCur: number | null;
+  promptConfirmed?: number | null;
   promptTotal: number | null;
   promptDone: boolean;
   estFraction: number | null;
+  secondsLeft?: number | null;
   genCur: number | null;
   genTotal: number | null;
 };
 
-/// Exact count with thousands separators ("8,347") — a live ticker, not just
+/// Exact count with thousands separators ("8,347") — the counts, not just
 /// a percent (maintainer request).
 function fmtExact(n: number): string {
   return n.toLocaleString('en-US');
 }
 
+/// '' or " · ~3 min left", rounded like the desktop so it does not flicker.
+function fmtLeft(seconds: number | null | undefined): string {
+  if (seconds == null || !Number.isFinite(seconds)) return '';
+  if (seconds < 60) return ` · ~${Math.min(60, Math.max(5, Math.ceil(seconds / 5) * 5))}s left`;
+  return ` · ~${Math.ceil(seconds / 60)} min left`;
+}
+
+type GenStatusView = {
+  label: string;
+  /** The bar's lighter fill: the estimate (null = no bar). */
+  fraction: number | null;
+  /** The bar's solid fill: what the backend confirmed. */
+  confirmed?: number;
+};
+
 /// Mirror of the desktop status-bar wording so both surfaces tell the same
 /// truth about the wait.
-function genStatusLabel(s: GenStatus): { label: string; fraction: number | null } {
+function genStatusLabel(s: GenStatus): GenStatusView {
   // Impersonate writes the user's line into the composer, not a reply.
   if (s.phase === 'impersonating') return { label: 'Writing your reply…', fraction: null };
   // Backend queue depth is a neutral fact — never attributed (may be
@@ -59,17 +77,12 @@ function genStatusLabel(s: GenStatus): { label: string; fraction: number | null 
   const queueNote =
     s.queued > 0 ? ` — ${s.queued} request${s.queued === 1 ? '' : 's'} queued` : '';
   const hasLive = s.promptTotal != null && s.promptTotal > 0;
-  const fraction = hasLive
-    ? (s.estFraction ?? Math.min(1, (s.promptCur ?? 0) / (s.promptTotal as number)))
-    : null;
-  const estTokens = hasLive
-    ? (s.promptDone
-        ? (s.promptTotal as number)
-        : Math.round((s.promptTotal as number) * (fraction ?? 0)))
-    : 0;
-  const counts = hasLive
-    ? `${fmtExact(estTokens)} / ${fmtExact(s.promptTotal as number)} tokens`
-    : '';
+  const total = s.promptTotal ?? 0;
+  const confirmedTokens = s.promptDone ? total : (s.promptConfirmed ?? 0);
+  const confirmed = hasLive ? Math.min(1, confirmedTokens / total) : 0;
+  const fraction = hasLive ? Math.max(confirmed, s.estFraction ?? confirmed) : null;
+  const pct = Math.floor(confirmed * 100);
+  const counts = hasLive ? `${fmtExact(confirmedTokens)} / ${fmtExact(total)} tokens` : '';
   if (s.busyWith) {
     // The chat's own passes come as names; what has the engine (the speed
     // test in the preset editor) comes already in words.
@@ -85,15 +98,16 @@ function genStatusLabel(s: GenStatus): { label: string; fraction: number | null 
           ? `writing (${s.genCur} tokens)`
           : s.promptDone
             ? 'finishing up'
-            : `reading ${counts} (${Math.round((fraction ?? 0) * 100)}%)`;
-      return { label: `Waiting — ${pass} is using the model: ${stage}`, fraction };
+            : `reading ${counts} (${pct}%)`;
+      return { label: `Waiting — ${pass} is using the model: ${stage}`, fraction, confirmed };
     }
     return { label: `Waiting — ${pass} is using the model…`, fraction: null };
   }
   if (hasLive && !s.promptDone) {
     return {
-      label: `Reading prompt — ${counts} (${Math.round((fraction ?? 0) * 100)}%)${queueNote}`,
+      label: `Reading prompt — ${counts} (${pct}%)${fmtLeft(s.secondsLeft)}${queueNote}`,
       fraction,
+      confirmed,
     };
   }
   if (hasLive) {
@@ -105,6 +119,7 @@ function genStatusLabel(s: GenStatus): { label: string; fraction: number | null 
           ? `Starting the reply — ${s.genCur} tokens written${queueNote}`
           : `Prompt read — starting the reply…${queueNote}`,
       fraction: 1,
+      confirmed: 1,
     };
   }
   if (s.phase === 'thinking') return { label: 'Model is thinking…', fraction: null };
@@ -494,15 +509,19 @@ export function ChatMessageList({
         // Before the first token arrives, name the wait truthfully instead of
         // showing nothing: real prompt-reading progress from the local
         // backend, or which background pass is holding the slot.
-        const { label, fraction } = genStatusLabel(genStatus);
+        const { label, fraction, confirmed } = genStatusLabel(genStatus);
         return (
           <div className="bubble ai streaming gen-status" aria-live="polite">
             <span className="muted small">{label}</span>
             {fraction != null && (
               <div className="gen-status-track">
                 <div
-                  className="gen-status-fill"
+                  className="gen-status-fill estimate"
                   style={{ width: `${Math.round(fraction * 100)}%` }}
+                />
+                <div
+                  className="gen-status-fill"
+                  style={{ width: `${Math.floor((confirmed ?? fraction) * 100)}%` }}
                 />
               </div>
             )}

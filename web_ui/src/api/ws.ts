@@ -71,12 +71,17 @@ export type WsEvent = {
   busyWith?: string | null;
   // Backend-reported queue depth (oMLX) — stated neutrally, never attributed.
   queued?: number;
+  // promptCur may be the end of the batch still running (Kobold / LM Studio
+  // print it first); promptConfirmed is what the backend finished reading.
   promptCur?: number | null;
+  promptConfirmed?: number | null;
   promptTotal?: number | null;
-  // Console lines arrive per BATCH; the server interpolates between them
-  // (estFraction) and flags when the console confirmed completion.
+  // Console lines arrive per BATCH; the server estimates between them
+  // (estFraction, secondsLeft) and flags when the backend confirmed
+  // completion.
   promptDone?: boolean;
   estFraction?: number | null;
+  secondsLeft?: number | null;
   genCur?: number | null;
   genTotal?: number | null;
   // `speed_test` event (the Local model card's speed test): how it stands, in

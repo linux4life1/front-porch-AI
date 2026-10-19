@@ -8,17 +8,23 @@
    prompt-reading progress instead of a silent wait. Porch-amber track. */
 .bubble.gen-status { display: flex; flex-direction: column; gap: 6px; min-width: 220px; }
 .gen-status-track {
+  position: relative;
   height: 4px;
   border-radius: 2px;
   background: color-mix(in srgb, var(--accent) 18%, transparent);
   overflow: hidden;
 }
+/* Solid = what the backend confirmed; the lighter fill behind it is the
+   estimate, so a guess never reads as fact. */
 .gen-status-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
   height: 100%;
   border-radius: 2px;
   background: var(--accent);
   transition: width 300ms ease;
 }
+.gen-status-fill.estimate { background: color-mix(in srgb, var(--accent) 55%, transparent); }
 /* RP text coloring (parity with desktop AppColors.dialogue / action): "quoted
    dialogue" → amber, *actions* → italic blue, **emphasis** → bold blue. Applied
    to BOTH bubbles (desktop colors user + AI alike); the user can recolor the user
