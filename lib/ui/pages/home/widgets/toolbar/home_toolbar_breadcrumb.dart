@@ -84,12 +84,9 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
             borderRadius: BorderRadius.circular(6),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-              child: Text(
-                label,
-                maxLines: 1,
-                // Break mid-word: "My Characters" must still read "M…".
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
+              child: _LevelLabel(
+                label: label,
+                isTop: target == null,
                 style: crumbStyle,
               ),
             ),
@@ -236,12 +233,9 @@ class HomeToolbarLevelTarget extends StatelessWidget {
             // breadcrumb's Flexible instead of stretching to the share.
             child: Align(
               widthFactor: 1,
-              child: Text(
-                label,
-                maxLines: 1,
-                // Break mid-word: "My Characters" must still read "M…".
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
+              child: _LevelLabel(
+                label: label,
+                isTop: folderId == null,
                 style: TextStyle(
                   color: amber,
                   fontSize: 15,
@@ -252,6 +246,41 @@ class HomeToolbarLevelTarget extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+/// A level's name, ellipsized. Squeezed below a readable "My…", the top
+/// level turns into a house icon (its name in the tooltip) rather than an
+/// empty pill.
+class _LevelLabel extends StatelessWidget {
+  const _LevelLabel({
+    required this.label,
+    required this.isTop,
+    required this.style,
+  });
+
+  final String label;
+  final bool isTop;
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      label,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: style,
+    );
+    if (!isTop) return text;
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 32
+          ? Tooltip(
+              message: label,
+              child: Icon(Icons.home_outlined, size: 18, color: style.color),
+            )
+          : text,
     );
   }
 }

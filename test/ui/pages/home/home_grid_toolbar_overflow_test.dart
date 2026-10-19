@@ -198,16 +198,20 @@ void main() {
         activeFolderId: 'b',
       );
       expect(tester.takeException(), isNull);
-      for (final label in [
-        'My Characters',
-        'Bletchfield of the long valley road',
-      ]) {
-        expect(
-          tester.getSize(find.text(label)).width,
-          greaterThanOrEqualTo(20),
-          reason: '"$label" collapsed at $width px',
-        );
-      }
+      // Squeezed hard, the top level may stand as its house icon instead.
+      final top = find.text('My Characters');
+      expect(
+        top.evaluate().isEmpty
+            ? tester.getSize(find.byIcon(Icons.home_outlined)).width
+            : tester.getSize(top).width,
+        greaterThanOrEqualTo(18),
+        reason: 'the top level collapsed at $width px',
+      );
+      expect(
+        tester.getSize(find.text('Bletchfield of the long valley road')).width,
+        greaterThanOrEqualTo(20),
+        reason: 'the parent collapsed at $width px',
+      );
     });
   }
 
@@ -336,6 +340,44 @@ void main() {
         reason: '"${(label.widget as Text).data}" lost its label',
       );
     }
+  });
+
+  testWidgets('a squeezed drag path turns the top level into a house icon, '
+      'never an empty pill', (tester) async {
+    final folders = [
+      CharacterFolder(id: 'a', name: 'Bletchfield of the long valley road'),
+      CharacterFolder(id: 'b', name: 'Hollow porch steps', parentId: 'a'),
+      CharacterFolder(id: 'c', name: 'Lantern shelf', parentId: 'b'),
+      CharacterFolder(id: 'd', name: 'Brass hooks by the door', parentId: 'c'),
+    ];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 300,
+              child: HomeToolbarBreadcrumb(
+                activeFolderId: 'd',
+                folders: folders,
+                onFolderJump: (_) {},
+                dropTargets: true,
+                onDropOnLevel: (_, _) {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final top = find.byWidgetPredicate(
+      (w) => w is HomeToolbarLevelTarget && w.folderId == null,
+    );
+    expect(
+      find.descendant(of: top, matching: find.byIcon(Icons.home_outlined)),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('My Characters'), findsOneWidget);
   });
 }
 
