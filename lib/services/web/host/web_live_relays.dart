@@ -214,17 +214,36 @@ class WebLiveRelays {
         _wasBroadcastingGenStatus = true;
         final live = chatService.activeLiveProgress;
         final fresh = live != null && live.isFresh;
-        // Server-side interpolation between per-batch updates (same math as
-        // the desktop bar) so web clients get a moving fraction without
-        // doing their own estimation.
+        // Server-side estimate between per-batch updates (same math as the
+        // desktop bar) so web clients get a moving fill and a time left
+        // without doing their own estimation.
         final measured = chatService.prefillMetricsAreMeasured;
         final speed = chatService.lastPerfData?['last_process_speed'];
-        final perfSpeed = measured ? speed : null;
+        final perfSpeed = (measured && speed is num && speed > 0)
+            ? speed.toDouble()
+            : null;
+        // Our own request's elapsed time is a speed source only while the
+        // live counts are ours (no background pass holds the engine).
+        final ownElapsed =
+            (chatService.isSummaryGenerating ||
+                chatService.isGrowthPassRunning ||
+                live?.heldBy != null ||
+                chatService.prefillElapsedSeconds <= 0)
+            ? null
+            : Duration(
+                milliseconds: (chatService.prefillElapsedSeconds * 1000)
+                    .round(),
+              );
         final estFraction = fresh
             ? live.estimatedPromptFraction(
-                tokensPerSecond: (perfSpeed is num && perfSpeed > 0)
-                    ? perfSpeed.toDouble()
-                    : null,
+                tokensPerSecond: perfSpeed,
+                requestElapsed: ownElapsed,
+              )
+            : null;
+        final secondsLeft = fresh
+            ? live.estimatedPromptSecondsLeft(
+                tokensPerSecond: perfSpeed,
+                requestElapsed: ownElapsed,
               )
             : null;
         streamHub.broadcast({
@@ -242,8 +261,12 @@ class WebLiveRelays {
           'queued': fresh ? live.waitingCount : 0,
           'promptCur': fresh ? live.promptCurrent : null,
           'promptTotal': fresh ? live.promptTotal : null,
-          'promptDone': fresh && (live.promptFraction() ?? 0) >= 1.0,
+          // What the backend confirmed read; promptCur may be the end of the
+          // batch still running (Kobold / LM Studio print it first).
+          'promptConfirmed': fresh ? live.promptConfirmed : null,
+          'promptDone': fresh && (live.confirmedFraction() ?? 0) >= 1.0,
           'estFraction': estFraction,
+          'secondsLeft': secondsLeft?.round(),
           'genCur': fresh ? live.genCurrent : null,
           'genTotal': fresh ? live.genTotal : null,
         });

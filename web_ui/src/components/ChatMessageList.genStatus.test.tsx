@@ -78,3 +78,68 @@ describe('ChatMessageList waiting status', () => {
     expect(waitingFor('growth')).toBe('Waiting — growth pass is using the model…');
   });
 });
+
+describe('ChatMessageList prompt reading', () => {
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('shows only confirmed counts, with the estimate as a lighter fill and time left', () => {
+    // KoboldCpp printed 16,384 as batch two started; 8,192 is what is read.
+    const genStatus: GenStatus = {
+      phase: 'prefill',
+      elapsed: 330,
+      busyWith: null,
+      queued: 0,
+      promptCur: 16384,
+      promptConfirmed: 8192,
+      promptTotal: 22124,
+      promptDone: false,
+      estFraction: 0.45,
+      secondsLeft: 400,
+      genCur: null,
+      genTotal: null,
+    };
+    act(() => {
+      root.render(
+        createElement(ChatMessageList, {
+          messages: [],
+          castById: new Map(),
+          multiCast: false,
+          lastIndex: -1,
+          busy: true,
+          canSpeak: false,
+          onBeginEdit: noop,
+          onSwipe: noop,
+          onRegenerate: noop,
+          onContinue: noop,
+          onFork: noop,
+          onDelete: noop,
+          onReprocess: noop,
+          onRevert: noop,
+          streaming: '',
+          followStreamingReplies: true,
+          genStatus,
+          scrollRef: createRef<HTMLDivElement>(),
+          sessionId: 's1',
+        }),
+      );
+    });
+    expect(container.querySelector('.gen-status span')?.textContent).toBe(
+      'Reading prompt — 8,192 / 22,124 tokens (37%) · ~7 min left',
+    );
+    const widths = Array.from(container.querySelectorAll<HTMLElement>('.gen-status-fill')).map(
+      (el) => [el.classList.contains('estimate'), el.style.width],
+    );
+    expect(widths).toEqual([
+      [true, '45%'],
+      [false, '37%'],
+    ]);
+  });
+});

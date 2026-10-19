@@ -24,6 +24,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import 'prompt_progress_bar.dart';
+
 /// Rich, phase-aware generation status bar. (extracted)
 class GenerationStatusBar extends StatefulWidget {
   final ChatService chatService;
@@ -39,8 +41,8 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
   @override
   void initState() {
     super.initState();
-    // 250ms so the interpolated prompt-token counter visibly ticks between
-    // the backend's per-batch console lines (tiny widget, cheap rebuild).
+    // 250ms so the estimate fill and the time left move between the
+    // backend's per-batch console lines (tiny widget, cheap rebuild).
     _elapsedTimer = Timer.periodic(const Duration(milliseconds: 250), (_) {
       if (mounted) setState(() {});
     });
@@ -219,31 +221,20 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
       );
     }
     if (phase == GenerationPhase.prefilling) {
-      // Determinate whenever the active backend gave us real numbers — the
-      // prompt pass stops being a black box. Interpolated between per-batch
-      // updates (see _prefillLabel), monotonic per pass (the ratchet in
-      // LiveGenProgress), and tweened here so the 250ms rebuild ticks glide
-      // instead of stepping.
-      final fraction = cs.activeLiveProgress?.estimatedPromptFraction(
+      // Determinate whenever the active backend gave us real numbers: solid
+      // for what it confirmed, lighter for the estimate (see LiveGenProgress
+      // for where the speed comes from and how far the guess may run).
+      final live = cs.activeLiveProgress;
+      final estimated = live?.estimatedPromptFraction(
         tokensPerSecond: _prefillSpeed(cs),
+        requestElapsed: _ownRequestElapsed(cs),
       );
-      if (fraction != null) {
-        return TweenAnimationBuilder<double>(
-          // Keyed on the pass epoch: an honest pass restart rebuilds the bar
-          // AT the new fraction instead of sweeping backwards through the
-          // old one — backwards motion is the exact bug this bar had.
-          key: ValueKey(cs.activeLiveProgress?.passEpoch ?? 0),
-          tween: Tween<double>(end: fraction),
-          duration: const Duration(milliseconds: 350),
-          curve: Curves.easeOutCubic,
-          builder: (context, animated, _) => LinearProgressIndicator(
-            value: animated.clamp(0.0, 1.0),
-            minHeight: 4,
-            backgroundColor: AppColors.borderOf(
-              context,
-            ).withValues(alpha: 0.08),
-            valueColor: AlwaysStoppedAnimation<Color>(accentColor),
-          ),
+      if (live != null && estimated != null) {
+        return PromptProgressBar(
+          confirmed: live.confirmedFraction() ?? 0,
+          estimated: estimated,
+          passEpoch: live.passEpoch,
+          color: accentColor,
         );
       }
     }
@@ -276,22 +267,23 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
         : '';
 
     if (live != null && live.isFresh && live.promptTotal > 0) {
-      // Console lines arrive once per BATCH (with --batchsize 8192 a ~10K
-      // prompt prints only two), so the displayed fraction interpolates
-      // between real anchors using the backend's measured prefill speed —
-      // otherwise the bar jumps 0% → 100% and just sits there (maintainer
-      // report). Raw 100% means the console really said so.
-      final rawDone = (live.promptFraction() ?? 0) >= 1.0;
-      final estFraction =
-          live.estimatedPromptFraction(tokensPerSecond: _prefillSpeed(cs)) ?? 0;
-      final pct = (estFraction * 100).toInt();
-      final estTokens = rawDone
-          ? live.promptTotal
-          : (live.promptTotal * estFraction).round();
-      // Exact live-ticking counts ("8,347 / 9,912") — the user asked to watch
-      // the tokens count up, not just a percent.
+      // The words carry only what the backend confirmed ("8,192 / 22,124");
+      // the estimate lives in the bar's lighter fill and the "~time left",
+      // so a guess never reads as a count (Discord report: the label once
+      // said 21,303 while the console had finished 8,192).
+      final confirmed = live.confirmedFraction() ?? 0;
+      final rawDone = confirmed >= 1.0;
+      final pct = (confirmed * 100).toInt();
       final counts =
-          '${_fmtExact(estTokens)} / ${_fmtExact(live.promptTotal)} tokens';
+          '${_fmtExact(live.promptConfirmed)} / ${_fmtExact(live.promptTotal)} tokens';
+      final left = busyWith == null
+          ? _fmtLeft(
+              live.estimatedPromptSecondsLeft(
+                tokensPerSecond: _prefillSpeed(cs),
+                requestElapsed: _ownRequestElapsed(cs),
+              ),
+            )
+          : '';
       if (busyWith != null) {
         // Whatever Kobold is chewing on right now is the BACKGROUND call;
         // our reply is queued behind it.
@@ -307,7 +299,7 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
       }
       if (!rawDone) {
         return (
-          'Reading prompt — $counts ($pct%)$elapsedStr$queueNote',
+          'Reading prompt — $counts ($pct%)$left$elapsedStr$queueNote',
           color,
           Icons.memory_rounded,
           false,
@@ -376,8 +368,28 @@ class _GenerationStatusBarState extends State<GenerationStatusBar> {
     (m) => '${m[1]},',
   );
 
-  /// The backend's measured prefill speed (t/s) from the perf poll — the
-  /// anchor for interpolating progress between per-batch console lines.
+  /// '' or " · ~3 min left" (rounded so it does not flicker every tick).
+  String _fmtLeft(double? seconds) {
+    if (seconds == null || seconds.isNaN || seconds.isInfinite) return '';
+    if (seconds < 60) {
+      return ' · ~${((seconds / 5).ceil() * 5).clamp(5, 60)}s left';
+    }
+    return ' · ~${(seconds / 60).ceil()} min left';
+  }
+
+  /// How long our own reply has been waiting on the prompt, so the estimate
+  /// can use this request's average speed. Null while a background pass has
+  /// the engine: the live counts are then that pass's, not ours.
+  Duration? _ownRequestElapsed(ChatService cs) {
+    if (cs.isSummaryGenerating || cs.isGrowthPassRunning) return null;
+    if (cs.activeLiveProgress?.heldBy != null) return null;
+    final seconds = cs.prefillElapsedSeconds;
+    if (seconds <= 0) return null;
+    return Duration(milliseconds: (seconds * 1000).round());
+  }
+
+  /// A previous request's prefill speed (t/s) from the perf poll: the last
+  /// resort for the estimate, used only before this request proves its own.
   double? _prefillSpeed(ChatService cs) {
     if (!cs.prefillMetricsAreMeasured) return null;
     final speed = cs.lastPerfData?['last_process_speed'];

@@ -179,9 +179,11 @@ export function useChatSession() {
             busyWith: e.busyWith ?? null,
             queued: e.queued ?? 0,
             promptCur: e.promptCur ?? null,
+            promptConfirmed: e.promptConfirmed ?? null,
             promptTotal: e.promptTotal ?? null,
             promptDone: !!e.promptDone,
             estFraction: e.estFraction ?? null,
+            secondsLeft: e.secondsLeft ?? null,
             genCur: e.genCur ?? null,
             genTotal: e.genTotal ?? null,
           };
@@ -191,9 +193,11 @@ export function useChatSession() {
             prev.busyWith === next.busyWith &&
             prev.queued === next.queued &&
             prev.promptCur === next.promptCur &&
+            prev.promptConfirmed === next.promptConfirmed &&
             prev.promptTotal === next.promptTotal &&
             prev.promptDone === next.promptDone &&
             prev.estFraction === next.estFraction &&
+            prev.secondsLeft === next.secondsLeft &&
             prev.genCur === next.genCur &&
             prev.genTotal === next.genTotal
             ? prev

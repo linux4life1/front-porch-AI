@@ -28,6 +28,23 @@ class _Waiting extends FakeChatService {
   LiveGenProgress? get activeLiveProgress => _live;
 }
 
+/// A reply reading its own prompt from [_live]: nothing holds the engine.
+class _Reading extends FakeChatService {
+  _Reading(this._live)
+    : super(
+        isGenerating: true,
+        generationPhase: GenerationPhase.prefilling,
+        prefillElapsedSeconds: 390,
+        prefillMetricsAreMeasured: true,
+        lastPerfData: const {'last_process_speed': 400.0},
+      );
+
+  final LiveGenProgress _live;
+
+  @override
+  LiveGenProgress? get activeLiveProgress => _live;
+}
+
 void main() {
   testWidgets('a reply waiting for the speed test says what it waits for', (
     tester,
@@ -46,6 +63,37 @@ void main() {
       findsOneWidget,
     );
     // The bar ticks on a timer: take it down before the test ends.
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('reading the prompt shows only counts the backend confirmed, '
+      'with the estimate as time left', (tester) async {
+    final now = DateTime.now();
+    final live = LiveGenProgress()
+      ..ingest(
+        'Processing Prompt [BATCH] (8192 / 22124 tokens)',
+        now: now.subtract(const Duration(seconds: 330)),
+      )
+      ..ingest(
+        'Processing Prompt [BATCH] (16384 / 22124 tokens)',
+        now: now.subtract(const Duration(seconds: 60)),
+      );
+    final chat = _Reading(live);
+    addTearDown(chat.dispose);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(body: GenerationStatusBar(chatService: chat)),
+      ),
+    );
+
+    // KoboldCpp printed 16,384 as batch two STARTED; 8,192 is what is read.
+    expect(
+      find.textContaining('Reading prompt — 8,192 / 22,124 tokens (37%) · ~'),
+      findsOneWidget,
+    );
+    expect(find.textContaining('min left'), findsOneWidget);
+    expect(find.textContaining('16,384'), findsNothing);
     await tester.pumpWidget(const SizedBox());
   });
 }
