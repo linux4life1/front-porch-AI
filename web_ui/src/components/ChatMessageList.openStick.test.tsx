@@ -5,7 +5,7 @@ import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
 import { createElement, createRef, type RefObject } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { ChatMessageList } from './ChatMessageList';
+import { ChatMessageList, type GenStatus } from './ChatMessageList';
 import type { Message } from './chatTypes';
 
 let container: HTMLDivElement;
@@ -23,7 +23,7 @@ function message(partial: Partial<Message> & Pick<Message, 'index' | 'text'>): M
 function renderList(
   messages: Message[],
   scrollRef: RefObject<HTMLDivElement | null>,
-  extra?: { streaming?: string; followStreamingReplies?: boolean },
+  extra?: { streaming?: string; followStreamingReplies?: boolean; genStatus?: GenStatus | null },
 ) {
   act(() => {
     root.render(
@@ -44,7 +44,7 @@ function renderList(
         onRevert: noop,
         streaming: extra?.streaming ?? '',
         followStreamingReplies: extra?.followStreamingReplies ?? true,
-        genStatus: null,
+        genStatus: extra?.genStatus ?? null,
         scrollRef,
         sessionId: 's1',
       }),
@@ -175,5 +175,78 @@ describe('ChatMessageList open stick', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('ChatMessageList gen-status bubble', () => {
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+    vi.unstubAllGlobals();
+  });
+
+  // The bubble mounts after the user's line pinned, outside the observed
+  // message column, and hung under the composer for the whole prompt read.
+  it('keeps a reader at the bottom when the Reading prompt bubble appears', () => {
+    const watching: { cb: ResizeObserverCallback; targets: Element[] }[] = [];
+    vi.stubGlobal(
+      'ResizeObserver',
+      class {
+        entry: { cb: ResizeObserverCallback; targets: Element[] };
+        constructor(cb: ResizeObserverCallback) {
+          this.entry = { cb, targets: [] };
+          watching.push(this.entry);
+        }
+        observe(t: Element) {
+          this.entry.targets.push(t);
+        }
+        unobserve() {}
+        disconnect() {
+          const i = watching.indexOf(this.entry);
+          if (i >= 0) watching.splice(i, 1);
+        }
+      },
+    );
+    const scrollRef = createRef<HTMLDivElement>();
+    const sent = [
+      message({ index: 0, text: 'hello' }),
+      message({ index: 1, text: 'a long question', sender: 'You', isUser: true }),
+    ];
+    renderList(sent, scrollRef);
+    const el = container.querySelector('.chat-messages') as HTMLDivElement;
+    let height = 2400;
+    metrics(el, 2400, 700);
+    Object.defineProperty(el, 'scrollHeight', { configurable: true, get: () => height });
+    el.scrollTop = 1700;
+
+    const status: GenStatus = {
+      phase: 'prefill',
+      elapsed: 1,
+      busyWith: null,
+      queued: 0,
+      promptCur: 2048,
+      promptConfirmed: 0,
+      promptTotal: 22124,
+      promptDone: false,
+      estFraction: 0.05,
+      secondsLeft: null,
+      genCur: null,
+      genTotal: null,
+    };
+    renderList(sent, scrollRef, { genStatus: status });
+    height = 2457;
+    const bubble = container.querySelector('.gen-status') as HTMLElement;
+    expect(bubble).not.toBeNull();
+    act(() => {
+      for (const w of watching.filter((x) => x.targets.includes(bubble))) {
+        w.cb([], {} as ResizeObserver);
+      }
+    });
+    expect(el.scrollTop).toBe(2457);
   });
 });

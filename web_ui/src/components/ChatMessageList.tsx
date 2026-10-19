@@ -427,6 +427,10 @@ export function ChatMessageList({
   const repinRef = useRef(repinIfStuck);
   repinRef.current = repinIfStuck;
   const onChatImageLoad = useCallback(() => repinRef.current(), []);
+  // The gen-status bubble also sits outside contentRef. It mounts after the
+  // user's line has pinned, then grows when its bar appears; without its own
+  // observation it hung under the composer for the whole prompt read.
+  const [genStatusEl, setGenStatusEl] = useState<HTMLDivElement | null>(null);
   useLayoutEffect(() => {
     const content = contentRef.current;
     if (!content || typeof ResizeObserver === 'undefined') return;
@@ -434,8 +438,9 @@ export function ChatMessageList({
       repinIfStuck();
     });
     obs.observe(content);
+    if (genStatusEl) obs.observe(genStatusEl);
     return () => obs.disconnect();
-  }, [repinIfStuck]);
+  }, [repinIfStuck, genStatusEl]);
   const handleScroll = () => {
     const el = scrollRef.current;
     if (!el || !settled.current) return;
@@ -511,7 +516,7 @@ export function ChatMessageList({
         // backend, or which background pass is holding the slot.
         const { label, fraction, confirmed } = genStatusLabel(genStatus);
         return (
-          <div className="bubble ai streaming gen-status" aria-live="polite">
+          <div ref={setGenStatusEl} className="bubble ai streaming gen-status" aria-live="polite">
             <span className="muted small">{label}</span>
             {fraction != null && (
               <div className="gen-status-track">

@@ -150,5 +150,12 @@ describe('useChatSession gen-status after a send from this page', () => {
     const calls = get.mock.calls.length;
     await act(async () => TestSocket.last.emit({ event: 'gen_status', active: true, phase: 'generating' }));
     expect(get.mock.calls.length).toBe(calls);
+
+    get.mockResolvedValue(chatState('chat-a', false));
+    await act(async () => TestSocket.last.emit({ event: 'done' }));
+    expect(session.state?.isGenerating).toBe(false);
+    get.mockResolvedValue(chatState('chat-a', true));
+    await act(async () => TestSocket.last.emit({ event: 'gen_status', active: true, phase: 'prefill' }));
+    expect(session.state?.isGenerating).toBe(true);
   });
 });
