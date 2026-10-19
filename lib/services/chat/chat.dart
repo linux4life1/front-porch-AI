@@ -23,6 +23,7 @@ export 'chaos/chaos.dart';
 export 'chaos_mode_service.dart';
 export 'chat_command_handler.dart';
 export 'chat_import_busy.dart';
+export 'chat_search_engine.dart';
 export 'context_viewer_snapshot.dart';
 export 'reply_context.dart';
 export 'token_alternatives.dart';

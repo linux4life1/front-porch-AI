@@ -16,7 +16,6 @@ void main() {
       final spec = compileChatQuery('lantern');
       expect(spec.bad, isFalse);
       expect(spec.needle, 'lantern');
-      expect(spec.pattern, isNull);
       expect(spec.wordBounded, isFalse);
     });
 
@@ -35,7 +34,10 @@ void main() {
     test('\\* is a literal star, not a glob', () {
       final spec = compileChatQuery(r'\*');
       expect(spec.needle, '*');
-      expect(spec.pattern, isNull);
+      expect(ranges('a *nod* b', spec), [
+        (start: 2, end: 3),
+        (start: 6, end: 7),
+      ]);
     });
 
     test('regex mode compiles verbatim and is unbounded', () {
@@ -56,6 +58,12 @@ void main() {
   });
 
   group('plain matching', () {
+    test('hits never overlap, so leaf splits cannot repeat text', () {
+      final spec = compileChatQuery('aa');
+      expect(ranges('aaaa', spec), [(start: 0, end: 2), (start: 2, end: 4)]);
+      expect(ranges('aaa', spec), [(start: 0, end: 2)]);
+    });
+
     test('substring across word boundaries, case-insensitive', () {
       final spec = compileChatQuery('lantern');
       expect(

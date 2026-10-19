@@ -44,9 +44,14 @@ export function useChatFind(opts: {
   const { transcriptVersion } = opts;
   const seq = useRef(0);
   const tick = useRef(0);
+  // Query + modes of the hits on screen. A re-scan for the same key was a
+  // transcript change (a new reply, an edit): keep the reader's place
+  // instead of jumping back to the first match.
+  const shownKey = useRef<string | null>(null);
 
   const close = useCallback(() => {
     seq.current += 1;
+    shownKey.current = null;
     setOpen(false);
     setHits([]);
     setActive(-1);
@@ -61,6 +66,7 @@ export function useChatFind(opts: {
     const q = query.trim();
     const my = (seq.current += 1);
     if (!q) {
+      shownKey.current = null;
       setHits([]);
       setActive(-1);
       setBad(false);
@@ -70,6 +76,7 @@ export function useChatFind(opts: {
     const spec = compileFindQuery(q, { regex: regexOn, caseSensitive: caseOn });
     setBad(spec.bad);
     if (spec.bad) {
+      shownKey.current = null;
       setHits([]);
       setActive(-1);
       setWaiting(false);
@@ -89,11 +96,18 @@ export function useChatFind(opts: {
         void scan();
         return;
       }
+      const key = `${q}|${regexOn}|${caseOn}`;
+      const fresh = shownKey.current !== key;
+      shownKey.current = key;
       setWaiting(false);
       setHits(r.matches);
-      const nextActive = r.matches.length ? 0 : -1;
-      setActive(nextActive);
-      if (nextActive >= 0) setReveal({ index: r.matches[nextActive].messageIndex, tick: (tick.current += 1) });
+      if (fresh) {
+        const nextActive = r.matches.length ? 0 : -1;
+        setActive(nextActive);
+        if (nextActive >= 0) setReveal({ index: r.matches[nextActive].messageIndex, tick: (tick.current += 1) });
+      } else {
+        setActive((a) => (r.matches.length ? Math.min(Math.max(a, 0), r.matches.length - 1) : -1));
+      }
     } catch {
       if (my === seq.current) setWaiting(false);
     }

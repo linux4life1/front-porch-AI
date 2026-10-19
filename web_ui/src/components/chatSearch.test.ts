@@ -33,6 +33,16 @@ describe('compileFindQuery', () => {
 });
 
 describe('plain matching', () => {
+  it('hits never overlap, so marks cannot repeat text', () => {
+    expect(r('aaaa', 'aa')).toEqual([[0, 2], [2, 4]]);
+    expect(r('aaa', 'aa')).toEqual([[0, 2]]);
+  });
+
+  it('a case fold that changes length does not shift later hits', () => {
+    // 'İ'.toLowerCase() is two code units in JS; ranges index the original.
+    expect(r('İstanbul lantern', 'lantern')).toEqual([[9, 16]]);
+  });
+
   it('substring counts, case-insensitive by default', () => {
     expect(r('A lantern answers. Lantern-light and dogwood.', 'lantern')).toHaveLength(2);
   });

@@ -27,8 +27,9 @@ final RegExp _wordChar = RegExp(r'[\p{L}\p{N}_]', unicode: true);
 final RegExp _imageSpan = RegExp(r'!\[[^\]]*\]\((?:https?://[^)]+)\)');
 const String _starSentinel = '\uE000';
 
-/// Compiled form of one find-bar query. Exactly one path is live:
-/// [bad], [needle], or [pattern] (+ [wordBounded] when it came from a glob).
+/// Compiled form of one find-bar query: [bad], or a [pattern] to scan with
+/// (+ [wordBounded] when it came from a glob). [needle] keeps the plain
+/// query's text; it is empty (and [pattern] null) for a no-op search.
 class ChatQuerySpec {
   final bool bad;
   final String? needle;
@@ -66,8 +67,20 @@ ChatQuerySpec compileChatQuery(
   final folded = caseSensitive ? query : query.toLowerCase();
   final starred = folded.replaceAll(r'\*', _starSentinel);
   if (!starred.contains('*')) {
+    final needle = starred.replaceAll(_starSentinel, '*');
     return ChatQuerySpec._(
-      needle: starred.replaceAll(_starSentinel, '*'),
+      needle: needle,
+      // A case-folding RegExp rather than indexOf on toLowerCase(): folding
+      // can change a string's length (`İ` lowers to two code units), which
+      // would shift every range after it, and indexOf from idx+1 returned
+      // overlapping hits ("aa" in "aaaa") that leaf splitters duplicated.
+      pattern: needle.isEmpty
+          ? null
+          : RegExp(
+              RegExp.escape(needle),
+              caseSensitive: caseSensitive,
+              unicode: true,
+            ),
       caseSensitive: caseSensitive,
     );
   }
@@ -112,9 +125,9 @@ class ChatFindMatch {
   });
 }
 
-/// Ranges of [spec] inside one string — the same pass leaf renderers use to
-/// split their spans. Manual word-boundary check for globs; image spans are
-/// skipped. Empty needles match nothing.
+/// Non-overlapping ranges of [spec] inside one string — the same pass leaf
+/// renderers use to split their spans. Manual word-boundary check for
+/// globs; image spans are skipped. Empty needles match nothing.
 List<({int start, int end})> chatQueryRanges(String text, ChatQuerySpec spec) {
   final out = <({int start, int end})>[];
   if (spec.isEmpty) return out;
@@ -125,17 +138,6 @@ List<({int start, int end})> chatQueryRanges(String text, ChatQuerySpec spec) {
   bool inImage(int start, int end) =>
       images.any((im) => start < im.end && end > im.start);
 
-  final needle = spec.needle;
-  if (needle != null) {
-    final hay = spec.caseSensitive ? text : text.toLowerCase();
-    var idx = hay.indexOf(needle);
-    while (idx != -1) {
-      final end = idx + needle.length;
-      if (!inImage(idx, end)) out.add((start: idx, end: end));
-      idx = hay.indexOf(needle, idx + 1);
-    }
-    return out;
-  }
   final pattern = spec.pattern;
   if (pattern == null) return out;
   for (final m in pattern.allMatches(text)) {
@@ -195,4 +197,22 @@ List<ChatFindMatch> scanTranscript(
     messageIndex++;
   }
   return hits;
+}
+
+/// Outcome of one ⌘F find pass. [stale] means the session or the history
+/// epoch moved under the scan (the UI re-runs it); [capped] means hit
+/// collection stopped at [kFindMatchCap] and the counter must read "999+".
+class ChatFindOutcome {
+  final bool badPattern;
+  final bool stale;
+  final bool capped;
+  final List<ChatFindMatch> matches;
+  final int totalMessages;
+  const ChatFindOutcome({
+    this.badPattern = false,
+    this.stale = false,
+    this.capped = false,
+    this.matches = const [],
+    this.totalMessages = 0,
+  });
 }

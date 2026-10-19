@@ -34,6 +34,8 @@ bool handleChatFindShortcut(
   return true;
 }
 
+const double _kBarWidth = 464;
+
 /// Stack wrapper: transcript + the find bar overlaid top-right of it
 /// (never over the sidebar — it rides the transcript column).
 class ChatFindLayer extends StatelessWidget {
@@ -50,19 +52,28 @@ class ChatFindLayer extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedBuilder(
       animation: controller,
-      builder: (context, child) => Stack(
-        children: [
-          child!,
-          if (controller.open)
-            Positioned(
-              top: 10,
-              right: 16,
-              child: Material(
-                color: Colors.transparent,
-                child: ChatFindBar(controller: controller),
+      builder: (context, child) => LayoutBuilder(
+        builder: (context, box) => Stack(
+          children: [
+            child!,
+            if (controller.open)
+              Positioned(
+                top: 10,
+                right: 16,
+                child: ConstrainedBox(
+                  // Narrow windows: never wider than the transcript (the
+                  // web bar's max-width: calc(100% - 32px)).
+                  constraints: BoxConstraints(
+                    maxWidth: (box.maxWidth - 32).clamp(0, _kBarWidth),
+                  ),
+                  child: Material(
+                    color: Colors.transparent,
+                    child: ChatFindBar(controller: controller),
+                  ),
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
       child: FindHighlightScope(controller: controller, child: transcript),
     );
@@ -93,7 +104,7 @@ class ChatFindBar extends StatelessWidget {
             ? '✱ word wildcard'
             : null;
         return Container(
-          width: 464,
+          width: _kBarWidth,
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: AppColors.cardOf(context),
@@ -284,7 +295,7 @@ class ChatFindBar extends StatelessWidget {
               fontSize: 11,
               fontWeight: FontWeight.w700,
               color: active
-                  ? const Color(0xFF241A05)
+                  ? AppColors.inkOn(honey)
                   : AppColors.textSecondary(context),
             ),
           ),

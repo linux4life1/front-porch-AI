@@ -335,6 +335,7 @@ export function ChatMessageList({
   revealTarget?: { index: number; tick: number } | null;
 }) {
   const pinnedOpen = useRef<string | null>(null);
+  const revealedTick = useRef<number | null>(null);
   const stickToLatest = useRef(false);
   const selfScroll = useRef(false);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -372,7 +373,10 @@ export function ChatMessageList({
     prepended,
     nearTop: settled.current && nearTop.current,
   });
-  if (revealTarget && full.length > 0 && !opened) {
+  // Once per navigation: re-applying on every render would pin the span
+  // to the match and fight the reader scrolling back to the tail.
+  if (revealTarget && full.length > 0 && !opened && revealedTick.current !== revealTarget.tick) {
+    revealedTick.current = revealTarget.tick;
     revealAroundSpan(
       spanRef.current,
       Math.min(revealTarget.index, full.length - 1),

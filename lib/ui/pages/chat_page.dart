@@ -147,12 +147,7 @@ class _ChatPageState extends State<ChatPage> {
     chat.addListener(_onChatServiceChanged);
     chat.chatScreenOpened();
     HardwareKeyboard.instance.addHandler(_findKeys);
-    _find.attach(
-      chat,
-      repaint: () {
-        if (mounted) setState(() {});
-      },
-    );
+    _find.attach(chat);
     _find.onNavigate = (i) => _jumpToMessage(i, 0.5);
 
     // Resume timer if this is a pre-existing chat with history

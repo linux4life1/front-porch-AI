@@ -43,10 +43,16 @@ export function compileFindQuery(
   }
   const folded = (caseSensitive ? query : query.toLowerCase()).split('\\*').join(SENT);
   if (!folded.includes('*')) {
+    const needle = folded.split(SENT).join('*');
     return {
       bad: false,
       mode: 'plain',
-      needle: folded.split(SENT).join('*'),
+      needle,
+      // A case-folding RegExp, not indexOf on toLowerCase(): 'İ' lowers to
+      // two code units and would shift every later range, and indexOf from
+      // idx + 1 returned overlapping hits ("aa" in "aaaa") whose marks
+      // repeated the text.
+      re: needle ? new RegExp(needle.replace(META, '\\$&'), 'gu' + (caseSensitive ? '' : 'i')) : undefined,
       wordBounded: false,
       caseSensitive,
     };
@@ -60,7 +66,7 @@ export function compileFindQuery(
 
 export type FindRange = [number, number];
 
-/** Ranges of [spec] in one string — image spans excluded, glob matches
+/** Non-overlapping ranges of [spec] in one string — image spans excluded, glob matches
  * word-anchored manually (no lookbehind, mirroring the Dart engine). */
 export function findRanges(text: string, spec: FindSpec): FindRange[] {
   const out: FindRange[] = [];
@@ -72,16 +78,6 @@ export function findRanges(text: string, spec: FindSpec): FindRange[] {
   const inImage = (start: number, end: number) =>
     images.some(([s, e]) => start < e && end > s);
 
-  if (spec.mode === 'plain') {
-    const hay = spec.caseSensitive ? text : text.toLowerCase();
-    let idx = hay.indexOf(spec.needle);
-    while (idx !== -1) {
-      const end = idx + spec.needle.length;
-      if (!inImage(idx, end)) out.push([idx, end]);
-      idx = hay.indexOf(spec.needle, idx + 1);
-    }
-    return out;
-  }
   const re = spec.re;
   if (!re) return out;
   re.lastIndex = 0;

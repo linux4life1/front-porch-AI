@@ -7,22 +7,26 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/chat_search_engine.dart';
+import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
-/// Publishes the find controller to mounted bubbles so a scan repaint
-/// rebuilds only highlight readers. Null-scope (waifu, previews, dialogs) =
-/// no highlights, zero cost on the normal render path.
-class FindHighlightScope extends InheritedNotifier<ChatFindController> {
-  const FindHighlightScope({
+/// Publishes the find controller to mounted bubbles. Bubbles rebuild only
+/// when the highlights change (a scan lands, a step, open/close), never for
+/// bar-only ticks like typing or the backfill progress poll. Null-scope
+/// (waifu, previews, dialogs) = no highlights, zero cost on the normal path.
+class FindHighlightScope extends InheritedNotifier<Listenable> {
+  FindHighlightScope({
     super.key,
-    required ChatFindController controller,
+    required this.controller,
     required super.child,
-  }) : super(notifier: controller);
+  }) : super(notifier: controller.highlights);
+
+  final ChatFindController controller;
 
   static ChatFindController? maybeOf(BuildContext context) => context
       .dependOnInheritedWidgetOfExactType<FindHighlightScope>()
-      ?.notifier;
+      ?.controller;
 }
 
 /// Splits finished leaf spans around engine matches of the active find
@@ -58,7 +62,7 @@ class FindLeafSplit {
           style: isActive
               ? (base ?? const TextStyle()).copyWith(
                   backgroundColor: honey,
-                  color: const Color(0xFF241A05),
+                  color: AppColors.inkOn(honey),
                   fontWeight: FontWeight.w600,
                 )
               : (base ?? const TextStyle()).copyWith(
@@ -96,9 +100,14 @@ class FindLeafState {
 /// the Dart engine scan (`ChatService.findInTranscript`, which waits for the
 /// history backfill); bubbles highlight via [leafStateFor]. Re-scans on any
 /// transcript change while open (edits, swipes, regens change visible text)
-/// and closes itself when the session changes.
+/// and closes itself when the session changes. Listeners (the bar) hear
+/// every change; [highlights] fires only when what bubbles paint changes.
 class ChatFindController extends ChangeNotifier {
   ChatFindController();
+
+  /// Bumped whenever [leafStateFor] can answer differently.
+  final ValueNotifier<int> highlights = ValueNotifier<int>(0);
+  bool _disposed = false;
 
   final TextEditingController text = TextEditingController();
 
@@ -122,7 +131,6 @@ class ChatFindController extends ChangeNotifier {
   );
 
   ChatService? _service;
-  void Function()? _repaint;
   void Function(int messageIndex)? onNavigate;
 
   bool open = false;
@@ -156,15 +164,21 @@ class ChatFindController extends ChangeNotifier {
     return '${active + 1} / $total';
   }
 
-  void attach(ChatService service, {required void Function() repaint}) {
+  void attach(ChatService service) {
     _service = service;
-    _repaint = repaint;
     service.addListener(_onTranscriptChanged);
   }
 
+  void _changed({bool repaintBubbles = false}) {
+    if (_disposed) return;
+    if (repaintBubbles) highlights.value++;
+    notifyListeners();
+  }
+
   void openFind() {
+    final wasOpen = open;
     open = true;
-    _repaint?.call();
+    _changed(repaintBubbles: !wasOpen);
     focus.requestFocus();
     text.selection = TextSelection(
       baseOffset: 0,
@@ -176,16 +190,24 @@ class ChatFindController extends ChangeNotifier {
   void close() {
     open = false;
     waiting = false;
+    _debounce?.cancel();
     _poll?.cancel();
     matches = const [];
     active = -1;
     _leafMap = Map<ChatMessage, FindLeafState>.identity();
-    _repaint?.call();
+    _changed(repaintBubbles: true);
   }
 
-  void scheduleScan() {
+  /// The query text changed: debounced scan that starts over at the first
+  /// match and jumps to it.
+  void scheduleScan() => _debounceScan(fresh: true);
+
+  void _debounceScan({required bool fresh}) {
     _debounce?.cancel();
-    _debounce = Timer(const Duration(milliseconds: 150), _runScan);
+    _debounce = Timer(
+      const Duration(milliseconds: 150),
+      () => _runScan(fresh: fresh),
+    );
   }
 
   void toggleRegex() {
@@ -204,7 +226,7 @@ class ChatFindController extends ChangeNotifier {
     final service = _service;
     if (service != null) _rebuildLeafMap(service.messages);
     onNavigate?.call(matches[active].messageIndex);
-    _repaint?.call();
+    _changed(repaintBubbles: true);
   }
 
   void _onTranscriptChanged() {
@@ -215,11 +237,16 @@ class ChatFindController extends ChangeNotifier {
       close();
       return;
     }
-    // Debounced re-scan keeps counts honest after edits/swipes/regens.
-    scheduleScan();
+    // Debounced re-scan keeps counts honest after edits/swipes/regens. It
+    // keeps the reader's place: a new reply or a sidebar notify must not
+    // yank the transcript back to the active match.
+    _debounceScan(fresh: false);
   }
 
-  Future<void> _runScan() async {
+  /// [fresh]: the query or a mode changed, so start at the first match and
+  /// jump there. Otherwise only the transcript moved: keep the active hit
+  /// and the scroll position.
+  Future<void> _runScan({bool fresh = true}) async {
     final service = _service;
     if (service == null || !open) return;
     final seq = ++_scanSeq;
@@ -232,12 +259,13 @@ class ChatFindController extends ChangeNotifier {
     if (_spec.bad) {
       matches = const [];
       active = -1;
-      _repaint?.call();
+      _leafMap = Map<ChatMessage, FindLeafState>.identity();
+      _changed(repaintBubbles: true);
       return;
     }
     waiting = service.isBackfillingHistory;
     if (waiting) _startPolling(service);
-    _repaint?.call();
+    _changed();
     final outcome = await service.findInTranscript(
       text.text,
       regexMode: regexOn,
@@ -245,18 +273,20 @@ class ChatFindController extends ChangeNotifier {
     );
     if (seq != _scanSeq || !open) return;
     if (outcome.stale) {
-      unawaited(_runScan());
+      unawaited(_runScan(fresh: fresh));
       return;
     }
     _poll?.cancel();
     waiting = false;
     matches = outcome.matches;
-    active = matches.isEmpty ? -1 : active.clamp(0, matches.length - 1);
+    active = matches.isEmpty
+        ? -1
+        : fresh
+        ? 0
+        : active.clamp(0, matches.length - 1);
     _rebuildLeafMap(service.messages);
-    if (matches.isNotEmpty && active >= 0) {
-      onNavigate?.call(matches[active].messageIndex);
-    }
-    _repaint?.call();
+    if (fresh && active >= 0) onNavigate?.call(matches[active].messageIndex);
+    _changed(repaintBubbles: true);
   }
 
   /// The backfill loop notifies once at the end, so the bar's
@@ -276,7 +306,7 @@ class ChatFindController extends ChangeNotifier {
         return;
       }
       loadedCount = service.messages.length;
-      _repaint?.call();
+      _changed();
     });
   }
 
@@ -309,6 +339,8 @@ class ChatFindController extends ChangeNotifier {
 
   @override
   void dispose() {
+    _disposed = true;
+    highlights.dispose();
     _debounce?.cancel();
     _poll?.cancel();
     _service?.removeListener(_onTranscriptChanged);
