@@ -274,6 +274,69 @@ void main() {
         .toList();
     expect(targets, [null, 'a', 'b', 'c']);
   });
+
+  testWidgets('a deep path squeezed during a drag keeps a label on every '
+      'drop pill', (tester) async {
+    final folders = [
+      CharacterFolder(id: 'a', name: 'Bletchfield of the long valley road'),
+      CharacterFolder(id: 'b', name: 'Hollow porch steps', parentId: 'a'),
+      CharacterFolder(id: 'c', name: 'Lantern shelf', parentId: 'b'),
+      CharacterFolder(id: 'd', name: 'Brass hooks by the door', parentId: 'c'),
+    ];
+    final nested = _Folders(folders);
+    addTearDown(nested.dispose);
+    tester.view.physicalSize = const Size(900, 200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: HomeGridToolbar(
+            isSelecting: true,
+            isOrganizing: false,
+            liveDrag: true,
+            activeFolderId: 'd',
+            selectedCount: 1,
+            sortMode: 'name',
+            gridScale: 240,
+            modeToggle: HomeModeToggle(
+              showStories: false,
+              onShowChats: () {},
+              onShowStories: () {},
+            ),
+            repo: repo,
+            folderService: nested,
+            onDropOnLevel: (_, _) {},
+            onCancelSelection: () {},
+            onFolderNavigateBack: () {},
+            onFolderJump: (_) {},
+            onSortChanged: (_) {},
+            onGridScaleChanged: (_) {},
+            onGridScaleChangeEnd: (_) {},
+            onToggleSelectMode: () {},
+            onToggleOrganizeMode: () {},
+            onFolderDialogAction: (FolderDialogAction _, {folder, parentId}) {},
+            onImport: (_) {},
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    final labels = find.descendant(
+      of: find.byType(HomeToolbarLevelTarget),
+      matching: find.byType(Text),
+    );
+    expect(labels, findsNWidgets(4));
+    for (final label in labels.evaluate()) {
+      final box = label.renderObject! as RenderBox;
+      expect(
+        box.size.width,
+        greaterThanOrEqualTo(18),
+        reason: '"${(label.widget as Text).data}" lost its label',
+      );
+    }
+  });
 }
 
 class _Folders extends FakeFolderService {

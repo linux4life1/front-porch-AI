@@ -119,7 +119,9 @@ class HomeToolbarBreadcrumb extends StatelessWidget {
         final currentMax = width.isFinite
             ? math.max(
                 width - named * _kCrumbFloor - (hidden.isEmpty ? 0 : 28),
-                width * 0.4,
+                // A drag shows every level, so the current folder gives
+                // up more of the row to keep each pill's label readable.
+                width * (dropTargets ? 0.25 : 0.4),
               )
             : double.infinity;
         return Row(

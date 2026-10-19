@@ -178,33 +178,44 @@ class HomeGridToolbar extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Row(
-            children: [
-              if (inFolder) ...[
-                IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  tooltip: 'Up one level',
-                  visualDensity: VisualDensity.compact,
-                  onPressed: onFolderNavigateBack,
-                ),
-                const SizedBox(width: 8),
-                Flexible(child: _breadcrumb(dropTargets: true)),
-                const SizedBox(width: 8),
-              ],
-              Flexible(
-                child: Text(
-                  inFolder
-                      ? 'Drop on a folder, or on a level of the path'
-                      : 'Drop on a folder',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: AppColors.textSecondary(context),
-                    fontSize: 13,
+          child: LayoutBuilder(
+            // The path is laid out first and may take the whole strip: its
+            // levels are the targets. The hint gets what is left, and in a
+            // folder on a narrow window it steps aside entirely.
+            builder: (context, strip) => Row(
+              children: [
+                if (inFolder) ...[
+                  IconButton(
+                    icon: const Icon(Icons.arrow_back),
+                    tooltip: 'Up one level',
+                    visualDensity: VisualDensity.compact,
+                    onPressed: onFolderNavigateBack,
                   ),
-                ),
-              ),
-            ],
+                  const SizedBox(width: 8),
+                  ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxWidth: math.max(0.0, strip.maxWidth - 56),
+                    ),
+                    child: _breadcrumb(dropTargets: true),
+                  ),
+                  const SizedBox(width: 8),
+                ],
+                if (!inFolder || room >= 520)
+                  Expanded(
+                    child: Text(
+                      inFolder
+                          ? 'Drop on a folder, or on a level of the path'
+                          : 'Drop on a folder',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        color: AppColors.textSecondary(context),
+                        fontSize: 13,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
           ),
         ),
         if (room >= 96) ...[
