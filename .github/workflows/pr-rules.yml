@@ -68,7 +68,7 @@ jobs:
               p.startsWith('web_ui/public/') ||
               /^(android|ios|linux|macos|windows|aur|aur-beta)\//.test(p);
             const strayImages = live
-              .filter((f) => f.status === 'added' && IMAGE.test(f.filename))
+              .filter((f) => ['added', 'renamed', 'copied'].includes(f.status) && IMAGE.test(f.filename))
               .map((f) => f.filename)
               .filter((p) => !imageHome(p));
             if (strayImages.length && !labels.includes('approved-images')) {
@@ -142,7 +142,7 @@ jobs:
             const RISKY = [
               /^lib\/database\//,
               /^(windows|linux|macos)\//,
-              /picker|file_dialog|import|export/i,
+              /(^|\/)[^/]*(picker|file_dialog|import|export)[^/]*$/i,
             ];
             const newScreens = live.filter(
               (f) =>

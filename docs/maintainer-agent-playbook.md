@@ -132,7 +132,8 @@ deliberate one in).
 **Drafts wait.** A draft PR runs only the cheap CI jobs. E2E, Playwright,
 goldens and the Stoop pin start when it leaves draft, and a docs-only PR never
 runs them. Take PRs out of draft in merge-queue order and the head of the
-queue gets the runners first.
+queue gets the runners first. So "CI green", for a review or smoke handoff,
+means a run after the PR left draft.
 
 ## What every review checks
 

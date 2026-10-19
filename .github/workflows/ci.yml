@@ -69,8 +69,9 @@ jobs:
               pull_number: pr.number,
               per_page: 100,
             });
+            const docsish = (n) => n.endsWith('.md') || n.startsWith('docs/');
             const docsOnly = files.every(
-              (f) => f.filename.endsWith('.md') || f.filename.startsWith('docs/'),
+              (f) => docsish(f.filename) && (!f.previous_filename || docsish(f.previous_filename)),
             );
             if (docsOnly) core.notice('Docs-only PR: heavy jobs skipped.');
             core.setOutput('heavy', docsOnly ? 'false' : 'true');
