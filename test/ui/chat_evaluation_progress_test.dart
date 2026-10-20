@@ -1,6 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import 'dart:ui' as ui;
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
@@ -150,6 +152,62 @@ void main() {
         findsOneWidget,
       );
       await tester.pumpWidget(const SizedBox());
+    },
+  );
+
+  testWidgets(
+    'eval overlays freeze the blur: no live BackdropFilter, still is the chat',
+    (tester) async {
+      await tester.binding.setSurfaceSize(const Size(1280, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      const behind = Color(0xFFCC2020);
+      final chat = EvaluationChat();
+      addTearDown(chat.dispose);
+      for (final overlay in <Widget>[
+        RealismProcessingOverlay(chatService: chat, isGreeting: false),
+        ObjectiveCheckOverlay(chatService: chat),
+      ]) {
+        await tester.pumpWidget(
+          MaterialApp(
+            home: RepaintBoundary(
+              child: Stack(
+                children: [
+                  const Positioned.fill(child: ColoredBox(color: behind)),
+                  overlay,
+                ],
+              ),
+            ),
+          ),
+        );
+        final root = find.byWidget(overlay);
+        expect(
+          find.descendant(of: root, matching: find.byType(BackdropFilter)),
+          findsNothing,
+        );
+        final still = find.descendant(
+          of: root,
+          matching: find.byKey(FrozenBackdropBlur.stillKey),
+        );
+        expect(still, findsNothing);
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 200)),
+        );
+        await tester.pump(const Duration(milliseconds: 500));
+        expect(still, findsOneWidget);
+        expect(tester.getRect(still), tester.getRect(root));
+        // The centre of the window is under the card; the still must hold
+        // the chat behind it, not the card captured on top.
+        final image = tester.widget<RawImage>(still).image!;
+        final bytes = await tester.runAsync(
+          () => image.toByteData(format: ui.ImageByteFormat.rawRgba),
+        );
+        final at = ((image.height ~/ 2) * image.width + image.width ~/ 2) * 4;
+        final rgba = bytes!.buffer.asUint8List(at, 4);
+        expect(rgba[0], closeTo(0xCC, 6));
+        expect(rgba[1], closeTo(0x20, 6));
+        expect(rgba[2], closeTo(0x20, 6));
+        await tester.pumpWidget(const SizedBox());
+      }
     },
   );
 }

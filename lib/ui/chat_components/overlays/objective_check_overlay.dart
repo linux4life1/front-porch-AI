@@ -16,13 +16,13 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/eval_pill.dart';
+import 'frozen_backdrop_blur.dart';
 
 class ObjectiveCheckOverlay extends StatefulWidget {
   final ChatService chatService;
@@ -95,8 +95,8 @@ class ObjectiveCheckOverlayState extends State<ObjectiveCheckOverlay>
         opacity: _fade,
         child: Material(
           type: MaterialType.transparency,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: FrozenBackdropBlur(
+            sigma: 20,
             child: Container(
               // A dark dim in both themes so the panel keeps the focus.
               color: InkColors.dim(0.55),

@@ -46,6 +46,7 @@ export 'sidebar/story_tools/lorebook_panel.dart';
 
 export 'overlays/rag_setup_dialog.dart';
 export 'overlays/realism_processing_overlay.dart';
+export 'overlays/frozen_backdrop_blur.dart';
 export 'overlays/objective_check_overlay.dart';
 export 'overlays/generation_status_bar.dart';
 export 'overlays/stopped_reply_notice.dart';

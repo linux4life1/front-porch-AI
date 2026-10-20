@@ -1,11 +1,11 @@
 // Copyright header standard
-import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../widgets/eval_pill.dart';
+import 'frozen_backdrop_blur.dart';
 
 class RealismProcessingOverlay extends StatefulWidget {
   final ChatService chatService;
@@ -126,8 +126,8 @@ class RealismProcessingOverlayState extends State<RealismProcessingOverlay>
         opacity: _fade,
         child: Material(
           type: MaterialType.transparency,
-          child: BackdropFilter(
-            filter: ImageFilter.blur(sigmaX: 20, sigmaY: 20),
+          child: FrozenBackdropBlur(
+            sigma: 20,
             child: Container(
               // A dark dim in both themes so the panel keeps the focus.
               color: InkColors.dim(0.55),
