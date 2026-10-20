@@ -53,8 +53,6 @@ const _known = <String>{
   'narrow: lib/ui/pages/user_persona/persona_main_view.dart',
   'narrow: lib/ui/pages/user_persona_page.dart',
   'narrow: lib/ui/pages/world_management/world_management_header.dart',
-  'narrow: lib/ui/settings/tabs/general_tab.dart',
-  'narrow: lib/ui/settings/widgets/color_row.dart',
   'narrow: lib/ui/settings/widgets/spell_check_language_row.dart',
 };
 
@@ -144,6 +142,19 @@ void main() {
         await tester.pump(const Duration(milliseconds: 400));
         scanText();
       }
+    }
+
+    // Settings opens on General; Appearance gets its own stop.
+    appState.setIndex(_pages.indexOf('settings'));
+    await tester.pump(const Duration(milliseconds: 800));
+    await tester.tap(find.text('Appearance'));
+    await tester.pump(const Duration(milliseconds: 800));
+    for (final size in _sizes.entries) {
+      where = '${size.key} appearance';
+      tester.view.physicalSize = size.value;
+      await tester.pump(const Duration(milliseconds: 800));
+      await tester.pump(const Duration(milliseconds: 400));
+      scanText();
     }
 
     appState.setIndex(0);

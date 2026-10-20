@@ -51,7 +51,7 @@ class DataBankToolbar extends StatelessWidget {
           label: const Text('Add Entry'),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.porchAmberOf(context),
-            foregroundColor: AppColors.inkOn(AppColors.porchAmberOf(context)),
+            foregroundColor: AppColors.onAccentOf(context),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             textStyle: const TextStyle(fontSize: 12),
           ),

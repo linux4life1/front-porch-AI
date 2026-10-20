@@ -190,9 +190,7 @@ class StableDbImportDialog extends StatelessWidget {
                     onPressed: () => _handleImport(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.porchAmberOf(context),
-                      foregroundColor: AppColors.inkOn(
-                        AppColors.porchAmberOf(context),
-                      ),
+                      foregroundColor: AppColors.onAccentOf(context),
                       padding: const EdgeInsets.symmetric(
                         horizontal: 24,
                         vertical: 12,

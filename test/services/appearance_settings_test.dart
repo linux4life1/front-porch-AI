@@ -232,4 +232,15 @@ void main() {
     addTearDown(storage.dispose);
     expect(storage.appearance.theme, AppThemeId.porch);
   });
+
+  test('the adjusted note speaks for the mode on screen', () async {
+    // Sky reads as is on Porch dark and is deepened on Porch light.
+    const sky = Color(0xFF60A5FA);
+    final (a, _) = await _boot();
+    await a.setAccentOverride(sky);
+    await a.setMode(AppThemeMode.dark);
+    expect(a.accentAdjusted, isFalse);
+    await a.setMode(AppThemeMode.light);
+    expect(a.accentAdjusted, isTrue);
+  });
 }

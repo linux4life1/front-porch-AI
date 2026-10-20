@@ -67,29 +67,32 @@ class ThemePreviewCard extends StatelessWidget {
                   horizontal: 10,
                   vertical: 7,
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        theme.label,
-                        style: TextStyle(
-                          color: palette.textPrimary,
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                child: LayoutBuilder(
+                  builder: (context, constraints) => Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          theme.label,
+                          style: TextStyle(
+                            color: palette.textPrimary,
+                            fontWeight: FontWeight.w600,
+                            fontSize: 13,
+                          ),
                         ),
                       ),
-                    ),
-                    if (selected)
-                      Icon(Icons.check_circle, size: 16, color: palette.amber)
-                    else
-                      Text(
-                        theme.tag,
-                        style: TextStyle(
-                          color: palette.textSecondary,
-                          fontSize: 11,
+                      if (selected)
+                        Icon(Icons.check_circle, size: 16, color: palette.amber)
+                      // The name needs the room on a narrow card.
+                      else if (constraints.maxWidth >= 120)
+                        Text(
+                          theme.tag,
+                          style: TextStyle(
+                            color: palette.textSecondary,
+                            fontSize: 11,
+                          ),
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
               ),
             ],

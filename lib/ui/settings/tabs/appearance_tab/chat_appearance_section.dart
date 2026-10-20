@@ -135,46 +135,51 @@ class ChatAppearanceSection extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
-            const Spacer(),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: DropdownButton<String>(
-                // Clamp to a known item — a stored family not in the list
-                // (older build / manual pref edit) would otherwise assert.
-                value:
-                    _chatFonts.any(
-                      (f) =>
-                          f.$2 ==
-                          storageService.uiSettings.globalChatFontFamily,
-                    )
-                    ? storageService.uiSettings.globalChatFontFamily
-                    : '',
-                isExpanded: true,
-                // The button keeps focus after a pick; the theme's grey
-                // focus wash then sat over the chosen font for good.
-                focusColor: Colors.transparent,
-                dropdownColor: AppColors.cardOf(context),
-                style: TextStyle(
-                  color: AppColors.textPrimary(context),
-                  fontSize: 13,
-                ),
-                underline: const SizedBox.shrink(),
-                items: _chatFonts.map((font) {
-                  return DropdownMenuItem<String>(
-                    value: font.$2,
-                    child: Text(
-                      font.$1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: font.$2.isEmpty ? null : font.$2,
-                        color: AppColors.textPrimary(context),
-                        fontSize: 13,
-                      ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Align(
+                alignment: Alignment.centerRight,
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 220),
+                  child: DropdownButton<String>(
+                    // Clamp to a known item — a stored family not in the list
+                    // (older build / manual pref edit) would otherwise assert.
+                    value:
+                        _chatFonts.any(
+                          (f) =>
+                              f.$2 ==
+                              storageService.uiSettings.globalChatFontFamily,
+                        )
+                        ? storageService.uiSettings.globalChatFontFamily
+                        : '',
+                    isExpanded: true,
+                    // The button keeps focus after a pick; the theme's grey
+                    // focus wash then sat over the chosen font for good.
+                    focusColor: Colors.transparent,
+                    dropdownColor: AppColors.cardOf(context),
+                    style: TextStyle(
+                      color: AppColors.textPrimary(context),
+                      fontSize: 13,
                     ),
-                  );
-                }).toList(),
-                onChanged: (value) => storageService.uiSettings
-                    .setGlobalChatFontFamily(value ?? ''),
+                    underline: const SizedBox.shrink(),
+                    items: _chatFonts.map((font) {
+                      return DropdownMenuItem<String>(
+                        value: font.$2,
+                        child: Text(
+                          font.$1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontFamily: font.$2.isEmpty ? null : font.$2,
+                            color: AppColors.textPrimary(context),
+                            fontSize: 13,
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (value) => storageService.uiSettings
+                        .setGlobalChatFontFamily(value ?? ''),
+                  ),
+                ),
               ),
             ),
           ],

@@ -117,9 +117,7 @@ class ModelManagerSearchTab extends StatelessWidget {
                 label: Text(controller.isSearching ? 'Searching...' : 'Search'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.inkOn(
-                    AppColors.porchAmberOf(context),
-                  ),
+                  foregroundColor: AppColors.onAccentOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,

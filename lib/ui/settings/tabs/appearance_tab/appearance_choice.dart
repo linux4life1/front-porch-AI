@@ -45,17 +45,54 @@ class AppearanceChoice<T> extends StatelessWidget {
       children: [
         AppearanceCaption(label),
         const SizedBox(height: 6),
-        SegmentedButton<T>(
-          showSelectedIcon: false,
-          segments: [
-            for (final v in values)
-              ButtonSegment<T>(value: v, label: Text(labelOf(v))),
-          ],
-          selected: {selected},
-          onSelectionChanged: (picked) => onChanged(picked.first),
+        LayoutBuilder(
+          builder: (context, constraints) =>
+              constraints.maxWidth >= _segmentedWidth(context)
+              ? SegmentedButton<T>(
+                  showSelectedIcon: false,
+                  segments: [
+                    for (final v in values)
+                      ButtonSegment<T>(value: v, label: Text(labelOf(v))),
+                  ],
+                  selected: {selected},
+                  onSelectionChanged: (picked) => onChanged(picked.first),
+                )
+              // Too narrow for one row of segments, which would wrap their
+              // labels a letter at a time: chips wrap whole.
+              : Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: [
+                    for (final v in values)
+                      ChoiceChip(
+                        label: Text(labelOf(v)),
+                        selected: v == selected,
+                        showCheckmark: false,
+                        onSelected: (_) => onChanged(v),
+                      ),
+                  ],
+                ),
         ),
       ],
     );
+  }
+
+  /// What the segments need on one row: each label plus its padding.
+  double _segmentedWidth(BuildContext context) {
+    final style = Theme.of(context).textTheme.labelLarge;
+    final scaler = MediaQuery.textScalerOf(context);
+    var width = 0.0;
+    for (final v in values) {
+      final painter = TextPainter(
+        text: TextSpan(text: labelOf(v), style: style),
+        textDirection: Directionality.of(context),
+        textScaler: scaler,
+        maxLines: 1,
+      )..layout();
+      width += painter.width + 36;
+      painter.dispose();
+    }
+    return width;
   }
 }
 

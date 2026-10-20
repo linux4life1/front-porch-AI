@@ -92,15 +92,18 @@ class AppearanceSettings with SettingsBase {
   /// Chat colors the user has not picked come from here.
   ChatDefaultColors get chatDefaults => activePalette.chat;
 
-  /// Whether the custom accent was nudged for readability on this theme.
+  /// Whether the custom accent was nudged for readability on this theme, in
+  /// the mode on screen now.
   bool get accentAdjusted {
     final accent = _accent;
+    final base = _theme.palettes;
     return accent != null &&
-        customAccentAdjusted(
-          _theme.palettes,
+        fitAccent(
           accent,
+          isDark ? base.dark : base.light,
+          dark: isDark,
           minRatio: accentMinRatio(_theme),
-        );
+        ).adjusted;
   }
 
   void load() {

@@ -310,11 +310,14 @@ Widget warmDialogConfirm(
     key: key,
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
-      foregroundColor: !onBright
-          ? StatusColors.onFill
-          : bg == AppColors.porchAmberOf(context) ||
-                bg == AppColors.formAccentOf(context)
+      // The theme accent carries its own fitted ink; a brightness guess can
+      // pick white on a pale custom accent.
+      foregroundColor:
+          bg == AppColors.porchAmberOf(context) ||
+              bg == AppColors.formAccentOf(context)
           ? AppColors.onAccentOf(context)
+          : !onBright
+          ? StatusColors.onFill
           // theme-keep: a danger or caller fill keeps Porch's dark ink.
           : AppColors.onChaosAccent,
     ),
