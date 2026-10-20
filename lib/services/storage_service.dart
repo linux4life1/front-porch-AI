@@ -158,7 +158,17 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  StorageService() {
+  /// [bootPrefs], read in main() before runApp, loads the appearance and UI
+  /// settings now, so the first frame is already in the saved theme.
+  StorageService({SharedPreferences? bootPrefs}) {
+    if (bootPrefs != null) {
+      _appearance
+        ..initializeBase(bootPrefs, notifyListeners)
+        ..load();
+      _uiSettings
+        ..initializeBase(bootPrefs, notifyListeners)
+        ..load();
+    }
     _init();
   }
 
@@ -333,7 +343,7 @@ class StorageService extends ChangeNotifier {
       _generationSettings.load();
       _backendSettings.load();
       _appearance.load();
-    _uiSettings.load();
+      _uiSettings.load();
       _ttsSettings.load();
       _sttSettings.load();
       _imageGenSettings.load();

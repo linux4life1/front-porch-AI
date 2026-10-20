@@ -21,6 +21,7 @@ import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:front_porch_ai/app/app.dart';
@@ -51,22 +52,32 @@ void main(List<String> args) async {
   await healPrefsAndConsolidateFiles();
   final boot = await openDatabaseGuarded();
   if (boot == null) return; // DbInitErrorApp is already running
+  // The saved theme is read before anything is painted: the native view
+  // behind Flutter takes its background, and StorageService loads it for
+  // the first frame.
+  final prefs = await SharedPreferences.getInstance();
+  final background = launchBackground(prefs);
+  await paintLaunchBackground(background);
+  Widget root() => _buildRootWidget(boot.db, boot.needsMigration, prefs);
   if (Platform.isWindows) {
     // Windows runs the app first and shows the window once it has painted
     // at its final size. Restoring the saved bounds before the engine has
     // produced a frame can leave its resize handshake stuck, and the window
     // white until a real resize (flutter/flutter#192537). The runner keeps
     // the window hidden until Dart shows it (windows/runner/flutter_window.cpp).
-    runApp(_buildRootWidget(boot.db, boot.needsMigration));
-    await showMainWindow();
+    runApp(root());
+    await showMainWindow(background: background);
     return;
   }
-  await showMainWindow();
-  runApp(_buildRootWidget(boot.db, boot.needsMigration));
+  await showMainWindow(background: background);
+  runApp(root());
 }
 
-Widget _buildRootWidget(AppDatabase db, bool needsMigration) =>
-    buildRootWidget(db, needsMigration, app: const MyApp());
+Widget _buildRootWidget(
+  AppDatabase db,
+  bool needsMigration,
+  SharedPreferences prefs,
+) => buildRootWidget(db, needsMigration, app: const MyApp(), bootPrefs: prefs);
 
 class MyApp extends StatefulWidget {
   const MyApp({super.key});

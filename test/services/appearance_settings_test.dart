@@ -24,9 +24,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:front_porch_ai/app/launch_window.dart';
+import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+
+import '../golden/support/creator_test_support.dart';
 
 /// A fresh app start on [values]: both settings objects wired as
 /// StorageService wires them.
@@ -164,5 +168,26 @@ void main() {
     );
     final (_, reloaded) = await _reload();
     expect(reloaded.globalDialogueColorChosen, isFalse);
+  });
+
+  testWidgets('the first frame is already in the saved theme', (tester) async {
+    setupPathProviderMock();
+    await _boot({
+      'app_theme': 'harbor',
+      'theme_mode': 'light',
+      'ui_font': 'literata',
+    });
+    final prefs = await SharedPreferences.getInstance();
+    final storage = StorageService(bootPrefs: prefs);
+    addTearDown(storage.dispose);
+    // Read before the async settings load has run: this is what MyApp's
+    // first build and the native window background see.
+    expect(storage.appearance.theme, AppThemeId.harbor);
+    expect(storage.appearance.mode, AppThemeMode.light);
+    expect(storage.appearance.font, UiFont.literata);
+    expect(
+      launchBackground(prefs),
+      AppThemeId.harbor.palettes.light.background,
+    );
   });
 }

@@ -21,6 +21,7 @@
 // sequences them; files inside this directory import each other directly.
 
 export 'app_shutdown.dart';
+export 'launch_window.dart';
 export 'main_window.dart';
 export 'post_frame_tasks.dart';
 export 'root_providers.dart';

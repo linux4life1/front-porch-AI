@@ -23,13 +23,21 @@ import 'package:window_manager/window_manager.dart';
 /// the native window — that makes caption buttons low-contrast and kills
 /// hover. They stay a normal decorated window with a transparent background.
 ///
-/// [isMacOS] is a test override so Linux CI can pin both branches.
-WindowOptions mainWindowOptions({Size? size, bool? isMacOS}) {
+/// [background] is the saved theme's background, so the Mac window behind
+/// the first frame matches it. [isMacOS] is a test override so Linux CI can
+/// pin both branches.
+WindowOptions mainWindowOptions({
+  Size? size,
+  bool? isMacOS,
+  Color? background,
+}) {
   final mac = isMacOS ?? Platform.isMacOS;
   return WindowOptions(
     size: size ?? const Size(1280, 720),
     center: true,
-    backgroundColor: mac ? AppColors.background : Colors.transparent,
+    backgroundColor: mac
+        ? background ?? AppColors.background
+        : Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
     windowButtonVisibility: true,

@@ -1,6 +1,8 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+
+#include <cstring>
 #ifdef GDK_WINDOWING_X11
 #include <gdk/gdkx.h>
 #endif
@@ -11,6 +13,7 @@
 struct _MyApplication {
   GtkApplication parent_instance;
   char **dart_entrypoint_arguments;
+  FlMethodChannel *launch_window_channel;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -18,6 +21,31 @@ G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
 // Called when first Flutter frame received.
 static void first_frame_cb(MyApplication *self, FlView *view) {
   gtk_widget_show(gtk_widget_get_toplevel(GTK_WIDGET(view)));
+}
+
+// Dart sends the saved theme's background before the window shows
+// (lib/app/launch_window.dart), so the view never paints another colour
+// before the first frame.
+static void launch_window_method_cb(FlMethodChannel *channel,
+                                    FlMethodCall *call, gpointer user_data) {
+  FlView *view = FL_VIEW(user_data);
+  FlValue *args = fl_method_call_get_args(call);
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (strcmp(fl_method_call_get_name(call), "setBackground") == 0 &&
+      args != nullptr && fl_value_get_type(args) == FL_VALUE_TYPE_INT) {
+    const int64_t argb = fl_value_get_int(args);
+    GdkRGBA color = {((argb >> 16) & 0xFF) / 255.0,
+                     ((argb >> 8) & 0xFF) / 255.0, (argb & 0xFF) / 255.0,
+                     1.0};
+    fl_view_set_background_color(view, &color);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(nullptr));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  g_autoptr(GError) error = nullptr;
+  if (!fl_method_call_respond(call, response, &error)) {
+    g_warning("launch_window: %s", error->message);
+  }
 }
 
 // window_manager's setTitle only changes the window title, and a header bar
@@ -99,6 +127,16 @@ static void my_application_activate(GApplication *application) {
                                                   "SpellCheckPlugin");
   spell_check_plugin_register_with_registrar(spell_check_registrar);
 
+  g_autoptr(FlPluginRegistrar) launch_window_registrar =
+      fl_plugin_registry_get_registrar_for_plugin(FL_PLUGIN_REGISTRY(view),
+                                                  "LaunchWindow");
+  g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
+  self->launch_window_channel = fl_method_channel_new(
+      fl_plugin_registrar_get_messenger(launch_window_registrar),
+      "front_porch_ai/launch_window", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->launch_window_channel, launch_window_method_cb, view, nullptr);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -145,6 +183,7 @@ static void my_application_shutdown(GApplication *application) {
 static void my_application_dispose(GObject *object) {
   MyApplication *self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
+  g_clear_object(&self->launch_window_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 
