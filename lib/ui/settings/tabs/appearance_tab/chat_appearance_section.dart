@@ -126,61 +126,64 @@ class ChatAppearanceSection extends StatelessWidget {
         // Global chat font — per-character overrides still win at render time
         // (UiSettings.getChatFontFamily). Restored after a refactor left only
         // a placeholder here; the setter had no other UI caller.
-        Wrap(
-          alignment: WrapAlignment.spaceBetween,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 12,
-          runSpacing: 4,
-          children: [
-            Text(
-              'Chat Font',
-              style: TextStyle(
-                color: AppColors.textSecondary(context),
-                fontSize: 13,
-              ),
-            ),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 220),
-              child: DropdownButton<String>(
-                // Clamp to a known item — a stored family not in the list
-                // (older build / manual pref edit) would otherwise assert.
-                value:
-                    _chatFonts.any(
-                      (f) =>
-                          f.$2 ==
-                          storageService.uiSettings.globalChatFontFamily,
-                    )
-                    ? storageService.uiSettings.globalChatFontFamily
-                    : '',
-                isExpanded: true,
-                // The button keeps focus after a pick; the theme's grey
-                // focus wash then sat over the chosen font for good.
-                focusColor: Colors.transparent,
-                dropdownColor: AppColors.cardOf(context),
+        SizedBox(
+          width: double.infinity,
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            spacing: 12,
+            runSpacing: 4,
+            children: [
+              Text(
+                'Chat Font',
                 style: TextStyle(
-                  color: AppColors.textPrimary(context),
+                  color: AppColors.textSecondary(context),
                   fontSize: 13,
                 ),
-                underline: const SizedBox.shrink(),
-                items: _chatFonts.map((font) {
-                  return DropdownMenuItem<String>(
-                    value: font.$2,
-                    child: Text(
-                      font.$1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontFamily: font.$2.isEmpty ? null : font.$2,
-                        color: AppColors.textPrimary(context),
-                        fontSize: 13,
-                      ),
-                    ),
-                  );
-                }).toList(),
-                onChanged: (value) => storageService.uiSettings
-                    .setGlobalChatFontFamily(value ?? ''),
               ),
-            ),
-          ],
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 220),
+                child: DropdownButton<String>(
+                  // Clamp to a known item — a stored family not in the list
+                  // (older build / manual pref edit) would otherwise assert.
+                  value:
+                      _chatFonts.any(
+                        (f) =>
+                            f.$2 ==
+                            storageService.uiSettings.globalChatFontFamily,
+                      )
+                      ? storageService.uiSettings.globalChatFontFamily
+                      : '',
+                  isExpanded: true,
+                  // The button keeps focus after a pick; the theme's grey
+                  // focus wash then sat over the chosen font for good.
+                  focusColor: Colors.transparent,
+                  dropdownColor: AppColors.cardOf(context),
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontSize: 13,
+                  ),
+                  underline: const SizedBox.shrink(),
+                  items: _chatFonts.map((font) {
+                    return DropdownMenuItem<String>(
+                      value: font.$2,
+                      child: Text(
+                        font.$1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontFamily: font.$2.isEmpty ? null : font.$2,
+                          color: AppColors.textPrimary(context),
+                          fontSize: 13,
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) => storageService.uiSettings
+                      .setGlobalChatFontFamily(value ?? ''),
+                ),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 8),
         Align(
