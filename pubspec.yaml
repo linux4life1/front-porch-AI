@@ -40,12 +40,12 @@ dependencies:
   desktop_drop: ^0.8.4
   cross_file: ^0.3.5
   path_provider: ^2.1.5
-  archive: ^4.3.0
+  archive: ^4.5.2
   google_fonts: ^8.2.1
   image: ^4.12.0
   # Pure-Dart Draw Things gRPC client (replaces the Python dt_grpc_client
   # sidecar; the sidecar remains as automatic fallback for one release cycle).
-  grpc: ^5.0.0
+  grpc: ^5.2.0
   flat_buffers: ^25.0.0
   ffi: ^2.1.3
   crypto: ^3.0.6
