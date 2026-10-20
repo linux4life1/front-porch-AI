@@ -87,6 +87,11 @@ void main() {
       'remote_model_name': 'sweep-model',
     });
 
+    // Packaged builds show the updater rows; a dev run hides them. Show them
+    // everywhere so a Linux run sweeps what a macOS .app draws.
+    UpdateService.debugIsSupportedOverride = true;
+    addTearDown(() => UpdateService.debugIsSupportedOverride = null);
+
     app.main(const []);
     await pumpUntilFound(tester, find.byType(MainLayout));
     await tester.pump(const Duration(seconds: 2));
