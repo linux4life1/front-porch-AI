@@ -179,7 +179,10 @@ class SkinEditRow extends StatelessWidget {
             Text(
               'A renamed weather needs a danger level — otherwise characters '
               'would picnic in ${draft.label.trim()}.',
-              style: const TextStyle(fontSize: 12, color: kClimateDanger),
+              style: TextStyle(
+                fontSize: 12,
+                color: StatusColors.climateDangerOf(context),
+              ),
             ),
           ],
         ],
