@@ -9,7 +9,7 @@
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import {
-  THEME_EVENT, type ThemeChoice, loadThemeChoice, loadThemeWire, saveThemeChoice,
+  THEME_EVENT, type ThemeChoice, currentThemeWire, loadThemeChoice, saveThemeChoice,
 } from '../theme/appTheme';
 
 const CHOICES: { value: ThemeChoice; label: string }[] = [
@@ -23,17 +23,20 @@ export function AppearanceSettings() {
   const [choice, setChoice] = useState<ThemeChoice>(loadThemeChoice);
   // Null until the desktop has said which mode it is in.
   const [desktopDark, setDesktopDark] = useState<boolean | null>(() => {
-    const mode = loadThemeWire()?.mode;
+    const mode = currentThemeWire()?.mode;
     return mode ? mode === 'dark' : null;
   });
   const [error, setError] = useState('');
 
   useEffect(() => {
     const onWire = () => {
-      const mode = loadThemeWire()?.mode;
+      const mode = currentThemeWire()?.mode;
       if (mode) setDesktopDark(mode === 'dark');
     };
     window.addEventListener(THEME_EVENT, onWire);
+    // A wire that landed between the first render and this subscription
+    // fired no event this card heard.
+    onWire();
     return () => window.removeEventListener(THEME_EVENT, onWire);
   }, []);
 

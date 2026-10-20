@@ -114,9 +114,19 @@ export function applyTheme(wire: ThemeWire | null, choice: ThemeChoice): ThemeMo
 export const THEME_EVENT = 'fpai-theme';
 
 /** Remember and paint a wire the desktop sent. */
+// The last wire this page heard, so a reader never depends on storage
+// (which a browser may refuse) to know the desktop has spoken.
+let heard: ThemeWire | null = null;
+
+/** The desktop's latest wire: heard on this page, else the cached one. */
+export function currentThemeWire(): ThemeWire | null {
+  return heard ?? loadThemeWire();
+}
+
 export function receiveThemeWire(raw: unknown): ThemeWire | null {
   const wire = parseThemeWire(raw);
   if (!wire) return null;
+  heard = wire;
   write(WIRE_KEY, JSON.stringify(wire));
   applyTheme(wire, loadThemeChoice());
   window.dispatchEvent(new Event(THEME_EVENT));
