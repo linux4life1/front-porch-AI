@@ -57,13 +57,8 @@ class PersonaColors {
     if (avatarPath != null) {
       return CircleAvatar(
         radius: radius,
-        // The persona page shows radius 44: past 64 px, decode at 256.
-        backgroundImage: portraitAvatarImage(
-          File(avatarPath),
-          width: radius <= 32
-              ? kPortraitAvatarDecodeWidth
-              : kPortraitMontageDecodeWidth,
-        ),
+        // Up to the persona page's radius 44, 256 px is enough.
+        backgroundImage: portraitAvatarImage(File(avatarPath)),
       );
     }
 
