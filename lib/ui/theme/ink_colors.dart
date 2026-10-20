@@ -21,8 +21,74 @@ class InkColors {
   /// every theme, because it only has to push what is under it back.
   static Color dim(double alpha) => Colors.black.withValues(alpha: alpha);
 
-  /// Text and icons laid over a picture or a dim.
+  /// Text and icons laid over a picture, a dim or a gradient badge.
   static const Color onImage = Colors.white;
+
+  /// Secondary text. Dark mode keeps white at [alpha]; light mode uses the
+  /// muted black that stays readable on paper.
+  static Color mutedTextOf(BuildContext context, double alpha) =>
+      AppColors.resolve(
+        context,
+        Colors.white.withValues(alpha: alpha),
+        Colors.black54,
+      );
+
+  /// The faint fill behind a list row or card.
+  static Color rowFillOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.white.withValues(alpha: 0.03),
+    Colors.black.withValues(alpha: 0.02),
+  );
+
+  /// The border around a list row or card.
+  static Color rowEdgeOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.white.withValues(alpha: 0.05),
+    AppColors.borderOf(context),
+  );
+
+  /// The empty part of a progress bar or meter.
+  static Color trackOf(BuildContext context, {double dark = 0.1}) =>
+      AppColors.resolve(
+        context,
+        Colors.white.withValues(alpha: dark),
+        AppColors.borderOf(context).withValues(alpha: 0.3),
+      );
+
+  /// A soft wash over a surface: white in dark, black in light.
+  static Color washOf(BuildContext context, double dark, double light) =>
+      AppColors.resolve(
+        context,
+        Colors.white.withValues(alpha: dark),
+        Colors.black.withValues(alpha: light),
+      );
+
+  /// The border of a small text field.
+  static Color fieldEdgeOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.white24, AppColors.borderOf(context));
+
+  /// A disabled button's fill.
+  static Color disabledFillOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.white10, Colors.black12);
+
+  /// The raised panel of the first-run setup overlay.
+  static Color panelOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFF1E1E26),
+    AppColors.cardOf(context),
+  );
+
+  /// A frosted panel over a light dim, and its rim.
+  static Color glassOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.white.withValues(alpha: 0.12),
+    AppColors.cardOf(context),
+  );
+  static Color glassEdgeOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.white.withValues(alpha: 0.18),
+    AppColors.borderOf(context),
+  );
 
   /// The faint border around chip rows and pills.
   static Color faintLineOf(BuildContext context) => AppColors.resolve(

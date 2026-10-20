@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 class SliderWithInput extends StatefulWidget {
   const SliderWithInput({
@@ -134,12 +134,12 @@ class _SliderWithInputState extends State<SliderWithInput> {
                 if (widget.tooltip != null)
                   Tooltip(
                     message: widget.tooltip!,
-                    child: const Padding(
-                      padding: EdgeInsets.only(left: 4),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 4),
                       child: Icon(
                         Icons.info_outline,
                         size: 16,
-                        color: Colors.white38,
+                        color: AppColors.textTertiary(context),
                       ),
                     ),
                   ),
@@ -165,11 +165,17 @@ class _SliderWithInputState extends State<SliderWithInput> {
                   isDense: true,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(color: Colors.white24, width: 1),
+                    borderSide: BorderSide(
+                      color: InkColors.fieldEdgeOf(context),
+                      width: 1,
+                    ),
                   ),
                   enabledBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
-                    borderSide: BorderSide(color: Colors.white24, width: 1),
+                    borderSide: BorderSide(
+                      color: InkColors.fieldEdgeOf(context),
+                      width: 1,
+                    ),
                   ),
                   focusedBorder: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(6),
@@ -179,7 +185,7 @@ class _SliderWithInputState extends State<SliderWithInput> {
                     ),
                   ),
                   filled: true,
-                  fillColor: Colors.white.withValues(alpha: 0.05),
+                  fillColor: AppColors.hairlineOf(context, 0.05),
                   hintText: widget.unset ? 'inherit' : null,
                 ),
                 onSubmitted: (_) => _commitValue(),

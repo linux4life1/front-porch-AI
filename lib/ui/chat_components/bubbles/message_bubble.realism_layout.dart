@@ -187,18 +187,14 @@ class MessageRealismChipLayout extends StatelessWidget {
                   vertical: 4,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.resolve(
+                  color: AppColors.optionalAccentOf(
                     context,
-                    AppColors.optionalAccent.withValues(alpha: 0.15),
-                    AppColors.optionalAccent.withValues(alpha: 0.15),
-                  ),
+                  ).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.resolve(
+                    color: AppColors.optionalAccentOf(
                       context,
-                      AppColors.optionalAccent.withValues(alpha: 0.4),
-                      AppColors.optionalAccent.withValues(alpha: 0.4),
-                    ),
+                    ).withValues(alpha: 0.4),
                   ),
                 ),
                 child: Row(
@@ -207,7 +203,7 @@ class MessageRealismChipLayout extends StatelessWidget {
                     Icon(
                       Icons.rate_review,
                       size: 12,
-                      color: AppColors.optionalAccent,
+                      color: AppColors.optionalAccentOf(context),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -215,7 +211,7 @@ class MessageRealismChipLayout extends StatelessWidget {
                       style: TextStyle(
                         fontSize: 10,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.optionalAccent,
+                        color: AppColors.optionalAccentOf(context),
                       ),
                     ),
                   ],
@@ -247,31 +243,31 @@ class MessageRealismChipLayout extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
-                  color: AppColors.resolve(
+                  color: AppColors.optionalAccentOf(
                     context,
-                    AppColors.optionalAccent.withValues(alpha: 0.12),
-                    AppColors.optionalAccent.withValues(alpha: 0.12),
-                  ),
+                  ).withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(16),
                   border: Border.all(
-                    color: AppColors.resolve(
+                    color: AppColors.optionalAccentOf(
                       context,
-                      AppColors.optionalAccent.withValues(alpha: 0.35),
-                      AppColors.optionalAccent.withValues(alpha: 0.35),
-                    ),
+                    ).withValues(alpha: 0.35),
                   ),
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Icon(Icons.undo, size: 11, color: AppColors.optionalAccent),
+                    Icon(
+                      Icons.undo,
+                      size: 11,
+                      color: AppColors.optionalAccentOf(context),
+                    ),
                     SizedBox(width: 4),
                     Text(
                       'Revert reprocess',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w600,
-                        color: AppColors.optionalAccent,
+                        color: AppColors.optionalAccentOf(context),
                       ),
                     ),
                   ],

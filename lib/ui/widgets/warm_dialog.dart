@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// The one warm-porch dialog scaffold. Every app dialog should route through
@@ -311,7 +311,7 @@ Widget warmDialogConfirm(
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
       foregroundColor: !onBright
-          ? AppColors.resolve(context, Colors.white, Colors.white)
+          ? StatusColors.onFill
           : bg == AppColors.porchAmberOf(context) ||
                 bg == AppColors.formAccentOf(context)
           ? AppColors.onAccentOf(context)

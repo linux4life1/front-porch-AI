@@ -22,6 +22,7 @@ import 'dart:ui' show BoxHeightStyle, BoxWidthStyle;
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart'
     show DesktopSpellCheckService;
 
@@ -278,7 +279,7 @@ class AppTextField extends StatelessWidget {
         misspelledTextStyle: showMisspellings
             ? TextStyle(
                 decoration: TextDecoration.underline,
-                decorationColor: Colors.redAccent.withValues(alpha: 0.6),
+                decorationColor: StatusColors.misspelling,
                 decorationStyle: TextDecorationStyle.wavy,
               )
             : const TextStyle(), // no visual — preserves custom coloring

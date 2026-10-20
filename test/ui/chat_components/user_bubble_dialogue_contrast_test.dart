@@ -28,6 +28,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:provider/provider.dart';
 
@@ -152,5 +153,75 @@ void main() {
   ) async {
     await _pump(tester, isUser: false);
     expect(_quoteColor(tester, _quote), AppColors.dialogueLight);
+  });
+
+  testWidgets('a Director note reads on the light page under a chat theme '
+      'with white AI text', (tester) async {
+    final storage = (await tester.runAsync(makeGoldenStorage))!;
+    addTearDown(storage.dispose);
+    // Light mode, with the AI text a chat theme meant for a dark bubble.
+    await tester.runAsync(() async {
+      await storage.uiSettings.setIsDark(false);
+      await storage.uiSettings.setGlobalAiTextColor(Colors.white);
+    });
+    final msg = ChatMessage(
+      text: 'The rain picks up. $_quote',
+      sender: 'Director',
+      isUser: false,
+      characterId: '__director__',
+    );
+    final chat = FakeChatService(messages: [msg]);
+    addTearDown(chat.dispose);
+    final tts = FakeTtsService();
+    addTearDown(tts.dispose);
+    await tester.binding.setSurfaceSize(const Size(900, 400));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: MultiProvider(
+            providers: [
+              ChangeNotifierProvider<StorageService>.value(value: storage),
+              ChangeNotifierProvider<TtsService>.value(value: tts),
+              ChangeNotifierProvider<ChatService>.value(value: chat),
+              ChangeNotifierProvider<UserPersonaService>.value(
+                value: FakeUserPersonaService(),
+              ),
+            ],
+            child: MessageBubble(
+              message: msg,
+              index: 0,
+              character: CharacterCard(name: 'Carmen'),
+              chatService: chat,
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final ctx = tester.element(find.byType(MessageBubble));
+    // The note's wash over the page is what the words sit on.
+    final ground = Color.alphaBlend(
+      ChatColors.directorOf(
+        ctx,
+      ).withValues(alpha: 0.12 * storage.uiSettings.bubbleOpacity),
+      Theme.of(ctx).scaffoldBackgroundColor,
+    );
+    Color? body;
+    for (final text in tester.widgetList<Text>(find.byType(Text))) {
+      text.textSpan?.visitChildren((span) {
+        if (span is TextSpan && span.text == 'The rain picks up. ') {
+          body = span.style?.color;
+          return false;
+        }
+        return true;
+      });
+      if (body != null) break;
+    }
+    expect(body, isNotNull, reason: 'the note body was not rendered');
+    for (final ink in [body!, _quoteColor(tester, _quote)]) {
+      expect(contrastRatio(ink, ground), greaterThanOrEqualTo(4.5));
+    }
   });
 }

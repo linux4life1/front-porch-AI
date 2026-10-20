@@ -107,6 +107,11 @@ class StyledChatMessage extends StatefulWidget {
   /// Its ranges are offsets into [text]; every leaf passes its own offset.
   final FindLeafState? find;
 
+  /// The text sits on a faint wash over the page, not on a chat-theme
+  /// bubble (Director notes). Light mode then takes the page's inks, since
+  /// a chat theme's AI text can be white. Dark mode keeps the chat theme's.
+  final bool onPage;
+
   const StyledChatMessage({
     super.key,
     required this.text,
@@ -117,6 +122,7 @@ class StyledChatMessage extends StatefulWidget {
     this.themePreset,
     this.themeOverrides,
     this.find,
+    this.onPage = false,
   });
 
   @override
@@ -179,26 +185,30 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
       themePreset: widget.themePreset,
       themeOverrides: widget.themeOverrides,
     );
-    final key = (fontFamily, textColor, dialogueColor, actionColor);
+    final pageInk = widget.onPage && AppColors.isLight(context);
+    final key = (
+      fontFamily,
+      pageInk ? AppColors.textPrimary(context) : textColor,
+      pageInk ? ChatColors.quoteInkOf(context) : dialogueColor,
+      pageInk ? ChatColors.narrationInkOf(context) : actionColor,
+    );
     if (key == _styleKey) return;
     _styleKey = key;
+    final (_, ink, quote, narration) = key;
     // fontSize is the shared reading base. The RichText/Text below get
     // StorageService.textScale as textScaler — do not also bake it here.
-    _plainStyle = _applyGoogleFont(
-      fontFamily,
-      readingSurfaceStyle(color: textColor),
-    );
+    _plainStyle = _applyGoogleFont(fontFamily, readingSurfaceStyle(color: ink));
     _dialogueStyle = _applyGoogleFont(
       fontFamily,
-      readingSurfaceStyle(color: dialogueColor, fontWeight: FontWeight.w500),
+      readingSurfaceStyle(color: quote, fontWeight: FontWeight.w500),
     );
     _actionStyle = _applyGoogleFont(
       fontFamily,
-      readingSurfaceStyle(color: actionColor),
+      readingSurfaceStyle(color: narration),
     );
     _rootStyle = _applyGoogleFont(
       fontFamily,
-      readingSurfaceStyle(color: textColor, height: 1.4),
+      readingSurfaceStyle(color: ink, height: 1.4),
     );
   }
 

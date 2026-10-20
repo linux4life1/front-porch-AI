@@ -2,6 +2,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'dart:ui' as ui;
 
+import 'package:front_porch_ai/ui/theme/theme.dart';
+
 class CustomPageFlip extends StatefulWidget {
   final List<Widget> pages;
   final int initialPage;
@@ -301,7 +303,7 @@ class _CastShadowPainter extends CustomPainter {
           spineX + (isForward ? -currentShadowWidth : currentShadowWidth),
           0,
         ),
-        [Colors.black.withValues(alpha: gradientOpacity), Colors.transparent],
+        [InkColors.dim(gradientOpacity), Colors.transparent],
       );
 
     canvas.drawRect(
@@ -338,8 +340,9 @@ class _SelfShadowPainter extends CustomPainter {
         Offset(size.width, 0),
         [
           Colors.transparent,
-          Colors.white.withValues(alpha: opacity * 0.6), // Specular highlight
-          Colors.black.withValues(alpha: opacity * 0.3), // Core shadow
+          // theme-keep: the paper's specular highlight.
+          Colors.white.withValues(alpha: opacity * 0.6),
+          InkColors.dim(opacity * 0.3), // Core shadow
           Colors.transparent,
         ],
         [0.0, 0.4, 0.8, 1.0],

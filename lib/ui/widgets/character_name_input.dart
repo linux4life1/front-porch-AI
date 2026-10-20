@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_colors.dart';
+import '../theme/theme.dart';
 import '../theme/creator_palette.dart';
 import 'app_text_field.dart';
 
@@ -46,7 +46,7 @@ class CharacterNameInput extends StatelessWidget {
               child: IconButton(
                 icon: Icon(
                   Icons.casino,
-                  color: p?.iconAccent ?? Colors.amberAccent,
+                  color: p?.iconAccent ?? NavColors.creatorOf(context),
                   size: 20,
                 ),
                 onPressed: onRandomize,
@@ -106,13 +106,7 @@ Widget _inputLabel(
         Text(
           ' *',
           style: style.copyWith(
-            color:
-                p?.amber ??
-                AppColors.resolve(
-                  context,
-                  Colors.redAccent,
-                  Colors.red.shade700,
-                ),
+            color: p?.amber ?? StatusColors.dangerOf(context),
           ),
         ),
     ],

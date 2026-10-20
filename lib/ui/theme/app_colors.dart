@@ -233,6 +233,8 @@ class AppColors {
       resolve(context, emotionAccent, emotionAccentLight);
 
   static const Color optionalAccent = Colors.tealAccent;
+  static Color optionalAccentOf(BuildContext context) =>
+      resolve(context, optionalAccent, const Color(0xFF00695C));
 
   static const Color timeDayAccent = Colors.amberAccent;
   static const Color timeDayAccentLight = Color(0xFFB45309);

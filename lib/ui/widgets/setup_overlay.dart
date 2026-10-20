@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/setup_service.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/low_perf_cpu_warning.dart';
 
 class SetupOverlay extends StatefulWidget {
@@ -49,13 +49,13 @@ class _SetupOverlayState extends State<SetupOverlay> {
 
     final isChoice = setupService.currentStep == SetupStep.firstRunChoice;
     return Material(
-      color: Colors.black.withValues(alpha: 0.85),
+      color: InkColors.dim(0.85),
       child: Center(
         child: Container(
           width: isChoice ? 460 : 400,
           padding: const EdgeInsets.all(32),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E1E26),
+            color: InkColors.panelOf(context),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
               color: AppColors.formAccentOf(context).withValues(alpha: 0.3),
@@ -82,7 +82,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
                     ? 'How will you run your AI?'
                     : 'Starting Front Porch AI',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Colors.white,
+                  color: AppColors.textPrimary(context),
                   fontWeight: FontWeight.bold,
                 ),
               ),
@@ -103,9 +103,11 @@ class _SetupOverlayState extends State<SetupOverlay> {
                 ),
                 TextButton(
                   onPressed: () => setupService.reset(),
-                  child: const Text(
+                  child: Text(
                     'Continue to App anyway',
-                    style: TextStyle(color: Colors.white54),
+                    style: TextStyle(
+                      color: InkColors.mutedTextOf(context, 0.54),
+                    ),
                   ),
                 ),
               ],
@@ -127,11 +129,15 @@ class _SetupOverlayState extends State<SetupOverlay> {
       case SetupStep.error:
         return Column(
           children: [
-            const Icon(Icons.error_outline, color: Colors.redAccent, size: 32),
+            Icon(
+              Icons.error_outline,
+              color: StatusColors.dangerOf(context),
+              size: 32,
+            ),
             const SizedBox(height: 8),
             Text(
               setup.errorMessage ?? 'Unknown error occurred',
-              style: const TextStyle(color: Colors.redAccent),
+              style: TextStyle(color: StatusColors.dangerOf(context)),
               textAlign: TextAlign.center,
             ),
           ],
@@ -148,9 +154,12 @@ class _SetupOverlayState extends State<SetupOverlay> {
   Widget _buildFirstRunChoice(SetupService setup, BuildContext context) {
     return Column(
       children: [
-        const Text(
+        Text(
           'You can change this any time in Settings → Backend.',
-          style: TextStyle(color: Colors.white54, fontSize: 13),
+          style: TextStyle(
+            color: InkColors.mutedTextOf(context, 0.54),
+            fontSize: 13,
+          ),
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 20),
@@ -211,12 +220,12 @@ class _SetupOverlayState extends State<SetupOverlay> {
         decoration: BoxDecoration(
           color: highlighted
               ? AppColors.formAccentOf(context).withValues(alpha: 0.12)
-              : Colors.white.withValues(alpha: 0.04),
+              : AppColors.hairlineOf(context, 0.04),
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
             color: highlighted
                 ? AppColors.formAccentOf(context).withValues(alpha: 0.6)
-                : Colors.white24,
+                : InkColors.fieldEdgeOf(context),
           ),
         ),
         child: Row(
@@ -226,7 +235,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
               icon,
               color: highlighted
                   ? AppColors.formAccentOf(context)
-                  : Colors.white70,
+                  : AppColors.textSecondary(context),
               size: 22,
             ),
             const SizedBox(width: 12),
@@ -236,8 +245,8 @@ class _SetupOverlayState extends State<SetupOverlay> {
                 children: [
                   Text(
                     title,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: AppColors.textPrimary(context),
                       fontWeight: FontWeight.w600,
                       fontSize: 14,
                     ),
@@ -245,8 +254,8 @@ class _SetupOverlayState extends State<SetupOverlay> {
                   const SizedBox(height: 3),
                   Text(
                     subtitle,
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: InkColors.mutedTextOf(context, 0.6),
                       fontSize: 12.5,
                       height: 1.35,
                     ),
@@ -274,7 +283,7 @@ class _SetupOverlayState extends State<SetupOverlay> {
             ),
           ),
         if (spinning) const SizedBox(width: 12),
-        Text(text, style: const TextStyle(color: Colors.white)),
+        Text(text, style: TextStyle(color: AppColors.textPrimary(context))),
       ],
     );
   }

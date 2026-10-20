@@ -43,7 +43,7 @@ class DbCorruptionOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: Material(
-        color: AppColors.background,
+        color: AppColors.backgroundOf(context),
         child: Center(
           child: SizedBox(
             width: 460,
@@ -56,6 +56,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                   height: 80,
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
+                      // theme-keep: the warning badge's gradient, white glyph on it in both modes.
                       colors: [Colors.red.shade700, Colors.orange.shade600],
                       begin: Alignment.topLeft,
                       end: Alignment.bottomRight,
@@ -63,6 +64,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
+                        // theme-keep: the warning badge's red glow.
                         color: Colors.red.withValues(alpha: 0.3),
                         blurRadius: 24,
                         spreadRadius: 4,
@@ -72,14 +74,14 @@ class DbCorruptionOverlay extends StatelessWidget {
                   child: const Icon(
                     Icons.warning_amber_rounded,
                     size: 40,
-                    color: Colors.white,
+                    color: InkColors.onImage,
                   ),
                 ),
                 const SizedBox(height: 32),
-                const Text(
+                Text(
                   'Database Issue Detected',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary(context),
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
@@ -91,7 +93,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                   'This can happen after a power failure or crash.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: InkColors.mutedTextOf(context, 0.5),
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -102,10 +104,10 @@ class DbCorruptionOverlay extends StatelessWidget {
                     constraints: const BoxConstraints(maxHeight: 220),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.card,
+                      color: AppColors.cardOf(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.white.withValues(alpha: 0.1),
+                        color: AppColors.hairlineOf(context, 0.1),
                       ),
                     ),
                     child: Column(
@@ -115,7 +117,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                         Text(
                           'Available Backups',
                           style: TextStyle(
-                            color: Colors.white.withValues(alpha: 0.7),
+                            color: InkColors.mutedTextOf(context, 0.7),
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -152,7 +154,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                                     vertical: 10,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.03),
+                                    color: AppColors.hairlineOf(context, 0.03),
                                     borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Row(
@@ -160,14 +162,16 @@ class DbCorruptionOverlay extends StatelessWidget {
                                       Icon(
                                         Icons.restore,
                                         size: 18,
-                                        color: AppColors.porchAmber,
+                                        color: AppColors.porchAmberOf(context),
                                       ),
                                       const SizedBox(width: 10),
                                       Expanded(
                                         child: Text(
                                           ageStr,
-                                          style: const TextStyle(
-                                            color: Colors.white,
+                                          style: TextStyle(
+                                            color: AppColors.textPrimary(
+                                              context,
+                                            ),
                                             fontSize: 13,
                                           ),
                                         ),
@@ -175,8 +179,9 @@ class DbCorruptionOverlay extends StatelessWidget {
                                       Text(
                                         '$sizeKb KB',
                                         style: TextStyle(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.4,
+                                          color: InkColors.mutedTextOf(
+                                            context,
+                                            0.4,
                                           ),
                                           fontSize: 12,
                                         ),
@@ -196,10 +201,12 @@ class DbCorruptionOverlay extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: AppColors.card,
+                      color: AppColors.cardOf(context),
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
-                        color: Colors.orange.withValues(alpha: 0.3),
+                        color: StatusColors.cautionOf(
+                          context,
+                        ).withValues(alpha: 0.3),
                       ),
                     ),
                     child: Row(
@@ -207,14 +214,14 @@ class DbCorruptionOverlay extends StatelessWidget {
                         Icon(
                           Icons.info_outline,
                           size: 18,
-                          color: Colors.orange.shade300,
+                          color: StatusColors.cautionOf(context),
                         ),
                         const SizedBox(width: 10),
                         Expanded(
                           child: Text(
                             'No backups available to restore from.',
                             style: TextStyle(
-                              color: Colors.white.withValues(alpha: 0.6),
+                              color: InkColors.mutedTextOf(context, 0.6),
                               fontSize: 13,
                             ),
                           ),
@@ -231,7 +238,7 @@ class DbCorruptionOverlay extends StatelessWidget {
                     onPressed: onContinue,
                     style: TextButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
-                      foregroundColor: Colors.white.withValues(alpha: 0.6),
+                      foregroundColor: InkColors.mutedTextOf(context, 0.6),
                     ),
                     child: const Text('Continue Without Restoring'),
                   ),

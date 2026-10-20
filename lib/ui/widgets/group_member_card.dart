@@ -23,8 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
-import 'package:front_porch_ai/ui/theme/tier_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_card/group_member_card.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
@@ -268,11 +267,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
           margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
           decoration: BoxDecoration(
             color: widget.isExpanded
-                ? AppColors.resolve(
-                    context,
-                    Colors.white.withValues(alpha: 0.035),
-                    Colors.black.withValues(alpha: 0.04),
-                  )
+                ? InkColors.washOf(context, 0.035, 0.04)
                 : (widget.isNextSpeaker
                       ? widget.avatarColor.withValues(alpha: 0.10)
                       : Colors.transparent),

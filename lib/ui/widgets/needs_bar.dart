@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Single-need progress bar with icon, label, band coloring, and optional reason tooltip.
 ///
@@ -63,35 +63,35 @@ class NeedsBar extends StatelessWidget {
     switch (need.toLowerCase()) {
       case 'hunger':
         icon = Icons.restaurant;
-        color = Colors.orangeAccent;
+        color = RealismColors.hungerOf(context);
         break;
       case 'bladder':
         icon = Icons.water_drop;
-        color = Colors.lightBlueAccent;
+        color = RealismColors.bladderOf(context);
         break;
       case 'energy':
         icon = Icons.bolt;
-        color = Colors.amberAccent;
+        color = RealismColors.energyBarOf(context);
         break;
       case 'social':
         icon = Icons.people;
-        color = Colors.pinkAccent;
+        color = RealismColors.socialOf(context);
         break;
       case 'fun':
         icon = Icons.celebration;
-        color = Colors.deepPurpleAccent;
+        color = RealismColors.funOf(context);
         break;
       case 'hygiene':
         icon = Icons.shower;
-        color = Colors.cyanAccent;
+        color = RealismColors.hygieneOf(context);
         break;
       case 'comfort':
         icon = Icons.chair;
-        color = Colors.greenAccent;
+        color = RealismColors.comfortOf(context);
         break;
       default:
         icon = Icons.circle;
-        color = Colors.grey;
+        color = RealismColors.otherNeedOf(context);
     }
 
     final effectiveColor = bandColorOf(context, value) ?? color;

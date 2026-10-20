@@ -38,7 +38,7 @@ class MigrationOverlay extends StatelessWidget {
   Widget build(BuildContext context) {
     return Positioned.fill(
       child: Material(
-        color: AppColors.background,
+        color: AppColors.backgroundOf(context),
         child: Center(
           child: SizedBox(
             width: 420,
@@ -69,14 +69,14 @@ class MigrationOverlay extends StatelessWidget {
                   child: const Icon(
                     Icons.storage_rounded,
                     size: 40,
-                    color: Colors.white,
+                    color: InkColors.onImage,
                   ),
                 ),
                 const SizedBox(height: 32),
-                const Text(
+                Text(
                   'Migrating Your Data',
                   style: TextStyle(
-                    color: Colors.white,
+                    color: AppColors.textPrimary(context),
                     fontSize: 22,
                     fontWeight: FontWeight.bold,
                     letterSpacing: -0.5,
@@ -87,7 +87,7 @@ class MigrationOverlay extends StatelessWidget {
                   'This only happens once — your data is being\nupgraded to a faster database format.',
                   textAlign: TextAlign.center,
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.5),
+                    color: InkColors.mutedTextOf(context, 0.5),
                     fontSize: 13,
                     height: 1.5,
                   ),
@@ -97,7 +97,7 @@ class MigrationOverlay extends StatelessWidget {
                 Text(
                   step,
                   style: TextStyle(
-                    color: AppColors.porchAmber,
+                    color: AppColors.porchAmberOf(context),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
                   ),
@@ -109,7 +109,7 @@ class MigrationOverlay extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: total > 0 ? current / total : null,
                     minHeight: 8,
-                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    backgroundColor: InkColors.trackOf(context),
                     valueColor: AlwaysStoppedAnimation<Color>(
                       AppColors.formAccentOf(context),
                     ),
@@ -120,7 +120,7 @@ class MigrationOverlay extends StatelessWidget {
                 Text(
                   'Step $current of $total',
                   style: TextStyle(
-                    color: Colors.white.withValues(alpha: 0.4),
+                    color: InkColors.mutedTextOf(context, 0.4),
                     fontSize: 12,
                   ),
                 ),

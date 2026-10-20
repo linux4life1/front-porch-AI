@@ -20,7 +20,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/ui/widgets/download_queue_panel/download_queue_panel.dart';
 
@@ -223,13 +223,9 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
               LinearProgressIndicator(
                 value: widget.overallProgress,
                 minHeight: 3,
-                backgroundColor: AppColors.resolve(
-                  context,
-                  Colors.white.withValues(alpha: 0.05),
-                  AppColors.borderOf(context).withValues(alpha: 0.3),
-                ),
+                backgroundColor: InkColors.trackOf(context, dark: 0.05),
                 valueColor: const AlwaysStoppedAnimation<Color>(
-                  Color(0xFF40C4FF),
+                  DownloadStatusColors.downloading,
                 ),
               ),
 
@@ -268,19 +264,9 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.white.withValues(alpha: 0.03),
-          Colors.black.withValues(alpha: 0.02),
-        ),
+        color: InkColors.rowFillOf(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.white.withValues(alpha: 0.05),
-            AppColors.borderOf(context),
-          ),
-        ),
+        border: Border.all(color: InkColors.rowEdgeOf(context)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -349,11 +335,7 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
             LinearProgressIndicator(
               value: task.progress,
               minHeight: 3,
-              backgroundColor: AppColors.resolve(
-                context,
-                Colors.white.withValues(alpha: 0.1),
-                AppColors.borderOf(context).withValues(alpha: 0.3),
-              ),
+              backgroundColor: InkColors.trackOf(context),
               valueColor: AlwaysStoppedAnimation<Color>(
                 downloadStatusColor(task.state),
               ),
