@@ -33,6 +33,7 @@ import 'journal_memory/journal_memory_group.dart';
 import 'porch_accordion.dart';
 import 'sidebar_tokens.dart';
 import 'story_tools/story_tools.dart';
+import '../widgets/chat_turn_builder.dart';
 import 'tool_calling_pill.dart';
 import 'wiki_panel.dart';
 
@@ -147,8 +148,8 @@ class _SidebarBodyState extends State<SidebarBody> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChatService>(
-      builder: (context, chat, _) {
+    return ChatTurnBuilder(
+      builder: (context, chat) {
         // Listening: evolution/journal/one-shot toggles live on storage and
         // must repaint the panels (each old section listened individually).
         final storage = Provider.of<StorageService>(context);

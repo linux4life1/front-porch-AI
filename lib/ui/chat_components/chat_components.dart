@@ -69,3 +69,4 @@ export 'widgets/settings_menu_item.dart';
 export 'overlays/evaluation_progress_shell.dart';
 
 export 'overlays/chat_evaluation_progress.dart';
+export 'widgets/chat_turn_builder.dart';

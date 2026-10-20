@@ -10,6 +10,7 @@ export 'birthday.dart';
 export 'birthday_sync.dart';
 export 'body_clock.dart';
 export 'enabled_needs.dart';
+export 'stream_tick_notify.dart';
 export 'clock_shift.dart';
 export 'message_clock.dart';
 export 'afk_cue_speaker.dart';

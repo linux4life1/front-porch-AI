@@ -19,6 +19,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -27,6 +28,20 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'prompt_progress_bar.dart';
 
 /// Rich, phase-aware generation status bar. (extracted)
+/// The status bar slot under the transcript: listens to every ChatService
+/// notify (streamed-text ticks included) on its own, so the page around it
+/// does not have to, and repaints apart from the rest of the page.
+class LiveGenerationStatusBar extends StatelessWidget {
+  const LiveGenerationStatusBar({super.key});
+
+  @override
+  Widget build(BuildContext context) => Consumer<ChatService>(
+    builder: (context, chat, _) => chat.isGenerating
+        ? RepaintBoundary(child: GenerationStatusBar(chatService: chat))
+        : const SizedBox.shrink(),
+  );
+}
+
 class GenerationStatusBar extends StatefulWidget {
   final ChatService chatService;
   const GenerationStatusBar({super.key, required this.chatService});

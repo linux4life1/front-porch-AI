@@ -12,6 +12,7 @@ import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import '../../widgets/chat_turn_builder.dart';
 import '../sidebar_tokens.dart';
 import 'chat_places_panel.cards.dart';
 import 'chat_places_panel.picker.dart';
@@ -24,8 +25,9 @@ class ChatPlacesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer2<ChatService, WorldRepository>(
-      builder: (context, chat, worlds, _) {
+    return ChatTurnBuilder(
+      builder: (context, chat) {
+        final worlds = Provider.of<WorldRepository>(context);
         if (chat.currentSessionId == null) {
           return const SizedBox.shrink();
         }

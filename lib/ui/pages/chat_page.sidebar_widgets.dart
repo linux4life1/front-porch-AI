@@ -56,8 +56,8 @@ class ChatSidebarPortrait extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChatService>(
-      builder: (context, chat, _) {
+    return ChatTurnBuilder(
+      builder: (context, chat) {
         final storage = Provider.of<StorageService>(context, listen: false);
         final isExpressionEnabled =
             storage.expressionSettings.expressionEnabled;

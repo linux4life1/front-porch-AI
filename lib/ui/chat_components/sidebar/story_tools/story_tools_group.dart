@@ -18,12 +18,12 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
+import '../../widgets/chat_turn_builder.dart';
 import '../porch_accordion.dart';
 import 'afk_panel.dart';
 import 'chaos_panel.dart';
@@ -76,8 +76,8 @@ class StoryToolsGroup extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Consumer<ChatService>(
-            builder: (context, chat, _) =>
+          ChatTurnBuilder(
+            builder: (context, chat) =>
                 ChaosPanel(chat: chat, onSpinRequested: onSpinRequested),
           ),
           const SizedBox(height: 12),

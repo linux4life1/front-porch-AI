@@ -38,7 +38,6 @@ class ChatSurface extends StatelessWidget {
     super.key,
     required GlobalKey transcriptListKey,
     required this.character,
-    required this.messages,
     required this.isGroup,
     required this.controller,
     required this.focusNode,
@@ -56,7 +55,6 @@ class ChatSurface extends StatelessWidget {
   /// dispose the scroll position.
   final GlobalKey _transcriptListKey;
   final CharacterCard? character;
-  final List<ChatMessage> messages;
   final bool isGroup;
 
   /// The message box, for suggested-action pills.
@@ -139,111 +137,143 @@ class ChatSurface extends StatelessWidget {
 
     return Stack(
       children: [
-        if (bgPath != null) ...[
-          Positioned.fill(
-            child: IgnorePointer(child: Image.asset(bgPath, fit: BoxFit.cover)),
-          ),
-        ],
-        // Expression background sprite
-        Consumer<ChatService>(
-          builder: (context, chat, _) {
-            final storage = Provider.of<StorageService>(context, listen: false);
-            final displayMode =
-                storage.expressionSettings.expressionDisplayMode;
-            final isEnabled = storage.expressionSettings.expressionEnabled;
-            if (!isEnabled ||
-                displayMode == 'sidebar' ||
-                chat.isEvaluatingRealism) {
-              return const SizedBox.shrink();
-            }
-            final char = character;
-            if (char == null || expressionsFrom(char.avatarImages).isEmpty) {
-              return const SizedBox.shrink();
-            }
-            final avatar = chat.resolveExpressionAvatar(
-              char,
-              rerollIfSame: storage.expressionSettings.expressionRerollSame,
-            );
-            if (avatar == null) {
-              return const SizedBox.shrink();
-            }
-            final avatarDir = storage.characterAvatarDir(char.name);
-            final avatarFile = File('${avatarDir.path}/${avatar.filename}');
-            return Positioned.fill(
-              child: IgnorePointer(
-                child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 500),
-                  child: Stack(
-                    key: ValueKey('expr_bg_${avatar.id}'),
-                    fit: StackFit.expand,
-                    children: [
-                      Image.file(
-                        avatarFile,
-                        fit: BoxFit.cover,
-                        errorBuilder: (_, _, _) => const SizedBox.shrink(),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(color: InkColors.dim(0.85)),
-                      ),
-                    ],
+        // Backdrop layers sit behind their own repaint boundary: the
+        // transcript repaints per streamed token, the backdrop does not.
+        Positioned.fill(
+          child: RepaintBoundary(
+            child: Stack(
+              fit: StackFit.expand,
+              children: [
+                if (bgPath != null) ...[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Image.asset(bgPath, fit: BoxFit.cover),
+                    ),
                   ),
+                ],
+                // Expression background sprite
+                Consumer<ChatService>(
+                  builder: (context, chat, _) {
+                    final storage = Provider.of<StorageService>(
+                      context,
+                      listen: false,
+                    );
+                    final displayMode =
+                        storage.expressionSettings.expressionDisplayMode;
+                    final isEnabled =
+                        storage.expressionSettings.expressionEnabled;
+                    if (!isEnabled ||
+                        displayMode == 'sidebar' ||
+                        chat.isEvaluatingRealism) {
+                      return const SizedBox.shrink();
+                    }
+                    final char = character;
+                    if (char == null ||
+                        expressionsFrom(char.avatarImages).isEmpty) {
+                      return const SizedBox.shrink();
+                    }
+                    final avatar = chat.resolveExpressionAvatar(
+                      char,
+                      rerollIfSame:
+                          storage.expressionSettings.expressionRerollSame,
+                    );
+                    if (avatar == null) {
+                      return const SizedBox.shrink();
+                    }
+                    final avatarDir = storage.characterAvatarDir(char.name);
+                    final avatarFile = File(
+                      '${avatarDir.path}/${avatar.filename}',
+                    );
+                    return Positioned.fill(
+                      child: IgnorePointer(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 500),
+                          child: Stack(
+                            key: ValueKey('expr_bg_${avatar.id}'),
+                            fit: StackFit.expand,
+                            children: [
+                              Image.file(
+                                avatarFile,
+                                fit: BoxFit.cover,
+                                errorBuilder: (_, _, _) =>
+                                    const SizedBox.shrink(),
+                              ),
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: InkColors.dim(0.85),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
                 ),
-              ),
-            );
-          },
-        ),
-        if (bgPath != null)
-          Positioned.fill(
-            child: IgnorePointer(child: Container(color: InkColors.dim(0.45))),
-          ),
-        if (!bgPathExists && hasCustomBg) ...[
-          Positioned.fill(
-            child: IgnorePointer(
-              child: Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    image: FileImage(File(customEntry['filePath']!)),
-                    fit: BoxFit.cover,
+                if (bgPath != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(color: InkColors.dim(0.45)),
+                    ),
                   ),
-                ),
-              ),
+                if (!bgPathExists && hasCustomBg) ...[
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(
+                        decoration: BoxDecoration(
+                          image: DecorationImage(
+                            image: FileImage(File(customEntry['filePath']!)),
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: Container(color: InkColors.dim(0.45)),
+                    ),
+                  ),
+                ],
+              ],
             ),
           ),
-          Positioned.fill(
-            child: IgnorePointer(child: Container(color: InkColors.dim(0.45))),
-          ),
-        ],
-        // Suggested-action pills fill the message box instead of sending.
-        ComposerDraftScope(
-          controller: controller,
-          focusNode: focusNode,
-          onSend: (text) => chatService.sendMessage(text),
-          child: ChatMessageList(
-            key: _transcriptListKey,
-            sessionId: chatService.currentSessionId,
-            messages: messages,
-            controller: scrollController,
-            window: window,
-            onNeedOlderHistory: chatService.hasOlderHistory
-                ? () => chatService.loadOlderHistory()
-                : null,
-            replyStreaming: chatService.isGenerating,
-            followStreamingReplies:
-                storageService.uiSettings.followStreamingReplies,
-            resolveSpeaker: (msg) => resolveSpeaker(chatService, msg),
-            characterFor: (msg) => isGroup && !msg.isUser
-                ? resolveGroupSpeakerForMessage(
-                    chatService.groupCharacters,
-                    msg,
-                  )
-                : character,
-            chatService: chatService,
-            bubbleKeyOf: bubbleKeyFor,
-            jumpFlash: jumpFlash,
-            generatingImage: chatService.isGeneratingChatImage,
-            externalImagesAllowed: externalImagesAllowed,
-            onRequestImagePermission: onRequestImagePermission,
-          ),
+        ),
+        // The page skips streamed-text ticks; the transcript takes them.
+        Consumer<ChatService>(
+          builder: (context, chatService, _) =>
+              // Suggested-action pills fill the message box instead of sending.
+              ComposerDraftScope(
+                controller: controller,
+                focusNode: focusNode,
+                onSend: (text) => chatService.sendMessage(text),
+                child: ChatMessageList(
+                  key: _transcriptListKey,
+                  sessionId: chatService.currentSessionId,
+                  messages: chatService.messages,
+                  controller: scrollController,
+                  window: window,
+                  onNeedOlderHistory: chatService.hasOlderHistory
+                      ? () => chatService.loadOlderHistory()
+                      : null,
+                  replyStreaming: chatService.isGenerating,
+                  followStreamingReplies:
+                      storageService.uiSettings.followStreamingReplies,
+                  resolveSpeaker: (msg) => resolveSpeaker(chatService, msg),
+                  characterFor: (msg) => isGroup && !msg.isUser
+                      ? resolveGroupSpeakerForMessage(
+                          chatService.groupCharacters,
+                          msg,
+                        )
+                      : character,
+                  chatService: chatService,
+                  bubbleKeyOf: bubbleKeyFor,
+                  jumpFlash: jumpFlash,
+                  generatingImage: chatService.isGeneratingChatImage,
+                  externalImagesAllowed: externalImagesAllowed,
+                  onRequestImagePermission: onRequestImagePermission,
+                ),
+              ),
         ),
       ],
     );

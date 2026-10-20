@@ -17,13 +17,13 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
+import '../../widgets/chat_turn_builder.dart';
 import '../sidebar_tokens.dart';
 import 'objective_add_goal.dart';
 import 'objective_task_row.dart';
@@ -51,8 +51,8 @@ class _ObjectivePanelState extends State<ObjectivePanel> {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<ChatService>(
-      builder: (context, chatService, _) {
+    return ChatTurnBuilder(
+      builder: (context, chatService) {
         final pObj = chatService.primaryObjective;
         final secondaries = chatService.secondaryObjectives;
 

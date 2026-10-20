@@ -255,9 +255,7 @@ mixin ChatServiceFieldBag {
   // so terminal state (isGenerating=false, chips, perf) is never throttled.
   DateTime _lastStreamNotify = DateTime.fromMillisecondsSinceEpoch(0);
   Timer? _streamNotifyTimer;
-  // (_kStreamNotifyInterval moved to chat_service_defaults.dart;
-  // _notifyStreamListeners / _cancelStreamNotifyThrottle / tokenStream /
-  // sentenceStream live in chat_service_generation_stream_accessors.dart)
+  // (_notifyStreamListeners lives in chat_service_generation_stream_accessors)
 
   // ── Web token broadcast (the web StreamHub's real-time token feed) ──
   final StreamController<String> _tokenBroadcast =
