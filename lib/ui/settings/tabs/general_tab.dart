@@ -93,10 +93,13 @@ class GeneralTab extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  'Auto-check for Updates',
-                  style: theme.textTheme.titleMedium,
+                Flexible(
+                  child: Text(
+                    'Auto-check for Updates',
+                    style: theme.textTheme.titleMedium,
+                  ),
                 ),
+                const SizedBox(width: 8),
                 Consumer<UpdateService>(
                   builder: (context, updateService, _) => Switch(
                     value: updateService.autoCheckEnabled,

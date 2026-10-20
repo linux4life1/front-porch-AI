@@ -283,16 +283,7 @@ class _ClimateEditorDialogState extends State<_ClimateEditorDialog> {
         );
       }
     }
-    // validate() speaks canonical °C; when the user's display unit is °F the
-    // anchor they must type is °F, so the shown message says so too. Only
-    // the known anchor message is rewritten — future validate() copy that
-    // genuinely means storage-°C must pass through untouched.
-    return widget.fahrenheit
-        ? [
-            for (final e in errors)
-              e.replaceAll('set a display °C', 'set a display °F'),
-          ]
-        : errors;
+    return [for (final e in errors) displayUnitError(e, widget.fahrenheit)];
   }
 
   void _refreshPreview() =>

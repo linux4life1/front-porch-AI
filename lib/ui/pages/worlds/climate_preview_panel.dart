@@ -90,7 +90,8 @@ class ClimatePreviewPanel extends StatelessWidget {
         if (preview.errors.isNotEmpty || preview.warnings.isNotEmpty) ...[
           const SizedBox(height: 14),
           ClimateSectionHeader('What the preview noticed'),
-          for (final e in preview.errors) _notice(context, e, isError: true),
+          for (final e in preview.errors)
+            _notice(context, displayUnitError(e, fahrenheit), isError: true),
           for (final w in preview.warnings) _notice(context, w, isError: false),
         ],
         if (extremeBands.isNotEmpty) ...[
@@ -280,3 +281,9 @@ class ClimatePreviewPanel extends StatelessWidget {
     );
   }
 }
+
+/// [error] from `validate()`, which speaks canonical °C, worded in the
+/// user's display unit. Only the known anchor message is rewritten.
+String displayUnitError(String error, bool fahrenheit) => fahrenheit
+    ? error.replaceAll('set a display °C', 'set a display °F')
+    : error;

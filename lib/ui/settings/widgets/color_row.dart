@@ -39,37 +39,48 @@ class ColorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
+      // Label left, swatch right; on a very narrow pane the swatch drops
+      // under the label instead of squeezing it a letter per line. Full
+      // width, or a start-aligned column shrinks the Wrap to its children
+      // and the swatch sits against the label.
+      child: SizedBox(
+        width: double.infinity,
+        child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          spacing: 8,
+          runSpacing: 4,
+          children: [
+            Text(
               label,
               style: TextStyle(
                 color: AppColors.textSecondary(context),
                 fontSize: 13,
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: color,
-              borderRadius: BorderRadius.circular(6),
-              border: Border.all(color: AppColors.borderOf(context), width: 1),
-            ),
-            child: IconButton(
-              icon: Icon(
-                Icons.color_lens,
-                size: 20,
-                // On the swatch itself, so it must read on that color.
-                color: inkOn(color),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: color,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                  color: AppColors.borderOf(context),
+                  width: 1,
+                ),
               ),
-              onPressed: onPressed,
+              child: IconButton(
+                icon: Icon(
+                  Icons.color_lens,
+                  size: 20,
+                  // On the swatch itself, so it must read on that color.
+                  color: inkOn(color),
+                ),
+                onPressed: onPressed,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

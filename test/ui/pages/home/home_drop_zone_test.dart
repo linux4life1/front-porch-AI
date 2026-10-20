@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/ui/pages/home/home_drop_zone.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 void main() {
   testWidgets('HomeDropHighlight uses the library drop copy', (tester) async {
@@ -46,5 +47,37 @@ void main() {
 
     expect(received, isNotNull);
     expect(received!.map((s) => s.path), ['/tmp/Ada.png', '/tmp/notes.txt']);
+  });
+
+  testWidgets('the drop label sits on a solid card it reads on, in every '
+      'theme', (tester) async {
+    for (final theme in AppThemeId.values) {
+      for (final brightness in Brightness.values) {
+        await tester.pumpWidget(
+          MaterialApp(
+            theme: AppTheme.build(
+              palettes: theme.palettes,
+              brightness: brightness,
+            ),
+            home: const Scaffold(body: HomeDropHighlight()),
+          ),
+        );
+        final why = '${theme.key} ${brightness.name}';
+        final card = tester.widget<DecoratedBox>(
+          find.byKey(const ValueKey('home-drop-label')),
+        );
+        final fill = (card.decoration as BoxDecoration).color!;
+        expect(fill.a, greaterThanOrEqualTo(0.9), reason: why);
+        final ink = tester
+            .widget<Text>(find.text(kHomeDropOverlayLabel))
+            .style!
+            .color!;
+        expect(
+          contrastRatio(ink, fill.withValues(alpha: 1)),
+          greaterThanOrEqualTo(4.5),
+          reason: why,
+        );
+      }
+    }
   });
 }

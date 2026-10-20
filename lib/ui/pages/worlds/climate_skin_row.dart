@@ -99,7 +99,7 @@ class SkinEditRow extends StatelessWidget {
                   '$stockEmoji ${condition[0].toUpperCase()}${condition.substring(1)} →',
                   style: TextStyle(
                     fontSize: 12.5,
-                    color: AppColors.textTertiary(context),
+                    color: AppColors.textPrimary(context),
                   ),
                 ),
               ),
@@ -130,7 +130,8 @@ class SkinEditRow extends StatelessWidget {
                     child: Opacity(
                       opacity: draft.active && draft.emoji.isNotEmpty
                           ? 1.0
-                          : 0.35,
+                          // Dim, not gone: 0.35 vanished on light cards.
+                          : 0.6,
                       child: Text(
                         draft.emoji.isNotEmpty ? draft.emoji : '🌪️',
                         style: const TextStyle(fontSize: 14),
