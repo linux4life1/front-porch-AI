@@ -5,7 +5,7 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
@@ -238,7 +238,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                     });
                     _syncToGroup();
                   },
-                  activeThumbColor: Colors.orangeAccent,
+                  activeThumbColor: AccentColors.loreOf(context),
                 ),
                 const SizedBox(height: 16),
 
@@ -296,7 +296,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                 GroupSectionHeader(
                   'Group Lorebook',
                   Icons.menu_book,
-                  Colors.orangeAccent,
+                  AccentColors.loreOf(context),
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -326,7 +326,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                       icon: Icon(Icons.add, size: 16),
                       label: Text('Add Entry'),
                       style: FilledButton.styleFrom(
-                        backgroundColor: Colors.orangeAccent,
+                        backgroundColor: AccentColors.loreFill,
                         // theme-keep: ink on a fill the app theme never retints.
                         foregroundColor: AppColors.onChaosAccent,
                       ),
@@ -432,10 +432,10 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                                   _showEntryEditor(existing: e, index: i),
                             ),
                             IconButton(
-                              icon: const Icon(
+                              icon: Icon(
                                 Icons.delete,
                                 size: 18,
-                                color: Colors.redAccent,
+                                color: StatusColors.dangerOf(context),
                               ),
                               onPressed: () => _deleteEntry(i),
                             ),

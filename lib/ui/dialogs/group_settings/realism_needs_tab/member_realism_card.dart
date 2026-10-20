@@ -4,7 +4,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -69,7 +69,7 @@ class GroupMemberRealismCard extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                  color: StatusColors.onFill,
                 ),
               ),
             ),
@@ -109,11 +109,7 @@ class GroupMemberRealismCard extends StatelessWidget {
                     Icon(
                       Icons.favorite,
                       size: 14,
-                      color: AppColors.resolve(
-                        context,
-                        Colors.pinkAccent,
-                        Colors.pinkAccent,
-                      ),
+                      color: AppColors.relationshipAccentOf(context),
                     ),
                     const SizedBox(width: 6),
                     Text(
@@ -159,11 +155,7 @@ class GroupMemberRealismCard extends StatelessWidget {
                     Icon(
                       Icons.mood,
                       size: 14,
-                      color: AppColors.resolve(
-                        context,
-                        Colors.amber,
-                        Colors.amber,
-                      ),
+                      color: AccentColors.goldOf(context),
                     ),
                     const SizedBox(width: 6),
                     Text(

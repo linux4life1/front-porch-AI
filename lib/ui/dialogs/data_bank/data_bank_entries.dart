@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// One Data Bank entry row: embedded marker, title, word count, edit and
 /// delete buttons, and a two-line content preview.
@@ -41,9 +42,9 @@ class DataBankEntryTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 6),
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.04),
+        color: InkColors.washOf(context, 0.04, 0.02),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white10),
+        border: Border.all(color: InkColors.faintLineOf(context)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -53,14 +54,16 @@ class DataBankEntryTile extends StatelessWidget {
               Icon(
                 hasEmbed ? Icons.check_circle : Icons.circle_outlined,
                 size: 14,
-                color: hasEmbed ? Colors.greenAccent : Colors.white24,
+                color: hasEmbed
+                    ? StatusColors.successOf(context)
+                    : InkColors.faintOf(context),
               ),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   entry.title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -69,20 +72,27 @@ class DataBankEntryTile extends StatelessWidget {
               ),
               Text(
                 '${countWords(entry.content)}w',
-                style: const TextStyle(fontSize: 9, color: Colors.white24),
+                style: TextStyle(
+                  fontSize: 9,
+                  color: InkColors.faintOf(context),
+                ),
               ),
               const SizedBox(width: 4),
               IconButton(
-                icon: const Icon(Icons.edit, size: 14, color: Colors.white38),
+                icon: Icon(
+                  Icons.edit,
+                  size: 14,
+                  color: AppColors.textTertiary(context),
+                ),
                 onPressed: () => onEdit(),
                 constraints: const BoxConstraints(),
                 padding: const EdgeInsets.all(4),
               ),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.delete,
                   size: 14,
-                  color: Colors.redAccent,
+                  color: StatusColors.dangerOf(context),
                 ),
                 onPressed: () => onDelete(),
                 constraints: const BoxConstraints(),
@@ -95,7 +105,10 @@ class DataBankEntryTile extends StatelessWidget {
             entry.content.length > 150
                 ? '${entry.content.substring(0, 150)}...'
                 : entry.content,
-            style: const TextStyle(color: Colors.white38, fontSize: 10),
+            style: TextStyle(
+              color: AppColors.textTertiary(context),
+              fontSize: 10,
+            ),
             maxLines: 2,
             overflow: TextOverflow.ellipsis,
           ),
@@ -115,20 +128,23 @@ class DataBankEmptyState extends StatelessWidget {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          const Icon(
+          Icon(
             Icons.library_books_outlined,
             size: 48,
-            color: Colors.white12,
+            color: InkColors.ghostOf(context),
           ),
           const SizedBox(height: 12),
-          const Text(
+          Text(
             'No entries yet',
-            style: TextStyle(color: Colors.white30, fontSize: 14),
+            style: TextStyle(
+              color: InkColors.emptyTitleOf(context),
+              fontSize: 14,
+            ),
           ),
           const SizedBox(height: 4),
-          const Text(
+          Text(
             'Add text or import files to build a knowledge base.\nRAG retrieves matching entries during conversations.',
-            style: TextStyle(color: Colors.white24, fontSize: 11),
+            style: TextStyle(color: InkColors.faintOf(context), fontSize: 11),
             textAlign: TextAlign.center,
           ),
         ],

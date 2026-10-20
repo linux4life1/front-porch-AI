@@ -61,4 +61,61 @@ class StatusColors {
 
   /// Text and icons on a solid status or identity fill.
   static const Color onFill = Colors.white;
+  static const Color onFillMuted = Colors.white70;
+
+  /// Solid snackbar fills, the same in both modes: a refused action, a
+  /// failed save, an error toast, and a finished job.
+  static const Color alertFill = Colors.redAccent;
+  static final Color failFill = Colors.red.shade800;
+  static const Color errorToast = Color(0xFFB91C1C);
+  static const Color doneFill = Colors.green;
+
+  /// A solid caution button and its ink, such as Accept Risk.
+  static const Color warningFill = Colors.orangeAccent;
+  static const Color onWarningFill = Colors.black87;
+
+  /// The banner behind a warning line, such as the trust-repair notice.
+  static Color warningPanelOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFF7C2D12),
+    const Color(0xFFFEF3C7),
+  );
+
+  /// A soft danger tint behind a short label, at [alpha].
+  static Color dangerWashOf(BuildContext context, double alpha) =>
+      AppColors.resolve(
+        context,
+        Colors.redAccent.withValues(alpha: alpha),
+        Colors.red.withValues(alpha: alpha),
+      );
+
+  /// The strip behind an inline error message.
+  static Color errorPanelOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.red.withValues(alpha: 0.1),
+    Colors.red.withValues(alpha: 0.08),
+  );
+
+  /// Notice text on a tinted row: blockers and advisories.
+  static Color noticeDangerOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFF2B3A5),
+    const Color(0xFFB71C1C),
+  );
+  static Color noticeWarnOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFE8CF96),
+    const Color(0xFF92400E),
+  );
+
+  /// A soft caution tint behind a count, at [alpha].
+  static Color warningWashOf(BuildContext context, double alpha) =>
+      AppColors.resolve(
+        context,
+        Colors.orangeAccent.withValues(alpha: alpha),
+        const Color(0xFF9A3412).withValues(alpha: alpha),
+      );
+
+  /// The snackbar behind a failed update.
+  static final Color errorFill = Colors.red.shade700;
 }

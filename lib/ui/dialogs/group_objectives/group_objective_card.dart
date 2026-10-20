@@ -23,7 +23,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/story_tools.dart'
     show AmbitionServedChip, ObjectiveSetAsideTag;
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'objective_text_prompt.dart';
 
@@ -73,7 +73,7 @@ class GroupObjectiveCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
           color: isPrimary
-              ? Colors.amber.withValues(alpha: 0.4)
+              ? AccentColors.goldEdgeOf(context)
               : AppColors.borderOf(context).withValues(alpha: 0.2),
         ),
       ),
@@ -91,10 +91,10 @@ class GroupObjectiveCard extends StatelessWidget {
                 ),
               ),
               IconButton(
-                icon: const Icon(
+                icon: Icon(
                   Icons.delete_outline,
                   size: 18,
-                  color: Colors.redAccent,
+                  color: StatusColors.dangerOf(context),
                 ),
                 onPressed: onDelete,
                 padding: EdgeInsets.zero,

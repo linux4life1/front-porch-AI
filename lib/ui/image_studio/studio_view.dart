@@ -23,7 +23,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/capability/capability.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'studio_widgets.dart';
 
@@ -281,11 +281,7 @@ class StudioView extends StatelessWidget {
 
   /// Honest warning shown while the whole-cast "Group shot" subject is active.
   Widget _groupShotCaveat(BuildContext context) {
-    final warn = AppColors.resolve(
-      context,
-      const Color(0xFFDAA83F),
-      const Color(0xFFA97514),
-    );
+    final warn = LegendColors.caveatOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
       decoration: BoxDecoration(

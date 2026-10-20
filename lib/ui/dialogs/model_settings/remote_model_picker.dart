@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Fetches [apiUrl]'s model list behind a loading spinner and lets the user
 /// pick one; returns the chosen id, or null when cancelled or nothing could
@@ -207,10 +207,10 @@ class _RemoteModelPickerDialogState extends State<RemoteModelPickerDialog> {
                               color: Colors.green.withValues(alpha: 0.2),
                               borderRadius: BorderRadius.circular(4),
                             ),
-                            child: const Text(
+                            child: Text(
                               'FREE',
                               style: TextStyle(
-                                color: Colors.greenAccent,
+                                color: StatusColors.successOf(context),
                                 fontSize: 9,
                                 fontWeight: FontWeight.bold,
                               ),

@@ -2,15 +2,19 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/group_realism_controller.dart';
 
 // Chaos pressure colour (matches _ChaosModeSection in chat_page).
-Color _pressureColorFor(int pressure) {
+Color _pressureColorFor(BuildContext context, int pressure) {
   final t = (pressure / 100).clamp(0.0, 1.0);
-  return Color.lerp(const Color(0xFF2EC4B6), const Color(0xFFE63946), t)!;
+  return Color.lerp(
+    AppColors.chaosCalmOf(context),
+    AppColors.chaosHotOf(context),
+    t,
+  )!;
 }
 
 /// The Time & Day and Chaos Mode blocks of the Realism tab's global card.
@@ -153,7 +157,7 @@ class GroupTimeAndChaosCard extends StatelessWidget {
               ),
               Switch(
                 value: controller.chaosModeEnabled,
-                activeThumbColor: const Color(0xFFFFD166),
+                activeThumbColor: AppColors.chaosAccent,
                 onChanged: controller.updateChaosMode,
               ),
             ],
@@ -176,14 +180,20 @@ class GroupTimeAndChaosCard extends StatelessWidget {
                 Icon(
                   Icons.casino_rounded,
                   size: 14,
-                  color: _pressureColorFor(cs.chaosModeService.chaosPressure),
+                  color: _pressureColorFor(
+                    context,
+                    cs.chaosModeService.chaosPressure,
+                  ),
                 ),
                 const SizedBox(width: 6),
                 Text(
                   'Pressure: ${cs.chaosPressure}%',
                   style: TextStyle(
                     fontSize: 11,
-                    color: _pressureColorFor(cs.chaosModeService.chaosPressure),
+                    color: _pressureColorFor(
+                      context,
+                      cs.chaosModeService.chaosPressure,
+                    ),
                     fontWeight: FontWeight.w600,
                   ),
                 ),

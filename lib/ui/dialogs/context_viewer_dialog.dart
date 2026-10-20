@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/context_viewer_section_row.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Dialog showing token budget breakdown of the last assembled prompt, or of
 /// one reply's prompt when [snapshot] is given.
@@ -37,22 +37,9 @@ class ContextViewerDialog extends StatefulWidget {
     this.snapshot,
   });
 
-  // theme-keep: data-viz legend hues — every section needs a DISTINCT
-  // identity color for the stacked bar + rows (shared verbatim with the web
-  // ContextBudgetModal). Chrome around them is AppColors.
-  static const sectionColors = {
-    'System Prompt': Color(0xFF3B82F6),
-    'Lorebook': Color(0xFF8B5CF6),
-    'Persona': Color(0xFF06B6D4),
-    'Scenario': Color(0xFF10B981),
-    'Examples': Color(0xFFF59E0B),
-    'Chat History': Color(0xFF6366F1),
-    'Post-History': Color(0xFFEF4444),
-    'Journal': Color(0xFFF97316),
-    'Realism Mode': Color(0xFFEC4899),
-    'Memories': Color(0xFF14B8A6),
-    'Speaker Card': Color(0xFF7C3AED),
-  };
+  // Data-viz legend hues: every section needs a distinct identity color for
+  // the stacked bar and rows. Chrome around them is AppColors.
+  static const sectionColors = LegendColors.contextSections;
 
   @override
   State<ContextViewerDialog> createState() => _ContextViewerDialogState();
@@ -287,7 +274,7 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                                 : 0.0;
                             final color =
                                 ContextViewerDialog.sectionColors[e.key] ??
-                                Colors.grey;
+                                LegendColors.unknownSection;
                             return Expanded(
                               flex: (frac * 1000).round().clamp(1, 1000),
                               child: Tooltip(
@@ -330,7 +317,7 @@ class _ContextViewerDialogState extends State<ContextViewerDialog> {
                     children: budget.entries.map((e) {
                       final color =
                           ContextViewerDialog.sectionColors[e.key] ??
-                          Colors.grey;
+                          LegendColors.unknownSection;
                       final pct = totalTokens > 0
                           ? '${(e.value / totalTokens * 100).toStringAsFixed(1)}%'
                           : '0%';

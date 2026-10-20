@@ -21,7 +21,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'lorebook_entry/lorebook_entry_advanced.dart';
 import 'lorebook_entry/lorebook_entry_fields.dart';
@@ -158,7 +158,7 @@ class _LorebookEntryDialogState extends State<_LorebookEntryDialog> {
           onPressed: () => Navigator.pop(context, _applied(_draft)),
           style: ElevatedButton.styleFrom(
             backgroundColor: AppColors.porchAmberOf(context),
-            foregroundColor: Colors.white,
+            foregroundColor: StatusColors.onFill,
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(8),
             ),
