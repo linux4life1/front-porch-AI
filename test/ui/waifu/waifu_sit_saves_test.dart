@@ -19,6 +19,27 @@ class _BrokenStore extends WaifuStore {
       throw const FileSystemException('disk full');
 }
 
+/// Hands the test every save the page starts, so it can wait for them
+/// instead of polling the disk against a wall clock.
+class _WatchedStore extends WaifuStore {
+  _WatchedStore(super.directory);
+
+  final saves = <Future<void>>[];
+
+  @override
+  Future<void> saveLast(WaifuSession session) {
+    final save = super.saveLast(session);
+    saves.add(save);
+    return save;
+  }
+
+  Future<void> drain() async {
+    for (var seen = 0; seen < saves.length; seen = saves.length) {
+      await Future.wait(saves.sublist(seen));
+    }
+  }
+}
+
 WaifuSession _session(String folder) => WaifuSession(
   folderRoot: folder,
   coworker: CharacterCard(name: 'Mira'),
@@ -38,25 +59,23 @@ void main() {
   testWidgets('sitting down parks the folder before any chat turn', (
     tester,
   ) async {
-    final store = WaifuStore(storeDir.path);
+    final store = _WatchedStore(storeDir.path);
     final session = WaifuSession(
-      folderRoot: '/tmp/new-project',
+      folderRoot: p.join(storeDir.path, 'new-project'),
       coworker: CharacterCard(name: 'Iris'),
     );
-    late List<WaifuProject> list;
-    await tester.runAsync(() async {
+    // Every write must land before the read and before tearDown deletes
+    // the folder under it.
+    final list = (await tester.runAsync(() async {
       await tester.pumpWidget(
         MaterialApp(
           home: WaifuPage(session: session, store: store),
         ),
       );
-      // Saves are flushed and renamed into place; wait for the first one.
-      list = await store.listProjects();
-      for (var i = 0; i < 100 && list.isEmpty; i++) {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
-        list = await store.listProjects();
-      }
-    });
+      expect(store.saves, isNotEmpty, reason: 'opening the page saves');
+      await store.drain();
+      return store.listProjects();
+    }))!;
     await tester.pump();
     expect(list, hasLength(1));
     expect(list.single.folderName, 'new-project');
