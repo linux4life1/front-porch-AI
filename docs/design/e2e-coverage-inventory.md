@@ -32,13 +32,14 @@ Update this file when you add or retire a suite.
 | `group_realism_wiring_test` | Full `_groupRealism` field inventory + prompt re-inject after reload |
 | `realism_off_test` | Engine disabled path |
 | `chat_switch_smoke_test` | Stacked routes + rapid A/B switch (GlobalKey class) |
+| `layout_sweep_test` | Every top-level page and the chat at 400px, 1440px and a short window: a layout overflow from a file not on its known list fails, and so does the test card's `{{char}}` / `{{user}}` shown unreplaced. The known list only shrinks |
 | `theme_interaction_test` | Theme presets leave bubble controls hit-testable |
 | `settings_persistence_test` | Settings survive reopen + reload |
 | `message_actions_test` | Edit / regenerate / delete-with-needs-refund via real bubble controls |
 | `suggested_action_composer_test` | Suggest actions: a pill tap fills the message box (no send); holding it sends |
 | `swipe_fork_cancel_test` | Swipe chevrons, cancel-mid-regen put-back, fork branch |
 | `web_server_test` | PWA shell, anon 401, setup→cookie→state over real HTTP |
-| `web_ui/browser_test` | **Web UI in real browsers** (Playwright, WebKit phone + Chromium desktop) against the booted app: `web_ui/e2e/sweep.spec.ts` taps every safe control on every screen (fails on covered / tap-through controls, dialogs a finger can't close, phone sideways scroll, broken pictures, console errors, failing `/api`); `web_ui/e2e/journeys.spec.ts` signs in, chats, edits (#330), regenerates + swipes, continues, deletes, switches chats, persists a setting. Own CI job `web-e2e` (not in the e2e-smoke matrix — lives in a subdirectory). `FPAI_E2E_HOLD=1` keeps the sandboxed app serving for `npm run e2e` iteration. |
+| `web_ui/browser_test` | **Web UI in real browsers** (Playwright, WebKit phone + Chromium desktop) against the booted app: `web_ui/e2e/sweep.spec.ts` taps every safe control on every screen (fails on covered / tap-through controls, dialogs a finger can't close, phone sideways scroll, broken pictures, console errors, failing `/api`); `web_ui/e2e/journeys.spec.ts` signs in, chats, edits (#330), regenerates + swipes, continues, deletes, switches chats, persists a setting, and checks a fresh greeting fills in `{{char}}` / `{{user}}`. Own CI job `web-e2e` (not in the e2e-smoke matrix — lives in a subdirectory). `FPAI_E2E_HOLD=1` keeps the sandboxed app serving for `npm run e2e` iteration. |
 | `story_time_test` | Story clock advances + survives reload |
 | `backup_restore_test` | Create → restore → services rebound |
 | `persona_folder_test` | Persona form + session; folder create/move/open |
