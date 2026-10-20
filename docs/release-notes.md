@@ -53,7 +53,7 @@ Paint it your colour, call the shots, and let the story keep its own time.
 - 🧠 **KoboldCpp, smarter** — chat templates in presets with a mismatch warning, the last model remembered per backend, Realism checks on another PC, and more of the graphics card left for the model.
 - 💬 **See behind a reply** — inspect the prompt behind any reply, see the other words a reply weighed, a prompt source per chat, global prompt additions, "Your chats together" stats, and character ↔ persona conversion.
 - 🛟 **No more lost edits** — editors ask before you leave with unsaved changes, on desktop and phone.
-- 🎲 **Chaos with more range**, 🧑‍💻 **a Waifu Coder that finishes its turns**, and 📱 **the phone's Settings in six sections like the desktop**.
+- 🎲 **Chaos with more range**, 🧑‍💻 **a Waifu Coder that finishes its turns**, and 📱 **the phone's Settings in the desktop's sections**.
 
 ---
 
