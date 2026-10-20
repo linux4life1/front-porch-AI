@@ -220,7 +220,12 @@ void main() {
     setupPathProviderMock();
     // A theme saved as a number and a reading size saved as text: the
     // typed SharedPreferences getters throw on both.
-    await _boot({'app_theme': 5, 'text_scale': 'big'});
+    // Seeded directly: _boot's own unguarded load would throw first.
+    final probe = AppearanceSettings();
+    SharedPreferences.setMockInitialValues({
+      probe.k('app_theme'): 5,
+      probe.k('text_scale'): 'big',
+    });
     final prefs = await SharedPreferences.getInstance();
     expect(launchBackground(prefs), AppThemePalettes.porch.dark.background);
     final storage = StorageService(bootPrefs: prefs);

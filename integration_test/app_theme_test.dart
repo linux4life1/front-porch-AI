@@ -92,7 +92,10 @@ void main() {
 
     final ctx = tester.element(find.byType(MainLayout));
     final storage = Provider.of<StorageService>(ctx, listen: false);
-    ThemeData live() => Theme.of(tester.element(find.byType(MainLayout)));
+    // MainLayout sits under the pushed Settings route, so look offstage too;
+    // the app Theme is above the Navigator either way.
+    ThemeData live() =>
+        Theme.of(tester.element(find.byType(MainLayout, skipOffstage: false)));
 
     expect(live().scaffoldBackgroundColor, AppPalette.porchDark.background);
 
