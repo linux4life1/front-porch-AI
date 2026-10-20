@@ -141,9 +141,9 @@ class _HFModelCardState extends State<HFModelCard>
                             ).withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(8),
                           ),
-                          child: Icon(
+                          child: const Icon(
                             Icons.science_rounded,
-                            color: DownloadStatusColors.verifyingOf(context),
+                            color: DownloadStatusColors.verifying,
                             size: 22,
                           ),
                         ),

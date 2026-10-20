@@ -154,9 +154,9 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                           ).withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: Icon(
+                        child: const Icon(
                           Icons.download_rounded,
-                          color: DownloadStatusColors.downloadingOf(context),
+                          color: DownloadStatusColors.downloading,
                           size: 18,
                         ),
                       ),
@@ -224,8 +224,8 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                 value: widget.overallProgress,
                 minHeight: 3,
                 backgroundColor: InkColors.trackOf(context, dark: 0.05),
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  DownloadStatusColors.downloadingOf(context),
+                valueColor: const AlwaysStoppedAnimation<Color>(
+                  DownloadStatusColors.downloading,
                 ),
               ),
 
@@ -280,7 +280,7 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                     (task.state == DownloadTaskState.pending ||
                         task.state == DownloadTaskState.cancelled)
                     ? AppColors.iconSecondary(context)
-                    : downloadStatusColor(context, task.state),
+                    : downloadStatusColor(task.state),
                 size: 16,
               ),
               const SizedBox(width: 8),
@@ -309,7 +309,6 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
                                 task.state == DownloadTaskState.cancelled)
                             ? AppColors.textTertiary(context)
                             : downloadStatusColor(
-                                context,
                                 task.state,
                               ).withValues(alpha: 0.7),
                         fontSize: 10,
@@ -338,7 +337,7 @@ class _DownloadQueuePanelState extends State<DownloadQueuePanel>
               minHeight: 3,
               backgroundColor: InkColors.trackOf(context),
               valueColor: AlwaysStoppedAnimation<Color>(
-                downloadStatusColor(context, task.state),
+                downloadStatusColor(task.state),
               ),
             ),
           ],

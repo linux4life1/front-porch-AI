@@ -39,22 +39,22 @@ IconData downloadStatusIcon(DownloadTaskState state) {
   }
 }
 
-Color downloadStatusColor(BuildContext context, DownloadTaskState state) {
+Color downloadStatusColor(DownloadTaskState state) {
   switch (state) {
     case DownloadTaskState.downloading:
-      return DownloadStatusColors.downloadingOf(context);
+      return DownloadStatusColors.downloading;
     case DownloadTaskState.paused:
-      return DownloadStatusColors.pausedOf(context);
+      return DownloadStatusColors.paused;
     case DownloadTaskState.pending:
-      return DownloadStatusColors.pendingOf(context);
+      return DownloadStatusColors.pending;
     case DownloadTaskState.completed:
-      return DownloadStatusColors.completedOf(context);
+      return DownloadStatusColors.completed;
     case DownloadTaskState.failed:
-      return DownloadStatusColors.failedOf(context);
+      return DownloadStatusColors.failed;
     case DownloadTaskState.verifying:
-      return DownloadStatusColors.verifyingOf(context);
+      return DownloadStatusColors.verifying;
     case DownloadTaskState.cancelled:
-      return DownloadStatusColors.cancelledOf(context);
+      return DownloadStatusColors.cancelled;
   }
 }
 

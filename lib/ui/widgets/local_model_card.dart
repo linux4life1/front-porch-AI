@@ -99,9 +99,9 @@ class _LocalModelCardState extends State<LocalModelCard> {
                     ).withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(8),
                   ),
-                  child: Icon(
+                  child: const Icon(
                     Icons.storage_rounded,
-                    color: DownloadStatusColors.downloadingOf(context),
+                    color: DownloadStatusColors.downloading,
                     size: 22,
                   ),
                 ),
