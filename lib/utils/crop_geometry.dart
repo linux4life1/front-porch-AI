@@ -18,7 +18,7 @@
 
 import 'dart:math' as math;
 import 'dart:typed_data';
-import 'dart:ui' show Offset, Rect, Size;
+import 'dart:ui' show Color, Offset, Rect, Size;
 
 import 'package:image/image.dart' as img;
 
@@ -131,16 +131,20 @@ Rect applyCropDrag(
     );
   }
 
-  final movesLeft = handle == CropHandle.topLeft ||
+  final movesLeft =
+      handle == CropHandle.topLeft ||
       handle == CropHandle.left ||
       handle == CropHandle.bottomLeft;
-  final movesRight = handle == CropHandle.topRight ||
+  final movesRight =
+      handle == CropHandle.topRight ||
       handle == CropHandle.right ||
       handle == CropHandle.bottomRight;
-  final movesTop = handle == CropHandle.topLeft ||
+  final movesTop =
+      handle == CropHandle.topLeft ||
       handle == CropHandle.top ||
       handle == CropHandle.topRight;
-  final movesBottom = handle == CropHandle.bottomLeft ||
+  final movesBottom =
+      handle == CropHandle.bottomLeft ||
       handle == CropHandle.bottom ||
       handle == CropHandle.bottomRight;
 
@@ -249,6 +253,9 @@ enum CropFill {
 
   const CropFill(this.r, this.g, this.b, this.a);
   final int r, g, b, a;
+
+  /// The fill as a colour: the user's pick, the same in every app theme.
+  Color get color => Color.fromARGB(a, r, g, b);
 }
 
 /// Back-compat aliases for the legacy dark fill (tests pin exact pixels).

@@ -24,7 +24,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_season_start.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Artifact palette notes: the amber/ink/surface/text roles map to
 /// AppColors; the two semantic status hues below are the mockup's danger
@@ -75,8 +75,9 @@ Color stanceColor(BuildContext context, WeatherStance? s) => switch (s) {
   null => AppColors.textTertiary(context),
   WeatherStance.pleasant ||
   WeatherStance.ordinary => AppColors.textSecondary(context),
-  WeatherStance.harsh => kClimateWarn,
-  WeatherStance.dangerous || WeatherStance.deadly => kClimateDanger,
+  WeatherStance.harsh => StatusColors.climateWarnOf(context),
+  WeatherStance.dangerous ||
+  WeatherStance.deadly => StatusColors.climateDangerOf(context),
 };
 
 /// Section header in the artifact's register: small caps amber + hint.
@@ -223,7 +224,7 @@ class SeasonCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8),
             decoration: BoxDecoration(
-              color: AppColors.resolve(context, Colors.black26, Colors.white54),
+              color: InkColors.insetFieldOf(context),
               borderRadius: BorderRadius.circular(8),
               border: Border.all(color: AppColors.borderOf(context)),
             ),

@@ -24,7 +24,7 @@ import 'package:flutter/services.dart';
 
 import 'package:front_porch_ai/ui/dialogs/image_crop/image_crop.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_overlay.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// Interactive image crop — blank-slate rewrite (2026-08-14) replacing the
@@ -263,7 +263,7 @@ class _ImageCropDialogState extends State<ImageCropDialog> {
                     painter: CropOverlayPainter(
                       cropVp: cropVp,
                       accent: AppColors.porchAmberOf(context),
-                      scrim: Colors.black.withValues(alpha: 0.55),
+                      scrim: InkColors.dim(0.55),
                       showEdgeHandles: _aspect == null,
                       circleGuide: _circle,
                     ),

@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/story_begins_row.dart';
 
@@ -34,17 +34,11 @@ class GroupRealismStep extends StatelessWidget {
   final GroupWizardDraft draft;
   final GroupWizardActions actions;
 
-  Color _chaosAccent(BuildContext context) => AppColors.resolve(
-    context,
-    const Color(0xFFFFD166),
-    const Color(0xFFB45309),
-  );
+  Color _chaosAccent(BuildContext context) => AccentColors.chaosInkOf(context);
 
-  Color _tealAccent(BuildContext context) =>
-      AppColors.resolve(context, Colors.tealAccent, Colors.teal.shade700);
+  Color _tealAccent(BuildContext context) => AccentColors.tealOf(context);
 
-  Color _amberAccent(BuildContext context) =>
-      AppColors.resolve(context, Colors.amberAccent, Colors.amber.shade700);
+  Color _amberAccent(BuildContext context) => AccentColors.amberOf(context);
 
   @override
   Widget build(BuildContext context) {

@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart';
 
@@ -38,14 +38,7 @@ Widget generateWithDynamicsButton(
             height: 14,
             child: CircularProgressIndicator(strokeWidth: 2),
           )
-        : Icon(
-            Icons.auto_awesome,
-            color: AppColors.resolve(
-              context,
-              Colors.amberAccent,
-              Colors.amber.shade700,
-            ),
-          ),
+        : Icon(Icons.auto_awesome, color: AccentColors.amberOf(context)),
     label: Text(busy ? 'Generating...' : 'Generate with Dynamics'),
   );
 }
@@ -55,23 +48,12 @@ Widget directorOpeningNote(BuildContext context) {
   return Container(
     padding: const EdgeInsets.all(10),
     decoration: BoxDecoration(
-      color: AppColors.resolve(
-        context,
-        Colors.amber.withValues(alpha: 0.08),
-        Colors.amber.withValues(alpha: 0.08),
-      ),
+      color: AccentColors.amberWash,
       borderRadius: BorderRadius.circular(8),
     ),
     child: Text(
       'Director Mode: generated opening will be a self-contained group scene.',
-      style: TextStyle(
-        fontSize: 13,
-        color: AppColors.resolve(
-          context,
-          Colors.amberAccent,
-          Colors.amber.shade700,
-        ),
-      ),
+      style: TextStyle(fontSize: 13, color: AccentColors.amberOf(context)),
     ),
   );
 }

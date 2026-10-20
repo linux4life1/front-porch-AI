@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'persona_default_badge.dart';
 import 'persona_list_cards.dart';
@@ -292,19 +292,9 @@ class _PersonaStatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.white.withValues(alpha: 0.05),
-          Colors.black.withValues(alpha: 0.04),
-        ),
+        color: InkColors.washOf(context, 0.05, 0.04),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.white.withValues(alpha: 0.06),
-            AppColors.lightBorder.withValues(alpha: 0.6),
-          ),
-        ),
+        border: Border.all(color: InkColors.chipEdgeOf(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

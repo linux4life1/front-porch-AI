@@ -22,7 +22,7 @@ import 'package:qr_flutter/qr_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import 'package:front_porch_ai/services/web/tunnels/tunnels.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Open [url] in the OS browser/app. Shared by every web-access guide.
 Future<void> launchWebAccessUrl(String url) =>
@@ -114,21 +114,21 @@ class WebQrCode extends StatelessWidget {
         Container(
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
-            color: Colors.white, // functional: QR contrast, not chrome
+            color: Colors.white, // theme-keep: QR quiet zone, not chrome
             borderRadius: BorderRadius.circular(10),
             border: Border.all(color: AppColors.borderOf(context)),
           ),
           child: QrImageView(
             data: data,
             size: size,
-            backgroundColor: Colors.white, // functional: QR contrast
+            backgroundColor: Colors.white, // theme-keep: QR quiet zone
             eyeStyle: const QrEyeStyle(
               eyeShape: QrEyeShape.square,
-              color: Color(0xFF000000),
+              color: Color(0xFF000000), // theme-keep: QR modules
             ),
             dataModuleStyle: const QrDataModuleStyle(
               dataModuleShape: QrDataModuleShape.square,
-              color: Color(0xFF000000),
+              color: Color(0xFF000000), // theme-keep: QR modules
             ),
           ),
         ),

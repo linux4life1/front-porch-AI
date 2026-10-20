@@ -26,18 +26,18 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_editor_widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Semantic weather-legend hues from the mockup — one recognizable color
 /// per condition so the bars read as a legend, not chrome.
 const Map<String, Color> kConditionLegendColors = {
   'clear': Color(0xFFD9A94E), // theme-keep: mockup weather legend
-  'cloudy': Color(0xFF8D8496),
-  'overcast': Color(0xFF6B6577),
-  'fog': Color(0xFF9FB0BC),
-  'rain': Color(0xFF5E7E99),
-  'storm': Color(0xFF7A3F33),
-  'snow': Color(0xFF9FB6C4),
+  'cloudy': Color(0xFF8D8496), // theme-keep: mockup weather legend
+  'overcast': Color(0xFF6B6577), // theme-keep: mockup weather legend
+  'fog': Color(0xFF9FB0BC), // theme-keep: mockup weather legend
+  'rain': Color(0xFF5E7E99), // theme-keep: mockup weather legend
+  'storm': Color(0xFF7A3F33), // theme-keep: mockup weather legend
+  'snow': Color(0xFF9FB6C4), // theme-keep: mockup weather legend
 };
 
 class ClimatePreviewPanel extends StatelessWidget {
@@ -269,10 +269,9 @@ class ClimatePreviewPanel extends StatelessWidget {
               style: TextStyle(
                 fontSize: 11.5,
                 height: 1.45,
-                // theme-keep: mockup notice text tints (danger/warn family)
                 color: isError
-                    ? const Color(0xFFF2B3A5)
-                    : const Color(0xFFE8CF96),
+                    ? StatusColors.noticeDangerOf(context)
+                    : StatusColors.noticeWarnOf(context),
               ),
             ),
           ),

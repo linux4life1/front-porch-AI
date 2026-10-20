@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/memory_rag_model_note.dart';
@@ -124,7 +124,11 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
             // Header
             Row(
               children: [
-                Icon(Icons.psychology, color: Colors.purpleAccent, size: 20),
+                Icon(
+                  Icons.psychology,
+                  color: AppColors.emotionAccentOf(context),
+                  size: 20,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
@@ -160,10 +164,10 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.toggle_on,
                         size: 18,
-                        color: Colors.purpleAccent,
+                        color: AppColors.emotionAccentOf(context),
                       ),
                       const SizedBox(width: 8),
                       Text(
@@ -208,8 +212,8 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                       const Spacer(),
                       Text(
                         _retrievalCount == 0 ? 'All' : '$_retrievalCount',
-                        style: const TextStyle(
-                          color: Colors.purpleAccent,
+                        style: TextStyle(
+                          color: AppColors.emotionAccentOf(context),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -228,7 +232,7 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                       min: 0,
                       max: 30,
                       divisions: 30,
-                      activeColor: Colors.purpleAccent,
+                      activeColor: AppColors.emotionAccentOf(context),
                       inactiveColor: AppColors.borderOf(context),
                       onChanged: (v) => _updateRetrievalCount(v.round()),
                     ),
@@ -249,8 +253,8 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                       const Spacer(),
                       Text(
                         '${_memoryBudgetPercent.round()}%',
-                        style: const TextStyle(
-                          color: Colors.purpleAccent,
+                        style: TextStyle(
+                          color: AppColors.emotionAccentOf(context),
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
                         ),
@@ -269,7 +273,7 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                       min: 5,
                       max: 25,
                       divisions: 20,
-                      activeColor: Colors.purpleAccent,
+                      activeColor: AppColors.emotionAccentOf(context),
                       inactiveColor: AppColors.borderOf(context),
                       onChanged: _updateMemoryBudget,
                     ),
@@ -295,7 +299,11 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
             // Per-character priorities
             Row(
               children: [
-                Icon(Icons.people_alt, size: 18, color: Colors.purpleAccent),
+                Icon(
+                  Icons.people_alt,
+                  size: 18,
+                  color: AppColors.emotionAccentOf(context),
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'Per-Character Memory Importance',
@@ -352,9 +360,9 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                     children: [
                       CircleAvatar(
                         radius: 11,
-                        backgroundColor: Colors.purpleAccent.withValues(
-                          alpha: 0.25,
-                        ),
+                        backgroundColor: AppColors.emotionAccentOf(
+                          context,
+                        ).withValues(alpha: 0.25),
                         child: Text(
                           char.name.isNotEmpty
                               ? char.name[0].toUpperCase()
@@ -388,7 +396,7 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                             min: 0.0,
                             max: 2.0,
                             divisions: 20,
-                            activeColor: Colors.purpleAccent,
+                            activeColor: AppColors.emotionAccentOf(context),
                             inactiveColor: AppColors.borderOf(context),
                             onChanged: (v) => _updateCharPriority(char, v),
                           ),
@@ -399,8 +407,8 @@ class _GroupMemoryRAGTabState extends State<GroupMemoryRAGTab> {
                         child: Text(
                           priority.toStringAsFixed(1),
                           textAlign: TextAlign.right,
-                          style: const TextStyle(
-                            color: Colors.purpleAccent,
+                          style: TextStyle(
+                            color: AppColors.emotionAccentOf(context),
                             fontSize: 12,
                             fontWeight: FontWeight.w600,
                           ),

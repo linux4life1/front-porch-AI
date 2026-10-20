@@ -20,7 +20,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The "Speak as…" create / edit form: avatar, title, name, birthday and
@@ -95,7 +95,7 @@ class PersonaEditForm extends StatelessWidget {
                           width: 100,
                           height: 100,
                           decoration: BoxDecoration(
-                            color: Colors.white.withValues(alpha: 0.05),
+                            color: InkColors.washOf(context, 0.05, 0.04),
                             shape: BoxShape.circle,
                             image: avatarPath != null
                                 ? DecorationImage(
@@ -103,7 +103,9 @@ class PersonaEditForm extends StatelessWidget {
                                     fit: BoxFit.cover,
                                   )
                                 : null,
-                            border: Border.all(color: Colors.white24),
+                            border: Border.all(
+                              color: InkColors.fieldEdgeOf(context),
+                            ),
                           ),
                           child: avatarPath == null
                               ? Icon(

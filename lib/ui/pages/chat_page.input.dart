@@ -166,24 +166,20 @@ class ChatInputArea extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: AppColors.resolve(
-              context,
-              const Color(0xFF7C2D12),
-              const Color(0xFFFEF3C7),
-            ),
+            color: StatusColors.warningPanelOf(context),
             child: Row(
               children: [
                 Icon(
                   Icons.warning_amber_rounded,
                   size: 14,
-                  color: Colors.orangeAccent,
+                  color: StatusColors.warningOf(context),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     'Trust is on the line — your next message is your only chance to explain yourself.',
-                    style: const TextStyle(
-                      color: Colors.orangeAccent,
+                    style: TextStyle(
+                      color: StatusColors.warningOf(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
                     ),
@@ -206,11 +202,7 @@ class ChatInputArea extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             color: chatService.guestActivityIsError
-                ? AppColors.resolve(
-                    context,
-                    const Color(0xFF7C2D12),
-                    const Color(0xFFFEF3C7),
-                  )
+                ? StatusColors.warningPanelOf(context)
                 : AppColors.surfaceContainerOf(context),
             child: Row(
               children: [
@@ -220,7 +212,7 @@ class ChatInputArea extends StatelessWidget {
                   child: chatService.isGuestBusy
                       ? CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: AppColors.relationshipAccent,
+                          color: AppColors.relationshipAccentOf(context),
                         )
                       : Icon(
                           chatService.guestActivityIsError
@@ -228,8 +220,8 @@ class ChatInputArea extends StatelessWidget {
                               : Icons.info_outline,
                           size: 14,
                           color: chatService.guestActivityIsError
-                              ? Colors.orangeAccent
-                              : AppColors.relationshipAccent,
+                              ? StatusColors.warningOf(context)
+                              : AppColors.relationshipAccentOf(context),
                         ),
                 ),
                 const SizedBox(width: 10),
@@ -238,7 +230,7 @@ class ChatInputArea extends StatelessWidget {
                     chatService.guestActivityStatus!,
                     style: TextStyle(
                       color: chatService.guestActivityIsError
-                          ? Colors.orangeAccent
+                          ? StatusColors.warningOf(context)
                           : AppColors.textSecondary(context),
                       fontSize: 12,
                       fontWeight: FontWeight.w500,
@@ -408,7 +400,11 @@ void showNoMicDialog(BuildContext context) {
     context: context,
     builder: (context) => AlertDialog(
       backgroundColor: AppColors.cardOf(context),
-      icon: const Icon(Icons.mic_off, color: Colors.redAccent, size: 40),
+      icon: Icon(
+        Icons.mic_off,
+        color: StatusColors.dangerOf(context),
+        size: 40,
+      ),
       title: Text(
         'No Microphone Detected',
         style: TextStyle(color: AppColors.textPrimary(context)),

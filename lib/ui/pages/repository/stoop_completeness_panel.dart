@@ -6,7 +6,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/backporch/stoop_card_completeness.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Shows required/optional field presence for a card about to be shared.
 class StoopCompletenessPanel extends StatelessWidget {
@@ -19,11 +19,11 @@ class StoopCompletenessPanel extends StatelessWidget {
     final hot = completeness.incomplete;
     final border = hot
         ? AppColors.stoopEmber.withValues(alpha: 0.55)
-        : const Color(0xFF3ECF8E).withValues(alpha: 0.4);
+        : AccentColors.mintOf(context).withValues(alpha: 0.4);
     final bg = hot
         ? AppColors.stoopEmber.withValues(alpha: 0.1)
-        : const Color(0xFF3ECF8E).withValues(alpha: 0.08);
-    final accent = hot ? AppColors.stoopEmber : const Color(0xFF3ECF8E);
+        : AccentColors.mintOf(context).withValues(alpha: 0.08);
+    final accent = hot ? AppColors.stoopEmber : AccentColors.mintOf(context);
 
     // Flutter forbids borderRadius with non-uniform BorderSide colors — use a
     // full uniform outline + a solid left accent strip instead.
@@ -59,11 +59,11 @@ class StoopCompletenessPanel extends StatelessWidget {
                       Text(
                         hot
                             ? 'Missing required fields: '
-                                '${completeness.missingCritical.join(', ')}. '
-                                'Open the character (or group) editor, fill those fields, '
-                                'save, then come back to share.'
+                                  '${completeness.missingCritical.join(', ')}. '
+                                  'Open the character (or group) editor, fill those fields, '
+                                  'save, then come back to share.'
                             : 'Core greeting and identity fields are present. Double-check '
-                                'the text and art before sending.',
+                                  'the text and art before sending.',
                         style: TextStyle(
                           color: stoopCream2(context),
                           fontSize: 12.5,
@@ -75,18 +75,18 @@ class StoopCompletenessPanel extends StatelessWidget {
                         final mark = f.present
                             ? '✓'
                             : f.critical
-                                ? '✕'
-                                : '·';
+                            ? '✕'
+                            : '·';
                         final markColor = f.present
-                            ? const Color(0xFF3ECF8E)
+                            ? AccentColors.mintOf(context)
                             : f.critical
-                                ? AppColors.stoopEmber
-                                : stoopMute(context);
+                            ? AppColors.stoopEmber
+                            : stoopMute(context);
                         final meta = f.present
                             ? '${f.chars} chars'
                             : f.critical
-                                ? 'required'
-                                : 'optional';
+                            ? 'required'
+                            : 'optional';
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 4),
                           child: Container(
@@ -95,7 +95,7 @@ class StoopCompletenessPanel extends StatelessWidget {
                               vertical: 6,
                             ),
                             decoration: BoxDecoration(
-                              color: Colors.black.withValues(alpha: 0.18),
+                              color: InkColors.dim(0.18),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Row(

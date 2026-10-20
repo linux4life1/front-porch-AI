@@ -6,6 +6,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Shared helpers for the Group Settings tab files (extracted from the old
 /// 4,251-line group_settings_dialog.dart god file — these were byte-identical
@@ -41,13 +42,7 @@ class GroupSectionHeader extends StatelessWidget {
 
 /// Simple accent palette for per-char avatars (subset of Prompt tab palette).
 /// Was _charColors/_charAccentColor, duplicated in the Realism and Needs tabs.
-const List<Color> kGroupCharColors = [
-  Color(0xFF14B8A6), // Teal (realism accent)
-  Color(0xFF8B5CF6), // Purple
-  Color(0xFF10B981), // Emerald
-  Color(0xFFF59E0B), // Amber
-  Color(0xFF3B82F6), // Blue
-];
+const List<Color> kGroupCharColors = LegendColors.groupMembers;
 
 Color groupCharAccentColor(int index) =>
     kGroupCharColors[index % kGroupCharColors.length];

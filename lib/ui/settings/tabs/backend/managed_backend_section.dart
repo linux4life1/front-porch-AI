@@ -23,7 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
 import 'package:front_porch_ai/ui/dialogs/kcpps_editor/kcpps_editor.dart';
@@ -299,7 +299,7 @@ class ManagedBackendSection extends StatelessWidget {
               backgroundColor: anyRunning
                   ? AppColors.negativeAccentOf(context).withValues(alpha: 0.85)
                   : AppColors.bondHighOf(context).withValues(alpha: 0.85),
-              foregroundColor: Colors.white,
+              foregroundColor: StatusColors.onFill,
               padding: const EdgeInsets.symmetric(vertical: 20),
             ),
           ),

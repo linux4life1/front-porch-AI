@@ -4,7 +4,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Matches kClimateDanger on the climate editor cards.
 const Color _clash = Color(0xFFE0644C); // theme-keep: mockup danger
@@ -32,7 +32,9 @@ class SeasonStartRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final amber = AppColors.porchAmberOf(context);
-    final color = clash ? _clash : AppColors.textSecondary(context);
+    final color = clash
+        ? StatusColors.climateDangerOf(context)
+        : AppColors.textSecondary(context);
     final cap = daysInMonth365(month);
     final safeDay = day.clamp(1, cap);
     final label = '${kMonthShort[month - 1]} $safeDay';

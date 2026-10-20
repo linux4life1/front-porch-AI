@@ -22,7 +22,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_editor_widgets.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_skin_draft.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_emoji_picker.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// One rename row from the artifact's "Rename the weather" list: a surface
 /// card laid out as `Condition → [emoji] [new name / flavour] [stance pill]`.
@@ -179,7 +179,10 @@ class SkinEditRow extends StatelessWidget {
             Text(
               'A renamed weather needs a danger level — otherwise characters '
               'would picnic in ${draft.label.trim()}.',
-              style: const TextStyle(fontSize: 12, color: kClimateDanger),
+              style: TextStyle(
+                fontSize: 12,
+                color: StatusColors.climateDangerOf(context),
+              ),
             ),
           ],
         ],
@@ -192,7 +195,7 @@ class SkinEditRow extends StatelessWidget {
   /// while missing.
   Widget _stancePill(BuildContext context, bool missingStance) {
     final color = missingStance
-        ? kClimateDanger
+        ? StatusColors.climateDangerOf(context)
         : stanceColor(context, draft.stance);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 2),

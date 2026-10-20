@@ -21,7 +21,7 @@ import 'package:flutter/foundation.dart' show listEquals;
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Dialog shown after character import to let user add/edit tags.
@@ -129,9 +129,9 @@ class _TagDialogState extends State<TagDialog> {
               // Header
               Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.label_outline,
-                    color: Colors.amber,
+                    color: AccentColors.goldOf(context),
                     size: 24,
                   ),
                   const SizedBox(width: 8),
@@ -221,7 +221,7 @@ class _TagDialogState extends State<TagDialog> {
                     borderSide: BorderSide.none,
                   ),
                   suffixIcon: IconButton(
-                    icon: const Icon(Icons.add, color: Colors.amber),
+                    icon: Icon(Icons.add, color: AccentColors.goldOf(context)),
                     onPressed: () => _addTag(_controller.text),
                   ),
                 ),
@@ -288,8 +288,8 @@ class _TagDialogState extends State<TagDialog> {
                     icon: const Icon(Icons.check, size: 18),
                     label: const Text('Save Tags'),
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.amber.shade700,
-                      foregroundColor: Colors.white,
+                      backgroundColor: AccentColors.goldFill,
+                      foregroundColor: StatusColors.onFill,
                     ),
                   ),
                 ],

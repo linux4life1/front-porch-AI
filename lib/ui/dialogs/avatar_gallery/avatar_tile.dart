@@ -101,12 +101,8 @@ class AvatarTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ring = badgeColor ?? AppColors.formAccentOf(context);
-    final scrim = AppColors.resolve(
-      context,
-      Colors.black.withValues(alpha: 0.55),
-      Colors.black.withValues(alpha: 0.42),
-    );
-    final onScrim = AppColors.resolve(context, Colors.white, Colors.white);
+    final scrim = InkColors.dimOf(context, 0.55, 0.42);
+    const onScrim = InkColors.onImage;
 
     return Container(
       decoration: BoxDecoration(

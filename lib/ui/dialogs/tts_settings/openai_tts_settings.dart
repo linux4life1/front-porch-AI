@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// OpenAI TTS-specific settings block (API key, model, base URL, voice
 /// picker, billing note) for the TTS settings dialog. The dialog owns the
@@ -224,11 +224,9 @@ class OpenAiTtsSettings extends StatelessWidget {
                             ? '♂ '
                             : '⚬ ',
                         style: TextStyle(
-                          // theme-keep: voice-gender marker dot, a fixed
-                          // pink/cyan pairing independent of the app theme
                           color: v.gender == 'Female'
-                              ? Colors.pinkAccent
-                              : Colors.cyanAccent,
+                              ? LegendColors.voiceFemaleOf(context)
+                              : LegendColors.voiceMaleOf(context),
                           fontSize: 13,
                         ),
                       ),

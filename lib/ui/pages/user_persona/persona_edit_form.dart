@@ -18,7 +18,7 @@
 
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'persona_text_expand_dialog.dart';
 
@@ -65,11 +65,7 @@ class PersonaEditForm extends StatelessWidget {
             border: Border.all(color: AppColors.borderOf(context)),
             boxShadow: [
               BoxShadow(
-                color: AppColors.resolve(
-                  context,
-                  Colors.black.withValues(alpha: 0.2),
-                  Colors.black.withValues(alpha: 0.08),
-                ),
+                color: InkColors.dimOf(context, 0.2, 0.08),
                 blurRadius: 24,
                 spreadRadius: -4,
               ),
@@ -93,11 +89,7 @@ class PersonaEditForm extends StatelessWidget {
                           width: 110,
                           height: 110,
                           decoration: BoxDecoration(
-                            color: AppColors.resolve(
-                              context,
-                              Colors.white.withValues(alpha: 0.04),
-                              Colors.black.withValues(alpha: 0.03),
-                            ),
+                            color: InkColors.washOf(context, 0.04, 0.03),
                             shape: BoxShape.circle,
                             image: avatarPath != null
                                 ? DecorationImage(

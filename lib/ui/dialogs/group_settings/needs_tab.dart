@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -282,24 +282,22 @@ class _GroupNeedsTabState extends State<GroupNeedsTab> {
                 decoration: BoxDecoration(
                   color: AppColors.surfaceOf(context),
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(
-                    color: Colors.amber.withValues(alpha: 0.4),
-                  ),
+                  border: Border.all(color: AccentColors.goldEdgeOf(context)),
                 ),
                 child: Row(
                   children: [
                     Icon(
                       Icons.warning_amber_rounded,
                       size: 18,
-                      color: Colors.amber,
+                      color: AccentColors.goldOf(context),
                     ),
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
                         'Director Mode is active. Needs keep running for each character while you direct.',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontSize: 12,
-                          color: Colors.amber,
+                          color: AccentColors.goldOf(context),
                           height: 1.3,
                         ),
                       ),

@@ -5,6 +5,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The member's portrait, or its initial when it has none (or only the
@@ -37,7 +38,7 @@ class GroupPromptMemberAvatar extends StatelessWidget {
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: StatusColors.onFill,
           ),
         ),
       ),

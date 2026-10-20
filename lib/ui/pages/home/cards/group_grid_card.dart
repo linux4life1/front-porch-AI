@@ -231,22 +231,14 @@ class _GroupGridCardState extends State<GroupGridCard> {
                             ? (isOrganizing
                                   ? AppColors.porchHoneyOf(context)
                                   : AppColors.porchTerracottaOf(context))
-                            : AppColors.resolve(
-                                context,
-                                Colors.black54,
-                                Colors.black12,
-                              ),
+                            : InkColors.checkWellOf(context),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isSelectedCard
                               ? (isOrganizing
                                     ? AppColors.porchHoneyOf(context)
                                     : AppColors.porchTerracottaOf(context))
-                              : AppColors.resolve(
-                                  context,
-                                  Colors.white38,
-                                  Colors.black38,
-                                ),
+                              : InkColors.checkRimOf(context),
                           width: 2,
                         ),
                       ),
@@ -254,7 +246,7 @@ class _GroupGridCardState extends State<GroupGridCard> {
                           ? const Icon(
                               Icons.check,
                               size: 16,
-                              color: Colors.white,
+                              color: StatusColors.onFill,
                             )
                           : null,
                     ),

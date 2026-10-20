@@ -19,7 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import 'package:front_porch_ai/services/macro_resolver.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 final MacroResolver _stoopMacros = MacroResolver();
 
@@ -107,7 +107,10 @@ const LinearGradient stoopAmberGradient = LinearGradient(
 const LinearGradient stoopEmberGradient = LinearGradient(
   begin: Alignment.topCenter,
   end: Alignment.bottomCenter,
-  colors: [Color(0xFFF0925A), AppColors.stoopEmber],
+  colors: [
+    Color(0xFFF0925A), // theme-keep: Stoop ember button, fixed in every theme
+    AppColors.stoopEmber,
+  ],
 );
 
 /// Card face (hub: linear-gradient(180deg, --card-2, --card)).
@@ -147,7 +150,7 @@ BoxDecoration stoopPanel(
   borderRadius: BorderRadius.circular(radius),
   border: Border.all(color: hi ? stoopBorderHi(c) : stoopBorder(c)),
   boxShadow: const [
-    BoxShadow(color: Color(0x59000000), blurRadius: 30, offset: Offset(0, 10)),
+    BoxShadow(color: InkColors.shadow, blurRadius: 30, offset: Offset(0, 10)),
   ],
 );
 
@@ -214,35 +217,35 @@ class StoopBadge extends StatelessWidget {
       StoopBadgeKind.group => (
         'GROUP',
         AppColors.stoopTealText,
-        const Color(0xBF06201B),
+        const Color(0xBF06201B), // theme-keep: badge over cover art
         AppColors.stoopTeal.withValues(alpha: 0.45),
         null,
       ),
       StoopBadgeKind.world => (
         'WORLD',
         AppColors.stoopAmberHi,
-        const Color(0xBF241502),
+        const Color(0xBF241502), // theme-keep: badge over cover art
         AppColors.stoopAmber.withValues(alpha: 0.45),
         null,
       ),
       StoopBadgeKind.climate => (
         'CLIMATE',
         AppColors.stoopTealText,
-        const Color(0xBF06201B),
+        const Color(0xBF06201B), // theme-keep: badge over cover art
         AppColors.stoopTeal.withValues(alpha: 0.45),
         null,
       ),
       StoopBadgeKind.lore => (
         'LORE',
         AppColors.stoopCream,
-        const Color(0xBF1A1610),
+        const Color(0xBF1A1610), // theme-keep: badge over cover art
         AppColors.stoopBorderHi.withValues(alpha: 0.8),
         null,
       ),
       StoopBadgeKind.nsfw => (
         'NSFW',
         AppColors.stoopEmberText,
-        const Color(0xBF2A0F04),
+        const Color(0xBF2A0F04), // theme-keep: badge over cover art
         AppColors.stoopEmber.withValues(alpha: 0.5),
         null,
       ),

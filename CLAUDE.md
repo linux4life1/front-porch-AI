@@ -220,7 +220,8 @@ down.
   `StatusColors`, dims and faint lines from `InkColors`, the chips under a
   reply from `RealismColors`, chat-only hues from `ChatColors`, sidebar
   destinations from `NavColors`, model quant and fit hues from
-  `ModelColors`, all in `lib/ui/theme/`. CI `theme-lint` fails new
+  `ModelColors`, a page's feature hues (Director amber, Realism teal)
+  from `AccentColors`, all in `lib/ui/theme/`. CI `theme-lint` fails new
   `Colors.blueAccent` under `lib/` unless `// theme-keep: <reason>` and the
   colour is a genuine semantic status hue the maintainer approved **in this
   conversation**. Two ratchets in `test/hygiene/` (`raw_colors_ratchet_test`,

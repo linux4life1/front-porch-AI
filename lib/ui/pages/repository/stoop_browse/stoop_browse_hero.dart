@@ -16,7 +16,7 @@ import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The Mod's-Pick hero (.hub-pickhero): a blurred, zoomed fill of the card
 /// art behind a dusk scrim, with the SHARP portrait at true 3:4 on the left
@@ -45,7 +45,7 @@ class StoopBrowseHero extends StatelessWidget {
               ),
               boxShadow: [
                 const BoxShadow(
-                  color: Color(0x59000000),
+                  color: InkColors.shadow,
                   blurRadius: 30,
                   offset: Offset(0, 10),
                 ),
@@ -72,6 +72,7 @@ class StoopBrowseHero extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
+                      // theme-keep: scrim over the hero art, the same in every theme
                       colors: [Color(0x590A0805), Color(0xB80A0805)],
                     ),
                   ),
@@ -87,7 +88,7 @@ class StoopBrowseHero extends StatelessWidget {
                           border: Border.all(color: AppColors.stoopBorderHi),
                           boxShadow: const [
                             BoxShadow(
-                              color: Color(0x66000000),
+                              color: InkColors.shadowDeep,
                               blurRadius: 24,
                               offset: Offset(0, 8),
                             ),

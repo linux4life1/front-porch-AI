@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
 import 'package:front_porch_ai/ui/dialogs/tts_settings/elevenlabs_voice_sliders.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// ElevenLabs-specific settings block for the TTS settings dialog: API key,
 /// model dropdown, voice picker + Refresh ([onRefreshVoices]), the voice
@@ -184,11 +184,9 @@ class ElevenLabsTtsSettings extends StatelessWidget {
                                   ? '♂ '
                                   : '⚬ ',
                               style: TextStyle(
-                                // theme-keep: voice-gender marker dot, a fixed
-                                // pink/cyan pairing independent of the app theme
                                 color: v.gender == 'Female'
-                                    ? Colors.pinkAccent
-                                    : Colors.cyanAccent,
+                                    ? LegendColors.voiceFemaleOf(context)
+                                    : LegendColors.voiceMaleOf(context),
                                 fontSize: 13,
                               ),
                             ),

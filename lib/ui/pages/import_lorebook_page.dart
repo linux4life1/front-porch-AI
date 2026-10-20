@@ -24,7 +24,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/models/lorebook_analysis.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'import_lorebook/import_destination_step.dart';
@@ -295,13 +295,13 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
           ),
           child: Center(
             child: isActive && !isCurrent
-                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                ? const Icon(Icons.check, size: 14, color: StatusColors.onFill)
                 : Text(
                     '${step + 1}',
                     style: TextStyle(
                       fontSize: 11,
                       color: isActive
-                          ? Colors.white
+                          ? StatusColors.onFill
                           : AppColors.textTertiary(context),
                     ),
                   ),
@@ -418,7 +418,7 @@ class _ImportLorebookPageState extends State<ImportLorebookPage> {
                 : _runImport,
             style: ElevatedButton.styleFrom(
               backgroundColor: amber,
-              foregroundColor: Colors.white,
+              foregroundColor: StatusColors.onFill,
             ),
             icon: Icon(
               _currentStep < 2 ? Icons.arrow_forward : Icons.download_done,
