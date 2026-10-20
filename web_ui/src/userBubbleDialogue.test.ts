@@ -66,3 +66,18 @@ describe('--chat-user-dialogue', () => {
     expect(picked['--chat-user-dialogue']).toBe('#ad1457');
   });
 });
+
+describe('--chat-user-action', () => {
+  it('re-tints the default action blue to read on the user bubble, and keeps a pick', () => {
+    applyChatColors({ ...DEFAULT_CHAT_COLORS });
+    const tint = document.documentElement.style.getPropertyValue('--chat-user-action');
+    expect(contrastRatio(tint, DEFAULT_CHAT_COLORS.userBubble)).toBeGreaterThanOrEqual(MIN_USER_DIALOGUE_CONTRAST);
+    expect(contrastRatio(DEFAULT_CHAT_COLORS.action, DEFAULT_CHAT_COLORS.userBubble)).toBeLessThan(MIN_USER_DIALOGUE_CONTRAST);
+
+    applyChatColors({ ...DEFAULT_CHAT_COLORS, action: '#123456' });
+    expect(document.documentElement.style.getPropertyValue('--chat-user-action')).toBe('#123456');
+
+    const themed = resolveThemeColors({ themeId: 'sakura', userBubbleColor: '4a0e2a', userTextColor: 'ffffff' });
+    expect(contrastRatio(themed['--chat-user-action'], '#4a0e2a')).toBeGreaterThanOrEqual(MIN_USER_DIALOGUE_CONTRAST);
+  });
+});

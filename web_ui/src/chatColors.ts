@@ -75,9 +75,20 @@ export function applyChatColors(c: ChatColors): void {
       c.dialogue.toLowerCase() !== DEFAULT_CHAT_COLORS.dialogue,
     ),
   );
+  // *Actions* get the same treatment: the default blue all but vanishes on
+  // the blue user bubble (desktop userBubbleActionColorFor).
+  root.style.setProperty(
+    '--chat-user-action',
+    userBubbleDialogueColor(
+      c.action,
+      c.userBubble,
+      c.userText,
+      c.action.toLowerCase() !== DEFAULT_CHAT_COLORS.action,
+    ),
+  );
 }
 
-// ── Quoted speech on the user's own bubble ──────────────────────────────────
+// ── Quoted speech and actions on the user's own bubble ──────────────────────
 // Mirror of lib/utils/readable_dialogue_tint.dart: the dialogue tint is shared
 // by both bubbles, so on a recoloured user bubble (orange quotes on green)
 // it can all but vanish. Inside the user bubble the default tint keeps its hue

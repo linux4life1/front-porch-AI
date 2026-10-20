@@ -34,6 +34,7 @@
    bubble's colour (chatColors.ts userBubbleDialogueColor). */
 .bubble.user .dlg { color: var(--chat-user-dialogue, var(--dialogue)); }
 .bubble .act { color: var(--action); font-style: italic; }
+.bubble.user .act { color: var(--chat-user-action, var(--action)); }
 .bubble .act.bold { font-weight: 700; font-style: normal; }
 .chat-composer-wrap { width: 100%; }
 .composer-photo-chip {

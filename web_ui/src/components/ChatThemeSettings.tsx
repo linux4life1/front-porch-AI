@@ -117,6 +117,7 @@ export function resolveThemeColors(
       !!overrides.dialogueColor,
     ),
     '--chat-action': action,
+    '--chat-user-action': userBubbleDialogueColor(action, userBubble, userText, !!overrides.actionColor),
     // Also set the base vars that the CSS .dlg/.act rules consume.
     '--dialogue': dialogue,
     '--action': action,
