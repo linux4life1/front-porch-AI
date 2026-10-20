@@ -1443,3 +1443,25 @@ test('evaluation view is remembered and synchronized between chat clients', asyn
     await other.close();
   }
 });
+
+// A greeting reaches the bubble with {{char}} and {{user}} filled in
+// (CLAUDE.md, "Definition of done": rendered text never shows them).
+test('a fresh chat shows the greeting with names, not placeholders', { tag: SERIAL }, async ({ page }) => {
+  const name = `Greeter ${test.info().project.name}`;
+  const created = await page.request.post('/api/characters/create', {
+    data: { name, firstMessage: 'Evening, {{user}}. {{char}} saved you a chair.' },
+  });
+  expect(created.ok(), `create: ${created.status()}`).toBe(true);
+  const id = String(((await created.json()) as { id: string | number }).id);
+  try {
+    await openRoute(page, '/');
+    await page.locator('.lib-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    const greeting = rows(page).first().locator('.bubble.ai');
+    await expect(greeting).toContainText(`${name} saved you a chair.`);
+    await expect(greeting).not.toContainText('{{');
+  } finally {
+    const gone = await page.request.post(`/api/characters/${id}/delete`);
+    expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
+  }
+});

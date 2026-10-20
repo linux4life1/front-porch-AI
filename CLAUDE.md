@@ -28,7 +28,9 @@ A PR is done when a machine has checked it. People only judge looks.
   injectable clock. A test never pins a date that the code under test
   compares with the real clock (#559 went red on its own date).
 - **New screen, panel or sidebar:** check it at 400px and 1440px wide and
-  in a short window. Any overflow fails.
+  in a short window. Any overflow fails. Top-level pages and the chat are
+  swept by `integration_test/layout_sweep_test.dart`; give a new page a stop
+  there.
 - **Rendered text** never shows `{{char}}`, `{{user}}` or a raw enum name.
 - **Never commit screenshots of real chats or user data.** Evidence images
   go in the PR thread, not the repo.
