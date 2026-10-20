@@ -80,7 +80,10 @@ class AppearanceTab extends StatelessWidget {
             OutlinedButton.icon(
               key: const ValueKey('appearance-reset'),
               onPressed: appearance.resetCustomisations,
-              icon: const Icon(Icons.restart_alt, size: 18),
+              // A narrow pane gives the words the icon's room.
+              icon: constraints.maxWidth < 360
+                  ? null
+                  : const Icon(Icons.restart_alt, size: 18),
               label: const Text('Reset accent, font and corners'),
             ),
             const SizedBox(height: 28),

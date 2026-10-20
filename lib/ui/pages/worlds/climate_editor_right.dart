@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_editor_widgets.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_preview_panel.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 class ClimateEditorRightColumn extends StatelessWidget {
   const ClimateEditorRightColumn({
@@ -26,6 +26,16 @@ class ClimateEditorRightColumn extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // The preview already lists its own errors; repeat only the rest (a
+    // rename with no danger level, or numbers changed since the refresh).
+    final listed = {
+      for (final e in preview?.errors ?? const <String>[])
+        displayUnitError(e, fahrenheit),
+    };
+    final unlisted = [
+      for (final e in errors)
+        if (!listed.contains(e)) e,
+    ];
     return ListView(
       padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
       children: [
@@ -69,9 +79,9 @@ class ClimateEditorRightColumn extends StatelessWidget {
             biome: biome,
             fahrenheit: fahrenheit,
           ),
-        if (errors.isNotEmpty) ...[
+        if (unlisted.isNotEmpty) ...[
           const SizedBox(height: 12),
-          for (final e in errors)
+          for (final e in unlisted)
             Container(
               margin: const EdgeInsets.only(bottom: 7),
               padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 8),
@@ -81,10 +91,10 @@ class ClimateEditorRightColumn extends StatelessWidget {
               ),
               child: Text(
                 '⛔ $e',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 11.5,
                   height: 1.45,
-                  color: Color(0xFFF2B3A5), // theme-keep: mockup danger text
+                  color: StatusColors.noticeDangerOf(context),
                 ),
               ),
             ),

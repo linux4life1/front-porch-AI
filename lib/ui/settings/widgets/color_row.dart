@@ -39,18 +39,21 @@ class ColorRow extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
+      // Label left, swatch right; on a very narrow pane the swatch drops
+      // under the label instead of squeezing it a letter per line.
+      child: Wrap(
+        alignment: WrapAlignment.spaceBetween,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        spacing: 8,
+        runSpacing: 4,
         children: [
-          Expanded(
-            child: Text(
-              label,
-              style: TextStyle(
-                color: AppColors.textSecondary(context),
-                fontSize: 13,
-              ),
+          Text(
+            label,
+            style: TextStyle(
+              color: AppColors.textSecondary(context),
+              fontSize: 13,
             ),
           ),
-          const SizedBox(width: 8),
           Container(
             width: 40,
             height: 40,

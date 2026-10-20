@@ -58,15 +58,18 @@ class SliderSetting extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: TextStyle(
-                  color: AppColors.textSecondary(
-                    context,
-                  ).withValues(alpha: 0.7),
-                  fontSize: 13,
+              Flexible(
+                child: Text(
+                  label,
+                  style: TextStyle(
+                    color: AppColors.textSecondary(
+                      context,
+                    ).withValues(alpha: 0.7),
+                    fontSize: 13,
+                  ),
                 ),
               ),
+              const SizedBox(width: 8),
               Text(
                 isInteger
                     ? value.toInt().toString()

@@ -133,13 +133,30 @@ class HomeDropHighlight extends StatelessWidget {
             border: Border.all(color: amber, width: 2),
             borderRadius: BorderRadius.circular(12),
           ),
+          // The label sits on its own card: over a full library the wash
+          // alone left it crossing the character names.
           child: Center(
-            child: Text(
-              kHomeDropOverlayLabel,
-              style: TextStyle(
-                color: AppColors.textPrimary(context),
-                fontWeight: FontWeight.w800,
-                fontSize: 20,
+            child: DecoratedBox(
+              key: const ValueKey('home-drop-label'),
+              decoration: BoxDecoration(
+                color: AppColors.cardOf(context).withValues(alpha: 0.95),
+                border: Border.all(color: amber),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+                child: Text(
+                  kHomeDropOverlayLabel,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: AppColors.textPrimary(context),
+                    fontWeight: FontWeight.w800,
+                    fontSize: 20,
+                  ),
+                ),
               ),
             ),
           ),

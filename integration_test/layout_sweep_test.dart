@@ -104,7 +104,11 @@ void main() {
         final file = m == null
             ? 'unknown'
             : (m.group(1) != null ? 'lib/${m.group(1)}' : m.group(2)!);
-        found.add('${where.split(' ').first}: $file');
+        // The 360px stop is for the Appearance tab; the pages kept alive
+        // behind it are swept at 400px.
+        if (!where.startsWith('tiny') || file.startsWith('lib/ui/settings/')) {
+          found.add('${where.split(' ').first}: $file');
+        }
         debugPrint('[layout] $where overflow in $file');
         return;
       }
@@ -149,7 +153,8 @@ void main() {
     await tester.pump(const Duration(milliseconds: 800));
     await tester.tap(find.text('Appearance'));
     await tester.pump(const Duration(milliseconds: 800));
-    for (final size in _sizes.entries) {
+    // Also a 360px window, where the sidebar leaves the tab about 110px.
+    for (final size in {..._sizes, 'tiny': const Size(360, 800)}.entries) {
       where = '${size.key} appearance';
       tester.view.physicalSize = size.value;
       await tester.pump(const Duration(milliseconds: 800));
