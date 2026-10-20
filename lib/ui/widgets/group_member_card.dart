@@ -27,6 +27,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/group_member_card/group_member_card.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// First-class representation of a group chat member in the sidebar.
 ///
@@ -319,6 +320,7 @@ class _GroupMemberCardState extends State<GroupMemberCard> {
                                 file,
                                 width: widget.isExpanded ? 36 : 32,
                                 height: widget.isExpanded ? 36 : 32,
+                                cacheWidth: kPortraitAvatarDecodeWidth,
                                 fit: BoxFit.cover,
                                 errorBuilder: (_, _, _) => _avatarLetter(),
                               ),

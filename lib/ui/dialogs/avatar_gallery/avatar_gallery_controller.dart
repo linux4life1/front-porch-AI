@@ -19,12 +19,12 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/portrait_promotion.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// How the Avatar Gallery was opened. Caller-passed (never inferred from global
 /// state — Grok): [inChat] enables per-chat "use this look" selection and needs
@@ -89,7 +89,7 @@ class AvatarGalleryController extends ChangeNotifier {
 
   Future<void> _evictPortraitImage() async {
     final f = portraitFile();
-    if (f != null) await FileImage(f).evict();
+    if (f != null) await evictPortraitImage(f);
   }
 
   @override
@@ -259,7 +259,7 @@ class AvatarGalleryController extends ChangeNotifier {
       pixels: bytes,
       metadataSourcePath: metadataSourcePath,
     );
-    await FileImage(target).evict();
+    await evictPortraitImage(target);
     await repository.updateCharacterImagePathOnly(libraryCard, notify: false);
     await _evictPortraitImage();
     _bumpMedia();
@@ -335,7 +335,7 @@ class AvatarGalleryController extends ChangeNotifier {
   Future<void> remove(AvatarImage img) => _run(() async {
     if (dbId == null) return;
     // Evict before the file is gone so the ImageCache drops this path.
-    await FileImage(fileFor(img)).evict();
+    await evictPortraitImage(fileFor(img));
     await repository.removeAvatar(dbId!, img.id);
     // Star pointed at it → back to the portrait (materializes ext + persists).
     if (favoriteId == img.id) await _persistFavorite(null);

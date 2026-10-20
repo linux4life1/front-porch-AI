@@ -35,6 +35,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.input_actions.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// The message box's minimum height in lines (1–8), dragged on the bar's
 /// handle and remembered across launches. [update] is the page's setState.
@@ -229,7 +230,7 @@ class ChatInputBar extends StatelessWidget {
                           radius: 16,
                           backgroundColor: InkColors.gripOf(context),
                           backgroundImage: persona.avatarPath != null
-                              ? FileImage(File(persona.avatarPath!))
+                              ? portraitAvatarImage(File(persona.avatarPath!))
                               : null,
                           child: persona.avatarPath == null
                               ? Icon(

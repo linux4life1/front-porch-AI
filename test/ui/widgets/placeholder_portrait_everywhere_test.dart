@@ -24,6 +24,7 @@ import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 import '../../golden/support/creator_test_support.dart';
 import '../../golden/support/fakes.dart';
@@ -35,21 +36,23 @@ class _RootOnlyFolders extends FakeFolderService {
   CharacterFolder? getFolderForCharacter(String imagePath) => null;
 }
 
+/// The file [image] reads, through a sized decode ([ResizeImage]).
+String? _pathOf(ImageProvider? image) => switch (image) {
+  FileImage(:final file) => file.path,
+  ResizeImage(:final imageProvider) => _pathOf(imageProvider),
+  _ => null,
+};
+
 /// [Image] widgets drawing [file].
 int _imagesShowing(WidgetTester tester, File file) => tester
     .widgetList<Image>(find.byType(Image))
-    .where((i) => i.image is FileImage)
-    .where((i) => (i.image as FileImage).file.path == file.path)
+    .where((i) => _pathOf(i.image) == file.path)
     .length;
 
 /// Circles drawing [file] as their picture.
 int _circlesShowing(WidgetTester tester, File file) => tester
     .widgetList<CircleAvatar>(find.byType(CircleAvatar))
-    .where(
-      (c) =>
-          c.backgroundImage is FileImage &&
-          (c.backgroundImage! as FileImage).file.path == file.path,
-    )
+    .where((c) => _pathOf(c.backgroundImage) == file.path)
     .length;
 
 /// A real photo at the placeholder's exact size: one of the app's own
@@ -284,6 +287,11 @@ void main() {
       expect(_imagesShowing(tester, real), 1);
       expect(_imagesShowing(tester, placeholder), 0);
       expect(find.byIcon(Icons.person), findsOneWidget);
+      // A 32 px avatar decodes small, not the full portrait.
+      final avatar = tester
+          .widgetList<Image>(find.byType(Image))
+          .singleWhere((i) => _pathOf(i.image) == real.path);
+      expect((avatar.image as ResizeImage).width, kPortraitAvatarDecodeWidth);
     },
   );
 

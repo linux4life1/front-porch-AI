@@ -8,6 +8,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 // Field name keys for the needs baselines map (and the card's needsOff list).
 const kGroupNeedHunger = 'hunger';
@@ -90,7 +91,7 @@ class GroupMemberNeedsCard extends StatelessWidget {
                 portrait: (_, file) => CircleAvatar(
                   radius: 16,
                   backgroundColor: groupCharAccentColor(index),
-                  backgroundImage: FileImage(file),
+                  backgroundImage: portraitAvatarImage(file),
                 ),
                 noPortrait: (_) => CircleAvatar(
                   radius: 16,

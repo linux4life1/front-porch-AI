@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// One face in the desktop cast strip. Soft guests carry the amber GUEST
 /// mark and the **only** Promote control (member card / Lite NPC banner
@@ -82,6 +83,7 @@ class CastRosterChip extends StatelessWidget {
                       file,
                       width: 32,
                       height: 32,
+                      cacheWidth: kPortraitAvatarDecodeWidth,
                       fit: BoxFit.cover,
                       errorBuilder: (_, _, _) => _initial(),
                     ),

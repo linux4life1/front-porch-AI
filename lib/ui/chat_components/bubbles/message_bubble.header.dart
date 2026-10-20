@@ -30,6 +30,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'theme_border_resolver.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// The message header row: Director label / sender name (with the group
 /// tap-to-queue affordance) / TTS speaker button / edit / fork / delete.
@@ -392,6 +393,7 @@ class MessageBubbleAvatar extends StatelessWidget {
                   file,
                   width: 32,
                   height: 32,
+                  cacheWidth: kPortraitAvatarDecodeWidth,
                   fit: BoxFit.cover,
                   errorBuilder: (_, _, _) => Icon(
                     Icons.person,
@@ -411,7 +413,9 @@ class MessageBubbleAvatar extends StatelessWidget {
                   .firstOrNull;
               if (persona?.avatarPath != null) {
                 return CircleAvatar(
-                  backgroundImage: FileImage(File(persona!.avatarPath!)),
+                  backgroundImage: portraitAvatarImage(
+                    File(persona!.avatarPath!),
+                  ),
                   radius: 16,
                 );
               }

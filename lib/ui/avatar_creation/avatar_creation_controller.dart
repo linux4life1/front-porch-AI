@@ -20,7 +20,6 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
-import 'package:flutter/painting.dart';
 import 'package:flutter/widgets.dart' show TextEditingController;
 
 import 'package:front_porch_ai/models/models.dart';
@@ -33,6 +32,7 @@ import 'package:front_porch_ai/services/portrait_promotion.dart';
 import 'package:front_porch_ai/ui/dialogs/avatar_gallery/avatar_gallery_io.dart';
 
 import 'avatar_creation_controller/avatar_creation_controller.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 export 'avatar_creation_controller/avatar_pack_runner.dart'
     show kCreatorPackDenoise;
@@ -340,7 +340,7 @@ class AvatarCreationController extends ChangeNotifier {
     final card = _anchor.card!;
     final target = portraitWriteTarget(card: card, storage: storage);
     await target.writeAsBytes(bytes);
-    await FileImage(target).evict();
+    await evictPortraitImage(target);
     await repository.updateCharacter(card);
     portraitBytes = bytes;
     if (!_disposed) notifyListeners();

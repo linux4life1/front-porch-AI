@@ -23,6 +23,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// Modal character picker for the `/join` flow — choose an existing library
 /// character to bring into the current 1:1 chat as a Scene Guest (Lite NPC).
@@ -190,7 +191,9 @@ class _SceneGuestPickerDialogState extends State<SceneGuestPickerDialog> {
                                       radius: 20,
                                       backgroundColor:
                                           AppColors.surfaceContainerOf(context),
-                                      backgroundImage: FileImage(file),
+                                      backgroundImage: portraitAvatarImage(
+                                        file,
+                                      ),
                                     ),
                                     noPortrait: (_) => CircleAvatar(
                                       radius: 20,

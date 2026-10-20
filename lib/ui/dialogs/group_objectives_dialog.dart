@@ -26,6 +26,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'group_objectives/group_objectives.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// Dedicated, group-aware objectives manager.
 ///
@@ -277,7 +278,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                                 : null,
                             portrait: (_, file) => CircleAvatar(
                               radius: 20,
-                              backgroundImage: FileImage(file),
+                              backgroundImage: portraitAvatarImage(file),
                             ),
                             noPortrait: (_) => CircleAvatar(
                               radius: 20,

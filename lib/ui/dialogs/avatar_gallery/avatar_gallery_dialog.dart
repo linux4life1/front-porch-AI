@@ -31,6 +31,7 @@ import 'package:front_porch_ai/ui/dialogs/avatar_gallery/emotion_picker.dart';
 import 'package:front_porch_ai/ui/dialogs/image_crop_dialog.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 /// The one unified Avatar Gallery — gallery avatars + expression images in a
 /// single warm-porch dialog, sharing one ★ canonical-avatar star. Replaces the
@@ -211,6 +212,7 @@ class _AvatarGalleryDialogState extends State<_AvatarGalleryDialog> {
               _c.fileFor(candidate),
               width: 56,
               height: 56,
+              cacheWidth: kPortraitAvatarDecodeWidth,
               fit: BoxFit.cover,
               errorBuilder: (_, _, _) => Icon(
                 Icons.image_outlined,

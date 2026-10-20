@@ -67,7 +67,7 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
       avatars = RealPortrait(
         file: cover,
         portrait: (_, file) => CircleAvatar(
-          backgroundImage: FileImage(file),
+          backgroundImage: portraitAvatarImage(file),
           onBackgroundImageError: (_, _) {},
         ),
         noPortrait: (_) => CircleAvatar(
@@ -121,7 +121,7 @@ class ChatPageAppBar extends StatelessWidget implements PreferredSizeWidget {
                               portrait: (_, file) => CircleAvatar(
                                 radius: 16,
                                 backgroundColor: color,
-                                backgroundImage: FileImage(file),
+                                backgroundImage: portraitAvatarImage(file),
                               ),
                               noPortrait: (_) => CircleAvatar(
                                 radius: 16,

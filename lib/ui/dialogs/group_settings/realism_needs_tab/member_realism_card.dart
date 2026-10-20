@@ -59,7 +59,7 @@ class GroupMemberRealismCard extends StatelessWidget {
             portrait: (_, file) => CircleAvatar(
               radius: 16,
               backgroundColor: groupCharAccentColor(index),
-              backgroundImage: FileImage(file),
+              backgroundImage: portraitAvatarImage(file),
             ),
             noPortrait: (_) => CircleAvatar(
               radius: 16,
