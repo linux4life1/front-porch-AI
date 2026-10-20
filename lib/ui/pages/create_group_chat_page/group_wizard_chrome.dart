@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'create_group_chat_page.dart';
 
@@ -98,7 +98,7 @@ class GroupWizardStepIndicator extends StatelessWidget {
         : AppColors.borderOf(context);
 
     final numberOrCheckColor = isActive
-        ? Colors.white
+        ? StatusColors.onFill
         : AppColors.textTertiary(context);
 
     final labelColor = !available
@@ -124,7 +124,7 @@ class GroupWizardStepIndicator extends StatelessWidget {
           ),
           child: Center(
             child: isActive && !isCurrent
-                ? const Icon(Icons.check, size: 14, color: Colors.white)
+                ? const Icon(Icons.check, size: 14, color: StatusColors.onFill)
                 : Text(
                     '${step + 1}',
                     style: TextStyle(fontSize: 11, color: numberOrCheckColor),
@@ -252,13 +252,9 @@ class GroupTokenBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = estimate > 6000
-        ? AppColors.resolve(context, Colors.redAccent, Colors.red.shade700)
+        ? StatusColors.dangerOf(context)
         : estimate > 3000
-        ? AppColors.resolve(
-            context,
-            Colors.orangeAccent,
-            Colors.orange.shade700,
-          )
+        ? StatusColors.warningOf(context)
         : AppColors.textTertiary(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),

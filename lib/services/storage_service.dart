@@ -54,7 +54,8 @@ class StorageService extends ChangeNotifier {
   late final GenerationSettings _generationSettings = GenerationSettings();
   late final BackendSettings _backendSettings = BackendSettings()
     ..engineFolder = () => binDir.path;
-  late final UiSettings _uiSettings = UiSettings();
+  late final AppearanceSettings _appearance = AppearanceSettings();
+  late final UiSettings _uiSettings = UiSettings(_appearance);
   late final TtsSettings _ttsSettings = TtsSettings();
   late final SttSettings _sttSettings = SttSettings();
   late final ImageGenSettings _imageGenSettings = ImageGenSettings();
@@ -114,6 +115,7 @@ class StorageService extends ChangeNotifier {
   GenerationSettings get generationSettings => _generationSettings;
   BackendSettings get backendSettings => _backendSettings;
   UiSettings get uiSettings => _uiSettings;
+  AppearanceSettings get appearance => _appearance;
   TtsSettings get ttsSettings => _ttsSettings;
   SttSettings get sttSettings => _sttSettings;
   ImageGenSettings get imageGenSettings => _imageGenSettings;
@@ -156,7 +158,31 @@ class StorageService extends ChangeNotifier {
     notifyListeners();
   }
 
-  StorageService() {
+  /// [bootPrefs], read in main() before runApp, loads the appearance and UI
+  /// settings now, so the first frame is already in the saved theme.
+  StorageService({SharedPreferences? bootPrefs}) {
+    if (bootPrefs != null) {
+      // Guarded like _init's loads: a mistyped prefs value keeps the
+      // defaults instead of failing the first build. _init loads again.
+      void guarded(void Function() load) {
+        try {
+          load();
+        } catch (e) {
+          debugPrint('[Storage] boot settings load failed, defaults kept: $e');
+        }
+      }
+
+      guarded(
+        () => _appearance
+          ..initializeBase(bootPrefs, notifyListeners)
+          ..load(),
+      );
+      guarded(
+        () => _uiSettings
+          ..initializeBase(bootPrefs, notifyListeners)
+          ..load(),
+      );
+    }
     _init();
   }
 
@@ -191,6 +217,7 @@ class StorageService extends ChangeNotifier {
     }
     _generationSettings.initializeBase(null, notifyListeners);
     _backendSettings.initializeBase(null, notifyListeners);
+    _appearance.initializeBase(null, notifyListeners);
     _uiSettings.initializeBase(null, notifyListeners);
     _ttsSettings.initializeBase(null, notifyListeners);
     _sttSettings.initializeBase(null, notifyListeners);
@@ -205,6 +232,7 @@ class StorageService extends ChangeNotifier {
     _toolVerdictSettings.initializeBase(null, notifyListeners);
     _generationSettings.load();
     _backendSettings.load();
+    _appearance.load();
     _uiSettings.load();
     _ttsSettings.load();
     _sttSettings.load();
@@ -306,6 +334,7 @@ class StorageService extends ChangeNotifier {
     // Single notify surface preserved (see plan "Why not multiple ChangeNotifiers").
     _generationSettings.initializeBase(_prefs, notifyListeners);
     _backendSettings.initializeBase(_prefs, notifyListeners);
+    _appearance.initializeBase(_prefs, notifyListeners);
     _uiSettings.initializeBase(_prefs, notifyListeners);
     _ttsSettings.initializeBase(_prefs, notifyListeners);
     _sttSettings.initializeBase(_prefs, notifyListeners);
@@ -327,6 +356,7 @@ class StorageService extends ChangeNotifier {
     try {
       _generationSettings.load();
       _backendSettings.load();
+      _appearance.load();
       _uiSettings.load();
       _ttsSettings.load();
       _sttSettings.load();

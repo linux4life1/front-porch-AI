@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 IconData downloadStatusIcon(DownloadTaskState state) {
   switch (state) {
@@ -39,23 +39,45 @@ IconData downloadStatusIcon(DownloadTaskState state) {
   }
 }
 
-Color downloadStatusColor(DownloadTaskState state) {
-  switch (state) {
-    case DownloadTaskState.downloading:
-      return DownloadStatusColors.downloading;
-    case DownloadTaskState.paused:
-      return DownloadStatusColors.paused;
-    case DownloadTaskState.pending:
-      return DownloadStatusColors.pending;
-    case DownloadTaskState.completed:
-      return DownloadStatusColors.completed;
-    case DownloadTaskState.failed:
-      return DownloadStatusColors.failed;
-    case DownloadTaskState.verifying:
-      return DownloadStatusColors.verifying;
-    case DownloadTaskState.cancelled:
-      return DownloadStatusColors.cancelled;
-  }
+Color downloadStatusColor(BuildContext context, DownloadTaskState state) {
+  final (dark, light) = switch (state) {
+    DownloadTaskState.downloading => (
+      DownloadStatusColors.downloading,
+      DownloadStatusColors.downloadingLight,
+    ),
+    DownloadTaskState.paused => (
+      DownloadStatusColors.paused,
+      DownloadStatusColors.pausedLight,
+    ),
+    DownloadTaskState.pending => (
+      DownloadStatusColors.pending,
+      DownloadStatusColors.pendingLight,
+    ),
+    DownloadTaskState.completed => (
+      DownloadStatusColors.completed,
+      DownloadStatusColors.completedLight,
+    ),
+    DownloadTaskState.failed => (
+      DownloadStatusColors.failed,
+      DownloadStatusColors.failedLight,
+    ),
+    DownloadTaskState.verifying => (
+      DownloadStatusColors.verifying,
+      DownloadStatusColors.verifyingLight,
+    ),
+    DownloadTaskState.cancelled => (
+      DownloadStatusColors.cancelled,
+      DownloadStatusColors.cancelledLight,
+    ),
+  };
+  return AppColors.resolve(context, dark, light);
+}
+
+/// The status line under a task's name. Dark mode softens the hue; light
+/// mode keeps the deep tone whole so it reads on paper.
+Color downloadStatusInk(BuildContext context, DownloadTaskState state) {
+  final hue = downloadStatusColor(context, state);
+  return AppColors.isLight(context) ? hue : hue.withValues(alpha: 0.7);
 }
 
 String formatDownloadSpeed(double bytesPerSec) {

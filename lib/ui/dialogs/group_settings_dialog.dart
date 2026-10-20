@@ -3,7 +3,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -230,7 +230,7 @@ class _GroupSettingsDialogState extends State<GroupSettingsDialog>
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text('Group settings saved.'),
-                              backgroundColor: Color(0xFF10B981),
+                              backgroundColor: AccentColors.emeraldFill,
                             ),
                           );
                         }

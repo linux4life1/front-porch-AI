@@ -24,7 +24,7 @@ import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_editor_right.dart';
 import 'package:front_porch_ai/ui/pages/worlds/climate_season_strip.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Custom climate editor. Desktop authoring; biome JSON is consumed everywhere.
@@ -373,7 +373,7 @@ class _ClimateEditorDialogState extends State<_ClimateEditorDialog> {
                     Expanded(
                       flex: 4,
                       child: ColoredBox(
-                        color: Colors.black.withValues(alpha: 0.14),
+                        color: InkColors.dim(0.14),
                         child: _rightColumn(context),
                       ),
                     ),

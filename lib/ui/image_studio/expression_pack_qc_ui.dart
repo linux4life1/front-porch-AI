@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/expression_pack_qc.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Slightly-tinted rounded backdrop so overlay controls stay legible on any
 /// generated image. Shared by the grid's keep/re-roll chips and the QC badge.
@@ -36,11 +36,7 @@ Widget packOverlayChip(BuildContext context, {required Widget child}) {
 
 /// The amber "advisory warning" pair used across the Image Studio (same pair
 /// as the group-shot caveat in studio_view.dart).
-Color _qcWarnColor(BuildContext context) => AppColors.resolve(
-  context,
-  const Color(0xFFDAA83F),
-  const Color(0xFFA97514),
-);
+Color _qcWarnColor(BuildContext context) => LegendColors.caveatOf(context);
 
 /// Per-cell Vision QC verdict badge: green check when the image cleanly
 /// passed, amber warning (with the reasons in a tooltip) otherwise. Purely
@@ -71,7 +67,9 @@ class PackQcBadge extends StatelessWidget {
           child: Icon(
             clean ? Icons.check_circle : Icons.warning_amber_rounded,
             size: 16,
-            color: clean ? AppColors.bondHighOf(context) : _qcWarnColor(context),
+            color: clean
+                ? AppColors.bondHighOf(context)
+                : _qcWarnColor(context),
           ),
         ),
       ),

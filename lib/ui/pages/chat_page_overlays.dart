@@ -183,9 +183,7 @@ class ChatSurface extends StatelessWidget {
                         errorBuilder: (_, _, _) => const SizedBox.shrink(),
                       ),
                       Container(
-                        decoration: BoxDecoration(
-                          color: Colors.black.withValues(alpha: 0.85),
-                        ),
+                        decoration: BoxDecoration(color: InkColors.dim(0.85)),
                       ),
                     ],
                   ),
@@ -196,9 +194,7 @@ class ChatSurface extends StatelessWidget {
         ),
         if (bgPath != null)
           Positioned.fill(
-            child: IgnorePointer(
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
+            child: IgnorePointer(child: Container(color: InkColors.dim(0.45))),
           ),
         if (!bgPathExists && hasCustomBg) ...[
           Positioned.fill(
@@ -214,9 +210,7 @@ class ChatSurface extends StatelessWidget {
             ),
           ),
           Positioned.fill(
-            child: IgnorePointer(
-              child: Container(color: Colors.black.withValues(alpha: 0.45)),
-            ),
+            child: IgnorePointer(child: Container(color: InkColors.dim(0.45))),
           ),
         ],
         // Suggested-action pills fill the message box instead of sending.

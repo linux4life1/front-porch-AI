@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -37,16 +37,7 @@ class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
   _perCharSystemPromptControllers = {};
 
   // Per-character accent colors (matches chat sidebar palette)
-  static const List<Color> _charColors = [
-    Color(0xFF8B5CF6), // Purple
-    Color(0xFF10B981), // Emerald
-    Color(0xFFF59E0B), // Amber
-    Color(0xFFEF4444), // Red
-    Color(0xFF3B82F6), // Blue
-    Color(0xFFEC4899), // Pink
-    Color(0xFF14B8A6), // Teal
-    Color(0xFFF97316), // Orange
-  ];
+  static const List<Color> _charColors = LegendColors.groupMembersWide;
 
   Color _charColor(int index) => _charColors[index % _charColors.length];
 
@@ -295,13 +286,17 @@ class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
                 // ── Per-Character System Prompts (Group Only) ───────────────
                 Row(
                   children: [
-                    Icon(Icons.code, size: 16, color: Colors.tealAccent),
+                    Icon(
+                      Icons.code,
+                      size: 16,
+                      color: AccentColors.tealOf(context),
+                    ),
                     SizedBox(width: 6),
                     Text(
                       'Per-Character System Prompts (Group Only)',
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.tealAccent,
+                        color: AccentColors.tealOf(context),
                         fontSize: 13,
                       ),
                     ),
@@ -329,14 +324,14 @@ class _GroupPromptEngineeringTabState extends State<GroupPromptEngineeringTab> {
                     Icon(
                       Icons.person_outline,
                       size: 16,
-                      color: Colors.purpleAccent,
+                      color: AppColors.emotionAccentOf(context),
                     ),
                     SizedBox(width: 6),
                     Text(
                       "Per-Character Author's Notes",
                       style: TextStyle(
                         fontWeight: FontWeight.bold,
-                        color: Colors.purpleAccent,
+                        color: AppColors.emotionAccentOf(context),
                         fontSize: 13,
                       ),
                     ),

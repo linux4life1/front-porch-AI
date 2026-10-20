@@ -24,7 +24,7 @@ import 'package:path/path.dart' as path;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Asks before deleting the custom background [id]; on yes removes it (and
 /// its file), falls back to no background if it was selected, and closes
@@ -71,9 +71,9 @@ void showDeleteBackgroundConfirmation(
             Navigator.pop(ctx);
             Navigator.pop(context);
           },
-          child: const Text(
+          child: Text(
             'Delete',
-            style: TextStyle(color: Colors.redAccent),
+            style: TextStyle(color: StatusColors.dangerOf(ctx)),
           ),
         ),
       ],
@@ -149,7 +149,7 @@ Future<void> showAddCustomBackgroundDialog(BuildContext context) async {
                   ),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary(context),
-                    side: const BorderSide(color: Colors.white24),
+                    side: BorderSide(color: InkColors.fieldEdgeOf(context)),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

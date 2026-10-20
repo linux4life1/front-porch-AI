@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/caption/local_caption_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/widgets/section_header.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Maintenance-only settings row for the Photo Understanding vision helper.
 /// The feature is a LAST-RESORT workaround offered exclusively in chat (the
@@ -107,7 +107,7 @@ class PhotoUnderstandingCard extends StatelessWidget {
                           icon: const Icon(Icons.delete_outline, size: 16),
                           label: const Text('Remove'),
                           style: TextButton.styleFrom(
-                            foregroundColor: Colors.redAccent,
+                            foregroundColor: StatusColors.dangerOf(context),
                           ),
                         ),
                     ],

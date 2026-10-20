@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'world_edit_draft.dart';
 
 /// Lorebook section of the create/edit World dialog: header + From
@@ -60,7 +60,7 @@ class WorldLorebookSection extends StatelessWidget {
                 Icon(
                   Icons.library_books,
                   size: 18,
-                  color: const Color(0xFF10B981),
+                  color: AccentColors.emeraldOf(context),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
@@ -107,8 +107,8 @@ class WorldLorebookSection extends StatelessWidget {
                   icon: const Icon(Icons.add, size: 16),
                   label: const Text('Add Entry'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF10B981),
-                    foregroundColor: Colors.white,
+                    backgroundColor: AccentColors.emeraldFill,
+                    foregroundColor: StatusColors.onFill,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
                       vertical: 6,
@@ -127,11 +127,7 @@ class WorldLorebookSection extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
-                  color: AppColors.resolve(
-                    context,
-                    Colors.white.withValues(alpha: 0.02),
-                    AppColors.surfaceContainerLight.withValues(alpha: 0.4),
-                  ),
+                  color: InkColors.sunkenRowOf(context),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: AppColors.borderOf(context).withValues(alpha: 0.3),
@@ -171,16 +167,12 @@ class WorldLorebookSection extends StatelessWidget {
                 margin: const EdgeInsets.fromLTRB(20, 0, 20, 12),
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: AppColors.resolve(
-                    context,
-                    Colors.white.withValues(alpha: 0.02),
-                    AppColors.surfaceContainerLight.withValues(alpha: 0.4),
-                  ),
+                  color: InkColors.sunkenRowOf(context),
                   borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     width: 1.5,
                     color: e.enabled
-                        ? const Color(0xFF10B981).withValues(alpha: 0.2)
+                        ? AccentColors.emeraldOf(context).withValues(alpha: 0.2)
                         : AppColors.borderOf(context).withValues(alpha: 0.3),
                   ),
                 ),
@@ -205,7 +197,7 @@ class WorldLorebookSection extends StatelessWidget {
                           _buildBadge(
                             context,
                             'Always Active',
-                            Colors.amberAccent,
+                            AccentColors.amberOf(context),
                           ),
                         if (!e.constant)
                           _buildBadge(
@@ -220,7 +212,7 @@ class WorldLorebookSection extends StatelessWidget {
                             e.enabled ? Icons.visibility : Icons.visibility_off,
                             size: 16,
                             color: e.enabled
-                                ? const Color(0xFF10B981)
+                                ? AccentColors.emeraldOf(context)
                                 : AppColors.textTertiary(context),
                           ),
                           tooltip: e.enabled ? 'Disable entry' : 'Enable entry',
@@ -234,10 +226,10 @@ class WorldLorebookSection extends StatelessWidget {
                           padding: const EdgeInsets.all(4),
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.edit_outlined,
                             size: 16,
-                            color: Colors.white38,
+                            color: AppColors.textTertiary(context),
                           ),
                           tooltip: 'Edit entry',
                           onPressed: () async {
@@ -257,10 +249,10 @@ class WorldLorebookSection extends StatelessWidget {
                           padding: const EdgeInsets.all(4),
                         ),
                         IconButton(
-                          icon: const Icon(
+                          icon: Icon(
                             Icons.delete_outline,
                             size: 16,
-                            color: Colors.redAccent,
+                            color: StatusColors.dangerOf(context),
                           ),
                           tooltip: 'Delete entry',
                           onPressed: () {

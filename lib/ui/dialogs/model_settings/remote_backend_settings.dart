@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/settings/tabs/backend/backend.dart';
 import 'package:front_porch_ai/services/storage/settings/remote_provider.dart';
 import 'model_settings_text_field.dart';
@@ -187,10 +187,9 @@ class RemoteBackendSettings extends StatelessWidget {
             child: Text(
               connectionStatus!,
               style: TextStyle(
-                // theme-keep: success/failure status semantics
                 color: connectionStatus!.contains('successful')
-                    ? Colors.greenAccent
-                    : Colors.redAccent,
+                    ? StatusColors.successOf(context)
+                    : StatusColors.dangerOf(context),
                 fontSize: 13,
               ),
             ),
@@ -203,8 +202,9 @@ class RemoteBackendSettings extends StatelessWidget {
                 height: 8,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  // theme-keep: ready/needs-setup status
-                  color: ready ? Colors.greenAccent : Colors.amber,
+                  color: ready
+                      ? StatusColors.successOf(context)
+                      : AccentColors.goldOf(context),
                 ),
               ),
               const SizedBox(width: 8),

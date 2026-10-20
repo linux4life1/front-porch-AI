@@ -86,9 +86,12 @@ Future<bool> windowBoundsVisible(Rect bounds) async {
 /// frame to wait for (flutter/flutter#192537: a timed-out handshake left
 /// the window white until a real resize). On Windows [runApp] has already
 /// been called; macOS and Linux still call this before it.
-Future<void> showMainWindow() async {
+Future<void> showMainWindow({Color? background}) async {
   final forcedSize = WindowSizeEnv.sizeFromEnvironment();
-  final windowOptions = mainWindowOptions(size: forcedSize);
+  final windowOptions = mainWindowOptions(
+    size: forcedSize,
+    background: background,
+  );
 
   if (Platform.isWindows) {
     // The first frame rasterized by the engine, at the window's creation

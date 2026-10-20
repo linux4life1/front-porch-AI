@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/ui/theme/accent_fit.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Color row widget extracted from settings_page (Stage 5).
@@ -40,14 +41,16 @@ class ColorRow extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              color: AppColors.textSecondary(context),
-              fontSize: 13,
+          Expanded(
+            child: Text(
+              label,
+              style: TextStyle(
+                color: AppColors.textSecondary(context),
+                fontSize: 13,
+              ),
             ),
           ),
-          const Spacer(),
+          const SizedBox(width: 8),
           Container(
             width: 40,
             height: 40,
@@ -60,7 +63,8 @@ class ColorRow extends StatelessWidget {
               icon: Icon(
                 Icons.color_lens,
                 size: 20,
-                color: AppColors.iconPrimary(context),
+                // On the swatch itself, so it must read on that color.
+                color: inkOn(color),
               ),
               onPressed: onPressed,
             ),

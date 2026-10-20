@@ -30,17 +30,20 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/setup_service.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
 import 'package:provider/provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'web_server_host_factory.dart';
 
 /// The full provider graph. ORDER IS LOAD-BEARING: a Provider.of inside a
 /// create/update only resolves providers ABOVE it in this list. [db] and
 /// [needsMigration] arrive from openDatabaseGuarded in main(); [app] is
-/// the MaterialApp host (MyApp) at the bottom of the graph.
+/// the MaterialApp host (MyApp) at the bottom of the graph. [bootPrefs]
+/// lets StorageService paint the first frame in the saved theme.
 Widget buildRootWidget(
   AppDatabase db,
   bool needsMigration, {
   required Widget app,
+  SharedPreferences? bootPrefs,
 }) {
   // ── Re-entry guards for the two proxies whose `update` is NOT idempotent ──
   //
@@ -105,7 +108,9 @@ Widget buildRootWidget(
       providers: [
         Provider<AppDatabase>.value(value: db),
         Provider<bool>.value(value: needsMigration), // migration flag
-        ChangeNotifierProvider(create: (_) => StorageService()),
+        ChangeNotifierProvider(
+          create: (_) => StorageService(bootPrefs: bootPrefs),
+        ),
         // AppState owns only transient UI state (selected tab index).
         // Theme / dark mode is now driven exclusively by StorageService (single source of truth,
         // persisted, notifies after async prefs load). This eliminates the prior race + glue bugs.

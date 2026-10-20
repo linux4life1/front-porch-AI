@@ -34,16 +34,14 @@ class CropFillBasePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     if (fill != CropFill.transparent) {
-      canvas.drawRect(
-        Offset.zero & size,
-        Paint()
-          ..color = Color.fromARGB(fill.a, fill.r, fill.g, fill.b),
-      );
+      canvas.drawRect(Offset.zero & size, Paint()..color = fill.color);
       return;
     }
     // Checkerboard — the universal "this will be transparent" preview.
     const cell = 10.0;
+    // theme-keep: the transparency checkerboard is the same in every theme.
     final light = Paint()..color = const Color(0xFFBDBDBD);
+    // theme-keep: the transparency checkerboard is the same in every theme.
     final dark = Paint()..color = const Color(0xFF8E8E8E);
     for (var y = 0; y * cell < size.height; y++) {
       for (var x = 0; x * cell < size.width; x++) {

@@ -108,9 +108,7 @@ class DataBankEditForm extends StatelessWidget {
                 onPressed: onSave,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.inkOn(
-                    AppColors.porchAmberOf(context),
-                  ),
+                  foregroundColor: AppColors.onAccentOf(context),
                 ),
                 child: const Text('Save'),
               ),

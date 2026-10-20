@@ -16,10 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'app_colors.dart';
+import 'book_page_colors.dart';
+import 'chat_default_colors.dart';
 import 'studio_colors.dart';
+
+const Color _porchAmberReadable = Color(0xFFA84B06);
 
 /// The chrome colors of one app theme at one brightness.
 ///
@@ -59,6 +64,8 @@ class AppPalette {
     required this.studioAmberInk,
     required this.studioTeal,
     required this.studioBad,
+    this.chat = ChatDefaultColors.porchDark,
+    this.page = BookPageColors.cream,
   });
 
   /// Scaffold and page background.
@@ -122,6 +129,12 @@ class AppPalette {
   final Color studioTeal;
   final Color studioBad;
 
+  /// Default chat colors where the user has not picked their own.
+  final ChatDefaultColors chat;
+
+  /// The story reader's printed page.
+  final BookPageColors page;
+
   /// Porch, dark: the values every screen used before themes existed.
   static const AppPalette porchDark = AppPalette(
     background: AppColors.background,
@@ -153,6 +166,7 @@ class AppPalette {
     studioAmberInk: StudioColors.amberInk,
     studioTeal: StudioColors.teal,
     studioBad: StudioColors.bad,
+    chat: ChatDefaultColors.porchDark,
   );
 
   /// Porch, light (warm paper).
@@ -172,13 +186,14 @@ class AppPalette {
     ink: AppColors.slateInkLight,
     muted: AppColors.slateMutedLight,
     faint: AppColors.slateFaintLight,
-    amber: AppColors.porchAmberLight,
+    // Darker than the old B45309 (4.2:1 on the paper) so accent text clears
+    // 4.5:1; forms use it too instead of the dark-mode amber.
+    amber: _porchAmberReadable,
     honey: AppColors.porchHoneyLight,
     terracotta: AppColors.porchTerracottaLight,
     sage: AppColors.journalAccentLight,
-    // Porch has always used the dark-mode amber here in both modes.
-    formAccent: AppColors.formMasterAccent,
-    onAccent: AppColors.onChaosAccent,
+    formAccent: _porchAmberReadable,
+    onAccent: Colors.white,
     studioCard: StudioColors.cardLight,
     studioRaise: StudioColors.raiseLight,
     studioLineStrong: StudioColors.lineStrongLight,
@@ -187,6 +202,7 @@ class AppPalette {
     studioAmberInk: StudioColors.amberInkLight,
     studioTeal: StudioColors.tealLight,
     studioBad: StudioColors.badLight,
+    chat: ChatDefaultColors.porchLight,
   );
 
   /// The active palette: the theme's [AppThemePalettes] at the current
@@ -230,8 +246,53 @@ class AppPalette {
       studioAmberInk: c((p) => p.studioAmberInk),
       studioTeal: c((p) => p.studioTeal),
       studioBad: c((p) => p.studioBad),
+      chat: ChatDefaultColors.lerp(a.chat, b.chat, t),
+      page: BookPageColors.lerp(a.page, b.page, t),
     );
   }
+
+  List<Object> get _roles => [
+    background,
+    surface,
+    card,
+    surfaceContainer,
+    sunken,
+    deepWell,
+    insetPanel,
+    border,
+    navigationSelection,
+    textPrimary,
+    textSecondary,
+    textTertiary,
+    ink,
+    muted,
+    faint,
+    amber,
+    honey,
+    terracotta,
+    sage,
+    formAccent,
+    onAccent,
+    studioCard,
+    studioRaise,
+    studioLineStrong,
+    studioProse,
+    studioNarration,
+    studioAmberInk,
+    studioTeal,
+    studioBad,
+    chat,
+    page,
+  ];
+
+  /// Value equality, so palettes built at runtime (a custom accent) share
+  /// one [AppTheme] cache entry instead of leaking one per rebuild.
+  @override
+  bool operator ==(Object other) =>
+      other is AppPalette && listEquals(_roles, other._roles);
+
+  @override
+  int get hashCode => Object.hashAll(_roles);
 }
 
 /// One app theme: its dark and light palettes, installed on [ThemeData] so
@@ -261,4 +322,11 @@ class AppThemePalettes extends ThemeExtension<AppThemePalettes> {
       light: AppPalette.lerp(light, other.light, t),
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      other is AppThemePalettes && other.dark == dark && other.light == light;
+
+  @override
+  int get hashCode => Object.hash(dark, light);
 }

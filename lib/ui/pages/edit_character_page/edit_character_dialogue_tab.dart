@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
 /// The character editor's Dialogue tab: first message, alternate greetings
@@ -88,11 +88,7 @@ class EditCharacterDialogueTab extends StatelessWidget {
                         child: Text(
                           'No alternate greetings yet',
                           style: TextStyle(
-                            color: AppColors.resolve(
-                              context,
-                              Colors.white.withValues(alpha: 0.25),
-                              Colors.black.withValues(alpha: 0.25),
-                            ),
+                            color: InkColors.washOf(context, 0.25, 0.25),
                             fontSize: 13,
                           ),
                         ),

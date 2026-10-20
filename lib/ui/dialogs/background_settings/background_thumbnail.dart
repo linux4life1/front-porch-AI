@@ -19,7 +19,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// A built-in chat background tile. [assetPath] null is the "None" tile.
 class BackgroundThumbnail extends StatelessWidget {
@@ -46,7 +46,7 @@ class BackgroundThumbnail extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? AppColors.formAccentOf(context)
-                : Colors.white24,
+                : InkColors.outlineOf(context),
             width: isSelected ? 3 : 1,
           ),
         ),
@@ -73,13 +73,15 @@ class BackgroundThumbnail extends StatelessWidget {
               bottom: 0,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                color: Colors.black54,
+                color: InkColors.imageScrim,
                 child: Text(
                   label,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isSelected ? Colors.white : Colors.white70,
+                    color: isSelected
+                        ? InkColors.onImage
+                        : InkColors.onImageMuted,
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,
@@ -132,7 +134,7 @@ class CustomBackgroundThumbnail extends StatelessWidget {
           border: Border.all(
             color: isSelected
                 ? AppColors.formAccentOf(context)
-                : Colors.white24,
+                : InkColors.outlineOf(context),
             width: isSelected ? 3 : 1,
           ),
         ),
@@ -154,13 +156,15 @@ class CustomBackgroundThumbnail extends StatelessWidget {
               bottom: 0,
               child: Container(
                 padding: const EdgeInsets.symmetric(vertical: 4),
-                color: Colors.black54,
+                color: InkColors.imageScrim,
                 child: Text(
                   name,
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: 11,
-                    color: isSelected ? Colors.white : Colors.white70,
+                    color: isSelected
+                        ? InkColors.onImage
+                        : InkColors.onImageMuted,
                     fontWeight: isSelected
                         ? FontWeight.bold
                         : FontWeight.normal,
@@ -175,11 +179,15 @@ class CustomBackgroundThumbnail extends StatelessWidget {
                 onTap: onDelete,
                 child: Container(
                   decoration: const BoxDecoration(
-                    color: Colors.black54,
+                    color: InkColors.imageScrim,
                     shape: BoxShape.circle,
                   ),
                   padding: const EdgeInsets.all(2),
-                  child: const Icon(Icons.close, size: 14, color: Colors.white),
+                  child: const Icon(
+                    Icons.close,
+                    size: 14,
+                    color: InkColors.onImage,
+                  ),
                 ),
               ),
             ),

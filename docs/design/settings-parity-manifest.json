@@ -27,14 +27,14 @@
     "readingSize": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/appearance_tab/chat_appearance_section.dart",
       "dartMarker": "Reading Size",
       "webMarker": "Reading size"
     },
     "chatColors": {
       "section": "general",
       "group": "chat-appearance",
-      "dart": "lib/ui/settings/tabs/general_tab.dart",
+      "dart": "lib/ui/settings/tabs/appearance_tab/chat_appearance_section.dart",
       "dartMarker": "Chat Appearance",
       "webMarker": "Chat colors"
     },

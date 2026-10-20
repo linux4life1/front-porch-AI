@@ -23,7 +23,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/model_manager/model_manager_empty_state.dart';
 import 'package:front_porch_ai/ui/pages/model_manager/model_search_controller.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/hf_model_card.dart';
 
 /// The Model Manager's "Search / Download" tab: HuggingFace search bar,
@@ -117,9 +117,7 @@ class ModelManagerSearchTab extends StatelessWidget {
                 label: Text(controller.isSearching ? 'Searching...' : 'Search'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.inkOn(
-                    AppColors.porchAmberOf(context),
-                  ),
+                  foregroundColor: AppColors.onAccentOf(context),
                   padding: const EdgeInsets.symmetric(
                     horizontal: 16,
                     vertical: 12,
@@ -135,20 +133,20 @@ class ModelManagerSearchTab extends StatelessWidget {
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            color: AppColors.resolve(
-              context,
-              Colors.red.withValues(alpha: 0.1),
-              Colors.red.withValues(alpha: 0.08),
-            ),
+            color: StatusColors.errorPanelOf(context),
             child: Row(
               children: [
-                Icon(Icons.error_outline, color: Colors.redAccent, size: 16),
+                Icon(
+                  Icons.error_outline,
+                  color: StatusColors.dangerOf(context),
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     controller.error!,
-                    style: const TextStyle(
-                      color: Colors.redAccent,
+                    style: TextStyle(
+                      color: StatusColors.dangerOf(context),
                       fontSize: 12,
                     ),
                   ),

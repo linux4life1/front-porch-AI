@@ -229,7 +229,7 @@ class _SettingsPageState extends State<SettingsPage> {
     return Stack(
       children: [
         DefaultTabController(
-          length: 6,
+          length: 7,
           child: Scaffold(
             backgroundColor: AppColors.backgroundOf(
               context,
@@ -252,6 +252,7 @@ class _SettingsPageState extends State<SettingsPage> {
                 splashFactory: NoSplash.splashFactory,
                 tabs: const [
                   Tab(text: 'General'),
+                  Tab(text: 'Appearance'),
                   Tab(text: 'Porch Life'),
                   Tab(text: 'Generation'),
                   Tab(text: 'Voice & Media'),
@@ -268,6 +269,7 @@ class _SettingsPageState extends State<SettingsPage> {
               child: TabBarView(
                 children: [
                   GeneralTab(systemPromptController: _systemPromptController),
+                  const AppearanceTab(),
                   const PorchLifeTab(),
                   GenerationTab(
                     bannedPhrasesController: _bannedPhrasesController,

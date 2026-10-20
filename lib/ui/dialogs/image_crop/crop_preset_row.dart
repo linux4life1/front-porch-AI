@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// The aspect presets. Free is null; the circle guide rides 1:1.
@@ -116,7 +116,7 @@ class CropPresetRow extends StatelessWidget {
           decoration: BoxDecoration(
             color: swatch == CropFill.transparent
                 ? null
-                : Color.fromARGB(255, swatch.r, swatch.g, swatch.b),
+                : swatch.color.withAlpha(255),
             borderRadius: BorderRadius.circular(6),
             border: Border.all(
               color: selected

@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/services/services.dart';
 
@@ -41,7 +41,7 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
         final isRunning = kobold.isRunning;
 
         final statusColor = isRunning
-            ? Colors.greenAccent
+            ? StatusColors.successOf(context)
             : AppColors.textTertiary(context);
         final statusLabel = switch (kobold.phase) {
           KoboldPhase.stopped => 'Stopped',
@@ -77,9 +77,9 @@ class _KoboldLogDialogState extends State<KoboldLogDialog> {
                   ),
                   child: Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.terminal,
-                        color: Colors.greenAccent,
+                        color: StatusColors.successOf(context),
                         size: 22,
                       ),
                       const SizedBox(width: 10),

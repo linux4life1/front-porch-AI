@@ -137,7 +137,7 @@ class HomeDropHighlight extends StatelessWidget {
             child: Text(
               kHomeDropOverlayLabel,
               style: TextStyle(
-                color: AppColors.onAccentOf(context),
+                color: AppColors.textPrimary(context),
                 fontWeight: FontWeight.w800,
                 fontSize: 20,
               ),

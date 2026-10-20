@@ -149,6 +149,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             borderColor: AppColors.borderOf(context),
             isUser: message.isUser,
             isDirectorNote: isDirectorNote,
+            corners: AppCorners.of(context),
           )
         : ThemeBorderResolver.resolve(
             chatService: widget.chatService,
@@ -157,6 +158,7 @@ class _MessageBubbleState extends State<MessageBubble> {
             isUser: message.isUser,
             isDirectorNote: isDirectorNote,
             themeOverrides: widget.themeOverrides,
+            corners: AppCorners.of(context),
           );
     final boundToChat = widget.chatService != null;
 

@@ -142,9 +142,7 @@ Future<void> importHomeGroupCard(
         ? SnackBar(
             content: Text(
               msg,
-              style: TextStyle(
-                color: AppColors.inkOn(AppColors.porchAmberOf(context)),
-              ),
+              style: TextStyle(color: AppColors.onAccentOf(context)),
             ),
             backgroundColor: AppColors.porchAmberOf(context),
           )

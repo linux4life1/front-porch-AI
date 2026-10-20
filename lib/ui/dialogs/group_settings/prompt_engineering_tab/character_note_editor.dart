@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/prompt_engineering_tab/member_avatar.dart';
@@ -88,7 +88,9 @@ class GroupCharacterNoteEditor extends StatelessWidget {
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(6),
-                borderSide: const BorderSide(color: Colors.purpleAccent),
+                borderSide: BorderSide(
+                  color: AppColors.emotionAccentOf(context),
+                ),
               ),
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 8,

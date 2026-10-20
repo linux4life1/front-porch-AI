@@ -14,7 +14,7 @@ import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_avatar.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_verified_badge.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Two-line summary matching hub `.hub-tile-summary` (`-webkit-line-clamp: 2`).
 const kStoopTileSummaryMaxLines = 2;
@@ -68,7 +68,7 @@ class _StoopCardTileState extends State<StoopCardTile> {
             boxShadow: _hover
                 ? [
                     const BoxShadow(
-                      color: Color(0x59000000),
+                      color: InkColors.shadow,
                       blurRadius: 34,
                       offset: Offset(0, 12),
                     ),

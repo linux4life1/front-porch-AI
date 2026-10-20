@@ -82,19 +82,16 @@ void main() {
     expect(second.followStreamingReplies, isFalse);
   });
 
-  test(
-    'General places Follow streaming replies immediately above Dark Mode',
-    () {
-      final tab = File(
-        'lib/ui/settings/tabs/general_tab.dart',
-      ).readAsStringSync();
-      final follow = tab.indexOf('Follow streaming replies');
-      final dark = tab.indexOf('Dark Mode');
-      expect(follow, greaterThan(-1));
-      expect(dark, greaterThan(follow));
-      expect(tab.contains('setFollowStreamingReplies'), isTrue);
-    },
-  );
+  // The Dark Mode switch moved to Settings → Appearance (app themes), so the
+  // old "immediately above Dark Mode" anchor no longer exists; the switch
+  // itself must still be on General.
+  test('General keeps the Follow streaming replies switch', () {
+    final tab = File(
+      'lib/ui/settings/tabs/general_tab.dart',
+    ).readAsStringSync();
+    expect(tab.contains('Follow streaming replies'), isTrue);
+    expect(tab.contains('setFollowStreamingReplies'), isTrue);
+  });
 
   test('forward list, hold, and absorb stay ripped', () {
     final list = File(

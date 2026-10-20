@@ -27,7 +27,7 @@ import 'package:front_porch_ai/services/chat/chat.dart' show BirthdayMath;
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_draft.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_form_kit.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_realism_section.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Card face for the editor: the ★ starred gallery look when set, else the
@@ -134,11 +134,7 @@ class EditCharacterDetailsTab extends StatelessWidget {
                                 Icon(
                                   Icons.person,
                                   size: 56,
-                                  color: AppColors.resolve(
-                                    context,
-                                    Colors.white.withValues(alpha: 0.15),
-                                    Colors.black.withValues(alpha: 0.15),
-                                  ),
+                                  color: InkColors.washOf(context, 0.15, 0.15),
                                 ),
                                 const SizedBox(height: 4),
                                 Text(

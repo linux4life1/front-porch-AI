@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'persona_default_badge.dart';
 import 'persona_hover_card.dart';
@@ -191,14 +191,14 @@ class PersonaGridCard extends StatelessWidget {
                             Icon(
                               Icons.delete,
                               size: 16,
-                              color: Colors.redAccent,
+                              color: StatusColors.dangerOf(context),
                             ),
                             const SizedBox(width: 8),
                             Text(
                               'Delete',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: Colors.redAccent,
+                                color: StatusColors.dangerOf(context),
                               ),
                             ),
                           ],

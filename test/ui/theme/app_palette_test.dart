@@ -57,7 +57,13 @@ Map<String, Color> _helpers(BuildContext c) => {
   'Studio amberInkOf': StudioColors.amberInkOf(c),
 };
 
-/// What each helper returned before app themes existed.
+/// Porch light's accent since PR 5: the old B45309 measured 4.2:1 on the
+/// paper, so the accent and the form accent moved to this 4.8:1 tone, with
+/// white ink on it.
+const _porchAmberReadable = Color(0xFFA84B06);
+
+/// What each helper returned before app themes existed, except the light
+/// accent roles noted above.
 Map<String, Color> _porch(Brightness b) {
   final dark = b == Brightness.dark;
   Color pick(Color d, Color l) => dark ? d : l;
@@ -88,7 +94,7 @@ Map<String, Color> _porch(Brightness b) {
     'slateInkOf': pick(AppColors.slateInk, AppColors.slateInkLight),
     'slateMutedOf': pick(AppColors.slateMuted, AppColors.slateMutedLight),
     'slateFaintOf': pick(AppColors.slateFaint, AppColors.slateFaintLight),
-    'porchAmberOf': pick(AppColors.porchAmber, AppColors.porchAmberLight),
+    'porchAmberOf': pick(AppColors.porchAmber, _porchAmberReadable),
     'porchHoneyOf': pick(AppColors.porchHoney, AppColors.porchHoneyLight),
     'porchTerracottaOf': pick(
       AppColors.porchTerracotta,
@@ -98,8 +104,8 @@ Map<String, Color> _porch(Brightness b) {
       AppColors.journalAccent,
       AppColors.journalAccentLight,
     ),
-    'formAccentOf': AppColors.formMasterAccent,
-    'onAccentOf': AppColors.onChaosAccent,
+    'formAccentOf': pick(AppColors.formMasterAccent, _porchAmberReadable),
+    'onAccentOf': pick(AppColors.onChaosAccent, Colors.white),
     'Studio bgOf': pick(StudioColors.bg, StudioColors.bgLight),
     'Studio sideOf': pick(StudioColors.side, StudioColors.sideLight),
     'Studio cardOf': pick(StudioColors.card, StudioColors.cardLight),
@@ -113,7 +119,7 @@ Map<String, Color> _porch(Brightness b) {
     'Studio mutedOf': pick(StudioColors.muted, StudioColors.mutedLight),
     'Studio faintOf': pick(StudioColors.faint, StudioColors.faintLight),
     'Studio proseOf': pick(StudioColors.prose, StudioColors.proseLight),
-    'Studio amberOf': pick(StudioColors.amber, StudioColors.amberLight),
+    'Studio amberOf': pick(StudioColors.amber, _porchAmberReadable),
     'Studio honeyOf': pick(StudioColors.honey, StudioColors.honeyLight),
     'Studio terraOf': pick(StudioColors.terra, StudioColors.terraLight),
     'Studio tealOf': pick(StudioColors.teal, StudioColors.tealLight),
@@ -338,6 +344,31 @@ void main() {
               'caution': StatusColors.cautionOf(c),
               'progress': StatusColors.progressOf(c),
               'optional': AppColors.optionalAccentOf(c),
+              'amber': AccentColors.amberOf(c),
+              'teal': AccentColors.tealOf(c),
+              'chaos ink': AccentColors.chaosInkOf(c),
+              'emerald': AccentColors.emeraldOf(c),
+              'mint': AccentColors.mintOf(c),
+              'notice danger': StatusColors.noticeDangerOf(c),
+              'notice warn': StatusColors.noticeWarnOf(c),
+              'gold': AccentColors.goldOf(c),
+              'lore': AccentColors.loreOf(c),
+              'ko-fi': AccentColors.kofiOf(c),
+              'voice female': LegendColors.voiceFemaleOf(c),
+              'voice male': LegendColors.voiceMaleOf(c),
+              'independent': LegendColors.independentOf(c),
+              'caveat': LegendColors.caveatOf(c),
+              'faint': InkColors.faintOf(c),
+              'empty title': InkColors.emptyTitleOf(c),
+              'downloading': DownloadStatusColors.downloadingOf(c),
+              'paused': DownloadStatusColors.pausedLight,
+              'pending': DownloadStatusColors.pendingLight,
+              'completed': DownloadStatusColors.completedLight,
+              'failed': DownloadStatusColors.failedLight,
+              'verifying': DownloadStatusColors.verifyingLight,
+              'cancelled': DownloadStatusColors.cancelledLight,
+              'climate danger': StatusColors.climateDangerOf(c),
+              'climate warn': StatusColors.climateWarnOf(c),
             };
             return const SizedBox();
           },
@@ -356,5 +387,55 @@ void main() {
             '${e.key} ${contrast(e.value, g).toStringAsFixed(2)}',
     ];
     expect(faint, isEmpty);
+  });
+
+  for (final b in Brightness.values) {
+    test('AppTheme.build paints what the inline main.dart theme did ($b)', () {
+      // The ThemeData main.dart built inline before AppTheme existed, except
+      // the light primary (the readable amber noted at the top).
+      final dark = b == Brightness.dark;
+      final old =
+          ColorScheme.fromSeed(
+            seedColor: AppColors.porchAmber,
+            brightness: b,
+          ).copyWith(
+            primary: dark ? AppColors.porchAmber : _porchAmberReadable,
+            onPrimary: dark ? AppColors.onChaosAccent : Colors.white,
+            surface: dark ? AppColors.surface : AppColors.lightSurface,
+          );
+      final built = AppTheme.build(brightness: b);
+      expect(built.colorScheme, old);
+      expect(
+        built.scaffoldBackgroundColor,
+        dark ? AppColors.background : AppColors.lightBackground,
+      );
+      expect(built.cardColor, dark ? AppColors.card : AppColors.lightCard);
+      final ink = dark ? Colors.white : Colors.black87;
+      expect(built.textTheme.bodyMedium?.color, ink);
+      expect(built.textTheme.titleLarge?.color, ink);
+      expect(built.textTheme.bodyMedium?.fontFamily, 'Inter');
+    });
+  }
+
+  test('the UI font and corners reach the theme, Default keeps M3 shapes', () {
+    final plain = AppTheme.build(brightness: Brightness.dark);
+    expect(plain.cardTheme.shape, isNull);
+    expect(plain.extension<AppCorners>(), AppCorners.standard);
+    final system = AppTheme.build(
+      brightness: Brightness.dark,
+      font: UiFont.system,
+    );
+    expect(system.textTheme.bodyMedium?.fontFamily, isNot('Inter'));
+    final literata = AppTheme.build(
+      brightness: Brightness.dark,
+      font: UiFont.literata,
+      corners: UiCorners.round,
+    );
+    expect(literata.textTheme.bodyMedium?.fontFamily, 'Literata');
+    expect(
+      literata.cardTheme.shape,
+      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12 * 1.6)),
+    );
+    expect(literata.extension<AppCorners>()?.scaled(10), 16);
   });
 }

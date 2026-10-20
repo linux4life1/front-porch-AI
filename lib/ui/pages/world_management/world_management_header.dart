@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_page.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Hero header for World Management: animated glow, globe avatar, stat
 /// chips, and the Import / From Wiki / New World actions. [onNewWorld]
@@ -89,11 +89,7 @@ class WorldManagementHeroHeader extends StatelessWidget {
                   width: 88,
                   height: 88,
                   decoration: BoxDecoration(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.white.withValues(alpha: 0.15),
-                      Colors.black.withValues(alpha: 0.08),
-                    ),
+                    color: InkColors.washOf(context, 0.15, 0.08),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(
@@ -200,19 +196,9 @@ class _WorldStatChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.white.withValues(alpha: 0.05),
-          Colors.black.withValues(alpha: 0.04),
-        ),
+        color: InkColors.washOf(context, 0.05, 0.04),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.white.withValues(alpha: 0.06),
-            AppColors.lightBorder.withValues(alpha: 0.6),
-          ),
-        ),
+        border: Border.all(color: InkColors.chipEdgeOf(context)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,

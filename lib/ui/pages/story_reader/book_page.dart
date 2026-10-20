@@ -25,12 +25,12 @@ import 'package:flutter/material.dart';
 /// measured page break stops matching what's rendered, and prose silently
 /// overflows or underflows at page boundaries. Edit this ONE constant; never
 /// re-duplicate it at either call site.
+///
+/// It carries no colour: the render adds the theme's `BookPageColors.ink`,
+/// which does not change layout, so the measured breaks still hold.
 const TextStyle kStoryProseStyle = TextStyle(
   fontFamily: 'Georgia',
   fontSize: 15,
-  // theme-keep: book prop — the page ink stays this sepia-brown in every app
-  // theme; it's the color of "text printed on paper", not app chrome.
-  color: Color(0xFF3A2A1A), // theme-keep: book prop
   height: 1.75,
   letterSpacing: 0.2,
 );

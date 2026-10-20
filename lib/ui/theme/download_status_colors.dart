@@ -18,7 +18,10 @@
 
 import 'package:flutter/material.dart';
 
-/// Download queue status hues, one per task state.
+import 'app_colors.dart';
+
+/// Download queue status hues, one per task state. The consts are the dark
+/// tones; each *Light const deepens them in light mode so the status line reads on paper.
 class DownloadStatusColors {
   DownloadStatusColors._();
 
@@ -29,4 +32,16 @@ class DownloadStatusColors {
   static const Color failed = Color(0xFFFF5252);
   static const Color verifying = Color(0xFFB388FF);
   static const Color cancelled = Color(0xFF6B7280);
+
+  static const Color downloadingLight = Color(0xFF075985);
+  static const Color pausedLight = Color(0xFF92400E);
+  static const Color pendingLight = Color(0xFF4B5563);
+  static const Color completedLight = Color(0xFF1B5E20);
+  static const Color failedLight = Color(0xFFB71C1C);
+  static const Color verifyingLight = Color(0xFF6D28D9);
+  static const Color cancelledLight = Color(0xFF4B5563);
+
+  /// The running download's hue in the current mode.
+  static Color downloadingOf(BuildContext context) =>
+      AppColors.resolve(context, downloading, downloadingLight);
 }

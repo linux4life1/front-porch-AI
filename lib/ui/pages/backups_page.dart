@@ -138,9 +138,7 @@ class _BackupsPageState extends State<BackupsPage> {
                   label: const Text('Create Backup Now'),
                   style: FilledButton.styleFrom(
                     backgroundColor: AppColors.porchAmberOf(context),
-                    foregroundColor: AppColors.inkOn(
-                      AppColors.porchAmberOf(context),
-                    ),
+                    foregroundColor: AppColors.onAccentOf(context),
                     padding: const EdgeInsets.symmetric(vertical: 12),
                   ),
                 ),

@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// One place in the Worlds grid — cover (or letter), climate chip, actions.
@@ -70,10 +70,9 @@ class WorldPlaceCard extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 16,
-                        // Deliberately raw white/black: text sits ON the cover
-                        // photo, so contrast must be theme-independent (not an
-                        // AppColors chrome accent).
-                        color: Colors.white,
+                        // Text sits on the cover photo, so it is the same in
+                        // every theme.
+                        color: InkColors.onImage,
                         shadows: const [
                           Shadow(blurRadius: 8, color: Colors.black54),
                         ],
@@ -87,7 +86,7 @@ class WorldPlaceCard extends StatelessWidget {
                       icon: Icon(
                         Icons.more_vert,
                         size: 18,
-                        color: Colors.white.withValues(alpha: 0.95),
+                        color: InkColors.onImage.withValues(alpha: 0.95),
                       ),
                       color: AppColors.surfaceContainerOf(context),
                       onSelected: (action) {
@@ -283,7 +282,7 @@ class _CoverBackgroundState extends State<_CoverBackground> {
           style: TextStyle(
             fontSize: 36,
             fontWeight: FontWeight.w700,
-            color: Colors.white.withValues(alpha: 0.9),
+            color: InkColors.onImage.withValues(alpha: 0.9),
           ),
         ),
       ),

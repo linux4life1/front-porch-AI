@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/user_persona/persona_edit_form.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -210,7 +210,7 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                           ? AppColors.formAccentOf(
                               context,
                             ).withValues(alpha: 0.1)
-                          : Colors.white.withValues(alpha: 0.05),
+                          : InkColors.washOf(context, 0.05, 0.03),
                       borderRadius: BorderRadius.circular(8),
                       border: isActive
                           ? Border.all(color: AppColors.formAccentOf(context))
@@ -267,10 +267,10 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
                             ),
                             if (service.personas.length > 1)
                               IconButton(
-                                icon: const Icon(
+                                icon: Icon(
                                   Icons.delete,
                                   size: 20,
-                                  color: Colors.redAccent,
+                                  color: StatusColors.dangerOf(context),
                                 ),
                                 onPressed: () =>
                                     _showDeleteConfirmation(context, persona),
@@ -325,7 +325,9 @@ class _UserPersonaDialogState extends State<UserPersonaDialog> {
               ).deletePersona(persona.id);
               Navigator.of(context).pop();
             },
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: StatusColors.alertFill,
+            ),
             child: const Text('Delete'),
           ),
         ],

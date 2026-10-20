@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/background_settings/background_settings.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// (key, label, asset) for each built-in background; a null asset is None.
 const _builtInBackgrounds = <(String, String, String?)>[
@@ -131,7 +131,7 @@ class BackgroundSettingsDialog extends StatelessWidget {
                   label: const Text('Add Custom Background'),
                   style: OutlinedButton.styleFrom(
                     foregroundColor: AppColors.textPrimary(context),
-                    side: const BorderSide(color: Colors.white24),
+                    side: BorderSide(color: InkColors.fieldEdgeOf(context)),
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),

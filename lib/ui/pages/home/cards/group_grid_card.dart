@@ -25,7 +25,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// A single group-chat card in the home grid — avatar montage, name, member
@@ -117,7 +117,7 @@ class _GroupGridCardState extends State<GroupGridCard> {
           color: AppColors.cardOf(context),
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppCorners.of(context).circular(16),
             side: BorderSide(
               color: isSelectedCard
                   ? AppColors.porchTerracottaOf(context)
@@ -231,22 +231,14 @@ class _GroupGridCardState extends State<GroupGridCard> {
                             ? (isOrganizing
                                   ? AppColors.porchHoneyOf(context)
                                   : AppColors.porchTerracottaOf(context))
-                            : AppColors.resolve(
-                                context,
-                                Colors.black54,
-                                Colors.black12,
-                              ),
+                            : InkColors.checkWellOf(context),
                         shape: BoxShape.circle,
                         border: Border.all(
                           color: isSelectedCard
                               ? (isOrganizing
                                     ? AppColors.porchHoneyOf(context)
                                     : AppColors.porchTerracottaOf(context))
-                              : AppColors.resolve(
-                                  context,
-                                  Colors.white38,
-                                  Colors.black38,
-                                ),
+                              : InkColors.checkRimOf(context),
                           width: 2,
                         ),
                       ),
@@ -254,7 +246,7 @@ class _GroupGridCardState extends State<GroupGridCard> {
                           ? const Icon(
                               Icons.check,
                               size: 16,
-                              color: Colors.white,
+                              color: StatusColors.onFill,
                             )
                           : null,
                     ),

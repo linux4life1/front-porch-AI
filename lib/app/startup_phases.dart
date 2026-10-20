@@ -137,9 +137,10 @@ Future<({AppDatabase db, bool needsMigration})?> openDatabaseGuarded() async {
         settingsFileCorrupt: e is FormatException,
       ),
     );
-    if (Platform.isWindows) {
-      // The Windows runner no longer shows the window on the first frame
-      // (see showMainWindow); the error window has no bounds to restore.
+    if (Platform.isWindows || Platform.isMacOS) {
+      // The Windows and macOS runners keep the window hidden until Dart
+      // shows it (see showMainWindow); the error window has no bounds to
+      // restore.
       WidgetsBinding.instance.addPostFrameCallback((_) async {
         await windowManager.show();
         await windowManager.focus();

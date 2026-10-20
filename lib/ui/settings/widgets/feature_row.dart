@@ -176,11 +176,7 @@ class _NeedChip extends StatelessWidget {
     final amber = AppColors.porchAmberOf(context);
     // Green reads "no strings attached" against the amber chrome — it is a
     // semantic state marker, not decoration.
-    final independent = AppColors.resolve(
-      context,
-      const Color(0xFF9FD49F),
-      const Color(0xFF3F7A46),
-    ); // theme-keep: dependency legend (independent vs coupled)
+    final independent = LegendColors.independentOf(context);
 
     final (Color fg, Color bg, Color border) = switch (need) {
       FeatureNeed.alone => (

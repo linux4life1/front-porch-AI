@@ -115,7 +115,7 @@ class WarmDialog extends StatelessWidget {
       // One radius (matches the sidebar's warm-porch cards) and one border
       // convention: an accent-tinted hairline, or the neutral border.
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: AppCorners.of(ctx).circular(12),
         side: BorderSide(
           color:
               tint?.withValues(alpha: 0.5) ??
@@ -157,7 +157,7 @@ class WarmDialog extends StatelessWidget {
       backgroundColor: studio.card,
       surfaceTintColor: studio.card,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: AppCorners.of(ctx).circular(20),
         side: BorderSide(color: studio.line),
       ),
       titlePadding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
@@ -236,7 +236,7 @@ Widget warmDialogCancel(
           padding: const EdgeInsets.symmetric(horizontal: 16),
           minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppCorners.of(context).circular(12),
           ),
         ),
         child: Text(
@@ -286,7 +286,7 @@ Widget warmDialogConfirm(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           minimumSize: const Size(0, 44),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: AppCorners.of(context).circular(12),
           ),
         ),
         onPressed: onPressed,
@@ -310,11 +310,14 @@ Widget warmDialogConfirm(
     key: key,
     style: ElevatedButton.styleFrom(
       backgroundColor: bg,
-      foregroundColor: !onBright
-          ? StatusColors.onFill
-          : bg == AppColors.porchAmberOf(context) ||
-                bg == AppColors.formAccentOf(context)
+      // The theme accent carries its own fitted ink; a brightness guess can
+      // pick white on a pale custom accent.
+      foregroundColor:
+          bg == AppColors.porchAmberOf(context) ||
+              bg == AppColors.formAccentOf(context)
           ? AppColors.onAccentOf(context)
+          : !onBright
+          ? StatusColors.onFill
           // theme-keep: a danger or caller fill keeps Porch's dark ink.
           : AppColors.onChaosAccent,
     ),

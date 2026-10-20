@@ -342,7 +342,7 @@ class _PromptSourcePickerDialogState extends State<PromptSourcePickerDialog> {
             ),
             style: FilledButton.styleFrom(
               backgroundColor: AppColors.porchAmberOf(context),
-              foregroundColor: AppColors.inkOn(AppColors.porchAmberOf(context)),
+              foregroundColor: AppColors.onAccentOf(context),
             ),
             child: const Text('Start chat'),
           ),

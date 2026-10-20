@@ -19,14 +19,10 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/pages/story_reader/book_page.dart';
 import 'package:front_porch_ai/ui/pages/story_reader/book_page_content.dart';
+import 'package:front_porch_ai/ui/theme/book_page_colors.dart';
 
-// The book is a physical prop: paper, ink and the gutter shadow keep their
-// colours in every app theme (theme-keep: book prop).
-const _paperEdge = Color(0xFFF0E5CC); // theme-keep: book prop
-const _paperMid = Color(0xFFFAF3E8); // theme-keep: book prop
-const _paperInner = Color(0xFFF5ECD7); // theme-keep: book prop
-const _gutterShadow = Color(0x26000000); // theme-keep: book prop
-const _pageEdgeShade = Color(0x14795548); // theme-keep: book prop
+// The page follows the theme's BookPageColors.
+const _gutterShadow = Color(0x26000000); // theme-keep: binding shadow
 
 /// The back cover shown after the last flip page.
 class BookEndCover extends StatelessWidget {
@@ -34,19 +30,20 @@ class BookEndCover extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final book = BookPageColors.of(context);
     return Container(
       decoration: BoxDecoration(
-        color: const Color(0xFFE8DCC8), // theme-keep: book prop
+        color: book.cover,
         borderRadius: BorderRadius.circular(4),
       ),
-      child: const Center(
+      child: Center(
         child: Text(
           '⸻ ✦ ⸻\nClosed',
           textAlign: TextAlign.center,
           style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 24,
-            color: Color(0xFF8B7355), // theme-keep: book prop
+            color: book.inkFaint,
           ),
         ),
       ),
@@ -91,11 +88,12 @@ class BookPageContainer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final page = this.page;
+    final book = BookPageColors.of(context);
     if (page == null) {
       // Empty blank page at end of a right-hand spread
       return Container(
         decoration: BoxDecoration(
-          color: const Color(0xFFF5ECD7), // theme-keep: book prop
+          color: book.paperInner,
           borderRadius: BorderRadius.horizontal(
             left: Radius.circular(isRightSpread ? 0 : 4),
             right: Radius.circular(isLeftSpread ? 0 : 4),
@@ -106,15 +104,15 @@ class BookPageContainer extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        // Paper texture effect — theme-keep: book prop
+        // Paper texture effect
         gradient: LinearGradient(
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
           colors: isLeftSpread
-              ? const [_paperEdge, _paperMid, _paperInner]
+              ? [book.paperEdge, book.paper, book.paperInner]
               : isRightSpread
-              ? const [_paperInner, _paperMid, _paperEdge]
-              : const [_paperEdge, _paperMid, _paperEdge],
+              ? [book.paperInner, book.paper, book.paperEdge]
+              : [book.paperEdge, book.paper, book.paperEdge],
           stops: const [0.0, 0.5, 1.0],
         ),
         borderRadius: BorderRadius.horizontal(
@@ -175,7 +173,7 @@ class BookPageContainer extends StatelessWidget {
                     gradient: LinearGradient(
                       begin: Alignment.centerLeft,
                       end: Alignment.centerRight,
-                      colors: [_pageEdgeShade, Colors.transparent],
+                      colors: [book.edgeShade, Colors.transparent],
                     ),
                   ),
                 ),

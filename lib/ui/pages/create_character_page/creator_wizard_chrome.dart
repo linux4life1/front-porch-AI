@@ -19,7 +19,7 @@
 // Manual creator chrome: step dots, nav buttons, token badge.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/theme/creator_palette.dart';
 
 /// AppBar step dots for the 7-step manual creator.
@@ -63,7 +63,7 @@ class CreatorStepIndicator extends StatelessWidget {
         : AppColors.borderOf(context);
 
     final numberOrCheckColor = isActive
-        ? AppColors.resolve(context, Colors.white, Colors.white)
+        ? StatusColors.onFill
         : AppColors.textTertiary(context);
 
     final labelColor = isActive
@@ -119,14 +119,14 @@ class CreatorTokenBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = estimatedTokens > 4000
-        ? Colors.redAccent
+        ? StatusColors.dangerOf(context)
         : estimatedTokens > 2000
-        ? Colors.orangeAccent
+        ? StatusColors.warningOf(context)
         : AppColors.formAccentOf(context);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: context.creatorPalette?.card ?? AppColors.card,
+        color: context.creatorPalette?.card ?? AppColors.cardOf(context),
         borderRadius: BorderRadius.circular(20),
         border: Border.all(color: color.withValues(alpha: 0.4)),
         boxShadow: [
@@ -217,7 +217,7 @@ class CreatorNavButtons extends StatelessWidget {
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(
                           content: Text('Character name is required'),
-                          backgroundColor: Colors.redAccent,
+                          backgroundColor: StatusColors.alertFill,
                           behavior: SnackBarBehavior.floating,
                         ),
                       );

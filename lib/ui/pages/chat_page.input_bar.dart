@@ -134,11 +134,7 @@ class ChatInputBar extends StatelessWidget {
                     height: 3,
                     width: 50,
                     decoration: BoxDecoration(
-                      color: AppColors.resolve(
-                        context,
-                        Colors.white38,
-                        Colors.black38,
-                      ),
+                      color: InkColors.handleOf(context),
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
@@ -179,12 +175,12 @@ class ChatInputBar extends StatelessWidget {
                 color: AppColors.surfaceContainerOf(context),
                 child: Row(
                   children: [
-                    const SizedBox(
+                    SizedBox(
                       width: 14,
                       height: 14,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: Colors.tealAccent,
+                        color: StatusColors.infoOf(context),
                       ),
                     ),
                     const SizedBox(width: 10),
@@ -231,11 +227,7 @@ class ChatInputBar extends StatelessWidget {
                         ),
                         child: CircleAvatar(
                           radius: 16,
-                          backgroundColor: AppColors.resolve(
-                            context,
-                            Colors.white24,
-                            Colors.black12,
-                          ),
+                          backgroundColor: InkColors.gripOf(context),
                           backgroundImage: persona.avatarPath != null
                               ? FileImage(File(persona.avatarPath!))
                               : null,

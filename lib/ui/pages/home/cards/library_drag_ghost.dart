@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// What follows the pointer when a held, picked card drags the whole
 /// selection (library phase 3): the pressed card's small frame with two
@@ -106,11 +106,7 @@ class LibraryDragGhost extends StatelessWidget {
                 width: 2.5,
                 shadow: [
                   BoxShadow(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.black.withValues(alpha: 0.5),
-                      Colors.black.withValues(alpha: 0.25),
-                    ),
+                    color: InkColors.dimOf(context, 0.5, 0.25),
                     blurRadius: 28,
                     offset: const Offset(0, 12),
                   ),
@@ -153,11 +149,7 @@ class LibraryDragGhost extends StatelessWidget {
                   shape: BoxShape.circle,
                   boxShadow: [
                     BoxShadow(
-                      color: AppColors.resolve(
-                        context,
-                        Colors.black.withValues(alpha: 0.4),
-                        Colors.black.withValues(alpha: 0.2),
-                      ),
+                      color: InkColors.dimOf(context, 0.4, 0.2),
                       blurRadius: 6,
                       offset: const Offset(0, 2),
                     ),

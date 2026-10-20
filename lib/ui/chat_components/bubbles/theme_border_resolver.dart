@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'border_painters.dart';
 
 class ResolvedThemeData {
@@ -33,6 +34,7 @@ class ThemeBorderResolver {
     required bool isUser,
     required bool isDirectorNote,
     ChatThemeOverrides? themeOverrides,
+    AppCorners corners = AppCorners.standard,
   }) {
     final overrides = themeOverrides ?? chatService?.sessionThemeOverrides;
     final preset = ChatThemePreset.byId(overrides?.themeId);
@@ -64,16 +66,7 @@ class ThemeBorderResolver {
         borderStyle != null && borderPainterFactories.containsKey(borderStyle)
         ? borderPainterFactories[borderStyle]!(borderColor)
         : null;
-    final borderRadius = BorderRadius.only(
-      topLeft: const Radius.circular(12),
-      topRight: const Radius.circular(12),
-      bottomLeft: isUser && !isDirectorNote
-          ? const Radius.circular(12)
-          : Radius.zero,
-      bottomRight: isUser && !isDirectorNote
-          ? Radius.zero
-          : const Radius.circular(12),
-    );
+    final borderRadius = _bubbleRadius(isUser, isDirectorNote, corners);
 
     return ResolvedThemeData(
       overrides: overrides,
@@ -93,20 +86,28 @@ class ThemeBorderResolver {
     required Color borderColor,
     required bool isUser,
     required bool isDirectorNote,
+    AppCorners corners = AppCorners.standard,
   }) {
     return ResolvedThemeData(
       textColor: textColor,
       borderColor: borderColor,
-      borderRadius: BorderRadius.only(
-        topLeft: const Radius.circular(12),
-        topRight: const Radius.circular(12),
-        bottomLeft: isUser && !isDirectorNote
-            ? const Radius.circular(12)
-            : Radius.zero,
-        bottomRight: isUser && !isDirectorNote
-            ? Radius.zero
-            : const Radius.circular(12),
-      ),
+      borderRadius: _bubbleRadius(isUser, isDirectorNote, corners),
+    );
+  }
+
+  /// The 12 radius with the tail corner squared, scaled by [corners].
+  static BorderRadius _bubbleRadius(
+    bool isUser,
+    bool isDirectorNote,
+    AppCorners corners,
+  ) {
+    final round = Radius.circular(corners.scaled(12));
+    final userTail = isUser && !isDirectorNote;
+    return BorderRadius.only(
+      topLeft: round,
+      topRight: round,
+      bottomLeft: userTail ? round : Radius.zero,
+      bottomRight: userTail ? Radius.zero : round,
     );
   }
 }

@@ -22,7 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/database/database.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'group_objectives/group_objectives.dart';
@@ -221,7 +221,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
               padding: const EdgeInsets.fromLTRB(16, 12, 8, 8),
               child: Row(
                 children: [
-                  const Icon(Icons.flag, color: Colors.amber),
+                  Icon(Icons.flag, color: AccentColors.goldOf(context)),
                   const SizedBox(width: 8),
                   Text(
                     'Group Objectives',
@@ -264,7 +264,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                             shape: BoxShape.circle,
                             border: Border.all(
                               color: selected
-                                  ? Colors.amber
+                                  ? AccentColors.goldOf(context)
                                   : Colors.transparent,
                               width: 2,
                             ),
@@ -304,7 +304,7 @@ class _GroupObjectivesDialogState extends State<GroupObjectivesDialog> {
                                 ? FontWeight.bold
                                 : FontWeight.normal,
                             color: selected
-                                ? Colors.amber
+                                ? AccentColors.goldOf(context)
                                 : AppColors.textSecondary(context),
                           ),
                         ),

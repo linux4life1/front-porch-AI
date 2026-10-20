@@ -109,7 +109,7 @@ class _ComposerDropZoneState extends State<ComposerDropZone> {
                     child: Text(
                       'Drop a photo',
                       style: TextStyle(
-                        color: AppColors.onAccentOf(context),
+                        color: AppColors.textPrimary(context),
                         fontWeight: FontWeight.w800,
                       ),
                     ),

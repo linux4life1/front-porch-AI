@@ -18,8 +18,10 @@
 
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/appearance_options.dart';
+import 'package:front_porch_ai/ui/theme/chat_default_colors.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'appearance_settings.dart';
 import 'library_view_prefs.dart';
 import 'settings_base.dart';
 
@@ -31,35 +33,39 @@ import 'settings_base.dart';
 /// Note: effective *Color / getChatFontFamily take optional CharacterCard for
 /// per-card overrides (frontPorchExtensions) and fall back to globals.
 class UiSettings with SettingsBase, LibraryViewPrefs {
+  UiSettings([AppearanceSettings? appearance])
+    : _appearance = appearance ?? AppearanceSettings();
+
+  /// Owns the light/dark mode and the theme whose chat defaults apply.
+  final AppearanceSettings _appearance;
+
+  bool get _isDark => _appearance.isDark;
+  ChatDefaultColors get _chat => _appearance.chatDefaults;
+
   double _bubbleOpacity = 1.0;
 
-  // Global chat color defaults
-  Color _globalUserBubbleColor = const Color(0xFF3B82F6);
-  Color _globalUserTextColor = Colors.white;
-  Color _globalAiBubbleColor = const Color(0xFF374151);
-  Color _globalAiTextColor = Colors.white;
-  static const Color _defaultDarkDialogueColor = Colors.amberAccent;
-  Color _globalDialogueColor = _defaultDarkDialogueColor;
-  Color _globalActionColor = const Color(0xFF90CAF9);
+  // Chat colors the user picked, per mode; null falls back to the app
+  // theme's default (AppPalette.chat).
+  Color? _globalUserBubbleColor;
+  Color? _globalUserTextColor;
+  Color? _globalAiBubbleColor;
+  Color? _globalAiTextColor;
+  Color? _globalDialogueColor;
+  Color? _globalActionColor;
+  Color? _lightUserBubbleColor;
+  Color? _lightUserTextColor;
+  Color? _lightAiBubbleColor;
+  Color? _lightAiTextColor;
+  Color? _lightDialogueColor;
+  Color? _lightActionColor;
 
   // Global chat font family
   String _globalChatFontFamily = '';
-
-  // Theme mode (persisted; drives which set of the 5 chat colors is active)
-  bool _isDark = true;
 
   // Stick-to-bottom while a reply is streaming. Default ON — the old
   // follow-while-generating feel. Off is the Mac-pass no-chase lock.
   bool _followStreamingReplies = true;
   bool _evaluationMinimized = false;
-
-  // Light-mode chat color defaults (populated from AppColors on first load if no prefs)
-  Color _lightUserBubbleColor = AppColors.userBubbleLight;
-  Color _lightUserTextColor = AppColors.userTextLight;
-  Color _lightAiBubbleColor = AppColors.aiBubbleLight;
-  Color _lightAiTextColor = AppColors.aiTextLight;
-  Color _lightDialogueColor = AppColors.dialogueLight;
-  Color _lightActionColor = AppColors.actionLight;
 
   double _textScale = 1.0;
   String _chatBackground = 'none';
@@ -81,24 +87,25 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
 
   double get bubbleOpacity => _bubbleOpacity;
   Color get globalUserBubbleColor =>
-      _isDark ? _globalUserBubbleColor : _lightUserBubbleColor;
+      (_isDark ? _globalUserBubbleColor : _lightUserBubbleColor) ??
+      _chat.userBubble;
   Color get globalUserTextColor =>
-      _isDark ? _globalUserTextColor : _lightUserTextColor;
+      (_isDark ? _globalUserTextColor : _lightUserTextColor) ?? _chat.userText;
   Color get globalAiBubbleColor =>
-      _isDark ? _globalAiBubbleColor : _lightAiBubbleColor;
+      (_isDark ? _globalAiBubbleColor : _lightAiBubbleColor) ?? _chat.aiBubble;
   Color get globalAiTextColor =>
-      _isDark ? _globalAiTextColor : _lightAiTextColor;
+      (_isDark ? _globalAiTextColor : _lightAiTextColor) ?? _chat.aiText;
   Color get globalDialogueColor =>
-      _isDark ? _globalDialogueColor : _lightDialogueColor;
+      (_isDark ? _globalDialogueColor : _lightDialogueColor) ?? _chat.dialogue;
 
   /// True once the user picked their own dialogue colour for this mode in
   /// Chat Appearance (the user bubble keeps a picked colour as is).
   bool get globalDialogueColorChosen =>
-      globalDialogueColor.toARGB32() !=
-      (_isDark ? _defaultDarkDialogueColor : AppColors.dialogueLight)
-          .toARGB32();
+      (_isDark ? _globalDialogueColor : _lightDialogueColor) != null;
+  bool get globalActionColorChosen =>
+      (_isDark ? _globalActionColor : _lightActionColor) != null;
   Color get globalActionColor =>
-      _isDark ? _globalActionColor : _lightActionColor;
+      (_isDark ? _globalActionColor : _lightActionColor) ?? _chat.action;
   bool get isDark => _isDark;
   bool get followStreamingReplies => _followStreamingReplies;
   bool get evaluationMinimized => _evaluationMinimized;
@@ -114,59 +121,23 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
   void load() {
     _evaluationMinimized = prefs?.getBool(k('evaluation_minimized')) ?? false;
     _bubbleOpacity = prefs?.getDouble(k('bubble_opacity')) ?? _bubbleOpacity;
-    _globalUserBubbleColor = Color(
-      prefs?.getInt(k('global_user_bubble_color')) ??
-          _globalUserBubbleColor.toARGB32(),
-    );
-    _globalUserTextColor = Color(
-      prefs?.getInt(k('global_user_text_color')) ??
-          _globalUserTextColor.toARGB32(),
-    );
-    _globalAiBubbleColor = Color(
-      prefs?.getInt(k('global_ai_bubble_color')) ??
-          _globalAiBubbleColor.toARGB32(),
-    );
-    _globalAiTextColor = Color(
-      prefs?.getInt(k('global_ai_text_color')) ?? _globalAiTextColor.toARGB32(),
-    );
-    _globalDialogueColor = Color(
-      prefs?.getInt(k('global_dialogue_color')) ??
-          _globalDialogueColor.toARGB32(),
-    );
-    _globalActionColor = Color(
-      prefs?.getInt(k('global_action_color')) ?? _globalActionColor.toARGB32(),
-    );
+    _globalUserBubbleColor = _pickedColor('global_user_bubble_color');
+    _globalUserTextColor = _pickedColor('global_user_text_color');
+    _globalAiBubbleColor = _pickedColor('global_ai_bubble_color');
+    _globalAiTextColor = _pickedColor('global_ai_text_color');
+    _globalDialogueColor = _pickedColor('global_dialogue_color');
+    _globalActionColor = _pickedColor('global_action_color');
     _globalChatFontFamily =
         prefs?.getString(k('global_chat_font_family')) ?? _globalChatFontFamily;
 
-    // Theme + light-mode color set (fall back to AppColors light defaults if never saved)
-    _isDark = prefs?.getBool(k('dark_mode')) ?? true;
     _followStreamingReplies =
         prefs?.getBool(k('follow_streaming_replies')) ?? true;
-    _lightUserBubbleColor = Color(
-      prefs?.getInt(k('light_user_bubble_color')) ??
-          AppColors.userBubbleLight.toARGB32(),
-    );
-    _lightUserTextColor = Color(
-      prefs?.getInt(k('light_user_text_color')) ??
-          AppColors.userTextLight.toARGB32(),
-    );
-    _lightAiBubbleColor = Color(
-      prefs?.getInt(k('light_ai_bubble_color')) ??
-          AppColors.aiBubbleLight.toARGB32(),
-    );
-    _lightAiTextColor = Color(
-      prefs?.getInt(k('light_ai_text_color')) ??
-          AppColors.aiTextLight.toARGB32(),
-    );
-    _lightDialogueColor = Color(
-      prefs?.getInt(k('light_dialogue_color')) ??
-          AppColors.dialogueLight.toARGB32(),
-    );
-    _lightActionColor = Color(
-      prefs?.getInt(k('light_action_color')) ??
-          AppColors.actionLight.toARGB32(),
-    );
+    _lightUserBubbleColor = _pickedColor('light_user_bubble_color');
+    _lightUserTextColor = _pickedColor('light_user_text_color');
+    _lightAiBubbleColor = _pickedColor('light_ai_bubble_color');
+    _lightAiTextColor = _pickedColor('light_ai_text_color');
+    _lightDialogueColor = _pickedColor('light_dialogue_color');
+    _lightActionColor = _pickedColor('light_action_color');
 
     _textScale = (prefs?.getDouble(k('text_scale')) ?? 1.0).clamp(0.7, 2.0);
     _chatBackground = prefs?.getString(k('chat_background')) ?? 'none';
@@ -201,6 +172,11 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
       final v = prefs?.getBool(k('sidebar_group_expanded_$id'));
       if (v != null) _sidebarGroupExpanded[id] = v;
     }
+  }
+
+  Color? _pickedColor(String key) {
+    final value = prefs?.getInt(k(key));
+    return value == null ? null : Color(value);
   }
 
   /// Whether a sidebar accordion group is expanded (falls back to the
@@ -286,18 +262,40 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     notify();
   }
 
+  /// Forgets this mode's picked chat colors so the app theme's own apply.
+  Future<void> resetChatColors() async {
+    final prefix = _isDark ? 'global' : 'light';
+    for (final role in _chatColorRoles) {
+      await prefs?.remove(k('${prefix}_${role}_color'));
+    }
+    if (_isDark) {
+      _globalUserBubbleColor = _globalUserTextColor = _globalAiBubbleColor =
+          _globalAiTextColor = _globalDialogueColor = _globalActionColor = null;
+    } else {
+      _lightUserBubbleColor = _lightUserTextColor = _lightAiBubbleColor =
+          _lightAiTextColor = _lightDialogueColor = _lightActionColor = null;
+    }
+    notify();
+  }
+
+  static const _chatColorRoles = [
+    'user_bubble',
+    'user_text',
+    'ai_bubble',
+    'ai_text',
+    'dialogue',
+    'action',
+  ];
+
   Future<void> setGlobalChatFontFamily(String value) async {
     _globalChatFontFamily = value;
     await prefs?.setString(k('global_chat_font_family'), value);
     notify();
   }
 
-  Future<void> setIsDark(bool value) async {
-    if (_isDark == value) return;
-    _isDark = value;
-    await prefs?.setBool(k('dark_mode'), value);
-    notify();
-  }
+  /// Picks dark or light outright (Match system is set on [AppearanceSettings]).
+  Future<void> setIsDark(bool value) =>
+      _appearance.setMode(value ? AppThemeMode.dark : AppThemeMode.light);
 
   Future<void> setEvaluationMinimized(bool value) async {
     if (_evaluationMinimized == value) return;
@@ -384,7 +382,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     if (themePreset != null) return themePreset.defaultUserBubbleColor;
     final charColor = character?.frontPorchExtensions?.userBubbleColor;
     if (charColor != null) return charColor;
-    return _isDark ? _globalUserBubbleColor : _lightUserBubbleColor;
+    return globalUserBubbleColor;
   }
 
   /// Get effective user text color.
@@ -401,7 +399,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     if (themePreset != null) return themePreset.defaultUserTextColor;
     final charColor = character?.frontPorchExtensions?.userTextColor;
     if (charColor != null) return charColor;
-    return _isDark ? _globalUserTextColor : _lightUserTextColor;
+    return globalUserTextColor;
   }
 
   /// Get effective AI bubble color.
@@ -418,7 +416,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     if (themePreset != null) return themePreset.defaultAiBubbleColor;
     final charColor = character?.frontPorchExtensions?.aiBubbleColor;
     if (charColor != null) return charColor;
-    return _isDark ? _globalAiBubbleColor : _lightAiBubbleColor;
+    return globalAiBubbleColor;
   }
 
   /// Get effective AI text color.
@@ -435,7 +433,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     if (themePreset != null) return themePreset.defaultAiTextColor;
     final charColor = character?.frontPorchExtensions?.aiTextColor;
     if (charColor != null) return charColor;
-    return _isDark ? _globalAiTextColor : _lightAiTextColor;
+    return globalAiTextColor;
   }
 
   /// Get effective dialogue color.
@@ -452,7 +450,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     if (themePreset != null) return themePreset.defaultDialogueColor;
     final charColor = character?.frontPorchExtensions?.dialogueColor;
     if (charColor != null) return charColor;
-    return _isDark ? _globalDialogueColor : _lightDialogueColor;
+    return globalDialogueColor;
   }
 
   /// Get effective action color.
@@ -469,7 +467,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     if (themePreset != null) return themePreset.defaultActionColor;
     final charColor = character?.frontPorchExtensions?.actionColor;
     if (charColor != null) return charColor;
-    return _isDark ? _globalActionColor : _lightActionColor;
+    return globalActionColor;
   }
 
   /// Get effective chat font family.

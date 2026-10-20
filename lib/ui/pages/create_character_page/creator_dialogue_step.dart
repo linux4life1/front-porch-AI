@@ -17,7 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/greeting_seed_form.dart';
 
 import 'create_character_draft.dart';
@@ -102,9 +102,9 @@ class CreatorDialogueStep extends StatelessWidget {
                         draft.removeAltGreeting(idx);
                         onChanged();
                       },
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.remove_circle_outline,
-                        color: Colors.redAccent,
+                        color: StatusColors.dangerOf(context),
                         size: 20,
                       ),
                       tooltip: 'Remove greeting',

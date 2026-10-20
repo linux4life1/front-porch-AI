@@ -42,7 +42,7 @@ void main() {
 
     bool chosen(String label) =>
         tester.widget<Text>(find.text(label)).style?.color ==
-        AppColors.onChaosAccent;
+        AppColors.onAccentOf(tester.element(find.text(label)));
 
     expect(find.text('Keep recent chats ready'), findsOneWidget);
     expect(

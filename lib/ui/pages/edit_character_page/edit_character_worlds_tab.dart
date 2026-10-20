@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The character editor's Worlds tab. Linking a place edits
 /// [selectedWorldNames] in place and then calls [onChanged].
@@ -82,11 +82,7 @@ class EditCharacterWorldsTab extends StatelessWidget {
                             Icon(
                               Icons.public,
                               size: 48,
-                              color: AppColors.resolve(
-                                context,
-                                Colors.white.withValues(alpha: 0.12),
-                                Colors.black.withValues(alpha: 0.12),
-                              ),
+                              color: InkColors.washOf(context, 0.12, 0.12),
                             ),
                             const SizedBox(height: 12),
                             Text(
@@ -137,11 +133,7 @@ class EditCharacterWorldsTab extends StatelessWidget {
                                   ? AppColors.formAccentOf(
                                       context,
                                     ).withValues(alpha: 0.2)
-                                  : AppColors.resolve(
-                                      context,
-                                      Colors.white.withValues(alpha: 0.05),
-                                      Colors.black.withValues(alpha: 0.05),
-                                    ),
+                                  : InkColors.washOf(context, 0.05, 0.05),
                               borderRadius: BorderRadius.circular(10),
                             ),
                             child: Icon(

@@ -3,14 +3,17 @@
 
 import Cocoa
 import FlutterMacOS
+import window_manager
 
 class MainFlutterWindow: NSWindow {
+  private var launchWindowChannel: FlutterMethodChannel?
+
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
     // Opaque so Impeller's wide-gamut Metal layer does not start clear
     // under the title bar (Flutter 3.47 desktop default). Porch brown
-    // #1B1611 (AppColors.background) so the pre-first-frame window paint
-    // matches the theme instead of the old slate #0F172A.
+    // #1B1611 is only the fallback: the window stays hidden until Dart has
+    // sent the saved theme's background (setBackground below) and shown it.
     flutterViewController.backgroundColor = NSColor(
       srgbRed: 27.0 / 255.0,
       green: 22.0 / 255.0,
@@ -25,6 +28,26 @@ class MainFlutterWindow: NSWindow {
     applyOpaqueTitleBar()
 
     RegisterGeneratedPlugins(registry: flutterViewController)
+
+    // lib/app/launch_window.dart: the saved theme's background, sent before
+    // the window shows, so nothing before the first frame is another colour.
+    let channel = FlutterMethodChannel(
+      name: "front_porch_ai/launch_window",
+      binaryMessenger: flutterViewController.engine.binaryMessenger)
+    channel.setMethodCallHandler { [weak flutterViewController] call, result in
+      guard call.method == "setBackground", let argb = call.arguments as? Int else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      flutterViewController?.backgroundColor = NSColor(
+        srgbRed: CGFloat((argb >> 16) & 0xFF) / 255.0,
+        green: CGFloat((argb >> 8) & 0xFF) / 255.0,
+        blue: CGFloat(argb & 0xFF) / 255.0,
+        alpha: 1.0
+      )
+      result(nil)
+    }
+    launchWindowChannel = channel
 
     super.awakeFromNib()
   }
@@ -42,6 +65,13 @@ class MainFlutterWindow: NSWindow {
     if let titleBarView = standardWindowButton(.closeButton)?.superview?.superview {
       titleBarView.isHidden = false
     }
+  }
+
+  // Hidden until Dart's windowManager.show() (lib/app/main_window.dart),
+  // which runs after the saved theme's background is set.
+  override public func order(_ place: NSWindow.OrderingMode, relativeTo otherWin: Int) {
+    super.order(place, relativeTo: otherWin)
+    hiddenWindowAtLaunch()
   }
 
   // window_manager.setTitleBarStyle always writes isOpaque = false even
