@@ -2,7 +2,7 @@
 
 Front Porch AI ships often: a stable release every few weeks, patch releases in between, and a nightly Rawhide build most days.
 
-**The current stable release is v1.5.0, "Revenge of the Kobold".**
+**The current stable release is v1.6.0, "Fifty Shades of Porch".**
 
 This page is the long-form history — the headlines of every release, newest first. The [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases) is always the complete and most up-to-date record, and it is also where the nightly builds live.
 
@@ -12,6 +12,7 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ## Table of Contents
 
+- [v1.6.0 — Fifty Shades of Porch](#v160--fifty-shades-of-porch)
 - [v1.5.0 — Revenge of the Kobold](#v150--revenge-of-the-kobold)
 - [v1.4.1 — KB5069420: Cumulative Porch Update](#v141--kb5069420-cumulative-porch-update)
 - [v1.4.0 — Toolbox](#v140--toolbox)
@@ -34,9 +35,31 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ---
 
+## v1.6.0 — Fifty Shades of Porch
+
+**Released:** v1.6.0 — current stable
+
+Paint it your colour, call the shots, and let the story keep its own time.
+
+- 🎨 **Make the porch yours** — an Appearance tab with eight app themes, light and dark, a custom accent, fonts and corner styles; the phone and browser app follow the desktop theme, light mode included.
+- 🎬 **Director Mode, rebuilt** — `/director` steps you out of the group; cue, whisper, scene goal, narrator, beats, a run budget and a turn judge, plus Pause/Resume and manual Away/Back. Same on the phone.
+- 🔎 **Find in chat** — Ctrl+F (⌘F) searches the whole chat, on desktop and phone.
+- ⏩ **Time skips that make sense** — a narrator card bridges big skips, narrated skips move the clock, long skips land at the named time of day, and Needs and Journal heat follow the days that passed.
+- 🎯 **Goals keep up with the story** — objectives sync with what happened, endings are felt and remembered, and a goal you set is never set aside.
+- 😤 **Mood with bite** — a cause, a hold, an easing and a pull on behaviour; the Mood and Lust chips explain themselves.
+- 🌙 **Afterglow (18+)** — a recovery profile on the card, a tenderness window, a warmth that fades on a curve, both sides read by the judge, deeper bonding when it was wanted, and an opt-in grey mood afterwards.
+- 🪄 **A better Character Creator** — a Profile step for the full card, editable interview questions, templates saved as files, and a switch to skip the interview.
+- 🖼️ **Images in bulk** — a Batch tab for generating and reviewing many pictures, a Remote API option with Grok Imagine, expression intensity, and per-backend model and LoRA picks.
+- 🧠 **KoboldCpp, smarter** — chat templates in presets with a mismatch warning, the last model remembered per backend, Realism checks on another PC, and more of the graphics card left for the model.
+- 💬 **See behind a reply** — inspect the prompt behind any reply, see the other words a reply weighed, a prompt source per chat, global prompt additions, "Your chats together" stats, and character ↔ persona conversion.
+- 🛟 **No more lost edits** — editors ask before you leave with unsaved changes, on desktop and phone.
+- 🎲 **Chaos with more range**, 🧑‍💻 **a Waifu Coder that finishes its turns**, and 📱 **the phone's Settings in six sections like the desktop**.
+
+---
+
 ## v1.5.0 — Revenge of the Kobold
 
-**Released:** v1.5.0 — current stable
+**Released:** v1.5.0
 
 The engine room got rebuilt while you were chatting. Kobold insists you update.
 
