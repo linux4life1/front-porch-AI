@@ -194,8 +194,10 @@ class _LogViewState extends State<LogView> with SingleTickerProviderStateMixin {
       width: double.infinity,
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
+        // theme-keep: the log console is a black terminal in every theme.
         color: Colors.black,
         borderRadius: BorderRadius.circular(8),
+        // theme-keep: the log console is a black terminal in every theme.
         border: Border.all(color: Colors.white24),
       ),
       child: ClipRRect(
@@ -233,11 +235,13 @@ class _LogViewState extends State<LogView> with SingleTickerProviderStateMixin {
                       width: 28,
                       height: 28,
                       decoration: BoxDecoration(
+                        // theme-keep: the log console is a black terminal in every theme.
                         color: Colors.black.withValues(alpha: 0.55),
                         shape: BoxShape.circle,
                       ),
                       child: const Icon(
                         Icons.keyboard_arrow_down,
+                        // theme-keep: the log console is a black terminal in every theme.
                         color: Colors.white70,
                         size: 18,
                       ),

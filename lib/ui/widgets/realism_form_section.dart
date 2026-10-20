@@ -346,7 +346,8 @@ class RealismFormSection extends StatelessWidget {
           RealismSectionHeader(
             Icons.tune,
             'Optional Features',
-            context.creatorPalette?.amber ?? AppColors.optionalAccent,
+            context.creatorPalette?.amber ??
+                AppColors.optionalAccentOf(context),
           ),
           const SizedBox(height: 12),
           RealismOptionalFeaturesCard(
@@ -379,7 +380,8 @@ class RealismFormSection extends StatelessWidget {
           RealismSectionHeader(
             Icons.tune,
             'Optional Features',
-            context.creatorPalette?.amber ?? AppColors.optionalAccent,
+            context.creatorPalette?.amber ??
+                AppColors.optionalAccentOf(context),
           ),
           const SizedBox(height: 12),
           Container(

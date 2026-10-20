@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as path_lib;
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The model a model list starts on when none is chosen yet: the last-used one
 /// when [models] has it (the Local model card names that one). Null otherwise,
@@ -51,7 +51,10 @@ class ModelSelector extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     if (!showManagedByKcpps && models.isEmpty) {
-      return Text(emptyMessage, style: const TextStyle(color: Colors.orange));
+      return Text(
+        emptyMessage,
+        style: TextStyle(color: StatusColors.cautionOf(context)),
+      );
     }
 
     final rawPaths = models
@@ -108,7 +111,7 @@ class ModelSelector extends StatelessWidget {
               textTheme.bodyMedium?.apply(
                 color: AppColors.textPrimary(context),
               ) ??
-              const TextStyle(color: Colors.black87),
+              TextStyle(color: AppColors.textPrimary(context)),
           icon: Icon(
             Icons.arrow_drop_down,
             color: AppColors.textSecondary(context),

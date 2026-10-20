@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/warm_dialog.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -77,19 +77,9 @@ class HFQuantRow extends StatelessWidget {
       margin: const EdgeInsets.symmetric(vertical: 4),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: AppColors.resolve(
-          context,
-          Colors.white.withValues(alpha: 0.03),
-          Colors.black.withValues(alpha: 0.02),
-        ),
+        color: InkColors.rowFillOf(context),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(
-          color: AppColors.resolve(
-            context,
-            Colors.white.withValues(alpha: 0.05),
-            AppColors.borderOf(context),
-          ),
-        ),
+        border: Border.all(color: InkColors.rowEdgeOf(context)),
       ),
       child: Row(
         children: [
@@ -97,12 +87,14 @@ class HFQuantRow extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
-              color: _getQuantColor(
+              color: ModelColors.quantOf(
+                context,
                 file.quantType.colorCategory,
               ).withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
               border: Border.all(
-                color: _getQuantColor(
+                color: ModelColors.quantOf(
+                  context,
                   file.quantType.colorCategory,
                 ).withValues(alpha: 0.3),
               ),
@@ -110,7 +102,10 @@ class HFQuantRow extends StatelessWidget {
             child: Text(
               file.quantType.label,
               style: TextStyle(
-                color: _getQuantColor(file.quantType.colorCategory),
+                color: ModelColors.quantOf(
+                  context,
+                  file.quantType.colorCategory,
+                ),
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
               ),
@@ -183,11 +178,7 @@ class HFQuantRow extends StatelessWidget {
                   LinearProgressIndicator(
                     value: downloadTask!.progress,
                     minHeight: 3,
-                    backgroundColor: AppColors.resolve(
-                      context,
-                      Colors.white.withValues(alpha: 0.1),
-                      AppColors.borderOf(context).withValues(alpha: 0.3),
-                    ),
+                    backgroundColor: InkColors.trackOf(context),
                     valueColor: AlwaysStoppedAnimation<Color>(
                       _getFitStatusColor(context, fitStatus),
                     ),
@@ -215,9 +206,9 @@ class HFQuantRow extends StatelessWidget {
 
   Widget _buildActionButton(BuildContext context, VramFitStatus? fitStatus) {
     if (isDownloaded) {
-      return const Icon(
+      return Icon(
         Icons.check_circle_rounded,
-        color: Color(0xFF69F0AE),
+        color: ModelColors.greenOf(context),
         size: 20,
       );
     }
@@ -305,32 +296,13 @@ class HFQuantRow extends StatelessWidget {
   Color _getFitStatusColor(BuildContext context, VramFitStatus? status) {
     switch (status) {
       case VramFitStatus.fits:
-        return const Color(0xFF69F0AE); // Green
+        return ModelColors.greenOf(context);
       case VramFitStatus.tight:
-        return const Color(0xFFFFD54F); // Yellow
+        return ModelColors.yellowOf(context);
       case VramFitStatus.exceeds:
-        return const Color(0xFFFF5252); // Red
+        return ModelColors.redOf(context);
       case null:
         return AppColors.iconSecondary(context); // VRAM unknown — neutral
-    }
-  }
-
-  Color _getQuantColor(String category) {
-    switch (category) {
-      case 'red':
-        return const Color(0xFFFF5252);
-      case 'orange':
-        return const Color(0xFFFFB74D);
-      case 'yellow':
-        return const Color(0xFFFFD54F);
-      case 'green':
-        return const Color(0xFF69F0AE);
-      case 'blue':
-        return const Color(0xFF40C4FF);
-      case 'purple':
-        return const Color(0xFFB388FF);
-      default:
-        return Colors.grey;
     }
   }
 }

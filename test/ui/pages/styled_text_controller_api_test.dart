@@ -189,7 +189,7 @@ void main() {
       await tester.pumpWidget(_buildApp());
       final style =
           StyledTextPreset.prose.styler(_pumpContext(tester), '"hello"', null);
-      expect(style.color, const Color(0xFFB45309));
+      expect(style.color, const Color(0xFF92400E));
       expect(style.fontWeight, FontWeight.w500);
     });
 
@@ -207,7 +207,7 @@ void main() {
         '{{system}}',
         null,
       );
-      expect(style.color, const Color(0xFF0D9488));
+      expect(style.color, const Color(0xFF00695C));
     });
 
     testWidgets('macros macro {{}} — light theme', (tester) async {
@@ -217,7 +217,7 @@ void main() {
         '{{name}}',
         null,
       );
-      expect(style.color, const Color(0xFF0D9488));
+      expect(style.color, const Color(0xFF00695C));
     });
 
     // Dark theme
@@ -293,7 +293,7 @@ void main() {
       expect(span.children, hasLength(3));
       final macroChild = span.children![1] as TextSpan;
       expect(macroChild.text, '{{macro}}');
-      expect(macroChild.style?.color, const Color(0xFF0D9488));
+      expect(macroChild.style?.color, const Color(0xFF00695C));
       ctrl.dispose();
     });
 
@@ -375,11 +375,11 @@ void main() {
       expect(span.children, hasLength(3));
       final children = span.children!.map((c) => c as TextSpan).toList();
       expect(children[0].text, '"Hello ');
-      expect(children[0].style?.color, const Color(0xFFB45309));
+      expect(children[0].style?.color, const Color(0xFF92400E));
       expect(children[1].text, '{{name}}');
-      expect(children[1].style?.color, const Color(0xFF0D9488));
+      expect(children[1].style?.color, const Color(0xFF00695C));
       expect(children[2].text, '"');
-      expect(children[2].style?.color, const Color(0xFFB45309));
+      expect(children[2].style?.color, const Color(0xFF92400E));
       ctrl.dispose();
     });
 
@@ -396,7 +396,7 @@ void main() {
       expect(children[0].text, '*waves ');
       expect(children[0].style?.color, const Color(0xFF1565C0));
       expect(children[1].text, '{{name}}');
-      expect(children[1].style?.color, const Color(0xFF0D9488));
+      expect(children[1].style?.color, const Color(0xFF00695C));
       expect(children[2].text, '*');
       expect(children[2].style?.color, const Color(0xFF1565C0));
       ctrl.dispose();
@@ -415,11 +415,11 @@ void main() {
       expect(children[0].text, '*');
       expect(children[0].style?.color, const Color(0xFF1565C0));
       expect(children[1].text, '"');
-      expect(children[1].style?.color, const Color(0xFFB45309));
+      expect(children[1].style?.color, const Color(0xFF92400E));
       expect(children[2].text, '{{x}}');
-      expect(children[2].style?.color, const Color(0xFF0D9488));
+      expect(children[2].style?.color, const Color(0xFF00695C));
       expect(children[3].text, '"');
-      expect(children[3].style?.color, const Color(0xFFB45309));
+      expect(children[3].style?.color, const Color(0xFF92400E));
       expect(children[4].text, '*');
       expect(children[4].style?.color, const Color(0xFF1565C0));
       ctrl.dispose();
@@ -484,7 +484,7 @@ void main() {
       final macroChild = span.children!
           .map((c) => c as TextSpan)
           .firstWhere((c) => c.text == '{{user}}');
-      expect(macroChild.style?.color, const Color(0xFF0D9488));
+      expect(macroChild.style?.color, const Color(0xFF00695C));
       ctrl.dispose();
     });
 
@@ -539,9 +539,9 @@ void main() {
         '. \'Nie Bądź Taka\' by Lil\' Wally."',
       ]);
       // The trailing dialogue (does not start with ") must still be amber
-      expect(children[0].style?.color, const Color(0xFFB45309));
-      expect(children[1].style?.color, const Color(0xFF0D9488));
-      expect(children[2].style?.color, const Color(0xFFB45309));
+      expect(children[0].style?.color, const Color(0xFF92400E));
+      expect(children[1].style?.color, const Color(0xFF00695C));
+      expect(children[2].style?.color, const Color(0xFF92400E));
       ctrl.dispose();
     });
 
@@ -567,7 +567,7 @@ void main() {
         ' world."',
       ]);
       // Middle segment " middle " is dialogue despite no " at either edge
-      expect(children[2].style?.color, const Color(0xFFB45309));
+      expect(children[2].style?.color, const Color(0xFF92400E));
       ctrl.dispose();
     });
 
@@ -790,11 +790,11 @@ void main() {
         );
         expect(
           colourOf(span, '"hi"'),
-          dark ? Colors.amberAccent : const Color(0xFFB45309),
+          dark ? Colors.amberAccent : const Color(0xFF92400E),
         );
         expect(
           colourOf(span, '{{char}}'),
-          dark ? Colors.tealAccent : const Color(0xFF0D9488),
+          dark ? Colors.tealAccent : const Color(0xFF00695C),
         );
         expect(
           colourOf(span, ' waves*'),

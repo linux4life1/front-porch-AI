@@ -18,7 +18,7 @@ import { ContextBudgetModal } from './ContextBudgetModal';
 import { MilestonesPanel } from './MilestonesPanel';
 import { ChatToolsMemory, ChatToolsRecap, ChatToolsWiki } from './ChatToolsMemory';
 import { ChatToolsChaos, ChatToolsNsfw, ChatToolsPockets } from './ChatToolsRealism';
-import { ChatToolsAmbitions, ChatToolsObjectives, ChatToolsStandingMood } from './ChatToolsObjectives';
+import { ChatToolsAmbitions, ChatToolsObjectives } from './ChatToolsObjectives';
 import { Toggle, type ToolsState } from './ChatToolsShared';
 import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
@@ -156,7 +156,6 @@ export function ChatTools({
         settings={settings}
       />
 
-      <ChatToolsStandingMood t={t} />
       <ChatToolsAmbitions t={t} />
 
       <ChatToolsPockets t={t} pocketRemove={pocketRemove} pocketAdd={pocketAdd} />

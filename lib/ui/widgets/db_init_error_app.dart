@@ -75,6 +75,7 @@ class DbInitErrorApp extends StatelessWidget {
                   settingsFileCorrupt
                       ? Icons.settings_backup_restore_rounded
                       : Icons.storage_rounded,
+                  // theme-keep: shown before settings load, so no theme.
                   color: Colors.orangeAccent,
                   size: 48,
                 ),
@@ -83,6 +84,7 @@ class DbInitErrorApp extends StatelessWidget {
                   title,
                   textAlign: TextAlign.center,
                   style: const TextStyle(
+                    // theme-keep: shown before settings load, so no theme.
                     color: Colors.white,
                     fontSize: 18,
                     fontWeight: FontWeight.w600,
@@ -92,6 +94,7 @@ class DbInitErrorApp extends StatelessWidget {
                 Text(
                   advice,
                   textAlign: TextAlign.center,
+                  // theme-keep: shown before settings load, so no theme.
                   style: const TextStyle(color: Colors.white70, fontSize: 13),
                 ),
                 const SizedBox(height: 20),
@@ -100,6 +103,7 @@ class DbInitErrorApp extends StatelessWidget {
                   textAlign: TextAlign.center,
                   maxLines: 4,
                   overflow: TextOverflow.ellipsis,
+                  // theme-keep: shown before settings load, so no theme.
                   style: const TextStyle(color: Colors.white38, fontSize: 11),
                 ),
               ],

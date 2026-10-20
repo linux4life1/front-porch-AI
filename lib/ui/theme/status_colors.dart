@@ -37,6 +37,24 @@ class StatusColors {
     const Color(0xFF1B5E20),
   );
 
+  /// A solid danger button, such as Disconnect.
+  static final Color dangerFill = Colors.redAccent.shade700;
+
+  /// A spelling mistake's wavy underline. Read without a context, so it is
+  /// one tone for both modes.
+  static final Color misspelling = Colors.redAccent.withValues(alpha: 0.6);
+
+  /// A softer caution: empty lists and missing backups.
+  static Color cautionOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.orange, const Color(0xFF9A3412));
+
+  /// A download or setup step that is running.
+  static Color progressOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFF1DE9B6),
+    const Color(0xFF00695C),
+  );
+
   /// Neutral, reassuring notes.
   static Color infoOf(BuildContext context) =>
       AppColors.resolve(context, Colors.tealAccent, const Color(0xFF00695C));

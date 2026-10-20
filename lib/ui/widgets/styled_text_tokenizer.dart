@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
 enum StyledTokenType { macro, dialogue, action }
@@ -51,29 +51,17 @@ class StyledTextPreset {
     (ctx, match, base) {
       if (match.startsWith('"')) {
         return (base ?? const TextStyle()).copyWith(
-          color: AppColors.resolve(
-            ctx,
-            Colors.amberAccent,
-            const Color(0xFFB45309),
-          ),
+          color: ChatColors.quoteInkOf(ctx),
           fontWeight: FontWeight.w500,
         );
       }
       if (match.startsWith('*')) {
         return (base ?? const TextStyle()).copyWith(
-          color: AppColors.resolve(
-            ctx,
-            const Color(0xFF90CAF9),
-            const Color(0xFF1565C0),
-          ),
+          color: ChatColors.narrationInkOf(ctx),
         );
       }
       return (base ?? const TextStyle()).copyWith(
-        color: AppColors.resolve(
-          ctx,
-          Colors.tealAccent,
-          const Color(0xFF0D9488),
-        ),
+        color: ChatColors.macroInkOf(ctx),
       );
     },
     usePriorityTokenization: true,
@@ -125,20 +113,12 @@ class StyledTextPreset {
   ) {
     if (match.startsWith('"')) {
       return (base ?? const TextStyle()).copyWith(
-        color: AppColors.resolve(
-          ctx,
-          Colors.amberAccent,
-          const Color(0xFFB45309),
-        ),
+        color: ChatColors.quoteInkOf(ctx),
         fontWeight: FontWeight.w500,
       );
     }
     return (base ?? const TextStyle()).copyWith(
-      color: AppColors.resolve(
-        ctx,
-        const Color(0xFF90CAF9),
-        const Color(0xFF1565C0),
-      ),
+      color: ChatColors.narrationInkOf(ctx),
     );
   }, usePriorityTokenization: true);
 
@@ -148,7 +128,7 @@ class StyledTextPreset {
     base,
   ) {
     return (base ?? const TextStyle()).copyWith(
-      color: AppColors.resolve(ctx, Colors.tealAccent, const Color(0xFF0D9488)),
+      color: ChatColors.macroInkOf(ctx),
     );
   });
 }

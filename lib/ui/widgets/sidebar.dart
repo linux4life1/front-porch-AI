@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'sidebar_navigation_item.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:provider/provider.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
@@ -115,11 +115,7 @@ class Sidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: AppColors.resolve(
-                          context,
-                          Colors.tealAccent.withValues(alpha: 0.08),
-                          Colors.teal.withValues(alpha: 0.10),
-                        ),
+                        color: NavColors.stoopWashOf(context),
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -134,11 +130,7 @@ class Sidebar extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.travel_explore,
-                            color: AppColors.resolve(
-                              context,
-                              Colors.tealAccent,
-                              Colors.teal.shade700,
-                            ),
+                            color: NavColors.stoopOf(context),
                             size: 22,
                           ),
                           const SizedBox(width: 12),
@@ -146,11 +138,7 @@ class Sidebar extends StatelessWidget {
                             child: Text(
                               'The Stoop',
                               style: TextStyle(
-                                color: AppColors.resolve(
-                                  context,
-                                  Colors.tealAccent,
-                                  Colors.teal.shade700,
-                                ),
+                                color: NavColors.stoopOf(context),
                                 fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -167,7 +155,7 @@ class Sidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: Colors.amber.withValues(alpha: 0.08),
+                        color: NavColors.creatorWash,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -182,11 +170,7 @@ class Sidebar extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.psychology,
-                            color: AppColors.resolve(
-                              context,
-                              Colors.amberAccent,
-                              Colors.amber.shade700,
-                            ),
+                            color: NavColors.creatorOf(context),
                             size: 22,
                           ),
                           const SizedBox(width: 12),
@@ -194,11 +178,7 @@ class Sidebar extends StatelessWidget {
                             child: Text(
                               'AI Character Creator',
                               style: TextStyle(
-                                color: AppColors.resolve(
-                                  context,
-                                  Colors.amberAccent,
-                                  Colors.amber.shade700,
-                                ),
+                                color: NavColors.creatorOf(context),
                                 fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -223,7 +203,7 @@ class Sidebar extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     child: Container(
                       decoration: BoxDecoration(
-                        color: const Color(0xFF7C3AED).withValues(alpha: 0.08),
+                        color: NavColors.groupChatWash,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       padding: const EdgeInsets.symmetric(
@@ -238,7 +218,7 @@ class Sidebar extends StatelessWidget {
                         children: [
                           Icon(
                             Icons.group_add,
-                            color: const Color(0xFF7C3AED),
+                            color: NavColors.groupChat,
                             size: 22,
                           ),
                           const SizedBox(width: 12),
@@ -246,7 +226,7 @@ class Sidebar extends StatelessWidget {
                             child: Text(
                               'Create Group Chat',
                               style: TextStyle(
-                                color: const Color(0xFF7C3AED),
+                                color: NavColors.groupChat,
                                 fontWeight: FontWeight.w600,
                               ),
                               overflow: TextOverflow.ellipsis,
@@ -337,7 +317,7 @@ class Sidebar extends StatelessWidget {
                           children: [
                             const Icon(
                               Icons.discord,
-                              color: Color(0xFF5865F2), // Discord brand blurple
+                              color: NavColors.discord,
                               size: 22,
                             ),
                             const SizedBox(width: 12),
@@ -374,7 +354,7 @@ class Sidebar extends StatelessWidget {
                           children: [
                             const Icon(
                               Icons.coffee_outlined,
-                              color: Color(0xFFFF5E5B), // Ko-fi brand coral
+                              color: NavColors.kofi,
                               size: 22,
                             ),
                             const SizedBox(width: 12),
@@ -411,12 +391,12 @@ class Sidebar extends StatelessWidget {
                       const SizedBox(width: 8),
                       GestureDetector(
                         onTap: () => UpdateDialog.show(context),
-                        child: const Tooltip(
+                        child: Tooltip(
                           message: 'Update available!',
                           child: Icon(
                             Icons.arrow_circle_up,
                             size: 18,
-                            color: Colors.greenAccent,
+                            color: StatusColors.successOf(context),
                           ),
                         ),
                       ),

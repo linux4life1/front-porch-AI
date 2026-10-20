@@ -18,6 +18,7 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/chance_time_palette.dart';
 
 /// Falling confetti for the Chance Time "Fortune!" reveal, driven by a 0→1
 /// [progress] value.
@@ -35,13 +36,7 @@ class ConfettiPainter extends CustomPainter {
     return Confetto(
       x: rng.nextDouble(),
       startY: -0.2 - rng.nextDouble() * 0.4,
-      color: [
-        const Color(0xFF06D6A0),
-        const Color(0xFFFFD166),
-        const Color(0xFFFF6B9D),
-        const Color(0xFF9B5DE5),
-        const Color(0xFF118AB2),
-      ][i % 5],
+      color: ChanceTimePalette.confetti[i % ChanceTimePalette.confetti.length],
       size: 5 + rng.nextDouble() * 6,
       speed: 0.6 + rng.nextDouble() * 0.4,
     );

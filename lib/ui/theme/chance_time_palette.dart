@@ -50,6 +50,9 @@ class ChanceTimePalette {
   /// The calm end of the chaos pressure scale.
   static const Color calm = Color(0xFF2EC4B6);
 
+  static const Color pink = Color(0xFFFF6B9D);
+  static const Color blue = Color(0xFF118AB2);
+
   /// Wheel segment colours, in slot order.
   static const List<Color> segments = [
     misfortune, // red
@@ -57,8 +60,15 @@ class ChanceTimePalette {
     calm, // teal
     wildCard, // purple
     fortune, // green
-    Color(0xFFFF6B9D), // pink
+    pink,
     gold, // amber
-    Color(0xFF118AB2), // blue
+    blue,
   ];
+
+  /// Confetti colours, in drop order.
+  static const List<Color> confetti = [fortune, gold, pink, wildCard, blue];
+
+  /// The line between wheel segments, and the pointer's outline.
+  static const Color segmentEdge = Colors.black45;
+  static const Color pointerEdge = Colors.black54;
 }

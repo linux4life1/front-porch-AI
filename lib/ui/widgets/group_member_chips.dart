@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/needs_bar.dart';
 
 // The compact chips a NON-expanded group member card shows, plus the emotion
@@ -102,36 +102,6 @@ class MiniNeedChip extends StatelessWidget {
   }
 }
 
-/// The ring drawn around a member's avatar, coloured by their current emotion.
-///
-/// A semantic legend rather than chrome — the whole point is that grief and
-/// anger do not look alike — which is why these stay off the warm-porch
-/// palette. Moved verbatim; unrecognised labels fall back to grey.
-// theme-keep: emotion legend — the hues ARE the meaning, and were approved as
-// semantic when this card shipped.
-Color emotionRingColor(String emotion) {
-  switch (emotion.toLowerCase()) {
-    case 'joy':
-    case 'amusement':
-    case 'excitement':
-      return Colors.amber;
-    case 'sadness':
-    case 'grief':
-    case 'disappointment':
-      return Colors.blueGrey;
-    case 'anger':
-    case 'annoyance':
-      return Colors.redAccent;
-    case 'fear':
-    case 'nervousness':
-      return Colors.deepPurpleAccent;
-    case 'affection':
-    case 'love':
-      return Colors.pinkAccent;
-    case 'anticipation':
-    case 'desire':
-      return Colors.orangeAccent;
-    default:
-      return Colors.grey;
-  }
-}
+/// The ring drawn around a member's avatar, coloured by their current
+/// emotion. The legend lives in [RealismColors.emotionRing].
+Color emotionRingColor(String emotion) => RealismColors.emotionRing(emotion);

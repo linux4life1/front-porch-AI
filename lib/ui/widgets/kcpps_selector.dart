@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:path/path.dart' as p;
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/guarded_picker.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -122,11 +122,11 @@ class _KcppsSelectorState extends State<KcppsSelector> {
 
     if (hasModel && fileExists) {
       icon = Icons.check_circle;
-      color = Colors.greenAccent;
+      color = StatusColors.successOf(context);
       text = 'Model: ${p.basename(modelPath!)}';
     } else if (hasModel) {
       icon = Icons.warning_amber_rounded;
-      color = Colors.orangeAccent;
+      color = StatusColors.warningOf(context);
       text = 'Model file not found';
     } else {
       icon = Icons.remove_circle_outline;

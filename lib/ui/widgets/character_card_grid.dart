@@ -7,7 +7,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/ui/pages/home/library_selection.dart';
 import 'package:front_porch_ai/ui/pages/home/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid/character_library_grid.dart';
 import 'package:front_porch_ai/ui/widgets/library_view.dart';
 import 'package:front_porch_ai/models/models.dart';
@@ -285,10 +285,8 @@ class CharacterCardGrid extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.black.withValues(alpha: 0.3),
-                      Colors.black.withValues(alpha: 0.1),
+                    color: InkColors.dim(
+                      AppColors.isLight(context) ? 0.1 : 0.3,
                     ),
                     blurRadius: 8,
                     offset: const Offset(0, -2),
@@ -375,10 +373,8 @@ class CharacterCardGrid extends StatelessWidget {
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.black.withValues(alpha: 0.3),
-                      Colors.black.withValues(alpha: 0.1),
+                    color: InkColors.dim(
+                      AppColors.isLight(context) ? 0.1 : 0.3,
                     ),
                     blurRadius: 8,
                     offset: const Offset(0, -2),
@@ -419,10 +415,8 @@ class CharacterCardGrid extends StatelessWidget {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.formAccentOf(context),
                       foregroundColor: AppColors.onAccentOf(context),
-                      disabledBackgroundColor: AppColors.resolve(
+                      disabledBackgroundColor: InkColors.disabledFillOf(
                         context,
-                        Colors.white10,
-                        Colors.black12,
                       ),
                     ),
                   ),

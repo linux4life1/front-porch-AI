@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/web/web_server_host.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Full-screen overlay that blocks the Flutter desktop UI when a remote
 /// web client is connected via the HTTP server.
@@ -39,7 +39,7 @@ class RemoteLockOverlay extends StatelessWidget {
 
         return Positioned.fill(
           child: Material(
-            color: AppColors.background,
+            color: AppColors.backgroundOf(context),
             child: Center(
               child: SizedBox(
                 width: 480,
@@ -51,10 +51,10 @@ class RemoteLockOverlay extends StatelessWidget {
                     const SizedBox(height: 32),
 
                     // Title
-                    const Text(
+                    Text(
                       'Remote Client Connected',
                       style: TextStyle(
-                        color: Colors.white,
+                        color: AppColors.textPrimary(context),
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         letterSpacing: -0.5,
@@ -67,7 +67,7 @@ class RemoteLockOverlay extends StatelessWidget {
                       'The local interface is locked while a device is\nconnected via the web server.',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white.withValues(alpha: 0.5),
+                        color: InkColors.mutedTextOf(context, 0.5),
                         fontSize: 14,
                         height: 1.5,
                       ),
@@ -78,10 +78,10 @@ class RemoteLockOverlay extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
-                        color: Colors.white.withValues(alpha: 0.05),
+                        color: AppColors.hairlineOf(context, 0.05),
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: AppColors.hairlineOf(context, 0.1),
                         ),
                       ),
                       child: Column(
@@ -118,8 +118,8 @@ class RemoteLockOverlay extends StatelessWidget {
                           ),
                         ),
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.redAccent.shade700,
-                          foregroundColor: Colors.white,
+                          backgroundColor: StatusColors.dangerFill,
+                          foregroundColor: StatusColors.onFill,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
@@ -158,7 +158,7 @@ class _InfoRow extends StatelessWidget {
         Text(
           '$label:',
           style: TextStyle(
-            color: Colors.white.withValues(alpha: 0.5),
+            color: InkColors.mutedTextOf(context, 0.5),
             fontSize: 13,
           ),
         ),
@@ -166,8 +166,8 @@ class _InfoRow extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: const TextStyle(
-              color: Colors.white,
+            style: TextStyle(
+              color: AppColors.textPrimary(context),
               fontSize: 13,
               fontWeight: FontWeight.w500,
             ),
@@ -237,7 +237,7 @@ class _PulsingIconState extends State<_PulsingIcon>
           child: const Icon(
             Icons.wifi_tethering,
             size: 40,
-            color: Colors.white,
+            color: InkColors.onImage,
           ),
         );
       },

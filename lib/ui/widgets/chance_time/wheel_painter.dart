@@ -18,6 +18,7 @@
 
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/theme/chance_time_palette.dart';
 
 /// Paints the Chance Time wheel: eight coloured segments, one emoji per slot,
 /// and the gold rim.
@@ -72,7 +73,7 @@ class WheelPainter extends CustomPainter {
         segmentAngle,
         true,
         Paint()
-          ..color = Colors.black45
+          ..color = ChanceTimePalette.segmentEdge
           ..strokeWidth = 2
           ..style = PaintingStyle.stroke,
       );
@@ -101,7 +102,7 @@ class WheelPainter extends CustomPainter {
       center,
       radius - 2,
       Paint()
-        ..color = const Color(0xFFFFD166)
+        ..color = ChanceTimePalette.gold
         ..style = PaintingStyle.stroke
         ..strokeWidth = 6,
     );
@@ -124,13 +125,13 @@ class PointerPainter extends CustomPainter {
     canvas.drawPath(
       path,
       Paint()
-        ..color = const Color(0xFFFFD166)
+        ..color = ChanceTimePalette.gold
         ..style = PaintingStyle.fill,
     );
     canvas.drawPath(
       path,
       Paint()
-        ..color = Colors.black54
+        ..color = ChanceTimePalette.pointerEdge
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5,
     );

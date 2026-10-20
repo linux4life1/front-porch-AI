@@ -61,12 +61,7 @@ class DescriptionDetailChipRow extends StatelessWidget {
                   p?.raise ?? AppColors.surfaceContainerOf(context),
               labelStyle: TextStyle(
                 color: isSelected
-                    ? p?.chipSelectedInk ??
-                          AppColors.resolve(
-                            context,
-                            Colors.white,
-                            Colors.black87,
-                          )
+                    ? p?.chipSelectedInk ?? AppColors.textPrimary(context)
                     : p?.ink ?? AppColors.textSecondary(context),
                 fontSize: 13,
               ),

@@ -116,6 +116,7 @@ List<Widget> messageBubbleContentChildren(
         themePreset: theme.preset,
         themeOverrides: theme.overrides,
         find: FindHighlightScope.maybeOf(context)?.leafStateFor(message),
+        onPage: message.characterId == '__director__',
       ),
   ];
   return [

@@ -20,7 +20,7 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -121,12 +121,14 @@ class _LocalModelCardState extends State<LocalModelCard> {
                               vertical: 2,
                             ),
                             decoration: BoxDecoration(
-                              color: _getQuantColor(
+                              color: ModelColors.quantOf(
+                                context,
                                 widget.model.quantType.colorCategory,
                               ).withValues(alpha: 0.15),
                               borderRadius: BorderRadius.circular(4),
                               border: Border.all(
-                                color: _getQuantColor(
+                                color: ModelColors.quantOf(
+                                  context,
                                   widget.model.quantType.colorCategory,
                                 ).withValues(alpha: 0.3),
                               ),
@@ -134,7 +136,8 @@ class _LocalModelCardState extends State<LocalModelCard> {
                             child: Text(
                               widget.model.quantType.label,
                               style: TextStyle(
-                                color: _getQuantColor(
+                                color: ModelColors.quantOf(
+                                  context,
                                   widget.model.quantType.colorCategory,
                                 ),
                                 fontSize: 10,
@@ -198,13 +201,7 @@ class _LocalModelCardState extends State<LocalModelCard> {
                         Container(
                           height: 4,
                           decoration: BoxDecoration(
-                            color: AppColors.resolve(
-                              context,
-                              Colors.white.withValues(alpha: 0.1),
-                              AppColors.borderOf(
-                                context,
-                              ).withValues(alpha: 0.3),
-                            ),
+                            color: InkColors.trackOf(context),
                             borderRadius: BorderRadius.circular(2),
                           ),
                           child: FractionallySizedBox(
@@ -300,28 +297,9 @@ class _LocalModelCardState extends State<LocalModelCard> {
     );
   }
 
-  Color _getQuantColor(String category) {
-    switch (category) {
-      case 'red':
-        return const Color(0xFFFF5252);
-      case 'orange':
-        return const Color(0xFFFFB74D);
-      case 'yellow':
-        return const Color(0xFFFFD54F);
-      case 'green':
-        return const Color(0xFF69F0AE);
-      case 'blue':
-        return const Color(0xFF40C4FF);
-      case 'purple':
-        return const Color(0xFFB388FF);
-      default:
-        return Colors.grey;
-    }
-  }
-
   Color _getUsageColor(double percent) {
-    if (percent > 0.9) return const Color(0xFFFF5252);
-    if (percent > 0.7) return const Color(0xFFFFB74D);
-    return const Color(0xFF69F0AE);
+    if (percent > 0.9) return ModelColors.redOf(context);
+    if (percent > 0.7) return ModelColors.orangeOf(context);
+    return ModelColors.greenOf(context);
   }
 }

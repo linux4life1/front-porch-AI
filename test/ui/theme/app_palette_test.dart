@@ -323,6 +323,21 @@ void main() {
               'buffering': ChatColors.bufferingOf(c),
               'generating': ChatColors.generatingOf(c),
               'speed': ChatColors.speedOf(c),
+              'quote': ChatColors.quoteInkOf(c),
+              'narration': ChatColors.narrationInkOf(c),
+              'macro': ChatColors.macroInkOf(c),
+              'energy bar': RealismColors.energyBarOf(c),
+              for (final v in [90, 60, 30, 10, -10, -30, -60, -90])
+                'feeling $v': RealismColors.feelingScaleOf(c, v),
+              for (final q in ['red', 'orange', 'yellow', 'green', 'blue', 'x'])
+                'quant $q': ModelColors.quantOf(c, q),
+              'quant purple': ModelColors.purpleOf(c),
+              'stoop': NavColors.stoopOf(c),
+              'creator': NavColors.creatorOf(c),
+              'group chat': NavColors.groupChat,
+              'caution': StatusColors.cautionOf(c),
+              'progress': StatusColors.progressOf(c),
+              'optional': AppColors.optionalAccentOf(c),
             };
             return const SizedBox();
           },

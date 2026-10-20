@@ -32,6 +32,18 @@ class ChatColors {
   static Color thoughtInkOf(BuildContext context) =>
       AppColors.resolve(context, Colors.tealAccent, const Color(0xFF00695C));
 
+  /// Live markup in text boxes: "spoken lines", *narration* and
+  /// {{macros}}.
+  static Color quoteInkOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.amberAccent, const Color(0xFF92400E));
+  static Color narrationInkOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFF90CAF9),
+    const Color(0xFF1565C0),
+  );
+  static Color macroInkOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.tealAccent, const Color(0xFF00695C));
+
   /// Director notes in the transcript.
   static Color directorOf(BuildContext context) => AppColors.resolve(
     context,
