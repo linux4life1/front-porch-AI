@@ -83,7 +83,7 @@ Future<CreatorState> _pump(WidgetTester tester, StorageService storage) async {
 /// A lit pill draws its label in the on-amber ink.
 bool _lit(WidgetTester tester, String label) =>
     tester.widget<Text>(find.text(label)).style?.color ==
-    AppColors.onChaosAccent;
+    AppColors.onAccentOf(tester.element(find.text(label)));
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();

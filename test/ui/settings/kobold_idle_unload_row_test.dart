@@ -42,7 +42,7 @@ void main() {
 
     bool chosen(String label) =>
         tester.widget<Text>(find.text(label)).style?.color ==
-        AppColors.onChaosAccent;
+        AppColors.onAccentOf(tester.element(find.text(label)));
 
     expect(find.text('Free graphics memory when idle'), findsOneWidget);
     expect(find.textContaining('takes longer to start'), findsOneWidget);

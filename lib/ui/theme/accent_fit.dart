@@ -55,7 +55,8 @@ class FittedAccent {
 
 /// Fits a user-picked accent to a palette: the pick's lightness is nudged
 /// toward white (dark palettes) or black (light palettes) until it reads at
-/// [minRatio] on every panel the accent is drawn on.
+/// [minRatio] on every panel the accent is drawn on, and its ink reads at
+/// 4.5:1 on it (a mid-tone fill has no ink that does).
 FittedAccent fitAccent(
   Color pick,
   AppPalette palette, {
@@ -78,7 +79,8 @@ FittedAccent fitAccent(
 }
 
 bool _reads(Color c, List<Color> grounds, double minRatio) =>
-    grounds.every((g) => contrastRatio(c, g) >= minRatio);
+    grounds.every((g) => contrastRatio(c, g) >= minRatio) &&
+    contrastRatio(inkOn(c), c) >= 4.5;
 
 /// [base] with every accent role replaced by [pick], fitted per brightness.
 AppThemePalettes withCustomAccent(
