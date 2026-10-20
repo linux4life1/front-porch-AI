@@ -21,17 +21,24 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:front_porch_ai/services/storage/storage.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 const _channel = MethodChannel('front_porch_ai/launch_window');
 
 /// The saved theme's window background at the current brightness, read
-/// from [prefs] before the first frame.
+/// from [prefs] before the first frame. A mistyped saved value falls back
+/// to Porch dark rather than stopping the launch.
 Color launchBackground(SharedPreferences prefs) {
-  final appearance = AppearanceSettings()
-    ..initializeBase(prefs, () {})
-    ..load();
-  return appearance.activePalette.background;
+  try {
+    final appearance = AppearanceSettings()
+      ..initializeBase(prefs, () {})
+      ..load();
+    return appearance.activePalette.background;
+  } catch (e) {
+    debugPrint('[Window] saved theme unreadable, using Porch: $e');
+    return AppThemePalettes.porch.dark.background;
+  }
 }
 
 /// Paints the native view behind Flutter in [color] before the window is

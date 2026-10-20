@@ -78,7 +78,7 @@ class AppTheme {
             brightness: brightness,
           ).copyWith(
             primary: palette.amber,
-            onPrimary: isDark ? palette.onAccent : Colors.white,
+            onPrimary: palette.onAccent,
             surface: palette.surface,
           ),
       scaffoldBackgroundColor: palette.background,

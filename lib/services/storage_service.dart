@@ -162,12 +162,26 @@ class StorageService extends ChangeNotifier {
   /// settings now, so the first frame is already in the saved theme.
   StorageService({SharedPreferences? bootPrefs}) {
     if (bootPrefs != null) {
-      _appearance
-        ..initializeBase(bootPrefs, notifyListeners)
-        ..load();
-      _uiSettings
-        ..initializeBase(bootPrefs, notifyListeners)
-        ..load();
+      // Guarded like _init's loads: a mistyped prefs value keeps the
+      // defaults instead of failing the first build. _init loads again.
+      void guarded(void Function() load) {
+        try {
+          load();
+        } catch (e) {
+          debugPrint('[Storage] boot settings load failed, defaults kept: $e');
+        }
+      }
+
+      guarded(
+        () => _appearance
+          ..initializeBase(bootPrefs, notifyListeners)
+          ..load(),
+      );
+      guarded(
+        () => _uiSettings
+          ..initializeBase(bootPrefs, notifyListeners)
+          ..load(),
+      );
     }
     _init();
   }

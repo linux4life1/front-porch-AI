@@ -215,4 +215,16 @@ void main() {
       expect(ui.userBubbleActionColorFor(null), mine);
     },
   );
+
+  testWidgets('a mistyped saved value cannot stop the launch', (tester) async {
+    setupPathProviderMock();
+    // A theme saved as a number and a reading size saved as text: the
+    // typed SharedPreferences getters throw on both.
+    await _boot({'app_theme': 5, 'text_scale': 'big'});
+    final prefs = await SharedPreferences.getInstance();
+    expect(launchBackground(prefs), AppThemePalettes.porch.dark.background);
+    final storage = StorageService(bootPrefs: prefs);
+    addTearDown(storage.dispose);
+    expect(storage.appearance.theme, AppThemeId.porch);
+  });
 }
