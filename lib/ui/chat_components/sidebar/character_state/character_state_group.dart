@@ -174,39 +174,6 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
             ),
           if (widget.isGroup && widget.groupMemberCard != null)
             widget.groupMemberCard!,
-          // ── Standing Mood ──
-          // OUTSIDE the realismOn gate on purpose. Standing Mood depends on
-          // nothing (it is derived from needs, the clock and the weather, none
-          // of which need the engine), so gating it here would be the exact
-          // dead-switch bug the Porch Life tab exists to end: the feature would
-          // still be colouring every reply while the user had no way to see it.
-          //
-          // It reads "Came in …" so it can never be mistaken for a reaction to
-          // something the user did — which is the whole point of the feature.
-          if (chat.standingMoodSummary.isNotEmpty) ...[
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(
-                  Icons.cloud_queue,
-                  size: 13,
-                  color: AppColors.textTertiary(context),
-                ),
-                const SizedBox(width: 5),
-                Expanded(
-                  child: Text(
-                    'Came in ${chat.standingMoodSummary}',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                      color: AppColors.textTertiary(context),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
           if (!widget.isGroup && realismOn) ...[
             // ── Unified bars (bond / trust / lust) ──
             BondBars(chat: chat),

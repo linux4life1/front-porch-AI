@@ -119,11 +119,6 @@ class ChatToolsSnapshot {
       // Objectives off ⇒ empty, matching the desktop sidebar row: quest
       // completion is the only thing that moves progress, so the web would
       // otherwise show a stage word frozen for the life of the chat.
-      // Standing Mood — the same string the desktop sidebar puts under the
-      // portrait, from the same getter, so the two can never disagree about
-      // what they walked in carrying. '' when the feature is off or the day is
-      // unremarkable.
-      'standingMood': _chat.standingMoodSummary,
       'ambitions':
           focusedCard == null ||
               (focused?.isLite ?? false) ||

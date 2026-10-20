@@ -1,20 +1,11 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Standing mood, ambitions, and the Objectives panel. Desktop twin is
+// Ambitions and the Objectives panel. Desktop twin is
 // chat_tools_facade.objectives.
 
 import { ObjectivesPanel } from './ObjectivesPanel';
 import { type ToolsApply, type ToolsState } from './ChatToolsShared';
-
-export function ChatToolsStandingMood({ t }: { t: ToolsState }) {
-  if (!t.standingMood) return null;
-  return (
-    <p className="muted small" style={{ margin: '0 0 10px', fontStyle: 'italic' }}>
-      🌤️ Came in {t.standingMood}
-    </p>
-  );
-}
 
 export function ChatToolsAmbitions({ t }: { t: ToolsState }) {
   if ((t.ambitions?.length ?? 0) === 0) return null;

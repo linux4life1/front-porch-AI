@@ -88,7 +88,6 @@ export interface ToolsState {
   };
   // Ambitions (Living Time §6, additive — absent on older facades).
   // `step` is the open quest climbing this ambition (v46); null when none.
-  standingMood?: string;
   ambitions?: Array<{ text: string; progress: number; stage: string; step?: string | null }>;
   // Pockets & Wardrobe (additive, null when the switch is off). set_aside:
   // parked in the scene, still theirs — clothing entries expire at the next
