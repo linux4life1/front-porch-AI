@@ -338,6 +338,13 @@ void main() {
               'caution': StatusColors.cautionOf(c),
               'progress': StatusColors.progressOf(c),
               'optional': AppColors.optionalAccentOf(c),
+              'amber': AccentColors.amberOf(c),
+              'teal': AccentColors.tealOf(c),
+              'chaos ink': AccentColors.chaosInkOf(c),
+              'emerald': AccentColors.emeraldOf(c),
+              'mint': AccentColors.mintOf(c),
+              'notice danger': StatusColors.noticeDangerOf(c),
+              'notice warn': StatusColors.noticeWarnOf(c),
             };
             return const SizedBox();
           },

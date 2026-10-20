@@ -17,7 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The character editor's shared section card, field and label builders,
@@ -162,11 +162,7 @@ class EditCharacterFormKit {
                     child: Icon(
                       Icons.open_in_full,
                       size: 14,
-                      color: AppColors.resolve(
-                        context,
-                        Colors.white.withValues(alpha: 0.25),
-                        Colors.black.withValues(alpha: 0.25),
-                      ),
+                      color: InkColors.washOf(context, 0.25, 0.25),
                     ),
                   ),
                 ),
@@ -230,13 +226,7 @@ class EditCharacterFormKit {
       ),
       disabledBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(10),
-        borderSide: BorderSide(
-          color: AppColors.resolve(
-            context,
-            Colors.white.withValues(alpha: 0.04),
-            Colors.black.withValues(alpha: 0.04),
-          ),
-        ),
+        borderSide: BorderSide(color: InkColors.washOf(context, 0.04, 0.04)),
       ),
       contentPadding: const EdgeInsets.all(14),
     );

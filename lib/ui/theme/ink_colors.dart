@@ -21,8 +21,20 @@ class InkColors {
   /// every theme, because it only has to push what is under it back.
   static Color dim(double alpha) => Colors.black.withValues(alpha: alpha);
 
+  /// A darkening layer whose strength differs by mode.
+  static Color dimOf(BuildContext context, double dark, double light) =>
+      AppColors.resolve(context, dim(dark), dim(light));
+
+  /// Drop shadows under raised cards and panels.
+  static const Color shadow = Color(0x59000000);
+  static const Color shadowDeep = Color(0x66000000);
+
   /// Text and icons laid over a picture, a dim or a gradient badge.
   static const Color onImage = Colors.white;
+
+  /// The scrim behind a name laid over a portrait.
+  static Color nameScrimOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.black87, Colors.black54);
 
   /// Secondary text. Dark mode keeps white at [alpha]; light mode uses the
   /// muted black that stays readable on paper.
@@ -112,7 +124,38 @@ class InkColors {
     Color dark = Colors.black12,
   }) => AppColors.resolve(context, dark, AppColors.cardOf(context));
 
-  /// A drag grip on a resizable edge.
+  /// A drag grip on a resizable edge, or an empty avatar's fill.
   static Color gripOf(BuildContext context) =>
       AppColors.resolve(context, Colors.white24, Colors.black12);
+
+  /// A drag handle bar.
+  static Color handleOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.white38, Colors.black38);
+
+  /// The outline of a soft home-screen button.
+  static Color outlineOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.white24, Colors.black26);
+
+  /// An unselected check circle on a card: its fill and its rim.
+  static Color checkWellOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.black54, Colors.black12);
+  static Color checkRimOf(BuildContext context) => handleOf(context);
+
+  /// The border of a small chip or pill.
+  static Color chipEdgeOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.white.withValues(alpha: 0.06),
+    AppColors.borderOf(context).withValues(alpha: 0.6),
+  );
+
+  /// A sunken row in a list, such as a lorebook entry.
+  static Color sunkenRowOf(BuildContext context) => AppColors.resolve(
+    context,
+    Colors.white.withValues(alpha: 0.02),
+    AppColors.surfaceContainerOf(context).withValues(alpha: 0.4),
+  );
+
+  /// A field set into a panel, such as the climate editor's inputs.
+  static Color insetFieldOf(BuildContext context) =>
+      AppColors.resolve(context, Colors.black26, Colors.white54);
 }

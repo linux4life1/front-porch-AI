@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'world_basics_section.dart';
 import 'world_edit_draft.dart';
@@ -280,9 +280,11 @@ void showWorldEditDialog(
                                         SnackBar(
                                           content: Row(
                                             children: [
-                                              const Icon(
+                                              Icon(
                                                 Icons.check_circle,
-                                                color: Colors.greenAccent,
+                                                color: StatusColors.successOf(
+                                                  context,
+                                                ),
                                                 size: 18,
                                               ),
                                               const SizedBox(width: 8),

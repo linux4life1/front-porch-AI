@@ -232,16 +232,19 @@ class _ChatPageState extends State<ChatPage> {
             children: [
               const Icon(
                 Icons.warning_amber_rounded,
-                color: Colors.white,
+                color: StatusColors.onFill,
                 size: 20,
               ),
               const SizedBox(width: 8),
               Expanded(
-                child: Text(error, style: const TextStyle(color: Colors.white)),
+                child: Text(
+                  error,
+                  style: const TextStyle(color: StatusColors.onFill),
+                ),
               ),
             ],
           ),
-          backgroundColor: const Color(0xFFB91C1C),
+          backgroundColor: StatusColors.errorToast,
           duration: const Duration(seconds: 6),
           behavior: SnackBarBehavior.floating,
           // Opt out of Flutter's persist-when-action default so the 6s duration
@@ -249,7 +252,7 @@ class _ChatPageState extends State<ChatPage> {
           persist: false,
           action: SnackBarAction(
             label: 'OK',
-            textColor: Colors.white70,
+            textColor: StatusColors.onFillMuted,
             onPressed: () {},
           ),
         ),

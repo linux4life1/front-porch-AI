@@ -24,7 +24,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/widgets/local_model_card.dart';
 import 'package:front_porch_ai/ui/widgets/download_queue_panel.dart';
 import 'package:front_porch_ai/ui/pages/model_manager/model_manager.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -93,7 +93,10 @@ class _ModelManagerPageState extends State<ModelManagerPage>
               ).deleteModel(path);
               Navigator.pop(context);
             },
-            child: Text('Delete', style: TextStyle(color: Colors.redAccent)),
+            child: Text(
+              'Delete',
+              style: TextStyle(color: StatusColors.dangerOf(context)),
+            ),
           ),
         ],
       ),
@@ -120,7 +123,7 @@ class _ModelManagerPageState extends State<ModelManagerPage>
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Model imported successfully!'),
-              backgroundColor: Colors.green,
+              backgroundColor: StatusColors.doneFill,
             ),
           );
         }
@@ -129,7 +132,7 @@ class _ModelManagerPageState extends State<ModelManagerPage>
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text('Import failed: $e'),
-              backgroundColor: Colors.redAccent,
+              backgroundColor: StatusColors.alertFill,
             ),
           );
         }
@@ -290,10 +293,10 @@ class _ModelManagerPageState extends State<ModelManagerPage>
                     ),
                   ),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.add_to_drive_rounded,
                       size: 18,
-                      color: Colors.amberAccent,
+                      color: AccentColors.amberOf(context),
                     ),
                     tooltip: 'Import from Computer',
                     onPressed: _importLocalModel,
@@ -302,10 +305,10 @@ class _ModelManagerPageState extends State<ModelManagerPage>
                   ),
                   const SizedBox(width: 4),
                   IconButton(
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.drive_file_move_rounded,
                       size: 18,
-                      color: Colors.orangeAccent,
+                      color: StatusColors.warningOf(context),
                     ),
                     tooltip: 'Change Models Folder',
                     onPressed: _changeModelsFolder,
@@ -316,10 +319,10 @@ class _ModelManagerPageState extends State<ModelManagerPage>
                       null) ...[
                     const SizedBox(width: 4),
                     IconButton(
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.restore_rounded,
                         size: 18,
-                        color: Colors.redAccent,
+                        color: StatusColors.dangerOf(context),
                       ),
                       tooltip: 'Reset to Default Folder',
                       onPressed: _resetModelsFolder,

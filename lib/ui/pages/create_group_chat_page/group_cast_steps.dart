@@ -23,7 +23,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'create_group_chat_page.dart';
@@ -103,21 +103,13 @@ class GroupMembersStep extends StatelessWidget {
                   vertical: 2,
                 ),
                 decoration: BoxDecoration(
-                  color: AppColors.resolve(
-                    context,
-                    Colors.redAccent.withValues(alpha: 0.15),
-                    Colors.red.withValues(alpha: 0.15),
-                  ),
+                  color: StatusColors.dangerWashOf(context, 0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
                   'Minimum 2 required',
                   style: TextStyle(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.redAccent,
-                      Colors.red.shade700,
-                    ),
+                    color: StatusColors.dangerOf(context),
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -272,11 +264,7 @@ class GroupIdentityStep extends StatelessWidget {
             children: [
               Icon(
                 Icons.movie_creation,
-                color: AppColors.resolve(
-                  context,
-                  Colors.amberAccent,
-                  Colors.amber.shade700,
-                ),
+                color: AccentColors.amberOf(context),
                 size: 18,
               ),
               const SizedBox(width: 6),
@@ -288,11 +276,7 @@ class GroupIdentityStep extends StatelessWidget {
           ),
           value: draft.directorMode,
           onChanged: (v) => draft.update(() => draft.directorMode = v),
-          activeThumbColor: AppColors.resolve(
-            context,
-            Colors.amberAccent,
-            Colors.amber.shade700,
-          ),
+          activeThumbColor: AccentColors.amberOf(context),
         ),
 
         GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 1),

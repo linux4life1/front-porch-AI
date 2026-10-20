@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 import 'create_group_chat_page.dart';
@@ -137,24 +137,12 @@ class GroupReviewStep extends StatelessWidget {
               if (d.chaosModeEnabled)
                 Text(
                   'Chaos Mode enabled',
-                  style: TextStyle(
-                    color: AppColors.resolve(
-                      context,
-                      const Color(0xFFFFD166),
-                      const Color(0xFFB45309),
-                    ),
-                  ),
+                  style: TextStyle(color: AccentColors.chaosInkOf(context)),
                 ),
               if (d.directorMode)
                 Text(
                   'Director Mode',
-                  style: TextStyle(
-                    color: AppColors.resolve(
-                      context,
-                      Colors.amberAccent,
-                      Colors.amber.shade700,
-                    ),
-                  ),
+                  style: TextStyle(color: AccentColors.amberOf(context)),
                 ),
               Text(
                 d.realismEnabled
@@ -162,11 +150,7 @@ class GroupReviewStep extends StatelessWidget {
                     : 'Realism Engine: Disabled for group',
                 style: TextStyle(
                   color: d.realismEnabled
-                      ? AppColors.resolve(
-                          context,
-                          Colors.tealAccent,
-                          Colors.teal.shade700,
-                        )
+                      ? AccentColors.tealOf(context)
                       : AppColors.textSecondary(context),
                 ),
               ),

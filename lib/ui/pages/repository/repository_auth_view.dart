@@ -14,7 +14,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The login / create-account gate shown when no repository account is signed
 /// in. On success, [AuthState] flips to logged-in and the parent page swaps
@@ -243,7 +243,7 @@ class _RepositoryAuthViewState extends State<RepositoryAuthView> {
               border: Border.all(color: stoopBorder(context)),
               boxShadow: [
                 const BoxShadow(
-                  color: Color(0x59000000),
+                  color: InkColors.shadow,
                   blurRadius: 30,
                   offset: Offset(0, 10),
                 ),

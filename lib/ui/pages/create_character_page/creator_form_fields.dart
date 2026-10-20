@@ -20,7 +20,7 @@
 // build their forms from.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 class CreatorInputLabel extends StatelessWidget {
@@ -42,7 +42,7 @@ class CreatorInputLabel extends StatelessWidget {
           ),
         ),
         if (required)
-          const Text(' *', style: TextStyle(color: Colors.redAccent)),
+          Text(' *', style: TextStyle(color: StatusColors.dangerOf(context))),
       ],
     );
   }
@@ -100,10 +100,10 @@ class CreatorExpandableField extends StatelessWidget {
                 title: label,
                 controller: controller,
               ),
-              icon: const Icon(
+              icon: Icon(
                 Icons.open_in_full,
                 size: 16,
-                color: Colors.white38,
+                color: AppColors.textTertiary(context),
               ),
               tooltip: 'Expand editor',
               visualDensity: VisualDensity.compact,
@@ -114,8 +114,8 @@ class CreatorExpandableField extends StatelessWidget {
         AppTextField(
           controller: controller,
           maxLines: maxLines,
-          style: const TextStyle(
-            color: Colors.white,
+          style: TextStyle(
+            color: AppColors.textPrimary(context),
             fontSize: 14,
             height: 1.5,
           ),

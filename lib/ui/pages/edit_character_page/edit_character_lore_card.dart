@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// One lorebook entry row on the editor's Lorebook tab. The enable switch
 /// writes [LorebookEntry.enabled] in place and then calls [onChanged].
@@ -179,11 +179,7 @@ class EditCharacterLoreCard extends StatelessWidget {
                         vertical: 1,
                       ),
                       decoration: BoxDecoration(
-                        color: AppColors.resolve(
-                          context,
-                          Colors.white.withValues(alpha: 0.05),
-                          Colors.black.withValues(alpha: 0.05),
-                        ),
+                        color: InkColors.washOf(context, 0.05, 0.05),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Text(

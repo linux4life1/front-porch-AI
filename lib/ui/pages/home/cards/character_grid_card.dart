@@ -26,7 +26,7 @@ import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card_face.dart
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show kFolderDragHoldDelay;
 import 'package:front_porch_ai/utils/utils.dart';
@@ -179,7 +179,7 @@ class CharacterGridCard extends StatelessWidget {
       style: TextStyle(
         fontSize: 9,
         fontWeight: FontWeight.bold,
-        color: Colors.white,
+        color: StatusColors.onFill,
       ),
     ),
   );
@@ -259,27 +259,23 @@ class CharacterGridCard extends StatelessWidget {
                       ? (isOrganizing
                             ? AppColors.porchHoneyOf(context)
                             : AppColors.porchTerracottaOf(context))
-                      : AppColors.resolve(
-                          context,
-                          Colors.black54,
-                          Colors.black12,
-                        ),
+                      : InkColors.checkWellOf(context),
                   shape: BoxShape.circle,
                   border: Border.all(
                     color: isSelectedCard
                         ? (isOrganizing
                               ? AppColors.porchHoneyOf(context)
                               : AppColors.porchTerracottaOf(context))
-                        : AppColors.resolve(
-                            context,
-                            Colors.white38,
-                            Colors.black38,
-                          ),
+                        : InkColors.checkRimOf(context),
                     width: 2,
                   ),
                 ),
                 child: isSelectedCard
-                    ? const Icon(Icons.check, size: 16, color: Colors.white)
+                    ? const Icon(
+                        Icons.check,
+                        size: 16,
+                        color: StatusColors.onFill,
+                      )
                     : null,
               ),
             ),

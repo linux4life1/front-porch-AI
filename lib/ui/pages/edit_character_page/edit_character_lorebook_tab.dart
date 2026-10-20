@@ -19,7 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_lore_card.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The character editor's Lorebook tab. The page owns the entry list and the
 /// import / export / add / edit / remove actions; this tab only lays them out.
@@ -164,11 +164,7 @@ class EditCharacterLorebookTab extends StatelessWidget {
                         Icon(
                           Icons.menu_book_outlined,
                           size: 48,
-                          color: AppColors.resolve(
-                            context,
-                            Colors.white.withValues(alpha: 0.12),
-                            Colors.black.withValues(alpha: 0.12),
-                          ),
+                          color: InkColors.washOf(context, 0.12, 0.12),
                         ),
                         const SizedBox(height: 12),
                         Text(

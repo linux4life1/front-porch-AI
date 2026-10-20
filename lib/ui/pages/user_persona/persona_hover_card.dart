@@ -17,7 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Hover Scale Card — glassmorphic persona card with micro-animations
@@ -113,11 +113,7 @@ class _PersonaHoverScaleCardState extends State<PersonaHoverScaleCard>
                       BoxShadow(
                         color: widget.isActive
                             ? widget.accentColor.withValues(alpha: 0.08)
-                            : AppColors.resolve(
-                                context,
-                                Colors.white.withValues(alpha: 0.02),
-                                Colors.black.withValues(alpha: 0.04),
-                              ),
+                            : InkColors.washOf(context, 0.02, 0.04),
                         blurRadius: 16,
                         spreadRadius: -4,
                       ),

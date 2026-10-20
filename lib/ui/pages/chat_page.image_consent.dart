@@ -27,7 +27,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The chat page's answer to "may this chat load images from the internet?".
 /// [allowed] is null until asked; [onDecided] rebuilds the owning page after
@@ -72,9 +72,9 @@ class ExternalImageConsent {
       builder: (ctx) => AlertDialog(
         backgroundColor: AppColors.cardOf(ctx),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        icon: const Icon(
+        icon: Icon(
           Icons.shield_outlined,
-          color: Colors.orangeAccent,
+          color: StatusColors.warningOf(ctx),
           size: 36,
         ),
         title: Text(
@@ -118,7 +118,7 @@ class ExternalImageConsent {
             Text(
               'The source has not been verified as safe.',
               style: TextStyle(
-                color: Colors.orangeAccent.withValues(alpha: 0.8),
+                color: StatusColors.warningOf(ctx).withValues(alpha: 0.8),
                 fontSize: 12,
                 fontWeight: FontWeight.w600,
               ),
@@ -136,8 +136,8 @@ class ExternalImageConsent {
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.orangeAccent,
-              foregroundColor: Colors.black87,
+              backgroundColor: StatusColors.warningFill,
+              foregroundColor: StatusColors.onWarningFill,
             ),
             child: const Text('Accept Risk & Load'),
           ),
@@ -176,7 +176,7 @@ Widget _buildRiskItem(BuildContext context, IconData icon, String text) {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 16, color: Colors.orangeAccent),
+        Icon(icon, size: 16, color: StatusColors.warningOf(context)),
         const SizedBox(width: 8),
         Expanded(
           child: Text(

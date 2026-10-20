@@ -20,7 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/utils.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'user_persona/user_persona.dart';
@@ -162,9 +162,9 @@ class _UserPersonaPageState extends State<UserPersonaPage>
           SnackBar(
             content: Row(
               children: [
-                const Icon(
+                Icon(
                   Icons.check_circle,
-                  color: Colors.greenAccent,
+                  color: StatusColors.successOf(context),
                   size: 18,
                 ),
                 const SizedBox(width: 8),
@@ -210,9 +210,9 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.download_done,
-                    color: Colors.greenAccent,
+                    color: StatusColors.successOf(context),
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -231,9 +231,9 @@ class _UserPersonaPageState extends State<UserPersonaPage>
             SnackBar(
               content: Row(
                 children: [
-                  const Icon(
+                  Icon(
                     Icons.error_outline,
-                    color: Colors.redAccent,
+                    color: StatusColors.dangerOf(context),
                     size: 18,
                   ),
                   const SizedBox(width: 8),
@@ -323,7 +323,10 @@ class _UserPersonaPageState extends State<UserPersonaPage>
                   onPressed: _importPersona,
                 ),
                 IconButton(
-                  icon: const Icon(Icons.upload, color: Colors.amberAccent),
+                  icon: Icon(
+                    Icons.upload,
+                    color: AccentColors.amberOf(context),
+                  ),
                   tooltip: 'Export Personas (JSON)',
                   onPressed: _showExportDialog,
                 ),
@@ -440,8 +443,8 @@ class _UserPersonaPageState extends State<UserPersonaPage>
               Navigator.of(context).pop();
             },
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              foregroundColor: Colors.white,
+              backgroundColor: StatusColors.alertFill,
+              foregroundColor: StatusColors.onFill,
             ),
             child: const Text('Delete'),
           ),

@@ -51,6 +51,7 @@ class ChatManagementMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final logInk = StatusColors.successOf(context);
     return PopupMenuButton<String>(
       icon: Icon(Icons.folder_open, color: AppColors.iconSecondary(context)),
       padding: EdgeInsets.zero,
@@ -176,13 +177,13 @@ class ChatManagementMenu extends StatelessWidget {
               ),
             ),
           const PopupMenuDivider(),
-          const PopupMenuItem(
+          PopupMenuItem(
             value: 'kobold_log',
             child: Row(
               children: [
-                Icon(Icons.terminal, size: 20, color: Colors.greenAccent),
-                SizedBox(width: 12),
-                Text('KoboldCpp Log'),
+                Icon(Icons.terminal, size: 20, color: logInk),
+                const SizedBox(width: 12),
+                const Text('KoboldCpp Log'),
               ],
             ),
           ),
@@ -225,6 +226,7 @@ class ChatInputActionStrip {
   /// The buttons, spread into the bar's Row (a spread of the same widgets in
   /// the same order is an identical child list).
   List<Widget> build(BuildContext context) {
+    final danger = StatusColors.dangerOf(context);
     return <Widget>[
       // Image Generation: the magic-wand button opens the Image
       // Studio, where the user picks a Subject (Freeform / Character
@@ -320,7 +322,7 @@ class ChatInputActionStrip {
       Tooltip(
         message: 'Impersonate (AI writes your message)',
         child: IconButton(
-          icon: const Icon(Icons.auto_fix_high, color: Colors.amberAccent),
+          icon: Icon(Icons.auto_fix_high, color: AccentColors.amberOf(context)),
           padding: EdgeInsets.zero,
           onPressed: chatService.isGenerating
               ? null
@@ -367,7 +369,7 @@ class ChatInputActionStrip {
               icon: Icon(
                 sttService.isRecording ? Icons.stop_circle : Icons.mic,
                 color: sttService.isRecording
-                    ? Colors.redAccent
+                    ? danger
                     : AppColors.iconSecondary(context),
               ),
               onPressed: chatService.isGenerating
@@ -446,7 +448,7 @@ class ChatInputActionStrip {
               : chatService.startAutoPlay,
           onNextCharacter: chatService.triggerNextCharacter,
           playColor: AppColors.porchAmberOf(context),
-          pauseColor: Colors.orangeAccent,
+          pauseColor: StatusColors.warningOf(context),
           nextColor: Colors.purpleAccent, // theme-keep: director Next, not Play
         ),
       // Generate reply button (1:1 only) — shown when the AI is
@@ -462,13 +464,13 @@ class ChatInputActionStrip {
         Tooltip(
           message: 'Generate reply ($chatRegenShortcutLabel)',
           child: IconButton(
-            icon: const Icon(Icons.refresh, color: Colors.orangeAccent),
+            icon: Icon(Icons.refresh, color: ChatColors.regenOf(context)),
             onPressed: () => chatService.regenerateLastMessage(),
           ),
         ),
       chatService.isGenerating
           ? IconButton(
-              icon: const Icon(Icons.stop_circle, color: Colors.redAccent),
+              icon: Icon(Icons.stop_circle, color: danger),
               tooltip: chatService.autoPlayActive
                   ? 'Stop Auto-Chat'
                   : 'Stop Generation',

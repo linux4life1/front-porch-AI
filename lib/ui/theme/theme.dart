@@ -8,6 +8,7 @@
 // the Free Software Foundation, either version 3 of the License, or
 // (at your option) any later version.
 
+export 'accent_colors.dart';
 export 'app_colors.dart';
 export 'app_palette.dart';
 export 'app_theme.dart';
