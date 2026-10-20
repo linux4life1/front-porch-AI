@@ -227,9 +227,9 @@ export function ImageCropModal({
     if (fill !== 'transparent') {
       ctx.fillStyle =
         fill === 'white'
-          ? '#ffffff'
+          ? '#ffffff' // theme-keep: real white fill baked into the image
           : getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() ||
-            '#1b1611';
+            '#1b1611'; // theme-keep: real dark fill baked into the image
       ctx.fillRect(0, 0, outW, outH);
     }
     // Draw only the image∩crop intersection at its offset — negative source

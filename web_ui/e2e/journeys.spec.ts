@@ -1465,3 +1465,35 @@ test('a fresh chat shows the greeting with names, not placeholders', { tag: SERI
     expect(gone.ok(), `deleting the journey character: ${gone.status()}`).toBe(true);
   }
 });
+
+// The web follows the desktop's theme: flipping the desktop's Dark Mode
+// from here repaints this page with the palette the desktop resolved, a
+// reload keeps it before the socket speaks, and "On this device" can keep a
+// different mode here without touching the desktop.
+test('the theme follows the desktop, and a device can keep its own mode', { tag: SERIAL }, async ({ page }) => {
+  const bg = () =>
+    page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--bg').trim());
+  const mode = () => page.evaluate(() => document.documentElement.dataset.theme);
+  await openRoute(page, '/settings');
+  const dark = page.getByLabel('Dark mode');
+  await expect(dark).toBeEnabled();
+  const was = await dark.isChecked();
+  try {
+    await dark.setChecked(false);
+    await expect.poll(mode).toBe('light');
+    await expect.poll(bg).toBe('#f8f4ed');
+    await page.reload();
+    await expect.poll(mode).toBe('light');
+    await expect(page.getByLabel('Dark mode')).not.toBeChecked();
+
+    await page.getByLabel('Theme on this device').selectOption('dark');
+    await expect.poll(mode).toBe('dark');
+    await expect.poll(bg).toBe('#1b1611');
+    const s = (await (await page.request.get('/api/settings')).json()) as { theme?: { mode?: string } };
+    expect(s.theme?.mode, 'the device choice must not change the desktop').toBe('light');
+  } finally {
+    await page.getByLabel('Theme on this device').selectOption('desktop');
+    const back = await page.request.post('/api/settings', { data: { darkMode: was } });
+    expect(back.ok(), `restoring Dark Mode: ${back.status()}`).toBe(true);
+  }
+});

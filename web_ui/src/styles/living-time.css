@@ -33,7 +33,7 @@
   margin-top: 4px;
   font-size: 12px;
   line-height: 1.35;
-  color: var(--muted, #a89a89);
+  color: var(--muted);
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
@@ -42,7 +42,7 @@
 .absence-banner-close {
   background: none;
   border: none;
-  color: var(--muted, #a89a89);
+  color: var(--muted);
   cursor: pointer;
   font-size: 13px;
   padding: 0 2px;
@@ -280,8 +280,8 @@
   border: 1px solid var(--border);
 }
 .promise-badge-open { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
-.promise-badge-kept { color: #4ade80; border-color: rgba(74, 222, 128, 0.5); }
-.promise-badge-broken { color: #f87171; border-color: rgba(248, 113, 113, 0.5); }
+.promise-badge-kept { color: var(--ok); border-color: color-mix(in srgb, var(--ok) 50%, transparent); }
+.promise-badge-broken { color: var(--alert); border-color: color-mix(in srgb, var(--alert) 50%, transparent); }
 .promise-text { font-size: 0.85rem; line-height: 1.4; margin: 6px 0; }
 .promise-actions { display: flex; gap: 8px; }
 .promise-actions button { font-size: 0.75rem; padding: 3px 10px; }
@@ -416,7 +416,7 @@
 .variant-card-tools { display: inline-flex; flex-shrink: 0; }
 .variant-current-mark {
   font-size: 0.7rem; font-weight: 700; letter-spacing: 0.04em;
-  text-transform: uppercase; color: #1a1200; /* onChaosAccent — white-on-amber is unreadable */
+  text-transform: uppercase; color: var(--on-accent); /* onChaosAccent — white-on-amber is unreadable */
   background: var(--accent); border-radius: 999px; padding: 1px 8px;
 }
 .variant-card-preview {
@@ -437,7 +437,7 @@
   background: var(--surface-2); color: var(--text);
 }
 .variant-jump-go {
-  background: var(--accent); color: #1a1200; font-weight: 700;
+  background: var(--accent); color: var(--on-accent); font-weight: 700;
   border: none; border-radius: 8px; padding: 6px 14px; cursor: pointer;
 }
 

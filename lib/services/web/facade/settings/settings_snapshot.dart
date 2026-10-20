@@ -28,6 +28,7 @@ import 'package:path/path.dart' as p;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings_theme.dart';
 import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
 
 /// Builds the web Settings JSON snapshot from live storage + backend state.
@@ -196,6 +197,9 @@ class SettingsSnapshot {
       // older PWA ignores the key.
       'evaluationMinimized': _storage.uiSettings.evaluationMinimized,
       'followStreamingReplies': _storage.uiSettings.followStreamingReplies,
+      // The resolved app theme (mode + both token maps). The web never
+      // computes a palette; it paints these. Additive.
+      'theme': webThemeWire(_storage),
       ...readWorkerSettings(_storage, _llm),
     };
   }

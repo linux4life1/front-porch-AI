@@ -24,6 +24,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings.dart';
 import 'package:front_porch_ai/services/web/host/web_host_services.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 
@@ -399,7 +400,11 @@ class WebLiveRelays {
     void onSettingsChanged() {
       _settingsDebounce?.cancel();
       _settingsDebounce = Timer(const Duration(milliseconds: 150), () {
-        streamHub.broadcast({'event': 'settings_changed'});
+        // The theme rides the event so every open page repaints at once.
+        streamHub.broadcast({
+          'event': 'settings_changed',
+          'theme': webThemeWire(_storage),
+        });
       });
     }
 

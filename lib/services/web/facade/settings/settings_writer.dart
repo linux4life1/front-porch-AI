@@ -87,6 +87,10 @@ class SettingsWriter {
       await _storage.uiSettings.setEvaluationMinimized(minimized);
     }
 
+    // General → Dark Mode, the desktop's own switch.
+    final darkMode = body['darkMode'];
+    if (darkMode is bool) await _storage.uiSettings.setIsDark(darkMode);
+
     final follow = body['followStreamingReplies'];
     if (follow is bool) {
       await _storage.uiSettings.setFollowStreamingReplies(follow);

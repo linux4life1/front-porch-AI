@@ -15,7 +15,7 @@
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: linear-gradient(rgba(0, 0, 0, 0.45), rgba(0, 0, 0, 0.45)),
+  background-image: linear-gradient(color-mix(in srgb, var(--scrim-ink) 45%, transparent), color-mix(in srgb, var(--scrim-ink) 45%, transparent)),
     var(--chat-bg-image);
   background-size: cover;
   background-position: center;
@@ -129,7 +129,7 @@ a.model-switch-settings {
 .portrait-mood {
   position: absolute; left: 8px; bottom: 8px;
   font-size: 0.72rem; padding: 2px 8px; border-radius: 999px;
-  background: rgba(27, 22, 17, 0.78); color: var(--text);
+  background: color-mix(in srgb, var(--image-scrim) 78%, transparent); color: var(--image-ink);
   text-transform: capitalize;
 }
 /* Phone: no expression portrait (too much for the small screen — the mood still
@@ -141,16 +141,16 @@ a.model-switch-settings {
 .portrait-chevron {
   position: absolute; top: 50%; transform: translateY(-50%);
   width: 26px; height: 44px; border: none; border-radius: 8px; cursor: pointer;
-  background: rgba(27, 22, 17, 0.5); color: #fff; font-size: 1.3rem; line-height: 1;
+  background: color-mix(in srgb, var(--image-scrim) 50%, transparent); color: var(--image-ink); font-size: 1.3rem; line-height: 1;
   display: flex; align-items: center; justify-content: center; opacity: 0.8;
 }
 .portrait-chevron.left { left: 5px; }
 .portrait-chevron.right { right: 5px; }
-.portrait-chevron:hover { opacity: 1; background: rgba(27, 22, 17, 0.72); }
+.portrait-chevron:hover { opacity: 1; background: color-mix(in srgb, var(--image-scrim) 72%, transparent); }
 .portrait-dots {
   position: absolute; bottom: 8px; left: 50%; transform: translateX(-50%);
   font-size: 0.64rem; padding: 1px 8px; border-radius: 999px;
-  background: rgba(27, 22, 17, 0.6); color: #fff;
+  background: color-mix(in srgb, var(--image-scrim) 60%, transparent); color: var(--image-ink);
 }
 [data-layout="phone"] .portrait-swiper { display: none; }
 
@@ -180,8 +180,8 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   background: var(--surface-2); color: var(--muted);
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-.cast-banner.error { background: rgba(255, 107, 107, 0.16); color: var(--danger); }
-.cast-banner.detect { background: rgba(59, 130, 246, 0.14); color: var(--text); }
+.cast-banner.error { background: color-mix(in srgb, var(--danger) 16%, transparent); color: var(--danger); }
+.cast-banner.detect { background: color-mix(in srgb, var(--info) 14%, transparent); color: var(--text); }
 /* Director Mode: the desktop sidebar's Director card, as one strip. */
 .director-strip {
   margin-top: 4px; padding: 4px 8px; border-radius: 8px; font-size: 0.78rem;
@@ -220,6 +220,11 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   background: color-mix(in srgb, var(--porch-amber) 12%, var(--surface));
   border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
   color: var(--text); font-style: italic;
+}
+/* On paper the note sits on the page, not in a bubble, so its quotes and
+   actions take page inks (desktop StyledChatMessage.onPage). */
+:root[data-theme='light'] .msg-row .bubble.director-note {
+  --dialogue: var(--quote-ink); --action: var(--narration-ink);
 }
 .director-note-label {
   display: block; font-style: normal; font-size: 0.7rem; font-weight: 600;
@@ -338,7 +343,7 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   padding: 8px 10px; outline: none;
 }
 .find-input:focus { border-color: var(--porch-honey); }
-.find-input.bad { border-color: var(--danger); box-shadow: 0 0 0 1px rgba(255, 107, 107, 0.6); }
+.find-input.bad { border-color: var(--danger); box-shadow: 0 0 0 1px color-mix(in srgb, var(--danger) 60%, transparent); }
 .find-toggle {
   background: var(--surface-2); border: 1px solid var(--border); color: var(--muted);
   border-radius: 7px; height: 28px; padding: 0 7px;
@@ -369,8 +374,8 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
   display: inline-block; animation: find-spin 0.8s linear infinite;
 }
 @keyframes find-spin { to { transform: rotate(360deg); } }
-mark.find-hit { background: rgba(233, 196, 106, 0.25); color: inherit; border-radius: 3px; padding: 0 1px; }
+mark.find-hit { background: color-mix(in srgb, var(--porch-honey) 25%, transparent); color: inherit; border-radius: 3px; padding: 0 1px; }
 mark.find-hit.active {
   background: var(--porch-honey); color: var(--on-accent); font-weight: 600;
-  box-shadow: 0 0 0 2px rgba(233, 196, 106, 0.45);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--porch-honey) 45%, transparent);
 }

@@ -4,6 +4,10 @@
    strip, Growth Rings timeline, side quests.
 */
 
+:root {
+  --growth-archive: #7e8798;
+}
+
 /* ── Chat layout (desktop persistent insight column) ──────────── */
 .chat-layout { display: flex; height: 100%; min-height: 0; }
 .chat-view { flex: 1; min-width: 0; }
@@ -34,7 +38,7 @@
   background: var(--accent);
   transition: width 0.2s ease;
 }
-.rag-engine-error { color: color-mix(in srgb, #e07070 90%, var(--text)); }
+.rag-engine-error { color: var(--danger); }
 .tool-toggle {
   display: flex; align-items: center; justify-content: space-between;
   margin: 0; font-size: 0.85rem; color: var(--text);
@@ -62,7 +66,7 @@
 .growth-panel .grow { flex: 1; }
 .growth-review-banner {
   display: block; width: 100%; text-align: left; font-size: 0.8rem;
-  background: rgba(233, 196, 106, 0.1); border: 1px solid rgba(233, 196, 106, 0.45);
+  background: color-mix(in srgb, var(--porch-honey) 10%, transparent); border: 1px solid color-mix(in srgb, var(--porch-honey) 45%, transparent);
   border-radius: 10px; padding: 8px 10px; color: var(--porch-honey);
 }
 .growth-tier-head {
@@ -95,22 +99,22 @@
 }
 .growth-receipt {
   font-size: 0.62rem; font-weight: 600; color: var(--porch-amber);
-  background: rgba(244, 162, 89, 0.12); border-radius: 4px; padding: 1px 4px;
+  background: color-mix(in srgb, var(--porch-amber) 12%, transparent); border-radius: 4px; padding: 1px 4px;
 }
 .growth-chip {
   font-size: 0.58rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase;
   padding: 2px 5px; border-radius: 4px; border: none;
-  background: rgba(233, 196, 106, 0.16); color: var(--porch-honey);
+  background: color-mix(in srgb, var(--porch-honey) 16%, transparent); color: var(--porch-honey);
 }
-.growth-chip.cat-stance { background: rgba(226, 149, 120, 0.18); color: var(--porch-terracotta); }
-.growth-chip.cat-habit { background: rgba(158, 201, 127, 0.14); color: #9ec97f; }
-.growth-chip.cat-skill { background: rgba(244, 162, 89, 0.16); color: var(--porch-amber); }
-.growth-chip.cat-scar { background: rgba(190, 120, 130, 0.18); color: #d99aa6; }
-.growth-chip.cat-archive { background: rgba(126, 135, 152, 0.2); color: var(--muted); }
-.growth-chip.act-add { background: rgba(158, 201, 127, 0.15); color: #9ec97f; }
-.growth-chip.act-reinforce { background: rgba(233, 196, 106, 0.16); color: var(--porch-honey); }
-.growth-chip.act-revise { background: rgba(244, 162, 89, 0.16); color: var(--porch-amber); }
-.growth-chip.act-retire { background: rgba(126, 135, 152, 0.2); color: var(--muted); }
+.growth-chip.cat-stance { background: color-mix(in srgb, var(--porch-terracotta) 18%, transparent); color: var(--porch-terracotta); }
+.growth-chip.cat-habit { background: color-mix(in srgb, var(--growth-habit) 14%, transparent); color: var(--growth-habit); }
+.growth-chip.cat-skill { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }
+.growth-chip.cat-scar { background: color-mix(in srgb, var(--growth-scar) 18%, transparent); color: var(--growth-scar); }
+.growth-chip.cat-archive { background: color-mix(in srgb, var(--growth-archive) 20%, transparent); color: var(--muted); }
+.growth-chip.act-add { background: color-mix(in srgb, var(--growth-habit) 15%, transparent); color: var(--growth-habit); }
+.growth-chip.act-reinforce { background: color-mix(in srgb, var(--porch-honey) 16%, transparent); color: var(--porch-honey); }
+.growth-chip.act-revise { background: color-mix(in srgb, var(--porch-amber) 16%, transparent); color: var(--porch-amber); }
+.growth-chip.act-retire { background: color-mix(in srgb, var(--growth-archive) 20%, transparent); color: var(--muted); }
 .growth-chip.selectable { cursor: pointer; opacity: 0.55; }
 .growth-chip.selectable.selected { opacity: 1; outline: 1px solid currentColor; }
 .growth-past-toggle { align-self: flex-start; font-size: 0.75rem; }

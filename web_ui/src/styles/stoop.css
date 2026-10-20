@@ -10,7 +10,7 @@
 .stoop-bell { position: relative; font-size: 20px; text-decoration: none; padding: 4px 8px; }
 .stoop-bell-badge {
   position: absolute; top: -2px; right: -2px; min-width: 16px; height: 16px;
-  padding: 0 4px; border-radius: 8px; background: var(--danger); color: #fff;
+  padding: 0 4px; border-radius: 8px; background: var(--danger); color: var(--accent-ink);
   font-size: 11px; line-height: 16px; text-align: center;
 }
 .stoop-tabs { display: flex; gap: 6px; margin: 12px 0 16px; border-bottom: 1px solid var(--border); }
@@ -39,9 +39,9 @@
   flex: none;
 }
 .stoop-check svg { width: 100%; height: 100%; display: block; }
-.stoop-check-gold svg { fill: #e8b923; }
-.stoop-check-blue svg { fill: #1d9bf0; }
-.stoop-check-silver svg { fill: #c0c7d1; }
+.stoop-check-gold svg { fill: #e8b923; } /* theme-keep: brand verification check */
+.stoop-check-blue svg { fill: #1d9bf0; } /* theme-keep: brand verification check */
+.stoop-check-silver svg { fill: #c0c7d1; } /* theme-keep: brand verification check */
 .stoop-creator-head h3 .stoop-check,
 .stoop-tab-name .stoop-check {
   width: 1.05em;
@@ -76,7 +76,7 @@
 .stoop-tile:hover {
   transform: translateY(-3px);
   border-color: var(--accent);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35), 0 0 26px rgba(245, 166, 35, 0.07);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35), 0 0 26px color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .stoop-tile-meta { display: flex; gap: 10px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
 .stoop-badges { display: inline-flex; gap: 4px; flex-wrap: wrap; }
@@ -88,7 +88,7 @@
   border: 1px solid var(--border); color: var(--muted);
 }
 .stoop-badge.nsfw { border-color: var(--danger); color: var(--danger); }
-.stoop-badge.pick { border: none; background: var(--accent); color: #241502; }
+.stoop-badge.pick { border: none; background: var(--accent); color: var(--on-accent); }
 .stoop-badge.group { border-color: var(--ok); color: var(--ok); }
 .stoop-badge.world { border-color: var(--accent); color: var(--accent); }
 .stoop-badge.climate { border-color: var(--ok); color: var(--ok); }
@@ -109,7 +109,7 @@
 .stoop-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
 .stoop-vote { display: inline-flex; align-items: center; gap: 6px; }
 .stoop-vote button { padding: 4px 10px; }
-.stoop-vote button.active { border-color: var(--accent); background: var(--accent); color: #241502; }
+.stoop-vote button.active { border-color: var(--accent); background: var(--accent); color: var(--on-accent); }
 .stoop-note { color: var(--accent); }
 .stoop-section h4 { margin: 0 0 6px; }
 .stoop-pre { white-space: pre-wrap; margin: 0; }
@@ -154,7 +154,7 @@
 .stoop-ava-row { display: flex; align-items: center; gap: 10px; }
 .stoop-small { font-size: 12px; }
 .stoop-verify-note {
-  border-left: 3px solid var(--accent); background: rgba(245, 166, 35, 0.08);
+  border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent);
   padding: 8px 12px; border-radius: var(--radius); margin: 0;
 }
 .stoop-forgot-sent p { max-width: 460px; }
@@ -192,14 +192,14 @@
   font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase;
   padding: 2px 9px; border-radius: 999px; border: 1px solid var(--border);
 }
-.stoop-status.approved { color: var(--ok); border-color: var(--ok); background: rgba(105, 240, 174, 0.1); }
-.stoop-status.pending { color: var(--accent); border-color: var(--accent); background: rgba(245, 166, 35, 0.1); }
-.stoop-status.rejected, .stoop-status.taken_down { color: var(--danger); border-color: var(--danger); background: rgba(255, 99, 71, 0.08); }
+.stoop-status.approved { color: var(--ok); border-color: var(--ok); background: color-mix(in srgb, var(--ok) 10%, transparent); }
+.stoop-status.pending { color: var(--accent); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.stoop-status.rejected, .stoop-status.taken_down { color: var(--danger); border-color: var(--danger); background: color-mix(in srgb, var(--danger) 8%, transparent); }
 .stoop-reject-note { flex-basis: 100%; margin: 0; font-size: 12px; }
 /* "Your uploads" as an art grid: status chip rides the artwork. */
 .stoop-mine-tile { position: relative; }
 .stoop-mine-art { display: block; }
-.stoop-mine-status { position: absolute; top: 8px; left: 8px; z-index: 1; background: rgba(14, 12, 9, 0.82); }
+.stoop-mine-status { position: absolute; top: 8px; left: 8px; z-index: 1; background: color-mix(in srgb, var(--image-scrim) 82%, transparent); }
 .stoop-delete-link { color: var(--danger); }
 .stoop-delete-confirm { width: 100%; }
 .stoop-coming-soon { max-width: 560px; }

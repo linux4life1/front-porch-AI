@@ -40,9 +40,9 @@ export function ChipsRow({
   // desktop's kFeelingsUnscoredLabel/Tip; these copies cover an older server.
   const unscored = !!chips.feelingsUnscored && chips.bondDelta == null && chips.trustDelta == null;
   if (unscored) realism.push({ key: 'unscored', label: chips.feelingsUnscoredLabel || 'Feelings not scored this time', cls: 'time', reason: chips.feelingsUnscoredTip || "The model's answer couldn't be read, so bond and trust stayed where they were. To try again and keep this reply, tap Manual Reprocess and pick Feelings." });
-  if (chips.bondDelta != null) realism.push({ key: 'bond', label: chips.bondDelta === 0 ? 'Bond unchanged' : `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up' : chips.bondDelta < 0 ? 'down' : 'time', reason: chips.bondReason });
-  if (chips.trustDelta != null) realism.push({ key: 'trust', label: chips.trustDelta === 0 ? 'Trust unchanged' : `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up' : chips.trustDelta < 0 ? 'down' : 'time', reason: chips.trustReason });
-  if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Lust ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up' : 'down', reason: chips.arousalReason });
+  if (chips.bondDelta != null) realism.push({ key: 'bond', label: chips.bondDelta === 0 ? 'Bond unchanged' : `Bond ${signed(chips.bondDelta)}`, cls: chips.bondDelta > 0 ? 'up stat-bond-up' : chips.bondDelta < 0 ? 'down stat-bond-down' : 'time', reason: chips.bondReason });
+  if (chips.trustDelta != null) realism.push({ key: 'trust', label: chips.trustDelta === 0 ? 'Trust unchanged' : `Trust ${signed(chips.trustDelta)}`, cls: chips.trustDelta > 0 ? 'up stat-trust-up' : chips.trustDelta < 0 ? 'down stat-trust-down' : 'time', reason: chips.trustReason });
+  if (chips.arousalDelta) realism.push({ key: 'arousal', label: `Lust ${signed(chips.arousalDelta)}`, cls: chips.arousalDelta > 0 ? 'up stat-lust-up' : 'down stat-lust-down', reason: chips.arousalReason });
   if (chips.emotionLabel) {
     const moodReason = [
       chips.emotionCause ? `Because ${chips.emotionCause}` : '',
@@ -75,7 +75,7 @@ export function ChipsRow({
     const delta = typeof v === 'number' ? v : v?.delta;
     const reason = typeof v === 'number' ? undefined : v?.reason;
     if (!delta) continue;
-    needs.push({ key: `need-${k}`, label: `${NEED_LABELS[k] ?? k} ${signed(delta)}`, cls: delta > 0 ? 'up' : 'down', reason });
+    needs.push({ key: `need-${k}`, label: `${NEED_LABELS[k] ?? k} ${signed(delta)}`, cls: `${delta > 0 ? 'up' : 'down'} stat-need-${k in NEED_LABELS ? k : 'other'}`, reason });
   }
   if (chips.needsUnaffected && needs.length === 0) {
     needs.push({ key: 'unaffected', label: 'No needs affected', cls: 'time' });

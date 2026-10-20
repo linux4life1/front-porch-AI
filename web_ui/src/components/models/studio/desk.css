@@ -7,21 +7,21 @@
   inset: 0;
   z-index: 40;
   overflow: auto;
-  background: var(--bg, #1b1611);
+  background: var(--bg);
   padding: 24px;
 }
 .fp-pill {
   border-radius: 999px;
-  border: 1px solid #f4a259;
+  border: 1px solid var(--accent);
   background: transparent;
-  color: #f4a259;
+  color: var(--accent);
   padding: 6px 14px;
   margin: 0 8px 8px 0;
   font-weight: 600;
 }
 .fp-pill[aria-pressed="true"] {
-  background: #f4a259;
-  color: #1a1200;
+  background: var(--accent);
+  color: var(--on-accent);
 }
 .fp-desk-body {
   display: grid;
@@ -88,7 +88,7 @@
   padding: 20px;
 }
 .fp-prompt-rules::backdrop {
-  background: rgb(0 0 0 / 65%);
+  background: color-mix(in srgb, var(--scrim-ink) 65%, transparent);
 }
 .fp-prompt-rules pre {
   white-space: pre-wrap;

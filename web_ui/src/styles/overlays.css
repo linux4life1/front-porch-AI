@@ -26,8 +26,8 @@
 .proc-stages { display: flex; flex-wrap: wrap; gap: 6px; }
 .proc-pill {
   font-size: 0.66rem; padding: 2px 8px; border-radius: 999px;
-  background: var(--group-pill-bg); color: var(--group-accent-bright, #f0b195);
-  border: 1px solid var(--group-border, rgba(124, 58, 237, 0.3));
+  background: var(--group-pill-bg); color: var(--group-accent-bright);
+  border: 1px solid var(--group-border);
 }
 .proc-stream { display: flex; flex-direction: column; gap: 4px; }
 .proc-stream-head {
@@ -44,9 +44,9 @@
 .proc-objtext { margin: 0; line-height: 1.4; }
 .proc-cancel {
   align-self: flex-start; font-size: 0.72rem; padding: 4px 12px; border-radius: 999px; cursor: pointer;
-  background: rgba(255, 82, 82, 0.14); color: var(--danger); border: 1px solid rgba(255, 82, 82, 0.4);
+  background: color-mix(in srgb, var(--danger) 14%, transparent); color: var(--danger); border: 1px solid color-mix(in srgb, var(--danger) 40%, transparent);
 }
-.proc-cancel:hover { background: rgba(255, 82, 82, 0.24); }
+.proc-cancel:hover { background: color-mix(in srgb, var(--danger) 24%, transparent); }
 .proc-skip {
   align-self: flex-start; font-size: 0.72rem; padding: 4px 12px; border-radius: 999px; cursor: pointer;
   background: color-mix(in srgb, var(--porch-amber) 12%, transparent); color: var(--porch-amber);
@@ -61,7 +61,7 @@
 .chance-overlay {
   position: fixed; inset: 0; z-index: 60;
   display: flex; align-items: center; justify-content: center; padding: 20px;
-  background: rgba(0, 0, 0, 0.55);
+  background: color-mix(in srgb, var(--scrim-ink) 55%, transparent);
   backdrop-filter: blur(2px); -webkit-backdrop-filter: blur(2px);
   animation: chance-fade 0.2s ease-out;
 }
@@ -74,7 +74,7 @@
 }
 .chance-title {
   font-weight: 800; font-size: 1.15rem; letter-spacing: 0.02em;
-  color: var(--group-accent-bright, #f0b195);
+  color: var(--group-accent-bright);
 }
 .chance-sub { margin: 0; line-height: 1.4; color: var(--muted); }
 .chance-event {
@@ -84,14 +84,14 @@
 }
 .chance-btn {
   align-self: center; cursor: pointer; font-weight: 700; font-size: 0.9rem;
-  padding: 11px 22px; border-radius: 999px; color: #fff; border: none;
-  background: linear-gradient(135deg, #9b5de5, #06d6a0);
-  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4);
+  padding: 11px 22px; border-radius: 999px; color: #fff; border: none; /* theme-keep: Chance Time game identity */
+  background: linear-gradient(135deg, #9b5de5, #06d6a0); /* theme-keep: Chance Time game identity */
+  box-shadow: 0 6px 18px rgba(124, 58, 237, 0.4); /* theme-keep: Chance Time game glow */
   transition: transform 0.1s ease, filter 0.15s ease;
 }
 .chance-btn:hover { filter: brightness(1.08); }
 .chance-btn:active { transform: scale(0.96); }
-.chance-btn.accept { background: linear-gradient(135deg, #06d6a0, #118ab2); }
+.chance-btn.accept { background: linear-gradient(135deg, #06d6a0, #118ab2); } /* theme-keep: Chance Time game identity */
 @keyframes chance-fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes chance-pop {
   from { opacity: 0; transform: translateY(10px) scale(0.94); }

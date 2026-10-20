@@ -8,6 +8,7 @@ import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
 import { FollowStreamingSettings } from '../components/FollowStreamingSettings';
+import { AppearanceSettings } from '../components/AppearanceSettings';
 import { MessageSideSettings } from '../components/MessageSideSettings';
 import { PorchLifeSettings } from '../components/PorchLifeSettings';
 import { PromptSettingsCard } from '../components/PromptSettingsCard';
@@ -371,6 +372,7 @@ export function SettingsPage() {
           <h4 className="settings-group-heading">Chat appearance</h4>
           <MessageSideSettings />
           <FollowStreamingSettings />
+          <AppearanceSettings />
           <ReadingSizeSettings />
           <ChatColorsSettings />
         </div>

@@ -45,7 +45,7 @@
 .story-cal-day.outside { color: var(--muted); opacity: 0.45; }
 .story-cal-day.current {
   background: var(--porch-amber);
-  color: #1a1200; /* onChaosAccent ink — white-on-amber is unreadable */
+  color: var(--on-accent); /* onChaosAccent ink — white-on-amber is unreadable */
   font-weight: 700;
 }
 .story-cal-day.selected:not(.current) {
@@ -59,7 +59,7 @@
   background: transparent;
 }
 .story-cal-dot.on { background: var(--porch-amber); }
-.story-cal-day.current .story-cal-dot.on { background: #1a1200; }
+.story-cal-day.current .story-cal-dot.on { background: var(--on-accent); }
 .story-cal-owner select {
   background: var(--surface);
   color: var(--text);

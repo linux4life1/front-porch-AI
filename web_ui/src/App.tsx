@@ -34,6 +34,7 @@ import { ImageStudioPage } from './pages/ImageStudioPage';
 import { AccountPage } from './pages/AccountPage';
 import { StoopSection } from './pages/stoop/StoopSection';
 import { restoreSpellCheckLang, syncSpellCheckLang } from './spellCheckLang';
+import { useDesktopTheme } from './theme/useDesktopTheme';
 
 restoreSpellCheckLang();
 
@@ -46,6 +47,7 @@ export function App() {
   useEffect(() => {
     if (authenticated) void syncSpellCheckLang();
   }, [authenticated]);
+  useDesktopTheme(authenticated);
 
   if (loading) {
     return (

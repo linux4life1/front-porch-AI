@@ -21,7 +21,7 @@
   padding: 7px 0; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   background: var(--surface-2); color: var(--text); font-size: 0.78rem; font-weight: 700; cursor: pointer;
 }
-.work-day.on { background: var(--accent); border-color: var(--accent); color: #1a1200; }
+.work-day.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .work-brief { min-height: 4.2em; resize: vertical; }
 .realism-field { display: flex; flex-direction: column; gap: 4px; }
 .realism-field > span { font-size: 0.8rem; color: var(--muted); }

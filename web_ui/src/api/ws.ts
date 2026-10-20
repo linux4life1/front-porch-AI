@@ -12,6 +12,8 @@ export type WsEvent = {
   // chargen_error error).
   id?: string | number;
   name?: string;
+  // `settings_changed`: the desktop's resolved app theme (theme/appTheme.ts).
+  theme?: unknown;
   error?: string;
   // `chargen_error`: the same text as `error` (additive), the provider's
   // own words when a backend refused the request.

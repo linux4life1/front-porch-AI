@@ -43,8 +43,8 @@
   justify-content: flex-start; padding: 11px 12px; border-radius: 8px;
   font-size: 0.95rem; color: var(--muted);
 }
-.side-nav .nav-item:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
-.side-nav .nav-item.active { background: rgba(244, 162, 89, 0.14); color: var(--accent); font-weight: 700; }
+.side-nav .nav-item:hover { background: color-mix(in srgb, var(--wash) 5%, transparent); color: var(--text); }
+.side-nav .nav-item.active { background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font-weight: 700; }
 .side-nav .nav-icon { font-size: 1.2rem; }
 .side-footer {
   margin-top: auto; display: flex; flex-direction: column; align-items: stretch;
@@ -56,7 +56,7 @@
   padding: 11px 12px; border-radius: 8px;
   text-decoration: none; color: var(--muted); font-size: 0.95rem;
 }
-.side-discord-btn:hover { background: rgba(255, 255, 255, 0.05); color: var(--text); }
+.side-discord-btn:hover { background: color-mix(in srgb, var(--wash) 5%, transparent); color: var(--text); }
 .side-logout { text-align: left; padding: 8px 10px; }
 .app-main { flex: 1; min-width: 0; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; }
 
@@ -91,8 +91,8 @@
 }
 /* Slow-CPU (no AVX2 + no NVIDIA) warning on the Models page. */
 .cpu-warn {
-  background: rgba(244, 162, 89, 0.12);
-  border: 1px solid rgba(244, 162, 89, 0.5);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 10px; padding: 10px 12px; margin: 4px 0 12px;
   font-size: 0.82rem; line-height: 1.4; color: var(--text);
 }
@@ -116,7 +116,7 @@
   color: var(--text);
   font-weight: 600;
 }
-.pill.ok { background: rgba(105, 240, 174, 0.18); color: var(--ok); }
+.pill.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .tunnel-url { display: block; color: var(--accent); word-break: break-all; margin: 8px 0; }
 
 /* Remote access assist */
@@ -126,7 +126,7 @@ button.ghost { background: transparent; border-color: var(--border); }
 .card-head h3 { margin: 0; }
 .badge {
   font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.05em;
-  background: rgba(244, 162, 89, 0.18); color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent); color: var(--accent);
   padding: 2px 8px; border-radius: 999px;
 }
 .steps { margin: 8px 0 12px; padding-left: 18px; color: var(--muted); font-size: 0.9rem; }

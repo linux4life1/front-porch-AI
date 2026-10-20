@@ -9,10 +9,12 @@ import { App } from './App';
 import { AppErrorBoundary } from './components/AppErrorBoundary';
 import { applyChatColors, loadChatColors } from './chatColors';
 import { applyReadingSize, loadReadingSize } from './readingSize';
+import { applyCachedTheme } from './theme/appTheme';
 import './styles.css';
 
-// Apply the user's saved chat colors before first paint so bubbles never flash
-// the default palette.
+// Apply the last theme the desktop sent and the user's saved chat colors
+// before first paint, so nothing flashes the default palette.
+applyCachedTheme();
 applyChatColors(loadChatColors());
 applyReadingSize(loadReadingSize());
 

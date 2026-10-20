@@ -10,7 +10,7 @@
   padding: 5px 10px; border-radius: 999px; border: 1px solid var(--border);
   background: transparent; color: var(--text); cursor: pointer; font-size: 0.82rem;
 }
-.chip-toggle.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chip-toggle.on { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 
 /* Thinking strength — chips match this model's real levels */
 .thinking-strength { margin: 10px 0 4px; display: flex; flex-direction: column; gap: 8px; }
@@ -29,7 +29,7 @@
   color: var(--text); cursor: pointer; text-align: left;
 }
 .thinking-strength-chip.on {
-  background: var(--accent); border-color: var(--accent); color: #1a1208;
+  background: var(--accent); border-color: var(--accent); color: var(--on-accent);
   border-width: 1.5px;
 }
 .thinking-strength-chip-title { font-weight: 700; font-size: 0.95rem; }

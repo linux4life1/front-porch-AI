@@ -21,10 +21,10 @@
      overhanging crop saves as fill. */
   background: var(--bg);
 }
-.crop-wrap.fill-white { background: #ffffff; }
+.crop-wrap.fill-white { background: #ffffff; } /* theme-keep: real crop fill colour */
 .crop-wrap.fill-transparent {
   background:
-    repeating-conic-gradient(#bdbdbd 0% 25%, #8e8e8e 0% 50%) 0 0 / 20px 20px;
+    repeating-conic-gradient(#bdbdbd 0% 25%, #8e8e8e 0% 50%) 0 0 / 20px 20px; /* theme-keep: transparency checkerboard */
 }
 .crop-presets {
   display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
@@ -39,10 +39,10 @@
   width: 20px; height: 20px; border-radius: 5px; cursor: pointer;
   border: 1px solid var(--border);
 }
-.crop-fill.dark { background: #1a1a2e; }
-.crop-fill.white { background: #ffffff; }
+.crop-fill.dark { background: #1a1a2e; } /* theme-keep: real crop fill colour */
+.crop-fill.white { background: #ffffff; } /* theme-keep: real crop fill colour */
 .crop-fill.transparent {
-  background: repeating-conic-gradient(#bdbdbd 0% 25%, #8e8e8e 0% 50%) 0 0 / 10px 10px;
+  background: repeating-conic-gradient(#bdbdbd 0% 25%, #8e8e8e 0% 50%) 0 0 / 10px 10px; /* theme-keep: transparency checkerboard */
 }
 .crop-fill.on { border: 2px solid var(--accent); }
 .crop-size { font-size: 11px; font-variant-numeric: tabular-nums; }

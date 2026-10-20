@@ -95,7 +95,7 @@
 .picker-crumb-name { font-weight: 600; font-size: 0.9rem; }
 
 /* Voice: the mic button pulses red while recording. */
-.icon-btn.mic.recording { color: var(--danger, #e5484d); animation: mic-pulse 1s ease-in-out infinite; }
+.icon-btn.mic.recording { color: var(--danger); animation: mic-pulse 1s ease-in-out infinite; }
 @keyframes mic-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* ── Persona manager (card grid, not a flat list) ─────────────── */
@@ -122,7 +122,7 @@
 .persona-edit { margin-top: 12px; border-top: 1px solid var(--border); padding-top: 10px; }
 
 /* ── Account ──────────────────────────────────────────────────── */
-.qr { background: #fff; padding: 12px; border-radius: 10px; width: fit-content; margin: 10px 0; }
+.qr { background: #fff; /* theme-keep: QR codes need a white quiet zone */ padding: 12px; border-radius: 10px; width: fit-content; margin: 10px 0; }
 .recovery { columns: 2; font-size: 0.9rem; }
 .session-list, .recovery { list-style: none; padding: 0; }
 .session-list li { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--border); }
@@ -131,7 +131,7 @@
 
 /* Unofficial SuperGrok sign-in (xAI host) — desktop SuperGrokCard. */
 .sg-card {
-  border: 1px solid rgba(244, 162, 89, 0.45);
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, transparent);
   border-radius: var(--radius);
   background: var(--card);
   padding: 12px;
@@ -149,8 +149,8 @@
   padding: 2px 7px;
   border-radius: 999px;
   color: var(--porch-amber);
-  background: rgba(244, 162, 89, 0.12);
-  border: 1px solid rgba(244, 162, 89, 0.5);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
 }
 .sg-code {
   font-size: 1.5rem;

@@ -46,9 +46,9 @@ export function WorldCard({
 }) {
   const h = hueFromName(world.name);
   const accent: CSSProperties = {
-    ['--world-accent' as string]: `hsl(${h} 58% 56%)`,
-    ['--world-accent-soft' as string]: `hsl(${h} 58% 56% / 0.16)`,
-    ['--world-accent-line' as string]: `hsl(${h} 58% 56% / 0.34)`,
+    ['--world-accent' as string]: `hsl(${h} 58% 56%)`, // theme-keep: per-world identity hue
+    ['--world-accent-soft' as string]: `hsl(${h} 58% 56% / 0.16)`, // theme-keep: per-world identity hue
+    ['--world-accent-line' as string]: `hsl(${h} 58% 56% / 0.34)`, // theme-keep: per-world identity hue
   };
   const initial = world.name.trim().charAt(0).toUpperCase() || '?';
   const count = world.entryCount;

@@ -2,8 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Web mirror of Settings → General → Follow streaming replies.
-// Desktop sits this immediately above Dark mode; web has no Dark mode
-// card, so this sits immediately above Reading size.
+// Desktop sits this immediately above Dark mode, and so does the web
+// (AppearanceSettings).
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';

@@ -7,6 +7,8 @@
 // :root, so they override the defaults in styles.css live (no rebuild, no server
 // round-trip). The WebUI is a client with its own display prefs; this does not
 // touch the desktop app's theme. No font picker (web uses the system stack).
+// Defaults are the dark theme's; a colour still at its default is left to the
+// theme the desktop sends, so it follows light mode.
 
 export interface ChatColors {
   userBubble: string;
@@ -19,12 +21,12 @@ export interface ChatColors {
 
 // Defaults mirror the desktop dark-theme defaults (ui_settings.dart).
 export const DEFAULT_CHAT_COLORS: ChatColors = {
-  userBubble: '#3b82f6',
-  userText: '#ffffff',
-  aiBubble: '#374151',
-  aiText: '#ffffff',
-  dialogue: '#ffd54f',
-  action: '#90caf9',
+  userBubble: '#3b82f6', // theme-keep: the picker's dark default; unpinned, the theme wins
+  userText: '#ffffff', // theme-keep: the picker's dark default; unpinned, the theme wins
+  aiBubble: '#374151', // theme-keep: the picker's dark default; unpinned, the theme wins
+  aiText: '#ffffff', // theme-keep: the picker's dark default; unpinned, the theme wins
+  dialogue: '#ffd54f', // theme-keep: the picker's dark default; unpinned, the theme wins
+  action: '#90caf9', // theme-keep: the picker's dark default; unpinned, the theme wins
 };
 
 const KEY = 'fpai.chatColors';
@@ -58,8 +60,11 @@ export function saveChatColors(c: ChatColors): void {
 /** Push the colors onto :root as CSS custom properties (overrides styles.css). */
 export function applyChatColors(c: ChatColors): void {
   const root = document.documentElement;
+  // A colour left at its default is not pinned, so the desktop's theme
+  // (appTheme.ts) supplies it and light mode gets its own bubble and inks.
   (Object.keys(VARS) as (keyof ChatColors)[]).forEach((k) => {
-    root.style.setProperty(VARS[k], c[k]);
+    if (c[k].toLowerCase() === DEFAULT_CHAT_COLORS[k]) root.style.removeProperty(VARS[k]);
+    else root.style.setProperty(VARS[k], c[k]);
   });
   root.style.setProperty(
     '--chat-user-dialogue',

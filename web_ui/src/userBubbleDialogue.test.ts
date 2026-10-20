@@ -51,8 +51,9 @@ describe('--chat-user-dialogue', () => {
     applyChatColors({ ...DEFAULT_CHAT_COLORS, userBubble: EMERALD, userText: DARK_INK });
     const d = document.documentElement.style.getPropertyValue('--chat-user-dialogue');
     expect(contrastRatio(d, EMERALD)).toBeGreaterThanOrEqual(MIN_USER_DIALOGUE_CONTRAST);
-    // The AI bubble's tint is untouched.
-    expect(document.documentElement.style.getPropertyValue('--dialogue')).toBe(DEFAULT_CHAT_COLORS.dialogue);
+    // The AI bubble's tint is untouched: still at its default, so it is left
+    // to the theme the desktop sends rather than pinned to the dark yellow.
+    expect(document.documentElement.style.getPropertyValue('--dialogue')).toBe('');
   });
 
   it('a chat theme with a recoloured user bubble re-tints the preset dialogue', () => {

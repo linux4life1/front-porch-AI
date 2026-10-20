@@ -34,4 +34,12 @@ describe('chatColors', () => {
     expect(root.style.getPropertyValue('--chat-user-bubble')).toBe('#123456');
     expect(root.style.getPropertyValue('--dialogue')).toBe('#abcdef');
   });
+
+  it('leaves a colour at its default to the theme', () => {
+    const root = document.documentElement;
+    applyChatColors({ ...DEFAULT_CHAT_COLORS, aiBubble: '#222222' });
+    applyChatColors({ ...DEFAULT_CHAT_COLORS });
+    expect(root.style.getPropertyValue('--chat-ai-bubble')).toBe('');
+    expect(root.style.getPropertyValue('--dialogue')).toBe('');
+  });
 });

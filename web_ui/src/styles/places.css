@@ -33,7 +33,7 @@
   border: 1px solid var(--border);
   background: var(--surface, color-mix(in srgb, var(--accent) 6%, transparent));
 }
-.climate-season-card.clash { border-color: #e0644c; }
+.climate-season-card.clash { border-color: var(--danger); }
 .climate-season-card-head { display: flex; gap: 4px; align-items: center; }
 .climate-season-card-head input {
   flex: 1; min-width: 0; font-weight: 600; font-size: 0.85rem;
@@ -68,7 +68,7 @@
 }
 .climate-season-errors {
   margin: 8px 0 0; padding: 0; list-style: none;
-  color: #e0644c; font-size: 0.82rem; line-height: 1.4;
+  color: var(--danger); font-size: 0.82rem; line-height: 1.4;
 }
 .chat-places { margin: 10px 0 14px; }
 .chat-place-chip {
@@ -94,7 +94,7 @@
   padding: 1px 5px;
   border-radius: 6px;
   border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
-  color: var(--muted, #888);
+  color: var(--muted);
 }
 .chat-place-pill.setting {
   border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
@@ -119,7 +119,7 @@
 }
 .chat-place-lore-row.dragging { opacity: 0.55; }
 .chat-place-drag {
-  color: var(--muted, #888);
+  color: var(--muted);
   font-size: 0.7rem;
   letter-spacing: -0.08em;
   user-select: none;
@@ -129,12 +129,12 @@
 .chat-place-attach-modal {
   position: fixed; inset: 0; z-index: 80;
   display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, #000 45%, transparent);
+  background: color-mix(in srgb, var(--scrim-ink) 45%, transparent);
 }
 .chat-place-attach-card {
-  background: var(--surface, #1c1c1e);
+  background: var(--surface);
   color: var(--text, inherit);
-  border: 1px solid var(--border, #444);
+  border: 1px solid var(--border);
   border-radius: 14px;
   padding: 16px 18px;
   max-width: 360px; width: calc(100% - 32px);

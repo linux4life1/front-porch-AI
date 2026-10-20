@@ -57,16 +57,16 @@
      bubbles, composer, edit, sidebar help — not nav/chips/chrome. */
   --reading-size: 1;
   /* Tag pills (honey). */
-  --tag-bg: rgba(233, 196, 106, 0.2);
-  --tag-border: rgba(233, 196, 106, 0.45);
+  --tag-bg: color-mix(in srgb, var(--porch-honey) 20%, transparent);
+  --tag-border: color-mix(in srgb, var(--porch-honey) 45%, transparent);
   --tag-text: #f0d492;
   /* Group accents — terracotta family (the purple rings died with the
      warm-porch Home restyle on desktop). */
   --group-accent: var(--porch-terracotta);
   --group-accent-bright: #f0b195;
-  --group-border: rgba(226, 149, 120, 0.35);
-  --group-pill-bg: rgba(226, 149, 120, 0.15);
-  --group-pill-text: rgba(240, 177, 149, 0.9);
+  --group-border: color-mix(in srgb, var(--porch-terracotta) 35%, transparent);
+  --group-pill-bg: color-mix(in srgb, var(--porch-terracotta) 15%, transparent);
+  --group-pill-text: color-mix(in srgb, var(--group-accent-bright) 90%, transparent);
   /* Relationship / bond semantics (desktop constants, unchanged). */
   --bond-high: #69f0ae;
   --bond-mid: #448aff;
@@ -74,6 +74,43 @@
   --bond-neg: #ff5252;
   /* Guest badge. */
   --guest-bg: rgba(255, 64, 129, 0.9);
+  /* Theme inks (desktop InkColors / StatusColors). --wash is white on a dark
+     page and black on paper: write a soft overlay as
+     color-mix(in srgb, var(--wash) 8%, transparent). --scrim-ink darkens in
+     every theme (modal dims). --image-ink / --image-scrim sit on pictures,
+     so they never flip. */
+  --wash: #ffffff;
+  --scrim-ink: #000000;
+  --image-ink: #ffffff;
+  --image-scrim: #1b1611;
+  --info: #3b82f6;
+  --warn: #ffc107;
+  --alert: #f87171;
+  /* Director and narrator notes sit on the page in light mode (desktop
+     StyledChatMessage.onPage): quotes and actions take page inks. */
+  --quote-ink: #ffd740;
+  --narration-ink: #90caf9;
+  /* Growth Rings categories without a porch twin. */
+  --growth-habit: #9ec97f;
+  --growth-scar: #d99aa6;
+  /* Realism & Needs chips (desktop RealismColors): one hue per stat. */
+  --need-hunger: #ffab40;
+  --need-bladder: #40c4ff;
+  --need-energy: #d97706;
+  --need-social: #ff4081;
+  --need-fun: #7c4dff;
+  --need-hygiene: #18ffff;
+  --need-comfort: #69f0ae;
+  --need-other: #9e9e9e;
+  --bond-up: #ff4081;
+  --bond-down: #ff5252;
+  --trust-up: #448aff;
+  --trust-down: #7c4dff;
+  --lust-up: #ff6e40;
+  --lust-down: #40c4ff;
+  /* What a chip's wash mixes over: nothing on a dark page, the card on
+     paper. */
+  --chip-well: rgba(0, 0, 0, 0);
 }
 
 * { box-sizing: border-box; }
@@ -161,7 +198,7 @@ label input { margin-top: 6px; }
   font-weight: 600; border: 1px solid var(--border); cursor: pointer;
 }
 .side-jobs-seg .seg-on {
-  background: var(--accent); color: #1a1200; border-color: var(--accent);
+  background: var(--accent); color: var(--on-accent); border-color: var(--accent);
 }
 .side-jobs-seg .seg-off {
   background: var(--surface-2); color: var(--muted);

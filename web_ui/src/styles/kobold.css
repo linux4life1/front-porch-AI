@@ -3,8 +3,8 @@
  *
  * The "Local model" card and the KoboldCpp preset card, as the approved
  * sketch has them (desktop: KoboldStatusCard, AppColors' slate/inset/load
- * tokens). Dark values match the desktop exactly; light values are the
- * desktop's light pairs. */
+ * tokens). These are the dark defaults; the desktop sends every theme's
+ * values (lib/ui/theme/web_theme_tokens.dart). */
 
 :root {
   --kc-card: #251e17;
@@ -22,20 +22,6 @@
   --kc-red: #f87171;
   --kc-line: rgba(255, 255, 255, 0.1);
   --kc-line-strong: rgba(255, 255, 255, 0.12);
-}
-:root[data-theme='light'] {
-  --kc-card: #ffffff;
-  --kc-inset: #f3eee6;
-  --kc-sunken: #e9e2d8;
-  --kc-ink: #2a231c;
-  --kc-muted: #6e6357;
-  --kc-faint: #9a8e82;
-  --kc-amber: #b45309;
-  --kc-honey: #8f6400;
-  --kc-teal: #00796b;
-  --kc-red: #b91c1c;
-  --kc-line: rgba(0, 0, 0, 0.09);
-  --kc-line-strong: rgba(0, 0, 0, 0.11);
 }
 
 .kc-card {

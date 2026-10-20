@@ -13,19 +13,19 @@ import { api } from '../api/client';
 
 // Mirrors ContextViewerDialog.sectionColors on desktop.
 const SECTION_COLORS: Record<string, string> = {
-  'System Prompt': '#3B82F6',
-  Lorebook: '#8B5CF6',
-  Persona: '#06B6D4',
-  Scenario: '#10B981',
-  Examples: '#F59E0B',
-  'Chat History': '#6366F1',
-  'Post-History': '#EF4444',
-  Journal: '#F97316',
-  'Realism Mode': '#EC4899',
-  Memories: '#14B8A6',
-  'Speaker Card': '#7C3AED',
+  'System Prompt': '#3B82F6', // theme-keep: legend identity colour
+  Lorebook: '#8B5CF6', // theme-keep: legend identity colour
+  Persona: '#06B6D4', // theme-keep: legend identity colour
+  Scenario: '#10B981', // theme-keep: legend identity colour
+  Examples: '#F59E0B', // theme-keep: legend identity colour
+  'Chat History': '#6366F1', // theme-keep: legend identity colour
+  'Post-History': '#EF4444', // theme-keep: legend identity colour
+  Journal: '#F97316', // theme-keep: legend identity colour
+  'Realism Mode': '#EC4899', // theme-keep: legend identity colour
+  Memories: '#14B8A6', // theme-keep: legend identity colour
+  'Speaker Card': '#7C3AED', // theme-keep: legend identity colour
 };
-const FALLBACK_COLOR = '#9CA3AF';
+const FALLBACK_COLOR = '#9CA3AF'; // theme-keep: legend identity colour
 
 interface BudgetSection {
   label: string;
@@ -110,7 +110,8 @@ export function ContextBudgetModal({
   const total = sections.reduce((a, s) => a + s.tokens, 0);
   const limit = budget?.contextLimit ?? 0;
   const usage = limit > 0 ? total / limit : 0;
-  const usageColor = usage >= 0.9 ? '#f87171' : usage >= 0.7 ? '#fbbf24' : '#4ade80';
+  const usageColor =
+    usage >= 0.9 ? 'var(--danger)' : usage >= 0.7 ? 'var(--warn)' : 'var(--ok)';
   const src = sourceLabel(budget?.source);
   const when = fmtTime(budget?.assembledAt);
 

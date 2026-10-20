@@ -72,9 +72,9 @@
   flex-shrink: 0;
   background: var(--muted);
 }
-.tool-pill-ok { border-color: rgba(105, 240, 174, 0.45); }
+.tool-pill-ok { border-color: color-mix(in srgb, var(--ok) 45%, transparent); }
 .tool-pill-ok .tool-pill-dot { background: var(--ok); }
-.tool-pill-warn { border-color: rgba(255, 193, 7, 0.5); }
+.tool-pill-warn { border-color: color-mix(in srgb, var(--warn) 50%, transparent); }
 .tool-pill-warn .tool-pill-dot { background: var(--accent-amber); }
 .tool-pill-busy .tool-pill-dot {
   background: var(--accent-amber);
@@ -98,7 +98,7 @@
    Web mirror of the desktop TypeDeleteDialog: the delete button stays disabled
    until the user types the keyword exactly. Used for bulk character delete and
    delete-folder-with-characters. */
-.danger-modal { border: 1px solid rgba(255, 107, 107, 0.5); }
+.danger-modal { border: 1px solid color-mix(in srgb, var(--danger) 50%, transparent); }
 .type-confirm-label {
   display: block;
   margin: 14px 0 0;
@@ -108,7 +108,7 @@
 }
 .type-confirm-label .search {
   margin-top: 6px;
-  border-color: rgba(255, 107, 107, 0.4);
+  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
 }
 .danger-btn:disabled {
   opacity: 0.4;
