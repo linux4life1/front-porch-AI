@@ -267,4 +267,34 @@ void main() {
       );
     });
   });
+
+  group('Console notifies', () {
+    test('progress rewrites coalesce; a new line notifies at once', () async {
+      var notifies = 0;
+      kobold.addListener(() => notifies++);
+
+      kobold.debugConsoleSaid('Starting server on port 5001');
+      expect(notifies, 1, reason: 'a new line notifies at once');
+      kobold.debugConsoleSaid('Generating (1 / 200 tokens)');
+      expect(notifies, 2, reason: 'the first progress line is a new line');
+
+      for (var i = 2; i <= 60; i++) {
+        kobold.debugConsoleSaid('\rGenerating ($i / 200 tokens)');
+      }
+      expect(notifies, 2, reason: 'rewrites wait for the trailing notify');
+      expect(kobold.logs.last, 'Generating (60 / 200 tokens)');
+      await Future<void>.delayed(
+        kKoboldProgressNotifyGap + const Duration(milliseconds: 100),
+      );
+      expect(notifies, 3, reason: 'one trailing notify for 59 rewrites');
+
+      kobold.debugConsoleSaid('\rGenerating (61 / 200 tokens)');
+      kobold.debugConsoleSaid('\nCtxLimit:261/4096, Process:0.1s');
+      expect(notifies, 4, reason: 'a real line does not wait');
+      await Future<void>.delayed(
+        kKoboldProgressNotifyGap + const Duration(milliseconds: 100),
+      );
+      expect(notifies, 4, reason: 'the real line took the pending notify');
+    });
+  });
 }

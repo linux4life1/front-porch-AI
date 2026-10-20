@@ -19,6 +19,9 @@
 part of 'kobold_service.dart';
 
 const String _alreadyStarting = 'KoboldCpp is already starting.';
+
+/// The longest a rewritten progress line waits to be shown.
+const Duration kKoboldProgressNotifyGap = Duration(milliseconds: 250);
 const String _stopPressed =
     'KoboldCpp was not started: it was stopped while it was getting ready.';
 
@@ -390,7 +393,10 @@ extension KoboldServiceProcess on KoboldService {
     // terminal line.  Split on any combination of \r\n, \r, or \n so each
     // logical line is processed individually.
     final rawLines = data.split(RegExp(r'\r\n|\r|\n'));
-    bool changed = false;
+    // A new line notifies now; a chunk that only rewrote the progress line
+    // (about one per token) waits for [_notifyProgressSoon].
+    bool appended = false;
+    bool overwrote = false;
 
     for (final rawLine in rawLines) {
       final line = rawLine.trim();
@@ -406,7 +412,7 @@ extension KoboldServiceProcess on KoboldService {
         // at O(1) growth during a long generation instead of O(n).
         if (_progressLinePattern.hasMatch(lastEntry)) {
           _logs.last = line;
-          changed = true;
+          overwrote = true;
           // Do NOT write progress lines to the file — they are noise.
           continue;
         }
@@ -415,11 +421,30 @@ extension KoboldServiceProcess on KoboldService {
       _logs.add(line);
       if (!isProgress) _writeToLogFile(line + '\n');
       if (_logs.length > 1000) _logs.removeAt(0);
-      changed = true;
+      appended = true;
     }
 
-    if (changed) notify();
+    if (appended) {
+      _progressNotify?.cancel();
+      _progressNotify = null;
+      notify();
+    } else if (overwrote) {
+      _notifyProgressSoon();
+    }
   }
+
+  /// At most one notify per [kKoboldProgressNotifyGap] for progress rewrites,
+  /// trailing so the last count is still shown.
+  void _notifyProgressSoon() {
+    _progressNotify ??= Timer(kKoboldProgressNotifyGap, () {
+      _progressNotify = null;
+      notify();
+    });
+  }
+
+  /// Test hook: [output] as if the engine had printed it to its console.
+  @visibleForTesting
+  void debugConsoleSaid(String output) => _addLog(output);
 
   Future<void> _stopKobold() async {
     // Before anything else, and regardless of whether we own the process — a
@@ -463,6 +488,8 @@ extension KoboldServiceProcess on KoboldService {
     _residentKey = null;
     _loadGeneration++;
     _stopReadinessProbe();
+    _progressNotify?.cancel();
+    _progressNotify = null;
     notify();
   }
 }

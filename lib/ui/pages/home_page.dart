@@ -212,8 +212,13 @@ class _HomePageState extends State<HomePage> {
 
   // No toast when a model finishes loading: dual-local mouth/worker swaps
   // mark ready on every GGUF load, and the success SnackBars stacked.
+  // Kobold notifies per console burst. While the chat route covers Home the
+  // Overlay turns its tickers off; build depends on that, so Home redraws
+  // fresh once it is uncovered and skips every update until then.
   void _onKoboldUpdate() {
-    if (!mounted) return;
+    if (!mounted || !TickerMode.getValuesNotifier(context).value.enabled) {
+      return;
+    }
     setState(() {}); // Rebuild to update status bar
   }
 
@@ -326,6 +331,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    TickerMode.valuesOf(context); // see _onKoboldUpdate
     return Consumer3<CharacterRepository, FolderService, GroupChatRepository>(
       builder: (context, repo, folderService, groupRepo, child) {
         if (repo.isLoading) {

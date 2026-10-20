@@ -121,6 +121,9 @@ class KoboldService extends ChangeNotifier
   final LiveGenProgress liveProgress = LiveGenProgress();
   DateTime _lastLiveNotify = DateTime.fromMillisecondsSinceEpoch(0);
 
+  /// Trailing notify for console chunks that only rewrote the progress line.
+  Timer? _progressNotify;
+
   bool get isRunning => _isRunning;
   bool get isStarting => _isStarting;
   List<String> get logs => List.unmodifiable(_logs);
@@ -264,6 +267,7 @@ class KoboldService extends ChangeNotifier
 
   @override
   void dispose() {
+    _progressNotify?.cancel();
     _stopReadinessProbe();
     _idleStop();
     WidgetsBinding.instance.removeObserver(this);
