@@ -199,7 +199,7 @@ class SettingsSnapshot {
       'followStreamingReplies': _storage.uiSettings.followStreamingReplies,
       // The resolved app theme (mode + both token maps). The web never
       // computes a palette; it paints these. Additive.
-      'theme': webThemeWire(_storage),
+      'theme': webThemeWire(_storage.appearance),
       ...readWorkerSettings(_storage, _llm),
     };
   }

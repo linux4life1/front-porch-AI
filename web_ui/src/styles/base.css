@@ -46,7 +46,7 @@
   --radius-badge: 4px;
   /* Chat message coloring (mirrors AppColors.dialogue / action). User-overridable
      via Settings → Chat colors (chatColors.ts sets these on :root at runtime). */
-  --dialogue: #ffd54f;
+  --dialogue: #ffd740;
   --action: #90caf9;
   /* Customizable chat bubble colors (default to the base tokens). */
   --chat-user-bubble: var(--user-bubble);

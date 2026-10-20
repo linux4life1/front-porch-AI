@@ -12,7 +12,10 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
+import 'package:front_porch_ai/services/web/facade/settings/settings.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// Colour variables that stay put in every theme on purpose.
 const _fixed = {
@@ -188,5 +191,58 @@ void main() {
     expect(w['dark'], dark);
     expect(w['light'], light);
     expect(light['bg'], '#f8f4ed');
+  });
+
+  test('every app theme reaches the web with its own colours', () {
+    for (final id in AppThemeId.values) {
+      for (final (b, p) in [
+        (Brightness.dark, id.palettes.dark),
+        (Brightness.light, id.palettes.light),
+      ]) {
+        final map = WebThemeTokens.resolve(p, b);
+        final why = '${id.key} ${b.name}';
+        expect(map.keys.toSet(), dark.keys.toSet(), reason: why);
+        expect(map['bg'], WebThemeTokens.css(p.background), reason: why);
+        expect(map['porch-amber'], WebThemeTokens.css(p.amber), reason: why);
+        expect(
+          map['user-bubble'],
+          WebThemeTokens.css(p.chat.userBubble),
+          reason: why,
+        );
+        expect(
+          map['dialogue'],
+          WebThemeTokens.css(p.chat.dialogue),
+          reason: why,
+        );
+      }
+    }
+  });
+
+  test('the wire follows the desktop theme, mode and accent', () async {
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final appearance = AppearanceSettings()..initializeBase(prefs, () {});
+    appearance.load();
+    expect(webThemeWire(appearance)['dark'], dark);
+
+    await appearance.setTheme(AppThemeId.harbor);
+    await appearance.setMode(AppThemeMode.light);
+    var w = webThemeWire(appearance);
+    expect(w['mode'], 'light');
+    expect(
+      (w['light']! as Map)['bg'],
+      WebThemeTokens.css(AppThemeId.harbor.palettes.light.background),
+    );
+
+    await appearance.setAccentOverride(const Color(0xFF2E7D32));
+    w = webThemeWire(appearance);
+    expect(
+      (w['light']! as Map)['porch-amber'],
+      WebThemeTokens.css(appearance.resolvedPalettes().light.amber),
+    );
+    expect(
+      (w['light']! as Map)['porch-amber'],
+      isNot(WebThemeTokens.css(AppThemeId.harbor.palettes.light.amber)),
+    );
   });
 }

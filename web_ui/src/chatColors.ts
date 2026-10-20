@@ -25,7 +25,7 @@ export const DEFAULT_CHAT_COLORS: ChatColors = {
   userText: '#ffffff', // theme-keep: the picker's dark default; unpinned, the theme wins
   aiBubble: '#374151', // theme-keep: the picker's dark default; unpinned, the theme wins
   aiText: '#ffffff', // theme-keep: the picker's dark default; unpinned, the theme wins
-  dialogue: '#ffd54f', // theme-keep: the picker's dark default; unpinned, the theme wins
+  dialogue: '#ffd740', // theme-keep: the picker's dark default; unpinned, the theme wins
   action: '#90caf9', // theme-keep: the picker's dark default; unpinned, the theme wins
 };
 

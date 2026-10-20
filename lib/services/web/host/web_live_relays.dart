@@ -403,7 +403,7 @@ class WebLiveRelays {
         // The theme rides the event so every open page repaints at once.
         streamHub.broadcast({
           'event': 'settings_changed',
-          'theme': webThemeWire(_storage),
+          'theme': webThemeWire(_storage.appearance),
         });
       });
     }

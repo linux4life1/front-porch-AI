@@ -16,14 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The desktop's resolved app theme for the web: its mode and both token
 /// maps. Rides the settings snapshot as `theme` and every
 /// `settings_changed` event, so the PWA repaints without asking. Additive:
 /// an older PWA ignores the key.
-Map<String, Object> webThemeWire(StorageService storage) => WebThemeTokens.wire(
-  AppThemePalettes.porch,
-  isDark: storage.uiSettings.isDark,
-);
+Map<String, Object> webThemeWire(AppearanceSettings appearance) =>
+    WebThemeTokens.wire(
+      appearance.resolvedPalettes(),
+      isDark: appearance.isDark,
+    );
