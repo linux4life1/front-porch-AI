@@ -361,6 +361,8 @@ void main() {
               'failed': DownloadStatusColors.failedLight,
               'verifying': DownloadStatusColors.verifyingLight,
               'cancelled': DownloadStatusColors.cancelledLight,
+              'climate danger': StatusColors.climateDangerOf(c),
+              'climate warn': StatusColors.climateWarnOf(c),
             };
             return const SizedBox();
           },

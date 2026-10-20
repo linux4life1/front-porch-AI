@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_character_page/create_character_page.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/providers/app_state.dart';
 
@@ -89,7 +89,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Character name is required'),
-          backgroundColor: Colors.redAccent,
+          backgroundColor: StatusColors.alertFill,
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -117,7 +117,7 @@ class _CreateCharacterPageState extends State<CreateCharacterPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Failed to save character: $e'),
-            backgroundColor: Colors.red.shade800,
+            backgroundColor: StatusColors.failFill,
             behavior: SnackBarBehavior.floating,
           ),
         );

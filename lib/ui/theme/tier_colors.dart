@@ -74,7 +74,11 @@ class TierColors {
     if (tier >= -3) return AppColors.negativeAccentOf(context);
     if (tier >= -4) return Colors.red;
     if (tier >= -5) {
-      return AppColors.resolve(context, Colors.red.shade900, Colors.red.shade800);
+      return AppColors.resolve(
+        context,
+        Colors.red.shade900,
+        Colors.red.shade800,
+      );
     }
     if (tier >= -6) {
       return AppColors.resolve(

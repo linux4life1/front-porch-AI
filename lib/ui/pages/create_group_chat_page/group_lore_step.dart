@@ -22,7 +22,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'create_group_chat_page.dart';
 
@@ -76,7 +76,7 @@ class GroupLoreStep extends StatelessWidget {
                 border: Border.all(
                   width: 1.5,
                   color: entry.constant
-                      ? Colors.amberAccent.withValues(alpha: 0.3)
+                      ? AccentColors.amberOf(context).withValues(alpha: 0.3)
                       : entry.enabled
                       ? _loreEnabledAccent.withValues(alpha: 0.15)
                       : AppColors.borderOf(context).withValues(alpha: 0.5),
@@ -91,7 +91,7 @@ class GroupLoreStep extends StatelessWidget {
                         Icons.menu_book,
                         size: 14,
                         color: entry.constant
-                            ? Colors.amberAccent
+                            ? AccentColors.amberOf(context)
                             : entry.enabled
                             ? _loreEnabledAccent
                             : AppColors.iconSecondary(context),
@@ -116,13 +116,15 @@ class GroupLoreStep extends StatelessWidget {
                             vertical: 2,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.amberAccent.withValues(alpha: 0.15),
+                            color: AccentColors.amberOf(
+                              context,
+                            ).withValues(alpha: 0.15),
                             borderRadius: BorderRadius.circular(4),
                           ),
-                          child: const Text(
+                          child: Text(
                             'Always Active',
                             style: TextStyle(
-                              color: Colors.amberAccent,
+                              color: AccentColors.amberOf(context),
                               fontSize: 9,
                               fontWeight: FontWeight.w600,
                             ),
@@ -165,10 +167,10 @@ class GroupLoreStep extends StatelessWidget {
                         ),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.edit_outlined,
                           size: 16,
-                          color: Colors.white38,
+                          color: AppColors.textTertiary(context),
                         ),
                         onPressed: () => _showLoreEntryEditor(
                           context,
@@ -181,10 +183,10 @@ class GroupLoreStep extends StatelessWidget {
                         padding: const EdgeInsets.all(4),
                       ),
                       IconButton(
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.delete_outline,
                           size: 16,
-                          color: Colors.redAccent,
+                          color: StatusColors.dangerOf(context),
                         ),
                         onPressed: () => draft.deleteLoreEntry(i),
                         tooltip: 'Delete entry',
@@ -207,13 +209,13 @@ class GroupLoreStep extends StatelessWidget {
                                 vertical: 1,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withValues(alpha: 0.05),
+                                color: InkColors.washOf(context, 0.05, 0.04),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
                                 k.trim(),
-                                style: const TextStyle(
-                                  color: Colors.white54,
+                                style: TextStyle(
+                                  color: InkColors.mutedTextOf(context, 0.54),
                                   fontSize: 10,
                                 ),
                               ),

@@ -21,7 +21,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 
 /// The person icon a card shows when it has no portrait of its own.
@@ -142,10 +142,7 @@ class CharacterGridCardTinyBody extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.bottomCenter,
                 end: Alignment.topCenter,
-                colors: [
-                  AppColors.resolve(context, Colors.black87, Colors.black54),
-                  Colors.transparent,
-                ],
+                colors: [InkColors.nameScrimOf(context), Colors.transparent],
               ),
             ),
             child: Text(
@@ -153,7 +150,7 @@ class CharacterGridCardTinyBody extends StatelessWidget {
               style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
-                color: Colors.white,
+                color: InkColors.onImage,
               ),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,

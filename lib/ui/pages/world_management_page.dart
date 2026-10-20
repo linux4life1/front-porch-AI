@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'world_management/world_management.dart';
 
 class WorldManagementPage extends StatefulWidget {
@@ -156,7 +156,9 @@ class _WorldManagementPageState extends State<WorldManagementPage>
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: StatusColors.alertFill,
+            ),
             onPressed: () {
               repo.deleteWorld(world);
               Navigator.pop(context);

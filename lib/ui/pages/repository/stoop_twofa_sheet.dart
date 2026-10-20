@@ -17,7 +17,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/providers/auth_state.dart';
 import 'package:front_porch_ai/services/backporch/backporch.dart';
 import 'package:front_porch_ai/ui/pages/repository/stoop_glass.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Opt-in two-factor (TOTP) management for a Stoop account. Opens the enrollment
 /// flow when 2FA is off (QR + secret + confirm a code), or the turn-off flow
@@ -215,10 +215,16 @@ class _TwoFactorSheetState extends State<_TwoFactorSheet> {
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: Colors.white, // QR needs a light quiet-zone to scan reliably
+          // theme-keep: a QR code needs a light quiet zone to scan
+          color: Colors.white,
           borderRadius: BorderRadius.circular(12),
         ),
-        child: Image.memory(bytes, width: 180, height: 180, gaplessPlayback: true),
+        child: Image.memory(
+          bytes,
+          width: 180,
+          height: 180,
+          gaplessPlayback: true,
+        ),
       );
     } catch (_) {
       return const SizedBox.shrink();
@@ -241,16 +247,12 @@ class _TwoFactorSheetState extends State<_TwoFactorSheet> {
         ),
         IconButton(
           tooltip: 'Copy key',
-          icon: Icon(
-            Icons.copy_rounded,
-            size: 18,
-            color: stoopMute(context),
-          ),
+          icon: Icon(Icons.copy_rounded, size: 18, color: stoopMute(context)),
           onPressed: () {
             Clipboard.setData(ClipboardData(text: secret));
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Setup key copied.')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('Setup key copied.')));
           },
         ),
       ],
@@ -293,20 +295,14 @@ class _TwoFactorSheetState extends State<_TwoFactorSheet> {
 
   Widget _subtitle(String t) => Padding(
     padding: const EdgeInsets.only(top: 6),
-    child: Text(
-      t,
-      style: TextStyle(color: stoopCream2(context), height: 1.4),
-    ),
+    child: Text(t, style: TextStyle(color: stoopCream2(context), height: 1.4)),
   );
 
   Widget _errorText() => Padding(
     padding: const EdgeInsets.only(top: 10),
     child: Text(
       _error!,
-      style: TextStyle(
-        color: stoopEmberText(context),
-        fontSize: 13,
-      ),
+      style: TextStyle(color: stoopEmberText(context), fontSize: 13),
     ),
   );
 

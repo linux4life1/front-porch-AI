@@ -240,11 +240,7 @@ class ChatSidebarPortrait extends StatelessWidget {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: AppColors.resolve(
-                        context,
-                        Colors.black.withValues(alpha: 0.7),
-                        Colors.black.withValues(alpha: 0.45),
-                      ),
+                      color: InkColors.dimOf(context, 0.7, 0.45),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(

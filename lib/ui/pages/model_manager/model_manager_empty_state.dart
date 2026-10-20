@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Centered cloud icon + title + subtitle shown when a Model Manager list
 /// (local models or search results) has nothing to show.
@@ -41,11 +41,7 @@ class ModelManagerEmptyState extends StatelessWidget {
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: AppColors.resolve(
-                context,
-                Colors.white.withValues(alpha: 0.03),
-                Colors.black.withValues(alpha: 0.03),
-              ),
+              color: InkColors.washOf(context, 0.03, 0.03),
               shape: BoxShape.circle,
             ),
             child: Icon(

@@ -118,4 +118,17 @@ class StatusColors {
 
   /// The snackbar behind a failed update.
   static final Color errorFill = Colors.red.shade700;
+
+  /// Climate editor text: a clashing season or a dangerous stance, and a
+  /// harsh stance. Dark keeps the mockup's soft red and gold.
+  static Color climateDangerOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFE0644C),
+    const Color(0xFFB71C1C),
+  );
+  static Color climateWarnOf(BuildContext context) => AppColors.resolve(
+    context,
+    const Color(0xFFE3B341),
+    const Color(0xFF92400E),
+  );
 }

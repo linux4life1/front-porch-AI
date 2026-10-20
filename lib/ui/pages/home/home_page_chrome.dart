@@ -21,7 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/ui/pages/character_creator_page.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Home's three views (chats, stories, Waifu Coder) all sit inside the
@@ -143,18 +143,12 @@ class HomeEmptyLibrary extends StatelessWidget {
 
   ButtonStyle _buttonStyle(BuildContext context) {
     return ElevatedButton.styleFrom(
-      backgroundColor: AppColors.resolve(
-        context,
-        Colors.white.withValues(alpha: 0.1),
-        Colors.black.withValues(alpha: 0.05),
-      ),
+      backgroundColor: InkColors.washOf(context, 0.1, 0.05),
       foregroundColor: AppColors.textPrimary(context),
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: AppColors.resolve(context, Colors.white24, Colors.black26),
-        ),
+        side: BorderSide(color: InkColors.outlineOf(context)),
       ),
     );
   }

@@ -56,9 +56,8 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            // theme-keep: book prop
+            color: const Color(0xFF8B7355).withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),
@@ -79,9 +78,8 @@ class BookPageContent extends StatelessWidget {
         Container(
           width: 60,
           height: 1,
-          color: const Color(
-            0xFF8B7355,
-          ).withValues(alpha: 0.4), // theme-keep: book prop
+          // theme-keep: book prop
+          color: const Color(0xFF8B7355).withValues(alpha: 0.4),
         ),
         const SizedBox(height: 16),
         Text(
@@ -99,9 +97,8 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            // theme-keep: book prop
+            color: const Color(0xFF8B7355).withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),
@@ -138,9 +135,8 @@ class BookPageContent extends StatelessWidget {
         Container(
           width: 40,
           height: 1,
-          color: const Color(
-            0xFF8B7355,
-          ).withValues(alpha: 0.4), // theme-keep: book prop
+          // theme-keep: book prop
+          color: const Color(0xFF8B7355).withValues(alpha: 0.4),
         ),
         const SizedBox(height: 16),
         Text(
@@ -206,9 +202,8 @@ class BookPageContent extends StatelessWidget {
           Container(
             width: 40,
             height: 1,
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.3), // theme-keep: book prop
+            // theme-keep: book prop
+            color: const Color(0xFF8B7355).withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
         ],
@@ -228,9 +223,8 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            // theme-keep: book prop
+            color: const Color(0xFF8B7355).withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),
@@ -260,9 +254,8 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            // theme-keep: book prop
+            color: const Color(0xFF8B7355).withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),

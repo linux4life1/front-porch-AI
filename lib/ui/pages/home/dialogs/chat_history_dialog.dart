@@ -21,7 +21,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// The one Manage Chats list — folder-icon menu and Home right-click both
@@ -212,18 +212,22 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
             onPressed: () => _showEditSessionDialog(s),
           ),
           IconButton(
-            icon: const Icon(
+            icon: Icon(
               Icons.delete_outline,
               size: 16,
-              color: Colors.redAccent,
+              color: StatusColors.dangerOf(context),
             ),
             tooltip: 'Delete chat',
             onPressed: () => _confirmDelete(s, isCurrent: isCurrent),
           ),
           if (isCurrent)
-            const Padding(
-              padding: EdgeInsets.only(left: 4.0),
-              child: Icon(Icons.check, size: 16, color: Colors.greenAccent),
+            Padding(
+              padding: const EdgeInsets.only(left: 4.0),
+              child: Icon(
+                Icons.check,
+                size: 16,
+                color: StatusColors.successOf(context),
+              ),
             ),
         ],
       ),
@@ -254,7 +258,9 @@ class _ChatHistoryDialogState extends State<ChatHistoryDialog> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.redAccent),
+            style: TextButton.styleFrom(
+              foregroundColor: StatusColors.dangerOf(ctx),
+            ),
             child: const Text('Delete'),
           ),
         ],
