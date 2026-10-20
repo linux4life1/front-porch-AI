@@ -180,11 +180,17 @@ class _StyledChatMessageState extends State<StyledChatMessage> {
             themePreset: widget.themePreset,
             themeOverrides: widget.themeOverrides,
           );
-    final actionColor = storageService.uiSettings.getActionColor(
-      character,
-      themePreset: widget.themePreset,
-      themeOverrides: widget.themeOverrides,
-    );
+    final actionColor = widget.isUser
+        ? storageService.uiSettings.userBubbleActionColorFor(
+            character,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
+          )
+        : storageService.uiSettings.getActionColor(
+            character,
+            themePreset: widget.themePreset,
+            themeOverrides: widget.themeOverrides,
+          );
     final pageInk = widget.onPage && AppColors.isLight(context);
     final key = (
       fontFamily,

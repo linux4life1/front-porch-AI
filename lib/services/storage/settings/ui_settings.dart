@@ -102,6 +102,8 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
   /// Chat Appearance (the user bubble keeps a picked colour as is).
   bool get globalDialogueColorChosen =>
       (_isDark ? _globalDialogueColor : _lightDialogueColor) != null;
+  bool get globalActionColorChosen =>
+      (_isDark ? _globalActionColor : _lightActionColor) != null;
   Color get globalActionColor =>
       (_isDark ? _globalActionColor : _lightActionColor) ?? _chat.action;
   bool get isDark => _isDark;

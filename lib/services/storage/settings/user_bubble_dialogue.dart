@@ -23,8 +23,9 @@ import 'package:front_porch_ai/utils/readable_dialogue_tint.dart';
 
 import 'ui_settings.dart';
 
-/// The dialogue tint for text drawn inside the user's own bubble (quoted
-/// speech, the sender name). One place decides it so every reader agrees.
+/// The dialogue and action tints for text drawn inside the user's own
+/// bubble (quoted speech, `*actions*`, the sender name). One place decides
+/// them so every reader agrees.
 extension UserBubbleDialogue on UiSettings {
   Color userBubbleDialogueColorFor(
     CharacterCard? character, {
@@ -52,6 +53,41 @@ extension UserBubbleDialogue on UiSettings {
         themePreset: themePreset,
         themeOverrides: themeOverrides,
       ),
+    );
+  }
+
+  /// `*Action*` text in the user's bubble: a shipped default that would not
+  /// read on that bubble is tinted the same way as quoted speech.
+  Color userBubbleActionColorFor(
+    CharacterCard? character, {
+    ChatThemePreset? themePreset,
+    ChatThemeOverrides? themeOverrides,
+  }) {
+    final bool chosen;
+    if (themePreset != null) {
+      chosen = themeOverrides?.actionColor != null;
+    } else {
+      chosen =
+          character?.frontPorchExtensions?.actionColor != null ||
+          globalActionColorChosen;
+    }
+    return userBubbleDialogueColor(
+      dialogue: getActionColor(
+        character,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      ),
+      bubble: getUserBubbleColor(
+        character,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      ),
+      userText: getUserTextColor(
+        character,
+        themePreset: themePreset,
+        themeOverrides: themeOverrides,
+      ),
+      userChoseDialogue: chosen,
     );
   }
 

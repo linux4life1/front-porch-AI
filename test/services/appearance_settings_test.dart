@@ -28,6 +28,7 @@ import 'package:front_porch_ai/app/launch_window.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
 import 'package:front_porch_ai/services/storage/settings/ui_settings.dart';
+import 'package:front_porch_ai/services/storage/settings/user_bubble_dialogue.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import '../golden/support/creator_test_support.dart';
@@ -190,4 +191,28 @@ void main() {
       AppThemeId.harbor.palettes.light.background,
     );
   });
+
+  test(
+    'action text in the user bubble reads in every theme until picked',
+    () async {
+      final (a, ui) = await _boot();
+      for (final theme in AppThemeId.values) {
+        await a.setTheme(theme);
+        for (final mode in [AppThemeMode.dark, AppThemeMode.light]) {
+          await a.setMode(mode);
+          expect(
+            contrastRatio(
+              ui.userBubbleActionColorFor(null),
+              ui.globalUserBubbleColor,
+            ),
+            greaterThanOrEqualTo(3.0),
+            reason: '${theme.label} ${mode.label}',
+          );
+        }
+      }
+      const mine = Color(0xFF90CAF9);
+      await ui.setGlobalActionColor(mine);
+      expect(ui.userBubbleActionColorFor(null), mine);
+    },
+  );
 }
