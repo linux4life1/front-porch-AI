@@ -15,7 +15,6 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/theme/download_status_colors.dart';
 import 'package:front_porch_ai/ui/widgets/local_model_card.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -104,7 +103,9 @@ void main() {
       ),
     );
     final icon = tester.widget<Icon>(find.byIcon(Icons.storage_rounded));
-    expect(icon.color, DownloadStatusColors.downloading);
+    // The plain MaterialApp here is light mode, where the glyph now takes the
+    // readable light tone (#40C4FF on paper was about 1.4:1).
+    expect(icon.color, const Color(0xFF075985));
     final tile = tester.widget<Container>(
       find.ancestor(
         of: find.byIcon(Icons.storage_rounded),

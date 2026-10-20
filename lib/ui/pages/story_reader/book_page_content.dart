@@ -18,16 +18,14 @@
 
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/pages/story_reader/book_page.dart';
+import 'package:front_porch_ai/ui/theme/book_page_colors.dart';
 
 /// The printed content of one book page, by [BookPageType]: title, act
 /// title, prose, end.
 ///
-/// Every color literal below is `// theme-keep: book prop` — this is the
-/// in-book paper/leather/sepia aesthetic (maintainer-approved: the book must
-/// look like a book — cream paper, sepia ink, leather binding shadows — in
-/// every app theme, light or dark), NOT app chrome. The prose ink color lives
-/// in the shared [kStoryProseStyle] so the measured page breaks and the
-/// rendered text never drift apart.
+/// The page follows the theme's [BookPageColors]. Prose keeps the shared
+/// [kStoryProseStyle] (only its colour is added here), so the measured page
+/// breaks and the rendered text never drift apart.
 class BookPageContent extends StatelessWidget {
   final BookPage page;
 
@@ -35,19 +33,20 @@ class BookPageContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final book = BookPageColors.of(context);
     switch (page.type) {
       case BookPageType.title:
-        return _titlePage(page);
+        return _titlePage(page, book);
       case BookPageType.actTitle:
-        return _actTitlePage(page);
+        return _actTitlePage(page, book);
       case BookPageType.prose:
-        return _prosePage(page);
+        return _prosePage(page, book);
       case BookPageType.end:
-        return _endPage(page);
+        return _endPage(page, book);
     }
   }
 
-  Widget _titlePage(BookPage page) {
+  Widget _titlePage(BookPage page, BookPageColors book) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -56,9 +55,7 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            color: book.inkFaint.withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),
@@ -67,11 +64,11 @@ class BookPageContent extends StatelessWidget {
         Text(
           page.title,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 32,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2C1810), // theme-keep: book prop
+            color: book.inkStrong,
             height: 1.3,
           ),
         ),
@@ -79,19 +76,17 @@ class BookPageContent extends StatelessWidget {
         Container(
           width: 60,
           height: 1,
-          color: const Color(
-            0xFF8B7355,
-          ).withValues(alpha: 0.4), // theme-keep: book prop
+          color: book.inkFaint.withValues(alpha: 0.4),
         ),
         const SizedBox(height: 16),
         Text(
           page.body,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 14,
             fontStyle: FontStyle.italic,
-            color: Color(0xFF5A4A3A), // theme-keep: book prop
+            color: book.inkMuted,
             height: 1.6,
           ),
         ),
@@ -99,20 +94,18 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            color: book.inkFaint.withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),
         ),
         const SizedBox(height: 48),
-        const Text(
+        Text(
           'A Porch Story',
           style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 12,
-            color: Color(0xFF8B7355), // theme-keep: book prop
+            color: book.inkFaint,
             letterSpacing: 3,
           ),
         ),
@@ -120,37 +113,35 @@ class BookPageContent extends StatelessWidget {
     );
   }
 
-  Widget _actTitlePage(BookPage page) {
+  Widget _actTitlePage(BookPage page, BookPageColors book) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(
           page.title,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 16,
             letterSpacing: 6,
-            color: Color(0xFF8B7355), // theme-keep: book prop
+            color: book.inkFaint,
           ),
         ),
         const SizedBox(height: 16),
         Container(
           width: 40,
           height: 1,
-          color: const Color(
-            0xFF8B7355,
-          ).withValues(alpha: 0.4), // theme-keep: book prop
+          color: book.inkFaint.withValues(alpha: 0.4),
         ),
         const SizedBox(height: 16),
         Text(
           page.subtitle ?? '',
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 26,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF2C1810), // theme-keep: book prop
+            color: book.inkStrong,
             height: 1.3,
           ),
         ),
@@ -160,11 +151,11 @@ class BookPageContent extends StatelessWidget {
           child: Text(
             page.body,
             textAlign: TextAlign.center,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Georgia',
               fontSize: 13,
               fontStyle: FontStyle.italic,
-              color: Color(0xFF5A4A3A), // theme-keep: book prop
+              color: book.inkMuted,
               height: 1.6,
             ),
           ),
@@ -173,7 +164,7 @@ class BookPageContent extends StatelessWidget {
     );
   }
 
-  Widget _prosePage(BookPage page) {
+  Widget _prosePage(BookPage page, BookPageColors book) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -181,11 +172,11 @@ class BookPageContent extends StatelessWidget {
         if (page.title.isNotEmpty) ...[
           Text(
             page.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontFamily: 'Georgia',
               fontSize: 18,
               fontWeight: FontWeight.bold,
-              color: Color(0xFF2C1810), // theme-keep: book prop
+              color: book.inkStrong,
               height: 1.4,
             ),
           ),
@@ -194,11 +185,11 @@ class BookPageContent extends StatelessWidget {
               padding: const EdgeInsets.only(top: 4),
               child: Text(
                 page.subtitle!,
-                style: const TextStyle(
+                style: TextStyle(
                   fontFamily: 'Georgia',
                   fontSize: 12,
                   fontStyle: FontStyle.italic,
-                  color: Color(0xFF8B7355), // theme-keep: book prop
+                  color: book.inkFaint,
                 ),
               ),
             ),
@@ -206,21 +197,19 @@ class BookPageContent extends StatelessWidget {
           Container(
             width: 40,
             height: 1,
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.3), // theme-keep: book prop
+            color: book.inkFaint.withValues(alpha: 0.3),
           ),
           const SizedBox(height: 16),
         ],
         // Prose text — MUST use the shared kStoryProseStyle (declared in
         // book_page.dart) so this render matches the TextPainter
         // measurement that decided this page's break point.
-        Text(page.body, style: kStoryProseStyle),
+        Text(page.body, style: kStoryProseStyle.copyWith(color: book.ink)),
       ],
     );
   }
 
-  Widget _endPage(BookPage page) {
+  Widget _endPage(BookPage page, BookPageColors book) {
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       mainAxisSize: MainAxisSize.min,
@@ -228,31 +217,29 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            color: book.inkFaint.withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),
         ),
         const SizedBox(height: 32),
-        const Text(
+        Text(
           'The End',
           style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 28,
             fontStyle: FontStyle.italic,
-            color: Color(0xFF2C1810), // theme-keep: book prop
+            color: book.inkStrong,
           ),
         ),
         const SizedBox(height: 16),
         Text(
           page.body,
           textAlign: TextAlign.center,
-          style: const TextStyle(
+          style: TextStyle(
             fontFamily: 'Georgia',
             fontSize: 14,
-            color: Color(0xFF8B7355), // theme-keep: book prop
+            color: book.inkFaint,
             letterSpacing: 2,
           ),
         ),
@@ -260,9 +247,7 @@ class BookPageContent extends StatelessWidget {
         Text(
           '⸻ ✦ ⸻',
           style: TextStyle(
-            color: const Color(
-              0xFF8B7355,
-            ).withValues(alpha: 0.5), // theme-keep: book prop
+            color: book.inkFaint.withValues(alpha: 0.5),
             fontSize: 20,
             letterSpacing: 8,
           ),

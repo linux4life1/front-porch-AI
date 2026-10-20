@@ -19,6 +19,10 @@
 import 'package:flutter/material.dart';
 
 /// Download queue status hues, one per task state.
+///
+/// The bare constants are the dark-mode hues, kept for old callers. Paint
+/// with the `*Of(context)` getters: in light mode they return a deep tone
+/// that clears 4.5:1 on light paper (#F0EBE3) and on white.
 class DownloadStatusColors {
   DownloadStatusColors._();
 
@@ -29,4 +33,30 @@ class DownloadStatusColors {
   static const Color failed = Color(0xFFFF5252);
   static const Color verifying = Color(0xFFB388FF);
   static const Color cancelled = Color(0xFF6B7280);
+
+  static const Color _downloadingLight = Color(0xFF075985);
+  static const Color _pausedLight = Color(0xFF92400E);
+  static const Color _pendingLight = Color(0xFF4B5563);
+  static const Color _completedLight = Color(0xFF1B5E20);
+  static const Color _failedLight = Color(0xFFB71C1C);
+  static const Color _verifyingLight = Color(0xFF6D28D9);
+  static const Color _cancelledLight = Color(0xFF5C6370);
+
+  static Color _pick(BuildContext context, Color dark, Color light) =>
+      Theme.of(context).brightness == Brightness.light ? light : dark;
+
+  static Color downloadingOf(BuildContext context) =>
+      _pick(context, downloading, _downloadingLight);
+  static Color pausedOf(BuildContext context) =>
+      _pick(context, paused, _pausedLight);
+  static Color pendingOf(BuildContext context) =>
+      _pick(context, pending, _pendingLight);
+  static Color completedOf(BuildContext context) =>
+      _pick(context, completed, _completedLight);
+  static Color failedOf(BuildContext context) =>
+      _pick(context, failed, _failedLight);
+  static Color verifyingOf(BuildContext context) =>
+      _pick(context, verifying, _verifyingLight);
+  static Color cancelledOf(BuildContext context) =>
+      _pick(context, cancelled, _cancelledLight);
 }

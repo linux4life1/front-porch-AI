@@ -26,7 +26,7 @@ import 'package:front_porch_ai/ui/pages/home/cards/character_grid_card_face.dart
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/character_card_grid.dart'
     show kFolderDragHoldDelay;
 import 'package:front_porch_ai/utils/utils.dart';
@@ -150,7 +150,9 @@ class CharacterGridCard extends StatelessWidget {
       child: Card(
         color: AppColors.cardOf(context),
         clipBehavior: Clip.antiAlias,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        shape: RoundedRectangleBorder(
+          borderRadius: AppCorners.of(context).circular(12),
+        ),
         child: character.imagePath != null
             ? CharacterGridCardCover(
                 character: character,
@@ -198,7 +200,7 @@ class CharacterGridCard extends StatelessWidget {
       color: AppColors.cardOf(context),
       clipBehavior: Clip.antiAlias,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: AppCorners.of(context).circular(16),
         side: BorderSide(
           color: isSelectedCard
               ? AppColors.porchTerracottaOf(context)

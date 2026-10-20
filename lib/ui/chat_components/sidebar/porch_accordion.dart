@@ -18,7 +18,7 @@
 
 import 'package:flutter/material.dart';
 
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 
 import 'sidebar_tokens.dart';
 
@@ -123,7 +123,9 @@ class PorchAccordionState extends State<PorchAccordion> {
       child: Material(
         color: AppColors.cardOf(context),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
+          borderRadius: AppCorners.of(
+            context,
+          ).circular(SidebarTokens.cardRadius),
           side: BorderSide(
             color: _expanded
                 ? accent.withValues(alpha: 0.25)
@@ -137,7 +139,9 @@ class PorchAccordionState extends State<PorchAccordion> {
             InkWell(
               key: widget.headerKey,
               onTap: _toggle,
-              borderRadius: BorderRadius.circular(SidebarTokens.cardRadius),
+              borderRadius: AppCorners.of(
+                context,
+              ).circular(SidebarTokens.cardRadius),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                 child: Row(

@@ -54,7 +54,8 @@ class StorageService extends ChangeNotifier {
   late final GenerationSettings _generationSettings = GenerationSettings();
   late final BackendSettings _backendSettings = BackendSettings()
     ..engineFolder = () => binDir.path;
-  late final UiSettings _uiSettings = UiSettings();
+  late final AppearanceSettings _appearance = AppearanceSettings();
+  late final UiSettings _uiSettings = UiSettings(_appearance);
   late final TtsSettings _ttsSettings = TtsSettings();
   late final SttSettings _sttSettings = SttSettings();
   late final ImageGenSettings _imageGenSettings = ImageGenSettings();
@@ -114,6 +115,7 @@ class StorageService extends ChangeNotifier {
   GenerationSettings get generationSettings => _generationSettings;
   BackendSettings get backendSettings => _backendSettings;
   UiSettings get uiSettings => _uiSettings;
+  AppearanceSettings get appearance => _appearance;
   TtsSettings get ttsSettings => _ttsSettings;
   SttSettings get sttSettings => _sttSettings;
   ImageGenSettings get imageGenSettings => _imageGenSettings;
@@ -191,6 +193,7 @@ class StorageService extends ChangeNotifier {
     }
     _generationSettings.initializeBase(null, notifyListeners);
     _backendSettings.initializeBase(null, notifyListeners);
+    _appearance.initializeBase(null, notifyListeners);
     _uiSettings.initializeBase(null, notifyListeners);
     _ttsSettings.initializeBase(null, notifyListeners);
     _sttSettings.initializeBase(null, notifyListeners);
@@ -205,6 +208,7 @@ class StorageService extends ChangeNotifier {
     _toolVerdictSettings.initializeBase(null, notifyListeners);
     _generationSettings.load();
     _backendSettings.load();
+    _appearance.load();
     _uiSettings.load();
     _ttsSettings.load();
     _sttSettings.load();
@@ -306,6 +310,7 @@ class StorageService extends ChangeNotifier {
     // Single notify surface preserved (see plan "Why not multiple ChangeNotifiers").
     _generationSettings.initializeBase(_prefs, notifyListeners);
     _backendSettings.initializeBase(_prefs, notifyListeners);
+    _appearance.initializeBase(_prefs, notifyListeners);
     _uiSettings.initializeBase(_prefs, notifyListeners);
     _ttsSettings.initializeBase(_prefs, notifyListeners);
     _sttSettings.initializeBase(_prefs, notifyListeners);
@@ -327,7 +332,8 @@ class StorageService extends ChangeNotifier {
     try {
       _generationSettings.load();
       _backendSettings.load();
-      _uiSettings.load();
+      _appearance.load();
+    _uiSettings.load();
       _ttsSettings.load();
       _sttSettings.load();
       _imageGenSettings.load();

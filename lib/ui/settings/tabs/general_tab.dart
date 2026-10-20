@@ -25,7 +25,6 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/prompt_save_dialog.dart';
 import 'package:front_porch_ai/ui/settings/dialogs/prompt_delete_dialog.dart';
-import 'package:front_porch_ai/ui/settings/dialogs/color_picker_dialog.dart';
 import 'package:front_porch_ai/ui/dialogs/update_dialog.dart';
 import 'package:front_porch_ai/ui/settings/tabs/general_tab/general_tab.dart';
 
@@ -34,28 +33,6 @@ class GeneralTab extends StatelessWidget {
   const GeneralTab({super.key, required this.systemPromptController});
 
   final TextEditingController systemPromptController;
-
-  /// Curated chat-suitable Google Fonts. ('' == app default, Inter.)
-  static const List<(String, String)> _chatFonts = [
-    ('Default (Inter)', ''),
-    ('Roboto', 'Roboto'),
-    ('Open Sans', 'Open Sans'),
-    ('Lato', 'Lato'),
-    ('Source Sans 3', 'Source Sans 3'),
-    ('Nunito', 'Nunito'),
-    ('Poppins', 'Poppins'),
-    ('Montserrat', 'Montserrat'),
-    ('Raleway', 'Raleway'),
-    ('Work Sans', 'Work Sans'),
-    ('DM Sans', 'DM Sans'),
-    ('Quicksand', 'Quicksand'),
-    ('Rubik', 'Rubik'),
-    ('Karla', 'Karla'),
-    ('Merriweather', 'Merriweather'),
-    ('Playfair Display', 'Playfair Display'),
-    ('Roboto Mono', 'Roboto Mono'),
-    ('Fira Code', 'Fira Code'),
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -110,22 +87,6 @@ class GeneralTab extends StatelessWidget {
             value: storageService.uiSettings.followStreamingReplies,
             onChanged: (v) =>
                 storageService.uiSettings.setFollowStreamingReplies(v),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text('Dark Mode', style: theme.textTheme.titleMedium),
-              Switch(
-                value: Provider.of<StorageService>(context).uiSettings.isDark,
-                onChanged: (v) {
-                  Provider.of<StorageService>(
-                    context,
-                    listen: false,
-                  ).uiSettings.setIsDark(v);
-                },
-              ),
-            ],
           ),
           const SizedBox(height: 16),
           if (UpdateService.isSupported) ...[
@@ -201,134 +162,8 @@ class GeneralTab extends StatelessWidget {
             ),
           ],
           const SizedBox(height: 16),
-          SliderSetting(
-            label: 'Reading Size',
-            value: storageService.uiSettings.textScale,
-            min: 0.7,
-            max: 2.0,
-            onChanged: (val) => storageService.uiSettings.setTextScale(val),
-            divisions: 13,
-          ),
           const SizedBox(height: 16),
           const SpellCheckLanguageRow(),
-          const SizedBox(height: 24),
-          const SectionHeader('Chat Appearance'),
-          const SizedBox(height: 8),
-          ColorRow(
-            label: 'User Bubble',
-            color: storageService.uiSettings.globalUserBubbleColor,
-            onPressed: () => showColorPicker(
-              context,
-              storageService.uiSettings.globalUserBubbleColor,
-              (color) =>
-                  storageService.uiSettings.setGlobalUserBubbleColor(color),
-            ),
-          ),
-          ColorRow(
-            label: 'User Text',
-            color: storageService.uiSettings.globalUserTextColor,
-            onPressed: () => showColorPicker(
-              context,
-              storageService.uiSettings.globalUserTextColor,
-              (color) =>
-                  storageService.uiSettings.setGlobalUserTextColor(color),
-            ),
-          ),
-          ColorRow(
-            label: 'AI Bubble',
-            color: storageService.uiSettings.globalAiBubbleColor,
-            onPressed: () => showColorPicker(
-              context,
-              storageService.uiSettings.globalAiBubbleColor,
-              (color) =>
-                  storageService.uiSettings.setGlobalAiBubbleColor(color),
-            ),
-          ),
-          ColorRow(
-            label: 'AI Text',
-            color: storageService.uiSettings.globalAiTextColor,
-            onPressed: () => showColorPicker(
-              context,
-              storageService.uiSettings.globalAiTextColor,
-              (color) => storageService.uiSettings.setGlobalAiTextColor(color),
-            ),
-          ),
-          ColorRow(
-            label: 'Dialogue (Quoted)',
-            color: storageService.uiSettings.globalDialogueColor,
-            onPressed: () => showColorPicker(
-              context,
-              storageService.uiSettings.globalDialogueColor,
-              (color) =>
-                  storageService.uiSettings.setGlobalDialogueColor(color),
-            ),
-          ),
-          ColorRow(
-            label: 'Actions (*text*)',
-            color: storageService.uiSettings.globalActionColor,
-            onPressed: () => showColorPicker(
-              context,
-              storageService.uiSettings.globalActionColor,
-              (color) => storageService.uiSettings.setGlobalActionColor(color),
-            ),
-          ),
-          const SizedBox(height: 12),
-          // Global chat font — per-character overrides still win at render time
-          // (UiSettings.getChatFontFamily). Restored after a refactor left only
-          // a placeholder here; the setter had no other UI caller.
-          Row(
-            children: [
-              Text(
-                'Chat Font',
-                style: TextStyle(
-                  color: AppColors.textSecondary(context),
-                  fontSize: 13,
-                ),
-              ),
-              const Spacer(),
-              ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 220),
-                child: DropdownButton<String>(
-                  // Clamp to a known item — a stored family not in the list
-                  // (older build / manual pref edit) would otherwise assert.
-                  value:
-                      _chatFonts.any(
-                        (f) =>
-                            f.$2 ==
-                            storageService.uiSettings.globalChatFontFamily,
-                      )
-                      ? storageService.uiSettings.globalChatFontFamily
-                      : '',
-                  isExpanded: true,
-                  // The button keeps focus after a pick; the theme's grey
-                  // focus wash then sat over the chosen font for good.
-                  focusColor: Colors.transparent,
-                  dropdownColor: AppColors.cardOf(context),
-                  style: TextStyle(
-                    color: AppColors.textPrimary(context),
-                    fontSize: 13,
-                  ),
-                  underline: const SizedBox.shrink(),
-                  items: _chatFonts.map((font) {
-                    return DropdownMenuItem<String>(
-                      value: font.$2,
-                      child: Text(
-                        font.$1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontFamily: font.$2.isEmpty ? null : font.$2,
-                          color: AppColors.textPrimary(context),
-                          fontSize: 13,
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                  onChanged: (value) => storageService.uiSettings
-                      .setGlobalChatFontFamily(value ?? ''),
-                ),
-              ),
-            ],
-          ),
           const SizedBox(height: 24),
           const SectionHeader('Porch Life'),
           const SizedBox(height: 8),

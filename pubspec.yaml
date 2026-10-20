@@ -143,6 +143,49 @@ flutter:
     # (widget goldens / offline). File name must match google_fonts.
     - google_fonts/Fraunces-SemiBold.ttf
 
+  # Bundled UI fonts (SIL OFL 1.1; licence text beside each family under
+  # assets/fonts/). Not fetched at runtime.
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/inter/Inter-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/inter/Inter-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/inter/Inter-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/inter/Inter-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/inter/Inter-Bold.ttf
+          weight: 700
+    - family: Atkinson Hyperlegible Next
+      fonts:
+        - asset: assets/fonts/atkinson_hyperlegible_next/AtkinsonHyperlegibleNext-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/atkinson_hyperlegible_next/AtkinsonHyperlegibleNext-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/atkinson_hyperlegible_next/AtkinsonHyperlegibleNext-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/atkinson_hyperlegible_next/AtkinsonHyperlegibleNext-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/atkinson_hyperlegible_next/AtkinsonHyperlegibleNext-Bold.ttf
+          weight: 700
+    - family: Literata
+      fonts:
+        - asset: assets/fonts/literata/Literata-Regular.ttf
+          weight: 400
+        - asset: assets/fonts/literata/Literata-Italic.ttf
+          weight: 400
+          style: italic
+        - asset: assets/fonts/literata/Literata-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/literata/Literata-SemiBold.ttf
+          weight: 600
+        - asset: assets/fonts/literata/Literata-Bold.ttf
+          weight: 700
+
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
 

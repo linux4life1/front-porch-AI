@@ -3,6 +3,7 @@
 //
 // Barrel for the Settings tabs.
 
+export 'appearance_tab/appearance_tab.dart';
 export 'backend_tab.dart';
 export 'general_tab.dart';
 export 'generation_tab.dart';

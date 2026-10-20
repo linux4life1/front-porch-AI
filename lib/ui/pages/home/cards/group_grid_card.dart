@@ -25,7 +25,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_ghost.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// A single group-chat card in the home grid — avatar montage, name, member
@@ -117,7 +117,7 @@ class _GroupGridCardState extends State<GroupGridCard> {
           color: AppColors.cardOf(context),
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppCorners.of(context).circular(16),
             side: BorderSide(
               color: isSelectedCard
                   ? AppColors.porchTerracottaOf(context)

@@ -26,7 +26,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/home_card_menu.dart';
 import 'package:front_porch_ai/ui/pages/home/cards/library_drag_payload.dart';
-import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// A single folder card in the home grid — a 2x2 preview montage (or a folder
@@ -111,7 +111,7 @@ class FolderGridCard extends StatelessWidget {
               : AppColors.cardOf(context),
           clipBehavior: Clip.antiAlias,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: AppCorners.of(context).circular(16),
             side: BorderSide(
               color: isHovering
                   ? AppColors.porchAmberOf(context)

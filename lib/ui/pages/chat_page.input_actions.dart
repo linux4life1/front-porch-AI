@@ -302,7 +302,7 @@ class ChatInputActionStrip {
                   fillColor: AppColors.surfaceContainerOf(context),
                   isDense: true,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius: AppCorners.of(context).circular(20),
                     borderSide: BorderSide.none,
                   ),
                   contentPadding: const EdgeInsets.symmetric(
