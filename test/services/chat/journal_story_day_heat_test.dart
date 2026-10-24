@@ -213,7 +213,9 @@ void main() {
               occupation: 'the bakery',
               hours: hours,
               occupationBrief: '',
-              workDays: null,
+              // Every day: day 1 is today's date, and the default Mon-Fri
+              // week left a weekend run with no shift to clock out of.
+              workDays: const [1, 2, 3, 4, 5, 6, 7],
             ),
             characterIdFor: (_) => owner,
             journalStore: () => h.chat.journalStore,
