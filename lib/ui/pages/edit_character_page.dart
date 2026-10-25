@@ -233,6 +233,7 @@ class _EditCharacterPageState extends State<EditCharacterPage>
   }
 
   Future<void> _saveCharacter() async {
+    final needsBefore = widget.character.frontPorchExtensions?.needsSimChoice;
     final writer = EditCharacterCardWriter(
       character: widget.character,
       draft: _draft,
@@ -254,18 +255,21 @@ class _EditCharacterPageState extends State<EditCharacterPage>
 
         // Refresh the "Enjoys low hygiene" flag in any active chat so that
         // toggling it on the character immediately affects existing sessions
-        // (without requiring a database change).
+        // (without requiring a database change), and carry a moved Needs
+        // switch into this character's 1:1 chats.
+        ChatService? chatService;
         if (mounted) {
           try {
-            final chatService = Provider.of<ChatService>(
-              context,
-              listen: false,
-            );
-            chatService.refreshEnjoysLowHygieneFromActiveCharacter();
+            chatService = Provider.of<ChatService>(context, listen: false);
           } catch (_) {
             // ChatService not available in this context — that's fine.
           }
         }
+        chatService?.refreshEnjoysLowHygieneFromActiveCharacter();
+        await chatService?.followCardNeedsChoice(
+          widget.character,
+          before: needsBefore,
+        );
 
         await _backfillAddedWorlds(writer.addedWorlds);
       }

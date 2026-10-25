@@ -118,6 +118,38 @@ extension ChatServiceControls on ChatService {
     await _saveChat();
   }
 
+  /// The character editor is the 1:1 Needs switch now that the chat sidebar
+  /// has none. A save that moves the card's choice away from [before] applies
+  /// it to every 1:1 chat with that character: the open one live, the others
+  /// through their stored flag, which hydrate reads on open. A save that
+  /// leaves the choice alone touches no chat, so fixing a typo never flips
+  /// Needs. Group chats keep their own switch in Group Settings → Needs.
+  Future<void> followCardNeedsChoice(
+    CharacterCard card, {
+    required bool? before,
+  }) async {
+    final after = card.frontPorchExtensions?.needsSimChoice;
+    if (after == null || after == before) return;
+    final dbId = card.dbId;
+    final active = _activeCharacter;
+    if (_activeGroup == null &&
+        active != null &&
+        (identical(active, card) || (dbId != null && active.dbId == dbId))) {
+      await setNeedsSimEnabled(after);
+    }
+    if (dbId == null) return;
+    // The open chat's row too: its own save skips a chat with no messages.
+    for (final s in await _db.getSessionsForCharacter(dbId)) {
+      if (s.groupId != null || s.needsSimEnabled == after) continue;
+      await _db.patchSession(
+        SessionsCompanion(
+          id: drift.Value(s.id),
+          needsSimEnabled: drift.Value(after),
+        ),
+      );
+    }
+  }
+
   /// Per-chat Objectives switch (v45). Off means the quests stop running: no
   /// completion checks, no autonomous proposals, no task generation, and the
   /// sidebar panel goes away.

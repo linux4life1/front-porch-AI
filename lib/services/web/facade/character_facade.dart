@@ -304,12 +304,15 @@ class CharacterFacade {
     if (repo == null) return false;
     final card = cardByDbId(id);
     if (card == null) return false;
+    final needsBefore = card.frontPorchExtensions?.needsSimChoice;
     applyCharacterFields(
       card,
       fields,
       needsSimDefault: _storage.realismSettings.needsSimDefault,
     );
     await repo.updateCharacter(card);
+    // The desktop editor's rule: a moved Needs switch reaches the chats.
+    await _chat?.followCardNeedsChoice(card, before: needsBefore);
     return true;
   }
 

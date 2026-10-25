@@ -53,7 +53,7 @@ You can control the Realism Engine at three levels:
 
 **2. On the character card.** The character creator and character editor both have a Realism Engine panel where you can set the opening state of a brand-new chat: starting short-term bond, long-term bond and trust, the opening emotion and its intensity, the time of day, the day number, and even the calendar date and clock time the story begins at. The same panel holds the optional features (**Afterglow**, Chaos Mode, the Director) and the character's needs baselines. These settings only seed *new* conversations — existing chats keep the state they've already built up.
 
-**3. In the chat itself.** In a one-on-one chat, the sidebar's **🎭 Character State** card has the master switch right in its header, and switching it on mid-conversation makes the engine read back through the conversation so it can catch up instead of starting cold. A group chat's header doesn't carry that switch — the group's master toggle is **Realism Engine for this group**, in **Group Settings → Realism**. Either way, the small **tune** icon in the Character State header opens a Simulation settings flyout with **Needs Simulation** and **One-Shot Eval** (Auto / On / Off). **Afterglow** is only on Settings → Porch Life, in the After Dark group shown when 18+ themes are on; it is the one switch for every chat. **Passage of Time** is only on Settings → Porch Life — that row is the live clock switch for every open chat.
+**3. In the chat itself.** In a one-on-one chat, the sidebar's **🎭 Character State** card has the master switch right in its header, and switching it on mid-conversation makes the engine read back through the conversation so it can catch up instead of starting cold. A group chat's header doesn't carry that switch — the group's master toggle is **Realism Engine for this group**, in **Group Settings → Realism**. **One-Shot Eval** (Auto / On / Off) sits at the top of the sidebar, right above the tool-calling pill; Needs is set per character in the editor (and per group in Group Settings → Needs). **Afterglow** is only on Settings → Porch Life, in the After Dark group shown when 18+ themes are on; it is the one switch for every chat. **Passage of Time** is only on Settings → Porch Life — that row is the live clock switch for every open chat.
 
 ![The settings page, where the Realism Engine defaults live](screenshots/new_settings.png)
 
@@ -218,7 +218,7 @@ A few practical notes:
 
 ## The Needs Simulation
 
-The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor or per chat from the Character State gear. Each character tracks **seven needs**, each on a 0–100 scale:
+The Needs Simulation is an optional layer on top of the Realism Engine that gives characters a body and a daily rhythm, in the spirit of classic life-sim games. It's off by default; switch it on per character in the editor, and changing that switch also turns Needs on or off in your existing one-on-one chats with that character (a group has its own switch in Group Settings → Needs). Each character tracks **seven needs**, each on a 0–100 scale:
 
 | Need | When it runs low... |
 |---|---|
@@ -284,7 +284,7 @@ Smaller local models occasionally produce sloppy realism updates — numbers tha
 
 The engine's check-ins are small and quick compared to the main reply, but they're real work — here's how to keep things snappy:
 
-- **One-Shot Eval** (in the Character State gear) folds four separate check-ins into a single combined call. It tracks the same things with noticeably less waiting — the go-to choice on slower machines and pay-per-token remote APIs. Very small models occasionally handle the combined question less gracefully than the separate ones; if your results get flaky, switch it back off.
+- **One-Shot Eval** (at the top of the chat sidebar, above the tool-calling pill) folds four separate check-ins into a single combined call. It tracks the same things with noticeably less waiting — the go-to choice on slower machines and pay-per-token remote APIs. Very small models occasionally handle the combined question less gracefully than the separate ones; if your results get flaky, switch it back off.
 - **Stop anytime.** The processing overlay has a **Stop this reply** button. It stops the reply too (a note offers **Try again**), and stopping never corrupts anything.
 - **Toggle per chat.** Want a quick, lightweight conversation? Flip the Character State switch off in that chat — or, in a group, **Realism Engine for this group** in Group Settings → Realism — and realism costs nothing at all.
 - **Tool calling helps.** A pill at the top of the sidebar reports whether the current model can answer the engine's questions with native tool calls. When it can, the answers come back cleanly structured; when it can't, the app falls back to plain text — which still works, just a little less reliably. It retests itself when you switch models or backends, and you can tap it to retest now.

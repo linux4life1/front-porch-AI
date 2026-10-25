@@ -10,6 +10,7 @@
 
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -109,5 +110,47 @@ void main() {
     final form = await phoneForm(id);
     await facade.update(id, {...form, 'needsSimEnabled': false});
     expect(await choiceOnDisk(id), isFalse);
+  });
+
+  // 2026-10-25: the chat sidebar's Needs switch is gone, so the card's switch
+  // is how a chat's Needs turn on or off. The phone save carries it too.
+  test('moving the switch on the phone turns Needs off in the open chat and '
+      'its other 1:1 chats', () async {
+    await boot(needsGlobal: true);
+    final id = await importPlainCard();
+    final chat = ChatService(
+      KoboldService(storage),
+      UserPersonaService(db),
+      storage,
+      WorldRepository(storage, db),
+    )..setDatabase(db);
+    try {
+      final phone = CharacterFacade(db, storage, null, chat, repo);
+      for (final s in ['open', 'closed']) {
+        await db.insertSession(
+          SessionsCompanion.insert(
+            id: s,
+            characterId: Value(id),
+            needsSimEnabled: const Value(true),
+          ),
+        );
+      }
+      await chat.setActiveCharacter(
+        repo.characters.singleWhere((c) => c.dbId == id),
+      );
+      await chat.loadSession('open');
+      await chat.setNeedsSimEnabled(true);
+
+      final form = await phoneForm(id);
+      await phone.update(id, {...form, 'needsSimEnabled': false});
+
+      expect(chat.needsSimEnabled, isFalse);
+      expect((await db.getSessionById('closed'))!.needsSimEnabled, isFalse);
+    } finally {
+      chat.dispose();
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
   });
 }
