@@ -12,7 +12,6 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings.dart';
 import 'package:front_porch_ai/ui/settings/tabs/porch_life_tab.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
@@ -101,24 +100,6 @@ void main() {
     );
     await tester.pump();
   }
-
-  testWidgets('chat gear: under Needs Simulation only while the clock is '
-      'off, and it follows the switch live', (tester) async {
-    await pumpWith(tester, CharacterStateSettings(chat: chat, isGroup: false));
-    expect(storage.realismSettings.passageOfTimeDefault, isTrue);
-    expect(find.text(_line), findsNothing);
-
-    await storage.realismSettings.setPassageOfTimeDefault(false);
-    await tester.pump();
-    expect(find.text(_line), findsOneWidget);
-    final y = tester.getTopLeft(find.text(_line)).dy;
-    expect(y, greaterThan(tester.getTopLeft(find.text('Needs Simulation')).dy));
-    expect(y, lessThan(tester.getTopLeft(find.text('One-Shot Eval')).dy));
-
-    await storage.realismSettings.setPassageOfTimeDefault(true);
-    await tester.pump();
-    expect(find.text(_line), findsNothing);
-  });
 
   testWidgets('Porch Life: switching Passage of Time off shows the line on '
       'the Needs row, whether or not Needs is on', (tester) async {

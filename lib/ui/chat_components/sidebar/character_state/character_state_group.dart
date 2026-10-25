@@ -32,7 +32,6 @@ import '../porch_accordion.dart';
 import 'ambitions_row.dart';
 import 'pockets_row.dart';
 import 'bond_bars.dart';
-import 'character_state_settings.dart';
 import 'time_strip.dart';
 import 'presence_word.dart';
 
@@ -41,11 +40,12 @@ import 'presence_word.dart';
 /// bond/trust/lust bars (BondBars — the nsfw_section merge),
 /// fixation, needs grid, and the time strip; group mode shows the focused
 /// member's GroupMemberCard (which renders the same shared bar widgets) plus
-/// the shared time strip. The gear opens an inline settings flyout
-/// (CharacterStateSettings) in both modes.
+/// the shared time strip.
 ///
 /// The realism master switch lives in the header for 1:1; group realism is
-/// governed by Group Settings, so groups get only the gear.
+/// governed by Group Settings. There is no settings gear: Needs is set on the
+/// card (or in Group Settings), and One-Shot Eval sits above the tool-calling
+/// pill (OneShotEvalRow).
 class CharacterStateGroup extends StatefulWidget {
   final ChatService chat;
   final bool isGroup;
@@ -75,7 +75,6 @@ class CharacterStateGroup extends StatefulWidget {
 }
 
 class CharacterStateGroupState extends State<CharacterStateGroup> {
-  bool _showSettings = false;
   final _accordionKey = GlobalKey<PorchAccordionState>();
 
   void expand() => _accordionKey.currentState?.expand();
@@ -123,11 +122,9 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
       accent: AppColors.porchTerracottaOf(context),
       initiallyExpanded: widget.initiallyExpanded,
       onExpansionChanged: widget.onExpansionChanged,
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          if (!widget.isGroup)
-            SizedBox(
+      trailing: widget.isGroup
+          ? null
+          : SizedBox(
               height: 24,
               child: FittedBox(
                 child: Switch(
@@ -144,22 +141,6 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                 ),
               ),
             ),
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            iconSize: 15,
-            tooltip: 'Simulation settings',
-            icon: const Icon(Icons.tune),
-            color: _showSettings
-                ? AppColors.porchTerracottaOf(context)
-                : AppColors.iconSecondary(context),
-            onPressed: () {
-              setState(() => _showSettings = !_showSettings);
-              // Opening the flyout while collapsed would show nothing.
-              if (_showSettings) _accordionKey.currentState?.expand();
-            },
-          ),
-        ],
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -305,10 +286,6 @@ class CharacterStateGroupState extends State<CharacterStateGroup> {
                 );
               },
             ),
-          ],
-          if (_showSettings) ...[
-            const SizedBox(height: 10),
-            CharacterStateSettings(chat: chat, isGroup: widget.isGroup),
           ],
         ],
       ),

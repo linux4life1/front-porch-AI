@@ -39,7 +39,7 @@ import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_group.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_settings.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/one_shot_eval_row.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/time_strip.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/journal_memory/summary_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/porch_accordion.dart';
@@ -359,7 +359,7 @@ void main() {
     );
   });
 
-  testWidgets('CharacterStateSettings — flyout open', (tester) async {
+  testWidgets('OneShotEvalRow — Auto selected', (tester) async {
     final chat = FakeChatService();
     addTearDown(chat.dispose);
     final storage = _storage();
@@ -371,14 +371,11 @@ void main() {
           ChangeNotifierProvider<StorageService>.value(value: storage),
           ChangeNotifierProvider<ChatService>.value(value: chat),
         ],
-        child: SizedBox(
-          width: 320,
-          child: CharacterStateSettings(chat: chat, isGroup: false),
-        ),
+        child: SizedBox(width: 320, child: OneShotEvalRow(chat: chat)),
       ),
       group: 'sidebar',
-      name: 'character_state_settings',
-      surface: const Size(360, 520),
+      name: 'one_shot_eval_row',
+      surface: const Size(360, 200),
     );
   });
 

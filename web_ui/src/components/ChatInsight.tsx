@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { OneShotEvalControl } from './OneShotEvalControl';
 import { ToolCallingPill, type ToolSupport } from './ToolCallingPill';
 import { ChatLorebookModal } from './ChatLorebookModal';
 import { ImportLorebookWizard } from './ImportLorebookWizard';
@@ -106,6 +107,7 @@ export function ChatInsight({
   useEffect(() => setStrength(authorNoteDepth), [authorNoteDepth]);
   return (
     <div className="realism-panel">
+      <OneShotEvalControl reloadKey={toolsKey} />
       <ToolCallingPill support={toolSupport} />
       {/* Group: switch which member's stats you're viewing (the cast bar is
           covered by this panel on phone, so the switcher lives here too). */}

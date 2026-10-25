@@ -461,7 +461,7 @@ Optional. Mood, bond, trust, needs, goals. **Off** by default on new singles; **
 
 ### Does Realism make chat slow?
 
-A bit. Extra short AI questions after each turn. Character State gear → **One-Shot Eval**: **Auto** (fuse when the backend can), **On**, or **Off**. Or turn Realism off.
+A bit. Extra short AI questions after each turn. In a chat, the **One-Shot Eval** row at the top of the sidebar, above the tool-calling pill: **Auto** (fuse when the backend can), **On**, or **Off**. Or turn Realism off.
 
 ### Reset bond / trust
 

@@ -7,7 +7,8 @@
 // sidebar itself: every accordion opens by tapping its real header, and
 // one representative control inside each section must respond —
 //   * Author's Note: the note field accepts text,
-//   * Character State: the sim-settings gear opens its flyout,
+//   * One-Shot Eval: sits above the tool-calling pill and its pills work,
+//   * Character State: opens, with no settings gear or Needs switch,
 //   * Journal & Memory: the recap section renders its header,
 //   * Objectives: the panel renders,
 //   * Story Tools: the Chaos master switch actually turns chaos on.
@@ -30,9 +31,11 @@ import 'package:window_manager/window_manager.dart';
 import 'package:front_porch_ai/main.dart' as app;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/one_shot_eval_row.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/author_note_section.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/chaos_panel.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/objective_panel.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/tool_calling_pill.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
 import 'package:front_porch_ai/ui/pages/chat_page.dart';
 
@@ -132,16 +135,36 @@ void main() {
       reason: "the Author's Note field must actually accept input",
     );
 
-    // ── Character State: the sim-settings gear opens its flyout ─────────
-    await d.openSidebarAccordion('Character State', find.text('Needs'));
-    final gear = find.byTooltip('Simulation settings');
-    await tester.ensureVisible(gear.first);
+    // ── One-Shot Eval: sits above the tool-calling pill and drives the
+    //    real setting. Character State has no settings gear any more. ───
+    final storage = Provider.of<StorageService>(ctx, listen: false);
+    final oneShot = find.byType(OneShotEvalRow);
+    await d.waitForWidget(oneShot);
+    expect(
+      tester.getTopLeft(oneShot).dy,
+      lessThan(tester.getTopLeft(find.byType(ToolCallingPill)).dy),
+      reason: 'One-Shot Eval sits above the tool-calling pill',
+    );
+    final initialMode = storage.realismSettings.oneShotMode;
+    final target = initialMode == OneShotMode.on ? 'Off' : 'On';
+    await tester.ensureVisible(oneShot);
     await tester.pump(const Duration(milliseconds: 200));
-    await tester.tap(gear.first, warnIfMissed: false);
-    await d.waitForWidget(find.text('Needs Simulation'));
-    // Close the flyout again (same gear).
-    await tester.tap(gear.first, warnIfMissed: false);
-    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(
+      find.descendant(of: oneShot, matching: find.text(target)),
+      warnIfMissed: false,
+    );
+    await d.waitFor(
+      () => storage.realismSettings.oneShotMode != initialMode,
+      () =>
+          'the One-Shot $target pill to change the setting '
+          '(is ${storage.realismSettings.oneShotMode})',
+    );
+    await storage.realismSettings.setOneShotMode(initialMode);
+    await tester.pump(const Duration(milliseconds: 200));
+
+    await d.openSidebarAccordion('Character State', find.text('Needs'));
+    expect(find.byTooltip('Simulation settings'), findsNothing);
+    expect(find.text('Needs Simulation'), findsNothing);
 
     // ── Journal & Memory: the recap section renders ─────────────────────
     await d.openJournalAccordion();

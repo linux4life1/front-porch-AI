@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Porch Life Passage of Time is the only live clock gate. Chat settings
-// must not offer a second switch. A real ChatService cannot be driven
+// must not offer a second switch (the sidebar's One-Shot Eval row replaced
+// the old settings gear, 2026-10-25). A real ChatService cannot be driven
 // under testWidgets (Drift hangs). Send/regen gates live in
 // one_to_one_clock_wear_chip_test.dart.
 
@@ -12,7 +13,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_settings.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/one_shot_eval_row.dart';
 import 'package:front_porch_ai/ui/settings/tabs/porch_life_tab.dart';
 import 'package:front_porch_ai/ui/settings/widgets/widgets.dart';
 
@@ -37,9 +38,7 @@ void main() {
           ChangeNotifierProvider<ChatService>.value(value: chat),
         ],
         child: MaterialApp(
-          home: Scaffold(
-            body: CharacterStateSettings(chat: chat, isGroup: false),
-          ),
+          home: Scaffold(body: OneShotEvalRow(chat: chat)),
         ),
       ),
     );

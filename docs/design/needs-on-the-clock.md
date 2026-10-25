@@ -226,7 +226,7 @@ that was not version 1's behaviour and it is gone.
 | Chip under the reply | `1 hr 20 min · lunch` | `lunch`, or "Natural decay" when only the tick moved the bar |
 | Refractory | story minutes | 15 min per reply |
 
-One line of copy, desktop and phone, under the Needs switch wherever it appears (chat sidebar gear, character editor and creators, an alternate greeting's Needs block, group Needs tab, group creation, Settings → Porch Life), shown only while the clock is off: **"With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so."** "Off" is the Porch Life Passage of Time switch (`passageOfTimeDefault`), the live clock gate; the line shows whether or not that Needs switch is itself on.
+One line of copy, desktop and phone, under the Needs switch wherever it appears (character editor and creators, an alternate greeting's Needs block, group Needs tab, group creation, Settings → Porch Life), shown only while the clock is off: **"With Passage of time off, hunger, bathroom and energy wear a little each reply; the rest move only when the story says so."** "Off" is the Porch Life Passage of Time switch (`passageOfTimeDefault`), the live clock gate; the line shows whether or not that Needs switch is itself on.
 
 ## Realism Engine off, and the global Needs switch
 

@@ -20,7 +20,6 @@ import { ChatToolsMemory, ChatToolsRecap, ChatToolsWiki } from './ChatToolsMemor
 import { ChatToolsChaos, ChatToolsNsfw, ChatToolsPockets } from './ChatToolsRealism';
 import { ChatToolsAmbitions, ChatToolsObjectives } from './ChatToolsObjectives';
 import { Toggle, type ToolsState } from './ChatToolsShared';
-import { NeedsClockOffNote } from './realism/NeedsClockOffNote';
 
 export { TextField } from './SummaryRecapField';
 export type { ToolsState } from './ChatToolsShared';
@@ -99,11 +98,6 @@ export function ChatTools({
   // otherwise the Easter egg (they're surprised to find it).
   const pocketAdd = (section: string, name: string, gift: boolean, correction = false) =>
     apply(api.post<ToolsState>(`/api/chat/tools/pocket-add${q}`, { section, name, gift, correction }));
-  // Same endpoint, string value — the one tri-state control (see the route's
-  // oneShotMode case). Falls back to the legacy bool on an older facade.
-  const oneShotMode = t?.realismOneShotMode ?? (t?.realismOneShotEval ? 'on' : 'auto');
-  const setOneShotMode = (value: 'auto' | 'on' | 'off') =>
-    apply(api.post<ToolsState>(`/api/chat/tools/toggle${q}`, { name: 'oneShotMode', value }));
 
   if (!t) return null;
 
@@ -112,42 +106,12 @@ export function ChatTools({
   return (
     <div className="chat-tools">
       <Toggle label="Realism engine" value={t.realismEnabled} onChange={(v) => toggle('realism', v)} />
-      <Toggle label="Needs simulation" value={t.needsEnabled} onChange={(v) => toggle('needs', v)} />
-      <NeedsClockOffNote clockOn={t.time.passageEnabled} />
       <div className="tool-row">
         <button className="link-btn budget-link" onClick={() => setShowBudget(true)}>
           📊 Context budget — what the model was sent
         </button>
       </div>
       <ChatToolsWiki t={t} q={q} apply={apply} />
-
-      <details className="tool-section">
-        <summary>Realism performance</summary>
-        <div className="tool-body">
-          <div className="tool-toggle">
-            <span>One-Shot Eval</span>
-            <span className="mode-seg" role="radiogroup" aria-label="One-Shot Eval mode">
-              {(['auto', 'on', 'off'] as const).map((m) => (
-                <button
-                  key={m}
-                  role="radio"
-                  aria-checked={oneShotMode === m}
-                  className={`mode-seg-btn${oneShotMode === m ? ' selected' : ''}`}
-                  onClick={() => setOneShotMode(m)}
-                >
-                  {m === 'auto' ? 'Auto' : m === 'on' ? 'On' : 'Off'}
-                </button>
-              ))}
-            </span>
-          </div>
-          <p className="muted small">
-            Fuses the realism evals into a single LLM call for roughly double the processing speed.
-            Auto uses it on remote AI services that support tool calls, and keeps the safer
-            multi-call path on local models, where small models can struggle with the combined
-            prompt.
-          </p>
-        </div>
-      </details>
 
       <ChatToolsMemory
         t={t}

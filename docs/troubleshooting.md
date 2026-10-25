@@ -195,7 +195,7 @@ The app estimates memory needs before you download a model — trust the estimat
 
 Some local models struggle with the Realism Engine's short background questions and return nothing (bond/trust/mood chips stop updating). Fixes, in order of effectiveness:
 
-1. Turn on **One-Shot Eval** — in a chat, open the sidebar's **Character State** section and press the sliders icon (*Simulation settings*). One combined question instead of several works better on many models. It's marked experimental and can be a little less precise below about 8B parameters, but it's usually the difference between "works" and "nothing".
+1. Turn on **One-Shot Eval** — in a chat, it is the row at the top of the sidebar, right above the tool-calling pill. One combined question instead of several works better on many models. It's marked experimental and can be a little less precise below about 8B parameters, but it's usually the difference between "works" and "nothing".
 2. Try a different model — evaluation reliability varies a lot between models and compression levels.
 3. Remote APIs essentially never have this problem, if you have one configured.
 

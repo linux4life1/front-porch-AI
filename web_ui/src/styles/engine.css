@@ -94,6 +94,17 @@
 }
 .tool-pill .tool-pill-retest { color: var(--muted); font-size: 0.9rem; }
 
+/* One-Shot Eval Auto/On/Off, right above the tool-calling pill (desktop
+   OneShotEvalRow parity). */
+.one-shot-row {
+  margin-bottom: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+.one-shot-row p { margin: 4px 0 0; }
+
 /* ── Type-DELETE confirm (severe mass-delete gate) ───────────────────────────
    Web mirror of the desktop TypeDeleteDialog: the delete button stays disabled
    until the user types the keyword exactly. Used for bulk character delete and

@@ -34,6 +34,7 @@ import 'porch_accordion.dart';
 import 'sidebar_tokens.dart';
 import 'story_tools/story_tools.dart';
 import '../widgets/chat_turn_builder.dart';
+import 'one_shot_eval_row.dart';
 import 'tool_calling_pill.dart';
 import 'wiki_panel.dart';
 
@@ -162,6 +163,7 @@ class _SidebarBodyState extends State<SidebarBody> {
           padding: const EdgeInsets.all(12),
           children: [
             ?widget.header,
+            OneShotEvalRow(chat: chat),
             // Tool-calling capability of the current model, always visible —
             // users shouldn't have to guess why evals silently run in text
             // mode (and it retests itself on model/backend switches).

@@ -37,7 +37,8 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/storage/settings/realism_settings.dart';
-import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state_settings.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/character_state/character_state.dart';
+import 'package:front_porch_ai/ui/chat_components/sidebar/one_shot_eval_row.dart';
 import 'package:front_porch_ai/ui/settings/tabs/porch_life_tab.dart';
 
 import '../../golden/support/fakes.dart';
@@ -170,40 +171,58 @@ void main() {
   // 2026-10-24: the chat sidebar gear carried an old per-chat "NSFW
   // Enhancements" switch that overrode Porch Life, so Afterglow turned on
   // here did nothing for an existing chat. Porch Life is the one switch.
-  for (final isGroup in [false, true]) {
-    testWidgets('the chat sidebar gear has no Afterglow / NSFW switch '
-        '(${isGroup ? 'group' : '1:1'})', (tester) async {
-      final storage = _AdultStorage();
-      final chat = FakeChatService();
-      addTearDown(() {
-        storage.dispose();
-        chat.dispose();
-      });
-      await storage.realismSettings.setNsfwCooldownDefault(true);
+  // 2026-10-25: the gear itself is gone. Needs is set on the card, and
+  // One-Shot Eval moved above the tool-calling pill, so Character State
+  // carries no settings switch at all. The gear sat in the header code both
+  // modes share; the fake cannot build group mode, so 1:1 pins it.
+  testWidgets('Character State has no gear, Needs or Afterglow switch', (
+    tester,
+  ) async {
+    final storage = _AdultStorage();
+    final chat = FakeChatService();
+    addTearDown(() {
+      storage.dispose();
+      chat.dispose();
+    });
+    await storage.realismSettings.setNsfwCooldownDefault(true);
 
-      await tester.pumpWidget(
-        MultiProvider(
-          providers: [
-            ChangeNotifierProvider<StorageService>.value(value: storage),
-            ChangeNotifierProvider<ChatService>.value(value: chat),
-          ],
-          child: MaterialApp(
-            home: Scaffold(
-              body: SingleChildScrollView(
-                child: CharacterStateSettings(chat: chat, isGroup: isGroup),
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+        ],
+        child: MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: Column(
+                children: [
+                  OneShotEvalRow(chat: chat),
+                  CharacterStateGroup(
+                    chat: chat,
+                    isGroup: false,
+                    initiallyExpanded: true,
+                  ),
+                ],
               ),
             ),
           ),
         ),
-      );
-      await tester.pump();
+      ),
+    );
+    await tester.pump();
 
-      expect(find.text('One-Shot Eval'), findsOneWidget, reason: 'baseline');
-      expect(find.textContaining('NSFW'), findsNothing);
-      expect(find.textContaining('Afterglow'), findsNothing);
-      expect(find.byType(Switch), findsOneWidget, reason: 'Needs only');
-    });
-  }
+    expect(find.text('One-Shot Eval'), findsOneWidget, reason: 'baseline');
+    expect(find.byTooltip('Simulation settings'), findsNothing);
+    expect(find.text('Needs Simulation'), findsNothing);
+    expect(find.textContaining('NSFW'), findsNothing);
+    expect(find.textContaining('Afterglow'), findsNothing);
+    expect(
+      find.byType(Switch),
+      findsOneWidget,
+      reason: 'only the Realism master switch',
+    );
+  });
 
   testWidgets('Growth Rings is a row on the tab, per the sketch', (
     tester,
