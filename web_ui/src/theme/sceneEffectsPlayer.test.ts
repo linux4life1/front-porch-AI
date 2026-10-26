@@ -5,7 +5,8 @@
 // stops while a reply is generating only when the desktop's Pause effects
 // while generating is on, holds still under prefers-reduced-motion, stops
 // while the tab is hidden, paints each frame from the wire's colours, keeps
-// to 30 fps on a 60 Hz display, and builds no fog gradient per frame.
+// to 30 fps on a 60 Hz display without a burst after a stall, builds no fog
+// gradient per frame, and stacks clouds, fog, rain or snow, flash.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SceneEffectsSim, parseSceneEffects, type SceneEffectsWire } from './sceneEffects';
@@ -145,11 +146,21 @@ describe('scene effects player', () => {
     for (let i = 0; i < 60; i++, t += 16.666) tick(t);
     expect(painted() - before).toBeGreaterThanOrEqual(28);
     expect(painted() - before).toBeLessThanOrEqual(30);
-    // A five-second stall paints once on the way back, not a catch-up burst.
-    t += 5000;
-    before = painted();
-    for (let i = 0; i < 6; i++, t += 16.666) tick(t);
-    expect(painted() - before).toBeLessThanOrEqual(4);
+    // After a stall of any length, 50 ms or five seconds, the frame back
+    // paints once and the next one does not paint again.
+    for (const gap of [50, 5000]) {
+      t += gap;
+      const perFrame: number[] = [];
+      for (let i = 0; i < 6; i++, t += 16.666) {
+        before = painted();
+        tick(t);
+        perFrame.push(painted() - before);
+      }
+      expect(perFrame[0]).toBe(1);
+      for (let i = 1; i < perFrame.length; i++) {
+        expect(perFrame[i] + perFrame[i - 1]).toBeLessThanOrEqual(1);
+      }
+    }
     player.dispose();
   });
 
@@ -184,5 +195,26 @@ describe('scene effects player', () => {
     player.setPaints(light);
     expect(calls).toContain(`strokeStyle=${light.rain}`);
     player.dispose();
+  });
+
+  it('paints in the desktop\'s stack order: clouds, fog, rain, flash', () => {
+    const { canvas, calls } = fakeCanvas();
+    const ctx = canvas.getContext('2d')!;
+    const storm = { ...wire(true).effects, fog: true };
+    const sim = new SceneEffectsSim(storm, 42, 800, 600);
+    sim.flash = 0.5;
+    paintSceneEffects(ctx, sim, paints);
+    const cloudFill = calls.lastIndexOf('fill');
+    const firstFog = calls.indexOf('translate');
+    const lastFog = calls.lastIndexOf('translate');
+    const rain = calls.indexOf('stroke');
+    const flash = calls.indexOf(`fillStyle=${paints.flash}`);
+    expect(sim.clouds.length).toBeGreaterThan(0);
+    expect(sim.fogBlobs.length).toBeGreaterThan(0);
+    expect(cloudFill).toBeGreaterThan(-1);
+    expect(cloudFill).toBeLessThan(firstFog);
+    expect(lastFog).toBeLessThan(rain);
+    expect(rain).toBeLessThan(flash);
+    expect(calls.lastIndexOf('fillRect')).toBeGreaterThan(flash);
   });
 });

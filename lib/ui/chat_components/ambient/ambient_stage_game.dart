@@ -120,8 +120,19 @@ class AmbientStageGame extends FlameGame {
     if (!effectsFrozen) _effects?.advance(dt);
   }
 
+  /// The GameWidget calls this on the game alone when it goes away
+  /// (`Game.finalizeRemoval`), never on the children. `FlameGame.dispose`
+  /// walks them but also clears Flame's global image and asset caches, so
+  /// its first two steps are run here instead, while the game is still
+  /// mounted: every child's onRemove fires, freeing the tint's picture and
+  /// the fog's shaders now rather than at the next GC.
   @override
   void onRemove() {
+    removeAll(children);
+    processLifecycleEvents();
+    _tint = null;
+    _effects = null;
+    _effectLayers = const [];
     unawaited(_flashes.close());
     super.onRemove();
   }
@@ -180,6 +191,10 @@ class SceneTintComponent extends PositionComponent
   /// How many times the washes have been recorded, for tests.
   @visibleForTesting
   int debugRebuilds = 0;
+
+  /// Whether a recording is held now, for tests.
+  @visibleForTesting
+  bool get debugHasPicture => _picture != null;
 
   SceneTokens get tokens => _tokens;
 

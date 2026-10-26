@@ -204,9 +204,11 @@ export class SceneEffectsPlayer {
     this.sincePaint += elapsed;
     if (this.acc < STEP_MS - SLACK_MS) return;
     // Keep the remainder, so a 60 Hz display lands on every other frame
-    // (30 fps) rather than every third, but bank at most half a step: a
-    // long stall paints once, not a burst of catch-up frames.
-    this.acc = Math.min(STEP_MS / 2, this.acc - STEP_MS);
+    // (30 fps) rather than every third, but bank no more than the slack:
+    // after a stall the next frame never paints again 16 ms later. (A 45,
+    // 50 or 75 Hz display settles a little under 30 fps; that is fine for
+    // a cap whose job is to leave the GPU to the model.)
+    this.acc = Math.min(SLACK_MS, this.acc - STEP_MS);
     const dt = Math.min(0.1, this.sincePaint / 1000);
     this.sincePaint = 0;
     this.sim?.advance(dt);

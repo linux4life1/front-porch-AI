@@ -21,7 +21,7 @@
 // component, swaps them without rebuilding the game, paints a static scene
 // on change without running the engine loop, lets an animated one tick
 // only while the app is visible, and records the tint once per scene and
-// size rather than once per frame.
+// size rather than once per frame, freed when the stage goes away.
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -279,5 +279,16 @@ void main() {
       await tester.pump(const Duration(milliseconds: 16));
     }
     expect(tint.debugRebuilds, recorded + 2);
+  });
+
+  testWidgets('leaving the chat frees the tint\'s recording', (tester) async {
+    // The GameWidget removes only the game; the game must take its children
+    // with it, or the picture lives until the next GC on every chat switch.
+    final game = await _pump(tester, _scene(WeatherCondition.fog));
+    final tint = game.children.whereType<SceneTintComponent>().single;
+    expect(tint.debugHasPicture, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    expect(tint.isRemoved, isTrue);
+    expect(tint.debugHasPicture, isFalse);
   });
 }

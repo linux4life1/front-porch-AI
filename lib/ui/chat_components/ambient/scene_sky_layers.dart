@@ -19,6 +19,7 @@
 import 'dart:ui';
 
 import 'package:flame/components.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'ambient_stage_game.dart';
@@ -66,6 +67,11 @@ class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
   SceneEffectsSim? _builtFor;
   Color? _builtColour;
   List<Paint> _blobPaints = const [];
+  List<Shader> _shaders = const [];
+
+  /// How many blob gradients are held now, for tests.
+  @visibleForTesting
+  int get debugShaderCount => _shaders.length;
 
   @override
   void render(Canvas canvas) {
@@ -73,16 +79,17 @@ class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
     if (sim == null || sim.fogBlobs.isEmpty) return;
     final colour = game.tokens.paints.fog;
     if (!identical(_builtFor, sim) || _builtColour != colour) {
+      _dropShaders();
       _builtFor = sim;
       _builtColour = colour;
-      _blobPaints = [
+      _shaders = [
         for (final b in sim.fogBlobs)
-          Paint()
-            ..shader = Gradient.radial(Offset.zero, b.r, [
-              colour.withValues(alpha: colour.a * b.a),
-              colour.withValues(alpha: 0),
-            ]),
+          Gradient.radial(Offset.zero, b.r, [
+            colour.withValues(alpha: colour.a * b.a),
+            colour.withValues(alpha: 0),
+          ]),
       ];
+      _blobPaints = [for (final s in _shaders) Paint()..shader = s];
     }
     for (var i = 0; i < sim.fogBlobs.length; i++) {
       final b = sim.fogBlobs[i];
@@ -92,6 +99,22 @@ class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
         ..drawCircle(Offset.zero, b.r, _blobPaints[i])
         ..restore();
     }
+  }
+
+  @override
+  void onRemove() {
+    _dropShaders();
+    super.onRemove();
+  }
+
+  void _dropShaders() {
+    for (final s in _shaders) {
+      s.dispose();
+    }
+    _shaders = const [];
+    _blobPaints = const [];
+    _builtFor = null;
+    _builtColour = null;
   }
 }
 

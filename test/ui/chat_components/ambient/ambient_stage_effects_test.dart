@@ -281,4 +281,13 @@ void main() {
     expect(_drops(game), held);
     expect(sim.time, time);
   });
+
+  testWidgets('leaving the chat frees the fog\'s gradients', (tester) async {
+    final game = await _pump(tester, _scene(WeatherCondition.fog));
+    final fog = game.children.whereType<SceneFogLayer>().single;
+    expect(fog.debugShaderCount, game.effects!.fogBlobs.length);
+    await tester.pumpWidget(const SizedBox());
+    expect(fog.isRemoved, isTrue);
+    expect(fog.debugShaderCount, 0);
+  });
 }

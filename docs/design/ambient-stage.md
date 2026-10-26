@@ -147,12 +147,17 @@ measured with `contrastRatio` from `lib/ui/theme/accent_fit.dart`.
 - **Tint:** every (daypart, condition, temperature) cell over every
   theme's background in both modes (`scene_sim_test`).
 - **Effects:** the same cells with the thickest cloud (0.75 of its paint)
-  and then the thickest fog blob centre (0.5 of its paint) composited
-  over the tinted ground, in the stack order both surfaces share (tint,
-  clouds, fog, then rain or snow and the flash on top), every theme in
-  both modes except High Contrast, which the gate holds to Tint only so
-  no effect is ever drawn on it (`scene_effects_test`). Rain, snow and
-  the flash are thin or momentary and are not part of the floor.
+  or the thickest fog blob centre (0.5 of its paint) composited over the
+  tinted ground (no condition draws both), in the stack order both
+  surfaces share (tint, clouds, fog, then rain or snow and the flash on
+  top), every theme in both modes except High Contrast, which the gate
+  holds to Tint only so no effect is ever drawn on it
+  (`scene_effects_test`). Rain, snow and the flash are thin or momentary
+  and are not part of the floor.
+- **Next:** if dark-mode fog reads too faint under the 4.5:1 floor, the
+  lever is a scrim pill behind the canvas-drawn text (timestamps, system
+  notices); with that in place the effects need no text floor and the
+  fog paint can go back up.
 
 ### Settings and gates
 

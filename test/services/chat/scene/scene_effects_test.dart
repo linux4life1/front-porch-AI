@@ -373,9 +373,10 @@ void main() {
     // The moving weather paints behind the bubbles like the tint, so the
     // chat's own canvas text must keep the theme's promised floor (AA 4.5:1;
     // High Contrast's 7:1 never applies, see below) over every cell. Both
-    // surfaces stack the same way: the tinted ground, then the thickest
-    // cloud (0.75 of its paint), then the thickest fog blob at its centre
-    // (0.5 of its paint), each composited over what is under it.
+    // surfaces stack clouds then fog over the tinted ground; no condition
+    // draws both, so each is checked alone over the ground: the thickest
+    // cloud (0.75 of its paint) and the thickest fog blob at its centre
+    // (0.5 of its paint).
     const dayparts = [
       'dawn',
       'morning',
@@ -404,20 +405,13 @@ void main() {
               final ground = s.compositeOver(p.background);
               final cloud = s.paints.cloud;
               final fog = s.paints.fog;
-              final stacks = <String, List<Color>>{
+              final peaks = <String, Color>{
                 if (s.effects.clouds > 0)
-                  'cloud': [cloud.withValues(alpha: cloud.a * 0.75)],
-                if (s.effects.fog) 'fog': [fog.withValues(alpha: fog.a * 0.5)],
-                if (s.effects.clouds > 0 && s.effects.fog)
-                  'cloud+fog': [
-                    cloud.withValues(alpha: cloud.a * 0.75),
-                    fog.withValues(alpha: fog.a * 0.5),
-                  ],
+                  'cloud': cloud.withValues(alpha: cloud.a * 0.75),
+                if (s.effects.fog) 'fog': fog.withValues(alpha: fog.a * 0.5),
               };
-              for (final e in stacks.entries) {
-                final top = e.value.fold(ground, (under, paint) {
-                  return Color.alphaBlend(paint, under);
-                });
+              for (final e in peaks.entries) {
+                final top = Color.alphaBlend(e.value, ground);
                 final ratio = contrastRatio(p.textPrimary, top);
                 expect(
                   ratio,
