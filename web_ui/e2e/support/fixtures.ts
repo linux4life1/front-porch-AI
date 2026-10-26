@@ -41,8 +41,25 @@ const KNOWN: { method: string; status: number; path: RegExp; why: string }[] = [
 
 type Hooks = { fn: AllowFn; acceptConfirms: boolean };
 
+/**
+ * WebKit refuses a fetch that the outgoing page starts while it is being
+ * replaced (a reload or goto racing a debounced refresh) and logs it as this
+ * console error, which Playwright reports as a page error. The app's own
+ * catch still runs; the request never leaves the page.
+ */
+const WEBKIT_UNLOAD_FETCH = /^Fetch API cannot load \S+\/api\/\S* due to access control checks\./;
+
 function watch(page: Page, problems: Problem[], allow: Hooks) {
-  page.on('pageerror', (e) => problems.push(`uncaught error: ${e.message}`));
+  // From a main-frame navigation request until the new document is parsed.
+  let leaving = false;
+  page.on('request', (r) => {
+    if (r.isNavigationRequest() && r.frame() === page.mainFrame()) leaving = true;
+  });
+  page.on('domcontentloaded', () => (leaving = false));
+  page.on('pageerror', (e) => {
+    if (leaving && WEBKIT_UNLOAD_FETCH.test(e.stack ?? '')) return;
+    problems.push(`uncaught error: ${e.message}`);
+  });
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const text = m.text();
