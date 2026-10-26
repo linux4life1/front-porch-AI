@@ -1597,6 +1597,66 @@ test(
     }
   },
 );
+test(
+  'starter worlds: the picker adds Harborside with its places, and the library shows them',
+  { tag: SERIAL },
+  async ({ page }) => {
+    type Row = { id?: string; name: string; parentWorldId?: string | null };
+    const list = async () =>
+      ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+    const names = ['Harborside', 'The Quay', 'Lantern Street Market', 'Lighthouse Point'];
+    const ours = (w: Row) => names.some((n) => w.name === n || w.name.startsWith(`${n} (`));
+    const cleanup = async () => {
+      for (const w of await list()) {
+        if (ours(w)) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+      }
+    };
+    await cleanup();
+    try {
+      await openRoute(page, '/worlds');
+      await page.locator('[data-testid="worlds-starter"]').click();
+      const dialog = page.getByRole('dialog', { name: 'Starter worlds' });
+      await expect(dialog).toBeVisible();
+      await expect(dialog.locator('[data-testid^="starter-row-"]')).toHaveCount(7);
+      const row = dialog.locator('[data-testid="starter-row-harborside"]');
+      await expect(row).toContainText('Temperate');
+      await expect(row).toContainText('3 places');
+      await row.getByRole('button', { name: 'Add', exact: true }).click();
+      await expect(row).toContainText('Added as "Harborside".');
+      await expect(row.getByRole('button', { name: 'Add again', exact: true })).toBeVisible();
+
+      // Persisted through the importer: one root, its three places under it.
+      await expect
+        .poll(async () => (await list()).filter((w) => w.name === 'Harborside').length, {
+          message: 'one Harborside root',
+        })
+        .toBe(1);
+      const rows = await list();
+      const rootId = rows.find((w) => w.name === 'Harborside')!.id;
+      expect(
+        rows
+          .filter((w) => w.parentWorldId === rootId)
+          .map((w) => w.name)
+          .sort(),
+      ).toEqual(['Lantern Street Market', 'Lighthouse Point', 'The Quay']);
+
+      await dialog.getByRole('button', { name: 'Close', exact: true }).click();
+      await expect(dialog).toBeHidden();
+      // The page took the refreshed list: no reload needed to see it.
+      const section = page.locator('.wsg-section').filter({ hasText: 'Harborside' });
+      await expect(section).toHaveCount(1);
+      await expect(section.locator('.wsg-child-grid')).toContainText('The Quay');
+
+      // And it is a stored world, not page state.
+      await openRoute(page, '/worlds');
+      await expect(
+        page.locator('.wsg-section').filter({ hasText: 'Harborside' }).locator('.wsg-child-grid'),
+      ).toContainText('Lighthouse Point');
+    } finally {
+      await cleanup();
+    }
+  },
+);
 test('both Settings prompt slots pick from one pool of saved prompts, never a built-in', { tag: SERIAL }, async ({ page, allowHttp, acceptConfirms }) => {
   // The taken-name refusal is a 409 on purpose.
   allowHttp((url, status) => status === 409 && /\/api\/saved-prompts(\?|$)/.test(url));

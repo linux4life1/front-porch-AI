@@ -10,6 +10,7 @@ import { api, ApiError } from '../api/client';
 import { ClimateSeasonEditor } from '../components/ClimateSeasonEditor';
 import { ImportCharacterLoreButton } from '../components/ImportCharacterLoreButton';
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
+import { StarterWorldsPicker } from '../components/StarterWorldsPicker';
 import { WorldCard, type WorldSummary } from '../components/WorldCard';
 import {
   buildWorldInjection,
@@ -101,6 +102,7 @@ export function WorldsPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [toast, setToast] = useState<string | null>(null);
+  const [starterOpen, setStarterOpen] = useState(false);
   const [climateErrors, setClimateErrors] = useState<string[]>([]);
   // Locations slice 4: library view, multi-select, and the Part-of
   // picker's candidate law (served by the relay — the client renders
@@ -607,6 +609,13 @@ export function WorldsPage() {
           >
             ⬆ Import .fpworld
           </button>
+          <button
+            className="ghost"
+            data-testid="worlds-starter"
+            onClick={() => setStarterOpen(true)}
+          >
+            🌱 Starter worlds
+          </button>
           <button className="ghost" onClick={() => navigate('/worlds/from-wiki')}>
             📖 From Wiki
           </button>
@@ -629,6 +638,16 @@ export function WorldsPage() {
         A place is a portable world: climate, description, and lore you can
         attach to chats and export as <code>.fpworld</code>.
       </p>
+
+      {starterOpen && (
+        <StarterWorldsPicker
+          onClose={() => setStarterOpen(false)}
+          onAdded={(list, name) => {
+            setWorlds(list);
+            setToast(`Added "${name}" with its places`);
+          }}
+        />
+      )}
 
       {worlds.length > 0 && (
         <div className="wsg-stats-bar">
@@ -663,7 +682,9 @@ export function WorldsPage() {
       )}
 
       {worlds.length === 0 && !edit && (
-        <p className="muted">No places yet. Create one or import a .fpworld file.</p>
+        <p className="muted">
+          No places yet. Create one, import a .fpworld file, or add a starter world.
+        </p>
       )}
 
       {worlds.length > 0 && (
