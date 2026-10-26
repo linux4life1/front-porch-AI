@@ -30,19 +30,30 @@ import 'package:shelf/shelf.dart' as shelf;
 /// layouts (the same locations the legacy WebAssetServer used). This is the
 /// clean-namespace replacement that will fully supersede it at Phase 6 cutover.
 class StaticRoutes {
-  StaticRoutes._(this._baseDir, this._backgroundsDir);
+  StaticRoutes._(this._baseDir, this._backgroundsDir, this._sceneAudioDir);
 
   /// Resolves the web-app dir and, from it, the sibling per-chat theme
   /// backgrounds dir (both live under the same `flutter_assets/assets/` tree).
-  factory StaticRoutes() {
-    final base = _resolveBaseDir();
-    final backgrounds = base == null
-        ? null
-        : p.join(p.dirname(base), 'backgrounds');
-    return StaticRoutes._(base, backgrounds);
+  factory StaticRoutes() => StaticRoutes.at(_resolveBaseDir());
+
+  /// Serves the web app built into [webAppDir] (`…/assets/web_app`) and its
+  /// siblings under the same `assets/` folder; null serves nothing.
+  @visibleForTesting
+  factory StaticRoutes.at(String? webAppDir) {
+    final assets = webAppDir == null ? null : p.dirname(webAppDir);
+    return StaticRoutes._(
+      webAppDir,
+      assets == null ? null : p.join(assets, 'backgrounds'),
+      assets == null ? null : p.join(assets, 'audio', 'scene'),
+    );
   }
 
   final String? _baseDir;
+
+  /// `assets/audio/scene/` — the Ambient Stage's scene sound, bundled once
+  /// for the desktop and served from there so the web chat plays the same
+  /// files as `/audio/scene/<file>` (docs/design/ambient-stage.md §5).
+  final String? _sceneAudioDir;
 
   /// `assets/backgrounds/` — theme scene images shared with the desktop app,
   /// served so the web chat can show the same per-chat background.
@@ -77,6 +88,18 @@ class StaticRoutes {
       return shelf.Response.notFound('background not found');
     }
 
+    // The scene sound, shared with the desktop (not in the Vite bundle).
+    if (rel.startsWith('audio/scene/')) {
+      final file = _inside(
+        _sceneAudioDir,
+        rel.substring('audio/scene/'.length),
+      );
+      if (file != null) {
+        return _serveMedia(file, rel, request.headers['range']);
+      }
+      return shelf.Response.notFound('scene sound not found');
+    }
+
     if (rel.isNotEmpty) {
       final normalized = p.normalize(rel);
       if (!normalized.contains('..') &&
@@ -91,6 +114,60 @@ class StaticRoutes {
     final index = File(p.join(base, 'index.html'));
     if (index.existsSync()) return _serveFile(index, 'index.html');
     return shelf.Response.notFound('index.html not found');
+  }
+
+  /// [rel] under [dir] when it names a file there and does not climb out.
+  static File? _inside(String? dir, String rel) {
+    if (dir == null) return null;
+    final normalized = p.normalize(rel);
+    if (normalized.contains('..') ||
+        p.isAbsolute(normalized) ||
+        normalized.startsWith('/')) {
+      return null;
+    }
+    final file = File(p.join(dir, normalized));
+    return file.existsSync() ? file : null;
+  }
+
+  /// A media file, with byte ranges: an `<audio>` element asks for them
+  /// (Safari will not play from a server that ignores them), and the scene
+  /// sounds are small enough to cut one range from the whole file.
+  static shelf.Response _serveMedia(File file, String relPath, String? range) {
+    final bytes = file.readAsBytesSync();
+    final len = bytes.length;
+    final headers = {
+      'Content-Type': _contentType(p.basename(relPath).toLowerCase()),
+      'Cache-Control': 'no-cache',
+      'Accept-Ranges': 'bytes',
+    };
+    final m = range == null
+        ? null
+        : RegExp(r'^bytes=(\d*)-(\d*)$').firstMatch(range.trim());
+    if (m == null) return shelf.Response.ok(bytes, headers: headers);
+    final from = int.tryParse(m.group(1)!);
+    final to = int.tryParse(m.group(2)!);
+    final int start;
+    final int end;
+    if (from == null) {
+      // `bytes=-N`: the last N bytes.
+      if (to == null) return shelf.Response.ok(bytes, headers: headers);
+      start = to >= len ? 0 : len - to;
+      end = len - 1;
+    } else {
+      start = from;
+      end = to == null || to >= len ? len - 1 : to;
+    }
+    if (start >= len || start > end) {
+      return shelf.Response(
+        416,
+        headers: {...headers, 'Content-Range': 'bytes */$len'},
+      );
+    }
+    return shelf.Response(
+      206,
+      body: bytes.sublist(start, end + 1),
+      headers: {...headers, 'Content-Range': 'bytes $start-$end/$len'},
+    );
   }
 
   shelf.Response _serveFile(File file, String relPath) {

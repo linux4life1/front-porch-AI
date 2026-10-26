@@ -106,6 +106,8 @@ export default defineConfig({
       // The Stoop live-messaging relay — same WebSocket rules as /api/ws.
       '/api/stoop/ws': { target: 'ws://localhost:8085', ws: true },
       '/api': { target: 'http://localhost:8085', changeOrigin: true },
+      // The scene sound is the desktop's own bundled files, not in this build.
+      '/audio/scene': { target: 'http://localhost:8085', changeOrigin: true },
     },
   },
   // `vite preview` serves the real production build (minified, no HMR) for a
@@ -127,6 +129,8 @@ export default defineConfig({
       // The Stoop live-messaging relay — same WebSocket rules as /api/ws.
       '/api/stoop/ws': { target: 'ws://localhost:8085', ws: true },
       '/api': { target: 'http://localhost:8085', changeOrigin: true },
+      // The scene sound is the desktop's own bundled files, not in this build.
+      '/audio/scene': { target: 'http://localhost:8085', changeOrigin: true },
     },
   },
 });

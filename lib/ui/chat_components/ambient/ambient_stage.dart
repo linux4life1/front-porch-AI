@@ -16,12 +16,15 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:window_manager/window_manager.dart';
 
 import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'ambient_stage_game.dart';
 
@@ -43,6 +46,7 @@ class AmbientStage extends StatefulWidget {
     required this.tokens,
     this.animated = false,
     this.generating = false,
+    this.onFlash,
   });
 
   final SceneTokens tokens;
@@ -53,6 +57,9 @@ class AmbientStage extends StatefulWidget {
   /// Whether a reply is being generated now.
   final bool generating;
 
+  /// Each storm flash as the stage fires it, for the scene sound's thunder.
+  final ValueChanged<SceneFlash>? onFlash;
+
   @override
   State<AmbientStage> createState() => _AmbientStageState();
 }
@@ -62,6 +69,7 @@ class _AmbientStageState extends State<AmbientStage>
   late final AmbientStageGame _game = AmbientStageGame(widget.tokens)
     ..effectsFrozen = !widget.animated;
   bool _appVisible = true;
+  StreamSubscription<SceneFlash>? _flashes;
 
   /// True until the window plugin answers, so a stage on a platform
   /// without one still runs.
@@ -72,6 +80,7 @@ class _AmbientStageState extends State<AmbientStage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
+    _flashes = _game.flashes.listen((flash) => widget.onFlash?.call(flash));
     _applyPause();
     _readWindowFocus();
   }
@@ -92,6 +101,8 @@ class _AmbientStageState extends State<AmbientStage>
 
   @override
   void dispose() {
+    final flashes = _flashes;
+    if (flashes != null) unawaited(flashes.cancel());
     WidgetsBinding.instance.removeObserver(this);
     windowManager.removeListener(this);
     super.dispose();

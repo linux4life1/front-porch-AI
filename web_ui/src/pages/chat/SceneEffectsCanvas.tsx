@@ -10,12 +10,17 @@
 
 import { useEffect, useMemo, useRef } from 'react';
 import {
-  hasEffects, parseSceneEffects, type EffectPaints, type EffectSpec, type SceneEffectsWire,
+  hasEffects, parseSceneEffects, type EffectPaints, type EffectSpec, type Flash, type SceneEffectsWire,
 } from '../../theme/sceneEffects';
 import { SceneEffectsPlayer } from '../../theme/sceneEffectsPlayer';
 import { usePaintedThemeMode } from '../../theme/usePaintedThemeMode';
 
-export function SceneEffectsCanvas({ scene, generating }: { scene: unknown; generating: boolean }) {
+export function SceneEffectsCanvas({ scene, generating, onFlash }: {
+  scene: unknown;
+  generating: boolean;
+  /** Each storm flash as it fires, for the scene sound's thunder. */
+  onFlash?: (f: Flash) => void;
+}) {
   // The weather's colours for the mode this page paints, like the tint's.
   const mode = usePaintedThemeMode();
   const parsed = parseSceneEffects(scene, mode);
@@ -35,9 +40,9 @@ export function SceneEffectsCanvas({ scene, generating }: { scene: unknown; gene
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const playerRef = useRef<SceneEffectsPlayer | null>(null);
   // What a new player starts from; the effects below keep a running one current.
-  const latest = useRef({ paints, pauseWhileGenerating, generating });
+  const latest = useRef({ paints, pauseWhileGenerating, generating, onFlash });
   useEffect(() => {
-    latest.current = { paints, pauseWhileGenerating, generating };
+    latest.current = { paints, pauseWhileGenerating, generating, onFlash };
   });
 
   useEffect(() => {
@@ -54,6 +59,7 @@ export function SceneEffectsCanvas({ scene, generating }: { scene: unknown; gene
       effects: { ...spec, paints: look.paints },
     };
     const player = new SceneEffectsPlayer(canvas, start);
+    player.onFlash = (f) => latest.current.onFlash?.(f);
     player.setGenerating(look.generating);
     playerRef.current = player;
     const observer = typeof ResizeObserver === 'function' ? new ResizeObserver(() => player.resize()) : null;

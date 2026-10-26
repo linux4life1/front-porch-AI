@@ -218,6 +218,10 @@ class SettingsSnapshot {
       'ambientScene': _storage.appearance.ambientScene.key,
       'pauseEffectsWhileGenerating':
           _storage.appearance.pauseEffectsWhileGenerating,
+      // Appearance → Scene sound and its volume (0 to 1). Additive; the
+      // chat state's `scene.sound` carries the same pair to the chat page.
+      'sceneSound': _storage.appearance.sceneSound,
+      'sceneSoundVolume': _storage.appearance.sceneSoundVolume,
       ...readWorkerSettings(_storage, _llm),
     };
   }

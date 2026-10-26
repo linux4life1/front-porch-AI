@@ -8,6 +8,7 @@
 
 import { useRef, useState } from 'react';
 import { api, ApiError } from '../api/client';
+import { trackVoice } from './voiceActivity';
 
 /** 🔊 Synthesize a message and play it on this device. */
 export function SpeakButton({ text }: { text: string }) {
@@ -23,6 +24,8 @@ export function SpeakButton({ text }: { text: string }) {
       const audio = new Audio(url);
       audioRef.current = audio;
       audio.onended = () => URL.revokeObjectURL(url);
+      // The scene sound ducks under the voice while it plays.
+      trackVoice(audio);
       await audio.play();
     } catch {
       // TTS off or no audio — surface nothing intrusive; the button just resets.

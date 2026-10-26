@@ -45,6 +45,20 @@
       "dartMarker": "Pause effects while generating",
       "webMarker": "Pause effects while generating"
     },
+    "sceneSound": {
+      "section": "general",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/scene_sound_controls.dart",
+      "dartMarker": "Scene sound",
+      "webMarker": "Scene sound"
+    },
+    "sceneSoundVolume": {
+      "section": "general",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/scene_sound_controls.dart",
+      "dartMarker": "Scene sound volume",
+      "webMarker": "Scene sound volume"
+    },
     "chatColors": {
       "section": "general",
       "group": "chat-appearance",

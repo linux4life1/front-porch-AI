@@ -23,6 +23,7 @@ import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
 import { useChatFind } from './chat/useChatFind';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
+import { useSceneSound } from './chat/useSceneSound';
 import { FindBar } from '../components/FindBar';
 import { FindSurfaceContext } from '../components/chatSearch';
 import { useFollowStreamingReplies } from '../followStreaming';
@@ -53,6 +54,8 @@ export function ChatPage() {
     swipe, del, pendingConfirm, confirmPending, cancelPending, beginEdit, saveEdit, saveAuthorNote, saveTheme,
     submitReprocess, submitReprocessFeelings, revertNeeds,
   } = send;
+  // The Ambient Stage's sound: the scene's loop, thunder on the canvas's flashes.
+  const sceneSound = useSceneSound(state?.scene);
 
   // Living Time §2: sessions whose welcome-back banner was dismissed (ephemeral).
   const [absenceDismissed, setAbsenceDismissed] = useState<Set<string>>(new Set());
@@ -267,7 +270,7 @@ export function ChatPage() {
     <div className="chat-layout">
       <div className="chat-view">
         {/* The Ambient Stage's moving weather, behind every other child. */}
-        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || !!state.isSettlingTurn || streaming !== ''} />
+        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || !!state.isSettlingTurn || streaming !== ''} onFlash={sceneSound.onFlash} />
         <ChatHeader
           title={title}
           focused={focused}

@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'scene_gate.dart';
+import 'scene_sound.dart';
 import 'scene_tokens.dart';
 
 /// The scene the desktop stage paints for the open chat, in the app's own
@@ -27,14 +28,21 @@ SceneTokens? sceneTokensFor(ChatService chat) =>
     _sceneOf(chat)(chat.appearance.isDark);
 
 /// The chat state's `scene` for the web: the same scene in both
-/// brightnesses, because the PWA may run its own mode. Null when there is
-/// nothing to paint.
+/// brightnesses, because the PWA may run its own mode, and the Scene sound
+/// setting as `sound`, so the chat page plays what the desktop plays. Null
+/// when there is nothing to paint (and so nothing to hear).
 Map<String, Object>? sceneWireFor(ChatService chat) {
   final at = _sceneOf(chat);
   final dark = at(true);
   final light = at(false);
   if (dark == null || light == null) return null;
-  return SceneTokens.wireOf(dark: dark, light: light);
+  return {
+    ...SceneTokens.wireOf(dark: dark, light: light),
+    'sound': sceneSoundWire(
+      on: chat.appearance.sceneSound,
+      volume: chat.appearance.sceneSoundVolume,
+    ),
+  };
 }
 
 /// Reads the chat once and returns the gate for either brightness. The

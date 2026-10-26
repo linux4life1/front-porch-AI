@@ -285,4 +285,32 @@ void main() {
       expect(AmbientScene.values.map((s) => s.key), ['off', 'tint', 'effects']);
     },
   );
+
+  test(
+    'scene sound is off at half volume until changed, and survives a restart',
+    () async {
+      final (a, _) = await _boot();
+      expect(a.sceneSound, isFalse);
+      expect(a.sceneSoundVolume, 0.5);
+      var notified = 0;
+      a.initializeBase(await SharedPreferences.getInstance(), () => notified++);
+      await a.setSceneSound(true);
+      await a.setSceneSoundVolume(0.8);
+      expect(notified, 2);
+      await a.setSceneSound(true);
+      await a.setSceneSoundVolume(0.8);
+      expect(notified, 2, reason: 'the same choice again is not a write');
+      await a.setSceneSoundVolume(7);
+      expect(a.sceneSoundVolume, 1.0, reason: 'held to 0..1');
+
+      final (b, _) = await _reload();
+      expect(b.sceneSound, isTrue);
+      expect(b.sceneSoundVolume, 1.0);
+      await b.resetCustomisations();
+      expect(b.sceneSound, isTrue);
+
+      final (c, _) = await _boot({'scene_sound_volume': -3.0});
+      expect(c.sceneSoundVolume, 0.0);
+    },
+  );
 }

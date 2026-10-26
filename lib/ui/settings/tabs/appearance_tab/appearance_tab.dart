@@ -25,6 +25,7 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'accent_picker_row.dart';
 import 'appearance_choice.dart';
 import 'chat_appearance_section.dart';
+import 'scene_sound_controls.dart';
 import 'theme_card_grid.dart';
 
 /// Settings → Appearance: the app theme, light/dark/system mode, accent, UI
@@ -99,6 +100,9 @@ class AppearanceTab extends StatelessWidget {
                     ],
                   ),
                 ),
+                // Rain, wind, birds or crickets for the scene, thunder after
+                // a storm's flash; off by default.
+                SceneSoundControls(appearance: appearance),
               ],
             ),
             const SizedBox(height: 16),

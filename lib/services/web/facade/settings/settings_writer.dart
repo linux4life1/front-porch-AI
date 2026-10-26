@@ -101,6 +101,13 @@ class SettingsWriter {
     if (pauseEffects is bool) {
       await _storage.appearance.setPauseEffectsWhileGenerating(pauseEffects);
     }
+    final sceneSound = body['sceneSound'];
+    if (sceneSound is bool) await _storage.appearance.setSceneSound(sceneSound);
+    // A number; the setter holds it to 0..1.
+    final sceneVolume = body['sceneSoundVolume'];
+    if (sceneVolume is num && sceneVolume.isFinite) {
+      await _storage.appearance.setSceneSoundVolume(sceneVolume.toDouble());
+    }
 
     final follow = body['followStreamingReplies'];
     if (follow is bool) {

@@ -15,7 +15,7 @@
 
 import {
   SNOW_BAND_ALPHA, SNOW_BAND_RADIUS, SceneEffectsSim, snowBand,
-  type EffectPaints, type SceneEffectsWire,
+  type EffectPaints, type Flash, type SceneEffectsWire,
 } from './sceneEffects';
 
 export const STEP_MS = 1000 / 30;
@@ -117,6 +117,8 @@ export class SceneEffectsPlayer {
   private pauseWhileGenerating: boolean;
   private readonly reduce: MediaQueryList | null;
   private readonly onChange = () => this.sync();
+  /** Each storm flash as the sim fires it, for the scene sound's thunder. */
+  onFlash: ((f: Flash) => void) | null = null;
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -164,6 +166,7 @@ export class SceneEffectsPlayer {
     this.canvas.height = Math.round(h * dpr);
     this.canvas.getContext('2d')?.setTransform(dpr, 0, 0, dpr, 0, 0);
     this.sim = new SceneEffectsSim(this.wire.effects, this.wire.seed, w, h);
+    this.sim.onFlash = (f) => this.onFlash?.(f);
     this.paint();
     this.sync();
   }
