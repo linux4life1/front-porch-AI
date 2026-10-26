@@ -864,7 +864,7 @@ jobs:
         # Pixel goldens are authored against this ubuntu image and must match
         # exactly. Any UI change that shifts a pixel will fail this job.
         # To update goldens after an intentional UI change, run on Linux:
-        #   flutter test --tags golden --update-goldens
+        #   flutter test --tags golden --update-goldens test/golden
         # then commit the refreshed PNGs alongside the UI change.
         #
         # This job runs in parallel with `test` (both need `analyze` to pass)
@@ -874,7 +874,13 @@ jobs:
         # parallel load cannot change a pixel. Measured 490s -> 156s (3.1x) with
         # 3 consecutive green runs and zero diffs. See the `test` job above for
         # the full rationale and the rollback rule.
-        run: flutter test --concurrency=4 --reporter expanded --tags golden
-        # 20 since 2026-09-30: flutter test loads every test file to find the
-        # golden-tagged ones, and ~970 files pushed the step past 10 minutes.
+        # Scoped to test/golden since 2026-10-26: `--tags golden` alone made
+        # flutter test load and compile every test file to find the tagged
+        # ones, and at ~1700 files the step ran 15-20 minutes and timed out
+        # on PR #626. Every golden-tagged file lives under test/golden
+        # (test/hygiene/golden_tag_location_test.dart pins that), so the
+        # path loads only those and the tag filter still applies.
+        run: flutter test --concurrency=4 --reporter expanded --tags golden test/golden
+        # 20 since 2026-09-30, kept as a ceiling; the scoped run needs a
+        # fraction of it.
         timeout-minutes: 20

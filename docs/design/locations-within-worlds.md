@@ -126,7 +126,9 @@ With world `S` in the Setting slot:
 3. **Setting prose** = `buildWorldInjection(chain)`, leaf first, under the
    same 600-char cap. The location's own description wins the budget and
    the town's is truncated. A three-tier chain costs no more tokens than a
-   single world does now. The editor shows the preview (see §5).
+   single world does now. The editor shows the preview (see §5). Its
+   atmosphere and gravity lines come from the rule-2 climate author only;
+   the other worlds in the chain add prose.
 4. **Lore** = chain books leaf first, then the Lore slot books. Existing
    dedupe by world id means a town attached both as ancestor and as an
    explicit Lore place enumerates once.

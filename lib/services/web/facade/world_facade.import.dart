@@ -59,6 +59,22 @@ class WorldImporter {
     }
   }
 
+  /// The bundled starter worlds (assets/worlds/starter). Held here so
+  /// the web's add joins an add already in flight, as desktop's does.
+  late final StarterWorlds starters = StarterWorlds(_worlds);
+
+  /// GET `/api/worlds/starter`: the index rows plus whether a root added
+  /// from each is in the library now.
+  Future<List<Map<String, dynamic>>> starterIndex() async => [
+    for (final w in await starters.index())
+      {...w.toJson(), 'added': starters.isAdded(w.id)},
+  ];
+
+  /// Add starter [id] through [WorldRepository.importWorldJson], the
+  /// same path as [importWorld]; null when [id] is not a bundled starter.
+  Future<World?> importStarter(String id) async =>
+      await starters.has(id) ? starters.add(id) : null;
+
   /// Import a lorebook with a chosen destination — the web twin of the
   /// desktop Import Lorebook wizard. `dryRun` returns the review summary +
   /// destination availability without writing anything; a commit clones the

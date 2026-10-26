@@ -180,13 +180,44 @@ function traitLine(w: TreeWorld): string {
 }
 
 /**
+ * The worlds that speak trait lines: the climate author of each
+ * parent-linked run (twin of `_traitAuthors` in world_injection.dart). A
+ * Setting chain is one run, so a place that owns a climate also owns its
+ * air and gravity and the worlds above it add prose only
+ * (locations-within-worlds.md §3 rule 2). A world that says
+ * `climateEnabled: true` is preferred as the author over one that does not
+ * say (the relay always sends the flag; a hand-built row may not).
+ */
+function traitAuthors(chain: TreeWorld[]): Set<TreeWorld> {
+  const authors = new Set<TreeWorld>();
+  let start = 0;
+  for (let i = 0; i < chain.length; i++) {
+    const parent = chain[i].parentWorldId;
+    const next = chain[i + 1];
+    if (next !== undefined && parent != null && parent !== '' && parent === idOf(next)) {
+      continue;
+    }
+    const run = chain.slice(start, i + 1);
+    start = i + 1;
+    // A run whose top has weather off has no author (climateAuthorOf).
+    if (run[run.length - 1].climateEnabled === false) continue;
+    // Same as Dart's climateAuthorOf: the first world in the run whose
+    // weather is not off (the flag defaults to on there and in the relay).
+    const author = run.find((w) => w.climateEnabled !== false);
+    if (author) authors.add(author);
+  }
+  return authors;
+}
+
+/**
  * Leaf-first budget injection: the Setting's own prose wins the budget,
  * parents fill what is left (same order, header rule, 40-char floor and
  * trait-protection as the Dart builder). `chain` must arrive leaf-first.
  *
  * Like the Dart original: `injectDescription: false` blanks the
  * DESCRIPTION only — behavioral trait lines ride on, because the author
- * picked them explicitly.
+ * picked them explicitly. Trait lines come from the chain's climate author
+ * only (see traitAuthors).
  */
 export function buildWorldInjection(chain: TreeWorld[]): string {
   const parts: string[] = [];
@@ -194,9 +225,10 @@ export function buildWorldInjection(chain: TreeWorld[]): string {
   // A top-level world with weather off silences every place inside it.
   const root = chain[chain.length - 1];
   const traitsLive = root === undefined || root.climateEnabled !== false;
+  const authors = traitAuthors(chain);
   for (const w of chain) {
     const desc = w.injectDescription === false ? '' : (w.description ?? '').trim();
-    const traits = !traitsLive || w.climateEnabled === false ? '' : traitLine(w);
+    const traits = traitsLive && authors.has(w) ? traitLine(w) : '';
     if (!desc && !traits) continue;
     const header = w.name.trim() === '' ? 'This place' : w.name.trim();
     const body = [desc, traits].filter(Boolean).join(' ');

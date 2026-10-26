@@ -1,0 +1,167 @@
+{
+  "formatVersion": 1,
+  "id": "starter-greenhollow",
+  "name": "Greenhollow Estate",
+  "description": "A rambling country estate of honey-coloured stone among olive groves, vineyards and old gardens. Summers are bright and dry, with cicadas in the cypresses; winters are mild and rainy, and the house smells of woodsmoke and baking. The family, their staff and their guests share one long table at supper.",
+  "lorebook": {
+    "entries": [
+      {
+        "name": "The Greenhollow family",
+        "keys": [
+          "Greenhollow family",
+          "the family",
+          "household"
+        ],
+        "content": "The Greenhollow family has kept the estate for five generations. They are a quiet, bookish household: the elders keep the accounts and the orchard, and the younger ones come home every harvest. Guests are treated as family once they have eaten at the long table."
+      },
+      {
+        "name": "The gardener",
+        "keys": [
+          "gardener",
+          "gardens",
+          "hedges",
+          "roses"
+        ],
+        "content": "The gardener has worked the grounds longer than anyone can remember. Weathered, unhurried and kind, they talk more to the roses than to people, know every path on the estate, and keep a spare key to almost everything."
+      },
+      {
+        "name": "The locked library",
+        "keys": [
+          "library",
+          "locked door",
+          "east wing"
+        ],
+        "content": "The library in the east wing has been locked for years. The family says only that it is resting. Lamplight is sometimes seen under the door late at night, and its key is not on the housekeeper’s ring."
+      },
+      {
+        "name": "House rule: the long table",
+        "keys": [
+          "supper",
+          "dinner",
+          "long table",
+          "meal"
+        ],
+        "content": "Supper is taken together at the long table at sundown. Nobody at Greenhollow eats alone, and nobody talks business at the table."
+      },
+      {
+        "name": "House rule: the hall bell",
+        "keys": [
+          "bell",
+          "curfew",
+          "ten o’clock",
+          "late at night"
+        ],
+        "content": "When the hall bell rings at ten, the lamps go out in the shared rooms and voices drop. The house is old and sound carries, so after the bell people move softly."
+      },
+      {
+        "name": "The Orchard Fair",
+        "keys": [
+          "harvest",
+          "festival",
+          "Orchard Fair",
+          "cider"
+        ],
+        "content": "Every autumn the estate opens its gates for the Orchard Fair: apple picking, a cider press in the yard, music on the lawn and a lantern walk through the trees. Neighbours come from miles around."
+      }
+    ]
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "mediterranean",
+    "displayName": "Mediterranean"
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-greenhollow-the-conservatory",
+      "name": "The Conservatory",
+      "description": "A tall glasshouse of white iron and old glass on the south side of the house, full of palms, orchids and climbing vines. Rain drums on the roof in winter, summer sun turns it into a hothouse, and wicker chairs hide among the leaves for quiet conversations.",
+      "lorebook": {
+        "entries": [
+          {
+            "name": "The night-blooming vine",
+            "keys": [
+              "vine",
+              "bloom",
+              "flowers",
+              "scent"
+            ],
+            "content": "A pale vine in the conservatory flowers only after dark, filling the glasshouse with a scent like honey and rain. The family likes to hold late conversations under it."
+          },
+          {
+            "name": "The conservatory stove",
+            "keys": [
+              "stove",
+              "heat",
+              "warm"
+            ],
+            "content": "An iron stove keeps the glasshouse warm through the winter. The gardener banks it every night and does not like anyone else touching it."
+          }
+        ]
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-greenhollow-the-conservatory"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-greenhollow-the-kitchens",
+      "name": "The Kitchens",
+      "description": "Big flagstoned kitchens below the house, with a bread oven, copper pans and a scrubbed table long enough to seat twenty. Something is always simmering, a radio plays softly by the window, and anyone who sits down is handed a knife and some vegetables.",
+      "lorebook": {
+        "entries": [
+          {
+            "name": "The bread oven",
+            "keys": [
+              "bread",
+              "oven",
+              "baking",
+              "loaves"
+            ],
+            "content": "The old brick bread oven is fired before dawn. The first loaves go to the long table and the heels go to whoever is up early enough to ask."
+          },
+          {
+            "name": "Kitchen rule",
+            "keys": [
+              "kitchen rule",
+              "apron",
+              "cook"
+            ],
+            "content": "Anyone who sits at the kitchen table helps: peeling, stirring, or at least drying. The cook says idle hands spoil the soup."
+          }
+        ]
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-greenhollow-the-kitchens"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-greenhollow-the-old-orchard",
+      "name": "The Old Orchard",
+      "description": "Rows of gnarled apple, pear and plum trees running down the slope behind the house to a stream. Bees work the blossom in spring, the grass grows long and gold in summer, and in autumn the ladders come out and the whole household picks.",
+      "lorebook": {
+        "entries": [
+          {
+            "name": "The crooked tree",
+            "keys": [
+              "crooked tree",
+              "oldest tree",
+              "swing"
+            ],
+            "content": "A crooked apple tree at the heart of the orchard is older than the house. A rope swing hangs from its lowest branch, and generations of the family have carved their initials in its bark."
+          }
+        ]
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-greenhollow-the-old-orchard"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-greenhollow"
+  }
+}

@@ -1,0 +1,58 @@
+{
+  "formatVersion": 1,
+  "id": "starter-harborside",
+  "name": "Harborside",
+  "description": "A small seaside town of slate roofs and painted doors climbing a hill above a working harbour. Gulls wheel over the fishing boats, the weather changes three times before lunch, and everybody has an opinion about the best bench for watching the sunset.",
+  "lorebook": {
+    "entries": []
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "temperate",
+    "displayName": "Temperate"
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-harborside-the-quay",
+      "name": "The Quay",
+      "description": "The working waterfront, crowded with crab pots, coiled rope and boats being scraped and painted. Crews mend nets on the stones, the harbourmaster’s radio crackles from an open window, and the smell of salt and diesel hangs over everything.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-harborside-the-quay"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-harborside-lantern-street-market",
+      "name": "Lantern Street Market",
+      "description": "A narrow cobbled street of shops and stalls strung with lanterns, busiest on weekend evenings. Bakers, booksellers and a stall selling hot chips in paper cones compete for the crowds, and buskers play in the doorway of the old chapel.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-harborside-lantern-street-market"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-harborside-lighthouse-point",
+      "name": "Lighthouse Point",
+      "description": "A grassy headland at the end of the harbour wall, crowned by a white lighthouse that still turns every night. Wind flattens the grass, waves boom against the rocks below, and on clear evenings the lights of the next town glimmer along the coast.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-harborside-lighthouse-point"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-harborside"
+  }
+}

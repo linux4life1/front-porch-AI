@@ -1,0 +1,144 @@
+{
+  "formatVersion": 1,
+  "id": "starter-kestrel-reach",
+  "name": "Kestrel Reach",
+  "description": "A grey, airless moon under a black sky, where the sun is a hard white disc and a banded giant planet fills a quarter of the horizon. Nothing makes a sound outside, footprints last for years in the fine dust, and everyone moves in long, slow bounds. Settlements huddle under domes and in buried halls, linked by pressurised crawlers.",
+  "lorebook": {
+    "entries": []
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "starter_airless",
+    "displayName": "Airless moon",
+    "description": "No air and no rain: a black sky, hard sunlight and the odd drift of dust.",
+    "feel": "Outside is silent and deadly cold; nobody goes out without a suit. Weather means dust kicked up by landers and crawlers, and the long swing from light to dark.",
+    "weights": {
+      "winter": [
+        90,
+        0,
+        0,
+        10,
+        0,
+        0,
+        0
+      ],
+      "spring": [
+        88,
+        0,
+        0,
+        12,
+        0,
+        0,
+        0
+      ],
+      "summer": [
+        90,
+        0,
+        0,
+        10,
+        0,
+        0,
+        0
+      ],
+      "autumn": [
+        88,
+        0,
+        0,
+        12,
+        0,
+        0,
+        0
+      ]
+    },
+    "baseTemp": {
+      "winter": 5,
+      "spring": 5,
+      "summer": 5,
+      "autumn": 5
+    },
+    "bandRange": [
+      -1,
+      -1
+    ],
+    "displayAnchorsC": {
+      "winter": -160,
+      "spring": -150,
+      "summer": -140,
+      "autumn": -150
+    },
+    "diurnalAmplitude": 3,
+    "conditionSkin": {
+      "clear": {
+        "label": "Black sky",
+        "emoji": "🌑",
+        "stance": "deadly",
+        "flavour": "No air outside the walls: suits and airlocks or nothing."
+      },
+      "fog": {
+        "label": "Dust drift",
+        "emoji": "🌫️",
+        "stance": "dangerous",
+        "flavour": "Fine grey dust hangs low over the plain and clings to every seal."
+      }
+    }
+  },
+  "place_traits": {
+    "atmosphere": "unbreathable",
+    "gravity": "low"
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-kestrel-reach-dome-town-meridian",
+      "name": "Dome Town Meridian",
+      "description": "A farming town under a vast clear dome, with terraced fields, orchards and a small lake the colonists swear is the bluest water on the moon. People bounce when they walk, children clear fences for fun, and the dome rolls out rain on a schedule everyone grumbles about. Beyond the glass the grey plain runs to a black horizon.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "temperate",
+        "displayName": "Temperate"
+      },
+      "place_traits": {
+        "gravity": "low"
+      },
+      "meta": {
+        "sourceId": "starter-kestrel-reach-dome-town-meridian"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-kestrel-reach-the-ring",
+      "name": "The Ring",
+      "description": "An orbital habitat shaped like a great wheel, spun so its people walk with a familiar weight. Its inner surface curves up into the sky in both directions: parks, canals and terraced neighbourhoods under a long sunlit strip that dims each evening. It feels like a warm coastal town, if you ignore the houses hanging overhead.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "mediterranean",
+        "displayName": "Mediterranean"
+      },
+      "meta": {
+        "sourceId": "starter-kestrel-reach-the-ring"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-kestrel-reach-outpost-nine",
+      "name": "Outpost Nine",
+      "description": "A cramped research and mining outpost dug into a crater wall, reached by crawler across the open plain. Nobody steps outside without a pressure suit, and every door to the surface is an airlock with a cycle light and a checklist. Inside it smells of machine oil and recycled air, and the crew keep a card game running in the galley.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-kestrel-reach-outpost-nine"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-kestrel-reach"
+  }
+}
