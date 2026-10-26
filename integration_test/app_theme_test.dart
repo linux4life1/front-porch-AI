@@ -83,15 +83,30 @@ void main() {
 
     app.main(const []);
     await pumpUntilFound(tester, find.byType(MainLayout));
+    // Same placement as app_smoke_test.dart: the live binding's pump waits
+    // on real vsync, so the window must never be covered. On the Windows
+    // runner the boot hardware probe launches PowerShell, whose console
+    // windows came up over a plain (not on-top) test window and stalled the
+    // pump while the Appearance tab opened.
     try {
+      await windowManager.setAlwaysOnTop(true);
       await windowManager.setSize(const Size(1200, 800));
+      await windowManager.setAlignment(Alignment.bottomRight);
+      await windowManager.blur();
     } catch (e) {
-      debugPrint('[e2e] window_manager sizing skipped: $e');
+      debugPrint('[e2e] window_manager placement skipped: $e');
     }
     await tester.pump(const Duration(seconds: 2));
 
     final ctx = tester.element(find.byType(MainLayout));
     final storage = Provider.of<StorageService>(ctx, listen: false);
+    final hardware = Provider.of<HardwareService>(ctx, listen: false);
+    // Let the probe's child processes finish before any tap.
+    await pumpUntilTrue(
+      tester,
+      () => !hardware.isDetecting,
+      describe: () => 'hardware detection to finish',
+    );
     // MainLayout sits under the pushed Settings route, so look offstage too;
     // the app Theme is above the Navigator either way.
     ThemeData live() =>
