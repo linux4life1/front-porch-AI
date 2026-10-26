@@ -37,26 +37,32 @@ const vectors = JSON.parse(
   cases: VectorCase[];
 };
 
+const darkPaints = {
+  rain: 'rgba(200, 215, 235, 0.549)',
+  snow: 'rgba(255, 255, 255, 0.902)',
+  cloud: 'rgba(140, 150, 162, 0.4)',
+  fog: 'rgba(169, 177, 187, 0.702)',
+  fogClear: 'rgba(169, 177, 187, 0.0)',
+  flash: 'rgba(240, 244, 255, 0.6)',
+};
+const lightPaints = {
+  rain: 'rgba(75, 91, 110, 0.451)',
+  snow: 'rgba(169, 188, 208, 0.702)',
+  cloud: 'rgba(154, 163, 173, 0.4)',
+  fog: 'rgba(201, 206, 211, 0.702)',
+  fogClear: 'rgba(201, 206, 211, 0.0)',
+  flash: 'rgba(255, 255, 255, 0.4)',
+};
+const spec = { kind: 'rain', density: 0.00035, clouds: 6, fog: false, lightning: false, wind: 0.18 };
+// What moves is top-level; each mode's map carries that mode's paints
+// beside its washes (SceneTokens.wireOf).
 const wire = {
   level: 'effects',
   seed: 3682408742,
   pauseWhileGenerating: true,
-  effects: {
-    kind: 'rain',
-    density: 0.00035,
-    clouds: 6,
-    fog: false,
-    lightning: false,
-    wind: 0.18,
-    paints: {
-      rain: 'rgba(200, 215, 235, 0.549)',
-      snow: 'rgba(255, 255, 255, 0.902)',
-      cloud: 'rgba(140, 150, 162, 0.4)',
-      fog: 'rgba(169, 177, 187, 0.702)',
-      fogClear: 'rgba(169, 177, 187, 0.0)',
-      flash: 'rgba(240, 244, 255, 0.6)',
-    },
-  },
+  effects: spec,
+  dark: { paints: darkPaints },
+  light: { paints: lightPaints },
 };
 
 describe('scene effects sim', () => {
@@ -122,15 +128,18 @@ describe('scene effects sim', () => {
 });
 
 describe('scene effects wire', () => {
-  it('accepts what the desktop sends', () => {
-    const parsed = parseSceneEffects(wire);
-    expect(parsed).toEqual(wire);
+  it('accepts what the desktop sends, in the mode this page paints', () => {
+    const parsed = parseSceneEffects(wire, 'dark');
+    expect(parsed).toEqual({
+      level: 'effects', seed: 3682408742, pauseWhileGenerating: true, effects: { ...spec, paints: darkPaints },
+    });
+    expect(parseSceneEffects(wire, 'light')?.effects.paints).toEqual(lightPaints);
     expect(hasEffects(parsed)).toBe(true);
-    expect(hasEffects(parseSceneEffects({ ...wire, level: 'tint' }))).toBe(false);
-    const clear = { ...wire, effects: { ...wire.effects, kind: 'none', density: 0, clouds: 0 } };
-    expect(hasEffects(parseSceneEffects(clear))).toBe(false);
+    expect(hasEffects(parseSceneEffects({ ...wire, level: 'tint' }, 'dark'))).toBe(false);
+    const clear = { ...wire, effects: { ...spec, kind: 'none', density: 0, clouds: 0 } };
+    expect(hasEffects(parseSceneEffects(clear, 'dark'))).toBe(false);
     // An older desktop's scene has no effects at all.
-    expect(parseSceneEffects({ daypart: 'night', condition: 'rain', temp: 'cold', layers: [], haze: 0 })).toBeNull();
+    expect(parseSceneEffects({ daypart: 'night', condition: 'rain', temp: 'cold', layers: [], haze: 0 }, 'dark')).toBeNull();
   });
 
   it('rejects anything that is not one', () => {
@@ -142,22 +151,24 @@ describe('scene effects wire', () => {
       { ...wire, seed: 1.5 },
       { ...wire, seed: 2 ** 33 },
       { ...wire, effects: null },
-      { ...wire, effects: { ...wire.effects, kind: 'hail' } },
-      { ...wire, effects: { ...wire.effects, density: 'lots' } },
-      { ...wire, effects: { ...wire.effects, density: Number.NaN } },
-      { ...wire, effects: { ...wire.effects, clouds: 2.5 } },
-      { ...wire, effects: { ...wire.effects, clouds: 1e6 } },
-      { ...wire, effects: { ...wire.effects, fog: 'yes' } },
-      { ...wire, effects: { ...wire.effects, paints: { ...wire.effects.paints, rain: 'url(x)' } } },
-      { ...wire, effects: { ...wire.effects, paints: { ...wire.effects.paints, fogClear: undefined } } },
+      { ...wire, effects: { ...spec, kind: 'hail' } },
+      { ...wire, effects: { ...spec, density: 'lots' } },
+      { ...wire, effects: { ...spec, density: Number.NaN } },
+      { ...wire, effects: { ...spec, clouds: 2.5 } },
+      { ...wire, effects: { ...spec, clouds: 1e6 } },
+      { ...wire, effects: { ...spec, fog: 'yes' } },
+      { ...wire, dark: undefined },
+      { ...wire, dark: { paints: null } },
+      { ...wire, dark: { paints: { ...darkPaints, rain: 'url(x)' } } },
+      { ...wire, dark: { paints: { ...darkPaints, fogClear: undefined } } },
     ];
-    for (const b of bad) expect(parseSceneEffects(b)).toBeNull();
+    for (const b of bad) expect(parseSceneEffects(b, 'dark')).toBeNull();
   });
 
   it('pauses while generating unless the desktop says not to', () => {
-    expect(parseSceneEffects({ ...wire, pauseWhileGenerating: false })?.pauseWhileGenerating).toBe(false);
+    expect(parseSceneEffects({ ...wire, pauseWhileGenerating: false }, 'dark')?.pauseWhileGenerating).toBe(false);
     const { pauseWhileGenerating: _omit, ...older } = wire;
     void _omit;
-    expect(parseSceneEffects(older)?.pauseWhileGenerating).toBe(true);
+    expect(parseSceneEffects(older, 'dark')?.pauseWhileGenerating).toBe(true);
   });
 });

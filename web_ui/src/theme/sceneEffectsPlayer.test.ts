@@ -24,8 +24,9 @@ function wire(pauseWhileGenerating: boolean): SceneEffectsWire {
     level: 'effects',
     seed: 42,
     pauseWhileGenerating,
-    effects: { kind: 'rain', density: 0.00035, clouds: 6, fog: false, lightning: true, wind: 0.42, paints },
-  })!;
+    effects: { kind: 'rain', density: 0.00035, clouds: 6, fog: false, lightning: true, wind: 0.42 },
+    dark: { paints },
+  }, 'dark')!;
 }
 
 /** A canvas with a recording 2D context; jsdom has no real one. */

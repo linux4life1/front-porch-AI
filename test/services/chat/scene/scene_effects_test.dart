@@ -21,7 +21,8 @@
 // shared vectors the web sim is pinned to as well
 // (test/fixtures/ambient/scene_effects_vectors.json, generated from the
 // design prototype's own code), so one seed draws the same sky on both
-// surfaces. Plus the High Contrast cap and what travels on the wire.
+// surfaces. Plus the High Contrast cap in the gate and what travels on the
+// wire.
 
 import 'dart:convert';
 import 'dart:io';
@@ -30,10 +31,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
-import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_gate.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_rng.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
+import 'package:front_porch_ai/services/chat/weather_segments.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 final Map<String, dynamic> _vectors =
@@ -254,53 +256,113 @@ void main() {
     }
   });
 
-  test('level, seed and the effects travel on the wire as plain values', () {
-    final s = SceneSim.resolve(
-      daypart: 'night',
-      condition: WeatherCondition.storm,
+  test('the gate holds High Contrast to Tint only and seeds from the chat', () {
+    const day = DailyWeather(
+      condition: WeatherCondition.rain,
       temp: TempBand.cold,
+      season: 'autumn',
+    );
+    const segment = SegmentWeather(
+      day: day,
+      segment: DaySegment.night,
+      condition: WeatherCondition.storm,
+      tempC: 3,
+    );
+    SceneTokens? at(AmbientScene scene, AppThemeId theme) => SceneGate.resolve(
+      scene: scene,
+      theme: theme,
+      day: day,
+      segment: segment,
+      daypart: 'night',
       dark: true,
-      level: SceneLevel.effects,
-      seed: 3682408742,
+      sessionSeed: 'chat-1',
+      dayCount: 12,
       pauseWhileGenerating: false,
     );
+    for (final theme in AppThemeId.values) {
+      final hc = theme == AppThemeId.highContrast;
+      final effects = at(AmbientScene.effects, theme)!;
+      expect(
+        effects.level,
+        hc ? SceneLevel.tint : SceneLevel.effects,
+        reason: theme.label,
+      );
+      expect(effects.hasEffects, !hc, reason: theme.label);
+      expect(at(AmbientScene.tint, theme)!.level, SceneLevel.tint);
+      expect(at(AmbientScene.off, theme), isNull);
+    }
+    final s = at(AmbientScene.effects, AppThemeId.values.first)!;
+    expect(
+      s.seed,
+      sceneSeed(
+        sessionSeed: 'chat-1',
+        dayCount: 12,
+        daypart: 'night',
+        condition: 'storm',
+      ),
+    );
+    expect(s.effects, SceneEffectSpec.forCondition('storm'));
+    expect(s.pauseWhileGenerating, isFalse);
+  });
+
+  test('what moves travels top-level, its paints in each mode', () {
+    SceneTokens at(bool dark, {SceneLevel level = SceneLevel.effects}) =>
+        SceneSim.resolve(
+          daypart: 'night',
+          condition: WeatherCondition.storm,
+          temp: TempBand.cold,
+          dark: dark,
+          level: level,
+          seed: 3682408742,
+          pauseWhileGenerating: false,
+        );
+    final s = at(true);
     expect(s.hasEffects, isTrue);
-    final w = s.toWire();
+    final w = SceneTokens.wireOf(dark: s, light: at(false));
     expect(w['level'], 'effects');
     expect(w['seed'], 3682408742);
     expect(w['pauseWhileGenerating'], false);
     final e = (w['effects'] as Map).cast<String, Object?>();
-    expect(e['kind'], 'rain');
-    expect(e['density'], 0.00065);
-    expect(e['clouds'], 9);
-    expect(e['fog'], false);
-    expect(e['lightning'], true);
-    expect(e['wind'], 0.42);
-    final css = RegExp(r'^(#[0-9a-f]{6}|rgba\(\d+, \d+, \d+, [0-9.]+\))$');
-    final paints = (e['paints'] as Map).cast<String, Object?>();
-    expect(paints.keys.toSet(), {
-      'rain',
-      'snow',
-      'cloud',
-      'fog',
-      'fogClear',
-      'flash',
+    expect(e, {
+      'kind': 'rain',
+      'density': 0.00065,
+      'clouds': 9,
+      'fog': false,
+      'lightning': true,
+      'wind': 0.42,
     });
-    for (final p in paints.values) {
-      expect(p, matches(css));
+    final css = RegExp(r'^(#[0-9a-f]{6}|rgba\(\d+, \d+, \d+, [0-9.]+\))$');
+    Map<String, Object?> paintsOf(String mode) =>
+        ((w[mode] as Map)['paints'] as Map).cast<String, Object?>();
+    for (final mode in ['dark', 'light']) {
+      final paints = paintsOf(mode);
+      expect(paints.keys.toSet(), {
+        'rain',
+        'snow',
+        'cloud',
+        'fog',
+        'fogClear',
+        'flash',
+      });
+      for (final p in paints.values) {
+        expect(p, matches(css));
+      }
     }
+    expect(paintsOf('dark'), isNot(paintsOf('light')));
+    expect(paintsOf('dark')['rain'], WebThemeTokens.css(s.paints.rain));
     // jsonEncode is what the web socket does with it.
     expect(() => jsonEncode(w), returnsNormally);
 
-    final tint = SceneSim.resolve(
-      daypart: 'night',
-      condition: WeatherCondition.storm,
-      temp: TempBand.cold,
-      dark: true,
+    final tint = at(true, level: SceneLevel.tint);
+    expect(
+      SceneTokens.wireOf(
+        dark: tint,
+        light: at(false, level: SceneLevel.tint),
+      )['level'],
+      'tint',
     );
-    expect(tint.toWire()['level'], 'tint');
     expect(tint.hasEffects, isFalse);
-    expect(tint, isNot(s), reason: 'level and seed are part of the value');
+    expect(tint, isNot(s), reason: 'level is part of the value');
   });
 
   test('clouds and fog at their thickest leave canvas text readable', () {

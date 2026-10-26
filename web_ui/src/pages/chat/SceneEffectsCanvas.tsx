@@ -11,9 +11,12 @@
 import { useEffect, useMemo, useRef } from 'react';
 import { hasEffects, parseSceneEffects, type SceneEffectsWire } from '../../theme/sceneEffects';
 import { SceneEffectsPlayer } from '../../theme/sceneEffectsPlayer';
+import { usePaintedThemeMode } from '../../theme/usePaintedThemeMode';
 
 export function SceneEffectsCanvas({ scene, generating }: { scene: unknown; generating: boolean }) {
-  const parsed = parseSceneEffects(scene);
+  // The weather's colours for the mode this page paints, like the tint's.
+  const mode = usePaintedThemeMode();
+  const parsed = parseSceneEffects(scene, mode);
   const wire = hasEffects(parsed) ? parsed : null;
   // A new chat state is a new object every poll; the weather is rebuilt
   // only when what it is scattered from changes.

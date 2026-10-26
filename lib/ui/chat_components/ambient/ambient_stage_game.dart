@@ -22,6 +22,7 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart' show Colors;
+import 'package:flutter/scheduler.dart';
 
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
@@ -37,8 +38,9 @@ import 'scene_sky_layers.dart';
 /// [SceneTokens]; nothing here picks one.
 class AmbientStageGame extends FlameGame {
   AmbientStageGame(SceneTokens tokens) : _tokens = tokens {
-    // The hosting widget owns every pause rule (lifecycle, focus, reduce
-    // motion, generating); Flame's own lifecycle pause would fight it.
+    // Pause belongs to AmbientStage, which knows whether the stage animates
+    // (lifecycle, focus, reduce motion, generating); Flame's own
+    // backgrounding rule would resume a static stage behind its back.
     pauseWhenBackgrounded = false;
   }
 
@@ -49,8 +51,9 @@ class AmbientStageGame extends FlameGame {
   final StreamController<SceneFlash> _flashes =
       StreamController<SceneFlash>.broadcast();
 
-  /// While true the weather holds still where it is (reduce motion): the
-  /// stage still paints, the sim is not stepped and no flash fires.
+  /// While true the weather holds still where it is (a static stage, as
+  /// under reduce motion): the stage still paints, the sim is not stepped,
+  /// even by [repaintOnce], and no flash fires.
   bool effectsFrozen = false;
 
   SceneTokens get tokens => _tokens;
@@ -62,12 +65,33 @@ class AmbientStageGame extends FlameGame {
   Stream<SceneFlash> get flashes => _flashes.stream;
 
   /// Swaps the scene; a value-equal set of tokens is a no-op. The weather
-  /// is scattered again only when its seed or kind changes.
+  /// is scattered again only when its seed or kind changes. A paused stage
+  /// repaints once so the new scene shows without running the loop.
   set tokens(SceneTokens value) {
     if (value == _tokens) return;
     _tokens = value;
     _tint?.tokens = value;
     _syncEffects();
+    repaintOnce();
+  }
+
+  /// Paints the current scene once while the engine is paused, without
+  /// starting the ticker: [stepEngine] runs one loop step (an update that
+  /// mounts pending components, then the render box's markNeedsPaint). A
+  /// no-op while the engine runs, since the next tick paints anyway, and
+  /// before the render box has its loop, which [onAttach] covers.
+  void repaintOnce() {
+    if (paused) stepEngine();
+  }
+
+  /// The render box creates its loop right after attaching, so the first
+  /// paint of a paused stage waits for the end of this frame.
+  @override
+  void onAttach() {
+    super.onAttach();
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (isAttached) repaintOnce();
+    });
   }
 
   /// Transparent: the chat background and the theme ground show through.
@@ -138,7 +162,7 @@ class AmbientStageGame extends FlameGame {
 }
 
 /// The weather washes, full-stage, in [SceneTokens.layers] order, then the
-/// haze as a radial wash thin at the centre and thicker at the edges.
+/// haze as a radial wash thin at the centre and thicker at the corners.
 class SceneTintComponent extends PositionComponent
     with HasGameReference<AmbientStageGame> {
   SceneTintComponent(this.tokens);
@@ -155,15 +179,22 @@ class SceneTintComponent extends PositionComponent
       canvas.drawRect(rect, paint);
     }
     if (tokens.haze > 0) {
+      // The web's `radial-gradient(circle at center, centre 15%, edge
+      // 100%)`: a circle whose radius reaches the farthest corner.
       final centre = Offset(size.x / 2, size.y / 2);
-      final radius = (size.x > size.y ? size.x : size.y) * 0.75;
+      final radius = centre.distance;
       canvas.drawRect(
         rect,
         Paint()
-          ..shader = Gradient.radial(centre, radius, [
-            kSceneHaze.withValues(alpha: tokens.hazeCentreAlpha),
-            kSceneHaze.withValues(alpha: tokens.hazeEdgeAlpha),
-          ]),
+          ..shader = Gradient.radial(
+            centre,
+            radius,
+            [
+              kSceneHaze.withValues(alpha: tokens.hazeCentreAlpha),
+              kSceneHaze.withValues(alpha: tokens.hazeEdgeAlpha),
+            ],
+            const [0.15, 1.0],
+          ),
       );
     }
   }

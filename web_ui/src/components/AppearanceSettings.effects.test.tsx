@@ -4,7 +4,8 @@
 // The Ambient Stage's effects controls on the Appearance card
 // (docs/design/ambient-stage.md, PR 2): Tint and effects is a choice, and
 // Pause effects while generating reads the desktop's setting and writes a
-// change back through the same endpoint.
+// change back through the same endpoint, and follows a change made
+// elsewhere (`settings_changed`) like the scene choice beside it.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -13,11 +14,27 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AppearanceSettings } from './AppearanceSettings';
 import { api } from '../api/client';
 
+type Listener = (e: { event: string }) => void;
+let listener: Listener | null = null;
+
+vi.mock('../api/ws', () => ({
+  ChatSocket: class {
+    constructor(cb: Listener) {
+      listener = cb;
+    }
+    connect() {}
+    close() {
+      listener = null;
+    }
+  },
+}));
+
 let host: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
   localStorage.clear();
+  listener = null;
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -74,4 +91,23 @@ it('puts the switch back when the desktop refuses the change', async () => {
   });
   expect(box.checked).toBe(true);
   expect(host.textContent).toContain('Could not change the effects pause');
+});
+
+it('follows the pause switch and Tint and effects changed on the desktop', async () => {
+  let desktop: Record<string, unknown> = { ambientScene: 'tint', pauseEffectsWhileGenerating: true };
+  vi.spyOn(api, 'get').mockImplementation(async () => desktop);
+  await act(async () => {
+    root.render(createElement(AppearanceSettings));
+  });
+  const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
+  const box = host.querySelector<HTMLInputElement>('input[aria-label="Pause effects while generating"]')!;
+  expect(select.value).toBe('tint');
+  expect(box.checked).toBe(true);
+
+  desktop = { ambientScene: 'effects', pauseEffectsWhileGenerating: false };
+  await act(async () => {
+    listener?.({ event: 'settings_changed' });
+  });
+  expect(select.value).toBe('effects');
+  expect(box.checked).toBe(false);
 });

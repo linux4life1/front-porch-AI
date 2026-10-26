@@ -18,8 +18,9 @@
 
 // The Ambient Stage's moving weather (docs/design/ambient-stage.md, PR 2):
 // the effect components mount at Tint and effects and never at Tint only,
-// reduce motion holds the weather still with the tint still up, and Pause
-// effects while generating stops the engine for a reply only when it is on.
+// reduce motion makes the stage static with the weather held still where it
+// is and the tint still up, and Pause effects while generating stops the
+// engine for a reply only when it is on and only on a moving stage.
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -55,7 +56,16 @@ Widget _host(
   home: MediaQuery(
     data: MediaQueryData(size: const Size(800, 600), disableAnimations: still),
     child: Scaffold(
-      body: AmbientStage(tokens: tokens, generating: generating),
+      // The chat page's rule (ChatSurface): the stage moves only with
+      // weather to move and motion allowed.
+      body: Builder(
+        builder: (context) => AmbientStage(
+          tokens: tokens,
+          animated:
+              tokens.hasEffects && !MediaQuery.disableAnimationsOf(context),
+          generating: generating,
+        ),
+      ),
     ),
   ),
 );
@@ -132,12 +142,28 @@ void main() {
       still: true,
     );
     expect(still.effectsFrozen, isTrue);
+    expect(still.paused, isTrue, reason: 'static: paints on change only');
+    expect(_effectLayers(still), hasLength(4), reason: 'drawn, held still');
     final held = _drops(still);
     await tester.pump(const Duration(milliseconds: 100));
     await tester.pump(const Duration(milliseconds: 100));
     expect(_drops(still), held, reason: 'frozen where they are');
-    expect(still.paused, isFalse, reason: 'the tint keeps painting');
-    expect(_effectLayers(still), hasLength(4));
+
+    // A new sky repaints once, scattered afresh and still held.
+    await tester.pumpWidget(_host(_scene(WeatherCondition.storm), still: true));
+    expect(still.paused, isTrue);
+    final storm = _drops(still);
+    expect(storm, isNot(held));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(_drops(still), storm);
+
+    // Motion allowed again: the same stage starts moving.
+    await tester.pumpWidget(_host(_scene(WeatherCondition.storm)));
+    await tester.pump(const Duration(milliseconds: 100));
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(still.paused, isFalse);
+    expect(still.effectsFrozen, isFalse);
+    expect(_drops(still), isNot(storm));
   });
 
   testWidgets('generating pauses the stage when the switch is on', (
@@ -169,12 +195,34 @@ void main() {
     expect(_drops(game), isNot(before));
   });
 
-  testWidgets('generating does not pause Tint only', (tester) async {
-    final game = await _pump(
-      tester,
-      _scene(WeatherCondition.snow, level: SceneLevel.tint),
-      generating: true,
-    );
-    expect(game.paused, isFalse);
+  testWidgets('a static stage ignores generating', (tester) async {
+    // Tint only, and the weather under reduce motion, never run the loop,
+    // so a reply has nothing to pause or resume.
+    for (final (level, still) in [
+      (SceneLevel.tint, false),
+      (SceneLevel.effects, true),
+    ]) {
+      final game = await _pump(
+        tester,
+        _scene(WeatherCondition.snow, level: level),
+        still: still,
+      );
+      expect(game.paused, isTrue);
+      await tester.pumpWidget(
+        _host(
+          _scene(WeatherCondition.snow, level: level),
+          generating: true,
+          still: still,
+        ),
+      );
+      await tester.pump();
+      expect(game.paused, isTrue);
+      await tester.pumpWidget(
+        _host(_scene(WeatherCondition.snow, level: level), still: still),
+      );
+      await tester.pump();
+      expect(game.paused, isTrue, reason: 'still static after the reply');
+      await tester.pumpWidget(const SizedBox());
+    }
   });
 }

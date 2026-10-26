@@ -189,5 +189,4 @@ export 'pockets_pass.dart';
 export 'pockets_rewinds.dart';
 export 'reply_facts.dart';
 export 'timeline_invalidator.dart';
-export 'scene/scene_resolver.dart';
 export 'scene/scene_tokens.dart';

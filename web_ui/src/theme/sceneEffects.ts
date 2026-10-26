@@ -5,9 +5,11 @@
 // A line-for-line port of lib/services/chat/scene/scene_effects_sim.dart and
 // scene_rng.dart: the same mulberry32, the same scatter order, the same
 // steps, so the seed on the wire scatters the same rain the desktop draws.
-// Budgets, kinds and colours all come from the wire (SceneTokens.toWire);
+// Budgets, kinds and colours all come from the wire (SceneTokens.wireOf);
 // this file keeps only the motion constants, and the shared fixture
 // test/fixtures/ambient/scene_effects_vectors.json pins both sides to them.
+
+import type { ThemeMode } from './appTheme';
 
 /** mulberry32: 32-bit integer maths, a number in [0, 1) per call. */
 export function mulberry32(seed: number): () => number {
@@ -62,10 +64,12 @@ const finite = (v: unknown, min: number, max: number): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= min && v <= max;
 
 /**
- * The moving-weather part of a scene from the desktop, or null when the
- * payload has none (an older desktop) or is not one. Never throws.
+ * The moving-weather part of a scene from the desktop, painted for [mode]
+ * (the brightness this page paints), or null when the payload has none (an
+ * older desktop) or is not one. What moves sits at the top of `scene`; its
+ * colours sit in each mode's map, beside that mode's washes. Never throws.
  */
-export function parseSceneEffects(raw: unknown): SceneEffectsWire | null {
+export function parseSceneEffects(raw: unknown, mode: ThemeMode): SceneEffectsWire | null {
   if (!raw || typeof raw !== 'object') return null;
   const w = raw as Record<string, unknown>;
   if (w.level !== 'tint' && w.level !== 'effects') return null;
@@ -75,7 +79,9 @@ export function parseSceneEffects(raw: unknown): SceneEffectsWire | null {
   if (!KINDS.includes(e.kind as EffectKind)) return null;
   if (!finite(e.density, 0, 1) || !finite(e.clouds, 0, 50) || !Number.isInteger(e.clouds)) return null;
   if (!finite(e.wind, 0, 2) || typeof e.fog !== 'boolean' || typeof e.lightning !== 'boolean') return null;
-  const p = e.paints as Record<string, unknown> | undefined;
+  const m = w[mode] as Record<string, unknown> | undefined;
+  if (!m || typeof m !== 'object') return null;
+  const p = m.paints as Record<string, unknown> | undefined;
   if (!p || typeof p !== 'object') return null;
   const names = ['rain', 'snow', 'cloud', 'fog', 'fogClear', 'flash'] as const;
   if (!names.every((n) => typeof p[n] === 'string' && CSS_COLOUR.test(p[n] as string))) return null;

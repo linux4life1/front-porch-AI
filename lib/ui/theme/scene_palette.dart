@@ -81,10 +81,12 @@ const Map<String, SceneConditionWash> kSceneConditionWash = {
     darken: 0.18,
     haze: 0.05,
   ),
+  // Haze 0.80 (not 0.85) keeps High Contrast dark above its 7:1
+  // floor in the worst cell (dawn, cryogenic); `scene_sim_test` pins it.
   'fog': SceneConditionWash(
     wash: SceneWash(Color(0xFFC9CED3), 0.10),
     darken: 0.05,
-    haze: 0.85,
+    haze: 0.80,
   ),
   'rain': SceneConditionWash(
     wash: SceneWash(Color(0xFF4B5B6E), 0.14),

@@ -51,10 +51,10 @@ class SceneTokens {
     required this.temp,
     required this.layers,
     required this.haze,
+    required this.dark,
     this.level = SceneLevel.tint,
     this.seed = 0,
     this.effects = SceneEffectSpec.none,
-    this.paints = kSceneEffectPaintsDark,
     this.pauseWhileGenerating = true,
   });
 
@@ -71,6 +71,9 @@ class SceneTokens {
   /// [kSceneHaze] thin at the centre and thicker at the edges.
   final double haze;
 
+  /// Whether these are the dark-mode washes (light mode scales them down).
+  final bool dark;
+
   /// The wash alone, or the wash and the moving weather.
   final SceneLevel level;
 
@@ -80,12 +83,13 @@ class SceneTokens {
   /// The condition's moving weather; painted only at [SceneLevel.effects].
   final SceneEffectSpec effects;
 
-  /// The colours the moving weather paints in, for the mode on screen.
-  final SceneEffectPaints paints;
-
   /// Appearance → Pause effects while generating: the stage stops while a
   /// reply is on its way, so a local model has the GPU to itself.
   final bool pauseWhileGenerating;
+
+  /// The colours the moving weather paints in, for this brightness.
+  SceneEffectPaints get paints =>
+      dark ? kSceneEffectPaintsDark : kSceneEffectPaintsLight;
 
   /// Whether the moving weather paints at all.
   bool get hasEffects => level == SceneLevel.effects && !effects.isEmpty;
@@ -106,35 +110,45 @@ class SceneTokens {
   double get hazeCentreAlpha => haze * 0.08;
   double get hazeEdgeAlpha => haze * 0.25;
 
-  /// The wire the web paints from: CSS colour strings only, so the PWA
-  /// never works out a colour. Additive; an older PWA ignores it.
-  Map<String, Object> toWire() => {
-    'daypart': daypart,
-    'condition': condition,
-    'temp': temp,
+  /// One brightness's washes and weather paints as CSS colour strings, so
+  /// the PWA never works out a colour.
+  Map<String, Object> toModeWire() => {
     'layers': [for (final l in layers) WebThemeTokens.css(l.paint)],
     'haze': haze,
     'hazeCentre': WebThemeTokens.css(
       kSceneHaze.withValues(alpha: hazeCentreAlpha),
     ),
     'hazeEdge': WebThemeTokens.css(kSceneHaze.withValues(alpha: hazeEdgeAlpha)),
-    // Tint and effects (PR 2). The web scatters the same weather from the
-    // same seed with the same generator; it never picks a colour itself.
-    'level': level.key,
-    'seed': seed,
-    'pauseWhileGenerating': pauseWhileGenerating,
-    'effects': {
-      ...effects.toWire(),
-      'paints': {
-        'rain': WebThemeTokens.css(paints.rain),
-        'snow': WebThemeTokens.css(paints.snow),
-        'cloud': WebThemeTokens.css(paints.cloud),
-        'fog': WebThemeTokens.css(paints.fog),
-        // The fog's own hue at zero alpha, the far stop of each blob.
-        'fogClear': WebThemeTokens.css(paints.fog.withValues(alpha: 0)),
-        'flash': WebThemeTokens.css(paints.flash),
-      },
+    'paints': {
+      'rain': WebThemeTokens.css(paints.rain),
+      'snow': WebThemeTokens.css(paints.snow),
+      'cloud': WebThemeTokens.css(paints.cloud),
+      'fog': WebThemeTokens.css(paints.fog),
+      // The fog's own hue at zero alpha, the far stop of each blob.
+      'fogClear': WebThemeTokens.css(paints.fog.withValues(alpha: 0)),
+      'flash': WebThemeTokens.css(paints.flash),
     },
+  };
+
+  /// The wire the web paints from: the scene's keys plus both brightnesses,
+  /// because the PWA may run its own mode (like `webThemeWire` ships both
+  /// token maps). [dark] and [light] are the same scene resolved twice.
+  /// The web scatters the same weather from [seed] with the same generator;
+  /// what moves is the same in both modes, only its paints differ.
+  /// Additive; an older PWA ignores it.
+  static Map<String, Object> wireOf({
+    required SceneTokens dark,
+    required SceneTokens light,
+  }) => {
+    'daypart': dark.daypart,
+    'condition': dark.condition,
+    'temp': dark.temp,
+    'level': dark.level.key,
+    'seed': dark.seed,
+    'pauseWhileGenerating': dark.pauseWhileGenerating,
+    'effects': dark.effects.toWire(),
+    'dark': dark.toModeWire(),
+    'light': light.toModeWire(),
   };
 
   @override
@@ -144,10 +158,10 @@ class SceneTokens {
       other.condition == condition &&
       other.temp == temp &&
       other.haze == haze &&
+      other.dark == dark &&
       other.level == level &&
       other.seed == seed &&
       other.effects == effects &&
-      other.paints == paints &&
       other.pauseWhileGenerating == pauseWhileGenerating &&
       _sameLayers(other.layers, layers);
 
@@ -165,6 +179,7 @@ class SceneTokens {
     condition,
     temp,
     haze,
+    dark,
     layers.length,
     level,
     seed,
@@ -208,10 +223,10 @@ class SceneSim {
           if (l.alpha > 0) l,
       ],
       haze: cond.haze * scale,
+      dark: dark,
       level: level,
       seed: seed,
       effects: SceneEffectSpec.forCondition(condition.name),
-      paints: dark ? kSceneEffectPaintsDark : kSceneEffectPaintsLight,
       pauseWhileGenerating: pauseWhileGenerating,
     );
   }

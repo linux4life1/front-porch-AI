@@ -23,8 +23,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_gate.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
+import 'package:front_porch_ai/services/chat/weather_segments.dart';
+import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 const _dayparts = [
@@ -160,11 +163,13 @@ void main() {
     for (final theme in AppThemeId.values) {
       for (final dark in [true, false]) {
         final p = dark ? theme.palettes.dark : theme.palettes.light;
+        // High Contrast promises AAA (7:1); every other theme AA (4.5:1).
+        final floor = AppearanceSettings.accentMinRatio(theme);
         for (final s in _cells(dark: dark)) {
           final ground = s.compositeOver(p.background);
           expect(
             contrastRatio(p.textPrimary, ground),
-            greaterThanOrEqualTo(4.5),
+            greaterThanOrEqualTo(floor),
             reason:
                 '${theme.label} ${dark ? 'dark' : 'light'}: '
                 '${s.daypart}/${s.condition}/${s.temp} leaves primary text '
@@ -175,30 +180,131 @@ void main() {
     }
   });
 
-  test('the wire is CSS strings the web can paint without maths', () {
-    final s = SceneSim.resolve(
+  test('the wire is CSS strings for both modes, without maths', () {
+    SceneTokens at(bool dark) => SceneSim.resolve(
       daypart: 'night',
       condition: WeatherCondition.fog,
       temp: TempBand.cold,
-      dark: true,
+      dark: dark,
     );
-    final w = s.toWire();
+    final w = SceneTokens.wireOf(dark: at(true), light: at(false));
     expect(w['daypart'], 'night');
     expect(w['condition'], 'fog');
     expect(w['temp'], 'cold');
-    final layers = (w['layers'] as List).cast<String>();
-    expect(layers.length, s.layers.length);
     final css = RegExp(r'^(#[0-9a-f]{6}|rgba\(\d+, \d+, \d+, [0-9.]+\))$');
-    for (final l in [
-      ...layers,
-      w['hazeCentre'] as String,
-      w['hazeEdge'] as String,
-    ]) {
-      expect(l, matches(css), reason: l);
+    for (final dark in [true, false]) {
+      final s = at(dark);
+      final m = w[dark ? 'dark' : 'light']! as Map<String, Object>;
+      expect(
+        m.keys,
+        unorderedEquals(['layers', 'haze', 'hazeCentre', 'hazeEdge']),
+      );
+      final layers = (m['layers']! as List).cast<String>();
+      expect(layers.length, s.layers.length);
+      for (final l in [
+        ...layers,
+        m['hazeCentre']! as String,
+        m['hazeEdge']! as String,
+      ]) {
+        expect(l, matches(css), reason: l);
+      }
+      expect(m['haze'], s.haze);
+      // Translucent layers travel with their alpha.
+      expect(layers.first, startsWith('rgba('));
     }
-    expect(w['haze'], s.haze);
-    // Translucent layers travel with their alpha.
-    expect(layers.first, startsWith('rgba('));
+    // The two modes are different washes of the same scene.
+    expect(
+      (w['light']! as Map)['layers'],
+      isNot((w['dark']! as Map)['layers']),
+    );
+  });
+
+  group('the gate', () {
+    const day = DailyWeather(
+      condition: WeatherCondition.rain,
+      temp: TempBand.cold,
+      season: 'autumn',
+    );
+    const segment = SegmentWeather(
+      day: day,
+      segment: DaySegment.evening,
+      condition: WeatherCondition.storm,
+      tempC: 4,
+    );
+
+    test('Off paints nothing, even with weather', () {
+      expect(
+        SceneGate.resolve(
+          scene: AmbientScene.off,
+          day: day,
+          segment: segment,
+          daypart: 'evening',
+          dark: true,
+          theme: AppThemeId.porch,
+          sessionSeed: 'chat',
+          dayCount: 3,
+          pauseWhileGenerating: true,
+        ),
+        isNull,
+      );
+    });
+
+    test('Tint without day weather paints nothing', () {
+      expect(
+        SceneGate.resolve(
+          scene: AmbientScene.tint,
+          day: null,
+          daypart: 'evening',
+          dark: true,
+          theme: AppThemeId.porch,
+          sessionSeed: 'chat',
+          dayCount: 3,
+          pauseWhileGenerating: true,
+        ),
+        isNull,
+      );
+    });
+
+    test('Tint shows the segment, else the day, in the asked mode', () {
+      for (final dark in [true, false]) {
+        final withSegment = SceneGate.resolve(
+          scene: AmbientScene.tint,
+          day: day,
+          segment: segment,
+          daypart: 'evening',
+          dark: dark,
+          theme: AppThemeId.porch,
+          sessionSeed: 'chat',
+          dayCount: 3,
+          pauseWhileGenerating: true,
+        )!;
+        expect(withSegment.condition, 'storm');
+        expect(withSegment.temp, 'cold');
+        expect(withSegment.daypart, 'evening');
+        expect(withSegment.dark, dark);
+        final dayOnly = SceneGate.resolve(
+          scene: AmbientScene.tint,
+          day: day,
+          daypart: 'evening',
+          dark: dark,
+          theme: AppThemeId.porch,
+          sessionSeed: 'chat',
+          dayCount: 3,
+          pauseWhileGenerating: true,
+        )!;
+        expect(dayOnly.condition, 'rain');
+        expect(dayOnly.dark, dark);
+        expect(
+          dayOnly,
+          SceneSim.resolve(
+            daypart: 'evening',
+            condition: WeatherCondition.rain,
+            temp: TempBand.cold,
+            dark: dark,
+          ),
+        );
+      }
+    });
   });
 
   test('tokens are a value type', () {
