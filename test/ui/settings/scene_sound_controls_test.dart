@@ -138,4 +138,31 @@ void main() {
     expect(appearance.sceneSoundVolume, greaterThan(0.5));
     expect(prefs.getDouble(key), appearance.sceneSoundVolume);
   });
+
+  testWidgets('fits a narrow settings column without overflowing', (
+    tester,
+  ) async {
+    // A 400 px window leaves the Appearance tab's Wrap about this much;
+    // the slider shortens rather than the row spilling past the edge.
+    SharedPreferences.setMockInitialValues({});
+    final appearance = AppearanceSettings();
+    appearance.initializeBase(await SharedPreferences.getInstance(), () {});
+    appearance.load();
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Align(
+            alignment: Alignment.topLeft,
+            child: SizedBox(
+              width: 200,
+              child: SceneSoundControls(appearance: appearance),
+            ),
+          ),
+        ),
+      ),
+    );
+    expect(tester.takeException(), isNull);
+    expect(tester.getSize(_slider).width, lessThan(180));
+    expect(tester.getTopRight(_slider).dx, lessThanOrEqualTo(200));
+  });
 }

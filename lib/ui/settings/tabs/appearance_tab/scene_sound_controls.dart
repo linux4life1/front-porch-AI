@@ -64,16 +64,20 @@ class _SceneSoundControlsState extends State<SceneSoundControls> {
               ),
             ),
             const SizedBox(width: 8),
-            SizedBox(
-              width: 180,
-              child: Slider(
-                key: const ValueKey('appearance-scene-sound-volume'),
-                value: volume,
-                label: '${(volume * 100).round()}%',
-                semanticFormatterCallback: (v) =>
-                    'Scene sound volume ${(v * 100).round()}%',
-                onChanged: on ? (v) => setState(() => _drag = v) : null,
-                onChangeEnd: on ? _commit : null,
+            // The slider gives way first: 180 px when the column has it,
+            // shorter in a 400 px window, so the row never overflows.
+            Flexible(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 180),
+                child: Slider(
+                  key: const ValueKey('appearance-scene-sound-volume'),
+                  value: volume,
+                  label: '${(volume * 100).round()}%',
+                  semanticFormatterCallback: (v) =>
+                      'Scene sound volume ${(v * 100).round()}%',
+                  onChanged: on ? (v) => setState(() => _drag = v) : null,
+                  onChangeEnd: on ? _commit : null,
+                ),
               ),
             ),
           ],
