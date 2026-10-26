@@ -22,7 +22,6 @@ import 'dart:ui';
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart' show Colors;
-import 'package:flutter/scheduler.dart';
 
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
@@ -84,14 +83,14 @@ class AmbientStageGame extends FlameGame {
     if (paused) stepEngine();
   }
 
-  /// The render box creates its loop right after attaching, so the first
-  /// paint of a paused stage waits for the end of this frame.
+  /// The render box attaches in the frame it first paints, before it has a
+  /// loop and before any update has mounted the tint (a game renders only
+  /// mounted children). A zero-time update here mounts it, so the first
+  /// frame is already tinted, paused or not, and moves nothing.
   @override
   void onAttach() {
     super.onAttach();
-    SchedulerBinding.instance.addPostFrameCallback((_) {
-      if (isAttached) repaintOnce();
-    });
+    update(0);
   }
 
   /// Transparent: the chat background and the theme ground show through.

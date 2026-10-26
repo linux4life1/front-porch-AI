@@ -330,8 +330,8 @@ script for what a sandbox cannot certify.
    against vectors shared by the Dart and web sims, the High Contrast
    cap in the gate, the wire, the stage's effects, freeze and generating
    pause, and the web player and controls. Still owed: a golden of the
-   seeded first frame (it needs the Linux CI image) and a Playwright
-   sweep stop. Poke: token speed with effects on and off on an
+   seeded first frame (the authoring sandbox cannot run the Linux golden
+   image) and a Playwright sweep stop. Poke: token speed with effects on and off on an
    integrated-GPU machine.
 3. **Scene sound.** Loops per condition and the thunder one-shot on the
    players Porch Stories uses; ducking under TTS; Scene sound switch and

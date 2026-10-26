@@ -17,34 +17,49 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/chat_service.dart';
+import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'scene_gate.dart';
 import 'scene_tokens.dart';
 
 /// The scene the desktop stage paints for the open chat, in the app's own
 /// brightness, or null when there is nothing to paint ([SceneGate.resolve]).
 SceneTokens? sceneTokensFor(ChatService chat) =>
-    _sceneAt(chat, dark: chat.appearance.isDark);
+    _sceneOf(chat)(chat.appearance.isDark);
 
 /// The chat state's `scene` for the web: the same scene in both
 /// brightnesses, because the PWA may run its own mode. Null when there is
 /// nothing to paint.
 Map<String, Object>? sceneWireFor(ChatService chat) {
-  final dark = _sceneAt(chat, dark: true);
-  final light = _sceneAt(chat, dark: false);
+  final at = _sceneOf(chat);
+  final dark = at(true);
+  final light = at(false);
   if (dark == null || light == null) return null;
   return SceneTokens.wireOf(dark: dark, light: light);
 }
 
-SceneTokens? _sceneAt(ChatService chat, {required bool dark}) =>
-    SceneGate.resolve(
-      scene: chat.appearance.ambientScene,
-      theme: chat.appearance.theme,
-      day: chat.currentWeather,
-      segment: chat.currentSegmentWeather,
-      daypart: chat.timeService.timeOfDay,
-      dark: dark,
-      // currentWeather is null without a session, so '' never paints.
-      sessionSeed: chat.currentSessionId ?? '',
-      dayCount: chat.timeService.dayCount,
-      pauseWhileGenerating: chat.appearance.pauseEffectsWhileGenerating,
-    );
+/// Reads the chat once and returns the gate for either brightness. The
+/// weather is a walk over the story's days, so it is read once per call
+/// (the segment carries its day, the same `currentWeather` value) and not
+/// at all when Ambient scene is Off; the chat page's selector and the web
+/// snapshot both run this on every notify.
+SceneTokens? Function(bool dark) _sceneOf(ChatService chat) {
+  final appearance = chat.appearance;
+  final segment = appearance.ambientScene == AmbientScene.off
+      ? null
+      : chat.currentSegmentWeather;
+  final daypart = chat.timeService.timeOfDay;
+  final sessionSeed = chat.currentSessionId ?? '';
+  final dayCount = chat.timeService.dayCount;
+  return (dark) => SceneGate.resolve(
+    scene: appearance.ambientScene,
+    theme: appearance.theme,
+    day: segment?.day,
+    segment: segment,
+    daypart: daypart,
+    dark: dark,
+    // currentWeather is null without a session, so '' never paints.
+    sessionSeed: sessionSeed,
+    dayCount: dayCount,
+    pauseWhileGenerating: appearance.pauseEffectsWhileGenerating,
+  );
+}

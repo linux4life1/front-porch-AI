@@ -206,4 +206,41 @@ void main() {
     expect(game.paused, isFalse);
     expect(counter.ticks, greaterThan(hidden), reason: 'resumed: ticking');
   });
+
+  testWidgets('the first frame the stage paints is already tinted', (
+    tester,
+  ) async {
+    // Runs after the rendering pipeline's own frame callback, so after the
+    // frame's paint and before its post-frame callbacks: what it sees on
+    // the frame the stage first attaches is what that frame painted.
+    AmbientStageGame? game;
+    bool? tintAtFirstPaint;
+    bool? paintedThatFrame;
+    tester.binding.addPersistentFrameCallback((_) {
+      if (tintAtFirstPaint != null) return;
+      final found = find.byType(GameWidget<AmbientStageGame>).evaluate();
+      if (found.isEmpty) return;
+      game ??= (found.single.widget as GameWidget<AmbientStageGame>).game;
+      final g = game!;
+      if (!g.isAttached) return;
+      paintedThatFrame = !g.renderBox.debugNeedsPaint;
+      tintAtFirstPaint = g.children.whereType<SceneTintComponent>().any(
+        (c) => c.isMounted,
+      );
+    });
+    for (final animated in [false, true]) {
+      game = null;
+      tintAtFirstPaint = null;
+      paintedThatFrame = null;
+      await tester.pumpWidget(
+        _app(_scene(WeatherCondition.rain), animated: animated),
+      );
+      for (var i = 0; i < 5 && tintAtFirstPaint == null; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(paintedThatFrame, isTrue, reason: 'animated: $animated');
+      expect(tintAtFirstPaint, isTrue, reason: 'animated: $animated');
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
 }

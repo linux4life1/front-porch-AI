@@ -24,6 +24,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_gate.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_rng.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/weather_segments.dart';
@@ -197,7 +198,9 @@ void main() {
       final m = w[dark ? 'dark' : 'light']! as Map<String, Object>;
       expect(
         m.keys,
-        unorderedEquals(['layers', 'haze', 'hazeCentre', 'hazeEdge']),
+        // `paints` is the moving weather's colours for the mode
+        // (scene_effects_test pins them).
+        unorderedEquals(['layers', 'haze', 'hazeCentre', 'hazeEdge', 'paints']),
       );
       final layers = (m['layers']! as List).cast<String>();
       expect(layers.length, s.layers.length);
@@ -301,6 +304,12 @@ void main() {
             condition: WeatherCondition.rain,
             temp: TempBand.cold,
             dark: dark,
+            seed: sceneSeed(
+              sessionSeed: 'chat',
+              dayCount: 3,
+              daypart: 'evening',
+              condition: 'rain',
+            ),
           ),
         );
       }
