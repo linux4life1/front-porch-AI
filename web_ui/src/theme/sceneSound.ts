@@ -96,6 +96,7 @@ export function parseSceneSound(scene: unknown): SceneSoundState | null {
 export interface AudioLike {
   loop: boolean;
   volume: number;
+  currentTime: number;
   play(): Promise<void>;
   pause(): void;
 }
@@ -120,6 +121,8 @@ export class SceneSoundPlayer {
   private current: Voice | null = null;
   private fading: Voice[] = [];
   private readonly thunders = new Set<ReturnType<typeof setTimeout>>();
+  /** The three thunders, made (and so fetched) when a storm starts, so a rumble never waits on the network. */
+  private thunderEls = new Map<string, AudioLike>();
   private waitingForTap = false;
   private disposed = false;
   blocked = false;
@@ -139,7 +142,8 @@ export class SceneSoundPlayer {
     this.loop = next.loop;
     this.volume = next.volume;
     this.storm = next.storm;
-    if (!this.storm) this.cancelThunder();
+    if (this.storm && this.loop !== null) this.readyThunder();
+    else this.dropThunder();
     this.reconcile();
   }
 
@@ -155,8 +159,8 @@ export class SceneSoundPlayer {
     const t = setTimeout(() => {
       this.thunders.delete(t);
       if (!this.thunderAllowed) return;
-      const el = this.makeAudio(sceneSoundSrc(thunderFor(f.rumbleDelay)));
-      el.loop = false;
+      const el = this.readyThunder().get(thunderFor(f.rumbleDelay))!;
+      el.currentTime = 0;
       el.volume = loopGain(this.volume, this.speaking);
       el.play().catch((e: unknown) => console.warn('[scene sound] thunder could not play', e));
     }, thunderDelayMs(f.rumbleDelay));
@@ -176,7 +180,7 @@ export class SceneSoundPlayer {
     this.disposed = true;
     document.removeEventListener('visibilitychange', this.onVisibility);
     this.stopWaitingForTap();
-    this.cancelThunder();
+    this.dropThunder();
     for (const v of [...this.fading, ...(this.current ? [this.current] : [])]) this.drop(v);
     this.fading = [];
     this.current = null;
@@ -323,6 +327,24 @@ export class SceneSoundPlayer {
   private drop(voice: Voice): void {
     this.stopRamp(voice);
     voice.el.pause();
+  }
+
+  private readyThunder(): Map<string, AudioLike> {
+    if (this.thunderEls.size === 0) {
+      for (const name of THUNDER) {
+        const el = this.makeAudio(sceneSoundSrc(name));
+        el.loop = false;
+        this.thunderEls.set(name, el);
+      }
+    }
+    return this.thunderEls;
+  }
+
+  /** No storm any more: the rumbles on their way and the thunders themselves go. */
+  private dropThunder(): void {
+    this.cancelThunder();
+    for (const el of this.thunderEls.values()) el.pause();
+    this.thunderEls = new Map();
   }
 
   private cancelThunder(): void {

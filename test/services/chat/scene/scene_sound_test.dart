@@ -501,4 +501,46 @@ void main() {
       expect(s.sound.playing, SceneLoop.rain);
     });
   });
+
+  test('a loop that will not start is not tried again', () async {
+    final out = _ThrowingOutput();
+    final clock = _Clock();
+    final sound = SceneSoundService(
+      output: () => out,
+      timer: clock.once,
+      ticker: clock.every,
+    );
+    sound.update(
+      tokens: _scene(WeatherCondition.rain),
+      enabled: true,
+      volume: 0.5,
+    );
+    await _settle(clock);
+    expect(out.loops, 1);
+    expect(sound.failed, SceneLoop.rain);
+    expect(sound.lastError, isA<StateError>());
+    expect(sound.playing, isNull);
+    // More updates, a voice, a ramp's worth of time: no second try.
+    sound.update(
+      tokens: _scene(WeatherCondition.rain),
+      enabled: true,
+      volume: 0.9,
+    );
+    sound.speaking = true;
+    await _settle(clock);
+    expect(out.loops, 1);
+    expect(out.volumes, isEmpty);
+    await sound.dispose();
+  });
+}
+
+/// A player whose loop never starts.
+class _ThrowingOutput extends _FakeOutput {
+  int loops = 0;
+
+  @override
+  Future<void> loop(String? asset, double volume) async {
+    loops++;
+    throw StateError('no decoder');
+  }
 }

@@ -297,8 +297,10 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   both surfaces; the sound waits that gap (clamped) and plays one of the
   three thunders, picked by the gap (near strike, shortest roll), so both
   surfaces answer the same flash with the same thunder. Thunder follows
-  the flash, so it needs Tint and effects with motion on; a static stage
-  fires no flash. Desktop: `AmbientStage.onFlash` forwards the game's
+  a visible flash, so it needs Tint and effects with the weather moving:
+  none at Tint only or on High Contrast (held to the tint), none under
+  reduce motion, and none while the stage is stopped (paused for a reply,
+  or on the desktop an unfocused window), though the loop plays on. Desktop: `AmbientStage.onFlash` forwards the game's
   `flashes`; web: `SceneEffectsPlayer.onFlash`.
 - **Ducking.** While a voice speaks the loop (and any thunder) sits at 30%
   of the volume and ramps back after. Desktop signal:
@@ -310,8 +312,11 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   playback is not heard on a phone, so it does not duck the web.
 - **Gates.** Off by default: Appearance → Scene sound and a volume slider
   (0 to 1, half to start; enabled only with the switch on), with web twins
-  on the Appearance card and two `settings_parity_manifest` rows. Nothing
-  plays with Ambient scene Off or without a scene (the sound host is
+  on the Appearance card and two `settings_parity_manifest` rows. The loop
+  plays at every Ambient scene level that paints, Tint only and High
+  Contrast (which the gate holds to the tint) included; only Off or a chat
+  with no scene is silent. Nothing plays with Ambient scene Off or without
+  a scene (the sound host is
   mounted with the stage, so a chat with no weather, or a closed chat,
   makes no player at all). A hidden or minimised window (a hidden tab on
   the web) holds the loop; generating does not, because sound costs no
@@ -325,7 +330,9 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
 - **Code.** `SceneSoundService` (plain Dart, fake player and hand-cranked
   timers in its tests), `AudioplayersSceneSoundOutput`, and
   `SceneSoundHost` (lifecycle, minimise, `TtsService`), mounted by
-  `AmbientStageMount` in the chat surface.
+  `AmbientStageMount` in the chat surface. A loop the player cannot start
+  is logged once, kept as `failed`/`lastError`, and not tried again. The
+  volume slider writes the setting once per drag, when it ends.
 
 ## 6. Tenant 3: Mood glow (Next)
 

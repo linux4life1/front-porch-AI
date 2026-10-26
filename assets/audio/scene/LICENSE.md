@@ -19,8 +19,8 @@ Every file was synthesised by `tools/gen_scene_sounds.py` in this
 repository, from seeded random noise and sine waves, with numpy, and encoded
 to MP3 by ffmpeg's libmp3lame (mono, 22.05 kHz, 40 kbps). No recording,
 sample, preset or other third-party material was used, and nothing was
-downloaded. Running the script again with the same seed and ffmpeg
-reproduces them:
+downloaded. Running the script again with the same seed, numpy (2.5.3
+was used) and ffmpeg (6.1.1, with libmp3lame) reproduces them byte for byte:
 
     python3 tools/gen_scene_sounds.py
 

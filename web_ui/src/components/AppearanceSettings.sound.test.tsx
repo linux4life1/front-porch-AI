@@ -113,3 +113,30 @@ it('follows a change made on the desktop, and puts a failed switch back', async 
   expect(toggle().checked).toBe(true);
   expect(slider().value).toBe('90');
 });
+
+it('posts a volume still waiting when the card closes', async () => {
+  vi.spyOn(api, 'get').mockResolvedValue({ sceneSound: true, sceneSoundVolume: 0.3 });
+  const post = vi.spyOn(api, 'post').mockResolvedValue({});
+  const own = document.createElement('div');
+  document.body.appendChild(own);
+  const ownRoot = createRoot(own);
+  await act(async () => {
+    ownRoot.render(createElement(AppearanceSettings));
+  });
+  vi.useFakeTimers();
+  const input = own.querySelector<HTMLInputElement>('input[aria-label="Scene sound volume"]')!;
+  const setValue = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')!.set!;
+  await act(async () => {
+    setValue.call(input, '65');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  expect(post).not.toHaveBeenCalled();
+  act(() => ownRoot.unmount());
+  expect(post).toHaveBeenCalledTimes(1);
+  expect(post).toHaveBeenCalledWith('/api/settings', { sceneSoundVolume: 0.65 });
+  await act(async () => {
+    vi.advanceTimersByTime(1000);
+  });
+  expect(post).toHaveBeenCalledTimes(1);
+  own.remove();
+});

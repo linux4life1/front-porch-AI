@@ -99,6 +99,17 @@ class SceneSoundService {
   Timer? _ramp;
   final Set<Timer> _thunders = {};
 
+  SceneLoop? _failed;
+  Object? _lastError;
+
+  /// The loop that would not start, if one would not; it is not tried
+  /// again (each try would fail and log the same way), so the chat stays
+  /// quiet for that sky until the next chat.
+  SceneLoop? get failed => _failed;
+
+  /// Why [failed] would not start, for the host to show or log.
+  Object? get lastError => _lastError;
+
   /// The loop the player holds now, or null for none.
   SceneLoop? get playing => _current;
 
@@ -197,7 +208,8 @@ class SceneSoundService {
 
   void _reconcile() {
     if (_disposed || _switching) return;
-    final want = wanted;
+    final asked = wanted;
+    final want = asked == _failed ? null : asked;
     if (!_visible) {
       // A loop nobody wants goes now; one that is wanted waits, held.
       if (want == null && _current != null) {
@@ -237,15 +249,22 @@ class SceneSoundService {
     _ramp?.cancel();
     _ramp = null;
     _switching = true;
+    var started = next;
     try {
       await _output().loop(next == null ? null : sceneSoundAsset(next.file), 0);
     } catch (e, st) {
+      // Logged once: the failed loop is remembered and not asked for again.
       debugPrint(
         'SceneSound: could not start ${next?.file ?? 'silence'}: '
         '$e\n$st',
       );
+      if (next != null) {
+        _failed = next;
+        _lastError = e;
+        started = null;
+      }
     }
-    _current = next;
+    _current = started;
     _gain = 0;
     _paused = false;
     _switching = false;

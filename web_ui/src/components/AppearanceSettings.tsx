@@ -20,6 +20,12 @@ const AMBIENT: { value: AmbientScene; label: string }[] = [
   { value: 'effects', label: 'Tint and effects' },
 ];
 const asScene = (v: unknown): AmbientScene => (v === 'tint' || v === 'effects' ? v : 'off');
+/** Writes the scene sound volume; on unmount nobody is left to show a failure, so it is logged. */
+const postVolume = (value: number) =>
+  api.post('/api/settings', { sceneSoundVolume: value }).catch((e: unknown) => {
+    console.warn('Could not change the scene sound volume', e);
+    throw e;
+  });
 const asVolume = (v: unknown): number =>
   typeof v === 'number' && Number.isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5;
 
@@ -45,8 +51,9 @@ export function AppearanceSettings() {
   // Appearance → Scene sound and its volume, 0 to 1 (null until read).
   const [sound, setSound] = useState<boolean | null>(null);
   const [volume, setVolume] = useState<number | null>(null);
-  // A drag of the volume posts once it settles, not on every step.
-  const volumePost = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // A drag of the volume posts once it settles, not on every step; a
+  // value still waiting when the card closes is posted then.
+  const volumePost = useRef<{ timer: ReturnType<typeof setTimeout>; value: number } | null>(null);
 
   // Live: the server broadcasts `settings_changed` whenever a setting is
   // written (on the desktop or another browser), so the control re-reads on
@@ -75,7 +82,13 @@ export function AppearanceSettings() {
     return () => {
       alive = false;
       socket.close();
-      if (volumePost.current) clearTimeout(volumePost.current);
+      const pending = volumePost.current;
+      if (pending) {
+        clearTimeout(pending.timer);
+        volumePost.current = null;
+        // Already logged by postVolume; nobody is left to show it.
+        postVolume(pending.value).catch(() => undefined);
+      }
     };
   }, []);
 
@@ -112,13 +125,16 @@ export function AppearanceSettings() {
   const changeVolume = (next: number) => {
     setVolume(next);
     setError('');
-    if (volumePost.current) clearTimeout(volumePost.current);
-    volumePost.current = setTimeout(() => {
-      volumePost.current = null;
-      api.post('/api/settings', { sceneSoundVolume: next }).catch((e: unknown) => {
-        setError(`Could not change the scene sound volume: ${String(e)}`);
-      });
-    }, 250);
+    if (volumePost.current) clearTimeout(volumePost.current.timer);
+    volumePost.current = {
+      value: next,
+      timer: setTimeout(() => {
+        volumePost.current = null;
+        postVolume(next).catch((e: unknown) => {
+          setError(`Could not change the scene sound volume: ${String(e)}`);
+        });
+      }, 250),
+    };
   };
 
   useEffect(() => {

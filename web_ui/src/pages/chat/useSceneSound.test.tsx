@@ -19,9 +19,12 @@ import type { Flash } from '../../theme/sceneEffects';
 class FakeAudio implements AudioLike {
   loop = false;
   volume = 1;
+  currentTime = 0;
   playing = false;
+  plays = 0;
   constructor(readonly src: string) {}
   play() {
+    this.plays++;
     this.playing = true;
     return Promise.resolve();
   }
@@ -110,6 +113,7 @@ it('answers a storm flash with thunder', async () => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(600);
   });
-  expect(made.map((a) => a.src)).toEqual(['/audio/scene/storm_rain.mp3', '/audio/scene/thunder_1.mp3']);
+  const played = made.filter((a) => a.plays > 0).map((a) => a.src).sort();
+  expect(played).toEqual(['/audio/scene/storm_rain.mp3', '/audio/scene/thunder_1.mp3']);
   act(() => root.unmount());
 });

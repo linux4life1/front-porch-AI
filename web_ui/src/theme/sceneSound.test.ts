@@ -21,6 +21,7 @@ const DAYPARTS = ['dawn', 'morning', 'late_morning', 'afternoon', 'evening', 'ni
 class FakeAudio implements AudioLike {
   loop = false;
   volume = 1;
+  currentTime = 5;
   playing = false;
   plays = 0;
   refuse: string | null = null;
@@ -124,7 +125,7 @@ describe('the scene sound player', () => {
     await vi.advanceTimersByTimeAsync(1000);
     expect(made[0].volume).toBeCloseTo(0.6);
 
-    p.update({ loop: 'storm_rain', volume: 0.6, storm: true });
+    p.update({ loop: 'storm_rain', volume: 0.6, storm: false });
     await vi.advanceTimersByTimeAsync(200);
     // Both sound at once mid-fade: the old one going down, the new one up.
     expect(made).toHaveLength(2);
@@ -148,23 +149,35 @@ describe('the scene sound player', () => {
     const p = new SceneSoundPlayer({ makeAudio });
     p.update({ loop: 'storm_rain', volume: 0.5, storm: true });
     await flush();
+    // The three thunders are made (fetched) as the storm starts, before any flash.
+    const thunder = () => made.filter((a) => a.src.includes('thunder'));
+    expect(thunder().map((a) => a.src)).toEqual([1, 2, 3].map((i) => `/audio/scene/thunder_${i}.mp3`));
+    expect(thunder().every((a) => !a.loop && a.plays === 0)).toBe(true);
     p.flash({ at: 3, rumbleDelay: 1.2 });
     await vi.advanceTimersByTimeAsync(1150);
-    expect(made.filter((a) => a.src.includes('thunder'))).toHaveLength(0);
+    expect(thunder().every((a) => a.plays === 0)).toBe(true);
     await vi.advanceTimersByTimeAsync(100);
-    const thunder = made.filter((a) => a.src.includes('thunder'));
-    expect(thunder).toHaveLength(1);
-    expect(thunder[0].src).toBe('/audio/scene/thunder_2.mp3');
-    expect(thunder[0].loop).toBe(false);
-    expect(thunder[0].volume).toBe(0.5);
-    expect(thunder[0].playing).toBe(true);
+    const rolled = thunder().filter((a) => a.plays > 0);
+    expect(rolled).toHaveLength(1);
+    expect(rolled[0].src).toBe('/audio/scene/thunder_2.mp3');
+    expect(rolled[0].volume).toBe(0.5);
+    expect(rolled[0].currentTime).toBe(0);
+    expect(rolled[0].playing).toBe(true);
 
-    // Rain is not a storm; and a rumble on its way is dropped when the scene changes.
+    // A second flash reuses the element it made; nothing new is fetched.
+    p.flash({ at: 8, rumbleDelay: 1.2 });
+    await vi.advanceTimersByTimeAsync(1300);
+    expect(rolled[0].plays).toBe(2);
+    expect(thunder()).toHaveLength(3);
+
+    // Rain is not a storm; a rumble on its way is dropped when the scene changes.
     p.flash({ at: 9, rumbleDelay: 1.0 });
     p.update({ loop: 'rain', volume: 0.5, storm: false });
+    expect(thunder().every((a) => !a.playing)).toBe(true);
     p.flash({ at: 10, rumbleDelay: 0.5 });
     await vi.advanceTimersByTimeAsync(3000);
-    expect(made.filter((a) => a.src.includes('thunder'))).toHaveLength(1);
+    expect(thunder().reduce((n, a) => n + a.plays, 0)).toBe(2);
+    expect(thunder()).toHaveLength(3);
     p.dispose();
   });
 

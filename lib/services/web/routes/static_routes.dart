@@ -88,15 +88,15 @@ class StaticRoutes {
       return shelf.Response.notFound('background not found');
     }
 
-    // The scene sound, shared with the desktop (not in the Vite bundle).
+    // The scene sound, shared with the desktop (not in the Vite bundle):
+    // the MP3s only, not the folder's licence record.
     if (rel.startsWith('audio/scene/')) {
-      final file = _inside(
-        _sceneAudioDir,
-        rel.substring('audio/scene/'.length),
-      );
-      if (file != null) {
-        return _serveMedia(file, rel, request.headers['range']);
-      }
+      // The name is decoded, so an encoded `..%2F` meets the guard as `../`.
+      final name = _decoded(rel.substring('audio/scene/'.length));
+      final file = name != null && name.toLowerCase().endsWith('.mp3')
+          ? _inside(_sceneAudioDir, name)
+          : null;
+      if (file != null) return _serveMedia(file, rel, request.headers);
       return shelf.Response.notFound('scene sound not found');
     }
 
@@ -116,6 +116,15 @@ class StaticRoutes {
     return shelf.Response.notFound('index.html not found');
   }
 
+  /// [encoded] with its percent escapes undone, or null when they are bad.
+  static String? _decoded(String encoded) {
+    try {
+      return Uri.decodeComponent(encoded);
+    } on ArgumentError {
+      return null;
+    }
+  }
+
   /// [rel] under [dir] when it names a file there and does not climb out.
   static File? _inside(String? dir, String rel) {
     if (dir == null) return null;
@@ -131,15 +140,34 @@ class StaticRoutes {
 
   /// A media file, with byte ranges: an `<audio>` element asks for them
   /// (Safari will not play from a server that ignores them), and the scene
-  /// sounds are small enough to cut one range from the whole file.
-  static shelf.Response _serveMedia(File file, String relPath, String? range) {
-    final bytes = file.readAsBytesSync();
-    final len = bytes.length;
+  /// sounds are small enough to cut one range from the whole file. An ETag
+  /// (length and mtime) lets a revisit revalidate with a 304 instead of
+  /// fetching the file again; a multi-range ask gets the whole file.
+  static shelf.Response _serveMedia(
+    File file,
+    String relPath,
+    Map<String, String> request,
+  ) {
+    final stat = file.statSync();
+    final tag =
+        '"${stat.size.toRadixString(16)}-'
+        '${stat.modified.millisecondsSinceEpoch.toRadixString(16)}"';
     final headers = {
       'Content-Type': _contentType(p.basename(relPath).toLowerCase()),
       'Cache-Control': 'no-cache',
       'Accept-Ranges': 'bytes',
+      'ETag': tag,
+      'Last-Modified': HttpDate.format(stat.modified),
     };
+    final match = request['if-none-match'];
+    if (match != null &&
+        (match.trim() == '*' ||
+            match.split(',').map((t) => t.trim()).contains(tag))) {
+      return shelf.Response.notModified(headers: headers);
+    }
+    final bytes = file.readAsBytesSync();
+    final len = bytes.length;
+    final range = request['range'];
     final m = range == null
         ? null
         : RegExp(r'^bytes=(\d*)-(\d*)$').firstMatch(range.trim());

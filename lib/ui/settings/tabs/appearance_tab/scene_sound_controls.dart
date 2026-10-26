@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
@@ -23,16 +25,27 @@ import 'appearance_choice.dart';
 
 /// Appearance → Scene sound: the switch, and the volume slider that only
 /// moves while the switch is on. The sound follows the Ambient scene, so
-/// it plays only where a scene is painted.
-class SceneSoundControls extends StatelessWidget {
+/// it plays where a scene is painted. A drag is held here and written once
+/// when it ends, so dragging does not write the setting (and wake every
+/// listener) per pixel; the loop moves to the new volume then.
+class SceneSoundControls extends StatefulWidget {
   const SceneSoundControls({super.key, required this.appearance});
 
   final AppearanceSettings appearance;
 
   @override
+  State<SceneSoundControls> createState() => _SceneSoundControlsState();
+}
+
+class _SceneSoundControlsState extends State<SceneSoundControls> {
+  /// The slider's value mid-drag; null when not dragging.
+  double? _drag;
+
+  @override
   Widget build(BuildContext context) {
+    final appearance = widget.appearance;
     final on = appearance.sceneSound;
-    final volume = appearance.sceneSoundVolume;
+    final volume = _drag ?? appearance.sceneSoundVolume;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -59,12 +72,25 @@ class SceneSoundControls extends StatelessWidget {
                 label: '${(volume * 100).round()}%',
                 semanticFormatterCallback: (v) =>
                     'Scene sound volume ${(v * 100).round()}%',
-                onChanged: on ? appearance.setSceneSoundVolume : null,
+                onChanged: on ? (v) => setState(() => _drag = v) : null,
+                onChangeEnd: on ? _commit : null,
               ),
             ),
           ],
         ),
       ],
+    );
+  }
+
+  void _commit(double value) {
+    setState(() => _drag = null);
+    unawaited(
+      widget.appearance.setSceneSoundVolume(value).catchError((
+        Object e,
+        StackTrace st,
+      ) {
+        debugPrint('Scene sound: could not save the volume: $e\n$st');
+      }),
     );
   }
 }
