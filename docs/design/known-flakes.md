@@ -93,10 +93,13 @@ dependencies" never ran a test.
   phone WebKit the narrate `fill()` never reached the box: the trace
   shows it empty at Enter, so `send()` had nothing to send. Fixed:
   composer lines go through `sendLine` (`web_ui/e2e/support/composer.ts`).
-  It waits for `waitSendable` (the host idle, then the page showing Send),
+  It waits for `waitSendable` (the host not generating, settling, opening
+  the chat, busy with a guest or narrating, then the page showing Send),
   checks the box holds the line, and checks Enter emptied it. It tries
   again only while the line is still in the box, so nothing sends twice.
-  A `Composer line retried` warning on a passing run means it caught one.
+  A `Composer line retried` warning on a passing run means it caught one;
+  the warning says what the box held, which tells WebKit dropping the
+  text from the app changing it.
 - **`test/services/auth_service_test.dart` TOTP enrolment**: a 30 s limit
   under a loaded runner; passes alone.
 - **`test/services/chat/start_fresh_chat_test.dart` "an empty persona id

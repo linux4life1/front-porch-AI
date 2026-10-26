@@ -5,25 +5,40 @@
 // composer will take it, and checking that it did. See
 // docs/design/known-flakes.md ("Director Mode journey: the line never sent").
 
-import type { Page } from '@playwright/test';
-import { expect } from './fixtures';
+import type { Page } from "@playwright/test";
+import { expect } from "./fixtures";
 
-const composer = (page: Page) => page.locator('textarea.composer-input');
+const composer = (page: Page) => page.locator("textarea.composer-input");
 
 type ChatState = {
   isGenerating?: boolean;
   isSettlingTurn?: boolean;
   isSendWaitingOnSettle?: boolean;
+  isLoadingSession?: boolean;
   guestActivity?: { busy?: boolean };
   director?: { narrating?: boolean };
 };
+
+/** Every reason the host would still refuse a line, by name, for the timeout. */
+function busyReasons(s: ChatState): string[] {
+  const reasons: string[] = [];
+  if (s.isGenerating) reasons.push("generating");
+  if (s.isSettlingTurn) reasons.push("settling the turn");
+  if (s.isSendWaitingOnSettle) reasons.push("a send waiting on the settle");
+  if (s.isLoadingSession) reasons.push("opening the chat");
+  if (s.guestActivity?.busy) reasons.push("a guest busy");
+  if (s.director?.narrating) reasons.push("narrating");
+  return reasons;
+}
 
 /**
  * The chat will take a line now, on both ends. The web twin of the Flutter
  * driver's `waitSendable()` (integration_test/support/chat_driver.dart).
  *
- * The host first: no reply, settle, joining guest or narrator beat running
- * (what `/api/chat/send` refuses with a 409). Then the page, checked last
+ * The host first: no reply, settle, chat still opening, busy guest or
+ * narrator beat, the refusals `/api/chat/state` exposes (a guest entrance
+ * in flight is refused too but is not in the snapshot; it would surface as
+ * a 409 the fixtures record). Then the page, checked last
  * because it learns the turn is over from a socket event after the host
  * does: the composer shows Send rather than Stop. While it shows Stop its
  * `isGenerating` is true and Enter keeps the line in the box unsent, by
@@ -33,21 +48,24 @@ export async function waitSendable(page: Page, timeout = 60_000) {
   await expect
     .poll(
       async () => {
-        const s = (await (await page.request.get('/api/chat/state')).json()) as ChatState;
-        return (
-          !s.isGenerating &&
-          !s.isSettlingTurn &&
-          !s.isSendWaitingOnSettle &&
-          !s.guestActivity?.busy &&
-          !s.director?.narrating
-        );
+        const s = (await (
+          await page.request.get("/api/chat/state")
+        ).json()) as ChatState;
+        return busyReasons(s);
       },
-      { timeout, message: 'the host to finish its turn' },
+      {
+        timeout,
+        message:
+          "the host to finish its turn (the list is what it is still doing)",
+      },
     )
-    .toBe(true);
-  const button = page.locator('.chat-input button.primary');
-  await expect(button.filter({ hasText: 'Stop' }), 'the page to show the turn is over').toHaveCount(0, { timeout });
-  await expect(button.filter({ hasText: 'Send' })).toBeVisible({ timeout });
+    .toEqual([]);
+  const button = page.locator(".chat-input button.primary");
+  await expect(
+    button.filter({ hasText: "Stop" }),
+    "the page to show the turn is over",
+  ).toHaveCount(0, { timeout });
+  await expect(button.filter({ hasText: "Send" })).toBeVisible({ timeout });
   await expect(composer(page)).toBeEditable({ timeout });
 }
 
@@ -70,24 +88,44 @@ export async function sendLine(page: Page, text: string) {
     await waitSendable(page);
     await box.fill(text);
     try {
-      await expect(box, 'the line to be in the composer').toHaveValue(text, { timeout: last ? 5_000 : 1_000 });
+      await expect(box, "the line to be in the composer").toHaveValue(text, {
+        timeout: last ? 5_000 : 1_000,
+      });
     } catch (e) {
       if (last) throw e;
-      retried(text, attempt, 'the fill did not reach the box');
+      retried(
+        text,
+        attempt,
+        "the fill did not reach the box",
+        await box.inputValue(),
+      );
       continue;
     }
-    await box.press('Enter');
+    await box.press("Enter");
     try {
-      await expect(box, `the composer to take “${text}”`).toHaveValue('', { timeout: last ? 5_000 : 2_000 });
+      await expect(box, `the composer to take “${text}”`).toHaveValue("", {
+        timeout: last ? 5_000 : 2_000,
+      });
       return;
     } catch (e) {
       if (last) throw e;
-      retried(text, attempt, 'Enter left the line in the box');
+      retried(
+        text,
+        attempt,
+        "Enter left the line in the box",
+        await box.inputValue(),
+      );
     }
   }
 }
 
-/** A retry is a pass, but one worth seeing on the run's page. */
-function retried(text: string, attempt: number, why: string) {
-  console.log(`::warning title=Composer line retried::“${text}” attempt ${attempt}: ${why}`);
+/**
+ * A retry is a pass, but one worth seeing on the run's page, with what the
+ * box held: the evidence that says whether a lost fill was WebKit dropping
+ * the text or the app changing it.
+ */
+function retried(text: string, attempt: number, why: string, held: string) {
+  console.log(
+    `::warning title=Composer line retried::“${text}” attempt ${attempt}: ${why}; the box held “${held}”`,
+  );
 }
