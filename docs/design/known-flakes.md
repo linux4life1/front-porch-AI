@@ -81,6 +81,22 @@ dependencies" never ran a test.
   `transcriptAutoScroll.ts`): rows added with the oldest row unchanged are
   an append. Pinned by `transcript_same_reply_append_test.dart` and
   `ChatMessageList.repeatReply.test.tsx`.
+- **`web_ui/e2e/journeys.spec.ts` Director Mode journey: the line never
+  sent.** The narrator's or the whisper's line never shows (the
+  "Narrator" director note not found, or the whisper note missing), on
+  phone WebKit (#627) and desktop Chromium (#623). No `POST
+  /api/chat/send` for that line is in the trace. Two causes. (1) Enter
+  while the page still thought a reply was streaming: `waitIdle` checked
+  Send before it polled the host, so it could pass while the composer
+  showed Stop, and `send()` keeps the line in the box then, by design.
+  #621's second `waitIdle` narrowed this, it did not close it. (2) On
+  phone WebKit the narrate `fill()` never reached the box: the trace
+  shows it empty at Enter, so `send()` had nothing to send. Fixed:
+  composer lines go through `sendLine` (`web_ui/e2e/support/composer.ts`).
+  It waits for `waitSendable` (the host idle, then the page showing Send),
+  checks the box holds the line, and checks Enter emptied it. It tries
+  again only while the line is still in the box, so nothing sends twice.
+  A `Composer line retried` warning on a passing run means it caught one.
 - **`test/services/auth_service_test.dart` TOTP enrolment**: a 30 s limit
   under a loaded runner; passes alone.
 - **`test/services/chat/start_fresh_chat_test.dart` "an empty persona id

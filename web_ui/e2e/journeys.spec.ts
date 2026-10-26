@@ -9,6 +9,7 @@
 
 import { readFile } from 'node:fs/promises';
 import type { APIRequestContext, Locator, Page } from '@playwright/test';
+import { sendLine } from './support/composer';
 import { expect, openRoute, SERIAL, test } from './support/fixtures';
 
 const REPLY = process.env.FPAI_REPLY ?? '';
@@ -113,9 +114,7 @@ async function openPorchChat(page: Page) {
 }
 
 async function send(page: Page, text: string) {
-  const box = page.locator('textarea.composer-input');
-  await box.fill(text);
-  await box.press('Enter');
+  await sendLine(page, text);
   await expect(rows(page).filter({ hasText: text })).toHaveCount(1);
   await waitIdle(page);
   await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
@@ -1096,8 +1095,7 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
 
     const box = page.locator('textarea.composer-input');
     const strip = page.locator('.director-strip');
-    await box.fill('/join Porch Tester');
-    await box.press('Enter');
+    await sendLine(page, '/join Porch Tester');
     // The join settles after the send returns; stepping out before it lands
     // is refused as a busy turn.
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
@@ -1133,8 +1131,7 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
       })
       .toBe(4.5);
     await page.request.post('/api/chat/director/delay', { data: { seconds: Number(savedDelay) } });
-    await box.fill('The porch light flickers out.');
-    await box.press('Enter');
+    await sendLine(page, 'The porch light flickers out.');
     await waitIdle(page);
     const note = page.locator('.bubble.director-note', { hasText: 'The porch light flickers out.' });
     await expect(note).toContainText('Director');
@@ -1155,10 +1152,8 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
-    const box = page.locator('textarea.composer-input');
     const strip = page.locator('.director-strip');
-    await box.fill('/join Porch Tester');
-    await box.press('Enter');
+    await sendLine(page, '/join Porch Tester');
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
     await strip.getByRole('button', { name: 'Step out to direct' }).click();
@@ -1199,8 +1194,7 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await waitIdle(page);
 
     // A whisper pins for one member and clears from the strip.
-    await box.fill('/whisper Porch Tester You hid the key.');
-    await box.press('Enter');
+    await sendLine(page, '/whisper Porch Tester You hid the key.');
     const whisper = strip.getByRole('note').filter({ hasText: 'Porch Tester: You hid the key.' });
     await expect(whisper).toBeVisible();
     await strip.getByRole('button', { name: 'Clear the whisper to Porch Tester' }).click();
@@ -1208,8 +1202,7 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
 
     // The narrator's beat lands as its own line, and the cast answers it.
     before = await rows(page).count();
-    await box.fill('/narrate a storm rolls in');
-    await box.press('Enter');
+    await sendLine(page, '/narrate a storm rolls in');
     await waitIdle(page);
     await expect(page.locator('.bubble.director-note', { hasText: 'Narrator' })).toBeVisible();
     await expect(rows(page)).toHaveCount(before + 2);
@@ -1227,10 +1220,8 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await page.getByRole('button', { name: '+ New chat' }).click();
     await waitIdle(page);
 
-    const box = page.locator('textarea.composer-input');
     const strip = page.locator('.director-strip');
-    await box.fill('/join Porch Tester');
-    await box.press('Enter');
+    await sendLine(page, '/join Porch Tester');
     await expect(page.getByText('Porch Tester joined the scene')).toBeVisible();
     await waitIdle(page);
     await strip.getByRole('button', { name: 'Step out to direct' }).click();
