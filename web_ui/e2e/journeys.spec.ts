@@ -1621,9 +1621,11 @@ test(
       const row = dialog.locator('[data-testid="starter-row-harborside"]');
       await expect(row).toContainText('Temperate');
       await expect(row).toContainText('3 places');
-      await row.getByRole('button', { name: 'Add', exact: true }).click();
+      await row.getByRole('button', { name: 'Add Harborside', exact: true }).click();
       await expect(row).toContainText('Added as "Harborside".');
-      await expect(row.getByRole('button', { name: 'Add again', exact: true })).toBeVisible();
+      await expect(
+        row.getByRole('button', { name: 'Add Harborside again', exact: true }),
+      ).toBeVisible();
 
       // Persisted through the importer: one root, its three places under it.
       await expect

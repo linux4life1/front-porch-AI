@@ -588,9 +588,9 @@ export function WorldsPage() {
   return (
     <div className="page">
       {prompt}
-      <div className="page-head">
+      <div className="page-head wsg-page-head">
         <h2>Places</h2>
-        <div className="row-actions">
+        <div className="row-actions wsg-head-actions">
           <input
             ref={fpworldFileRef}
             type="file"

@@ -48,6 +48,24 @@ export function StarterWorldsPicker({
   // Set before the request goes out, so a second tap that lands before the
   // re-render cannot post twice.
   const inFlight = useRef(new Set<string>());
+  const dialogRef = useRef<HTMLDivElement>(null);
+
+  // Keyboard: focus lands in the dialog when it opens, and Escape closes it
+  // (desktop dialogs close on Escape too).
+  // The page passes a fresh onClose each render; read it through a ref so a
+  // re-render (the list refresh after an add) never re-focuses the dialog.
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  }, [onClose]);
+  useEffect(() => {
+    dialogRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closeRef.current();
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -91,6 +109,8 @@ export function StarterWorldsPicker({
   return (
     <div className="drawer-backdrop center" onClick={onClose}>
       <div
+        ref={dialogRef}
+        tabIndex={-1}
         className="modal wsg-starter-modal"
         role="dialog"
         aria-modal="true"
@@ -143,6 +163,7 @@ export function StarterWorldsPicker({
                     type="button"
                     className="primary"
                     disabled={busy === s.id}
+                    aria-label={again ? `Add ${s.name} again` : `Add ${s.name}`}
                     onClick={() => void add(s)}
                   >
                     {busy === s.id ? 'Adding…' : again ? 'Add again' : 'Add'}

@@ -99,6 +99,7 @@ void main() {
     expect(rows, findsNWidgets(7));
     expect(find.text('Harborside'), findsOneWidget);
 
+    expect(find.byTooltip('Add Harborside'), findsOneWidget);
     final add = find.byKey(const Key('starter-add-harborside'));
     await tester.ensureVisible(add);
     await tester.pump();
@@ -115,6 +116,7 @@ void main() {
     );
     expect(find.text('Added as "Harborside".'), findsOneWidget);
     expect(find.text('Add again'), findsOneWidget);
+    expect(find.byTooltip('Add Harborside again'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -151,6 +153,38 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(tester.getRect(last).bottom, lessThanOrEqualTo(dialog.bottom));
     expect(find.text('Close'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('at 400 x 600 the Worlds header fits and its Starter worlds '
+      'button opens the picker', (tester) async {
+    window(tester, const Size(400, 600));
+    await tester.pumpWidget(
+      ChangeNotifierProvider<WorldRepository>.value(
+        value: repo,
+        child: MaterialApp(
+          theme: ThemeData(useMaterial3: true, fontFamily: 'Roboto'),
+          home: const WorldManagementPage(),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(tester.takeException(), isNull, reason: 'the header overflowed');
+    // The actions stack under the title instead of squeezing it: the
+    // title keeps a usable width and every action sits inside the window.
+    expect(
+      tester.getSize(find.text('World Management')).width,
+      greaterThanOrEqualTo(150),
+    );
+
+    final button = find.byKey(const Key('worlds-starter'));
+    final rect = tester.getRect(button);
+    expect(rect.left, greaterThanOrEqualTo(0));
+    expect(rect.right, lessThanOrEqualTo(400));
+    expect(rect.bottom, lessThanOrEqualTo(600));
+    await tester.tap(button);
+    await settleUntil(tester, rows);
+    expect(rows, findsNWidgets(7));
     expect(tester.takeException(), isNull);
   });
 }

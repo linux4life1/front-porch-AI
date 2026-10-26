@@ -26,6 +26,9 @@ import 'package:front_porch_ai/ui/theme/theme.dart';
 /// chips, and the Import / Starter worlds / From Wiki / New World actions.
 /// [onNewWorld] receives the header's build context (the create dialog
 /// anchors there).
+/// Inner width below which the header stacks its actions under the title.
+const double _kStackBelow = 560;
+
 class WorldManagementHeroHeader extends StatelessWidget {
   const WorldManagementHeroHeader({
     super.key,
@@ -70,143 +73,159 @@ class WorldManagementHeroHeader extends StatelessWidget {
               ),
             ],
           ),
-          child: Row(
-            children: [
-              // Avatar with glow
-              Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: accentColor.withValues(
-                        alpha: 0.25 + glow.value * 0.15,
-                      ),
-                      blurRadius: 24,
-                      spreadRadius: -2,
-                    ),
-                  ],
-                ),
-                child: Container(
-                  width: 88,
-                  height: 88,
+          child: LayoutBuilder(
+            builder: (context, box) {
+              final lead = <Widget>[
+                // Avatar with glow
+                Container(
                   decoration: BoxDecoration(
-                    color: InkColors.washOf(context, 0.15, 0.08),
                     shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: accentColor.withValues(
+                          alpha: 0.25 + glow.value * 0.15,
+                        ),
+                        blurRadius: 24,
+                        spreadRadius: -2,
+                      ),
+                    ],
                   ),
-                  child: Icon(
-                    Icons.language,
-                    size: 48,
-                    color: AppColors.textPrimary(context),
+                  child: Container(
+                    width: 88,
+                    height: 88,
+                    decoration: BoxDecoration(
+                      color: InkColors.washOf(context, 0.15, 0.08),
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(
+                      Icons.language,
+                      size: 48,
+                      color: AppColors.textPrimary(context),
+                    ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 24),
-              // Info
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'World Management',
-                      style: TextStyle(
-                        fontSize: 24,
-                        fontWeight: FontWeight.bold,
-                        color: AppColors.textPrimary(context),
-                        letterSpacing: -0.3,
+                const SizedBox(width: 24),
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'World Management',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary(context),
+                          letterSpacing: -0.3,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Stats chips
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 6,
+                        children: [
+                          _WorldStatChip(
+                            icon: Icons.public,
+                            label:
+                                '${repo.worlds.length} world${repo.worlds.length != 1 ? 's' : ''}',
+                          ),
+                          _WorldStatChip(
+                            icon: Icons.library_books,
+                            label:
+                                '${repo.worlds.expand((w) => w.lorebook.entries).length} lore entries',
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ];
+              final actions = <Widget>[
+                IconButton(
+                  icon: Icon(
+                    Icons.travel_explore,
+                    color: AppColors.formAccentOf(context),
+                  ),
+                  tooltip: 'Import Place (.fpworld)',
+                  onPressed: () => importFpWorldFlow(context, repo),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('worlds-starter'),
+                  icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                  label: const Text('Starter worlds'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.formAccentOf(context),
+                    side: BorderSide(color: AppColors.formAccentOf(context)),
+                  ),
+                  onPressed: () => showStarterWorldsDialog(context, repo),
+                ),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.menu_book_outlined, size: 18),
+                  label: const Text('From Wiki'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.formAccentOf(context),
+                    side: BorderSide(color: AppColors.formAccentOf(context)),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const WorldFromWikiPage(),
+                    ),
+                  ),
+                ),
+                OutlinedButton.icon(
+                  key: const Key('worlds-from-character'),
+                  icon: const Icon(Icons.person_outline, size: 18),
+                  label: const Text('From Character'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: AppColors.formAccentOf(context),
+                    side: BorderSide(color: AppColors.formAccentOf(context)),
+                  ),
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(
+                      builder: (_) => const WorldFromWikiPage(
+                        source: WorldWizardSource.character,
                       ),
                     ),
-                    const SizedBox(height: 8),
-                    // Stats chips
-                    Wrap(
+                  ),
+                ),
+                ElevatedButton.icon(
+                  icon: const Icon(Icons.add, size: 18),
+                  label: const Text('New World'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accentColor,
+                    foregroundColor: AppColors.onAccentOf(context),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 8,
+                    ),
+                  ),
+                  onPressed: () => onNewWorld(context),
+                ),
+              ];
+              if (box.maxWidth >= _kStackBelow) {
+                return Row(
+                  children: [
+                    ...lead,
+                    Column(
+                      mainAxisSize: MainAxisSize.min,
                       spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        _WorldStatChip(
-                          icon: Icons.public,
-                          label:
-                              '${repo.worlds.length} world${repo.worlds.length != 1 ? 's' : ''}',
-                        ),
-                        _WorldStatChip(
-                          icon: Icons.library_books,
-                          label:
-                              '${repo.worlds.expand((w) => w.lorebook.entries).length} lore entries',
-                        ),
-                      ],
+                      children: actions,
                     ),
                   ],
-                ),
-              ),
-              // Action buttons
-              Column(
-                mainAxisSize: MainAxisSize.min,
+                );
+              }
+              // A narrow window stacks the actions under the title and
+              // wraps them, instead of squeezing the title to nothing.
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  IconButton(
-                    icon: Icon(
-                      Icons.travel_explore,
-                      color: AppColors.formAccentOf(context),
-                    ),
-                    tooltip: 'Import Place (.fpworld)',
-                    onPressed: () => importFpWorldFlow(context, repo),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    key: const Key('worlds-starter'),
-                    icon: const Icon(Icons.auto_awesome_outlined, size: 18),
-                    label: const Text('Starter worlds'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.formAccentOf(context),
-                      side: BorderSide(color: AppColors.formAccentOf(context)),
-                    ),
-                    onPressed: () => showStarterWorldsDialog(context, repo),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    icon: const Icon(Icons.menu_book_outlined, size: 18),
-                    label: const Text('From Wiki'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.formAccentOf(context),
-                      side: BorderSide(color: AppColors.formAccentOf(context)),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const WorldFromWikiPage(),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    key: const Key('worlds-from-character'),
-                    icon: const Icon(Icons.person_outline, size: 18),
-                    label: const Text('From Character'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: AppColors.formAccentOf(context),
-                      side: BorderSide(color: AppColors.formAccentOf(context)),
-                    ),
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const WorldFromWikiPage(
-                          source: WorldWizardSource.character,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  ElevatedButton.icon(
-                    icon: const Icon(Icons.add, size: 18),
-                    label: const Text('New World'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: accentColor,
-                      foregroundColor: AppColors.onAccentOf(context),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 8,
-                      ),
-                    ),
-                    onPressed: () => onNewWorld(context),
-                  ),
+                  Row(children: lead),
+                  const SizedBox(height: 16),
+                  Wrap(spacing: 8, runSpacing: 8, children: actions),
                 ],
-              ),
-            ],
+              );
+            },
           ),
         );
       },

@@ -150,4 +150,20 @@ describe('StarterWorldsPicker', () => {
     act(() => (container.querySelector('.drawer-backdrop') as HTMLElement).click());
     expect(closed).toBe(2);
   });
+
+  it('each Add names its world, focus moves into the dialog, Escape closes it', async () => {
+    let closed = 0;
+    render(() => {}, () => closed++);
+    await flush();
+    expect(addButton('whitereach').getAttribute('aria-label')).toBe('Add The Whitereach');
+    expect(addButton('harborside').getAttribute('aria-label')).toBe('Add Harborside');
+    expect(document.activeElement).toBe(container.querySelector('[role="dialog"]'));
+    act(() => addButton('harborside').click());
+    await flush();
+    expect(addButton('harborside').getAttribute('aria-label')).toBe('Add Harborside again');
+    act(() => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }));
+    });
+    expect(closed).toBe(1);
+  });
 });

@@ -50,7 +50,12 @@ class StarterWorldsDialog extends StatefulWidget {
 }
 
 class _StarterWorldsDialogState extends State<StarterWorldsDialog> {
-  late final Future<List<StarterWorldInfo>> _index = widget.starters.index();
+  late final Future<List<StarterWorldInfo>> _index = widget.starters
+      .index()
+      .catchError((Object e, StackTrace st) {
+        debugPrint('starter worlds: index failed: $e');
+        Error.throwWithStackTrace(e, st);
+      });
 
   /// Ids being added. Checked and set before the first await, so a second
   /// click that lands before the rebuild is a no-op.
@@ -69,7 +74,11 @@ class _StarterWorldsDialogState extends State<StarterWorldsDialog> {
       if (mounted) setState(() => _added[info.id] = root.name);
     } catch (e) {
       debugPrint('starter world ${info.id}: add failed: $e');
-      if (mounted) setState(() => _failed[info.id] = 'Could not add: $e');
+      if (mounted) {
+        setState(
+          () => _failed[info.id] = 'Could not add this world. Try again.',
+        );
+      }
     } finally {
       _busy.remove(info.id);
       if (mounted) setState(() {});
@@ -88,7 +97,7 @@ class _StarterWorldsDialogState extends State<StarterWorldsDialog> {
         builder: (context, snap) {
           if (snap.hasError) {
             return Text(
-              'The starter worlds could not be read: ${snap.error}',
+              'Could not load the starter worlds.',
               style: TextStyle(color: AppColors.negativeAccentOf(context)),
             );
           }
@@ -239,21 +248,30 @@ class _StarterRow extends StatelessWidget {
                       ),
               ),
               const SizedBox(width: 8),
-              ElevatedButton.icon(
-                key: Key('starter-add-${info.id}'),
-                icon: busy
-                    ? const SizedBox(
-                        width: 14,
-                        height: 14,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.add, size: 18),
-                label: Text(addedAs != null || inLibrary ? 'Add again' : 'Add'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: accent,
-                  foregroundColor: AppColors.onAccentOf(context),
+              // Seven rows share the label "Add"; the tooltip names the
+              // world for screen readers and hover.
+              Tooltip(
+                message: addedAs != null || inLibrary
+                    ? 'Add ${info.name} again'
+                    : 'Add ${info.name}',
+                child: ElevatedButton.icon(
+                  key: Key('starter-add-${info.id}'),
+                  icon: busy
+                      ? const SizedBox(
+                          width: 14,
+                          height: 14,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.add, size: 18),
+                  label: Text(
+                    addedAs != null || inLibrary ? 'Add again' : 'Add',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    foregroundColor: AppColors.onAccentOf(context),
+                  ),
+                  onPressed: busy ? null : onAdd,
                 ),
-                onPressed: busy ? null : onAdd,
               ),
             ],
           ),

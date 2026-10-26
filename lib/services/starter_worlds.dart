@@ -117,9 +117,9 @@ class StarterWorlds {
   /// The picker's list, in bundle order. Read once per instance; a failed
   /// read is not cached, so the next open tries again.
   Future<List<StarterWorldInfo>> index() {
-    return _index ??= _readIndex().catchError((Object e) {
+    return _index ??= _readIndex().catchError((Object e, StackTrace st) {
       _index = null;
-      throw e;
+      Error.throwWithStackTrace(e, st);
     });
   }
 
