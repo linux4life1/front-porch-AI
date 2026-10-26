@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page, type Request } from '@playwright/test';
 
 export type Problem = string;
 
@@ -50,10 +50,15 @@ type Hooks = { fn: AllowFn; acceptConfirms: boolean };
 const WEBKIT_UNLOAD_FETCH = /^Fetch API cannot load \S+\/api\/\S* due to access control checks\./;
 
 function watch(page: Page, problems: Problem[], allow: Hooks) {
-  // From a main-frame navigation request until the new document is parsed.
+  // From a main-frame navigation request until the new document is parsed,
+  // or until that request fails and no new document comes.
   let leaving = false;
+  const mainNav = (r: Request) => r.isNavigationRequest() && r.frame() === page.mainFrame();
   page.on('request', (r) => {
-    if (r.isNavigationRequest() && r.frame() === page.mainFrame()) leaving = true;
+    if (mainNav(r)) leaving = true;
+  });
+  page.on('requestfailed', (r) => {
+    if (mainNav(r)) leaving = false;
   });
   page.on('domcontentloaded', () => (leaving = false));
   page.on('pageerror', (e) => {
