@@ -136,6 +136,10 @@ flutter:
     - assets/images/
     - assets/backgrounds/
     - assets/audio/
+    # The Ambient Stage's scene sound (synthesised, CC0; provenance in
+    # assets/audio/scene/LICENSE.md). Directory entries are non-recursive.
+    # The web server also serves these to the PWA as /audio/scene/<file>.
+    - assets/audio/scene/
     # React PWA (built from web_ui/ by `npm run build`). Served by the web
     # server (lib/services/web) from assets/web_app. Directory entries are
     # non-recursive, so the Vite assets/ subdir is listed explicitly.
