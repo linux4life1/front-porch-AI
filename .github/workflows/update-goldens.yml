@@ -39,7 +39,10 @@ jobs:
         run: flutter pub get
 
       - name: Regenerate goldens
-        run: flutter test --concurrency=4 --tags golden --update-goldens
+        # Scoped to test/golden like the ci.yml golden job: every tagged
+        # file lives there (a hygiene test pins it), and loading the other
+        # ~1700 test files is what used to take the time.
+        run: flutter test --concurrency=4 --tags golden --update-goldens test/golden
 
       - name: Collect changed goldens
         id: collect

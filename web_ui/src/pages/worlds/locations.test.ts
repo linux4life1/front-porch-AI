@@ -148,9 +148,12 @@ describe('buildWorldInjection (Dart twin)', () => {
       'Bletchport',
       { description: big, atmosphere: 'thin', climateEnabled: true },
     );
+    // The room inherits its weather (climate off), so the parent is the
+    // climate author and its trait line is the one the budget must keep.
     const room = w('Room', {
       description: 'cozy',
       parentWorldId: 'Bletchport',
+      climateEnabled: false,
     });
     const text = buildWorldInjection([room, parent]);
     expect(text).toContain('air is thin');
@@ -214,5 +217,41 @@ describe('buildWorldInjection under a weather-off top-level world', () => {
   it('the same place speaks its traits once the root is on', () => {
     const earth = w('Earth', { climateEnabled: true });
     expect(buildWorldInjection([greenhouse, earth])).toContain('air is thin');
+  });
+});
+
+describe('buildWorldInjection: trait lines come from the climate author only', () => {
+  const moon = w('Grey Moon', {
+    description: 'Dust under a black sky.',
+    atmosphere: 'unbreathable',
+    gravity: 'low',
+    climateEnabled: true,
+  });
+  const wheel = (extra: Partial<TreeWorld>) =>
+    w('The Wheel', {
+      description: 'Parks and canals under a long sunlit strip.',
+      parentWorldId: 'Grey Moon',
+      ...extra,
+    });
+
+  it("a place that owns its climate silences the root's traits", () => {
+    const text = buildWorldInjection([wheel({ climateEnabled: true }), moon]);
+    expect(text).toContain('Parks and canals');
+    expect(text).toContain('Dust under a black sky.');
+    expect(text).not.toContain('unbreathable');
+    expect(text).not.toContain('Gravity is low');
+  });
+
+  it("a place that inherits gets the root's trait lines", () => {
+    const text = buildWorldInjection([wheel({ climateEnabled: false }), moon]);
+    expect(text).toContain('unbreathable');
+    expect(text).toContain('Gravity is low');
+  });
+
+  it('a place that owns climate and traits speaks only its own', () => {
+    const text = buildWorldInjection([wheel({ climateEnabled: true, gravity: 'high' }), moon]);
+    expect(text).toContain('Gravity is high');
+    expect(text).not.toContain('Gravity is low');
+    expect(text).not.toContain('unbreathable');
   });
 });

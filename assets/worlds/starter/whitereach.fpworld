@@ -1,0 +1,121 @@
+{
+  "formatVersion": 1,
+  "id": "starter-whitereach",
+  "name": "The Whitereach",
+  "description": "A wide white country of frozen lakes, low hills and long wind, where snow lies on the ground most of the year and fog rolls in off the ice without warning. Sled runners hiss along marked trails between the warm valleys, and travellers learn to read the sky before they leave a door. Lamps burn in the windows all day through the dark months.",
+  "lorebook": {
+    "entries": []
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "starter_tundra",
+    "displayName": "Tundra",
+    "description": "Frozen most of the year: snow, fog and grey skies, then a short cool thaw.",
+    "feel": "Breath fogs, boots crunch and every trip outside is planned around the cold. The brief thaw brings meltwater, mud and long pale evenings, never real warmth.",
+    "weights": {
+      "winter": [
+        10,
+        10,
+        25,
+        15,
+        0,
+        5,
+        35
+      ],
+      "spring": [
+        12,
+        15,
+        25,
+        18,
+        5,
+        3,
+        22
+      ],
+      "summer": [
+        22,
+        22,
+        20,
+        14,
+        15,
+        4,
+        3
+      ],
+      "autumn": [
+        10,
+        12,
+        25,
+        18,
+        5,
+        5,
+        25
+      ]
+    },
+    "baseTemp": {
+      "winter": 0,
+      "spring": 0,
+      "summer": 1,
+      "autumn": 0
+    },
+    "bandRange": [
+      0,
+      1
+    ],
+    "diurnalAmplitude": 0.8
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-whitereach-hearthford",
+      "name": "Hearthford",
+      "description": "A valley town tucked into a fold of the hills, where warm ground keeps the snow off the fields while the ridges above stay white. Steam drifts from vents beside the lanes, the market stays open late, and children play outside in shirtsleeves while frost glitters on the peaks.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "temperate",
+        "displayName": "Temperate"
+      },
+      "meta": {
+        "sourceId": "starter-whitereach-hearthford"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-whitereach-thawwater-springs",
+      "name": "Thawwater Springs",
+      "description": "Terraced hot-spring pools climb a hillside under a great glass roof, beaded with condensation and ringed with potted lemon trees. Bathers lounge in the steam, attendants carry towels and iced tea between the tiers, and through the glass the snowfields shine blue at dusk.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "mediterranean",
+        "displayName": "Mediterranean"
+      },
+      "meta": {
+        "sourceId": "starter-whitereach-thawwater-springs"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-whitereach-emberlight",
+      "name": "Emberlight",
+      "description": "A mining town built over its own warm vents: brick chimneys, copper pipes and lit workshop windows. Shift whistles mark the day and the streets smell of coal smoke and fresh bread. Winters still bring real snow, but the town gets proper summers too, loud with thunderstorms, which is more than the ice outside can say.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "continental",
+        "displayName": "Continental"
+      },
+      "meta": {
+        "sourceId": "starter-whitereach-emberlight"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-whitereach"
+  }
+}

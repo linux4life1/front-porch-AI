@@ -1,0 +1,75 @@
+{
+  "formatVersion": 1,
+  "worlds": [
+    {
+      "id": "whitereach",
+      "name": "The Whitereach",
+      "blurb": "A frozen tundra with three warm valley towns, each with a gentle climate of its own.",
+      "climate": "Tundra",
+      "customClimate": true,
+      "places": 3,
+      "ownClimates": 3,
+      "loreEntries": 0
+    },
+    {
+      "id": "kestrel-reach",
+      "name": "Kestrel Reach",
+      "blurb": "An airless, low-gravity moon with a farming dome, a spinning ring and a suited outpost.",
+      "climate": "Airless moon",
+      "customClimate": true,
+      "places": 3,
+      "ownClimates": 2,
+      "loreEntries": 0
+    },
+    {
+      "id": "verdance-basin",
+      "name": "Verdance Basin",
+      "blurb": "Rainforest river country: stilt houses, a treetop market and a quiet logging village.",
+      "climate": "Rainforest",
+      "customClimate": false,
+      "places": 3,
+      "ownClimates": 0,
+      "loreEntries": 0
+    },
+    {
+      "id": "monsoon-coast",
+      "name": "Monsoon Coast",
+      "blurb": "A hot, stormy coast of fishing towns, rice terraces and an old lantern-lit port.",
+      "climate": "Tropical",
+      "customClimate": false,
+      "places": 3,
+      "ownClimates": 0,
+      "loreEntries": 0
+    },
+    {
+      "id": "harborside",
+      "name": "Harborside",
+      "blurb": "A small seaside town with a working quay, a lantern market and a lighthouse.",
+      "climate": "Temperate",
+      "customClimate": false,
+      "places": 3,
+      "ownClimates": 0,
+      "loreEntries": 0
+    },
+    {
+      "id": "long-road",
+      "name": "The Long Road",
+      "blurb": "A road across the plains that climbs into the hills and dips into dry country.",
+      "climate": "Continental",
+      "customClimate": false,
+      "places": 3,
+      "ownClimates": 2,
+      "loreEntries": 0
+    },
+    {
+      "id": "greenhollow",
+      "name": "Greenhollow Estate",
+      "blurb": "A country estate with house lore, and rooms that add lore of their own.",
+      "climate": "Mediterranean",
+      "customClimate": false,
+      "places": 3,
+      "ownClimates": 0,
+      "loreEntries": 11
+    }
+  ]
+}

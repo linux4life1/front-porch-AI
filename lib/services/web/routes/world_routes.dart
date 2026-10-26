@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:flutter/foundation.dart';
 import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf_router/shelf_router.dart';
 
@@ -35,6 +36,10 @@ class WebWorldRoutes {
     // swallowed as a world name.
     router.post('/api/worlds/import', _import);
     router.post('/api/worlds/climate/check', _climateCheck);
+    // Bundled starter worlds; static prefix, registered before the
+    // '<name>' captures like /import.
+    router.get('/api/worlds/starter', _starterIndex);
+    router.post('/api/worlds/starter/<id>/import', _importStarter);
     // Static suffix; register before the '<name>' captures, same
     // discipline as /import above (slice 4 web twin: "Part of" picker).
     router.get('/api/worlds/parent-candidates', _parentCandidates);
@@ -186,6 +191,31 @@ class WebWorldRoutes {
       );
     }
     return JsonResponse.ok({'worlds': _facade.list()});
+  }
+
+  /// GET `/api/worlds/starter`: the bundled starter worlds the picker
+  /// lists (desktop reads the same index through StarterWorlds).
+  Future<shelf.Response> _starterIndex(shelf.Request request) async =>
+      JsonResponse.ok({'starters': await _facade.importer.starterIndex()});
+
+  /// POST `/api/worlds/starter/<id>/import`: add one starter world with its
+  /// places through the file importer's path. Answers with the new root
+  /// and the refreshed list, the list in the same shape /import returns.
+  Future<shelf.Response> _importStarter(
+    shelf.Request request,
+    String id,
+  ) async {
+    try {
+      final root = await _facade.importer.importStarter(id);
+      if (root == null) return JsonResponse.error(404, 'No such starter world');
+      return JsonResponse.ok({
+        'world': {'id': root.id, 'name': root.name},
+        'worlds': _facade.list(),
+      });
+    } catch (e) {
+      debugPrint('starter world import failed: $e');
+      return JsonResponse.error(500, 'Could not add that starter world');
+    }
   }
 
   /// Export the named world as a downloadable Front Porch world JSON. The

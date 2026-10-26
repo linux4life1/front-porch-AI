@@ -1,0 +1,66 @@
+{
+  "formatVersion": 1,
+  "id": "starter-long-road",
+  "name": "The Long Road",
+  "description": "A long road across open plains, river country and hills, travelled by carters, drifters and families moving on. Winters bury it in snow and summers bring heat and thunder, so the inns along the way fill up whenever the sky turns.",
+  "lorebook": {
+    "entries": []
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "continental",
+    "displayName": "Continental"
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-long-road-dustwell-crossing",
+      "name": "Dustwell Crossing",
+      "description": "A dusty crossroads town around a deep stone well, where the road dips south into dry country. Sun-bleached signs creak in the wind, the general store sells water by the jug, and travellers wait out the midday heat on the shaded porch of the only tavern.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "desert",
+        "displayName": "Desert"
+      },
+      "meta": {
+        "sourceId": "starter-long-road-dustwell-crossing"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-long-road-pinecrest-pass",
+      "name": "Pinecrest Pass",
+      "description": "A high mountain pass where the road climbs through pine forest to a stone waystation at the top. Snow lingers late into spring, fog pours over the ridge without warning, and the keepers ring a bell to guide travellers in when the cloud comes down.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": true,
+      "biome": {
+        "id": "highland",
+        "displayName": "Highland"
+      },
+      "meta": {
+        "sourceId": "starter-long-road-pinecrest-pass"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-long-road-ferry-landing",
+      "name": "Ferry Landing",
+      "description": "A river landing where the road meets a wide, slow river and a rope ferry carries carts across. There is a boathouse, a tea stall and a noticeboard thick with messages left for travellers, and in a storm the ferry ties up and everyone waits it out together under the eaves.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-long-road-ferry-landing"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-long-road"
+  }
+}

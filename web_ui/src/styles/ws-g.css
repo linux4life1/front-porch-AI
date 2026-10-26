@@ -359,3 +359,29 @@
   cursor: pointer;
 }
 .wsg-move-target:hover { border-color: var(--accent); }
+
+/* Starter worlds picker (StarterWorldsPicker.tsx). The list scrolls inside
+   the dialog so Close stays on screen in a short window. */
+.wsg-starter-modal { width: min(520px, 92vw); max-height: 88vh; }
+.wsg-starter-list {
+  display: flex; flex-direction: column; gap: 10px;
+  overflow-y: auto; min-height: 0; flex: 1 1 auto;
+}
+.wsg-starter-row {
+  display: flex; flex-direction: column; gap: 6px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-card, 10px);
+  background: var(--surface-2);
+}
+.wsg-starter-meta { display: flex; flex-wrap: wrap; gap: 6px; }
+.wsg-starter-meta .wsg-weather-tag { margin-left: 0; white-space: normal; }
+.wsg-starter-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; }
+.wsg-starter-foot [role="status"] { flex: 1; min-width: 0; }
+
+/* Places page head: five actions wrap onto more rows instead of squeezing
+   their labels or pushing the page sideways on a phone. */
+.wsg-page-head { flex-wrap: wrap; gap: 8px; }
+.wsg-head-actions { flex-wrap: wrap; justify-content: flex-end; }
+.wsg-head-actions button { white-space: nowrap; }
+.wsg-starter-modal:focus { outline: none; }

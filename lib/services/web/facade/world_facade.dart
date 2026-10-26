@@ -41,7 +41,7 @@ class WorldFacade {
   final ChatService? _chat;
   final GroupChatRepository? _groups;
 
-  late final WorldImporter _importer = WorldImporter(
+  late final WorldImporter importer = WorldImporter(
     _worlds,
     _characters,
     _chat,
@@ -50,7 +50,7 @@ class WorldFacade {
 
   /// See [WorldImporter.importWorld].
   Future<bool> importWorld(Map<String, dynamic> json) =>
-      _importer.importWorld(json);
+      importer.importWorld(json);
 
   /// See [WorldImporter.importLorebook].
   Future<Map<String, dynamic>?> importLorebook(
@@ -60,7 +60,7 @@ class WorldFacade {
     String? name,
     String? description,
     List<String> characterIds = const [],
-  }) => _importer.importLorebook(
+  }) => importer.importLorebook(
     json,
     dryRun: dryRun,
     destination: destination,

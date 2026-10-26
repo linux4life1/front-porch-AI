@@ -14,6 +14,7 @@ export 'climate_preview_panel.dart';
 export 'climate_skin_draft.dart';
 export 'climate_skin_row.dart';
 export 'place_traits_editor.dart';
+export 'starter_worlds_dialog.dart';
 export 'world_io.dart';
 export 'world_library_root_card.dart';
 export 'world_library_rows.dart';

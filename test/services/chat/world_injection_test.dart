@@ -82,4 +82,47 @@ void main() {
       expect(text.contains('H' * 400), isFalse);
     });
   });
+
+  group('trait lines come from the climate author only', () {
+    World root() =>
+        World(
+            id: 'moon',
+            name: 'Grey Moon',
+            description: 'Dust under a black sky.',
+            lorebook: Lorebook(entries: []),
+          )
+          ..atmosphere = WorldAtmosphere.unbreathable
+          ..gravity = WorldGravity.low;
+
+    World child({required bool climate}) => World(
+      id: 'wheel',
+      name: 'The Wheel',
+      description: 'Parks and canals under a long sunlit strip.',
+      lorebook: Lorebook(entries: []),
+      parentWorldId: 'moon',
+      climateEnabled: climate,
+    );
+
+    test('a place that owns its climate silences the root\'s traits', () {
+      final text = buildWorldInjection([child(climate: true), root()]);
+      expect(text, contains('Parks and canals'));
+      expect(text, contains('Dust under a black sky.'));
+      expect(text, isNot(contains('unbreathable')));
+      expect(text, isNot(contains('Gravity is low')));
+    });
+
+    test('a place that inherits gets the root\'s trait lines', () {
+      final text = buildWorldInjection([child(climate: false), root()]);
+      expect(text, contains('unbreathable'));
+      expect(text, contains('Gravity is low'));
+    });
+
+    test('a place that owns climate and traits speaks only its own', () {
+      final dome = child(climate: true)..gravity = WorldGravity.high;
+      final text = buildWorldInjection([dome, root()]);
+      expect(text, contains('Gravity is high'));
+      expect(text, isNot(contains('Gravity is low')));
+      expect(text, isNot(contains('unbreathable')));
+    });
+  });
 }
