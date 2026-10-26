@@ -306,8 +306,10 @@ script for what a sandbox cannot certify.
    in both brightnesses; the web tint layer. Tests: one per mapping cell,
    the readability guard per theme, the gate, the stage's paint and focus
    behaviour, appearance settings, parity rows, a web painter unit test.
-   The golden with tint on moves to PR 2 beside the seeded first frame,
-   since goldens need the Linux CI image.
+   No golden was recorded in PR 1: the sandbox it was written in cannot
+   run the Linux golden image. PR 2 owes the tint golden beside the seeded
+   first frame; a maintainer with the image can record it any time with
+   `./scripts/ci-local.sh update-goldens`.
 2. **Effects.** Rain, snow, clouds, fog and the storm flash as stage
    components; particle budget scaled to stage size and capped; the web
    canvas twin from the same seeded model; the Tint and effects setting
