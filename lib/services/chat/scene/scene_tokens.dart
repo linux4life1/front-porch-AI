@@ -119,15 +119,18 @@ class SceneTokens {
       kSceneHaze.withValues(alpha: hazeCentreAlpha),
     ),
     'hazeEdge': WebThemeTokens.css(kSceneHaze.withValues(alpha: hazeEdgeAlpha)),
-    'paints': {
-      'rain': WebThemeTokens.css(paints.rain),
-      'snow': WebThemeTokens.css(paints.snow),
-      'cloud': WebThemeTokens.css(paints.cloud),
-      'fog': WebThemeTokens.css(paints.fog),
-      // The fog's own hue at zero alpha, the far stop of each blob.
-      'fogClear': WebThemeTokens.css(paints.fog.withValues(alpha: 0)),
-      'flash': WebThemeTokens.css(paints.flash),
-    },
+    // Only at Tint and effects: a tint-only scene has nothing to paint
+    // with them, and its mode map stays the four keys it shipped with.
+    if (level == SceneLevel.effects)
+      'paints': {
+        'rain': WebThemeTokens.css(paints.rain),
+        'snow': WebThemeTokens.css(paints.snow),
+        'cloud': WebThemeTokens.css(paints.cloud),
+        'fog': WebThemeTokens.css(paints.fog),
+        // The fog's own hue at zero alpha, the far stop of each blob.
+        'fogClear': WebThemeTokens.css(paints.fog.withValues(alpha: 0)),
+        'flash': WebThemeTokens.css(paints.flash),
+      },
   };
 
   /// The wire the web paints from: the scene's keys plus both brightnesses,

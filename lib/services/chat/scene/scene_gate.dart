@@ -37,34 +37,42 @@ class SceneGate {
   /// chat's `currentWeather` is already null for all of those). Otherwise
   /// the scene shows the segment's condition when there is one, else the
   /// day's, at the day's temperature band, at the level [sceneLevelFor]
-  /// allows on [theme]. The moving weather is scattered from the chat
-  /// ([sessionSeed]) and the story day, the weather engine's own inputs.
+  /// allows on [theme]. At Tint and effects the moving weather is scattered
+  /// from the chat ([sessionSeed]) and the story day, the weather engine's
+  /// own inputs; at Tint only nothing moves, so the seed stays 0.
+  ///
+  /// [level] is the user's Ambient scene choice. [theme], [sessionSeed],
+  /// [dayCount] and [pauseWhileGenerating] came with the effects and default
+  /// so a tint-only caller reads as before; the app passes all of them. A
+  /// null [theme] applies no theme cap.
   static SceneTokens? resolve({
-    required AmbientScene scene,
-    required AppThemeId theme,
+    required AmbientScene level,
+    AppThemeId? theme,
     required DailyWeather? day,
     SegmentWeather? segment,
     required String daypart,
     required bool dark,
-    required String sessionSeed,
-    required int dayCount,
-    required bool pauseWhileGenerating,
+    String sessionSeed = '',
+    int dayCount = 0,
+    bool pauseWhileGenerating = true,
   }) {
-    final level = sceneLevelFor(scene, theme);
-    if (level == null || day == null) return null;
+    final allowed = sceneLevelFor(level, theme);
+    if (allowed == null || day == null) return null;
     final condition = segment?.condition ?? day.condition;
     return SceneSim.resolve(
       daypart: daypart,
       condition: condition,
       temp: day.temp,
       dark: dark,
-      level: level,
-      seed: sceneSeed(
-        sessionSeed: sessionSeed,
-        dayCount: dayCount,
-        daypart: daypart,
-        condition: condition.name,
-      ),
+      level: allowed,
+      seed: allowed == SceneLevel.effects
+          ? sceneSeed(
+              sessionSeed: sessionSeed,
+              dayCount: dayCount,
+              daypart: daypart,
+              condition: condition.name,
+            )
+          : 0,
       pauseWhileGenerating: pauseWhileGenerating,
     );
   }
@@ -72,8 +80,9 @@ class SceneGate {
 
 /// How much of the scene the stage paints for an Ambient scene choice on a
 /// theme, or null for Off. High Contrast holds it to Tint only: moving
-/// weather behind the text is what that theme is chosen to avoid.
-SceneLevel? sceneLevelFor(AmbientScene scene, AppThemeId theme) =>
+/// weather behind the text is what that theme is chosen to avoid. A null
+/// [theme] applies no cap.
+SceneLevel? sceneLevelFor(AmbientScene scene, AppThemeId? theme) =>
     switch (scene) {
       AmbientScene.off => null,
       AmbientScene.tint => SceneLevel.tint,

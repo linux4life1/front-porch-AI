@@ -19,9 +19,8 @@
 // The Ambient Stage (docs/design/ambient-stage.md): mounts a Flame game that
 // never takes focus or a Tab stop, carries the scene tokens into its tint
 // component, swaps them without rebuilding the game, paints a static scene
-// on change without running the engine loop, lets an animated one tick
-// only while the app is visible, and records the tint once per scene and
-// size rather than once per frame, freed when the stage goes away.
+// on change without running the engine loop, and lets an animated one tick
+// only while the app is visible.
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';

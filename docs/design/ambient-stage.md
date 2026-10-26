@@ -128,9 +128,10 @@ order (shade, daypart, condition, temperature cast) plus the haze
 strength and its centre and edge colours. PR 2 adds, at the top level
 because they do not depend on the mode, `level` (tint or effects),
 `seed`, `pauseWhileGenerating` and `effects` (kind, density, clouds, fog,
-lightning, wind), and in each brightness's map the weather's `paints`
-(rain, snow, cloud, fog and its clear stop, flash). Every field is
-additive.
+lightning, wind), and, at Tint and effects only, in each brightness's
+map the weather's `paints` (rain, snow, cloud, fog and its clear stop,
+flash). At Tint only the seed is 0 and the mode maps keep PR 1's four
+keys. Every field is additive.
 The interactive prototype that accompanies this doc shows every cell and
 the JSON the desktop would send; the Dart sim and its test are the source
 once they exist.

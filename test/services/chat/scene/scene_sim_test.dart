@@ -24,7 +24,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_gate.dart';
-import 'package:front_porch_ai/services/chat/scene/scene_rng.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/weather_segments.dart';
@@ -198,9 +197,7 @@ void main() {
       final m = w[dark ? 'dark' : 'light']! as Map<String, Object>;
       expect(
         m.keys,
-        // `paints` is the moving weather's colours for the mode
-        // (scene_effects_test pins them).
-        unorderedEquals(['layers', 'haze', 'hazeCentre', 'hazeEdge', 'paints']),
+        unorderedEquals(['layers', 'haze', 'hazeCentre', 'hazeEdge']),
       );
       final layers = (m['layers']! as List).cast<String>();
       expect(layers.length, s.layers.length);
@@ -238,15 +235,11 @@ void main() {
     test('Off paints nothing, even with weather', () {
       expect(
         SceneGate.resolve(
-          scene: AmbientScene.off,
+          level: AmbientScene.off,
           day: day,
           segment: segment,
           daypart: 'evening',
           dark: true,
-          theme: AppThemeId.porch,
-          sessionSeed: 'chat',
-          dayCount: 3,
-          pauseWhileGenerating: true,
         ),
         isNull,
       );
@@ -255,14 +248,10 @@ void main() {
     test('Tint without day weather paints nothing', () {
       expect(
         SceneGate.resolve(
-          scene: AmbientScene.tint,
+          level: AmbientScene.tint,
           day: null,
           daypart: 'evening',
           dark: true,
-          theme: AppThemeId.porch,
-          sessionSeed: 'chat',
-          dayCount: 3,
-          pauseWhileGenerating: true,
         ),
         isNull,
       );
@@ -271,29 +260,21 @@ void main() {
     test('Tint shows the segment, else the day, in the asked mode', () {
       for (final dark in [true, false]) {
         final withSegment = SceneGate.resolve(
-          scene: AmbientScene.tint,
+          level: AmbientScene.tint,
           day: day,
           segment: segment,
           daypart: 'evening',
           dark: dark,
-          theme: AppThemeId.porch,
-          sessionSeed: 'chat',
-          dayCount: 3,
-          pauseWhileGenerating: true,
         )!;
         expect(withSegment.condition, 'storm');
         expect(withSegment.temp, 'cold');
         expect(withSegment.daypart, 'evening');
         expect(withSegment.dark, dark);
         final dayOnly = SceneGate.resolve(
-          scene: AmbientScene.tint,
+          level: AmbientScene.tint,
           day: day,
           daypart: 'evening',
           dark: dark,
-          theme: AppThemeId.porch,
-          sessionSeed: 'chat',
-          dayCount: 3,
-          pauseWhileGenerating: true,
         )!;
         expect(dayOnly.condition, 'rain');
         expect(dayOnly.dark, dark);
@@ -304,12 +285,6 @@ void main() {
             condition: WeatherCondition.rain,
             temp: TempBand.cold,
             dark: dark,
-            seed: sceneSeed(
-              sessionSeed: 'chat',
-              dayCount: 3,
-              daypart: 'evening',
-              condition: 'rain',
-            ),
           ),
         );
       }

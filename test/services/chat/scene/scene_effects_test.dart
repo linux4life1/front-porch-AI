@@ -273,7 +273,7 @@ void main() {
       tempC: 3,
     );
     SceneTokens? at(AmbientScene scene, AppThemeId theme) => SceneGate.resolve(
-      scene: scene,
+      level: scene,
       theme: theme,
       day: day,
       segment: segment,
@@ -426,6 +426,62 @@ void main() {
           }
         }
       }
+    }
+  });
+
+  test('a tint-only scene keeps the tint wire it shipped with', () {
+    // The gate's effects parameters default, so a tint-only caller reads as
+    // before; nothing moves at Tint only, so it carries no seed and no
+    // paints, on any theme, and High Contrast's capped scene matches.
+    const day = DailyWeather(
+      condition: WeatherCondition.rain,
+      temp: TempBand.cold,
+      season: 'autumn',
+    );
+    final plain = SceneGate.resolve(
+      level: AmbientScene.tint,
+      day: day,
+      daypart: 'evening',
+      dark: true,
+    )!;
+    expect(plain.seed, 0);
+    expect(plain.level, SceneLevel.tint);
+    for (final theme in AppThemeId.values) {
+      final s = SceneGate.resolve(
+        level: AmbientScene.tint,
+        theme: theme,
+        day: day,
+        daypart: 'evening',
+        dark: true,
+        sessionSeed: 'chat-1',
+        dayCount: 12,
+      )!;
+      expect(s, plain, reason: theme.label);
+    }
+    final capped = SceneGate.resolve(
+      level: AmbientScene.effects,
+      theme: AppThemeId.highContrast,
+      day: day,
+      daypart: 'evening',
+      dark: true,
+      sessionSeed: 'chat-1',
+      dayCount: 12,
+    )!;
+    expect(capped, plain);
+    final w = SceneTokens.wireOf(
+      dark: plain,
+      light: SceneGate.resolve(
+        level: AmbientScene.tint,
+        day: day,
+        daypart: 'evening',
+        dark: false,
+      )!,
+    );
+    for (final mode in ['dark', 'light']) {
+      expect(
+        (w[mode] as Map).keys,
+        unorderedEquals(['layers', 'haze', 'hazeCentre', 'hazeEdge']),
+      );
     }
   });
 }
