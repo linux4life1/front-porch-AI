@@ -17,6 +17,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/fp_world_package.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/lorebook_collection.dart';
+import 'package:front_porch_ai/services/chat/prompt_injection/world_injection.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/starter_worlds.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
@@ -273,10 +274,33 @@ void main() {
       expect(named(root, 'Outpost Nine').climateEnabled, isFalse);
     });
 
+    test('Kestrel Reach: the Setting block tells the model each place\'s '
+        'own air and gravity', () async {
+      final root = await starters.add('kestrel-reach');
+      String setting(String name) =>
+          buildWorldInjection(repo.chainFor(named(root, name).id));
+      final unbreathable = atmosphereLine(model.WorldAtmosphere.unbreathable)!;
+      final low = gravityLine(model.WorldGravity.low)!;
+
+      final ring = setting('The Ring');
+      expect(ring, contains('An orbital habitat shaped like a great wheel'));
+      expect(ring, isNot(contains(low)), reason: 'the Ring is spun to weight');
+      expect(ring, isNot(contains(unbreathable)));
+      expect(ring, isNot(contains('Gravity is')));
+
+      final outpost = setting('Outpost Nine');
+      expect(outpost, contains(unbreathable));
+      expect(outpost, contains(low));
+
+      final dome = setting('Dome Town Meridian');
+      expect(dome, contains(low), reason: 'the dome keeps the moon\'s pull');
+      expect(dome, isNot(contains(unbreathable)));
+    });
+
     test('Greenhollow: a room as the Setting brings its own lore first, '
         'then the house\'s', () async {
       final root = await starters.add('greenhollow');
-      expect(root.lorebook.entries.length, inInclusiveRange(5, 6));
+      expect(root.lorebook.entries, hasLength(6));
       final kitchens = named(root, 'The Kitchens');
       expect(kitchens.climateEnabled, isFalse);
       final refs = collectLoreEntryRefs(

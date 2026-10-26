@@ -5,6 +5,7 @@
 // Budget-capped; only worlds with injectDescription == true contribute.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 
 /// Soft token budget for world place prose (approx chars / 4).
 const int kWorldInjectionMaxChars = 600;
@@ -45,15 +46,20 @@ String? gravityLine(WorldGravity g) => switch (g) {
 ///
 /// [worlds] is a leaf-first chain ending at its top-level world. When that
 /// world's climate is off, no place inside it has atmosphere or gravity
-/// either, matching `climateAuthorOf`.
+/// either, matching `climateAuthorOf`. Trait lines come from the chain's
+/// climate author only (docs/design/locations-within-worlds.md §3 rule 2):
+/// a place that owns a climate also owns its air and gravity, so the
+/// worlds above it add prose and nothing else.
 String buildWorldInjection(List<World> worlds) {
   final parts = <String>[];
   var used = 0;
   final traitsLive = worlds.isEmpty || worlds.last.climateEnabled;
+  final authors = _traitAuthors(worlds);
   for (final w in worlds) {
     final desc = w.injectDescription ? w.description.trim() : '';
-    // Lorebook-only worlds carry no physical-world traits.
-    final traits = traitsLive && w.climateEnabled
+    // Lorebook-only worlds carry no physical-world traits, and neither does
+    // an ancestor whose climate a nearer place has taken over.
+    final traits = traitsLive && authors.contains(w)
         ? [
             atmosphereLine(w.atmosphere),
             gravityLine(w.gravity),
@@ -89,4 +95,26 @@ String buildWorldInjection(List<World> worlds) {
   }
   if (parts.isEmpty) return '';
   return 'Setting — where you are:\n${parts.join('\n')}';
+}
+
+/// The worlds in [worlds] that speak trait lines: the climate author of each
+/// parent-linked run. A real Setting chain (WorldRepository.chainFor) is one
+/// run, so this is exactly `climateAuthorOf(chain)`; a flat list of
+/// unrelated worlds is one run per world, each its own author as before.
+Set<World> _traitAuthors(List<World> worlds) {
+  final authors = Set<World>.identity();
+  var start = 0;
+  for (var i = 0; i < worlds.length; i++) {
+    final parent = worlds[i].parentWorldId;
+    final linked =
+        i + 1 < worlds.length &&
+        parent != null &&
+        parent.isNotEmpty &&
+        parent == worlds[i + 1].id;
+    if (linked) continue;
+    final author = climateAuthorOf(worlds.sublist(start, i + 1));
+    if (author != null) authors.add(author);
+    start = i + 1;
+  }
+  return authors;
 }
