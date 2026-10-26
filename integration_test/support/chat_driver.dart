@@ -344,7 +344,20 @@ class ChatDriver {
         continue;
       }
       await tester.tap(sendBtn);
-      for (var i = 0; i < 8 && !delivered(); i++) {
+      // The composer clears the box only once it has handed the line to
+      // ChatService. From there the bubble lands after sendMessage's own
+      // awaits (settle wait, save, dream), which on a slow runner outlast a
+      // couple of seconds while every waitSendable() guard still reads clear.
+      // Retyping in that gap sends the line TWICE: two user turns, two
+      // replies, two clock evals (Windows realism_off_test, 136336dc).
+      // An accepted send gets a long wait for its bubble, not a second tap.
+      final accepted =
+          tester.widget<TextField>(input).controller?.text.isEmpty ?? false;
+      final wait = accepted
+          ? const Duration(seconds: 30)
+          : const Duration(seconds: 2);
+      final landBy = DateTime.now().add(wait * kCiTimeoutScale);
+      while (!delivered() && DateTime.now().isBefore(landBy)) {
         await spinChanceTimeIfAsked();
         await tester.pump(const Duration(milliseconds: 250));
       }
