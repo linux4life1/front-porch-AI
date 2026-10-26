@@ -274,15 +274,37 @@ built-in backgrounds are single images and would need remaking as layers;
 a user's flat custom background stays flat unless an automatic depth
 split is built, which is its own project.
 
-## 8. Order
+## 8. PR plan
 
-1. **Stage + weather tint + rain, snow, clouds, fog**, desktop and web,
-   with the settings, gates, pause rules, sim test, golden and sweep stop.
-2. **Scene sound** on the existing players.
-3. **Mood glow** on bubble and portrait, path-complete.
-4. **Animated avatar pass-through** in the import pipeline.
-5. **Visual-novel layout.**
-6. **Parallax**, if people are living in the visual-novel layout.
+Weather is three PRs. Each is a draft to Rawhide, ships desktop and web
+together, adds its own `docs/Rawhide.md` bullet, and carries a poke
+script for what a sandbox cannot certify.
 
-A remote sandbox cannot certify how any of this looks or sounds; each PR
-carries a poke script for the maintainer.
+1. **Stage and tint.** Flame dependency (reason and licence in the
+   pubspec comment); the stage mounted at the backdrop spot; the
+   plain-Dart scene sim (daypart, condition, temperature in; scene tokens
+   out); the daypart wash, condition wash and temperature cast; the
+   Ambient scene setting with Off and Tint only; the pause rules; the
+   scene token wire; the web tint layer. Tests: one per mapping cell, the
+   readability guard, appearance settings, parity rows, a web painter
+   unit test, one golden with tint on.
+2. **Effects.** Rain, snow, clouds, fog and the storm flash as stage
+   components; particle budget scaled to stage size and capped; the web
+   canvas twin from the same seeded model; the Tint and effects setting
+   value. Tests: budget and seed determinism, a golden of the seeded first
+   frame, a Playwright sweep stop. Poke: token speed with effects on and
+   off on an integrated-GPU machine.
+3. **Scene sound.** Loops per condition and the thunder one-shot on the
+   players Porch Stories uses; ducking under TTS; Scene sound switch and
+   volume with web twins; licence record for every bundled file. Tests:
+   thunder scheduler and ducking in plain Dart, web audio wiring, parity
+   rows. Poke: ears.
+
+Then, as separate work: mood glow (one PR, path-complete), animated
+avatar pass-through (one), the visual-novel layout (two: the layout on
+both sides, then sprite stage polish), parallax (two or more, only if
+people live in the visual-novel layout).
+
+Maintainer inputs before PR 1: sign-off on the Flame dependency, the
+source of the sound files (CC0 or equivalent, approved before fetching),
+and an integrated-GPU machine for the PR 2 poke.
