@@ -29,7 +29,12 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   test('every golden-tagged test file lives under test/golden/', () {
-    final tagged = RegExp(r"""(@Tags\(\[[^\]]*'golden'|tags:\s*\[?'golden')""");
+    // Every spelling the tree uses or could use: a file-level Tags
+    // annotation or a tags argument on a test or group, the tag name in
+    // either quote style, the list optionally const.
+    final tagged = RegExp(
+      r"""(@Tags\(\s*(const\s+)?\[[^\]]*["']golden["']|tags:\s*(const\s+)?\[?["']golden["'])""",
+    );
     final strays = <String>[];
     var underGolden = 0;
     for (final entity in Directory('test').listSync(recursive: true)) {
