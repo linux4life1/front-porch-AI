@@ -25,8 +25,11 @@ dependencies" never ran a test.
   apt to archive.ubuntu.com for one retry and the rest of the job.
   Playwright's browser libraries go through the same action, and the
   browsers themselves are cached. The nightly, release and beta-release
-  Linux builds use the same action since the first nightly after it landed
-  timed out on its own plain apt step the same way. The log line `apt-retry: attempt 2
+  Linux builds (step "Install Linux desktop dependencies" there too) call
+  the same action, release.yml with the .deb cache off, after the first
+  Rawhide nightly timed out on its own plain apt step the same way. The
+  scheduled nightly runs main's copy of nightly.yml, so it is covered once
+  Rawhide is promoted. The log line `apt-retry: attempt 2
   (fallback mirror) succeeded` means the mirror was slow again and the
   fallback absorbed it; `failed on both mirrors` is still infrastructure.
   Expected in these logs, not regressions: apt's `Download is performed

@@ -44,15 +44,25 @@ inputs:
     description: Directory whose node_modules holds Playwright.
     required: false
     default: web_ui
+  cache:
+    description: >-
+      Whether to restore and save the downloaded .deb files in the Actions
+      cache. `false` keeps the per-attempt clocks and the mirror fallback
+      but downloads every package fresh; release.yml passes it because
+      stable releases build with no cache of any kind.
+    required: false
+    default: 'true'
 
 runs:
   using: composite
   steps:
     # The key changes with the runner image (ImageOS/ImageVersion are set on
     # GitHub-hosted runners), the package list and, when used, the
-    # Playwright version and browsers. The restore prefix leaves all of
-    # those out, so a new image or list starts from the last .debs and
-    # downloads only what changed.
+    # Playwright version and browsers. The restore prefix keeps only the
+    # image OS, so a new image version or list starts from the last .debs
+    # for the same release and downloads only what changed; a 22.04 job
+    # never restores a 24.04 cache whose every .deb it would have to
+    # replace.
     - id: key
       shell: bash
       env:
@@ -73,15 +83,16 @@ runs:
           pw="playwright@$pw_version $(printf '%s\n' "${browser_list[@]}" | LC_ALL=C sort -u | tr '\n' ' ')"
         fi
         list_hash=$( { printf '%s\n' "${pkgs[@]}" | LC_ALL=C sort -u; echo "$pw"; } | sha256sum | cut -c1-16)
-        prefix="apt-debs-${RUNNER_OS}-${RUNNER_ARCH}-"
+        prefix="apt-debs-${RUNNER_OS}-${RUNNER_ARCH}-${ImageOS:-unknown}-"
         {
           echo "dir=$dir"
           echo "conf=$conf"
           echo "prefix=$prefix"
-          echo "key=${prefix}${ImageOS:-unknown}-${ImageVersion:-unknown}-${list_hash}"
+          echo "key=${prefix}${ImageVersion:-unknown}-${list_hash}"
         } >> "$GITHUB_OUTPUT"
 
     - id: restore
+      if: inputs.cache == 'true'
       uses: actions/cache/restore@v6
       with:
         path: ${{ steps.key.outputs.dir }}/*.deb
@@ -97,8 +108,13 @@ runs:
         ARCHIVES: ${{ steps.key.outputs.dir }}
         CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
         CACHE_MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+        CACHE_ENABLED: ${{ inputs.cache }}
       run: |
-        echo "apt .deb cache: ${CACHE_MATCHED:-none} (exact hit: ${CACHE_HIT:-false})"
+        if [ "$CACHE_ENABLED" = "true" ]; then
+          echo "apt .deb cache: ${CACHE_MATCHED:-none} (exact hit: ${CACHE_HIT:-false})"
+        else
+          echo "apt .deb cache: disabled by input"
+        fi
         read -r -d '' -a pkgs <<< "$PACKAGES" || true
         apt_opts=(-o "Dir::Cache::archives=$ARCHIVES" -o Acquire::Retries=3
           -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
@@ -140,14 +156,14 @@ runs:
     # image does not grow forever, then save under this image's key. Only on
     # a miss: a cache entry is immutable.
     - name: Prune stale packages
-      if: steps.restore.outputs.cache-hit != 'true'
+      if: inputs.cache == 'true' && steps.restore.outputs.cache-hit != 'true'
       shell: bash
       env:
         ARCHIVES: ${{ steps.key.outputs.dir }}
       run: sudo apt-get -o "Dir::Cache::archives=$ARCHIVES" autoclean
 
     - name: Save package cache
-      if: steps.restore.outputs.cache-hit != 'true'
+      if: inputs.cache == 'true' && steps.restore.outputs.cache-hit != 'true'
       uses: actions/cache/save@v6
       with:
         path: ${{ steps.key.outputs.dir }}/*.deb

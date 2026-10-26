@@ -48,11 +48,11 @@ jobs:
           channel: 'stable'
           cache: true
 
-      - name: Install Linux Dependencies
+      - name: Install Linux desktop dependencies
         if: matrix.platform == 'linux'
-        # Cached .debs plus a mirror fallback (docs/design/known-flakes.md):
-        # the plain apt-get step here timed out at 10 minutes on the Azure
-        # mirror the same way the CI shards did before ci.yml switched.
+        # Per-attempt clocks and a mirror fallback (docs/design/known-flakes.md):
+        # the plain apt-get step this replaces timed out at 10 minutes on the
+        # Azure mirror in the first Rawhide nightly after ci.yml switched.
         timeout-minutes: 13
         uses: ./.github/actions/linux-desktop-deps
         with:

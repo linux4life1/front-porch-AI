@@ -64,14 +64,17 @@ jobs:
           # too for the same guarantee.)
           cache: false
 
-      - name: Install Linux Dependencies
+      - name: Install Linux desktop dependencies
         if: matrix.platform == 'linux'
-        # Cached .debs plus a mirror fallback (docs/design/known-flakes.md):
-        # the plain apt-get step here timed out at 10 minutes on the Azure
-        # mirror the same way the CI shards did before ci.yml switched.
+        # Per-attempt clocks and a mirror fallback (docs/design/known-flakes.md):
+        # the plain apt-get step this replaces timed out at 10 minutes on the
+        # Azure mirror in the first Rawhide nightly after ci.yml switched.
         timeout-minutes: 13
         uses: ./.github/actions/linux-desktop-deps
         with:
+          # No .deb cache: release.yml builds with no cache of any kind (see
+          # the Setup Flutter note below). The clocks and fallback still apply.
+          cache: 'false'
           packages: >-
             libgtk-3-dev libblkid-dev liblzma-dev libsecret-1-dev
             libwebkit2gtk-4.1-dev ninja-build pkg-config cmake libunwind-dev
