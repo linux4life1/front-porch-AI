@@ -1194,6 +1194,9 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await waitIdle(page);
     await expect(rows(page)).toHaveCount(before + 2);
     await expect(page.locator('.bubble.director-note').last()).toContainText('Director');
+    // The waitIdle above can pass before the server starts the cast's answer;
+    // a line sent while that answer streams stays in the box by design.
+    await waitIdle(page);
 
     // A whisper pins for one member and clears from the strip.
     await box.fill('/whisper Porch Tester You hid the key.');
