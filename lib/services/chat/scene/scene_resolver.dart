@@ -59,7 +59,7 @@ SceneTokens? Function(bool dark) _sceneOf(ChatService chat) {
   final sessionSeed = chat.currentSessionId ?? '';
   final dayCount = chat.timeService.dayCount;
   return (dark) => SceneGate.resolve(
-    scene: appearance.ambientScene,
+    level: appearance.ambientScene,
     theme: appearance.theme,
     day: segment?.day,
     segment: segment,
