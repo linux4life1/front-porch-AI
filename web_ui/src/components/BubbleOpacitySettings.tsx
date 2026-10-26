@@ -5,7 +5,9 @@
 // "Bubble Opacity". Same range (0.1 to 1), and the same setting: it reads and
 // writes the desktop's value through /api/settings. With nothing stored the
 // desktop's value follows the Ambient scene (1 off, 0.25 while it paints),
-// so the slider re-reads on every `settings_changed` and shows that too.
+// so the slider follows every `settings_changed` and shows that too: from
+// the event's own `bubbleOpacity` when the desktop sends it, else by one
+// re-read, so a chat page never fetches settings on every change.
 
 import { useEffect, useRef, useState } from 'react';
 import { api } from '../api/client';
@@ -34,22 +36,29 @@ export function BubbleOpacitySlider() {
 
   useEffect(() => {
     let alive = true;
+    // Shows what the desktop paints, unless a drag is still settling: that
+    // value is newer than anything the desktop holds.
+    const show = (raw: unknown) => {
+      if (!alive || pending.current) return;
+      const v = asBubbleOpacity(raw);
+      if (v === null) return;
+      setOpacity(v);
+      applyBubbleOpacity(v);
+    };
     const read = () => {
       api
         .get<{ bubbleOpacity?: unknown }>('/api/settings')
-        .then((s) => {
-          // A drag still settling is newer than what the desktop holds.
-          if (!alive || pending.current) return;
-          const v = asBubbleOpacity(s.bubbleOpacity);
-          if (v === null) return;
-          setOpacity(v);
-          applyBubbleOpacity(v);
-        })
+        .then((s) => show(s.bubbleOpacity))
         .catch((e: unknown) => console.warn('Could not read the bubble opacity', e));
     };
     read();
     const socket = new ChatSocket((e) => {
-      if (e.event === 'settings_changed' || e.event === 'connected') read();
+      if (e.event === 'connected') read();
+      else if (e.event === 'settings_changed') {
+        // An older desktop sends the event without the value; ask once.
+        if (asBubbleOpacity(e.bubbleOpacity) === null) read();
+        else show(e.bubbleOpacity);
+      }
     });
     socket.connect();
     return () => {

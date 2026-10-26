@@ -86,18 +86,29 @@ it('shows the desktop opacity and posts a drag once it settles', async () => {
 
 it('follows the Ambient scene default when it changes elsewhere', async () => {
   let desktop = 1;
-  vi.spyOn(api, 'get').mockImplementation(async () => ({ bubbleOpacity: desktop }));
+  const get = vi.spyOn(api, 'get').mockImplementation(async () => ({ bubbleOpacity: desktop }));
   await act(async () => {
     root.render(createElement(BubbleOpacitySettings));
   });
   expect(slider().value).toBe('1');
+  expect(get).toHaveBeenCalledTimes(1);
 
+  // The desktop sends the value with the event: no second fetch.
   desktop = 0.25;
   await act(async () => {
-    listener?.({ event: 'settings_changed' });
+    listener?.({ event: 'settings_changed', bubbleOpacity: 0.25 });
   });
   expect(slider().value).toBe('0.25');
   expect(alpha()).toBe('0.25');
+  expect(get).toHaveBeenCalledTimes(1);
+
+  // An older desktop sends the event bare: one re-read.
+  desktop = 0.6;
+  await act(async () => {
+    listener?.({ event: 'settings_changed' });
+  });
+  expect(slider().value).toBe('0.6');
+  expect(get).toHaveBeenCalledTimes(2);
 });
 
 it('stays disabled and leaves the bubbles alone when the desktop cannot be read', async () => {
