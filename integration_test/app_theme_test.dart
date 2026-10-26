@@ -125,28 +125,51 @@ void main() {
       find.byKey(const ValueKey('theme-card-harbor')),
     );
 
-    Future<void> tapAndSettle(Finder f) async {
+    // The app theme lerps over real frames, and how many of those a fixed
+    // wait gets depends on the OS (macOS missed the whole lerp in 600ms), so
+    // pump until the pick has [landed] in the live ThemeData.
+    Future<void> tapAndSettle(
+      Finder f,
+      bool Function() landed,
+      String what,
+    ) async {
       await tester.ensureVisible(f);
       await tester.pump(const Duration(milliseconds: 200));
       await tester.tap(f);
-      // Long enough for the theme's lerp animation to land.
-      await tester.pump(const Duration(milliseconds: 600));
+      await pumpUntilTrue(
+        tester,
+        landed,
+        timeout: const Duration(seconds: 10),
+        describe: () => '$what to reach the live theme',
+      );
     }
 
     final harbor = AppThemeId.harbor.palettes;
-    await tapAndSettle(find.byKey(const ValueKey('theme-card-harbor')));
+    await tapAndSettle(
+      find.byKey(const ValueKey('theme-card-harbor')),
+      () => live().scaffoldBackgroundColor == harbor.dark.background,
+      'Harbor',
+    );
     expect(storage.appearance.theme, AppThemeId.harbor);
     expect(live().scaffoldBackgroundColor, harbor.dark.background);
     expect(live().extension<AppThemePalettes>(), harbor);
 
-    await tapAndSettle(find.text('Light'));
+    await tapAndSettle(
+      find.text('Light'),
+      () => live().scaffoldBackgroundColor == harbor.light.background,
+      'Light mode',
+    );
     expect(storage.appearance.mode, AppThemeMode.light);
     expect(live().brightness, Brightness.light);
     expect(live().scaffoldBackgroundColor, harbor.light.background);
 
     const violet = Color(0xFFA78BFA);
-    await tapAndSettle(find.byKey(ValueKey('accent-${accentHex(violet)}')));
     final fitted = fitAccent(violet, harbor.light, dark: false);
+    await tapAndSettle(
+      find.byKey(ValueKey('accent-${accentHex(violet)}')),
+      () => live().colorScheme.primary == fitted.accent,
+      'The violet accent',
+    );
     expect(storage.appearance.accentOverride, violet);
     expect(live().colorScheme.primary, fitted.accent);
     expect(
@@ -154,9 +177,17 @@ void main() {
       findsOneWidget,
     );
 
-    await tapAndSettle(find.text('Literata'));
+    await tapAndSettle(
+      find.text('Literata'),
+      () => live().textTheme.bodyMedium?.fontFamily == 'Literata',
+      'Literata',
+    );
     expect(live().textTheme.bodyMedium?.fontFamily, 'Literata');
-    await tapAndSettle(find.text('Round'));
+    await tapAndSettle(
+      find.text('Round'),
+      () => live().extension<AppCorners>()?.corners == UiCorners.round,
+      'Round corners',
+    );
     expect(live().extension<AppCorners>()?.corners, UiCorners.round);
 
     // A restart: a fresh settings layer over the same preferences.
@@ -171,7 +202,11 @@ void main() {
     expect(reloaded.resolvedPalettes(), storage.appearance.resolvedPalettes());
 
     // Reset brings back the theme's own accent, font and corners.
-    await tapAndSettle(find.byKey(const ValueKey('appearance-reset')));
+    await tapAndSettle(
+      find.byKey(const ValueKey('appearance-reset')),
+      () => live().colorScheme.primary == harbor.light.amber,
+      'Reset',
+    );
     expect(live().colorScheme.primary, harbor.light.amber);
     expect(live().textTheme.bodyMedium?.fontFamily, 'Inter');
     expect(live().extension<AppCorners>()?.corners, UiCorners.standard);
