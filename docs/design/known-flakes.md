@@ -14,8 +14,19 @@ dependencies" never ran a test.
 
 - **Linux job cancelled inside "Install Linux desktop dependencies"** — the
   apt mirror hung; the job's own limit (45–60 min) was the only clock.
-  Fixed: every apt step has `timeout-minutes: 10` and `Acquire::Retries=3`,
-  so it now fails in minutes and is re-run.
+  First fix: every apt step got `timeout-minutes: 10` and
+  `Acquire::Retries=3`, so it failed in minutes and was re-run. It came back
+  as a timeout on #618 and #620: one E2E Linux shard pulled ~150 packages
+  from azure.archive.ubuntu.com at several seconds each while its siblings
+  took 40 s, and Playwright's `--with-deps` sat on the same mirror for 27+
+  minutes. Fixed: `.github/actions/linux-desktop-deps` caches the .debs
+  (Actions cache, keyed on the runner image and package list), gives every
+  apt network call its own clock, and after a failed first attempt moves
+  apt to archive.ubuntu.com for one retry and the rest of the job.
+  Playwright's browser libraries go through the same action, and the
+  browsers themselves are cached. The log line `apt-retry: attempt 2
+  (fallback mirror) succeeded` means the mirror was slow again and the
+  fallback absorbed it; `failed on both mirrors` is still infrastructure.
 - **Windows E2E shard: "Building native assets failed" with no cause line**,
   while the other shards built the same commit — runner toolchain.
 - **GitHub runner death**: jobs "cancelled" at about 20 minutes with no

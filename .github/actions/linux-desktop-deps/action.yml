@@ -1,0 +1,154 @@
+name: Linux desktop dependencies
+description: >-
+  Installs the apt packages the Linux desktop build and its E2E suites need,
+  and optionally Playwright's browser system libraries. The downloaded .deb
+  files are cached between runs, and a slow or dead Azure apt mirror gets
+  one retry on archive.ubuntu.com.
+
+# Why (docs/design/known-flakes.md): on PR #618 and #620 one Linux shard
+# spent its whole 10 minutes pulling ~150 packages (33.6 MB) from
+# azure.archive.ubuntu.com at several seconds each, while sibling shards on
+# other runners took 40 s, and Playwright's `--with-deps` sat on the same
+# mirror for 27+ minutes. So: the .debs come from the Actions cache when
+# they can; each network call goes through apt-retry.sh (a clock per
+# attempt, then one retry on archive.ubuntu.com, left switched for the rest
+# of the job). Worst case for the desktop packages is two 70 s index
+# attempts plus two 150 s download attempts, about 8 minutes; the Playwright
+# phase adds at most two 240 s attempts.
+#
+# The cache lives in a runner-writable directory, not the root-owned
+# /var/cache/apt/archives, because actions/cache cannot sudo. apt reads and
+# writes it through Dir::Cache::archives (an -o flag for our own calls, an
+# APT_CONFIG file for Playwright's) and creates its own `partial/` and
+# `lock` there; the cached path is `*.deb` only, so neither is saved.
+#
+# No --no-install-recommends: the GStreamer runtime plugins the app's audio
+# needs arrive as recommends. (Playwright's own install-deps does pass it;
+# that is its list, unchanged.)
+
+inputs:
+  packages:
+    description: Space-separated apt packages to install.
+    required: false
+    default: >-
+      ninja-build libgtk-3-dev libsecret-1-dev xvfb
+      libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+  playwright-browsers:
+    description: >-
+      Space-separated Playwright browsers (e.g. `chromium webkit`) whose
+      system libraries to install through the same cache and retry. Empty
+      skips it. Needs `npm ci` already run in playwright-dir.
+    required: false
+    default: ''
+  playwright-dir:
+    description: Directory whose node_modules holds Playwright.
+    required: false
+    default: web_ui
+
+runs:
+  using: composite
+  steps:
+    # The key changes with the runner image (ImageOS/ImageVersion are set on
+    # GitHub-hosted runners), the package list and, when used, the
+    # Playwright version and browsers. The restore prefix leaves all of
+    # those out, so a new image or list starts from the last .debs and
+    # downloads only what changed.
+    - id: key
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        BROWSERS: ${{ inputs.playwright-browsers }}
+        PW_DIR: ${{ inputs.playwright-dir }}
+      run: |
+        dir="$RUNNER_TEMP/apt-archives"
+        conf="$RUNNER_TEMP/apt-archives.conf"
+        mkdir -p "$dir"
+        printf 'Dir::Cache::archives "%s";\nAcquire::Retries "3";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' \
+          "$dir" > "$conf"
+        read -r -d '' -a pkgs <<< "$PACKAGES" || true
+        read -r -d '' -a browser_list <<< "$BROWSERS" || true
+        pw=""
+        if [ "${#browser_list[@]}" -gt 0 ]; then
+          pw_version=$(node -p "require('./$PW_DIR/node_modules/playwright-core/package.json').version")
+          pw="playwright@$pw_version $(printf '%s\n' "${browser_list[@]}" | LC_ALL=C sort -u | tr '\n' ' ')"
+        fi
+        list_hash=$( { printf '%s\n' "${pkgs[@]}" | LC_ALL=C sort -u; echo "$pw"; } | sha256sum | cut -c1-16)
+        prefix="apt-debs-${RUNNER_OS}-${RUNNER_ARCH}-"
+        {
+          echo "dir=$dir"
+          echo "conf=$conf"
+          echo "prefix=$prefix"
+          echo "key=${prefix}${ImageOS:-unknown}-${ImageVersion:-unknown}-${list_hash}"
+        } >> "$GITHUB_OUTPUT"
+
+    - id: restore
+      uses: actions/cache/restore@v6
+      with:
+        path: ${{ steps.key.outputs.dir }}/*.deb
+        key: ${{ steps.key.outputs.key }}
+        restore-keys: ${{ steps.key.outputs.prefix }}
+
+    # The only network part for our own list: the index, then the .debs (a
+    # no-op on a warm cache).
+    - name: Fetch packages
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        ARCHIVES: ${{ steps.key.outputs.dir }}
+        CACHE_HIT: ${{ steps.restore.outputs.cache-hit }}
+        CACHE_MATCHED: ${{ steps.restore.outputs.cache-matched-key }}
+      run: |
+        echo "apt .deb cache: ${CACHE_MATCHED:-none} (exact hit: ${CACHE_HIT:-false})"
+        read -r -d '' -a pkgs <<< "$PACKAGES" || true
+        apt_opts=(-o "Dir::Cache::archives=$ARCHIVES" -o Acquire::Retries=3
+          -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30)
+        retry="$GITHUB_ACTION_PATH/apt-retry.sh"
+        bash "$retry" 70 apt-get "${apt_opts[@]}" update
+        bash "$retry" 150 apt-get "${apt_opts[@]}" install -y --download-only "${pkgs[@]}"
+
+    # Everything is local by now; apt would still fetch a missing file. Not
+    # retried: a clock firing inside dpkg would leave it half-configured.
+    - name: Install packages
+      shell: bash
+      env:
+        PACKAGES: ${{ inputs.packages }}
+        ARCHIVES: ${{ steps.key.outputs.dir }}
+      run: |
+        read -r -d '' -a pkgs <<< "$PACKAGES" || true
+        sudo apt-get -o "Dir::Cache::archives=$ARCHIVES" -o Acquire::Retries=3 \
+          -o Acquire::http::Timeout=30 -o Acquire::https::Timeout=30 \
+          install -y "${pkgs[@]}"
+
+    # Playwright runs its own apt-get update + install. APT_CONFIG points it
+    # at the cached archive dir, and apt-retry.sh gives it the clock and the
+    # mirror (already switched above if the Azure one failed). install-deps
+    # downloads and installs in one go, so apt-retry.sh finishes any
+    # interrupted dpkg run before its second attempt.
+    - name: Install Playwright system libraries
+      if: inputs.playwright-browsers != ''
+      shell: bash
+      working-directory: ${{ inputs.playwright-dir }}
+      env:
+        BROWSERS: ${{ inputs.playwright-browsers }}
+        APT_CONF: ${{ steps.key.outputs.conf }}
+      run: |
+        read -r -d '' -a browser_list <<< "$BROWSERS" || true
+        bash "$GITHUB_ACTION_PATH/apt-retry.sh" 240 env "APT_CONFIG=$APT_CONF" \
+          node_modules/.bin/playwright install-deps "${browser_list[@]}"
+
+    # Drop .debs no mirror offers any more, so a cache seeded from an older
+    # image does not grow forever, then save under this image's key. Only on
+    # a miss: a cache entry is immutable.
+    - name: Prune stale packages
+      if: steps.restore.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        ARCHIVES: ${{ steps.key.outputs.dir }}
+      run: sudo apt-get -o "Dir::Cache::archives=$ARCHIVES" autoclean
+
+    - name: Save package cache
+      if: steps.restore.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v6
+      with:
+        path: ${{ steps.key.outputs.dir }}/*.deb
+        key: ${{ steps.key.outputs.key }}
