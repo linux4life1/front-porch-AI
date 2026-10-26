@@ -20,7 +20,10 @@
 // the effect components mount at Tint and effects and never at Tint only,
 // reduce motion makes the stage static with the weather held still where it
 // is and the tint still up, and Pause effects while generating stops the
-// engine for a reply only when it is on and only on a moving stage.
+// engine for a reply only when it is on and only on a moving stage, and a
+// scene change while it is stopped repaints without moving the weather.
+// The layers stack as the web's canvas does: tint, clouds, fog, rain or
+// snow, the flash.
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -38,10 +41,11 @@ SceneTokens _scene(
   WeatherCondition c, {
   SceneLevel level = SceneLevel.effects,
   bool pause = true,
+  TempBand temp = TempBand.cool,
 }) => SceneSim.resolve(
   daypart: 'evening',
   condition: c,
-  temp: TempBand.cool,
+  temp: temp,
   dark: true,
   level: level,
   seed: 99,
@@ -224,5 +228,57 @@ void main() {
       expect(game.paused, isTrue, reason: 'still static after the reply');
       await tester.pumpWidget(const SizedBox());
     }
+  });
+
+  testWidgets(
+    'the layers stack as on the web: tint, clouds, fog, fall, flash',
+    (tester) async {
+      final game = await _pump(tester, _scene(WeatherCondition.storm));
+      final order = game.children
+          .where(
+            (c) =>
+                c is SceneTintComponent ||
+                c is SceneCloudLayer ||
+                c is SceneFogLayer ||
+                c is ScenePrecipitation ||
+                c is SceneLightningFlash,
+          )
+          .map((c) => c.runtimeType)
+          .toList();
+      expect(order, [
+        SceneTintComponent,
+        SceneCloudLayer,
+        SceneFogLayer,
+        ScenePrecipitation,
+        SceneLightningFlash,
+      ]);
+    },
+  );
+
+  testWidgets('a new scene while paused for a reply repaints, moving nothing', (
+    tester,
+  ) async {
+    final game = await _pump(tester, _scene(WeatherCondition.rain));
+    await tester.pumpWidget(
+      _host(_scene(WeatherCondition.rain), generating: true),
+    );
+    await tester.pump();
+    expect(game.paused, isTrue);
+    final sim = game.effects!;
+    final held = _drops(game);
+    final time = sim.time;
+    // A colder cast is a new scene on the same seed and spec: the same
+    // weather, repainted once (a zero-time engine step), and still where
+    // the pause left it.
+    await tester.pumpWidget(
+      _host(
+        _scene(WeatherCondition.rain, temp: TempBand.cold),
+        generating: true,
+      ),
+    );
+    expect(game.tokens.temp, TempBand.cold.name);
+    expect(identical(game.effects, sim), isTrue);
+    expect(_drops(game), held);
+    expect(sim.time, time);
   });
 }

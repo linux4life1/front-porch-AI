@@ -148,13 +148,15 @@ class SceneEffectPaints {
 }
 
 /// Over a dark canvas: pale streaks and white flakes, but grey cloud and
-/// fog, since a bright one behind light text would wash it out;
+/// fog, since a bright one behind light text would wash it out. The fog's
+/// ceiling (0x4E) is the highest that keeps every non-High-Contrast theme's
+/// text at 4.5:1 over the haziest tint (dawn, fog, cryogenic);
 /// `scene_effects_test` pins the floor.
 const SceneEffectPaints kSceneEffectPaintsDark = SceneEffectPaints(
   rain: Color(0x8CC8D7EB),
   snow: Color(0xE6FFFFFF),
   cloud: Color(0x668C96A2),
-  fog: Color(0xB3A9B1BB),
+  fog: Color(0x4EA9B1BB),
   flash: Color(0x99F0F4FF),
 );
 

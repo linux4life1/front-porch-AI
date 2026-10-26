@@ -3,10 +3,12 @@
 //
 // The web twin of the Ambient Stage's moving weather (docs/design/ambient-stage.md).
 // It reproduces the shared vectors the Dart sim is pinned to as well
-// (test/fixtures/ambient/scene_effects_vectors.json, generated from the
-// design prototype's own code): the generator, the scatter, the steps and the
-// storm's flash schedule. The parser takes what the desktop sends and nothing
-// else.
+// (test/fixtures/ambient/scene_effects_vectors.json): the generator, the seed
+// hash, the scatter and the first flash's time come from the design prototype's
+// own code; the motion vectors (steps, respawns, flashes) come from this web
+// port, since the prototype drew respawns from Math.random and timed flashes
+// by the wall clock, and the Dart sim must reproduce them. The parser takes
+// what the desktop sends and nothing else.
 
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -41,7 +43,7 @@ const darkPaints = {
   rain: 'rgba(200, 215, 235, 0.549)',
   snow: 'rgba(255, 255, 255, 0.902)',
   cloud: 'rgba(140, 150, 162, 0.4)',
-  fog: 'rgba(169, 177, 187, 0.702)',
+  fog: 'rgba(169, 177, 187, 0.306)',
   fogClear: 'rgba(169, 177, 187, 0.0)',
   flash: 'rgba(240, 244, 255, 0.6)',
 };

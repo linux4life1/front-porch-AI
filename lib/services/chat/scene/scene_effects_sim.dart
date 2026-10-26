@@ -60,6 +60,22 @@ class SceneCloud {
 
   /// Shapes the puffs; fixed per cloud.
   final double seed;
+
+  /// The cloud's puffs, left to right, worked out once: only [x] moves, so
+  /// a puff is its offset from it, and a frame allocates nothing.
+  late final List<ScenePuff> shapes = List.unmodifiable([
+    for (var p = 0; p < puffs; p++) _puff(p),
+  ]);
+
+  ScenePuff _puff(int p) {
+    final r = h * (0.7 + ((p * 37 + seed * 100) % 10) / 20);
+    return (
+      dx: (p / puffs) * w,
+      y: y + math.sin(seed * 10 + p) * h * 0.3,
+      rx: r * 1.6,
+      ry: r,
+    );
+  }
 }
 
 /// A fog blob: a radial fade of radius [r] drifting right.
@@ -81,8 +97,9 @@ class SceneFlash {
   final double rumbleDelay;
 }
 
-/// A cloud puff's centre and radii.
-typedef ScenePuff = ({double x, double y, double rx, double ry});
+/// A cloud puff: its centre's offset from the cloud's moving left edge,
+/// its centre's height and its radii.
+typedef ScenePuff = ({double dx, double y, double rx, double ry});
 
 /// Snowflakes draw in three bands by size, nearest biggest and brightest,
 /// so a frame is three batched draws instead of one per flake.
@@ -98,7 +115,9 @@ const double kSceneFlashDecay = 4.0;
 /// web twin (`web_ui/src/theme/sceneEffects.ts`) runs the same steps in the
 /// same order from the same seed, drawing the same random numbers. Every
 /// draw from the generator, respawns and the flash schedule included,
-/// happens here, so the two surfaces stay in step.
+/// happens here. The same seed, surface and integer stage size give the
+/// same scene; the two surfaces match only at identical integer sizes (see
+/// [Mulberry32]).
 class SceneEffectsSim {
   SceneEffectsSim({
     required this.spec,
@@ -236,19 +255,6 @@ class SceneEffectsSim {
       } else if (p.x > width) {
         p.x -= width;
       }
-    }
-  }
-
-  /// A cloud's puffs, left to right; the painter and the web draw these.
-  static Iterable<ScenePuff> puffsOf(SceneCloud c) sync* {
-    for (var p = 0; p < c.puffs; p++) {
-      final r = c.h * (0.7 + ((p * 37 + c.seed * 100) % 10) / 20);
-      yield (
-        x: c.x + (p / c.puffs) * c.w,
-        y: c.y + math.sin(c.seed * 10 + p) * c.h * 0.3,
-        rx: r * 1.6,
-        ry: r,
-      );
     }
   }
 

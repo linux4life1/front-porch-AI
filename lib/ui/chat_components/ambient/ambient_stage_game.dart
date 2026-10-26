@@ -21,6 +21,7 @@ import 'dart:ui';
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/material.dart' show Colors;
 
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
@@ -75,12 +76,14 @@ class AmbientStageGame extends FlameGame {
   }
 
   /// Paints the current scene once while the engine is paused, without
-  /// starting the ticker: [stepEngine] runs one loop step (an update that
-  /// mounts pending components, then the render box's markNeedsPaint). A
-  /// no-op while the engine runs, since the next tick paints anyway, and
-  /// before the render box has its loop, which [onAttach] covers.
+  /// starting the ticker: [stepEngine] runs one zero-time loop step (an
+  /// update that mounts pending components and moves nothing, so a stage
+  /// paused mid-weather keeps its drops where they are, then the render
+  /// box's markNeedsPaint). A no-op while the engine runs, since the next
+  /// tick paints anyway, and before the render box has its loop, which
+  /// [onAttach] covers.
   void repaintOnce() {
-    if (paused) stepEngine();
+    if (paused) stepEngine(stepTime: 0);
   }
 
   /// The render box attaches in the frame it first paints, before it has a
@@ -162,39 +165,86 @@ class AmbientStageGame extends FlameGame {
 
 /// The weather washes, full-stage, in [SceneTokens.layers] order, then the
 /// haze as a radial wash thin at the centre and thicker at the corners.
+///
+/// The washes change only with the scene or the stage size, but an
+/// animated stage renders every frame, so they are recorded once into a
+/// picture and replayed: a frame makes no paint and no shader.
 class SceneTintComponent extends PositionComponent
     with HasGameReference<AmbientStageGame> {
-  SceneTintComponent(this.tokens);
+  SceneTintComponent(SceneTokens tokens) : _tokens = tokens;
 
-  SceneTokens tokens;
+  SceneTokens _tokens;
+  Picture? _picture;
+  Size _pictureSize = Size.zero;
+
+  /// How many times the washes have been recorded, for tests.
+  @visibleForTesting
+  int debugRebuilds = 0;
+
+  SceneTokens get tokens => _tokens;
+
+  /// A different scene drops the recording; the next render records anew.
+  set tokens(SceneTokens value) {
+    if (value == _tokens) return;
+    _tokens = value;
+    _dropPicture();
+  }
 
   @override
   void render(Canvas canvas) {
-    final size = game.size;
-    final rect = Rect.fromLTWH(0, 0, size.x, size.y);
+    final w = game.size.x;
+    final h = game.size.y;
+    var picture = _picture;
+    if (picture == null ||
+        w != _pictureSize.width ||
+        h != _pictureSize.height) {
+      _dropPicture();
+      _pictureSize = Size(w, h);
+      picture = _record(_pictureSize);
+      _picture = picture;
+    }
+    canvas.drawPicture(picture);
+  }
+
+  @override
+  void onRemove() {
+    _dropPicture();
+    super.onRemove();
+  }
+
+  void _dropPicture() {
+    _picture?.dispose();
+    _picture = null;
+  }
+
+  Picture _record(Size size) {
+    debugRebuilds++;
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    final rect = Offset.zero & size;
     final paint = Paint();
-    for (final layer in tokens.layers) {
+    for (final layer in _tokens.layers) {
       paint.color = layer.paint;
       canvas.drawRect(rect, paint);
     }
-    if (tokens.haze > 0) {
+    if (_tokens.haze > 0) {
       // The web's `radial-gradient(circle at center, centre 15%, edge
       // 100%)`: a circle whose radius reaches the farthest corner.
-      final centre = Offset(size.x / 2, size.y / 2);
-      final radius = centre.distance;
-      canvas.drawRect(
-        rect,
-        Paint()
-          ..shader = Gradient.radial(
-            centre,
-            radius,
-            [
-              kSceneHaze.withValues(alpha: tokens.hazeCentreAlpha),
-              kSceneHaze.withValues(alpha: tokens.hazeEdgeAlpha),
-            ],
-            const [0.15, 1.0],
-          ),
-      );
+      // A fresh paint: a shader is modulated by its paint's alpha, and the
+      // shared one still carries the last wash's.
+      final centre = size.center(Offset.zero);
+      final haze = Paint()
+        ..shader = Gradient.radial(
+          centre,
+          centre.distance,
+          [
+            kSceneHaze.withValues(alpha: _tokens.hazeCentreAlpha),
+            kSceneHaze.withValues(alpha: _tokens.hazeEdgeAlpha),
+          ],
+          const [0.15, 1.0],
+        );
+      canvas.drawRect(rect, haze);
     }
+    return recorder.endRecording();
   }
 }

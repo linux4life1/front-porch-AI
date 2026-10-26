@@ -4,7 +4,8 @@
 // The web stage's pause rules (docs/design/ambient-stage.md): the weather
 // stops while a reply is generating only when the desktop's Pause effects
 // while generating is on, holds still under prefers-reduced-motion, stops
-// while the tab is hidden, and paints each frame from the wire's colours.
+// while the tab is hidden, paints each frame from the wire's colours, keeps
+// to 30 fps on a 60 Hz display, and builds no fog gradient per frame.
 
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SceneEffectsSim, parseSceneEffects, type SceneEffectsWire } from './sceneEffects';
@@ -14,7 +15,7 @@ const paints = {
   rain: 'rgba(200, 215, 235, 0.549)',
   snow: 'rgba(255, 255, 255, 0.902)',
   cloud: 'rgba(140, 150, 162, 0.4)',
-  fog: 'rgba(169, 177, 187, 0.702)',
+  fog: 'rgba(169, 177, 187, 0.306)',
   fogClear: 'rgba(169, 177, 187, 0.0)',
   flash: 'rgba(240, 244, 255, 0.6)',
 };
@@ -123,5 +124,65 @@ describe('scene effects player', () => {
     expect(calls).toContain(`fillStyle=${paints.cloud}`);
     expect(calls).toContain(`fillStyle=${paints.flash}`);
     expect(calls.filter((c) => c === 'fill')).toHaveLength(sim.clouds.length);
+  });
+
+  it('paints every other frame on a 60 Hz display, and a stall does not burst', () => {
+    mockReducedMotion(false);
+    let next: FrameRequestCallback | null = null;
+    vi.spyOn(window, 'requestAnimationFrame').mockImplementation((cb) => {
+      next = cb;
+      return 1;
+    });
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const { canvas, calls } = fakeCanvas();
+    const player = new SceneEffectsPlayer(canvas, wire(false));
+    const painted = () => calls.filter((c) => c === 'clearRect').length;
+    const tick = (now: number) => (next as FrameRequestCallback | null)!(now);
+    // Two 60 Hz periods sum to a hair under a 30 fps step, as a real
+    // display's timestamps often do.
+    let t = 1000;
+    let before = painted();
+    for (let i = 0; i < 60; i++, t += 16.666) tick(t);
+    expect(painted() - before).toBeGreaterThanOrEqual(28);
+    expect(painted() - before).toBeLessThanOrEqual(30);
+    // A five-second stall paints once on the way back, not a catch-up burst.
+    t += 5000;
+    before = painted();
+    for (let i = 0; i < 6; i++, t += 16.666) tick(t);
+    expect(painted() - before).toBeLessThanOrEqual(4);
+    player.dispose();
+  });
+
+  it('builds each fog gradient once per scatter and colour, not per frame', () => {
+    const { canvas, calls } = fakeCanvas();
+    const ctx = canvas.getContext('2d')!;
+    const fog = { ...wire(true).effects, kind: 'fog' as const, density: 0, clouds: 0, fog: true, lightning: false };
+    const sim = new SceneEffectsSim(fog, 42, 800, 600);
+    const built = () => calls.filter((c) => c === 'createRadialGradient').length;
+    paintSceneEffects(ctx, sim, paints);
+    expect(built()).toBe(sim.fogBlobs.length);
+    sim.advance(1 / 30);
+    paintSceneEffects(ctx, sim, paints);
+    expect(built()).toBe(sim.fogBlobs.length);
+    expect(calls.filter((c) => c === 'translate')).toHaveLength(sim.fogBlobs.length * 2);
+    paintSceneEffects(ctx, sim, { ...paints, fog: 'rgba(201, 206, 211, 0.702)' });
+    expect(built()).toBe(sim.fogBlobs.length * 2);
+  });
+
+  it('takes new colours and the pause switch without scattering again', () => {
+    mockReducedMotion(false);
+    vi.spyOn(window, 'requestAnimationFrame').mockReturnValue(1);
+    vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {});
+    const { canvas, calls } = fakeCanvas();
+    const player = new SceneEffectsPlayer(canvas, wire(false));
+    player.setGenerating(true);
+    expect(player.running).toBe(true);
+    player.setPauseWhileGenerating(true);
+    expect(player.running).toBe(false);
+    // Stopped, so the new colours repaint the still frame at once.
+    const light = { ...paints, rain: 'rgba(75, 91, 110, 0.451)' };
+    player.setPaints(light);
+    expect(calls).toContain(`strokeStyle=${light.rain}`);
+    player.dispose();
   });
 });

@@ -17,11 +17,17 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 /// The Ambient Stage's seeded random source: mulberry32, bit for bit the
-/// generator the web twin runs (`web_ui/src/theme/sceneEffects.ts`), so the
-/// same seed scatters the same rain on both surfaces. All maths is 32-bit
-/// unsigned with wraparound: Dart's native int is 64-bit and wraps on
-/// overflow, so masking to the low 32 bits after each step is JavaScript's
-/// `Math.imul` and `>>> 0`.
+/// generator the web twin runs (`web_ui/src/theme/sceneEffects.ts`), so one
+/// seed draws the same numbers on both surfaces. What that buys is
+/// per-surface reproducibility: the same seed on the same surface at the
+/// same integer stage size draws the same scene every time. The two
+/// surfaces match each other only at identical integer sizes; the desktop
+/// stage can be a fractional size and the web rounds its canvas, and the
+/// scatter scales by the size.
+///
+/// All maths is 32-bit unsigned with wraparound: Dart's native int is
+/// 64-bit and wraps on overflow, so masking to the low 32 bits after each
+/// step is JavaScript's `Math.imul` and `>>> 0`.
 class Mulberry32 {
   Mulberry32(int seed) : _a = seed & _mask;
 

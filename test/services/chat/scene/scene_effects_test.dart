@@ -19,10 +19,13 @@
 // The Ambient Stage's moving weather (docs/design/ambient-stage.md, PR 2):
 // the seeded generator, the budgets, the scatter and the motion match the
 // shared vectors the web sim is pinned to as well
-// (test/fixtures/ambient/scene_effects_vectors.json, generated from the
-// design prototype's own code), so one seed draws the same sky on both
-// surfaces. Plus the High Contrast cap in the gate and what travels on the
-// wire.
+// (test/fixtures/ambient/scene_effects_vectors.json). The generator, the
+// seed hash, the scatter and the first flash's time come from the design
+// prototype's own code; the motion vectors (steps, respawns, flashes) come
+// from the web port, since the prototype drew respawns from Math.random and
+// timed flashes by the wall clock, and this Dart sim must reproduce them.
+// Plus the High Contrast cap in the gate, what travels on the wire, and the
+// readability floor under the thickest cloud and fog.
 
 import 'dart:convert';
 import 'dart:io';
@@ -36,6 +39,7 @@ import 'package:front_porch_ai/services/chat/scene/scene_rng.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/services/chat/weather_segments.dart';
+import 'package:front_porch_ai/services/storage/settings/appearance_settings.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 final Map<String, dynamic> _vectors =
@@ -365,11 +369,13 @@ void main() {
     expect(tint, isNot(s), reason: 'level is part of the value');
   });
 
-  test('clouds and fog at their thickest leave canvas text readable', () {
+  test('the thickest cloud and fog keep canvas text at the theme floor', () {
     // The moving weather paints behind the bubbles like the tint, so the
-    // chat's own canvas text must stay at least large-text legible (3:1)
-    // under the thickest cloud (0.75 of its paint) or fog blob (0.5) over
-    // every wash. High Contrast never gets effects.
+    // chat's own canvas text must keep the theme's promised floor (AA 4.5:1;
+    // High Contrast's 7:1 never applies, see below) over every cell. Both
+    // surfaces stack the same way: the tinted ground, then the thickest
+    // cloud (0.75 of its paint), then the thickest fog blob at its centre
+    // (0.5 of its paint), each composited over what is under it.
     const dayparts = [
       'dawn',
       'morning',
@@ -379,36 +385,49 @@ void main() {
       'night',
     ];
     for (final theme in AppThemeId.values) {
+      // High Contrast is held to Tint only by the gate (pinned above), so
+      // no cloud or fog is ever drawn over it; its tint floor lives in
+      // scene_sim_test.
       if (theme == AppThemeId.highContrast) continue;
+      final floor = AppearanceSettings.accentMinRatio(theme);
       for (final dark in [true, false]) {
         final p = dark ? theme.palettes.dark : theme.palettes.light;
         for (final d in dayparts) {
           for (final c in WeatherCondition.values) {
-            final s = SceneSim.resolve(
-              daypart: d,
-              condition: c,
-              temp: TempBand.mild,
-              dark: dark,
-            );
-            final ground = s.compositeOver(p.background);
-            final peaks = [
-              if (s.effects.clouds > 0)
-                s.paints.cloud.withValues(alpha: s.paints.cloud.a * 0.75),
-              if (s.effects.fog)
-                s.paints.fog.withValues(alpha: s.paints.fog.a * 0.5),
-            ];
-            for (final peak in peaks) {
-              final ratio = contrastRatio(
-                p.textPrimary,
-                Color.alphaBlend(peak, ground),
+            for (final t in TempBand.values) {
+              final s = SceneSim.resolve(
+                daypart: d,
+                condition: c,
+                temp: t,
+                dark: dark,
               );
-              expect(
-                ratio,
-                greaterThanOrEqualTo(3),
-                reason:
-                    '${theme.label} ${dark ? 'dark' : 'light'} $d/${c.name}: '
-                    '${ratio.toStringAsFixed(2)}',
-              );
+              final ground = s.compositeOver(p.background);
+              final cloud = s.paints.cloud;
+              final fog = s.paints.fog;
+              final stacks = <String, List<Color>>{
+                if (s.effects.clouds > 0)
+                  'cloud': [cloud.withValues(alpha: cloud.a * 0.75)],
+                if (s.effects.fog) 'fog': [fog.withValues(alpha: fog.a * 0.5)],
+                if (s.effects.clouds > 0 && s.effects.fog)
+                  'cloud+fog': [
+                    cloud.withValues(alpha: cloud.a * 0.75),
+                    fog.withValues(alpha: fog.a * 0.5),
+                  ],
+              };
+              for (final e in stacks.entries) {
+                final top = e.value.fold(ground, (under, paint) {
+                  return Color.alphaBlend(paint, under);
+                });
+                final ratio = contrastRatio(p.textPrimary, top);
+                expect(
+                  ratio,
+                  greaterThanOrEqualTo(floor),
+                  reason:
+                      '${theme.label} ${dark ? 'dark' : 'light'} '
+                      '$d/${c.name}/${t.name} under ${e.key}: '
+                      '${ratio.toStringAsFixed(2)}',
+                );
+              }
             }
           }
         }

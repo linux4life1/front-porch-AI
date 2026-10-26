@@ -23,12 +23,14 @@ import 'package:flame/components.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'ambient_stage_game.dart';
 
-/// Cloud shapes along the top of the stage, under the tint so the wash
-/// colours them like the sky. Each cloud is one path of overlapping puffs,
-/// so a cloud is one draw however many puffs it has.
+/// Cloud shapes along the top of the stage. The stack is the web's, so
+/// both surfaces composite the same colours and one readability test
+/// covers both: tint (priority 0), clouds, fog, rain or snow, the flash.
+/// Each cloud is one path of overlapping puffs, so a cloud is one draw
+/// however many puffs it has.
 class SceneCloudLayer extends Component
     with HasGameReference<AmbientStageGame> {
-  SceneCloudLayer() : super(priority: -1);
+  SceneCloudLayer() : super(priority: 1);
 
   final Path _path = Path();
   final Paint _paint = Paint();
@@ -40,10 +42,10 @@ class SceneCloudLayer extends Component
     final colour = game.tokens.paints.cloud;
     for (final c in sim.clouds) {
       _path.reset();
-      for (final p in SceneEffectsSim.puffsOf(c)) {
+      for (final p in c.shapes) {
         _path.addOval(
           Rect.fromCenter(
-            center: Offset(p.x, p.y),
+            center: Offset(c.x + p.dx, p.y),
             width: p.rx * 2,
             height: p.ry * 2,
           ),
@@ -55,11 +57,11 @@ class SceneCloudLayer extends Component
   }
 }
 
-/// Fog: soft radial blobs drifting low across the stage, over the tint.
-/// Each blob's gradient is built once per scatter and moved with a
-/// translate, so a frame makes no shaders.
+/// Fog: soft radial blobs drifting low across the stage, over the tint
+/// and the clouds. Each blob's gradient is built once per scatter and moved
+/// with a translate, so a frame makes no shaders.
 class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
-  SceneFogLayer() : super(priority: 1);
+  SceneFogLayer() : super(priority: 2);
 
   SceneEffectsSim? _builtFor;
   Color? _builtColour;

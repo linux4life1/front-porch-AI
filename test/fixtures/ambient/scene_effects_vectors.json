@@ -1,10 +1,13 @@
 {
   "$comment": [
     "Ambient Stage effects vectors (docs/design/ambient-stage.md, PR 2).",
-    "Generated from the design prototype's literal mulberry32, hashStr and scatter,",
-    "which the web port (web_ui/src/theme/sceneEffects.ts) reproduced exactly.",
-    "The Dart sim (scene_effects_test.dart) and the web sim (sceneEffects.test.ts)",
-    "both must reproduce every number here; `specs` are the budgets per condition."
+    "Scatter and schedule from the design prototype's own code: mulberry32, fnv1a32,",
+    "`specs` (the budgets per condition), each `count`, every `initial` array and",
+    "`nextFlashAt`. Motion vectors (every `after`: steps, respawns, flashes) from the",
+    "web port (web_ui/src/theme/sceneEffects.ts), since the prototype drew respawns",
+    "from Math.random and timed flashes by the wall clock; the Dart sim must reproduce",
+    "them. The Dart sim (scene_effects_test.dart) and the web sim (sceneEffects.test.ts)",
+    "both must reproduce every number here."
   ],
   "particleCap": 400,
   "fogBlobs": 7,

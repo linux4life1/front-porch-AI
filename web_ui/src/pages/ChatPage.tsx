@@ -267,7 +267,7 @@ export function ChatPage() {
     <div className="chat-layout">
       <div className="chat-view">
         {/* The Ambient Stage's moving weather, behind every other child. */}
-        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || streaming !== ''} />
+        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || !!state.isSettlingTurn || streaming !== ''} />
         <ChatHeader
           title={title}
           focused={focused}

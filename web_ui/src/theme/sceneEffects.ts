@@ -4,7 +4,11 @@
 // The Ambient Stage's moving weather on the web (docs/design/ambient-stage.md).
 // A line-for-line port of lib/services/chat/scene/scene_effects_sim.dart and
 // scene_rng.dart: the same mulberry32, the same scatter order, the same
-// steps, so the seed on the wire scatters the same rain the desktop draws.
+// steps. That gives per-surface reproducibility: the same seed on the same
+// surface at the same integer stage size draws the same scene every time.
+// The web and the desktop match each other only at identical integer sizes;
+// this canvas rounds its size, the desktop stage may be fractional, and the
+// scatter scales by the size.
 // Budgets, kinds and colours all come from the wire (SceneTokens.wireOf);
 // this file keeps only the motion constants, and the shared fixture
 // test/fixtures/ambient/scene_effects_vectors.json pins both sides to them.
@@ -119,7 +123,10 @@ export function particlesFor(density: number, width: number, height: number): nu
 }
 
 export interface Drop { x: number; y: number; v: number; len: number; drift: number; a: number }
-export interface Cloud { x: number; y: number; w: number; h: number; v: number; a: number; puffs: number; seed: number }
+/** A cloud puff: its centre's offset from the cloud's moving left edge, its centre's height, its radii. */
+export interface Puff { dx: number; y: number; rx: number; ry: number }
+/** shapes are the puffs, worked out once at scatter: only x moves. */
+export interface Cloud { x: number; y: number; w: number; h: number; v: number; a: number; puffs: number; seed: number; shapes: Puff[] }
 export interface FogBlob { x: number; y: number; r: number; v: number; a: number }
 export interface Flash { at: number; rumbleDelay: number }
 
@@ -172,7 +179,7 @@ export class SceneEffectsSim {
       const a = 0.45 + r() * 0.3;
       const puffs = 3 + Math.floor(r() * 3);
       const seed = r();
-      this.clouds.push({ x, y, w: cw, h: ch, v, a, puffs, seed });
+      this.clouds.push({ x, y, w: cw, h: ch, v, a, puffs, seed, shapes: puffShapes(y, cw, ch, puffs, seed) });
     }
     if (this.spec.fog) {
       for (let i = 0; i < FOG_BLOBS; i++) {
@@ -239,12 +246,12 @@ export class SceneEffectsSim {
   }
 }
 
-/** A cloud's puffs, left to right, as the desktop draws them. */
-export function puffsOf(c: Cloud): { x: number; y: number; rx: number; ry: number }[] {
-  const out = [];
-  for (let p = 0; p < c.puffs; p++) {
-    const r = c.h * (0.7 + ((p * 37 + c.seed * 100) % 10) / 20);
-    out.push({ x: c.x + (p / c.puffs) * c.w, y: c.y + Math.sin(c.seed * 10 + p) * c.h * 0.3, rx: r * 1.6, ry: r });
+/** A cloud's puffs, left to right, as the desktop draws them (SceneCloud.shapes). */
+function puffShapes(y: number, w: number, h: number, puffs: number, seed: number): Puff[] {
+  const out: Puff[] = [];
+  for (let p = 0; p < puffs; p++) {
+    const r = h * (0.7 + ((p * 37 + seed * 100) % 10) / 20);
+    out.push({ dx: (p / puffs) * w, y: y + Math.sin(seed * 10 + p) * h * 0.3, rx: r * 1.6, ry: r });
   }
   return out;
 }

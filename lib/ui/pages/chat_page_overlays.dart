@@ -240,7 +240,9 @@ class ChatSurface extends StatelessWidget {
                 // background won above, behind the chat column. Mounted
                 // only while there is a scene (docs/design/ambient-stage.md).
                 // Rebuilds only when the tokens or the generating flag
-                // change, not per streamed token; StorageService carries the
+                // change, not per streamed token. Generating covers the
+                // settling post-gen passes too, which still call the model
+                // after isGenerating drops; StorageService carries the
                 // Ambient scene setting. Reduce motion makes the stage static,
                 // its weather held still.
                 Selector2<
@@ -248,8 +250,10 @@ class ChatSurface extends StatelessWidget {
                   StorageService,
                   (SceneTokens?, bool generating)
                 >(
-                  selector: (_, chat, _) =>
-                      (sceneTokensFor(chat), chat.isGenerating),
+                  selector: (_, chat, _) => (
+                    sceneTokensFor(chat),
+                    chat.isGenerating || chat.isSettlingTurn,
+                  ),
                   builder: (context, scene, _) {
                     final (tokens, generating) = scene;
                     if (tokens == null) return const SizedBox.shrink();

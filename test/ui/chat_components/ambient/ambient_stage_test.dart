@@ -19,8 +19,9 @@
 // The Ambient Stage (docs/design/ambient-stage.md): mounts a Flame game that
 // never takes focus or a Tab stop, carries the scene tokens into its tint
 // component, swaps them without rebuilding the game, paints a static scene
-// on change without running the engine loop, and lets an animated one tick
-// only while the app is visible.
+// on change without running the engine loop, lets an animated one tick
+// only while the app is visible, and records the tint once per scene and
+// size rather than once per frame.
 
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
@@ -242,5 +243,41 @@ void main() {
       expect(tintAtFirstPaint, isTrue, reason: 'animated: $animated');
       await tester.pumpWidget(const SizedBox());
     }
+  });
+
+  testWidgets('the tint is recorded once per scene and size, not per frame', (
+    tester,
+  ) async {
+    final game = await _pump(
+      tester,
+      _scene(WeatherCondition.fog),
+      animated: true,
+    );
+    expect(game.paused, isFalse);
+    final tint = game.children.whereType<SceneTintComponent>().single;
+    await tester.pump(const Duration(milliseconds: 16));
+    final recorded = tint.debugRebuilds;
+    expect(recorded, greaterThan(0));
+    // An animated stage renders every frame; the washes do not change.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tint.debugRebuilds, recorded);
+    // A new scene records once more, then holds again.
+    await tester.pumpWidget(
+      _app(_scene(WeatherCondition.rain), animated: true),
+    );
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tint.debugRebuilds, recorded + 1);
+    // So does a new stage size.
+    tester.view.physicalSize = const Size(1000, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tint.debugRebuilds, recorded + 2);
   });
 }
