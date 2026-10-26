@@ -20,6 +20,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:window_manager/window_manager.dart';
 
+import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'ambient_stage_game.dart';
 
@@ -28,10 +29,22 @@ import 'ambient_stage_game.dart';
 /// while the window has lost focus, so a stage nobody is looking at costs
 /// nothing on a laptop or beside a local model on the same GPU. The caller
 /// mounts it only when there is a scene to paint; Off means not mounted.
+///
+/// With the moving weather on, two more rules: the OS's reduce motion holds
+/// the weather still where it is (the tint stays), and with Pause effects
+/// while generating on, the engine stops while [generating] and starts
+/// again when the reply is done. Tint only keeps ticking as before.
 class AmbientStage extends StatefulWidget {
-  const AmbientStage({super.key, required this.tokens});
+  const AmbientStage({
+    super.key,
+    required this.tokens,
+    this.generating = false,
+  });
 
   final SceneTokens tokens;
+
+  /// Whether a reply is being generated now.
+  final bool generating;
 
   @override
   State<AmbientStage> createState() => _AmbientStageState();
@@ -61,6 +74,13 @@ class _AmbientStageState extends State<AmbientStage>
   void didUpdateWidget(AmbientStage old) {
     super.didUpdateWidget(old);
     _game.tokens = widget.tokens;
+    _applyPause();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _game.effectsFrozen = MediaQuery.disableAnimationsOf(context);
   }
 
   @override
@@ -94,7 +114,12 @@ class _AmbientStageState extends State<AmbientStage>
   }
 
   /// Whether the engine should be ticking now.
-  bool get shouldRun => _appVisible && _windowFocused;
+  bool get shouldRun => _appVisible && _windowFocused && !_pausedForReply;
+
+  bool get _pausedForReply =>
+      widget.generating &&
+      widget.tokens.pauseWhileGenerating &&
+      widget.tokens.level == SceneLevel.effects;
 
   void _applyPause() {
     if (shouldRun) {

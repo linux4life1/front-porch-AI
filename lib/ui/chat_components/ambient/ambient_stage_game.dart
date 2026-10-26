@@ -23,27 +23,51 @@ import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart' show Colors;
 
+import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/ui/theme/scene_palette.dart';
+import 'scene_precipitation.dart';
+import 'scene_sky_layers.dart';
 
 /// The Ambient Stage: a Flame game behind the chat column that paints the
-/// story's weather. This PR it holds one component, the tint; particles,
-/// clouds and later sprites are components added beside it
+/// story's weather. The tint is always there; at Tint and effects the
+/// clouds, fog, rain or snow and the storm flash join it, drawn from one
+/// plain-Dart [SceneEffectsSim] that the game steps each frame
 /// (`docs/design/ambient-stage.md`). Every colour comes in through
 /// [SceneTokens]; nothing here picks one.
 class AmbientStageGame extends FlameGame {
-  AmbientStageGame(SceneTokens tokens) : _tokens = tokens;
+  AmbientStageGame(SceneTokens tokens) : _tokens = tokens {
+    // The hosting widget owns every pause rule (lifecycle, focus, reduce
+    // motion, generating); Flame's own lifecycle pause would fight it.
+    pauseWhenBackgrounded = false;
+  }
 
   SceneTokens _tokens;
   SceneTintComponent? _tint;
+  SceneEffectsSim? _effects;
+  List<Component> _effectLayers = const [];
+  final StreamController<SceneFlash> _flashes =
+      StreamController<SceneFlash>.broadcast();
+
+  /// While true the weather holds still where it is (reduce motion): the
+  /// stage still paints, the sim is not stepped and no flash fires.
+  bool effectsFrozen = false;
 
   SceneTokens get tokens => _tokens;
 
-  /// Swaps the scene; a value-equal set of tokens is a no-op.
+  /// The moving weather now, or null at Tint only or when there is none.
+  SceneEffectsSim? get effects => _effects;
+
+  /// Each storm flash as it fires, for the scene sound's thunder.
+  Stream<SceneFlash> get flashes => _flashes.stream;
+
+  /// Swaps the scene; a value-equal set of tokens is a no-op. The weather
+  /// is scattered again only when its seed or kind changes.
   set tokens(SceneTokens value) {
     if (value == _tokens) return;
     _tokens = value;
     _tint?.tokens = value;
+    _syncEffects();
   }
 
   /// Transparent: the chat background and the theme ground show through.
@@ -55,6 +79,61 @@ class AmbientStageGame extends FlameGame {
     final tint = SceneTintComponent(_tokens);
     _tint = tint;
     add(tint);
+    _syncEffects();
+  }
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    _syncEffects();
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (!effectsFrozen) _effects?.advance(dt);
+  }
+
+  @override
+  void onRemove() {
+    unawaited(_flashes.close());
+    super.onRemove();
+  }
+
+  void _syncEffects() {
+    final w = size.x;
+    final h = size.y;
+    if (!_tokens.hasEffects || w <= 0 || h <= 0) {
+      _effects = null;
+      if (_effectLayers.isNotEmpty) {
+        removeAll(_effectLayers);
+        _effectLayers = const [];
+      }
+      return;
+    }
+    final current = _effects;
+    if (current == null ||
+        current.seed != _tokens.seed ||
+        current.spec != _tokens.effects ||
+        current.width != w ||
+        current.height != h) {
+      _effects = SceneEffectsSim(
+        spec: _tokens.effects,
+        seed: _tokens.seed,
+        width: w,
+        height: h,
+        onFlash: _flashes.add,
+      );
+    }
+    if (_effectLayers.isEmpty) {
+      _effectLayers = [
+        SceneCloudLayer(),
+        SceneFogLayer(),
+        ScenePrecipitation(),
+        SceneLightningFlash(),
+      ];
+      addAll(_effectLayers);
+    }
   }
 }
 

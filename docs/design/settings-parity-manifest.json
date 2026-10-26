@@ -38,6 +38,13 @@
       "dartMarker": "Ambient scene",
       "webMarker": "Ambient scene"
     },
+    "pauseEffectsWhileGenerating": {
+      "section": "general",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "Pause effects while generating",
+      "webMarker": "Pause effects while generating"
+    },
     "chatColors": {
       "section": "general",
       "group": "chat-appearance",

@@ -243,7 +243,12 @@ class ChatSurface extends StatelessWidget {
                     final tokens = sceneTokensFor(chat);
                     if (tokens == null) return const SizedBox.shrink();
                     return Positioned.fill(
-                      child: IgnorePointer(child: AmbientStage(tokens: tokens)),
+                      child: IgnorePointer(
+                        child: AmbientStage(
+                          tokens: tokens,
+                          generating: chat.isGenerating,
+                        ),
+                      ),
                     );
                   },
                 ),

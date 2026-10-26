@@ -19,6 +19,7 @@ import { useLayout } from '../hooks/useBreakpoint';
 import { ChatHeader } from './chat/ChatHeader';
 import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
+import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
 import { useChatFind } from './chat/useChatFind';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
@@ -265,6 +266,8 @@ export function ChatPage() {
   return (
     <div className="chat-layout">
       <div className="chat-view">
+        {/* The Ambient Stage's moving weather, behind every other child. */}
+        <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || streaming !== ''} />
         <ChatHeader
           title={title}
           focused={focused}

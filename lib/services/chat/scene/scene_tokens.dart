@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/scene_palette.dart';
 import 'package:front_porch_ai/ui/theme/web_theme_tokens.dart';
 import '../weather_engine.dart';
+import 'scene_effects.dart';
 
 /// One translucent layer the stage paints, in paint order.
 @immutable
@@ -50,6 +51,11 @@ class SceneTokens {
     required this.temp,
     required this.layers,
     required this.haze,
+    this.level = SceneLevel.tint,
+    this.seed = 0,
+    this.effects = SceneEffectSpec.none,
+    this.paints = kSceneEffectPaintsDark,
+    this.pauseWhileGenerating = true,
   });
 
   /// The story clock's period key, the condition and band names.
@@ -64,6 +70,25 @@ class SceneTokens {
   /// Haze strength, 0 to 1; the stage draws it as a radial wash of
   /// [kSceneHaze] thin at the centre and thicker at the edges.
   final double haze;
+
+  /// The wash alone, or the wash and the moving weather.
+  final SceneLevel level;
+
+  /// What the moving weather is scattered from (`sceneSeed`).
+  final int seed;
+
+  /// The condition's moving weather; painted only at [SceneLevel.effects].
+  final SceneEffectSpec effects;
+
+  /// The colours the moving weather paints in, for the mode on screen.
+  final SceneEffectPaints paints;
+
+  /// Appearance → Pause effects while generating: the stage stops while a
+  /// reply is on its way, so a local model has the GPU to itself.
+  final bool pauseWhileGenerating;
+
+  /// Whether the moving weather paints at all.
+  bool get hasEffects => level == SceneLevel.effects && !effects.isEmpty;
 
   /// Every layer composited over [ground], for contrast checks and tests.
   Color compositeOver(Color ground) {
@@ -93,6 +118,23 @@ class SceneTokens {
       kSceneHaze.withValues(alpha: hazeCentreAlpha),
     ),
     'hazeEdge': WebThemeTokens.css(kSceneHaze.withValues(alpha: hazeEdgeAlpha)),
+    // Tint and effects (PR 2). The web scatters the same weather from the
+    // same seed with the same generator; it never picks a colour itself.
+    'level': level.key,
+    'seed': seed,
+    'pauseWhileGenerating': pauseWhileGenerating,
+    'effects': {
+      ...effects.toWire(),
+      'paints': {
+        'rain': WebThemeTokens.css(paints.rain),
+        'snow': WebThemeTokens.css(paints.snow),
+        'cloud': WebThemeTokens.css(paints.cloud),
+        'fog': WebThemeTokens.css(paints.fog),
+        // The fog's own hue at zero alpha, the far stop of each blob.
+        'fogClear': WebThemeTokens.css(paints.fog.withValues(alpha: 0)),
+        'flash': WebThemeTokens.css(paints.flash),
+      },
+    },
   };
 
   @override
@@ -102,6 +144,11 @@ class SceneTokens {
       other.condition == condition &&
       other.temp == temp &&
       other.haze == haze &&
+      other.level == level &&
+      other.seed == seed &&
+      other.effects == effects &&
+      other.paints == paints &&
+      other.pauseWhileGenerating == pauseWhileGenerating &&
       _sameLayers(other.layers, layers);
 
   static bool _sameLayers(List<SceneLayer> a, List<SceneLayer> b) {
@@ -113,8 +160,16 @@ class SceneTokens {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(daypart, condition, temp, haze, layers.length);
+  int get hashCode => Object.hash(
+    daypart,
+    condition,
+    temp,
+    haze,
+    layers.length,
+    level,
+    seed,
+    effects,
+  );
 }
 
 /// Turns the story's weather and clock into [SceneTokens]. Plain Dart with
@@ -129,6 +184,9 @@ class SceneSim {
     required WeatherCondition condition,
     required TempBand temp,
     required bool dark,
+    SceneLevel level = SceneLevel.tint,
+    int seed = 0,
+    bool pauseWhileGenerating = true,
   }) {
     final scale = dark ? 1.0 : kSceneLightModeScale;
     final day = kSceneDaypartWash[daypart] ?? SceneWash.none;
@@ -150,6 +208,11 @@ class SceneSim {
           if (l.alpha > 0) l,
       ],
       haze: cond.haze * scale,
+      level: level,
+      seed: seed,
+      effects: SceneEffectSpec.forCondition(condition.name),
+      paints: dark ? kSceneEffectPaintsDark : kSceneEffectPaintsLight,
+      pauseWhileGenerating: pauseWhileGenerating,
     );
   }
 }

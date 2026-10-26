@@ -71,11 +71,13 @@ enum UiCorners {
       values.firstWhere((c) => c.key == key, orElse: () => standard);
 }
 
-/// What the Ambient Stage paints over the chat background: nothing, or the
-/// story's weather as a tint. `docs/design/ambient-stage.md`.
+/// What the Ambient Stage paints over the chat background: nothing, the
+/// story's weather as a tint, or the tint plus rain, snow, clouds, fog and
+/// lightning. `docs/design/ambient-stage.md`.
 enum AmbientScene {
   off('off', 'Off'),
-  tint('tint', 'Tint only');
+  tint('tint', 'Tint only'),
+  effects('effects', 'Tint and effects');
 
   const AmbientScene(this.key, this.label);
 
