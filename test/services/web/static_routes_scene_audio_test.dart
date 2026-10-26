@@ -125,5 +125,14 @@ void main() {
     // An encoded slash survives URI parsing, so the guard itself is what
     // stops this one (a literal `../` is collapsed before the handler).
     expect(routes.handle(get('audio/scene/..%2Fsecret.mp3')).statusCode, 404);
+    // A NUL would cut the path at `LICENSE.md`, past the `.mp3` check.
+    expect(routes.handle(get('audio/scene/LICENSE.md%00.mp3')).statusCode, 404);
+    // Bad UTF-8 after the escapes (`%FF`, overlong forms) never reaches the
+    // route: shelf refuses to build the request (shelf_io answers 400), so
+    // the handler's own FormatException catch is a second line, not the
+    // first. Pin where the refusal happens.
+    for (final bad in ['%FF.mp3', '%C0%AF.mp3', '%E0%80%AFsecret.mp3']) {
+      expect(() => get('audio/scene/$bad'), throwsArgumentError, reason: bad);
+    }
   });
 }

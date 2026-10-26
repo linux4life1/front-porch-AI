@@ -93,7 +93,10 @@ class StaticRoutes {
     if (rel.startsWith('audio/scene/')) {
       // The name is decoded, so an encoded `..%2F` meets the guard as `../`.
       final name = _decoded(rel.substring('audio/scene/'.length));
-      final file = name != null && name.toLowerCase().endsWith('.mp3')
+      final file =
+          name != null &&
+              _soundName.hasMatch(name) &&
+              name.toLowerCase().endsWith('.mp3')
           ? _inside(_sceneAudioDir, name)
           : null;
       if (file != null) return _serveMedia(file, rel, request.headers);
@@ -116,10 +119,18 @@ class StaticRoutes {
     return shelf.Response.notFound('index.html not found');
   }
 
+  /// A scene sound's file name: plain characters only, so no separator, no
+  /// NUL (dart:io would cut the path there, past the `.mp3` check) and no
+  /// control character gets through.
+  static final RegExp _soundName = RegExp(r'^[A-Za-z0-9_.-]+$');
+
   /// [encoded] with its percent escapes undone, or null when they are bad.
   static String? _decoded(String encoded) {
     try {
       return Uri.decodeComponent(encoded);
+    } on FormatException {
+      // Bad UTF-8 after the escapes (`%FF`, overlong forms).
+      return null;
     } on ArgumentError {
       return null;
     }

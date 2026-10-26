@@ -100,15 +100,11 @@ class SceneSoundService {
   final Set<Timer> _thunders = {};
 
   SceneLoop? _failed;
-  Object? _lastError;
 
   /// The loop that would not start, if one would not; it is not tried
   /// again (each try would fail and log the same way), so the chat stays
   /// quiet for that sky until the next chat.
   SceneLoop? get failed => _failed;
-
-  /// Why [failed] would not start, for the host to show or log.
-  Object? get lastError => _lastError;
 
   /// The loop the player holds now, or null for none.
   SceneLoop? get playing => _current;
@@ -260,7 +256,6 @@ class SceneSoundService {
       );
       if (next != null) {
         _failed = next;
-        _lastError = e;
         started = null;
       }
     }

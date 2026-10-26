@@ -300,8 +300,9 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   a visible flash, so it needs Tint and effects with the weather moving:
   none at Tint only or on High Contrast (held to the tint), none under
   reduce motion, and none while the stage is stopped (paused for a reply,
-  or on the desktop an unfocused window), though the loop plays on. Desktop: `AmbientStage.onFlash` forwards the game's
-  `flashes`; web: `SceneEffectsPlayer.onFlash`.
+  or on the desktop an unfocused window), though the loop plays on.
+  Desktop: `AmbientStage.onFlash` forwards the game's `flashes`; web:
+  `SceneEffectsPlayer.onFlash`.
 - **Ducking.** While a voice speaks the loop (and any thunder) sits at 30%
   of the volume and ramps back after. Desktop signal:
   `TtsService.isSpeaking`, the flag the call's microphone gate reads, true
@@ -315,14 +316,13 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   on the Appearance card and two `settings_parity_manifest` rows. The loop
   plays at every Ambient scene level that paints, Tint only and High
   Contrast (which the gate holds to the tint) included; only Off or a chat
-  with no scene is silent. Nothing plays with Ambient scene Off or without
-  a scene (the sound host is
-  mounted with the stage, so a chat with no weather, or a closed chat,
-  makes no player at all). A hidden or minimised window (a hidden tab on
-  the web) holds the loop; generating does not, because sound costs no
-  GPU. The web reads the setting from the chat state's `scene.sound`,
-  refetched on every `settings_changed`. A browser that refuses to start
-  sound before a tap leaves the loop waiting for the next tap or key, and
+  with no scene is silent (the sound host is mounted with the stage, so a
+  chat with no weather, or a closed chat, makes no player at all). A
+  hidden or minimised window (a hidden tab on the web) holds the loop;
+  generating does not, because sound costs no GPU. The web reads the
+  setting from the chat state's `scene.sound`, refetched on every
+  `settings_changed`. A browser that refuses to start sound before a tap
+  leaves the loop waiting for the next tap or key, and
   the Appearance card says so.
 - **Serving.** One copy of the files: the desktop bundles
   `assets/audio/scene/` and its web server serves the same folder to the
@@ -331,8 +331,9 @@ uses for its ambient loop and page turn (audioplayers on the desktop, as in
   timers in its tests), `AudioplayersSceneSoundOutput`, and
   `SceneSoundHost` (lifecycle, minimise, `TtsService`), mounted by
   `AmbientStageMount` in the chat surface. A loop the player cannot start
-  is logged once, kept as `failed`/`lastError`, and not tried again. The
-  volume slider writes the setting once per drag, when it ends.
+  is logged once (a debug log, no UI), kept as `failed`, and not tried
+  again. The volume slider writes the setting once per drag, when it
+  ends.
 
 ## 6. Tenant 3: Mood glow (Next)
 

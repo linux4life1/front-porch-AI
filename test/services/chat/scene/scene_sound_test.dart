@@ -518,7 +518,6 @@ void main() {
     await _settle(clock);
     expect(out.loops, 1);
     expect(sound.failed, SceneLoop.rain);
-    expect(sound.lastError, isA<StateError>());
     expect(sound.playing, isNull);
     // More updates, a voice, a ramp's worth of time: no second try.
     sound.update(
