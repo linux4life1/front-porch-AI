@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { test as base, expect, type Page } from '@playwright/test';
+import { test as base, expect, type Page, type Request } from '@playwright/test';
 
 export type Problem = string;
 
@@ -41,8 +41,30 @@ const KNOWN: { method: string; status: number; path: RegExp; why: string }[] = [
 
 type Hooks = { fn: AllowFn; acceptConfirms: boolean };
 
+/**
+ * WebKit refuses a fetch that the outgoing page starts while it is being
+ * replaced (a reload or goto racing a debounced refresh) and logs it as this
+ * console error, which Playwright reports as a page error. The app's own
+ * catch still runs; the request never leaves the page.
+ */
+const WEBKIT_UNLOAD_FETCH = /^Fetch API cannot load \S+\/api\/\S* due to access control checks\./;
+
 function watch(page: Page, problems: Problem[], allow: Hooks) {
-  page.on('pageerror', (e) => problems.push(`uncaught error: ${e.message}`));
+  // From a main-frame navigation request until the new document is parsed,
+  // or until that request fails and no new document comes.
+  let leaving = false;
+  const mainNav = (r: Request) => r.isNavigationRequest() && r.frame() === page.mainFrame();
+  page.on('request', (r) => {
+    if (mainNav(r)) leaving = true;
+  });
+  page.on('requestfailed', (r) => {
+    if (mainNav(r)) leaving = false;
+  });
+  page.on('domcontentloaded', () => (leaving = false));
+  page.on('pageerror', (e) => {
+    if (leaving && WEBKIT_UNLOAD_FETCH.test(e.stack ?? '')) return;
+    problems.push(`uncaught error: ${e.message}`);
+  });
   page.on('console', (m) => {
     if (m.type() !== 'error') return;
     const text = m.text();

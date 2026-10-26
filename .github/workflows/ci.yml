@@ -12,13 +12,39 @@ name: CI
 # shards, and the schedule runs all 15. The macOS queue was most of a PR's
 # wall time. The cost: a macOS- or Windows-only break shows up on Rawhide
 # right after merge, not on the PR.
+#
+# Leaving draft reuses what already passed (2026-10-26). Marking a PR ready
+# for review starts a new run on the same head commit. `changes` asks GitHub
+# which jobs of this workflow already succeeded on that commit for this PR
+# (output `passed`), and the cheap gates in that list do not run again:
+# analyze, the four test shards, web-tests, theme-lint and io-lint. A job
+# that failed, was cancelled or never ran on that commit runs as usual, and
+# the heavy jobs start exactly as before. Every other event (a push to the
+# PR, opened, reopened, a branch push, the schedule) reuses nothing. The
+# cheap gates now `need` changes, which costs its few seconds before they
+# start. A skipped job satisfies a required check, and the success it
+# stands in for is already recorded on the PR's commit, so no required check
+# goes missing. Two details: the test shards are skipped all
+# four or none (a job-level `if:` cannot see `matrix`), and analyze skips its
+# steps instead of the job, because test-shard and the heavy jobs `need` it
+# and a skipped need would skip them too. If the lookup fails, `passed` is
+# empty and everything runs.
+# A `pull_request` run tests the PR merged onto its base as the base was
+# then, so only an earlier run made against the same base commit counts: if
+# Rawhide moved while the PR was a draft, the gates run again instead of
+# being reused. (A fork's run lists no PR, so there the head repo and branch
+# are matched and a moved base is not detected.)
+# Trade-off: a gate that went green by luck (a flake) on the draft run is
+# not re-checked when the PR leaves draft. Push a commit, or close and
+# reopen the PR, to run every gate again.
 
 on:
   push:
     branches: [main, Rawhide]
   pull_request:
     branches: [main, Rawhide]
-    # ready_for_review starts the heavy jobs a draft skipped (see `changes`).
+    # ready_for_review starts the heavy jobs a draft skipped and reuses the
+    # cheap gates that already passed on the same commit (see `changes`).
     types: [opened, synchronize, reopened, ready_for_review]
   schedule:
     # Run full project lint every Monday at 09:00 UTC
@@ -43,12 +69,22 @@ jobs:
   # rest, so the merge queue decides who gets the runners by taking PRs out
   # of draft in order (maintainer decision, 2026-10-19). A PR that only
   # changes Markdown or docs/ never needs them. Pushes and the schedule
-  # always do.
+  # always do. When a PR leaves draft, `passed` also lists the jobs that
+  # already succeeded on its head commit, so the cheap gates skip a second
+  # run (see the file header).
   changes:
     name: Changed paths
     runs-on: ubuntu-latest
+    # Reads the PR's files and this workflow's earlier runs, nothing else.
+    permissions:
+      actions: read
+      contents: read
+      pull-requests: read
     outputs:
       heavy: ${{ steps.pick.outputs.heavy }}
+      # JSON array of job names. Always valid JSON, so `fromJSON` downstream
+      # cannot fail; an empty array means every job runs.
+      passed: ${{ steps.reuse.outputs.passed || '[]' }}
     steps:
       - id: pick
         uses: actions/github-script@v9
@@ -60,7 +96,7 @@ jobs:
               return;
             }
             if (pr.draft) {
-              core.notice('Draft PR: E2E, Playwright, goldens and the Stoop pin start when it leaves draft.');
+              core.notice('Draft PR: E2E, Playwright, goldens and the Stoop pin start when it leaves draft. The checks that pass now are not run again then.');
               core.setOutput('heavy', 'false');
               return;
             }
@@ -75,17 +111,87 @@ jobs:
             );
             if (docsOnly) core.notice('Docs-only PR: heavy jobs skipped.');
             core.setOutput('heavy', docsOnly ? 'false' : 'true');
+      # Only when a PR leaves draft: the names of this workflow's jobs whose
+      # latest attempt succeeded on this exact head commit, for this PR, in
+      # an earlier run. The current run is excluded.
+      - id: reuse
+        if: github.event_name == 'pull_request' && github.event.action == 'ready_for_review'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const passed = new Set();
+            try {
+              const { data: self } = await github.rest.actions.getWorkflowRun({
+                ...context.repo,
+                run_id: context.runId,
+              });
+              const runs = await github.paginate(github.rest.actions.listWorkflowRuns, {
+                ...context.repo,
+                workflow_id: self.workflow_id,
+                event: 'pull_request',
+                head_sha: pr.head.sha,
+                per_page: 100,
+              });
+              for (const run of runs) {
+                if (run.id === context.runId || run.head_sha !== pr.head.sha) continue;
+                // This PR only, merged onto the same base commit: the gates
+                // test the PR merged onto its base, and the lint gates diff
+                // against it. A fork's run lists no PRs, so its head repo
+                // and branch stand in (and a moved base goes unseen there).
+                // To confirm on the first live run: that `base.sha` in an
+                // earlier run's pull_requests is the base it ran against,
+                // not today's (if it is today's, a moved base still reuses).
+                const prs = run.pull_requests || [];
+                const samePr = prs.length
+                  ? prs.some((p) => p.number === pr.number && p.base?.sha === pr.base.sha)
+                  : run.head_branch === pr.head.ref &&
+                    run.head_repository?.full_name === pr.head.repo.full_name;
+                if (!samePr) continue;
+                const jobs = await github.paginate(github.rest.actions.listJobsForWorkflowRun, {
+                  ...context.repo,
+                  run_id: run.id,
+                  filter: 'latest',
+                  per_page: 100,
+                });
+                for (const job of jobs) {
+                  if (job.conclusion === 'success') passed.add(job.name);
+                }
+              }
+            } catch (err) {
+              core.warning(`Could not read earlier runs, so every job runs: ${err.message}`);
+              passed.clear();
+            }
+            const names = [...passed].sort();
+            if (names.length) {
+              core.notice(`Passed earlier on ${pr.head.sha.slice(0, 7)}; the cheap gates among these are not run again: ${names.join(', ')}`);
+            }
+            core.setOutput('passed', JSON.stringify(names));
 
   analyze:
     name: CI (changed Dart files)
     runs-on: ubuntu-latest
+    needs: changes
+    # Runs even if `changes` failed (then `passed` is empty). When it already
+    # passed on this commit it skips its steps, not the job, and reports
+    # success: test-shard and the heavy jobs `need` it, and a skipped need
+    # would skip them. Every step below carries the REUSED guard.
+    if: ${{ !cancelled() }}
+    env:
+      REUSED: ${{ contains(fromJSON(needs.changes.outputs.passed || '[]'), 'CI (changed Dart files)') }}
     steps:
+      - name: Already passed on this commit
+        if: env.REUSED == 'true'
+        run: echo "::notice::Passed on this commit before the PR left draft; not run again."
+
       - name: Checkout Code
+        if: env.REUSED != 'true'
         uses: actions/checkout@v7
         with:
           fetch-depth: 0   # needed for git diff against base branch
 
       - name: Setup Flutter
+        if: env.REUSED != 'true'
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.47.7'
@@ -93,9 +199,11 @@ jobs:
           cache: true
 
       - name: Install dependencies
+        if: env.REUSED != 'true'
         run: flutter pub get
 
       - name: Run Flutter Analyze on changed Dart files only
+        if: env.REUSED != 'true'
         run: |
           # Get list of changed Dart files, compared against the *current state of the
           # target branch itself* (Rawhide for Rawhide work, and so on).
@@ -151,7 +259,17 @@ jobs:
   test-shard:
     name: Tests (unit + integration) ${{ matrix.shard }}/4
     runs-on: ubuntu-latest
-    needs: analyze
+    needs: [analyze, changes]
+    # Skipped when all four shards already passed on this commit (see the
+    # file header). One shard missing from `passed` re-runs all four: a
+    # job-level `if:` cannot see `matrix`. `!cancelled()` keeps the shards
+    # running if `changes` failed; analyze must still have passed.
+    if: >-
+      ${{ !cancelled() && needs.analyze.result == 'success' &&
+      !(contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 1/4') &&
+      contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 2/4') &&
+      contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 3/4') &&
+      contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 4/4')) }}
     strategy:
       fail-fast: false
       matrix:
@@ -227,18 +345,31 @@ jobs:
 
   # The check name the PR page and branch protection know. It passes only if
   # every shard passed, so a failed or skipped shard is a red check, not a
-  # silent pass. A cancelled run (a newer push) skips it instead.
+  # silent pass. A cancelled run (a newer push) skips it instead. The one
+  # exception: shards skipped because every one of them already passed on
+  # this commit (REUSED, see the file header) count as passed, and only when
+  # analyze passed too, so shards skipped behind a failed analyze stay red.
   test:
     name: Tests (unit + integration)
     runs-on: ubuntu-latest
-    needs: test-shard
+    needs: [test-shard, changes, analyze]
     if: ${{ !cancelled() }}
     steps:
       - name: All shards passed
         env:
           RESULT: ${{ needs.test-shard.result }}
+          ANALYZE: ${{ needs.analyze.result }}
+          REUSED: >-
+            ${{ contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 1/4') &&
+            contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 2/4') &&
+            contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 3/4') &&
+            contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Tests (unit + integration) 4/4') }}
         run: |
-          echo "shards: $RESULT"
+          echo "shards: $RESULT (all passed earlier on this commit: $REUSED; analyze: $ANALYZE)"
+          if [ "$RESULT" = skipped ] && [ "$REUSED" = true ] && [ "$ANALYZE" = success ]; then
+            echo "::notice::All four shards passed on this commit before the PR left draft; not run again."
+            exit 0
+          fi
           [ "$RESULT" = success ]
 
   # Live Stoop pin (#264): talks HTTP to the real hub, not FakeStoopServer.
@@ -364,13 +495,16 @@ jobs:
       # dictionary ships in the bundle, so spell_check_test.dart must pass on a
       # machine with nothing installed. Adding one here would hide a broken
       # bundle behind the runner's own packages.
+      #
+      # The package list, the .deb cache and the mirror fallback live in the
+      # composite action (shared with web-e2e); see its header for the flake
+      # it fixes. 13 minutes: about 8 of network clocks at worst, plus the
+      # install, which has no clock of its own; the headroom keeps a slow
+      # but recovering fetch from running the step out in the middle of dpkg.
       - name: Install Linux desktop dependencies
         if: matrix.device == 'linux'
-        timeout-minutes: 10
-        run: |
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
+        timeout-minutes: 13
+        uses: ./.github/actions/linux-desktop-deps
 
       - name: Setup Node (for the WebUI bundle)
         uses: actions/setup-node@v7
@@ -470,6 +604,9 @@ jobs:
   web-tests:
     name: WebUI tests (vitest)
     runs-on: ubuntu-latest
+    needs: changes
+    # Skipped when it already passed on this commit (see the file header).
+    if: ${{ !cancelled() && !contains(fromJSON(needs.changes.outputs.passed || '[]'), 'WebUI tests (vitest)') }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v7
@@ -527,18 +664,52 @@ jobs:
           cache: 'npm'
           cache-dependency-path: web_ui/package-lock.json
 
-      - name: Install Linux desktop dependencies
-        timeout-minutes: 10
-        run: |
-          sudo apt-get -o Acquire::Retries=3 update
-          sudo apt-get -o Acquire::Retries=3 install -y ninja-build libgtk-3-dev libsecret-1-dev xvfb \
-            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev
-
-      - name: Install WebUI dependencies + browsers
-        run: |
-          npm ci --ignore-scripts
-          npx playwright install --with-deps chromium webkit
+      # Before the apt step: it runs Playwright's install-deps from here.
+      - name: Install WebUI dependencies
+        run: npm ci --ignore-scripts
         working-directory: web_ui
+
+      # The browsers' system libraries come from apt too, so they go through
+      # the same .deb cache, clock and mirror fallback as the desktop
+      # packages. `--with-deps` called apt directly and sat on the slow
+      # mirror for 27+ minutes on #620. 20 minutes: two apt phases, each
+      # bounded at about 8 (see the action's header).
+      - name: Install Linux desktop dependencies
+        timeout-minutes: 20
+        uses: ./.github/actions/linux-desktop-deps
+        with:
+          playwright-browsers: chromium webkit
+
+      # Browsers download once per Playwright version and browser set. The
+      # builds are self-contained, so the runner image is not in the key.
+      # playwright-core pins them; @playwright/test and playwright carry the
+      # same version in the lockfile.
+      - name: Playwright browser cache key
+        id: pw-key
+        run: |
+          version=$(node -p "require('./package-lock.json').packages['node_modules/playwright-core'].version")
+          echo "key=playwright-${RUNNER_OS}-${version}-chromium-webkit" >> "$GITHUB_OUTPUT"
+        working-directory: web_ui
+
+      - name: Restore Playwright browsers
+        id: pw-cache
+        uses: actions/cache/restore@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.pw-key.outputs.key }}
+
+      - name: Install browsers
+        run: npx playwright install chromium webkit
+        working-directory: web_ui
+
+      # Saved right away, not at job end, so a red browser suite still
+      # leaves the download for the next run.
+      - name: Save Playwright browsers
+        if: steps.pw-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: ${{ steps.pw-key.outputs.key }}
 
       # Serve the bundle built from this commit, not whatever was committed.
       - name: Build WebUI bundle
@@ -571,8 +742,13 @@ jobs:
     # branch, so every line grandfathered as diff context on normal PRs
     # re-appears as "added" (even comments that merely mention the banned
     # token) and the gate re-litigates history it already passed
-    # incrementally. Same guard on io-lint below.
-    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/promote-')
+    # incrementally. Same guard on io-lint below. Also skipped when it
+    # already passed on this commit (see the file header).
+    needs: changes
+    if: >-
+      ${{ !cancelled() &&
+      (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/promote-')) &&
+      !contains(fromJSON(needs.changes.outputs.passed || '[]'), 'Theme lint (no new raw blueAccent)') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
@@ -614,8 +790,12 @@ jobs:
 
   io-lint:
     name: IO lint (no new sync I/O in UI code)
-    # Promotion-PR skip — see the theme-lint comment above.
-    if: github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/promote-')
+    # Promotion-PR skip and reuse skip — see the theme-lint comment above.
+    needs: changes
+    if: >-
+      ${{ !cancelled() &&
+      (github.event_name != 'pull_request' || !startsWith(github.head_ref, 'release/promote-')) &&
+      !contains(fromJSON(needs.changes.outputs.passed || '[]'), 'IO lint (no new sync I/O in UI code)') }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
