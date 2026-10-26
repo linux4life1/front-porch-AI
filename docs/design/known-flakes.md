@@ -100,6 +100,19 @@ dependencies" never ran a test.
   A `Composer line retried` warning on a passing run means it caught one;
   the warning says what the box held, which tells WebKit dropping the
   text from the app changing it.
+- **`web_ui/e2e/journeys.spec.ts` Director Mode journey: the whisper won't
+  clear.** Phone WebKit only: after "Clear the whisper to Porch Tester"
+  the whisper note stays (expected 0, got 1), and the trace has no `POST
+  /api/chat/director/whisper`. The tap missed. `/whisper` updates the host
+  twice: the pinned note first, then the cast banner line ("Only Porch
+  Tester knows this now."). Each lands on its own refresh. On a phone the
+  new banner is one line where the old one ("This is a group now…") was
+  two, so the strip moved up 15 px between Playwright's stable check and
+  the tap, and the tap landed below the ✕. Desktop Chromium keeps both
+  banners on one line, so nothing moves. Fixed: the journey waits for the
+  banner line before it taps. Seen on Rawhide a9eea396 (run 40403232144);
+  the "step out of a scene…" failure in the same run was this one, carried
+  into the serial group's retry.
 - **`test/services/auth_service_test.dart` TOTP enrolment**: a 30 s limit
   under a loaded runner; passes alone.
 - **`test/services/chat/start_fresh_chat_test.dart` "an empty persona id

@@ -1197,6 +1197,10 @@ test.describe.serial('Director Mode', { tag: SERIAL }, () => {
     await sendLine(page, '/whisper Porch Tester You hid the key.');
     const whisper = strip.getByRole('note').filter({ hasText: 'Porch Tester: You hid the key.' });
     await expect(whisper).toBeVisible();
+    // The command's banner line comes a refresh after the pinned note. On a
+    // phone it replaces a two-line banner above the strip, so the ✕ moves up
+    // under a tap that lands then. Wait for it before tapping.
+    await expect(page.locator('.cast-banner')).toHaveText('Only Porch Tester knows this now.');
     await strip.getByRole('button', { name: 'Clear the whisper to Porch Tester' }).click();
     await expect(whisper).toHaveCount(0);
 
