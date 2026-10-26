@@ -598,10 +598,10 @@ packages:
     dependency: "direct main"
     description:
       name: googleapis_auth
-      sha256: d31822528becea550f7c7a9ab73a4518e31e48f201ab574be7e141f262923f27
+      sha256: e15d48204e2f3c852dc1091a49705a163a8ba5897823f9abe1c0795e512357c4
       url: "https://pub.dev"
     source: hosted
-    version: "2.3.4"
+    version: "2.3.5"
   graphs:
     dependency: transitive
     description:
@@ -1283,18 +1283,18 @@ packages:
     dependency: "direct main"
     description:
       name: shelf
-      sha256: e7dd780a7ffb623c57850b33f43309312fc863fb6aa3d276a754bb299839ef12
+      sha256: e75e9cf311d7fd712048038cc17c25199c38536c20330d53e7db058b543d5a48
       url: "https://pub.dev"
     source: hosted
-    version: "1.4.2"
+    version: "1.4.3"
   shelf_router:
     dependency: "direct main"
     description:
       name: shelf_router
-      sha256: f5e5d492440a7fb165fe1e2e1a623f31f734d3370900070b2b1e0d0428d59864
+      sha256: "2b3eb66f2e7651c9f0af28538e0de53bc02dc102d965d55b13e6ffceafad10e3"
       url: "https://pub.dev"
     source: hosted
-    version: "1.1.4"
+    version: "1.1.5"
   shelf_web_socket:
     dependency: "direct main"
     description:

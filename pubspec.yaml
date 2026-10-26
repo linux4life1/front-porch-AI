@@ -58,7 +58,7 @@ dependencies:
   audioplayers: ^6.5.1
   webdav_client: ^1.2.2
   googleapis: ^17.0.0
-  googleapis_auth: ^2.3.4
+  googleapis_auth: ^2.3.5
   drift: ^2.35.1
   # PAIRS WITH `sqlite3` 3.x, which bundles SQLite itself via native assets.
   # 0.6.0+eol is the correct marker pin here: it contains no code, and exists
@@ -73,8 +73,8 @@ dependencies:
   path: ^1.9.1
   uuid: ^4.5.3
   record: ^7.0.0
-  shelf: ^1.4.2
-  shelf_router: ^1.1.4
+  shelf: ^1.4.3
+  shelf_router: ^1.1.5
   shelf_web_socket: ^3.0.0
   web_socket_channel: ^3.0.1 # WS channel abstraction (server + client/tests)
   hashlib: ^1.21.0
