@@ -27,6 +27,14 @@ dependencies" never ran a test.
   browsers themselves are cached. The log line `apt-retry: attempt 2
   (fallback mirror) succeeded` means the mirror was slow again and the
   fallback absorbed it; `failed on both mirrors` is still infrastructure.
+  Expected in these logs, not regressions: apt's `Download is performed
+  unsandboxed as root … couldn't be accessed by user '_apt'` (the cache
+  directory sits under the runner's temp folder, which `_apt` cannot
+  write; harmless); `Unable to reserve cache … another job may be creating
+  this cache` when several shards finish a cold key at once (one saves, the
+  rest warn; not a failure); and an install step with no clock of its own,
+  on purpose: only the step's `timeout-minutes` bounds it, so no inner
+  clock can stop dpkg halfway.
 - **Windows E2E shard: "Building native assets failed" with no cause line**,
   while the other shards built the same commit — runner toolchain.
 - **GitHub runner death**: jobs "cancelled" at about 20 minutes with no

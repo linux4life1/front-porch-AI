@@ -11,17 +11,20 @@ jobs:
     permissions:
       actions: write
     steps:
-      - name: Delete old ml-engines caches
+      - name: Delete old caches (ml-engines, apt-debs, playwright)
         uses: actions/github-script@v9
         with:
           script: |
-            const keyPrefix = 'ml-engines-';
+            // apt-debs- and playwright- come from ci.yml's Linux jobs
+            // (.github/actions/linux-desktop-deps): each runner image or
+            // Playwright version leaves a superseded entry behind.
+            const keyPrefixes = ['ml-engines-', 'apt-debs-', 'playwright-'];
             const daysToKeep = 10;   // Keep the last 10 days of caches (adjust as needed)
 
             const cutoffDate = new Date();
             cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
-            console.log(`Deleting ${keyPrefix} caches older than ${cutoffDate.toISOString()}`);
+            console.log(`Deleting ${keyPrefixes.join(', ')} caches older than ${cutoffDate.toISOString()}`);
 
             const { data: caches } = await github.rest.actions.getActionsCacheList({
               owner: context.repo.owner,
@@ -31,7 +34,7 @@ jobs:
 
             let deleted = 0;
             for (const cache of caches.actions_caches) {
-              if (cache.key.startsWith(keyPrefix)) {
+              if (keyPrefixes.some((prefix) => cache.key.startsWith(prefix))) {
                 const lastAccessed = new Date(cache.last_accessed_at);
                 if (lastAccessed < cutoffDate) {
                   console.log(`Deleting cache: ${cache.key} (last accessed: ${cache.last_accessed_at}, size: ${cache.size_in_bytes} bytes)`);
@@ -49,4 +52,4 @@ jobs:
               }
             }
 
-            console.log(`Cleanup complete. Deleted ${deleted} old ML engine caches.`);
+            console.log(`Cleanup complete. Deleted ${deleted} old caches.`);
