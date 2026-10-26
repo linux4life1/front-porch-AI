@@ -37,13 +37,8 @@ class ChatStateSnapshot {
     this._personas,
     this._hub,
     this._llm,
-    this._realism, {
-    StorageService? storage,
-  }) : _storage = storage;
-
-  /// The Ambient scene choice; null (no scene sent) when a test builds the
-  /// snapshot without storage.
-  final StorageService? _storage;
+    this._realism,
+  );
 
   final ChatService _chat;
   final CharacterRepository _characters;
@@ -316,10 +311,7 @@ class ChatStateSnapshot {
       // The Ambient Stage's scene: the story's weather as the colour strings
       // the PWA paints behind the bubbles (docs/design/ambient-stage.md).
       // Null when Ambient scene is Off or the chat has no weather. Additive.
-      'scene': switch (_storage) {
-        null => null,
-        final storage => sceneTokensFor(_chat, storage)?.toWire(),
-      },
+      'scene': sceneTokensFor(_chat)?.toWire(),
       // Per-chat system prompt source (1:1 only) and, while a new chat
       // waits on it, the picker's prompts. Additive; omitted in groups.
       'promptSource': ?_chat.promptSourceJson,

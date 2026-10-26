@@ -43,6 +43,10 @@ extension ChatServiceAccessorsLiving on ChatService {
   /// always told users weather depends on Passage of Time. Consumed by the
   /// injection leaf, the needs decay modifiers, the sidebar TimeStrip, and the
   /// web facade — one source.
+  /// The app's appearance choices, read live by the Ambient Stage
+  /// (`sceneTokensFor`) so the chat page and the web chat state agree.
+  AppearanceSettings get appearance => _storageService.appearance;
+
   DailyWeather? get _currentWeatherImpl {
     if (!_clockRunning || !_storageService.realismSettings.weatherEnabled) {
       return null;

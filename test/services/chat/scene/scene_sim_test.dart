@@ -21,6 +21,7 @@
 // paints from the wire, a neutral cell paints nothing, and the chat's own
 // text stays readable over the tinted canvas on every theme in both modes.
 
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -96,14 +97,30 @@ void main() {
     expect(unknown.haze, known.haze);
   });
 
-  test('a stormy night is the darkest scene and fog the haziest', () {
-    final ground = AppThemePalettes.porch.dark.background;
+  test('storm darkens most, night washes strongest, fog hazes most', () {
+    // On a near-black ground every wash lightens, so darkness is judged on
+    // a mid grey, per condition at one part of day; the part of day by the
+    // weight of its wash.
+    const ground = Color(0xFF808080);
     double lum(SceneTokens s) => s.compositeOver(ground).computeLuminance();
-    final all = _cells(dark: true).toList();
-    final darkest = all.reduce((a, b) => lum(a) <= lum(b) ? a : b);
-    expect(darkest.daypart, 'night');
-    expect(darkest.condition, 'storm');
-    final haziest = all.reduce((a, b) => a.haze >= b.haze ? a : b);
+    SceneTokens at(WeatherCondition c) => SceneSim.resolve(
+      daypart: 'late_morning',
+      condition: c,
+      temp: TempBand.mild,
+      dark: true,
+    );
+    final darkest = WeatherCondition.values.reduce(
+      (a, b) => lum(at(a)) <= lum(at(b)) ? a : b,
+    );
+    expect(darkest, WeatherCondition.storm);
+    expect(lum(at(WeatherCondition.clear)), ground.computeLuminance());
+    final strongest = kSceneDaypartWash.entries.reduce(
+      (a, b) => a.value.alpha >= b.value.alpha ? a : b,
+    );
+    expect(strongest.key, 'night');
+    final haziest = _cells(
+      dark: true,
+    ).reduce((a, b) => a.haze >= b.haze ? a : b);
     expect(haziest.condition, 'fog');
   });
 

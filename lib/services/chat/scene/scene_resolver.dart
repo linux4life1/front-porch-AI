@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/chat_service.dart';
-import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'scene_tokens.dart';
 
@@ -26,8 +25,8 @@ import 'scene_tokens.dart';
 /// climate on, weather off, or the clock not running; [currentWeather] is
 /// already null for all of those). Read live by the desktop stage and the
 /// web chat state, so both surfaces agree.
-SceneTokens? sceneTokensFor(ChatService chat, StorageService storage) {
-  final appearance = storage.appearance;
+SceneTokens? sceneTokensFor(ChatService chat) {
+  final appearance = chat.appearance;
   if (appearance.ambientScene == AmbientScene.off) return null;
   final day = chat.currentWeather;
   if (day == null) return null;

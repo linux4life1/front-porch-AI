@@ -115,9 +115,14 @@ void main() {
   ) async {
     final game = await _pump(tester, _scene(WeatherCondition.storm));
     expect(game.paused, isFalse);
+    // Flutter's lifecycle walks resumed → inactive → hidden and back.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
     expect(game.paused, isTrue);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(game.paused, isTrue, reason: 'inactive is not yet looking');
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     await tester.pump();
     expect(game.paused, isFalse);

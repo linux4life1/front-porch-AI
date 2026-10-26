@@ -240,7 +240,7 @@ class ChatSurface extends StatelessWidget {
                 // only while there is a scene (docs/design/ambient-stage.md).
                 Consumer<ChatService>(
                   builder: (context, chat, _) {
-                    final tokens = sceneTokensFor(chat, storageService);
+                    final tokens = sceneTokensFor(chat);
                     if (tokens == null) return const SizedBox.shrink();
                     return Positioned.fill(
                       child: IgnorePointer(child: AmbientStage(tokens: tokens)),
