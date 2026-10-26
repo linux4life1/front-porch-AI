@@ -173,6 +173,43 @@ Mapping, owned by `scene_sim.dart`:
 Determinism: the sim seeds from the same session seed, day and hour the
 weather engine uses, so regen, swipe and reload draw the same sky.
 
+### The background must not contradict the story
+
+A painted scene has a time of day and a sky baked in. Today a user can
+read a midnight storm while a golden-hour café sits behind it; the stage
+makes that contradiction louder if it is naive. Rule: **the prose is the
+truth and the picture never contradicts it.**
+
+- **Only add what fits, never fake what does not.** On a pinned image the
+  stage adds compatible layers only. Story rain over a clear-noon image
+  means no rain and no night tint; the image stays as chosen and the
+  sidebar chip still tells the truth. No worse than today.
+- **Auto is the real fix and ships in the first PR.** With a world that
+  has climate on, the default background mode is *follows the story*: the
+  stage picks the tagged built-in scene that matches the daypart and
+  condition and crossfades when the clock moves. Pinning an image is
+  allowed and means accepting the rule above.
+- **Tags are mandatory for anything Auto can choose.** Every built-in
+  background carries daypart, condition and indoor/outdoor (several
+  already pair up: rooftop and rooftop at sunset, beach and beach with
+  waves). Indoor scenes get tint only, as window light. A custom image is
+  treated as outdoor, daytime, clear until the user corrects it in the
+  picker, and the picker offers "weather shows on this image" per entry.
+- **Expression background mode** (the character's expression image as
+  the backdrop) gets tint only.
+
+Resolution order stays what `chat_page_overlays.dart` does now: chat
+theme preset or its per-chat override, else the global Chat Background,
+with Auto as a new value of that setting. The web follows the same rules
+through its one background variable and the scene tokens.
+
+Next after the first PR: **a place owns a scene set.** A Living Worlds
+place can carry a small set of backgrounds by daypart and condition, so
+Auto picks from the place the scene is in. Image Studio can generate the
+missing plates for a place from its description and climate, once,
+locally, which closes the gap for any world rather than only the
+built-ins.
+
 Web twin: a canvas layer in `web_ui/src/chat/` fed by `SceneTokens`, with
 CSS-only fallbacks (tint and haze) when `prefers-reduced-motion` is set.
 Same particle model, same seed, same numbers.
