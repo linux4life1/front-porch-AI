@@ -201,9 +201,9 @@ function traitAuthors(chain: TreeWorld[]): Set<TreeWorld> {
     start = i + 1;
     // A run whose top has weather off has no author (climateAuthorOf).
     if (run[run.length - 1].climateEnabled === false) continue;
-    const author =
-      run.find((w) => w.climateEnabled === true) ??
-      run.find((w) => w.climateEnabled !== false);
+    // Same as Dart's climateAuthorOf: the first world in the run whose
+    // weather is not off (the flag defaults to on there and in the relay).
+    const author = run.find((w) => w.climateEnabled !== false);
     if (author) authors.add(author);
   }
   return authors;

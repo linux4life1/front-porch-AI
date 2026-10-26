@@ -148,9 +148,12 @@ describe('buildWorldInjection (Dart twin)', () => {
       'Bletchport',
       { description: big, atmosphere: 'thin', climateEnabled: true },
     );
+    // The room inherits its weather (climate off), so the parent is the
+    // climate author and its trait line is the one the budget must keep.
     const room = w('Room', {
       description: 'cozy',
       parentWorldId: 'Bletchport',
+      climateEnabled: false,
     });
     const text = buildWorldInjection([room, parent]);
     expect(text).toContain('air is thin');

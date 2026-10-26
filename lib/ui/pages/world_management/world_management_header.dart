@@ -22,13 +22,13 @@ import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_w
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
+/// Inner width below which the header stacks its actions under the title.
+const double _kStackBelow = 560;
+
 /// Hero header for World Management: animated glow, globe avatar, stat
 /// chips, and the Import / Starter worlds / From Wiki / New World actions.
 /// [onNewWorld] receives the header's build context (the create dialog
 /// anchors there).
-/// Inner width below which the header stacks its actions under the title.
-const double _kStackBelow = 560;
-
 class WorldManagementHeroHeader extends StatelessWidget {
   const WorldManagementHeroHeader({
     super.key,
