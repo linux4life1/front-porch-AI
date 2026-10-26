@@ -216,6 +216,8 @@ class SettingsSnapshot {
       // Appearance → Ambient scene: what the stage paints over the chat
       // background. Additive; the PWA paints the chat state's `scene`.
       'ambientScene': _storage.appearance.ambientScene.key,
+      'pauseEffectsWhileGenerating':
+          _storage.appearance.pauseEffectsWhileGenerating,
       ...readWorkerSettings(_storage, _llm),
     };
   }

@@ -13,11 +13,13 @@ import {
   THEME_EVENT, type ThemeChoice, currentThemeWire, loadThemeChoice, saveThemeChoice,
 } from '../theme/appTheme';
 
-type AmbientScene = 'off' | 'tint';
+type AmbientScene = 'off' | 'tint' | 'effects';
 const AMBIENT: { value: AmbientScene; label: string }[] = [
   { value: 'off', label: 'Off' },
   { value: 'tint', label: 'Tint only' },
+  { value: 'effects', label: 'Tint and effects' },
 ];
+const asScene = (v: unknown): AmbientScene => (v === 'tint' || v === 'effects' ? v : 'off');
 
 const CHOICES: { value: ThemeChoice; label: string }[] = [
   { value: 'desktop', label: 'Follow the desktop' },
@@ -36,6 +38,8 @@ export function AppearanceSettings() {
   const [error, setError] = useState('');
   // Appearance → Ambient scene, the desktop's own setting (null until read).
   const [ambient, setAmbient] = useState<AmbientScene | null>(null);
+  // Appearance → Pause effects while generating (null until read).
+  const [pauseGen, setPauseGen] = useState<boolean | null>(null);
 
   // Live: the server broadcasts `settings_changed` whenever a setting is
   // written (on the desktop or another browser), so the control re-reads on
@@ -44,9 +48,11 @@ export function AppearanceSettings() {
     let alive = true;
     const read = () => {
       api
-        .get<{ ambientScene?: unknown }>('/api/settings')
+        .get<{ ambientScene?: unknown; pauseEffectsWhileGenerating?: unknown }>('/api/settings')
         .then((s) => {
-          if (alive) setAmbient(s.ambientScene === 'tint' ? 'tint' : 'off');
+          if (!alive) return;
+          setAmbient(asScene(s.ambientScene));
+          setPauseGen(s.pauseEffectsWhileGenerating !== false);
         })
         .catch((e: unknown) => console.warn('Could not read the ambient scene setting', e));
     };
@@ -68,6 +74,16 @@ export function AppearanceSettings() {
     api.post('/api/settings', { ambientScene: next }).catch((e: unknown) => {
       setAmbient(before);
       setError(`Could not change the ambient scene: ${String(e)}`);
+    });
+  };
+
+  const setPause = (next: boolean) => {
+    const before = pauseGen;
+    setPauseGen(next);
+    setError('');
+    api.post('/api/settings', { pauseEffectsWhileGenerating: next }).catch((e: unknown) => {
+      setPauseGen(before);
+      setError(`Could not change the effects pause: ${String(e)}`);
     });
   };
 
@@ -137,7 +153,17 @@ export function AppearanceSettings() {
           ))}
         </select>
       </label>
-      <p className="reading-blurb">The story's weather as a wash over the chat background, in a world with climate on. The desktop's setting; changing it here changes it there too.</p>
+      <label>
+        <input
+          type="checkbox"
+          checked={pauseGen ?? true}
+          disabled={pauseGen === null}
+          onChange={(e) => setPause(e.target.checked)}
+          aria-label="Pause effects while generating"
+        />
+        {' '}Pause effects while generating
+      </label>
+      <p className="reading-blurb">The story's weather as a wash over the chat background, in a world with climate on; Tint and effects adds rain, snow, clouds, fog and lightning, held still while a reply is written if you like, so a local model keeps the graphics card. The High Contrast theme stays at the wash. The desktop's settings; changing them here changes them there too.</p>
     </section>
   );
 }

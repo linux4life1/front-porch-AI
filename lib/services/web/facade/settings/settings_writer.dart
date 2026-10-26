@@ -97,6 +97,10 @@ class SettingsWriter {
     if (ambient is String && AmbientScene.values.any((v) => v.key == ambient)) {
       await _storage.appearance.setAmbientScene(AmbientScene.fromKey(ambient));
     }
+    final pauseEffects = body['pauseEffectsWhileGenerating'];
+    if (pauseEffects is bool) {
+      await _storage.appearance.setPauseEffectsWhileGenerating(pauseEffects);
+    }
 
     final follow = body['followStreamingReplies'];
     if (follow is bool) {

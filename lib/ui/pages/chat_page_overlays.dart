@@ -239,14 +239,34 @@ class ChatSurface extends StatelessWidget {
                 // The Ambient Stage: the story's weather over whatever
                 // background won above, behind the chat column. Mounted
                 // only while there is a scene (docs/design/ambient-stage.md).
-                // Rebuilds only when the tokens change, not per streamed
-                // token; StorageService carries the Ambient scene setting.
-                Selector2<ChatService, StorageService, SceneTokens?>(
-                  selector: (_, chat, _) => sceneTokensFor(chat),
-                  builder: (context, tokens, _) {
+                // Rebuilds only when the tokens or the generating flag
+                // change, not per streamed token. Generating covers the
+                // settling post-gen passes too, which still call the model
+                // after isGenerating drops; StorageService carries the
+                // Ambient scene setting. Reduce motion makes the stage static,
+                // its weather held still.
+                Selector2<
+                  ChatService,
+                  StorageService,
+                  (SceneTokens?, bool generating)
+                >(
+                  selector: (_, chat, _) => (
+                    sceneTokensFor(chat),
+                    chat.isGenerating || chat.isSettlingTurn,
+                  ),
+                  builder: (context, scene, _) {
+                    final (tokens, generating) = scene;
                     if (tokens == null) return const SizedBox.shrink();
                     return Positioned.fill(
-                      child: IgnorePointer(child: AmbientStage(tokens: tokens)),
+                      child: IgnorePointer(
+                        child: AmbientStage(
+                          tokens: tokens,
+                          animated:
+                              tokens.hasEffects &&
+                              !MediaQuery.disableAnimationsOf(context),
+                          generating: generating,
+                        ),
+                      ),
                     );
                   },
                 ),

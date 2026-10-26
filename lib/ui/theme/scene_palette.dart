@@ -126,3 +126,46 @@ const Color kSceneShade = Color(0xFF0A0E14);
 /// On a light theme the canvas is paper, so every wash is scaled down to
 /// keep the chat's own text readable; `scene_sim_test` pins the floor.
 const double kSceneLightModeScale = 0.45;
+
+/// The paints for the moving weather (Tint and effects): each colour carries
+/// its own ceiling alpha, and the stage multiplies in a per-drop, per-cloud
+/// or per-blob alpha below 1. The lightning flash's alpha is its peak.
+@immutable
+class SceneEffectPaints {
+  const SceneEffectPaints({
+    required this.rain,
+    required this.snow,
+    required this.cloud,
+    required this.fog,
+    required this.flash,
+  });
+
+  final Color rain;
+  final Color snow;
+  final Color cloud;
+  final Color fog;
+  final Color flash;
+}
+
+/// Over a dark canvas: pale streaks and white flakes, but grey cloud and
+/// fog, since a bright one behind light text would wash it out. The fog's
+/// ceiling (0x4E) is the highest that keeps every non-High-Contrast theme's
+/// text at 4.5:1 over the haziest tint (dawn, fog, cryogenic);
+/// `scene_effects_test` pins the floor.
+const SceneEffectPaints kSceneEffectPaintsDark = SceneEffectPaints(
+  rain: Color(0x8CC8D7EB),
+  snow: Color(0xE6FFFFFF),
+  cloud: Color(0x668C96A2),
+  fog: Color(0x4EA9B1BB),
+  flash: Color(0x99F0F4FF),
+);
+
+/// Over paper: slate streaks and blue-grey flakes that show on white, and a
+/// softer cloud, fog and flash.
+const SceneEffectPaints kSceneEffectPaintsLight = SceneEffectPaints(
+  rain: Color(0x734B5B6E),
+  snow: Color(0xB3A9BCD0),
+  cloud: Color(0x669AA3AD),
+  fog: Color(0xB3C9CED3),
+  flash: Color(0x66FFFFFF),
+);

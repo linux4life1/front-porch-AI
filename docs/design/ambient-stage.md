@@ -57,16 +57,18 @@ Conditions that make Flame worth it:
 - **Colours are tokens.** Every colour the stage paints is handed in from
   `AppPalette` / the active theme or from the weather token map below.
   No literal colours in stage code; the raw-colour ratchets stay green.
-- **The stage costs nothing when nothing moves.** In the first PR the
-  stage is a static tint: it is not mounted when Ambient scene is Off, and
-  otherwise the engine loop never runs; it paints once when it loads and
-  once per change of scene.
-- **Pause rules arrive with the effects (PR 2).** Once something moves,
-  the stage ticks only while the app is visible and the window has focus
-  (the widget already owns this for an animated stage), stops when the OS
-  asks for reduced motion, and (optionally, a user switch) while a reply
-  is generating, because KoboldCpp shares the GPU. A static tint has
-  nothing to pause, so these switches land in PR 2.
+- **The stage costs nothing when nothing moves.** It is not mounted when
+  Ambient scene is Off. A static stage (Tint only, or the weather while
+  the OS asks for reduced motion) never runs the engine loop; it paints
+  once when it loads and once per change of scene.
+- **Pause rules come with the effects (PR 2).** Once something moves,
+  the stage ticks only while the app is visible and the window has focus,
+  and (optionally, the Pause effects while generating switch, on by
+  default) not while a reply is generating, because KoboldCpp shares the
+  GPU. When the OS asks for reduced motion the stage is static again: the
+  weather is drawn, held still where it is, and repainted only when the
+  scene changes. A static tint has nothing to pause, so these rules apply
+  only to a moving stage.
 - **All text is widgets.** Names, dialogue, controls and the composer stay
   Flutter widgets layered above the stage. The stage is only the picture.
 
@@ -76,33 +78,45 @@ comment, as the other reasoned dependencies do.
 ## 3. Stage architecture
 
 ```
-chat page
+chat page (ChatSurface)
 └─ Stack
-   ├─ Stage (GameWidget)            ← background image + weather + later sprites
-   │   ├─ BackdropComponent         the still or layered background
-   │   ├─ SkyTintComponent          daypart + condition + temperature wash
-   │   ├─ CloudLayer / FogLayer     drifting shapes, haze
-   │   ├─ PrecipitationComponent    rain or snow particles, lightning flash
-   │   └─ (later) SpriteStage       expression sprites for the VN layout
+   ├─ chat background image         the page's own layer, unchanged
+   ├─ AmbientStage → AmbientStageGame (GameWidget, transparent)
+   │   ├─ SceneTintComponent        priority 0: daypart + condition + temperature washes, haze
+   │   ├─ SceneCloudLayer           priority 1: drifting cloud puffs
+   │   ├─ SceneFogLayer             priority 2: drifting fog blobs
+   │   ├─ ScenePrecipitation        priority 3: rain or snow
+   │   ├─ SceneLightningFlash       priority 4: the storm flash
+   │   └─ (later) sprite stage      expression sprites for the VN layout
    └─ existing chat column          bubbles, composer, overlays, unchanged
 ```
+
+The web paints the same stack: the tint as the chat view's CSS layers,
+then one canvas (`SceneEffectsCanvas`) drawing clouds, fog, rain or snow
+and the flash in that order. Both surfaces composite the same colours in
+the same order, so one readability test covers both.
 
 - `lib/ui/chat_components/ambient/` holds the stage and its components,
   each a small class (size law applies).
 - `lib/services/chat/scene/` (plain Dart) owns the mapping from weather
   and clock to **scene tokens** (`SceneSim`), the gate that decides
-  whether there is a scene at all (`SceneGate`), and later the particle
-  budgets. It is the single source of truth for the numbers; this doc
+  whether there is a scene at all and how much of it (`SceneGate`, which
+  also holds High Contrast to Tint only), and the moving weather's
+  budgets and seeded sim (`SceneEffectSpec`, `SceneEffectsSim`). It is
+  the single source of truth for the numbers; this doc
   does not pin them. The colours live in `lib/ui/theme/scene_palette.dart`.
   A unit test pins each (daypart, condition, temperature) cell.
 - `WebThemeTokens` gains a sibling, `SceneTokens.wireOf(...)`, so the web
   paints the same scene from the chat state the way it paints the theme
   today and never works a colour out itself. Like the theme wire it
   carries both brightnesses, because the web may run its own mode.
-- The stage reads `chat.currentSegmentWeather`, `chat.upcomingWeather`,
-  `chat.activeChatBiome` and the story clock's daypart (the six dayparts
-  `time_strip.dart` already names) through the existing accessors. It
-  adds no new state and no new model call.
+- The stage reads `chat.currentSegmentWeather` (the segment carries its
+  day), the story clock's daypart and day count from `chat.timeService`
+  (the six dayparts `time_strip.dart` already names) and the chat's
+  session id for the seed, through the existing accessors
+  (`scene_resolver.dart`). It does not read the forecast or the biome;
+  the segment's condition and temperature band already carry the
+  biome's weather. It adds no new state and no new model call.
 - Custom backgrounds load from the app's storage paths, never Flame's
   asset bundle. No sync I/O in the widget tree (`io-lint`).
 
@@ -111,44 +125,69 @@ chat page
 The wire carries, for the current chat: `daypart`, `condition`, `temp`,
 and per brightness (`dark`, `light`) the washes as CSS colours in paint
 order (shade, daypart, condition, temperature cast) plus the haze
-strength and its centre and edge colours. PR 2 adds `effects` (kind and
-density) and `flash` (a lightning pulse).
+strength and its centre and edge colours. PR 2 adds, at the top level
+because they do not depend on the mode, `level` (tint or effects),
+`seed`, `pauseWhileGenerating` and `effects` (kind, density, clouds, fog,
+lightning, wind), and, at Tint and effects only, in each brightness's
+map the weather's `paints` (rain, snow, cloud, fog and its clear stop,
+flash). At Tint only the seed is 0 and the mode maps keep PR 1's four
+keys. Every field is additive.
 The interactive prototype that accompanies this doc shows every cell and
 the JSON the desktop would send; the Dart sim and its test are the source
 once they exist.
 
 ### Readability guard
 
-The tint sits behind the bubbles, never over them, so bubble contrast is
-unchanged by construction. A test asserts the tint alpha ceiling keeps the
-background's own text (timestamps, system notices drawn on the canvas)
-above the contrast floor the theme already promises, using `contrastRatio`
-from `lib/ui/theme/accent_fit.dart`.
+The tint and the effects sit behind the bubbles, never over them, so
+bubble contrast is unchanged by construction. What must survive is the
+background's own text (timestamps, system notices drawn on the canvas),
+held to the floor the theme already promises:
+`AppearanceSettings.accentMinRatio` (4.5:1, and 7:1 for High Contrast),
+measured with `contrastRatio` from `lib/ui/theme/accent_fit.dart`.
+
+- **Tint:** every (daypart, condition, temperature) cell over every
+  theme's background in both modes (`scene_sim_test`).
+- **Effects:** the same cells with the thickest cloud (0.75 of its paint)
+  or the thickest fog blob centre (0.5 of its paint) composited over the
+  tinted ground (no condition draws both), in the stack order both
+  surfaces share (tint, clouds, fog, then rain or snow and the flash on
+  top), every theme in both modes except High Contrast, which the gate
+  holds to Tint only so no effect is ever drawn on it
+  (`scene_effects_test`). Rain, snow and the flash are thin or momentary
+  and are not part of the floor.
+- **Next:** if dark-mode fog reads too faint under the 4.5:1 floor, the
+  lever is a scrim pill behind the canvas-drawn text (timestamps, system
+  notices); with that in place the effects need no text floor and the
+  fog paint can go back up.
 
 ### Settings and gates
 
 | Setting | Values | Default | Where |
 |---------|--------|---------|-------|
 | Ambient scene | Off · Tint only · Tint and effects | Off | Appearance (desktop and web) |
-| Pause effects while generating | on/off | on | Appearance (PR 2, with the effects) |
+| Pause effects while generating | on/off | on | Appearance (desktop and web, PR 2) |
 | Scene sound | on/off + volume | off | Appearance (Next) |
 | Mood glow | on/off | off | Appearance (Next) |
-| Reduce motion | follows OS, with an override | OS | Appearance (PR 2, with the effects) |
 
-PR 1 ships Ambient scene with Off and Tint only; Tint and effects, the
-generating pause and reduce motion land with the effects in PR 2, since
-a static tint has nothing to pause or reduce. Every row is a
-`settings_parity_manifest` entry when it ships. High Contrast forces
-Ambient scene to Tint only at most; with only Off and Tint only in PR 1
-that holds by construction, and the rule is implemented when the third
-value lands in PR 2. Weather paints nothing when the chat
-has no world with climate on, and nothing when the clock is off.
+Reduce motion is not a setting here: the stage follows the OS (PR 2), and
+an in-app override is Next.
+
+PR 1 ships Ambient scene with Off and Tint only. PR 2 ships Tint and
+effects, the Pause effects while generating switch and reduce motion
+(followed from the OS, on the desktop through Flutter's disable
+animations and on the web through `prefers-reduced-motion`), since a
+static tint has nothing to pause or reduce. Every row is a
+`settings_parity_manifest` entry when it ships. High Contrast holds
+Ambient scene to Tint only at most: `SceneGate` applies the cap, so the
+desktop stage and the web wire cannot disagree. Weather paints nothing
+when the chat has no world with climate on, and nothing when the clock
+is off.
 
 ### Performance budget
 
 A few hundred particles drawn as one batch per frame is trivial for any
 GPU. The real risks are GPU contention with a local model on integrated
-graphics and laptop battery. Mitigations: default off, a static tint
+graphics and laptop battery. Mitigations: default off, a static stage
 that never runs the engine loop, the pause rules above (PR 2), a
 particle budget that scales with stage area and caps low, and the
 generating pause. Flame cannot run at half frame rate, so the knobs
@@ -167,7 +206,8 @@ Inputs, all existing:
 - The story clock's daypart (dawn, morning, late morning, afternoon,
   evening, night) from the same source `time_strip.dart` reads.
 
-Mapping, owned by `scene_sim.dart`:
+Mapping, owned by `SceneSim` (`scene_tokens.dart`) for the washes and
+`SceneEffectSpec` (`scene_effects.dart`) for what moves:
 
 - **Daypart sets the base wash.** Dawn warm pink, morning pale gold, late
   morning neutral, afternoon faintly warm, evening amber, night deep blue
@@ -187,8 +227,14 @@ Mapping, owned by `scene_sim.dart`:
   biome can colour its own weather (green acid rain). Absent means the
   built-in mapping. Parsing stays defensive for older skins.
 
-Determinism: the sim seeds from the same session seed, day and hour the
-weather engine uses, so regen, swipe and reload draw the same sky.
+Determinism: the sim seeds from the chat's session seed and the story
+day the weather engine uses, plus the daypart and condition
+(`sceneSeed`), so regen, swipe and reload draw the same sky and a new
+part of day or a change of weather draws a new one. That is per-surface
+reproducibility: the same seed on the same surface at the same integer
+stage size draws the same scene. The scatter scales by the stage size,
+so the desktop and the web draw the same scene only at identical integer
+sizes; the shared vectors pin the sims at fixed sizes.
 
 ### Backgrounds and the weather overlay
 
@@ -315,9 +361,13 @@ script for what a sandbox cannot certify.
    canvas twin from the same seeded model; the Tint and effects setting
    value, with High Contrast held to Tint only; the pause rules (window
    focus and visibility, reduced motion) and the Pause effects while
-   generating switch, with web twins. Tests: budget and seed determinism, a golden of the seeded first
-   frame, a Playwright sweep stop. Poke: token speed with effects on and
-   off on an integrated-GPU machine.
+   generating switch, with web twins. Tests: budget and seed determinism
+   against vectors shared by the Dart and web sims, the High Contrast
+   cap in the gate, the wire, the stage's effects, freeze and generating
+   pause, and the web player and controls. Still owed: a golden of the
+   seeded first frame (the authoring sandbox cannot run the Linux golden
+   image) and a Playwright sweep stop. Poke: token speed with effects on and off on an
+   integrated-GPU machine.
 3. **Scene sound.** Loops per condition and the thunder one-shot on the
    players Porch Stories uses; ducking under TTS; Scene sound switch and
    volume with web twins; licence record for every bundled file. Tests:

@@ -38,6 +38,7 @@ class AppearanceSettings with SettingsBase {
   UiFont _font = UiFont.inter;
   UiCorners _corners = UiCorners.standard;
   AmbientScene _ambientScene = AmbientScene.off;
+  bool _pauseEffectsWhileGenerating = true;
   Brightness _platformBrightness =
       PlatformDispatcher.instance.platformBrightness;
 
@@ -54,6 +55,10 @@ class AppearanceSettings with SettingsBase {
 
   /// What the Ambient Stage paints over the chat background.
   AmbientScene get ambientScene => _ambientScene;
+
+  /// Whether the stage's moving weather stops while a reply is generating,
+  /// so a local model on the same GPU has it to itself. On by default.
+  bool get pauseEffectsWhileGenerating => _pauseEffectsWhileGenerating;
 
   /// The brightness in force now; [AppThemeMode.system] follows the OS.
   bool get isDark => switch (_mode) {
@@ -122,6 +127,8 @@ class AppearanceSettings with SettingsBase {
     _font = UiFont.fromKey(prefs?.getString(k('ui_font')));
     _corners = UiCorners.fromKey(prefs?.getString(k('ui_radius')));
     _ambientScene = AmbientScene.fromKey(prefs?.getString(k('ambient_scene')));
+    _pauseEffectsWhileGenerating =
+        prefs?.getBool(k('ambient_pause_generating')) ?? true;
   }
 
   Future<void> setTheme(AppThemeId value) async {
@@ -170,6 +177,13 @@ class AppearanceSettings with SettingsBase {
     if (_ambientScene == value) return;
     _ambientScene = value;
     await prefs?.setString(k('ambient_scene'), value.key);
+    notify();
+  }
+
+  Future<void> setPauseEffectsWhileGenerating(bool value) async {
+    if (_pauseEffectsWhileGenerating == value) return;
+    _pauseEffectsWhileGenerating = value;
+    await prefs?.setBool(k('ambient_pause_generating'), value);
     notify();
   }
 

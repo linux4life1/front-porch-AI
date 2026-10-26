@@ -264,4 +264,25 @@ void main() {
       expect(AmbientScene.fromKey('junk'), AmbientScene.off);
     },
   );
+
+  test(
+    'pausing effects while generating is on until switched off, and stays off',
+    () async {
+      final (a, _) = await _boot();
+      expect(a.pauseEffectsWhileGenerating, isTrue);
+      var notified = 0;
+      a.initializeBase(await SharedPreferences.getInstance(), () => notified++);
+      await a.setPauseEffectsWhileGenerating(false);
+      expect(notified, 1);
+      await a.setPauseEffectsWhileGenerating(false);
+      expect(notified, 1, reason: 'the same choice again is not a write');
+
+      final (b, _) = await _reload();
+      expect(b.pauseEffectsWhileGenerating, isFalse);
+      await b.resetCustomisations();
+      expect(b.pauseEffectsWhileGenerating, isFalse);
+      expect(AmbientScene.fromKey('effects'), AmbientScene.effects);
+      expect(AmbientScene.values.map((s) => s.key), ['off', 'tint', 'effects']);
+    },
+  );
 }

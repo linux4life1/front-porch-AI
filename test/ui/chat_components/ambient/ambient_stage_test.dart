@@ -206,4 +206,88 @@ void main() {
     expect(game.paused, isFalse);
     expect(counter.ticks, greaterThan(hidden), reason: 'resumed: ticking');
   });
+
+  testWidgets('the first frame the stage paints is already tinted', (
+    tester,
+  ) async {
+    // Runs after the rendering pipeline's own frame callback, so after the
+    // frame's paint and before its post-frame callbacks: what it sees on
+    // the frame the stage first attaches is what that frame painted.
+    AmbientStageGame? game;
+    bool? tintAtFirstPaint;
+    bool? paintedThatFrame;
+    tester.binding.addPersistentFrameCallback((_) {
+      if (tintAtFirstPaint != null) return;
+      final found = find.byType(GameWidget<AmbientStageGame>).evaluate();
+      if (found.isEmpty) return;
+      game ??= (found.single.widget as GameWidget<AmbientStageGame>).game;
+      final g = game!;
+      if (!g.isAttached) return;
+      paintedThatFrame = !g.renderBox.debugNeedsPaint;
+      tintAtFirstPaint = g.children.whereType<SceneTintComponent>().any(
+        (c) => c.isMounted,
+      );
+    });
+    for (final animated in [false, true]) {
+      game = null;
+      tintAtFirstPaint = null;
+      paintedThatFrame = null;
+      await tester.pumpWidget(
+        _app(_scene(WeatherCondition.rain), animated: animated),
+      );
+      for (var i = 0; i < 5 && tintAtFirstPaint == null; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      expect(paintedThatFrame, isTrue, reason: 'animated: $animated');
+      expect(tintAtFirstPaint, isTrue, reason: 'animated: $animated');
+      await tester.pumpWidget(const SizedBox());
+    }
+  });
+
+  testWidgets('the tint is recorded once per scene and size, not per frame', (
+    tester,
+  ) async {
+    final game = await _pump(
+      tester,
+      _scene(WeatherCondition.fog),
+      animated: true,
+    );
+    expect(game.paused, isFalse);
+    final tint = game.children.whereType<SceneTintComponent>().single;
+    await tester.pump(const Duration(milliseconds: 16));
+    final recorded = tint.debugRebuilds;
+    expect(recorded, greaterThan(0));
+    // An animated stage renders every frame; the washes do not change.
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tint.debugRebuilds, recorded);
+    // A new scene records once more, then holds again.
+    await tester.pumpWidget(
+      _app(_scene(WeatherCondition.rain), animated: true),
+    );
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tint.debugRebuilds, recorded + 1);
+    // So does a new stage size.
+    tester.view.physicalSize = const Size(1000, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    for (var i = 0; i < 5; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(tint.debugRebuilds, recorded + 2);
+  });
+
+  testWidgets('leaving the chat frees the tint\'s recording', (tester) async {
+    // The GameWidget removes only the game; the game must take its children
+    // with it, or the picture lives until the next GC on every chat switch.
+    final game = await _pump(tester, _scene(WeatherCondition.fog));
+    final tint = game.children.whereType<SceneTintComponent>().single;
+    expect(tint.debugHasPicture, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    expect(tint.isRemoved, isTrue);
+    expect(tint.debugHasPicture, isFalse);
+  });
 }

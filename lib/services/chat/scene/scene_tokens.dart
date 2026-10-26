@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/theme/scene_palette.dart';
 import 'package:front_porch_ai/ui/theme/web_theme_tokens.dart';
 import '../weather_engine.dart';
+import 'scene_effects.dart';
 
 /// One translucent layer the stage paints, in paint order.
 @immutable
@@ -51,6 +52,10 @@ class SceneTokens {
     required this.layers,
     required this.haze,
     required this.dark,
+    this.level = SceneLevel.tint,
+    this.seed = 0,
+    this.effects = SceneEffectSpec.none,
+    this.pauseWhileGenerating = true,
   });
 
   /// The story clock's period key, the condition and band names.
@@ -69,6 +74,26 @@ class SceneTokens {
   /// Whether these are the dark-mode washes (light mode scales them down).
   final bool dark;
 
+  /// The wash alone, or the wash and the moving weather.
+  final SceneLevel level;
+
+  /// What the moving weather is scattered from (`sceneSeed`).
+  final int seed;
+
+  /// The condition's moving weather; painted only at [SceneLevel.effects].
+  final SceneEffectSpec effects;
+
+  /// Appearance → Pause effects while generating: the stage stops while a
+  /// reply is on its way, so a local model has the GPU to itself.
+  final bool pauseWhileGenerating;
+
+  /// The colours the moving weather paints in, for this brightness.
+  SceneEffectPaints get paints =>
+      dark ? kSceneEffectPaintsDark : kSceneEffectPaintsLight;
+
+  /// Whether the moving weather paints at all.
+  bool get hasEffects => level == SceneLevel.effects && !effects.isEmpty;
+
   /// Every layer composited over [ground], for contrast checks and tests.
   Color compositeOver(Color ground) {
     var c = ground;
@@ -85,8 +110,8 @@ class SceneTokens {
   double get hazeCentreAlpha => haze * 0.08;
   double get hazeEdgeAlpha => haze * 0.25;
 
-  /// One brightness's washes as CSS colour strings, so the PWA never works
-  /// out a colour.
+  /// One brightness's washes and weather paints as CSS colour strings, so
+  /// the PWA never works out a colour.
   Map<String, Object> toModeWire() => {
     'layers': [for (final l in layers) WebThemeTokens.css(l.paint)],
     'haze': haze,
@@ -94,11 +119,25 @@ class SceneTokens {
       kSceneHaze.withValues(alpha: hazeCentreAlpha),
     ),
     'hazeEdge': WebThemeTokens.css(kSceneHaze.withValues(alpha: hazeEdgeAlpha)),
+    // Only at Tint and effects: a tint-only scene has nothing to paint
+    // with them, and its mode map stays the four keys it shipped with.
+    if (level == SceneLevel.effects)
+      'paints': {
+        'rain': WebThemeTokens.css(paints.rain),
+        'snow': WebThemeTokens.css(paints.snow),
+        'cloud': WebThemeTokens.css(paints.cloud),
+        'fog': WebThemeTokens.css(paints.fog),
+        // The fog's own hue at zero alpha, the far stop of each blob.
+        'fogClear': WebThemeTokens.css(paints.fog.withValues(alpha: 0)),
+        'flash': WebThemeTokens.css(paints.flash),
+      },
   };
 
   /// The wire the web paints from: the scene's keys plus both brightnesses,
   /// because the PWA may run its own mode (like `webThemeWire` ships both
   /// token maps). [dark] and [light] are the same scene resolved twice.
+  /// The web scatters the same weather from [seed] with the same generator;
+  /// what moves is the same in both modes, only its paints differ.
   /// Additive; an older PWA ignores it.
   static Map<String, Object> wireOf({
     required SceneTokens dark,
@@ -107,6 +146,10 @@ class SceneTokens {
     'daypart': dark.daypart,
     'condition': dark.condition,
     'temp': dark.temp,
+    'level': dark.level.key,
+    'seed': dark.seed,
+    'pauseWhileGenerating': dark.pauseWhileGenerating,
+    'effects': dark.effects.toWire(),
     'dark': dark.toModeWire(),
     'light': light.toModeWire(),
   };
@@ -119,6 +162,10 @@ class SceneTokens {
       other.temp == temp &&
       other.haze == haze &&
       other.dark == dark &&
+      other.level == level &&
+      other.seed == seed &&
+      other.effects == effects &&
+      other.pauseWhileGenerating == pauseWhileGenerating &&
       _sameLayers(other.layers, layers);
 
   static bool _sameLayers(List<SceneLayer> a, List<SceneLayer> b) {
@@ -130,8 +177,17 @@ class SceneTokens {
   }
 
   @override
-  int get hashCode =>
-      Object.hash(daypart, condition, temp, haze, dark, layers.length);
+  int get hashCode => Object.hash(
+    daypart,
+    condition,
+    temp,
+    haze,
+    dark,
+    layers.length,
+    level,
+    seed,
+    effects,
+  );
 }
 
 /// Turns the story's weather and clock into [SceneTokens]. Plain Dart with
@@ -146,6 +202,9 @@ class SceneSim {
     required WeatherCondition condition,
     required TempBand temp,
     required bool dark,
+    SceneLevel level = SceneLevel.tint,
+    int seed = 0,
+    bool pauseWhileGenerating = true,
   }) {
     final scale = dark ? 1.0 : kSceneLightModeScale;
     final day = kSceneDaypartWash[daypart] ?? SceneWash.none;
@@ -168,6 +227,10 @@ class SceneSim {
       ],
       haze: cond.haze * scale,
       dark: dark,
+      level: level,
+      seed: seed,
+      effects: SceneEffectSpec.forCondition(condition.name),
+      pauseWhileGenerating: pauseWhileGenerating,
     );
   }
 }

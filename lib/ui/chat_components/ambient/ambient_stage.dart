@@ -21,25 +21,37 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:window_manager/window_manager.dart';
 
+import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'ambient_stage_game.dart';
 
 /// Hosts the [AmbientStageGame] behind the chat column and owns its pause.
 ///
-/// A static stage ([animated] false, the tint) never runs the engine loop:
-/// it paints once when it loads and once per change of scene, so a tint
-/// costs no frames at all. An animated stage (the effects) ticks only while
-/// the app is visible and the window has focus, so a stage nobody is
-/// looking at costs nothing on a laptop or beside a local model on the same
-/// GPU. The caller mounts it only when there is a scene to paint; Off means
-/// not mounted. It never takes focus or a Tab stop.
+/// A static stage ([animated] false: the tint, or the weather under reduce
+/// motion) never runs the engine loop: it paints once when it loads and
+/// once per change of scene, so it costs no frames at all, and any weather
+/// on it holds still where it is. An animated stage (the effects) ticks
+/// only while the app is visible and the window has focus, so a stage
+/// nobody is looking at costs nothing on a laptop or beside a local model
+/// on the same GPU; with Pause effects while generating on, it also stops
+/// while [generating] and starts again when the reply is done. The caller
+/// mounts it only when there is a scene to paint; Off means not mounted.
+/// It never takes focus or a Tab stop.
 class AmbientStage extends StatefulWidget {
-  const AmbientStage({super.key, required this.tokens, this.animated = false});
+  const AmbientStage({
+    super.key,
+    required this.tokens,
+    this.animated = false,
+    this.generating = false,
+  });
 
   final SceneTokens tokens;
 
   /// Whether anything on the stage moves. False paints on change only.
   final bool animated;
+
+  /// Whether a reply is being generated now.
+  final bool generating;
 
   @override
   State<AmbientStage> createState() => _AmbientStageState();
@@ -47,7 +59,8 @@ class AmbientStage extends StatefulWidget {
 
 class _AmbientStageState extends State<AmbientStage>
     with WidgetsBindingObserver, WindowListener {
-  late final AmbientStageGame _game = AmbientStageGame(widget.tokens);
+  late final AmbientStageGame _game = AmbientStageGame(widget.tokens)
+    ..effectsFrozen = !widget.animated;
   bool _appVisible = true;
 
   /// True until the window plugin answers, so a stage on a platform
@@ -87,8 +100,9 @@ class _AmbientStageState extends State<AmbientStage>
   @override
   void didUpdateWidget(AmbientStage old) {
     super.didUpdateWidget(old);
+    _game.effectsFrozen = !widget.animated;
     _game.tokens = widget.tokens;
-    if (old.animated != widget.animated) _applyPause();
+    _applyPause();
   }
 
   @override
@@ -122,7 +136,13 @@ class _AmbientStageState extends State<AmbientStage>
   }
 
   /// Whether the engine loop should be ticking now.
-  bool get shouldRun => widget.animated && _appVisible && _windowFocused;
+  bool get shouldRun =>
+      widget.animated && _appVisible && _windowFocused && !_pausedForReply;
+
+  bool get _pausedForReply =>
+      widget.generating &&
+      widget.tokens.pauseWhileGenerating &&
+      widget.tokens.level == SceneLevel.effects;
 
   void _applyPause() {
     if (shouldRun) {

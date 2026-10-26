@@ -82,6 +82,23 @@ class AppearanceTab extends StatelessWidget {
                   labelOf: (s) => s.label,
                   onChanged: appearance.setAmbientScene,
                 ),
+                // A local model shares the GPU with the stage's moving
+                // weather; on by default, it only matters with effects on.
+                MergeSemantics(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const AppearanceCaption('Pause effects while generating'),
+                      const SizedBox(height: 6),
+                      Switch(
+                        key: const ValueKey('appearance-ambient-pause'),
+                        value: appearance.pauseEffectsWhileGenerating,
+                        onChanged: appearance.setPauseEffectsWhileGenerating,
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 16),
