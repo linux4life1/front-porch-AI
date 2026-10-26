@@ -140,6 +140,9 @@ flutter:
     # assets/audio/scene/LICENSE.md). Directory entries are non-recursive.
     # The web server also serves these to the PWA as /audio/scene/<file>.
     - assets/audio/scene/
+    # Starter worlds offered on the Worlds page (.fpworld envelopes plus
+    # index.json; written by tools/gen_starter_worlds.mjs).
+    - assets/worlds/starter/
     # React PWA (built from web_ui/ by `npm run build`). Served by the web
     # server (lib/services/web) from assets/web_app. Directory entries are
     # non-recursive, so the Vite assets/ subdir is listed explicitly.

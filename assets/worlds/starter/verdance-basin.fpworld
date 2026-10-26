@@ -1,0 +1,58 @@
+{
+  "formatVersion": 1,
+  "id": "starter-verdance-basin",
+  "name": "Verdance Basin",
+  "description": "A vast river basin roofed by rainforest, where the air is thick and green and it rains a little nearly every day. Brown rivers wind between the trees, birds and frogs call all night, and people travel by boat or rope bridge because the ground floods half the year.",
+  "lorebook": {
+    "entries": []
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "rainforest",
+    "displayName": "Rainforest"
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-verdance-basin-stiltwater",
+      "name": "Stiltwater",
+      "description": "A town of houses on tall stilts above the floodplain, joined by plank walkways and ladders. When the river rises, people fish from their porches and children paddle canoes between the homes; when it falls, gardens appear in the mud below.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-verdance-basin-stiltwater"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-verdance-basin-canopy-market",
+      "name": "Canopy Market",
+      "description": "Trade platforms lashed high in the branches of giant trees, reached by rope lifts and swaying bridges. Traders sell fruit, dyes, carved wood and gossip under oilcloth awnings, and rain drips through the leaves onto everyone’s bargains.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-verdance-basin-canopy-market"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-verdance-basin-fern-hollow",
+      "name": "Fern Hollow",
+      "description": "A logging village gone quiet since the mill closed, its sawdust heaps grown over with ferns and moss. A handful of families stay on, keeping bees and running a little inn, and the forest creeps a little further into the streets each wet season.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-verdance-basin-fern-hollow"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-verdance-basin"
+  }
+}

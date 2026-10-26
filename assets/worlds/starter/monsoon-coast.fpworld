@@ -1,0 +1,58 @@
+{
+  "formatVersion": 1,
+  "id": "starter-monsoon-coast",
+  "name": "Monsoon Coast",
+  "description": "A long, hot coastline of palm groves, river deltas and fishing towns, where the year turns on the monsoon. Mornings are bright and sticky, afternoon storms roll in off the sea like clockwork, and evenings smell of wet earth, grilled fish and woodsmoke.",
+  "lorebook": {
+    "entries": []
+  },
+  "climate_enabled": true,
+  "biome": {
+    "id": "tropical",
+    "displayName": "Tropical"
+  },
+  "locations": [
+    {
+      "formatVersion": 1,
+      "id": "starter-monsoon-coast-palmreach",
+      "name": "Palmreach",
+      "description": "A fishing town on a narrow sandbar between a calm lagoon and the open sea. Boats are hauled up the beach each evening, nets dry on poles, and the whole town turns out when the catch comes in. Storm warnings travel by bell from the watchtower at the point.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-monsoon-coast-palmreach"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-monsoon-coast-reedbank",
+      "name": "Reedbank",
+      "description": "A river town of rice terraces stepping down to a wide brown river, with a flat ferry that crosses on a cable. Farmers work the paddies in wide hats, water buffalo wallow in the shallows, and the ferry keeper knows everybody’s business by noon.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-monsoon-coast-reedbank"
+      }
+    },
+    {
+      "formatVersion": 1,
+      "id": "starter-monsoon-coast-old-lantern-quay",
+      "name": "Old Lantern Quay",
+      "description": "A half-abandoned port where the big ships stopped calling years ago. Warehouses stand empty with their doors hanging open, but a few lantern-lit tea stalls and a night market still wake the waterfront after dark, and old sailors trade stories on the bollards.",
+      "lorebook": {
+        "entries": []
+      },
+      "climate_enabled": false,
+      "meta": {
+        "sourceId": "starter-monsoon-coast-old-lantern-quay"
+      }
+    }
+  ],
+  "meta": {
+    "sourceId": "starter-monsoon-coast"
+  }
+}
