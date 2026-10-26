@@ -78,16 +78,23 @@ comment, as the other reasoned dependencies do.
 ## 3. Stage architecture
 
 ```
-chat page
+chat page (ChatSurface)
 └─ Stack
-   ├─ Stage (GameWidget)            ← background image + weather + later sprites
-   │   ├─ BackdropComponent         the still or layered background
-   │   ├─ SkyTintComponent          daypart + condition + temperature wash
-   │   ├─ CloudLayer / FogLayer     drifting shapes, haze
-   │   ├─ PrecipitationComponent    rain or snow particles, lightning flash
-   │   └─ (later) SpriteStage       expression sprites for the VN layout
+   ├─ chat background image         the page's own layer, unchanged
+   ├─ AmbientStage → AmbientStageGame (GameWidget, transparent)
+   │   ├─ SceneTintComponent        priority 0: daypart + condition + temperature washes, haze
+   │   ├─ SceneCloudLayer           priority 1: drifting cloud puffs
+   │   ├─ SceneFogLayer             priority 2: drifting fog blobs
+   │   ├─ ScenePrecipitation        priority 3: rain or snow
+   │   ├─ SceneLightningFlash       priority 4: the storm flash
+   │   └─ (later) sprite stage      expression sprites for the VN layout
    └─ existing chat column          bubbles, composer, overlays, unchanged
 ```
+
+The web paints the same stack: the tint as the chat view's CSS layers,
+then one canvas (`SceneEffectsCanvas`) drawing clouds, fog, rain or snow
+and the flash in that order. Both surfaces composite the same colours in
+the same order, so one readability test covers both.
 
 - `lib/ui/chat_components/ambient/` holds the stage and its components,
   each a small class (size law applies).
@@ -103,10 +110,13 @@ chat page
   paints the same scene from the chat state the way it paints the theme
   today and never works a colour out itself. Like the theme wire it
   carries both brightnesses, because the web may run its own mode.
-- The stage reads `chat.currentSegmentWeather`, `chat.upcomingWeather`,
-  `chat.activeChatBiome` and the story clock's daypart (the six dayparts
-  `time_strip.dart` already names) through the existing accessors. It
-  adds no new state and no new model call.
+- The stage reads `chat.currentSegmentWeather` (the segment carries its
+  day), the story clock's daypart and day count from `chat.timeService`
+  (the six dayparts `time_strip.dart` already names) and the chat's
+  session id for the seed, through the existing accessors
+  (`scene_resolver.dart`). It does not read the forecast or the biome;
+  the segment's condition and temperature band already carry the
+  biome's weather. It adds no new state and no new model call.
 - Custom backgrounds load from the app's storage paths, never Flame's
   asset bundle. No sync I/O in the widget tree (`io-lint`).
 
@@ -127,11 +137,22 @@ once they exist.
 
 ### Readability guard
 
-The tint sits behind the bubbles, never over them, so bubble contrast is
-unchanged by construction. A test asserts the tint alpha ceiling keeps the
-background's own text (timestamps, system notices drawn on the canvas)
-above the contrast floor the theme already promises, using `contrastRatio`
-from `lib/ui/theme/accent_fit.dart`.
+The tint and the effects sit behind the bubbles, never over them, so
+bubble contrast is unchanged by construction. What must survive is the
+background's own text (timestamps, system notices drawn on the canvas),
+held to the floor the theme already promises:
+`AppearanceSettings.accentMinRatio` (4.5:1, and 7:1 for High Contrast),
+measured with `contrastRatio` from `lib/ui/theme/accent_fit.dart`.
+
+- **Tint:** every (daypart, condition, temperature) cell over every
+  theme's background in both modes (`scene_sim_test`).
+- **Effects:** the same cells with the thickest cloud (0.75 of its paint)
+  and then the thickest fog blob centre (0.5 of its paint) composited
+  over the tinted ground, in the stack order both surfaces share (tint,
+  clouds, fog, then rain or snow and the flash on top), every theme in
+  both modes except High Contrast, which the gate holds to Tint only so
+  no effect is ever drawn on it (`scene_effects_test`). Rain, snow and
+  the flash are thin or momentary and are not part of the floor.
 
 ### Settings and gates
 
@@ -141,7 +162,9 @@ from `lib/ui/theme/accent_fit.dart`.
 | Pause effects while generating | on/off | on | Appearance (desktop and web, PR 2) |
 | Scene sound | on/off + volume | off | Appearance (Next) |
 | Mood glow | on/off | off | Appearance (Next) |
-| Reduce motion | follows OS; an in-app override is Next | OS | the OS (PR 2) |
+
+Reduce motion is not a setting here: the stage follows the OS (PR 2), and
+an in-app override is Next.
 
 PR 1 ships Ambient scene with Off and Tint only. PR 2 ships Tint and
 effects, the Pause effects while generating switch and reduce motion
@@ -201,7 +224,11 @@ Mapping, owned by `SceneSim` (`scene_tokens.dart`) for the washes and
 Determinism: the sim seeds from the chat's session seed and the story
 day the weather engine uses, plus the daypart and condition
 (`sceneSeed`), so regen, swipe and reload draw the same sky and a new
-part of day or a change of weather draws a new one.
+part of day or a change of weather draws a new one. That is per-surface
+reproducibility: the same seed on the same surface at the same integer
+stage size draws the same scene. The scatter scales by the stage size,
+so the desktop and the web draw the same scene only at identical integer
+sizes; the shared vectors pin the sims at fixed sizes.
 
 ### Backgrounds and the weather overlay
 
