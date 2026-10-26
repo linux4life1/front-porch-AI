@@ -23,8 +23,9 @@ import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// Hero header for World Management: animated glow, globe avatar, stat
-/// chips, and the Import / From Wiki / New World actions. [onNewWorld]
-/// receives the header's build context (the create dialog anchors there).
+/// chips, and the Import / Starter worlds / From Wiki / New World actions.
+/// [onNewWorld] receives the header's build context (the create dialog
+/// anchors there).
 class WorldManagementHeroHeader extends StatelessWidget {
   const WorldManagementHeroHeader({
     super.key,
@@ -146,6 +147,17 @@ class WorldManagementHeroHeader extends StatelessWidget {
                     ),
                     tooltip: 'Import Place (.fpworld)',
                     onPressed: () => importFpWorldFlow(context, repo),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    key: const Key('worlds-starter'),
+                    icon: const Icon(Icons.auto_awesome_outlined, size: 18),
+                    label: const Text('Starter worlds'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppColors.formAccentOf(context),
+                      side: BorderSide(color: AppColors.formAccentOf(context)),
+                    ),
+                    onPressed: () => showStarterWorldsDialog(context, repo),
                   ),
                   const SizedBox(height: 8),
                   OutlinedButton.icon(
