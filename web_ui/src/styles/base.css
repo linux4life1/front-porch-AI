@@ -53,6 +53,9 @@
   --chat-user-text: var(--accent-ink);
   --chat-ai-bubble: var(--ai-bubble);
   --chat-ai-text: var(--text);
+  /* Bubble fill opacity, the desktop's Bubble Opacity (theme/bubbleOpacity.ts
+     sets it). Fades the fill only, never the text. */
+  --chat-bubble-alpha: 1;
   /* Reading size (Settings + in-chat theme drawer). 1 = default. Applied to
      bubbles, composer, edit, sidebar help — not nav/chips/chrome. */
   --reading-size: 1;

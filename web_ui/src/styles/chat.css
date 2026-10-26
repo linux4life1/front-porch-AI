@@ -238,7 +238,8 @@ button.ghost.small, .ghost.small { font-size: 0.72rem; padding: 4px 8px; backgro
 /* A director's note: a centred scene card, not the user's own bubble. */
 .msg-row .bubble.director-note {
   align-self: center; max-width: min(560px, 92%); text-align: center;
-  background: color-mix(in srgb, var(--porch-amber) 12%, var(--surface));
+  /* Fades with Bubble Opacity like the desktop's director wash. */
+  background: color-mix(in srgb, color-mix(in srgb, var(--porch-amber) 12%, var(--surface)) calc(var(--chat-bubble-alpha, 1) * 100%), transparent);
   border: 1px solid color-mix(in srgb, var(--porch-amber) 45%, transparent);
   color: var(--text); font-style: italic;
 }

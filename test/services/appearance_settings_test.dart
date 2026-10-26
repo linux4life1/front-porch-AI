@@ -313,4 +313,49 @@ void main() {
       expect(c.sceneSoundVolume, 0.0);
     },
   );
+
+  test('bubbles are opaque with the ambient scene off and 0.25 while it '
+      'paints, until the user stores their own opacity', () async {
+    final (a, ui) = await _boot();
+    final prefs = await SharedPreferences.getInstance();
+    expect(ui.bubbleOpacity, 1.0, reason: 'scene off, nothing stored');
+    await a.setAmbientScene(AmbientScene.effects);
+    expect(ui.bubbleOpacity, 0.25, reason: 'the weather must show through');
+    await a.setAmbientScene(AmbientScene.tint);
+    expect(ui.bubbleOpacity, 0.25);
+    expect(
+      prefs.containsKey(ui.k('bubble_opacity')),
+      isFalse,
+      reason: 'following the scene is not a stored choice',
+    );
+    await a.setAmbientScene(AmbientScene.off);
+    expect(ui.bubbleOpacity, 1.0);
+
+    final (_, onStart) = await _boot({'ambient_scene': 'effects'});
+    expect(onStart.bubbleOpacity, 0.25, reason: 'the scene read at start');
+  });
+
+  test('a stored bubble opacity wins over the ambient scene default, '
+      'even a stored 1.0', () async {
+    final (a, ui) = await _boot({
+      'ambient_scene': 'tint',
+      'bubble_opacity': 0.5,
+    });
+    expect(ui.bubbleOpacity, 0.5);
+    await a.setAmbientScene(AmbientScene.off);
+    expect(ui.bubbleOpacity, 0.5);
+    await a.setAmbientScene(AmbientScene.effects);
+    expect(ui.bubbleOpacity, 0.5);
+
+    final (b, opaque) = await _boot({
+      'ambient_scene': 'effects',
+      'bubble_opacity': 1.0,
+    });
+    expect(opaque.bubbleOpacity, 1.0, reason: 'a stored 1.0 is not "unset"');
+
+    await opaque.setBubbleOpacity(0.4);
+    await b.setAmbientScene(AmbientScene.off);
+    final (_, restarted) = await _reload();
+    expect(restarted.bubbleOpacity, 0.4);
+  });
 }

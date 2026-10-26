@@ -14,6 +14,8 @@ export type WsEvent = {
   name?: string;
   // `settings_changed`: the desktop's resolved app theme (theme/appTheme.ts).
   theme?: unknown;
+  // `settings_changed`: the bubble opacity the desktop paints (theme/bubbleOpacity.ts).
+  bubbleOpacity?: unknown;
   error?: string;
   // `chargen_error`: the same text as `error` (additive), the provider's
   // own words when a backend refused the request.

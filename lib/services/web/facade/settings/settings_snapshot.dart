@@ -222,6 +222,9 @@ class SettingsSnapshot {
       // chat state's `scene.sound` carries the same pair to the chat page.
       'sceneSound': _storage.appearance.sceneSound,
       'sceneSoundVolume': _storage.appearance.sceneSoundVolume,
+      // Bubble Opacity as the desktop paints it: the stored value, else the
+      // Ambient scene's default. Additive; an older PWA ignores the key.
+      'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
       ...readWorkerSettings(_storage, _llm),
     };
   }

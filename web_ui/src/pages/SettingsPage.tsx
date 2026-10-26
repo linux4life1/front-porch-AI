@@ -7,6 +7,7 @@ import { PersonaManager } from '../components/PersonaManager';
 import { ModelPicker } from '../components/ModelPicker';
 import { ChatColorsSettings } from '../components/ChatColorsSettings';
 import { ReadingSizeSettings } from '../components/ReadingSizeSettings';
+import { BubbleOpacitySettings } from '../components/BubbleOpacitySettings';
 import { FollowStreamingSettings } from '../components/FollowStreamingSettings';
 import { AppearanceSettings } from '../components/AppearanceSettings';
 import { MessageSideSettings } from '../components/MessageSideSettings';
@@ -391,6 +392,7 @@ export function SettingsPage() {
           <FollowStreamingSettings />
           <AppearanceSettings />
           <ReadingSizeSettings />
+          <BubbleOpacitySettings />
           <ChatColorsSettings />
         </div>
 

@@ -277,6 +277,6 @@
 }
 .thinking-body { user-select: text; -webkit-user-select: text; overflow-anchor: none; }
 .msg-speaker { user-select: none; -webkit-user-select: none; }
-.bubble.user { align-self: flex-end; background: var(--chat-user-bubble); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
-.bubble.ai { align-self: flex-start; background: var(--chat-ai-bubble); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }
+.bubble.user { align-self: flex-end; background: color-mix(in srgb, var(--chat-user-bubble) calc(var(--chat-bubble-alpha, 1) * 100%), transparent); color: var(--chat-user-text); border-bottom-right-radius: 4px; }
+.bubble.ai { align-self: flex-start; background: color-mix(in srgb, var(--chat-ai-bubble) calc(var(--chat-bubble-alpha, 1) * 100%), transparent); color: var(--chat-ai-text); border-bottom-right-radius: 16px; border-bottom-left-radius: 4px; }
 .bubble.streaming { opacity: 0.85; }

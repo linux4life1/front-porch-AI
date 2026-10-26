@@ -404,6 +404,8 @@ class WebLiveRelays {
         streamHub.broadcast({
           'event': 'settings_changed',
           'theme': webThemeWire(_storage.appearance),
+          // Additive: the bubbles' opacity follows the Ambient scene default.
+          'bubbleOpacity': _storage.uiSettings.bubbleOpacity,
         });
       });
     }

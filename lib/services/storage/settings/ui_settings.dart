@@ -42,7 +42,11 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
   bool get _isDark => _appearance.isDark;
   ChatDefaultColors get _chat => _appearance.chatDefaults;
 
-  double _bubbleOpacity = 1.0;
+  /// Bubble opacity with nothing stored: opaque while the Ambient Stage is
+  /// off, see-through while it paints so the weather shows. A stored value wins.
+  static const double kBubbleOpacityDefault = 1.0;
+  static const double kBubbleOpacityStageDefault = 0.25;
+  double? _storedBubbleOpacity;
 
   // Chat colors the user picked, per mode; null falls back to the app
   // theme's default (AppPalette.chat).
@@ -85,7 +89,11 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
     'story_tools',
   ];
 
-  double get bubbleOpacity => _bubbleOpacity;
+  double get bubbleOpacity =>
+      _storedBubbleOpacity ??
+      (_appearance.ambientScene == AmbientScene.off
+          ? kBubbleOpacityDefault
+          : kBubbleOpacityStageDefault);
   Color get globalUserBubbleColor =>
       (_isDark ? _globalUserBubbleColor : _lightUserBubbleColor) ??
       _chat.userBubble;
@@ -120,7 +128,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
 
   void load() {
     _evaluationMinimized = prefs?.getBool(k('evaluation_minimized')) ?? false;
-    _bubbleOpacity = prefs?.getDouble(k('bubble_opacity')) ?? _bubbleOpacity;
+    _storedBubbleOpacity = prefs?.getDouble(k('bubble_opacity'));
     _globalUserBubbleColor = _pickedColor('global_user_bubble_color');
     _globalUserTextColor = _pickedColor('global_user_text_color');
     _globalAiBubbleColor = _pickedColor('global_ai_bubble_color');
@@ -191,7 +199,7 @@ class UiSettings with SettingsBase, LibraryViewPrefs {
   }
 
   Future<void> setBubbleOpacity(double value) async {
-    _bubbleOpacity = value;
+    _storedBubbleOpacity = value;
     await prefs?.setDouble(k('bubble_opacity'), value);
     notify();
   }

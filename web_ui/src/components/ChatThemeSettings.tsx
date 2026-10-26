@@ -9,6 +9,7 @@
 import { useState, useEffect } from 'react';
 import type { ChatThemeOverrides, ChatThemePreset } from './chatTypes';
 import { ReadingSizeSlider } from './ReadingSizeSettings';
+import { BubbleOpacitySlider } from './BubbleOpacitySettings';
 import { userBubbleDialogueColor } from '../chatColors';
 
 // Mirror of the 10 desktop presets (ChatThemePreset.presets).
@@ -161,6 +162,7 @@ export function ChatThemeSettings({ overrides, onSave }: {
       <h3>Chat theme</h3>
       <p className="reading-blurb">Pick a visual theme for this chat. Customize individual colors below.</p>
       <ReadingSizeSlider />
+      <BubbleOpacitySlider />
 
       {/* Preset picker */}
       <div className="theme-presets">

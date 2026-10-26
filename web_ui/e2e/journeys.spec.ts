@@ -1501,6 +1501,32 @@ test('the theme follows the desktop, and a device can keep its own mode', { tag:
   }
 });
 
+// Bubble opacity is the desktop's own setting: the phone's slider writes it,
+// this page's bubbles fade at once, and a reload reads the stored value back.
+test('bubble opacity set on the phone is the desktop setting and survives a reload', { tag: SERIAL }, async ({ page }) => {
+  const read = async () =>
+    ((await (await page.request.get('/api/settings')).json()) as { bubbleOpacity?: number }).bubbleOpacity;
+  const alpha = () =>
+    page.evaluate(() => document.documentElement.style.getPropertyValue('--chat-bubble-alpha'));
+  const was = (await read()) ?? 1;
+  const target = Math.abs(was - 0.45) < 0.01 ? 0.55 : 0.45;
+  await openRoute(page, '/settings');
+  const slider = page.getByLabel('Bubble opacity', { exact: true });
+  await expect(slider).toBeEnabled();
+  try {
+    await slider.fill(String(target));
+    await expect.poll(alpha).toBe(String(target));
+    await expect.poll(read, { message: 'the posted opacity round-trips' }).toBe(target);
+    await page.reload();
+    await expect(page.getByLabel('Bubble opacity', { exact: true })).toBeEnabled();
+    expect(Number(await page.getByLabel('Bubble opacity', { exact: true }).inputValue())).toBeCloseTo(target, 5);
+    await expect.poll(alpha).toBe(String(target));
+  } finally {
+    const back = await page.request.post('/api/settings', { data: { bubbleOpacity: was } });
+    expect(back.ok(), `restoring Bubble opacity: ${back.status()}`).toBe(true);
+  }
+});
+
 test(
   'locations on the phone: the library groups, the law speaks over the wire, delete re-roots in words',
   { tag: SERIAL },

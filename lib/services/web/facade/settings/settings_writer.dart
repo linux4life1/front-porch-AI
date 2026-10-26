@@ -108,6 +108,13 @@ class SettingsWriter {
     if (sceneVolume is num && sceneVolume.isFinite) {
       await _storage.appearance.setSceneSoundVolume(sceneVolume.toDouble());
     }
+    // Bubble Opacity, held to the desktop slider's 0.1..1 range.
+    final opacity = body['bubbleOpacity'];
+    if (opacity is num && opacity.isFinite) {
+      await _storage.uiSettings.setBubbleOpacity(
+        opacity.toDouble().clamp(0.1, 1.0),
+      );
+    }
 
     final follow = body['followStreamingReplies'];
     if (follow is bool) {

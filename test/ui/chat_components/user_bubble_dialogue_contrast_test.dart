@@ -28,6 +28,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/bubbles/message_bubble.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
+import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 import 'package:front_porch_ai/ui/theme/chat_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import 'package:provider/provider.dart';
@@ -223,5 +224,39 @@ void main() {
     for (final ink in [body!, _quoteColor(tester, _quote)]) {
       expect(contrastRatio(ink, ground), greaterThanOrEqualTo(4.5));
     }
+  });
+
+  testWidgets('turning the ambient scene on repaints the bubble see-through, '
+      'and a stored opacity holds', (tester) async {
+    final storage = await _pump(tester, isUser: true);
+    // The bubble's own fill: the user's emerald at the effective opacity.
+    double fillAlpha() {
+      final fills = tester
+          .widgetList<Container>(
+            find.descendant(
+              of: find.byType(MessageBubble),
+              matching: find.byType(Container),
+            ),
+          )
+          .map((c) => c.decoration)
+          .whereType<BoxDecoration>()
+          .map((d) => d.color)
+          .whereType<Color>()
+          .where((c) => c.withValues(alpha: 1) == _emerald)
+          .toList();
+      expect(fills, hasLength(1), reason: 'one emerald bubble fill');
+      return fills.single.a;
+    }
+
+    expect(fillAlpha(), 1.0);
+    await tester.runAsync(
+      () => storage.appearance.setAmbientScene(AmbientScene.effects),
+    );
+    await tester.pump();
+    expect(fillAlpha(), closeTo(0.25, 0.002));
+
+    await tester.runAsync(() => storage.uiSettings.setBubbleOpacity(0.9));
+    await tester.pump();
+    expect(fillAlpha(), closeTo(0.9, 0.002));
   });
 }
