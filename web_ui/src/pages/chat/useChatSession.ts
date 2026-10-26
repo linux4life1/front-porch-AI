@@ -11,6 +11,7 @@ import { ChatSocket } from '../../api/ws';
 import { NO_PROCESSING, type Processing } from '../../components/ProcessingOverlay';
 import { resolveThemeColors } from '../../components/ChatThemeSettings';
 import { parseSceneWire, sceneCssVars } from '../../theme/sceneTokens';
+import { usePaintedThemeMode } from '../../theme/usePaintedThemeMode';
 import { type GenStatus } from '../../components/ChatMessageList';
 import { type SessionSummary } from '../../components/ConversationsDrawer';
 import { useAuth } from '../../auth/AuthContext';
@@ -302,12 +303,14 @@ export function useChatSession() {
 
   // Apply per-chat theme overrides and the Ambient Stage's scene as CSS
   // custom properties on the chat container. The scene is the desktop's
-  // colour strings arranged into one background list; it paints behind the
-  // bubbles like the theme veil does (chat.css).
+  // colour strings for the mode this page paints, arranged into one
+  // background list; it paints behind the bubbles like the theme veil does
+  // (chat.css), and re-applies when this page changes mode.
+  const themeMode = usePaintedThemeMode();
   useEffect(() => {
     const vars = {
       ...resolveThemeColors(state?.themeOverrides ?? null),
-      ...sceneCssVars(parseSceneWire(state?.scene)),
+      ...sceneCssVars(parseSceneWire(state?.scene), themeMode),
     };
     const el = document.querySelector('.chat-view') as HTMLElement | null;
     if (!el) return;
@@ -320,7 +323,7 @@ export function useChatSession() {
       el.classList.remove('has-theme-bg');
       el.classList.remove('has-scene');
     };
-  }, [state?.themeOverrides, state?.scene]);
+  }, [state?.themeOverrides, state?.scene, themeMode]);
 
   const stop = () => api.post('/api/chat/stop');
   // Chance Time: flip the teaser to the event card, then accept — which unfreezes

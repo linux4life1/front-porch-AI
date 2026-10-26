@@ -50,6 +50,7 @@ class SceneTokens {
     required this.temp,
     required this.layers,
     required this.haze,
+    required this.dark,
   });
 
   /// The story clock's period key, the condition and band names.
@@ -64,6 +65,9 @@ class SceneTokens {
   /// Haze strength, 0 to 1; the stage draws it as a radial wash of
   /// [kSceneHaze] thin at the centre and thicker at the edges.
   final double haze;
+
+  /// Whether these are the dark-mode washes (light mode scales them down).
+  final bool dark;
 
   /// Every layer composited over [ground], for contrast checks and tests.
   Color compositeOver(Color ground) {
@@ -81,18 +85,30 @@ class SceneTokens {
   double get hazeCentreAlpha => haze * 0.08;
   double get hazeEdgeAlpha => haze * 0.25;
 
-  /// The wire the web paints from: CSS colour strings only, so the PWA
-  /// never works out a colour. Additive; an older PWA ignores it.
-  Map<String, Object> toWire() => {
-    'daypart': daypart,
-    'condition': condition,
-    'temp': temp,
+  /// One brightness's washes as CSS colour strings, so the PWA never works
+  /// out a colour.
+  Map<String, Object> toModeWire() => {
     'layers': [for (final l in layers) WebThemeTokens.css(l.paint)],
     'haze': haze,
     'hazeCentre': WebThemeTokens.css(
       kSceneHaze.withValues(alpha: hazeCentreAlpha),
     ),
     'hazeEdge': WebThemeTokens.css(kSceneHaze.withValues(alpha: hazeEdgeAlpha)),
+  };
+
+  /// The wire the web paints from: the scene's keys plus both brightnesses,
+  /// because the PWA may run its own mode (like `webThemeWire` ships both
+  /// token maps). [dark] and [light] are the same scene resolved twice.
+  /// Additive; an older PWA ignores it.
+  static Map<String, Object> wireOf({
+    required SceneTokens dark,
+    required SceneTokens light,
+  }) => {
+    'daypart': dark.daypart,
+    'condition': dark.condition,
+    'temp': dark.temp,
+    'dark': dark.toModeWire(),
+    'light': light.toModeWire(),
   };
 
   @override
@@ -102,6 +118,7 @@ class SceneTokens {
       other.condition == condition &&
       other.temp == temp &&
       other.haze == haze &&
+      other.dark == dark &&
       _sameLayers(other.layers, layers);
 
   static bool _sameLayers(List<SceneLayer> a, List<SceneLayer> b) {
@@ -114,7 +131,7 @@ class SceneTokens {
 
   @override
   int get hashCode =>
-      Object.hash(daypart, condition, temp, haze, layers.length);
+      Object.hash(daypart, condition, temp, haze, dark, layers.length);
 }
 
 /// Turns the story's weather and clock into [SceneTokens]. Plain Dart with
@@ -150,6 +167,7 @@ class SceneSim {
           if (l.alpha > 0) l,
       ],
       haze: cond.haze * scale,
+      dark: dark,
     );
   }
 }

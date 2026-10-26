@@ -17,12 +17,15 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 // The Ambient Stage (docs/design/ambient-stage.md): mounts a Flame game that
-// never takes focus, carries the scene tokens into its tint component,
-// swaps them without rebuilding the game, and stops ticking while the app
-// is hidden or inactive.
+// never takes focus or a Tab stop, carries the scene tokens into its tint
+// component, swaps them without rebuilding the game, paints a static scene
+// on change without running the engine loop, and lets an animated one tick
+// only while the app is visible.
 
+import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
@@ -36,19 +39,33 @@ SceneTokens _scene(WeatherCondition c) => SceneSim.resolve(
   dark: true,
 );
 
-Future<AmbientStageGame> _pump(WidgetTester tester, SceneTokens tokens) async {
-  await tester.pumpWidget(
-    MaterialApp(
-      home: Scaffold(
-        body: Stack(
-          children: [
-            Positioned.fill(child: AmbientStage(tokens: tokens)),
-            const TextField(key: ValueKey('composer'), autofocus: true),
-          ],
+Widget _app(SceneTokens tokens, {bool animated = false}) => MaterialApp(
+  home: Scaffold(
+    body: Stack(
+      children: [
+        Positioned.fill(
+          child: AmbientStage(tokens: tokens, animated: animated),
         ),
-      ),
+        const TextField(key: ValueKey('composer'), autofocus: true),
+      ],
     ),
-  );
+  ),
+);
+
+/// Counts the engine's update steps once it is mounted in the game.
+class _TickCounter extends Component {
+  int ticks = 0;
+
+  @override
+  void update(double dt) => ticks++;
+}
+
+Future<AmbientStageGame> _pump(
+  WidgetTester tester,
+  SceneTokens tokens, {
+  bool animated = false,
+}) async {
+  await tester.pumpWidget(_app(tokens, animated: animated));
   // Flame loads the game and mounts its components over the next frames.
   await tester.pump(const Duration(milliseconds: 50));
   await tester.pump(const Duration(milliseconds: 50));
@@ -64,38 +81,32 @@ void main() {
   ) async {
     final game = await _pump(tester, _scene(WeatherCondition.rain));
     expect(game.tokens.condition, 'rain');
-    expect(game.paused, isFalse);
     final tint = game.children.whereType<SceneTintComponent>().single;
     expect(tint.tokens, game.tokens);
     // The composer keeps the keyboard; the stage never autofocuses.
-    expect(
-      tester
-          .widget<GameWidget<AmbientStageGame>>(
-            find.byType(GameWidget<AmbientStageGame>),
-          )
-          .autofocus,
-      isFalse,
-    );
+    final stage = find.byType(GameWidget<AmbientStageGame>);
+    expect(tester.widget<GameWidget<AmbientStageGame>>(stage).autofocus, false);
     final editable = tester.widget<EditableText>(find.byType(EditableText));
+    expect(editable.focusNode.hasFocus, isTrue);
+    // Nor is it a Tab stop: GameWidget brings its own Focus, so Tab from the
+    // composer would land on the stage unless the stage excludes it.
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    final focused = FocusManager.instance.primaryFocus?.context;
+    expect(focused, isNotNull);
+    expect(
+      find.descendant(
+        of: stage,
+        matching: find.byElementPredicate((e) => e == focused),
+      ),
+      findsNothing,
+    );
     expect(editable.focusNode.hasFocus, isTrue);
   });
 
   testWidgets('new tokens reach the tint without a new game', (tester) async {
     final game = await _pump(tester, _scene(WeatherCondition.rain));
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Stack(
-            children: [
-              Positioned.fill(
-                child: AmbientStage(tokens: _scene(WeatherCondition.snow)),
-              ),
-              const TextField(key: ValueKey('composer'), autofocus: true),
-            ],
-          ),
-        ),
-      ),
-    );
+    await tester.pumpWidget(_app(_scene(WeatherCondition.snow)));
     await tester.pump(const Duration(milliseconds: 50));
     final again = tester
         .widget<GameWidget<AmbientStageGame>>(
@@ -110,21 +121,89 @@ void main() {
     );
   });
 
-  testWidgets('a hidden app pauses the engine and a resumed one restarts it', (
+  testWidgets('a static stage paints on change and never runs the loop', (
     tester,
   ) async {
-    final game = await _pump(tester, _scene(WeatherCondition.storm));
+    final game = await _pump(tester, _scene(WeatherCondition.rain));
+    expect(game.paused, isTrue);
+    // The first paint happened without the loop: the tint is mounted.
+    final tint = game.children.whereType<SceneTintComponent>().single;
+    expect(tint.isMounted, isTrue);
+    expect(tint.tokens.condition, 'rain');
+
+    // A component added now mounts only on the engine's next step, so a
+    // second of frames that leaves it unmounted proves nothing ticked.
+    final counter = _TickCounter();
+    await game.add(counter);
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(counter.isMounted, isFalse);
+    expect(tester.binding.hasScheduledFrame, isFalse);
+
+    // A new scene steps the engine exactly once, still paused.
+    await tester.pumpWidget(_app(_scene(WeatherCondition.snow)));
+    expect(counter.ticks, 1);
+    expect(tint.tokens.condition, 'snow');
+    expect(game.paused, isTrue);
+    for (var i = 0; i < 60; i++) {
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    expect(counter.ticks, 1);
+    // That one step is what repaints: between frames, a change marks the
+    // stage for paint and the next frame paints it. The same tokens again
+    // are a no-op.
+    game.tokens = _scene(WeatherCondition.fog);
+    expect(game.renderBox.debugNeedsPaint, isTrue);
+    expect(counter.ticks, 2);
+    await tester.pump();
+    expect(game.renderBox.debugNeedsPaint, isFalse);
+    game.tokens = _scene(WeatherCondition.fog);
+    expect(game.renderBox.debugNeedsPaint, isFalse);
+    expect(counter.ticks, 2);
+
+    // The lifecycle never starts a static stage.
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pump();
+    expect(game.paused, isTrue);
+    expect(counter.ticks, 2);
+  });
+
+  testWidgets('an animated stage ticks only while the app is visible', (
+    tester,
+  ) async {
+    final game = await _pump(
+      tester,
+      _scene(WeatherCondition.storm),
+      animated: true,
+    );
     expect(game.paused, isFalse);
+    final counter = _TickCounter();
+    await game.add(counter);
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(counter.ticks, greaterThan(0), reason: 'resumed: ticking');
     // Flutter's lifecycle walks resumed → inactive → hidden and back.
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    expect(game.paused, isTrue, reason: 'inactive is not looking');
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
     await tester.pump();
     expect(game.paused, isTrue);
+    final hidden = counter.ticks;
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(counter.ticks, hidden, reason: 'hidden: no ticks');
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
     await tester.pump();
     expect(game.paused, isTrue, reason: 'inactive is not yet looking');
     tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
-    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 16));
+    await tester.pump(const Duration(milliseconds: 16));
     expect(game.paused, isFalse);
+    expect(counter.ticks, greaterThan(hidden), reason: 'resumed: ticking');
   });
 }

@@ -18,20 +18,28 @@
 
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show MissingPluginException;
 import 'package:window_manager/window_manager.dart';
 
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'ambient_stage_game.dart';
 
-/// Hosts the [AmbientStageGame] behind the chat column and owns its pause
-/// rules: the engine stops ticking while the app is hidden or inactive and
-/// while the window has lost focus, so a stage nobody is looking at costs
-/// nothing on a laptop or beside a local model on the same GPU. The caller
-/// mounts it only when there is a scene to paint; Off means not mounted.
+/// Hosts the [AmbientStageGame] behind the chat column and owns its pause.
+///
+/// A static stage ([animated] false, the tint) never runs the engine loop:
+/// it paints once when it loads and once per change of scene, so a tint
+/// costs no frames at all. An animated stage (the effects) ticks only while
+/// the app is visible and the window has focus, so a stage nobody is
+/// looking at costs nothing on a laptop or beside a local model on the same
+/// GPU. The caller mounts it only when there is a scene to paint; Off means
+/// not mounted. It never takes focus or a Tab stop.
 class AmbientStage extends StatefulWidget {
-  const AmbientStage({super.key, required this.tokens});
+  const AmbientStage({super.key, required this.tokens, this.animated = false});
 
   final SceneTokens tokens;
+
+  /// Whether anything on the stage moves. False paints on change only.
+  final bool animated;
 
   @override
   State<AmbientStage> createState() => _AmbientStageState();
@@ -41,6 +49,9 @@ class _AmbientStageState extends State<AmbientStage>
     with WidgetsBindingObserver, WindowListener {
   late final AmbientStageGame _game = AmbientStageGame(widget.tokens);
   bool _appVisible = true;
+
+  /// True until the window plugin answers, so a stage on a platform
+  /// without one still runs.
   bool _windowFocused = true;
 
   @override
@@ -48,6 +59,22 @@ class _AmbientStageState extends State<AmbientStage>
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     windowManager.addListener(this);
+    _applyPause();
+    _readWindowFocus();
+  }
+
+  Future<void> _readWindowFocus() async {
+    try {
+      final focused = await windowManager.isFocused();
+      if (!mounted) return;
+      _windowFocused = focused;
+      _applyPause();
+    } on MissingPluginException {
+      // No window plugin (widget tests, or an embedder without one): there
+      // is no focus to follow, so the stage keeps the visible default.
+    } catch (e, st) {
+      debugPrint('AmbientStage: could not read window focus: $e\n$st');
+    }
   }
 
   @override
@@ -61,6 +88,7 @@ class _AmbientStageState extends State<AmbientStage>
   void didUpdateWidget(AmbientStage old) {
     super.didUpdateWidget(old);
     _game.tokens = widget.tokens;
+    if (old.animated != widget.animated) _applyPause();
   }
 
   @override
@@ -93,20 +121,23 @@ class _AmbientStageState extends State<AmbientStage>
     _applyPause();
   }
 
-  /// Whether the engine should be ticking now.
-  bool get shouldRun => _appVisible && _windowFocused;
+  /// Whether the engine loop should be ticking now.
+  bool get shouldRun => widget.animated && _appVisible && _windowFocused;
 
   void _applyPause() {
     if (shouldRun) {
       if (_game.paused) _game.resumeEngine();
     } else if (!_game.paused) {
       _game.pauseEngine();
+      // A stage that just stopped animating keeps its last scene painted.
+      if (!widget.animated) _game.repaintOnce();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    // Never takes focus: the composer keeps the keyboard.
-    return GameWidget(game: _game, autofocus: false);
+    // GameWidget wraps the game in its own Focus even with autofocus off,
+    // which made the stage a Tab stop; the composer keeps the keyboard.
+    return ExcludeFocus(child: GameWidget(game: _game, autofocus: false));
   }
 }

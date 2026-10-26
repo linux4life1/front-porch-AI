@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react';
 import { api } from '../api/client';
+import { ChatSocket } from '../api/ws';
 import {
   THEME_EVENT, type ThemeChoice, currentThemeWire, loadThemeChoice, saveThemeChoice,
 } from '../theme/appTheme';
@@ -36,11 +37,28 @@ export function AppearanceSettings() {
   // Appearance → Ambient scene, the desktop's own setting (null until read).
   const [ambient, setAmbient] = useState<AmbientScene | null>(null);
 
+  // Live: the server broadcasts `settings_changed` whenever a setting is
+  // written (on the desktop or another browser), so the control re-reads on
+  // it and on a reconnect instead of keeping its first read.
   useEffect(() => {
-    api
-      .get<{ ambientScene?: unknown }>('/api/settings')
-      .then((s) => setAmbient(s.ambientScene === 'tint' ? 'tint' : 'off'))
-      .catch((e: unknown) => console.warn('Could not read the ambient scene setting', e));
+    let alive = true;
+    const read = () => {
+      api
+        .get<{ ambientScene?: unknown }>('/api/settings')
+        .then((s) => {
+          if (alive) setAmbient(s.ambientScene === 'tint' ? 'tint' : 'off');
+        })
+        .catch((e: unknown) => console.warn('Could not read the ambient scene setting', e));
+    };
+    read();
+    const socket = new ChatSocket((e) => {
+      if (e.event === 'settings_changed' || e.event === 'connected') read();
+    });
+    socket.connect();
+    return () => {
+      alive = false;
+      socket.close();
+    };
   }, []);
 
   const setScene = (next: AmbientScene) => {

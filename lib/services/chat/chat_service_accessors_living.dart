@@ -35,6 +35,10 @@ extension ChatServiceAccessorsLiving on ChatService {
   /// stamps (journal cards, calendars) keep the calendar `dayCount`.
   int get storyDayCount => _timeService.morningAnchoredDayCount;
 
+  /// The app's appearance choices, read live by the Ambient Stage
+  /// (`sceneTokensFor`) so the chat page and the web chat state agree.
+  AppearanceSettings get appearance => _storageService.appearance;
+
   /// Pure recompute from existing state — nothing stored, so save/load and
   /// group re-entry agree for free. Gate: a MOVING clock + the global toggle.
   /// Weather is deterministic math over the day count and needs no eval of its
@@ -43,9 +47,6 @@ extension ChatServiceAccessorsLiving on ChatService {
   /// always told users weather depends on Passage of Time. Consumed by the
   /// injection leaf, the needs decay modifiers, the sidebar TimeStrip, and the
   /// web facade — one source.
-  /// The app's appearance choices, read live by the Ambient Stage
-  /// (`sceneTokensFor`) so the chat page and the web chat state agree.
-  AppearanceSettings get appearance => _storageService.appearance;
 
   DailyWeather? get _currentWeatherImpl {
     if (!_clockRunning || !_storageService.realismSettings.weatherEnabled) {

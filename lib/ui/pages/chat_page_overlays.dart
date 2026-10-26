@@ -28,6 +28,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
 
 /// Chat surface (background + bubbles). Theme chrome is Stack siblings under
@@ -238,9 +239,11 @@ class ChatSurface extends StatelessWidget {
                 // The Ambient Stage: the story's weather over whatever
                 // background won above, behind the chat column. Mounted
                 // only while there is a scene (docs/design/ambient-stage.md).
-                Consumer<ChatService>(
-                  builder: (context, chat, _) {
-                    final tokens = sceneTokensFor(chat);
+                // Rebuilds only when the tokens change, not per streamed
+                // token; StorageService carries the Ambient scene setting.
+                Selector2<ChatService, StorageService, SceneTokens?>(
+                  selector: (_, chat, _) => sceneTokensFor(chat),
+                  builder: (context, tokens, _) {
                     if (tokens == null) return const SizedBox.shrink();
                     return Positioned.fill(
                       child: IgnorePointer(child: AmbientStage(tokens: tokens)),

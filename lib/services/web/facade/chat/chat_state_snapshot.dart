@@ -309,9 +309,10 @@ class ChatStateSnapshot {
       // Per-chat theme overrides (preset + font/color/background/border).
       'themeOverrides': _chat.sessionThemeOverrides.toJson(),
       // The Ambient Stage's scene: the story's weather as the colour strings
-      // the PWA paints behind the bubbles (docs/design/ambient-stage.md).
-      // Null when Ambient scene is Off or the chat has no weather. Additive.
-      'scene': sceneTokensFor(_chat)?.toWire(),
+      // the PWA paints behind the bubbles, for both brightnesses so the PWA
+      // paints its own mode (docs/design/ambient-stage.md). Null when
+      // Ambient scene is Off or the chat has no weather. Additive.
+      'scene': sceneWireFor(_chat),
       // Per-chat system prompt source (1:1 only) and, while a new chat
       // waits on it, the picker's prompts. Additive; omitted in groups.
       'promptSource': ?_chat.promptSourceJson,

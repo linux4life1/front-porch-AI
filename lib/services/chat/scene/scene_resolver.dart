@@ -17,24 +17,29 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/services/chat_service.dart';
-import 'package:front_porch_ai/ui/theme/appearance_options.dart';
+import 'scene_gate.dart';
 import 'scene_tokens.dart';
 
-/// The scene for the open chat, or null when the stage has nothing to
-/// paint: Ambient scene is Off, or the chat has no weather (no world with
-/// climate on, weather off, or the clock not running; [currentWeather] is
-/// already null for all of those). Read live by the desktop stage and the
-/// web chat state, so both surfaces agree.
-SceneTokens? sceneTokensFor(ChatService chat) {
-  final appearance = chat.appearance;
-  if (appearance.ambientScene == AmbientScene.off) return null;
-  final day = chat.currentWeather;
-  if (day == null) return null;
-  final segment = chat.currentSegmentWeather;
-  return SceneSim.resolve(
-    daypart: chat.timeService.timeOfDay,
-    condition: segment?.condition ?? day.condition,
-    temp: day.temp,
-    dark: appearance.isDark,
-  );
+/// The scene the desktop stage paints for the open chat, in the app's own
+/// brightness, or null when there is nothing to paint ([SceneGate.resolve]).
+SceneTokens? sceneTokensFor(ChatService chat) =>
+    _sceneAt(chat, dark: chat.appearance.isDark);
+
+/// The chat state's `scene` for the web: the same scene in both
+/// brightnesses, because the PWA may run its own mode. Null when there is
+/// nothing to paint.
+Map<String, Object>? sceneWireFor(ChatService chat) {
+  final dark = _sceneAt(chat, dark: true);
+  final light = _sceneAt(chat, dark: false);
+  if (dark == null || light == null) return null;
+  return SceneTokens.wireOf(dark: dark, light: light);
 }
+
+SceneTokens? _sceneAt(ChatService chat, {required bool dark}) =>
+    SceneGate.resolve(
+      level: chat.appearance.ambientScene,
+      day: chat.currentWeather,
+      segment: chat.currentSegmentWeather,
+      daypart: chat.timeService.timeOfDay,
+      dark: dark,
+    );

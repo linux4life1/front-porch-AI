@@ -135,7 +135,20 @@ export function receiveThemeWire(raw: unknown): ThemeWire | null {
 
 export function saveThemeChoice(choice: ThemeChoice): ThemeMode {
   write(CHOICE_KEY, choice);
-  return applyTheme(loadThemeWire(), choice);
+  const mode = applyTheme(loadThemeWire(), choice);
+  // Readers of the painted mode (the chat's ambient scene) follow a device
+  // choice as they follow a new wire.
+  window.dispatchEvent(new Event(THEME_EVENT));
+  return mode;
+}
+
+/**
+ * The mode this page paints now, as [applyTheme] resolves it: the stylesheet's
+ * dark defaults until the desktop has spoken, then this device's choice.
+ */
+export function currentThemeMode(): ThemeMode {
+  const wire = currentThemeWire();
+  return wire ? resolveMode(wire, loadThemeChoice()) : 'dark';
 }
 
 /** Before first paint: the cached theme, in this device's choice. */
