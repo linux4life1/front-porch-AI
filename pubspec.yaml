@@ -94,6 +94,10 @@ dependencies:
   riverpod_annotation: ^4.0.6
   flutter_markdown_plus: ^1.0.12
   flutter_secure_storage: ^11.2.0
+  # The Ambient Stage behind the chat (docs/design/ambient-stage.md): weather
+  # tint now, particles and sprites later. Pure Dart, MIT, in-process
+  # (maintainer-approved dep 2026-10-26).
+  flame: ^1.38.2
 
 dev_dependencies:
   flutter_test:

@@ -39,8 +39,14 @@ class ChatFacade {
     this._groups, {
     File? Function(String name)? resolveSavedImage,
     LLMProvider? llm,
+    StorageService? storage,
   }) : _resolveSavedImage = resolveSavedImage,
-       _llm = llm;
+       _llm = llm,
+       _storage = storage;
+
+  /// Settings the chat state reads live (the Ambient scene choice). Null
+  /// in tests that construct a facade without storage: no scene is sent.
+  final StorageService? _storage;
 
   /// Live LLM connection flag for the chat-input placeholder. Null in tests
   /// that construct a facade without a provider — treated as ready so they
@@ -78,6 +84,7 @@ class ChatFacade {
     _hub,
     _llm,
     _realism,
+    storage: _storage,
   );
 
   late final ChatHistoryActions _history = ChatHistoryActions(

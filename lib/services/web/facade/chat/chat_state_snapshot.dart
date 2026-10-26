@@ -24,6 +24,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/director/director.dart'
     show kDirectorQuickBeats;
+import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
 import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
@@ -36,8 +37,13 @@ class ChatStateSnapshot {
     this._personas,
     this._hub,
     this._llm,
-    this._realism,
-  );
+    this._realism, {
+    StorageService? storage,
+  }) : _storage = storage;
+
+  /// The Ambient scene choice; null (no scene sent) when a test builds the
+  /// snapshot without storage.
+  final StorageService? _storage;
 
   final ChatService _chat;
   final CharacterRepository _characters;
@@ -307,6 +313,13 @@ class ChatStateSnapshot {
       'toolSupport': _chat.toolSupportJson,
       // Per-chat theme overrides (preset + font/color/background/border).
       'themeOverrides': _chat.sessionThemeOverrides.toJson(),
+      // The Ambient Stage's scene: the story's weather as the colour strings
+      // the PWA paints behind the bubbles (docs/design/ambient-stage.md).
+      // Null when Ambient scene is Off or the chat has no weather. Additive.
+      'scene': switch (_storage) {
+        null => null,
+        final storage => sceneTokensFor(_chat, storage)?.toWire(),
+      },
       // Per-chat system prompt source (1:1 only) and, while a new chat
       // waits on it, the picker's prompts. Additive; omitted in groups.
       'promptSource': ?_chat.promptSourceJson,

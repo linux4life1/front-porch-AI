@@ -27,6 +27,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_backend_names.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings_reasoning.dart';
 import 'package:front_porch_ai/services/web/facade/settings_worker.dart';
+import 'package:front_porch_ai/ui/theme/appearance_options.dart';
 
 /// Applies a web Settings POST body to storage and the live backend.
 class SettingsWriter {
@@ -90,6 +91,12 @@ class SettingsWriter {
     // General → Dark Mode, the desktop's own switch.
     final darkMode = body['darkMode'];
     if (darkMode is bool) await _storage.uiSettings.setIsDark(darkMode);
+
+    // Appearance → Ambient scene. Only a key this build knows is written.
+    final ambient = body['ambientScene'];
+    if (ambient is String && AmbientScene.values.any((v) => v.key == ambient)) {
+      await _storage.appearance.setAmbientScene(AmbientScene.fromKey(ambient));
+    }
 
     final follow = body['followStreamingReplies'];
     if (follow is bool) {

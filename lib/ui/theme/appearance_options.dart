@@ -70,3 +70,19 @@ enum UiCorners {
   static UiCorners fromKey(String? key) =>
       values.firstWhere((c) => c.key == key, orElse: () => standard);
 }
+
+/// What the Ambient Stage paints over the chat background: nothing, or the
+/// story's weather as a tint. `docs/design/ambient-stage.md`.
+enum AmbientScene {
+  off('off', 'Off'),
+  tint('tint', 'Tint only');
+
+  const AmbientScene(this.key, this.label);
+
+  /// The stored preference value.
+  final String key;
+  final String label;
+
+  static AmbientScene fromKey(String? key) =>
+      values.firstWhere((s) => s.key == key, orElse: () => off);
+}

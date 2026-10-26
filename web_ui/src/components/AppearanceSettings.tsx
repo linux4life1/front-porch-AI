@@ -12,6 +12,12 @@ import {
   THEME_EVENT, type ThemeChoice, currentThemeWire, loadThemeChoice, saveThemeChoice,
 } from '../theme/appTheme';
 
+type AmbientScene = 'off' | 'tint';
+const AMBIENT: { value: AmbientScene; label: string }[] = [
+  { value: 'off', label: 'Off' },
+  { value: 'tint', label: 'Tint only' },
+];
+
 const CHOICES: { value: ThemeChoice; label: string }[] = [
   { value: 'desktop', label: 'Follow the desktop' },
   { value: 'dark', label: 'Dark' },
@@ -27,6 +33,25 @@ export function AppearanceSettings() {
     return mode ? mode === 'dark' : null;
   });
   const [error, setError] = useState('');
+  // Appearance → Ambient scene, the desktop's own setting (null until read).
+  const [ambient, setAmbient] = useState<AmbientScene | null>(null);
+
+  useEffect(() => {
+    api
+      .get<{ ambientScene?: unknown }>('/api/settings')
+      .then((s) => setAmbient(s.ambientScene === 'tint' ? 'tint' : 'off'))
+      .catch((e: unknown) => console.warn('Could not read the ambient scene setting', e));
+  }, []);
+
+  const setScene = (next: AmbientScene) => {
+    const before = ambient;
+    setAmbient(next);
+    setError('');
+    api.post('/api/settings', { ambientScene: next }).catch((e: unknown) => {
+      setAmbient(before);
+      setError(`Could not change the ambient scene: ${String(e)}`);
+    });
+  };
 
   useEffect(() => {
     const onWire = () => {
@@ -81,6 +106,20 @@ export function AppearanceSettings() {
           ))}
         </select>
       </label>
+      <label>
+        Ambient scene
+        <select
+          value={ambient ?? 'off'}
+          disabled={ambient === null}
+          onChange={(e) => setScene(e.target.value as AmbientScene)}
+          aria-label="Ambient scene"
+        >
+          {AMBIENT.map((c) => (
+            <option key={c.value} value={c.value}>{c.label}</option>
+          ))}
+        </select>
+      </label>
+      <p className="reading-blurb">The story's weather as a wash over the chat background, in a world with climate on. The desktop's setting; changing it here changes it there too.</p>
     </section>
   );
 }

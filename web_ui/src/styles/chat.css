@@ -9,21 +9,31 @@
 /* Per-chat theme background scene (desktop parity). The veil matches the desktop
    0.45 black overlay so message text stays readable over any image. Only shown
    when a theme supplies a background (ChatPage toggles .has-theme-bg). */
-.chat-view.has-theme-bg::before {
+.chat-view.has-theme-bg::before,
+.chat-view.has-scene::before {
   content: '';
   position: absolute;
   inset: 0;
   z-index: 0;
   pointer-events: none;
-  background-image: linear-gradient(color-mix(in srgb, var(--scrim-ink) 45%, transparent), color-mix(in srgb, var(--scrim-ink) 45%, transparent)),
-    var(--chat-bg-image);
+  /* The Ambient Stage's scene (--scene-layers, from the desktop's weather
+     tokens) paints over the veil and the background, still under the chat.
+     Without a scene the list is a no-op; without a theme background the veil
+     and image are. */
+  background-image: var(--scene-layers, linear-gradient(transparent, transparent)),
+    var(--scene-veil, linear-gradient(transparent, transparent)),
+    var(--chat-bg-image, none);
   background-size: cover;
   background-position: center;
+}
+.chat-view.has-theme-bg {
+  --scene-veil: linear-gradient(color-mix(in srgb, var(--scrim-ink) 45%, transparent), color-mix(in srgb, var(--scrim-ink) 45%, transparent));
 }
 /* Positioned children paint after the veil (tree order). No z-index: one here
    boxed in dialogs rendered inside the transcript, so the composer painted
    over their backdrop and stayed tappable. */
 .chat-view.has-theme-bg > * { position: relative; }
+.chat-view.has-scene > * { position: relative; }
 .chat-header {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; row-gap: 4px;

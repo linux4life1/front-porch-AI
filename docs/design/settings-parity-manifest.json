@@ -31,6 +31,13 @@
       "dartMarker": "Reading Size",
       "webMarker": "Reading size"
     },
+    "ambientScene": {
+      "section": "general",
+      "group": "chat-appearance",
+      "dart": "lib/ui/settings/tabs/appearance_tab/appearance_tab.dart",
+      "dartMarker": "Ambient scene",
+      "webMarker": "Ambient scene"
+    },
     "chatColors": {
       "section": "general",
       "group": "chat-appearance",

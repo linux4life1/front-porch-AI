@@ -37,6 +37,7 @@ class AppearanceSettings with SettingsBase {
   Color? _accent;
   UiFont _font = UiFont.inter;
   UiCorners _corners = UiCorners.standard;
+  AmbientScene _ambientScene = AmbientScene.off;
   Brightness _platformBrightness =
       PlatformDispatcher.instance.platformBrightness;
 
@@ -50,6 +51,9 @@ class AppearanceSettings with SettingsBase {
   Color? get accentOverride => _accent;
   UiFont get font => _font;
   UiCorners get corners => _corners;
+
+  /// What the Ambient Stage paints over the chat background.
+  AmbientScene get ambientScene => _ambientScene;
 
   /// The brightness in force now; [AppThemeMode.system] follows the OS.
   bool get isDark => switch (_mode) {
@@ -117,6 +121,7 @@ class AppearanceSettings with SettingsBase {
     _accent = parseAccentHex(prefs?.getString(k('accent_override')));
     _font = UiFont.fromKey(prefs?.getString(k('ui_font')));
     _corners = UiCorners.fromKey(prefs?.getString(k('ui_radius')));
+    _ambientScene = AmbientScene.fromKey(prefs?.getString(k('ambient_scene')));
   }
 
   Future<void> setTheme(AppThemeId value) async {
@@ -158,6 +163,13 @@ class AppearanceSettings with SettingsBase {
     if (_corners == value) return;
     _corners = value;
     await prefs?.setString(k('ui_radius'), value.key);
+    notify();
+  }
+
+  Future<void> setAmbientScene(AmbientScene value) async {
+    if (_ambientScene == value) return;
+    _ambientScene = value;
+    await prefs?.setString(k('ambient_scene'), value.key);
     notify();
   }
 

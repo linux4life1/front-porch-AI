@@ -243,4 +243,25 @@ void main() {
     await a.setMode(AppThemeMode.light);
     expect(a.accentAdjusted, isTrue);
   });
+
+  test(
+    'the ambient scene is off until chosen and survives a restart',
+    () async {
+      final (a, _) = await _boot();
+      expect(a.ambientScene, AmbientScene.off);
+      var notified = 0;
+      a.initializeBase(await SharedPreferences.getInstance(), () => notified++);
+      await a.setAmbientScene(AmbientScene.tint);
+      expect(notified, 1);
+      await a.setAmbientScene(AmbientScene.tint);
+      expect(notified, 1, reason: 'the same choice again is not a write');
+
+      final (b, _) = await _reload();
+      expect(b.ambientScene, AmbientScene.tint);
+      // Reset is for accent, font and corners, as its button says.
+      await b.resetCustomisations();
+      expect(b.ambientScene, AmbientScene.tint);
+      expect(AmbientScene.fromKey('junk'), AmbientScene.off);
+    },
+  );
 }

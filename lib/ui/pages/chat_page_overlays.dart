@@ -235,6 +235,18 @@ class ChatSurface extends StatelessWidget {
                     ),
                   ),
                 ],
+                // The Ambient Stage: the story's weather over whatever
+                // background won above, behind the chat column. Mounted
+                // only while there is a scene (docs/design/ambient-stage.md).
+                Consumer<ChatService>(
+                  builder: (context, chat, _) {
+                    final tokens = sceneTokensFor(chat, storageService);
+                    if (tokens == null) return const SizedBox.shrink();
+                    return Positioned.fill(
+                      child: IgnorePointer(child: AmbientStage(tokens: tokens)),
+                    );
+                  },
+                ),
               ],
             ),
           ),

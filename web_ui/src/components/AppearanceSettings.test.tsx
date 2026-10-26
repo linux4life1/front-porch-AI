@@ -10,6 +10,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AppearanceSettings } from './AppearanceSettings';
+import { api } from '../api/client';
 import { receiveThemeWire } from '../theme/appTheme';
 
 let host: HTMLDivElement;
@@ -41,4 +42,23 @@ it('unlocks Dark mode once the desktop speaks, even with storage refused', () =>
   });
   expect(dark.disabled).toBe(false);
   expect(dark.checked).toBe(false);
+});
+
+it('reads the ambient scene from the desktop and writes a change back', async () => {
+  const get = vi.spyOn(api, 'get').mockResolvedValue({ ambientScene: 'tint' });
+  const post = vi.spyOn(api, 'post').mockResolvedValue({});
+  await act(async () => {
+    root.render(createElement(AppearanceSettings));
+  });
+  const select = host.querySelector<HTMLSelectElement>('select[aria-label="Ambient scene"]')!;
+  expect(get).toHaveBeenCalledWith('/api/settings');
+  expect(select.disabled).toBe(false);
+  expect(select.value).toBe('tint');
+
+  await act(async () => {
+    select.value = 'off';
+    select.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  expect(post).toHaveBeenCalledWith('/api/settings', { ambientScene: 'off' });
+  expect(select.value).toBe('off');
 });

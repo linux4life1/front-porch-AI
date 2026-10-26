@@ -72,6 +72,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
           groups,
           resolveSavedImage: imageFacade?.savedImageFile,
           llm: llm,
+          storage: storage,
         )
       : null;
 

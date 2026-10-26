@@ -30,6 +30,7 @@ export 'sidebar/sidebar_body.dart';
 export 'sidebar/sidebar_tokens.dart';
 export 'sidebar/character_portrait.dart';
 export 'sidebar/chat_main_settings.dart';
+export 'ambient/ambient_stage.dart';
 export 'stage/chat_message_list.dart';
 export 'stage/chat_resize_sidebar.dart';
 export 'stage/transcript_anchor.dart';

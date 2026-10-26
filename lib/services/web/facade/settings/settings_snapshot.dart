@@ -213,6 +213,9 @@ class SettingsSnapshot {
       // The resolved app theme (mode + both token maps). The web never
       // computes a palette; it paints these. Additive.
       'theme': webThemeWire(_storage.appearance),
+      // Appearance → Ambient scene: what the stage paints over the chat
+      // background. Additive; the PWA paints the chat state's `scene`.
+      'ambientScene': _storage.appearance.ambientScene.key,
       ...readWorkerSettings(_storage, _llm),
     };
   }

@@ -26,6 +26,7 @@ export 'model_colors.dart';
 export 'nav_colors.dart';
 export 'reading_size.dart';
 export 'realism_colors.dart';
+export 'scene_palette.dart';
 export 'status_colors.dart';
 export 'themes/app_theme_id.dart';
 export 'tier_colors.dart';
