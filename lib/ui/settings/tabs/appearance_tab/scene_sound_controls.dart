@@ -52,8 +52,14 @@ class _SceneSoundControlsState extends State<SceneSoundControls> {
       children: [
         const AppearanceCaption('Scene sound'),
         const SizedBox(height: 6),
-        Row(
-          mainAxisSize: MainAxisSize.min,
+        // The switch and the slider share a row where the column has room
+        // for both. The sidebar leaves a 400 px window about 126 px here,
+        // so the slider drops under the switch and takes the width there
+        // is, up to 180 px, instead of the row spilling past the edge or
+        // the slider shrinking to a sliver nobody can set.
+        Wrap(
+          spacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Semantics(
               label: 'Scene sound',
@@ -63,21 +69,16 @@ class _SceneSoundControlsState extends State<SceneSoundControls> {
                 onChanged: appearance.setSceneSound,
               ),
             ),
-            const SizedBox(width: 8),
-            // The slider gives way first: 180 px when the column has it,
-            // shorter in a 400 px window, so the row never overflows.
-            Flexible(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 180),
-                child: Slider(
-                  key: const ValueKey('appearance-scene-sound-volume'),
-                  value: volume,
-                  label: '${(volume * 100).round()}%',
-                  semanticFormatterCallback: (v) =>
-                      'Scene sound volume ${(v * 100).round()}%',
-                  onChanged: on ? (v) => setState(() => _drag = v) : null,
-                  onChangeEnd: on ? _commit : null,
-                ),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 180),
+              child: Slider(
+                key: const ValueKey('appearance-scene-sound-volume'),
+                value: volume,
+                label: '${(volume * 100).round()}%',
+                semanticFormatterCallback: (v) =>
+                    'Scene sound volume ${(v * 100).round()}%',
+                onChanged: on ? (v) => setState(() => _drag = v) : null,
+                onChangeEnd: on ? _commit : null,
               ),
             ),
           ],

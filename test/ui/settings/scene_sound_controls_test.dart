@@ -66,7 +66,12 @@ class _CountingPrefs implements SharedPreferences {
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-Future<(AppearanceSettings, _CountingPrefs)> _pump(WidgetTester tester) async {
+/// Pumps the controls; [width] confines them to a column that wide, as the
+/// Appearance tab's Wrap does in a narrow window.
+Future<(AppearanceSettings, _CountingPrefs)> _pump(
+  WidgetTester tester, {
+  double? width,
+}) async {
   SharedPreferences.setMockInitialValues({});
   final prefs = _CountingPrefs(await SharedPreferences.getInstance());
   final appearance = AppearanceSettings();
@@ -79,7 +84,12 @@ Future<(AppearanceSettings, _CountingPrefs)> _pump(WidgetTester tester) async {
         body: StatefulBuilder(
           builder: (context, setState) {
             rebuild = setState;
-            return SceneSoundControls(appearance: appearance);
+            final controls = SceneSoundControls(appearance: appearance);
+            if (width == null) return controls;
+            return Align(
+              alignment: Alignment.topLeft,
+              child: SizedBox(width: width, child: controls),
+            );
           },
         ),
       ),
@@ -139,30 +149,31 @@ void main() {
     expect(prefs.getDouble(key), appearance.sceneSoundVolume);
   });
 
-  testWidgets('fits a narrow settings column without overflowing', (
+  testWidgets('shares a row with the switch where there is room', (
     tester,
   ) async {
-    // A 400 px window leaves the Appearance tab's Wrap about this much;
-    // the slider shortens rather than the row spilling past the edge.
-    SharedPreferences.setMockInitialValues({});
-    final appearance = AppearanceSettings();
-    appearance.initializeBase(await SharedPreferences.getInstance(), () {});
-    appearance.load();
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: Align(
-            alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: 200,
-              child: SceneSoundControls(appearance: appearance),
-            ),
-          ),
-        ),
-      ),
+    await _pump(tester);
+    expect(tester.getSize(_slider).width, 180);
+    expect(tester.getCenter(_slider).dy, tester.getCenter(_switch).dy);
+    expect(
+      tester.getTopLeft(_slider).dx,
+      greaterThan(tester.getTopRight(_switch).dx),
     );
+  });
+
+  testWidgets('drops under the switch, full width, in a narrow column', (
+    tester,
+  ) async {
+    // The sidebar leaves the Appearance tab about 126 px in a 400 px
+    // window: the slider moves to its own line and takes that width, so
+    // it stays usable and nothing spills past the edge.
+    await _pump(tester, width: 126);
     expect(tester.takeException(), isNull);
-    expect(tester.getSize(_slider).width, lessThan(180));
-    expect(tester.getTopRight(_slider).dx, lessThanOrEqualTo(200));
+    expect(tester.getTopRight(_slider).dx, lessThanOrEqualTo(126));
+    expect(
+      tester.getTopLeft(_slider).dy,
+      greaterThanOrEqualTo(tester.getBottomLeft(_switch).dy),
+    );
+    expect(tester.getSize(_slider).width, 126);
   });
 }
