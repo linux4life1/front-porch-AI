@@ -29,7 +29,7 @@ import 'package:front_porch_ai/providers/app_state.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/chat_components/sidebar/story_tools/chat_places_panel.dart';
 import 'package:front_porch_ai/ui/layout/main_layout.dart';
-import 'package:front_porch_ai/ui/pages/chat_page.dart';
+import 'package:front_porch_ai/ui/pages/pages.dart';
 
 import 'support/chat_driver.dart';
 import 'support/e2e_sandbox.dart';
@@ -131,6 +131,18 @@ void main() {
     appState.setIndex(5);
     await pumpUntilFound(tester, find.text('World Management'));
     final star = find.byKey(Key('place-star-${tea.id}'));
+    // Place cards live in a lazy SliverGrid under the header, stats and the
+    // root card: on a short window the card is not built until scrolled
+    // near, so ensureVisible alone has nothing to reveal.
+    await d.waitForWidget(find.text('Star a place below: chats start there'));
+    final library = find.descendant(
+      of: find.byType(WorldManagementPage),
+      matching: find.byType(CustomScrollView),
+    );
+    for (var i = 0; i < 14 && star.evaluate().isEmpty; i++) {
+      await tester.drag(library.first, const Offset(0, -220));
+      await tester.pump(const Duration(milliseconds: 200));
+    }
     await d.waitForWidget(star);
     await tester.ensureVisible(star);
     await tester.pump(const Duration(milliseconds: 200));
