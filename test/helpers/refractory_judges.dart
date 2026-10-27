@@ -8,6 +8,7 @@
 import 'dart:convert';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'skip_reader_answers.dart';
 
 class RefractoryJudges extends LLMService {
   /// Story minutes the scene-time judge reports; 0 is the same moment.
@@ -25,6 +26,11 @@ class RefractoryJudges extends LLMService {
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
+    final skip = skipReaderReply(params.prompt);
+    if (skip != null) {
+      yield skip;
+      return;
+    }
     final p = params.prompt;
     if (params.systemPrompt != null) {
       replyPrompts.add('${params.systemPrompt}\n$p');

@@ -14,6 +14,7 @@ import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show RealismVerification, evalJsonBool, evalJsonInt;
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 import 'package:front_porch_ai/services/chat/needs_wear.dart'
     show livedSkipBars;
 
@@ -138,7 +139,7 @@ void main() {
     final t = _clock(pending: pending);
     _seed(t);
 
-    await t.detectOocTimeSkip('we drive for several hours');
+    await t.applyUserSkip(const SkipVerdict(minutes: 180));
     expect(t.bodyTimeLabel, isNull);
     expect(t.needsSpanLabel, pending['time_skip_to']);
     expect(t.needsSpanLabel, isNotNull);
@@ -161,7 +162,7 @@ void main() {
     () async {
       final t = _clock();
       _seed(t);
-      await t.detectOocTimeSkip('We sleep through the night.');
+      await t.applyUserSkip(const SkipVerdict(until: 'morning', slept: true));
       expect(t.bodyTimeLabel, isNull);
       expect(t.needsSpanLabel, 'Next morning');
       // Needs v2: the night is a span the body wears, off-screen.

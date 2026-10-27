@@ -435,6 +435,7 @@ extension ChatServiceSpeakerObjectives on ChatService {
     _needsImpactEvaluator.beatNote = needsBeatNote(
       _timeService.needsSpanLabel,
       longSkip: _timeService.bodyBeatLongSkip,
+      rested: _timeService.bodyBeatSlept,
     );
     await _needsImpactEvaluator.evaluateAndApply(responseText, isAfk: wasAfk);
     // During time away, clear the scene-level reason so each need's own

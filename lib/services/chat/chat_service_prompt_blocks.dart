@@ -75,10 +75,13 @@ extension ChatServicePromptBlocks on ChatService {
   }
 
   /// The time-skip anchor for this reply prompt: '' unless the clock runs
-  /// and a long skip is this turn's or a recent one (time_skip_anchor.dart).
+  /// and a skip of hours or more is this turn's or a recent one
+  /// (time_skip_anchor.dart).
   String _timeSkipAnchorBlock() {
     if (!_clockRunning) return '';
-    final pending = _pendingRealismMetadata?[kLongSkipMinutesMeta] as num?;
+    final meta = _pendingRealismMetadata;
+    final pending =
+        (meta?[kSkipMinutesMeta] ?? meta?[kLongSkipMinutesMeta]) as num?;
     return buildTimeSkipAnchor(
       latestLongSkip(
         messages: _messages,

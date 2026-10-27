@@ -116,7 +116,13 @@ extension ChatServiceSend on ChatService {
       _setGuestStatus(testing, isError: true);
       return;
     }
-    final lookup = parseLookupForce(text);
+    // `/skip 8h` at the end is the exact skip; the line goes without it.
+    final skipTag = SkipTag.parse(text);
+    if (skipTag.error != null) {
+      _setGuestStatus(skipTag.error, isError: true);
+      return;
+    }
+    final lookup = parseLookupForce(skipTag.body);
     if (lookup.attempted) {
       final block =
           lookup.error ??
@@ -131,7 +137,7 @@ extension ChatServiceSend on ChatService {
         return;
       }
     }
-    final outbound = lookup.accepted ? lookup.userText : text;
+    final outbound = lookup.accepted ? lookup.userText : skipTag.body;
     final trimmed = outbound.trim();
     final command =
         !lookup.accepted &&
@@ -212,6 +218,19 @@ extension ChatServiceSend on ChatService {
 
     // User is interacting — clear any pending auto-response state
     _pendingIdleCue = null;
+
+    // A message that is only `/skip …` moves the clock and sends nothing,
+    // like the calendar does.
+    if (skipTag.present && trimmed.isEmpty && imageBytes == null) {
+      final to = skipTag.verdict!.landing(_timeService.clock);
+      if (!_clockRunning || to == null) {
+        _setGuestStatus(kSkipNeedsClock, isError: true);
+        return;
+      }
+      await setStoryClock(to);
+      _setGuestStatus('Skipped ahead to ${_timeService.displayClock}.');
+      return;
+    }
 
     // ── Slash Command Handling (delegated to leaf) ──────────────────────
     // Skipped when a photo is attached: an attach makes the intent "send a
@@ -356,12 +375,22 @@ extension ChatServiceSend on ChatService {
       // is now continuing (regen of that AI reply still re-injects until here).
       unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
 
-      // ── OOC Time-Skip Detection ───────────────────────────────────────────
-      // PoT is the only clock driver. Honour an OOC skip whenever the
-      // story clock is live, engine on or off.
+      // ── The player's time skip ──────────────────────────────────────────
+      // PoT is the only clock driver. The skip reader reads the line (or a
+      // `/skip` says it exactly) whenever the story clock is live, engine
+      // on or off, before anything scores or answers it.
       if (_clockRunning) {
         final before = _timeService.clock;
-        final skipped = await _timeService.detectOocTimeSkip(outbound);
+        final skipped = await _buildPlayerSkip().apply(
+          outbound,
+          exact: skipTag.verdict,
+          recent: recentExchange(
+            _messages.sublist(0, _messages.length - 1),
+            take: 4,
+          ),
+          stale: () => _sceneChanged(sessionToken),
+        );
+        if (_sceneChanged(sessionToken)) return;
         await _episodeCrumbs.maybeMint(before, _timeService.clock);
         // A day or more (this line, or the calendar since the last turn):
         // settle the moment the scene left; a skip line also gets the
@@ -378,6 +407,8 @@ extension ChatServiceSend on ChatService {
           );
           if (!stillHere) return;
         }
+      } else if (skipTag.present) {
+        _setGuestStatus(kSkipNeedsClock, isError: true);
       }
 
       // ── Direct-address turn routing (both cast surfaces) ─────────────────

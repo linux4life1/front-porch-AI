@@ -19,12 +19,9 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/body_clock.dart';
-import 'package:front_porch_ai/services/chat/skip_landing.dart';
-import 'package:front_porch_ai/services/chat/skip_language.dart';
-import 'package:front_porch_ai/services/chat/skip_span.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service/time_clock_state.dart';
-import 'package:front_porch_ai/utils/utils.dart' show stripQuotedSpeech;
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
 /// Deterministic corroboration gate for the eval's `new_day` flag. The flag
 /// bypasses [StoryClock.maxMinutesPerTurn] entirely (it's the only way the
@@ -41,7 +38,7 @@ final RegExp newDayCorroboration = RegExp(
   caseSensitive: false,
 );
 
-/// Clamp, failure floor, new_day, OOC skip, and calendar writes.
+/// Clamp, failure floor, new_day, the player's skip, and calendar writes.
 class TimeClockApplier {
   TimeClockApplier({
     required this.state,
@@ -211,7 +208,7 @@ class TimeClockApplier {
         isSkip: false,
         offScreen: true,
       );
-      // Same skip ownership as detectOocTimeSkip: the post-reply eval
+      // Same skip ownership as applyUserSkip: the post-reply eval
       // must not add minutes, and the tick takes the time_skip_to
       // branch so the chip names this snap instead of a 0-span
       // "same moment" (before is stamped after the clock already moved).
@@ -226,93 +223,71 @@ class TimeClockApplier {
     }
   }
 
-  // ── OOC Time-Skip Detector ────────────────────────────────────────────────
+  // ── The player's skip ─────────────────────────────────────────────────────
 
-  /// Scans the user message for OOC/narrative time-skip language and advances
-  /// the clock by the inferred real duration. Fires on explicit OOC markers
-  /// AND bare in-narrative skip phrasing ("we drive for several hours").
-  /// Stamps the destination into pending metadata for the next delta chip.
-  /// Respects the global passageOfTimeEnabled setting.
+  /// Moves the clock for a skip the player asked for: [verdict] from the
+  /// skip reader (time_skip/skip_reader.dart) or an exact `/skip`. The
+  /// reader decides what the line means; this only lands it. Owns the turn,
+  /// so the post-reply time judge adds nothing on top. Stamps the
+  /// destination and the span on the reply so regen replays the same skip.
   ///
-  /// ── WHY QUOTED SPEECH IS STRIPPED FIRST (2026-08-08) ─────────────────────
-  ///
-  /// A skip is something the NARRATION does. A time phrase inside quotes is
-  /// something a character SAID, and saying a date is not travelling to it —
-  /// the scene-time prompt already states the rule this detector was missing:
-  /// "merely MENTIONING yesterday, tomorrow, or another day does NOT count".
-  ///
-  /// This was not theoretical. In one of the maintainer's own chats the line
-  /// *"Mistress? will you give your donors a new video next week?"* matched
-  /// `next week` and jumped the story from Day 1 to Day 8 — exactly seven days,
-  /// same wall time — and a few turns later *"why wait till next week for the
-  /// Gym video"* did it again, that time permanently. A third chat lost a full
-  /// day to *"even though we just woke up a few hours ago"*, which matched
-  /// `woke up` and fired [StoryClock.nextMorning]. In every case the skip then
-  /// claimed the turn (`oocSkipMovedClockThisTurn`), so the eval's own — and
-  /// correct — verdict of a few minutes was discarded in its favour. That is
-  /// the "day 28 / time 16" contradiction: the notes still describe the same
-  /// afternoon the scene never left.
-  ///
-  /// The narrated cases are untouched, because narration is not in quotes. Over
-  /// the 1,050 trigger phrases in that library, 1,043 sit outside quotes and
-  /// still fire; the 7 inside were false, every one.
-  ///
-  /// Deliberately NOT applied to [newDayCorroboration]: "goodnight" and "I'm
-  /// going to sleep" are SPOKEN, so stripping quotes there would delete the
-  /// evidence that a night was really crossed and quietly stop day rolls
-  /// altogether. Opposite question, opposite answer.
-  ///
-  /// Returns the minutes skipped, 0 when [text] skipped nothing.
-  Future<int> detectOocTimeSkip(String text) async {
+  /// Returns the minutes skipped, 0 when [verdict] skipped nothing.
+  Future<int> applyUserSkip(SkipVerdict verdict) async {
     if (!isPassageOfTimeEnabled()) {
-      debugPrint(
-        '[Realism:OOC] Time-skip requested but passageOfTimeEnabled=false, ignoring',
-      );
+      debugPrint('[Realism:Skip] passageOfTimeEnabled=false, ignoring');
       return 0;
     }
-
-    final lower = stripQuotedSpeech(text).toLowerCase();
-    if (!shouldDetectTimeSkip(lower)) return 0;
-
-    final next = StoryClock.resolveSkipTarget(state.clock, lower);
+    final before = state.clock;
+    final next = verdict.landing(before);
+    if (next == null || !next.isAfter(before)) return 0;
 
     final dayBefore = state.dayCount;
-    final skipped = next.difference(state.clock).inMinutes;
+    final skipped = next.difference(before).inMinutes;
+    final rested = verdict.slept && skipped >= kRestedSleepMinutes;
     state.clock = next;
     state.turnsSinceClockMoved = 0;
     state.oocSkipMovedClockThisTurn = true;
     final destination = '${state.displayShortDate} · ${state.displayClock}';
     state.noteBodyBeat(
       minutes: skipped,
-      nextMorning: isNightSkip(lower),
+      nextMorning: rested && next.hour >= 4 && next.hour < 13,
       isSkip: true,
       offScreen: true,
       skipDestination: destination,
+      slept: rested,
     );
     onSetPendingRealismMetadata('time_skip_to', destination);
+    onSetPendingRealismMetadata(kSkipMinutesMeta, skipped);
+    if (rested) onSetPendingRealismMetadata(kSkipSleptMeta, true);
     if (state.bodyBeatLongSkip) {
       onSetPendingRealismMetadata(kLongSkipMinutesMeta, skipped);
     }
     onNotify();
     debugPrint(
-      '[Realism:OOC] Time-skip → ${state.displayClock} ${state.displayShortDate} (Day ${state.dayCount})',
+      '[Realism:Skip] → ${state.displayClock} ${state.displayShortDate} '
+      '(Day ${state.dayCount})',
     );
     await onDayChanged(dayBefore);
     return skipped;
   }
 
-  /// Regen of a long skip's reply: the clock already sits at [destination],
-  /// so only the body beat is noted again, and the replayed reply lands the
-  /// bodies the same way the first one did.
-  void renoteLongSkip({required int minutes, String? destination}) {
+  /// Regen of a skip's reply: the clock already sits at [destination], so
+  /// only the body beat is noted again, and the replayed reply wears (or
+  /// lands, for a day or more) the bodies the same way the first one did.
+  void renoteSkip(int minutes, {String? destination, bool slept = false}) {
     state.noteBodyBeat(
       minutes: minutes,
       nextMorning: false,
       isSkip: true,
       offScreen: true,
       skipDestination: destination,
+      slept: slept,
     );
-    onSetPendingRealismMetadata(kLongSkipMinutesMeta, minutes);
+    onSetPendingRealismMetadata(kSkipMinutesMeta, minutes);
+    if (slept) onSetPendingRealismMetadata(kSkipSleptMeta, true);
+    if (state.bodyBeatLongSkip) {
+      onSetPendingRealismMetadata(kLongSkipMinutesMeta, minutes);
+    }
   }
 
   // ── Skips the reply narrates ──────────────────────────────────────────────
@@ -327,21 +302,13 @@ class TimeClockApplier {
     return minutes;
   }
 
-  /// "A week later, she…" in the reply's own narration (quotes stripped):
-  /// a day-plus span moves the clock after the reply. Shorter beats stay
-  /// with the scene-time judge. Owns the turn, so the judge adds nothing.
-  /// Unlike [detectOocTimeSkip] it stamps no `time_skip_to`: a regen
-  /// rewinds to the turn's before and the new reply is read afresh.
-  Future<int> applyReplySkip(String text) async {
-    if (!isPassageOfTimeEnabled()) return 0;
-    final lower = stripQuotedSpeech(text).toLowerCase();
-    final next = SkipSpan.longLanding(state.clock, lower);
-    return next == null ? 0 : _applyLivedSkip(next);
-  }
-
-  /// The judge's `days_elapsed` for a jump the regex could not read.
-  Future<int> applyJudgedDays(int days) => _applyLivedSkip(
-    landSkipInDay(state.clock.add(Duration(days: days.clamp(1, 365))), ''),
+  /// The judge's `days_elapsed`: a jump of days the reply narrated,
+  /// landing at its `lands_at` ([until]) else in the morning.
+  Future<int> applyJudgedDays(int days, {String until = ''}) => _applyLivedSkip(
+    SkipVerdict(
+      minutes: days.clamp(1, 365) * kLongSkipMinutes,
+      until: until,
+    ).landing(state.clock)!,
   );
 
   Future<int> _applyLivedSkip(DateTime next) async {

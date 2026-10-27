@@ -115,4 +115,9 @@ const List<SlashCommandInfo> kSlashCommands = [
     '/wiki -- <what to look up>',
     'Look up these exact words in this chat\'s wiki. Put your line first, then the command',
   ),
+  SlashCommandInfo(
+    'skip',
+    '/skip <8h | 2d | morning | 07:30>',
+    'Skip story time by exactly this much. Put your line first, then the command; alone, it only moves the clock',
+  ),
 ];

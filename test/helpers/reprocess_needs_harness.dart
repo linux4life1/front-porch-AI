@@ -24,6 +24,8 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
+import 'skip_reader_answers.dart';
+
 const kAllNeeds = [
   'hunger',
   'bladder',
@@ -64,9 +66,22 @@ class RecordingLlm extends LLMService {
 
   String mouth = '*She leans on the porch rail and stretches.*';
 
+  /// Prompts the skip reader was sent, in order.
+  final List<String> skipReaderPrompts = [];
+
+  /// The skip reader's readings by a piece of the line; null uses
+  /// [kSuiteSkipReadings].
+  Map<String, String>? skipReadings;
+
   @override
   Stream<String> generateStream(GenerationParams params) async* {
     final p = params.prompt;
+    final skip = skipReaderReply(p, readings: skipReadings);
+    if (skip != null) {
+      skipReaderPrompts.add(p);
+      yield skip;
+      return;
+    }
     if (isReprocessPrompt(p)) {
       reprocessPrompts.add(p);
       yield reprocessReply;

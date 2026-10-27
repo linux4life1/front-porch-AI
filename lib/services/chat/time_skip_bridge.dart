@@ -18,9 +18,13 @@ const String kTimeSkipBridgeMeta = 'is_time_skip_bridge';
 /// How much of each card's description the bridge narrator reads.
 const int kBridgeCastNoteChars = 240;
 
-/// "3 days", "2 weeks", "4 months", "a year": the span in the words a
-/// narrator would use.
+/// "8 hours", "3 days", "2 weeks", "4 months", "a year": the span in the
+/// words a narrator would use.
 String skipSpanWords(int minutes) {
+  if (minutes < 23 * 60) {
+    final hours = (minutes / 60).round();
+    return hours <= 1 ? 'an hour' : '$hours hours';
+  }
   final days = (minutes / (24 * 60)).round();
   String unit(int n, String one) => n == 1 ? 'a $one' : '$n ${one}s';
   if (days < 14) return unit(days < 1 ? 1 : days, 'day');

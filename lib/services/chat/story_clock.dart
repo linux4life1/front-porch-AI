@@ -16,10 +16,6 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'package:front_porch_ai/services/chat/skip_landing.dart';
-import 'package:front_porch_ai/services/chat/skip_language.dart';
-import 'package:front_porch_ai/services/chat/skip_span.dart';
-
 /// The Story Clock — pure calendar/clock math for the passage-of-time
 /// subsystem (design: docs/design/story-calendar.md). No I/O, no state,
 /// fully deterministic: TimeService owns the mutable clock; every
@@ -217,84 +213,6 @@ class StoryClock {
             dateOnly(clock).add(const Duration(days: 1)),
             canon,
           );
-  }
-
-  /// OOC / narrative skip destination. [lower] is quote-stripped lowercase.
-  /// Callers still gate on skip language; this only interprets the target.
-  static DateTime resolveSkipTarget(DateTime clock, String lower) {
-    // A counted day-plus span first: "two weeks later" is fourteen days,
-    // "3 months pass" is three calendar months. Both land at the time of
-    // day the line names, else morning (skip_landing.dart).
-    final long = SkipSpan.longLanding(clock, lower);
-    if (long != null) return long;
-    final nextWeekOrMonth = nextWeekOrMonthSkip.firstMatch(lower);
-    if (nextWeekOrMonth != null) {
-      return nextWeekOrMonth.group(1) == 'month'
-          ? landSkipInDay(DateTime.utc(clock.year, clock.month + 1), lower)
-          : landSkipInDay(clock.add(const Duration(days: 7)), lower);
-    }
-    if (isNightSkip(lower)) {
-      return nextMorning(clock);
-    }
-    final namedPeriod = RegExp(
-      r'\b(?:(?:the )?next |skip(?:\s+ahead)?(?:\s+to)? |to )'
-      r'(dawn|late morning|morning|afternoon|evening|night)\b',
-    ).firstMatch(lower);
-    if (namedPeriod != null) {
-      return nextNamedPeriod(clock, namedPeriod.group(1)!);
-    }
-    final ampm = RegExp(
-      r'\b(?:skip(?:\s+ahead)?(?:\s+to)?|to)\s+'
-      r'(\d{1,2})(?::(\d{2}))?\s*(a\.?m\.?|p\.?m\.?)\b',
-    ).firstMatch(lower);
-    if (ampm != null) {
-      var hour = int.parse(ampm.group(1)!);
-      final minute = int.tryParse(ampm.group(2) ?? '') ?? 0;
-      final pm = ampm.group(3)!.startsWith('p');
-      if (hour == 12) {
-        hour = pm ? 12 : 0;
-      } else if (pm) {
-        hour += 12;
-      }
-      if (hour <= 23 && minute <= 59) {
-        return nextNamedClock(clock, hour, minute);
-      }
-    }
-    final hhmm = RegExp(
-      r'\b(?:skip(?:\s+ahead)?(?:\s+to)?|to)\s+(\d{1,2}):(\d{2})\b',
-    ).firstMatch(lower);
-    if (hhmm != null) {
-      final hour = int.parse(hhmm.group(1)!);
-      final minute = int.parse(hhmm.group(2)!);
-      if (hour <= 23 && minute <= 59) {
-        return nextNamedClock(clock, hour, minute);
-      }
-    }
-    if (RegExp(
-      r'\b(all day|entire day|full day|day passes|the (whole|entire) day)\b',
-    ).hasMatch(lower)) {
-      return clock.add(const Duration(hours: 8));
-    }
-    // Counted durations before the vague "hours pass" bucket. "[6 hours
-    // passed]" used to fall through to +1h (or +3h when "pass" matched),
-    // so the skip chip stamped a time the strip barely moved.
-    final counted = SkipSpan.shortLanding(clock, lower);
-    if (counted != null) return counted;
-    // A day-plus unit the forms above missed still lands days on: never
-    // the +1h default for "(ooc: time skip, it's been weeks)".
-    final anyLong = SkipSpan.anyLongLanding(clock, lower);
-    if (anyLong != null) return anyLong;
-    if (RegExp(
-      r'\b(several hours|many hours|a long time|hours? pass)\b',
-    ).hasMatch(lower)) {
-      return clock.add(const Duration(hours: 3));
-    }
-    if (RegExp(
-      r'\b(a few hours|couple.{0,5}hours|2.{0,5}hours|two hours)\b',
-    ).hasMatch(lower)) {
-      return clock.add(const Duration(hours: 2));
-    }
-    return clock.add(const Duration(hours: 1));
   }
 
   // ── Legacy synthesis (design §3) ──────────────────────────────────────────

@@ -35,7 +35,7 @@ class TimeClockState {
   bool? clockGateLeftover;
   int turnsSinceClockMoved = 0; // stall backstop counter (not a pacing gate)
   bool canonicalClockWasSynthesised = false;
-  // One clock authority per turn: set when detectOocTimeSkip moves the clock,
+  // One clock authority per turn: set when applyUserSkip moves the clock,
   // consumed by the per-turn eval so it can't re-count the same exchange.
   bool oocSkipMovedClockThisTurn = false;
   // Named wall-clock is exact. A later 0 / missing minutes_elapsed
@@ -75,6 +75,10 @@ class TimeClockState {
   /// down. A span that long is always lived off-screen.
   bool bodyBeatLongSkip = false;
 
+  /// True when the cast slept through the beat: the wear wakes every
+  /// present body rested instead of asking the judge.
+  bool bodyBeatSlept = false;
+
   /// Chip text for that beat. Null when the skip chip already says it.
   String? _timePassedLabel;
   String? get bodyTimeLabel => _timePassedLabel;
@@ -90,6 +94,7 @@ class TimeClockState {
     _livedOwed = 0;
     bodyBeatOffScreen = false;
     bodyBeatLongSkip = false;
+    bodyBeatSlept = false;
     _timePassedLabel = null;
     _needsSpanLabel = null;
   }
@@ -102,8 +107,10 @@ class TimeClockState {
     required bool isSkip,
     required bool offScreen,
     String? skipDestination,
+    bool slept = false,
   }) {
     final owed = _livedOwed;
+    bodyBeatSlept = slept;
     _livedOwed = 0;
     final total = (minutes < 0 ? 0 : minutes) + owed;
     bodyWearMinutes = total;

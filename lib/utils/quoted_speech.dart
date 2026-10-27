@@ -24,10 +24,10 @@
 ///
 /// * the image-prompt builder, so a picture never renders the words of a line
 ///   of dialogue as literal text;
-/// * the story clock's OOC time-skip detector, so a character *mentioning* a
-///   future date does not move the story to it — see
-///   `TimeService.detectOocTimeSkip`, where "will you post a new video next
-///   week?" teleported a real chat seven days forward, twice.
+/// * the story clock's skip net (`mightSkipTime`), so a character
+///   *mentioning* a future date does not move the story to it: "will you
+///   post a new video next week?" once teleported a real chat seven days
+///   forward, twice.
 ///
 /// Straight and curly double quotes both count. Single quotes deliberately do
 /// NOT: apostrophes are far more common than single-quoted speech, and

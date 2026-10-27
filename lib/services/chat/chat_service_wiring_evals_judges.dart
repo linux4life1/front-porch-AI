@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Pre-gen judge builders: verifier, needs impact, RealismEvals,
-// ObjectiveProposal, and the RealismJudges / RealismDance /
+// Pre-gen judge builders: verifier, needs impact, RealismEvals, the skip
+// step, ObjectiveProposal, and the RealismJudges / RealismDance /
 // NeedsReprocess that run them. Engine, post-gen trio, and tools transport
 // stay on wiring_evals. Injection is a different file.
 // objectivesActive stays the live AND.
@@ -421,6 +421,19 @@ extension ChatServiceWiringEvalJudges on ChatService {
     setStreamText: (v) => _realismEvalStreamText = v,
     chunkTimer: () => _evalChunkTimer,
     setChunkTimer: (t) => _evalChunkTimer = t,
+  );
+
+  /// The skip step for a user line or a /narrate beat. Stateless, so it
+  /// is built per use.
+  PlayerSkip _buildPlayerSkip() => PlayerSkip(
+    time: _timeService,
+    reader: SkipReader(
+      fireLLMEval: (p) => _fireLLMEval(p, label: 'skip'),
+      stripThinkBlocks: _llmEvalEngine.stripThinkBlocks,
+      fireToolEval: _fireToolEval,
+      probe: _toolProbe,
+      getBackendIdentity: () => _evalBackendIdentity,
+    ),
   );
 
   NeedsReprocess _buildNeedsReprocess() => NeedsReprocess(

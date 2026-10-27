@@ -152,6 +152,13 @@ class FakeBackendServer {
   /// Mac, red on the macOS and Windows CI runners.
   String? failChatCompletionContaining;
 
+  /// The skip reader's answer (`skip`, `minutes`, `until`, `gap`); null
+  /// answers "no skip".
+  Map<String, Object>? skipReaderVerdict;
+
+  /// Prompts the skip reader was sent, in order.
+  final List<String> skipReaderPrompts = [];
+
   /// Conversation turns rejected via [failNextChatCompletion].
   int chatFailuresServed = 0;
 
@@ -580,6 +587,15 @@ class FakeBackendServer {
       eval['user_climaxed'] = climax && userClimaxVerdict;
       if (climax) climaxVerdictsServed++;
     }
+    // The skip reader, asked before the reply when a line talks about
+    // time. A given verdict: no skip unless a suite sets [skipReaderVerdict].
+    if (lastContent.contains('You keep the story clock for a roleplay')) {
+      skipReaderPrompts.add(lastContent);
+      eval.addAll(
+        skipReaderVerdict ??
+            const {'skip': false, 'minutes': 0, 'until': '', 'gap': 'none'},
+      );
+    }
     if (lastContent.contains('emotion_intensity')) {
       eval['emotion'] = 'happy';
       eval['emotion_intensity'] = 'moderate';
@@ -614,9 +630,21 @@ class FakeBackendServer {
       eval['short_description'] =
           'A small courtyard of salt-bleached stone by the tideline.';
       eval['lore_entries'] = [
-        {'name': 'Salt walls', 'keys': 'salt,wall', 'content': 'The walls weep brine.'},
-        {'name': 'Well', 'keys': 'well', 'content': 'A stone well in the centre.'},
-        {'name': 'Gate', 'keys': 'gate', 'content': 'An iron gate to the harbour.'},
+        {
+          'name': 'Salt walls',
+          'keys': 'salt,wall',
+          'content': 'The walls weep brine.',
+        },
+        {
+          'name': 'Well',
+          'keys': 'well',
+          'content': 'A stone well in the centre.',
+        },
+        {
+          'name': 'Gate',
+          'keys': 'gate',
+          'content': 'An iron gate to the harbour.',
+        },
       ];
     }
     // Glance pass (21bfd8c3). Same trap as climax above: unmatched key

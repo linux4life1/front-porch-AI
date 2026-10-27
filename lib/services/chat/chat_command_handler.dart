@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/director/director.dart';
 import 'package:front_porch_ai/services/chat/lookup_force.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_tag.dart';
 
 import 'chat_command_handler/chat_command_handler.dart';
 
@@ -224,6 +225,11 @@ class ChatCommandHandler {
         // command still has to count as recognized so the cheat sheet cannot
         // advertise a command that falls through as chat text.
         _onSystemMessage('⚠ $kLookupForceUsage');
+        return true;
+
+      case 'skip':
+        // The same: the send path reads `/skip 8h` (SkipTag) first.
+        _onSystemMessage('⚠ $kSkipTagUsage');
         return true;
 
       case 'image':

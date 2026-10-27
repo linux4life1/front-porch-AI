@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/services/chat/realism_tools/realism_tool_names.dart';
 import 'package:front_porch_ai/services/chat/realism_tools/place_mint_tool_schema.dart';
 import 'package:front_porch_ai/services/chat/realism_tools/afterglow_tool_schemas.dart';
+import 'package:front_porch_ai/services/chat/realism_tools/skip_reader_tool_schema.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 Map<String, dynamic> _intField(String description) => {
@@ -327,6 +328,7 @@ final List<Map<String, dynamic>> kSceneTimeOnlyEvalTools = [
       'continuous_instant': _sceneTimeFields['continuous_instant']!,
       'new_day': _sceneTimeFields['new_day']!,
       'days_elapsed': _sceneTimeFields['days_elapsed']!,
+      'lands_at': kJudgedLandsAtField,
       // Slice 6: in the schema always (fixed contract); asked for in the
       // prompt only when Scene suggestions is on. Absent = 'same'.
       'scene_place': _sceneTimeFields['scene_place']!,
@@ -352,6 +354,7 @@ final List<Map<String, dynamic>> kSceneTimeOnlyEvalToolsWithToday = [
       'continuous_instant': _sceneTimeFields['continuous_instant']!,
       'new_day': _sceneTimeFields['new_day']!,
       'days_elapsed': _sceneTimeFields['days_elapsed']!,
+      'lands_at': kJudgedLandsAtField,
       'scene_place': _sceneTimeFields['scene_place']!,
       'new_place_name': _sceneTimeFields['new_place_name']!,
       'new_place_descriptor': _sceneTimeFields['new_place_descriptor']!,
@@ -492,4 +495,5 @@ final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
   kWithUserToolName: kWithUserFields,
   kCastFeelingsToolName: kCastFeelingsFields,
   kPlaceMintTool: kPlaceMintFields,
+  kSkipReaderTool: kSkipReaderFields,
 };

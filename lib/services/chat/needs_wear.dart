@@ -51,6 +51,31 @@ const Map<String, int> needsSkipFloors = {
 /// the catastrophe at 0.
 const int needsWearStopsAt = 1;
 
+/// Where energy and the bladder wake after a night slept through, unless
+/// the character's everyday level is higher.
+const int needsRestedLevel = 75;
+
+/// After a night slept through ([kRestedSleepMinutes] or more): energy and
+/// the bladder (the morning bathroom) wake at [needsRestedLevel] or the
+/// [everyday] level, whichever is higher, and never lower than they were.
+/// Hunger and the rest keep the night's wear. Needs that are off keep what
+/// they hold.
+Map<String, int> restedBars({
+  required Map<String, int> current,
+  required Map<String, int> everyday,
+  required List<String> on,
+}) {
+  final next = Map<String, int>.from(current);
+  for (final need in const ['energy', 'bladder']) {
+    final now = next[need];
+    if (!on.contains(need) || now == null) continue;
+    final level = everyday[need] ?? 0;
+    final rested = level > needsRestedLevel ? level : needsRestedLevel;
+    if (now < rested) next[need] = rested.clamp(0, 100);
+  }
+  return next;
+}
+
 /// Where the bars land after days lived off-screen ([kLongSkipMinutes] or
 /// more): every need in [on] at its [everyday] level. A body that lived two
 /// weeks ate, slept and washed, so it is neither starving nor at a skip

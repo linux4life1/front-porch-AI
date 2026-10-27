@@ -31,6 +31,7 @@ const SLASH_COMMANDS: { cmd: string; args: string; desc: string }[] = [
   { cmd: '/expression', args: '[emotion]', desc: "Set the character's expression; omit the emotion to clear it" },
   { cmd: '/search', args: '-- <what to look up>', desc: 'Look up these exact words on the web before she answers. Put your line first, then the command' },
   { cmd: '/wiki', args: '-- <what to look up>', desc: "Look up these exact words in this chat's wiki. Put your line first, then the command" },
+  { cmd: '/skip', args: '<8h | 2d | morning | 07:30>', desc: 'Skip story time by exactly this much. Put your line first, then the command; alone, it only moves the clock' },
 ];
 
 /** The in-progress "@" token ending at `caret`, or null. Mirrors the engine's

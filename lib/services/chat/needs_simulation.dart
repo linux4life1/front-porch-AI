@@ -190,8 +190,12 @@ class NeedsSimulation {
   }
 
   /// Days lived off-screen: the bars land at [bars] and the carried
-  /// fractions start over. Returns what each bar lost (negative for a gain).
-  Map<String, int> applyLivedSkip(Map<String, int> bars) {
+  /// fractions start over, unless [keepCarry] (a night slept, not days
+  /// lived). Returns what each bar lost (negative for a gain).
+  Map<String, int> applyLivedSkip(
+    Map<String, int> bars, {
+    bool keepCarry = false,
+  }) {
     final taken = <String, int>{};
     for (final entry in bars.entries) {
       final current = _vector[entry.key];
@@ -199,7 +203,7 @@ class NeedsSimulation {
       _vector[entry.key] = entry.value;
       taken[entry.key] = current - entry.value;
     }
-    _wearCarry = {};
+    if (!keepCarry) _wearCarry = {};
     return taken;
   }
 

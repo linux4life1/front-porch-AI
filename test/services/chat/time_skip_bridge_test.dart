@@ -12,7 +12,7 @@
 // loses the card; dropping the `lived` branch in needs_pass.dart leaves
 // the bars at the skip floors; dropping `LongSkipSettle(...).settle()` in
 // chat_service_send.dart keeps "furious" and the couch in the prompts;
-// dropping `renoteLongSkip` in chat_service_reprocess.dart puts the
+// dropping `renoteSkip` in chat_service_reprocess.dart puts the
 // pre-skip bars back on regen; dropping the regen settle there lets a judge
 // read "furious" again (1:1 and group); appending the card after the skip
 // line instead of before it hides the user's turn from Reprocess Feelings.
@@ -30,9 +30,14 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/chat/chat.dart'
-    show kLongSkipMinutesMeta, kTimeSkipBridgeMeta, skipMomentWords;
+    show
+        kLongSkipMinutesMeta,
+        kSkipTagUsage,
+        kTimeSkipBridgeMeta,
+        skipMomentWords;
 
 import '../../helpers/reprocess_needs_harness.dart';
+import '../../helpers/skip_reader_answers.dart';
 
 const _bridge =
     'The days slid by in rain and small chores, and the porch saw little '
@@ -79,7 +84,7 @@ void main() {
   setupReprocessPathProviderMock();
 
   // 2026-10-20: a day-plus skip lands in the morning of the day it names
-  // (skip_landing.dart), not at the hour it left.
+  // (SkipVerdict.landing), not at the hour it left.
   DateTime morningAfter(DateTime from, int days) {
     final d = from.add(Duration(days: days));
     return DateTime.utc(d.year, d.month, d.day, 9);
@@ -450,5 +455,119 @@ void main() {
       ),
       isEmpty,
     );
+  });
+
+  // ── The skip reader (#629) ────────────────────────────────────────────
+  //
+  // A line with time words goes to the skip reader before the reply; the
+  // reading, not a phrase list, moves the clock. Proven red: landing a
+  // counted span on "the next morning" puts 1:40 AM + 8 h at 8 AM; dropping
+  // `rested` in needs_pass.dart leaves the sleepers at 15 energy (1:1 and
+  // group); reading skip_minutes off the pending turn in
+  // `_timeSkipAnchorBlock` drops the 8-hour anchor; dropping the skip-only
+  // branch in chat_service_send.dart sends "/skip morning" as chat; not
+  // stripping the tag sends "/skip 8h" to the model.
+
+  const slept = '*We slept eight hours and woke up to birdsong.*';
+  final sleptReading = {'slept eight hours': skipReading(480, slept: true)};
+
+  test(
+    '#629: "slept eight hours and woke up" at 1:40 AM lands at 9:40, '
+    'wakes the sleeper rested, and the reply reads the 8-hour anchor',
+    () async {
+      await furiousOnTheCouch();
+      llm.skipReadings = sleptReading;
+      final from = DateTime.utc(2026, 10, 27, 1, 40);
+      await h.chat.setStoryClock(from);
+
+      await h.chat.sendMessage(slept);
+      await h.settleTurn();
+
+      expect(llm.skipReaderPrompts.single, contains(slept));
+      expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 9, 40));
+      expect(
+        h.chat.needsSimulation.vector['energy'],
+        greaterThanOrEqualTo(75),
+        reason: 'a night slept through',
+      );
+      expect(
+        llm.replyPrompts.last,
+        contains('[Time skip: about 8 hours passed'),
+      );
+      expect(llm.bridgePrompts, isEmpty, reason: 'a night is not a long skip');
+    },
+  );
+
+  test('in a group every sleeper wakes rested, and a regen lands the same '
+      'bars and clock', () async {
+    await h.groupWithTwoReplies(aOff: const []);
+    llm.liveNeedsReply = _quietNeeds;
+    llm.skipReadings = sleptReading;
+    final cast = h.chat.groupCharacters.toList();
+    for (final c in cast) {
+      h.chat.getNeedsForGroupCharacter(c)['energy'] = 10;
+    }
+
+    await h.chat.sendMessage(slept);
+    await h.settleTurn();
+    Map<String, Map<String, int>> bars() => {
+      for (final c in cast) c.name: {...h.chat.getNeedsForGroupCharacter(c)},
+    };
+    final first = bars();
+    final clock = h.chat.timeService.clock;
+    for (final c in cast) {
+      expect(
+        first[c.name]!['energy'],
+        greaterThanOrEqualTo(75),
+        reason: c.name,
+      );
+    }
+
+    await h.chat.regenerateLastMessage();
+    await h.settleTurn();
+    expect(h.chat.timeService.clock, clock);
+    expect(bars(), first);
+  });
+
+  test(
+    'a line the reader calls no skip leaves the clock to the judge',
+    () async {
+      final before = await furiousOnTheCouch();
+      await h.chat.sendMessage("Let's get some sleep soon.");
+      await h.settleTurn();
+
+      expect(llm.skipReaderPrompts, hasLength(1));
+      expect(h.chat.timeService.clock, before.add(const Duration(minutes: 30)));
+    },
+  );
+
+  test('"/skip 8h" at the end: the exact amount wins, no reader call, and '
+      'the tag never reaches the model', () async {
+    final before = await furiousOnTheCouch();
+    await h.chat.sendMessage('I sit on the steps and wait. /skip 8h');
+    await h.settleTurn();
+
+    expect(llm.skipReaderPrompts, isEmpty);
+    expect(h.chat.timeService.clock, before.add(const Duration(hours: 8)));
+    final user = h.chat.messages.lastWhere((m) => m.isUser);
+    expect(user.text, 'I sit on the steps and wait.');
+    expect(llm.replyPrompts.last, isNot(contains('/skip')));
+  });
+
+  test('"/skip morning" alone moves the clock and sends nothing; a bad tag '
+      'says how to use it', () async {
+    await furiousOnTheCouch();
+    await h.chat.setStoryClock(DateTime.utc(2026, 10, 27, 21));
+    final sent = h.chat.messages.length;
+
+    await h.chat.sendMessage('/skip morning');
+    await h.settleTurn();
+    expect(h.chat.messages, hasLength(sent));
+    expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 28, 8));
+
+    await h.chat.sendMessage('Coffee? /skip soonish');
+    await h.settleTurn();
+    expect(h.chat.messages, hasLength(sent));
+    expect(h.chat.guestActivityStatus, kSkipTagUsage);
   });
 }

@@ -273,10 +273,9 @@ class SceneTimeEvaluator {
     // Snapshot the offer ONCE per call: the ids the model may answer
     // with are exactly the ids that were in front of it. A Setting that
     // changes mid-call can never validate against a stale list.
-    final sceneOffer =
-        (sceneMovesAllowed && !postureOnly)
-            ? getScenePlaceOffer?.call()
-            : null;
+    final sceneOffer = (sceneMovesAllowed && !postureOnly)
+        ? getScenePlaceOffer?.call()
+        : null;
     final scenePlaceOn = sceneOffer != null && sceneOffer.isNotEmpty;
     void maybeOfferSceneMove(String text) {
       if (!scenePlaceOn) return;
@@ -285,8 +284,7 @@ class SceneTimeEvaluator {
       if (said.toLowerCase() == 'new') {
         // Slice 7: only a NAMED arrival qualifies; the pair rides out
         // to the mint dialog, which is where the tap happens.
-        final name =
-            _extractJsonField(text, 'new_place_name')?.trim() ?? '';
+        final name = _extractJsonField(text, 'new_place_name')?.trim() ?? '';
         final desc =
             _extractJsonField(text, 'new_place_descriptor')?.trim() ?? '';
         if (name.isEmpty) {
@@ -312,6 +310,7 @@ class SceneTimeEvaluator {
         '[Realism:Scene] scene_place "$said" is not an offered id — ignored',
       );
     }
+
     void logSuppressedNewDay() => debugPrint(
       '[Realism:Time] new_day=true suppressed — no sleep/wake language '
       'in the recent exchange (hallucination guard)',
@@ -322,7 +321,10 @@ class SceneTimeEvaluator {
     Future<void> applyVerdict(String text) async {
       final days = _extractDays(text);
       if (days > 0 && _daysCorroboration.hasMatch(recent)) {
-        await applier.applyJudgedDays(days);
+        await applier.applyJudgedDays(
+          days,
+          until: _extractJsonField(text, 'lands_at') ?? '',
+        );
         // This eval was the turn's one clock authority; nothing to hand on.
         state.oocSkipMovedClockThisTurn = false;
         maybeOfferSceneMove(text);
@@ -380,8 +382,7 @@ class SceneTimeEvaluator {
     // kinds (a numbered rule wrapping double-quoted place ids).
     var sceneRule = '';
     if (scenePlaceOn) {
-      final ids =
-          sceneOffer.map((p) => '"${p.id}" (${p.label})').join(', ');
+      final ids = sceneOffer.map((p) => '"${p.id}" (${p.label})').join(', ');
       sceneRule =
           '$sceneRuleNumber. "scene_place": where the reply LEAVES the '
           'scene. Answer "same" unless the narration actually ARRIVES at '
@@ -401,7 +402,7 @@ class SceneTimeEvaluator {
         'A completed spoken reply is never a continuous instant. When true, minutes_elapsed is ignored and the clock stays still.\n'
         '3. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
         'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
-        '4. "days_elapsed": ONLY when the reply just written explicitly narrates a jump of one or more whole days ("a week later", "three days passed"), the number of days skipped (1-365). Otherwise 0. Mentioning a date or a plan is not a jump.\n'
+        '4. "days_elapsed": ONLY when the reply just written explicitly narrates a jump of one or more whole days ("a week later", "three days passed"), the number of days skipped (1-365). Otherwise 0. Mentioning a date or a plan is not a jump. With a jump, "lands_at": the time of day it lands at if the reply says (dawn, morning, late_morning, afternoon, evening, night, or 24-hour HH:MM), else blank.\n'
         '${plannerToday ? '5. "today_sentence": one sentence of what they are doing or planning today. '
                   'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}'
         '$sceneRule';

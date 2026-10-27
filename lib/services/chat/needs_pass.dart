@@ -177,9 +177,20 @@ class NeedsPass {
       if (minutes <= 0) return;
       final offScreen = _timeService.bodyBeatOffScreen;
       final lived = _timeService.bodyBeatLongSkip;
+      final rested = _timeService.bodyBeatSlept;
       beat = _activeGroup == null
-          ? _wear.host(minutes, offScreen: offScreen, lived: lived)
-          : _wear.group(minutes, offScreen: offScreen, lived: lived);
+          ? _wear.host(
+              minutes,
+              offScreen: offScreen,
+              lived: lived,
+              rested: rested,
+            )
+          : _wear.group(
+              minutes,
+              offScreen: offScreen,
+              lived: lived,
+              rested: rested,
+            );
     } else {
       beat = _wear.tickSpeaker();
     }

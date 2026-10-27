@@ -289,7 +289,7 @@ extension ChatServiceCast on ChatService {
     }
     // No await since the flag dropped: the reply raises _isGenerating first.
     if (landed.isNotEmpty && !_sceneChanged(token)) {
-      await _skipNarratedTime(landed);
+      await _skipNarratedTime(landed, token);
       await _generateResponse(GenerationMode.normal);
     }
     return true;
@@ -298,10 +298,13 @@ extension ChatServiceCast on ChatService {
   /// A beat that skips time moves the clock the way a user's skip line
   /// does: same turn ownership and regen replay, same settle for a day or
   /// more. No bridge card: the beat already narrated the gap.
-  Future<void> _skipNarratedTime(String beat) async {
+  Future<void> _skipNarratedTime(String beat, String? token) async {
     if (!_clockRunning) return;
     final before = _timeService.clock;
-    final skipped = await _timeService.detectOocTimeSkip(beat);
+    final skipped = await _buildPlayerSkip().apply(
+      beat,
+      stale: () => _sceneChanged(token),
+    );
     await _episodeCrumbs.maybeMint(before, _timeService.clock);
     if (skipped >= kLongSkipMinutes) LongSkipSettle(_realismScope()).settle();
   }

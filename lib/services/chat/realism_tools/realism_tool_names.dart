@@ -31,3 +31,4 @@ const String kReplyFactsToolName = 'report_reply_facts';
 const String kWithUserToolName = 'report_with_user';
 const String kCastFeelingsToolName = 'report_cast_feelings';
 const String kPlaceMintTool = 'report_place_draft';
+const String kSkipReaderTool = 'report_time_skip';

@@ -4,23 +4,25 @@
 // A skip the MODEL writes ("A week later, she…") or a /narrate beat
 // narrates moves the story clock by itself, through the real send, regen
 // and director paths: the clock jumps the span and lands at the time of
-// day the line names (else morning), the scene the skip left is settled,
+// day the reply names (else morning), the scene the skip left is settled,
 // and the bodies land at their everyday level. No bridge card: the reply
 // already narrated the gap. A regen whose new reply does not skip puts the
-// clock back. Quoted speech is not a skip. The judge's days_elapsed covers
-// a jump the regex cannot read. A user skip whose reply names a clock time
-// no longer suppresses the next turn's passage-of-time eval.
+// clock back. Quoted speech is not a skip. A user skip whose reply names a
+// clock time no longer suppresses the next turn's passage-of-time eval.
 //
-// Proven red: dropping the `applyReplySkip` call in
-// chat_service_generation_postgen.dart leaves the clock 30 minutes on
-// (1:1, group, landing); dropping its `LongSkipSettle(...).settle()`
-// keeps "furious"; dropping `releaseSkipOwnership()` there freezes the
-// next turn's clock (the leak); dropping the `applyJudgedDays` branch in
-// scene_time_evaluator.dart leaves the judge's ten days unapplied; dropping
-// `_skipNarratedTime` in chat_service_cast.dart leaves /narrate's skip out;
-// reading the reply without `stripQuotedSpeech` jumps on spoken words;
-// dropping the Continue return in `_advanceStoryClockAfterReply` lets a
-// Continue apply the skip.
+// The reply's skip is read by the scene-time judge (`days_elapsed`,
+// `lands_at`), a /narrate beat's by the skip reader; the scripted judge
+// below answers for each skipping reply the way a model reads it. The
+// phrase rules that read replies are gone (#629).
+//
+// Proven red: dropping the `applyJudgedDays` branch in
+// scene_time_evaluator.dart leaves the clock 30 minutes on (1:1, group);
+// passing it no `until` lands "that evening" at 9 AM; dropping its
+// `LongSkipSettle(...).settle()` in the post-reply pass keeps "furious";
+// dropping `releaseSkipOwnership()` there freezes the next turn's clock
+// (the leak); dropping `_skipNarratedTime` in chat_service_cast.dart
+// leaves /narrate's skip out; dropping the Continue return in
+// `_advanceStoryClockAfterReply` lets a Continue apply the skip.
 
 import 'package:flutter_test/flutter_test.dart';
 
@@ -34,6 +36,15 @@ const _quietNeeds =
     '"social_delta": 0, "fun_delta": 0, "hygiene_delta": 0, '
     '"comfort_delta": 0, "reason": "a quiet beat"}';
 
+/// What the scene-time judge reads in each reply that skips, by a piece
+/// of the reply.
+const _judged = {
+  'A week later, she finds': '"days_elapsed": 7',
+  'Three days later, that evening': '"days_elapsed": 3, "lands_at": "evening"',
+  'Two days later, the porch is swept': '"days_elapsed": 2',
+  'A week later, the porch is swept': '"days_elapsed": 7',
+};
+
 class _ReplySkipLlm extends RecordingLlm {
   String emotion = 'furious';
   String timeVerdict = '{"minutes_elapsed": 30, "new_day": false}';
@@ -45,7 +56,16 @@ class _ReplySkipLlm extends RecordingLlm {
     if (p.contains('You are the narrator of a roleplay scene')) {
       return Stream.value(narration);
     }
-    if (p.contains('minutes_elapsed')) return Stream.value(timeVerdict);
+    if (p.contains('minutes_elapsed')) {
+      for (final MapEntry(:key, :value) in _judged.entries) {
+        if (p.contains(key)) {
+          return Stream.value(
+            '{"minutes_elapsed": 30, "new_day": false, $value}',
+          );
+        }
+      }
+      return Stream.value(timeVerdict);
+    }
     if (p.contains('emotion_intensity') &&
         !p.contains('relationship_delta') &&
         !p.contains('hunger_delta')) {

@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // A finished night lands before they write. Going to bed is still a scene.
+// The skip reader (a model) decides what a line means; these pin the wide
+// net in front of it and the date math behind it.
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:front_porch_ai/services/chat/skip_language.dart';
-import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
-import 'package:front_porch_ai/utils/quoted_speech.dart';
+import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart';
 
 TimeService _clock() => TimeService(
   onNotify: () {},
@@ -19,59 +19,57 @@ TimeService _clock() => TimeService(
 void main() {
   final evening = DateTime.utc(2026, 8, 22, 20, 31);
 
-  group('skip language', () {
-    test('sleep through the night is a skip and a night skip', () {
-      const t = 'we sleep through the night';
-      expect(hasSkipPhrase(t), isTrue);
-      expect(isNightSkip(t), isTrue);
-      expect(shouldDetectTimeSkip(t), isTrue);
+  group('the wide net', () {
+    test('a night, hours and an OOC skip are worth asking about', () {
+      expect(mightSkipTime('We sleep through the night.'), isTrue);
+      expect(mightSkipTime('(OOC: everyone sleeps for eight hours)'), isTrue);
+      expect(mightSkipTime('*Two weeks later, the porch is quiet.*'), isTrue);
+      expect(mightSkipTime('The next morning, sunlight.'), isTrue);
+      expect(mightSkipTime('Fast forward to 7:30.'), isTrue);
     });
 
-    test("let's go to bed is a scene, not a skip", () {
-      const t = "let's go to bed";
-      expect(hasSkipPhrase(t), isFalse);
-      expect(isNightSkip(t), isFalse);
-      expect(shouldDetectTimeSkip(t), isFalse);
+    test('an ordinary line costs no call', () {
+      expect(mightSkipTime('*She sits down next to him and smiles.*'), isFalse);
+      expect(mightSkipTime('I pass you the salt.'), isFalse);
     });
 
-    test('getting sleepy is not a skip', () {
-      expect(shouldDetectTimeSkip("i'm getting sleepy"), isFalse);
-      expect(isNightSkip('going to sleep now'), isFalse);
-    });
-
-    test('hours later is a skip but not a night restore', () {
-      expect(hasSkipPhrase('a few hours later'), isTrue);
-      expect(isNightSkip('a few hours later'), isFalse);
-    });
-
-    test('the next morning still restores the body', () {
-      expect(isNightSkip('the next morning, sunlight'), isTrue);
-    });
-
-    test('quoted sleep-through is not a skip', () {
-      final lower = stripQuotedSpeech(
-        '"we sleep through the night," she joked',
-      ).toLowerCase();
-      expect(shouldDetectTimeSkip(lower), isFalse);
+    test('time words inside quoted speech are not narration', () {
+      expect(
+        mightSkipTime('"We sleep through the night," she joked.'),
+        isFalse,
+      );
     });
   });
 
   group('clock landing', () {
-    test('sleep through the night lands at next morning', () {
+    test('a night slept through lands at next morning', () {
       expect(
-        StoryClock.resolveSkipTarget(evening, 'we sleep through the night'),
+        const SkipVerdict(until: 'morning', slept: true).landing(evening),
         DateTime.utc(2026, 8, 23, 8, 0),
       );
     });
 
-    test('slept until dawn lands at next morning', () {
+    test('a counted span is exact, whatever the line says of morning', () {
+      // #629: "slept eight hours and woke up" landed at 8 AM, five hours.
+      final small = DateTime.utc(2026, 8, 22, 1, 40);
       expect(
-        StoryClock.resolveSkipTarget(evening, 'we slept until dawn'),
-        DateTime.utc(2026, 8, 23, 8, 0),
+        const SkipVerdict(minutes: 480, until: 'morning').landing(small),
+        DateTime.utc(2026, 8, 22, 9, 40),
       );
     });
 
-    test('detectOocTimeSkip moves 8:31pm to 8am', () async {
+    test('days land on their day, in the morning or where they say', () {
+      expect(
+        const SkipVerdict(minutes: 14 * 1440).landing(evening),
+        DateTime.utc(2026, 9, 5, 9, 0),
+      );
+      expect(
+        const SkipVerdict(minutes: 2 * 1440, until: 'evening').landing(evening),
+        DateTime.utc(2026, 8, 24, 18, 30),
+      );
+    });
+
+    test('applyUserSkip moves 8:31pm to 8am', () async {
       final t = _clock();
       t.seedFromV2OrExt(
         dayCount: 1,
@@ -80,7 +78,7 @@ void main() {
         storyStartTime: '20:31',
       );
       expect(t.clock.hour, 20);
-      await t.detectOocTimeSkip('We sleep through the night.');
+      await t.applyUserSkip(const SkipVerdict(until: 'morning', slept: true));
       expect(t.clock, DateTime.utc(2026, 8, 23, 8, 0));
       expect(t.dayCount, 2);
       // Needs v2: the night is a span the body wears, off-screen (floors).
@@ -122,7 +120,7 @@ void main() {
       expect(t.bodyTimeLabel, isNotNull);
     });
 
-    test("detectOocTimeSkip ignores let's go to bed", () async {
+    test("no skip read from let's go to bed leaves the clock", () async {
       final t = _clock();
       t.seedFromV2OrExt(
         dayCount: 1,
@@ -130,8 +128,148 @@ void main() {
         storyStartDate: '2026-08-22',
         storyStartTime: '20:31',
       );
-      await t.detectOocTimeSkip("Let's go to bed.");
+      expect(await t.applyUserSkip(SkipVerdict.none), 0);
       expect(t.clock.hour, 20);
+    });
+  });
+
+  group('the /skip tag', () {
+    SkipVerdict? read(String text) => SkipTag.parse(text).verdict;
+
+    test('the tag comes off the line and gives the exact skip', () {
+      final tag = SkipTag.parse('I wait on the steps. /skip 8h');
+      expect(tag.body, 'I wait on the steps.');
+      expect(tag.verdict, const SkipVerdict(minutes: 480));
+      expect(read('/skip 1d 6h'), const SkipVerdict(minutes: 30 * 60));
+      expect(read('/skip 8 hours'), const SkipVerdict(minutes: 480));
+      expect(read('/skip 90 min'), const SkipVerdict(minutes: 90));
+      expect(
+        read('/skip 2 weeks morning'),
+        const SkipVerdict(minutes: 14 * 24 * 60, until: 'morning'),
+      );
+    });
+
+    test('it lands on a period or a clock time', () {
+      expect(
+        read('/skip late morning'),
+        const SkipVerdict(until: 'late_morning'),
+      );
+      expect(read('/skip noon'), const SkipVerdict(until: '12:00'));
+      expect(read('/skip 7:30 pm'), const SkipVerdict(until: '19:30'));
+      expect(read('/skip 7am'), const SkipVerdict(until: '07:00'));
+      expect(read('/skip 07:30'), const SkipVerdict(until: '07:30'));
+    });
+
+    test('a tag it cannot read says how to use it; no tag is no skip', () {
+      expect(SkipTag.parse('Tea? /skip soonish').error, kSkipTagUsage);
+      expect(SkipTag.parse('/skip').error, kSkipTagUsage);
+      expect(SkipTag.parse('/skip 7').error, kSkipTagUsage);
+      final none = SkipTag.parse('We were /skipping stones.');
+      expect(none.present, isFalse);
+      expect(none.body, 'We were /skipping stones.');
+    });
+  });
+
+  group('the skip reader', () {
+    test(
+      'its JSON reads as a skip, no skip, an unmeasured skip or nothing',
+      () {
+        expect(
+          SkipVerdict.fromJsonText(
+            '<think>hm</think>{"skip": true, "minutes": 480, "until": "", '
+            '"gap": "slept"}',
+          ),
+          const SkipVerdict(minutes: 480, slept: true),
+        );
+        expect(SkipVerdict.fromJsonText('{"skip": false}'), SkipVerdict.none);
+        expect(
+          SkipVerdict.fromJsonText(
+            '{"skip": true, "minutes": 0, "until": "", "gap": "other"}',
+          )!.isUnmeasured,
+          isTrue,
+        );
+        expect(SkipVerdict.fromJsonText('Yes, they skip.'), isNull);
+        expect(SkipVerdict.fromJsonText('{"minutes": 30}'), isNull);
+      },
+    );
+
+    test('a reader that fails reads nothing', () async {
+      final reader = SkipReader(
+        fireLLMEval: (_) async => throw StateError('backend down'),
+        stripThinkBlocks: (t) => t,
+      );
+      expect(await reader.read(line: 'We sleep.', clock: evening), isNull);
+    });
+
+    PlayerSkip skipper(TimeService t, String? answer, List<String> asked) =>
+        PlayerSkip(
+          time: t,
+          reader: SkipReader(
+            fireLLMEval: (p) async {
+              asked.add(p);
+              return answer;
+            },
+            stripThinkBlocks: (t) => t,
+          ),
+        );
+
+    TimeService running() => _clock()
+      ..seedFromV2OrExt(
+        dayCount: 1,
+        timeOfDay: 'evening',
+        storyStartDate: '2026-08-22',
+        storyStartTime: '20:31',
+      )
+      ..setPassageOfTimeEnabled(true);
+
+    test('only a line with time words is read, and an answer that is no '
+        'answer moves nothing', () async {
+      final t = running();
+      final asked = <String>[];
+      expect(await skipper(t, 'Sure!', asked).apply('I pass the salt.'), 0);
+      expect(asked, isEmpty);
+      expect(await skipper(t, 'Sure!', asked).apply('We sleep.'), 0);
+      expect(asked, hasLength(1));
+      expect(t.clock, DateTime.utc(2026, 8, 22, 20, 31));
+    });
+
+    test('a skip with no amount moves an hour; /skip keeps the reader\'s '
+        'sleep but its own amount', () async {
+      final t = running();
+      final unmeasured =
+          '{"skip": true, "minutes": 0, "until": "", "gap": "other"}';
+      expect(
+        await skipper(t, unmeasured, []).apply('Some time passes.'),
+        kUnmeasuredSkipMinutes,
+      );
+      final slept =
+          '{"skip": true, "minutes": 600, "until": "", "gap": "slept"}';
+      final verdict = await skipper(
+        t,
+        slept,
+        [],
+      ).decide('We sleep.', exact: const SkipVerdict(minutes: 480));
+      expect(verdict, const SkipVerdict(minutes: 480, slept: true));
+    });
+
+    test('a chat that changed under the read keeps its clock', () async {
+      final t = running();
+      final reading =
+          '{"skip": true, "minutes": 480, "until": "", "gap": "other"}';
+      final moved = await skipper(
+        t,
+        reading,
+        [],
+      ).apply('Eight hours later.', stale: () => true);
+      expect(moved, 0);
+      expect(t.clock, DateTime.utc(2026, 8, 22, 20, 31));
+    });
+
+    test('with Passage of Time off nothing is read', () async {
+      final t = running()..setPassageOfTimeEnabled(false);
+      final asked = <String>[];
+      expect(await skipper(t, '{}', asked).decide('We sleep.'), isNull);
+      expect(asked, isEmpty);
     });
   });
 }

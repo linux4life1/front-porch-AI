@@ -30,14 +30,17 @@
 //    says Saturday, while the journal cards and the recap still say Monday.
 //    96 of 109 sessions in the maintainer's own library were in that state.
 //
-// 2. A CHARACTER SAYING "NEXT WEEK" TRAVELLED THERE. detectOocTimeSkip matched
-//    its phrase list anywhere in the message, quoted dialogue included. Real
+// 2. A CHARACTER SAYING "NEXT WEEK" TRAVELLED THERE. The old skip detector
+//    matched its phrase list anywhere in the message, quoted dialogue
+//    included. Real
 //    damage, from real chats: "will you give your donors a new video next
 //    week?" moved the story from Day 1 to Day 8, and "why wait till next week
 //    for the Gym video" did it again a few turns later and made it stick;
 //    "even though we just woke up a few hours ago" cost another chat a whole
 //    day. The skip then claims the turn, so the eval's correct verdict of a few
-//    minutes is thrown away in favour of the phantom week.
+//    minutes is thrown away in favour of the phantom week. The skip reader
+//    (a model) now reads the line; the wide net in front of it reads only
+//    narration, so a time word that is only spoken never even asks it.
 //
 // Everything here is deterministic: fixed UTC dates, no wall clock, no LLM.
 
@@ -46,6 +49,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart';
 
 /// One-path reader: backfill then [TimeService.applySlotClock] from
 /// `story_clock_after` — the same door `_applyTipClock` uses on swipe.
@@ -209,48 +213,75 @@ void main() {
 
   group('quoted speech is not a time machine', () {
     /// The verbatim lines that moved real chats. Kept as-is (they are the
-    /// evidence) with the surrounding narration that made them look innocuous.
-    test('"a new video next week?" does not jump the story seven days', () {
-      final t = makeService();
-      seedFixed(t); // Thu 2026-07-02, 18:30, Day 3.
-      final before = t.clock;
-
-      t.detectOocTimeSkip(
-        '*I trail off slowly* "Mistress? will you give your donors a new '
-        'video next week?" *I lead on as I look up at you*',
+    /// evidence) with the surrounding narration that made them look
+    /// innocuous. Each goes through the real skip step; the reader counts
+    /// its calls, and a spoken time word must not cost one.
+    Future<int> readerCalls(TimeService t, String line) async {
+      var calls = 0;
+      final step = PlayerSkip(
+        time: t,
+        reader: SkipReader(
+          fireLLMEval: (_) async {
+            calls++;
+            return '{"skip": false, "minutes": 0, "until": "", "gap": "none"}';
+          },
+          stripThinkBlocks: (s) => s,
+        ),
       );
+      await step.apply(line);
+      return calls;
+    }
 
-      expect(
-        t.clock,
-        before,
-        reason:
-            'asking about next week is not going to next week. This exact '
-            'line moved a real chat from Day 1 to Day 8',
-      );
-      expect(t.dayCount, 3);
-    });
+    test(
+      '"a new video next week?" does not jump the story seven days',
+      () async {
+        final t = makeService();
+        seedFixed(t); // Thu 2026-07-02, 18:30, Day 3.
+        final before = t.clock;
 
-    test('"why wait till next week" does not either', () {
+        final calls = await readerCalls(
+          t,
+          '*I trail off slowly* "Mistress? will you give your donors a new '
+          'video next week?" *I lead on as I look up at you*',
+        );
+
+        expect(calls, 0);
+        expect(
+          t.clock,
+          before,
+          reason:
+              'asking about next week is not going to next week. This exact '
+              'line moved a real chat from Day 1 to Day 8',
+        );
+        expect(t.dayCount, 3);
+      },
+    );
+
+    test('"why wait till next week" does not either', () async {
       final t = makeService();
       seedFixed(t);
       final before = t.clock;
-      t.detectOocTimeSkip(
+      final calls = await readerCalls(
+        t,
         '*I tease playfully* "why wait till next week for the Gym video, do '
         'it tomorrow"',
       );
+      expect(calls, 0);
       expect(t.clock, before);
     });
 
-    test('"we just woke up a few hours ago" does not cost a day', () {
+    test('"we just woke up a few hours ago" does not cost a day', () async {
       final t = makeService();
       seedFixed(t);
       final before = t.clock;
 
-      t.detectOocTimeSkip(
+      final calls = await readerCalls(
+        t,
         '*I mumble softly* "I feel tired now, even though we just woke up a '
         'few hours ago.. I just want to cuddle"',
       );
 
+      expect(calls, 0);
       expect(
         t.clock,
         before,
@@ -261,41 +292,35 @@ void main() {
       );
     });
 
-    test('a narrated skip in the same message still fires', () {
-      final t = makeService();
-      seedFixed(t);
-
-      // The real message this is taken from carried both: spoken flavour AND a
-      // genuine instruction. Stripping speech must not cost the instruction.
-      t.detectOocTimeSkip(
-        '*I lick you clean* "Same time next week" *I moan*  '
-        '(OOC: fast forward to next week)',
+    test('a narrated skip in the same message is still read', () {
+      // The real message this is taken from carried both: spoken flavour AND
+      // a genuine instruction. Stripping speech must not cost the
+      // instruction.
+      expect(
+        mightSkipTime(
+          '*I lick you clean* "Same time next week" *I moan*  '
+          '(OOC: fast forward to next week)',
+        ),
+        isTrue,
       );
-
-      // 2026-10-20: a day-plus skip lands in the morning (skip_landing).
-      expect(t.clock, DateTime.utc(2026, 7, 9, 9, 0));
-      expect(t.dayCount, 10);
     });
 
-    test('narration outside quotes is untouched by the strip', () {
+    test('narration outside quotes is still read', () {
       // 1,043 of the 1,050 trigger phrases in the maintainer's library are
-      // narration like these. None of them may change behaviour.
-      final t = makeService();
-      seedFixed(t);
-      t.detectOocTimeSkip('*we drive for several hours*');
-      expect(t.clock, DateTime.utc(2026, 7, 2, 21, 30));
-
-      final t2 = makeService();
-      seedFixed(t2);
-      t2.detectOocTimeSkip('(OOC: timeskip to the next morning)');
-      expect(t2.clock, DateTime.utc(2026, 7, 3, 8, 0));
+      // narration like these. None of them may go unread.
+      expect(mightSkipTime('*we drive for several hours*'), isTrue);
+      expect(mightSkipTime('(OOC: timeskip to the next morning)'), isTrue);
     });
 
-    test('curly quotes are speech too', () {
+    test('curly quotes are speech too', () async {
       final t = makeService();
       seedFixed(t);
       final before = t.clock;
-      t.detectOocTimeSkip('“I will see you next week,” she smiled.');
+      final calls = await readerCalls(
+        t,
+        '“I will see you next week,” she smiled.',
+      );
+      expect(calls, 0);
       expect(
         t.clock,
         before,
@@ -306,35 +331,36 @@ void main() {
       );
     });
 
-    test('an unterminated quote keeps the old, firing behaviour', () {
-      final t = makeService();
-      seedFixed(t);
-      t.detectOocTimeSkip('*she said* "several hours pass and the rain stops');
+    test('an unterminated quote is still read', () {
       expect(
-        t.clock,
-        DateTime.utc(2026, 7, 2, 21, 30),
+        mightSkipTime('*she said* "several hours pass and the rain stops'),
+        isTrue,
         reason:
             'a lone quote mark must not swallow the rest of the message — '
-            'the conservative direction is to behave exactly as before',
+            'the conservative direction is to ask the reader',
       );
     });
 
-    test('a spoken skip does not silently steal the turn from the eval', () {
-      // The compounding half of the bug: a fired skip sets the "this turn is
-      // mine" flag, so the eval's own verdict is discarded. A phantom skip
-      // therefore replaced a correct few-minutes advance with a phantom week.
-      final pending = <String, dynamic>{};
-      final t = makeService(onPending: (k, v) => pending[k] = v);
-      seedFixed(t);
+    test(
+      'a spoken skip does not silently steal the turn from the eval',
+      () async {
+        // The compounding half of the bug: a fired skip sets the "this turn is
+        // mine" flag, so the eval's own verdict is discarded. A phantom skip
+        // therefore replaced a correct few-minutes advance with a phantom week.
+        final pending = <String, dynamic>{};
+        final t = makeService(onPending: (k, v) => pending[k] = v);
+        seedFixed(t);
 
-      t.detectOocTimeSkip('"maybe next week," she said, not looking up');
+        await readerCalls(t, '"maybe next week," she said, not looking up');
 
-      expect(
-        pending['time_skip_to'],
-        isNull,
-        reason: 'no skip happened, so no skip chip and no claim on the turn',
-      );
-    });
+        expect(
+          pending['time_skip_to'],
+          isNull,
+          reason: 'no skip happened, so no skip chip and no claim on the turn',
+        );
+        expect(t.skipOwnsTurn, isFalse);
+      },
+    );
   });
 
   group('the wall clock is read in exactly one place', () {

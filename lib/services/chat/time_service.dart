@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
 export 'package:front_porch_ai/services/chat/time_service/time_service.dart';
 
@@ -96,10 +97,9 @@ export 'package:front_porch_ai/services/chat/time_service/time_service.dart';
 /// (shared by every swipe). Each slot stores `story_clock_after`.
 /// Live clock is the visible tip slot's after.
 ///
-/// The OOC time-skip path ([detectOocTimeSkip]) is pure regex and stands on
-/// its own — but it is a narrow fast path over enumerated phrasings and does
-/// not cover a model narrating a long journey in words nobody listed. It is
-/// not a substitute for the eval.
+/// A skip the player asks for ([applyUserSkip]) is read by the skip reader
+/// before the reply (time_skip/skip_reader.dart) and lands here; days the
+/// reply itself narrates come from this eval's `days_elapsed`.
 ///
 /// Time remains *chat-scoped* (shared across group members, not per-speaker).
 /// Cross-state (pending chip metadata, last-message realism_state patching
@@ -196,6 +196,9 @@ class TimeService {
 
   /// True when that beat was a day or more, whatever moved the clock.
   bool get bodyBeatLongSkip => _state.bodyBeatLongSkip;
+
+  /// True when the cast slept through that beat.
+  bool get bodyBeatSlept => _state.bodyBeatSlept;
 
   /// A beat of a day or more whose bodies have not landed yet.
   bool get bodyBeatLivedOwed => _state.bodyBeatLivedOwed;
@@ -385,8 +388,6 @@ class TimeService {
   /// No scene-time eval consumed the ownership: the next turn is its own.
   void releaseSkipOwnership() => _state.oocSkipMovedClockThisTurn = false;
 
-  Future<int> applyReplySkip(String text) => _applier.applyReplySkip(text);
-
   int takeReplySkipMinutes() => _applier.takeReplySkipMinutes();
 
   Future<void> applyReconciledClock(DateTime newClock) =>
@@ -396,12 +397,12 @@ class TimeService {
 
   void advanceTimePeriods(int count) => _applier.advanceTimePeriods(count);
 
-  /// Minutes skipped, 0 when [text] names no skip.
-  Future<int> detectOocTimeSkip(String text) =>
-      _applier.detectOocTimeSkip(text);
+  /// Minutes skipped, 0 when [verdict] skips nothing.
+  Future<int> applyUserSkip(SkipVerdict verdict) =>
+      _applier.applyUserSkip(verdict);
 
-  void renoteLongSkip({required int minutes, String? destination}) =>
-      _applier.renoteLongSkip(minutes: minutes, destination: destination);
+  void renoteSkip(int minutes, {String? to, bool slept = false}) =>
+      _applier.renoteSkip(minutes, destination: to, slept: slept);
 
   // ── Public surface ────────────────────────────────────────────────────────
 

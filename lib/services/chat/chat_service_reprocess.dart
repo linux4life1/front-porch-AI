@@ -266,12 +266,8 @@ extension ChatServiceReprocess on ChatService {
         return;
       }
       // A long skip's reply: the revert put the pre-skip mood back.
-      final longSkip =
-          ((lastMsg.activeMetadata?[kLongSkipMinutesMeta] ??
-                      preservedRejectedMeta?[kLongSkipMinutesMeta])
-                  as num?)
-              ?.toInt() ??
-          0;
+      final skipMeta = {...?preservedRejectedMeta, ...?lastMsg.activeMetadata};
+      final longSkip = (skipMeta[kLongSkipMinutesMeta] as num?)?.toInt() ?? 0;
       if (longSkip > 0) LongSkipSettle(_realismScope()).settle();
 
       // After the unreadable-baseline bail: the bubble stays, so its
@@ -445,10 +441,14 @@ extension ChatServiceReprocess on ChatService {
         }
         _timeService.reclaimSkipOwnership();
       }
-      // A skip line or a calendar jump: the replay lands the bodies again,
-      // before its prompt is built, as the first reply did.
-      if (longSkip > 0) {
-        _timeService.renoteLongSkip(minutes: longSkip, destination: skipTo);
+      // A skip line or a calendar jump: the replay notes the same beat, so
+      // the bodies wear (or land, for days) again as the first reply's did.
+      final skipped = longSkip > 0 || (skipTo ?? '').isEmpty
+          ? longSkip
+          : (skipMeta[kSkipMinutesMeta] as num?)?.toInt() ?? 0;
+      if (skipped > 0) {
+        final slept = skipMeta[kSkipSleptMeta] == true;
+        _timeService.renoteSkip(skipped, to: skipTo, slept: slept);
       }
 
       final preGenLen = _messages.length;

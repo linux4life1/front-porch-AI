@@ -80,4 +80,17 @@ describe('ChatComposer placeholder', () => {
     await act(async () => enter());
     expect(onSend).toHaveBeenCalledWith('/narrate a storm rolls in');
   });
+
+  it('offers /skip in the command list, like the desktop', async () => {
+    render(true);
+    const ta = area();
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(ta, '/');
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const rows = [...container.querySelectorAll('.cheatsheet-row')].map((r) => r.textContent ?? '');
+    const skip = rows.find((r) => r.startsWith('/skip'));
+    expect(skip).toContain('<8h | 2d | morning | 07:30>');
+  });
 });

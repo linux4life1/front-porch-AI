@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
     show kNeedsUnaffectedMeta;
 import 'package:front_porch_ai/services/services.dart';
 import '../../helpers/chat_db_teardown.dart';
+import '../../helpers/skip_reader_answers.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -115,6 +116,11 @@ class _ThrowingTimeLlm extends _ScriptedLlm {
 class _ScriptedLlm extends LLMService {
   @override
   Stream<String> generateStream(GenerationParams params) async* {
+    final skip = skipReaderReply(params.prompt);
+    if (skip != null) {
+      yield skip;
+      return;
+    }
     final p = params.prompt;
     if (p.contains('WITH USER') || p.contains('"with_user"')) {
       yield '{"with_user": true}';

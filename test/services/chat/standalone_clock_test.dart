@@ -20,6 +20,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
 TimeService makeService() => TimeService(
   onNotify: () {},
@@ -175,7 +176,7 @@ void main() {
       () async {
         final t = makeService();
         seedFixed(t);
-        t.detectOocTimeSkip('(OOC: skip ahead a few hours)');
+        t.applyUserSkip(const SkipVerdict(minutes: 120));
         final afterSkip = t.clock;
         expect(afterSkip, DateTime.utc(2026, 7, 2, 20, 30));
 

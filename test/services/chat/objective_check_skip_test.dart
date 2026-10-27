@@ -346,6 +346,13 @@ void main() {
     await settled(h);
     expect(h.backend.objectiveCheckRequests, 1, reason: 'off the cadence');
 
+    // How the skip reader reads the next line.
+    h.backend.skipReaderVerdict = {
+      'skip': true,
+      'minutes': 14 * 24 * 60,
+      'until': '',
+      'gap': 'other',
+    };
     await h.chat
         .sendMessage('*Two weeks later, I knock on the door again.*')
         .timeout(const Duration(seconds: 10));

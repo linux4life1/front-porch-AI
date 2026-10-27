@@ -93,6 +93,20 @@ const int kLongSkipMinutes = 24 * 60;
 /// can replay the same skip (needs, mood) without moving the clock again.
 const String kLongSkipMinutesMeta = 'long_skip_minutes';
 
+/// Minutes any skip the player asked for moved the clock, stamped on the
+/// reply so a regen notes the same beat, and the prompt names a skip of
+/// [kSkipAnchorMinutes] or more to every speaker after it.
+const String kSkipMinutesMeta = 'skip_minutes';
+
+/// True on the reply when the cast slept through the skip for at least
+/// [kRestedSleepMinutes]: every present body wakes rested
+/// (needs_beat_wear.dart), on regen too.
+const String kSkipSleptMeta = 'skip_slept';
+
+/// A sleep at least this long is a night's rest: the bodies wake rested.
+/// A shorter nap is left to the needs judge.
+const int kRestedSleepMinutes = 4 * 60;
+
 /// The only realism keys a guest or lite reply keeps: the skip that owned
 /// the turn ([skip], the `time_skip_to` destination), for a long skip its
 /// minutes, so a regen of that reply replays the same skip, and the bodies
@@ -105,6 +119,8 @@ Map<String, dynamic>? liteSkipMetadata(
     if (skip.isNotEmpty) 'time_skip_to': skip,
     for (final key in const [
       kLongSkipMinutesMeta,
+      kSkipMinutesMeta,
+      kSkipSleptMeta,
       kNeedsPreWearByMember,
       kNeedsPreWearCarryByMember,
       kNeedsWornByMember,
@@ -143,6 +159,7 @@ String needsBeatNote(
   String? span, {
   bool nextMorning = false,
   bool longSkip = false,
+  bool rested = false,
 }) {
   final text = span?.trim() ?? '';
   const events =
@@ -155,6 +172,11 @@ String needsBeatNote(
         'lived off-screen, eating, sleeping and washing as usual, and the '
         'body is already back at its everyday level. Do not restore sleep '
         'or the bathroom for the skip. $events';
+  }
+  if (rested) {
+    return 'THIS BEAT was a night slept through. Time has been charged for '
+        'it, and they already woke rested: energy and the morning bathroom '
+        'are restored. Do not restore them again. $events';
   }
   if (text.isEmpty || text == 'same moment') {
     return 'This beat is the same moment. Time charged nothing. $events';

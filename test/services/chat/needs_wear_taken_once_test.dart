@@ -22,6 +22,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
 TimeService _clock() => TimeService(
   onNotify: () {},
@@ -116,7 +117,7 @@ void main() {
       storyStartDate: '2026-08-22',
       storyStartTime: '20:31',
     );
-    await t.detectOocTimeSkip('We sleep through the night.');
+    await t.applyUserSkip(const SkipVerdict(until: 'morning', slept: true));
     expect(t.bodyWearMinutes, 11 * 60 + 29);
     expect(t.bodyBeatOffScreen, isTrue);
     // "it's seven in the morning": an hour earlier than the clock landed.

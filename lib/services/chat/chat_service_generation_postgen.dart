@@ -379,14 +379,11 @@ extension ChatServiceGenerationPostGen on ChatService {
             _timeService.clock,
       );
     }
-    // "A week later, she…" in the reply's own narration moves the clock
-    // the span, unless a skip (the user's line, a /narrate beat) already
-    // owns this turn. The judge's days_elapsed covers what the regex
-    // misses. Either one settles the scene below; no bridge card.
+    // "A week later, she…" in the reply's own narration: the judge below
+    // reports the days, unless a skip (the user's line, a /narrate beat)
+    // already owns this turn. Either one settles the scene after; no
+    // bridge card.
     _timeService.takeReplySkipMinutes();
-    if (!msg.isUser && !_timeService.skipOwnsTurn) {
-      await _timeService.applyReplySkip(msg.displayText);
-    }
     // Fiction wins (K-A). A named wall-clock is the beat — do not
     // add the conversational floor on top (07:30 + 2 min = 07:32).
     final named = clockNamedInReply(msg.text, _timeService.clock);

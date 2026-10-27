@@ -38,6 +38,7 @@ import 'package:front_porch_ai/utils/group_realism_blobs.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../helpers/chat_db_teardown.dart';
+import '../../helpers/skip_reader_answers.dart';
 
 const _lie = 'he lied about the money';
 const _denial = 'and now he denies it';
@@ -55,6 +56,11 @@ class _LieScene extends LLMService {
 
   @override
   Stream<String> generateStream(GenerationParams params) async* {
+    final skip = skipReaderReply(params.prompt);
+    if (skip != null) {
+      yield skip;
+      return;
+    }
     final p = params.prompt;
     if (p.contains('"emotion_change"')) {
       yield '{"relationship_delta":0,"trust_delta":0,"bond_reason":"none",'

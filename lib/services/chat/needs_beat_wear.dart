@@ -11,7 +11,8 @@
 // One beat's wear on the bodies, for the Needs pass (needs_pass.dart owns
 // the gate and the stamps; this file only moves bars). The 1:1 host wears
 // on the scalar vector, a group wears every member with a stored body, and
-// with the clock off the speaker ticks a fixed step per reply.
+// with the clock off the speaker ticks a fixed step per reply. A night the
+// cast slept through wakes every body rested, not only the one who speaks.
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/body_clock.dart';
@@ -61,8 +62,40 @@ class NeedsBeatWear {
     enjoysLowHygiene: ext?.enjoysLowHygiene ?? false,
   );
 
-  /// The 1:1 host lives on the scalar vector.
-  BeatWear host(int minutes, {required bool offScreen, required bool lived}) {
+  /// A night slept through ([rested]) wakes [current] rested for [ext].
+  Map<String, int> _rested(
+    Map<String, int> current,
+    FrontPorchExtensions? ext,
+  ) => restedBars(
+    current: current,
+    everyday: NeedsSimulation.baselinesFromExtensions(ext),
+    on: needsThatAreOn(NeedsSimulation.needKeys, ext?.needsOff ?? const []),
+  );
+
+  /// The speaker's scalars after a rested night: what waking took (negative
+  /// for a gain) added to what the night's wear took.
+  Map<String, int> _restSpeaker(
+    Map<String, int> taken,
+    FrontPorchExtensions? ext,
+  ) {
+    final woke = _needsSimulation.applyLivedSkip(
+      _rested(_needsSimulation.vector, ext),
+      keepCarry: true,
+    );
+    return {
+      for (final need in {...taken.keys, ...woke.keys})
+        need: (taken[need] ?? 0) + (woke[need] ?? 0),
+    };
+  }
+
+  /// The 1:1 host lives on the scalar vector. [rested]: the cast slept
+  /// through the beat, so the host wakes rested after the night's wear.
+  BeatWear host(
+    int minutes, {
+    required bool offScreen,
+    required bool lived,
+    bool rested = false,
+  }) {
     final card = _scope.activeCharacter();
     final ext = card?.frontPorchExtensions;
     final hostId = card != null ? _idFor(card) : '';
@@ -79,11 +112,12 @@ class NeedsBeatWear {
         on: needsThatAreOn(NeedsSimulation.needKeys, ext?.needsOff ?? const []),
         carry: carryBefore,
       );
-      taken = _needsSimulation.applyTimeWear(
+      final worn = _needsSimulation.applyTimeWear(
         points: wear.points,
         carry: wear.carry,
         offScreen: offScreen,
       );
+      taken = rested ? _restSpeaker(worn, ext) : worn;
     }
     return BeatWear(
       speakerTaken: taken,
@@ -161,7 +195,12 @@ class NeedsBeatWear {
   /// away: time passes for the whole cast. The speaker's scalars (loaded
   /// for this turn) wear too, so the eval reads worn bars and the post-gen
   /// save writes them back.
-  BeatWear group(int minutes, {required bool offScreen, required bool lived}) {
+  BeatWear group(
+    int minutes, {
+    required bool offScreen,
+    required bool lived,
+    bool rested = false,
+  }) {
     final speakerId = _scope.groups.currentSpeakerId();
     final before = <String, Map<String, int>>{};
     final after = <String, Map<String, int>>{};
@@ -192,7 +231,7 @@ class NeedsBeatWear {
         on: needsThatAreOn(NeedsSimulation.needKeys, ext?.needsOff ?? const []),
         carry: carried,
       );
-      final worn = Map<String, int>.from(stored);
+      var worn = Map<String, int>.from(stored);
       for (final e in wear.points.entries) {
         final current = worn[e.key];
         if (current == null) continue;
@@ -203,15 +242,17 @@ class NeedsBeatWear {
           offScreen: offScreen,
         );
       }
+      if (rested) worn = _rested(worn, ext);
       _scope.groups.setNeeds(id, worn);
       member.needsWearCarry = wear.carry;
       after[id] = worn;
       if (id == speakerId) {
-        speakerTaken = _needsSimulation.applyTimeWear(
+        final taken = _needsSimulation.applyTimeWear(
           points: wear.points,
           carry: wear.carry,
           offScreen: offScreen,
         );
+        speakerTaken = rested ? _restSpeaker(taken, ext) : taken;
       }
     }
     return BeatWear(

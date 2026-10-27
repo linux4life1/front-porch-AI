@@ -13,7 +13,9 @@ import 'package:front_porch_ai/services/chat/message_clock.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 import 'package:front_porch_ai/services/llm_service.dart'
     show LlmToolCall, LlmToolResponse;
 
@@ -188,36 +190,29 @@ void main() {
     });
   });
 
-  group('TimeService OOC time-skip detector', () {
-    test('in-narrative "we drive for several hours" advances 3 hours', () {
+  // What a line MEANS is the skip reader's call (a model, pinned live in
+  // skip_reader_live_test.dart); these pin where its verdict lands.
+  group('TimeService player skip', () {
+    test('three hours from morning lands at noon and stamps the chip', () {
       final pending = <String, dynamic>{};
       final t = makeService(onPending: (k, v) => pending[k] = v);
       seedFixed(t, timeOfDay: 'morning'); // 09:00
-      t.detectOocTimeSkip('we drive for several hours');
+      t.applyUserSkip(const SkipVerdict(minutes: 180));
       expect(t.clock, DateTime.utc(2026, 7, 2, 12, 0));
       expect(pending['time_skip_to'], contains('12:00 PM'));
+      expect(pending[kSkipMinutesMeta], 180);
     });
 
-    test('"a few hours later" is +2h; OOC with skip language is +1h', () {
-      final t = makeService();
-      seedFixed(t, timeOfDay: 'morning');
-      t.detectOocTimeSkip('a few hours later, they arrive');
-      expect(t.clock, DateTime.utc(2026, 7, 2, 11, 0));
-      t.detectOocTimeSkip('(ooc: skip ahead a bit)');
-      expect(t.clock, DateTime.utc(2026, 7, 2, 12, 0));
-    });
-
-    test('OOC marker with no time language moves nothing', () {
-      // A bare "(OOC: ...)" direction/flavor note used to cost a silent +1h.
+    test('no skip moves nothing', () {
       final t = makeService();
       seedFixed(t, timeOfDay: 'morning');
       final before = t.clock;
-      t.detectOocTimeSkip('(ooc: she is very sweaty as a general rule)');
+      t.applyUserSkip(SkipVerdict.none);
       expect(t.clock, before);
     });
 
     test(
-      'an OOC skip owns the turn — the eval cannot double-advance',
+      'a player skip owns the turn — the eval cannot double-advance',
       () async {
         // Field report: chip said "Time skip: 11:50 PM" while the sidebar
         // showed 1:05 AM next day — the skip stamped the chip, then the same
@@ -225,7 +220,7 @@ void main() {
         // past midnight. The skip is now the turn's only clock authority.
         final t = makeService();
         seedFixed(t, timeOfDay: 'night'); // Thu 22:30
-        t.detectOocTimeSkip('(ooc: skip ahead an hour)');
+        t.applyUserSkip(const SkipVerdict(minutes: 60));
         expect(t.clock, DateTime.utc(2026, 7, 2, 23, 30));
         await runEval(
           t,
@@ -244,7 +239,7 @@ void main() {
     test('"the next morning" jumps to 08:00 the following day', () {
       final t = makeService();
       seedFixed(t, timeOfDay: 'night'); // Thu 22:30
-      t.detectOocTimeSkip('the next morning, sunlight woke them');
+      t.applyUserSkip(const SkipVerdict(until: 'morning'));
       expect(t.clock, DateTime.utc(2026, 7, 3, 8, 0));
       expect(t.dayCount, 4);
     });
@@ -253,46 +248,30 @@ void main() {
       final t = makeService();
       seedFixed(t);
       t.setClockDirect(DateTime.utc(2026, 7, 2, 1, 30));
-      t.detectOocTimeSkip('they wake up the next morning');
+      t.applyUserSkip(const SkipVerdict(until: 'morning'));
       expect(t.clock, DateTime.utc(2026, 7, 2, 8, 0));
     });
 
-    test(
-      '"a week later" and "next month" — the jumps the old model lacked',
-      () {
-        final t = makeService();
-        seedFixed(t); // Thu Jul 2, 18:30
-        t.detectOocTimeSkip('(ooc: a week later)');
-        // 2026-10-20: a day-plus skip lands in the morning unless the line
-        // names a time of day; it no longer keeps the evening it left.
-        expect(t.clock, DateTime.utc(2026, 7, 9, 9, 0));
-        t.detectOocTimeSkip('ooc: next month they meet again');
-        expect(t.clock, DateTime.utc(2026, 8, 1, 9, 0));
-      },
-    );
+    test('a week later lands in the morning, not the evening it left', () {
+      final t = makeService();
+      seedFixed(t); // Thu Jul 2, 18:30
+      t.applyUserSkip(const SkipVerdict(minutes: 7 * 1440));
+      expect(t.clock, DateTime.utc(2026, 7, 9, 9, 0));
+    });
 
-    test('(OOC: skip to 2pm) lands on 2pm, not plus an hour', () {
+    test('skip to 2pm lands on 2pm, not plus an hour', () {
       final t = makeService();
       seedFixed(t, timeOfDay: 'morning'); // 09:00
-      t.detectOocTimeSkip('(ooc: skip to 2pm)');
+      t.applyUserSkip(const SkipVerdict(until: '14:00'));
       expect(t.clock, DateTime.utc(2026, 7, 2, 14, 0));
     });
 
-    test('"next afternoon" lands on the next afternoon, not plus an hour', () {
-      final t = makeService();
-      seedFixed(t, timeOfDay: 'morning'); // 09:00
-      t.detectOocTimeSkip('the next afternoon they meet again');
-      expect(t.clock, DateTime.utc(2026, 7, 2, 14, 30));
-    });
-
-    test('does nothing when passage is disabled or no trigger present', () {
+    test('does nothing when passage is disabled', () {
       final t = makeService();
       seedFixed(t);
       final before = t.clock;
-      t.detectOocTimeSkip('just a normal message about fun');
-      expect(t.clock, before);
       t.setPassageOfTimeEnabled(false);
-      t.detectOocTimeSkip('(ooc: timeskip several hours)');
+      t.applyUserSkip(const SkipVerdict(minutes: 180));
       expect(t.clock, before);
     });
   });
@@ -501,7 +480,7 @@ void main() {
         t.clock,
         DateTime.utc(2026, 7, 2, 9, StoryClock.failureDriftMinutes),
       );
-      t.detectOocTimeSkip('(ooc: skip ahead an hour)');
+      t.applyUserSkip(const SkipVerdict(minutes: 60));
       expect(
         t.clock,
         DateTime.utc(2026, 7, 2, 10, StoryClock.failureDriftMinutes),
@@ -534,7 +513,7 @@ void main() {
       t.nudgeTimePeriod(1); // 18:30 → 19:00, same day
       expect(n, 0);
       expect(t.dayCount, 3);
-      t.detectOocTimeSkip('the next morning, sunlight woke them');
+      t.applyUserSkip(const SkipVerdict(until: 'morning'));
       expect(t.dayCount, 4);
       expect(n, 1);
     });

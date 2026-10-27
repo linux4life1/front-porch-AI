@@ -3,6 +3,7 @@
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
 void main() {
   group('StoryClock conversions', () {
@@ -117,19 +118,19 @@ void main() {
       );
     });
 
-    test('resolveSkipTarget lands on named clocks and periods', () {
+    test('a skip verdict lands on named clocks and periods', () {
       final morning = DateTime.utc(2026, 3, 3, 9, 0);
       expect(
-        StoryClock.resolveSkipTarget(morning, '(ooc: skip to 2pm)'),
+        const SkipVerdict(until: '14:00').landing(morning),
         DateTime.utc(2026, 3, 3, 14, 0),
       );
       expect(
-        StoryClock.resolveSkipTarget(morning, 'the next afternoon they meet'),
+        const SkipVerdict(until: 'afternoon').landing(morning),
         DateTime.utc(2026, 3, 3, 14, 30),
       );
       // 09:00 → next morning is tomorrow 08:00
       expect(
-        StoryClock.resolveSkipTarget(morning, 'the next morning, sunlight'),
+        const SkipVerdict(until: 'morning').landing(morning),
         DateTime.utc(2026, 3, 4, 8, 0),
       );
     });
