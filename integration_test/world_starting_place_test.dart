@@ -84,7 +84,9 @@ void main() {
     await pumpUntilFound(tester, find.byType(MainLayout));
     try {
       await windowManager.setAlwaysOnTop(true);
-      await windowManager.setSize(const Size(1200, 800));
+      // The macOS runner clamps an 800px request to a ~645px window. Ask for
+      // about that everywhere, so the Linux run meets the same fold.
+      await windowManager.setSize(const Size(1200, 640));
       await windowManager.setAlignment(Alignment.bottomRight);
       await windowManager.blur();
     } catch (e) {
