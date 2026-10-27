@@ -270,11 +270,11 @@ class WebWorldRoutes {
     final decoded = Uri.decodeComponent(name);
     final world = _facade.exportWorld(decoded);
     if (world == null) return JsonResponse.error(404, 'World not found');
-    // Slice 5 review #599: the envelope is the ROOT's once locations
-    // ride it, but the file the user saves is named for what THEY asked
-    // for — the requested handle, not the promoted envelope name.
-    final safe = decoded.replaceAll(RegExp(r'[^A-Za-z0-9 _\-]'), '_').trim();
-    final filename = safe.isEmpty ? 'place' : safe;
+    // A place id exports its whole world (the envelope is the root's), so
+    // the file is named for the world it holds, not the place asked for.
+    final worldName = world['name']?.toString() ?? decoded;
+    final safe = worldName.replaceAll(RegExp(r'[^A-Za-z0-9 _\-]'), '_').trim();
+    final filename = safe.isEmpty ? 'world' : safe;
     return JsonResponse.ok(
       world,
       extraHeaders: {

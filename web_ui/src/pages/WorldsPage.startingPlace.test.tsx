@@ -63,6 +63,12 @@ const starOf = (name: string) =>
     `button[aria-label="Start chats at ${name}"], button[aria-label="Chats start at ${name}"]`,
   ) as HTMLButtonElement | null;
 
+// A world's places sit in a panel under its card, closed until opened.
+const openPlaces = async () =>
+  act(async () =>
+    (container.querySelector('[data-testid="world-places-toggle"]') as HTMLButtonElement).click(),
+  );
+
 const button = (label: string) =>
   Array.from(container.querySelectorAll('button')).find(
     (b) => b.textContent?.trim() === label,
@@ -123,6 +129,7 @@ afterEach(() => {
 describe('the starting-place star', () => {
   it('stars a place inside a world and names it on the world card', async () => {
     await mount([TOWN, TEA, HALL]);
+    await openPlaces();
     expect(starOf('Bletchfield')).toBeNull();
     expect(
       container.querySelector('[data-testid="world-starts-at-missing"]'),
@@ -150,6 +157,7 @@ describe('the starting-place star', () => {
 
   it('the starred place stays starred when tapped: a world always keeps one', async () => {
     await mount([{ ...TOWN, defaultPlaceId: 'tea-1' }, TEA, HALL]);
+    await openPlaces();
     await act(async () => starOf('Tea Rooms')!.click());
     expect(post).not.toHaveBeenCalled();
     expect(starOf('Tea Rooms')!.textContent).toBe('★');
@@ -184,7 +192,7 @@ describe('Where chats start in the editor', () => {
   it('editing a world picks among its places, preselected from the relay', async () => {
     await mount([{ ...TOWN, defaultPlaceId: 'tea-1' }, TEA, HALL]);
     const edit = container.querySelector(
-      '.wsg-section-head button[title="Edit"]',
+      '.wsg-world-card button[title="Edit"]',
     ) as HTMLButtonElement;
     await act(async () => edit.click());
     const pick = container.querySelector(

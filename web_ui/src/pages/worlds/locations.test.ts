@@ -37,61 +37,40 @@ describe('planWorldLibrary', () => {
   });
   const library = [town, station, hall, tea, ghost, shadow];
 
-  it('groups roots with children into sections; childless and dangling stay flat', () => {
-    const plan = planWorldLibrary(library, 'all');
-    expect(plan.sections).toHaveLength(1);
-    expect(plan.sections[0].root.id).toBe('Bletchfield');
-    expect(plan.sections[0].children.map((c) => c.id)).toEqual([
-      'Shadow Hall',
-      'Tea Rooms',
-      'Town Hall',
-    ]);
-    expect(plan.flat.map((f) => f.id)).toEqual([
+  // The library shows a card for every top-level world only; places ride
+  // their world as rows (the "places as rows" redesign replaced sections
+  // of place cards).
+  it('one card per top-level world, in library order; dangling parents are top-level', () => {
+    const plan = planWorldLibrary(library);
+    expect(plan.map((c) => c.world.id)).toEqual([
+      'Bletchfield',
       'Red Dust Station',
       'Ghost Room',
     ]);
   });
 
-  it('a root never renders twice', () => {
-    const plan = planWorldLibrary(library, 'all');
-    const ids = [
-      ...plan.sections.map((s) => s.root.id),
-      ...plan.flat.map((f) => f.id),
-    ];
-    expect(new Set(ids).size).toBe(ids.length);
-  });
-
-  it('roots only: no child cards anywhere', () => {
-    const plan = planWorldLibrary(library, 'rootsOnly');
-    expect(plan.sections[0].children).toEqual([]);
-    expect(plan.flat.map((f) => f.id)).toContain('Red Dust Station');
-    for (const f of plan.flat) {
-      expect(f.parentWorldId == null || f.id === 'Ghost Room').toBe(true);
+  it('places never get a card; they ride their world by name, depth-first', () => {
+    const room = w('Back Room', { parentWorldId: 'Town Hall' });
+    const plan = planWorldLibrary([...library, room]);
+    const town = plan.find((c) => c.world.id === 'Bletchfield')!;
+    expect(town.places.map((p) => [p.place.id, p.depth])).toEqual([
+      ['Shadow Hall', 1],
+      ['Tea Rooms', 1],
+      ['Town Hall', 1],
+      ['Back Room', 2],
+    ]);
+    const cardIds = plan.map((c) => c.world.id);
+    for (const place of ['Shadow Hall', 'Tea Rooms', 'Town Hall', 'Back Room']) {
+      expect(cardIds).not.toContain(place);
     }
+    expect(plan.find((c) => c.world.id === 'Red Dust Station')!.places).toEqual([]);
   });
 
-  it('model-made: only the flagged worlds, at any depth', () => {
-    const plan = planWorldLibrary(library, 'modelMade');
-    expect(plan.sections).toEqual([]);
-    expect(plan.flat.map((f) => f.id)).toEqual(['Shadow Hall']);
-  });
-
-  it('no locations renders exactly the pre-locations flat list', () => {
-    const flatOnly = [station, ghost];
-    const plan = planWorldLibrary(flatOnly, 'all');
-    expect(plan.sections).toEqual([]);
-    expect(plan.flat.map((f) => f.id)).toEqual([
-      'Red Dust Station',
-      'Ghost Room',
-    ]);
-  });
-
-  it('a ring surfaces flat instead of vanishing', () => {
+  it('a ring surfaces as cards instead of vanishing', () => {
     const a = w('A', { parentWorldId: 'B' });
     const b = w('B', { parentWorldId: 'A' });
-    const plan = planWorldLibrary([a, b], 'all');
-    expect(plan.sections).toEqual([]);
-    expect(plan.flat.map((f) => f.id).sort()).toEqual(['A', 'B']);
+    const plan = planWorldLibrary([a, b]);
+    expect(plan.map((c) => c.world.id).sort()).toEqual(['A', 'B']);
   });
 
   it('placesUnder counts direct children only', () => {

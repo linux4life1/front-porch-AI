@@ -46,8 +46,14 @@ test(
       expect(((await bad.json()) as { error: string }).error).toContain('not inside this world');
 
       await openRoute(page, '/worlds');
-      const section = page.locator('.wsg-section').filter({ hasText: 'Star Bletchfield' });
-      await expect(section).toHaveCount(1);
+      // The world's places are rows in a panel that opens under its card.
+      const openPlaces = async () => {
+        const card = page.locator('.wsg-world-card').filter({ hasText: 'Star Bletchfield' });
+        await expect(card).toHaveCount(1);
+        await card.locator('[data-testid="world-places-toggle"]').click();
+        return page.getByRole('region', { name: 'Places in Star Bletchfield' });
+      };
+      const section = await openPlaces();
       const startsAt = section.locator('[data-testid="world-starts-at"]');
       await expect(startsAt).toHaveCount(0);
 
@@ -61,7 +67,7 @@ test(
 
       // Stored, not page state.
       await openRoute(page, '/worlds');
-      const again = page.locator('.wsg-section').filter({ hasText: 'Star Bletchfield' });
+      const again = await openPlaces();
       await expect(again.locator('[data-testid="world-starts-at"]')).toContainText('Star Tea Rooms');
 
       // Required: tapping the starred place leaves it starred.
@@ -87,8 +93,11 @@ test(
         }, { message: 'the world is saved with its starting place inside it, starred' })
         .toBe(true);
       await expect(
-        page.locator('.wsg-section').filter({ hasText: 'Star Harbour' }).locator('[data-testid="world-starts-at"]'),
-      ).toContainText('Chats start at Star Quay');
+        page
+          .locator('.wsg-world-card')
+          .filter({ hasText: 'Star Harbour' })
+          .locator('[data-testid="world-places-toggle"]'),
+      ).toContainText('starts at Star Quay');
     } finally {
       await cleanup();
     }

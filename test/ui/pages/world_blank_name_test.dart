@@ -182,6 +182,11 @@ void main() {
     );
     final worlds = _RecordingWorlds([earth, town]);
     await _pumpPage(tester, worlds);
+    // Earth has a place, so "Add a place inside" lives in its places panel.
+    await tester.tap(find.byKey(const Key('places-chip-earth-1')));
+    await _bounded(tester);
+    await tester.ensureVisible(find.byKey(const Key('place-add-inside')).first);
+    await _bounded(tester);
     await tester.tap(find.byKey(const Key('place-add-inside')).first);
     await _bounded(tester);
 
@@ -243,15 +248,19 @@ void main() {
     );
     final worlds = _RecordingWorlds([earth, greenhouse]);
     await _pumpPage(tester, worlds);
+    await tester.tap(find.byKey(const Key('places-chip-earth-1')));
+    await _bounded(tester);
 
-    // The library card: an owned climate under a weather-off world is
-    // kept but paused, and the world's card says the switch covers all.
+    // The places panel: an owned climate under a weather-off world is
+    // kept but paused, and the panel says the switch covers all.
     expect(find.textContaining('Own climate · paused'), findsOneWidget);
     expect(
       find.textContaining('Weather off for the whole world'),
       findsOneWidget,
     );
 
+    await tester.ensureVisible(find.byKey(const Key('place-add-inside')).first);
+    await _bounded(tester);
     await tester.tap(find.byKey(const Key('place-add-inside')).first);
     await _bounded(tester);
     expect(find.byKey(const Key('world-weather-off-note')), findsOneWidget);
@@ -275,8 +284,9 @@ void main() {
       await _bounded(tester);
     }
 
-    // The world's own editor lists the place its switch pauses.
-    await tester.tap(find.widgetWithText(TextButton, 'Edit').first);
+    // The world's own editor lists the place its switch pauses. Tapping
+    // a world card opens its editor.
+    await tester.tap(find.text('Earth').first);
     await _bounded(tester);
     expect(find.byKey(const Key('world-paused-places-note')), findsOneWidget);
     expect(find.text('1 place inside sets its own climate'), findsOneWidget);
@@ -383,7 +393,8 @@ void main() {
       ),
     ]);
     await _pumpPage(tester, worlds);
-    await tester.tap(find.text('Edit').first);
+    // Tapping a world card opens its editor.
+    await tester.tap(find.text('Bletchfield').first);
     await _bounded(tester);
     expect(find.text('Edit World'), findsOneWidget);
 

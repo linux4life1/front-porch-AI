@@ -264,7 +264,8 @@ with bulk delete in the Worlds library.
   on the root envelope, each item a world envelope with its own
   `climate_enabled` (inherit or own). Import creates child rows with fresh
   ids and `sourceId` provenance. Older apps ignore the key and import the
-  root alone. Exporting a location alone exports its root with that branch.
+  root alone. A place is never exported alone or as a pruned branch: any
+  export (file, relay, Stoop) carries its whole world, named for the world.
 - Stoop: same envelope, so a shared WORLD card carries locations. Relay
   list and detail DTOs gain `parentWorldId`, `locationCount`,
   `climateAuthorId` (additive).
@@ -273,12 +274,18 @@ with bulk delete in the Worlds library.
 
 ## 5. UI (desktop and web in the same slice, parity law)
 
-**Worlds library.** Cards group by root; a root card shows an "N places"
-chip that expands the children indented beneath it. Flat list is unchanged
-for users with no locations. Root card action: "Add a place inside".
-Filter: "model-made", with bulk delete. Multi-select action **"Move
-into…"** sets the parent on many worlds at once, for authors who already
-built their places as separate worlds.
+**Worlds library.** Only top-level worlds get cards; places never do, so a
+library of many worlds stays a grid of worlds. A world with places shows
+"N places · starts at X" in place of "Add a place inside"; it opens one
+full-width panel beneath that row of cards (one open at a time, closed by
+default) listing the places as rows, depth-first with rooms indented: the
+starting-place star, name, one-line description, weather tag, entry count,
+"Add a place inside" (not on a room) and a menu of Edit, Move to… and
+Delete. Places have no Export: a world exports with its whole tree. The
+header counts top-level worlds only. Filter: "model-made" (its places as
+rows, with bulk delete). Multi-select action **"Move into…"** sets the
+parent on many worlds at once, for authors who already built their places
+as separate worlds.
 
 **World editor.** Basics gains a **Part of** picker (none, or any root or
 depth-1 world excluding self and descendants). With a parent set, the

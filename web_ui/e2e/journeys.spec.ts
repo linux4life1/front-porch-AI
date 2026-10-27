@@ -1566,31 +1566,37 @@ test(
       'no longer exists',
     );
 
-    // ── The library groups ──────────────────────────────────────────────
+    // ── The library: the world gets a card, its place is a row ──────────
     await openRoute(page, '/worlds');
-    const section = page
-      .locator('.wsg-section')
+    const card = page
+      .locator('.wsg-world-card')
       .filter({ hasText: 'Journey Bletchport' });
-    await expect(section).toHaveCount(1);
-    await expect(section.locator('.wsg-child-grid')).toContainText(
-      'Journey Lighthouse',
-    );
-    await expect(section.locator('.wsg-place-chip')).toContainText('1 place');
+    await expect(card).toHaveCount(1);
     await expect(
-      section.locator('.wsg-child-grid .wsg-weather-tag--inherit'),
-    ).toHaveText('Inherits weather');
+      page.locator('.wsg-world-name', { hasText: /^Journey Lighthouse$/ }),
+      'a place never gets a card of its own',
+    ).toHaveCount(0);
+    const toggle = card.locator('[data-testid="world-places-toggle"]');
+    await expect(toggle).toContainText('1 place');
+    await toggle.click();
+    const panel = page.getByRole('region', { name: 'Places in Journey Bletchport' });
+    const placeRow = panel.locator('li[data-place="Journey Lighthouse"]');
+    await expect(placeRow.locator('.wsg-weather-tag--inherit')).toHaveText('Inherits weather');
+    // A place never exports alone; the world's card exports the whole tree.
+    await expect(placeRow.locator('[title^="Export"]')).toHaveCount(0);
+    await expect(card.locator('[title="Export .fpworld"]')).toHaveCount(1);
     await expect(
       page.getByRole('button', { name: 'Model-made', exact: true }),
     ).toBeVisible();
 
     // ── The editor pre-selects the parent, offer from the law endpoint ──
-    await section.locator('.wsg-child-grid [title="Edit"]').first().click();
+    await placeRow.locator('[title="Edit"]').click();
     await expect(page.locator('select[aria-label="Part of"]')).toHaveValue(rootId);
     await expect(page.getByText('Inherit from Journey Bletchport')).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
     // ── Add a place inside: the editor speaks of a place in its parent ──
-    await section.locator('.wsg-section-head [title="Add a place inside"]').click();
+    await panel.getByRole('button', { name: '＋ Add a place', exact: true }).click();
     await expect(page.locator('.world-edit h3')).toHaveText('Add a place to Journey Bletchport');
     await expect(page.getByRole('button', { name: 'Add place', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
@@ -1599,7 +1605,7 @@ test(
     let confirmText = '';
     page.on('dialog', (d) => (confirmText = d.message()));
     acceptConfirms(true);
-    await section.locator('.wsg-section-head [title="Delete"]').click();
+    await card.locator('[title="Delete"]').click();
     await expect
       .poll(() => list().then((ws) => ws.some((w) => w.name === 'Journey Bletchport')), {
         message: 'the root is deleted',
@@ -1666,15 +1672,23 @@ test(
       await dialog.getByRole('button', { name: 'Close', exact: true }).click();
       await expect(dialog).toBeHidden();
       // The page took the refreshed list: no reload needed to see it.
-      const section = page.locator('.wsg-section').filter({ hasText: 'Harborside' });
-      await expect(section).toHaveCount(1);
-      await expect(section.locator('.wsg-child-grid')).toContainText('The Quay');
+      const card = page.locator('.wsg-world-card').filter({ hasText: 'Harborside' });
+      await expect(card).toHaveCount(1);
+      await card.locator('[data-testid="world-places-toggle"]').click();
+      await expect(page.getByRole('region', { name: 'Places in Harborside' })).toContainText(
+        'The Quay',
+      );
 
       // And it is a stored world, not page state.
       await openRoute(page, '/worlds');
-      await expect(
-        page.locator('.wsg-section').filter({ hasText: 'Harborside' }).locator('.wsg-child-grid'),
-      ).toContainText('Lighthouse Point');
+      await page
+        .locator('.wsg-world-card')
+        .filter({ hasText: 'Harborside' })
+        .locator('[data-testid="world-places-toggle"]')
+        .click();
+      await expect(page.getByRole('region', { name: 'Places in Harborside' })).toContainText(
+        'Lighthouse Point',
+      );
     } finally {
       await cleanup();
     }

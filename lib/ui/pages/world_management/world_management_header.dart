@@ -125,10 +125,14 @@ class WorldManagementHeroHeader extends StatelessWidget {
                         spacing: 8,
                         runSpacing: 6,
                         children: [
+                          // Top-level worlds only: places inside a world
+                          // are not worlds of their own.
                           _WorldStatChip(
+                            key: const Key('worlds-count-chip'),
                             icon: Icons.public,
-                            label:
-                                '${repo.worlds.length} world${repo.worlds.length != 1 ? 's' : ''}',
+                            label: _worldsLabel(
+                              topLevelWorldCount(repo.placeWorlds),
+                            ),
                           ),
                           _WorldStatChip(
                             icon: Icons.library_books,
@@ -233,8 +237,10 @@ class WorldManagementHeroHeader extends StatelessWidget {
   }
 }
 
+String _worldsLabel(int n) => '$n world${n == 1 ? '' : 's'}';
+
 class _WorldStatChip extends StatelessWidget {
-  const _WorldStatChip({required this.icon, required this.label});
+  const _WorldStatChip({super.key, required this.icon, required this.label});
 
   final IconData icon;
   final String label;

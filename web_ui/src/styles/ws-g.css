@@ -256,14 +256,104 @@
   border-left: 3px solid var(--accent);
   padding-left: 8px;
 }
-.wsg-section { margin-bottom: 6px; }
-.wsg-child-grid {
-  margin-left: 26px;
-  border-left: 2px solid var(--border);
-  padding-left: 10px;
+/* The library: one card per top-level world. A world's places open as a
+   full-width panel; dense flow lets the cards after it backfill its row,
+   so the panel lands directly under the row that holds its world. */
+.wsg-world-grid--library { grid-auto-flow: row dense; }
+.wsg-world-card--open { border-color: var(--accent); }
+.wsg-places-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 10px;
+  font: inherit;
+  font-size: 0.82rem;
+  text-align: left;
+  color: var(--text);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-badge, 10px);
+  cursor: pointer;
 }
+.wsg-places-toggle--open {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.wsg-places-toggle-start {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-2, var(--muted));
+}
+.wsg-places-toggle-caret { margin-left: auto; }
+.wsg-places-panel {
+  grid-column: 1 / -1;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent) 45%, var(--border));
+  border-radius: var(--radius-card);
+}
+.wsg-places-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.wsg-places-head .wsg-starts-at { margin: 0; flex: 1 1 auto; }
+.wsg-places-head-actions { display: flex; gap: 6px; margin-left: auto; }
+.wsg-place-rows { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.wsg-place-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+  min-height: 48px;
+  padding: 4px 4px 4px calc(4px + var(--place-depth, 0) * 28px);
+  border-radius: var(--radius-badge, 10px);
+}
+.wsg-place-row:hover { background: var(--surface-2); }
+.wsg-place-row--nested { border-left: 2px solid var(--border); margin-left: 14px; }
+.wsg-place-name {
+  flex: 0 1 200px;
+  min-width: 0;
+  padding: 0;
+  font: inherit;
+  font-weight: 600;
+  text-align: left;
+  color: var(--text);
+  background: none;
+  border: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wsg-place-desc {
+  flex: 1 1 200px;
+  min-width: 0;
+  font-size: 0.82rem;
+  color: var(--text-2, var(--muted));
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.wsg-place-desc.empty { color: var(--faint); font-style: italic; }
+.wsg-place-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+.wsg-place-tags .wsg-inside-tag,
+.wsg-place-tags .wsg-weather-tag { margin-left: 0; }
+.wsg-place-actions { display: flex; gap: 2px; margin-left: auto; }
 @media (max-width: 560px) {
-  .wsg-child-grid { margin-left: 10px; }
+  /* A phone: the name keeps its line, the description drops under it. */
+  .wsg-place-name { flex: 1 1 auto; }
+  .wsg-place-desc { flex-basis: 100%; order: 5; white-space: normal; }
+  .wsg-place-row--nested { margin-left: 8px; }
 }
 .wsg-world-select { margin-right: 6px; accent-color: var(--accent); }
 .wsg-inside-tag,
@@ -284,7 +374,6 @@
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
-.wsg-place-chip { margin-left: 6px; }
 .wsg-place-star--on { color: var(--accent); }
 .wsg-starts-at {
   margin: 4px 0 0;

@@ -131,9 +131,15 @@ void main() {
     appState.setIndex(5);
     await pumpUntilFound(tester, find.text('World Management'));
     final star = find.byKey(Key('place-star-${tea.id}'));
-    // Place cards live in a lazy SliverGrid under the header, stats and the
-    // root card: on a short window the card is not built until scrolled
+    // Places are rows in the town's places panel, closed until its card's
+    // toggle opens it. The rows sit in a lazy list under the header, stats
+    // and the cards: on a short window they are not built until scrolled
     // near, so ensureVisible alone has nothing to reveal.
+    final placesChip = find.byKey(Key('places-chip-${town.id}'));
+    await d.waitForWidget(placesChip);
+    await tester.ensureVisible(placesChip);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tapWhenHittable(tester, placesChip);
     await d.waitForWidget(find.text('Star a place below: chats start there'));
     final library = find.descendant(
       of: find.byType(WorldManagementPage),

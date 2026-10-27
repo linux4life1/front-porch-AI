@@ -1,11 +1,12 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Presentational world card for the Worlds page. Mirrors the desktop
-// world_management_page card: a deterministic per-world accent color, the linked
-// character's avatar (or a colored initial fallback), an entry-count chip, a
-// "linked to X" pill, the description, and Edit / Export JSON / Delete actions.
-// All behavior is injected via callbacks — the card never calls the API.
+// Presentational card for a top-level world on the Worlds page. Mirrors the
+// desktop world card: a deterministic per-world accent color, the linked
+// character's avatar (or a colored initial fallback), an entry-count chip,
+// the description, and Edit / Export / Delete actions. Places inside a world
+// never get a card: a world with places shows a toggle that opens its places
+// panel. All behavior is injected via callbacks — the card never calls the API.
 
 import type { CSSProperties } from 'react';
 
@@ -35,9 +36,21 @@ export interface WorldSummary {
   defaultPlaceId?: string | null;
 }
 
+export interface WorldPlacesToggle {
+  /** Every place inside the world, any depth. */
+  count: number;
+  /** The starred place chats attached to the world start in. */
+  startsAtName: string | null;
+  /** Places but no valid star (an older world, or its starred place was
+   * deleted): ask for one instead. */
+  missingStart: boolean;
+  open: boolean;
+  onToggle: () => void;
+}
+
 /** Deterministic hue (0-359) from a world name, so a given world always renders
  *  the same color — the web equivalent of the desktop WorldColors palette. */
-function hueFromName(name: string): number {
+export function hueFromName(name: string): number {
   let h = 0;
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) % 360;
   return h;
@@ -49,37 +62,23 @@ export function WorldCard({
   onEdit,
   onExport,
   onDelete,
-  parentName,
   hasWeatherToInherit = true,
-  placeCount,
   onNewInside,
   selected,
   onSelected,
-  starred,
-  onStar,
-  startsAtName,
-  missingStart,
+  places,
 }: {
   world: WorldSummary;
   busy: boolean;
   onEdit: () => void;
   onExport: () => void;
   onDelete: () => void;
-  parentName?: string | null;
   hasWeatherToInherit?: boolean;
-  placeCount?: number;
   onNewInside?: () => void;
   selected?: boolean;
   onSelected?: (on: boolean) => void;
-  /** Places inside a world: the starting-place star (desktop parity with
-   * the place card's star). No star without onStar. */
-  starred?: boolean;
-  onStar?: () => void;
-  /** Root cards: name of the starred place chats start at. */
-  startsAtName?: string | null;
-  /** Root cards with places but no starting place yet (an older world, or
-   * its starred place was deleted): ask for one. */
-  missingStart?: boolean;
+  /** A world with places: the toggle that opens its places panel. */
+  places?: WorldPlacesToggle;
 }) {
   const h = hueFromName(world.name);
   const accent: CSSProperties = {
@@ -91,7 +90,7 @@ export function WorldCard({
   const count = world.entryCount;
 
   return (
-    <div className="card wsg-world-card" style={accent}>
+    <div className={`card wsg-world-card${places?.open ? ' wsg-world-card--open' : ''}`} style={accent}>
       <div className="wsg-world-head">
         <div className="wsg-world-avatar" aria-hidden>
           <span>{initial}</span>
@@ -136,34 +135,6 @@ export function WorldCard({
               🌡️ <span>{world.biomeId}</span>
             </span>
           )}
-          {/* Locations slice 4 tags (mockup p1): the weather story every
-              location carries, the depth line where the tree is not
-              visually obvious, and the model-made provenance chip. */}
-          {/* Weather tag rides the PARENT (every location gets one, per
-              the desktop card); the inside-tag is separate and only
-              where the tree context is not visually obvious. Gating the
-              weather tag on parentName was caught by the CI journey:
-              section children pass parentName null and lost the tag. */}
-          {world.parentWorldId && world.climateEnabled === false && (
-            <span className="wsg-weather-tag wsg-weather-tag--inherit">
-              {hasWeatherToInherit ? 'Inherits weather' : 'Weather off'}
-            </span>
-          )}
-          {world.parentWorldId && world.climateEnabled === true && (
-            hasWeatherToInherit ? (
-              <span className="wsg-weather-tag wsg-weather-tag--own">
-                Own climate
-              </span>
-            ) : (
-              // The top-level world has weather off: kept, but paused.
-              <span className="wsg-weather-tag wsg-weather-tag--inherit">
-                Own climate · paused
-              </span>
-            )
-          )}
-          {parentName && (
-            <span className="wsg-inside-tag">inside {parentName}</span>
-          )}
           {world.isModelMade === true && (
             <span className="wsg-inside-tag">model-made</span>
           )}
@@ -174,20 +145,6 @@ export function WorldCard({
           )}
         </div>
         <div className="wsg-world-actions">
-          {onStar && (
-            <button
-              className={`icon-btn wsg-place-star${starred ? ' wsg-place-star--on' : ''}`}
-              title={starred ? 'Chats in this world start here' : 'Start chats in this world here'}
-              aria-label={
-                starred ? `Chats start at ${world.name}` : `Start chats at ${world.name}`
-              }
-              aria-pressed={starred === true}
-              disabled={busy}
-              onClick={onStar}
-            >
-              {starred ? '★' : '☆'}
-            </button>
-          )}
           {onNewInside && (
             <button
               className="icon-btn"
@@ -202,6 +159,7 @@ export function WorldCard({
           <button className="icon-btn" title="Edit" onClick={onEdit}>
             ✎
           </button>
+          {/* Export writes the whole world with every place inside it. */}
           <button className="icon-btn" title="Export .fpworld" onClick={onExport}>
             ⬇
           </button>
@@ -214,26 +172,39 @@ export function WorldCard({
       <p className={`wsg-world-desc${world.description.trim() ? '' : ' empty'}`}>
         {world.description.trim() || 'No description'}
       </p>
-      {startsAtName && (
-        <p className="wsg-starts-at" data-testid="world-starts-at">
-          ★ Chats start at {startsAtName}
-        </p>
-      )}
-      {!startsAtName && missingStart && (
-        <p className="wsg-starts-at wsg-starts-at--missing" data-testid="world-starts-at-missing">
-          ☆ Star a place below: chats start there
-        </p>
+
+      {places && (
+        <button
+          type="button"
+          className={`wsg-places-toggle${places.open ? ' wsg-places-toggle--open' : ''}`}
+          aria-expanded={places.open}
+          data-testid="world-places-toggle"
+          onClick={places.onToggle}
+        >
+          <span aria-hidden>📍</span>
+          <strong>
+            {places.count} place{places.count === 1 ? '' : 's'}
+          </strong>
+          {places.startsAtName ? (
+            <span className="wsg-places-toggle-start">· starts at {places.startsAtName}</span>
+          ) : places.missingStart ? (
+            <span
+              className="wsg-places-toggle-start wsg-starts-at--missing"
+              data-testid="world-starts-at-missing"
+            >
+              · ☆ Star a place: chats start there
+            </span>
+          ) : null}
+          <span className="wsg-places-toggle-caret" aria-hidden>
+            {places.open ? '▴' : '▾'}
+          </span>
+        </button>
       )}
 
       <div className="wsg-world-foot">
         <span className="wsg-entry-chip">
           {count} {count === 1 ? 'entry' : 'entries'}
         </span>
-        {placeCount != null && placeCount > 0 && (
-          <span className="wsg-entry-chip wsg-place-chip" title="Direct places inside">
-            {placeCount} place{placeCount === 1 ? '' : 's'}
-          </span>
-        )}
       </div>
     </div>
   );

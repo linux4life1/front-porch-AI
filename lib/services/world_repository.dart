@@ -349,9 +349,8 @@ class WorldRepository extends ChangeNotifier {
   /// the resolved biome so importers get climate without built-ins, plus place
   /// traits, lore, and the cover image already carried by [model.World].
   ///
-  /// Slice 5: the envelope is always a ROOT's and carries the tree —
-  /// exporting a location exports its root with just the branch that
-  /// reaches it. Root/branch shaping lives in [WorldEnvelopeCodec].
+  /// The envelope is always a ROOT's and carries its whole tree, even when
+  /// [world] is a place inside it. Shaping lives in [WorldEnvelopeCodec].
   Map<String, dynamic> fpWorldJson(model.World world) => _envelopes.tree(world);
 
   /// Export as .fpworld (full place package). Prefer this over ST-only.

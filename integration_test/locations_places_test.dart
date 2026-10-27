@@ -129,7 +129,14 @@ void main() {
     // chain at the card's center. Let it dismiss before tapping there.
     await pumpUntilGone(tester, find.text('World created successfully'));
 
-    // ── 2. "Add a place inside" from the library card ───────────────────
+    // ── 2. "Add a place inside" from the town's places panel ────────────
+    // The town already holds its starting place, so its card carries the
+    // places toggle; the add button lives in the panel it opens.
+    final placesChip = find.byKey(Key('places-chip-${town.id}'));
+    await d.waitForWidget(placesChip);
+    await tester.ensureVisible(placesChip);
+    await tester.pump(const Duration(milliseconds: 200));
+    await tapWhenHittable(tester, placesChip);
     await d.waitForWidget(find.text('Add a place inside'));
     // The Worlds header's button column (From Wiki, From Character, New
     // World) pushes the card below the fold of the 645px macOS window.

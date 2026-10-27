@@ -28,8 +28,8 @@ import 'package:front_porch_ai/utils/utils.dart';
 
 /// Slice 5: the envelope half of the locations feature, split out of
 /// [WorldRepository] to keep both files under the 500-line ratchet and
-/// because tree-shaping is its own job: which root an envelope carries,
-/// which branch rides along, and how a `locations` array re-homes on
+/// because tree-shaping is its own job: which root an envelope carries
+/// (its whole tree rides along) and how a `locations` array re-homes on
 /// import. The repository stays the sole owner of persistence and the
 /// save law; this class only reads the live cache and calls back through
 /// the public repository surface, so there is still ONE source of truth
@@ -58,17 +58,16 @@ class WorldEnvelopeCodec {
   /// than throwing at a caller whose root already landed.
   static const int kImportDepthCap = 2;
 
-  /// Build the export envelope for [world]: always a ROOT's envelope.
-  /// A root carries its whole subtree; a location carries its root with
-  /// just the branch that reaches it (design §4 — siblings stay home).
+  /// Build the export envelope for [world]: always its ROOT's envelope
+  /// with the whole tree. A place is never exported alone or as a pruned
+  /// branch: that file read as the world, dropped its sibling places, and
+  /// could lose the starting place on import.
   Map<String, dynamic> tree(model.World world) {
     final root = rootOf(world);
     return encodeFpWorld(
       world: root,
       biome: biomeFor(root),
-      locations: root.id == world.id
-          ? subtreeEnvelopes(root)
-          : branchEnvelopes(root, world),
+      locations: subtreeEnvelopes(root),
     );
   }
 
@@ -195,46 +194,5 @@ class WorldEnvelopeCodec {
           locations: subtreeEnvelopes(child, depth: depth + 1),
         ),
     ];
-  }
-
-  /// The path from [ancestor] (its root) down to [target]: each hop is an
-  /// envelope carrying only the child that leads onward, until the target
-  /// itself, whose subtree rides whole.
-  List<Map<String, dynamic>> branchEnvelopes(
-    model.World ancestor,
-    model.World target,
-  ) {
-    final hop = childOnPath(ancestor, target);
-    if (hop == null) {
-      // Corrupt parent chain between root and target (the walks agree on
-      // healthy data). Export the root alone rather than silently
-      // dragging the whole library into the user's single-place share.
-      debugPrint('world export: branch to target unresolved; root alone');
-      return const [];
-    }
-    return [
-      encodeFpWorld(
-        world: hop,
-        biome: biomeFor(hop),
-        locations: hop.id == target.id
-            ? subtreeEnvelopes(hop)
-            : branchEnvelopes(hop, target),
-      ),
-    ];
-  }
-
-  /// The direct child of [parent] that is [start] or an ancestor of it.
-  model.World? childOnPath(model.World parent, model.World start) {
-    var cur = start;
-    final seen = <String>{};
-    while (true) {
-      if (!seen.add(cur.id)) return null;
-      final pid = cur.parentWorldId;
-      if (pid == null) return null;
-      final p = _repo.worldById(pid);
-      if (p == null) return null;
-      if (p.id == parent.id) return cur;
-      cur = p;
-    }
   }
 }

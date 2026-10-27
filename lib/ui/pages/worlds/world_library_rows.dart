@@ -1,15 +1,15 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Pure row plan for the Worlds library with locations (slice 3,
-// docs/design/locations-within-worlds.md §5): roots with places render as
-// a wide header card plus their children indented beneath; everything else
-// keeps today's flat grid. No Flutter here — the page consumes
+// Pure row plan for the Worlds library with locations
+// (docs/design/locations-within-worlds.md §5): only top-level worlds get
+// cards; a world's places (its section's subtree) render as rows in the
+// panel its card opens. No Flutter here — the page consumes
 // [planWorldLibrary] and renders; the widget test pins the plan.
 
 import 'package:front_porch_ai/models/world.dart';
 
-enum WorldLibraryFilter { all, rootsOnly, modelMade }
+enum WorldLibraryFilter { all, modelMade }
 
 /// A root that has places inside it, rendered as its own section.
 class WorldLibrarySection {
@@ -66,9 +66,7 @@ WorldLibraryPlan planWorldLibrary({
   final flat = <World>[];
   for (final w in worlds) {
     if (_isLocation(w, byId)) continue; // children render inside sections
-    final subtree = filter == WorldLibraryFilter.rootsOnly
-        ? const <World>[]
-        : _subtreeOf(w.id, byParent);
+    final subtree = _subtreeOf(w.id, byParent);
     // The root itself always renders through its section when it has
     // children — never also in the flat grid (no duplicate cards).
     if (byParent.containsKey(w.id)) {
@@ -142,7 +140,29 @@ List<World> libraryDisplayOrder(List<World> worlds) {
   return out;
 }
 
-/// Children count for a root card's "N places" chip.
+/// The worlds that get a card: everything that is not a location. A place
+/// whose parent row is gone counts here, as it does in the flat grid.
+int topLevelWorldCount(List<World> worlds) {
+  final byId = {for (final w in worlds) w.id: w};
+  return worlds.where((w) => !_isLocation(w, byId)).length;
+}
+
+/// How deep [place] sits below [rootId]: 1 for a direct child, 2 for a
+/// room in a building. Stops on a broken or ringed chain.
+int placeDepthUnder(String rootId, World place, World? Function(String) byId) {
+  var depth = 1;
+  var cur = place;
+  final seen = <String>{cur.id};
+  while (cur.parentWorldId != null && cur.parentWorldId != rootId) {
+    final parent = byId(cur.parentWorldId!);
+    if (parent == null || !seen.add(parent.id)) break;
+    cur = parent;
+    depth++;
+  }
+  return depth;
+}
+
+/// Children count for a world card's "N places" chip.
 int placesUnder(String rootId, List<World> worlds) {
   final byId = {for (final w in worlds) w.id: w};
   // Direct children only for the chip — "2 places inside" on the card,

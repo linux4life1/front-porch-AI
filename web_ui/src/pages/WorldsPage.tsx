@@ -4,7 +4,7 @@
 // Living Worlds authoring: places with climate, description, lore, and
 // .fpworld export/import — web parity with desktop world_management_page.
 
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { ClimateSeasonEditor } from '../components/ClimateSeasonEditor';
@@ -12,6 +12,7 @@ import { ImportCharacterLoreButton } from '../components/ImportCharacterLoreButt
 import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEditor';
 import { StarterWorldsPicker } from '../components/StarterWorldsPicker';
 import { WorldCard, type WorldSummary } from '../components/WorldCard';
+import { WorldPlacesPanel, type PlaceRowModel } from '../components/WorldPlacesPanel';
 import {
   startingPlacePayload,
   startingPlaceProblem,
@@ -123,6 +124,9 @@ export function WorldsPage() {
   // Ancestor details fetched for the prose preview's chain; keyed by id.
   const [chainDetails, setChainDetails] = useState<Record<string, WorldDetail>>({});
   const [moveTargets, setMoveTargets] = useState<ParentCandidate[] | null>(null);
+  const [moving, setMoving] = useState<string[]>([]);
+  // The one world whose places panel is open under its card.
+  const [openWorld, setOpenWorld] = useState<string | null>(null);
   const [moveError, setMoveError] = useState('');
   const [startError, setStartError] = useState<string | null>(null);
 
@@ -418,11 +422,12 @@ export function WorldsPage() {
       .finally(() => setBusy(false));
   };
 
-  // Bulk "Move N into…": the relay serves each selection's candidate
-  // list (the ONE depth/cycle law); the client only intersects them.
-  const beginMove = async () => {
-    const ids = [...selected];
-    if (ids.length < 2) return;
+  // "Move N into…" (multi-select) and a place row's "Move to…" (one id):
+  // the relay serves each world's candidate list (the ONE depth/cycle
+  // law); the client only intersects them.
+  const beginMove = async (ids: string[]) => {
+    if (ids.length === 0) return;
+    setMoving(ids);
     setMoveError('');
     setBusy(true);
     try {
@@ -461,7 +466,7 @@ export function WorldsPage() {
     setMoveTargets(null);
     setBusy(true);
     setMoveError('');
-    const ids = [...selected];
+    const ids = moving;
     let done = 0;
     for (const id of ids) {
       const world = worlds.find((x) => (x.id ?? x.name) === id);
@@ -767,8 +772,7 @@ export function WorldsPage() {
         <>
           <div className="wsg-pills-row" role="toolbar" aria-label="Filter places">
             {([
-              ['all', 'All places'],
-              ['rootsOnly', 'Roots only'],
+              ['all', 'All worlds'],
               ['modelMade', 'Model-made'],
             ] as [LibraryFilter, string][]).map(([f, label]) => (
               <button
@@ -793,136 +797,163 @@ export function WorldsPage() {
                 </button>
               )}
             {selected.size >= 2 && (
-              <button className="wsg-pill wsg-pill--move" onClick={() => void beginMove()}>
+              <button className="wsg-pill wsg-pill--move" onClick={() => void beginMove([...selected])}>
                 Move {selected.size} into…
               </button>
             )}
           </div>
-          <div className="wsg-section-label">Places ({worlds.length})</div>
+          <div className="wsg-section-label">
+            Worlds ({planWorldLibrary(worlds as TreeWorld[]).length})
+          </div>
         </>
       )}
 
       {(() => {
-        const plan = planWorldLibrary(worlds as TreeWorld[], filter);
-        const byId = indexById(worlds as TreeWorld[]);
+        const rows = worlds as TreeWorld[];
+        const byId = indexById(rows);
         // A top-level world's weather switch covers every place in it:
         // with it on, an ancestor (the top itself) authors weather; with it
         // off, nothing inside has any, owned climates included (paused).
         const chainAllowsClimate = (w: TreeWorld): boolean =>
           topOf(w, byId).climateEnabled !== false;
-        const card = (w: TreeWorld, insideRootId?: string, sectionRoot?: WorldSummary) => {
-          const key = w.id ?? w.name;
+        const keyOf = (w: TreeWorld) => w.id ?? w.name;
+        const depthOf = (w: TreeWorld) => {
+          let d = 0;
+          let cursor: TreeWorld | null = w;
+          const seen = new Set<string>();
+          while (cursor != null) {
+            const ck = keyOf(cursor);
+            if (seen.has(ck)) break;
+            seen.add(ck);
+            cursor = resolveParent(cursor, byId);
+            d++;
+          }
+          return d - 1; // 0 = top-level world
+        };
+        const addInside = (parentKey: string) => () =>
+          confirmDiscard(dirty) && openEdit(emptyDraft(parentKey));
+        const remove = (w: TreeWorld) => {
+          const key = keyOf(w);
+          const inside = placesUnder(key, rows, byId);
+          const childNote =
+            inside > 0
+              ? ` Its ${inside} place${inside === 1 ? '' : 's'} become their own worlds — lore stays.`
+              : '';
+          if (!window.confirm(`Delete place "${w.name}"?${childNote}`)) return;
+          setBusy(true);
+          api
+            .post<{ worlds: WorldSummary[]; reRooted?: number }>(
+              `/api/worlds/${encodeURIComponent(w.name)}/delete`,
+            )
+            .then((r) => {
+              setWorlds(r.worlds);
+              if (!edit || edit.originalName === w.name) setEdit(null);
+              setSelected((prev) => {
+                const next = new Set(prev);
+                next.delete(key);
+                return next;
+              });
+              if ((r.reRooted ?? 0) > 0) {
+                setToast(
+                  `${r.reRooted} place${r.reRooted === 1 ? '' : 's'} became their own worlds.`,
+                );
+              }
+            })
+            .catch((e) => setError(e instanceof ApiError ? e.message : 'Delete failed'))
+            .finally(() => setBusy(false));
+        };
+        const placeRow = (
+          w: TreeWorld,
+          depth: number,
+          root?: WorldSummary,
+        ): PlaceRowModel => {
+          const key = keyOf(w);
           const parent = resolveParent(w, byId);
-          const parentName =
-            parent == null
-              ? null
-              : insideRootId != null && parent.id === insideRootId
-                ? null // section children sit under their parent already
-                : parent.name;
-          const depth = (() => {
-            let d = 0;
-            let cursor: TreeWorld | null = w;
-            const seen = new Set<string>();
-            while (cursor != null) {
-              const ck = cursor.id ?? cursor.name;
-              if (seen.has(ck)) break;
-              seen.add(ck);
-              cursor = resolveParent(cursor, byId);
-              d++;
-            }
-            return d; // 1 = root
-          })();
+          return {
+            key,
+            world: w as WorldSummary,
+            depth: Math.max(1, depth),
+            hasWeatherToInherit: chainAllowsClimate(w),
+            starred: root != null && root.defaultPlaceId === w.id,
+            onStar:
+              root != null && w.id
+                ? () => starStartingPlace(root, w.id as string)
+                : undefined,
+            // Inside a world's panel the tree is visible; the model-made
+            // list is flat, so it names the parent.
+            insideName: root == null && parent != null ? parent.name : null,
+            onEdit: () => beginEdit(w.name),
+            // Town › building › room: a room takes no place inside it.
+            onNewInside: depth < 2 ? addInside(key) : undefined,
+            onMove: () => void beginMove([key]),
+            onDelete: () => remove(w),
+            selected: selected.has(key),
+            onSelected: (on) => toggleSelected(key, on),
+          };
+        };
+
+        if (filter === 'modelMade') {
+          const made = rows.filter((w) => w.isModelMade === true);
           return (
-            <WorldCard
-              key={key}
-              world={w as WorldSummary}
+            <WorldPlacesPanel
+              title="Model-made places"
               busy={busy}
-              parentName={parentName}
-              hasWeatherToInherit={chainAllowsClimate(w)}
-              placeCount={placesUnder(key, worlds as TreeWorld[], byId)}
-              onNewInside={depth < 3 ? () => confirmDiscard(dirty) && openEdit(emptyDraft(key)) : undefined}
-              selected={selected.has(key)}
-              onSelected={(on) => toggleSelected(key, on)}
-              starred={sectionRoot != null && sectionRoot.defaultPlaceId === w.id}
-              onStar={
-                sectionRoot != null && w.id
-                  ? () => starStartingPlace(sectionRoot, w.id as string)
-                  : undefined
-              }
-              startsAtName={
-                (w as WorldSummary).defaultPlaceId
-                  ? byId.get((w as WorldSummary).defaultPlaceId as string)?.name ?? null
-                  : null
-              }
-              missingStart={
-                parent == null &&
-                !(w as WorldSummary).defaultPlaceId &&
-                placesUnder(key, worlds as TreeWorld[], byId) > 0
-              }
-              onEdit={() => beginEdit(w.name)}
-              onExport={() =>
-                download(`/api/worlds/${encodeURIComponent(w.name)}/export`)
-              }
-              onDelete={() => {
-                const inside = placesUnder(key, worlds as TreeWorld[], byId);
-                const childNote =
-                  inside > 0
-                    ? ` Its ${inside} place${inside === 1 ? '' : 's'} become their own worlds — lore stays.`
-                    : '';
-                if (window.confirm(`Delete place "${w.name}"?${childNote}`)) {
-                  setBusy(true);
-                  api
-                    .post<{ worlds: WorldSummary[]; reRooted?: number }>(
-                      `/api/worlds/${encodeURIComponent(w.name)}/delete`,
-                    )
-                    .then((r) => {
-                      setWorlds(r.worlds);
-                      if (!edit || edit.originalName === w.name) setEdit(null);
-                      setSelected((prev) => {
-                        const next = new Set(prev);
-                        next.delete(key);
-                        return next;
-                      });
-                      if ((r.reRooted ?? 0) > 0) {
-                        setToast(
-                          `${r.reRooted} place${r.reRooted === 1 ? '' : 's'} became their own worlds.`,
-                        );
-                      }
-                    })
-                    .catch((e) =>
-                      setError(e instanceof ApiError ? e.message : 'Delete failed'),
-                    )
-                    .finally(() => setBusy(false));
-                }
-              }}
+              rows={made.map((w) => placeRow(w, depthOf(w)))}
             />
           );
-        };
-        if (plan.sections.length === 0 && plan.flat.length === worlds.length) {
-          // No locations anywhere: the pre-locations flat grid, card for
-          // card, so existing behavior (and its positional tests) hold.
-          return (
-            <div className="wsg-world-grid">
-              {plan.flat.map((w) => card(w))}
-            </div>
-          );
         }
+
+        const cards = planWorldLibrary(rows);
         return (
-          <>
-            {plan.sections.map((s) => (
-              <section key={s.root.id ?? s.root.name} className="wsg-section">
-                <div className="wsg-section-head">{card(s.root)}</div>
-                <div className="wsg-world-grid wsg-child-grid">
-                  {s.children.map((c) =>
-                    card(c, s.root.id ?? s.root.name, s.root as WorldSummary),
+          <div className="wsg-world-grid wsg-world-grid--library">
+            {cards.map(({ world: w, places }) => {
+              const key = keyOf(w);
+              const summary = w as WorldSummary;
+              const start = summary.defaultPlaceId
+                ? places.find((p) => p.place.id === summary.defaultPlaceId)?.place ?? null
+                : null;
+              const open = openWorld === key && places.length > 0;
+              return (
+                <Fragment key={key}>
+                  <WorldCard
+                    world={summary}
+                    busy={busy}
+                    hasWeatherToInherit={chainAllowsClimate(w)}
+                    onNewInside={places.length === 0 ? addInside(key) : undefined}
+                    selected={selected.has(key)}
+                    onSelected={(on) => toggleSelected(key, on)}
+                    places={
+                      places.length === 0
+                        ? undefined
+                        : {
+                            count: places.length,
+                            startsAtName: start?.name ?? null,
+                            missingStart: start == null,
+                            open,
+                            onToggle: () => setOpenWorld(open ? null : key),
+                          }
+                    }
+                    onEdit={() => beginEdit(w.name)}
+                    onExport={() =>
+                      download(`/api/worlds/${encodeURIComponent(w.name)}/export`)
+                    }
+                    onDelete={() => remove(w)}
+                  />
+                  {open && (
+                    <WorldPlacesPanel
+                      title={`Places in ${w.name}`}
+                      busy={busy}
+                      startsAtName={start?.name ?? null}
+                      missingStart={start == null}
+                      onAddPlace={addInside(key)}
+                      onClose={() => setOpenWorld(null)}
+                      rows={places.map((p) => placeRow(p.place, p.depth, summary))}
+                    />
                   )}
-                </div>
-              </section>
-            ))}
-            <div className="wsg-world-grid">
-              {plan.flat.map((w) => card(w))}
-            </div>
-          </>
+                </Fragment>
+              );
+            })}
+          </div>
         );
       })()}
 
@@ -1230,7 +1261,9 @@ export function WorldsPage() {
         >
           <div className="card wsg-dialog" onClick={(e) => e.stopPropagation()}>
             <h3>
-              Move {selected.size} place{selected.size === 1 ? '' : 's'} into…
+              {moving.length === 1
+                ? `Move ${byNameOrId(moving[0])?.name ?? 'this place'} into…`
+                : `Move ${moving.length} places into…`}
             </h3>
             <p className="muted small">
               Only places valid for every selection are offered — the same

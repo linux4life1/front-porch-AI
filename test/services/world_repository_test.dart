@@ -790,11 +790,11 @@ void main() {
     );
 
     test(
-      'exporting a location exports its root with that branch only',
+      'exporting a location exports its whole world, siblings included',
       () async {
         final root = await seed('Earth');
         final asia = await seed('Asia', parent: root.id);
-        await seed('Europe', parent: root.id); // sibling — must NOT ride
+        await seed('Europe', parent: root.id); // sibling — rides too
         final room = await seed('Tea House', parent: asia.id);
 
         final envelope = repo.fpWorldJson(room);
@@ -804,8 +804,12 @@ void main() {
           reason: 'root envelope, not the leaf',
         );
         final locs = (envelope['locations'] as List).cast<Map>();
-        expect(locs.map((l) => l['name']), ['Asia']);
-        final nested = (locs.first['locations'] as List).cast<Map>();
+        expect(locs.map((l) => l['name']).toSet(), {
+          'Asia',
+          'Europe',
+        }, reason: 'a pruned branch read as the world but dropped places');
+        final asiaEnv = locs.firstWhere((l) => l['name'] == 'Asia');
+        final nested = (asiaEnv['locations'] as List).cast<Map>();
         expect(nested.map((l) => l['name']), ['Tea House']);
       },
     );

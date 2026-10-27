@@ -22,16 +22,20 @@ export interface TreeWorld {
   injectDescription?: boolean;
 }
 
-export type LibraryFilter = 'all' | 'rootsOnly' | 'modelMade';
+export type LibraryFilter = 'all' | 'modelMade';
 
-export interface LibrarySection {
-  root: TreeWorld;
-  children: TreeWorld[];
+/** One place inside a world, as a row in that world's places panel.
+ *  depth 1 sits directly inside the world, depth 2 inside a depth-1 place. */
+export interface PlaceRowEntry {
+  place: TreeWorld;
+  depth: number;
 }
 
-export interface LibraryPlan {
-  sections: LibrarySection[];
-  flat: TreeWorld[];
+/** One card in the library: a top-level world and every place inside it,
+ *  depth-first. Places never get cards of their own. */
+export interface LibraryWorld {
+  world: TreeWorld;
+  places: PlaceRowEntry[];
 }
 
 const idOf = (w: TreeWorld): string => w.id ?? w.name;
@@ -44,8 +48,8 @@ export function indexById(worlds: TreeWorld[]): Map<string, TreeWorld> {
 }
 
 /** A location is a world whose parent resolves in the library; a dangling
- *  parent id is flat cargo, not anyone's child (docks with the Dart
- *  planWorldLibrary). */
+ *  parent id makes a top-level world, not anyone's child (docks with the
+ *  Dart planWorldLibrary). */
 export function resolveParent(
   w: TreeWorld,
   byId: Map<string, TreeWorld>,
@@ -73,20 +77,22 @@ function subtreeOf(
   rootId: string,
   worlds: TreeWorld[],
   byId: Map<string, TreeWorld>,
-): TreeWorld[] {
-  const out: TreeWorld[] = [];
-  const walk = (id: string) => {
+): PlaceRowEntry[] {
+  const out: PlaceRowEntry[] = [];
+  const seen = new Set<string>([rootId]);
+  const walk = (id: string, depth: number) => {
     for (const c of childrenOf(id, worlds, byId)) {
-      out.push(c);
-      walk(idOf(c));
+      if (seen.has(idOf(c))) continue;
+      seen.add(idOf(c));
+      out.push({ place: c, depth });
+      walk(idOf(c), depth + 1);
     }
   };
-  walk(rootId);
+  walk(rootId, 1);
   return out;
 }
 
-/** Direct children only — the chip's number, per mockup p1 (deeper counts
- *  ride each child's own chip). */
+/** Direct children only. */
 export function placesUnder(
   rootId: string,
   worlds: TreeWorld[],
@@ -95,47 +101,36 @@ export function placesUnder(
   return childrenOf(rootId, worlds, byId).length;
 }
 
-export function planWorldLibrary(
-  worlds: TreeWorld[],
-  filter: LibraryFilter,
-): LibraryPlan {
+/** The library's cards: every top-level world (a dangling parent counts as
+ *  top-level) in library order, each carrying its places. Ring members
+ *  (each other's parents: the save path refuses that, a hand-edited
+ *  library can still hold it) come last as cards, never vanished. */
+export function planWorldLibrary(worlds: TreeWorld[]): LibraryWorld[] {
   const byId = indexById(worlds);
-  if (filter === 'modelMade') {
-    return { sections: [], flat: worlds.filter((w) => w.isModelMade === true) };
-  }
-  const sections: LibrarySection[] = [];
-  const flat: TreeWorld[] = [];
-  for (const w of worlds) {
-    if (resolveParent(w, byId) != null) continue; // children ride sections
-    const children =
-      filter === 'rootsOnly' ? [] : subtreeOf(idOf(w), worlds, byId);
-    if (childrenOf(idOf(w), worlds, byId).length > 0) {
-      sections.push({ root: w, children });
-    } else {
-      flat.push(w);
-    }
-  }
+  const cards: LibraryWorld[] = [];
   const placed = new Set<string>();
-  for (const s of sections) {
-    placed.add(idOf(s.root));
-    // rootsOnly hides descendants but they are still FILED under their
-    // section — the ring sweep below must not drag them into flat.
-    for (const d of subtreeOf(idOf(s.root), worlds, byId)) placed.add(idOf(d));
-  }
-  // Unfiled cargo (rings, direct-DB cycles): flat, never vanished.
   for (const w of worlds) {
-    if (resolveParent(w, byId) != null && !placed.has(idOf(w))) flat.push(w);
+    if (resolveParent(w, byId) != null) continue;
+    const places = subtreeOf(idOf(w), worlds, byId);
+    cards.push({ world: w, places });
+    placed.add(idOf(w));
+    for (const p of places) placed.add(idOf(p.place));
   }
-  return { sections, flat };
+  for (const w of worlds) {
+    if (!placed.has(idOf(w))) cards.push({ world: w, places: [] });
+  }
+  return cards;
 }
 
-/** Roots first with subtrees beneath; dangling parents last — the order
- *  attach pickers list in (desktop libraryDisplayOrder twin). */
+/** Worlds with places first, each followed by its places; then the rest.
+ *  The order attach pickers list in (desktop libraryDisplayOrder twin). */
 export function libraryDisplayOrder(worlds: TreeWorld[]): TreeWorld[] {
-  const plan = planWorldLibrary(worlds, 'all');
+  const cards = planWorldLibrary(worlds);
   const out: TreeWorld[] = [];
-  for (const s of plan.sections) out.push(s.root, ...s.children);
-  out.push(...plan.flat);
+  for (const c of cards) {
+    if (c.places.length > 0) out.push(c.world, ...c.places.map((p) => p.place));
+  }
+  for (const c of cards) if (c.places.length === 0) out.push(c.world);
   return out;
 }
 

@@ -3,8 +3,8 @@
 //
 // The starting-place star in the Worlds library: a place inside a world
 // gets a star like the canonical-avatar star in the portrait gallery. One
-// tap makes it where chats attached to the world start (the world's header
-// card then says "Chats start at <place>"), starring another place moves
+// tap makes it where chats attached to the world start (the world's places
+// panel then says "Chats start at <place>"), starring another place moves
 // the star, and the starred place stays starred when tapped: every world
 // keeps a starting place. The seed and
 // attach behaviour behind the star is pinned in world_repository_test and
@@ -19,6 +19,7 @@ import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/world_management_page.dart';
+import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 
 import '../../golden/support/fakes.dart';
 
@@ -66,6 +67,12 @@ Future<void> _pumpLibrary(WidgetTester tester, _StarWorlds worlds) async {
   await tester.pump(const Duration(milliseconds: 50));
 }
 
+Future<void> _openPlaces(WidgetTester tester, String worldId) async {
+  await tester.tap(find.byKey(Key('places-chip-$worldId')));
+  await tester.pump();
+  await tester.pump(const Duration(milliseconds: 50));
+}
+
 Future<void> _tapStar(WidgetTester tester, String placeId) async {
   final star = find.byKey(Key('place-star-$placeId'));
   await tester.ensureVisible(star);
@@ -84,6 +91,8 @@ void main() {
       _world('Town Hall', parent: 'Bletchfield'),
     ]);
     await _pumpLibrary(tester, worlds);
+    // Places live in their world's panel, closed until the card opens it.
+    await _openPlaces(tester, 'Bletchfield');
 
     expect(
       find.text('Star a place below: chats start there'),
@@ -120,5 +129,52 @@ void main() {
       'Town Hall',
     ], reason: 'a world always keeps a starting place: no clear');
     expect(find.text('Chats start at Town Hall'), findsOneWidget);
+  });
+
+  testWidgets('only worlds get cards: places are rows in the panel their '
+      'world opens, never cards, and a place has no Export', (tester) async {
+    final worlds = _StarWorlds([
+      _world('Bletchfield', climate: true),
+      _world('Town Hall', parent: 'Bletchfield'),
+      _world('Back Room', parent: 'Town Hall'),
+      _world('Red Dust Station'),
+    ]);
+    await _pumpLibrary(tester, worlds);
+
+    expect(
+      find.descendant(
+        of: find.byKey(const Key('worlds-count-chip')),
+        matching: find.text('2 worlds'),
+      ),
+      findsOneWidget,
+      reason: 'the header counts worlds, not the places inside them',
+    );
+    expect(find.text('Worlds (2)'), findsOneWidget);
+    expect(find.byType(WorldPlaceCard), findsNWidgets(2));
+    expect(
+      find.byType(WorldPlaceRow),
+      findsNothing,
+      reason: 'a world keeps its places folded away until opened',
+    );
+    expect(find.text('2 places'), findsOneWidget);
+
+    await _openPlaces(tester, 'Bletchfield');
+    expect(find.byType(WorldPlaceCard), findsNWidgets(2));
+    expect(find.byKey(const Key('place-row-Town Hall')), findsOneWidget);
+    expect(find.byKey(const Key('place-row-Back Room')), findsOneWidget);
+    // Town › building › room: the room is at the cap.
+    expect(find.byKey(const Key('place-add-inside-Town Hall')), findsOneWidget);
+    expect(find.byKey(const Key('place-add-inside-Back Room')), findsNothing);
+
+    await tester.tap(
+      find.descendant(
+        of: find.byKey(const Key('place-row-Town Hall')),
+        matching: find.byIcon(Icons.more_vert),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Move to…'), findsOneWidget);
+    expect(find.textContaining('Export'), findsNothing);
   });
 }

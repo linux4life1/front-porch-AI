@@ -38,11 +38,12 @@ class _WorldManagementPageState extends State<WorldManagementPage>
   late AnimationController _headerAnimController;
   late Animation<double> _headerGlowAnimation;
 
-  // Locations slice 3: library view state. Roots start expanded (the
-  // mockup shows children beneath them immediately); collapse is per
-  // section, multi-select lives only as long as the page does.
+  // Library view state. Only top-level worlds get cards; one world's
+  // places panel is open at a time, closed by default so a big library
+  // stays a grid of worlds. Multi-select lives only as long as the page.
   WorldLibraryFilter _filter = WorldLibraryFilter.all;
-  final Set<String> _collapsed = {};
+  String? _open;
+  Set<String> _openPlaceIds = {};
   final Set<String> _selected = {};
 
   @override
@@ -71,9 +72,18 @@ class _WorldManagementPageState extends State<WorldManagementPage>
           worlds: repo.placeWorlds,
           filter: _filter,
         );
+        final sections = {for (final s in plan.sections) s.root.id: s};
+        final flatIds = {for (final w in plan.flat) w.id};
+        // Cards in library order: worlds with places and those without
+        // (plus dangling-parent cargo) interleave as the user made them.
+        final cards = [
+          for (final w in repo.placeWorlds)
+            if (sections.containsKey(w.id) || flatIds.contains(w.id)) w,
+        ];
         final modelMadeCount = repo.placeWorlds
             .where((w) => w.isModelMade)
             .length;
+        final modelMade = _filter == WorldLibraryFilter.modelMade;
         return Scaffold(
           backgroundColor: AppColors.backgroundOf(context),
           body: CustomScrollView(
@@ -92,7 +102,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                 child: WorldManagementStatsSection(repo: repo),
               ),
 
-              // Filter pills + bulk actions (locations slice 3).
+              // Filter pills + bulk actions.
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(28, 20, 28, 4),
@@ -102,8 +112,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       for (final (label, f) in const [
-                        ('All places', WorldLibraryFilter.all),
-                        ('Roots only', WorldLibraryFilter.rootsOnly),
+                        ('All worlds', WorldLibraryFilter.all),
                         ('Model-made', WorldLibraryFilter.modelMade),
                       ])
                         _pill(context, label, f == _filter, () {
@@ -113,8 +122,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                           });
                         }),
                       const SizedBox(width: 12),
-                      if (_filter == WorldLibraryFilter.modelMade &&
-                          modelMadeCount > 0)
+                      if (modelMade && modelMadeCount > 0)
                         _pill(
                           context,
                           'Delete $modelMadeCount model-made places',
@@ -138,199 +146,192 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                 ),
               ),
 
-              // Section label
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(28, 12, 28, 12),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 3,
-                        height: 18,
-                        decoration: BoxDecoration(
-                          color: AppColors.formAccentOf(context),
-                          borderRadius: BorderRadius.circular(2),
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Text(
-                        'Places (${repo.placeWorlds.length})',
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textSecondary(context),
-                          letterSpacing: 0.3,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-
-              // Root sections: header card + children indented beneath.
-              for (final section in plan.sections) ...[
+              if (!modelMade) ...[
                 SliverToBoxAdapter(
-                  child: WorldLibraryRootCard(
-                    section: section,
-                    directCount: placesUnder(section.root.id, repo.placeWorlds),
-                    startingPlace: startingPlaceOf(
-                      section.root,
-                      repo.worldById,
-                    ),
-                    collapsed: _collapsed.contains(section.root.id),
-                    onToggleCollapsed: () => setState(() {
-                      if (_collapsed.remove(section.root.id)) return;
-                      // Collapsing hides the children: a selected card the
-                      // user can no longer see must stop counting toward
-                      // "Move N into…" or being moved unseen (review #592).
-                      _collapsed.add(section.root.id);
-                      _selected.removeAll(section.places.map((w) => w.id));
-                    }),
-                    onNewInside: () => _showWorldDialog(
-                      context,
-                      repo,
-                      presetParentId: section.root.id,
-                    ),
-                    onEdit: () =>
-                        _showWorldDialog(context, repo, world: section.root),
-                    onExport: () =>
-                        exportFpWorldFlow(context, repo, section.root),
-                    onDelete: () => _confirmDelete(context, repo, section.root),
-                    selected: _selected.contains(section.root.id),
-                    onSelected: (on) => setState(() {
-                      if (on) {
-                        _selected.add(section.root.id);
-                      } else {
-                        _selected.remove(section.root.id);
-                      }
-                    }),
+                  child: _sectionLabel(context, 'Worlds (${cards.length})'),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                  sliver: WorldLibraryGrid(
+                    worlds: cards,
+                    openId: _open,
+                    cardBuilder: (context, w) =>
+                        _card(context, repo, w, sections[w.id]),
+                    panelBuilder: (context, w) =>
+                        _panel(context, repo, sections[w.id]!),
                   ),
                 ),
-                if (!_collapsed.contains(section.root.id))
-                  SliverPadding(
-                    padding: const EdgeInsets.fromLTRB(52, 4, 24, 0),
-                    sliver: SliverGrid(
-                      gridDelegate:
-                          const SliverGridDelegateWithMaxCrossAxisExtent(
-                            maxCrossAxisExtent: 340,
-                            childAspectRatio: 1.2,
-                            crossAxisSpacing: 16,
-                            mainAxisSpacing: 16,
-                          ),
-                      delegate: SliverChildBuilderDelegate((context, index) {
-                        final w = section.places[index];
-                        final parentId = w.parentWorldId;
-                        final parentWorld = parentId == null
-                            ? null
-                            : repo.worldById(parentId);
-                        return WorldPlaceCard(
-                          world: w,
-                          parent: parentWorld,
-                          // Depth-2+ cards float far from their building
-                          // in a wrapped grid — name the parent. Direct
-                          // children are visually under it already (no
-                          // tag in mockup p1).
-                          insideName:
-                              parentWorld == null ||
-                                  parentWorld.id == section.root.id
-                              ? null
-                              : parentWorld.name,
-                          placeCount: placesUnder(w.id, repo.placeWorlds),
-                          // A depth-1 child can still take rooms inside it
-                          // (town › building › room); a depth-2 one is at
-                          // the cap and gets no add-inside affordance.
-                          onNewInside:
-                              parentWorld != null &&
-                                  parentWorld.id == section.root.id
-                              ? () => _showWorldDialog(
-                                  context,
-                                  repo,
-                                  presetParentId: w.id,
-                                )
-                              : null,
-                          // Honest tag: nothing to inherit when the whole
-                          // chain is lore-only (§7).
-                          hasWeatherToInherit:
-                              repo.climateAuthorFor(w.id) != null,
-                          selected: _selected.contains(w.id),
-                          onSelected: (on) => setState(() {
-                            if (on) {
-                              _selected.add(w.id);
-                            } else {
-                              _selected.remove(w.id);
-                            }
-                          }),
-                          starred:
-                              startingPlaceOf(
-                                section.root,
-                                repo.worldById,
-                              ).id ==
-                              w.id,
-                          onStar: () =>
-                              starStartingPlace(context, repo, section.root, w),
-                          onEdit: () =>
-                              _showWorldDialog(context, repo, world: w),
-                          onExport: () => exportFpWorldFlow(context, repo, w),
-                          onDelete: () => _confirmDelete(context, repo, w),
-                        );
-                      }, childCount: section.places.length),
+              ] else
+                SliverPadding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
+                  sliver: SliverToBoxAdapter(
+                    child: WorldPlacesPanel(
+                      title: 'Model-made places (${plan.flat.length})',
+                      rows: [
+                        for (final p in plan.flat)
+                          _row(context, repo, p, showInside: true),
+                      ],
                     ),
                   ),
-              ],
-
-              // Flat grid: childless roots (and model-made search results).
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-                sliver: SliverGrid(
-                  gridDelegate: const SliverGridDelegateWithMaxCrossAxisExtent(
-                    maxCrossAxisExtent: 380,
-                    childAspectRatio: 1.2,
-                    crossAxisSpacing: 16,
-                    mainAxisSpacing: 16,
-                  ),
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final w = plan.flat[index];
-                    return WorldPlaceCard(
-                      world: w,
-                      parent: w.parentWorldId == null
-                          ? null
-                          : repo.worldById(w.parentWorldId!),
-                      insideName: w.parentWorldId == null
-                          ? null
-                          : repo.worldById(w.parentWorldId!)?.name,
-                      placeCount: placesUnder(w.id, repo.placeWorlds),
-                      hasWeatherToInherit: repo.climateAuthorFor(w.id) != null,
-                      selected: _selected.contains(w.id),
-                      onSelected: (on) => setState(() {
-                        if (on) {
-                          _selected.add(w.id);
-                        } else {
-                          _selected.remove(w.id);
-                        }
-                      }),
-                      // Every root can take a place — childless ones most
-                      // of all, since that is the first move of the
-                      // adoption flow (§8).
-                      onNewInside: _filter == WorldLibraryFilter.modelMade
-                          ? null
-                          : () => _showWorldDialog(
-                              context,
-                              repo,
-                              presetParentId: w.id,
-                            ),
-                      onEdit: () => _showWorldDialog(context, repo, world: w),
-                      onExport: () => exportFpWorldFlow(context, repo, w),
-                      onDelete: () => _confirmDelete(context, repo, w),
-                    );
-                  }, childCount: plan.flat.length),
                 ),
-              ),
             ],
           ),
         );
       },
     );
   }
+
+  Widget _sectionLabel(BuildContext context, String text) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(28, 12, 28, 12),
+      child: Row(
+        children: [
+          Container(
+            width: 3,
+            height: 18,
+            decoration: BoxDecoration(
+              color: AppColors.formAccentOf(context),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 15,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textSecondary(context),
+              letterSpacing: 0.3,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// A top-level world's card. [section] is set when it has places: then
+  /// the card carries the toggle for its places panel.
+  Widget _card(
+    BuildContext context,
+    WorldRepository repo,
+    World w,
+    WorldLibrarySection? section,
+  ) {
+    // Dangling-parent and ring cargo still name the parent they point at.
+    final parent = w.parentWorldId == null
+        ? null
+        : repo.worldById(w.parentWorldId!);
+    final start = startingPlaceOf(w, repo.worldById);
+    return WorldPlaceCard(
+      world: w,
+      parent: parent,
+      insideName: parent?.name,
+      placeCount: placesUnder(w.id, repo.placeWorlds),
+      hasWeatherToInherit: repo.climateAuthorFor(w.id) != null,
+      selected: _selected.contains(w.id),
+      onSelected: (on) => _select(w.id, on),
+      open: _open == w.id,
+      placesToggle: section == null
+          ? null
+          : WorldPlacesToggle(
+              key: Key('places-chip-${w.id}'),
+              count: section.places.length,
+              startingPlace: start.id == w.id ? null : start,
+              open: _open == w.id,
+              onTap: () => _togglePanel(section),
+            ),
+      onNewInside: () => _showWorldDialog(context, repo, presetParentId: w.id),
+      onEdit: () => _showWorldDialog(context, repo, world: w),
+      onExport: () => exportFpWorldFlow(context, repo, w),
+      onDelete: () => _confirmDelete(context, repo, w),
+    );
+  }
+
+  Widget _panel(
+    BuildContext context,
+    WorldRepository repo,
+    WorldLibrarySection section,
+  ) {
+    final root = section.root;
+    final start = startingPlaceOf(root, repo.worldById);
+    final hasStart = start.id != root.id;
+    return WorldPlacesPanel(
+      key: Key('places-panel-${root.id}'),
+      title: 'Places in ${root.name}',
+      // Every world with places has a starting place; an older world (or
+      // one whose starred place was deleted) is asked for one rather than
+      // silently starting at the world.
+      startLine: hasStart
+          ? 'Chats start at ${start.name}'
+          : 'Star a place below: chats start there',
+      startMissing: !hasStart,
+      weatherLine: worldClimateLine(root),
+      onAddInside: () =>
+          _showWorldDialog(context, repo, presetParentId: root.id),
+      onClose: () => _togglePanel(section),
+      rows: [
+        for (final p in section.places)
+          _row(context, repo, p, root: root, startId: start.id),
+      ],
+    );
+  }
+
+  /// A place as a row. [root] is its world when shown in that world's
+  /// panel (star and add-inside apply); the model-made list has no world
+  /// context and names each place's parent instead.
+  Widget _row(
+    BuildContext context,
+    WorldRepository repo,
+    World p, {
+    World? root,
+    String? startId,
+    bool showInside = false,
+  }) {
+    final depth = root == null
+        ? 1
+        : placeDepthUnder(root.id, p, repo.worldById);
+    final parentId = p.parentWorldId;
+    return WorldPlaceRow(
+      place: p,
+      depth: depth,
+      hasWeatherToInherit: repo.climateAuthorFor(p.id) != null,
+      insideName: showInside && parentId != null
+          ? repo.worldById(parentId)?.name
+          : null,
+      starred: startId == p.id,
+      onStar: root == null
+          ? null
+          : () => starStartingPlace(context, repo, root, p),
+      // Town › building › room: a room is at the cap and takes nothing.
+      onNewInside: root != null && depth < 2
+          ? () => _showWorldDialog(context, repo, presetParentId: p.id)
+          : null,
+      selected: _selected.contains(p.id),
+      onSelected: (on) => _select(p.id, on),
+      onEdit: () => _showWorldDialog(context, repo, world: p),
+      onMove: () =>
+          movePlacesInto(context, repo, {p.id}, () => setState(() {})),
+      onDelete: () => _confirmDelete(context, repo, p),
+    );
+  }
+
+  void _select(String id, bool on) => setState(() {
+    if (on) {
+      _selected.add(id);
+    } else {
+      _selected.remove(id);
+    }
+  });
+
+  void _togglePanel(WorldLibrarySection section) => setState(() {
+    final id = section.root.id;
+    // A closing panel hides its rows: a selected place the user can no
+    // longer see must stop counting toward "Move N into…" (review #592).
+    _selected.removeAll(_openPlaceIds);
+    final opening = _open != id;
+    _open = opening ? id : null;
+    _openPlaceIds = opening ? {for (final p in section.places) p.id} : {};
+  });
 
   Widget _pill(
     BuildContext context,

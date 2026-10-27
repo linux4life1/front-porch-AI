@@ -48,6 +48,14 @@ const button = (label: string) =>
     (b) => b.textContent?.trim() === label,
   )!;
 
+// A world's places are rows in a panel under its card, closed until opened.
+const openPlaces = async () =>
+  act(async () =>
+    (container.querySelector('[data-testid="world-places-toggle"]') as HTMLButtonElement).click(),
+  );
+const placeRow = (name: string) =>
+  container.querySelector(`.wsg-places-panel li[data-place="${name}"]`) as HTMLElement | null;
+
 const partOfSelect = () =>
   container.querySelector('select[aria-label="Part of"]') as HTMLSelectElement;
 
@@ -213,11 +221,9 @@ describe('the Part of picker', () => {
         });
       return Promise.resolve({ worlds: WORLD_ROWS });
     });
+    await openPlaces();
     await act(async () => {
-      const childCard = Array.from(container.querySelectorAll('.wsg-world-card')).find(
-        (c) => c.querySelector('.wsg-world-name')?.textContent === 'Bletchfield',
-      )!;
-      (childCard.querySelector('[title="Edit"]') as HTMLButtonElement).click();
+      (placeRow('Bletchfield')!.querySelector('[title="Edit"]') as HTMLButtonElement).click();
     });
     const sel = partOfSelect();
     expect(sel.value).toBe('ghost-9');
@@ -294,39 +300,44 @@ describe('the inherited-lore count', () => {
   });
 });
 
-describe('the grouped library', () => {
-  it('indents the child under its root, not beside it in a flat grid', () => {
-    const grid = container.querySelector('.wsg-child-grid');
-    expect(grid).not.toBeNull();
-    const childNames = Array.from(
-      grid!.querySelectorAll('.wsg-world-name'),
-    ).map((n) => n.textContent);
-    expect(childNames).toContain('Bletchfield');
-    // Earth renders through its section header only — never also flat.
-    const sectionHeads = container.querySelectorAll('.wsg-section-head');
-    expect(sectionHeads).toHaveLength(1);
+describe('the library: worlds get cards, places are rows', () => {
+  it('a place is a row in its world panel, never a card of its own', async () => {
+    const cardNames = Array.from(container.querySelectorAll('.wsg-world-card .wsg-world-name')).map(
+      (n) => n.textContent,
+    );
+    expect(cardNames).toEqual(['Earth']);
+    // Closed until the world's toggle opens it.
+    expect(container.querySelector('.wsg-places-panel')).toBeNull();
+    const toggle = container.querySelector('[data-testid="world-places-toggle"]')!;
+    expect(toggle.textContent).toContain('1 place');
+    await openPlaces();
+    expect(container.querySelector('.wsg-places-panel')?.getAttribute('aria-label')).toBe(
+      'Places in Earth',
+    );
+    expect(placeRow('Bletchfield')).not.toBeNull();
+    expect(container.querySelectorAll('.wsg-world-card')).toHaveLength(1);
   });
 
-  it('a section child keeps its weather tag but drops the redundant inside-tag', () => {
-    // The CI journey caught these two being conflated: the weather tag
-    // rides the parent (every location gets one); the inside-tag only
-    // renders where the tree is not visually obvious. A child under its
-    // root is obvious — but still must say what its weather does.
-    const grid = container.querySelector('.wsg-child-grid')!;
-    const childCard = Array.from(grid.querySelectorAll('.wsg-world-card')).find(
-      (c) => c.querySelector('.wsg-world-name')?.textContent === 'Bletchfield',
-    )!;
+  it('a place row keeps its weather tag, drops the inside-tag, and has no Export', async () => {
+    await openPlaces();
+    const row = placeRow('Bletchfield')!;
+    expect(row.querySelector('.wsg-weather-tag--inherit')?.textContent).toBe('Inherits weather');
+    expect(row.textContent).not.toContain('inside');
+    // A place never exports alone: the world's card exports the whole tree.
+    expect(row.querySelector('[title^="Export"]')).toBeNull();
     expect(
-      childCard.querySelector('.wsg-weather-tag--inherit')?.textContent,
-    ).toBe('Inherits weather');
-    expect(childCard.querySelector('.wsg-inside-tag')).toBeNull();
-    // The flat 'Solo'-style card would carry the inside-tag; here the
-    // root's own card carries the places chip instead.
-    expect(
-      container
-        .querySelector('.wsg-section-head .wsg-place-chip')
-        ?.textContent ?? '',
-    ).toContain('1 place');
+      container.querySelector('.wsg-world-card [title="Export .fpworld"]'),
+    ).not.toBeNull();
+  });
+
+  it('a place row moves on its own through the same candidate law', async () => {
+    await openPlaces();
+    await act(async () => {
+      (placeRow('Bletchfield')!.querySelector('[title="Move to…"]') as HTMLButtonElement).click();
+    });
+    expect(get).toHaveBeenCalledWith('/api/worlds/parent-candidates?for=town-1');
+    const dialog = container.querySelector('[aria-label="Move places into"]')!;
+    expect(dialog.querySelector('h3')?.textContent).toBe('Move Bletchfield into…');
   });
 
   it('a library with no tree stays the pre-locations flat grid', async () => {
@@ -352,7 +363,8 @@ describe('the grouped library', () => {
     await act(async () => {
       root.render(createElement(MemoryRouter, null, createElement(WorldsPage)));
     });
-    expect(container.querySelector('.wsg-child-grid')).toBeNull();
+    expect(container.querySelector('[data-testid="world-places-toggle"]')).toBeNull();
+    expect(container.querySelector('.wsg-places-panel')).toBeNull();
     expect(container.querySelectorAll('.wsg-world-card')).toHaveLength(1);
   });
 });
@@ -394,9 +406,8 @@ describe('a world with weather off', () => {
     });
 
     // The library: an owned climate under a weather-off world is paused.
-    const card = Array.from(container.querySelectorAll('.wsg-world-card')).find(
-      (c) => c.querySelector('.wsg-world-name')?.textContent === 'The Greenhouse',
-    )!;
+    await openPlaces();
+    const card = placeRow('The Greenhouse')!;
     expect(card.textContent).toContain('Own climate · paused');
     expect(card.querySelector('.wsg-weather-tag--own')).toBeNull();
 
@@ -418,7 +429,7 @@ describe('a world with weather off', () => {
     const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
     act(() => button('Cancel')!.click());
     const editEarth = container.querySelector(
-      '.wsg-section-head button[title="Edit"]',
+      '.wsg-world-card button[title="Edit"]',
     ) as HTMLButtonElement;
     await act(async () => editEarth.click());
     await act(async () => {});

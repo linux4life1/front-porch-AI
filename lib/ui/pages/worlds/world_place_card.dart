@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/chat/weather_biomes.dart';
+import 'package:front_porch_ai/ui/pages/worlds/world_place_tags.dart';
 import 'package:front_porch_ai/ui/pages/worlds/world_starting_place.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
@@ -45,6 +45,11 @@ class WorldPlaceCard extends StatelessWidget {
   // chats attached to the world start here. No star without [onStar].
   final bool starred;
   final VoidCallback? onStar;
+  // A world with places shows its "N places" toggle in the slot "Add a
+  // place inside" takes on an empty world; [open] marks the card whose
+  // places panel is showing.
+  final Widget? placesToggle;
+  final bool open;
 
   const WorldPlaceCard({
     super.key,
@@ -61,6 +66,8 @@ class WorldPlaceCard extends StatelessWidget {
     this.onSelected,
     this.starred = false,
     this.onStar,
+    this.placesToggle,
+    this.open = false,
   });
 
   @override
@@ -77,22 +84,12 @@ class WorldPlaceCard extends StatelessWidget {
         ? climate
         : null;
     // Inherit/own tag: only locations get one — a root's climate story is
-    // its own dropdown chip above. A place that owns reads like the
-    // editor's radio ("Own climate · <biome>"); the mockup names the
-    // biome so a continent's card tells its weather at a glance.
-    // hasWeatherToInherit is false under a weather-off top-level world, so
-    // a place that owns a climate there reads as paused, not active.
-    final weatherTag = parent == null
-        ? null
-        : world.climateEnabled
-        ? (hasWeatherToInherit ? 'Own climate' : 'Own climate · paused')
-        : hasWeatherToInherit
-        ? 'Inherits weather'
-        : 'Weather off';
-    final ownBiomeName =
-        (parent != null && world.climateEnabled && hasWeatherToInherit)
-        ? Biome.builtInById(world.biomeId)?.displayName
-        : null;
+    // its own chip above.
+    final weatherTag = placeWeatherTag(
+      world,
+      isPlace: parent != null,
+      hasWeatherToInherit: hasWeatherToInherit,
+    );
 
     return Card(
       margin: EdgeInsets.zero,
@@ -102,7 +99,9 @@ class WorldPlaceCard extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
         side: BorderSide(
-          color: AppColors.borderOf(context).withValues(alpha: 0.85),
+          color: open
+              ? accent
+              : AppColors.borderOf(context).withValues(alpha: 0.85),
         ),
       ),
       child: InkWell(
@@ -241,7 +240,10 @@ class WorldPlaceCard extends StatelessWidget {
                       ),
                     ),
                     const Spacer(),
-                    if (onNewInside != null) ...[
+                    if (placesToggle != null) ...[
+                      placesToggle!,
+                      const SizedBox(height: 6),
+                    ] else if (onNewInside != null) ...[
                       Align(
                         alignment: Alignment.centerLeft,
                         child: TextButton.icon(
@@ -296,9 +298,7 @@ class WorldPlaceCard extends StatelessWidget {
                         if (weatherTag != null)
                           _tag(
                             context,
-                            ownBiomeName == null
-                                ? weatherTag
-                                : '$weatherTag · $ownBiomeName',
+                            weatherTag,
                             muted:
                                 !world.climateEnabled || !hasWeatherToInherit,
                           ),
@@ -307,7 +307,7 @@ class WorldPlaceCard extends StatelessWidget {
                         if (world.isModelMade) _tag(context, 'model-made'),
                         if (world.sourceCharacterName != null)
                           _tag(context, 'from ${world.sourceCharacterName}'),
-                        if (placeCount > 0)
+                        if (placeCount > 0 && placesToggle == null)
                           _tag(
                             context,
                             '$placeCount place${placeCount == 1 ? '' : 's'} inside',

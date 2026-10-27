@@ -67,25 +67,6 @@ void main() {
       // cargo, not anyone's child.
     });
 
-    test(
-      'roots only: every root flat or a header; no child cards anywhere',
-      () {
-        final plan = planWorldLibrary(
-          worlds: library,
-          filter: WorldLibraryFilter.rootsOnly,
-        );
-        // The town has children, so it is a section header (empty places);
-        // the childless and dangling roots are flat.
-        expect(plan.sections.single.root.id, 'Bletchfield');
-        expect(plan.sections.single.places, isEmpty);
-        expect(
-          plan.flat.map((f) => f.id),
-          containsAll(['Red Dust Station', 'Ghost Room']),
-        );
-        expect(plan.flat.map((f) => f.id), isNot(contains('Bletchfield')));
-      },
-    );
-
     test('model made: only the flagged worlds, at any depth, flat', () {
       final plan = planWorldLibrary(
         worlds: library,
@@ -264,6 +245,30 @@ void main() {
       final kid = w('Kid', parent: 'Loop');
       final withKid = reachablePlaces(s, [s, kid], index([s, kid]));
       expect(withKid.where((r) => r.id == 'Kid').length, 1);
+    });
+  });
+
+  group('top-level worlds and depth', () {
+    test('only worlds count as worlds: places inside them do not', () {
+      final town = w('Bletchfield');
+      final all = [
+        town,
+        w('Town Hall', parent: 'Bletchfield'),
+        w('Back Room', parent: 'Town Hall'),
+        w('Red Dust Station'),
+        // A place whose world row is gone still gets a card, so it counts.
+        w('Ghost Room', parent: 'gone'),
+      ];
+      expect(topLevelWorldCount(all), 3);
+    });
+
+    test('placeDepthUnder: 1 inside the world, 2 inside a building', () {
+      final town = w('Bletchfield');
+      final hall = w('Town Hall', parent: 'Bletchfield');
+      final room = w('Back Room', parent: 'Town Hall');
+      final all = [town, hall, room];
+      expect(placeDepthUnder('Bletchfield', hall, index(all)), 1);
+      expect(placeDepthUnder('Bletchfield', room, index(all)), 2);
     });
   });
 }
