@@ -62,13 +62,15 @@ void main() {
   ChatService? chat;
   StorageService? storage;
 
+  // Bounded by elapsed time, not a hop count: the turn waits on real I/O
+  // (Drift isolate, refused Kobold token-count sockets), and on a loaded CI
+  // runner 400 zero-delay hops ran out mid pre-gen, so the test read the
+  // reply before the AFK one.
   Future<void> drain() async {
-    for (
-      var i = 0;
-      i < 400 && (chat!.isGenerating || chat!.isSettlingTurn);
-      i++
-    ) {
-      await Future<void>.delayed(Duration.zero);
+    final waited = Stopwatch()..start();
+    while ((chat!.isGenerating || chat!.isSettlingTurn) &&
+        waited.elapsed < const Duration(seconds: 30)) {
+      await Future<void>.delayed(const Duration(milliseconds: 2));
     }
     for (var i = 0; i < 20; i++) {
       await Future<void>.delayed(Duration.zero);
