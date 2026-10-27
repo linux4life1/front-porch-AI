@@ -20,6 +20,9 @@ export interface TreeWorld {
   entryCount?: number;
   enabledEntryCount?: number;
   injectDescription?: boolean;
+  /** The starred place chats attached to this world start in; null when
+   *  they start in the world itself (resolved by the relay). */
+  defaultPlaceId?: string | null;
 }
 
 export type LibraryFilter = 'all' | 'modelMade';
@@ -120,6 +123,29 @@ export function planWorldLibrary(worlds: TreeWorld[]): LibraryWorld[] {
     if (!placed.has(idOf(w))) cards.push({ world: w, places: [] });
   }
   return cards;
+}
+
+/** One row in a character's link picker: a top-level world and the grey
+ *  line under it ("3 places inside · chats start at Stiltwater"), or null
+ *  when it has no places. */
+export interface LinkPickerRow {
+  world: TreeWorld;
+  inside: string | null;
+}
+
+/** What a character links: top-level worlds only. A place is reached
+ *  through its world, whose starred place starts the chat; linking a bare
+ *  place left chats without a Setting. Twin of `linkableWorlds` +
+ *  `linkPickerInsideLine` on desktop. */
+export function linkPickerRows(worlds: TreeWorld[]): LinkPickerRow[] {
+  const byId = indexById(worlds);
+  return planWorldLibrary(worlds).map(({ world }) => {
+    const n = placesUnder(idOf(world), worlds, byId);
+    if (n === 0) return { world, inside: null };
+    const count = n === 1 ? '1 place inside' : `${n} places inside`;
+    const start = world.defaultPlaceId ? byId.get(world.defaultPlaceId) : undefined;
+    return { world, inside: start ? `${count} · chats start at ${start.name}` : count };
+  });
 }
 
 /** Worlds with places first, each followed by its places; then the rest.

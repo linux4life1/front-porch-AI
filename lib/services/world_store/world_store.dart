@@ -3,5 +3,6 @@
 
 export 'character_linked_world_purge.dart';
 export 'world_chat_attachments.dart';
+export 'world_link_lift.dart';
 export 'world_row_codec.dart';
 export 'world_starting_place.dart';

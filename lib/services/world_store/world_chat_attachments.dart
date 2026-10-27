@@ -11,6 +11,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart' hide World;
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -20,10 +21,19 @@ class WorldChatAttachments {
   final WorldRepository _repo;
   final AppDatabase Function() _db;
 
-  List<String> _resolveRefs(List<String> refs, List<String> unresolved) {
+  /// Character / group links to chat ids. A link naming a place inside a
+  /// world lifts to that world, so the chat starts at the world's star with
+  /// a Setting; [lift] is false only for a fork carrying its parent's slots.
+  List<String> _resolveRefs(
+    List<String> refs,
+    List<String> unresolved, {
+    bool lift = true,
+  }) {
     final worlds = _repo.worlds;
     return resolveWorldRefsToIds(
-      refs: refs,
+      refs: lift
+          ? liftLinkRefs(refs, _repo.resolveWorld, _repo.worldById)
+          : refs,
       nameToId: {for (final w in worlds) w.name: w.id},
       validIds: {for (final w in worlds) w.id},
       unresolved: unresolved,
@@ -68,8 +78,9 @@ class WorldChatAttachments {
     await _repo.ready;
     // A world with a starred place starts the chat there: the place takes
     // the world's slot (its chain still brings the world's lore and
-    // weather) and may hold the Setting even when it inherits its climate
-    // or the world is lore-only, because the author chose it as the start.
+    // weather) and may hold the Setting even when the world is lore-only,
+    // because the author chose it as the start. Otherwise the Setting goes
+    // to the first id whose chain authors a climate, inherited or its own.
     final starts = <String>{};
     final ids = <String>[];
     for (final id in worldIds) {
@@ -84,7 +95,7 @@ class WorldChatAttachments {
     final slots = partitionLinkedPlaces(
       worldIds: ids,
       isClimateEnabled: (id) =>
-          starts.contains(id) || (_repo.worldById(id)?.climateEnabled ?? false),
+          starts.contains(id) || _repo.climateAuthorFor(id) != null,
     );
     await _repo.setChatWorldAttachments(
       chatId,
@@ -154,7 +165,7 @@ class WorldChatAttachments {
     // against a not-yet-loaded cache would silently seed nothing, permanently.
     await _repo.ready;
     final unresolved = <String>[];
-    final ids = _resolveRefs(templateWorldIds, unresolved);
+    final ids = _resolveRefs(templateWorldIds, unresolved, lift: startAtStar);
     if (unresolved.isNotEmpty) {
       debugPrint(
         '[Worlds] template had unresolved refs for chat $chatId: $unresolved',

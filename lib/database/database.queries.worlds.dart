@@ -156,66 +156,75 @@ extension AppDatabaseWorldQueries on AppDatabase {
   Future<int> stripWorldRefsFromCharactersAndGroups({
     required Set<String> ids,
     required Set<String> names,
-  }) async {
-    if (ids.isEmpty && names.isEmpty) return 0;
+  }) {
+    if (ids.isEmpty && names.isEmpty) return Future.value(0);
+    return rewriteWorldRefsInCharactersAndGroups(
+      (refs) => [
+        for (final r in refs)
+          if (!ids.contains(r) && !names.contains(r)) r,
+      ],
+    );
+  }
+
+  /// Run [rewrite] over every live characters.world_names and
+  /// groups.world_ids JSON array, writing back only the rows it changed.
+  /// Returns how many rows changed.
+  Future<int> rewriteWorldRefsInCharactersAndGroups(
+    List<String> Function(List<String> refs) rewrite,
+  ) async {
     var touched = 0;
-    final charRows = await customSelect(
-      'SELECT id, world_names FROM characters WHERE deleted_at IS NULL',
-    ).get();
-    for (final row in charRows) {
-      final id = row.data['id']?.toString();
-      final raw = row.data['world_names']?.toString() ?? '[]';
-      final next = _filterWorldRefJson(raw, ids: ids, names: names);
-      if (next == null) continue;
-      await customStatement(
-        'UPDATE characters SET world_names = ? WHERE id = ?',
-        [next, id],
-      );
-      touched++;
+    Future<void> sweep(String table, String column) async {
+      final rows = await customSelect(
+        'SELECT id, $column FROM $table WHERE deleted_at IS NULL',
+      ).get();
+      for (final row in rows) {
+        final id = row.data['id']?.toString();
+        final raw = row.data[column]?.toString() ?? '[]';
+        final next = _rewriteWorldRefJson(raw, rewrite);
+        if (next == null) continue;
+        await customStatement('UPDATE $table SET $column = ? WHERE id = ?', [
+          next,
+          id,
+        ]);
+        touched++;
+      }
     }
-    final groupRows = await customSelect(
-      'SELECT id, world_ids FROM groups WHERE deleted_at IS NULL',
-    ).get();
-    for (final row in groupRows) {
-      final id = row.data['id']?.toString();
-      final raw = row.data['world_ids']?.toString() ?? '[]';
-      final next = _filterWorldRefJson(raw, ids: ids, names: names);
-      if (next == null) continue;
-      await customStatement('UPDATE groups SET world_ids = ? WHERE id = ?', [
-        next,
-        id,
-      ]);
-      touched++;
-    }
+
+    await sweep('characters', 'world_names');
+    await sweep('groups', 'world_ids');
     if (touched > 0) await bumpSyncVersion();
     return touched;
   }
 
-  /// Returns new JSON array string if filtered, else null if unchanged.
-  String? _filterWorldRefJson(
-    String raw, {
-    required Set<String> ids,
-    required Set<String> names,
-  }) {
+  /// The new JSON array string when [rewrite] changed it, else null
+  /// (unchanged or unreadable).
+  String? _rewriteWorldRefJson(
+    String raw,
+    List<String> Function(List<String> refs) rewrite,
+  ) {
     try {
       final decoded = jsonDecode(raw);
       if (decoded is! List) return null;
-      final kept = <String>[];
-      var changed = false;
-      for (final e in decoded) {
-        final s = e?.toString() ?? '';
-        if (s.isEmpty) continue;
-        if (ids.contains(s) || names.contains(s)) {
-          changed = true;
-          continue;
-        }
-        kept.add(s);
-      }
-      if (!changed) return null;
-      return jsonEncode(kept);
-    } catch (_) {
+      final refs = [
+        for (final e in decoded)
+          if ((e?.toString() ?? '').isNotEmpty) e.toString(),
+      ];
+      final next = rewrite(refs);
+      final before = [for (final e in decoded) e?.toString()];
+      return listEquals(next, before) ? null : jsonEncode(next);
+    } catch (e) {
+      debugPrint('[Worlds] world ref list unreadable, left as is: $e');
       return null;
     }
+  }
+
+  /// Chats that have places attached but no Setting.
+  Future<List<String>> chatIdsWithoutSetting() async {
+    final rows = await customSelect(
+      'SELECT chat_id FROM chat_worlds GROUP BY chat_id '
+      'HAVING MAX(is_primary) = 0',
+    ).get();
+    return [for (final r in rows) r.data['chat_id'].toString()];
   }
 
   /// Upsert semantics per (chat, day): switching climate twice on the same

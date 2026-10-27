@@ -4,7 +4,6 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -75,8 +74,8 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   void _loadWorlds() {
     try {
       final repo = Provider.of<WorldRepository>(context, listen: false);
-      // Places only — character lore clones are purged / not shown.
-      _allWorlds = libraryDisplayOrder(repo.placeWorlds);
+      // Top-level worlds only: a place is reached through its world.
+      _allWorlds = repo.linkableWorlds;
     } catch (_) {
       _allWorlds = [];
     }
@@ -245,14 +244,15 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
 
                 // Places (Living Worlds)
                 GroupSectionHeader(
-                  'Places',
+                  'Worlds',
                   Icons.public,
                   AppColors.formAccentOf(context),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Attach places for climate + place lore on this group '
-                  '(template for new chats; this session also has Places under Story Tools).',
+                  'Attach worlds for climate + lore on this group. New chats '
+                  'start at each world\'s starred place; this session also '
+                  'has Places under Story Tools.',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiary(context),
@@ -261,7 +261,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                 const SizedBox(height: 8),
                 if (_allWorlds.isEmpty)
                   Text(
-                    'No places available. Create places in the Worlds tab to attach them here.',
+                    'No worlds yet. Create one in the Worlds tab to attach it here.',
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 12,

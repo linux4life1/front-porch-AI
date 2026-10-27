@@ -43,6 +43,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
+import 'package:front_porch_ai/ui/pages/edit_character_page/edit_character_worlds_tab.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -131,5 +132,60 @@ void main() {
     await tester.tap(find.text('Details'));
     await tester.pumpAndSettle();
     expect(find.text('Description'), findsWidgets);
+  });
+
+  testWidgets('the Worlds tab links worlds only, never a place inside one', (
+    tester,
+  ) async {
+    final basin = World(
+      name: 'Verdance Basin',
+      lorebook: Lorebook(entries: const []),
+    );
+    final stilt = World(
+      name: 'Stiltwater',
+      lorebook: Lorebook(entries: const []),
+      parentWorldId: basin.id,
+      climateEnabled: false,
+    );
+    final market = World(
+      name: 'Canopy Market',
+      lorebook: Lorebook(entries: const []),
+      parentWorldId: basin.id,
+      climateEnabled: false,
+    );
+    basin.defaultPlaceId = stilt.id;
+    final cinder = World(
+      name: 'The Cindermaw',
+      lorebook: Lorebook(entries: const []),
+    );
+    final linked = <String>[];
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<WorldRepository>.value(
+        value: FakeWorldRepository([cinder, basin, stilt, market]),
+        child: MaterialApp(
+          home: Scaffold(
+            body: EditCharacterWorldsTab(
+              selectedWorldNames: linked,
+              onChanged: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('The Cindermaw'), findsOneWidget);
+    expect(find.text('Verdance Basin'), findsOneWidget);
+    expect(find.text('Stiltwater'), findsNothing);
+    expect(find.text('Canopy Market'), findsNothing);
+    expect(
+      find.text('2 places inside · chats start at Stiltwater'),
+      findsOneWidget,
+    );
+    expect(find.byType(Switch), findsNWidgets(2));
+
+    await tester.tap(find.byType(Switch).last);
+    await tester.pump();
+    expect(linked, [basin.id]);
   });
 }

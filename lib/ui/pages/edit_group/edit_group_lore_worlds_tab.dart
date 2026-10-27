@@ -48,7 +48,7 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
     required this.onUnlinkWorld,
   });
 
-  /// Every place world the picker offers (`WorldRepository.placeWorlds`).
+  /// Every world the picker offers (`WorldRepository.linkableWorlds`).
   final List<World> allWorlds;
   final List<LorebookEntry> loreEntries;
   final bool bookUnreadable;
@@ -160,7 +160,7 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
 
           const SizedBox(height: 20),
           Text(
-            'Linked Places',
+            'Linked Worlds',
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w600,
@@ -169,7 +169,8 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            'Template for new chats of this group (climate + place lore).',
+            'Template for new chats of this group (climate + world lore). '
+            'Chats start at each world\'s starred place.',
             style: TextStyle(
               fontSize: 12,
               color: AppColors.textTertiary(context),
@@ -207,7 +208,7 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
                     context: context,
                     builder: (ctx) => SimpleDialog(
                       backgroundColor: AppColors.surfaceOf(context),
-                      title: const Text('Link a Place'),
+                      title: const Text('Link a World'),
                       children: allWorlds
                           .map(
                             (w) => SimpleDialogOption(
@@ -229,7 +230,7 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
                   }
                 },
                 icon: const Icon(Icons.public, size: 18),
-                label: const Text('Link Place'),
+                label: const Text('Link World'),
               ),
             ],
           ),

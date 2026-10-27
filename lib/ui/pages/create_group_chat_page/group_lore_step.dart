@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
-import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
@@ -39,7 +38,7 @@ class GroupLoreStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final worldRepo = Provider.of<WorldRepository>(context);
-    final allWorlds = libraryDisplayOrder(worldRepo.placeWorlds);
+    final allWorlds = worldRepo.linkableWorlds;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

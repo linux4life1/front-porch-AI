@@ -8,6 +8,7 @@
 // [planWorldLibrary] and renders; the widget test pins the plan.
 
 import 'package:front_porch_ai/models/world.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 
 enum WorldLibraryFilter { all, modelMade }
 
@@ -171,4 +172,15 @@ int placesUnder(String rootId, List<World> worlds) {
       .where((w) => w.parentWorldId != null && byId[w.parentWorldId] != null)
       .where((w) => byId[w.parentWorldId]!.id == rootId)
       .length;
+}
+
+/// The grey line under a world in a link picker: "3 places inside · chats
+/// start at Stiltwater". Null for a world with no places.
+String? linkPickerInsideLine(World world, List<World> all) {
+  final byId = {for (final w in all) w.id: w};
+  final n = placesUnder(world.id, all);
+  if (n == 0) return null;
+  final count = n == 1 ? '1 place inside' : '$n places inside';
+  final start = startingPlaceOf(world, (id) => byId[id]);
+  return start.id == world.id ? count : '$count · chats start at ${start.name}';
 }

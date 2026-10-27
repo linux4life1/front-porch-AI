@@ -25,6 +25,9 @@ import 'package:front_porch_ai/services/world_envelopes.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
+export 'package:front_porch_ai/services/world_store/world_link_lift.dart'
+    show LinkableWorlds;
+
 /// What a person sees when they try to save a world with no name.
 const kWorldNameRequired = 'Give your world a name.';
 
@@ -132,6 +135,12 @@ class WorldRepository extends ChangeNotifier {
       _resolveAvatarPaths(_worlds);
       // One-time: drop legacy "Aerin's Lorebook" clones so Worlds = places.
       await _purge.maybePurge();
+      await WorldLinkLift(
+        repo: this,
+        db: () => _db,
+        characters: () => _characterRepository,
+        groups: () => _groupRepository,
+      ).run();
     } catch (e) {
       debugPrint('Error loading worlds: $e');
     } finally {

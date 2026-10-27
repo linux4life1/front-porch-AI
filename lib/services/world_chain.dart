@@ -209,3 +209,39 @@ World startingPlaceOf(World world, World? Function(String id) lookup) {
   final place = id == null ? null : lookup(id);
   return place != null && isPlaceInside(place, world, lookup) ? place : world;
 }
+
+/// The top-level world [place] sits in, or [place] itself for a world.
+World topWorldOf(World place, World? Function(String id) lookup) =>
+    worldChain(place, lookup).last;
+
+/// What a character or group may link: top-level worlds only, in the order
+/// given. A place inside a world is reached through that world (its starred
+/// place starts the chat); linking the place alone left chats without a
+/// Setting. A place whose parent row is gone counts as a world here.
+List<World> linkableWorldsOf(
+  List<World> worlds,
+  World? Function(String id) lookup,
+) => [
+  for (final w in worlds)
+    if (topWorldOf(w, lookup).id == w.id) w,
+];
+
+/// [refs] (ids or names) with every place lifted to its top-level world,
+/// deduped by the world each ref resolves to. Unknown refs pass through
+/// untouched; a later load may still resolve them.
+List<String> liftLinkRefs(
+  List<String> refs,
+  World? Function(String idOrName) resolve,
+  World? Function(String id) lookup,
+) {
+  final out = <String>[];
+  final seen = <String>{};
+  for (final ref in refs) {
+    if (ref.isEmpty) continue;
+    final w = resolve(ref);
+    final top = w == null ? null : topWorldOf(w, lookup);
+    final lifted = top == null || top.id == w!.id ? ref : top.id;
+    if (seen.add(top?.id ?? ref)) out.add(lifted);
+  }
+  return out;
+}

@@ -13,6 +13,7 @@ import {
   indexById,
   injectionUsedChars,
   libraryDisplayOrder,
+  linkPickerRows,
   planWorldLibrary,
   placesUnder,
   type TreeWorld,
@@ -232,5 +233,25 @@ describe('buildWorldInjection: trait lines come from the climate author only', (
     expect(text).toContain('Gravity is high');
     expect(text).not.toContain('Gravity is low');
     expect(text).not.toContain('unbreathable');
+  });
+});
+
+describe('linkPickerRows', () => {
+  it('offers top-level worlds only, with where chats start', () => {
+    const basin = w('Verdance Basin', { defaultPlaceId: 'Stiltwater' });
+    const stilt = w('Stiltwater', { parentWorldId: 'Verdance Basin' });
+    const market = w('Canopy Market', { parentWorldId: 'Verdance Basin' });
+    const loft = w('Rope Loft', { parentWorldId: 'Canopy Market' });
+    const cinder = w('The Cindermaw');
+    const town = w('Bletchfield');
+    const tea = w('Tea Rooms', { parentWorldId: 'Bletchfield' });
+
+    const rows = linkPickerRows([cinder, basin, stilt, market, loft, town, tea]);
+
+    expect(rows.map((r) => [r.world.name, r.inside])).toEqual([
+      ['The Cindermaw', null],
+      ['Verdance Basin', '2 places inside · chats start at Stiltwater'],
+      ['Bletchfield', '1 place inside'],
+    ]);
   });
 });

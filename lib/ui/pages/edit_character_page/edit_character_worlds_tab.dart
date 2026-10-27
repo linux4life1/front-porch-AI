@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
 /// The character editor's Worlds tab. Linking a place edits
@@ -46,7 +47,7 @@ class EditCharacterWorldsTab extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Linked Places',
+                    'Linked Worlds',
                     style: TextStyle(
                       fontSize: 24,
                       fontWeight: FontWeight.bold,
@@ -55,7 +56,8 @@ class EditCharacterWorldsTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Attach places (Worlds) so their lore and climate apply in this character\'s chats. '
+                    'Attach worlds so their lore and climate apply in this character\'s chats. '
+                    'Chats start at the world\'s starred place. '
                     'To copy another character\'s lore into this card, use Lorebook → From character.',
                     style: TextStyle(
                       fontSize: 13,
@@ -64,7 +66,7 @@ class EditCharacterWorldsTab extends StatelessWidget {
                   ),
                   const SizedBox(height: 20),
 
-                  if (repo.placeWorlds.isEmpty)
+                  if (repo.linkableWorlds.isEmpty)
                     Container(
                       padding: const EdgeInsets.all(40),
                       decoration: BoxDecoration(
@@ -105,7 +107,11 @@ class EditCharacterWorldsTab extends StatelessWidget {
                       ),
                     )
                   else
-                    ...repo.placeWorlds.map((world) {
+                    ...repo.linkableWorlds.map((world) {
+                      final inside = linkPickerInsideLine(
+                        world,
+                        repo.placeWorlds,
+                      );
                       final isLinked =
                           selectedWorldNames.contains(world.id) ||
                           selectedWorldNames.contains(world.name);
@@ -155,16 +161,26 @@ class EditCharacterWorldsTab extends StatelessWidget {
                                   : FontWeight.normal,
                             ),
                           ),
-                          subtitle: Text(
-                            world.description.isNotEmpty
-                                ? world.description
-                                : '${world.lorebook.entries.length} entries',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              color: AppColors.textTertiary(context),
-                              fontSize: 12,
-                            ),
+                          subtitle: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              for (final line in [
+                                world.description.isNotEmpty
+                                    ? world.description
+                                    : '${world.lorebook.entries.length} entries',
+                                ?inside,
+                              ])
+                                Text(
+                                  line,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: AppColors.textTertiary(context),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                            ],
                           ),
                           trailing: Switch(
                             value: isLinked,
