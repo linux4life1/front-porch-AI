@@ -24,6 +24,12 @@ add_definitions(-DAPPLICATION_ID="${APPLICATION_ID}")
 target_link_libraries(${BINARY_NAME} PRIVATE flutter)
 target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GTK)
 
+# Asked before any audio player is built: audioplayers aborts the process
+# when GStreamer's playbin is missing (issue #625). The audioplayers plugin
+# links the same library, so this adds no new runtime requirement.
+pkg_check_modules(GSTREAMER REQUIRED IMPORTED_TARGET gstreamer-1.0)
+target_link_libraries(${BINARY_NAME} PRIVATE PkgConfig::GSTREAMER)
+
 # The spell check engine, compiled into this binary from third_party/hunspell.
 # Not a system package and not dlopen'd: there is nothing for a user to install
 # and nothing for a distribution to get wrong. See third_party/hunspell/

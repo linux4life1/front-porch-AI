@@ -802,6 +802,9 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=${AUR_VERSION}/" PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
           sed -i "s/^_tag=.*/_tag=\"${TAG}\"/" PKGBUILD
+          # The AUR repo owns this PKGBUILD; keep its runtime deps in step
+          # with aur-beta/PKGBUILD (GStreamer plays all audio, issue #625).
+          sed -i "s/^depends=.*/depends=('gtk3' 'glib2' 'libsecret' 'fuse2' 'gst-plugins-base' 'gst-plugins-good' 'xdg-user-dirs')/" PKGBUILD
 
           cat > .SRCINFO <<SRCINFO
           pkgbase = front-porch-ai-beta-bin
@@ -815,6 +818,9 @@ jobs:
           depends = glib2
           depends = libsecret
           depends = fuse2
+          depends = gst-plugins-base
+          depends = gst-plugins-good
+          depends = xdg-user-dirs
           provides = front-porch-ai
           conflicts = front-porch-ai
           conflicts = front-porch-ai-bin

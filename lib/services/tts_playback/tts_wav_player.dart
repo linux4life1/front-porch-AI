@@ -20,13 +20,22 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/audio_playback.dart';
 
 /// Plays one audio file at a time and stops it on demand. Owns the
-/// audioplayers [AudioPlayer] (constructed eagerly, with the service) and
-/// the macOS `afplay` process.
+/// audioplayers [AudioPlayer] (built on first play, through
+/// [AudioPlayback]) and the macOS `afplay` process.
 class TtsWavPlayer {
-  final AudioPlayer _audioPlayer = AudioPlayer();
+  TtsWavPlayer({this.onUnavailable});
+
+  /// Called instead of playing when this machine cannot play audio.
+  final VoidCallback? onUnavailable;
+
+  Future<AudioPlayer?>? _audioPlayer;
   Process? _afplayProcess; // macOS audio playback process
+
+  Future<AudioPlayer?> _player() => _audioPlayer ??= AudioPlayback.create();
 
   /// Play a WAV file.
   /// On macOS, uses the built-in `afplay` command for reliability
@@ -47,12 +56,17 @@ class TtsWavPlayer {
         print('afplay failed: $e');
       }
     } else {
+      final player = await _player();
+      if (player == null) {
+        onUnavailable?.call();
+        return;
+      }
       final completer = Completer<void>();
       void finish() {
         if (!completer.isCompleted) completer.complete();
       }
 
-      final sub = _audioPlayer.onPlayerComplete.listen((_) => finish());
+      final sub = player.onPlayerComplete.listen((_) => finish());
       // Manual stop() emits PlayerState.stopped, NOT onPlayerComplete — so
       // without this second listener, hanging up (or pressing Stop) mid-
       // sentence leaves this await hanging forever on Windows/Linux: the
@@ -60,12 +74,12 @@ class TtsWavPlayer {
       // the orphaned subscription fires into the NEXT session. macOS never
       // sees it because that platform plays through afplay above. Same guard
       // as the read-along player in story_reader/story_read_along.dart.
-      final stopSub = _audioPlayer.onPlayerStateChanged.listen((state) {
+      final stopSub = player.onPlayerStateChanged.listen((state) {
         if (state == PlayerState.stopped) finish();
       });
 
       try {
-        await _audioPlayer.play(DeviceFileSource(wavFile.path));
+        await player.play(DeviceFileSource(wavFile.path));
         await completer.future;
       } finally {
         await sub.cancel();
@@ -78,8 +92,8 @@ class TtsWavPlayer {
   Future<void> stop() async {
     _afplayProcess?.kill();
     _afplayProcess = null;
-    await _audioPlayer.stop();
+    await (await _audioPlayer)?.stop();
   }
 
-  void dispose() => _audioPlayer.dispose();
+  void dispose() => _audioPlayer?.then((p) => p?.dispose());
 }

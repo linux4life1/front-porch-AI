@@ -46,12 +46,14 @@
 // exactly like test/ui/pages/story_reader_page_interaction_test.dart does.
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/tts_playback/tts_playback.dart';
 
 import '../golden/support/fakes_storage.dart';
 
@@ -463,5 +465,67 @@ void main() {
       expect(tts.isGenerating, isFalse);
       expect(tts.currentMessageId, isNull);
     });
+  });
+
+  // Issue #625: on Linux without GStreamer's playbin, audioplayers aborts
+  // the app when a native player is built. Nothing may build one before
+  // something plays, and play() must ask AudioPlayback first.
+  group('without GStreamer (issue #625)', () {
+    final playerCalls = <String>[];
+    setUp(() {
+      playerCalls.clear();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('xyz.luan/audioplayers'),
+            (MethodCall call) async {
+              playerCalls.add(call.method);
+              return null;
+            },
+          );
+      AudioPlayback.debugReset();
+    });
+    tearDown(() {
+      AudioPlayback.debugReset();
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('front_porch_ai/audio_support'),
+            null,
+          );
+    });
+
+    test('building TtsService builds no native player', () async {
+      makeTts(_TtsProbeStorage());
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      expect(
+        playerCalls,
+        isNot(contains('create')),
+        reason: 'a player built at startup aborts the app on Linux (#625)',
+      );
+    });
+
+    test('play() asks the runner, builds nothing and reports when playbin '
+        'is missing', () async {
+      final asked = <String>[];
+      AudioPlayback.debugProbeOverride = true;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel('front_porch_ai/audio_support'),
+            (MethodCall call) async {
+              asked.add(call.method);
+              return false;
+            },
+          );
+      var unavailable = 0;
+      final player = TtsWavPlayer(onUnavailable: () => unavailable++);
+
+      await player
+          .play(File('${Directory.systemTemp.path}/fpai_625.wav'))
+          .timeout(const Duration(seconds: 5));
+      await player.stop();
+
+      expect(asked, ['canPlay']);
+      expect(unavailable, 1);
+      expect(playerCalls, isNot(contains('create')));
+    }, skip: Platform.isMacOS ? 'macOS plays through afplay' : false);
   });
 }

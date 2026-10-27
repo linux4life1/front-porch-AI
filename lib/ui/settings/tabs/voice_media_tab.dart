@@ -181,6 +181,7 @@ class _TtsSection extends StatelessWidget {
             ],
           ),
         ),
+        const AudioMissingNotice(),
       ],
     );
   }

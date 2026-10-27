@@ -98,7 +98,8 @@ When something goes wrong, this page is the fastest route back to chatting. Find
 - **Leftover AI engine from a previous run.** If the app was force-quit, KoboldCpp can be left running and hold onto its port. Clean up:
   - Windows: Task Manager → end any `koboldcpp` process (`koboldcpp.exe`, or `koboldcpp-oldpc.exe` on older CPUs).
   - macOS/Linux: `pkill -f koboldcpp`
-- **Linux — missing system libraries.** Run it from a terminal; if it complains about a missing `.so` file, install the library it names (commonly GTK 3, libsecret, or GStreamer). The **AppImage** bundles everything and is the easy way out.
+- **Linux — missing system libraries.** Run it from a terminal; if it complains about a missing `.so` file, install the library it names (commonly GTK 3, libsecret, or GStreamer). The AppImage and `.tar.gz` use the system's GTK, libsecret and GStreamer too; the apt, dnf and AUR packages pull them in for you.
+- **Linux — closes a moment after the window appears** (the last terminal line is `[DB] PRAGMA synchronous = FULL set`, sometimes followed by `terminate called…` / `Aborted`). Versions up to 1.6.0 close like this when GStreamer's base plugins are missing. Install `gstreamer1.0-plugins-base` and `gstreamer1.0-plugins-good` (Debian / Ubuntu), `gstreamer1-plugins-base` and `gstreamer1-plugins-good` (Fedora) or `gst-plugins-base` and `gst-plugins-good` (Arch). Newer versions open anyway and turn sound off, with a note under **Text-to-Speech** in Settings.
 - **macOS — blocked by Gatekeeper.** See the [macOS note](#macos-damaged-warning-and-intel-macs).
 - **Broken download/install.** Re-download the release and reinstall. Your data is safe — it lives in your Documents folder, not the install folder.
 
@@ -243,7 +244,7 @@ A few things can trip it:
 - **Check the engine and voice** in Settings → **Voice & Media** → **Text-to-Speech** → **Configure**. Cloud engines (ElevenLabs, OpenAI) need a valid API key and internet.
 - **A character suddenly sounds "generic".** Characters can carry their own voice (either assigned when you built a group, or baked into the card you imported). If that voice belongs to a different engine than the one you're using now — say the card wants a Kokoro voice while you've switched to Piper — the app can't play it and quietly uses your global voice instead. Either switch the engine back, or set a global default you're happy with under **Text-to-Speech** → **Configure**. Per-member voices for a group are picked on the group setup screen, and those dropdowns only ever list voices that work with your current engine.
 - **A custom Piper voice won't import.** Front Porch AI can import raw Piper voices (desktop only — there's deliberately no web importer). Two rules trip people up: the `.onnx` model needs its matching `.onnx.json` config sitting **next to it** with the same name, and a voice whose name is already installed is refused — rename the file to bring it in under a different name. The import button is **Add custom voice**, top-right of the **Voice Model Browser**.
-- **Linux audio:** if nothing in the app plays sound, your system may be missing GStreamer plugins — install your distro's `gstreamer` "good/base" plugin packages.
+- **Linux audio:** if nothing in the app plays sound, your system may be missing GStreamer plugins. Settings → **Voice & Media** shows a note under **Text-to-Speech** when the base plugins are missing; install your distro's GStreamer "base" and "good" plugin packages and restart the app.
 
 ### Microphone / speech-to-text not working
 

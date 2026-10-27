@@ -93,7 +93,7 @@ Prefer no repository? The [Releases page](https://github.com/linux4life1/front-p
   chmod +x Front_Porch_AI-Linux.AppImage
   ./Front_Porch_AI-Linux.AppImage
   ```
-  The app and every AI engine library it uses live inside that one file. AppImages need FUSE 2 to mount themselves, and recent Ubuntu and Fedora releases no longer install it by default — so this is the one thing you may have to add by hand. The package name differs by distro: `libfuse2` on Debian / Ubuntu / Mint / Pop!_OS (`libfuse2t64` on Ubuntu 24.04 and newer), `fuse-libs` on Fedora, `fuse2` on Arch.
+  The app and every AI engine library it uses live inside that one file. AppImages need FUSE 2 to mount themselves, and recent Ubuntu and Fedora releases no longer install it by default — so this is the one thing you may have to add by hand. The package name differs by distro: `libfuse2` on Debian / Ubuntu / Mint / Pop!_OS (`libfuse2t64` on Ubuntu 24.04 and newer), `fuse-libs` on Fedora, `fuse2` on Arch. It also plays sound through your system's GStreamer: if the base plugins are missing (`gstreamer1.0-plugins-base` on Debian / Ubuntu, `gstreamer1-plugins-base` on Fedora, `gst-plugins-base` on Arch), install them or the app runs without sound.
 - **`Front_Porch_AI-Linux.deb`** and **`Front_Porch_AI-Linux.rpm`** — one-off installs of exactly the same packages the repositories serve.
 - **`Front_Porch_AI_Linux.tar.gz`** — a plain folder you can extract anywhere and run directly, if you'd rather not install anything at all.
 

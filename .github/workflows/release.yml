@@ -575,6 +575,7 @@ jobs:
           Priority: optional
           Architecture: amd64
           Maintainer: Front Porch AI Team
+          Depends: libgtk-3-0t64 | libgtk-3-0, libsecret-1-0, gstreamer1.0-plugins-base, gstreamer1.0-plugins-good, xdg-user-dirs
           Description: A chilled out frontend for KoboldCPP.
           EOF
           
@@ -606,6 +607,9 @@ jobs:
           Requires:       gtk3
           Requires:       glib2
           Requires:       libsecret
+          Requires:       gstreamer1-plugins-base
+          Requires:       gstreamer1-plugins-good
+          Requires:       xdg-user-dirs
           
           %description
           A chilled out frontend for KoboldCPP.
@@ -886,6 +890,9 @@ jobs:
           # Update PKGBUILD version
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+          # The AUR repo owns this PKGBUILD; keep its runtime deps in step
+          # with aur/PKGBUILD (GStreamer plays all audio, issue #625).
+          sed -i "s/^depends=.*/depends=('gtk3' 'glib2' 'libsecret' 'gst-plugins-base' 'gst-plugins-good' 'xdg-user-dirs')/" PKGBUILD
 
           # Manual .SRCINFO generation for Ubuntu runner:
           cat > .SRCINFO <<SRCINFO
@@ -899,6 +906,9 @@ jobs:
           depends = gtk3
           depends = glib2
           depends = libsecret
+          depends = gst-plugins-base
+          depends = gst-plugins-good
+          depends = xdg-user-dirs
           provides = front-porch-ai
           conflicts = front-porch-ai
           options = !strip
