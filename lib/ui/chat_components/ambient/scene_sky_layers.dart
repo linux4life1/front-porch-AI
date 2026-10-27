@@ -24,6 +24,7 @@ import 'package:flutter/foundation.dart' show visibleForTesting;
 
 import 'package:front_porch_ai/services/chat/scene/scene_effects_render.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_fog_mist.dart';
 import 'ambient_stage_game.dart';
 
 /// Cloud shapes along the top of the stage. The stack is the web's, so
@@ -79,88 +80,100 @@ class SceneCloudLayer extends Component
   }
 }
 
-/// Fog: low banks rolling across the stage, over the tint and the
-/// clouds, each breathing on its own phase, and a band of ground fog
-/// thickest at the bottom edge that breathes on the sim's clock. Each
-/// bank's gradient is built once per scatter and moved with a translate
-/// and a squash, its breath carried by the paint's alpha; the ground band
-/// is plain rectangles, so a frame makes no shaders.
+/// Fog: two layers of mist streaming right across the stage over the tint
+/// and the clouds, far and slow behind near and faster, each thickest
+/// toward the ground and breathing on its own phase
+/// (`scene_fog_mist.dart`). Each layer's texture is built once per
+/// scatter and colour, painted in the fog colour, and its share and
+/// breath ride on the paint's alpha; a frame only draws the two textures
+/// twice each, so it makes no images and no shaders.
 class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
   SceneFogLayer() : super(priority: 2);
 
   SceneEffectsSim? _builtFor;
   Color? _builtColour;
-  List<Paint> _blobPaints = const [];
-  List<Shader> _shaders = const [];
-  final Paint _ground = Paint();
+  List<Image> _mist = const [];
+  final Paint _paint = Paint()..filterQuality = FilterQuality.low;
 
-  /// How many blob gradients are held now, for tests.
+  /// How many mist textures are held now, for tests.
   @visibleForTesting
-  int get debugShaderCount => _shaders.length;
+  int get debugMistCount => _mist.length;
 
   @override
   void render(Canvas canvas) {
     final sim = game.effects;
-    if (sim == null || sim.fogBlobs.isEmpty) return;
+    if (sim == null || !sim.spec.fog) return;
     final colour = game.tokens.paints.fog;
     if (!identical(_builtFor, sim) || _builtColour != colour) {
-      _dropShaders();
+      _dropMist();
       _builtFor = sim;
       _builtColour = colour;
-      _shaders = [
-        for (final b in sim.fogBlobs)
-          Gradient.radial(
-            Offset.zero,
-            b.r,
-            [
-              colour.withValues(alpha: colour.a * b.a),
-              colour.withValues(alpha: colour.a * b.a),
-              colour.withValues(alpha: 0),
-            ],
-            const [0, kSceneFogBankCore, 1],
-          ),
+      _mist = [
+        for (var l = 0; l < kSceneMistLayers; l++)
+          _mistImage(sceneMist(sim.seed, l), colour),
       ];
-      _blobPaints = [for (final s in _shaders) Paint()..shader = s];
-    }
-    final h = game.size.y;
-    for (var i = 0; i < sim.fogBlobs.length; i++) {
-      final b = sim.fogBlobs[i];
-      // A shader is modulated by its paint's alpha: the breath costs no
-      // new gradient.
-      final paint = _blobPaints[i]
-        ..color = Color.fromRGBO(0, 0, 0, fogBankBreath(i, sim.time));
-      canvas
-        ..save()
-        ..translate(b.x, b.y + fogBob(i, sim.time) * h)
-        ..scale(1, kSceneFogBankSquash)
-        ..drawCircle(Offset.zero, b.r, paint)
-        ..restore();
     }
     final w = game.size.x;
-    final breath = groundFogBreath(sim.time);
-    final band = h * kSceneGroundFogHeight;
-    final stripe = band / kSceneGroundFogStripes;
-    for (var i = 0; i < kSceneGroundFogStripes; i++) {
-      _ground.color = colour.withValues(
-        alpha: colour.a * groundFogStripeAlpha(i) * breath,
+    final h = game.size.y;
+    final tileW = w * kSceneMistSpan;
+    final src = Rect.fromLTWH(
+      0,
+      0,
+      kSceneMistWidth.toDouble(),
+      kSceneMistHeight.toDouble(),
+    );
+    for (var l = 0; l < _mist.length; l++) {
+      _paint.color = _paint.color.withValues(
+        alpha: kSceneMistShare[l] * mistBreath(l, sim.time),
       );
-      final top = h - band + i * stripe;
-      canvas.drawRect(Rect.fromLTWH(0, top, w, stripe + 0.5), _ground);
+      final shift = mistShift(l, sim.time, w);
+      canvas
+        ..drawImageRect(
+          _mist[l],
+          src,
+          Rect.fromLTWH(shift - tileW, 0, tileW, h),
+          _paint,
+        )
+        ..drawImageRect(
+          _mist[l],
+          src,
+          Rect.fromLTWH(shift, 0, tileW, h),
+          _paint,
+        );
     }
   }
 
   @override
   void onRemove() {
-    _dropShaders();
+    _dropMist();
     super.onRemove();
   }
 
-  void _dropShaders() {
-    for (final s in _shaders) {
-      s.dispose();
+  /// The density as a texture in the fog [colour], its alpha scaled by
+  /// the density, one pixel per value.
+  static Image _mistImage(List<double> density, Color colour) {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    final pixel = Paint();
+    for (var y = 0; y < kSceneMistHeight; y++) {
+      for (var x = 0; x < kSceneMistWidth; x++) {
+        final a = density[y * kSceneMistWidth + x];
+        if (a <= 0) continue;
+        pixel.color = colour.withValues(alpha: colour.a * a);
+        canvas.drawRect(Rect.fromLTWH(x.toDouble(), y.toDouble(), 1, 1), pixel);
+      }
     }
-    _shaders = const [];
-    _blobPaints = const [];
+    final picture = recorder.endRecording();
+    final image = picture.toImageSync(kSceneMistWidth, kSceneMistHeight);
+    picture.dispose();
+    return image;
+  }
+
+  void _dropMist() {
+    for (final m in _mist) {
+      m.dispose();
+    }
+    _mist = const [];
     _builtFor = null;
     _builtColour = null;
   }

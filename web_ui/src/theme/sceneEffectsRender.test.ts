@@ -3,16 +3,18 @@
 //
 // The render recipe the chat canvas shares with the desktop stage
 // (sceneEffectsRender.ts, scene_effects_render.dart): the rain's depth
-// bands, the flash's double strike, the ground fog's breath, and the bolt,
+// bands, the flash's double strike, the fog's mist, and the bolt,
 // pinned point for point so both surfaces draw the same strike from the
 // same seed and schedule (the Dart test carries the same numbers).
 
 import { describe, expect, it } from 'vitest';
 import {
-  GROUND_FOG_ALPHA, GROUND_FOG_STRIPES, RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_LIFE,
-  SceneSplashes, flashShape, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
+  RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_LIFE,
+  SceneSplashes, flashShape, rainBand, rainGust, rainLean, rainLit, sceneBolt,
 } from './sceneEffectsRender';
-import { FOG_BANK_CORE, FOG_BANK_SQUASH, fogBankBreath } from './sceneEffectsRender';
+import {
+  MIST_HEIGHT, MIST_LAYERS, MIST_SHARE, MIST_WIDTH, mistBreath, mistShift, sceneMist,
+} from './sceneFogMist';
 
 const drop = (a: number) => ({ x: 0, y: 0, v: 500, len: 12, drift: 0, a });
 const round = (p: [number, number]) => p.map((v) => +v.toFixed(6));
@@ -45,14 +47,35 @@ describe('scene effects render recipe', () => {
     expect(sceneBolt(42, 5.25, 800, 600).trunk).toEqual(bolt.trunk);
   });
 
-  it('lays the ground fog thickest at the ground and breathes it', () => {
-    expect(groundFogStripeAlpha(0)).toBeLessThan(groundFogStripeAlpha(GROUND_FOG_STRIPES - 1));
-    expect(groundFogStripeAlpha(GROUND_FOG_STRIPES - 1)).toBe(GROUND_FOG_ALPHA);
-    expect(GROUND_FOG_ALPHA).toBeLessThanOrEqual(0.5);
-    for (let t = 0; t < 40; t += 0.7) {
-      expect(groundFogBreath(t)).toBeGreaterThanOrEqual(0.6);
-      expect(groundFogBreath(t)).toBeLessThanOrEqual(1);
+  // Changed with the fog: it was soft blobs over a striped ground band,
+  // which read as a flat grey background, so this pinned the band's
+  // stripes and breath. The fog is now two streaming layers of seeded mist
+  // (sceneFogMist.ts); the band and its stripes are gone.
+  it('builds the desktop\'s fog mist number for number and streams it', () => {
+    // The Dart twin (scene_effects_render_test.dart) pins the same numbers.
+    const far = sceneMist(1234, 0);
+    const near = sceneMist(1234, 1);
+    const sum = (m: Float64Array) => m.reduce((a, v) => a + v, 0);
+    expect(far).toHaveLength(MIST_WIDTH * MIST_HEIGHT);
+    expect(Math.abs(sum(far) - 6247.899714727)).toBeLessThan(1e-6);
+    expect(Math.abs(sum(near) - 6625.065326843)).toBeLessThan(1e-6);
+    expect(far[5000]).toBeCloseTo(0.119596553, 9);
+    expect(near[12345]).toBeCloseTo(0.221341582, 9);
+    expect(far.filter((v) => v === 0).length).toBe(5018);
+    expect(near.filter((v) => v === 0).length).toBe(3762);
+    expect(sceneMist(99, 0)).not.toEqual(far);
+    const row = 50 * MIST_WIDTH;
+    expect(Math.abs(near[row] - near[row + MIST_WIDTH - 1])).toBeLessThan(0.05);
+    expect(mistBreath(1, 7.5)).toBeCloseTo(0.698305943, 9);
+    for (let t = 0; t < 60; t += 0.4) {
+      for (let l = 0; l < MIST_LAYERS; l++) {
+        expect(mistBreath(l, t)).toBeGreaterThanOrEqual(0.6);
+        expect(mistBreath(l, t)).toBeLessThanOrEqual(1);
+      }
     }
+    expect(mistShift(1, 100, 1500)).toBeCloseTo(750, 9);
+    expect(mistShift(0, 400, 1500)).toBeCloseTo(300, 9);
+    expect(MIST_SHARE.reduce((a, v) => a + v, 0)).toBeLessThanOrEqual(0.5);
   });
 
   it('the gust swells slowly and the flash lights the rain', () => {
@@ -89,21 +112,3 @@ describe('scene effects render recipe', () => {
   });
 });
 
-describe('scene effects fog bank recipe', () => {
-  it('breathes each bank on its own phase, under the fog bound', () => {
-    // The Dart twin (scene_effects_render_test.dart) pins the same numbers.
-    expect(fogBankBreath(0, 0)).toBe(0.75);
-    expect(fogBankBreath(3, 7.5)).toBeCloseTo(0.817833, 6);
-    expect(fogBankBreath(1, 0)).not.toBe(fogBankBreath(2, 0));
-    for (let t = 0; t < 60; t += 0.4) {
-      for (let i = 0; i < 7; i++) {
-        expect(fogBankBreath(i, t)).toBeGreaterThanOrEqual(0.5);
-        expect(fogBankBreath(i, t)).toBeLessThanOrEqual(1);
-      }
-    }
-    expect(FOG_BANK_CORE).toBeGreaterThan(0);
-    expect(FOG_BANK_CORE).toBeLessThan(1);
-    expect(FOG_BANK_SQUASH).toBeGreaterThan(0);
-    expect(FOG_BANK_SQUASH).toBeLessThan(1);
-  });
-});

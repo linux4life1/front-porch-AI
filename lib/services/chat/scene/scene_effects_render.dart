@@ -18,14 +18,13 @@
 
 /// How the stage draws the sim's numbers so the weather reads as weather
 /// and not as a diagram of one: depth in the rain and the snow, a storm
-/// that strikes, fog that lies on the ground and breathes, clouds with a
-/// lit top. Everything here is pure arithmetic over the sim's state, so
-/// the sim and its shared vectors are untouched and the web painter
+/// that strikes, clouds with a lit top (fog is `scene_fog_mist.dart`).
+/// Everything here is pure arithmetic over the sim's state, so the sim
+/// and its shared vectors are untouched and the web painter
 /// (`web_ui/src/theme/sceneEffectsRender.ts`) follows the same recipe
 /// number for number. Each alpha is a share of the paint's own ceiling;
 /// the readability floor (`scene_effects_test`) is set by the thickest
-/// cloud at 0.75 and the thickest fog at 0.5 of their paints, and no one
-/// shape here draws past either.
+/// cloud at 0.75 of its paint, and nothing here draws past it.
 library;
 
 import 'dart:math' as math;
@@ -83,21 +82,6 @@ const double kSceneCloudBodyAlpha = 0.62;
 const double kSceneCloudTopAlpha = 0.32;
 const double kSceneCloudTopScale = 0.78;
 const double kSceneCloudTopLift = 0.22;
-
-/// Fog lies thickest on the ground: a band over the bottom of the stage
-/// in [kSceneGroundFogStripes] steps, peaking at [kSceneGroundFogAlpha]
-/// of the paint and breathing slowly with the sim's clock.
-const int kSceneGroundFogStripes = 24;
-const double kSceneGroundFogHeight = 0.4;
-const double kSceneGroundFogAlpha = 0.5;
-
-/// A fog blob draws as a low bank, not a disc: squashed to
-/// [kSceneFogBankSquash] of its height, solid at the blob's own alpha out
-/// to [kSceneFogBankCore] of its radius and fading to clear at the rim.
-/// A linear fade from the centre left too little body to read on the
-/// haze; a solid core is what makes the bank's edge show.
-const double kSceneFogBankSquash = 0.42;
-const double kSceneFogBankCore = 0.6;
 
 /// Which depth band a raindrop draws in: 0 far, 1 mid, 2 near.
 int rainBand(SceneDrop d) => d.a < 0.52 ? 0 : (d.a < 0.68 ? 1 : 2);
@@ -162,26 +146,6 @@ class SceneSplashes {
   /// A crown droplet's height above the ground at [p]: up, then back.
   static double dropletLift(double p) => 8 * p - 10 * p * p;
 }
-
-/// How much of the ground fog's peak the stage shows at [time] seconds.
-double groundFogBreath(double time) => 0.8 + 0.2 * math.sin(time * 0.35);
-
-/// The ground fog's alpha share for stripe [i] of [kSceneGroundFogStripes],
-/// top to bottom, before the breath: thicker toward the ground.
-double groundFogStripeAlpha(int i) {
-  final t = (i + 1) / kSceneGroundFogStripes;
-  return kSceneGroundFogAlpha * t * t;
-}
-
-/// A fog blob's slow vertical bob at [time], as a share of the stage's
-/// height, so the fog rolls rather than slides.
-double fogBob(int i, double time) => math.sin(time * 0.25 + i * 1.7) * 0.015;
-
-/// How much of fog bank [i]'s alpha shows at [time]: each bank thickens
-/// and thins on its own slow phase between 0.5 and 1, so the fog visibly
-/// lives while the sim drifts it only a few pixels a second.
-double fogBankBreath(int i, double time) =>
-    0.75 + 0.25 * math.sin(time * 0.3 + i * 2.3);
 
 /// A cloud's slow vertical bob at [time], as a share of the stage's height.
 double cloudBob(double seed, double time) =>

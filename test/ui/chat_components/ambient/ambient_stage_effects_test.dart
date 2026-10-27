@@ -25,12 +25,14 @@
 // The layers stack as the web's canvas does: tint, clouds, fog, rain or
 // snow, the flash.
 
+import 'dart:ui' as ui;
+
 import 'package:flame/components.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
-import 'package:front_porch_ai/services/chat/scene/scene_effects_render.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_fog_mist.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/ui/chat_components/ambient/ambient_stage.dart';
@@ -283,13 +285,16 @@ void main() {
     expect(sim.time, time);
   });
 
-  testWidgets('leaving the chat frees the fog\'s gradients', (tester) async {
+  // Changed with the fog: it held one radial gradient per blob, and the
+  // blobs are gone. It now holds one mist texture per layer, which leaving
+  // must free the same way.
+  testWidgets('leaving the chat frees the fog\'s mist', (tester) async {
     final game = await _pump(tester, _scene(WeatherCondition.fog));
     final fog = game.children.whereType<SceneFogLayer>().single;
-    expect(fog.debugShaderCount, game.effects!.fogBlobs.length);
+    expect(fog.debugMistCount, kSceneMistLayers);
     await tester.pumpWidget(const SizedBox());
     expect(fog.isRemoved, isTrue);
-    expect(fog.debugShaderCount, 0);
+    expect(fog.debugMistCount, 0);
   });
 
   testWidgets('a storm flash draws its bolt from the scene and the schedule', (
@@ -327,51 +332,61 @@ void main() {
     );
   });
 
-  testWidgets('fog draws as low banks that each breathe on their own', (
+  testWidgets('fog streams past as two breathing layers of mist', (
     tester,
   ) async {
-    // A blob drawn as a full disc with a fixed alpha read as one flat grey
-    // wash over the fog's own haze; each is now squashed into a bank and
-    // its paint alpha follows its own breath.
+    // Soft blobs over a flat haze read as a plain grey background. Fog is
+    // two mist layers, each drawn as a tile and its left neighbour, that
+    // stream right with the sim's clock and breathe on their own phases.
     final game = await _pump(tester, _scene(WeatherCondition.fog));
     await tester.pump(const Duration(milliseconds: 16));
     final fog = game.children.whereType<SceneFogLayer>().single;
     final sim = game.effects!;
-    expect(sim.fogBlobs, hasLength(kSceneFogBlobs));
+    final w = game.size.x;
+    final h = game.size.y;
+    final tileW = w * kSceneMistSpan;
 
-    List<double> paintAt(double time) {
+    _FogCanvas paintAt(double time) {
       sim.time = time;
       final canvas = _FogCanvas();
       fog.render(canvas);
-      expect(canvas.scales, [
-        for (var i = 0; i < kSceneFogBlobs; i++) (1.0, kSceneFogBankSquash),
-      ], reason: 'every bank is squashed');
-      return canvas.circleAlphas;
+      expect(canvas.dst, hasLength(kSceneMistLayers * 2));
+      return canvas;
     }
 
     for (final t in [0.0, 3.7]) {
-      final alphas = paintAt(t);
-      expect(alphas, hasLength(kSceneFogBlobs));
-      for (var i = 0; i < kSceneFogBlobs; i++) {
-        expect(alphas[i], closeTo(fogBankBreath(i, t), 1e-6));
+      final c = paintAt(t);
+      for (var l = 0; l < kSceneMistLayers; l++) {
+        final shift = mistShift(l, t, w);
+        expect(c.dst[l * 2], Rect.fromLTWH(shift - tileW, 0, tileW, h));
+        expect(c.dst[l * 2 + 1], Rect.fromLTWH(shift, 0, tileW, h));
+        expect(
+          c.alphas[l * 2],
+          closeTo(kSceneMistShare[l] * mistBreath(l, t), 1e-3),
+        );
       }
-      expect(alphas.toSet().length, greaterThan(1), reason: 'own phases');
     }
-    expect(paintAt(0), isNot(paintAt(3.7)), reason: 'the banks breathe');
+    final early = paintAt(1).dst;
+    final later = paintAt(2).dst;
+    expect(later[1].left, greaterThan(early[1].left), reason: 'it streams');
+    expect(
+      later[3].left - early[3].left,
+      greaterThan(later[1].left - early[1].left),
+      reason: 'near outruns far',
+    );
   });
 }
 
-/// Records how the fog layer draws its banks; every other call is a no-op.
+/// Records where the fog layer draws its mist; every other call is a no-op.
 class _FogCanvas implements Canvas {
-  final List<(double, double)> scales = [];
-  final List<double> circleAlphas = [];
+  final List<Rect> dst = [];
+  final List<double> alphas = [];
 
   @override
-  void scale(double sx, [double? sy]) => scales.add((sx, sy ?? sx));
-
-  @override
-  void drawCircle(Offset c, double radius, Paint paint) =>
-      circleAlphas.add(paint.color.a);
+  void drawImageRect(ui.Image image, Rect src, Rect dst, Paint paint) {
+    this.dst.add(dst);
+    alphas.add(paint.color.a);
+  }
 
   @override
   dynamic noSuchMethod(Invocation invocation) => null;

@@ -84,7 +84,7 @@ chat page (ChatSurface)
    ├─ AmbientStage → AmbientStageGame (GameWidget, transparent)
    │   ├─ SceneTintComponent        priority 0: daypart + condition + temperature washes, haze
    │   ├─ SceneCloudLayer           priority 1: drifting cloud puffs
-   │   ├─ SceneFogLayer             priority 2: breathing fog banks
+   │   ├─ SceneFogLayer             priority 2: two streaming mist layers
    │   ├─ ScenePrecipitation        priority 3: rain or snow
    │   ├─ SceneLightningFlash       priority 4: the storm flash
    │   └─ (later) sprite stage      expression sprites for the VN layout
@@ -130,7 +130,8 @@ because they do not depend on the mode, `level` (tint or effects),
 `seed`, `pauseWhileGenerating` and `effects` (kind, density, clouds, fog,
 lightning, wind), and, at Tint and effects only, in each brightness's
 map the weather's `paints` (rain, snow, cloud, fog and its clear stop,
-flash). At Tint only the seed is 0 and the mode maps keep PR 1's four
+flash; the clear stop is unused since fog became mist, and stays on the
+wire for older PWAs). At Tint only the seed is 0 and the mode maps keep PR 1's four
 keys. Every field is additive.
 The interactive prototype that accompanies this doc shows every cell and
 the JSON the desktop would send; the Dart sim and its test are the source
@@ -148,17 +149,18 @@ measured with `contrastRatio` from `lib/ui/theme/accent_fit.dart`.
 - **Tint:** every (daypart, condition, temperature) cell over every
   theme's background in both modes (`scene_sim_test`).
 - **Effects:** the same cells with the thickest cloud (0.75 of its paint)
-  or the thickest fog blob centre (0.5 of its paint) composited over the
+  or the thickest fog (both mist layers full, 0.5 of its paint) composited over the
   tinted ground (no condition draws both), in the stack order both
   surfaces share (tint, clouds, fog, then rain or snow and the flash on
   top), every theme in both modes except High Contrast, which the gate
   holds to Tint only so no effect is ever drawn on it
   (`scene_effects_test`). Rain, snow and the flash are thin or momentary
   and are not part of the floor.
-- **Next:** if dark-mode fog reads too faint under the 4.5:1 floor, the
-  lever is a scrim pill behind the canvas-drawn text (timestamps, system
-  notices); with that in place the effects need no text floor and the
-  fog paint can go back up.
+- **Fog's budget:** fog's flat haze is 0.40 (it was 0.80), so the dark
+  fog paint sits at 0x8C, just under the 0.56 the 4.5:1 floor allows
+  over the haziest fog cell (it was 0x4E under the thicker haze). The
+  next lever, if it is ever needed, is a scrim pill behind the
+  canvas-drawn text (timestamps, system notices).
 
 ### Settings and gates
 
@@ -219,8 +221,8 @@ Mapping, owned by `SceneSim` (`scene_tokens.dart`) for the washes and
   orange, the biome-only extremes further. Mild adds nothing.
 - **Effects per condition.** Rain: angled streaks, heavier for storm.
   Snow: slow swaying flakes. Cloudy and overcast: drifting cloud shapes
-  along the top, more and lower for overcast. Fog: haze layer with slow
-  drift, thicker at the edges. Storm: rain plus an occasional brief flash
+  along the top, more and lower for overcast. Fog: a thin haze under two
+  layers of mist streaming sideways, thicker toward the ground. Storm: rain plus an occasional brief flash
   with a randomised gap before the thunder (§5). Clear: tint
   only.
 - **Authored tints.** `ConditionSkin` gains an optional `tint` so a custom
@@ -263,15 +265,18 @@ point):
   drawn from the scene's seed and the flash's place in the schedule
   (`sceneBolt(seed, nextFlashAt, w, h)`), so both surfaces strike alike.
   The thunder timing is unchanged.
-- **Fog** blobs draw as low banks: squashed to 0.42 of their height,
-  solid at the blob's alpha out to 0.6 of the radius and clear at the
-  rim, each breathing between 0.5 and 1.0 of that on its own phase
-  (`fogBankBreath`), and bobbing slowly on the sim's clock. A linear
-  fade from the centre left too little body to read on the fog's own
-  haze. A ground band in 24 stripes lies over the bottom 40% of the
-  stage, thickest at the edge, peaking at 0.5 of the fog paint and
-  breathing between 0.8 and 1.0 of that. No new shaders: a bank's
-  breath is its paint's alpha and the band is rectangles.
+- **Fog** is two layers of mist (`scene_fog_mist.dart`,
+  `sceneFogMist.ts`): each a 192 by 96 texture of seeded, sideways-tiling
+  value noise (five octaves, cut to wisps, thickening toward the ground),
+  drawn over 1.5 stage widths and the stage's height. The far layer has
+  broad wisps and streams right at 0.008 stage widths a second, the near
+  one finer wisps at 0.02, so it drifts past as rain falls, and each
+  breathes between 0.6 and 1.0 on its own phase. Their shares of the
+  fog paint are 0.2 and 0.3. Soft blobs over a thick flat haze read as
+  a plain grey background, which is why fog's haze is now thin and
+  the mist carries the fog. The sim still scatters its fog blobs, so the
+  shared vectors hold; nothing draws them. A frame draws four images:
+  the textures are built once per scatter and tinted once per colour.
 - **Snow** gains a far sheet of pinpoints and a soft halo under the
   nearest band.
 - **Clouds** are a body at 0.62 and a smaller, lifted top at 0.32 of the
@@ -279,9 +284,8 @@ point):
 
 The readability floor still holds by construction: a body and top
 composite under 0.75 of the cloud paint (the floor test's bound), and the
-ground fog and each fog bank peak at or under the 0.5 the floor test
-assumes for fog (where two overlap, their sum can pass it, as the blobs
-always could). Reduce
+two mist layers' shares sum to the 0.5 the floor test assumes for fog,
+so fog stays inside it even where both peak on one pixel. Reduce
 motion holds all of it still, as before.
 
 ### Backgrounds and the weather overlay

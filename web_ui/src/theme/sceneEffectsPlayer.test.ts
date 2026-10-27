@@ -11,7 +11,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SceneEffectsSim, parseSceneEffects, type SceneEffectsWire } from './sceneEffects';
 import { SceneEffectsPlayer, paintSceneEffects } from './sceneEffectsPlayer';
-import { FOG_BANK_CORE, FOG_BANK_SQUASH, fogBankBreath } from './sceneEffectsRender';
+import { MIST_LAYERS, MIST_SHARE, MIST_SPAN, mistBreath, mistShift } from './sceneFogMist';
 
 const paints = {
   rain: 'rgba(200, 215, 235, 0.549)',
@@ -183,20 +183,23 @@ describe('scene effects player', () => {
     player.dispose();
   });
 
-  it('builds each fog gradient once per scatter and colour, not per frame', () => {
+  // Changed with the fog: it built one radial gradient per blob, and the
+  // blobs are gone. The mist canvases follow the same rule: built once per
+  // scatter and colour, never per frame.
+  it('builds the fog mist once per scatter and colour, not per frame', () => {
     const { canvas, calls } = fakeCanvas();
     const ctx = canvas.getContext('2d')!;
+    const made = mockMistCanvases();
     const fog = { ...wire(true).effects, kind: 'fog' as const, density: 0, clouds: 0, fog: true, lightning: false };
     const sim = new SceneEffectsSim(fog, 42, 800, 600);
-    const built = () => calls.filter((c) => c === 'createRadialGradient').length;
     paintSceneEffects(ctx, sim, paints);
-    expect(built()).toBe(sim.fogBlobs.length);
+    expect(made()).toBe(MIST_LAYERS);
     sim.advance(1 / 30);
     paintSceneEffects(ctx, sim, paints);
-    expect(built()).toBe(sim.fogBlobs.length);
-    expect(calls.filter((c) => c === 'translate')).toHaveLength(sim.fogBlobs.length * 2);
+    expect(made()).toBe(MIST_LAYERS);
+    expect(calls.filter((c) => c === 'drawImage')).toHaveLength(MIST_LAYERS * 2 * 2);
     paintSceneEffects(ctx, sim, { ...paints, fog: 'rgba(201, 206, 211, 0.702)' });
-    expect(built()).toBe(sim.fogBlobs.length * 2);
+    expect(made()).toBe(MIST_LAYERS * 2);
   });
 
   it('takes new colours and the pause switch without scattering again', () => {
@@ -219,13 +222,17 @@ describe('scene effects player', () => {
   it('paints in the desktop\'s stack order: clouds, fog, rain, flash', () => {
     const { canvas, calls } = fakeCanvas();
     const ctx = canvas.getContext('2d')!;
+    // Changed with the fog: it was found by its blobs' translates and is
+    // now the mist's image draws. Only the mist gets working canvases, so
+    // the rain still draws its lines and its strokes mark it.
+    mockMistCanvases(MIST_LAYERS);
     const storm = { ...wire(true).effects, fog: true };
     const sim = new SceneEffectsSim(storm, 42, 800, 600);
     sim.flash = 0.5;
     paintSceneEffects(ctx, sim, paints);
     const cloudFill = calls.lastIndexOf('fill');
-    const firstFog = calls.indexOf('translate');
-    const lastFog = calls.lastIndexOf('translate');
+    const firstFog = calls.indexOf('drawImage');
+    const lastFog = calls.lastIndexOf('drawImage');
     const rain = calls.indexOf('stroke');
     const flash = calls.indexOf(`fillStyle=${paints.flash}`);
     expect(sim.clouds.length).toBeGreaterThan(0);
@@ -238,48 +245,67 @@ describe('scene effects player', () => {
   });
 });
 
-describe('scene effects fog banks', () => {
-  // A blob drawn as a full disc at a fixed alpha read as one flat grey wash
-  // over the fog's own haze; each is now a squashed bank, solid out to its
-  // core, breathing on its own phase. The desktop's SceneFogLayer twin is
-  // pinned in ambient_stage_effects_test.
-  it('draws each blob as a squashed bank with a solid core that breathes', () => {
-    const stops: [number, string][] = [];
-    const scales: [number, number][] = [];
-    const alphas: number[] = [];
+/** Stubs the first `limit` canvases the page makes with working fakes, for the mist; returns how many were made. */
+function mockMistCanvases(limit = Infinity): () => number {
+  let made = 0;
+  const real = document.createElement.bind(document);
+  vi.spyOn(document, 'createElement').mockImplementation(((tag: string) => {
+    if (tag !== 'canvas' || made >= limit) return real(tag);
+    made++;
+    const g = new Proxy({} as Record<string, unknown>, {
+      get: (target, prop: string) => {
+        if (prop in target) return target[prop];
+        if (prop === 'createImageData') return (w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) });
+        return () => {};
+      },
+      set: (target, prop: string, value) => { target[prop] = value; return true; },
+    });
+    return { width: 0, height: 0, getContext: () => g } as unknown as HTMLCanvasElement;
+  }) as typeof document.createElement);
+  return () => made;
+}
+
+describe('scene effects fog mist', () => {
+  // Soft blobs over a flat haze read as a plain grey background. Fog is two
+  // mist layers, each a tile and its left neighbour, that stream right with
+  // the sim's clock and breathe on their own phases. The desktop's
+  // SceneFogLayer twin is pinned in ambient_stage_effects_test.
+  it('streams two breathing layers of mist across the stage', () => {
+    mockMistCanvases();
+    const draws: { x: number; w: number; alpha: number }[] = [];
     const ctx = new Proxy({} as Record<string, unknown>, {
       get: (target, prop: string) => {
-        if (prop === 'createRadialGradient') {
-          return () => ({ addColorStop: (at: number, c: string) => stops.push([at, c]) });
+        if (prop === 'drawImage') {
+          return (_img: unknown, x: number, _y: number, w: number) => draws.push({ x, w, alpha: target.globalAlpha as number });
         }
-        if (prop === 'scale') return (x: number, y: number) => scales.push([x, y]);
         if (prop in target) return target[prop];
         return () => {};
       },
-      set: (target, prop: string, value) => {
-        target[prop] = value;
-        if (prop === 'globalAlpha') alphas.push(value as number);
-        return true;
-      },
+      set: (target, prop: string, value) => { target[prop] = value; return true; },
     }) as unknown as CanvasRenderingContext2D;
     const fog = { kind: 'fog' as const, density: 0, clouds: 0, fog: true, lightning: false, wind: 0 };
     const sim = new SceneEffectsSim(fog, 42, 800, 600);
-    const n = sim.fogBlobs.length;
-    expect(n).toBeGreaterThan(0);
-
+    const tileW = 800 * MIST_SPAN;
     const paintAt = (time: number) => {
       sim.time = time;
-      scales.length = 0;
-      alphas.length = 0;
+      draws.length = 0;
       paintSceneEffects(ctx, sim, paints);
-      return alphas.slice(0, n);
+      expect(draws).toHaveLength(MIST_LAYERS * 2);
+      return draws.map((d) => ({ ...d }));
     };
-    const first = paintAt(0);
-    expect(stops.slice(0, 3)).toEqual([[0, paints.fog], [FOG_BANK_CORE, paints.fog], [1, paints.fogClear]]);
-    expect(scales).toEqual(Array.from({ length: n }, () => [1, FOG_BANK_SQUASH]));
-    sim.fogBlobs.forEach((f, i) => expect(first[i]).toBeCloseTo(f.a * fogBankBreath(i, 0), 9));
-    const later = paintAt(3.7);
-    sim.fogBlobs.forEach((f, i) => expect(later[i]).toBeCloseTo(f.a * fogBankBreath(i, 3.7), 9));
-    expect(later).not.toEqual(first);
+    for (const t of [0, 3.7]) {
+      const d = paintAt(t);
+      for (let l = 0; l < MIST_LAYERS; l++) {
+        const shift = mistShift(l, t, 800);
+        expect(d[l * 2].x).toBeCloseTo(shift - tileW, 9);
+        expect(d[l * 2 + 1].x).toBeCloseTo(shift, 9);
+        expect(d[l * 2].w).toBeCloseTo(tileW, 9);
+        expect(d[l * 2].alpha).toBeCloseTo(MIST_SHARE[l] * mistBreath(l, t), 9);
+      }
+    }
+    const early = paintAt(1);
+    const later = paintAt(2);
+    expect(later[1].x).toBeGreaterThan(early[1].x);
+    expect(later[3].x - early[3].x).toBeGreaterThan(later[1].x - early[1].x);
   });
 });

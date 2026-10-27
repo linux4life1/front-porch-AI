@@ -2,12 +2,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // How the chat canvas draws the sim's numbers so the weather reads as
-// weather: depth in the rain and the snow, a storm that strikes, fog that
-// lies on the ground and breathes, clouds with a lit top. The twin of
+// weather: depth in the rain and the snow, a storm that strikes, clouds
+// with a lit top (fog is sceneFogMist.ts). The twin of
 // lib/services/chat/scene/scene_effects_render.dart: pure arithmetic over
 // the sim's state, same numbers, so the sim and its vectors stay as they
-// are. Every alpha is a share of the paint's own ceiling and no one shape
-// here draws past the readability bounds (clouds 0.75, fog 0.5 of their paints).
+// are. Every alpha is a share of the paint's own ceiling and nothing here
+// draws past the readability bound (clouds 0.75 of their paint).
 
 import { mulberry32, type Drop } from './sceneEffects';
 
@@ -44,14 +44,6 @@ export const CLOUD_BODY_ALPHA = 0.62;
 export const CLOUD_TOP_ALPHA = 0.32;
 export const CLOUD_TOP_SCALE = 0.78;
 export const CLOUD_TOP_LIFT = 0.22;
-
-export const GROUND_FOG_STRIPES = 24;
-export const GROUND_FOG_HEIGHT = 0.4;
-export const GROUND_FOG_ALPHA = 0.5;
-
-// A fog blob draws as a low bank: squashed, solid out to the core, clear at the rim.
-export const FOG_BANK_SQUASH = 0.42;
-export const FOG_BANK_CORE = 0.6;
 
 export const BOLT_GLOW_WIDTH = 7;
 export const BOLT_GLOW_ALPHA = 0.35;
@@ -117,27 +109,6 @@ export class SceneSplashes {
   static ringRadius(p: number): number { return 2 + 10 * p; }
 
   static dropletLift(p: number): number { return 8 * p - 10 * p * p; }
-}
-
-/** How much of the ground fog's peak shows at `time` seconds. */
-export function groundFogBreath(time: number): number {
-  return 0.8 + 0.2 * Math.sin(time * 0.35);
-}
-
-/** The ground fog's alpha share for stripe `i`, top to bottom, before the breath. */
-export function groundFogStripeAlpha(i: number): number {
-  const t = (i + 1) / GROUND_FOG_STRIPES;
-  return GROUND_FOG_ALPHA * t * t;
-}
-
-/** A fog blob's slow vertical bob, as a share of the stage's height. */
-export function fogBob(i: number, time: number): number {
-  return Math.sin(time * 0.25 + i * 1.7) * 0.015;
-}
-
-/** How much of fog bank `i`'s alpha shows at `time`: its own slow phase between 0.5 and 1. */
-export function fogBankBreath(i: number, time: number): number {
-  return 0.75 + 0.25 * Math.sin(time * 0.3 + i * 2.3);
 }
 
 /** A cloud's slow vertical bob, as a share of the stage's height. */
