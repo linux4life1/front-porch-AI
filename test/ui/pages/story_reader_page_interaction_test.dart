@@ -178,4 +178,70 @@ void main() {
     expect(find.textContaining('Page 1 /'), findsNothing,
         reason: 'jumping to the second scene must move off page 1');
   });
+
+  // Issue #625: on Linux without GStreamer's playbin, audioplayers aborts
+  // the whole app the moment a player is built. The reader must ask
+  // AudioPlayback first, build nothing, and tell the user why read-aloud
+  // can't play instead.
+  testWidgets('without GStreamer the reader builds no player and says why', (
+    tester,
+  ) async {
+    _mockAudioChannels();
+    AudioPlayback.debugReset();
+    AudioPlayback.debugProbeOverride = true;
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      const MethodChannel('front_porch_ai/audio_support'),
+      (MethodCall call) async => call.method == 'canPlay' ? false : null,
+    );
+    addTearDown(() {
+      AudioPlayback.debugReset();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('front_porch_ai/audio_support'),
+        null,
+      );
+    });
+    await tester.binding.setSurfaceSize(const Size(700, 900));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final repo = _FakeStoryRepository();
+    final tts = FakeTtsService();
+    final storage = FakeStorageService()..ttsSettings.setTtsEnabled(true);
+    addTearDown(repo.dispose);
+    addTearDown(tts.dispose);
+    addTearDown(storage.dispose);
+
+    final project = StoryProject(title: 'Quiet Story', dbId: 'p2')
+      ..acts = [StoryAct(number: 1, title: 'Act', description: 'Begins.')]
+      ..scenes = {
+        0: [StoryScene(number: 1, title: 'The Porch Swing')],
+      }
+      ..beats = {
+        '0-0': [StoryBeat(number: 1)],
+      }
+      ..prose = {'0-0-0': BeatProse(final_: _para('Swing.'))};
+    repo.projects.add(project);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<StoryRepository>.value(value: repo),
+          ChangeNotifierProvider<TtsService>.value(value: tts),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+        ],
+        child: MaterialApp(home: StoryReaderPage(projectId: project.dbId!)),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 350));
+
+    await tester.tap(find.byTooltip('Read aloud'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(
+      find.text(AudioPlayback.missingMessage),
+      findsOneWidget,
+      reason: 'read-aloud must say which package is missing',
+    );
+  });
 }

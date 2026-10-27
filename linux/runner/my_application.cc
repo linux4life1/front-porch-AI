@@ -1,6 +1,7 @@
 #include "my_application.h"
 
 #include <flutter_linux/flutter_linux.h>
+#include <gst/gst.h>
 
 #include <cstring>
 #ifdef GDK_WINDOWING_X11
@@ -14,6 +15,7 @@ struct _MyApplication {
   GtkApplication parent_instance;
   char **dart_entrypoint_arguments;
   FlMethodChannel *launch_window_channel;
+  FlMethodChannel *audio_support_channel;
 };
 
 G_DEFINE_TYPE(MyApplication, my_application, GTK_TYPE_APPLICATION)
@@ -45,6 +47,33 @@ static void launch_window_method_cb(FlMethodChannel *channel,
   g_autoptr(GError) error = nullptr;
   if (!fl_method_call_respond(call, response, &error)) {
     g_warning("launch_window: %s", error->message);
+  }
+}
+
+// Dart asks before building any audio player (lib/services/audio_playback.dart):
+// audioplayers throws an uncaught C++ exception, aborting the app, when
+// GStreamer's playbin element is missing (no gst plugins-base installed).
+static void audio_support_method_cb(FlMethodChannel *channel,
+                                    FlMethodCall *call, gpointer user_data) {
+  g_autoptr(FlMethodResponse) response = nullptr;
+  if (strcmp(fl_method_call_get_name(call), "canPlay") == 0) {
+    gboolean can_play = FALSE;
+    g_autoptr(GError) init_error = nullptr;
+    if (gst_init_check(nullptr, nullptr, &init_error)) {
+      GstElementFactory *playbin = gst_element_factory_find("playbin");
+      can_play = playbin != nullptr;
+      if (playbin != nullptr) gst_object_unref(playbin);
+    } else {
+      g_warning("audio_support: %s", init_error->message);
+    }
+    g_autoptr(FlValue) result = fl_value_new_bool(can_play);
+    response = FL_METHOD_RESPONSE(fl_method_success_response_new(result));
+  } else {
+    response = FL_METHOD_RESPONSE(fl_method_not_implemented_response_new());
+  }
+  g_autoptr(GError) error = nullptr;
+  if (!fl_method_call_respond(call, response, &error)) {
+    g_warning("audio_support: %s", error->message);
   }
 }
 
@@ -137,6 +166,12 @@ static void my_application_activate(GApplication *application) {
   fl_method_channel_set_method_call_handler(
       self->launch_window_channel, launch_window_method_cb, view, nullptr);
 
+  self->audio_support_channel = fl_method_channel_new(
+      fl_plugin_registrar_get_messenger(launch_window_registrar),
+      "front_porch_ai/audio_support", FL_METHOD_CODEC(codec));
+  fl_method_channel_set_method_call_handler(
+      self->audio_support_channel, audio_support_method_cb, nullptr, nullptr);
+
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }
 
@@ -184,6 +219,7 @@ static void my_application_dispose(GObject *object) {
   MyApplication *self = MY_APPLICATION(object);
   g_clear_pointer(&self->dart_entrypoint_arguments, g_strfreev);
   g_clear_object(&self->launch_window_channel);
+  g_clear_object(&self->audio_support_channel);
   G_OBJECT_CLASS(my_application_parent_class)->dispose(object);
 }
 

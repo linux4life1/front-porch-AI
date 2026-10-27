@@ -16,6 +16,7 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+export 'audio_missing_notice.dart';
 export 'call_system_prompt_field.dart';
 export 'expression_section.dart';
 export 'stt_section.dart';

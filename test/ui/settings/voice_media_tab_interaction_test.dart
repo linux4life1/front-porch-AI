@@ -23,6 +23,7 @@
 // part file and drives one real control.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
@@ -30,6 +31,8 @@ import 'package:record/record.dart' show InputDevice;
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/settings/tabs/voice_media_tab.dart';
+import 'package:front_porch_ai/ui/settings/tabs/voice_media_tab/voice_media_tab.dart'
+    show AudioMissingNotice;
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_services.dart';
@@ -172,5 +175,105 @@ void main() {
           'enabling voice input must reveal the call section — its '
           'future part would otherwise be detached',
     );
+  });
+
+  // Issue #625: where the Linux runner says GStreamer's playbin is missing,
+  // Text-to-Speech says so and names the package, at phone and desktop
+  // widths; everywhere else nothing shows.
+  testWidgets('the missing-GStreamer note shows only when sound is off', (
+    tester,
+  ) async {
+    Future<void> pumpTab(double width, {required bool canPlay}) async {
+      AudioPlayback.debugReset();
+      AudioPlayback.debugProbeOverride = true;
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('front_porch_ai/audio_support'),
+        (MethodCall call) async => canPlay,
+      );
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      final storage = _VoiceStorage();
+      final tts = FakeTtsService();
+      final stt = _SttWithModel();
+      final vm = FakeVoiceManager();
+      final mm = _ModelsManager();
+      final llm = FakeLLMProvider();
+      final classifier = _FakeClassifier();
+      addTearDown(() {
+        storage.dispose();
+        tts.dispose();
+        stt.dispose();
+        vm.dispose();
+        mm.dispose();
+        llm.dispose();
+        classifier.dispose();
+      });
+      await tester.pumpWidget(
+        MultiProvider(
+          key: UniqueKey(),
+          providers: [
+            ChangeNotifierProvider<StorageService>.value(value: storage),
+            ChangeNotifierProvider<TtsService>.value(value: tts),
+            ChangeNotifierProvider<SttService>.value(value: stt),
+            ChangeNotifierProvider<VoiceManager>.value(value: vm),
+            ChangeNotifierProvider<ModelManager>.value(value: mm),
+            ChangeNotifierProvider<LLMProvider>.value(value: llm),
+            ChangeNotifierProvider<ExpressionClassifierService>.value(
+              value: classifier,
+            ),
+          ],
+          child: MaterialApp(
+            home: Scaffold(
+              body: VoiceMediaTab(
+                onDragCallBufferChanged: (_) {},
+                availableModels: const [],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
+    addTearDown(() {
+      AudioPlayback.debugReset();
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel('front_porch_ai/audio_support'),
+        null,
+      );
+      tester.binding.setSurfaceSize(null);
+    });
+
+    await pumpTab(1440, canPlay: false);
+    expect(
+      find.text(AudioPlayback.missingMessage),
+      findsOneWidget,
+      reason: 'the note must show when playbin is missing',
+    );
+    expect(find.textContaining('gstreamer1.0-plugins-base'), findsOneWidget);
+
+    // The note alone at phone width. (The whole tab already overflows at
+    // 400px in the expression-fallback dropdown, which is not this note.)
+    await tester.binding.setSurfaceSize(const Size(400, 900));
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Padding(
+            padding: EdgeInsets.all(24),
+            child: AudioMissingNotice(),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.text(AudioPlayback.missingMessage), findsOneWidget);
+    expect(
+      tester.takeException(),
+      isNull,
+      reason: 'the note overflows at 400px',
+    );
+
+    await pumpTab(1440, canPlay: true);
+    expect(find.text(AudioPlayback.missingMessage), findsNothing);
   });
 }

@@ -56,8 +56,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   bool _isFirstLoad = true;
   bool _lastIsTwoPageSpread = false;
 
-  late AudioPlayer _ambientPlayer;
-  late AudioPlayer _sfxPlayer;
+  // Built through AudioPlayback; null where this machine cannot play audio.
+  AudioPlayer? _ambientPlayer;
+  AudioPlayer? _sfxPlayer;
   bool _isAudioPlaying = true;
   bool _isAudioMuted = true; // explicitly muted by default per user request
 
@@ -72,20 +73,28 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   @override
   void initState() {
     super.initState();
-    _ambientPlayer = AudioPlayer();
-    _sfxPlayer = AudioPlayer();
     _initAudio();
   }
 
   Future<void> _initAudio() async {
+    final ambient = await AudioPlayback.create();
+    final sfx = await AudioPlayback.create();
+    if (!mounted) {
+      await ambient?.dispose();
+      await sfx?.dispose();
+      return;
+    }
+    _ambientPlayer = ambient;
+    _sfxPlayer = sfx;
+    if (ambient == null) return;
     try {
-      await _ambientPlayer.setReleaseMode(ReleaseMode.loop);
+      await ambient.setReleaseMode(ReleaseMode.loop);
       // Try to play ambient background
       final assetSource = AssetSource('audio/ambient_reading.wav');
-      await _ambientPlayer.setSource(assetSource);
-      await _ambientPlayer.setVolume(0.3);
+      await ambient.setSource(assetSource);
+      await ambient.setVolume(0.3);
       if (_isAudioPlaying && !_isAudioMuted) {
-        await _ambientPlayer.resume();
+        await ambient.resume();
       }
     } catch (e) {
       debugPrint('[StoryReader] Audio init error: $e');
@@ -95,7 +104,7 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
   Future<void> _playPageTurn() async {
     if (_isAudioMuted) return;
     try {
-      await _sfxPlayer.play(AssetSource('audio/page_turn.wav'), volume: 0.5);
+      await _sfxPlayer?.play(AssetSource('audio/page_turn.wav'), volume: 0.5);
     } catch (_) {}
   }
 
@@ -103,9 +112,9 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
     setState(() {
       _isAudioMuted = !_isAudioMuted;
       if (_isAudioMuted) {
-        _ambientPlayer.pause();
+        _ambientPlayer?.pause();
       } else if (_isAudioPlaying) {
-        _ambientPlayer.resume();
+        _ambientPlayer?.resume();
       }
     });
   }
@@ -119,8 +128,8 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
         Provider.of<TtsService>(context, listen: false).stop();
       } catch (_) {}
     });
-    _ambientPlayer.dispose();
-    _sfxPlayer.dispose();
+    _ambientPlayer?.dispose();
+    _sfxPlayer?.dispose();
     _readAlong.dispose();
     _scroll.dispose();
     super.dispose();
@@ -162,6 +171,15 @@ class _StoryReaderPageState extends State<StoryReaderPage> {
       await showVoiceOffDialog(context);
       return;
     }
+    if (!await AudioPlayback.available()) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text(AudioPlayback.missingMessage)),
+        );
+      }
+      return;
+    }
+    if (!mounted || _readAlong.isReading) return;
     setState(() => _readAlong.isReading = true);
 
     final project = _repo.getById(widget.projectId);

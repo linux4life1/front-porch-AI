@@ -96,6 +96,7 @@ export 'chat/reply_context.dart';
 export 'chat/token_alternatives.dart';
 
 // TTS / STT / media
+export 'audio_playback.dart';
 export 'tts_service.dart';
 export 'tts_voice_info.dart';
 export 'stt_service.dart';

@@ -19,6 +19,7 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
+import 'package:front_porch_ai/services/audio_playback.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/voice_manager.dart';
 import 'package:front_porch_ai/services/tts_engine.dart';
@@ -41,7 +42,9 @@ class TtsService extends ChangeNotifier {
 
   /// In-process sherpa vits engine for Piper voices (phase 4b).
   final SherpaPiperEngine _piperNative = SherpaPiperEngine();
-  final TtsWavPlayer _player = TtsWavPlayer();
+  late final TtsWavPlayer _player = TtsWavPlayer(
+    onUnavailable: () => _state.lastError = AudioPlayback.missingMessage,
+  );
   final TtsReplayCache _cache = TtsReplayCache();
   late final TtsPlaybackState _state = TtsPlaybackState(_notify);
   late final TtsContext _context = TtsContext(

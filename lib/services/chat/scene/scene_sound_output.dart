@@ -17,6 +17,7 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:front_porch_ai/services/audio_playback.dart';
 
 import 'scene_sound_service.dart';
 
@@ -24,41 +25,50 @@ import 'scene_sound_service.dart';
 /// one for the thunder, as the story reader plays its ambient loop and
 /// page turn (`lib/ui/pages/story_reader_page.dart`). The files are bundled
 /// MP3s, which every desktop backend audioplayers uses decodes (Media
-/// Foundation on Windows, AVPlayer on macOS, GStreamer on Linux).
+/// Foundation on Windows, AVPlayer on macOS, GStreamer on Linux). Players
+/// are built on first use through [AudioPlayback]; where it says no, every
+/// call is silent.
 class AudioplayersSceneSoundOutput implements SceneSoundOutput {
-  final AudioPlayer _loop = AudioPlayer();
-  final AudioPlayer _shot = AudioPlayer();
+  Future<AudioPlayer?>? _loop;
+  Future<AudioPlayer?>? _shot;
   bool _looping = false;
+
+  Future<AudioPlayer?> _loopPlayer() => _loop ??= AudioPlayback.create();
 
   @override
   Future<void> loop(String? asset, double volume) async {
     if (asset == null) {
-      await _loop.stop();
+      await (await _loop)?.stop();
       return;
     }
+    final player = await _loopPlayer();
+    if (player == null) return;
     if (!_looping) {
-      await _loop.setReleaseMode(ReleaseMode.loop);
+      await player.setReleaseMode(ReleaseMode.loop);
       _looping = true;
     }
-    await _loop.play(AssetSource(asset), volume: volume);
+    await player.play(AssetSource(asset), volume: volume);
   }
 
   @override
-  Future<void> setLoopVolume(double volume) => _loop.setVolume(volume);
+  Future<void> setLoopVolume(double volume) async =>
+      (await _loop)?.setVolume(volume);
 
   @override
-  Future<void> pauseLoop() => _loop.pause();
+  Future<void> pauseLoop() async => (await _loop)?.pause();
 
   @override
-  Future<void> resumeLoop() => _loop.resume();
+  Future<void> resumeLoop() async => (await _loop)?.resume();
 
   @override
-  Future<void> oneShot(String asset, double volume) =>
-      _shot.play(AssetSource(asset), volume: volume);
+  Future<void> oneShot(String asset, double volume) async {
+    final player = await (_shot ??= AudioPlayback.create());
+    await player?.play(AssetSource(asset), volume: volume);
+  }
 
   @override
   Future<void> dispose() async {
-    await _loop.dispose();
-    await _shot.dispose();
+    await (await _loop)?.dispose();
+    await (await _shot)?.dispose();
   }
 }
