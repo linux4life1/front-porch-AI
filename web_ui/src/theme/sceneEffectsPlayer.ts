@@ -21,9 +21,10 @@ import {
   BOLT_CORE_ALPHA, BOLT_CORE_WIDTH, BOLT_GLOW_ALPHA, BOLT_GLOW_WIDTH,
   CLOUD_BODY_ALPHA, CLOUD_TOP_ALPHA, CLOUD_TOP_LIFT, CLOUD_TOP_SCALE,
   FAR_SHEET_ALPHA, FAR_SHEET_DX, FAR_SHEET_DY, FAR_SHEET_LENGTH, FAR_SHEET_WIDTH,
-  GROUND_FOG_HEIGHT, GROUND_FOG_STRIPES, RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH,
-  SNOW_FAR_ALPHA, SNOW_HALO_ALPHA, SNOW_HALO_WIDTH, SPLASH_ALPHA, SPLASH_ZONE,
-  cloudBob, flashShape, fogBob, groundFogBreath, groundFogStripeAlpha, rainBand, sceneBolt,
+  GROUND_FOG_HEIGHT, GROUND_FOG_STRIPES, HEAVY_RAIN_DENSITY, MID_SHEET_ALPHA, MID_SHEET_DX, MID_SHEET_DY, MID_SHEET_LENGTH,
+  RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_RING_ALPHA, STREAK_SPRITE_HEIGHT, STREAK_SPRITE_WIDTH,
+  SNOW_FAR_ALPHA, SNOW_HALO_ALPHA, SNOW_HALO_WIDTH, SceneSplashes,
+  cloudBob, flashShape, fogBob, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
   type Bolt,
 } from './sceneEffectsRender';
 
@@ -130,45 +131,127 @@ export function paintSceneEffects(ctx: CanvasRenderingContext2D, sim: SceneEffec
   ctx.globalAlpha = 1;
 }
 
-/** One stroke per depth band: the far sheet, then far to near, then the splashes. */
+const streakSprites = new WeakMap<SceneEffectsSim, { colour: string; sprites: HTMLCanvasElement[] | null }>();
+
+/**
+ * One streak sprite per band, tinted with the rain colour: a soft tail
+ * fading to a full head, drawn at len / height scale with the head at the
+ * drop. Built once per scatter and colour. Null where the page has no 2D
+ * context to build them on, and the rain falls back to plain lines.
+ */
+function streakSpritesFor(sim: SceneEffectsSim, colour: string): HTMLCanvasElement[] | null {
+  const cached = streakSprites.get(sim);
+  if (cached && cached.colour === colour) return cached.sprites;
+  let sprites: HTMLCanvasElement[] | null = [];
+  for (const w of STREAK_SPRITE_WIDTH) {
+    const c = document.createElement('canvas');
+    const scale = 2;
+    c.width = w * scale;
+    c.height = STREAK_SPRITE_HEIGHT * scale;
+    const g = c.getContext('2d');
+    if (!g) { sprites = null; break; }
+    const grad = g.createLinearGradient(0, 0, 0, c.height);
+    // theme-keep: an alpha mask cut into the tinted streak, never a colour on screen
+    grad.addColorStop(0, 'rgba(0,0,0,0)');
+    // theme-keep: alpha mask
+    grad.addColorStop(0.55, 'rgba(0,0,0,0.4)');
+    // theme-keep: alpha mask
+    grad.addColorStop(1, 'rgba(0,0,0,1)');
+    g.fillStyle = colour;
+    g.beginPath();
+    g.roundRect(0, 0, c.width, c.height, c.width / 2);
+    g.fill();
+    g.globalCompositeOperation = 'destination-in';
+    g.fillStyle = grad;
+    g.fillRect(0, 0, c.width, c.height);
+    sprites.push(c);
+  }
+  streakSprites.set(sim, { colour, sprites });
+  return sprites;
+}
+
+const splashes = new WeakMap<SceneEffectsSim, SceneSplashes>();
+
+/** Every drop as a streak sprite (its far sheet, a mid sheet in heavy rain, then itself), then the splashes. */
 function paintRain(ctx: CanvasRenderingContext2D, sim: SceneEffectsSim, colour: string): void {
   const { width: w, height: h } = sim;
+  const gust = rainGust(sim.time);
+  const lean = rainLean(sim.spec.wind, gust);
+  const stretch = 0.85 + 0.15 * gust;
+  const lit = rainLit(sim.flash);
+  const heavy = sim.spec.density >= HEAVY_RAIN_DENSITY;
+  const sprites = streakSpritesFor(sim, colour);
   const wind = sim.spec.wind;
-  ctx.strokeStyle = colour;
-  ctx.lineCap = 'butt';
-  ctx.globalAlpha = FAR_SHEET_ALPHA;
-  ctx.lineWidth = FAR_SHEET_WIDTH;
-  ctx.beginPath();
-  for (const p of sim.drops) {
-    const fx = (p.x + w * FAR_SHEET_DX) % w;
-    const fy = (p.y + h * FAR_SHEET_DY) % h;
-    const len = p.len * FAR_SHEET_LENGTH;
-    ctx.moveTo(fx, fy);
-    ctx.lineTo(fx - len * wind, fy - len);
-  }
-  ctx.stroke();
-  for (let b = 0; b < 3; b++) {
-    ctx.globalAlpha = RAIN_BAND_ALPHA[b];
-    ctx.lineWidth = RAIN_BAND_WIDTH[b];
-    ctx.beginPath();
+  const alpha = (share: number) => Math.min(1, share * lit);
+  if (sprites) {
+    const cos = Math.cos(lean);
+    const sin = Math.sin(lean);
+    const draw = (x: number, y: number, len: number, band: number, share: number) => {
+      const sp = sprites[band];
+      const k = len / STREAK_SPRITE_HEIGHT;
+      const sw = STREAK_SPRITE_WIDTH[band];
+      // Rotate about the head, scale by the length, then place the head at the drop.
+      ctx.setTransform(cos * k, sin * k, -sin * k, cos * k, x, y);
+      ctx.globalAlpha = alpha(share);
+      ctx.drawImage(sp, -sw / 2, -STREAK_SPRITE_HEIGHT, sw, STREAK_SPRITE_HEIGHT);
+    };
+    const base = ctx.getTransform();
     for (const p of sim.drops) {
-      if (rainBand(p) !== b) continue;
-      const len = p.len * RAIN_BAND_LENGTH[b];
-      ctx.moveTo(p.x, p.y);
-      ctx.lineTo(p.x - len * wind, p.y - len);
+      draw((p.x + w * FAR_SHEET_DX) % w, (p.y + h * FAR_SHEET_DY) % h, p.len * FAR_SHEET_LENGTH * stretch, 0, FAR_SHEET_ALPHA);
+      if (heavy) draw((p.x + w * MID_SHEET_DX) % w, (p.y + h * MID_SHEET_DY) % h, p.len * MID_SHEET_LENGTH * stretch, 1, MID_SHEET_ALPHA);
+      const b = rainBand(p);
+      draw(p.x, p.y, p.len * RAIN_BAND_LENGTH[b] * stretch, b, RAIN_BAND_ALPHA[b]);
     }
+    ctx.setTransform(base);
+  } else {
+    ctx.strokeStyle = colour;
+    ctx.lineCap = 'butt';
+    const slant = Math.tan(-lean);
+    const line = (x: number, y: number, len: number) => { ctx.moveTo(x, y); ctx.lineTo(x - len * slant, y - len); };
+    ctx.globalAlpha = alpha(FAR_SHEET_ALPHA);
+    ctx.lineWidth = FAR_SHEET_WIDTH;
+    ctx.beginPath();
+    for (const p of sim.drops) line((p.x + w * FAR_SHEET_DX) % w, (p.y + h * FAR_SHEET_DY) % h, p.len * FAR_SHEET_LENGTH * stretch);
     ctx.stroke();
+    if (heavy) {
+      ctx.globalAlpha = alpha(MID_SHEET_ALPHA);
+      ctx.lineWidth = RAIN_BAND_WIDTH[1];
+      ctx.beginPath();
+      for (const p of sim.drops) line((p.x + w * MID_SHEET_DX) % w, (p.y + h * MID_SHEET_DY) % h, p.len * MID_SHEET_LENGTH * stretch);
+      ctx.stroke();
+    }
+    for (let b = 0; b < 3; b++) {
+      ctx.globalAlpha = alpha(RAIN_BAND_ALPHA[b]);
+      ctx.lineWidth = RAIN_BAND_WIDTH[b];
+      ctx.beginPath();
+      for (const p of sim.drops) {
+        if (rainBand(p) === b) line(p.x, p.y, p.len * RAIN_BAND_LENGTH[b] * stretch);
+      }
+      ctx.stroke();
+    }
+    void wind;
   }
-  ctx.globalAlpha = SPLASH_ALPHA;
+  let tracker = splashes.get(sim);
+  if (!tracker) { tracker = new SceneSplashes(); splashes.set(sim, tracker); }
+  tracker.observe(sim.drops, sim.time, h);
+  if (!tracker.live.length) return;
+  ctx.strokeStyle = colour;
+  ctx.fillStyle = colour;
   ctx.lineWidth = 1;
-  ctx.beginPath();
-  for (const p of sim.drops) {
-    if (rainBand(p) !== 2 || p.y < h - SPLASH_ZONE) continue;
-    const reach = 3 + p.len * 0.15;
-    ctx.moveTo(p.x - reach, h - 1.5);
-    ctx.lineTo(p.x + reach, h - 1.5);
+  for (const s of tracker.live) {
+    const p = SceneSplashes.progress(s, sim.time);
+    const r = SceneSplashes.ringRadius(p);
+    ctx.globalAlpha = alpha(SPLASH_RING_ALPHA * (1 - p));
+    ctx.beginPath();
+    ctx.ellipse(s.x, h - 1, r, r * 0.35, 0, 0, Math.PI * 2);
+    ctx.stroke();
+    const lift = SceneSplashes.dropletLift(p);
+    if (lift <= 0) continue;
+    ctx.beginPath();
+    ctx.arc(s.x - 3 - 6 * p, h - 1 - lift, 0.8, 0, Math.PI * 2);
+    ctx.arc(s.x + 3 + 6 * p, h - 1 - lift * 0.8, 0.8, 0, Math.PI * 2);
+    ctx.fill();
   }
-  ctx.stroke();
 }
 
 /** The far sheet of pinpoints, the nearest band's halo, then the three bands. */

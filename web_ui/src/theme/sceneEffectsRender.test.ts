@@ -9,8 +9,8 @@
 
 import { describe, expect, it } from 'vitest';
 import {
-  GROUND_FOG_ALPHA, GROUND_FOG_STRIPES, RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH,
-  flashShape, groundFogBreath, groundFogStripeAlpha, rainBand, sceneBolt,
+  GROUND_FOG_ALPHA, GROUND_FOG_STRIPES, RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_LIFE,
+  SceneSplashes, flashShape, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
 } from './sceneEffectsRender';
 
 const drop = (a: number) => ({ x: 0, y: 0, v: 500, len: 12, drift: 0, a });
@@ -52,5 +52,38 @@ describe('scene effects render recipe', () => {
       expect(groundFogBreath(t)).toBeGreaterThanOrEqual(0.6);
       expect(groundFogBreath(t)).toBeLessThanOrEqual(1);
     }
+  });
+
+  it('the gust swells slowly and the flash lights the rain', () => {
+    for (let t = 0; t < 120; t += 0.3) {
+      expect(rainGust(t)).toBeGreaterThanOrEqual(0.65);
+      expect(rainGust(t)).toBeLessThanOrEqual(1.35);
+    }
+    expect(rainLit(0)).toBe(1);
+    expect(rainLit(1)).toBeCloseTo(1.8, 9);
+    expect(rainLean(0, 1)).toBeCloseTo(0, 12);
+    expect(rainLean(0.42, 1)).toBeLessThan(0);
+    expect(Math.abs(rainLean(0.42, 1.35))).toBeGreaterThan(Math.abs(rainLean(0.42, 1)));
+  });
+
+  it('a near drop that respawns leaves a splash where it last was', () => {
+    const drops = [
+      { x: 100, y: 590, v: 500, len: 12, drift: 0, a: 0.8 },
+      { x: 200, y: 590, v: 500, len: 12, drift: 0, a: 0.4 },
+    ];
+    const splashes = new SceneSplashes();
+    splashes.observe(drops, 0, 600);
+    expect(splashes.live).toHaveLength(0);
+    drops[0].x = 104; drops[0].y = 598; drops[1].y = 598;
+    splashes.observe(drops, 0.03, 600);
+    expect(splashes.live).toHaveLength(0);
+    drops[0].x = 300; drops[0].y = -12; drops[1].x = 310; drops[1].y = -12;
+    splashes.observe(drops, 0.06, 600);
+    expect(splashes.live).toEqual([{ x: 104, at: 0.06 }]);
+    expect(SceneSplashes.progress(splashes.live[0], 0.26)).toBeCloseTo(0.5, 9);
+    expect(SceneSplashes.ringRadius(1)).toBe(12);
+    expect(SceneSplashes.dropletLift(0.4)).toBeCloseTo(1.6, 9);
+    splashes.observe(drops, 0.06 + SPLASH_LIFE + 0.01, 600);
+    expect(splashes.live).toHaveLength(0);
   });
 });

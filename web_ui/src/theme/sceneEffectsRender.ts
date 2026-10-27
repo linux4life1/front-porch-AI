@@ -14,6 +14,18 @@ import { mulberry32, type Drop } from './sceneEffects';
 export const RAIN_BAND_WIDTH = [0.7, 1.0, 1.7];
 export const RAIN_BAND_LENGTH = [0.65, 1.0, 1.35];
 export const RAIN_BAND_ALPHA = [0.45, 0.8, 1.0];
+export const STREAK_SPRITE_HEIGHT = 64;
+export const STREAK_SPRITE_WIDTH = [3, 4, 7];
+
+export const HEAVY_RAIN_DENSITY = 0.0005;
+export const MID_SHEET_DX = 0.23;
+export const MID_SHEET_DY = 0.61;
+export const MID_SHEET_LENGTH = 0.75;
+export const MID_SHEET_ALPHA = 0.45;
+
+export const SPLASH_LIFE = 0.4;
+export const SPLASH_CAP = 48;
+export const SPLASH_RING_ALPHA = 0.7;
 
 export const FAR_SHEET_DX = 0.5;
 export const FAR_SHEET_DY = 0.37;
@@ -45,6 +57,62 @@ export const BOLT_CORE_ALPHA = 0.95;
 /** Which depth band a raindrop draws in: 0 far, 1 mid, 2 near. */
 export function rainBand(d: Drop): number {
   return d.a < 0.52 ? 0 : d.a < 0.68 ? 1 : 2;
+}
+
+/** The wind's gust at `time`: a slow swell between 0.65 and 1.35 that leans and stretches the streaks. */
+export function rainGust(time: number): number {
+  return 1 + 0.35 * Math.sin(time * 0.37) * Math.sin(time * 0.11 + 1);
+}
+
+/** How much a storm's flash lights the rain, up to 1.8 times. */
+export function rainLit(flash: number): number {
+  return 1 + 0.8 * flashShape(flash);
+}
+
+/** The angle a streak leans for the sim's wind under the gust; the sprite hangs down and turns about its head. */
+export function rainLean(wind: number, gust: number): number {
+  return -Math.atan(wind * gust);
+}
+
+export interface Splash { x: number; at: number }
+
+/**
+ * Where the near rain lands: a near drop whose y went back up has respawned
+ * at the top, so it landed where it last was. The desktop's SceneSplashes.
+ */
+export class SceneSplashes {
+  readonly live: Splash[] = [];
+  private lastX: number[] = [];
+  private lastY: number[] = [];
+
+  observe(drops: Drop[], time: number, height: number): void {
+    if (this.lastY.length !== drops.length) {
+      this.lastX = drops.map((d) => d.x);
+      this.lastY = drops.map((d) => d.y);
+      return;
+    }
+    for (let i = 0; i < drops.length; i++) {
+      const d = drops[i];
+      if (rainBand(d) === 2 && d.y < this.lastY[i] && this.lastY[i] > height * 0.5) {
+        this.live.push({ x: this.lastX[i], at: time });
+        if (this.live.length > SPLASH_CAP) this.live.shift();
+      }
+      this.lastX[i] = d.x;
+      this.lastY[i] = d.y;
+    }
+    for (let i = this.live.length - 1; i >= 0; i--) {
+      if (time - this.live[i].at > SPLASH_LIFE) this.live.splice(i, 1);
+    }
+  }
+
+  static progress(s: Splash, time: number): number {
+    const p = (time - s.at) / SPLASH_LIFE;
+    return p < 0 ? 0 : p > 1 ? 1 : p;
+  }
+
+  static ringRadius(p: number): number { return 2 + 10 * p; }
+
+  static dropletLift(p: number): number { return 8 * p - 10 * p * p; }
 }
 
 /** How much of the ground fog's peak shows at `time` seconds. */

@@ -320,7 +320,11 @@ class ChatStateSnapshot {
       // the PWA keeps its theme background. Additive.
       'sceneBackdrop': () {
         final backdrop = _chat.sceneBackdrop;
-        return backdrop == null ? null : sceneBackdropWire(backdrop);
+        if (backdrop == null) return null;
+        return sceneBackdropWire(
+          backdrop,
+          condition: _chat.currentSegmentWeather?.condition.name,
+        );
       }(),
       // Per-chat system prompt source (1:1 only) and, while a new chat
       // waits on it, the picker's prompts. Additive; omitted in groups.

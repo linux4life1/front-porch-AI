@@ -35,10 +35,29 @@ import 'scene_rng.dart';
 
 /// Rain draws in three depth bands by each drop's own alpha, nearest
 /// thickest, longest and brightest, so the sheet has depth without one
-/// more particle.
+/// more particle. Each streak is a sprite with a soft tail: the atlas is
+/// [kSceneStreakSpriteHeight] tall with one column per band at
+/// [kSceneStreakSpriteWidth], drawn at `len / height` scale with the head
+/// at the drop, so a longer streak is also a touch wider.
 const List<double> kSceneRainBandWidth = [0.7, 1.0, 1.7];
 const List<double> kSceneRainBandLength = [0.65, 1.0, 1.35];
 const List<double> kSceneRainBandAlpha = [0.45, 0.8, 1.0];
+const double kSceneStreakSpriteHeight = 64;
+const List<double> kSceneStreakSpriteWidth = [3, 4, 7];
+
+/// Heavy rain (a storm's density and up) carries a third sheet between
+/// the far one and the bands.
+const double kSceneHeavyRainDensity = 0.0005;
+const double kSceneMidSheetDx = 0.23;
+const double kSceneMidSheetDy = 0.61;
+const double kSceneMidSheetLength = 0.75;
+const double kSceneMidSheetAlpha = 0.45;
+
+/// Splashes: a near drop that lands throws a ring that spreads and fades
+/// over [kSceneSplashLife] seconds, with two droplets off its crown.
+const double kSceneSplashLife = 0.4;
+const int kSceneSplashCap = 48;
+const double kSceneSplashRingAlpha = 0.7;
 
 /// A second, farther sheet of the same drops, offset across the stage,
 /// shorter and fainter: twice the rain for the same sim.
@@ -74,6 +93,67 @@ const double kSceneGroundFogAlpha = 0.35;
 
 /// Which depth band a raindrop draws in: 0 far, 1 mid, 2 near.
 int rainBand(SceneDrop d) => d.a < 0.52 ? 0 : (d.a < 0.68 ? 1 : 2);
+
+/// The wind's gust at [time], a slow swell between 0.65 and 1.35 that
+/// leans the streaks and stretches them, so the rain comes in sheets
+/// rather than falling like a curtain. The sim's drift is steady; the
+/// gust is in how the streak is drawn.
+double rainGust(double time) =>
+    1 + 0.35 * math.sin(time * 0.37) * math.sin(time * 0.11 + 1);
+
+/// How much a storm's flash lights the rain: every streak brightens with
+/// the strike, up to 1.8 times, and the paint's own ceiling still caps it.
+double rainLit(double flash) => 1 + 0.8 * flashShape(flash);
+
+/// The angle, in radians, a streak leans for the sim's [wind] under the
+/// [gust]: the sprite hangs straight down and is turned about its head.
+double rainLean(double wind, double gust) => -math.atan(wind * gust);
+
+/// One splash on the ground: where it landed and when.
+typedef SceneSplash = ({double x, double at});
+
+/// Where the near rain lands. Watches the drops frame to frame: a near
+/// drop whose y went back up has respawned at the top, so it landed where
+/// it last was, and a splash is born there. Nothing is drawn from the
+/// sim's generator, so the shared vectors hold; both surfaces run the
+/// same watch, so both splash in the same places.
+class SceneSplashes {
+  final List<SceneSplash> live = [];
+  List<double> _lastX = const [];
+  List<double> _lastY = const [];
+
+  /// Notes landings since the last call and drops splashes past their
+  /// life, given the sim's [drops], its clock [time] and the [height].
+  void observe(List<SceneDrop> drops, double time, double height) {
+    if (_lastY.length != drops.length) {
+      _lastX = [for (final d in drops) d.x];
+      _lastY = [for (final d in drops) d.y];
+      return;
+    }
+    for (var i = 0; i < drops.length; i++) {
+      final d = drops[i];
+      if (rainBand(d) == 2 && d.y < _lastY[i] && _lastY[i] > height * 0.5) {
+        live.add((x: _lastX[i], at: time));
+        if (live.length > kSceneSplashCap) live.removeAt(0);
+      }
+      _lastX[i] = d.x;
+      _lastY[i] = d.y;
+    }
+    live.removeWhere((s) => time - s.at > kSceneSplashLife);
+  }
+
+  /// A splash's age as a share of its life, 0 fresh to 1 gone.
+  static double progress(SceneSplash s, double time) {
+    final p = (time - s.at) / kSceneSplashLife;
+    return p < 0 ? 0 : (p > 1 ? 1 : p);
+  }
+
+  /// The ring's half-width at [p]: it spreads from 2 to 12 pixels.
+  static double ringRadius(double p) => 2 + 10 * p;
+
+  /// A crown droplet's height above the ground at [p]: up, then back.
+  static double dropletLift(double p) => 8 * p - 10 * p * p;
+}
 
 /// How much of the ground fog's peak the stage shows at [time] seconds.
 double groundFogBreath(double time) => 0.8 + 0.2 * math.sin(time * 0.35);

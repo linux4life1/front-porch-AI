@@ -7,6 +7,8 @@
 // which both surfaces must draw from the same seed and schedule number for
 // number. The bolt vector below was produced by the web recipe.
 
+import 'dart:math' as math;
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_render.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
@@ -112,5 +114,60 @@ void main() {
       kSceneSnowHaloAlpha + kSceneSnowBandAlpha[2],
       lessThanOrEqualTo(1.1),
     );
+  });
+
+  test('the gust swells slowly and the flash lights the rain', () {
+    for (var t = 0.0; t < 120; t += 0.3) {
+      expect(rainGust(t), inInclusiveRange(0.65, 1.35));
+    }
+    expect(rainGust(0), 1 + 0.35 * 0 * math.sin(1));
+    expect(rainLit(0), 1);
+    expect(rainLit(1), closeTo(1.8, 1e-9));
+    expect(rainLean(0, 1), 0);
+    expect(rainLean(0.42, 1), lessThan(0), reason: 'leans with the wind');
+    expect(rainLean(0.42, 1.35).abs(), greaterThan(rainLean(0.42, 1).abs()));
+  });
+
+  test('a near drop that respawns leaves a splash where it last was', () {
+    final drops = [
+      SceneDrop(100, 590, 500, 12, 0, 0.8), // near
+      SceneDrop(200, 590, 500, 12, 0, 0.4), // far: never splashes
+    ];
+    final splashes = SceneSplashes();
+    splashes.observe(drops, 0, 600);
+    expect(splashes.live, isEmpty, reason: 'first look only remembers');
+    drops[0].x = 104;
+    drops[0].y = 598;
+    drops[1].y = 598;
+    splashes.observe(drops, 0.03, 600);
+    expect(splashes.live, isEmpty, reason: 'still falling');
+    drops[0].x = 300;
+    drops[0].y = -12;
+    drops[1].x = 310;
+    drops[1].y = -12;
+    splashes.observe(drops, 0.06, 600);
+    expect(splashes.live, hasLength(1));
+    expect(splashes.live.single.x, 104, reason: 'where it landed');
+    expect(splashes.live.single.at, 0.06);
+    expect(SceneSplashes.progress(splashes.live.single, 0.06), 0);
+    expect(
+      SceneSplashes.progress(splashes.live.single, 0.26),
+      closeTo(0.5, 1e-9),
+    );
+    expect(SceneSplashes.ringRadius(0), 2);
+    expect(SceneSplashes.ringRadius(1), 12);
+    expect(SceneSplashes.dropletLift(0.4), closeTo(1.6, 1e-9));
+    expect(SceneSplashes.dropletLift(0.8), lessThanOrEqualTo(0));
+    splashes.observe(drops, 0.06 + kSceneSplashLife + 0.01, 600);
+    expect(splashes.live, isEmpty, reason: 'gone after its life');
+  });
+
+  test('a scatter at the top of the stage is not a landing', () {
+    final drops = [SceneDrop(50, 100, 500, 12, 0, 0.8)];
+    final splashes = SceneSplashes();
+    splashes.observe(drops, 0, 600);
+    drops[0].y = 20;
+    splashes.observe(drops, 0.1, 600);
+    expect(splashes.live, isEmpty);
   });
 }

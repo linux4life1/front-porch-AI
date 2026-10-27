@@ -152,7 +152,13 @@ class ChatSurface extends StatelessWidget {
                 fit: StackFit.expand,
                 children: [
                   if (backdrop != null)
-                    SceneBackdropLayer(backdrop: backdrop)
+                    SceneBackdropLayer(
+                      backdrop: backdrop,
+                      // Read when a move starts, not per notify: the
+                      // weather walk is not free.
+                      conditionOf: () =>
+                          chatService.currentSegmentWeather?.condition.name,
+                    )
                   else if (bgPath != null)
                     Positioned.fill(
                       child: IgnorePointer(

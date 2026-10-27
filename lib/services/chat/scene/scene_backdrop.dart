@@ -80,14 +80,20 @@ SceneBackdrop? sceneBackdropOf(List<World> chain) {
 const String kSceneBackdropRoute = '/api/worlds/cover';
 
 /// The chat state's `sceneBackdrop` for the web: who the picture belongs
-/// to and where to fetch it. The URL carries the version so the browser
-/// may cache it for good and still sees a new picture at once.
-Map<String, Object> sceneBackdropWire(SceneBackdrop backdrop) => {
+/// to, where to fetch it, and the story's weather [condition] (null when
+/// off), which picks the move the page plays on a change of place
+/// (`scene_backdrop_transition.dart`). The URL carries the version so the
+/// browser may cache it for good and still sees a new picture at once.
+Map<String, Object?> sceneBackdropWire(
+  SceneBackdrop backdrop, {
+  String? condition,
+}) => {
   'placeId': backdrop.placeId,
   'placeName': backdrop.placeName,
   'url':
       '$kSceneBackdropRoute?id=${Uri.encodeQueryComponent(backdrop.placeId)}'
       '&v=${backdrop.version}',
+  'condition': condition,
 };
 
 /// The raster types a cover may be served as. Anything else a data URL
