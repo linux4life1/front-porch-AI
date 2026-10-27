@@ -190,16 +190,36 @@ through the chat snapshot and shows the same dialog. One scene place per
 chat in both 1:1 and group; split parties are out of scope. Director and
 AFK turns do not run the clock judge and never move the scene.
 
-### Starting place (the star)
+### Starting place (required)
 
-Attaching a world used to put the scene in the world at large. A world
-can now star one place inside it (any depth) as where chats start: the
-star on the place's library card, the same affordance as the canonical
-avatar star. Stored as `placeTraits.defaultPlace` on the world row (no
-migration; it survives weather-off worlds), exported as the additive
-envelope key `default_place_id` and re-pointed at the imported copy on
-import. `startingPlaceOf` (`world_chain.dart`) is the one rule: the
-starred place while it is still inside the world, else the world.
+Attaching a world used to put the scene in the world at large. Every
+top-level world now has a starting place inside it (any depth) where its
+chats begin, chosen in the Worlds menu, never in the chat:
+
+- **New World** (desktop dialog, web editor) requires naming one; it is
+  created inside the new world (inheriting its weather) and starred in the
+  same save. If the place cannot be saved, the new world is deleted again.
+- **Edit World** picks among the world's places (or "A new place…");
+  required whenever the world has places. An older world with none may be
+  saved as it is.
+- **Library star** on every place card moves it in one tap, like the
+  canonical-avatar star. It cannot be cleared, only moved. A world with
+  places and no valid star says so on its card.
+- **World from Wiki / Character**: the Review step picks a written place
+  or names a new one; Mint is off until it is set.
+- **Starter worlds** ship with `default_place_id` (first place unless a
+  world names `start`).
+
+Stored as `placeTraits.defaultPlace` on the world row (no migration; it
+survives weather-off worlds), exported as the additive envelope key
+`default_place_id` and re-pointed at the imported copy on import.
+`startingPlaceOf` (`world_chain.dart`) is the one rule: the starred place
+while it is still inside the world, else the world. The save rule lives in
+`world_store/world_starting_place.dart` (`saveWorldWithStartingPlace`,
+`startingPlaceRejection`), shared by both editors, the relay and the mint.
+The relay accepts `startingPlace: {placeId} | {name, description}` on
+`POST /api/worlds` and stays lenient (the editors enforce the rule), and
+`POST /api/worlds/default-place` moves the star.
 
 It applies only where a world is *attached*: seeding a new chat from a
 character's or group's worlds, back-fill, worlds added to a character,
@@ -207,9 +227,7 @@ and "Use as setting" in the attach picker (desktop and web). The starred
 place takes the Setting even when it inherits its climate or the world is
 lore-only. It never applies to a scene move (breadcrumb dropdown,
 accepted suggestion), to "Add as lore", or to a fork, which keeps the
-parent chat's slots. Web: the relay resolves the star into the world
-list's `defaultPlaceId`; `POST /api/worlds/default-place` sets or clears
-it.
+parent chat's slots.
 
 ### Minted places
 

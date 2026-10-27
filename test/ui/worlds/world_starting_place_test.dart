@@ -5,7 +5,8 @@
 // gets a star like the canonical-avatar star in the portrait gallery. One
 // tap makes it where chats attached to the world start (the world's header
 // card then says "Chats start at <place>"), starring another place moves
-// the star, and a second tap on the starred place clears it. The seed and
+// the star, and the starred place stays starred when tapped: every world
+// keeps a starting place. The seed and
 // attach behaviour behind the star is pinned in world_repository_test and
 // the world_starting_place E2E. Header AnimationController.repeat() —
 // bounded pumps only, never pumpAndSettle.
@@ -76,7 +77,7 @@ Future<void> _tapStar(WidgetTester tester, String placeId) async {
 
 void main() {
   testWidgets('starring a place names it on the world card; starring another '
-      'moves the star; tapping the starred one clears it', (tester) async {
+      'moves the star; tapping the starred one keeps it', (tester) async {
     final worlds = _StarWorlds([
       _world('Bletchfield', climate: true),
       _world('Tea Rooms', parent: 'Bletchfield'),
@@ -84,8 +85,11 @@ void main() {
     ]);
     await _pumpLibrary(tester, worlds);
 
-    final line = find.byKey(const Key('starting-place-Bletchfield'));
-    expect(line, findsNothing, reason: 'nothing starred yet');
+    expect(
+      find.text('Star a place below: chats start there'),
+      findsOneWidget,
+      reason: 'a world with places and no start asks for one',
+    );
     expect(find.byKey(const Key('place-star-Tea Rooms')), findsOneWidget);
     expect(
       find.byKey(const Key('place-star-Bletchfield')),
@@ -111,7 +115,10 @@ void main() {
     expect(find.text('Chats start at Tea Rooms'), findsNothing);
 
     await _tapStar(tester, 'Town Hall');
-    expect(worlds.writes.last, isNull, reason: 'second tap clears the star');
-    expect(line, findsNothing);
+    expect(worlds.writes, [
+      'Tea Rooms',
+      'Town Hall',
+    ], reason: 'a world always keeps a starting place: no clear');
+    expect(find.text('Chats start at Town Hall'), findsOneWidget);
   });
 }

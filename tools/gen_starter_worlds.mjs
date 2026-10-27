@@ -94,7 +94,7 @@ const AIRLESS = {
 const lore = (name, keys, content) => ({ name, keys, content });
 
 /** One .fpworld envelope (fp_world_package.dart encodeFpWorld shape). */
-function place({ id, name, description, climate = null, traits = null, entries = [], locations = [] }) {
+function place({ id, name, description, climate = null, traits = null, entries = [], locations = [], defaultPlaceId = null }) {
   const env = {
     formatVersion: 1,
     id,
@@ -106,6 +106,9 @@ function place({ id, name, description, climate = null, traits = null, entries =
   if (climate !== null) env.biome = climate;
   if (climate !== null && traits) env.place_traits = traits;
   if (locations.length) env.locations = locations;
+  // Where chats that get the world start: every world names one. The
+  // importer re-points it at the imported copy of that place.
+  if (defaultPlaceId) env.default_place_id = defaultPlaceId;
   env.meta = { sourceId: id };
   return env;
 }
@@ -409,6 +412,8 @@ for (const w of WORLDS) {
     climate: w.root.climate,
     traits: w.root.traits,
     entries: w.root.entries ?? [],
+    // A world may name its start (`start: <slug>`); else its first place.
+    defaultPlaceId: `${rootId}-${w.start ?? w.places[0].slug}`,
     locations: w.places.map((p) =>
       place({
         id: `${rootId}-${p.slug}`,

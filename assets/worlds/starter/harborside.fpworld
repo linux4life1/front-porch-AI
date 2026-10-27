@@ -52,6 +52,7 @@
       }
     }
   ],
+  "default_place_id": "starter-harborside-the-quay",
   "meta": {
     "sourceId": "starter-harborside"
   }

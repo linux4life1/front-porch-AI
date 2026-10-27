@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'world_basics_section.dart';
@@ -27,6 +28,7 @@ import 'world_dialog_wording.dart';
 import 'world_edit_draft.dart';
 import 'world_lorebook_section.dart';
 import 'world_parent_section.dart';
+import 'world_starting_place_section.dart';
 
 /// Create (no [world]) or edit World dialog: header, Basic Information +
 /// Lorebook sections over one [WorldEditDraft], and the Cancel / Save
@@ -41,7 +43,13 @@ void showWorldEditDialog(
   String? presetParentId,
   required BuildContext pickerContext,
 }) {
-  final draft = WorldEditDraft(world);
+  // An existing world opens on its starred place (a stale star opens on
+  // nothing picked, so Save asks for one).
+  final start = world == null ? null : startingPlaceOf(world, repo.worldById);
+  final draft = WorldEditDraft(
+    world,
+    startingPlaceId: start == null || start.id == world?.id ? null : start.id,
+  );
   if (world == null && presetParentId != null) {
     draft.parentWorldId = presetParentId;
     // Design §7: inheritance is the DEFAULT for a new place — the whole
@@ -233,6 +241,15 @@ void showWorldEditDialog(
                                 setDialogState: setDialogState,
                                 wording: wording,
                               ),
+
+                              // Where chats start (top-level worlds only);
+                              // a refused Save scrolls here.
+                              WorldStartingPlaceSection(
+                                repo: repo,
+                                draft: draft,
+                                world: world,
+                                setDialogState: setDialogState,
+                              ),
                             ],
                           ),
                         ),
@@ -281,6 +298,20 @@ void showWorldEditDialog(
                                         setDialogState(
                                           () => draft.nameError =
                                               kWorldNameRequired,
+                                        );
+                                        return;
+                                      }
+                                      final choice = savedStartingChoice(draft);
+                                      final why = startingPlaceRefusal(
+                                        draft,
+                                        world,
+                                        repo,
+                                      );
+                                      if (why != null) {
+                                        setDialogState(
+                                          () => draft
+                                            ..startError = why
+                                            ..revealStart = true,
                                         );
                                         return;
                                       }
@@ -352,16 +383,26 @@ void showWorldEditDialog(
                                           draft.editingEntries,
                                         );
 
-                                        await repo.saveWorld(newWorld);
+                                        await saveWorldWithStartingPlace(
+                                          repo,
+                                          newWorld,
+                                          choice,
+                                          isNew: world == null,
+                                        );
                                       } on StateError catch (e) {
                                         // The repository refused the parent
                                         // (unknown or a ring — slice 1 save
                                         // check). Say so under the picker and
                                         // keep the dialog; the edit survives.
                                         if (ctx.mounted) {
-                                          setDialogState(
-                                            () => draft.parentError = e.message,
-                                          );
+                                          setDialogState(() {
+                                            if (e.message ==
+                                                kWorldDefaultPlaceOutside) {
+                                              draft.startError = e.message;
+                                            } else {
+                                              draft.parentError = e.message;
+                                            }
+                                          });
                                         }
                                         return;
                                       } catch (e) {

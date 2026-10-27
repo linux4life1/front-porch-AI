@@ -533,11 +533,7 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
             <option value="">Choose…</option>
             {available.map((w) => {
               const pn = parentNameOf(w);
-              const start = settingFor(w.id);
-              const label = [
-                pn ? `${w.name} · inside ${pn}` : w.name,
-                start.id !== w.id ? ` · starts at ${start.name}` : '',
-              ].join('');
+              const label = pn ? `${w.name} · inside ${pn}` : w.name;
               return (
                 <option key={w.id} value={w.id}>
                   {primary ? label : `${label} (as setting)`}

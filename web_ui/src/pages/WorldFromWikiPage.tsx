@@ -61,6 +61,12 @@ import { loadCharacters } from './story/setup/useSetupData';
 import { WorldProgressPanel } from './WorldProgressPanel';
 import { WorldBookStep } from './WorldBookStep';
 import { WorldReviewStep } from './WorldReviewStep';
+import {
+  startingPlacePayload,
+  startingPlaceProblem,
+  WorldStartingPlaceField,
+  type StartingPlaceDraft,
+} from '../components/WorldStartingPlaceField';
 import { WorldShelfStep } from './WorldShelfStep';
 
 type Status = {
@@ -136,6 +142,13 @@ export function WorldFromWikiPage({ source = 'wiki' }: { source?: WorldWizardSou
     entries: LoreEntry[];
     biome?: Record<string, unknown>;
   } | null>(null);
+  // Where chats in the minted world start (desktop parity): a written
+  // place by name, '' for a new place named here, null for none yet.
+  const [startPick, setStartPick] = useState<StartingPlaceDraft>({
+    startingPlaceId: null,
+    startingPlaceName: '',
+    startingPlaceDescription: '',
+  });
   const [treePlaces, setTreePlaces] = useState<
     {
       name: string;
@@ -514,9 +527,27 @@ export function WorldFromWikiPage({ source = 'wiki' }: { source?: WorldWizardSou
   const addCard = (place: string, cardName: string, page: string) =>
     void reviewPost('add', `Writing ${cardName}…`, { name: cardName, place, page });
 
+  // The pick only counts while it still names a written place (a dropped
+  // place un-picks it), or '' for a new one.
+  const shownStartPick = (): string | null => {
+    const id = startPick.startingPlaceId;
+    if (id === '' || id == null) return id;
+    return treePlaces.some((p) => p.name === id) ? id : null;
+  };
+  const startingPlaceProblemNow = (): string | null =>
+    startingPlaceProblem(
+      { ...startPick, startingPlaceId: shownStartPick() },
+      { isNew: treePlaces.length === 0, hasPlaces: treePlaces.length > 0 },
+    );
+
   const save = async () => {
     if (!canOpenWorldFromWikiPreview({ lorebooksOn, aborted, entryCount: entries.length })) {
       setError('Write a signed shelf first.');
+      return;
+    }
+    const startProblem = startingPlaceProblemNow();
+    if (startProblem) {
+      setError(startProblem);
       return;
     }
     const climateOn = climateEnabled && biome != null;
@@ -545,6 +576,7 @@ export function WorldFromWikiPage({ source = 'wiki' }: { source?: WorldWizardSou
           tokenBudget: bookFields.tokenBudget,
           ...(climateOn ? { biomeId: 'custom', biome } : {}),
           ...provenance,
+          startingPlace: startingPlacePayload({ ...startPick, startingPlaceId: null }),
         });
         navigate('/worlds');
         return;
@@ -600,6 +632,23 @@ export function WorldFromWikiPage({ source = 'wiki' }: { source?: WorldWizardSou
         });
         ids.set(p.name.toLowerCase(), createdId);
       }
+      // Where chats start: a written place by its new id, or a new place
+      // made inside the root, then starred on the root.
+      ladderStep = 'where chats start';
+      const picked = shownStartPick();
+      const startId = picked
+        ? ids.get(picked.toLowerCase())
+        : await create({
+          name: startPick.startingPlaceName.trim(),
+          create: true,
+          description: startPick.startingPlaceDescription.trim(),
+          injectDescription: true,
+          parentWorldId: rootId,
+          climateEnabled: false,
+          entries: [],
+        });
+      if (!startId) throw new Error('the starting place was not saved');
+      await api.post('/api/worlds/default-place', { worldId: rootId, placeId: startId });
       navigate('/worlds');
     } catch (e) {
       const why = e instanceof ApiError ? e.message : String(e);
@@ -770,6 +819,16 @@ export function WorldFromWikiPage({ source = 'wiki' }: { source?: WorldWizardSou
               <span className="cg-field-label">Description</span>
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} />
             </label>
+            <WorldStartingPlaceField
+              draft={{ ...startPick, startingPlaceId: shownStartPick() }}
+              places={treePlaces.map((p) => ({
+                id: p.name,
+                label: p.parentName ? `${p.name} · inside ${p.parentName}` : p.name,
+              }))}
+              isNew={treePlaces.length === 0}
+              error={startingPlaceProblemNow()}
+              onChange={(next) => setStartPick({ ...startPick, ...next })}
+            />
             <label className="cg-field cg-toggle">
               <input
                 type="checkbox"
@@ -857,7 +916,7 @@ export function WorldFromWikiPage({ source = 'wiki' }: { source?: WorldWizardSou
           <button
             className="primary"
             data-testid="world-from-wiki-mint"
-            disabled={busy || !name.trim() || !canOpenWorldFromWikiPreview({
+            disabled={busy || !name.trim() || startingPlaceProblemNow() != null || !canOpenWorldFromWikiPreview({
               lorebooksOn,
               aborted,
               entryCount: entries.length,

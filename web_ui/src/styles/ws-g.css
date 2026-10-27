@@ -291,6 +291,7 @@
   font-size: 0.75rem;
   color: var(--text-2, var(--muted));
 }
+.wsg-starts-at--missing { color: var(--danger); }
 .wsg-prose-preview {
   margin: 10px 0;
   padding: 10px 12px;

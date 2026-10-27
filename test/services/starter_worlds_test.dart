@@ -348,4 +348,17 @@ void main() {
       expect(repo.placeWorlds, isEmpty);
     });
   });
+
+  group('where chats start', () {
+    test('every starter world lands with a starting place inside it', () async {
+      for (final info in await starters.index()) {
+        final root = await starters.add(info.id);
+        final start = repo.startingPlaceFor(root.id)!;
+        expect(start.id, isNot(root.id), reason: info.id);
+        expect(start.parentWorldId, root.id, reason: info.id);
+      }
+      final harbor = repo.placeWorlds.firstWhere((w) => w.name == 'Harborside');
+      expect(repo.startingPlaceFor(harbor.id)?.name, 'The Quay');
+    });
+  });
 }

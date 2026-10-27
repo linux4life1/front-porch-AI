@@ -189,18 +189,9 @@ void main() {
       () => 'the Attach place dialog to open',
       timeout: const Duration(seconds: 30),
     );
-    // The picker says where the town starts before the user commits.
-    expect(
-      find.descendant(
-        of: find.ancestor(
-          of: find.text('Bletchfield'),
-          matching: find.byType(ListTile),
-        ),
-        matching: find.textContaining('starts at The Tea Rooms'),
-      ),
-      findsOneWidget,
-      reason: 'the attach picker must name the starred place',
-    );
+    // The default is chosen in the Worlds menu: the chat picker says
+    // nothing about it.
+    expect(find.textContaining('starts at'), findsNothing);
     await tester.tap(
       find
           .descendant(

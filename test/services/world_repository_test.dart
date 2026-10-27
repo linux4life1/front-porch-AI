@@ -22,6 +22,9 @@ import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/world_envelopes.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
+import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_mint.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -1069,6 +1072,197 @@ void main() {
       expect(start.id, isNot(room.id), reason: 'the copy, not the original');
       expect(start.sourceId, room.id);
       expect(repo.chainFor(start.id).last.id, imported.id);
+    });
+  });
+
+  group('World from Wiki mint: where chats start', () {
+    late AppDatabase db;
+    late WorldRepository repo;
+
+    setUp(() async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      db = AppDatabase.forTesting();
+      repo = WorldRepository(storage, db);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    model.World root(String name) => model.World(
+      name: name,
+      lorebook: Lorebook(entries: []),
+    );
+    model.World placeWorld(WorldPlaceWrite p, String parentId) => model.World(
+      name: p.name,
+      description: p.description,
+      lorebook: Lorebook(entries: []),
+      climateEnabled: false,
+      parentWorldId: parentId,
+    );
+    WorldPlaceWrite write(String name, {String parent = ''}) => WorldPlaceWrite(
+      name: name,
+      parentName: parent,
+      description: '$name prose.',
+      entries: const [],
+    );
+
+    test('a tree mint stars the written place the author picked', () async {
+      final start = WorldStartPick()..placeName = 'The Quay';
+      addTearDown(start.dispose);
+      final why = await mintWorldFromWiki(
+        repo,
+        root: root('Harborside'),
+        tree: WorldWriteTree(
+          root: write('Harborside'),
+          places: [write('Lantern Market'), write('The Quay')],
+        ),
+        start: start,
+        placeWorld: placeWorld,
+      );
+
+      expect(why, isNull);
+      final world = repo.worldByName('Harborside')!;
+      expect(repo.startingPlaceFor(world.id)?.name, 'The Quay');
+      expect(repo.chainFor('The Quay').last.id, world.id);
+    });
+
+    test(
+      'a flat mint creates the named starting place inside the world',
+      () async {
+        final start = WorldStartPick();
+        addTearDown(start.dispose);
+        start.nameController.text = 'The Green';
+        start.descController.text = 'Sheep and a well.';
+        expect(start.problem(const []), isNull);
+
+        final why = await mintWorldFromWiki(
+          repo,
+          root: root('Maple Run'),
+          tree: null,
+          start: start,
+          placeWorld: placeWorld,
+        );
+
+        expect(why, isNull);
+        final world = repo.worldByName('Maple Run')!;
+        final green = repo.startingPlaceFor(world.id)!;
+        expect(green.name, 'The Green');
+        expect(green.description, 'Sheep and a well.');
+        expect(green.parentWorldId, world.id);
+        expect(green.climateEnabled, isFalse, reason: 'inherits the weather');
+      },
+    );
+
+    test('with no starting place the pick refuses', () {
+      final start = WorldStartPick();
+      addTearDown(start.dispose);
+      expect(start.problem(const []), kWorldStartingPlaceRequired);
+      expect(start.problem(const ['The Quay']), kWorldStartingPlacePick);
+    });
+  });
+
+  group('saveWorldWithStartingPlace', () {
+    late AppDatabase db;
+    late WorldRepository repo;
+
+    setUp(() async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      db = AppDatabase.forTesting();
+      repo = WorldRepository(storage, db);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('a new world is saved with its new starting place inside it, '
+        'starred', () async {
+      final world = model.World(
+        name: 'Bletchfield',
+        lorebook: Lorebook(entries: []),
+      );
+      final place = await saveWorldWithStartingPlace(
+        repo,
+        world,
+        const StartAtNewPlace('Tea Rooms', description: 'Steam.'),
+        isNew: true,
+      );
+
+      expect(place!.parentWorldId, world.id);
+      expect(repo.startingPlaceFor(world.id)?.id, place.id);
+      final rows = await db.getAllWorlds();
+      expect(
+        rows.map((r) => r.name),
+        containsAll(['Bletchfield', 'Tea Rooms']),
+      );
+    });
+
+    test(
+      'a starting place outside the world is refused and nothing moves',
+      () async {
+        final town = model.World(
+          name: 'Town',
+          lorebook: Lorebook(entries: []),
+        );
+        await repo.saveWorld(town);
+        final stranger = model.World(
+          name: 'Elsewhere',
+          lorebook: Lorebook(entries: []),
+        );
+        await repo.saveWorld(stranger);
+
+        await expectLater(
+          saveWorldWithStartingPlace(
+            repo,
+            town,
+            StartAtExistingPlace(stranger.id),
+            isNew: false,
+          ),
+          throwsA(isA<StateError>()),
+        );
+        expect(town.defaultPlaceId, isNull);
+      },
+    );
+
+    test('the rule: new worlds name one, worlds with places pick one, older '
+        'worlds with none may stay', () {
+      expect(
+        startingPlaceRejection(null, isNew: true, hasPlaces: false),
+        kWorldStartingPlaceRequired,
+      );
+      expect(
+        startingPlaceRejection(
+          const StartAtNewPlace('  '),
+          isNew: true,
+          hasPlaces: false,
+        ),
+        kWorldStartingPlaceRequired,
+      );
+      expect(
+        startingPlaceRejection(null, isNew: false, hasPlaces: true),
+        kWorldStartingPlacePick,
+      );
+      expect(
+        startingPlaceRejection(null, isNew: false, hasPlaces: false),
+        isNull,
+      );
+      expect(
+        startingPlaceRejection(
+          const StartAtExistingPlace('p'),
+          isNew: false,
+          hasPlaces: true,
+        ),
+        isNull,
+      );
     });
   });
 }

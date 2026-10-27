@@ -52,6 +52,7 @@
       }
     }
   ],
+  "default_place_id": "starter-monsoon-coast-palmreach",
   "meta": {
     "sourceId": "starter-monsoon-coast"
   }

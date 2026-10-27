@@ -138,6 +138,7 @@
       }
     }
   ],
+  "default_place_id": "starter-kestrel-reach-dome-town-meridian",
   "meta": {
     "sourceId": "starter-kestrel-reach"
   }

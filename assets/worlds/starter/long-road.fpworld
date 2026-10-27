@@ -60,6 +60,7 @@
       }
     }
   ],
+  "default_place_id": "starter-long-road-dustwell-crossing",
   "meta": {
     "sourceId": "starter-long-road"
   }

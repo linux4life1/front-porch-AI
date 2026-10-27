@@ -176,6 +176,18 @@ describe('the Part of picker', () => {
       setter?.call(nameInput, 'Detached');
       nameInput.dispatchEvent(new Event('input', { bubbles: true }));
     });
+    // Detached, it is a new top-level world: it must name where chats start.
+    const startInput = container.querySelector(
+      'input[aria-label="Starting place"]',
+    ) as HTMLInputElement;
+    act(() => {
+      const setter = Object.getOwnPropertyDescriptor(
+        window.HTMLInputElement.prototype,
+        'value',
+      )?.set;
+      setter?.call(startInput, 'Detached Square');
+      startInput.dispatchEvent(new Event('input', { bubbles: true }));
+    });
     post.mockResolvedValue({ worlds: WORLD_ROWS });
     await act(async () => button('Save place').click());
     expect(post).toHaveBeenCalledWith(

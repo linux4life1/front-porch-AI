@@ -104,6 +104,11 @@ void main() {
       find.widgetWithText(TextField, 'Description (place prose)').first,
       'Black sand beaches under a warm ash-grey sky.',
     );
+    // A new world names where its chats start (required).
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-name')),
+      'Ashfall Pier',
+    );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create World'));
     await d.waitForWidget(

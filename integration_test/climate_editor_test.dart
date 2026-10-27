@@ -115,6 +115,11 @@ void main() {
       find.widgetWithText(TextField, 'Description (place prose)').first,
       'Grey dunes under a sky that never fully clears.',
     );
+    // A new world names where its chats start (required).
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-name')),
+      'Glass Oasis',
+    );
     await tester.pump(const Duration(milliseconds: 200));
 
     // ── Climate dropdown → Custom climate… ──────────────────────────────

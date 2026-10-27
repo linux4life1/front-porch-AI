@@ -52,6 +52,7 @@
       }
     }
   ],
+  "default_place_id": "starter-verdance-basin-stiltwater",
   "meta": {
     "sourceId": "starter-verdance-basin"
   }

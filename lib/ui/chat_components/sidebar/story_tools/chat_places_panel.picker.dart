@@ -100,7 +100,6 @@ Future<void> showAttachPlacePicker(
                 itemCount: available.length,
                 itemBuilder: (context, i) {
                   final w = available[i];
-                  final start = startingPlaceOf(w, (id) => byId[id]);
                   final parent = w.parentWorldId == null
                       ? null
                       : byId[w.parentWorldId];
@@ -131,7 +130,6 @@ Future<void> showAttachPlacePicker(
                     subtitle: Text(
                       [
                         if (parent != null) 'inside ${parent.name}',
-                        if (start.id != w.id) 'starts at ${start.name}',
                         if (w.description.trim().isNotEmpty)
                           w.description
                         else if (parent == null)

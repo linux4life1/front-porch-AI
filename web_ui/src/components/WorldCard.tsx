@@ -58,6 +58,7 @@ export function WorldCard({
   starred,
   onStar,
   startsAtName,
+  missingStart,
 }: {
   world: WorldSummary;
   busy: boolean;
@@ -76,6 +77,9 @@ export function WorldCard({
   onStar?: () => void;
   /** Root cards: name of the starred place chats start at. */
   startsAtName?: string | null;
+  /** Root cards with places but no starting place yet (an older world, or
+   * its starred place was deleted): ask for one. */
+  missingStart?: boolean;
 }) {
   const h = hueFromName(world.name);
   const accent: CSSProperties = {
@@ -173,13 +177,9 @@ export function WorldCard({
           {onStar && (
             <button
               className={`icon-btn wsg-place-star${starred ? ' wsg-place-star--on' : ''}`}
-              title={
-                starred
-                  ? 'Chats in this world start here (tap to clear)'
-                  : 'Start chats in this world here'
-              }
+              title={starred ? 'Chats in this world start here' : 'Start chats in this world here'}
               aria-label={
-                starred ? `Clear ${world.name} as starting place` : `Start chats at ${world.name}`
+                starred ? `Chats start at ${world.name}` : `Start chats at ${world.name}`
               }
               aria-pressed={starred === true}
               disabled={busy}
@@ -217,6 +217,11 @@ export function WorldCard({
       {startsAtName && (
         <p className="wsg-starts-at" data-testid="world-starts-at">
           ★ Chats start at {startsAtName}
+        </p>
+      )}
+      {!startsAtName && missingStart && (
+        <p className="wsg-starts-at wsg-starts-at--missing" data-testid="world-starts-at-missing">
+          ☆ Star a place below: chats start there
         </p>
       )}
 

@@ -56,6 +56,7 @@ class WorldLibraryRootCard extends StatelessWidget {
     final worldColor = WorldColors.getColorForWorld(root.name);
     final entries = root.lorebook.entries.length;
     final total = directCount;
+    final hasStart = startingPlace != null && startingPlace!.id != root.id;
     return Padding(
       padding: const EdgeInsets.fromLTRB(24, 10, 24, 0),
       child: Container(
@@ -168,28 +169,38 @@ class WorldLibraryRootCard extends StatelessWidget {
                           : AppColors.textSecondary(context),
                     ),
                   ),
-                  if (startingPlace != null &&
-                      startingPlace!.id != root.id) ...[
-                    const SizedBox(height: 6),
-                    Row(
-                      key: Key('starting-place-${root.id}'),
-                      children: [
-                        Icon(Icons.star_rounded, size: 14, color: accent),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            'Chats start at ${startingPlace!.name}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 11.5,
-                              color: AppColors.textSecondary(context),
-                            ),
+                  // Every world with places has a starting place; an older
+                  // world (or one whose starred place was deleted) is asked
+                  // for one rather than silently starting at the world.
+                  const SizedBox(height: 6),
+                  Row(
+                    key: Key('starting-place-${root.id}'),
+                    children: [
+                      Icon(
+                        hasStart
+                            ? Icons.star_rounded
+                            : Icons.star_border_rounded,
+                        size: 14,
+                        color: hasStart ? accent : AppColors.logError,
+                      ),
+                      const SizedBox(width: 4),
+                      Expanded(
+                        child: Text(
+                          hasStart
+                              ? 'Chats start at ${startingPlace!.name}'
+                              : 'Star a place below: chats start there',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 11.5,
+                            color: hasStart
+                                ? AppColors.textSecondary(context)
+                                : AppColors.logError,
                           ),
                         ),
-                      ],
-                    ),
-                  ],
+                      ),
+                    ],
+                  ),
                   const SizedBox(height: 8),
                   Row(
                     children: [

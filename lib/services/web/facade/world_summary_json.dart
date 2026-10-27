@@ -17,7 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.locations.dart';
+import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
 
 /// One row of the web relay's world list (`GET /api/worlds`). Fields are
 /// additive only: older PWAs ignore what they do not know.
@@ -55,5 +57,37 @@ Map<String, dynamic> worldSummaryJson(
   'locationCount': locations.locationCount(w.id),
   'climateAuthorId': locations.climateAuthorId(w.id),
   // Additive: the starred place an attach-as-Setting lands on.
+  'defaultPlaceId': locations.startingPlaceId(w.id),
+};
+
+/// The world editor's detail payload (`GET /api/worlds/<name>/detail`).
+/// Additive only, like the list rows.
+Map<String, dynamic> worldDetailJson(
+  World w, {
+  required WorldLocationsRelay locations,
+}) => {
+  'id': w.id,
+  'name': w.name,
+  'description': w.description,
+  if (w.climateEnabled)
+    'biomeId': (w.biomeJson != null && w.biomeJson!.isNotEmpty)
+        ? 'custom'
+        : (w.biomeId ?? 'temperate'),
+  if (w.climateEnabled) 'biome': Biome.tryParse(w.biomeJson)?.toJson(),
+  'injectDescription': w.injectDescription,
+  'climateEnabled': w.climateEnabled,
+  'coverImage': w.coverImage,
+  'linkedCharacterName': w.linkedCharacterName,
+  'linkedCharacterId': w.linkedCharacterId,
+  'entries': lorebookEntriesToJson(w.lorebook),
+  if (w.climateEnabled) 'atmosphere': w.atmosphere.name,
+  if (w.climateEnabled) 'gravity': w.gravity.name,
+  // Slice 4 web twin: the editor preselects "Part of" and shows the
+  // inherit-or-own radios from this. Additive.
+  'parentWorldId': w.parentWorldId,
+  // Slice 5 (additive): same keys as the list rows.
+  'locationCount': locations.locationCount(w.id),
+  'climateAuthorId': locations.climateAuthorId(w.id),
+  // Additive: the editor's "Where chats start" picker preselects this.
   'defaultPlaceId': locations.startingPlaceId(w.id),
 };

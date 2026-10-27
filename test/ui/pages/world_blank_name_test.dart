@@ -98,13 +98,18 @@ void main() {
     // Still open, so the person can type a name.
     expect(find.widgetWithText(ElevatedButton, 'Create World'), findsOneWidget);
 
-    // Typing clears the message; a real name then saves, trimmed.
+    // Typing clears the message; a real name then saves, trimmed. A new
+    // world also names where its chats start, saved inside it right after.
     await tester.enterText(_nameField(), '  Harbor Town ');
     await _bounded(tester);
     expect(find.text('Give your world a name.'), findsNothing);
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-name')),
+      'The Quay',
+    );
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create World'));
     await _bounded(tester);
-    expect(worlds.saved.single.name, 'Harbor Town');
+    expect(worlds.saved.map((w) => w.name), ['Harbor Town', 'The Quay']);
   });
 
   testWidgets('Edit World cannot blank an existing name', (tester) async {
@@ -137,6 +142,10 @@ void main() {
     await _bounded(tester);
 
     await tester.enterText(_nameField(), 'The Cinder Wastes');
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-name')),
+      'Ash Gate',
+    );
     final create = find.widgetWithText(ElevatedButton, 'Create World');
     // Back to back, no frame between: the second tap runs the closure the
     // first tap's build handed out, before `saving` disables the button.
@@ -148,7 +157,8 @@ void main() {
     worlds.release();
     await _bounded(tester);
     expect(create, findsNothing);
-    expect(worlds.saved.single.name, 'The Cinder Wastes');
+    // One world and its one starting place: the second tap saved nothing.
+    expect(worlds.saved.map((w) => w.name), ['The Cinder Wastes', 'Ash Gate']);
   });
 
   testWidgets('Add a place inside words the dialog as a place in its parent', (
@@ -272,40 +282,125 @@ void main() {
     expect(find.text('1 place inside sets its own climate'), findsOneWidget);
   });
 
-  testWidgets('weather-off wording stays at full ink, outside the dimmed editor', (
-    tester,
-  ) async {
-    final earth = model.World(
-      id: 'earth-1',
-      name: 'Earth',
-      lorebook: Lorebook(entries: []),
-      climateEnabled: false,
-    );
-    final worlds = _RecordingWorlds([earth]);
+  testWidgets(
+    'weather-off wording stays at full ink, outside the dimmed editor',
+    (tester) async {
+      final earth = model.World(
+        id: 'earth-1',
+        name: 'Earth',
+        lorebook: Lorebook(entries: []),
+        climateEnabled: false,
+      );
+      final worlds = _RecordingWorlds([earth]);
+      await _pumpPage(tester, worlds);
+
+      await tester.tap(find.byKey(const Key('place-add-inside')).first);
+      await _bounded(tester);
+      await tester.ensureVisible(find.text('Own climate'));
+      await tester.tap(find.text('Own climate'));
+      await _bounded(tester);
+
+      Color? inkOf(Finder f) => tester.widget<Text>(f).style?.color;
+      final ink = AppColors.textPrimary(tester.element(find.text('Paused')));
+      final body = find.descendant(
+        of: find.byKey(const Key('world-weather-off-note')),
+        matching: find.textContaining('Earth'),
+      );
+      expect(body, findsWidgets);
+      for (final e in body.evaluate()) {
+        expect((e.widget as Text).style?.color, ink);
+      }
+      expect(inkOf(find.text('Paused')), ink);
+      expect(inkOf(find.text("Paused while Earth's weather is off")), ink);
+      expect(inkOf(find.text('No weather: Earth has weather off.')), ink);
+      expect(
+        find.ancestor(of: find.text('Paused'), matching: find.byType(Opacity)),
+        findsNothing,
+      );
+    },
+  );
+
+  testWidgets('a new world will not save until it names where chats start; '
+      'the place is saved inside it and starred', (tester) async {
+    final worlds = _RecordingWorlds();
     await _pumpPage(tester, worlds);
-
-    await tester.tap(find.byKey(const Key('place-add-inside')).first);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'New World'));
     await _bounded(tester);
-    await tester.ensureVisible(find.text('Own climate'));
-    await tester.tap(find.text('Own climate'));
-    await _bounded(tester);
+    expect(find.text('Where chats start'), findsOneWidget);
 
-    Color? inkOf(Finder f) => tester.widget<Text>(f).style?.color;
-    final ink = AppColors.textPrimary(tester.element(find.text('Paused')));
-    final body = find.descendant(
-      of: find.byKey(const Key('world-weather-off-note')),
-      matching: find.textContaining('Earth'),
-    );
-    expect(body, findsWidgets);
-    for (final e in body.evaluate()) {
-      expect((e.widget as Text).style?.color, ink);
-    }
-    expect(inkOf(find.text('Paused')), ink);
-    expect(inkOf(find.text("Paused while Earth's weather is off")), ink);
-    expect(inkOf(find.text('No weather: Earth has weather off.')), ink);
+    await tester.enterText(_nameField(), 'Bletchfield');
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create World'));
+    await _bounded(tester);
+    expect(worlds.saved, isEmpty);
     expect(
-      find.ancestor(of: find.text('Paused'), matching: find.byType(Opacity)),
-      findsNothing,
+      find.text('Name the place where chats in this world start.'),
+      findsOneWidget,
     );
+
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-name')),
+      'Tea Rooms',
+    );
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-description')),
+      'Steam and gossip.',
+    );
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Create World'));
+    await _bounded(tester);
+
+    expect(worlds.saved, hasLength(2));
+    final world = worlds.saved.first;
+    final tea = worlds.saved.last;
+    expect(tea.name, 'Tea Rooms');
+    expect(tea.description, 'Steam and gossip.');
+    expect(tea.parentWorldId, world.id);
+    expect(tea.climateEnabled, isFalse, reason: 'inherits the weather');
+    expect(world.defaultPlaceId, tea.id);
+  });
+
+  testWidgets('editing a world with places picks among them, starting on '
+      'its starred place', (tester) async {
+    final town = model.World(
+      id: 'town-1',
+      name: 'Bletchfield',
+      lorebook: Lorebook(entries: []),
+    )..defaultPlaceId = 'tea-1';
+    final worlds = _RecordingWorlds([
+      town,
+      model.World(
+        id: 'tea-1',
+        name: 'Tea Rooms',
+        lorebook: Lorebook(entries: []),
+        climateEnabled: false,
+        parentWorldId: 'town-1',
+      ),
+      model.World(
+        id: 'hall-1',
+        name: 'Town Hall',
+        lorebook: Lorebook(entries: []),
+        climateEnabled: false,
+        parentWorldId: 'town-1',
+      ),
+    ]);
+    await _pumpPage(tester, worlds);
+    await tester.tap(find.text('Edit').first);
+    await _bounded(tester);
+    expect(find.text('Edit World'), findsOneWidget);
+
+    final picker = find.byKey(const Key('world-starting-place-picker'));
+    expect(
+      find.descendant(of: picker, matching: find.text('Tea Rooms')),
+      findsOneWidget,
+    );
+    await tester.ensureVisible(picker);
+    await tester.tap(picker);
+    await _bounded(tester);
+    await tester.tap(find.text('Town Hall').last);
+    await _bounded(tester);
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Save Changes'));
+    await _bounded(tester);
+
+    expect(worlds.saved.single.id, 'town-1');
+    expect(town.defaultPlaceId, 'hall-1');
   });
 }

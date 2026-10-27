@@ -1,11 +1,15 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// The starting-place star on the Worlds page (web twin of the desktop
-// library star): a place inside a world shows ☆, tapping it posts the
-// star to the relay, the world's card then says "Chats start at <place>",
-// and tapping the starred place posts a clear. The world itself carries
-// no star.
+// Where chats in a world start, chosen in the Worlds menu (web twin of the
+// desktop library star and editor section):
+//   - a place inside a world shows ☆; tapping it posts the star and the
+//     world's card says "Chats start at <place>"; the starred place stays
+//     starred when tapped (every world keeps one);
+//   - a world with places but no start asks for one on its card;
+//   - a new top-level world cannot be saved without naming its starting
+//     place, and the save carries it;
+//   - editing a world picks among its places, preselected from the relay.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -56,23 +60,59 @@ const HALL = {
 
 const starOf = (name: string) =>
   container.querySelector(
-    `button[aria-label="Start chats at ${name}"], button[aria-label="Clear ${name} as starting place"]`,
+    `button[aria-label="Start chats at ${name}"], button[aria-label="Chats start at ${name}"]`,
   ) as HTMLButtonElement | null;
 
-beforeEach(async () => {
+const button = (label: string) =>
+  Array.from(container.querySelectorAll('button')).find(
+    (b) => b.textContent?.trim() === label,
+  )!;
+
+function type(selector: string, value: string) {
+  const el = container.querySelector(selector) as
+    | HTMLInputElement
+    | HTMLSelectElement
+    | HTMLTextAreaElement;
+  act(() => {
+    const proto =
+      el instanceof HTMLSelectElement
+        ? window.HTMLSelectElement
+        : el instanceof HTMLTextAreaElement
+          ? window.HTMLTextAreaElement
+          : window.HTMLInputElement;
+    Object.getOwnPropertyDescriptor(proto.prototype, 'value')?.set?.call(el, value);
+    el.dispatchEvent(
+      new Event(el instanceof HTMLSelectElement ? 'change' : 'input', { bubbles: true }),
+    );
+  });
+}
+
+async function mount(rows: unknown[]) {
+  get.mockImplementation((url: string) => {
+    if (url === '/api/worlds/climates') return Promise.resolve({ climates: [] });
+    if (url.startsWith('/api/worlds/parent-candidates')) return Promise.resolve({ candidates: [] });
+    if (url.includes('/detail'))
+      return Promise.resolve({
+        ...TOWN,
+        entries: [],
+        atmosphere: 'breathable',
+        gravity: 'earth',
+        defaultPlaceId: 'tea-1',
+      });
+    return Promise.resolve({ worlds: rows });
+  });
+  await act(async () => {
+    root.render(createElement(MemoryRouter, null, createElement(WorldsPage)));
+  });
+}
+
+beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');
   document.body.appendChild(container);
   root = createRoot(container);
   get.mockReset();
   post.mockReset();
-  get.mockImplementation((url: string) => {
-    if (url === '/api/worlds/climates') return Promise.resolve({ climates: [] });
-    return Promise.resolve({ worlds: [TOWN, TEA, HALL] });
-  });
-  await act(async () => {
-    root.render(createElement(MemoryRouter, null, createElement(WorldsPage)));
-  });
 });
 
 afterEach(() => {
@@ -82,8 +122,12 @@ afterEach(() => {
 
 describe('the starting-place star', () => {
   it('stars a place inside a world and names it on the world card', async () => {
+    await mount([TOWN, TEA, HALL]);
     expect(starOf('Bletchfield')).toBeNull();
-    expect(container.querySelector('[data-testid="world-starts-at"]')).toBeNull();
+    expect(
+      container.querySelector('[data-testid="world-starts-at-missing"]'),
+      'a world with places and no start asks for one',
+    ).not.toBeNull();
     const star = starOf('Tea Rooms')!;
     expect(star.textContent).toBe('☆');
 
@@ -99,23 +143,67 @@ describe('the starting-place star', () => {
     expect(container.querySelector('[data-testid="world-starts-at"]')?.textContent).toContain(
       'Chats start at Tea Rooms',
     );
+    expect(container.querySelector('[data-testid="world-starts-at-missing"]')).toBeNull();
     expect(starOf('Tea Rooms')!.textContent).toBe('★');
-    expect(starOf('Tea Rooms')!.getAttribute('aria-pressed')).toBe('true');
     expect(starOf('Town Hall')!.textContent).toBe('☆');
   });
 
-  it('a tap on the starred place clears it', async () => {
-    post.mockResolvedValueOnce({
-      worlds: [{ ...TOWN, defaultPlaceId: 'tea-1' }, TEA, HALL],
-    });
+  it('the starred place stays starred when tapped: a world always keeps one', async () => {
+    await mount([{ ...TOWN, defaultPlaceId: 'tea-1' }, TEA, HALL]);
     await act(async () => starOf('Tea Rooms')!.click());
-    post.mockResolvedValueOnce({ worlds: [TOWN, TEA, HALL] });
-    await act(async () => starOf('Tea Rooms')!.click());
+    expect(post).not.toHaveBeenCalled();
+    expect(starOf('Tea Rooms')!.textContent).toBe('★');
+  });
+});
 
-    expect(post).toHaveBeenLastCalledWith('/api/worlds/default-place', {
-      worldId: 'town-1',
-      placeId: null,
-    });
-    expect(container.querySelector('[data-testid="world-starts-at"]')).toBeNull();
+describe('Where chats start in the editor', () => {
+  it('a new world cannot be saved until it names its starting place', async () => {
+    await mount([]);
+    await act(async () => button('＋ New place').click());
+    type('.world-edit label input', 'Harbor Town');
+    await act(async () => button('Save place').click());
+    expect(post).not.toHaveBeenCalled();
+    expect(container.querySelector('[data-testid="world-starting-place"] [role="alert"]')?.textContent).toBe(
+      'Name the place where chats in this world start.',
+    );
+
+    type('input[aria-label="Starting place"]', 'The Quay');
+    type('textarea[aria-label="Starting place description"]', 'Rope and gulls.');
+    post.mockResolvedValue({ worlds: [] });
+    await act(async () => button('Save place').click());
+    expect(post).toHaveBeenCalledWith(
+      '/api/worlds',
+      expect.objectContaining({
+        name: 'Harbor Town',
+        create: true,
+        startingPlace: { name: 'The Quay', description: 'Rope and gulls.' },
+      }),
+    );
+  });
+
+  it('editing a world picks among its places, preselected from the relay', async () => {
+    await mount([{ ...TOWN, defaultPlaceId: 'tea-1' }, TEA, HALL]);
+    const edit = container.querySelector(
+      '.wsg-section-head button[title="Edit"]',
+    ) as HTMLButtonElement;
+    await act(async () => edit.click());
+    const pick = container.querySelector(
+      'select[aria-label="Where chats start"]',
+    ) as HTMLSelectElement;
+    expect(pick.value).toBe('tea-1');
+    expect(Array.from(pick.options).map((o) => o.textContent)).toEqual([
+      'Pick a place',
+      'Tea Rooms',
+      'Town Hall',
+      'A new place…',
+    ]);
+
+    type('select[aria-label="Where chats start"]', 'hall-1');
+    post.mockResolvedValue({ worlds: [] });
+    await act(async () => button('Save place').click());
+    expect(post).toHaveBeenCalledWith(
+      '/api/worlds',
+      expect.objectContaining({ startingPlace: { placeId: 'hall-1' } }),
+    );
   });
 });

@@ -11,7 +11,7 @@ import { expect, openRoute, SERIAL, test } from './support/fixtures';
 type Row = { id?: string; name: string; parentWorldId?: string | null; defaultPlaceId?: string | null };
 
 test(
-  'starting place: star a place inside a world, see it on the card, clear it',
+  'starting place: star a place in the Worlds menu; a new world must name one',
   { tag: SERIAL },
   async ({ page, allowHttp }) => {
     // The outside-the-world refusal is a 400 on purpose.
@@ -64,15 +64,31 @@ test(
       const again = page.locator('.wsg-section').filter({ hasText: 'Star Bletchfield' });
       await expect(again.locator('[data-testid="world-starts-at"]')).toContainText('Star Tea Rooms');
 
-      await again
-        .getByRole('button', { name: 'Clear Star Tea Rooms as starting place', exact: true })
-        .click();
-      await expect(again.locator('[data-testid="world-starts-at"]')).toHaveCount(0);
+      // Required: tapping the starred place leaves it starred.
+      await again.getByRole('button', { name: 'Chats start at Star Tea Rooms', exact: true }).click();
+      await expect(again.locator('[data-testid="world-starts-at"]')).toContainText('Star Tea Rooms');
+      expect((await list()).find((w) => w.id === townId)?.defaultPlaceId ?? null).toBe(teaId);
+
+      // ── A new world names its starting place in the editor ──────────────
+      await page.getByRole('button', { name: '＋ New place', exact: true }).click();
+      await page.locator('.world-edit label input').first().fill('Star Harbour');
+      await page.getByRole('button', { name: 'Save place', exact: true }).click();
+      await expect(page.locator('[data-testid="world-starting-place"] [role="alert"]')).toHaveText(
+        'Name the place where chats in this world start.',
+      );
+      await page.getByLabel('Starting place', { exact: true }).fill('Star Quay');
+      await page.getByRole('button', { name: 'Save place', exact: true }).click();
       await expect
-        .poll(async () => (await list()).find((w) => w.id === townId)?.defaultPlaceId ?? null, {
-          message: 'the star is cleared',
-        })
-        .toBeNull();
+        .poll(async () => {
+          const rows = await list();
+          const harbour = rows.find((w) => w.name === 'Star Harbour');
+          const quay = rows.find((w) => w.name === 'Star Quay');
+          return harbour != null && quay != null && quay.parentWorldId === harbour.id && harbour.defaultPlaceId === quay.id;
+        }, { message: 'the world is saved with its starting place inside it, starred' })
+        .toBe(true);
+      await expect(
+        page.locator('.wsg-section').filter({ hasText: 'Star Harbour' }).locator('[data-testid="world-starts-at"]'),
+      ).toContainText('Chats start at Star Quay');
     } finally {
       await cleanup();
     }

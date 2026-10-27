@@ -7,6 +7,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/steps/world_direction_box.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/steps/world_entry_card.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/steps/world_progress_panel.dart';
+import 'package:front_porch_ai/ui/character_creator/world_from_wiki/steps/world_starting_place_card.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_review_actions.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_state.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
@@ -78,6 +79,8 @@ class _WorldFromWikiReviewWorldStepState
                   ),
                   const SizedBox(height: 20),
                   _nameAndDescription(context, wide),
+                  const SizedBox(height: 20),
+                  WorldStartingPlaceCard(state: state),
                   const SizedBox(height: 20),
                   WorldDirectionBox(state: state),
                   if (state.reviewing) ...[

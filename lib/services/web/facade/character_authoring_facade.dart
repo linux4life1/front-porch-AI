@@ -53,16 +53,18 @@ class CharacterAuthoringFacade {
     final images = await _repo.getAvatarImages(id);
     final favoriteId = card.frontPorchExtensions?.favoriteAvatarId;
     return images
-        .map((a) => {
-              'id': a.id,
-              // A look's label is the internal '__look__' sentinel — never show
-              // it as a user-facing caption (isLook already marks looks).
-              'label': a.isLook ? '' : (a.label ?? ''),
-              'displayOrder': a.displayOrder,
-              'isPrime': a.displayOrder + 1 == card.primeAvatarIndex,
-              'isLook': a.isLook,
-              'isFavorite': a.id == favoriteId,
-            })
+        .map(
+          (a) => {
+            'id': a.id,
+            // A look's label is the internal '__look__' sentinel — never show
+            // it as a user-facing caption (isLook already marks looks).
+            'label': a.isLook ? '' : (a.label ?? ''),
+            'displayOrder': a.displayOrder,
+            'isPrime': a.displayOrder + 1 == card.primeAvatarIndex,
+            'isLook': a.isLook,
+            'isFavorite': a.id == favoriteId,
+          },
+        )
         .toList();
   }
 
@@ -75,7 +77,8 @@ class CharacterAuthoringFacade {
     // ?label=__look__ would write the file to avatars/ but mark the row a look
     // (AvatarImage.isLook), so it resolves/deletes from the wrong folder: a
     // broken tile + an orphaned PNG. Treat it as unlabeled.
-    final clean = (label == null ||
+    final clean =
+        (label == null ||
             label.trim().isEmpty ||
             label.trim() == AvatarImage.lookLabel)
         ? null

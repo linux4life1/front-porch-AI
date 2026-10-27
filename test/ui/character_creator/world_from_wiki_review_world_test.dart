@@ -293,6 +293,16 @@ void main() {
       isNull,
       reason: 'nothing to send until a note is written',
     );
+    // A minted world needs the place its chats start in: Mint waits for it.
+    expect(
+      tester
+          .widget<FilledButton>(find.byKey(const Key('world-from-wiki-mint')))
+          .onPressed,
+      isNull,
+    );
+    state.startPick.placeName = 'Soul Society';
+    state.notify();
+    await tester.pump();
     expect(
       tester
           .widget<FilledButton>(find.byKey(const Key('world-from-wiki-mint')))
@@ -353,5 +363,36 @@ void main() {
       state.entries.map((e) => e.name),
       isNot(contains('Kurosaki Clinic')),
     );
+  });
+
+  testWidgets('Where chats start: Mint waits for it, and a new place can be '
+      'named instead of a written one', (tester) async {
+    await mount(tester, withNav: true);
+    FilledButton mintButton() => tester.widget<FilledButton>(
+      find.byKey(const Key('world-from-wiki-mint')),
+    );
+
+    expect(find.byKey(const Key('world-starting-place-card')), findsOneWidget);
+    expect(
+      find.text('Pick the place where chats in this world start.'),
+      findsOneWidget,
+    );
+    expect(mintButton().onPressed, isNull);
+
+    await tester.tap(find.byKey(const Key('world-starting-place-pick')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.tap(find.text('A new place…').last);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(mintButton().onPressed, isNull, reason: 'a new place needs a name');
+
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-new-name')),
+      'Karakura Town',
+    );
+    await tester.pump();
+    expect(mintButton().onPressed, isNotNull);
+    expect(find.byKey(const Key('world-starting-place-problem')), findsNothing);
   });
 }

@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Attaching a world with a starred place (web twin of the desktop attach
-// picker): as the Setting the scene lands on the starred place, the picker
-// says where it starts, and "Add as lore" still adds the world itself.
+// picker): as the Setting the scene lands on the starred place, and "Add as
+// lore" still adds the world itself. The default is chosen in the Worlds
+// menu, so the chat picker says nothing about it.
 
 import { act } from 'react-dom/test-utils';
 import { createRoot, type Root } from 'react-dom/client';
@@ -88,12 +89,12 @@ afterEach(() => {
 });
 
 describe('attaching a world with a starred place', () => {
-  it('an empty Setting lands on the starred place, and the picker says so', async () => {
+  it('an empty Setting lands on the starred place', async () => {
     await mount(null);
     const option = Array.from(attachSelect().querySelectorAll('option')).find(
       (o) => o.value === 'town-1',
     )!;
-    expect(option.textContent).toContain('starts at Tea Rooms');
+    expect(option.textContent).not.toContain('Tea Rooms');
 
     await choose('town-1');
 

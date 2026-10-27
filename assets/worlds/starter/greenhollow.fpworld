@@ -161,6 +161,7 @@
       }
     }
   ],
+  "default_place_id": "starter-greenhollow-the-conservatory",
   "meta": {
     "sourceId": "starter-greenhollow"
   }

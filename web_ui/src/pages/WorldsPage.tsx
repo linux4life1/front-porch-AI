@@ -13,8 +13,15 @@ import { LoreEntriesEditor, type LoreEntry } from '../components/LoreEntriesEdit
 import { StarterWorldsPicker } from '../components/StarterWorldsPicker';
 import { WorldCard, type WorldSummary } from '../components/WorldCard';
 import {
+  startingPlacePayload,
+  startingPlaceProblem,
+  WorldStartingPlaceField,
+  type StartingPlaceDraft,
+} from '../components/WorldStartingPlaceField';
+import {
   buildWorldInjection,
   injectionUsedChars,
+  libraryDisplayOrder,
   planWorldLibrary,
   placesUnder,
   indexById,
@@ -54,6 +61,8 @@ interface WorldDetail {
   gravity?: string;
   biome?: BiomeDraft | null;
   parentWorldId?: string | null;
+  /** The starred place (relay-resolved), for "Where chats start". */
+  defaultPlaceId?: string | null;
 }
 
 interface ParentCandidate {
@@ -76,7 +85,7 @@ type EditState = {
   gravity: string;
   biome: BiomeDraft | null;
   parentWorldId: string | null;
-} | null;
+} & StartingPlaceDraft | null;
 
 function download(url: string) {
   const a = document.createElement('a');
@@ -96,6 +105,7 @@ export function WorldsPage() {
   const dirty = edit !== null && JSON.stringify(edit) !== editBase;
   const { prompt } = useUnsavedChanges(dirty);
   const openEdit = (e: EditState) => {
+    setStartError(null);
     setEdit(e);
     setEditBase(JSON.stringify(e));
   };
@@ -114,6 +124,36 @@ export function WorldsPage() {
   const [chainDetails, setChainDetails] = useState<Record<string, WorldDetail>>({});
   const [moveTargets, setMoveTargets] = useState<ParentCandidate[] | null>(null);
   const [moveError, setMoveError] = useState('');
+  const [startError, setStartError] = useState<string | null>(null);
+
+  // Places inside the world being edited (any depth, library order), for
+  // "Where chats start". Read from the list the page already holds.
+  const placesInsideEdit = (): { id: string; label: string }[] => {
+    const selfId = edit?.id;
+    if (!selfId) return [];
+    const rows = worlds as TreeWorld[];
+    const byId = indexById(rows);
+    return libraryDisplayOrder(rows)
+      .filter((w) => {
+        let cursor = resolveParent(w, byId);
+        const seen = new Set<string>();
+        while (cursor != null) {
+          const k = cursor.id ?? cursor.name;
+          if (k === selfId) return true;
+          if (seen.has(k)) return false;
+          seen.add(k);
+          cursor = resolveParent(cursor, byId);
+        }
+        return false;
+      })
+      .map((w) => {
+        const parent = resolveParent(w, byId);
+        return {
+          id: w.id as string,
+          label: parent && parent.id !== selfId ? `${w.name} · inside ${parent.name}` : w.name,
+        };
+      });
+  };
 
   const load = () =>
     api
@@ -230,6 +270,9 @@ export function WorldsPage() {
         gravity: d.gravity ?? 'earth',
         biome: d.biome ?? null,
         parentWorldId: d.parentWorldId ?? null,
+        startingPlaceId: d.defaultPlaceId ?? null,
+        startingPlaceName: '',
+        startingPlaceDescription: '',
       });
       setClimateErrors([]);
     } catch {
@@ -239,6 +282,17 @@ export function WorldsPage() {
 
   const save = async () => {
     if (!edit) return;
+    // A top-level world needs its starting place (desktop parity); a place
+    // inside another world does not.
+    const isNew = edit.id == null && edit.originalName == null;
+    if (edit.parentWorldId == null) {
+      const problem = startingPlaceProblem(edit, {
+        isNew,
+        hasPlaces: placesInsideEdit().length > 0,
+      });
+      setStartError(problem);
+      if (problem) return;
+    }
     if (edit.climateEnabled && edit.biomeId === 'custom' && edit.biome) {
       try {
         const r = await api.post<{ errors: string[] }>(
@@ -261,7 +315,7 @@ export function WorldsPage() {
         id: edit.id,
         name: edit.name,
         originalName: edit.originalName,
-        create: edit.id == null && edit.originalName == null,
+        create: isNew,
         description: edit.description,
         biomeId: edit.biomeId,
         biome: edit.biomeId === 'custom' ? edit.biome : undefined,
@@ -275,6 +329,7 @@ export function WorldsPage() {
         // keys, and this form knows the truth either way — a cleared
         // Part of must detach, not silently keep yesterday's parent.
         parentWorldId: edit.parentWorldId,
+        startingPlace: edit.parentWorldId == null ? startingPlacePayload(edit) : undefined,
       }),
     );
   };
@@ -332,6 +387,9 @@ export function WorldsPage() {
     gravity: 'earth',
     biome: null,
     parentWorldId,
+    startingPlaceId: null,
+    startingPlaceName: '',
+    startingPlaceDescription: '',
   });
 
   const toggleSelected = (id: string, on: boolean) =>
@@ -342,16 +400,16 @@ export function WorldsPage() {
       return next;
     });
 
-  // The starting-place star (desktop parity): one star per world, a
-  // second tap on the starred place clears it. The relay validates that
-  // the place is inside the world and answers the refreshed list.
-  const toggleStartingPlace = (root: WorldSummary, placeId: string) => {
-    const on = root.defaultPlaceId === placeId;
+  // The starting-place star (desktop parity): one star per world and it
+  // is required, so a tap only ever moves it; the starred place stays put.
+  // The relay checks the place is inside the world and answers the list.
+  const starStartingPlace = (root: WorldSummary, placeId: string) => {
+    if (root.defaultPlaceId === placeId) return;
     setBusy(true);
     api
       .post<{ worlds: WorldSummary[] }>('/api/worlds/default-place', {
         worldId: root.id ?? root.name,
-        placeId: on ? null : placeId,
+        placeId,
       })
       .then((r) => setWorlds(r.worlds))
       .catch((e) =>
@@ -788,13 +846,18 @@ export function WorldsPage() {
               starred={sectionRoot != null && sectionRoot.defaultPlaceId === w.id}
               onStar={
                 sectionRoot != null && w.id
-                  ? () => toggleStartingPlace(sectionRoot, w.id as string)
+                  ? () => starStartingPlace(sectionRoot, w.id as string)
                   : undefined
               }
               startsAtName={
                 (w as WorldSummary).defaultPlaceId
                   ? byId.get((w as WorldSummary).defaultPlaceId as string)?.name ?? null
                   : null
+              }
+              missingStart={
+                parent == null &&
+                !(w as WorldSummary).defaultPlaceId &&
+                placesUnder(key, worlds as TreeWorld[], byId) > 0
               }
               onEdit={() => beginEdit(w.name)}
               onExport={() =>
@@ -918,6 +981,18 @@ export function WorldsPage() {
             A place inside another world shares its parent&apos;s lore and
             description. Rooms can go two levels deep (town › building › room).
           </p>
+          {edit.parentWorldId == null && (
+            <WorldStartingPlaceField
+              draft={edit}
+              places={placesInsideEdit()}
+              isNew={edit.id == null && edit.originalName == null}
+              error={startError}
+              onChange={(next) => {
+                setEdit({ ...edit, ...next });
+                setStartError(null);
+              }}
+            />
+          )}
           {edit.parentWorldId != null && wording?.weatherOff && (
             <div className="wsg-weather-off" role="note" data-testid="weather-off-note">
               <strong>{wording.weatherOff.title}</strong>

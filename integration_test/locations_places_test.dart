@@ -98,6 +98,12 @@ void main() {
       find.widgetWithText(TextField, 'Description (place prose)').first,
       'A harbour town; the fog keeps its own hours.',
     );
+    // A new world names where its chats start (required); it is saved as
+    // the town's first place.
+    await tester.enterText(
+      find.byKey(const Key('world-starting-place-name')),
+      'The Harbour Wall',
+    );
     await tester.pump(const Duration(milliseconds: 200));
     await tester.tap(find.widgetWithText(ElevatedButton, 'Create World'));
     await d.waitForWidget(find.text('World created successfully'));
@@ -176,7 +182,8 @@ void main() {
     await pumpUntilGone(tester, find.text('Add a place to Bletchport'));
 
     // ── 3. The library groups: section chip + child tag ─────────────────
-    await d.waitForWidget(find.text('1 place'));
+    // Two places: the starting place named at creation, and the lighthouse.
+    await d.waitForWidget(find.text('2 places'));
     await d.waitForWidget(find.text('Inherits weather'));
 
     // ── 4. Live chat: attach the place, read the weather naming ─────────

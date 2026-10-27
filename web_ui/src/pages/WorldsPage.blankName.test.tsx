@@ -44,6 +44,21 @@ function typeName(value: string) {
   });
 }
 
+// A new top-level world must also name where chats start (starting place).
+function typeStart(value: string) {
+  const input = container.querySelector(
+    'input[aria-label="Starting place"]',
+  ) as HTMLInputElement;
+  act(() => {
+    const setter = Object.getOwnPropertyDescriptor(
+      window.HTMLInputElement.prototype,
+      'value',
+    )?.set;
+    setter?.call(input, value);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+  });
+}
+
 beforeEach(async () => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
   container = document.createElement('div');
@@ -81,6 +96,7 @@ describe('a new place with no name', () => {
     typeName('Harbor Town');
     expect(hint()).toBeNull();
     expect(button('Save place').disabled).toBe(false);
+    typeStart('The Quay');
 
     post.mockResolvedValue({ worlds: [] });
     await act(async () => button('Save place').click());
@@ -92,6 +108,7 @@ describe('a new place with no name', () => {
 
   it('saves as a new place, so a taken name cannot overwrite another place', async () => {
     typeName('Maple Run');
+    typeStart('Maple Run Green');
     post.mockResolvedValue({ worlds: [] });
     await act(async () => button('Save place').click());
     expect(post).toHaveBeenCalledWith(

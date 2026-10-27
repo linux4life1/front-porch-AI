@@ -21,13 +21,14 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 
 /// Editable draft for the create/edit World dialog. One instance per
 /// dialog session; the sections mutate its fields inside the dialog's
 /// StatefulBuilder setState. Every field keeps the world's value (or the
 /// create-time default) until Save copies it back onto the [World].
 class WorldEditDraft {
-  WorldEditDraft(World? world)
+  WorldEditDraft(World? world, {this.startingPlaceId})
     : nameController = TextEditingController(text: world?.name ?? ''),
       descController = TextEditingController(text: world?.description ?? ''),
       customBiomeJson = world?.biomeJson,
@@ -65,6 +66,9 @@ class WorldEditDraft {
     climateEnabled,
     coverImage,
     parentWorldId,
+    startingPlaceId,
+    startNameController.text,
+    startDescController.text,
     atmosphere.name,
     gravity.name,
     [for (final e in editingEntries) e.toJson()],
@@ -95,6 +99,27 @@ class WorldEditDraft {
   // Shown under the picker when saveWorld refuses the parent (cycle,
   // unknown, or a re-run race).
   String? parentError;
+  // Where chats in this world start (top-level worlds only): a place
+  // already inside it, '' for "a new place" named below, or null when none
+  // is picked yet. A new world always names a new place.
+  String? startingPlaceId;
+  final TextEditingController startNameController = TextEditingController();
+  final TextEditingController startDescController = TextEditingController();
+  // Shown under the starting-place picker or name when Save is refused;
+  // [revealStart] asks the section to scroll itself into view once.
+  String? startError;
+  bool revealStart = false;
+
+  /// The starting place as the author has chosen it so far, or null.
+  StartingPlaceChoice? get startingChoice {
+    final id = startingPlaceId;
+    if (id != null && id.isNotEmpty) return StartAtExistingPlace(id);
+    final name = startNameController.text.trim();
+    return name.isEmpty
+        ? null
+        : StartAtNewPlace(name, description: startDescController.text);
+  }
+
   // Place traits (standing facts; defaults are silent).
   WorldAtmosphere atmosphere;
   WorldGravity gravity;

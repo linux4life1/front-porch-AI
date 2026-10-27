@@ -266,12 +266,8 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                                 repo.worldById,
                               ).id ==
                               w.id,
-                          onStar: () => toggleStartingPlace(
-                            context,
-                            repo,
-                            section.root,
-                            w,
-                          ),
+                          onStar: () =>
+                              starStartingPlace(context, repo, section.root, w),
                           onEdit: () =>
                               _showWorldDialog(context, repo, world: w),
                           onExport: () => exportFpWorldFlow(context, repo, w),

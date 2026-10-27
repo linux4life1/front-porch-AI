@@ -14,6 +14,7 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki.dart';
 import 'package:front_porch_ai/ui/character_creator/character_creator.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_character_pick.dart';
+import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_mint.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_shelf_actions.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_source_actions.dart';
 import 'package:front_porch_ai/ui/character_creator/world_from_wiki/world_from_wiki_wizard_gate.dart';
@@ -143,11 +144,13 @@ class WorldFromWikiState extends ChangeNotifier with WorldWizardGate {
   /// Anything the Review step may act on is running.
   bool get busyReviewing => reviewing;
 
-  bool get canSave => worldFromWikiCanSave(
-    aborted: engine?.aborted ?? false,
-    lorebooksOn: lorebooksOn,
-    entries: entries,
-  );
+  bool get canSave =>
+      worldFromWikiCanSave(
+        aborted: engine?.aborted ?? false,
+        lorebooksOn: lorebooksOn,
+        entries: entries,
+      ) &&
+      startPick.problem(writtenPlaceNames) == null;
 
   void abortWrite() {
     engine?.abort();
@@ -200,6 +203,7 @@ class WorldFromWikiState extends ChangeNotifier with WorldWizardGate {
     premiseController.dispose();
     descController.dispose();
     momentController.dispose();
+    startPick.dispose();
   }
 
   Future<void> scout({
@@ -369,62 +373,39 @@ class WorldFromWikiState extends ChangeNotifier with WorldWizardGate {
     ];
   }
 
+  /// Where chats in the minted world start; Mint waits for it.
+  final startPick = WorldStartPick();
+
+  /// The written places' names, for the starting-place pick.
+  List<String> get writtenPlaceNames => [
+    for (final p in tree?.places ?? const <WorldPlaceWrite>[]) p.name,
+  ];
+
   Future<bool> save(WorldRepository repo) async {
     if (!canSave) {
-      error = 'Write a signed shelf first.';
+      error =
+          startPick.problem(writtenPlaceNames) ?? 'Write a signed shelf first.';
       notify();
       return false;
     }
-    final t = tree;
-    if (t == null || t.isFlat) {
-      try {
-        await repo.saveWorld(previewWorld());
-        return true;
-      } catch (e) {
-        error = 'Save failed: $e';
-        notify();
-        return false;
-      }
-    }
-    // Root, then places in build order (parents always precede their
-    // children), so saveWorld's cycle and parent checks hold for every
-    // row (design §9.5). One failure aborts the rest and says so —
-    // half a ladder with no note is how lost places get reported.
-    var savedCount = 0;
-    var step = 'the world ${previewWorld().name}';
-    try {
-      final idsByName = <String, String>{};
-      final root = previewWorld();
-      await repo.saveWorld(root);
-      savedCount++;
-      idsByName[''] = root.id;
-      for (final p in t.places) {
-        step = 'the place ${p.name}';
-        final parentId =
-            idsByName[p.parentName.trim().toLowerCase()] ?? root.id;
-        final child = worldFromWikiDraft(
-          name: p.name,
-          description: p.description,
-          entries: p.entries,
-          climateEnabled: p.hasClimate,
-          biome: p.biome,
-          parentWorldId: parentId,
-        );
-        await repo.saveWorld(child);
-        savedCount++;
-        idsByName[p.name.trim().toLowerCase()] = child.id;
-      }
-      return true;
-    } catch (e) {
-      // A ladder can fail halfway (one place's law refuses). Say what
-      // landed — half a tree must not look like no tree (review #608).
-      error = savedCount > 0 && savedCount < t.places.length + 1
-          ? 'Saved $savedCount of ${t.places.length + 1}; failed on '
-                '$step: $e'
-          : 'Save failed: $e';
-      notify();
-      return false;
-    }
+    final why = await mintWorldFromWiki(
+      repo,
+      root: previewWorld(),
+      tree: tree,
+      start: startPick,
+      placeWorld: (p, parentId) => worldFromWikiDraft(
+        name: p.name,
+        description: p.description,
+        entries: p.entries,
+        climateEnabled: p.hasClimate,
+        biome: p.biome,
+        parentWorldId: parentId,
+      ),
+    );
+    if (why == null) return true;
+    error = why;
+    notify();
+    return false;
   }
 
   Future<String> _extractFiles() async {
