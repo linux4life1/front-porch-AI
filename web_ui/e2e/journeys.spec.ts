@@ -1624,6 +1624,15 @@ test(
     }
   },
 );
+/** Open a world card's places panel. Going back to /worlds can keep the
+ *  page mounted with the panel still open, so a blind click would close it. */
+async function showPlaces(card: Locator) {
+  const toggle = card.locator('[data-testid="world-places-toggle"]');
+  await expect(toggle).toBeVisible();
+  if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+  await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+}
+
 test(
   'starter worlds: the picker adds Harborside with its places, and the library shows them',
   { tag: SERIAL },
@@ -1674,18 +1683,14 @@ test(
       // The page took the refreshed list: no reload needed to see it.
       const card = page.locator('.wsg-world-card').filter({ hasText: 'Harborside' });
       await expect(card).toHaveCount(1);
-      await card.locator('[data-testid="world-places-toggle"]').click();
+      await showPlaces(card);
       await expect(page.getByRole('region', { name: 'Places in Harborside' })).toContainText(
         'The Quay',
       );
 
       // And it is a stored world, not page state.
       await openRoute(page, '/worlds');
-      await page
-        .locator('.wsg-world-card')
-        .filter({ hasText: 'Harborside' })
-        .locator('[data-testid="world-places-toggle"]')
-        .click();
+      await showPlaces(page.locator('.wsg-world-card').filter({ hasText: 'Harborside' }));
       await expect(page.getByRole('region', { name: 'Places in Harborside' })).toContainText(
         'Lighthouse Point',
       );

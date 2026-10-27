@@ -50,7 +50,11 @@ test(
       const openPlaces = async () => {
         const card = page.locator('.wsg-world-card').filter({ hasText: 'Star Bletchfield' });
         await expect(card).toHaveCount(1);
-        await card.locator('[data-testid="world-places-toggle"]').click();
+        // Going back to /worlds can keep the page mounted with the panel
+        // still open, so a blind click would close it.
+        const toggle = card.locator('[data-testid="world-places-toggle"]');
+        if ((await toggle.getAttribute('aria-expanded')) !== 'true') await toggle.click();
+        await expect(toggle).toHaveAttribute('aria-expanded', 'true');
         return page.getByRole('region', { name: 'Places in Star Bletchfield' });
       };
       const section = await openPlaces();
