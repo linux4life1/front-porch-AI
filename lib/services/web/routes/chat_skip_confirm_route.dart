@@ -9,6 +9,7 @@
 import 'package:shelf/shelf.dart' as shelf;
 
 import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart';
+import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 

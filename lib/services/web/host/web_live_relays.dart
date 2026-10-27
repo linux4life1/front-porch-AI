@@ -22,6 +22,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart'
+    show PendingSkip;
 import 'package:front_porch_ai/services/image/image.dart';
 import 'package:front_porch_ai/services/web/facade/facades.dart';
 import 'package:front_porch_ai/services/web/facade/settings/settings.dart';
