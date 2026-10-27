@@ -23,6 +23,7 @@ import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/services/chat/pass_support.dart';
 import 'package:front_porch_ai/services/chat/realism_tools.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/services/chat/time_service/reply_jump.dart';
 import 'package:front_porch_ai/services/chat/time_service/time_clock_applier.dart';
 import 'package:front_porch_ai/services/chat/time_service/time_clock_state.dart';
 import 'package:front_porch_ai/services/chat/today_line_tag.dart';
@@ -32,32 +33,11 @@ int? _extractMinutes(String text) {
   return m == null ? null : int.tryParse(m.group(1)!);
 }
 
-/// scene_place reader: absent, "same" and "" all mean NO MOVE.
-/// Flat-JSON string reader for the mint pair (same style as the
-/// scene_place reader above; missing or malformed yields null).
-String? _extractJsonField(String text, String key) {
-  final m = RegExp('"$key"\\s*:\\s*"([^"]*)"').firstMatch(text);
-  return m?.group(1);
-}
-
 String? _extractScenePlace(String text) {
-  final m = RegExp(r'"scene_place"\s*:\s*"([^"]*)"').firstMatch(text);
-  final v = m?.group(1)?.trim();
+  final v = judgedStringField(text, 'scene_place')?.trim();
   if (v == null || v.isEmpty || v.toLowerCase() == 'same') return null;
   return v;
 }
-
-int _extractDays(String text) {
-  final m = RegExp(r'"days_elapsed"\s*:\s*"?(\d+)').firstMatch(text);
-  return m == null ? 0 : int.tryParse(m.group(1)!) ?? 0;
-}
-
-/// The judge's days_elapsed counts only when the exchange names a span of
-/// days at all; like [newDayCorroboration] for new_day.
-final _daysCorroboration = RegExp(
-  r'\b(?:days?|weeks?|months?|years?|fortnights?)\b',
-  caseSensitive: false,
-);
 
 bool _extractContinuousInstant(
   String text,
@@ -284,9 +264,9 @@ class SceneTimeEvaluator {
       if (said.toLowerCase() == 'new') {
         // Slice 7: only a NAMED arrival qualifies; the pair rides out
         // to the mint dialog, which is where the tap happens.
-        final name = _extractJsonField(text, 'new_place_name')?.trim() ?? '';
+        final name = judgedStringField(text, 'new_place_name')?.trim() ?? '';
         final desc =
-            _extractJsonField(text, 'new_place_descriptor')?.trim() ?? '';
+            judgedStringField(text, 'new_place_descriptor')?.trim() ?? '';
         if (name.isEmpty) {
           debugPrint(
             '[Realism:Scene] scene_place "new" without a name — ignored '
@@ -316,21 +296,22 @@ class SceneTimeEvaluator {
       'in the recent exchange (hallucination guard)',
     );
 
-    // A multi-day jump the reply narrates in words the skip regex cannot
-    // read: lived off-screen, like a skip. Otherwise the clamped minutes.
+    // A jump of hours or days the reply narrates is lived off-screen, like
+    // a skip; a night the judge also called wakes the bodies rested.
+    // Otherwise the clamped minutes.
     Future<void> applyVerdict(String text) async {
-      final days = _extractDays(text);
-      if (days > 0 && _daysCorroboration.hasMatch(recent)) {
-        await applier.applyJudgedDays(
-          days,
-          until: _extractJsonField(text, 'lands_at') ?? '',
+      final saidNewDay = extractJsonBool(text, 'new_day') ?? false;
+      final jump = ReplyJump.read(text, recent);
+      if (jump != null) {
+        await applier.applyReplyJump(
+          jump,
+          slept: saidNewDay && newDayCorroborated,
         );
         // This eval was the turn's one clock authority; nothing to hand on.
         state.oocSkipMovedClockThisTurn = false;
         maybeOfferSceneMove(text);
         return;
       }
-      final saidNewDay = extractJsonBool(text, 'new_day') ?? false;
       if (saidNewDay && !newDayCorroborated) logSuppressedNewDay();
       await applier.applyElapsed(
         minutes: _extractMinutes(text),
@@ -402,7 +383,8 @@ class SceneTimeEvaluator {
         'A completed spoken reply is never a continuous instant. When true, minutes_elapsed is ignored and the clock stays still.\n'
         '3. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
         'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
-        '4. "days_elapsed": ONLY when the reply just written explicitly narrates a jump of one or more whole days ("a week later", "three days passed"), the number of days skipped (1-365). Otherwise 0. Mentioning a date or a plan is not a jump. With a jump, "lands_at": the time of day it lands at if the reply says (dawn, morning, late_morning, afternoon, evening, night, or 24-hour HH:MM), else blank.\n'
+        '4. "days_elapsed": ONLY when the reply just written explicitly narrates a jump of one or more whole days ("a week later", "three days passed"), the number of days skipped (1-365). Otherwise 0. Mentioning a date or a plan is not a jump. With a jump, "lands_at": the time of day it lands at if the reply says (dawn, morning, late_morning, afternoon, evening, night, or 24-hour HH:MM), else blank. '
+        '"hours_elapsed": ONLY when the reply explicitly narrates a jump of hours, not days ("six hours later", "they slept the night through"), the whole hours skipped (1-23). Otherwise 0.\n'
         '${plannerToday ? '5. "today_sentence": one sentence of what they are doing or planning today. '
                   'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}'
         '$sceneRule';
@@ -416,7 +398,7 @@ class SceneTimeEvaluator {
         'Current story time: ${state.displayClock} on ${state.narrativeWeekday}, Day ${state.dayCount}.\n\n'
         '$timeRules\n'
         'Recent conversation:\n$recent\n\n'
-        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed", "continuous_instant", "new_day", and "days_elapsed"${plannerToday ? ' and "today_sentence"' : ''}${scenePlaceOn ? ', "scene_place", "new_place_name" and "new_place_descriptor"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed", "continuous_instant", "new_day", and "days_elapsed"${plannerToday ? ' and "today_sentence"' : ''}${scenePlaceOn ? ', "scene_place", "new_place_name" and "new_place_descriptor"' : ''}. '
+        '${toolsMode ? 'Report by calling the $kSceneTimeTool tool with "minutes_elapsed", "continuous_instant", "new_day", "days_elapsed", and "hours_elapsed"${plannerToday ? ' and "today_sentence"' : ''}${scenePlaceOn ? ', "scene_place", "new_place_name" and "new_place_descriptor"' : ''}. Use ONLY the tool — no plain-text reply.' : 'Respond with ONLY a flat JSON object containing "minutes_elapsed", "continuous_instant", "new_day", "days_elapsed", and "hours_elapsed"${plannerToday ? ' and "today_sentence"' : ''}${scenePlaceOn ? ', "scene_place", "new_place_name" and "new_place_descriptor"' : ''}. '
                   'Do NOT use markdown code blocks — return raw JSON only.'}';
 
     try {

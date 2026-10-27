@@ -7,14 +7,23 @@
 
 import 'package:front_porch_ai/services/chat/realism_tools/realism_tool_names.dart';
 
-/// The scene-time judge's `lands_at`: the same landing words as `until`,
-/// for a jump of days the reply narrated.
-const Map<String, dynamic> kJudgedLandsAtField = {
-  'type': 'string',
-  'description':
-      'Only with days_elapsed: the time of day the reply lands at (dawn, '
-      'morning, late_morning, afternoon, evening, night, or 24-hour HH:MM). '
-      'Blank when it does not say.',
+/// The scene-time judge's read of a jump the reply narrated
+/// (time_service/reply_jump.dart): hours beside its `days_elapsed`, and
+/// `lands_at`, the same landing words as the reader's `until`.
+const Map<String, Map<String, dynamic>> kJudgedJumpFields = {
+  'hours_elapsed': {
+    'type': 'integer',
+    'description':
+        'Whole hours skipped (1-23) ONLY when the reply explicitly narrates '
+        'a jump of hours, not days ("six hours later"). 0 otherwise.',
+  },
+  'lands_at': {
+    'type': 'string',
+    'description':
+        'Only with days_elapsed: the time of day the reply lands at (dawn, '
+        'morning, late_morning, afternoon, evening, night, or 24-hour HH:MM). '
+        'Blank when it does not say.',
+  },
 };
 
 final Map<String, Map<String, dynamic>> kSkipReaderFields = {

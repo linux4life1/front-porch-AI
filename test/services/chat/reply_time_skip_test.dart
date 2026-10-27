@@ -303,4 +303,58 @@ void main() {
       }
     });
   });
+
+  // A night the judge calls from the reply ("new_day"), not a skip the
+  // player asked for: the bodies wake rested in 1:1 and in a group, and a
+  // regen lands the same bars.
+  group('a night the reply narrates', () {
+    const night = '*She falls asleep on the couch and sleeps till morning.*';
+    const judgedNight = '{"minutes_elapsed": 30, "new_day": true}';
+
+    Future<void> atTenAtNight() async {
+      final c = h.chat.timeService.clock;
+      await h.chat.setStoryClock(DateTime.utc(c.year, c.month, c.day, 22));
+    }
+
+    test('1:1: the body wakes rested, and a regen lands the same', () async {
+      await hungryOnTheCouch();
+      await atTenAtNight();
+      llm.mouth = night;
+      llm.timeVerdict = judgedNight;
+
+      await h.chat.sendMessage('Goodnight.');
+      await h.settleTurn();
+      expect(h.chat.timeService.clock.hour, 8);
+      final energy = h.chat.needsSimulation.vector['energy']!;
+      expect(energy, greaterThanOrEqualTo(75), reason: 'a night slept');
+
+      await h.chat.regenerateLastMessage();
+      await h.settleTurn();
+      expect(h.chat.needsSimulation.vector['energy'], energy);
+    });
+
+    test('group: every member wakes rested', () async {
+      await h.groupWithTwoReplies(aOff: const []);
+      llm.liveNeedsReply = _quietNeeds;
+      final cast = h.chat.groupCharacters.toList();
+      for (final c in cast) {
+        h.chat.getNeedsForGroupCharacter(c)['energy'] = 10;
+      }
+      await atTenAtNight();
+      llm.mouth = night;
+      llm.timeVerdict = judgedNight;
+      h.chat.setNextCharacter(cast.first);
+
+      await h.chat.sendMessage('Goodnight, all.');
+      await h.settleTurn();
+      expect(h.chat.timeService.clock.hour, 8);
+      for (final c in cast) {
+        expect(
+          h.chat.getNeedsForGroupCharacter(c)['energy'],
+          greaterThanOrEqualTo(75),
+          reason: c.name,
+        );
+      }
+    });
+  });
 }

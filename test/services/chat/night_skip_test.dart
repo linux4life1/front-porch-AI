@@ -304,7 +304,7 @@ void main() {
         '{"skip": true, "minutes": $minutes, "until": "$until", '
         '"gap": "${slept ? 'slept' : 'other'}"}';
 
-    test('#629: a count that disagrees with the reader asks, and the '
+    test('a count that disagrees with the reading asks, and the '
         'player\'s eight hours land at 9:40', () async {
       final t = at('01:40', 'night');
       final asked = <PendingSkip>[];

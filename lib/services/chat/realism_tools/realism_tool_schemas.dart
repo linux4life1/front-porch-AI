@@ -281,9 +281,8 @@ final Map<String, Map<String, dynamic>> _sceneTimeFields = {
   // simply omit it, and the parse treats absent, "same" and "" identically
   // — never a move. It is in NO required list on purpose: tool models skip
   // optional fields, and skipping here is the safe answer.
-  // Slice 7 (same fixed-contract rule as scene_place): the pair behind
-  // scene_place == "new". Blank when not minting; models skipping the
-  // optional fields is the safe answer, same as the field itself.
+  // Slice 7, same rules: the pair behind scene_place == "new", blank when
+  // not minting.
   'new_place_name': _strField(
     'Only with scene_place "new": the exact NAME of the place the '
     'narration arrived at ("the Salt Garden"). Blank if it has no name.',
@@ -328,7 +327,7 @@ final List<Map<String, dynamic>> kSceneTimeOnlyEvalTools = [
       'continuous_instant': _sceneTimeFields['continuous_instant']!,
       'new_day': _sceneTimeFields['new_day']!,
       'days_elapsed': _sceneTimeFields['days_elapsed']!,
-      'lands_at': kJudgedLandsAtField,
+      ...kJudgedJumpFields,
       // Slice 6: in the schema always (fixed contract); asked for in the
       // prompt only when Scene suggestions is on. Absent = 'same'.
       'scene_place': _sceneTimeFields['scene_place']!,
@@ -354,7 +353,7 @@ final List<Map<String, dynamic>> kSceneTimeOnlyEvalToolsWithToday = [
       'continuous_instant': _sceneTimeFields['continuous_instant']!,
       'new_day': _sceneTimeFields['new_day']!,
       'days_elapsed': _sceneTimeFields['days_elapsed']!,
-      'lands_at': kJudgedLandsAtField,
+      ...kJudgedJumpFields,
       'scene_place': _sceneTimeFields['scene_place']!,
       'new_place_name': _sceneTimeFields['new_place_name']!,
       'new_place_descriptor': _sceneTimeFields['new_place_descriptor']!,
@@ -475,9 +474,6 @@ final List<Map<String, dynamic>> kCastFeelingsEvalTools = [
   ),
 ];
 
-/// Slice 7: place-mint draft tool. Fields are NOT required so that text-only
-/// models can omit or blank them without breaking salvage; the factory rejects
-/// incomplete drafts downstream rather than at the schema matcher.
 /// The whitelisted keys per tool (anything else the model invents is
 /// dropped, mirroring how the regex extractors ignore unknown text keys).
 final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
@@ -486,7 +482,11 @@ final Map<String, Map<String, Map<String, dynamic>>> realismToolFieldsByTool = {
   kNarrativeTool: _narrativeFields,
   kOneShotTool: {..._oneShotFields, 'today_sentence': _todaySentenceField},
   kNeedsImpactTool: _needsImpactFields,
-  kSceneTimeTool: {..._sceneTimeFields, 'today_sentence': _todaySentenceField},
+  kSceneTimeTool: {
+    ..._sceneTimeFields,
+    ...kJudgedJumpFields,
+    'today_sentence': _todaySentenceField,
+  },
   kExpressionTool: _expressionFields,
   kCastDetectTool: _castDetectFields,
   kClimaxToolName: kClimaxFields,

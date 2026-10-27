@@ -20,6 +20,7 @@ import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/services/chat/time_service/reply_jump.dart';
 import 'package:front_porch_ai/services/chat/time_service/time_clock_state.dart';
 import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
@@ -302,19 +303,23 @@ class TimeClockApplier {
     return minutes;
   }
 
-  /// The judge's `days_elapsed`: a jump of days the reply narrated,
-  /// landing at its `lands_at` ([until]) else in the morning.
-  Future<int> applyJudgedDays(int days, {String until = ''}) => _applyLivedSkip(
-    SkipVerdict(
-      minutes: days.clamp(1, 365) * kLongSkipMinutes,
-      until: until,
-    ).landing(state.clock)!,
-  );
+  /// A jump the reply narrated, as the judge read it ([ReplyJump]). A
+  /// night the judge also called ([slept]) of [kRestedSleepMinutes] or
+  /// more wakes the bodies rested.
+  Future<int> applyReplyJump(ReplyJump jump, {bool slept = false}) =>
+      _applyLivedSkip(
+        SkipVerdict(
+          minutes: jump.minutes,
+          until: jump.landsAt,
+        ).landing(state.clock)!,
+        slept: slept,
+      );
 
-  Future<int> _applyLivedSkip(DateTime next) async {
+  Future<int> _applyLivedSkip(DateTime next, {bool slept = false}) async {
     if (!next.isAfter(state.clock)) return 0;
     final dayBefore = state.dayCount;
     final skipped = next.difference(state.clock).inMinutes;
+    final rested = slept && skipped >= kRestedSleepMinutes;
     state.clock = next;
     state.turnsSinceClockMoved = 0;
     state.oocSkipMovedClockThisTurn = true;
@@ -325,6 +330,7 @@ class TimeClockApplier {
       isSkip: true,
       offScreen: true,
       skipDestination: '${state.displayShortDate} · ${state.displayClock}',
+      slept: rested,
     );
     _replySkipMinutes += skipped;
     onNotify();
@@ -388,12 +394,16 @@ class TimeClockApplier {
       );
     }
     if (!stalled) {
-      // A night crossed is the whole jump, not the minutes the eval named.
+      // A night crossed is the whole jump, not the minutes the eval named,
+      // and a night's sleep long enough wakes the bodies rested, as a
+      // night the player skipped does.
+      final jumped = newDay ? state.clock.difference(clockBefore).inMinutes : m;
       state.noteBodyBeat(
-        minutes: newDay ? state.clock.difference(clockBefore).inMinutes : m,
+        minutes: jumped,
         nextMorning: newDay,
         isSkip: false,
         offScreen: newDay,
+        slept: newDay && jumped >= kRestedSleepMinutes,
       );
     } else {
       state.noteBodyBeat(

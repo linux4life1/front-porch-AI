@@ -221,11 +221,16 @@ OpenCode install or config.
   and why the old assertion is now false.
 - **No stub network tests.** Stoop, Backporch and model-download pins talk
   to a real server or skip when the env is absent. No `FakeStoopServer`,
-  loopback JSON behind `overrideBaseUrl`, canned `HttpOverrides`, or LLM
-  fakes that return the expected string. Live pins are tagged `stoop_live`
-  and read `STOOP_TEST_EMAIL` / `STOOP_TEST_PASSWORD` (optional
+  loopback JSON behind `overrideBaseUrl`, or canned `HttpOverrides`.
+  Live pins are tagged `stoop_live` and read `STOOP_TEST_EMAIL` / `STOOP_TEST_PASSWORD` (optional
   `STOOP_LIVE_URL`, `STOOP_TEST_TOTP`) from `Platform.environment`; CI
   `stoop-live` injects them on same-repo PRs. Never print them.
+- **No scripted-answer tests.** A scripted model reply may only feed
+  the code under test (clock math, a gate, a dialog). No test scripts a
+  reading, a verdict or a reply and then asserts that same answer back,
+  or claims a model reads something right, or names an issue fixed on
+  the strength of one. How a model reads text is proven by a `live` test
+  against a real model or by hand. Reviewers HOLD a PR that adds one.
 - Inventory of E2E suites: `docs/design/e2e-coverage-inventory.md`.
 
 ## Public text

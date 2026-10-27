@@ -465,8 +465,8 @@ void main() {
   // A line with time words goes to the skip reader before the reply; the
   // reading, not a phrase list, moves the clock. Proven red: landing a
   // counted span on "the next morning" puts 1:40 AM + 8 h at 8 AM; dropping
-  // `rested` in needs_pass.dart leaves the sleepers at 15 energy (1:1 and
-  // group); reading skip_minutes off the pending turn in
+  // `rested` in needs_pass.dart leaves the sleepers at 15 energy (group);
+  // reading skip_minutes off the pending turn in
   // `_timeSkipAnchorBlock` drops the 8-hour anchor; dropping the skip-only
   // branch in chat_service_send.dart sends "/skip morning" as chat; not
   // stripping the tag sends "/skip 8h" to the model.
@@ -474,32 +474,18 @@ void main() {
   const slept = '*We slept eight hours and woke up to birdsong.*';
   final sleptReading = {'slept eight hours': skipReading(480, slept: true)};
 
-  test(
-    '#629: "slept eight hours and woke up" at 1:40 AM lands at 9:40, '
-    'wakes the sleeper rested, and the reply reads the 8-hour anchor',
-    () async {
-      await furiousOnTheCouch();
-      llm.skipReadings = sleptReading;
-      final from = DateTime.utc(2026, 10, 27, 1, 40);
-      await h.chat.setStoryClock(from);
+  test('"/skip 8h" at 1:40 AM lands at 9:40 and the reply reads the '
+      '8-hour anchor, with no card', () async {
+    await furiousOnTheCouch();
+    await h.chat.setStoryClock(DateTime.utc(2026, 10, 27, 1, 40));
 
-      await h.chat.sendMessage(slept);
-      await h.settleTurn();
+    await h.chat.sendMessage('We sit on the porch swing. /skip 8h');
+    await h.settleTurn();
 
-      expect(llm.skipReaderPrompts.single, contains(slept));
-      expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 9, 40));
-      expect(
-        h.chat.needsSimulation.vector['energy'],
-        greaterThanOrEqualTo(75),
-        reason: 'a night slept through',
-      );
-      expect(
-        llm.replyPrompts.last,
-        contains('[Time skip: about 8 hours passed'),
-      );
-      expect(llm.bridgePrompts, isEmpty, reason: 'a night is not a long skip');
-    },
-  );
+    expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 9, 40));
+    expect(llm.replyPrompts.last, contains('[Time skip: about 8 hours passed'));
+    expect(llm.bridgePrompts, isEmpty, reason: 'hours are not a long skip');
+  });
 
   test('in a group every sleeper wakes rested, and a regen lands the same '
       'bars and clock', () async {

@@ -650,4 +650,100 @@ void main() {
       expect(seen, isNull);
     });
   });
+
+  // A jump the reply narrates, as the judge reports it: the code's own
+  // handling of a report (the cap, the guard, the transport, the rested
+  // wake). Whether a model reports it is the live test's question.
+  group('TimeService jumps the reply narrates', () {
+    test('hours_elapsed moves past the per-turn cap only when the '
+        'exchange names hours', () async {
+      final t = makeService();
+      seedFixed(t);
+      final from = t.clock;
+      await runEval(
+        t,
+        fire: (_) async => '{"minutes_elapsed": 30, "hours_elapsed": 6}',
+        recent: 'User: I wait.\nNia: *Six hours later, the rain stops.*',
+      );
+      expect(t.clock, from.add(const Duration(hours: 6)));
+
+      // With no span of hours in the exchange it is the turn's minutes.
+      final later = t.clock;
+      await runEval(
+        t,
+        fire: (_) async => '{"minutes_elapsed": 30, "hours_elapsed": 6}',
+        recent: 'User: I wait.\nNia: *She hums by the window.*',
+      );
+      expect(t.clock, later.add(const Duration(minutes: 30)));
+    });
+
+    test('the tools transport keeps lands_at and hours_elapsed', () async {
+      LlmToolResponse call(Map<String, dynamic> args) => LlmToolResponse(
+        calls: [LlmToolCall(name: kSceneTimeTool, arguments: args)],
+        text: '',
+      );
+      var args = <String, dynamic>{
+        'minutes_elapsed': 30,
+        'days_elapsed': 3,
+        'lands_at': 'evening',
+      };
+      final t = makeService(
+        probe: ToolTransportProbe(),
+        fireToolEval: (_, _) async => call(args),
+      );
+      seedFixed(t);
+      final from = t.clock;
+      await runEval(
+        t,
+        fire: (_) async => 'MUST NOT FALL BACK TO TEXT',
+        recent:
+            'User: I wait.\nNia: *Three days later, that evening, she '
+            'knocks.*',
+      );
+      final day = from.add(const Duration(days: 3));
+      expect(t.clock, DateTime.utc(day.year, day.month, day.day, 18, 30));
+
+      args = {'minutes_elapsed': 30, 'hours_elapsed': 5};
+      final before = t.clock;
+      await runEval(
+        t,
+        fire: (_) async => 'MUST NOT FALL BACK TO TEXT',
+        recent: 'User: I wait.\nNia: *Five hours later, she is back.*',
+      );
+      expect(t.clock, before.add(const Duration(hours: 5)));
+    });
+
+    test('a night the judge calls wakes the bodies rested; a short turn '
+        'does not', () async {
+      final t = makeService();
+      seedFixed(t);
+      await runEval(
+        t,
+        fire: (_) async => '{"minutes_elapsed": 5, "new_day": true}',
+        recent: 'User: Goodnight.\nNia: *She falls asleep on the couch.*',
+      );
+      expect(t.clock.hour, 8);
+      expect(t.bodyBeatSlept, isTrue);
+
+      await runEval(t, fire: (_) async => '{"minutes_elapsed": 10}');
+      expect(t.bodyBeatSlept, isFalse);
+    });
+
+    test(
+      'a night of counted hours lands on the hour and wakes rested',
+      () async {
+        final t = makeService();
+        seedFixed(t);
+        final from = t.clock;
+        await runEval(
+          t,
+          fire: (_) async =>
+              '{"minutes_elapsed": 5, "new_day": true, "hours_elapsed": 8}',
+          recent: 'User: Goodnight.\nNia: *They sleep eight hours.*',
+        );
+        expect(t.clock, from.add(const Duration(hours: 8)));
+        expect(t.bodyBeatSlept, isTrue);
+      },
+    );
+  });
 }

@@ -16,7 +16,8 @@ The parts of CLAUDE.md that bite most often:
   and group, Journal and Growth, desktop and web, or say which you skipped.
 - **Parity** — desktop work ships with its `web_ui/` twin in the same
   change unless the maintainer deferred it in this conversation.
-- **Tests** — new guards fail without the fix; no stub network tests.
+- **Tests** — new guards fail without the fix; no stub network tests; no
+  test that scripts a model's answer and asserts it back.
 - **Git** — no `git restore` or `git checkout --` on a file without
   approval; never edit the `pubspec.yaml` version.
 
