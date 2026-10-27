@@ -21,6 +21,7 @@ import {
 } from '../components/WorldStartingPlaceField';
 import {
   buildWorldInjection,
+  bulkDeletePlan,
   injectionUsedChars,
   libraryDisplayOrder,
   planWorldLibrary,
@@ -513,17 +514,21 @@ export function WorldsPage() {
   const deleteModelMade = async () => {
     const doomed = worlds.filter((x) => x.isModelMade === true);
     if (doomed.length === 0) return;
+    const plan = bulkDeletePlan(doomed, worlds, indexById(worlds));
+    const extra = plan.alsoInside;
     if (
       !window.confirm(
         `Delete ${doomed.length} model-made place${doomed.length === 1 ? '' : 's'}? ` +
-          'Places inside them are deleted too.',
+          (extra > 0
+            ? `${extra} place${extra === 1 ? '' : 's'} you made inside them will be deleted too.`
+            : ''),
       )
     )
       return;
     setBusy(true);
     setMoveError('');
     let failed = 0;
-    for (const x of doomed) {
+    for (const x of plan.roots) {
       try {
         await api.post(`/api/worlds/${encodeURIComponent(x.name)}/delete`);
       } catch {
@@ -532,7 +537,7 @@ export function WorldsPage() {
     }
     setBusy(false);
     setSelected(new Set());
-    if (failed > 0) setMoveError(`${failed} of ${doomed.length} could not be deleted.`);
+    if (failed > 0) setMoveError(`${failed} of ${plan.roots.length} could not be deleted.`);
     void load();
   };
 

@@ -101,6 +101,31 @@ export function placesInsideCount(
   return subtreeOf(rootId, worlds, byId).length;
 }
 
+/** A bulk delete of [doomed]. A world's delete takes its whole tree, so
+ *  only [roots] (doomed rows with no doomed ancestor) are sent; a child
+ *  sent after its parent would answer 404 for a row already gone.
+ *  [alsoInside] counts the places outside [doomed] that go with them
+ *  (desktop bulkDeletePlan twin). */
+export function bulkDeletePlan(
+  doomed: TreeWorld[],
+  worlds: TreeWorld[],
+  byId: Map<string, TreeWorld>,
+): { roots: TreeWorld[]; alsoInside: number } {
+  const ids = new Set(doomed.map(idOf));
+  const under = new Set<string>();
+  for (const d of doomed) {
+    for (const p of subtreeOf(idOf(d), worlds, byId)) under.add(idOf(p.place));
+  }
+  const roots = doomed.filter((d) => !under.has(idOf(d)));
+  const inside = new Set<string>();
+  for (const r of roots) {
+    for (const p of subtreeOf(idOf(r), worlds, byId)) {
+      if (!ids.has(idOf(p.place))) inside.add(idOf(p.place));
+    }
+  }
+  return { roots, alsoInside: inside.size };
+}
+
 /** Direct children only. */
 export function placesUnder(
   rootId: string,

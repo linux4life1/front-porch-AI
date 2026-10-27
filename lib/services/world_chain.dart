@@ -209,3 +209,28 @@ World startingPlaceOf(World world, World? Function(String id) lookup) {
   final place = id == null ? null : lookup(id);
   return place != null && isPlaceInside(place, world, lookup) ? place : world;
 }
+
+/// A bulk delete of [doomed]. A world's delete takes its whole tree, so only
+/// [roots] (doomed rows with no doomed ancestor) are deleted; deleting a
+/// child after its parent would hit a row that is already gone.
+/// [alsoInside] counts the places outside [doomed] that go with them, so
+/// the confirm can say how much hand-made work is lost.
+({List<World> roots, int alsoInside}) bulkDeletePlan(
+  List<World> doomed,
+  Iterable<World> all,
+  World? Function(String id) lookup,
+) {
+  final ids = {for (final d in doomed) d.id};
+  final roots = [
+    for (final d in doomed)
+      if (!doomed.any((o) => isPlaceInside(d, o, lookup))) d,
+  ];
+  final alsoInside = all
+      .where(
+        (w) =>
+            !ids.contains(w.id) &&
+            roots.any((r) => isPlaceInside(w, r, lookup)),
+      )
+      .length;
+  return (roots: roots, alsoInside: alsoInside);
+}

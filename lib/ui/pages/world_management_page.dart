@@ -370,13 +370,15 @@ class _WorldManagementPageState extends State<WorldManagementPage>
   ) async {
     final doomed = repo.placeWorlds.where((w) => w.isModelMade).toList();
     if (doomed.isEmpty) return;
+    final plan = bulkDeletePlan(doomed, repo.placeWorlds, repo.worldById);
+    final extra = plan.alsoInside;
     final go = await showWarmDialog<bool>(
       context,
       title: 'Delete model-made places?',
       destructive: true,
       content: Text(
         'Delete ${doomed.length} model-made place${doomed.length == 1 ? '' : 's'}? '
-        'Places inside them are deleted too.',
+        '${extra > 0 ? '$extra place${extra == 1 ? '' : 's'} you made inside them will be deleted too.' : ''}',
         style: TextStyle(color: AppColors.textSecondary(context)),
       ),
       actions: [
@@ -396,7 +398,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
     if (go != true) return;
     var failed = 0;
     Object? firstError;
-    for (final w in doomed) {
+    for (final w in plan.roots) {
       // One failing delete must not abandon the rest of the batch
       // midway with no report (review #592).
       try {
@@ -412,7 +414,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            '$failed of ${doomed.length} could not be deleted: $firstError',
+            '$failed of ${plan.roots.length} could not be deleted: $firstError',
           ),
         ),
       );
