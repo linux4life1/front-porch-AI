@@ -81,12 +81,14 @@ const Map<String, SceneConditionWash> kSceneConditionWash = {
     darken: 0.18,
     haze: 0.05,
   ),
-  // Haze 0.80 (not 0.85) keeps High Contrast dark above its 7:1
-  // floor in the worst cell (dawn, cryogenic); `scene_sim_test` pins it.
+  // The flat haze is thin; the fog's body is the moving mist on top
+  // (`scene_fog_mist.dart`), since a thick even haze read as a plain grey
+  // background. Still the haziest condition and over the fog floor that
+  // turns the mist on; `scene_sim_test` pins the High Contrast floor.
   'fog': SceneConditionWash(
     wash: SceneWash(Color(0xFFC9CED3), 0.10),
     darken: 0.05,
-    haze: 0.80,
+    haze: 0.40,
   ),
   'rain': SceneConditionWash(
     wash: SceneWash(Color(0xFF4B5B6E), 0.14),
@@ -149,14 +151,14 @@ class SceneEffectPaints {
 
 /// Over a dark canvas: pale streaks and white flakes, but grey cloud and
 /// fog, since a bright one behind light text would wash it out. The fog's
-/// ceiling (0x4E) is the highest that keeps every non-High-Contrast theme's
-/// text at 4.5:1 over the haziest tint (dawn, fog, cryogenic);
-/// `scene_effects_test` pins the floor.
+/// ceiling (0x8C) sits just under the highest that keeps every
+/// non-High-Contrast theme's text at 4.5:1 over the haziest fog tint
+/// (0.56 with fog's haze at 0.40); `scene_effects_test` pins the floor.
 const SceneEffectPaints kSceneEffectPaintsDark = SceneEffectPaints(
   rain: Color(0x8CC8D7EB),
   snow: Color(0xE6FFFFFF),
   cloud: Color(0x668C96A2),
-  fog: Color(0x4EA9B1BB),
+  fog: Color(0x8CA9B1BB),
   flash: Color(0x99F0F4FF),
 );
 

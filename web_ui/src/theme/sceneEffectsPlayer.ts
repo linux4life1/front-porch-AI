@@ -4,7 +4,7 @@
 // Draws and drives the Ambient Stage's moving weather on a <canvas> behind
 // the chat (docs/design/ambient-stage.md). The desktop's Flame components
 // (lib/ui/chat_components/ambient/) are the reference: clouds as one path of
-// puffs each, fog as radial blobs, rain as one batch of slanted strokes, snow
+// puffs each, fog as two streaming layers of mist, rain as one batch of slanted strokes, snow
 // as three batches by size, the storm flash as a full wash. Every colour is a
 // string from the wire; per-shape strength is globalAlpha.
 //
@@ -21,12 +21,15 @@ import {
   BOLT_CORE_ALPHA, BOLT_CORE_WIDTH, BOLT_GLOW_ALPHA, BOLT_GLOW_WIDTH,
   CLOUD_BODY_ALPHA, CLOUD_TOP_ALPHA, CLOUD_TOP_LIFT, CLOUD_TOP_SCALE,
   FAR_SHEET_ALPHA, FAR_SHEET_DX, FAR_SHEET_DY, FAR_SHEET_LENGTH, FAR_SHEET_WIDTH,
-  GROUND_FOG_HEIGHT, GROUND_FOG_STRIPES, HEAVY_RAIN_DENSITY, MID_SHEET_ALPHA, MID_SHEET_DX, MID_SHEET_DY, MID_SHEET_LENGTH,
+  HEAVY_RAIN_DENSITY, MID_SHEET_ALPHA, MID_SHEET_DX, MID_SHEET_DY, MID_SHEET_LENGTH,
   RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_RING_ALPHA, STREAK_SPRITE_HEIGHT, STREAK_SPRITE_WIDTH,
   SNOW_FAR_ALPHA, SNOW_HALO_ALPHA, SNOW_HALO_WIDTH, SceneSplashes,
-  cloudBob, flashShape, fogBob, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
+  cloudBob, flashShape, rainBand, rainGust, rainLean, rainLit, sceneBolt,
   type Bolt,
 } from './sceneEffectsRender';
+import {
+  MIST_HEIGHT, MIST_LAYERS, MIST_SHARE, MIST_SPAN, MIST_WIDTH, mistBreath, mistShift, sceneMist,
+} from './sceneFogMist';
 
 export const STEP_MS = 1000 / 30;
 
@@ -35,28 +38,45 @@ export const STEP_MS = 1000 / 30;
 // painting every other frame instead of every third.
 const SLACK_MS = 2;
 
-// Each fog blob's gradient, built at the origin once per scatter and
-// colour and moved with a translate, so a frame makes no gradients. Keyed
-// by the sim, so a new scatter drops the old ones with it.
-const fogGradients = new WeakMap<SceneEffectsSim, { fog: string; clear: string; grads: CanvasGradient[] }>();
+// Each mist layer as a canvas tinted with the fog colour, built once per
+// scatter and colour (sceneFogMist.ts), so a frame only draws images. Keyed
+// by the sim, so a new scatter drops the old ones with it; null where the
+// page cannot build a canvas, and then there is no mist.
+const fogMist = new WeakMap<SceneEffectsSim, { fog: string; layers: HTMLCanvasElement[] | null }>();
 
-function fogGradientsFor(ctx: CanvasRenderingContext2D, sim: SceneEffectsSim, paints: EffectPaints): CanvasGradient[] {
-  const cached = fogGradients.get(sim);
-  if (cached && cached.fog === paints.fog && cached.clear === paints.fogClear) return cached.grads;
-  const grads = sim.fogBlobs.map((f) => {
-    const g = ctx.createRadialGradient(0, 0, 0, 0, 0, f.r);
-    g.addColorStop(0, paints.fog);
-    g.addColorStop(1, paints.fogClear);
-    return g;
-  });
-  fogGradients.set(sim, { fog: paints.fog, clear: paints.fogClear, grads });
-  return grads;
+function fogMistFor(sim: SceneEffectsSim, fog: string): HTMLCanvasElement[] | null {
+  const cached = fogMist.get(sim);
+  if (cached && cached.fog === fog) return cached.layers;
+  let layers: HTMLCanvasElement[] | null = [];
+  for (let l = 0; l < MIST_LAYERS; l++) {
+    const c = document.createElement('canvas');
+    c.width = MIST_WIDTH;
+    c.height = MIST_HEIGHT;
+    const g = c.getContext('2d');
+    if (!g) { layers = null; break; }
+    const density = sceneMist(sim.seed, l);
+    const img = g.createImageData(MIST_WIDTH, MIST_HEIGHT);
+    for (let i = 0; i < density.length; i++) {
+      img.data[i * 4] = 255;
+      img.data[i * 4 + 1] = 255;
+      img.data[i * 4 + 2] = 255;
+      img.data[i * 4 + 3] = Math.round(density[i] * 255);
+    }
+    g.putImageData(img, 0, 0);
+    // The density is the alpha; source-in keeps that shape in the fog colour.
+    g.globalCompositeOperation = 'source-in';
+    g.fillStyle = fog;
+    g.fillRect(0, 0, MIST_WIDTH, MIST_HEIGHT);
+    layers.push(c);
+  }
+  fogMist.set(sim, { fog, layers });
+  return layers;
 }
 
 /**
  * Paints one frame of the sim in the desktop's order (clouds, fog, rain or
  * snow, the flash) by the recipe in sceneEffectsRender.ts: shaded clouds
- * that bob, fog blobs rolling over a breathing ground band, rain as a far
+ * that bob, two layers of fog mist streaming past, rain as a far
  * sheet behind three depth bands with splashes at the ground, snow as a far
  * sheet behind three bands with a halo on the nearest, and a storm flash
  * that strikes twice with a seeded bolt.
@@ -85,24 +105,15 @@ export function paintSceneEffects(ctx: CanvasRenderingContext2D, sim: SceneEffec
     }
     ctx.fill();
   }
-  if (sim.fogBlobs.length) {
-    const grads = fogGradientsFor(ctx, sim, paints);
-    sim.fogBlobs.forEach((f, i) => {
-      ctx.globalAlpha = f.a;
-      ctx.fillStyle = grads[i];
-      ctx.save();
-      ctx.translate(f.x, f.y + fogBob(i, sim.time) * h);
-      ctx.fillRect(-f.r, -f.r, f.r * 2, f.r * 2);
-      ctx.restore();
+  if (sim.spec.fog) {
+    const mist = fogMistFor(sim, paints.fog);
+    const tileW = w * MIST_SPAN;
+    mist?.forEach((m, l) => {
+      ctx.globalAlpha = MIST_SHARE[l] * mistBreath(l, sim.time);
+      const shift = mistShift(l, sim.time, w);
+      ctx.drawImage(m, shift - tileW, 0, tileW, h);
+      ctx.drawImage(m, shift, 0, tileW, h);
     });
-    const breath = groundFogBreath(sim.time);
-    const band = h * GROUND_FOG_HEIGHT;
-    const stripe = band / GROUND_FOG_STRIPES;
-    ctx.fillStyle = paints.fog;
-    for (let i = 0; i < GROUND_FOG_STRIPES; i++) {
-      ctx.globalAlpha = groundFogStripeAlpha(i) * breath;
-      ctx.fillRect(0, h - band + i * stripe, w, stripe + 0.5);
-    }
   }
   if (sim.spec.kind === 'rain' && sim.drops.length) {
     paintRain(ctx, sim, paints.rain);
