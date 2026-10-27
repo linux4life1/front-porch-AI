@@ -236,6 +236,41 @@ stage size draws the same scene. The scatter scales by the stage size,
 so the desktop and the web draw the same scene only at identical integer
 sizes; the shared vectors pin the sims at fixed sizes.
 
+### The render recipe (second pass)
+
+Once the stage had proven stable the maintainer asked for the weather to
+be more visceral. The sim and its shared vectors did not move; the
+richness is in how the two renderers draw the sim's numbers, from one
+recipe (`lib/services/chat/scene/scene_effects_render.dart`,
+`web_ui/src/theme/sceneEffectsRender.ts`; `scene_effects_render_test` and
+`sceneEffectsRender.test.ts` pin the same numbers, the bolt point for
+point):
+
+- **Rain** draws in three depth bands by each drop's own alpha, the near
+  band thicker, longer and brighter, plus a far sheet of the same drops
+  offset across the stage, shorter and fainter, and a short splash on the
+  bottom edge under each near drop about to land. Every pass is still one
+  batched draw.
+- **Storm.** The flash's shown strength is shaped (`flashShape`): a strike,
+  a dark beat, a second strike, then the fade, over the same quarter
+  second. A forked bolt comes down from the top, its trunk and one branch
+  drawn from the scene's seed and the flash's place in the schedule
+  (`sceneBolt(seed, nextFlashAt, w, h)`), so both surfaces strike alike.
+  The thunder timing is unchanged.
+- **Fog** blobs bob slowly on the sim's clock, and a ground band in 24
+  stripes lies over the bottom 30% of the stage, thickest at the edge,
+  peaking at 0.35 of the fog paint and breathing between 0.8 and 1.0 of
+  that. No new shaders: the band is rectangles.
+- **Snow** gains a far sheet of pinpoints and a soft halo under the
+  nearest band.
+- **Clouds** are a body at 0.62 and a smaller, lifted top at 0.32 of the
+  cloud's alpha, and bob slowly.
+
+The readability floor still holds by construction: a body and top
+composite under 0.75 of the cloud paint (the floor test's bound), and the
+ground fog peaks under the 0.5 the floor test assumes for fog. Reduce
+motion holds all of it still, as before.
+
 ### Backgrounds and the weather overlay
 
 Decision (maintainer, this doc's first review): **the stage paints the

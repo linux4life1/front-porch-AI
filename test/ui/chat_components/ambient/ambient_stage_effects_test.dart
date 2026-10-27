@@ -290,4 +290,20 @@ void main() {
     expect(fog.isRemoved, isTrue);
     expect(fog.debugShaderCount, 0);
   });
+
+  testWidgets('a storm flash draws its bolt from the scene and the schedule', (
+    tester,
+  ) async {
+    final game = await _pump(tester, _scene(WeatherCondition.storm));
+    final layer = game.children.whereType<SceneLightningFlash>().single;
+    expect(layer.debugBoltAt.isNaN, isTrue, reason: 'no flash yet');
+    final sim = game.effects!;
+    sim.flash = 1;
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(layer.debugBoltAt, sim.nextFlashAt, reason: 'one bolt per strike');
+    final at = sim.nextFlashAt;
+    sim.flash = 1;
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(layer.debugBoltAt, at, reason: 'held for the flash\'s life');
+  });
 }
