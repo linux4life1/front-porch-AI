@@ -45,6 +45,55 @@
   height: 100%;
   pointer-events: none;
 }
+/* The Setting place's picture (SceneBackdrop): first in tree order, so it
+   paints under the weather canvas and every other child, which stay
+   positioned while it is up. It carries its own veil (the desktop's 0.45
+   dim) and the Ambient Stage's tint, so the view's ::before stands down
+   rather than paint the theme image under it. Never a tap. */
+.chat-view.has-scene-backdrop::before { content: none; }
+.chat-view.has-scene-backdrop > :not(.scene-backdrop):not(.scene-effects) { position: relative; }
+.chat-view > .scene-backdrop {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.scene-backdrop-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A move from one place to the next is a dissolve: the picture arriving
+   fades in over the one leaving while settling from a touch larger to its
+   true size; the one leaving fades out as it eases the same touch larger. */
+.scene-backdrop-img.is-arriving { animation: scene-backdrop-arrive 1.2s cubic-bezier(0.33, 1, 0.68, 1) both; }
+.scene-backdrop-img.is-leaving { animation: scene-backdrop-leave 1.2s cubic-bezier(0.32, 0, 0.67, 0) both; }
+@keyframes scene-backdrop-arrive {
+  from { opacity: 0; transform: scale(1.04); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes scene-backdrop-leave {
+  from { opacity: 1; transform: scale(1); }
+  to { opacity: 0; transform: scale(1.04); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scene-backdrop-img.is-arriving, .scene-backdrop-img.is-leaving { animation: none; }
+  .scene-backdrop-img.is-leaving { display: none; }
+}
+.scene-backdrop-veil {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--scrim-ink) 45%, transparent);
+}
+.scene-backdrop-tint {
+  position: absolute;
+  inset: 0;
+  background-image: var(--scene-layers, none);
+  background-size: cover;
+  background-position: center;
+}
 .chat-header {
   display: flex; align-items: center; justify-content: space-between;
   flex-wrap: wrap; row-gap: 4px;

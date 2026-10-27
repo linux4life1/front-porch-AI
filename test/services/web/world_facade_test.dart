@@ -11,6 +11,8 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/web/facade/world_facade.dart';
+import 'package:front_porch_ai/utils/world_cover.dart';
+import 'package:image/image.dart' as img;
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -439,5 +441,26 @@ void main() {
       expect(d['climateAuthorId'], rootId, reason: 'inherited upstream');
       expect(d['locationCount'], 0);
     });
+
+    test(
+      'coverFor serves a saved place picture by id, nothing otherwise',
+      () async {
+        final cover = encodeWorldCoverDataUrl(
+          img.encodePng(img.Image(width: 4, height: 4)),
+        )!;
+        expect(
+          await facade.save({'name': 'Tea Rooms', 'coverImage': cover}),
+          isTrue,
+        );
+        expect(await facade.save({'name': 'Bare'}), isTrue);
+        final tea = facade.list().firstWhere((m) => m['name'] == 'Tea Rooms');
+        final bare = facade.list().firstWhere((m) => m['name'] == 'Bare');
+        final served = facade.coverFor(tea['id'] as String);
+        expect(served?.contentType, 'image/jpeg');
+        expect(served?.bytes, decodeWorldCoverBytes(cover));
+        expect(facade.coverFor(bare['id'] as String), isNull);
+        expect(facade.coverFor('no-such-place'), isNull);
+      },
+    );
   });
 }

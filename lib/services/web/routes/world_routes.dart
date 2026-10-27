@@ -43,6 +43,9 @@ class WebWorldRoutes {
     // Static suffix; register before the '<name>' captures, same
     // discipline as /import above (slice 4 web twin: "Part of" picker).
     router.get('/api/worlds/parent-candidates', _parentCandidates);
+    // The chat backdrop's picture (scene_backdrop.dart); static suffix,
+    // registered before the '<name>' captures like the rest.
+    router.get('/api/worlds/cover', _cover);
     router.post('/api/worlds/default-place', _setDefaultPlace);
     router.post('/api/lorebook/import', _importLorebook);
     router.get('/api/chat/places', _chatPlaces);
@@ -124,6 +127,23 @@ class WebWorldRoutes {
       );
     }
     return JsonResponse.ok(result);
+  }
+
+  /// The cover bytes behind the chat page. The URL carries the picture's
+  /// version (`sceneBackdropWire`), so the browser may keep it for good
+  /// and a re-saved cover is a new URL.
+  shelf.Response _cover(shelf.Request request) {
+    final id = request.url.queryParameters['id']?.trim() ?? '';
+    if (id.isEmpty) return JsonResponse.badRequest('id is required');
+    final cover = _facade.coverFor(id);
+    if (cover == null) return JsonResponse.error(404, 'No picture');
+    return shelf.Response.ok(
+      cover.bytes,
+      headers: {
+        'Content-Type': cover.contentType,
+        'Cache-Control': 'private, max-age=31536000, immutable',
+      },
+    );
   }
 
   shelf.Response _detail(shelf.Request request, String name) {

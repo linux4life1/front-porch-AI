@@ -32,6 +32,7 @@ export 'sidebar/character_portrait.dart';
 export 'sidebar/chat_main_settings.dart';
 export 'ambient/ambient_stage.dart';
 export 'ambient/ambient_stage_mount.dart';
+export 'ambient/scene_backdrop_layer.dart';
 export 'stage/chat_message_list.dart';
 export 'stage/chat_resize_sidebar.dart';
 export 'stage/transcript_anchor.dart';

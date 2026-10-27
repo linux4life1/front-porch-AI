@@ -80,6 +80,9 @@ export interface ChatState {
   // The Ambient Stage: the story's weather as colour strings the chat view
   // paints behind the bubbles (additive; null or absent means no scene).
   scene?: unknown;
+  // The Setting place's picture behind the chat: who it belongs to and
+  // where to fetch it (additive; null or absent means the theme background).
+  sceneBackdrop?: { placeId: string; placeName: string; url: string } | null;
   // Per-chat system prompt source (1:1 only) and the new-chat picker's
   // prompts while a new chat waits on it (additive; omitted in groups).
   promptSource?: PromptSourceState;

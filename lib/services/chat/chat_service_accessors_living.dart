@@ -39,6 +39,18 @@ extension ChatServiceAccessorsLiving on ChatService {
   /// (`sceneTokensFor`) so the chat page and the web chat state agree.
   AppearanceSettings get appearance => _storageService.appearance;
 
+  /// The picture behind the chat: the Setting place's cover, or the nearest
+  /// ancestor's, read live from the Setting's chain so a scene move paints
+  /// the new place at once (`sceneBackdropOf`). Null when the chat has no
+  /// Setting or no place in its chain has a picture, and the chat keeps the
+  /// background it chose. Independent of the Ambient scene level: the
+  /// picture is the ground the weather paints on, not part of the weather.
+  SceneBackdrop? get sceneBackdrop {
+    final primaryId = _chatPlaceSlots.primaryId;
+    if (primaryId == null) return null;
+    return sceneBackdropOf(_worldRepository.chainFor(primaryId));
+  }
+
   /// Pure recompute from existing state — nothing stored, so save/load and
   /// group re-entry agree for free. Gate: a MOVING clock + the global toggle.
   /// Weather is deterministic math over the day count and needs no eval of its
