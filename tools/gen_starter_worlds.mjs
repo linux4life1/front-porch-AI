@@ -17,11 +17,27 @@
 // test/services/starter_worlds_test.dart checks every file against the
 // real decoder, the climate validator and the index counts.
 
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'assets', 'worlds', 'starter');
+
+// Cover pictures: covers/<envelope id>.jpg, already sized for a world cover
+// (512 px long edge, JPEG, under lib/utils/world_cover.dart's byte cap). They
+// ride inline as the envelope's `cover` data URL, the same shape an exported
+// world with a picture has. pubspec lists assets/worlds/starter/ without
+// recursion, so the JPEGs themselves are not bundled twice.
+const COVERS = join(OUT, 'covers');
+const COVER_MAX_BYTES = 350 * 1024;
+
+function coverFor(id) {
+  const file = join(COVERS, `${id}.jpg`);
+  if (!existsSync(file)) throw new Error(`missing cover picture ${file}`);
+  const bytes = readFileSync(file);
+  if (bytes.length > COVER_MAX_BYTES) throw new Error(`${file} is over ${COVER_MAX_BYTES} bytes`);
+  return `data:image/jpeg;base64,${bytes.toString('base64')}`;
+}
 
 const BUILT_IN_NAMES = {
   temperate: 'Temperate',
@@ -100,6 +116,7 @@ function place({ id, name, description, climate = null, traits = null, entries =
     id,
     name,
     description,
+    cover: coverFor(id),
     lorebook: { entries },
     climate_enabled: climate !== null,
   };

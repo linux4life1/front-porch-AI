@@ -8,9 +8,11 @@
 // them (docs/design/locations-within-worlds.md §3).
 
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
@@ -18,10 +20,12 @@ import 'package:front_porch_ai/models/fp_world_package.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/lorebook_collection.dart';
 import 'package:front_porch_ai/services/chat/prompt_injection/world_injection.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/starter_worlds.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
+import 'package:front_porch_ai/utils/world_cover.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -359,6 +363,38 @@ void main() {
       }
       final harbor = repo.placeWorlds.firstWhere((w) => w.name == 'Harborside');
       expect(repo.startingPlaceFor(harbor.id)?.name, 'The Quay');
+    });
+  });
+
+  group('pictures', () {
+    test('every starter world and place lands with its own cover, and a '
+        'chat in a place shows that place\'s picture', () async {
+      for (final info in await starters.index()) {
+        final root = await starters.add(info.id);
+        final covered = [root, ...placesIn(root)];
+        for (final w in covered) {
+          expect(isWorldCoverDataUrl(w.coverImage), isTrue, reason: w.name);
+          final bytes = decodeWorldCoverBytes(w.coverImage);
+          expect(bytes, isNotNull, reason: w.name);
+          expect(bytes!.length, lessThanOrEqualTo(kWorldCoverMaxBytes));
+          final image = img.decodeJpg(bytes);
+          expect(image, isNotNull, reason: '${w.name}: a real JPEG');
+          expect(
+            math.max(image!.width, image.height),
+            lessThanOrEqualTo(kWorldCoverMaxEdge),
+            reason: w.name,
+          );
+        }
+        expect(
+          covered.map((w) => w.coverImage).toSet(),
+          hasLength(covered.length),
+          reason: '${info.id}: each place has a picture of its own',
+        );
+        for (final place in placesIn(root)) {
+          final backdrop = sceneBackdropOf(repo.chainFor(place.id));
+          expect(backdrop?.placeId, place.id, reason: place.name);
+        }
+      }
     });
   });
 }
