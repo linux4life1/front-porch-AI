@@ -249,17 +249,17 @@ class WorldFacade {
     return true;
   }
 
-  /// [onReRooted] reports how many children the delete turned into their
-  /// own worlds (slice 4 web twin of desktop's re-root snack). Optional —
-  /// callers that only care about success keep the bool contract.
+  /// [onPlacesDeleted] reports how many places inside the world went with
+  /// it (web twin of the desktop confirm's count). Optional — callers that
+  /// only care about success keep the bool contract.
   Future<bool> delete(
     String nameOrId, {
-    void Function(int reRooted)? onReRooted,
+    void Function(int placesDeleted)? onPlacesDeleted,
   }) async {
     final w = _worlds.resolveWorld(nameOrId);
     if (w == null) return false;
-    final moved = await _worlds.deleteWorld(w);
-    onReRooted?.call(moved);
+    final gone = await _worlds.deleteWorld(w);
+    onPlacesDeleted?.call(gone);
     return true;
   }
 

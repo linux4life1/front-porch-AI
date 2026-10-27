@@ -662,30 +662,51 @@ void main() {
     );
 
     test(
-      'deleting a place re-roots its children and reports how many',
+      'deleting a world deletes its whole place tree and reports how many',
       () async {
         final town = place('Bletchfield');
         await repo.saveWorld(town);
         final academy = place('Bletchmore Academy', parent: town.id);
         await repo.saveWorld(academy);
+        final room = place('Library', parent: academy.id, climate: false);
+        await repo.saveWorld(room);
         final cafe = place('Tea Rooms', parent: town.id, climate: false);
         await repo.saveWorld(cafe);
+        final other = place('Red Dust Station');
+        await repo.saveWorld(other);
+        await repo.setChatWorlds('chat-in-the-library', [room.id]);
 
-        final reRooted = await repo.deleteWorld(town);
-        expect(reRooted, 2);
+        expect(await repo.deleteWorld(town), 3);
 
+        // Nothing of the tree is left behind as a stray top-level world.
         final rows = {for (final r in await db.getAllWorlds()) r.id: r};
-        expect(rows[academy.id]!.parentWorldId, isNull);
-        expect(rows[cafe.id]!.parentWorldId, isNull);
-        // Climate left exactly as it was — the re-root only clears parents.
-        expect(rows[cafe.id]!.climateEnabled, isFalse);
-        // The cache agrees without a reload.
-        expect(repo.worldById(academy.id)!.parentWorldId, isNull);
-        expect(repo.worldById(cafe.id)!.parentWorldId, isNull);
-        // A root with no children reports zero, not an error.
-        expect(await repo.deleteWorld(academy), 0);
+        expect(rows.keys, [other.id]);
+        expect(repo.worlds.map((w) => w.id), [other.id]);
+        expect(
+          (await db.getChatWorldAttachments('chat-in-the-library')).allIds,
+          isEmpty,
+        );
+        // A world with nothing inside reports zero, not an error.
+        expect(await repo.deleteWorld(other), 0);
       },
     );
+
+    test('deleting a place takes only its own subtree', () async {
+      final town = place('Bletchfield');
+      await repo.saveWorld(town);
+      final academy = place('Bletchmore Academy', parent: town.id);
+      await repo.saveWorld(academy);
+      final room = place('Library', parent: academy.id);
+      await repo.saveWorld(room);
+      final cafe = place('Tea Rooms', parent: town.id);
+      await repo.saveWorld(cafe);
+
+      expect(await repo.deleteWorld(academy), 1);
+
+      final ids = {for (final r in await db.getAllWorlds()) r.id};
+      expect(ids, {town.id, cafe.id});
+      expect(repo.worldById(cafe.id)!.parentWorldId, town.id);
+    });
 
     test('import drops a parent id from the sender library', () async {
       // Until locations ride the envelope (slice 5), an imported place

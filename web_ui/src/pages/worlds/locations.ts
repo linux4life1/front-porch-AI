@@ -92,6 +92,15 @@ function subtreeOf(
   return out;
 }
 
+/** Every place inside [rootId], any depth: what a delete takes with it. */
+export function placesInsideCount(
+  rootId: string,
+  worlds: TreeWorld[],
+  byId: Map<string, TreeWorld>,
+): number {
+  return subtreeOf(rootId, worlds, byId).length;
+}
+
 /** Direct children only. */
 export function placesUnder(
   rootId: string,

@@ -24,7 +24,7 @@ import {
   injectionUsedChars,
   libraryDisplayOrder,
   planWorldLibrary,
-  placesUnder,
+  placesInsideCount,
   indexById,
   resolveParent,
   topOf,
@@ -516,7 +516,7 @@ export function WorldsPage() {
     if (
       !window.confirm(
         `Delete ${doomed.length} model-made place${doomed.length === 1 ? '' : 's'}? ` +
-          'Places inside them become their own worlds; lore stays.',
+          'Places inside them are deleted too.',
       )
     )
       return;
@@ -834,30 +834,25 @@ export function WorldsPage() {
           confirmDiscard(dirty) && openEdit(emptyDraft(parentKey));
         const remove = (w: TreeWorld) => {
           const key = keyOf(w);
-          const inside = placesUnder(key, rows, byId);
+          const inside = placesInsideCount(key, rows, byId);
           const childNote =
             inside > 0
-              ? ` Its ${inside} place${inside === 1 ? '' : 's'} become their own worlds — lore stays.`
+              ? ` The ${inside} place${inside === 1 ? '' : 's'} inside it will be deleted too.`
               : '';
           if (!window.confirm(`Delete place "${w.name}"?${childNote}`)) return;
           setBusy(true);
           api
-            .post<{ worlds: WorldSummary[]; reRooted?: number }>(
+            .post<{ worlds: WorldSummary[] }>(
               `/api/worlds/${encodeURIComponent(w.name)}/delete`,
             )
             .then((r) => {
               setWorlds(r.worlds);
-              if (!edit || edit.originalName === w.name) setEdit(null);
-              setSelected((prev) => {
-                const next = new Set(prev);
-                next.delete(key);
-                return next;
-              });
-              if ((r.reRooted ?? 0) > 0) {
-                setToast(
-                  `${r.reRooted} place${r.reRooted === 1 ? '' : 's'} became their own worlds.`,
-                );
+              const live = new Set(r.worlds.map((x) => keyOf(x)));
+              // The editor closes when its world went, or with the tree it sat in.
+              if (edit?.originalName && !r.worlds.some((x) => x.name === edit.originalName)) {
+                setEdit(null);
               }
+              setSelected((prev) => new Set([...prev].filter((k) => live.has(k))));
             })
             .catch((e) => setError(e instanceof ApiError ? e.message : 'Delete failed'))
             .finally(() => setBusy(false));

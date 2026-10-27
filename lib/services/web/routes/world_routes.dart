@@ -175,15 +175,16 @@ class WebWorldRoutes {
   }
 
   Future<shelf.Response> _delete(shelf.Request request, String name) async {
-    int reRooted = 0;
+    var placesDeleted = 0;
     final ok = await _facade.delete(
       Uri.decodeComponent(name),
-      onReRooted: (n) => reRooted = n,
+      onPlacesDeleted: (n) => placesDeleted = n,
     );
     if (!ok) return JsonResponse.error(404, 'World not found');
-    // Count lets the PWA copy desktop's "N places became their own
-    // worlds" announcement instead of deleting in silence.
-    return JsonResponse.ok({'worlds': _facade.list(), 'reRooted': reRooted});
+    return JsonResponse.ok({
+      'worlds': _facade.list(),
+      'placesDeleted': placesDeleted,
+    });
   }
 
   /// GET `/api/worlds/parent-candidates?for=<nameOrId>` — the candidate

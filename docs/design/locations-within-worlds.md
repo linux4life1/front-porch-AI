@@ -110,9 +110,10 @@ column, `worlds.parent_world_id`, and everything else is derived.
   refuses to make a child of a depth-2 location. The schema never needs to
   change if the cap moves.
 - **Cycles** are rejected on save (a parent may not be the world itself or
-  any descendant). **Deleting a parent re-roots its children** (parent
-  cleared, climate left as it was) and tells the user how many. Lore the
-  user wrote is never cascade-deleted.
+  any descendant). **Deleting a world deletes its whole place tree**, and
+  the confirm says how many places go with it. (Earlier builds re-rooted
+  the children instead, which left a deleted world's places scattered
+  through the library as loose worlds; the maintainer reversed that.)
 
 ### Resolution rules (the engine's contract)
 

@@ -1523,7 +1523,7 @@ test('bubble opacity set on the phone is the desktop setting and survives a relo
 });
 
 test(
-  'locations on the phone: the library groups, the law speaks over the wire, delete re-roots in words',
+  'locations on the phone: the library groups, the law speaks over the wire, delete takes the places with it',
   { tag: SERIAL },
   async ({ page, acceptConfirms }) => {
     // ── Seed through the relay (same POST the editor saves with) ─────────
@@ -1601,7 +1601,7 @@ test(
     await expect(page.getByRole('button', { name: 'Add place', exact: true })).toBeVisible();
     await page.getByRole('button', { name: 'Cancel', exact: true }).click();
 
-    // ── Delete re-roots and SAYS so ─────────────────────────────────────
+    // ── Delete takes the whole place tree, and SAYS so first ────────────
     let confirmText = '';
     page.on('dialog', (d) => (confirmText = d.message()));
     acceptConfirms(true);
@@ -1611,17 +1611,16 @@ test(
         message: 'the root is deleted',
       })
       .toBe(false);
-    expect(confirmText, 'the confirm names the re-root before it happens').toContain(
-      'become their own worlds',
+    expect(confirmText, 'the confirm names the places before they go').toContain(
+      'The 1 place inside it will be deleted too.',
     );
-    const reRooted = (await list()).find((w) => w.name === 'Journey Lighthouse');
-    expect(reRooted, 'the child survives').toBeDefined();
-    expect(reRooted!.parentWorldId ?? null).toBeNull();
-
-    // ── Cleanup shared state for the next worker ────────────────────────
-    for (const name of ['Journey Lighthouse']) {
-      await page.request.post(`/api/worlds/${encodeURIComponent(name)}/delete`);
-    }
+    expect(
+      (await list()).some((w) => w.name === 'Journey Lighthouse'),
+      'the place went with its world, not into the library on its own',
+    ).toBe(false);
+    await expect(
+      page.locator('.wsg-world-name', { hasText: /^Journey Lighthouse$/ }),
+    ).toHaveCount(0);
   },
 );
 /** Open a world card's places panel. Going back to /worlds can keep the

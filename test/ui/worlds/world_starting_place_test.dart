@@ -36,6 +36,14 @@ class _StarWorlds extends FakeWorldRepository {
     world.defaultPlaceId = placeId;
     notifyListeners();
   }
+
+  final deleted = <String>[];
+
+  @override
+  Future<int> deleteWorld(model.World world) async {
+    deleted.add(world.id);
+    return 0;
+  }
 }
 
 model.World _world(String id, {String? parent, bool climate = false}) =>
@@ -176,5 +184,40 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     expect(find.text('Move to…'), findsOneWidget);
     expect(find.textContaining('Export'), findsNothing);
+  });
+
+  testWidgets('deleting a world warns that every place inside it goes too', (
+    tester,
+  ) async {
+    final worlds = _StarWorlds([
+      _world('Bletchfield', climate: true),
+      _world('Town Hall', parent: 'Bletchfield'),
+      _world('Back Room', parent: 'Town Hall'),
+      _world('Red Dust Station'),
+    ]);
+    await _pumpLibrary(tester, worlds);
+
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(WorldPlaceCard, 'Bletchfield'),
+        matching: find.byIcon(Icons.more_vert),
+      ),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Delete'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text('Delete World?'), findsOneWidget);
+    expect(
+      find.textContaining('The 2 places inside it will be deleted too.'),
+      findsOneWidget,
+      reason: 'the count covers the whole tree, the room included',
+    );
+    await tester.tap(find.widgetWithText(ElevatedButton, 'Delete'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(worlds.deleted, ['Bletchfield']);
   });
 }

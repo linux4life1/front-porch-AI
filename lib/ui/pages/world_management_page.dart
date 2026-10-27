@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -375,7 +376,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
       destructive: true,
       content: Text(
         'Delete ${doomed.length} model-made place${doomed.length == 1 ? '' : 's'}? '
-        'Places inside them become their own worlds; lore stays.',
+        'Places inside them are deleted too.',
         style: TextStyle(color: AppColors.textSecondary(context)),
       ),
       actions: [
@@ -406,7 +407,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
       }
     }
     if (!mounted) return;
-    setState(() => _selected.removeAll(doomed.map((w) => w.id)));
+    setState(() => _selected.removeWhere((id) => repo.worldById(id) == null));
     if (failed > 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -432,14 +433,17 @@ class _WorldManagementPageState extends State<WorldManagementPage>
   );
 
   void _confirmDelete(BuildContext context, WorldRepository repo, World world) {
-    final inside = placesUnder(world.id, repo.placeWorlds);
+    final inside = placesInside(world, repo.placeWorlds, repo.worldById);
+    final n = inside.length;
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Delete World?'),
+        title: Text(
+          world.parentWorldId == null ? 'Delete World?' : 'Delete Place?',
+        ),
         content: Text(
           'Are you sure you want to delete "${world.name}"?'
-          '${inside > 0 ? ' Its $inside place${inside == 1 ? '' : 's'} become their own worlds — lore stays.' : ''}',
+          '${n > 0 ? ' The $n place${n == 1 ? '' : 's'} inside it will be deleted too.' : ''}',
         ),
         actions: [
           TextButton(
@@ -452,21 +456,16 @@ class _WorldManagementPageState extends State<WorldManagementPage>
             ),
             onPressed: () async {
               try {
-                final moved = await repo.deleteWorld(world);
-                // A deleted id must drop out of the multi-select at once,
-                // or the pill keeps counting a card that no longer exists.
-                if (mounted) setState(() => _selected.remove(world.id));
-                if (context.mounted) Navigator.pop(context);
-                if (context.mounted && moved > 0) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        '$moved place${moved == 1 ? '' : 's'} became their '
-                        'own worlds.',
-                      ),
-                    ),
-                  );
+                await repo.deleteWorld(world);
+                // Deleted ids must drop out of the multi-select at once,
+                // or the pill keeps counting cards that no longer exist.
+                if (mounted) {
+                  setState(() {
+                    _selected.remove(world.id);
+                    _selected.removeAll(inside.map((p) => p.id));
+                  });
                 }
+                if (context.mounted) Navigator.pop(context);
               } catch (e) {
                 if (context.mounted) Navigator.pop(context);
                 if (context.mounted) {
