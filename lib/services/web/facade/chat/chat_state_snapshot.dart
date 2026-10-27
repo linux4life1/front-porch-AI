@@ -24,6 +24,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/director/director.dart'
     show kDirectorQuickBeats;
+import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_resolver.dart';
 import 'package:front_porch_ai/services/web/facade/chat/chat_message_chips.dart';
 import 'package:front_porch_ai/services/web/facade/chat_realism_read.dart';
@@ -313,6 +314,18 @@ class ChatStateSnapshot {
       // paints its own mode (docs/design/ambient-stage.md). Null when
       // Ambient scene is Off or the chat has no weather. Additive.
       'scene': sceneWireFor(_chat),
+      // The Setting place's picture behind the chat, by id and version,
+      // for the PWA to fetch from /api/worlds/cover and dissolve to on a
+      // scene move. Null when no place in the Setting's chain has one, and
+      // the PWA keeps its theme background. Additive.
+      'sceneBackdrop': () {
+        final backdrop = _chat.sceneBackdrop;
+        if (backdrop == null) return null;
+        return sceneBackdropWire(
+          backdrop,
+          condition: _chat.currentSegmentWeather?.condition.name,
+        );
+      }(),
       // Per-chat system prompt source (1:1 only) and, while a new chat
       // waits on it, the picker's prompts. Additive; omitted in groups.
       'promptSource': ?_chat.promptSourceJson,

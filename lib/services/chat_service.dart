@@ -53,6 +53,7 @@ import 'package:front_porch_ai/services/chat/place_factory.dart';
 import 'package:front_porch_ai/services/group_turn_manager.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage, World;
 import 'package:front_porch_ai/services/expression_classifier.dart';

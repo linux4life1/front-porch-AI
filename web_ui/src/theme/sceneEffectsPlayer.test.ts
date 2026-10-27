@@ -113,18 +113,36 @@ describe('scene effects player', () => {
     player.dispose();
   });
 
-  it('paints every shape from the wire colours, the rain in one stroke', () => {
+  // Changed with the render recipe (sceneEffectsRender.ts): the rain was
+  // one stroke of every drop and a cloud one fill. Now the rain is streak
+  // sprites, or, where the page cannot build them (jsdom here), lines in
+  // a far sheet and three depth bands (four strokes, every drop drawn
+  // twice); a cloud is a body and a lifted top (two fills); a flash adds
+  // the bolt's glow and core (two more strokes).
+  it('paints every shape from the wire colours, the rain in its depth bands', () => {
     const { canvas, calls } = fakeCanvas();
     const ctx = canvas.getContext('2d')!;
     const sim = new SceneEffectsSim(wire(true).effects, 42, 800, 600);
     sim.flash = 0.5;
     paintSceneEffects(ctx, sim, paints);
-    expect(calls.filter((c) => c === 'stroke')).toHaveLength(1);
-    expect(calls.filter((c) => c === 'lineTo')).toHaveLength(sim.drops.length);
+    expect(calls.filter((c) => c === 'stroke')).toHaveLength(6);
+    expect(calls.filter((c) => c === 'lineTo').length).toBeGreaterThanOrEqual(sim.drops.length * 2);
     expect(calls).toContain(`strokeStyle=${paints.rain}`);
+    expect(calls).toContain(`strokeStyle=${paints.flash}`);
     expect(calls).toContain(`fillStyle=${paints.cloud}`);
     expect(calls).toContain(`fillStyle=${paints.flash}`);
-    expect(calls.filter((c) => c === 'fill')).toHaveLength(sim.clouds.length);
+    expect(calls.filter((c) => c === 'fill')).toHaveLength(sim.clouds.length * 2);
+    // The flash paints at its shaped strength, not the sim's raw decay.
+    expect(calls).toContain('globalAlpha=0.85');
+  });
+
+  it('a still frame without a flash draws no bolt', () => {
+    const { canvas, calls } = fakeCanvas();
+    const ctx = canvas.getContext('2d')!;
+    const sim = new SceneEffectsSim(wire(true).effects, 42, 800, 600);
+    paintSceneEffects(ctx, sim, paints);
+    expect(calls).not.toContain(`strokeStyle=${paints.flash}`);
+    expect(calls.filter((c) => c === 'stroke')).toHaveLength(4);
   });
 
   it('paints every other frame on a 60 Hz display, and a stall does not burst', () => {

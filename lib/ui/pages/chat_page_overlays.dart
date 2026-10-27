@@ -28,6 +28,7 @@ import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/chat_components/chat_components.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/avatar_gallery.dart';
 
 /// Chat surface (background + bubbles). Theme chrome is Stack siblings under
@@ -141,104 +142,118 @@ class ChatSurface extends StatelessWidget {
         // transcript repaints per streamed token, the backdrop does not.
         Positioned.fill(
           child: RepaintBoundary(
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                if (bgPath != null) ...[
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Image.asset(bgPath, fit: BoxFit.cover),
-                    ),
-                  ),
-                ],
-                // Expression background sprite
-                Consumer<ChatService>(
-                  builder: (context, chat, _) {
-                    final storage = Provider.of<StorageService>(
-                      context,
-                      listen: false,
-                    );
-                    final displayMode =
-                        storage.expressionSettings.expressionDisplayMode;
-                    final isEnabled =
-                        storage.expressionSettings.expressionEnabled;
-                    if (!isEnabled ||
-                        displayMode == 'sidebar' ||
-                        chat.isEvaluatingRealism) {
-                      return const SizedBox.shrink();
-                    }
-                    final char = character;
-                    if (char == null ||
-                        expressionsFrom(char.avatarImages).isEmpty) {
-                      return const SizedBox.shrink();
-                    }
-                    final avatar = chat.resolveExpressionAvatar(
-                      char,
-                      rerollIfSame:
-                          storage.expressionSettings.expressionRerollSame,
-                    );
-                    if (avatar == null) {
-                      return const SizedBox.shrink();
-                    }
-                    final avatarDir = storage.characterAvatarDir(char.name);
-                    final avatarFile = File(
-                      '${avatarDir.path}/${avatar.filename}',
-                    );
-                    return Positioned.fill(
+            // The Setting place's picture stands in for the chosen
+            // background while the chat has one; a scene move rebuilds
+            // this stack, a streamed token does not (the selector
+            // compares the backdrop by place and picture).
+            child: Selector<ChatService, SceneBackdrop?>(
+              selector: (_, chat) => chat.sceneBackdrop,
+              builder: (context, backdrop, _) => Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (backdrop != null)
+                    SceneBackdropLayer(
+                      backdrop: backdrop,
+                      // Read when a move starts, not per notify: the
+                      // weather walk is not free.
+                      conditionOf: () =>
+                          chatService.currentSegmentWeather?.condition.name,
+                    )
+                  else if (bgPath != null)
+                    Positioned.fill(
                       child: IgnorePointer(
-                        child: AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 500),
-                          child: Stack(
-                            key: ValueKey('expr_bg_${avatar.id}'),
-                            fit: StackFit.expand,
-                            children: [
-                              Image.file(
-                                avatarFile,
-                                fit: BoxFit.cover,
-                                errorBuilder: (_, _, _) =>
-                                    const SizedBox.shrink(),
-                              ),
-                              Container(
-                                decoration: BoxDecoration(
-                                  color: InkColors.dim(0.85),
+                        child: Image.asset(bgPath, fit: BoxFit.cover),
+                      ),
+                    ),
+                  // Expression background sprite
+                  Consumer<ChatService>(
+                    builder: (context, chat, _) {
+                      final storage = Provider.of<StorageService>(
+                        context,
+                        listen: false,
+                      );
+                      final displayMode =
+                          storage.expressionSettings.expressionDisplayMode;
+                      final isEnabled =
+                          storage.expressionSettings.expressionEnabled;
+                      if (!isEnabled ||
+                          displayMode == 'sidebar' ||
+                          chat.isEvaluatingRealism) {
+                        return const SizedBox.shrink();
+                      }
+                      final char = character;
+                      if (char == null ||
+                          expressionsFrom(char.avatarImages).isEmpty) {
+                        return const SizedBox.shrink();
+                      }
+                      final avatar = chat.resolveExpressionAvatar(
+                        char,
+                        rerollIfSame:
+                            storage.expressionSettings.expressionRerollSame,
+                      );
+                      if (avatar == null) {
+                        return const SizedBox.shrink();
+                      }
+                      final avatarDir = storage.characterAvatarDir(char.name);
+                      final avatarFile = File(
+                        '${avatarDir.path}/${avatar.filename}',
+                      );
+                      return Positioned.fill(
+                        child: IgnorePointer(
+                          child: AnimatedSwitcher(
+                            duration: const Duration(milliseconds: 500),
+                            child: Stack(
+                              key: ValueKey('expr_bg_${avatar.id}'),
+                              fit: StackFit.expand,
+                              children: [
+                                Image.file(
+                                  avatarFile,
+                                  fit: BoxFit.cover,
+                                  errorBuilder: (_, _, _) =>
+                                      const SizedBox.shrink(),
                                 ),
-                              ),
-                            ],
+                                Container(
+                                  decoration: BoxDecoration(
+                                    color: InkColors.dim(0.85),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                  if (backdrop == null && bgPath != null)
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(color: InkColors.dim(0.45)),
+                      ),
+                    ),
+                  if (backdrop == null && !bgPathExists && hasCustomBg) ...[
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(
+                          decoration: BoxDecoration(
+                            image: DecorationImage(
+                              image: FileImage(File(customEntry!['filePath']!)),
+                              fit: BoxFit.cover,
+                            ),
                           ),
                         ),
                       ),
-                    );
-                  },
-                ),
-                if (bgPath != null)
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(color: InkColors.dim(0.45)),
                     ),
-                  ),
-                if (!bgPathExists && hasCustomBg) ...[
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(
-                        decoration: BoxDecoration(
-                          image: DecorationImage(
-                            image: FileImage(File(customEntry['filePath']!)),
-                            fit: BoxFit.cover,
-                          ),
-                        ),
+                    Positioned.fill(
+                      child: IgnorePointer(
+                        child: Container(color: InkColors.dim(0.45)),
                       ),
                     ),
-                  ),
-                  Positioned.fill(
-                    child: IgnorePointer(
-                      child: Container(color: InkColors.dim(0.45)),
-                    ),
-                  ),
+                  ],
+                  // The Ambient Stage and its sound, mounted only while
+                  // there is a scene (docs/design/ambient-stage.md).
+                  const AmbientStageMount(),
                 ],
-                // The Ambient Stage and its sound, mounted only while
-                // there is a scene (docs/design/ambient-stage.md).
-                const AmbientStageMount(),
-              ],
+              ),
             ),
           ),
         ),

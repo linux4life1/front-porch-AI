@@ -290,4 +290,39 @@ void main() {
     expect(fog.isRemoved, isTrue);
     expect(fog.debugShaderCount, 0);
   });
+
+  testWidgets('a storm flash draws its bolt from the scene and the schedule', (
+    tester,
+  ) async {
+    final game = await _pump(tester, _scene(WeatherCondition.storm));
+    final layer = game.children.whereType<SceneLightningFlash>().single;
+    expect(layer.debugBoltAt.isNaN, isTrue, reason: 'no flash yet');
+    final sim = game.effects!;
+    sim.flash = 1;
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(layer.debugBoltAt, sim.nextFlashAt, reason: 'one bolt per strike');
+    final at = sim.nextFlashAt;
+    sim.flash = 1;
+    await tester.pump(const Duration(milliseconds: 16));
+    expect(layer.debugBoltAt, at, reason: 'held for the flash\'s life');
+  });
+
+  testWidgets('rain draws every drop as a streak sprite, twice over', (
+    tester,
+  ) async {
+    final game = await _pump(tester, _scene(WeatherCondition.rain));
+    await tester.pump(const Duration(milliseconds: 16));
+    final rain = game.children.whereType<ScenePrecipitation>().single;
+    final drops = game.effects!.drops.length;
+    expect(drops, greaterThan(0));
+    expect(rain.debugStreakCount, drops * 2, reason: 'a far sheet behind');
+    final storm = await _pump(tester, _scene(WeatherCondition.storm));
+    await tester.pump(const Duration(milliseconds: 16));
+    final heavy = storm.children.whereType<ScenePrecipitation>().single;
+    expect(
+      heavy.debugStreakCount,
+      storm.effects!.drops.length * 3,
+      reason: 'a storm carries a mid sheet too',
+    );
+  });
 }

@@ -19,6 +19,7 @@
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_backdrop.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/services/web/util/lorebook_json.dart';
@@ -123,6 +124,17 @@ class WorldFacade {
     final w = _worlds.resolveWorld(nameOrId);
     if (w == null || isCharacterLinkedWorld(w)) return null;
     return worldDetailJson(w, locations: locations);
+  }
+
+  /// A place's cover picture as bytes for `GET /api/worlds/cover`, the
+  /// chat page's backdrop (`sceneBackdropWire`). Null for an unknown place
+  /// or one without a stored picture. Ids only: the chat state hands the
+  /// PWA the id, never a path.
+  ({List<int> bytes, String contentType})? coverFor(String id) {
+    final w = _worlds.worldById(id);
+    final cover = w?.coverImage;
+    if (cover == null || cover.isEmpty) return null;
+    return sceneBackdropBytes(cover);
   }
 
   /// Create or update a world by id when provided; rename is name-only.

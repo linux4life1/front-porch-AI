@@ -20,6 +20,7 @@ import { ChatHeader } from './chat/ChatHeader';
 import { ChatNotices } from './chat/ChatNotices';
 import { ChatOverlays } from './chat/ChatOverlays';
 import { SceneEffectsCanvas } from './chat/SceneEffectsCanvas';
+import { SceneBackdrop, parseSceneBackdrop } from './chat/SceneBackdrop';
 import { useChatFind } from './chat/useChatFind';
 import { useChatSend } from './chat/useChatSend';
 import { useChatSession } from './chat/useChatSession';
@@ -269,6 +270,8 @@ export function ChatPage() {
   return (
     <div className="chat-layout">
       <div className="chat-view">
+        {/* The Setting place's picture, under everything else. */}
+        <SceneBackdrop backdrop={parseSceneBackdrop(state.sceneBackdrop)} />
         {/* The Ambient Stage's moving weather, behind every other child. */}
         <SceneEffectsCanvas scene={state.scene} generating={!!state.isGenerating || !!state.isSettlingTurn || streaming !== ''} onFlash={sceneSound.onFlash} />
         <ChatHeader

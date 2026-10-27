@@ -318,12 +318,16 @@ export function useChatSession() {
     // Only veil the chat when a theme actually supplies a background scene.
     el.classList.toggle('has-theme-bg', '--chat-bg-image' in vars);
     el.classList.toggle('has-scene', '--scene-layers' in vars);
+    // With a place picture up (SceneBackdrop), that layer carries the veil
+    // and the tint and the view's own backdrop stands down.
+    el.classList.toggle('has-scene-backdrop', !!state?.sceneBackdrop);
     return () => {
       Object.keys(vars).forEach((k) => el.style.removeProperty(k));
       el.classList.remove('has-theme-bg');
       el.classList.remove('has-scene');
+      el.classList.remove('has-scene-backdrop');
     };
-  }, [state?.themeOverrides, state?.scene, themeMode]);
+  }, [state?.themeOverrides, state?.scene, state?.sceneBackdrop, themeMode]);
 
   const stop = () => api.post('/api/chat/stop');
   // Chance Time: flip the teaser to the event card, then accept — which unfreezes
