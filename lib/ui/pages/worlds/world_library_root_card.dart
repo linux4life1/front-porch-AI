@@ -7,6 +7,7 @@
 // verb the grouped library exists for.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
@@ -17,6 +18,7 @@ class WorldLibraryRootCard extends StatelessWidget {
     super.key,
     required this.section,
     required this.directCount,
+    this.startingPlace,
     required this.collapsed,
     required this.onToggleCollapsed,
     required this.onNewInside,
@@ -32,6 +34,9 @@ class WorldLibraryRootCard extends StatelessWidget {
   // while each continent's own chip counts deeper; the subtree is not
   // summed into the root's number.
   final int directCount;
+  // Where chats attached to this world start (the starred place), or the
+  // root itself when nothing is starred: then no line is shown.
+  final World? startingPlace;
   final bool collapsed;
   final VoidCallback onToggleCollapsed;
   final VoidCallback onNewInside;
@@ -163,6 +168,28 @@ class WorldLibraryRootCard extends StatelessWidget {
                           : AppColors.textSecondary(context),
                     ),
                   ),
+                  if (startingPlace != null &&
+                      startingPlace!.id != root.id) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      key: Key('starting-place-${root.id}'),
+                      children: [
+                        Icon(Icons.star_rounded, size: 14, color: accent),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            'Chats start at ${startingPlace!.name}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              color: AppColors.textSecondary(context),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   Row(
                     children: [

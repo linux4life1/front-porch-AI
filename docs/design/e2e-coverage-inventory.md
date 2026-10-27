@@ -49,6 +49,7 @@ Update this file when you add or retire a suite.
 | `lorebook_chat_test` | This Chat lore entry → triggers → injection |
 | `lorebook_import_test` | Import path |
 | `worlds_management_test` | New World + Places attach |
+| `world_starting_place_test` | Star a place in the Worlds library → "Chats start at" on the world card; a character carrying the world starts its new chat there; attaching the world in the Places panel lands on the place (weather still from the world). Web twin: `web_ui/e2e/starting-place.spec.ts` |
 | `climate_editor_test` | Climate editor |
 | `journal_review_test` | Review-first park → banner → apply |
 | `growth_rings_test` | Growth switch → pass → ring + receipt jump |

@@ -59,12 +59,32 @@ class WorldChatAttachments {
     _repo.notify();
   }
 
-  Future<void> setFlat(String chatId, List<String> worldIds) async {
+  Future<void> setFlat(
+    String chatId,
+    List<String> worldIds, {
+    bool startAtStar = true,
+  }) async {
     // Seed-style flat write: first climate-enabled → Primary, rest → Lore.
     await _repo.ready;
+    // A world with a starred place starts the chat there: the place takes
+    // the world's slot (its chain still brings the world's lore and
+    // weather) and may hold the Setting even when it inherits its climate
+    // or the world is lore-only, because the author chose it as the start.
+    final starts = <String>{};
+    final ids = <String>[];
+    for (final id in worldIds) {
+      final start = startAtStar ? _repo.startingPlaceFor(id) : null;
+      if (start != null && start.id != id) {
+        starts.add(start.id);
+        ids.add(start.id);
+      } else {
+        ids.add(id);
+      }
+    }
     final slots = partitionLinkedPlaces(
-      worldIds: worldIds,
-      isClimateEnabled: (id) => _repo.worldById(id)?.climateEnabled ?? false,
+      worldIds: ids,
+      isClimateEnabled: (id) =>
+          starts.contains(id) || (_repo.worldById(id)?.climateEnabled ?? false),
     );
     await _repo.setChatWorldAttachments(
       chatId,
@@ -127,8 +147,9 @@ class WorldChatAttachments {
 
   Future<void> applyTemplate(
     String chatId,
-    List<String> templateWorldIds,
-  ) async {
+    List<String> templateWorldIds, {
+    bool startAtStar = true,
+  }) async {
     // New-session seeding can fire moments after a cold launch; resolving
     // against a not-yet-loaded cache would silently seed nothing, permanently.
     await _repo.ready;
@@ -139,7 +160,7 @@ class WorldChatAttachments {
         '[Worlds] template had unresolved refs for chat $chatId: $unresolved',
       );
     }
-    await _repo.setChatWorlds(chatId, ids);
+    await _repo.setChatWorlds(chatId, ids, startAtStar: startAtStar);
   }
 
   Future<void> setBiome({

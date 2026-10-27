@@ -190,6 +190,27 @@ through the chat snapshot and shows the same dialog. One scene place per
 chat in both 1:1 and group; split parties are out of scope. Director and
 AFK turns do not run the clock judge and never move the scene.
 
+### Starting place (the star)
+
+Attaching a world used to put the scene in the world at large. A world
+can now star one place inside it (any depth) as where chats start: the
+star on the place's library card, the same affordance as the canonical
+avatar star. Stored as `placeTraits.defaultPlace` on the world row (no
+migration; it survives weather-off worlds), exported as the additive
+envelope key `default_place_id` and re-pointed at the imported copy on
+import. `startingPlaceOf` (`world_chain.dart`) is the one rule: the
+starred place while it is still inside the world, else the world.
+
+It applies only where a world is *attached*: seeding a new chat from a
+character's or group's worlds, back-fill, worlds added to a character,
+and "Use as setting" in the attach picker (desktop and web). The starred
+place takes the Setting even when it inherits its climate or the world is
+lore-only. It never applies to a scene move (breadcrumb dropdown,
+accepted suggestion), to "Add as lore", or to a fork, which keeps the
+parent chat's slots. Web: the relay resolves the star into the world
+list's `defaultPlaceId`; `POST /api/worlds/default-place` sets or clears
+it.
+
 ### Minted places
 
 The same field gains one more legal value, `new`, carried with a name and

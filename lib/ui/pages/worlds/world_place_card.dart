@@ -10,6 +10,7 @@ import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
+import 'package:front_porch_ai/ui/pages/worlds/world_starting_place.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -40,6 +41,10 @@ class WorldPlaceCard extends StatelessWidget {
   // cards float free and need one.
   final String? insideName;
   final ValueChanged<bool>? onSelected;
+  // The starting-place star (places inside a world only): filled when
+  // chats attached to the world start here. No star without [onStar].
+  final bool starred;
+  final VoidCallback? onStar;
 
   const WorldPlaceCard({
     super.key,
@@ -54,6 +59,8 @@ class WorldPlaceCard extends StatelessWidget {
     this.selected,
     this.hasWeatherToInherit = true,
     this.onSelected,
+    this.starred = false,
+    this.onStar,
   });
 
   @override
@@ -150,6 +157,12 @@ class WorldPlaceCard extends StatelessWidget {
                                 color: accent,
                               ),
                             ),
+                          )
+                        : onStar != null
+                        ? PlaceStarButton(
+                            key: Key('place-star-${world.id}'),
+                            starred: starred,
+                            onTap: onStar!,
                           )
                         : const SizedBox.shrink(),
                   ),

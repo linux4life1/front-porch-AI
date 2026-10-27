@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
 /// Continue/Cancel confirmation for a place-slot change; true on Continue.
@@ -57,6 +58,7 @@ Future<void> showAttachPlacePicker(
     return;
   }
 
+  final byId = {for (final p in places) p.id: p};
   final chosen = await showDialog<World>(
     context: context,
     builder: (ctx) => Dialog(
@@ -98,7 +100,7 @@ Future<void> showAttachPlacePicker(
                 itemCount: available.length,
                 itemBuilder: (context, i) {
                   final w = available[i];
-                  final byId = {for (final p in places) p.id: p};
+                  final start = startingPlaceOf(w, (id) => byId[id]);
                   final parent = w.parentWorldId == null
                       ? null
                       : byId[w.parentWorldId];
@@ -129,6 +131,7 @@ Future<void> showAttachPlacePicker(
                     subtitle: Text(
                       [
                         if (parent != null) 'inside ${parent.name}',
+                        if (start.id != w.id) 'starts at ${start.name}',
                         if (w.description.trim().isNotEmpty)
                           w.description
                         else if (parent == null)
@@ -155,6 +158,10 @@ Future<void> showAttachPlacePicker(
   );
 
   if (chosen == null) return;
+  // As the Setting, a world with a starred place puts the scene there (its
+  // chain still brings the world's lore and weather). As Lore it stays the
+  // world: lore slots hold books, not where the scene is.
+  final setting = startingPlaceOf(chosen, (id) => byId[id]);
 
   // A scene move or lore edit in the panel can land while these dialogs
   // are open; write against the live slots, never the captured ones, or
@@ -164,10 +171,17 @@ Future<void> showAttachPlacePicker(
     for (final id in chat.chatLoreWorldIds)
       if (id != chosen.id) id,
   ];
+  final loreBesideSetting = [
+    for (final id in liveLore)
+      if (id != setting.id) id,
+  ];
 
   if (livePrimary == null) {
     // Empty Setting defaults to Use as setting.
-    await chat.setChatPlaceSlots(primaryId: chosen.id, loreIds: liveLore);
+    await chat.setChatPlaceSlots(
+      primaryId: setting.id,
+      loreIds: loreBesideSetting,
+    );
     return;
   }
 
@@ -206,11 +220,11 @@ Future<void> showAttachPlacePicker(
     context,
     title: 'Replace setting?',
     body:
-        'Replace setting? Weather and room description will switch to ${chosen.name}.',
+        'Replace setting? Weather and room description will switch to ${setting.name}.',
   );
   if (!ok) return;
   await chat.setChatPlaceSlots(
-    primaryId: chosen.id,
-    loreIds: [livePrimary, ...liveLore],
+    primaryId: setting.id,
+    loreIds: [livePrimary, ...loreBesideSetting],
   );
 }

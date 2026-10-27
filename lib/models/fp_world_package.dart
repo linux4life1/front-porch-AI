@@ -42,6 +42,9 @@ Map<String, dynamic> encodeFpWorld({
     if (world.climateEnabled && world.placeTraits.isNotEmpty)
       'place_traits': world.placeTraits,
     if (locations != null && locations.isNotEmpty) 'locations': locations,
+    // Additive: the starred place chats start in, by envelope id. The
+    // importer re-points it at the fresh local id of that location.
+    if (world.defaultPlaceId != null) 'default_place_id': world.defaultPlaceId,
     'meta': {
       if (author != null && author.isNotEmpty) 'author': author,
       'createdAt': DateTime.now().toUtc().toIso8601String(),
@@ -161,14 +164,13 @@ FpWorldPackage decodeFpWorld(Map<String, dynamic> json) {
       placeTraits: climateEnabled && json['place_traits'] is Map
           ? Map<String, dynamic>.from(json['place_traits'] as Map)
           : null,
-    ),
+    )..defaultPlaceId = json['default_place_id']?.toString(),
     // Slice 5: hand the child envelopes to the importer verbatim; a
     // non-list or missing key (every pre-slice-5 file) decodes empty,
     // keeping old imports byte-for-byte unchanged.
     locations: [
-      for (final item in json['locations'] is List
-          ? json['locations'] as List
-          : const [])
+      for (final item
+          in json['locations'] is List ? json['locations'] as List : const [])
         if (item is Map) Map<String, dynamic>.from(item),
     ],
   );

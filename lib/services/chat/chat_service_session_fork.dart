@@ -38,7 +38,13 @@ extension ChatServiceSessionFork on ChatService {
             : (_activeCharacter?.worldNames ?? const <String>[]));
     try {
       if (refs.isNotEmpty) {
-        await _worldRepository.applyTemplateWorldsToChat(sid, refs);
+        // A fork carries the parent's slots as they stand: a scene the
+        // user moved up to the world itself must not jump to its star.
+        await _worldRepository.applyTemplateWorldsToChat(
+          sid,
+          refs,
+          startAtStar: carryRefs == null,
+        );
       }
       // Even when a fresh chat legitimately gets NO worlds, that is a decision
       // — record it so a later back-fill can't override it.

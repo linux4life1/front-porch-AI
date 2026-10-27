@@ -77,12 +77,16 @@ class WorldEnvelopeCodec {
   /// gets a fresh local id and keeps its envelope id as `sourceId`
   /// (the root importer's provenance law, applied per level). A broken
   /// child is skipped, never fatal: the root already imported.
+  ///
+  /// [ids], when given, collects envelope id -> new local id for every
+  /// place created, so the caller can re-point the root's starred place.
   Future<void> importLocations(
     List<Map<String, dynamic>> envelopes,
     String parentId,
-    int depth,
-  ) async {
-    await _importWithBudget(envelopes, parentId, depth, _totalCap);
+    int depth, {
+    Map<String, String>? ids,
+  }) async {
+    await _importWithBudget(envelopes, parentId, depth, _totalCap, ids);
   }
 
   Future<int> _importWithBudget(
@@ -90,6 +94,7 @@ class WorldEnvelopeCodec {
     String parentId,
     int depth,
     int left,
+    Map<String, String>? ids,
   ) async {
     if (envelopes.isEmpty) return left;
     if (depth > kImportDepthCap) {
@@ -113,8 +118,13 @@ class WorldEnvelopeCodec {
       try {
         final pkg = decodeFpWorld(raw);
         final child = pkg.world;
+        final envelopeId = child.id;
         child.sourceId ??= child.id.isNotEmpty ? child.id : null;
         child.id = uuid.v4();
+        // A star inside this branch names a sender id; it is re-pointed
+        // by the root import, never carried over raw.
+        final senderStar = child.defaultPlaceId;
+        child.defaultPlaceId = null;
         child.parentWorldId = parentId;
         child.name = uniqueWorldName(
           child.name,
@@ -128,12 +138,16 @@ class WorldEnvelopeCodec {
               : biome.toJsonString();
         }
         await _repo.saveWorld(child);
+        if (envelopeId.isNotEmpty) ids?[envelopeId] = child.id;
         left = await _importWithBudget(
           pkg.locations,
           child.id,
           depth + 1,
           left - 1,
+          ids,
         );
+        final star = senderStar == null ? null : ids?[senderStar];
+        if (star != null) await _repo.setDefaultPlace(child, star);
       } catch (e) {
         // Names are user prose; log the frame, not the content.
         debugPrint('world import: skipped 1 location at depth $depth: $e');

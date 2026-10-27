@@ -186,3 +186,26 @@ List<World> climateOwnersInside(
         worldChain(w, lookup).last.id == rootId)
       w,
 ];
+
+/// What starring a place that is not inside the world reports.
+const kWorldDefaultPlaceOutside = 'That place is not inside this world.';
+
+/// True when [place] sits somewhere below [world] (any depth). A world is
+/// not inside itself.
+bool isPlaceInside(
+  World place,
+  World world,
+  World? Function(String id) lookup,
+) =>
+    place.id != world.id &&
+    worldChain(place, lookup).skip(1).any((w) => w.id == world.id);
+
+/// The place a chat starts in when [world] is attached as its Setting: the
+/// starred [World.defaultPlaceId] while it still names a place inside
+/// [world], else [world] itself. A star left behind by a move out of the
+/// tree or a delete resolves to the world, never to a stranger.
+World startingPlaceOf(World world, World? Function(String id) lookup) {
+  final id = world.defaultPlaceId;
+  final place = id == null ? null : lookup(id);
+  return place != null && isPlaceInside(place, world, lookup) ? place : world;
+}

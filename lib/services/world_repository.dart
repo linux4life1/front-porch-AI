@@ -8,7 +8,6 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
@@ -121,69 +120,6 @@ class WorldRepository extends ChangeNotifier {
     }
   }
 
-  model.World _fromRow(World row) {
-    Lorebook lorebook;
-    if (row.lorebook != null) {
-      try {
-        lorebook = Lorebook.fromJson(jsonDecode(row.lorebook!));
-      } catch (_) {
-        lorebook = Lorebook(entries: []);
-      }
-    } else {
-      lorebook = Lorebook(entries: []);
-    }
-    return model.World(
-      id: row.id,
-      name: row.name,
-      description: row.description,
-      lorebook: lorebook,
-      linkedCharacterName: row.linkedCharacterName,
-      linkedCharacterId: row.linkedCharacterId,
-      coverImage: row.coverImage,
-      sourceId: row.sourceId,
-      formatVersion: row.formatVersion,
-      biomeId: row.biomeId,
-      biomeJson: row.biomeJson,
-      injectDescription: row.injectDescription,
-      climateEnabled: row.climateEnabled,
-      parentWorldId: row.parentWorldId,
-      placeTraits: _tryDecodeMap(row.placeTraits),
-    );
-  }
-
-  /// Defensive JSON-map decode for the place_traits column (null/garbage →
-  /// null → all-default traits).
-  static Map<String, dynamic>? _tryDecodeMap(String? raw) {
-    if (raw == null || raw.trim().isEmpty) return null;
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is Map) return Map<String, dynamic>.from(decoded);
-    } catch (_) {}
-    return null;
-  }
-
-  WorldsCompanion _toCompanion(model.World world) {
-    return WorldsCompanion(
-      id: Value(world.id),
-      name: Value(world.name),
-      description: Value(world.description),
-      lorebook: Value(jsonEncode(world.lorebook.toJson())),
-      linkedCharacterName: Value(world.linkedCharacterName),
-      linkedCharacterId: Value(world.linkedCharacterId),
-      coverImage: Value(world.coverImage),
-      sourceId: Value(world.sourceId),
-      formatVersion: Value(world.formatVersion),
-      biomeId: Value(world.biomeId),
-      biomeJson: Value(world.biomeJson),
-      injectDescription: Value(world.injectDescription),
-      climateEnabled: Value(world.climateEnabled),
-      parentWorldId: Value(world.parentWorldId),
-      placeTraits: Value(
-        world.placeTraits.isEmpty ? null : jsonEncode(world.placeTraits),
-      ),
-    );
-  }
-
   Future<void> loadWorlds() async {
     _isLoading = true;
     notifyListeners();
@@ -192,7 +128,7 @@ class WorldRepository extends ChangeNotifier {
       final dbWorlds = await _db.getAllWorlds();
       _worlds
         ..clear()
-        ..addAll(dbWorlds.map(_fromRow));
+        ..addAll(dbWorlds.map(worldFromRow));
       _resolveAvatarPaths(_worlds);
       // One-time: drop legacy "Aerin's Lorebook" clones so Worlds = places.
       await _purge.maybePurge();
@@ -215,7 +151,7 @@ class WorldRepository extends ChangeNotifier {
       throw StateError('A world named "$trimmed" already exists.');
     }
     world.name = trimmed;
-    await _db.updateWorld(_toCompanion(world));
+    await _db.updateWorld(worldToCompanion(world));
     notifyListeners();
   }
 
@@ -264,7 +200,7 @@ class WorldRepository extends ChangeNotifier {
     }
     final existing = await _db.getWorldById(world.id);
     if (existing != null) {
-      await _db.updateWorld(_toCompanion(world));
+      await _db.updateWorld(worldToCompanion(world));
     } else {
       world.name = world.name.trim();
       // Name collision on create → auto-rename (Keep both).
@@ -274,7 +210,7 @@ class WorldRepository extends ChangeNotifier {
         final names = {for (final w in await _db.getAllWorlds()) w.name};
         world.name = uniqueWorldName(world.name, names.contains);
       }
-      await _db.insertWorld(_toCompanion(world));
+      await _db.insertWorld(worldToCompanion(world));
     }
 
     final index = _worlds.indexWhere((w) => w.id == world.id);
@@ -321,6 +257,34 @@ class WorldRepository extends ChangeNotifier {
   model.World? climateAuthorFor(String idOrName) =>
       climateAuthorOf(chainFor(idOrName));
 
+  /// Where a chat starts when [idOrName] is attached as its Setting: the
+  /// world's starred place, else the world itself; null for an unknown ref.
+  /// Attach paths only. A scene move to the world itself (breadcrumb,
+  /// accepted suggestion) lands on the world, never on its star.
+  model.World? startingPlaceFor(String idOrName) {
+    final world = resolveWorld(idOrName);
+    return world == null ? null : startingPlaceOf(world, worldById);
+  }
+
+  /// Star [placeId] as where chats attached to [world] start; null clears
+  /// it. Refuses a place outside [world], and puts the old star back if the
+  /// save fails so the cache never shows a star the database lacks.
+  Future<void> setDefaultPlace(model.World world, String? placeId) async {
+    final place = placeId == null ? null : worldById(placeId);
+    if (placeId != null &&
+        (place == null || !isPlaceInside(place, world, worldById))) {
+      throw StateError(kWorldDefaultPlaceOutside);
+    }
+    final prior = world.defaultPlaceId;
+    world.defaultPlaceId = placeId;
+    try {
+      await saveWorld(world);
+    } catch (_) {
+      world.defaultPlaceId = prior;
+      rethrow;
+    }
+  }
+
   /// Import .fpworld or bare lorebook from a file. See [importWorldJson].
   Future<model.World> importWorld(File file) async {
     final decoded = jsonDecode(await file.readAsString());
@@ -363,8 +327,15 @@ class WorldRepository extends ChangeNotifier {
       }
     }
 
+    // The sender's star names the sender's id; it is re-pointed at the
+    // imported copy of that place once the locations have fresh ids.
+    final senderStar = world.defaultPlaceId;
+    world.defaultPlaceId = null;
     await saveWorld(world);
-    await _envelopes.importLocations(package.locations, world.id, 1);
+    final ids = <String, String>{};
+    await _envelopes.importLocations(package.locations, world.id, 1, ids: ids);
+    final star = senderStar == null ? null : ids[senderStar];
+    if (star != null) await setDefaultPlace(world, star);
     return world;
   }
 
@@ -427,8 +398,11 @@ class WorldRepository extends ChangeNotifier {
     loreIds: loreIds,
   );
 
-  Future<void> setChatWorlds(String chatId, List<String> worldIds) =>
-      _attachments.setFlat(chatId, worldIds);
+  Future<void> setChatWorlds(
+    String chatId,
+    List<String> worldIds, {
+    bool startAtStar = true,
+  }) => _attachments.setFlat(chatId, worldIds, startAtStar: startAtStar);
 
   /// Record that a chat's world attachments are settled without changing them.
   Future<void> markChatWorldsDecided(String chatId) =>
@@ -470,11 +444,17 @@ class WorldRepository extends ChangeNotifier {
 
   /// Copy template world refs (group template ids or character world names)
   /// onto a new chat (session). Refs may be UUIDs or names; unresolved refs
-  /// are dropped with a debug note.
+  /// are dropped with a debug note. A world with a starred place starts the
+  /// chat there; a fork passes [startAtStar] false to stay where it was.
   Future<void> applyTemplateWorldsToChat(
     String chatId,
-    List<String> templateWorldIds,
-  ) => _attachments.applyTemplate(chatId, templateWorldIds);
+    List<String> templateWorldIds, {
+    bool startAtStar = true,
+  }) => _attachments.applyTemplate(
+    chatId,
+    templateWorldIds,
+    startAtStar: startAtStar,
+  );
 
   Future<void> setChatBiome({
     required String chatId,

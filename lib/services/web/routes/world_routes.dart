@@ -43,6 +43,7 @@ class WebWorldRoutes {
     // Static suffix; register before the '<name>' captures, same
     // discipline as /import above (slice 4 web twin: "Part of" picker).
     router.get('/api/worlds/parent-candidates', _parentCandidates);
+    router.post('/api/worlds/default-place', _setDefaultPlace);
     router.post('/api/lorebook/import', _importLorebook);
     router.get('/api/chat/places', _chatPlaces);
     router.post('/api/chat/places', _setChatPlaces);
@@ -170,6 +171,30 @@ class WebWorldRoutes {
   shelf.Response _parentCandidates(shelf.Request request) {
     final forId = request.url.queryParameters['for'] ?? '';
     return JsonResponse.ok({'candidates': _facade.parentCandidates(forId)});
+  }
+
+  /// POST `/api/worlds/default-place` `{worldId, placeId}` — star the place
+  /// chats attached to the world start in; a null or empty `placeId`
+  /// clears it. Answers the refreshed list, like save and delete.
+  Future<shelf.Response> _setDefaultPlace(shelf.Request request) async {
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON body');
+    }
+    final worldId = body['worldId']?.toString() ?? '';
+    if (worldId.isEmpty) return JsonResponse.badRequest('worldId is required');
+    try {
+      final ok = await _facade.locations.setDefaultPlace(
+        worldId,
+        body['placeId']?.toString(),
+      );
+      if (!ok) return JsonResponse.error(404, 'World not found');
+    } on StateError catch (e) {
+      return JsonResponse.badRequest(e.message);
+    }
+    return JsonResponse.ok({'worlds': _facade.list()});
   }
 
   /// Import a world from a JSON body (SillyTavern / Chub.ai / Front Porch). The

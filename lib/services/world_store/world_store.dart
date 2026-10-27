@@ -3,3 +3,4 @@
 
 export 'character_linked_world_purge.dart';
 export 'world_chat_attachments.dart';
+export 'world_row_codec.dart';

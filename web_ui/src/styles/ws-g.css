@@ -285,6 +285,12 @@
   background: color-mix(in srgb, var(--accent) 10%, transparent);
 }
 .wsg-place-chip { margin-left: 6px; }
+.wsg-place-star--on { color: var(--accent); }
+.wsg-starts-at {
+  margin: 4px 0 0;
+  font-size: 0.75rem;
+  color: var(--text-2, var(--muted));
+}
 .wsg-prose-preview {
   margin: 10px 0;
   padding: 10px 12px;

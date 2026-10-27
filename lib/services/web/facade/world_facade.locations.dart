@@ -79,6 +79,30 @@ class WorldLocationsRelay {
   /// nearest enabled ancestor if it inherits, null on a lore-only
   /// chain). Same walk the chat clock uses — the UI never re-decides.
   String? climateAuthorId(String id) => _worlds.climateAuthorFor(id)?.id;
+
+  /// The starred place chats attached to [id] start in, or null when they
+  /// start in the world itself (nothing starred, or the star went stale).
+  /// Resolved here so the PWA's attach picker never re-decides it.
+  String? startingPlaceId(String id) {
+    final start = _worlds.startingPlaceFor(id);
+    return start == null || start.id == id ? null : start.id;
+  }
+
+  /// Star [placeRef] as where chats attached to [worldRef] start; null or
+  /// empty clears it. False when the world is unknown. The repository's
+  /// refusal (a place outside the world) escapes as its StateError.
+  Future<bool> setDefaultPlace(String worldRef, String? placeRef) async {
+    final world = _worlds.resolveWorld(worldRef);
+    if (world == null) return false;
+    final place = (placeRef == null || placeRef.isEmpty)
+        ? null
+        : _worlds.resolveWorld(placeRef);
+    if (placeRef != null && placeRef.isNotEmpty && place == null) {
+      throw StateError(kWorldDefaultPlaceOutside);
+    }
+    await _worlds.setDefaultPlace(world, place?.id);
+    return true;
+  }
 }
 
 /// Review #596 cache honesty, extracted so the facade stays a coordinator:

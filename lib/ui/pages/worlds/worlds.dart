@@ -20,3 +20,4 @@ export 'world_library_root_card.dart';
 export 'world_library_rows.dart';
 export 'world_place_card.dart';
 export 'world_place_moves.dart';
+export 'world_starting_place.dart';

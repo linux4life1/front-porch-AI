@@ -54,4 +54,6 @@ Map<String, dynamic> worldSummaryJson(
   // Slice 5 (additive): "N places" chip and weather author for Stoop.
   'locationCount': locations.locationCount(w.id),
   'climateAuthorId': locations.climateAuthorId(w.id),
+  // Additive: the starred place an attach-as-Setting lands on.
+  'defaultPlaceId': locations.startingPlaceId(w.id),
 };

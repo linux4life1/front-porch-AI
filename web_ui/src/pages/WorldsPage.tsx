@@ -342,6 +342,24 @@ export function WorldsPage() {
       return next;
     });
 
+  // The starting-place star (desktop parity): one star per world, a
+  // second tap on the starred place clears it. The relay validates that
+  // the place is inside the world and answers the refreshed list.
+  const toggleStartingPlace = (root: WorldSummary, placeId: string) => {
+    const on = root.defaultPlaceId === placeId;
+    setBusy(true);
+    api
+      .post<{ worlds: WorldSummary[] }>('/api/worlds/default-place', {
+        worldId: root.id ?? root.name,
+        placeId: on ? null : placeId,
+      })
+      .then((r) => setWorlds(r.worlds))
+      .catch((e) =>
+        setError(e instanceof ApiError ? e.message : 'Could not set the starting place'),
+      )
+      .finally(() => setBusy(false));
+  };
+
   // Bulk "Move N into…": the relay serves each selection's candidate
   // list (the ONE depth/cycle law); the client only intersects them.
   const beginMove = async () => {
@@ -734,7 +752,7 @@ export function WorldsPage() {
         // off, nothing inside has any, owned climates included (paused).
         const chainAllowsClimate = (w: TreeWorld): boolean =>
           topOf(w, byId).climateEnabled !== false;
-        const card = (w: TreeWorld, insideRootId?: string) => {
+        const card = (w: TreeWorld, insideRootId?: string, sectionRoot?: WorldSummary) => {
           const key = w.id ?? w.name;
           const parent = resolveParent(w, byId);
           const parentName =
@@ -767,6 +785,17 @@ export function WorldsPage() {
               onNewInside={depth < 3 ? () => confirmDiscard(dirty) && openEdit(emptyDraft(key)) : undefined}
               selected={selected.has(key)}
               onSelected={(on) => toggleSelected(key, on)}
+              starred={sectionRoot != null && sectionRoot.defaultPlaceId === w.id}
+              onStar={
+                sectionRoot != null && w.id
+                  ? () => toggleStartingPlace(sectionRoot, w.id as string)
+                  : undefined
+              }
+              startsAtName={
+                (w as WorldSummary).defaultPlaceId
+                  ? byId.get((w as WorldSummary).defaultPlaceId as string)?.name ?? null
+                  : null
+              }
               onEdit={() => beginEdit(w.name)}
               onExport={() =>
                 download(`/api/worlds/${encodeURIComponent(w.name)}/export`)
@@ -821,7 +850,9 @@ export function WorldsPage() {
               <section key={s.root.id ?? s.root.name} className="wsg-section">
                 <div className="wsg-section-head">{card(s.root)}</div>
                 <div className="wsg-world-grid wsg-child-grid">
-                  {s.children.map((c) => card(c, s.root.id ?? s.root.name))}
+                  {s.children.map((c) =>
+                    card(c, s.root.id ?? s.root.name, s.root as WorldSummary),
+                  )}
                 </div>
               </section>
             ))}

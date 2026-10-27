@@ -131,6 +131,25 @@ class World {
   /// round-trips in newer builds.
   bool get isModelMade => placeTraits['madeBy']?.toString() == 'model';
 
+  /// The place inside this world where a chat starts when the world is
+  /// attached as its Setting (the star in the Worlds library). Null = chats
+  /// start in the world itself. Rides [placeTraits] like [isModelMade], so
+  /// it needs no migration and a climate-off world keeps it. Read it through
+  /// `startingPlaceOf`, which ignores an id that no longer names a place
+  /// inside this world, so a move or delete never needs a cleanup pass.
+  String? get defaultPlaceId {
+    final id = placeTraits['defaultPlace']?.toString() ?? '';
+    return id.isEmpty ? null : id;
+  }
+
+  set defaultPlaceId(String? id) {
+    if (id == null || id.isEmpty) {
+      placeTraits.remove('defaultPlace');
+    } else {
+      placeTraits['defaultPlace'] = id;
+    }
+  }
+
   /// The character this world was built from (World from Character), or
   /// null. Provenance only: nothing is linked, so renaming or deleting the
   /// character leaves the world alone.
@@ -179,6 +198,7 @@ class World {
       'inject_description': injectDescription,
       'climate_enabled': climateEnabled,
       if (parentWorldId != null) 'parent_world_id': parentWorldId,
+      if (defaultPlaceId != null) 'default_place_id': defaultPlaceId,
       if (climateEnabled && placeTraits.isNotEmpty) 'place_traits': placeTraits,
     };
   }
@@ -197,7 +217,7 @@ class World {
       lorebook = Lorebook.fromJson(json);
     }
 
-    return World(
+    final world = World(
       id: json['id']?.toString(),
       name: name,
       description: description,
@@ -237,6 +257,13 @@ class World {
                 : null
           : null,
     );
+    // Top-level key wins over a copy inside place_traits, and survives a
+    // climate-off world, whose place_traits are dropped above.
+    final star =
+        json['default_place_id']?.toString() ??
+        json['defaultPlaceId']?.toString();
+    if (star != null) world.defaultPlaceId = star;
+    return world;
   }
 }
 

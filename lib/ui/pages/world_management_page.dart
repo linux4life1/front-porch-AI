@@ -20,6 +20,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/ui/pages/worlds/worlds.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -172,6 +173,10 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                   child: WorldLibraryRootCard(
                     section: section,
                     directCount: placesUnder(section.root.id, repo.placeWorlds),
+                    startingPlace: startingPlaceOf(
+                      section.root,
+                      repo.worldById,
+                    ),
                     collapsed: _collapsed.contains(section.root.id),
                     onToggleCollapsed: () => setState(() {
                       if (_collapsed.remove(section.root.id)) return;
@@ -255,6 +260,18 @@ class _WorldManagementPageState extends State<WorldManagementPage>
                               _selected.remove(w.id);
                             }
                           }),
+                          starred:
+                              startingPlaceOf(
+                                section.root,
+                                repo.worldById,
+                              ).id ==
+                              w.id,
+                          onStar: () => toggleStartingPlace(
+                            context,
+                            repo,
+                            section.root,
+                            w,
+                          ),
                           onEdit: () =>
                               _showWorldDialog(context, repo, world: w),
                           onExport: () => exportFpWorldFlow(context, repo, w),

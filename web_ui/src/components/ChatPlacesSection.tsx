@@ -28,6 +28,9 @@ type LibraryWorld = {
   description?: string;
   parentWorldId?: string | null;
   isModelMade?: boolean;
+  /** The world's starred place (relay-resolved); attaching the world as
+   * the Setting lands there, as on desktop. */
+  defaultPlaceId?: string | null;
 };
 
 type Climate = {
@@ -215,13 +218,26 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
       ? [...baseOptions, { id: climateId, displayName: 'Custom (this chat)' }]
       : baseOptions;
 
+  // As the Setting, a world with a starred place puts the scene there (its
+  // chain still brings the world's lore and weather). As Lore it stays the
+  // world. Desktop parity with the attach picker.
+  const settingFor = (id: string): { id: string; name: string } => {
+    const star = library.find((w) => w.id === id)?.defaultPlaceId;
+    const place = star ? library.find((w) => w.id === star) : undefined;
+    const self = library.find((w) => w.id === id);
+    return place
+      ? { id: place.id, name: place.name }
+      : { id, name: self?.name ?? 'this place' };
+  };
+
   const attachPlace = async (id: string) => {
     if (!id) return;
     const place = library.find((w) => w.id === id);
     const name = place?.name ?? 'this place';
     if (livePrimary() == null) {
       // Empty Setting defaults to Use as setting.
-      await setSlots(id, liveLoreExcept(id));
+      const setting = settingFor(id);
+      await setSlots(setting.id, liveLoreExcept(id, setting.id));
       return;
     }
     // Filled Setting: offer Add as lore (default) AND Use as setting / replace.
@@ -237,10 +253,10 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
 
   const finishAttachAsSetting = async () => {
     if (!attachChoice || !primary) return;
-    const { id, name } = attachChoice;
+    const setting = settingFor(attachChoice.id);
     if (
       !window.confirm(
-        `Replace setting? Weather and room description will switch to ${name}.`,
+        `Replace setting? Weather and room description will switch to ${setting.name}.`,
       )
     ) {
       return;
@@ -248,8 +264,8 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
     setAttachChoice(null);
     // Demote whatever the Setting is NOW to Lore top (M7 contract).
     const old = livePrimary();
-    const lore = liveLoreExcept(id, old);
-    await setSlots(id, old && old !== id ? [old, ...lore] : lore);
+    const lore = liveLoreExcept(attachChoice.id, setting.id, old);
+    await setSlots(setting.id, old && old !== setting.id ? [old, ...lore] : lore);
   };
 
   const reorderLore = async (from: number, to: number) => {
@@ -517,7 +533,11 @@ export function ChatPlacesSection({ reloadKey }: { reloadKey?: number }) {
             <option value="">Choose…</option>
             {available.map((w) => {
               const pn = parentNameOf(w);
-              const label = pn ? `${w.name} · inside ${pn}` : w.name;
+              const start = settingFor(w.id);
+              const label = [
+                pn ? `${w.name} · inside ${pn}` : w.name,
+                start.id !== w.id ? ` · starts at ${start.name}` : '',
+              ].join('');
               return (
                 <option key={w.id} value={w.id}>
                   {primary ? label : `${label} (as setting)`}

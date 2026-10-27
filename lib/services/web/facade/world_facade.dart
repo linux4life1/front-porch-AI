@@ -69,16 +69,16 @@ class WorldFacade {
     characterIds: characterIds,
   );
 
-  // Locations-tree relay surface (slice 4): candidate law + reach set.
-  late final WorldLocationsRelay _locations = WorldLocationsRelay(_worlds);
+  // Locations-tree relay surface: candidate law, reach set, starting place.
+  late final WorldLocationsRelay locations = WorldLocationsRelay(_worlds);
 
   /// See [WorldLocationsRelay.parentCandidates].
   List<Map<String, dynamic>> parentCandidates(String forNameOrId) =>
-      _locations.parentCandidates(forNameOrId);
+      locations.parentCandidates(forNameOrId);
 
   /// See [WorldLocationsRelay.reachable].
   List<Map<String, dynamic>> reachable(String? primaryId) =>
-      _locations.reachable(primaryId);
+      locations.reachable(primaryId);
 
   List<Map<String, dynamic>> list() {
     // Build a single name→dbId index so the per-world map below is O(1) and we
@@ -96,7 +96,7 @@ class WorldFacade {
       for (final w in _worlds.placeWorlds)
         worldSummaryJson(
           w,
-          locations: _locations,
+          locations: locations,
           linkedCharacterId:
               w.linkedCharacterId ??
               (w.linkedCharacterName != null
@@ -142,8 +142,8 @@ class WorldFacade {
       // inherit-or-own radios from this. Additive.
       'parentWorldId': w.parentWorldId,
       // Slice 5 (additive): same keys as the list rows.
-      'locationCount': _locations.locationCount(w.id),
-      'climateAuthorId': _locations.climateAuthorId(w.id),
+      'locationCount': locations.locationCount(w.id),
+      'climateAuthorId': locations.climateAuthorId(w.id),
     };
   }
 
