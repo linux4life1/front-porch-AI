@@ -174,13 +174,51 @@ int placesUnder(String rootId, List<World> worlds) {
       .length;
 }
 
+/// How [refs] (ids or names) link [world]: at all, and through which place
+/// inside it when an older link names a place rather than the world.
+({bool linked, World? linkedAt}) linkStateOf(
+  List<String> refs,
+  World world,
+  List<World> all,
+) {
+  final resolve = _resolverFor(all);
+  World? linkedAt;
+  var linked = false;
+  for (final r in refs) {
+    if (!refLinksWorld(r, world, resolve, resolve)) continue;
+    linked = true;
+    final w = resolve(r)!;
+    if (w.id != world.id) linkedAt ??= w;
+  }
+  return (linked: linked, linkedAt: linkedAt);
+}
+
+/// [refs] without any that link [world]: unlinking a world also drops an
+/// older link to a place inside it.
+List<String> refsWithoutWorld(List<String> refs, World world, List<World> all) {
+  final resolve = _resolverFor(all);
+  return [
+    for (final r in refs)
+      if (!refLinksWorld(r, world, resolve, resolve)) r,
+  ];
+}
+
+World? Function(String) _resolverFor(List<World> all) {
+  final byId = {for (final w in all) w.id: w};
+  final byName = {for (final w in all) w.name: w};
+  return (ref) => byId[ref] ?? byName[ref];
+}
+
 /// The grey line under a world in a link picker: "3 places inside · chats
-/// start at Stiltwater". Null for a world with no places.
-String? linkPickerInsideLine(World world, List<World> all) {
+/// start at Stiltwater". [linkedAt] (from [linkStateOf]) is where an older
+/// place link starts chats instead of the star. Null for a world with no
+/// places.
+String? linkPickerInsideLine(World world, List<World> all, {World? linkedAt}) {
   final byId = {for (final w in all) w.id: w};
   final n = placesUnder(world.id, all);
   if (n == 0) return null;
   final count = n == 1 ? '1 place inside' : '$n places inside';
+  if (linkedAt != null) return '$count · linked at ${linkedAt.name}';
   final start = startingPlaceOf(world, (id) => byId[id]);
   return start.id == world.id ? count : '$count · chats start at ${start.name}';
 }

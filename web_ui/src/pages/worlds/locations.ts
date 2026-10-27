@@ -125,27 +125,53 @@ export function planWorldLibrary(worlds: TreeWorld[]): LibraryWorld[] {
   return cards;
 }
 
-/** One row in a character's link picker: a top-level world and the grey
- *  line under it ("3 places inside · chats start at Stiltwater"), or null
- *  when it has no places. */
+/** One row in a character's link picker: a top-level world, whether
+ *  [refs] link it, and the grey line under it ("3 places inside · chats
+ *  start at Stiltwater"), or null when it has no places. */
 export interface LinkPickerRow {
   world: TreeWorld;
+  linked: boolean;
   inside: string | null;
 }
 
+/** Resolve a stored link (id, or an older name) against the library. */
+function resolveRef(ref: string, worlds: TreeWorld[], byId: Map<string, TreeWorld>): TreeWorld | undefined {
+  return byId.get(ref) ?? worlds.find((w) => w.name === ref);
+}
+
+/** Whether [ref] names [world] or a place inside it (an older place link,
+ *  which starts chats at that place). Twin of `refLinksWorld`. */
+function refLinksWorld(ref: string, world: TreeWorld, worlds: TreeWorld[], byId: Map<string, TreeWorld>): boolean {
+  const w = resolveRef(ref, worlds, byId);
+  return w != null && idOf(topOf(w, byId)) === idOf(world);
+}
+
 /** What a character links: top-level worlds only. A place is reached
- *  through its world, whose starred place starts the chat; linking a bare
- *  place left chats without a Setting. Twin of `linkableWorlds` +
- *  `linkPickerInsideLine` on desktop. */
-export function linkPickerRows(worlds: TreeWorld[]): LinkPickerRow[] {
+ *  through its world, whose starred place starts the chat. An older link
+ *  that names a place shows its world as linked, "linked at" that place.
+ *  Twin of `linkableWorlds` + `linkStateOf` + `linkPickerInsideLine`. */
+export function linkPickerRows(worlds: TreeWorld[], refs: string[]): LinkPickerRow[] {
   const byId = indexById(worlds);
   return planWorldLibrary(worlds).map(({ world }) => {
+    const mine = refs.filter((r) => refLinksWorld(r, world, worlds, byId));
+    const linkedAt = mine
+      .map((r) => resolveRef(r, worlds, byId))
+      .find((w) => w != null && idOf(w) !== idOf(world));
     const n = placesUnder(idOf(world), worlds, byId);
-    if (n === 0) return { world, inside: null };
+    const row = { world, linked: mine.length > 0 };
+    if (n === 0) return { ...row, inside: null };
     const count = n === 1 ? '1 place inside' : `${n} places inside`;
+    if (linkedAt) return { ...row, inside: `${count} · linked at ${linkedAt.name}` };
     const start = world.defaultPlaceId ? byId.get(world.defaultPlaceId) : undefined;
-    return { world, inside: start ? `${count} · chats start at ${start.name}` : count };
+    return { ...row, inside: start ? `${count} · chats start at ${start.name}` : count };
   });
+}
+
+/** [refs] without any that link [world]: unlinking a world also drops an
+ *  older link to a place inside it. Twin of `refsWithoutWorld`. */
+export function refsWithoutWorld(refs: string[], world: TreeWorld, worlds: TreeWorld[]): string[] {
+  const byId = indexById(worlds);
+  return refs.filter((r) => !refLinksWorld(r, world, worlds, byId));
 }
 
 /** Worlds with places first, each followed by its places; then the rest.

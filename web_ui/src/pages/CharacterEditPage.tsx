@@ -22,7 +22,7 @@ import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { TokenBadge } from '../components/realism/controls';
 import { type RealismValues, compactGreetingPairs, realismFromDetail } from '../components/realism/realismTypes';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
-import { linkPickerRows, type LinkPickerRow, type TreeWorld } from './worlds/locations';
+import { linkPickerRows, refsWithoutWorld, type TreeWorld } from './worlds/locations';
 
 interface RawLore {
   name?: string;
@@ -81,7 +81,7 @@ export function CharacterEditPage() {
   const [lore, setLore] = useState<LoreEntry[]>([]);
   const [rv, setRv] = useState<RealismValues | null>(null);
   const [worldNames, setWorldNames] = useState<string[]>([]);
-  const [allWorlds, setAllWorlds] = useState<LinkPickerRow[]>([]);
+  const [allWorlds, setAllWorlds] = useState<TreeWorld[]>([]);
   const [ttsVoice, setTtsVoice] = useState('');
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   const [saving, setSaving] = useState(false);
@@ -124,7 +124,7 @@ export function CharacterEditPage() {
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'));
     api
       .get<{ worlds: TreeWorld[] }>('/api/worlds')
-      .then((r) => setAllWorlds(linkPickerRows(r.worlds ?? [])))
+      .then((r) => setAllWorlds(r.worlds ?? []))
       .catch(() => setAllWorlds([]));
     api
       .get<VoiceStatus>('/api/voice/status')
@@ -148,12 +148,11 @@ export function CharacterEditPage() {
 
   const setField = (key: keyof CharDetail, value: string) => setC({ ...c, [key]: value });
   const patch = (p: Partial<RealismValues>) => setRv({ ...rv, ...p });
-  // Links store the world's id; an older link may still name it. Same as
-  // the desktop Worlds tab: turning one off drops both spellings.
-  const isLinked = (w: TreeWorld) => worldNames.includes(w.id ?? w.name) || worldNames.includes(w.name);
-  const toggleWorld = (w: TreeWorld) => {
-    const rest = worldNames.filter((r) => r !== w.id && r !== w.name);
-    setWorldNames(isLinked(w) ? rest : [...rest, w.id ?? w.name]);
+  // Links store the world's id. An older link may name the world, or a
+  // place inside it; turning the world off drops every one of them.
+  const toggleWorld = (w: TreeWorld, linked: boolean) => {
+    const rest = refsWithoutWorld(worldNames, w, allWorlds);
+    setWorldNames(linked ? rest : [...rest, w.id ?? w.name]);
   };
 
   const save = async () => {
@@ -342,13 +341,13 @@ export function CharacterEditPage() {
         <>
           <p className="muted small">Chats start at the world&apos;s starred place.</p>
           <div className="world-picker">
-            {allWorlds.map(({ world: w, inside }) => (
+            {linkPickerRows(allWorlds, worldNames).map(({ world: w, linked, inside }) => (
               <label className="tool-toggle" key={w.id ?? w.name}>
                 <span className="world-picker-name">
                   {w.name}
                   {inside && <span className="muted small">{inside}</span>}
                 </span>
-                <input type="checkbox" checked={isLinked(w)} onChange={() => toggleWorld(w)} />
+                <input type="checkbox" checked={linked} onChange={() => toggleWorld(w, linked)} />
               </label>
             ))}
           </div>

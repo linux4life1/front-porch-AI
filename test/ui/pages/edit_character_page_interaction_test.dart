@@ -188,4 +188,40 @@ void main() {
     await tester.pump();
     expect(linked, [basin.id]);
   });
+
+  testWidgets('an older link to a place shows its world linked at that '
+      'place, and unlinking the world drops it', (tester) async {
+    final basin = World(
+      name: 'Verdance Basin',
+      lorebook: Lorebook(entries: const []),
+    );
+    final stilt = World(
+      name: 'Stiltwater',
+      lorebook: Lorebook(entries: const []),
+      parentWorldId: basin.id,
+      climateEnabled: false,
+    );
+    final linked = <String>['Stiltwater'];
+
+    await tester.pumpWidget(
+      ChangeNotifierProvider<WorldRepository>.value(
+        value: FakeWorldRepository([basin, stilt]),
+        child: MaterialApp(
+          home: Scaffold(
+            body: EditCharacterWorldsTab(
+              selectedWorldNames: linked,
+              onChanged: () {},
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('1 place inside · linked at Stiltwater'), findsOneWidget);
+    expect(tester.widget<Switch>(find.byType(Switch)).value, isTrue);
+
+    await tester.tap(find.byType(Switch));
+    await tester.pump();
+    expect(linked, isEmpty);
+  });
 }

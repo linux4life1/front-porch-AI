@@ -21,19 +21,10 @@ class WorldChatAttachments {
   final WorldRepository _repo;
   final AppDatabase Function() _db;
 
-  /// Character / group links to chat ids. A link naming a place inside a
-  /// world lifts to that world, so the chat starts at the world's star with
-  /// a Setting; [lift] is false only for a fork carrying its parent's slots.
-  List<String> _resolveRefs(
-    List<String> refs,
-    List<String> unresolved, {
-    bool lift = true,
-  }) {
+  List<String> _resolveRefs(List<String> refs, List<String> unresolved) {
     final worlds = _repo.worlds;
     return resolveWorldRefsToIds(
-      refs: lift
-          ? liftLinkRefs(refs, _repo.resolveWorld, _repo.worldById)
-          : refs,
+      refs: refs,
       nameToId: {for (final w in worlds) w.name: w.id},
       validIds: {for (final w in worlds) w.id},
       unresolved: unresolved,
@@ -79,13 +70,14 @@ class WorldChatAttachments {
     // A world with a starred place starts the chat there: the place takes
     // the world's slot (its chain still brings the world's lore and
     // weather) and may hold the Setting even when the world is lore-only,
-    // because the author chose it as the start. Otherwise the Setting goes
-    // to the first id whose chain authors a climate, inherited or its own.
+    // because the author chose it as the start. An older link that names a
+    // place inside a world starts there the same way. Otherwise the Setting
+    // goes to the first id whose chain authors a climate, inherited or not.
     final starts = <String>{};
     final ids = <String>[];
     for (final id in worldIds) {
       final start = startAtStar ? _repo.startingPlaceFor(id) : null;
-      if (start != null && start.id != id) {
+      if (start != null && _isPlace(start)) {
         starts.add(start.id);
         ids.add(start.id);
       } else {
@@ -103,6 +95,8 @@ class WorldChatAttachments {
       loreIds: slots.loreIds,
     );
   }
+
+  bool _isPlace(model.World w) => topWorldOf(w, _repo.worldById).id != w.id;
 
   Future<void> markDecided(String chatId) =>
       _db().markChatWorldsInitialized(chatId);
@@ -165,7 +159,7 @@ class WorldChatAttachments {
     // against a not-yet-loaded cache would silently seed nothing, permanently.
     await _repo.ready;
     final unresolved = <String>[];
-    final ids = _resolveRefs(templateWorldIds, unresolved, lift: startAtStar);
+    final ids = _resolveRefs(templateWorldIds, unresolved);
     if (unresolved.isNotEmpty) {
       debugPrint(
         '[Worlds] template had unresolved refs for chat $chatId: $unresolved',

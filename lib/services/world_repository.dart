@@ -132,12 +132,7 @@ class WorldRepository extends ChangeNotifier {
       _resolveAvatarPaths(_worlds);
       // One-time: drop legacy "Aerin's Lorebook" clones so Worlds = places.
       await _purge.maybePurge();
-      await WorldLinkLift(
-        repo: this,
-        db: () => _db,
-        characters: () => _characterRepository,
-        groups: () => _groupRepository,
-      ).run();
+      await repairBarePlaceSettings(this, _db);
     } catch (e) {
       debugPrint('Error loading worlds: $e');
     } finally {

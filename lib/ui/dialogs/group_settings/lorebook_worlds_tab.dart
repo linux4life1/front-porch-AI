@@ -4,6 +4,7 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:provider/provider.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
@@ -39,6 +40,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   bool _bookUnreadable = false;
 
   List<World> _allWorlds = [];
+  List<World> _placeWorlds = [];
 
   @override
   void initState() {
@@ -76,8 +78,10 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
       final repo = Provider.of<WorldRepository>(context, listen: false);
       // Top-level worlds only: a place is reached through its world.
       _allWorlds = repo.linkableWorlds;
+      _placeWorlds = repo.placeWorlds;
     } catch (_) {
       _allWorlds = [];
+      _placeWorlds = [];
     }
     setState(() {});
   }
@@ -198,14 +202,10 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
 
   void _toggleWorld(World w) {
     setState(() {
-      final byId = _worldIds.contains(w.id);
-      final byName = _worldIds.contains(w.name);
-      if (byId || byName) {
-        _worldIds.remove(w.id);
-        _worldIds.remove(w.name);
-      } else {
-        _worldIds.add(w.id);
-      }
+      // Unlinking drops an older link to a place inside the world too.
+      final linked = linkStateOf(_worldIds, w, _placeWorlds).linked;
+      _worldIds = refsWithoutWorld(_worldIds, w, _placeWorlds);
+      if (!linked) _worldIds.add(w.id);
     });
     _syncToGroup();
   }
@@ -272,13 +272,13 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _allWorlds.map((w) {
-                      final selected =
-                          _worldIds.contains(w.id) ||
-                          _worldIds.contains(w.name);
-                      final label =
-                          w.biomeId != null &&
-                              w.biomeId!.isNotEmpty &&
-                              w.biomeId != 'temperate'
+                      final link = linkStateOf(_worldIds, w, _placeWorlds);
+                      final selected = link.linked;
+                      final label = link.linkedAt != null
+                          ? '${w.name} · at ${link.linkedAt!.name}'
+                          : w.biomeId != null &&
+                                w.biomeId!.isNotEmpty &&
+                                w.biomeId != 'temperate'
                           ? '${w.name} · ${w.biomeId}'
                           : w.name;
                       return FilterChip(

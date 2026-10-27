@@ -452,9 +452,7 @@ class _EditGroupPageState extends State<EditGroupPage>
                 ),
                 // A LISTENING read, as before: world changes rebuild the page.
                 EditGroupLoreWorldsTab(
-                  allWorlds: Provider.of<WorldRepository>(
-                    context,
-                  ).linkableWorlds,
+                  allWorlds: Provider.of<WorldRepository>(context).placeWorlds,
                   loreEntries: _groupLoreEntries,
                   bookUnreadable: _bookUnreadable,
                   inheritCharacterLorebooks: _inheritCharacterLorebooks,

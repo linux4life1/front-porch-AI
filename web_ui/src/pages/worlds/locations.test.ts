@@ -14,6 +14,7 @@ import {
   injectionUsedChars,
   libraryDisplayOrder,
   linkPickerRows,
+  refsWithoutWorld,
   planWorldLibrary,
   placesUnder,
   type TreeWorld,
@@ -237,21 +238,32 @@ describe('buildWorldInjection: trait lines come from the climate author only', (
 });
 
 describe('linkPickerRows', () => {
+  const basin = w('Verdance Basin', { defaultPlaceId: 'Stiltwater' });
+  const stilt = w('Stiltwater', { parentWorldId: 'Verdance Basin' });
+  const market = w('Canopy Market', { parentWorldId: 'Verdance Basin' });
+  const loft = w('Rope Loft', { parentWorldId: 'Canopy Market' });
+  const cinder = w('The Cindermaw');
+  const town = w('Bletchfield');
+  const tea = w('Tea Rooms', { parentWorldId: 'Bletchfield' });
+  const library = [cinder, basin, stilt, market, loft, town, tea];
+
   it('offers top-level worlds only, with where chats start', () => {
-    const basin = w('Verdance Basin', { defaultPlaceId: 'Stiltwater' });
-    const stilt = w('Stiltwater', { parentWorldId: 'Verdance Basin' });
-    const market = w('Canopy Market', { parentWorldId: 'Verdance Basin' });
-    const loft = w('Rope Loft', { parentWorldId: 'Canopy Market' });
-    const cinder = w('The Cindermaw');
-    const town = w('Bletchfield');
-    const tea = w('Tea Rooms', { parentWorldId: 'Bletchfield' });
+    const rows = linkPickerRows(library, ['The Cindermaw']);
 
-    const rows = linkPickerRows([cinder, basin, stilt, market, loft, town, tea]);
-
-    expect(rows.map((r) => [r.world.name, r.inside])).toEqual([
-      ['The Cindermaw', null],
-      ['Verdance Basin', '2 places inside · chats start at Stiltwater'],
-      ['Bletchfield', '1 place inside'],
+    expect(rows.map((r) => [r.world.name, r.linked, r.inside])).toEqual([
+      ['The Cindermaw', true, null],
+      ['Verdance Basin', false, '2 places inside · chats start at Stiltwater'],
+      ['Bletchfield', false, '1 place inside'],
     ]);
+  });
+
+  it('an older link to a place shows its world linked at that place; unlinking drops it', () => {
+    const rows = linkPickerRows(library, ['Rope Loft']);
+
+    expect(rows.find((r) => r.world.name === 'Verdance Basin')).toMatchObject({
+      linked: true,
+      inside: '2 places inside · linked at Rope Loft',
+    });
+    expect(refsWithoutWorld(['Rope Loft', 'Bletchfield'], basin, library)).toEqual(['Bletchfield']);
   });
 });

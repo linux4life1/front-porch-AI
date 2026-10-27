@@ -17,10 +17,12 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/pages/worlds/world_library_rows.dart';
 import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 
@@ -38,7 +40,8 @@ class GroupLoreStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final worldRepo = Provider.of<WorldRepository>(context);
-    final allWorlds = worldRepo.linkableWorlds;
+    final allWorlds = libraryDisplayOrder(worldRepo.placeWorlds);
+    final byId = {for (final w in allWorlds) w.id: w};
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -267,7 +270,7 @@ class GroupLoreStep extends StatelessWidget {
                   context: context,
                   builder: (ctx) => SimpleDialog(
                     title: const Text('Link a World'),
-                    children: allWorlds
+                    children: linkableWorldsOf(allWorlds, (id) => byId[id])
                         .map(
                           (w) => SimpleDialogOption(
                             onPressed: () => Navigator.pop(ctx, w),

@@ -108,13 +108,17 @@ class EditCharacterWorldsTab extends StatelessWidget {
                     )
                   else
                     ...repo.linkableWorlds.map((world) {
-                      final inside = linkPickerInsideLine(
+                      final link = linkStateOf(
+                        selectedWorldNames,
                         world,
                         repo.placeWorlds,
                       );
-                      final isLinked =
-                          selectedWorldNames.contains(world.id) ||
-                          selectedWorldNames.contains(world.name);
+                      final inside = linkPickerInsideLine(
+                        world,
+                        repo.placeWorlds,
+                        linkedAt: link.linkedAt,
+                      );
+                      final isLinked = link.linked;
                       return Container(
                         margin: const EdgeInsets.only(bottom: 8),
                         decoration: BoxDecoration(
@@ -185,15 +189,15 @@ class EditCharacterWorldsTab extends StatelessWidget {
                           trailing: Switch(
                             value: isLinked,
                             onChanged: (val) {
-                              if (val) {
-                                selectedWorldNames.remove(world.name);
-                                if (!selectedWorldNames.contains(world.id)) {
-                                  selectedWorldNames.add(world.id);
-                                }
-                              } else {
-                                selectedWorldNames.remove(world.id);
-                                selectedWorldNames.remove(world.name);
-                              }
+                              final rest = refsWithoutWorld(
+                                selectedWorldNames,
+                                world,
+                                repo.placeWorlds,
+                              );
+                              selectedWorldNames
+                                ..clear()
+                                ..addAll(rest);
+                              if (val) selectedWorldNames.add(world.id);
                               onChanged();
                             },
                             activeTrackColor: AppColors.formAccentOf(

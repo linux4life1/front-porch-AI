@@ -19,6 +19,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/ui/dialogs/dialogs.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -48,8 +49,17 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
     required this.onUnlinkWorld,
   });
 
-  /// Every world the picker offers (`WorldRepository.linkableWorlds`).
+  /// Every place world (`WorldRepository.placeWorlds`). Chips name what is
+  /// linked; the Link World picker offers only the top-level ones.
   final List<World> allWorlds;
+
+  World? _worldById(String id) {
+    for (final w in allWorlds) {
+      if (w.id == id) return w;
+    }
+    return null;
+  }
+
   final List<LorebookEntry> loreEntries;
   final bool bookUnreadable;
   final bool inheritCharacterLorebooks;
@@ -209,7 +219,7 @@ class EditGroupLoreWorldsTab extends StatelessWidget {
                     builder: (ctx) => SimpleDialog(
                       backgroundColor: AppColors.surfaceOf(context),
                       title: const Text('Link a World'),
-                      children: allWorlds
+                      children: linkableWorldsOf(allWorlds, _worldById)
                           .map(
                             (w) => SimpleDialogOption(
                               onPressed: () => Navigator.pop(ctx, w),

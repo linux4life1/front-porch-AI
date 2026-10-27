@@ -6,7 +6,6 @@
 // 0-fail reduction; rename gets real DB-backed coverage because it used to
 // silently duplicate rows and orphan every attachment.
 
-import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -1305,16 +1304,24 @@ void main() {
       return w;
     }
 
-    test('a character linked to a bare place starts its chat in that '
-        "place's world, with a Setting", () async {
+    test('an older link to a bare place starts the chat at that place, as '
+        'its Setting', () async {
       final basin = await seed('Verdance Basin', climate: true);
       final stilt = await seed('Stiltwater', parent: basin.id);
+      final realm = await seed('Neokosmos');
+      final court = await seed('Hrive Court', parent: realm.id);
 
       await repo.applyTemplateWorldsToChat('chat-new', [stilt.id]);
-
       final slots = await repo.getChatWorldAttachments('chat-new');
-      expect(slots.primaryId, basin.id);
-      expect(slots.loreIds, isEmpty);
+      expect(slots.primaryId, stilt.id);
+      expect(repo.climateAuthorFor(stilt.id)?.id, basin.id);
+
+      // Like a starred place, it holds the Setting in a lore-only world too.
+      await repo.applyTemplateWorldsToChat('chat-lore', [court.id]);
+      expect(
+        (await repo.getChatWorldAttachments('chat-lore')).primaryId,
+        court.id,
+      );
     });
 
     test('a fork carrying a place that inherits its climate keeps it as '
@@ -1329,44 +1336,6 @@ void main() {
       final slots = await repo.getChatWorldAttachments('chat-fork');
       expect(slots.primaryId, stilt.id);
       expect(repo.climateAuthorFor(stilt.id)?.id, basin.id);
-    });
-
-    test('a load lifts stored character and group links from a place to its '
-        'world, deduped', () async {
-      final basin = await seed('Verdance Basin', climate: true);
-      final stilt = await seed('Stiltwater', parent: basin.id);
-      final cinder = await seed('The Cindermaw', climate: true);
-      await db
-          .into(db.characters)
-          .insert(
-            CharactersCompanion.insert(
-              id: 'sophia',
-              name: 'Sophia',
-              worldNames: Value(
-                jsonEncode([stilt.id, 'Verdance Basin', cinder.name]),
-              ),
-            ),
-          );
-      await db
-          .into(db.groups)
-          .insert(
-            GroupsCompanion.insert(
-              id: 'g1',
-              name: 'Porch Duo',
-              worldIds: Value(jsonEncode(['Stiltwater'])),
-            ),
-          );
-
-      await repo.loadWorlds();
-
-      final c = await (db.select(
-        db.characters,
-      )..where((t) => t.id.equals('sophia'))).getSingle();
-      expect(jsonDecode(c.worldNames), [basin.id, cinder.name]);
-      final g = await (db.select(
-        db.groups,
-      )..where((t) => t.id.equals('g1'))).getSingle();
-      expect(jsonDecode(g.worldIds), [basin.id]);
     });
 
     test('a chat a bare place left without a Setting gets one, once', () async {
