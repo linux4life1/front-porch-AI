@@ -10,10 +10,14 @@ import { describe, expect, it } from 'vitest';
 
 import {
   buildWorldInjection,
+  bulkDeletePlan,
   indexById,
   injectionUsedChars,
   libraryDisplayOrder,
+  linkPickerRows,
+  refsWithoutWorld,
   planWorldLibrary,
+  placesInsideCount,
   placesUnder,
   type TreeWorld,
 } from './locations';
@@ -80,6 +84,27 @@ describe('planWorldLibrary', () => {
     const deeper = [...library, room];
     expect(placesUnder('Bletchfield', deeper, indexById(deeper))).toBe(3);
     expect(placesUnder('Town Hall', deeper, indexById(deeper))).toBe(1);
+  });
+
+  it('placesInsideCount counts the whole tree a delete takes with it', () => {
+    const room = w('Back Room', { parentWorldId: 'Town Hall' });
+    const deeper = [...library, room];
+    const byId = indexById(deeper);
+    expect(placesInsideCount('Bletchfield', deeper, byId)).toBe(4);
+    expect(placesInsideCount('Town Hall', deeper, byId)).toBe(1);
+    expect(placesInsideCount('Red Dust Station', deeper, byId)).toBe(0);
+  });
+
+  it('bulkDeletePlan sends only rows with no doomed ancestor and counts hand-made places inside', () => {
+    const wiki = w('Wiki World', { isModelMade: true });
+    const keep = w('Wiki Keep', { parentWorldId: 'Wiki World', isModelMade: true });
+    const cellar = w('Cellar', { parentWorldId: 'Wiki Keep' });
+    const garden = w('My Garden', { parentWorldId: 'Wiki World' });
+    const lone = w('Lone Mint', { isModelMade: true });
+    const all = [wiki, keep, cellar, garden, lone, w('Bletchfield')];
+    const plan = bulkDeletePlan([wiki, keep, lone], all, indexById(all));
+    expect(plan.roots.map((x) => x.id)).toEqual(['Wiki World', 'Lone Mint']);
+    expect(plan.alsoInside).toBe(2);
   });
 
   it('libraryDisplayOrder puts every parent before its children', () => {
@@ -232,5 +257,36 @@ describe('buildWorldInjection: trait lines come from the climate author only', (
     expect(text).toContain('Gravity is high');
     expect(text).not.toContain('Gravity is low');
     expect(text).not.toContain('unbreathable');
+  });
+});
+
+describe('linkPickerRows', () => {
+  const basin = w('Verdance Basin', { defaultPlaceId: 'Stiltwater' });
+  const stilt = w('Stiltwater', { parentWorldId: 'Verdance Basin' });
+  const market = w('Canopy Market', { parentWorldId: 'Verdance Basin' });
+  const loft = w('Rope Loft', { parentWorldId: 'Canopy Market' });
+  const cinder = w('The Cindermaw');
+  const town = w('Bletchfield');
+  const tea = w('Tea Rooms', { parentWorldId: 'Bletchfield' });
+  const library = [cinder, basin, stilt, market, loft, town, tea];
+
+  it('offers top-level worlds only, with where chats start', () => {
+    const rows = linkPickerRows(library, ['The Cindermaw']);
+
+    expect(rows.map((r) => [r.world.name, r.linked, r.inside])).toEqual([
+      ['The Cindermaw', true, null],
+      ['Verdance Basin', false, '2 places inside · chats start at Stiltwater'],
+      ['Bletchfield', false, '1 place inside'],
+    ]);
+  });
+
+  it('an older link to a place shows its world linked at that place; unlinking drops it', () => {
+    const rows = linkPickerRows(library, ['Rope Loft']);
+
+    expect(rows.find((r) => r.world.name === 'Verdance Basin')).toMatchObject({
+      linked: true,
+      inside: '2 places inside · linked at Rope Loft',
+    });
+    expect(refsWithoutWorld(['Rope Loft', 'Bletchfield'], basin, library)).toEqual(['Bletchfield']);
   });
 });

@@ -11,6 +11,7 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart' hide World;
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -68,13 +69,15 @@ class WorldChatAttachments {
     await _repo.ready;
     // A world with a starred place starts the chat there: the place takes
     // the world's slot (its chain still brings the world's lore and
-    // weather) and may hold the Setting even when it inherits its climate
-    // or the world is lore-only, because the author chose it as the start.
+    // weather) and may hold the Setting even when the world is lore-only,
+    // because the author chose it as the start. An older link that names a
+    // place inside a world starts there the same way. Otherwise the Setting
+    // goes to the first id whose chain authors a climate, inherited or not.
     final starts = <String>{};
     final ids = <String>[];
     for (final id in worldIds) {
       final start = startAtStar ? _repo.startingPlaceFor(id) : null;
-      if (start != null && start.id != id) {
+      if (start != null && _isPlace(start)) {
         starts.add(start.id);
         ids.add(start.id);
       } else {
@@ -84,7 +87,7 @@ class WorldChatAttachments {
     final slots = partitionLinkedPlaces(
       worldIds: ids,
       isClimateEnabled: (id) =>
-          starts.contains(id) || (_repo.worldById(id)?.climateEnabled ?? false),
+          starts.contains(id) || _repo.climateAuthorFor(id) != null,
     );
     await _repo.setChatWorldAttachments(
       chatId,
@@ -92,6 +95,8 @@ class WorldChatAttachments {
       loreIds: slots.loreIds,
     );
   }
+
+  bool _isPlace(model.World w) => topWorldOf(w, _repo.worldById).id != w.id;
 
   Future<void> markDecided(String chatId) =>
       _db().markChatWorldsInitialized(chatId);

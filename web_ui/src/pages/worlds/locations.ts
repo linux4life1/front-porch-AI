@@ -20,6 +20,9 @@ export interface TreeWorld {
   entryCount?: number;
   enabledEntryCount?: number;
   injectDescription?: boolean;
+  /** The starred place chats attached to this world start in; null when
+   *  they start in the world itself (resolved by the relay). */
+  defaultPlaceId?: string | null;
 }
 
 export type LibraryFilter = 'all' | 'modelMade';
@@ -92,6 +95,40 @@ function subtreeOf(
   return out;
 }
 
+/** Every place inside [rootId], any depth: what a delete takes with it. */
+export function placesInsideCount(
+  rootId: string,
+  worlds: TreeWorld[],
+  byId: Map<string, TreeWorld>,
+): number {
+  return subtreeOf(rootId, worlds, byId).length;
+}
+
+/** A bulk delete of [doomed]. A world's delete takes its whole tree, so
+ *  only [roots] (doomed rows with no doomed ancestor) are sent; a child
+ *  sent after its parent would answer 404 for a row already gone.
+ *  [alsoInside] counts the places outside [doomed] that go with them
+ *  (desktop bulkDeletePlan twin). */
+export function bulkDeletePlan(
+  doomed: TreeWorld[],
+  worlds: TreeWorld[],
+  byId: Map<string, TreeWorld>,
+): { roots: TreeWorld[]; alsoInside: number } {
+  const ids = new Set(doomed.map(idOf));
+  const under = new Set<string>();
+  for (const d of doomed) {
+    for (const p of subtreeOf(idOf(d), worlds, byId)) under.add(idOf(p.place));
+  }
+  const roots = doomed.filter((d) => !under.has(idOf(d)));
+  const inside = new Set<string>();
+  for (const r of roots) {
+    for (const p of subtreeOf(idOf(r), worlds, byId)) {
+      if (!ids.has(idOf(p.place))) inside.add(idOf(p.place));
+    }
+  }
+  return { roots, alsoInside: inside.size };
+}
+
 /** Direct children only. */
 export function placesUnder(
   rootId: string,
@@ -120,6 +157,55 @@ export function planWorldLibrary(worlds: TreeWorld[]): LibraryWorld[] {
     if (!placed.has(idOf(w))) cards.push({ world: w, places: [] });
   }
   return cards;
+}
+
+/** One row in a character's link picker: a top-level world, whether
+ *  [refs] link it, and the grey line under it ("3 places inside · chats
+ *  start at Stiltwater"), or null when it has no places. */
+export interface LinkPickerRow {
+  world: TreeWorld;
+  linked: boolean;
+  inside: string | null;
+}
+
+/** Resolve a stored link (id, or an older name) against the library. */
+function resolveRef(ref: string, worlds: TreeWorld[], byId: Map<string, TreeWorld>): TreeWorld | undefined {
+  return byId.get(ref) ?? worlds.find((w) => w.name === ref);
+}
+
+/** Whether [ref] names [world] or a place inside it (an older place link,
+ *  which starts chats at that place). Twin of `refLinksWorld`. */
+function refLinksWorld(ref: string, world: TreeWorld, worlds: TreeWorld[], byId: Map<string, TreeWorld>): boolean {
+  const w = resolveRef(ref, worlds, byId);
+  return w != null && idOf(topOf(w, byId)) === idOf(world);
+}
+
+/** What a character links: top-level worlds only. A place is reached
+ *  through its world, whose starred place starts the chat. An older link
+ *  that names a place shows its world as linked, "linked at" that place.
+ *  Twin of `linkableWorlds` + `linkStateOf` + `linkPickerInsideLine`. */
+export function linkPickerRows(worlds: TreeWorld[], refs: string[]): LinkPickerRow[] {
+  const byId = indexById(worlds);
+  return planWorldLibrary(worlds).map(({ world }) => {
+    const mine = refs.filter((r) => refLinksWorld(r, world, worlds, byId));
+    const linkedAt = mine
+      .map((r) => resolveRef(r, worlds, byId))
+      .find((w) => w != null && idOf(w) !== idOf(world));
+    const n = placesUnder(idOf(world), worlds, byId);
+    const row = { world, linked: mine.length > 0 };
+    if (n === 0) return { ...row, inside: null };
+    const count = n === 1 ? '1 place inside' : `${n} places inside`;
+    if (linkedAt) return { ...row, inside: `${count} · linked at ${linkedAt.name}` };
+    const start = world.defaultPlaceId ? byId.get(world.defaultPlaceId) : undefined;
+    return { ...row, inside: start ? `${count} · chats start at ${start.name}` : count };
+  });
+}
+
+/** [refs] without any that link [world]: unlinking a world also drops an
+ *  older link to a place inside it. Twin of `refsWithoutWorld`. */
+export function refsWithoutWorld(refs: string[], world: TreeWorld, worlds: TreeWorld[]): string[] {
+  const byId = indexById(worlds);
+  return refs.filter((r) => !refLinksWorld(r, world, worlds, byId));
 }
 
 /** Worlds with places first, each followed by its places; then the rest.

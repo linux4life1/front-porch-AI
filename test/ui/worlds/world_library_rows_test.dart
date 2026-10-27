@@ -271,4 +271,20 @@ void main() {
       expect(placeDepthUnder('Bletchfield', room, index(all)), 2);
     });
   });
+
+  group('bulkDeletePlan', () {
+    test('sends only doomed rows with no doomed ancestor and counts the '
+        'hand-made places that go with them', () {
+      final wiki = w('Wiki World', model: true);
+      final keep = w('Wiki Keep', parent: 'Wiki World', model: true);
+      final cellar = w('Cellar', parent: 'Wiki Keep');
+      final garden = w('My Garden', parent: 'Wiki World');
+      final lone = w('Lone Mint', model: true);
+      final other = w('Bletchfield');
+      final all = [wiki, keep, cellar, garden, lone, other];
+      final plan = bulkDeletePlan([wiki, keep, lone], all, index(all));
+      expect(plan.roots.map((x) => x.id), ['Wiki World', 'Lone Mint']);
+      expect(plan.alsoInside, 2, reason: 'Cellar and My Garden go too');
+    });
+  });
 }

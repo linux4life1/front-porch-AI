@@ -209,3 +209,57 @@ World startingPlaceOf(World world, World? Function(String id) lookup) {
   final place = id == null ? null : lookup(id);
   return place != null && isPlaceInside(place, world, lookup) ? place : world;
 }
+
+/// A bulk delete of [doomed]. A world's delete takes its whole tree, so only
+/// [roots] (doomed rows with no doomed ancestor) are deleted; deleting a
+/// child after its parent would hit a row that is already gone.
+/// [alsoInside] counts the places outside [doomed] that go with them, so
+/// the confirm can say how much hand-made work is lost.
+({List<World> roots, int alsoInside}) bulkDeletePlan(
+  List<World> doomed,
+  Iterable<World> all,
+  World? Function(String id) lookup,
+) {
+  final ids = {for (final d in doomed) d.id};
+  final roots = [
+    for (final d in doomed)
+      if (!doomed.any((o) => isPlaceInside(d, o, lookup))) d,
+  ];
+  final alsoInside = all
+      .where(
+        (w) =>
+            !ids.contains(w.id) &&
+            roots.any((r) => isPlaceInside(w, r, lookup)),
+      )
+      .length;
+  return (roots: roots, alsoInside: alsoInside);
+}
+
+/// The top-level world [place] sits in, or [place] itself for a world.
+World topWorldOf(World place, World? Function(String id) lookup) =>
+    worldChain(place, lookup).last;
+
+/// What a character or group may link: top-level worlds only, in the order
+/// given. A place inside a world is reached through that world (its starred
+/// place starts the chat). A place whose parent row is gone counts as a
+/// world here.
+List<World> linkableWorldsOf(
+  List<World> worlds,
+  World? Function(String id) lookup,
+) => [
+  for (final w in worlds)
+    if (topWorldOf(w, lookup).id == w.id) w,
+];
+
+/// Whether [ref] (an id or name) names [world] or a place inside it. A
+/// picker shows that world as linked; a link to a place inside it is an
+/// older link that starts chats at that place.
+bool refLinksWorld(
+  String ref,
+  World world,
+  World? Function(String idOrName) resolve,
+  World? Function(String id) lookup,
+) {
+  final w = resolve(ref);
+  return w != null && topWorldOf(w, lookup).id == world.id;
+}

@@ -22,6 +22,7 @@ import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { TokenBadge } from '../components/realism/controls';
 import { type RealismValues, compactGreetingPairs, realismFromDetail } from '../components/realism/realismTypes';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
+import { linkPickerRows, refsWithoutWorld, type TreeWorld } from './worlds/locations';
 
 interface RawLore {
   name?: string;
@@ -80,7 +81,7 @@ export function CharacterEditPage() {
   const [lore, setLore] = useState<LoreEntry[]>([]);
   const [rv, setRv] = useState<RealismValues | null>(null);
   const [worldNames, setWorldNames] = useState<string[]>([]);
-  const [allWorlds, setAllWorlds] = useState<string[]>([]);
+  const [allWorlds, setAllWorlds] = useState<TreeWorld[]>([]);
   const [ttsVoice, setTtsVoice] = useState('');
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
   const [saving, setSaving] = useState(false);
@@ -122,8 +123,8 @@ export function CharacterEditPage() {
       })
       .catch((e) => setError(e instanceof Error ? e.message : 'Failed to load'));
     api
-      .get<{ worlds: { name: string }[] }>('/api/worlds')
-      .then((r) => setAllWorlds((r.worlds ?? []).map((w) => w.name)))
+      .get<{ worlds: TreeWorld[] }>('/api/worlds')
+      .then((r) => setAllWorlds(r.worlds ?? []))
       .catch(() => setAllWorlds([]));
     api
       .get<VoiceStatus>('/api/voice/status')
@@ -147,8 +148,12 @@ export function CharacterEditPage() {
 
   const setField = (key: keyof CharDetail, value: string) => setC({ ...c, [key]: value });
   const patch = (p: Partial<RealismValues>) => setRv({ ...rv, ...p });
-  const toggleWorld = (name: string) =>
-    setWorldNames(worldNames.includes(name) ? worldNames.filter((w) => w !== name) : [...worldNames, name]);
+  // Links store the world's id. An older link may name the world, or a
+  // place inside it; turning the world off drops every one of them.
+  const toggleWorld = (w: TreeWorld, linked: boolean) => {
+    const rest = refsWithoutWorld(worldNames, w, allWorlds);
+    setWorldNames(linked ? rest : [...rest, w.id ?? w.name]);
+  };
 
   const save = async () => {
     setSaving(true);
@@ -329,18 +334,24 @@ export function CharacterEditPage() {
         </>
       )}
 
-      <h3 className="section-label">Linked places</h3>
+      <h3 className="section-label">Linked worlds</h3>
       {allWorlds.length === 0 ? (
-        <p className="muted small">No places yet. Create one from the Worlds page to link it here.</p>
+        <p className="muted small">No worlds yet. Create one from the Worlds page to link it here.</p>
       ) : (
-        <div className="world-picker">
-          {allWorlds.map((w) => (
-            <label className="tool-toggle" key={w}>
-              <span>{w}</span>
-              <input type="checkbox" checked={worldNames.includes(w)} onChange={() => toggleWorld(w)} />
-            </label>
-          ))}
-        </div>
+        <>
+          <p className="muted small">Chats start at the world&apos;s starred place.</p>
+          <div className="world-picker">
+            {linkPickerRows(allWorlds, worldNames).map(({ world: w, linked, inside }) => (
+              <label className="tool-toggle" key={w.id ?? w.name}>
+                <span className="world-picker-name">
+                  {w.name}
+                  {inside && <span className="muted small">{inside}</span>}
+                </span>
+                <input type="checkbox" checked={linked} onChange={() => toggleWorld(w, linked)} />
+              </label>
+            ))}
+          </div>
+        </>
       )}
 
       <h3 className="section-label">Realism Engine</h3>

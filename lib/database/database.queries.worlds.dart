@@ -32,15 +32,17 @@ extension AppDatabaseWorldQueries on AppDatabase {
     return count;
   }
 
-  /// Delete re-root (docs/design/locations-within-worlds.md §3): clear
-  /// [worldId] from its children's parent column so they become roots.
-  /// Climate flags stay exactly as they were. Returns how many moved.
-  Future<int> reRootWorldChildren(String worldId) async {
-    final count =
-        await (update(worlds)..where((w) => w.parentWorldId.equals(worldId)))
-            .write(const WorldsCompanion(parentWorldId: Value(null)));
-    if (count > 0) await bumpSyncVersion();
-    return count;
+  /// Deletes every world in [ids] and their chat attachments in one
+  /// transaction: a world's delete takes its whole place tree with it
+  /// (the repository collects the subtree), so no half-deleted tree is left
+  /// behind as stray top-level worlds.
+  Future<void> deleteWorldTree(List<String> ids) async {
+    if (ids.isEmpty) return;
+    await transaction(() async {
+      await (delete(chatWorlds)..where((t) => t.worldId.isIn(ids))).go();
+      await (delete(worlds)..where((w) => w.id.isIn(ids))).go();
+    });
+    await bumpSyncVersion();
   }
 
   Future<World?> getWorldByName(String name) =>
@@ -216,6 +218,15 @@ extension AppDatabaseWorldQueries on AppDatabase {
     } catch (_) {
       return null;
     }
+  }
+
+  /// Chats that have places attached but no Setting.
+  Future<List<String>> chatIdsWithoutSetting() async {
+    final rows = await customSelect(
+      'SELECT chat_id FROM chat_worlds GROUP BY chat_id '
+      'HAVING MAX(is_primary) = 0',
+    ).get();
+    return [for (final r in rows) r.data['chat_id'].toString()];
   }
 
   /// Upsert semantics per (chat, day): switching climate twice on the same

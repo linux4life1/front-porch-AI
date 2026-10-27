@@ -132,6 +132,7 @@ class WorldRepository extends ChangeNotifier {
       _resolveAvatarPaths(_worlds);
       // One-time: drop legacy "Aerin's Lorebook" clones so Worlds = places.
       await _purge.maybePurge();
+      await repairBarePlaceSettings(this, _db);
     } catch (e) {
       debugPrint('Error loading worlds: $e');
     } finally {
@@ -225,20 +226,16 @@ class WorldRepository extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Deleting a place re-roots its children (parent cleared, climate left
-  /// exactly as it was) and removes the chat attachments of its own row.
-  /// Lore the user wrote under the children is never cascade-deleted.
-  /// Returns how many children moved to root, so the UI can say so.
+  /// Deleting a world deletes every place inside it (any depth) along with
+  /// their chat attachments. Returns how many places went with it, so the
+  /// UI can say so.
   Future<int> deleteWorld(model.World world) async {
-    final reRooted = await _db.reRootWorldChildren(world.id);
-    await _db.deleteWorldById(world.id);
-    await _db.deleteChatWorldLinksForWorld(world.id);
-    for (final w in _worlds) {
-      if (w.parentWorldId == world.id) w.parentWorldId = null;
-    }
-    _worlds.removeWhere((w) => w.id == world.id);
+    final inside = placesInside(world, _worlds, worldById);
+    await _db.deleteWorldTree([world.id, for (final p in inside) p.id]);
+    final gone = {world.id, for (final p in inside) p.id};
+    _worlds.removeWhere((w) => gone.contains(w.id));
     notifyListeners();
-    return reRooted;
+    return inside.length;
   }
 
   /// Location chain leaf-first (`[self, parent, … root]`) through the
@@ -376,6 +373,20 @@ class WorldRepository extends ChangeNotifier {
   }
 
   void notify() => notifyListeners();
+
+  // A load still in flight at teardown must not notify a disposed repo.
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   Future<List<String>> getChatWorldIds(String chatId) =>
       _attachments.chatWorldIds(chatId);
