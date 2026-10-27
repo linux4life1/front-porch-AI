@@ -304,10 +304,10 @@ void main() {
     });
   });
 
-  // A night the judge calls from the reply ("new_day"), not a skip the
-  // player asked for: the bodies wake rested in 1:1 and in a group, and a
-  // regen lands the same bars.
-  group('a night the reply narrates', () {
+  // A night the judge calls from the reply ("new_day", scripted here), not
+  // a skip the player asked for: the bodies wake rested in 1:1 and in a
+  // group, and a regen lands the same bars.
+  group('a night the judge calls (new_day)', () {
     const night = '*She falls asleep on the couch and sleeps till morning.*';
     const judgedNight = '{"minutes_elapsed": 30, "new_day": true}';
 

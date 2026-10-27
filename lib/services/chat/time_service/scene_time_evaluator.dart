@@ -384,7 +384,7 @@ class SceneTimeEvaluator {
         '3. "new_day": true ONLY if the conversation explicitly transitioned to the next day (slept, woke up, scene break). false otherwise. '
         'Merely MENTIONING yesterday, tomorrow, or another day does NOT count — the characters must actually cross a night.\n'
         '4. "days_elapsed": ONLY when the reply just written explicitly narrates a jump of one or more whole days ("a week later", "three days passed"), the number of days skipped (1-365). Otherwise 0. Mentioning a date or a plan is not a jump. With a jump, "lands_at": the time of day it lands at if the reply says (dawn, morning, late_morning, afternoon, evening, night, or 24-hour HH:MM), else blank. '
-        '"hours_elapsed": ONLY when the reply explicitly narrates a jump of hours, not days ("six hours later", "they slept the night through"), the whole hours skipped (1-23). Otherwise 0.\n'
+        '"hours_elapsed": ONLY when the reply explicitly narrates a jump of hours, not days ("six hours later", "a few hours pass"), the whole hours skipped (1-23). Otherwise 0.\n'
         '${plannerToday ? '5. "today_sentence": one sentence of what they are doing or planning today. '
                   'Empty or "none" abandons the current hold. Omit to keep it.\n' : ''}'
         '$sceneRule';

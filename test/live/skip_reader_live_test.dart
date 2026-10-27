@@ -20,6 +20,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:front_porch_ai/services/chat/time_service.dart';
 import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
@@ -137,4 +138,95 @@ void main() {
     '*I stretch, still sleepy.* "Will you post the video next week?"',
     (v) => expect(v.isSkip, isFalse),
   );
+
+  // The after-reply scene-time judge, through the app's own prompt and
+  // parse, on replies that jump hours, days, a night, or nothing.
+  group('the scene-time judge', () {
+    Future<TimeService> judge(String reply) async {
+      final llm = OpenRouterService(
+        apiUrl: apiUrl!,
+        apiKey: _env('FPAI_LIVE_API_KEY') ?? '',
+        modelName: model!,
+      );
+      final t =
+          TimeService(
+            onNotify: () {},
+            onSaveChat: () async {},
+            onSetPendingRealismMetadata: (_, _) {},
+            onPatchLastMessageRealismState: (_, _, _) {},
+          )..seedFromV2OrExt(
+            dayCount: 1,
+            timeOfDay: 'night',
+            storyStartDate: '2026-08-22',
+            storyStartTime: '22:00',
+          );
+      t.setPassageOfTimeEnabled(true);
+      await t.evaluateTimeProgressAndPostureIfNeeded(
+        charName: 'Mae',
+        recent: 'User: I sit down next to her.\nMae: $reply',
+        shortTermTierName: 'Warm',
+        onChunk: null,
+        fireLLMEval: (p, {onChunk}) => llm
+            .generateStream(
+              GenerationParams(prompt: p, maxLength: 400, temperature: 0),
+            )
+            .join(),
+        stripThinkBlocks: stripThinkBlocks,
+        extractJsonBool: (text, key) {
+          final m = RegExp('"$key"\\s*:\\s*(true|false)').firstMatch(text);
+          return m == null ? null : m.group(1) == 'true';
+        },
+        setSpatialStance: (_) {},
+        getCurrentSpatialStance: () => '',
+        getCharacterEmotion: () => '',
+        getEmotionIntensity: () => '',
+        timeOnly: true,
+      );
+      return t;
+    }
+
+    final from = DateTime.utc(2026, 8, 22, 22);
+
+    void judged(String name, String reply, void Function(TimeService) check) {
+      test(name, () async {
+        if (apiUrl == null || model == null) {
+          markTestSkipped('FPAI_LIVE_API_URL / FPAI_LIVE_MODEL not set');
+          return;
+        }
+        check(await judge(reply));
+      }, timeout: const Timeout(Duration(minutes: 3)));
+    }
+
+    judged(
+      'six hours later is six hours',
+      '*Six hours later, the rain finally stops.*',
+      (t) => expect(t.clock, from.add(const Duration(hours: 6))),
+    );
+
+    judged(
+      'three days later, that evening lands three days on, in the evening',
+      '*Three days later, that evening, she knocks at last.*',
+      (t) {
+        expect(t.clock.day, 25);
+        expect(t.clock.hour, inInclusiveRange(17, 20));
+      },
+    );
+
+    judged(
+      'a night slept through lands in the morning, rested',
+      '*She falls asleep against your shoulder, and you both sleep until '
+          'the morning light wakes you.*',
+      (t) {
+        expect(t.clock.day, 23);
+        expect(t.clock.hour, inInclusiveRange(6, 11));
+        expect(t.bodyBeatSlept, isTrue);
+      },
+    );
+
+    judged(
+      '"see you later" is an ordinary turn',
+      '"I\'ll see you later, then," *she says, and smiles.*',
+      (t) => expect(t.clock.difference(from).inMinutes, lessThanOrEqualTo(180)),
+    );
+  });
 }

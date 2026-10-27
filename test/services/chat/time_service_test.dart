@@ -667,14 +667,23 @@ void main() {
       );
       expect(t.clock, from.add(const Duration(hours: 6)));
 
-      // With no span of hours in the exchange it is the turn's minutes.
-      final later = t.clock;
-      await runEval(
-        t,
-        fire: (_) async => '{"minutes_elapsed": 30, "hours_elapsed": 6}',
-        recent: 'User: I wait.\nNia: *She hums by the window.*',
-      );
-      expect(t.clock, later.add(const Duration(minutes: 30)));
+      // With no counted span of hours in the narration it is the turn's
+      // minutes: "later" and "until" are ordinary talk, and speech is not
+      // narration.
+      for (final recent in const [
+        'User: I wait.\nNia: *She hums by the window.*',
+        'User: Bye.\nNia: "I\'ll see you later."',
+        'User: One sec.\nNia: *She waits until you finish.*',
+        'User: Ok.\nNia: "Give me six hours," *she laughs.*',
+      ]) {
+        final later = t.clock;
+        await runEval(
+          t,
+          fire: (_) async => '{"minutes_elapsed": 30, "hours_elapsed": 6}',
+          recent: recent,
+        );
+        expect(t.clock, later.add(const Duration(minutes: 30)), reason: recent);
+      }
     });
 
     test('the tools transport keeps lands_at and hours_elapsed', () async {

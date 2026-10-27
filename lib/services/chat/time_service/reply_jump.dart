@@ -4,20 +4,26 @@
 // A jump of time the reply itself narrates ("A week later, she…", "Six
 // hours later, the rain stops"), as the scene-time judge reports it in
 // `days_elapsed` / `hours_elapsed`. The judge's word counts only when the
-// exchange names that kind of span at all, the same hallucination guard
-// `newDayCorroboration` is for `new_day`. Jumps no longer than an
-// ordinary turn are left to `minutes_elapsed`.
+// exchange names that kind of span (hours: counted, in narration), the
+// same hallucination guard `newDayCorroboration` is for `new_day`. Jumps
+// no longer than an ordinary turn are left to `minutes_elapsed`.
 
 import 'package:front_porch_ai/services/chat/body_clock.dart';
 import 'package:front_porch_ai/services/chat/story_clock.dart';
+import 'package:front_porch_ai/utils/quoted_speech.dart';
 
 final _daysNamed = RegExp(
   r'\b(?:days?|weeks?|months?|years?|fortnights?)\b',
   caseSensitive: false,
 );
 
+/// A counted span of hours in the narration ("six hours later", "a few
+/// hours pass") or a night ("overnight"). Bare "later" or "until" is too
+/// common in ordinary talk to let the judge move the clock hours.
 final _hoursNamed = RegExp(
-  r'\b(?:hours?|later|overnight|until|till)\b',
+  r'\b(?:\d+|an?|one|two|three|four|five|six|seven|eight|nine|ten|eleven|'
+  r'twelve|few|several|some|many)\s+(?:more\s+|long\s+)?hours?\b|'
+  r'\bhours\s+(?:later|pass(?:ed)?|went\s+by)\b|\bovernight\b',
   caseSensitive: false,
 );
 
@@ -52,7 +58,7 @@ class ReplyJump {
     }
     final minutes = _judgedInt(judged, 'hours_elapsed').clamp(0, 23) * 60;
     if (minutes > StoryClock.maxMinutesPerTurn &&
-        _hoursNamed.hasMatch(recent)) {
+        _hoursNamed.hasMatch(stripQuotedSpeech(recent))) {
       return ReplyJump._(minutes: minutes);
     }
     return null;

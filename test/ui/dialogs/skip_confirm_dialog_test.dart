@@ -68,7 +68,7 @@ void main() {
   }
 
   for (final size in const [Size(400, 760), Size(400, 420), Size(1440, 900)]) {
-    testWidgets('#629: the guess is picked, the player picks 8 hours '
+    testWidgets('the guess is picked, the player picks 8 hours '
         '(${size.width.toInt()}×${size.height.toInt()})', (tester) async {
       final answers = <SkipVerdict?>[];
       await open(tester, disagrees(), answers, size: size);
