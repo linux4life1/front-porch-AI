@@ -132,6 +132,7 @@ class WorldRepository extends ChangeNotifier {
       _resolveAvatarPaths(_worlds);
       // One-time: drop legacy "Aerin's Lorebook" clones so Worlds = places.
       await _purge.maybePurge();
+      await repairBarePlaceSettings(this, _db);
     } catch (e) {
       debugPrint('Error loading worlds: $e');
     } finally {
@@ -372,6 +373,20 @@ class WorldRepository extends ChangeNotifier {
   }
 
   void notify() => notifyListeners();
+
+  // A load still in flight at teardown must not notify a disposed repo.
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   Future<List<String>> getChatWorldIds(String chatId) =>
       _attachments.chatWorldIds(chatId);

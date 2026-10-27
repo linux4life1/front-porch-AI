@@ -58,6 +58,7 @@ export 'group_chat_repository.dart';
 export 'group_card_service.dart';
 export 'group_card_exporter.dart';
 export 'world_repository.dart';
+export 'world_store/bare_place_setting_repair.dart' show LinkableWorlds;
 export 'starter_worlds.dart';
 export 'story_repository.dart';
 // The one rebind used by every flow that swaps the database file, plus the

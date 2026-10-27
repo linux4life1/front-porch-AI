@@ -40,6 +40,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   bool _bookUnreadable = false;
 
   List<World> _allWorlds = [];
+  List<World> _placeWorlds = [];
 
   @override
   void initState() {
@@ -75,10 +76,12 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   void _loadWorlds() {
     try {
       final repo = Provider.of<WorldRepository>(context, listen: false);
-      // Places only — character lore clones are purged / not shown.
-      _allWorlds = libraryDisplayOrder(repo.placeWorlds);
+      // Top-level worlds only: a place is reached through its world.
+      _allWorlds = repo.linkableWorlds;
+      _placeWorlds = repo.placeWorlds;
     } catch (_) {
       _allWorlds = [];
+      _placeWorlds = [];
     }
     setState(() {});
   }
@@ -199,14 +202,10 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
 
   void _toggleWorld(World w) {
     setState(() {
-      final byId = _worldIds.contains(w.id);
-      final byName = _worldIds.contains(w.name);
-      if (byId || byName) {
-        _worldIds.remove(w.id);
-        _worldIds.remove(w.name);
-      } else {
-        _worldIds.add(w.id);
-      }
+      // Unlinking drops an older link to a place inside the world too.
+      final linked = linkStateOf(_worldIds, w, _placeWorlds).linked;
+      _worldIds = refsWithoutWorld(_worldIds, w, _placeWorlds);
+      if (!linked) _worldIds.add(w.id);
     });
     _syncToGroup();
   }
@@ -245,14 +244,15 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
 
                 // Places (Living Worlds)
                 GroupSectionHeader(
-                  'Places',
+                  'Worlds',
                   Icons.public,
                   AppColors.formAccentOf(context),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Attach places for climate + place lore on this group '
-                  '(template for new chats; this session also has Places under Story Tools).',
+                  'Attach worlds for climate + lore on this group. New chats '
+                  'start at each world\'s starred place; this session also '
+                  'has Places under Story Tools.',
                   style: TextStyle(
                     fontSize: 12,
                     color: AppColors.textTertiary(context),
@@ -261,7 +261,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                 const SizedBox(height: 8),
                 if (_allWorlds.isEmpty)
                   Text(
-                    'No places available. Create places in the Worlds tab to attach them here.',
+                    'No worlds yet. Create one in the Worlds tab to attach it here.',
                     style: TextStyle(
                       color: AppColors.textSecondary(context),
                       fontSize: 12,
@@ -272,13 +272,13 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                     spacing: 8,
                     runSpacing: 8,
                     children: _allWorlds.map((w) {
-                      final selected =
-                          _worldIds.contains(w.id) ||
-                          _worldIds.contains(w.name);
-                      final label =
-                          w.biomeId != null &&
-                              w.biomeId!.isNotEmpty &&
-                              w.biomeId != 'temperate'
+                      final link = linkStateOf(_worldIds, w, _placeWorlds);
+                      final selected = link.linked;
+                      final label = link.linkedAt != null
+                          ? '${w.name} · at ${link.linkedAt!.name}'
+                          : w.biomeId != null &&
+                                w.biomeId!.isNotEmpty &&
+                                w.biomeId != 'temperate'
                           ? '${w.name} · ${w.biomeId}'
                           : w.name;
                       return FilterChip(

@@ -137,6 +137,7 @@
 }
 .lore-edit-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
 .world-picker { display: flex; flex-direction: column; gap: 6px; }
+.world-picker-name { display: flex; flex-direction: column; min-width: 0; }
 .token-badge {
   font-size: 0.74rem; font-weight: 600; padding: 3px 9px;
   border-radius: var(--radius-badge); border: 1px solid var(--border);

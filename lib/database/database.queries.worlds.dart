@@ -220,6 +220,15 @@ extension AppDatabaseWorldQueries on AppDatabase {
     }
   }
 
+  /// Chats that have places attached but no Setting.
+  Future<List<String>> chatIdsWithoutSetting() async {
+    final rows = await customSelect(
+      'SELECT chat_id FROM chat_worlds GROUP BY chat_id '
+      'HAVING MAX(is_primary) = 0',
+    ).get();
+    return [for (final r in rows) r.data['chat_id'].toString()];
+  }
+
   /// Upsert semantics per (chat, day): switching climate twice on the same
   /// story day REPLACES the earlier span instead of stacking a duplicate row
   /// whose winner would depend on incidental row order (spans are read back

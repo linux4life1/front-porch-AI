@@ -234,3 +234,32 @@ World startingPlaceOf(World world, World? Function(String id) lookup) {
       .length;
   return (roots: roots, alsoInside: alsoInside);
 }
+
+/// The top-level world [place] sits in, or [place] itself for a world.
+World topWorldOf(World place, World? Function(String id) lookup) =>
+    worldChain(place, lookup).last;
+
+/// What a character or group may link: top-level worlds only, in the order
+/// given. A place inside a world is reached through that world (its starred
+/// place starts the chat). A place whose parent row is gone counts as a
+/// world here.
+List<World> linkableWorldsOf(
+  List<World> worlds,
+  World? Function(String id) lookup,
+) => [
+  for (final w in worlds)
+    if (topWorldOf(w, lookup).id == w.id) w,
+];
+
+/// Whether [ref] (an id or name) names [world] or a place inside it. A
+/// picker shows that world as linked; a link to a place inside it is an
+/// older link that starts chats at that place.
+bool refLinksWorld(
+  String ref,
+  World world,
+  World? Function(String idOrName) resolve,
+  World? Function(String id) lookup,
+) {
+  final w = resolve(ref);
+  return w != null && topWorldOf(w, lookup).id == world.id;
+}

@@ -1290,4 +1290,112 @@ void main() {
       );
     });
   });
+
+  group('Linking a place without its world', () {
+    late AppDatabase db;
+    late StorageService storage;
+    late WorldRepository repo;
+
+    setUp(() async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      storage = StorageService();
+      await storage.initialized;
+      db = AppDatabase.forTesting();
+      repo = WorldRepository(storage, db);
+      await repo.ready;
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    Future<model.World> seed(
+      String name, {
+      String? parent,
+      bool climate = false,
+    }) async {
+      final w = model.World(
+        name: name,
+        lorebook: Lorebook(entries: []),
+        climateEnabled: climate,
+        parentWorldId: parent,
+      );
+      await repo.saveWorld(w);
+      return w;
+    }
+
+    test('an older link to a bare place starts the chat at that place, as '
+        'its Setting', () async {
+      final basin = await seed('Verdance Basin', climate: true);
+      final stilt = await seed('Stiltwater', parent: basin.id);
+      final realm = await seed('Neokosmos');
+      final court = await seed('Hrive Court', parent: realm.id);
+
+      await repo.applyTemplateWorldsToChat('chat-new', [stilt.id]);
+      final slots = await repo.getChatWorldAttachments('chat-new');
+      expect(slots.primaryId, stilt.id);
+      expect(repo.climateAuthorFor(stilt.id)?.id, basin.id);
+
+      // Like a starred place, it holds the Setting in a lore-only world too.
+      await repo.applyTemplateWorldsToChat('chat-lore', [court.id]);
+      expect(
+        (await repo.getChatWorldAttachments('chat-lore')).primaryId,
+        court.id,
+      );
+    });
+
+    test('a fork carrying a place that inherits its climate keeps it as '
+        'the Setting', () async {
+      final basin = await seed('Verdance Basin', climate: true);
+      final stilt = await seed('Stiltwater', parent: basin.id);
+
+      await repo.applyTemplateWorldsToChat('chat-fork', [
+        stilt.id,
+      ], startAtStar: false);
+
+      final slots = await repo.getChatWorldAttachments('chat-fork');
+      expect(slots.primaryId, stilt.id);
+      expect(repo.climateAuthorFor(stilt.id)?.id, basin.id);
+    });
+
+    test('a chat a bare place left without a Setting gets one, once', () async {
+      final basin = await seed('Verdance Basin', climate: true);
+      final stilt = await seed('Stiltwater', parent: basin.id);
+      final mars = await seed('Mars', climate: true);
+      await db.setChatWorldAttachments(
+        'chat-old',
+        primaryId: null,
+        loreIds: [mars.id, stilt.id],
+      );
+
+      // The first launch after the upgrade: the one-shot has not run on
+      // this library yet.
+      SharedPreferences.setMockInitialValues({});
+      await WorldRepository(storage, db).ready;
+
+      final slots = await repo.getChatWorldAttachments('chat-old');
+      expect(slots.primaryId, stilt.id, reason: 'a world in Lore stays Lore');
+      expect(slots.loreIds, [mars.id]);
+
+      await repo.setChatWorldAttachments('chat-old', loreIds: [stilt.id]);
+      await WorldRepository(storage, db).ready;
+      expect(
+        (await repo.getChatWorldAttachments('chat-old')).primaryId,
+        isNull,
+        reason: 'a Setting the user cleared afterwards stays cleared',
+      );
+    });
+
+    test('pickers offer top-level worlds only', () async {
+      final basin = await seed('Verdance Basin', climate: true);
+      await seed('Stiltwater', parent: basin.id);
+      await seed('The Cindermaw', climate: true);
+
+      expect(repo.linkableWorlds.map((w) => w.name), [
+        'Verdance Basin',
+        'The Cindermaw',
+      ]);
+    });
+  });
 }

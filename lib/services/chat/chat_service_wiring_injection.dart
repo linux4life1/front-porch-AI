@@ -218,8 +218,7 @@ extension ChatServiceWiringInjection on ChatService {
     if (currentPrimary == null) {
       final slots = partitionLinkedPlaces(
         worldIds: worldIds,
-        isClimateEnabled: (id) =>
-            _worldRepository.resolveWorld(id)?.climateEnabled ?? false,
+        isClimateEnabled: (id) => _worldRepository.climateAuthorFor(id) != null,
       );
       await setChatPlaceSlots(
         primaryId: slots.primaryId,
