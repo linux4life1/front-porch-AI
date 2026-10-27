@@ -9,12 +9,17 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:front_porch_ai/services/chat/time_service.dart';
+import 'package:front_porch_ai/services/chat/time_skip/skip_confirm.dart';
 import 'package:front_porch_ai/services/chat/time_skip/skip_net.dart';
 import 'package:front_porch_ai/services/chat/time_skip/skip_reader.dart';
 import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 
 /// Where a skip the reader says happened, but could not measure, lands.
 const int kUnmeasuredSkipMinutes = 60;
+
+/// Puts a shaky reading to the player: their pick, [SkipVerdict.none] for
+/// "no skip", or null to keep the guess.
+typedef SkipAsk = Future<SkipVerdict?> Function(PendingSkip question);
 
 class PlayerSkip {
   const PlayerSkip({required this.time, required this.reader});
@@ -26,14 +31,16 @@ class PlayerSkip {
   /// is a `/skip` tag: its amount wins, and the reader is still asked
   /// whether the cast slept when the line talks about time. [stale] is
   /// asked after the read: true when the chat changed under the call, so
-  /// another chat's clock is never moved.
+  /// another chat's clock is never moved. [ask] puts a shaky reading to
+  /// the player ([skipAskReason]); without it the best guess applies.
   Future<int> apply(
     String line, {
     SkipVerdict? exact,
     String recent = '',
     bool Function()? stale,
+    SkipAsk? ask,
   }) async {
-    final verdict = await decide(line, exact: exact, recent: recent);
+    final verdict = await decide(line, exact: exact, recent: recent, ask: ask);
     if (verdict == null || !verdict.isSkip) return 0;
     if (stale?.call() ?? false) return 0;
     return time.applyUserSkip(verdict);
@@ -44,6 +51,7 @@ class PlayerSkip {
     String line, {
     SkipVerdict? exact,
     String recent = '',
+    SkipAsk? ask,
   }) async {
     if (!time.passageOfTimeEnabled) return null;
     final asks = line.trim().isNotEmpty && mightSkipTime(line);
@@ -58,13 +66,26 @@ class PlayerSkip {
         slept: read?.slept ?? false,
       );
     }
+    final guess = read == null
+        ? null
+        : read.isUnmeasured
+        ? SkipVerdict(minutes: kUnmeasuredSkipMinutes, slept: read.slept)
+        : read;
+    final reason = skipAskReason(read, line, time.clock);
+    if (ask != null && reason != null) {
+      final answer = await ask(
+        PendingSkip.build(
+          line: line,
+          reason: reason,
+          clock: time.clock,
+          guess: guess,
+        ),
+      );
+      if (answer != null) return answer;
+    }
     if (read == null) {
       debugPrint('[Realism:Skip] no reading for a time-ish line; no skip');
-      return null;
     }
-    if (read.isUnmeasured) {
-      return SkipVerdict(minutes: kUnmeasuredSkipMinutes, slept: read.slept);
-    }
-    return read;
+    return guess;
   }
 }

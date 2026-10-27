@@ -304,6 +304,9 @@ class ChatStateSnapshot {
       // Crafted /image prompt awaiting review (review setting on). The client
       // shows an edit modal and resolves via POST /api/chat/image-review.
       'imagePromptReview': ?_chat.pendingImagePromptReview,
+      // "Did time pass?" (#629): the send waits on it; the client shows a
+      // sheet and answers via POST /api/chat/skip-confirm. Additive.
+      'pendingSkip': ?_chat.pendingSkip?.toJson(),
       // Tool-calling verdict for the current backend+model (desktop sidebar
       // pill parity). Retest via POST /api/chat/tool-test. Additive field.
       'toolSupport': _chat.toolSupportJson,

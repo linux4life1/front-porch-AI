@@ -6,6 +6,8 @@
 // one step the send and /narrate share.
 
 export 'player_skip.dart';
+export 'skip_confirm.dart';
+export 'skip_count.dart';
 export 'skip_net.dart';
 export 'skip_reader.dart';
 export 'skip_tag.dart';

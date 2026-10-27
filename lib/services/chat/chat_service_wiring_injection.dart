@@ -390,6 +390,40 @@ extension ChatServiceWiringInjection on ChatService {
     notifyListeners();
   }
 
+  /// The "Did time pass?" question the send is waiting on, or null. The
+  /// desktop dialog and the web sheet show it while it is non-null.
+  PendingSkip? get pendingSkip => _skipGate.pending;
+
+  /// The player's answer to [pendingSkip]: a skip, [SkipVerdict.none] for
+  /// "no skip", or null to keep the reader's guess.
+  void answerSkip(SkipVerdict? verdict) {
+    if (_skipGate.answer(verdict)) notifyListeners();
+  }
+
+  /// Whether a web client is connected to answer [pendingSkip].
+  set skipConfirmWebAsker(bool Function() connected) =>
+      _skipWebAsker = connected;
+
+  /// Puts a shaky skip reading to whoever is at a chat screen. Null at once
+  /// in a voice call or with nobody there (pick E: Director auto-chat and
+  /// AFK never send through here anyway), so the guess applies. A chat
+  /// change under the question cancels it.
+  Future<SkipVerdict?> _askSkip(PendingSkip question, String? token) async {
+    if (_callMode || (_chatScreens == 0 && !_skipWebAsker())) return null;
+    final answer = _skipGate.ask(question);
+    notifyListeners();
+    void onChange() {
+      if (_sceneChanged(token) && _skipGate.cancel()) notifyListeners();
+    }
+
+    addListener(onChange);
+    try {
+      return await answer;
+    } finally {
+      removeListener(onChange);
+    }
+  }
+
   /// Full chat-context MacroContext for prompt builds: card fields, group
   /// roster, last messages, idle clock, and the macro variable stores
   /// (locals ride _loreTimedEffects per chat; globals live in settings).

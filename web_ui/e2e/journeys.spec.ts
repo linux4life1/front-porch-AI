@@ -1776,3 +1776,52 @@ test('both Settings prompt slots pick from one pool of saved prompts, never a bu
     }})).ok()).toBe(true);
   }
 });
+
+// "Did time pass?" (#629): a line whose skip the reader reads one way and a
+// plain count another way waits on the player. The fake backend reads
+// 'the lantern gutters' as the next morning, slept; the line also counts
+// eight hours, so the sheet asks, best guess first. Picking 8 hours lands
+// the story clock at 9:40, not 8:00, and the line still gets its reply.
+test('a skip the reader is unsure of asks "Did time pass?", and the pick moves the clock', { tag: SERIAL }, async ({ page, allowHttp }) => {
+  allowHttp((url, status) => status === 409 && url.includes('/api/chat/skip-confirm'));
+  type Realism = { realism?: { passageOfTimeDefault?: boolean } };
+  const before = ((await (await page.request.get('/api/settings')).json()) as Realism).realism
+    ?.passageOfTimeDefault;
+  const setPot = (on: boolean) =>
+    page.request.post('/api/settings', { data: { realism: { passageOfTimeDefault: on } } });
+  expect((await setPot(true)).ok()).toBe(true);
+  try {
+    await openPorchChat(page);
+    await page.locator('.conversations-btn').click();
+    await page.getByRole('button', { name: '+ New chat' }).click();
+    await waitIdle(page);
+    const clock = await page.request.post('/api/chat/tools/time', {
+      data: { setClock: '2026-08-22T01:40:00' },
+    });
+    expect(clock.ok(), `setting the clock: ${clock.status()}`).toBe(true);
+
+    const line = 'The lantern gutters out, and we sleep eight hours on the porch swing.';
+    await sendLine(page, line);
+    const sheet = page.getByRole('dialog', { name: 'Did time pass?' });
+    await expect(sheet).toBeVisible({ timeout: 60_000 });
+    await expect(sheet).toContainText("It's 1:40 AM now.");
+    await expect(sheet.getByRole('button', { name: 'Next morning · 8:00 AM' })).toHaveAttribute('aria-pressed', 'true');
+    await sheet.getByRole('button', { name: '8 hours · 9:40 AM' }).click();
+    await sheet.getByRole('button', { name: 'Skip to 9:40 AM' }).click();
+    await expect(sheet).toBeHidden();
+
+    await expect(rows(page).filter({ hasText: line })).toHaveCount(1);
+    await waitIdle(page);
+    await expect(lastRow(page).locator('.bubble.ai')).toContainText(REPLY);
+    const tools = (await (await page.request.get('/api/chat/tools')).json()) as {
+      time: { storyClock: string };
+    };
+    expect(tools.time.storyClock).toMatch(/^2026-08-22T09:40/);
+
+    // Answered, the question is gone for every client.
+    const late = await page.request.post('/api/chat/skip-confirm', { data: {} });
+    expect(late.status()).toBe(409);
+  } finally {
+    await setPot(before ?? false);
+  }
+});

@@ -281,4 +281,175 @@ void main() {
       expect(asked, isEmpty);
     });
   });
+
+  group('the "Did time pass?" pop-up', () {
+    TimeService at(String hhmm, String period) => _clock()
+      ..seedFromV2OrExt(
+        dayCount: 1,
+        timeOfDay: period,
+        storyStartDate: '2026-08-22',
+        storyStartTime: hhmm,
+      )
+      ..setPassageOfTimeEnabled(true);
+
+    PlayerSkip skipper(TimeService t, String? answer) => PlayerSkip(
+      time: t,
+      reader: SkipReader(
+        fireLLMEval: (_) async => answer,
+        stripThinkBlocks: (t) => t,
+      ),
+    );
+
+    String reading(int minutes, {String until = '', bool slept = false}) =>
+        '{"skip": true, "minutes": $minutes, "until": "$until", '
+        '"gap": "${slept ? 'slept' : 'other'}"}';
+
+    test('#629: a count that disagrees with the reader asks, and the '
+        'player\'s eight hours land at 9:40', () async {
+      final t = at('01:40', 'night');
+      final asked = <PendingSkip>[];
+      final moved = await skipper(t, reading(0, until: 'morning', slept: true))
+          .apply(
+            '*We fell asleep on the couch and slept eight hours before we '
+            'woke up.*',
+            ask: (q) async {
+              asked.add(q);
+              return q.choices[1].verdict;
+            },
+          );
+      expect(asked.single.reason, SkipAskReason.disagrees);
+      expect(
+        [for (final c in asked.single.choices) c.label],
+        ['Next morning · 8:00 AM', '8 hours · 9:40 AM'],
+      );
+      expect(asked.single.question, contains("It's 1:40 AM now."));
+      expect(moved, 480);
+      expect(t.clock, DateTime.utc(2026, 8, 22, 9, 40));
+    });
+
+    test(
+      'a short reading the count agrees with applies without asking',
+      () async {
+        final t = at('20:31', 'evening');
+        var asked = 0;
+        final moved = await skipper(t, reading(480)).apply(
+          '*Eight hours later, the rain stops.*',
+          ask: (_) async {
+            asked++;
+            return null;
+          },
+        );
+        expect(asked, 0);
+        expect(moved, 480);
+      },
+    );
+
+    test('a day or more asks; no answer keeps the reader\'s guess', () async {
+      final t = at('20:31', 'evening');
+      final asked = <PendingSkip>[];
+      final verdict = await skipper(t, reading(14 * 24 * 60)).decide(
+        '*Two weeks later, I knock on her door again.*',
+        ask: (q) async {
+          asked.add(q);
+          return null;
+        },
+      );
+      expect(asked.single.reason, SkipAskReason.long);
+      expect(asked.single.choices.first.label, '2 weeks · Sat, Sep 5, 9:00 AM');
+      expect(verdict, const SkipVerdict(minutes: 14 * 24 * 60));
+    });
+
+    test(
+      'a failed reader asks with no guess, and "no skip" moves nothing',
+      () async {
+        final t = at('20:31', 'evening');
+        final asked = <PendingSkip>[];
+        final moved = await skipper(t, null).apply(
+          'We sleep.',
+          ask: (q) async {
+            asked.add(q);
+            return SkipVerdict.none;
+          },
+        );
+        expect(asked.single.reason, SkipAskReason.noReading);
+        expect(
+          [for (final c in asked.single.choices) c.label],
+          ['Next morning · Sun, Aug 23, 8:00 AM', '1 hour · 9:31 PM'],
+        );
+        expect(moved, 0);
+        expect(t.clock, DateTime.utc(2026, 8, 22, 20, 31));
+      },
+    );
+
+    test('a skip with no amount asks, its hour offered first', () async {
+      final t = at('20:31', 'evening');
+      final asked = <PendingSkip>[];
+      await skipper(t, reading(0)).decide(
+        'Some time passes.',
+        ask: (q) async {
+          asked.add(q);
+          return null;
+        },
+      );
+      expect(asked.single.reason, SkipAskReason.noAmount);
+      expect(asked.single.choices.first.label, '1 hour · 9:31 PM');
+    });
+
+    test('an exact /skip and a reading of no skip never ask', () async {
+      final t = at('20:31', 'evening');
+      var asked = 0;
+      Future<SkipVerdict?> ask(PendingSkip _) async {
+        asked++;
+        return SkipVerdict.none;
+      }
+
+      expect(
+        await skipper(t, reading(3 * 24 * 60)).decide(
+          'We sleep.',
+          exact: const SkipVerdict(minutes: 2 * 24 * 60),
+          ask: ask,
+        ),
+        const SkipVerdict(minutes: 2 * 24 * 60),
+      );
+      expect(
+        await skipper(
+          t,
+          '{"skip": false}',
+        ).decide('See you in two weeks.', ask: ask),
+        SkipVerdict.none,
+      );
+      expect(asked, 0);
+    });
+
+    test('"Other…" reads like the /skip tag', () {
+      expect(SkipTag.readArgs(' 8h '), const SkipVerdict(minutes: 480));
+      expect(SkipTag.readArgs('Morning'), const SkipVerdict(until: 'morning'));
+      expect(SkipTag.readArgs('soonish'), isNull);
+    });
+
+    test('the count reads one span of narration, never speech', () {
+      expect(countedSkipMinutes('*Three hours pass.*'), 180);
+      expect(countedSkipMinutes('Two weeks later, I knock.'), 20160);
+      expect(countedSkipMinutes('"See you in two weeks." I nap.'), isNull);
+      expect(countedSkipMinutes('A day and eight hours pass.'), isNull);
+      expect(countedSkipMinutes('We sleep.'), isNull);
+    });
+
+    test('the gate holds one question; a new one drops the old', () async {
+      final gate = SkipConfirmGate();
+      expect(gate.answer(SkipVerdict.none), isFalse);
+      final q = PendingSkip.build(
+        line: 'We sleep.',
+        reason: SkipAskReason.noReading,
+        clock: DateTime.utc(2026, 8, 22, 20, 31),
+      );
+      final first = gate.ask(q);
+      expect(gate.pending, same(q));
+      final second = gate.ask(q);
+      expect(await first, isNull);
+      expect(gate.answer(const SkipVerdict(minutes: 60)), isTrue);
+      expect(await second, const SkipVerdict(minutes: 60));
+      expect(gate.pending, isNull);
+    });
+  });
 }

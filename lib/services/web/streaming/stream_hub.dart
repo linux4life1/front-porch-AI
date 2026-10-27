@@ -39,6 +39,10 @@ class StreamHub {
 
   final bool Function() _isGenerating;
   final Set<WebSocketChannel> _clients = {};
+
+  /// Whether any web client is connected (someone may be there to answer
+  /// a question the chat asks).
+  bool get hasClients => _clients.isNotEmpty;
   StreamSubscription<String>? _tokenSub;
 
   // Token coalescing: the generation loop pushes one event PER TOKEN, and

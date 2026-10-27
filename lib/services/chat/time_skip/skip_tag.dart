@@ -91,6 +91,10 @@ class SkipTag {
 
   static bool _tagShaped(String args) => _tagStart.hasMatch(args);
 
+  /// What `/skip [args]` asks for ("8h", "2 weeks morning", "7:30 pm"),
+  /// or null when it cannot be read. The pop-up's "Other…" answer.
+  static SkipVerdict? readArgs(String args) => _read(args.trim().toLowerCase());
+
   /// "8h", "1d 6h", "90 min", "2 weeks morning", "night", "7:30", "7am".
   static SkipVerdict? _read(String args) {
     if (args.isEmpty) return null;

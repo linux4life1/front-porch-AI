@@ -12,6 +12,8 @@ import 'package:front_porch_ai/services/chat_service.dart';
 import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
 import 'package:front_porch_ai/services/web/util/util.dart';
 
+import 'chat_skip_confirm_route.dart';
+
 /// POST /api/chat/place-move — {accept: true} runs the desktop's manual
 /// swap through the ONE slots writer; {accept: false} records the
 /// decline for this Setting. The flag then leaves the snapshot on the
@@ -36,7 +38,9 @@ Future<shelf.Response> handlePlaceMint(
     facade.chat.ignoreMintedPlace();
     return JsonResponse.ok({'ok': true});
   }
-  final result = await facade.chat.acceptMintedPlace(alsoMove: action == 'add_move');
+  final result = await facade.chat.acceptMintedPlace(
+    alsoMove: action == 'add_move',
+  );
   return JsonResponse.ok({
     'ok': result.ok,
     if (result.error != null) 'error': result.error,
@@ -52,6 +56,7 @@ void registerSceneLocationRoutes(
 }) {
   router.post('/api/chat/place-move', (r) => handlePlaceMove(facade, r));
   router.post('/api/chat/place-mint', (r) => handlePlaceMint(facade, r));
+  router.post('/api/chat/skip-confirm', (r) => handleSkipConfirm(facade, r));
 }
 
 /// POST /api/chat/guest-picker/dismiss — close a parked `/join` picker.

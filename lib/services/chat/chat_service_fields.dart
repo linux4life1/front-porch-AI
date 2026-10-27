@@ -98,15 +98,9 @@ mixin ChatServiceFieldBag {
   CharacterCard? _activeCharacter;
 
   // ── Scene Guests (Lite NPCs) ────────────────────────────────────────────
-  // Every field the feature owns lives in SceneGuestState (chat/
-  // scene_guest_state.dart) — full documentation is there. Behaviour stays in
-  // the chat_service_scene_guest / _cast / _guest_flow parts, which read and
-  // write it directly; only the declarations moved out of this shell.
-  //
-  // Guests grow Growth Rings exactly like members do — rings are keyed by the
-  // guest's stable charId in the growth_rings table, so no per-guest evolution
-  // state lives here either (the growth pass includes 1:1 guests who spoke in
-  // the window via resolvePassOwners).
+  // Every field lives in SceneGuestState (documented there); behaviour stays
+  // in the scene_guest / _cast / _guest_flow parts. Guest Growth Rings key by
+  // the guest's stable charId in growth_rings, so no evolution state here.
   final SceneGuestState _sceneGuest = SceneGuestState();
   // Slice 6: suggested scene move + per-setting decline memory.
   final SceneMoveState _sceneMoves = SceneMoveState();
@@ -203,6 +197,11 @@ mixin ChatServiceFieldBag {
 
   /// Chat screens open on the desktop ([chatScreenOpened]).
   int _chatScreens = 0;
+
+  /// The "Did time pass?" question, and whether a web client is there to
+  /// answer one (see `pendingSkip`).
+  final SkipConfirmGate _skipGate = SkipConfirmGate();
+  bool Function() _skipWebAsker = () => false;
 
   /// The desktop's chat page opened: the chat it shows is the open one.
   void chatScreenOpened() {

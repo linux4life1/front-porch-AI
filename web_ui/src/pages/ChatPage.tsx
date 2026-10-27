@@ -597,6 +597,7 @@ export function ChatPage() {
           void api.post('/api/chat/place-move', { accept }).catch(() => {})
         }
         imagePromptReview={state.imagePromptReview}
+        pendingSkip={state.pendingSkip ?? null}
         pendingConfirm={pendingConfirm}
         onConfirmPending={confirmPending}
         onCancelPending={cancelPending}

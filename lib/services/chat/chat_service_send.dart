@@ -219,6 +219,7 @@ extension ChatServiceSend on ChatService {
     // A new message while an /image prompt review is parked cancels it —
     // the desktop dialog is modal, but the web modal can be typed around.
     resolveImagePromptReview(null);
+    if (_skipGate.cancel()) notifyListeners();
 
     // User is interacting — clear any pending auto-response state
     _pendingIdleCue = null;
@@ -440,6 +441,7 @@ extension ChatServiceSend on ChatService {
             take: 4,
           ),
           stale: () => _sceneChanged(sessionToken),
+          ask: (question) => _askSkip(question, sessionToken),
         );
         if (_sceneChanged(sessionToken)) {
           _exitCallEvalModelSwap();

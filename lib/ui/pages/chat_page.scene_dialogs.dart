@@ -58,6 +58,7 @@ class ChatScenePrompts {
   bool _showingPlaceMint = false;
   bool _showingGuestPicker = false;
   bool _showingImageReview = false;
+  bool _showingSkip = false;
 
   /// Handle one ChatService notification. [context] is the mounted chat
   /// page's; [onGuestAvatarReady] gets the image path of a guest whose
@@ -112,6 +113,13 @@ class ChatScenePrompts {
         (_) => _showImagePromptReviewDialog(context, chat),
       );
     }
+    // "Did time pass?" — the send waits on it (#629).
+    if (chat.pendingSkip != null && !_showingSkip) {
+      _showingSkip = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _showSkipConfirm(context, chat),
+      );
+    }
     // A guest's background portrait finished — the page evicts its stale
     // cached image so the new art replaces the initials avatar.
     final evictPath = chat.guestAvatarEvictPath;
@@ -147,6 +155,28 @@ class ChatScenePrompts {
           ),
         );
       });
+    }
+  }
+
+  Future<void> _showSkipConfirm(BuildContext context, ChatService chat) async {
+    final question = chat.pendingSkip;
+    if (question == null || !context.mounted) {
+      _showingSkip = false;
+      return;
+    }
+    final answer = await showSkipConfirmDialog(
+      context,
+      question: question,
+      changes: chat,
+      isLive: () => identical(chat.pendingSkip, question),
+    );
+    _showingSkip = false;
+    if (identical(chat.pendingSkip, question)) {
+      chat.answerSkip(answer);
+    } else if (chat.pendingSkip != null && context.mounted) {
+      // A newer question took this one's place while it closed.
+      _showingSkip = true;
+      await _showSkipConfirm(context, chat);
     }
   }
 

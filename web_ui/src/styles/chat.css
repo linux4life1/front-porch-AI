@@ -495,3 +495,28 @@ mark.find-hit.active {
   background: var(--porch-honey); color: var(--on-accent); font-weight: 600;
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--porch-honey) 45%, transparent);
 }
+
+/* "Did time pass?" (#629): a centred card, a bottom sheet on phones. */
+.skip-confirm-sheet { width: min(460px, 92vw); max-height: 90vh; overflow-y: auto; }
+.skip-confirm-line {
+  margin: 0; font-size: 0.82rem; font-style: italic; color: var(--muted);
+  overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical; overflow: hidden;
+}
+.skip-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.skip-chip {
+  padding: 8px 12px; border-radius: 999px; font-size: 0.85rem; min-height: 36px;
+  background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+}
+.skip-chip.on { background: var(--accent); color: var(--on-accent); border-color: transparent; font-weight: 600; }
+.skip-other {
+  font: inherit; font-size: 16px; padding: 8px 10px; border-radius: 10px;
+  border: 1px solid var(--border); background: var(--surface-2); color: var(--text);
+}
+.skip-confirm-error { margin: 0; color: var(--danger); }
+[data-layout="phone"] .drawer-backdrop.skip-confirm-overlay { align-items: flex-end; }
+[data-layout="phone"] .skip-confirm-sheet {
+  width: 100%; border-radius: var(--radius-card, 16px) var(--radius-card, 16px) 0 0;
+  padding-bottom: calc(16px + env(safe-area-inset-bottom));
+}
+[data-layout="phone"] .skip-confirm-sheet .modal-actions button { flex: 1; }

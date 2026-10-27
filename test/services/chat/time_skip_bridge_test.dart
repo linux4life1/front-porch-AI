@@ -36,6 +36,8 @@ import 'package:front_porch_ai/services/chat/chat.dart'
         kSkipTagUsage,
         kTimeSkipBridgeMeta,
         skipMomentWords;
+import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart'
+    show PendingSkip, SkipAskReason, SkipVerdict;
 
 import '../../helpers/reprocess_needs_harness.dart';
 import '../../helpers/skip_reader_answers.dart';
@@ -577,5 +579,94 @@ void main() {
     expect(h.chat.messages, hasLength(sent));
     expect(h.chat.timeService.clock, clock);
     expect(h.chat.guestActivityStatus, kSkipAfterCommand);
+  });
+
+  // ── "Did time pass?" (#629, PR 2) ─────────────────────────────────────
+  //
+  // A shaky reading waits on the player while a chat screen is open; with
+  // nobody there the guess applies. Proven red: without the `ask:` in
+  // chat_service_send.dart the clock lands at the reader's 8 AM and
+  // pendingSkip never shows.
+
+  final morningReading = {
+    'slept eight hours': skipReading(0, until: 'morning', slept: true),
+  };
+
+  Future<PendingSkip> waitForQuestion() async {
+    for (var i = 0; i < 500 && h.chat.pendingSkip == null; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    return h.chat.pendingSkip!;
+  }
+
+  test(
+    'with a chat screen open, a count the reader missed is asked; the '
+    'player\'s 8 hours land at 9:40 and a regen does not ask again',
+    () async {
+      await furiousOnTheCouch();
+      llm.skipReadings = morningReading;
+      await h.chat.setStoryClock(DateTime.utc(2026, 10, 27, 1, 40));
+      h.chat.chatScreenOpened();
+      addTearDown(h.chat.chatScreenClosed);
+
+      final send = h.chat.sendMessage(slept);
+      final question = await waitForQuestion();
+      expect(question.reason, SkipAskReason.disagrees);
+      expect(
+        question.choices.map((c) => c.label),
+        contains('8 hours · 9:40 AM'),
+      );
+      expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 1, 40));
+
+      h.chat.answerSkip(question.choices[1].verdict);
+      await send;
+      await h.settleTurn();
+      expect(h.chat.pendingSkip, isNull);
+      expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 9, 40));
+
+      await h.chat.regenerateLastMessage();
+      await h.settleTurn();
+      expect(h.chat.pendingSkip, isNull);
+      expect(llm.skipReaderPrompts, hasLength(1));
+      expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 9, 40));
+    },
+  );
+
+  test('"No skip" sends the line with the clock where it was', () async {
+    await furiousOnTheCouch();
+    llm.skipReadings = morningReading;
+    final from = DateTime.utc(2026, 10, 27, 1, 40);
+    await h.chat.setStoryClock(from);
+    h.chat.chatScreenOpened();
+    addTearDown(h.chat.chatScreenClosed);
+
+    final send = h.chat.sendMessage(slept);
+    await waitForQuestion();
+    h.chat.answerSkip(SkipVerdict.none);
+    await send;
+    await h.settleTurn();
+    expect(h.chat.messages.lastWhere((m) => m.isUser).text, slept);
+    expect(llm.bridgePrompts, isEmpty);
+    expect(
+      h.chat.timeService.clock.isBefore(DateTime.utc(2026, 10, 27, 8)),
+      isTrue,
+      reason: 'only the judge\'s ordinary minutes, never the night',
+    );
+  });
+
+  test('with no chat screen open (auto-chat, AFK) the reader\'s guess '
+      'applies without a question', () async {
+    await furiousOnTheCouch();
+    llm.skipReadings = morningReading;
+    await h.chat.setStoryClock(DateTime.utc(2026, 10, 27, 1, 40));
+    var asked = false;
+    void listen() => asked = asked || h.chat.pendingSkip != null;
+    h.chat.addListener(listen);
+    addTearDown(() => h.chat.removeListener(listen));
+
+    await h.chat.sendMessage(slept);
+    await h.settleTurn();
+    expect(asked, isFalse);
+    expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 8));
   });
 }

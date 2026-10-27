@@ -1,15 +1,17 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// Chance Time, reprocess, persona, image-prompt review, message edit, and the
-// delete / fork confirms.
+// Chance Time, reprocess, persona, image-prompt review, "Did time pass?",
+// message edit, and the delete / fork confirms.
 // Drawers (conversations / theme / stats) stay on the page — they are layout.
 
+import { useState } from 'react';
 import { CharacterPicker } from '../../components/CharacterPicker';
 import { ReprocessNeedsModal } from '../../components/ReprocessNeedsModal';
 import { ChatPersonaModal } from '../../components/ChatPersonaModal';
 import { ChanceTimeModal } from '../../components/ChanceTimeModal';
 import { ImagePromptReviewModal } from '../../components/ImagePromptReviewModal';
+import { SkipConfirmSheet, type PendingSkip } from '../../components/SkipConfirmSheet';
 import { MessageEditModal } from '../../components/MessageEditModal';
 import { ConfirmDialog } from '../../components/library/LibraryDialogs';
 import { api } from '../../api/client';
@@ -55,6 +57,7 @@ export function ChatOverlays(props: {
   onReveal: () => void;
   onAccept: () => void | Promise<void>;
   imagePromptReview?: string;
+  pendingSkip?: PendingSkip | null;
   placeMove?: { id: string; name: string } | null;
   placeMint?: { name: string; descriptor: string; settingName?: string } | null;
   onAnswerPlaceMint?: (action: 'add_move' | 'add' | 'ignore') => void | Promise<void>;
@@ -165,6 +168,8 @@ export function ChatOverlays(props: {
         />
       )}
 
+      {props.pendingSkip && <SkipConfirmOverlay pending={props.pendingSkip} />}
+
       {imagePromptReview && (
         <ImagePromptReviewModal
           prompt={imagePromptReview}
@@ -175,6 +180,27 @@ export function ChatOverlays(props: {
         />
       )}
     </>
+  );
+}
+
+/// The sheet posts its answer; a bad "Other…" keeps it open with the
+/// server's reason. Keyed by the question so a new one starts fresh.
+function SkipConfirmOverlay({ pending }: { pending: PendingSkip }) {
+  const [error, setError] = useState<string | null>(null);
+  return (
+    <SkipConfirmSheet
+      key={`${pending.line}|${pending.now}`}
+      pending={pending}
+      error={error}
+      onAnswer={(answer) => {
+        setError(null);
+        api.post('/api/chat/skip-confirm', answer).catch((e: unknown) => {
+          if ('other' in answer) {
+            setError(e instanceof Error ? e.message : String(e));
+          }
+        });
+      }}
+    />
   );
 }
 

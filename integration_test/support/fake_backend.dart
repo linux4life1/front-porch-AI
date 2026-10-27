@@ -591,9 +591,24 @@ class FakeBackendServer {
     // time. A given verdict: no skip unless a suite sets [skipReaderVerdict].
     if (lastContent.contains('You keep the story clock for a roleplay')) {
       skipReaderPrompts.add(lastContent);
+      // 'the lantern gutters' (only the web "Did time pass?" journey sends
+      // it) reads as the next morning, slept, so a line that also counts
+      // eight hours disagrees and the question is asked.
       eval.addAll(
         skipReaderVerdict ??
-            const {'skip': false, 'minutes': 0, 'until': '', 'gap': 'none'},
+            (lastContent.contains('the lantern gutters')
+                ? const {
+                    'skip': true,
+                    'minutes': 0,
+                    'until': 'morning',
+                    'gap': 'slept',
+                  }
+                : const {
+                    'skip': false,
+                    'minutes': 0,
+                    'until': '',
+                    'gap': 'none',
+                  }),
       );
     }
     if (lastContent.contains('emotion_intensity')) {

@@ -48,6 +48,7 @@ class WebLiveRelays {
   bool _wasEvaluatingRealism = false;
   bool _wasAwaitingChanceTime = false;
   bool _wasPendingImageReview = false;
+  PendingSkip? _lastPendingSkip;
   // A turn's last writes (the new swipe, chips) land while it settles, after
   // the stream's `done`; see the turn-settled broadcast in [attachLive].
   bool _wasTurnBusy = false;
@@ -105,6 +106,7 @@ class WebLiveRelays {
     // {active:false} so the overlay dismisses. Cheap no-op on every other notify
     // (just a couple of bool reads).
     if (chatService != null && streamHub != null) {
+      chatService.skipConfirmWebAsker = () => streamHub.hasClients;
       void onProcessing() {
         final realism = chatService.isEvaluatingRealism;
         final objective = chatService.isCheckingCompletion;
@@ -176,6 +178,11 @@ class WebLiveRelays {
         if (pendingReview != _wasPendingImageReview) {
           streamHub.broadcast({'event': 'chat_updated'});
           _wasPendingImageReview = pendingReview;
+        }
+        // "Did time pass?" asked, answered or replaced: the sheet follows.
+        if (!identical(chatService.pendingSkip, _lastPendingSkip)) {
+          _lastPendingSkip = chatService.pendingSkip;
+          streamHub.broadcast({'event': 'chat_updated'});
         }
         // Turn fully settled. Web clients refetch on `done`, which fires when
         // the text stops streaming — before post-gen appends the new swipe
@@ -439,6 +446,8 @@ class WebLiveRelays {
     }
     _wasEvaluatingRealism = false;
     _wasTurnBusy = false;
+    _lastPendingSkip = null;
+    chat?.skipConfirmWebAsker = () => false;
     if (_genStatusListener != null) {
       chat?.removeListener(_genStatusListener!);
       _services.kobold?.removeListener(_genStatusListener!);

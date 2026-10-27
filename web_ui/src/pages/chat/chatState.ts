@@ -14,6 +14,7 @@ import {
   type Message,
   type Realism,
 } from '../../components/chatTypes';
+import { type PendingSkip } from '../../components/SkipConfirmSheet';
 
 export interface ChatState {
   character: { name: string; id: string } | null;
@@ -72,6 +73,9 @@ export interface ChatState {
   // Crafted /image prompt parked for review (review setting on) — the modal
   // resolves it via POST /api/chat/image-review.
   imagePromptReview?: string;
+  // "Did time pass?" (#629, additive): the send waits on it; the sheet
+  // answers via POST /api/chat/skip-confirm.
+  pendingSkip?: PendingSkip | null;
   // Current model's tool-calling verdict (desktop sidebar pill parity);
   // retest via POST /api/chat/tool-test.
   toolSupport?: ToolSupport;
