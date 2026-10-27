@@ -25,9 +25,6 @@ import 'package:front_porch_ai/services/world_envelopes.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-export 'package:front_porch_ai/services/world_store/world_link_lift.dart'
-    show LinkableWorlds;
-
 /// What a person sees when they try to save a world with no name.
 const kWorldNameRequired = 'Give your world a name.';
 
@@ -385,6 +382,20 @@ class WorldRepository extends ChangeNotifier {
   }
 
   void notify() => notifyListeners();
+
+  // A load still in flight at teardown must not notify a disposed repo.
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
 
   Future<List<String>> getChatWorldIds(String chatId) =>
       _attachments.chatWorldIds(chatId);
