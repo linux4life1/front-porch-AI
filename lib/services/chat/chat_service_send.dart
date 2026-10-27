@@ -144,6 +144,10 @@ extension ChatServiceSend on ChatService {
         imageBytes == null &&
         trimmed.startsWith('/') &&
         _characterRepository != null;
+    if (command && skipTag.present) {
+      _setGuestStatus(kSkipAfterCommand, isError: true);
+      return;
+    }
     final previousSend = _sendChain;
     final sendGate = Completer<void>();
     _sendChain = sendGate.future;
@@ -375,42 +379,6 @@ extension ChatServiceSend on ChatService {
       // is now continuing (regen of that AI reply still re-injects until here).
       unawaited(_porchMemoryImport.clearAfterAcceptedUserTurn());
 
-      // ── The player's time skip ──────────────────────────────────────────
-      // PoT is the only clock driver. The skip reader reads the line (or a
-      // `/skip` says it exactly) whenever the story clock is live, engine
-      // on or off, before anything scores or answers it.
-      if (_clockRunning) {
-        final before = _timeService.clock;
-        final skipped = await _buildPlayerSkip().apply(
-          outbound,
-          exact: skipTag.verdict,
-          recent: recentExchange(
-            _messages.sublist(0, _messages.length - 1),
-            take: 4,
-          ),
-          stale: () => _sceneChanged(sessionToken),
-        );
-        if (_sceneChanged(sessionToken)) return;
-        await _episodeCrumbs.maybeMint(before, _timeService.clock);
-        // A day or more (this line, or the calendar since the last turn):
-        // settle the moment the scene left; a skip line also gets the
-        // narrator to fill in the gap before anyone replies.
-        if (_timeService.bodyBeatLivedOwed) {
-          LongSkipSettle(_realismScope()).settle();
-        }
-        if (skipped >= kLongSkipMinutes) {
-          final stillHere = await _bridgeLongSkip(
-            from: before,
-            skipped: skipped,
-            skipLine: userMsg,
-            token: sessionToken,
-          );
-          if (!stillHere) return;
-        }
-      } else if (skipTag.present) {
-        _setGuestStatus(kSkipNeedsClock, isError: true);
-      }
-
       // ── Direct-address turn routing (both cast surfaces) ─────────────────
       // 1:1: "@Evelyn …" anywhere (or a vocative — "Evelyn - can you clarify…")
       // routes this turn to the GUEST via the parity-safe guest path; the host
@@ -456,6 +424,49 @@ extension ChatServiceSend on ChatService {
       // The request phase adopts the swap into the turn's restore machinery;
       // the cancel return below and the callMode setter release an orphaned one.
       if (addressedGuest == null) _enterCallEvalModelSwap();
+
+      // ── The player's time skip ──────────────────────────────────────────
+      // PoT is the only clock driver. The skip reader reads the line (or a
+      // `/skip` says it exactly) whenever the story clock is live, engine
+      // on or off, before anything scores or answers it, and after the call
+      // model swap so a voice call reads it on the fast model too.
+      if (_clockRunning) {
+        final before = _timeService.clock;
+        final skipped = await _buildPlayerSkip().apply(
+          outbound,
+          exact: skipTag.verdict,
+          recent: recentExchange(
+            _messages.sublist(0, _messages.length - 1),
+            take: 4,
+          ),
+          stale: () => _sceneChanged(sessionToken),
+        );
+        if (_sceneChanged(sessionToken)) {
+          _exitCallEvalModelSwap();
+          return;
+        }
+        await _episodeCrumbs.maybeMint(before, _timeService.clock);
+        // A day or more (this line, or the calendar since the last turn):
+        // settle the moment the scene left; a skip line also gets the
+        // narrator to fill in the gap before anyone replies.
+        if (_timeService.bodyBeatLivedOwed) {
+          LongSkipSettle(_realismScope()).settle();
+        }
+        if (skipped >= kLongSkipMinutes) {
+          final stillHere = await _bridgeLongSkip(
+            from: before,
+            skipped: skipped,
+            skipLine: userMsg,
+            token: sessionToken,
+          );
+          if (!stillHere) {
+            _exitCallEvalModelSwap();
+            return;
+          }
+        }
+      } else if (skipTag.present) {
+        _setGuestStatus(kSkipNeedsClock, isError: true);
+      }
 
       // Check objective task completion BEFORE generating response
       // so the AI gets the updated task in its prompt

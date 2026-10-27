@@ -32,6 +32,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/chat.dart'
     show
         kLongSkipMinutesMeta,
+        kSkipAfterCommand,
         kSkipTagUsage,
         kTimeSkipBridgeMeta,
         skipMomentWords;
@@ -565,9 +566,16 @@ void main() {
     expect(h.chat.messages, hasLength(sent));
     expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 28, 8));
 
-    await h.chat.sendMessage('Coffee? /skip soonish');
+    await h.chat.sendMessage('Coffee? /skip 8 parsecs');
     await h.settleTurn();
     expect(h.chat.messages, hasLength(sent));
     expect(h.chat.guestActivityStatus, kSkipTagUsage);
+
+    final clock = h.chat.timeService.clock;
+    await h.chat.sendMessage('/narrate a storm rolls in /skip 8h');
+    await h.settleTurn();
+    expect(h.chat.messages, hasLength(sent));
+    expect(h.chat.timeService.clock, clock);
+    expect(h.chat.guestActivityStatus, kSkipAfterCommand);
   });
 }

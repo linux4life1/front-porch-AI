@@ -131,4 +131,10 @@ void main() {
         'from the gate.*',
     (v) => expect(v.isSkip, isFalse),
   );
+
+  live(
+    'a skip a character says is not a skip',
+    '*I stretch, still sleepy.* "Will you post the video next week?"',
+    (v) => expect(v.isSkip, isFalse),
+  );
 }

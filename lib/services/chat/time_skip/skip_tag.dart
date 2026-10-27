@@ -14,6 +14,10 @@ const String kSkipTagUsage =
     'Say how far to skip, like /skip 8h, /skip 2d, /skip morning or '
     '/skip 07:30.';
 
+/// Shown when `/skip` ends a command such as `/narrate`.
+const String kSkipAfterCommand =
+    '/skip goes at the end of a line you send, not after a command.';
+
 /// Shown when `/skip` is used while the story clock is off.
 const String kSkipNeedsClock =
     'Turn on Passage of Time in Settings → Porch Life to use /skip.';
@@ -68,11 +72,24 @@ class SkipTag {
     final match = _tag.firstMatch(text);
     if (match == null) return SkipTag.none(text);
     final body = text.substring(0, match.start).trimRight();
-    final verdict = _read(match.group(1)!.trim().toLowerCase());
+    final args = match.group(1)!.trim().toLowerCase();
+    // "I tap /skip on the ad." is prose: a tag is the whole message, or
+    // words that start like an amount or a landing.
+    if (args.isEmpty ? body.isNotEmpty : !_tagShaped(args)) {
+      return SkipTag.none(text);
+    }
+    final verdict = _read(args);
     return verdict == null
         ? SkipTag._(body: body, error: kSkipTagUsage)
         : SkipTag._(body: body, verdict: verdict);
   }
+
+  static final RegExp _tagStart = RegExp(
+    r'^(?:\d|late\b|noon\b|midday\b|midnight\b|'
+    r'(?:dawn|morning|late_morning|afternoon|evening|night)\b)',
+  );
+
+  static bool _tagShaped(String args) => _tagStart.hasMatch(args);
 
   /// "8h", "1d 6h", "90 min", "2 weeks morning", "night", "7:30", "7am".
   static SkipVerdict? _read(String args) {

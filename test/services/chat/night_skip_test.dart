@@ -161,9 +161,18 @@ void main() {
     });
 
     test('a tag it cannot read says how to use it; no tag is no skip', () {
-      expect(SkipTag.parse('Tea? /skip soonish').error, kSkipTagUsage);
+      expect(SkipTag.parse('Tea? /skip 8 parsecs').error, kSkipTagUsage);
       expect(SkipTag.parse('/skip').error, kSkipTagUsage);
       expect(SkipTag.parse('/skip 7').error, kSkipTagUsage);
+      for (final prose in [
+        'I tap /skip on the ad and keep reading.',
+        'Tea? /skip soonish',
+        'I hit /skip',
+      ]) {
+        final tag = SkipTag.parse(prose);
+        expect(tag.present, isFalse, reason: prose);
+        expect(tag.body, prose);
+      }
       final none = SkipTag.parse('We were /skipping stones.');
       expect(none.present, isFalse);
       expect(none.body, 'We were /skipping stones.');
