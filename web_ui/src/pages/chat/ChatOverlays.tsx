@@ -14,7 +14,7 @@ import { ImagePromptReviewModal } from '../../components/ImagePromptReviewModal'
 import { SkipConfirmSheet, type PendingSkip } from '../../components/SkipConfirmSheet';
 import { MessageEditModal } from '../../components/MessageEditModal';
 import { ConfirmDialog } from '../../components/library/LibraryDialogs';
-import { api } from '../../api/client';
+import { api, ApiError } from '../../api/client';
 import { type Message } from '../../components/chatTypes';
 import { useReprocessNeeds } from './useReprocessNeeds';
 import type { PendingConfirm } from './useChatSend';
@@ -194,10 +194,11 @@ function SkipConfirmOverlay({ pending }: { pending: PendingSkip }) {
       error={error}
       onAnswer={(answer) => {
         setError(null);
+        // A 409 means it was answered elsewhere; the next snapshot closes
+        // the sheet. Any other failure stays open and says why.
         api.post('/api/chat/skip-confirm', answer).catch((e: unknown) => {
-          if ('other' in answer) {
-            setError(e instanceof Error ? e.message : String(e));
-          }
+          if (e instanceof ApiError && e.status === 409) return;
+          setError(e instanceof Error ? e.message : String(e));
         });
       }}
     />

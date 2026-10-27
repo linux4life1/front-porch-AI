@@ -29,7 +29,11 @@ extension ChatServiceGenerationStreamAccessors on ChatService {
   /// post-gen), and the second SPINS until the flag clears — broadening it
   /// would hang the caller if post-gen ever failed to settle.
   bool get _isTurnBusy =>
-      _isGenerating || _isPostGenerating || _isImporting || _narrating;
+      _isGenerating ||
+      _isPostGenerating ||
+      _isImporting ||
+      _narrating ||
+      _skipAsked;
 
   void _notifyStreamListeners() {
     if (_streamNotifyTimer != null) return; // trailing notify already queued

@@ -85,7 +85,9 @@ extension ChatServiceChatEntry on ChatService {
   /// unbounded spin for exactly that reason).
   Future<void> _waitForTurnToSettle() async {
     final deadline = DateTime.now().add(const Duration(seconds: 15));
-    while (_isTurnBusy && DateTime.now().isBefore(deadline)) {
+    // A send parked on "Did time pass?" has written only its line; the
+    // switch cancels the question and the send stops on the chat change.
+    while (_isTurnBusy && !_skipAsked && DateTime.now().isBefore(deadline)) {
       await Future.delayed(const Duration(milliseconds: 50));
     }
     // Persist is not `_isTurnBusy`: `_isPostGenerating` drops in
@@ -171,7 +173,7 @@ extension ChatServiceChatEntry on ChatService {
       _sceneGuest.turnsSinceCastScan = 0;
       _sceneGuest.pendingDetection = null;
       _sceneGuest.offeredOrIgnoredNames.clear();
-      _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+      _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
       _activeCharacter = character;
 

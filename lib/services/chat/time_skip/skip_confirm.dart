@@ -16,6 +16,10 @@ import 'package:front_porch_ai/services/chat/time_skip/skip_verdict.dart';
 import 'package:front_porch_ai/services/chat/time_skip_bridge.dart'
     show skipSpanWords;
 
+/// Shown when a line is sent, from another screen, while the question is
+/// still open: one turn at a time.
+const String kSkipAskPending = 'Answer "Did time pass?" first.';
+
 /// Why the question is asked.
 enum SkipAskReason {
   /// The reader gave no usable answer (pick B: the guess is left blank).

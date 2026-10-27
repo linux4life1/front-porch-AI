@@ -37,7 +37,7 @@ import 'package:front_porch_ai/services/chat/chat.dart'
         kTimeSkipBridgeMeta,
         skipMomentWords;
 import 'package:front_porch_ai/services/chat/time_skip/time_skip.dart'
-    show PendingSkip, SkipAskReason, SkipVerdict;
+    show PendingSkip, SkipAskReason, SkipVerdict, kSkipAskPending;
 
 import '../../helpers/reprocess_needs_harness.dart';
 import '../../helpers/skip_reader_answers.dart';
@@ -668,5 +668,31 @@ void main() {
     await h.settleTurn();
     expect(asked, isFalse);
     expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 8));
+  });
+
+  test('while the question is open, a send from another screen and a regen '
+      'are refused; the parked turn goes on once answered', () async {
+    await furiousOnTheCouch();
+    llm.skipReadings = morningReading;
+    await h.chat.setStoryClock(DateTime.utc(2026, 10, 27, 1, 40));
+    h.chat.chatScreenOpened();
+    addTearDown(h.chat.chatScreenClosed);
+    final sent = h.chat.messages.length;
+
+    final send = h.chat.sendMessage(slept);
+    final question = await waitForQuestion();
+
+    await h.chat.sendMessage('And another thing.');
+    expect(h.chat.guestActivityStatus, kSkipAskPending);
+    await h.chat.regenerateLastMessage();
+    expect(h.chat.messages, hasLength(sent + 1));
+    expect(h.chat.pendingSkip, same(question));
+    expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 1, 40));
+
+    h.chat.answerSkip(question.choices[1].verdict);
+    await send;
+    await h.settleTurn();
+    expect(h.chat.messages.where((m) => m.isUser).last.text, slept);
+    expect(h.chat.timeService.clock, DateTime.utc(2026, 10, 27, 9, 40));
   });
 }

@@ -394,6 +394,10 @@ extension ChatServiceWiringInjection on ChatService {
   /// desktop dialog and the web sheet show it while it is non-null.
   PendingSkip? get pendingSkip => _skipGate.pending;
 
+  /// A send is parked on [pendingSkip]: it owns the turn, so no other send,
+  /// regen, swipe, Continue or delete starts until it is answered.
+  bool get _skipAsked => _skipGate.pending != null;
+
   /// The player's answer to [pendingSkip]: a skip, [SkipVerdict.none] for
   /// "no skip", or null to keep the reader's guess.
   void answerSkip(SkipVerdict? verdict) {

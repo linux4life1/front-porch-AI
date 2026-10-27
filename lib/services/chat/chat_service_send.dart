@@ -63,6 +63,7 @@ extension ChatServiceSend on ChatService {
     if (_photoTurnInFlight) return 'The last photo is still being read.';
     if (_isGenerating) return 'A reply is still being written.';
     if (_narrating) return 'The narrator is still setting the scene.';
+    if (_skipAsked) return kSkipAskPending;
     return null;
   }
 
@@ -111,6 +112,11 @@ extension ChatServiceSend on ChatService {
     if (_isGenerating) return;
     // The narrator's beat is about to append and start the reply.
     if (_narrating) return;
+    // A send parked on "Did time pass?" owns the turn (another screen).
+    if (_skipAsked) {
+      _setGuestStatus(kSkipAskPending, isError: true);
+      return;
+    }
     final testing = sendRefusal(text, withImage: imageBytes != null);
     if (testing != null) {
       _setGuestStatus(testing, isError: true);
@@ -219,7 +225,6 @@ extension ChatServiceSend on ChatService {
     // A new message while an /image prompt review is parked cancels it —
     // the desktop dialog is modal, but the web modal can be typed around.
     resolveImagePromptReview(null);
-    if (_skipGate.cancel()) notifyListeners();
 
     // User is interacting — clear any pending auto-response state
     _pendingIdleCue = null;
