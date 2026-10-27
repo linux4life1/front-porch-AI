@@ -79,11 +79,12 @@ class SceneCloudLayer extends Component
   }
 }
 
-/// Fog: soft radial blobs rolling low across the stage, over the tint
-/// and the clouds, and a band of ground fog thickest at the bottom edge
-/// that breathes on the sim's clock. Each blob's gradient is built once
-/// per scatter and moved with a translate; the ground band is plain
-/// rectangles, so a frame makes no shaders.
+/// Fog: low banks rolling across the stage, over the tint and the
+/// clouds, each breathing on its own phase, and a band of ground fog
+/// thickest at the bottom edge that breathes on the sim's clock. Each
+/// bank's gradient is built once per scatter and moved with a translate
+/// and a squash, its breath carried by the paint's alpha; the ground band
+/// is plain rectangles, so a frame makes no shaders.
 class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
   SceneFogLayer() : super(priority: 2);
 
@@ -108,20 +109,31 @@ class SceneFogLayer extends Component with HasGameReference<AmbientStageGame> {
       _builtColour = colour;
       _shaders = [
         for (final b in sim.fogBlobs)
-          Gradient.radial(Offset.zero, b.r, [
-            colour.withValues(alpha: colour.a * b.a),
-            colour.withValues(alpha: 0),
-          ]),
+          Gradient.radial(
+            Offset.zero,
+            b.r,
+            [
+              colour.withValues(alpha: colour.a * b.a),
+              colour.withValues(alpha: colour.a * b.a),
+              colour.withValues(alpha: 0),
+            ],
+            const [0, kSceneFogBankCore, 1],
+          ),
       ];
       _blobPaints = [for (final s in _shaders) Paint()..shader = s];
     }
     final h = game.size.y;
     for (var i = 0; i < sim.fogBlobs.length; i++) {
       final b = sim.fogBlobs[i];
+      // A shader is modulated by its paint's alpha: the breath costs no
+      // new gradient.
+      final paint = _blobPaints[i]
+        ..color = Color.fromRGBO(0, 0, 0, fogBankBreath(i, sim.time));
       canvas
         ..save()
         ..translate(b.x, b.y + fogBob(i, sim.time) * h)
-        ..drawCircle(Offset.zero, b.r, _blobPaints[i])
+        ..scale(1, kSceneFogBankSquash)
+        ..drawCircle(Offset.zero, b.r, paint)
         ..restore();
     }
     final w = game.size.x;

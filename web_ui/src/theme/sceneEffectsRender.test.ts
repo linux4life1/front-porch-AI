@@ -12,6 +12,7 @@ import {
   GROUND_FOG_ALPHA, GROUND_FOG_STRIPES, RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_LIFE,
   SceneSplashes, flashShape, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
 } from './sceneEffectsRender';
+import { FOG_BANK_CORE, FOG_BANK_SQUASH, fogBankBreath } from './sceneEffectsRender';
 
 const drop = (a: number) => ({ x: 0, y: 0, v: 500, len: 12, drift: 0, a });
 const round = (p: [number, number]) => p.map((v) => +v.toFixed(6));
@@ -85,5 +86,24 @@ describe('scene effects render recipe', () => {
     expect(SceneSplashes.dropletLift(0.4)).toBeCloseTo(1.6, 9);
     splashes.observe(drops, 0.06 + SPLASH_LIFE + 0.01, 600);
     expect(splashes.live).toHaveLength(0);
+  });
+});
+
+describe('scene effects fog bank recipe', () => {
+  it('breathes each bank on its own phase, under the fog bound', () => {
+    // The Dart twin (scene_effects_render_test.dart) pins the same numbers.
+    expect(fogBankBreath(0, 0)).toBe(0.75);
+    expect(fogBankBreath(3, 7.5)).toBeCloseTo(0.817833, 6);
+    expect(fogBankBreath(1, 0)).not.toBe(fogBankBreath(2, 0));
+    for (let t = 0; t < 60; t += 0.4) {
+      for (let i = 0; i < 7; i++) {
+        expect(fogBankBreath(i, t)).toBeGreaterThanOrEqual(0.5);
+        expect(fogBankBreath(i, t)).toBeLessThanOrEqual(1);
+      }
+    }
+    expect(FOG_BANK_CORE).toBeGreaterThan(0);
+    expect(FOG_BANK_CORE).toBeLessThan(1);
+    expect(FOG_BANK_SQUASH).toBeGreaterThan(0);
+    expect(FOG_BANK_SQUASH).toBeLessThan(1);
   });
 });

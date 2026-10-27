@@ -84,7 +84,7 @@ chat page (ChatSurface)
    ├─ AmbientStage → AmbientStageGame (GameWidget, transparent)
    │   ├─ SceneTintComponent        priority 0: daypart + condition + temperature washes, haze
    │   ├─ SceneCloudLayer           priority 1: drifting cloud puffs
-   │   ├─ SceneFogLayer             priority 2: drifting fog blobs
+   │   ├─ SceneFogLayer             priority 2: breathing fog banks
    │   ├─ ScenePrecipitation        priority 3: rain or snow
    │   ├─ SceneLightningFlash       priority 4: the storm flash
    │   └─ (later) sprite stage      expression sprites for the VN layout
@@ -263,10 +263,15 @@ point):
   drawn from the scene's seed and the flash's place in the schedule
   (`sceneBolt(seed, nextFlashAt, w, h)`), so both surfaces strike alike.
   The thunder timing is unchanged.
-- **Fog** blobs bob slowly on the sim's clock, and a ground band in 24
-  stripes lies over the bottom 30% of the stage, thickest at the edge,
-  peaking at 0.35 of the fog paint and breathing between 0.8 and 1.0 of
-  that. No new shaders: the band is rectangles.
+- **Fog** blobs draw as low banks: squashed to 0.42 of their height,
+  solid at the blob's alpha out to 0.6 of the radius and clear at the
+  rim, each breathing between 0.5 and 1.0 of that on its own phase
+  (`fogBankBreath`), and bobbing slowly on the sim's clock. A linear
+  fade from the centre left too little body to read on the fog's own
+  haze. A ground band in 24 stripes lies over the bottom 40% of the
+  stage, thickest at the edge, peaking at 0.5 of the fog paint and
+  breathing between 0.8 and 1.0 of that. No new shaders: a bank's
+  breath is its paint's alpha and the band is rectangles.
 - **Snow** gains a far sheet of pinpoints and a soft halo under the
   nearest band.
 - **Clouds** are a body at 0.62 and a smaller, lifted top at 0.32 of the
@@ -274,7 +279,9 @@ point):
 
 The readability floor still holds by construction: a body and top
 composite under 0.75 of the cloud paint (the floor test's bound), and the
-ground fog peaks under the 0.5 the floor test assumes for fog. Reduce
+ground fog and each fog bank peak at or under the 0.5 the floor test
+assumes for fog (where two overlap, their sum can pass it, as the blobs
+always could). Reduce
 motion holds all of it still, as before.
 
 ### Backgrounds and the weather overlay

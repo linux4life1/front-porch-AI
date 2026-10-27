@@ -11,6 +11,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SceneEffectsSim, parseSceneEffects, type SceneEffectsWire } from './sceneEffects';
 import { SceneEffectsPlayer, paintSceneEffects } from './sceneEffectsPlayer';
+import { FOG_BANK_CORE, FOG_BANK_SQUASH, fogBankBreath } from './sceneEffectsRender';
 
 const paints = {
   rain: 'rgba(200, 215, 235, 0.549)',
@@ -234,5 +235,51 @@ describe('scene effects player', () => {
     expect(lastFog).toBeLessThan(rain);
     expect(rain).toBeLessThan(flash);
     expect(calls.lastIndexOf('fillRect')).toBeGreaterThan(flash);
+  });
+});
+
+describe('scene effects fog banks', () => {
+  // A blob drawn as a full disc at a fixed alpha read as one flat grey wash
+  // over the fog's own haze; each is now a squashed bank, solid out to its
+  // core, breathing on its own phase. The desktop's SceneFogLayer twin is
+  // pinned in ambient_stage_effects_test.
+  it('draws each blob as a squashed bank with a solid core that breathes', () => {
+    const stops: [number, string][] = [];
+    const scales: [number, number][] = [];
+    const alphas: number[] = [];
+    const ctx = new Proxy({} as Record<string, unknown>, {
+      get: (target, prop: string) => {
+        if (prop === 'createRadialGradient') {
+          return () => ({ addColorStop: (at: number, c: string) => stops.push([at, c]) });
+        }
+        if (prop === 'scale') return (x: number, y: number) => scales.push([x, y]);
+        if (prop in target) return target[prop];
+        return () => {};
+      },
+      set: (target, prop: string, value) => {
+        target[prop] = value;
+        if (prop === 'globalAlpha') alphas.push(value as number);
+        return true;
+      },
+    }) as unknown as CanvasRenderingContext2D;
+    const fog = { kind: 'fog' as const, density: 0, clouds: 0, fog: true, lightning: false, wind: 0 };
+    const sim = new SceneEffectsSim(fog, 42, 800, 600);
+    const n = sim.fogBlobs.length;
+    expect(n).toBeGreaterThan(0);
+
+    const paintAt = (time: number) => {
+      sim.time = time;
+      scales.length = 0;
+      alphas.length = 0;
+      paintSceneEffects(ctx, sim, paints);
+      return alphas.slice(0, n);
+    };
+    const first = paintAt(0);
+    expect(stops.slice(0, 3)).toEqual([[0, paints.fog], [FOG_BANK_CORE, paints.fog], [1, paints.fogClear]]);
+    expect(scales).toEqual(Array.from({ length: n }, () => [1, FOG_BANK_SQUASH]));
+    sim.fogBlobs.forEach((f, i) => expect(first[i]).toBeCloseTo(f.a * fogBankBreath(i, 0), 9));
+    const later = paintAt(3.7);
+    sim.fogBlobs.forEach((f, i) => expect(later[i]).toBeCloseTo(f.a * fogBankBreath(i, 3.7), 9));
+    expect(later).not.toEqual(first);
   });
 });

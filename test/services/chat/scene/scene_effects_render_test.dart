@@ -10,6 +10,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_render.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects_sim.dart';
 import 'package:front_porch_ai/ui/theme/scene_palette.dart';
@@ -169,5 +170,22 @@ void main() {
     drops[0].y = 20;
     splashes.observe(drops, 0.1, 600);
     expect(splashes.live, isEmpty);
+  });
+
+  test('fog banks breathe on their own phase and stay under the fog bound', () {
+    // The web twin (sceneEffectsRender.test.ts) pins the same numbers.
+    expect(fogBankBreath(0, 0), 0.75);
+    expect(fogBankBreath(3, 7.5), closeTo(0.817833, 1e-6));
+    expect(fogBankBreath(1, 0), isNot(fogBankBreath(2, 0)));
+    for (var t = 0.0; t < 60; t += 0.4) {
+      for (var i = 0; i < kSceneFogBlobs; i++) {
+        expect(fogBankBreath(i, t), inInclusiveRange(0.5, 1.0));
+      }
+    }
+    // A bank is solid at its blob's alpha, which the sim keeps under 0.5,
+    // times a breath of at most 1: under the floor test's fog bound.
+    expect(kSceneFogBankCore, inExclusiveRange(0, 1));
+    expect(kSceneFogBankSquash, inExclusiveRange(0, 1));
+    expect(kSceneGroundFogAlpha, lessThanOrEqualTo(0.5));
   });
 }

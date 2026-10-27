@@ -30,6 +30,7 @@ import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_effects.dart';
+import 'package:front_porch_ai/services/chat/scene/scene_effects_render.dart';
 import 'package:front_porch_ai/services/chat/scene/scene_tokens.dart';
 import 'package:front_porch_ai/services/chat/weather_engine.dart';
 import 'package:front_porch_ai/ui/chat_components/ambient/ambient_stage.dart';
@@ -325,4 +326,53 @@ void main() {
       reason: 'a storm carries a mid sheet too',
     );
   });
+
+  testWidgets('fog draws as low banks that each breathe on their own', (
+    tester,
+  ) async {
+    // A blob drawn as a full disc with a fixed alpha read as one flat grey
+    // wash over the fog's own haze; each is now squashed into a bank and
+    // its paint alpha follows its own breath.
+    final game = await _pump(tester, _scene(WeatherCondition.fog));
+    await tester.pump(const Duration(milliseconds: 16));
+    final fog = game.children.whereType<SceneFogLayer>().single;
+    final sim = game.effects!;
+    expect(sim.fogBlobs, hasLength(kSceneFogBlobs));
+
+    List<double> paintAt(double time) {
+      sim.time = time;
+      final canvas = _FogCanvas();
+      fog.render(canvas);
+      expect(canvas.scales, [
+        for (var i = 0; i < kSceneFogBlobs; i++) (1.0, kSceneFogBankSquash),
+      ], reason: 'every bank is squashed');
+      return canvas.circleAlphas;
+    }
+
+    for (final t in [0.0, 3.7]) {
+      final alphas = paintAt(t);
+      expect(alphas, hasLength(kSceneFogBlobs));
+      for (var i = 0; i < kSceneFogBlobs; i++) {
+        expect(alphas[i], closeTo(fogBankBreath(i, t), 1e-6));
+      }
+      expect(alphas.toSet().length, greaterThan(1), reason: 'own phases');
+    }
+    expect(paintAt(0), isNot(paintAt(3.7)), reason: 'the banks breathe');
+  });
+}
+
+/// Records how the fog layer draws its banks; every other call is a no-op.
+class _FogCanvas implements Canvas {
+  final List<(double, double)> scales = [];
+  final List<double> circleAlphas = [];
+
+  @override
+  void scale(double sx, [double? sy]) => scales.add((sx, sy ?? sx));
+
+  @override
+  void drawCircle(Offset c, double radius, Paint paint) =>
+      circleAlphas.add(paint.color.a);
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

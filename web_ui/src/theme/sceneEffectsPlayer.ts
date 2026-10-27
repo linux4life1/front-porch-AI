@@ -4,7 +4,7 @@
 // Draws and drives the Ambient Stage's moving weather on a <canvas> behind
 // the chat (docs/design/ambient-stage.md). The desktop's Flame components
 // (lib/ui/chat_components/ambient/) are the reference: clouds as one path of
-// puffs each, fog as radial blobs, rain as one batch of slanted strokes, snow
+// puffs each, fog as low breathing banks, rain as one batch of slanted strokes, snow
 // as three batches by size, the storm flash as a full wash. Every colour is a
 // string from the wire; per-shape strength is globalAlpha.
 //
@@ -21,10 +21,10 @@ import {
   BOLT_CORE_ALPHA, BOLT_CORE_WIDTH, BOLT_GLOW_ALPHA, BOLT_GLOW_WIDTH,
   CLOUD_BODY_ALPHA, CLOUD_TOP_ALPHA, CLOUD_TOP_LIFT, CLOUD_TOP_SCALE,
   FAR_SHEET_ALPHA, FAR_SHEET_DX, FAR_SHEET_DY, FAR_SHEET_LENGTH, FAR_SHEET_WIDTH,
-  GROUND_FOG_HEIGHT, GROUND_FOG_STRIPES, HEAVY_RAIN_DENSITY, MID_SHEET_ALPHA, MID_SHEET_DX, MID_SHEET_DY, MID_SHEET_LENGTH,
+  FOG_BANK_CORE, FOG_BANK_SQUASH, GROUND_FOG_HEIGHT, GROUND_FOG_STRIPES, HEAVY_RAIN_DENSITY, MID_SHEET_ALPHA, MID_SHEET_DX, MID_SHEET_DY, MID_SHEET_LENGTH,
   RAIN_BAND_ALPHA, RAIN_BAND_LENGTH, RAIN_BAND_WIDTH, SPLASH_RING_ALPHA, STREAK_SPRITE_HEIGHT, STREAK_SPRITE_WIDTH,
   SNOW_FAR_ALPHA, SNOW_HALO_ALPHA, SNOW_HALO_WIDTH, SceneSplashes,
-  cloudBob, flashShape, fogBob, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
+  cloudBob, flashShape, fogBankBreath, fogBob, groundFogBreath, groundFogStripeAlpha, rainBand, rainGust, rainLean, rainLit, sceneBolt,
   type Bolt,
 } from './sceneEffectsRender';
 
@@ -46,6 +46,7 @@ function fogGradientsFor(ctx: CanvasRenderingContext2D, sim: SceneEffectsSim, pa
   const grads = sim.fogBlobs.map((f) => {
     const g = ctx.createRadialGradient(0, 0, 0, 0, 0, f.r);
     g.addColorStop(0, paints.fog);
+    g.addColorStop(FOG_BANK_CORE, paints.fog);
     g.addColorStop(1, paints.fogClear);
     return g;
   });
@@ -56,7 +57,7 @@ function fogGradientsFor(ctx: CanvasRenderingContext2D, sim: SceneEffectsSim, pa
 /**
  * Paints one frame of the sim in the desktop's order (clouds, fog, rain or
  * snow, the flash) by the recipe in sceneEffectsRender.ts: shaded clouds
- * that bob, fog blobs rolling over a breathing ground band, rain as a far
+ * that bob, fog banks breathing over a breathing ground band, rain as a far
  * sheet behind three depth bands with splashes at the ground, snow as a far
  * sheet behind three bands with a halo on the nearest, and a storm flash
  * that strikes twice with a seeded bolt.
@@ -88,10 +89,11 @@ export function paintSceneEffects(ctx: CanvasRenderingContext2D, sim: SceneEffec
   if (sim.fogBlobs.length) {
     const grads = fogGradientsFor(ctx, sim, paints);
     sim.fogBlobs.forEach((f, i) => {
-      ctx.globalAlpha = f.a;
+      ctx.globalAlpha = f.a * fogBankBreath(i, sim.time);
       ctx.fillStyle = grads[i];
       ctx.save();
       ctx.translate(f.x, f.y + fogBob(i, sim.time) * h);
+      ctx.scale(1, FOG_BANK_SQUASH);
       ctx.fillRect(-f.r, -f.r, f.r * 2, f.r * 2);
       ctx.restore();
     });
