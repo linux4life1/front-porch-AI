@@ -596,7 +596,7 @@ class FakeBackendServer {
       // eight hours disagrees and the question is asked.
       eval.addAll(
         skipReaderVerdict ??
-            (lastContent.contains('the lantern gutters')
+            (lastContent.toLowerCase().contains('the lantern gutters')
                 ? const {
                     'skip': true,
                     'minutes': 0,
