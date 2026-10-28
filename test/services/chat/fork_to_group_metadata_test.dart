@@ -42,6 +42,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/services.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -179,4 +180,95 @@ void main() {
       expect(row!.userPersonaId, lady);
     },
   );
+
+  // Local report: a 1:1 at the Tea Rooms, a lite guest joins, the guest is
+  // promoted to full — and the converted group had no Setting at all. The
+  // fork wrote a fresh session id with no chat_worlds rows, so setActiveGroup
+  // loaded an empty place. Proven to fail: drop the world carry from
+  // forkToGroupChat in chat_service_group_membership.dart and the Setting,
+  // Lore, climate span and wiki expectations go red.
+  test('promoting a lite guest keeps the chat\'s world and place', () async {
+    final repo = CharacterRepository(db, storage);
+    final groups = GroupChatRepository(storage, db);
+    final worlds = WorldRepository(storage, db);
+    final personas = UserPersonaService(db);
+    final promoteChat =
+        ChatService(KoboldService(storage), personas, storage, worlds)
+          ..setDatabase(db)
+          ..setCharacterRepository(repo)
+          ..setGroupChatRepository(groups);
+    addTearDown(promoteChat.dispose);
+
+    await worlds.saveWorld(
+      model.World(
+        id: 'town',
+        name: 'Bletchfield',
+        lorebook: Lorebook(entries: []),
+        biomeId: 'temperate',
+      ),
+    );
+    await worlds.saveWorld(
+      model.World(
+        id: 'cafe',
+        name: 'Tea Rooms',
+        lorebook: Lorebook(entries: []),
+        parentWorldId: 'town',
+        climateEnabled: false,
+      ),
+    );
+    final host = CharacterCard(
+      name: 'Nia',
+      description: 'Exists only inside the fork-place test.',
+      firstMessage: 'The kettle whistles.',
+      worldNames: ['Bletchfield'],
+    );
+    final guest = CharacterCard(
+      name: 'Marisol',
+      description: 'Exists only inside the fork-place test.',
+      firstMessage: 'Mind if I sit?',
+    );
+    await repo.addCharacter(host);
+    await repo.addCharacter(guest);
+    await promoteChat.startFreshChatWith(
+      character: host,
+      personaId: personas.persona.id,
+    );
+    final oneToOne = promoteChat.currentSessionId!;
+    await promoteChat.setChatPlaceSlots(primaryId: 'cafe', loreIds: ['town']);
+    final spansBefore = await worlds.getChatBiomeSpanRows(oneToOne);
+    expect(spansBefore, isNotEmpty, reason: 'the Setting wrote a climate span');
+    await storage.webSearchSettings.setChatWikiUrl(
+      oneToOne,
+      'https://tea-rooms.example/wiki',
+    );
+
+    await promoteChat.debugEnterSceneGuestSilent(guest);
+    expect(promoteChat.sceneGuestCards.map((c) => c.name), ['Marisol']);
+    await promoteChat.joinFull(promoteChat.sceneGuestCards.single);
+
+    expect(promoteChat.activeGroup, isNotNull, reason: 'now a group');
+    final groupSession = promoteChat.currentSessionId!;
+    expect(groupSession, isNot(oneToOne));
+    expect(
+      promoteChat.chatPrimaryWorldId,
+      'cafe',
+      reason: 'THE BUG: the converted group opened with no Setting',
+    );
+    expect(promoteChat.chatLoreWorldIds, ['town']);
+    final stored = await worlds.getChatWorldAttachments(groupSession);
+    expect(stored.primaryId, 'cafe', reason: 'and it survives a reopen');
+    final spansAfter = await worlds.getChatBiomeSpanRows(groupSession);
+    expect(
+      spansAfter.map((r) => (r.effectiveFromDay, r.biomeJson)),
+      spansBefore.map((r) => (r.effectiveFromDay, r.biomeJson)),
+      reason: 'the same story keeps its weather history',
+    );
+    expect(
+      storage.webSearchSettings.wikiUrlForChat(groupSession),
+      'https://tea-rooms.example/wiki',
+    );
+    expect(promoteChat.activeGroup!.worldIds, [
+      'Bletchfield',
+    ], reason: 'a later New chat in the group starts in the host\'s world');
+  });
 }
