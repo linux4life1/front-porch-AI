@@ -180,6 +180,19 @@ class WorldChatAttachments {
     );
   }
 
+  /// Copy every climate changeover from [fromChatId] onto [toChatId], for a
+  /// new session that continues the same story (1:1 -> group conversion).
+  Future<void> copyBiomeSpans(String fromChatId, String toChatId) async {
+    final db = _db();
+    for (final s in await db.getBiomeSpansForChat(fromChatId)) {
+      await db.insertBiomeSpan(
+        chatId: toChatId,
+        effectiveFromDay: s.effectiveFromDay,
+        biomeJson: s.biomeJson,
+      );
+    }
+  }
+
   Future<List<({int effectiveFromDay, String biomeJson})>> biomeSpanRows(
     String chatId,
   ) async {
