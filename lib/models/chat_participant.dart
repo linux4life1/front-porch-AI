@@ -30,7 +30,8 @@ import 'package:front_porch_ai/utils/utils.dart';
 ///
 /// It is a thin, read-only view over the existing [CharacterCard] — it adds no
 /// new persistence. Identity and tier are derived from the card itself
-/// (`groupMemberStoreId` / `isLite`), so a participant carries no state of its own;
+/// (`groupMemberStoreId` / `isLite`) and, for a 1:1 Scene Guest, from that
+/// role, so a participant carries no state of its own;
 /// per-participant realism/needs continue to live in the chat service stores.
 class ChatParticipant {
   /// The card backing this participant (host card, group member card, or a
@@ -41,7 +42,16 @@ class ChatParticipant {
   /// (every member is a non-host participant); a 1:1 / NPC chat always has one.
   final bool isHost;
 
-  const ChatParticipant({required this.card, required this.isHost});
+  /// True for a Scene Guest present in a 1:1. Guest-ness there comes from
+  /// the role, not the card: a library character brought in with `/join`
+  /// keeps its own full-tier card, yet its turns run as a guest's.
+  final bool isSceneGuest;
+
+  const ChatParticipant({
+    required this.card,
+    required this.isHost,
+    this.isSceneGuest = false,
+  });
 
   /// Per-participant state key. Matches `_getCharacterIdFromCard`:
   /// group members / guests use [groupMemberStoreId] (UUID-first);
@@ -52,8 +62,9 @@ class ChatParticipant {
 
   /// Whether this participant participates in the Realism/Needs engine. Lite
   /// NPCs (Scene Guests) are parity-safe by construction and carry no state.
-  bool get realismEnabled => !card.isLite;
+  bool get realismEnabled => !isLite;
 
-  /// True for a lite NPC (Scene Guest).
-  bool get isLite => card.isLite;
+  /// True for a lite NPC: a 1:1 Scene Guest, or a group member on a lite card.
+  /// Matches the engine, which runs a turn as a guest's on the same rule.
+  bool get isLite => isSceneGuest || card.isLite;
 }

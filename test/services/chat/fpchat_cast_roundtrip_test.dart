@@ -18,6 +18,8 @@ import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/chat_facade.dart';
+import 'package:front_porch_ai/services/web/streaming/stream_hub.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -196,5 +198,44 @@ void main() {
     expect(result.fullRestore, isTrue);
     expect(chat.sceneGuestCards, isEmpty);
     expect(chat.messages, hasLength(2));
+  });
+
+  // Smoke on #646: a library character brought into a 1:1 with `/join` read
+  // as a full "member", so the Promote chip and "Promote to group" never
+  // showed on the web (and the desktop roster had no Promote either) until a
+  // bare `/promote` turned the chat into a group. The guest's own card is
+  // full-tier; being a guest is its role in the 1:1, which the engine already
+  // honours on every guest turn. Proven to fail: drop `isSceneGuest: true`
+  // from the 1:1 cast in chat_service_accessors_living.dart.
+  test('a /join\'ed library guest is a guest on both rosters', () async {
+    final host = _lib('Zinna');
+    final guest = _lib('Mara');
+    await repo.addCharacter(host);
+    await repo.addCharacter(guest);
+    await chat.startFreshChatWith(
+      character: host,
+      personaId: personas.persona.id,
+    );
+    await chat.debugEnterSceneGuestSilent(guest);
+    expect(guest.isLite, isFalse, reason: 'a full-tier library card');
+
+    // Desktop roster: the chip offers Promote off this flag.
+    final mara = chat.cast.singleWhere((p) => p.name == 'Mara');
+    expect(mara.isLite, isTrue);
+    expect(mara.realismEnabled, isFalse, reason: 'guest turns carry none');
+    expect(chat.cast.first.isLite, isFalse, reason: 'the host stays full');
+
+    // Web roster: CastBar reads the same flag off the relay.
+    final facade = ChatFacade(
+      chat,
+      repo,
+      personas,
+      StreamHub(const Stream<String>.empty(), () => false),
+      null,
+    );
+    final cast = (facade.state()['cast'] as List).cast<Map<String, dynamic>>();
+    final web = cast.singleWhere((c) => c['name'] == 'Mara');
+    expect(web['isLite'], isTrue);
+    expect(web['emotion'], isNull, reason: 'not the host\'s mood');
   });
 }

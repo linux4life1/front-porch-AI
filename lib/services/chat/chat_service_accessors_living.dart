@@ -154,7 +154,7 @@ extension ChatServiceAccessorsLiving on ChatService {
     return [
       if (host != null) ChatParticipant(card: host, isHost: true),
       for (final g in _sceneGuest.cards)
-        ChatParticipant(card: g, isHost: false),
+        ChatParticipant(card: g, isHost: false, isSceneGuest: true),
     ];
   }
 
