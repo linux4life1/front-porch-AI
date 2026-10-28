@@ -61,7 +61,8 @@ export function WorldPicker({ onPick, onClose }: {
               const isRoot = !resolveParent(w, byId);
               const root = topOf(w, byId);
               const depth = depthOf(w);
-              const startName = isRoot && w.defaultPlaceId ? byId.get(w.defaultPlaceId)?.name ?? null : null;
+              // Only a place inside the world earns a chip; a world that starts at itself has nothing to point at.
+              const startName = isRoot && w.defaultPlaceId && w.defaultPlaceId !== w.id ? byId.get(w.defaultPlaceId)?.name ?? null : null;
               const isStart = !isRoot && root.defaultPlaceId === (w.id ?? w.name);
               const n = facts(w);
               const count = isRoot ? placesIn(w) : 0;

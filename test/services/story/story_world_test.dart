@@ -456,4 +456,25 @@ void main() {
       ]);
     });
   });
+
+  // Found in the live review of 2026-10-28: a world with no places lists
+  // itself as "the world at large", the planner picks it for every scene,
+  // and each row then read "<World> — <room>". The header already names
+  // the world; only a place inside it prefixes the location.
+  test('a scene set in the world at large keeps its location bare', () {
+    final g = greenhollow();
+    final atLarge = StoryWorldBrief(chain: [g.root], places: const []);
+    final a = StoryScene(number: 1, location: 'The night desk, one lamp');
+    StoryWorldContext.resolvePlace(atLarge, a, 'Greenhollow Estate');
+    expect(a.placeId, g.root.id);
+    expect(a.location, 'The night desk, one lamp');
+
+    // A real place inside still earns its prefix.
+    final kitchens = g.places.firstWhere((p) => p.name == 'The Kitchens');
+    final full = StoryWorldBrief(chain: [g.root], places: g.places);
+    final b = StoryScene(number: 2, location: 'Dawn, the oven lit');
+    StoryWorldContext.resolvePlace(full, b, 'The Kitchens');
+    expect(b.placeId, kitchens.id);
+    expect(b.location, 'The Kitchens — Dawn, the oven lit');
+  });
 }

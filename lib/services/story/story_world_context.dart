@@ -125,11 +125,15 @@ abstract final class StoryWorldContext {
     final place = isNew ? null : world.placeNamed(name);
     if (place != null) {
       scene.placeId = place.id;
+      // The world at large is already the story's header line; only a
+      // place inside it earns a prefix on the row.
+      final atLarge = place.id == world.root?.id;
       if (scene.location.trim().isEmpty) {
         scene.location = raw.trim();
-      } else if (!scene.location.toLowerCase().contains(
-        place.name.trim().toLowerCase(),
-      )) {
+      } else if (!atLarge &&
+          !scene.location.toLowerCase().contains(
+            place.name.trim().toLowerCase(),
+          )) {
         scene.location = '${place.name.trim()} — ${scene.location}';
       }
       return;

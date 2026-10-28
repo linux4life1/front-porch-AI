@@ -71,9 +71,11 @@ Future<World?> showStoryWorldPicker(
                   world: w,
                   root: topWorldOf(w, (id) => byId[id]),
                   isStart: starts.values.contains(w.id),
-                  startName: w.isLocation
+                  // Only a place inside the world earns a chip; a world
+                  // that starts at itself has nothing to point at.
+                  startName: w.isLocation || starts[w.id] == w.id
                       ? null
-                      : byId[starts[w.id]]?.name ?? w.name,
+                      : byId[starts[w.id]]?.name,
                   depth: worldChain(w, (id) => byId[id]).length - 1,
                   placeCount: w.isLocation
                       ? 0

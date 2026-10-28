@@ -134,4 +134,22 @@ describe('Where does it happen?', () => {
     expect(text('story-world-name')).toBe('Lost Reach');
     expect(text('story-world-detail')).toBe('no longer in the library');
   });
+
+  // Found in the live review of 2026-10-28: a world with no places starts at itself,
+  // and its picker row wore a "starts at <itself>" chip. Only a place inside earns one.
+  it('a world with no places gets no "starts at" chip', async () => {
+    worlds.push({ id: 'bare', name: 'Bleach (TYBW)', description: 'The war.', entryCount: 34, enabledEntryCount: 34, climateEnabled: false, defaultPlaceId: 'bare' });
+    try {
+      await act(async () => root.render(createElement(Harness, { start: emptyDraft() })));
+      await click('story-choose-world');
+      await flush();
+      const picker = document.querySelector('[data-testid="story-world-picker"]');
+      expect(picker?.textContent).toContain('Bleach (TYBW)');
+      expect(picker?.textContent).not.toContain('starts at Bleach');
+      expect(picker?.textContent).toContain('starts at The Conservatory');
+      expect(document.querySelector('[data-testid="story-world-row-bare"]')?.textContent).toContain('0 places · 34 facts');
+    } finally {
+      worlds.pop();
+    }
+  });
 });

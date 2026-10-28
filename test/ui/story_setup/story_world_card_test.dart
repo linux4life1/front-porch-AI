@@ -211,4 +211,24 @@ void main() {
     d.dispose();
     e.dispose();
   });
+
+  // Found in the live review of 2026-10-28: a world with no places (a bare
+  // lorebook world) starts at itself, and its picker row wore a
+  // "starts at <itself>" chip. Only a place inside earns the chip.
+  testWidgets('a world with no places gets no "starts at" chip', (
+    tester,
+  ) async {
+    final bare = greenhollow().first;
+    await pump(tester, library: [bare]);
+    await tester.tap(choose);
+    await tester.pumpAndSettle();
+    expect(find.text('Greenhollow Estate'), findsOneWidget);
+    expect(find.textContaining('starts at'), findsNothing);
+    expect(find.textContaining('0 places · '), findsOneWidget);
+
+    await tester.tap(find.byKey(ValueKey('story-world-row-${bare.id}')));
+    await tester.pumpAndSettle();
+    expect(draft.world!.placeId, bare.id);
+    expect(draft.world!.detail, startsWith('the world at large'));
+  });
 }
