@@ -1867,6 +1867,10 @@ test('New Story can be set in a world: the Idea card names it and Next saves it'
     expect(project.world_id).toBeTruthy();
     const summary = (await (await page.request.get(`/api/stories/world?place=${encodeURIComponent(project.world_id!)}`)).json()) as { ok: boolean; worldName: string };
     expect(summary).toMatchObject({ ok: true, worldName: 'Journey World Town' });
+
+    // The shelf names the world on the wide book and on the phone row alike.
+    await openRoute(page, '/stories');
+    await expect(page.getByTestId(`story-book-world-${saved!.id}`)).toContainText('Journey World Town');
   } finally {
     await cleanup();
   }

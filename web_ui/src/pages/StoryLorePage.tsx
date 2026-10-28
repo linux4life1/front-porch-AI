@@ -119,8 +119,9 @@ export function StoryLorePage() {
       )}
       {tab === 'lore' && p.world_id && (
         <section className="s-card raise" data-testid="lore-world-card">
-          <div className="s-row nowrap">
-            <div className="s-grow s-col" style={{ gap: 2 }}>
+          {/* Wraps so a phone puts the two buttons under the text instead of beside a four-word column. */}
+          <div className="s-row" style={{ flexWrap: 'wrap', gap: 8 }}>
+            <div className="s-col" style={{ gap: 2, flex: '1 1 260px', minWidth: 0 }}>
               <b data-testid="lore-world-line">{worldLine(p, world.summary, world.gone)}</b>
               <span className="s-muted s-small">
                 {copied} {copied === 1 ? 'fact' : 'facts'} from this world · the world is read live; its facts were copied when the bible was built
