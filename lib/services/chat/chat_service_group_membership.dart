@@ -96,6 +96,9 @@ extension ChatServiceGroupMembership on ChatService {
       // characterIds removed (decoupled). Members handled via group_members + private storage.
       turnOrder: turnOrder,
       scenario: scenario ?? '',
+      // The host's worlds become the group's template, so a later "New chat"
+      // in this group starts where the 1:1 would have.
+      worldIds: List<String>.of(_activeCharacter!.worldNames),
       // v31 columns — new groups start with clean defaults.
       // baselineRealismState remains '{}' until the caller (or UI) seeds explicit values.
       baselineRealismState: '{}',
@@ -205,6 +208,22 @@ extension ChatServiceGroupMembership on ChatService {
       await _db.insertMessages(copiedMessages);
     }
 
+    // Same scene, new session id: the group keeps the 1:1's Setting, Lore and
+    // climate changeovers. setActiveGroup loads these rows; with none written
+    // the converted group opened with no world or place at all.
+    try {
+      await _worldRepository.setChatWorldAttachments(
+        newSessionId,
+        primaryId: _chatPlaceSlots.primaryId,
+        loreIds: _chatPlaceSlots.loreIds,
+      );
+      if (hostSessionId != null) {
+        await _worldRepository.copyChatBiomeSpans(hostSessionId, newSessionId);
+      }
+    } catch (e) {
+      debugPrint('[ChatService] fork world carry failed: $e');
+    }
+
     debugPrint(
       '[ChatService] \u{1F500} Forked 1:1 chat to group "${group.name}" '
       '(${_messages.length} messages copied)',
@@ -212,6 +231,9 @@ extension ChatServiceGroupMembership on ChatService {
 
     // Switch to the new group (this loads the session we just created)
     await setActiveGroup(group, groupRepo: groupRepo);
+
+    // Writes to _currentSessionId, so only once the group session is live.
+    if (hostSessionId != null) await _copyWikiForForkedSession(hostSessionId);
 
     // Carry the captured 1:1 host realism into the host member's per-character
     // store now that group mode is active (the group-scoped writes are gated on

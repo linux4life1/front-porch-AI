@@ -472,6 +472,9 @@ class WorldRepository extends ChangeNotifier {
     required Biome biome,
   }) => _attachments.setBiome(chatId: chatId, dayCount: dayCount, biome: biome);
 
+  Future<void> copyChatBiomeSpans(String fromChatId, String toChatId) =>
+      _attachments.copyBiomeSpans(fromChatId, toChatId);
+
   /// Raw span rows for [BiomeSchedule] hydrate (ordered by day ASC).
   Future<List<({int effectiveFromDay, String biomeJson})>> getChatBiomeSpanRows(
     String chatId,
