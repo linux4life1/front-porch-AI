@@ -2,7 +2,7 @@
 
 Front Porch AI ships often: a stable release every few weeks, patch releases in between, and a nightly Rawhide build most days.
 
-**The current stable release is v1.6.0, "Fifty Shades of Porch".**
+**The current stable release is v1.6.1, "Cloudy with a Chance of Porch".**
 
 This page is the long-form history — the headlines of every release, newest first. The [GitHub Releases page](https://github.com/linux4life1/front-porch-ai/releases) is always the complete and most up-to-date record, and it is also where the nightly builds live.
 
@@ -12,6 +12,7 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ## Table of Contents
 
+- [v1.6.1 — Cloudy with a Chance of Porch](#v161--cloudy-with-a-chance-of-porch)
 - [v1.6.0 — Fifty Shades of Porch](#v160--fifty-shades-of-porch)
 - [v1.5.0 — Revenge of the Kobold](#v150--revenge-of-the-kobold)
 - [v1.4.1 — KB5069420: Cumulative Porch Update](#v141--kb5069420-cumulative-porch-update)
@@ -35,9 +36,27 @@ This page is the long-form history — the headlines of every release, newest fi
 
 ---
 
+## v1.6.1 — Cloudy with a Chance of Porch
+
+**Released:** v1.6.1 — current stable
+
+Worlds got places, the sky got weather, and the clock learned to read.
+
+- 🗺️ **Places inside worlds** — a world holds its towns, buildings and rooms; open a world to star its starting place, add, edit, move or delete places, with rooms under their building. Places share the world's lore and weather unless given their own, and travel inside `.fpworld` files and Stoop cards. Desktop and phone.
+- 🚶 **The scene moves with the story** — the Places breadcrumb moves the scene, a Scene suggestion offers to go somewhere the story names, and one tap turns a named arrival into a real place.
+- 🌍 **Seven starter worlds, with pictures** — ready-made worlds with places inside and painted covers, from the frozen Whitereach to the lantern-lit market in Harborside.
+- 📖 **World from Wiki, rebuilt, and World from Character** — pick a depth and a story moment, watch a progress panel, and review every card before minting (up to sixty, factions carrying their members); or build a world from a character and its chats as Facts only, Faithful or Creative.
+- ⛈️ **The Ambient Stage** — the chat takes on the story's weather (tint, rain, snow, clouds, fog, lightning), paints a place's picture behind the bubbles, plays the weather when you travel, and adds weather loops and thunder that duck under speech. Settings → Appearance.
+- ⏩ **Time skips read like you meant them** — a short model read works out how far "we slept eight hours" moves the clock; `/skip 8h`, `/skip 2d` or `/skip morning` jumps exactly; an unclear skip asks "Did time pass?"; a night the reply carries everyone through wakes them rested, in groups too.
+- 📥 **A new model downloader** — roleplay-tuned search with filters, model cards, every file in a repo (split and subfolder quants and vision add-ons), a real context-fit check, the best fit picked for your card, an optional HuggingFace token, and faster, safer downloads that keep Windows smooth.
+- 💬 **Prompts that stay put** — a saved-prompt picker for both prompt slots with read-only built-ins, one Group system prompt for every group, Director rules that survive custom prompts, and 1:1-to-group conversion that keeps your persona.
+- 🧹 **Smaller fixes** — full-size generated portraits in the creator, Gemma 4 flash attention on Vulkan (with a warning), no Linux launch abort when GStreamer's playbin is missing, Afterglow as the one Lust gate, One-Shot Eval above the tool pill, a card's Needs switch reaching existing chats, and no older phone chat update overwriting a newer one.
+
+---
+
 ## v1.6.0 — Fifty Shades of Porch
 
-**Released:** v1.6.0 — current stable
+**Released:** v1.6.0
 
 Paint it your colour, call the shots, and let the story keep its own time.
 
