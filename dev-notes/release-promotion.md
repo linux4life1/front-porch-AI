@@ -58,8 +58,9 @@ ancestry stays connected and the **next** promotion has a clean merge base.
       the candidate. It is not a guarded file, so if it only existed on the
       candidate the next "Rawhide wins" promotion would delete it from `main`.
 - [ ] **Screenshots are current**: `main`'s README shows
-      `docs/screenshots/home_new.png` and `docs/screenshots/chat.png`. The images
-      themselves are ordinary files that ride in from Rawhide, so retake them on
+      `docs/screenshots/home_new.png` (Rawhide's README also shows
+      `docs/screenshots/chat.png`, which reaches `main` only if `main`'s guarded
+      README is edited to add it). The images themselves are ordinary files that ride in from Rawhide, so retake them on
       Rawhide when the UI they show has visibly changed. Use demo characters only,
       never a real chat or user data.
 - [ ] **Website refresh prepared**: `frontporchai.app` is the `docs/` folder
