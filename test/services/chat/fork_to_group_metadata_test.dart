@@ -43,6 +43,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
+import 'package:front_porch_ai/services/chat/chat.dart' show Biome;
 import 'package:front_porch_ai/services/services.dart';
 import '../../helpers/chat_db_teardown.dart';
 
@@ -243,11 +244,17 @@ void main() {
       );
       oneToOne = promoteChat.currentSessionId!;
       await promoteChat.setChatPlaceSlots(primaryId: 'cafe', loreIds: ['town']);
+      // A mid-chat climate changeover the story has already lived through.
+      await worlds.setChatBiome(
+        chatId: oneToOne,
+        dayCount: 1,
+        biome: Biome.builtInById('continental')!,
+      );
       spansBefore = await worlds.getChatBiomeSpanRows(oneToOne);
-      expect(spansBefore, isNotEmpty, reason: 'the Setting wrote a span');
+      expect(spansBefore, isNotEmpty);
       await storage.webSearchSettings.setChatWikiUrl(
         oneToOne,
-        'https://tea-rooms.example/wiki',
+        'https://tea-rooms.example/wiki/',
       );
 
       await promoteChat.debugEnterSceneGuestSilent(guest);
@@ -280,7 +287,7 @@ void main() {
       );
       expect(
         storage.webSearchSettings.wikiUrlForChat(groupSession),
-        'https://tea-rooms.example/wiki',
+        'https://tea-rooms.example/wiki/',
       );
       expect(promoteChat.activeGroup!.worldIds, [
         'Bletchfield',
