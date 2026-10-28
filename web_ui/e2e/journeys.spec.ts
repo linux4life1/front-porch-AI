@@ -1851,7 +1851,7 @@ test('New Story can be set in a world: the Idea card names it and Next saves it'
     await picker.getByTestId(`story-world-row-${townId}`).click();
     await expect(page.getByTestId('story-world-name')).toHaveText('Journey World Town');
     await expect(page.getByTestId('story-world-detail')).toContainText('1 place');
-    await expect(page.getByTestId('story-rail')).toContainText('Journey World Town');
+    // The rail is a wide-screen thing (the phone sums up on a later "Ready?" page), so the card is the check.
 
     await page.getByTestId('story-title').fill('World Journey');
     await page.getByTestId('story-concept').fill('Tea, gossip and a locked door in the town.');
@@ -1891,7 +1891,7 @@ test('Write a story here on a world card opens New Story set in that world', asy
     await page.getByTestId(`world-write-story-${id}`).click();
     await expect(page).toHaveURL(/\/stories\/new$/);
     await expect(page.getByTestId('story-world-name')).toHaveText('Journey Here Harbour');
-    await expect(page.getByTestId('story-rail')).toContainText('Journey Here Harbour');
+    await expect(page.getByTestId('story-world-detail')).toContainText('the world at large');
   } finally {
     await cleanup();
   }
