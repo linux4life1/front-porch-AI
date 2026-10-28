@@ -57,6 +57,14 @@ class StoryProject {
   /// is read live; [worldName] keeps the name after the world is deleted.
   String? worldId;
   String worldName;
+
+  /// Stories from group chats (docs/design/stories-from-group-chats.md):
+  /// the group the source chat belongs to, when it is a group chat. The
+  /// member ids are then [chatHistoryCharacterIds] and each member's card is
+  /// snapshotted with its id. Null for a 1:1 source and for every older
+  /// project; [chatGroupName] keeps the name after the group is deleted.
+  String? chatGroupId;
+  String chatGroupName;
   List<Map<String, String>>
   characterCardSnapshots; // Snapshotted character card data
   bool
@@ -147,6 +155,8 @@ class StoryProject {
     this.faithfulMode = false,
     this.worldId,
     this.worldName = '',
+    this.chatGroupId,
+    this.chatGroupName = '',
     this.characterCardSnapshots = const [],
     this.parallelGeneration = false,
     this.includeUserPersona = false,
@@ -234,6 +244,8 @@ class StoryProject {
     'faithful_mode': faithfulMode,
     if (worldId != null) 'world_id': worldId,
     if (worldName.isNotEmpty) 'world_name': worldName,
+    if (chatGroupId != null) 'chat_group_id': chatGroupId,
+    if (chatGroupName.isNotEmpty) 'chat_group_name': chatGroupName,
     'character_card_snapshots': characterCardSnapshots,
     'parallel_generation': parallelGeneration,
     'include_user_persona': includeUserPersona,
@@ -381,6 +393,8 @@ class StoryProject {
       faithfulMode: json['faithful_mode'] ?? false,
       worldId: json['world_id']?.toString(),
       worldName: json['world_name']?.toString() ?? '',
+      chatGroupId: json['chat_group_id']?.toString(),
+      chatGroupName: json['chat_group_name']?.toString() ?? '',
       chatHistoryCharacterIds:
           (json['chat_history_character_ids'] as List?)
               ?.map((e) => e.toString())

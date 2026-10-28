@@ -284,6 +284,9 @@ export interface StoryProject {
   /** Stories set in Worlds: the place the story starts at, and the world's name for the shelf. */
   world_id?: string | null;
   world_name?: string;
+  /** Stories from group chats: the group the source chat belongs to; absent for a 1:1 source. */
+  chat_group_id?: string | null;
+  chat_group_name?: string;
   character_card_snapshots: Record<string, string>[];
   include_user_persona: boolean;
   user_persona_role: string;

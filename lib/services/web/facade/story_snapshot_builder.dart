@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story_chat_sources.dart';
 
 /// Reconstructs `character_card_snapshots` on the server from authoritative
 /// character-card text + a role map, mirroring the desktop setup wizard
@@ -39,10 +40,17 @@ class StorySnapshotBuilder {
   /// by the client, falling back to roles from [previous]'s snapshots (so saves
   /// that don't carry a role map — e.g. dashboard act edits — never lose them),
   /// then to defaults (first selected character → Protagonist, rest Supporting).
+  ///
+  /// [members] is the roster of the group chat the story starts from, when
+  /// it starts from one (docs/design/stories-from-group-chats.md §1): a
+  /// selected id that is a member's gets that member's card, in roster
+  /// order, before the library cards. Member text is read from the group's
+  /// rows by the facade, never from the client.
   List<Map<String, String>> build(
     StoryProject project, {
     Map<String, String> requestRoles = const {},
     StoryProject? previous,
+    List<StoryChatMember> members = const [],
   }) {
     final snapshots = <Map<String, String>>[];
 
@@ -55,12 +63,8 @@ class StorySnapshotBuilder {
           requestRoles.values.contains('Protagonist') ||
           priorRoles.values.contains('Protagonist');
 
-      // Iterate repository order so snapshot numbering is stable across saves.
-      for (final card in _charRepo.characters) {
-        final id = card.dbId;
-        if (id == null || !selected.contains(id)) continue;
-
-        var role = requestRoles[id] ?? priorRoles[card.name];
+      String roleFor(String id, String name) {
+        var role = requestRoles[id] ?? priorRoles[name];
         if (role == null || role.isEmpty) {
           if (!assignedProtagonist) {
             role = 'Protagonist';
@@ -69,6 +73,19 @@ class StorySnapshotBuilder {
             role = 'Supporting';
           }
         }
+        return role;
+      }
+
+      for (final m in members) {
+        if (!selected.contains(m.id)) continue;
+        snapshots.add(m.snapshot(roleFor(m.id, m.name)));
+      }
+
+      // Iterate repository order so snapshot numbering is stable across saves.
+      for (final card in _charRepo.characters) {
+        final id = card.dbId;
+        if (id == null || !selected.contains(id)) continue;
+        if (members.any((m) => m.id == id)) continue;
 
         snapshots.add({
           'id': id,
@@ -78,7 +95,7 @@ class StorySnapshotBuilder {
           'scenario': card.scenario,
           'first_message': card.firstMessage,
           'system_prompt': card.systemPrompt,
-          'role': role,
+          'role': roleFor(id, card.name),
         });
       }
     }

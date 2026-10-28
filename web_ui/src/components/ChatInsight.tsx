@@ -221,7 +221,8 @@ export function ChatInsight({
       </>
       )}
 
-      <ChatTools reloadKey={toolsKey} focusedId={focusedId} groupId={groupId} onCommand={onCommand} />
+      <ChatTools reloadKey={toolsKey} focusedId={focusedId} groupId={groupId} onCommand={onCommand}
+        cast={isGroup ? cast : undefined} />
 
       <ChatPlacesSection reloadKey={toolsKey} />
 

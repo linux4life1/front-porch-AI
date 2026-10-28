@@ -17,7 +17,6 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
@@ -49,52 +48,25 @@ class StoryChatDistiller {
     _ctx.setStatus('Chat Distiller', 'Loading chat messages...');
 
     try {
-      // 1. Load all raw messages from DB
-      final lines = <DistillLine>[];
-      final sessionIds = <String>[];
-      var userName = '';
+      // 1. Load all raw messages from DB. Living Time §4: session-scoped
+      // ("turn THIS chat into a story"); an empty session list keeps the
+      // historical all-sessions behaviour. A group chat's lines are named
+      // by each message's speaker id (StoryChatLines).
       final resolvedIds = await _history.resolveSessionCharacterIds(
         project.chatHistoryCharacterIds,
       );
       debugPrint(
         '[StoryPipeline] Resolved ${project.chatHistoryCharacterIds} -> $resolvedIds',
       );
-
-      for (final charId in resolvedIds) {
-        final sessions = await _ctx.db.getSessionsForCharacter(charId);
-        debugPrint(
-          '[StoryPipeline] Found ${sessions.length} sessions for "$charId"',
-        );
-        for (final session in sessions) {
-          // Living Time §4: session-scoped distill ("turn THIS chat into a
-          // story") — empty list keeps the historical all-sessions behavior.
-          if (project.chatHistorySessionIds.isNotEmpty &&
-              !project.chatHistorySessionIds.contains(session.id)) {
-            continue;
-          }
-          final msgs = await _ctx.db.getMessagesForSession(session.id);
-          debugPrint(
-            '[StoryPipeline] Session ${session.id}: ${msgs.length} messages',
-          );
-          sessionIds.add(session.id);
-          for (final msg in msgs) {
-            try {
-              final swipes = jsonDecode(msg.swipes) as List;
-              final text = swipes.isNotEmpty
-                  ? swipes[msg.swipeIndex.clamp(0, swipes.length - 1)]
-                  : '';
-              if (text.toString().trim().isNotEmpty) {
-                lines.add((
-                  sessionId: session.id,
-                  position: msg.position,
-                  text: '${msg.sender}: $text',
-                ));
-                if (msg.isUser && userName.isEmpty) userName = msg.sender;
-              }
-            } catch (_) {}
-          }
-        }
-      }
+      final loaded = await _history.lines.load(project, resolvedIds);
+      final lines = loaded.lines;
+      final sessionIds = loaded.sessionIds;
+      final userName = loaded.userName;
+      final castSentence = loaded.castSentence();
+      debugPrint(
+        '[StoryPipeline] ${sessionIds.length} sessions, ${lines.length} '
+        'messages, speakers ${loaded.speakers}',
+      );
 
       if (lines.isEmpty) {
         debugPrint('[StoryPipeline] No messages to distill');
@@ -133,7 +105,8 @@ class StoryChatDistiller {
         );
 
         final prompt =
-            '''You are a story analyst. Read the following conversation between a user and an AI character and extract a CHRONOLOGICAL TIMELINE of plot-significant events.
+            '''You are a story analyst. Read the following conversation${loaded.isGroup ? '' : ' between a user and an AI character'} and extract a CHRONOLOGICAL TIMELINE of plot-significant events.
+$castSentence
 
 For each event, write a single concise entry in this format:
 [EVENT N] Description of what happened, who was involved, the emotional tone, and any revelations or relationship changes.

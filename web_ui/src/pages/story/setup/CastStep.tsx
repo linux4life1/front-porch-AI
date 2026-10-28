@@ -7,8 +7,9 @@
 
 import { useState } from 'react';
 import { ROLE_OPTIONS } from '../../../storyTypes';
-import { dropChat, type CharacterRow, type Draft } from './draft';
+import { dropChat, isGroupSource, sourceCastLine, type CharacterRow, type Draft } from './draft';
 import { Avatar, ChipRow, Dialog, KeyLabel, Note, ToggleRow } from './primitives';
+import { api } from '../../../api/client';
 import { characterAvatar } from './useSetupData';
 
 const ROLES = Object.fromEntries(ROLE_OPTIONS.map((r) => [r, r]));
@@ -21,12 +22,15 @@ export function CastStep({ draft, set, chars, personaName }: {
 }) {
   const [adding, setAdding] = useState(false);
   const chat = draft.chatSource;
+  // The group chat's roster, in roster order, before the library cards
+  // (docs/design/stories-from-group-chats.md §1).
+  const members = isGroupSource(chat) ? (chat?.members ?? []).filter((m) => draft.castIds.includes(m.id)) : [];
   const picked = draft.castIds.flatMap((id) => chars.find((c) => c.id === id) ?? []);
   const available = chars.filter((c) => !draft.castIds.includes(c.id));
 
   const setRole = (id: string, role: string) => set({ ...draft, roles: { ...draft.roles, [id]: role } });
   const remove = (id: string) => {
-    if (chat?.characterId === id) {
+    if (!isGroupSource(chat) && chat?.characterId === id) {
       set(dropChat(draft));
       return;
     }
@@ -51,7 +55,20 @@ export function CastStep({ draft, set, chars, personaName }: {
           <span className="s-grow"><KeyLabel>From your characters</KeyLabel></span>
           <button type="button" className="s-btn-quiet" data-testid="story-add-cast" onClick={() => setAdding(true)}>+ Add from library</button>
         </div>
-        {picked.length === 0 && <Note>No one yet. Anyone you don't add here, the bible writes for you.</Note>}
+        {picked.length === 0 && members.length === 0 && <Note>No one yet. Anyone you don't add here, the bible writes for you.</Note>}
+        {members.map((m) => (
+          <div key={m.id} className="s-row nowrap" style={{ alignItems: 'flex-start' }} data-testid={`story-cast-${m.id}`}>
+            <Avatar name={m.name} src={api.avatarUrl(`/api/groups/${chat?.groupId}/members/${m.id}/avatar`, 96)} />
+            <div className="s-col s-grow" style={{ gap: 2 }}>
+              <b>{m.name}</b>
+              <Note>From the group chat · the card and the chat are canon</Note>
+              <div style={{ marginTop: 4 }}>
+                <ChipRow options={ROLES} selected={[draft.roles[m.id] ?? 'Supporting']} onToggle={(role) => setRole(m.id, role)} />
+              </div>
+            </div>
+            <button type="button" className="s-btn-ico ghost" aria-label="Remove" title="Remove" onClick={() => remove(m.id)}>✕</button>
+          </div>
+        ))}
         {picked.map((c) => (
           <div key={c.id} className="s-row nowrap" style={{ alignItems: 'flex-start' }} data-testid={`story-cast-${c.id}`}>
             <Avatar name={c.name} src={characterAvatar(c)} />
@@ -79,7 +96,7 @@ export function CastStep({ draft, set, chars, personaName }: {
       {chat && (
         <div className="s-card">
           <ToggleRow on={draft.useChatHistory} label="Use the chat as canon"
-            detail={`The chat with ${chat.characterName} is distilled into a timeline the bible must respect`}
+            detail={`The ${isGroupSource(chat) ? 'group chat' : 'chat'} with ${sourceCastLine(chat)} is distilled into a timeline the bible must respect`}
             onChange={(on) => set({ ...draft, useChatHistory: on })} />
         </div>
       )}

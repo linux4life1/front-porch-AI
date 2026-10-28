@@ -21,6 +21,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/story_project.dart';
 import 'package:front_porch_ai/services/story/faithful_mode.dart';
+import 'package:front_porch_ai/services/story/story_chat_sources.dart';
 
 void main() {
   CharacterCard char() => CharacterCard(
@@ -128,5 +129,128 @@ void main() {
   test('faithful directives forbid invention and reordering', () {
     expect(faithfulArchitectDirective, contains('do not reorder'));
     expect(faithfulSceneDirective, contains('without inventing'));
+  });
+
+  // Stories from group chats (docs/design/stories-from-group-chats.md §1):
+  // the group twin of the builder gives the whole roster, led by the first
+  // member unless told otherwise, with the persona a protagonist as in a
+  // 1:1 story.
+  group('buildGroupStoryProject', () {
+    const roster = [
+      StoryChatMember(id: 'm-mira', name: 'Mira', description: 'A keeper.'),
+      StoryChatMember(id: 'm-dov', name: 'Dov', personality: 'Dry.'),
+      StoryChatMember(id: 'm-ash', name: 'Ash', scenario: 'The coast.'),
+    ];
+
+    test('three members become a three-member cast led by the first', () {
+      final p = buildGroupStoryProject(
+        sessionId: 's-g',
+        groupId: 'g-1',
+        groupName: 'The Lighthouse Crew',
+        members: roster,
+        userName: 'Sam',
+        recap: 'The lamp went out.',
+        faithful: true,
+        length: 'Novella',
+        pov: 'Third Person Limited',
+        worldId: 'conservatory',
+        worldName: 'Greenhollow Estate',
+      );
+      expect(p.chatGroupId, 'g-1');
+      expect(p.chatGroupName, 'The Lighthouse Crew');
+      expect(p.chatHistorySessionIds, ['s-g']);
+      expect(p.chatHistoryCharacterIds, ['m-mira', 'm-dov', 'm-ash']);
+      expect(p.characterCardSnapshots.map((s) => s['name']), [
+        'Mira',
+        'Dov',
+        'Ash',
+      ]);
+      expect(p.characterCardSnapshots.map((s) => s['role']), [
+        'Protagonist',
+        'Supporting',
+        'Supporting',
+      ]);
+      expect(p.characterCardSnapshots.map((s) => s['id']), [
+        'm-mira',
+        'm-dov',
+        'm-ash',
+      ]);
+      expect(p.characterCardSnapshots.first['description'], 'A keeper.');
+      expect(p.includeUserPersona, isTrue);
+      expect(p.userPersonaRole, 'Protagonist');
+      expect(p.title, 'The Story of The Lighthouse Crew');
+      expect(p.concept, contains('between Mira, Dov & Ash and Sam'));
+      expect(p.concept, contains('The lamp went out.'));
+      expect(p.worldId, 'conservatory');
+      expect(p.worldName, 'Greenhollow Estate');
+      expect(p.faithfulMode, isTrue);
+    });
+
+    test('the lead can be another member or the persona; an unknown lead '
+        'falls back to the first member', () {
+      StoryProject build(String? lead) => buildGroupStoryProject(
+        sessionId: 's-g',
+        groupId: 'g-1',
+        groupName: '',
+        members: roster,
+        userName: 'Sam',
+        recap: '',
+        faithful: false,
+        length: 'Short story',
+        pov: 'First Person',
+        leadId: lead,
+      );
+      List<String?> roles(StoryProject p) =>
+          p.characterCardSnapshots.map((s) => s['role']).toList();
+      expect(roles(build('m-ash')), [
+        'Supporting',
+        'Supporting',
+        'Protagonist',
+      ]);
+      expect(roles(build(kStoryLeadPersona)), [
+        'Supporting',
+        'Supporting',
+        'Supporting',
+      ]);
+      expect(roles(build('nobody')), [
+        'Protagonist',
+        'Supporting',
+        'Supporting',
+      ]);
+      // No group name: the roster names the story.
+      expect(build(null).title, 'Inspired by Mira, Dov & Ash');
+      expect(build(null).actCount, 1);
+    });
+
+    test('the group fields round-trip through project JSON and stay absent '
+        'for a 1:1 story', () {
+      final p = buildGroupStoryProject(
+        sessionId: 's-g',
+        groupId: 'g-1',
+        groupName: 'Crew',
+        members: roster,
+        userName: 'Sam',
+        recap: '',
+        faithful: true,
+        length: 'Novella',
+        pov: 'First Person',
+      );
+      final back = StoryProject.fromJson(p.toJson());
+      expect(back.chatGroupId, 'g-1');
+      expect(back.chatGroupName, 'Crew');
+      expect(back.chatHistoryCharacterIds, hasLength(3));
+      final solo = buildChatStoryProject(
+        sessionId: 's-1',
+        character: char(),
+        characterId: 'c-1',
+        userName: 'Sam',
+        recap: '',
+        faithful: true,
+        length: 'Novella',
+        pov: 'First Person',
+      );
+      expect(solo.toJson().containsKey('chat_group_id'), isFalse);
+      expect(StoryProject.fromJson(solo.toJson()).chatGroupId, isNull);
+    });
   });
 }

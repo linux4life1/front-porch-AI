@@ -36,6 +36,8 @@ import 'package:front_porch_ai/database/database.dart' hide StoryProject;
 import 'package:front_porch_ai/services/embedding_service.dart';
 import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/services/story_pipeline/story_pipeline.dart';
 
 class _RecordingLlm extends LLMService {
   final List<String> prompts = [];
@@ -265,4 +267,99 @@ void main() {
     expect(llm.prompts.single, isNot(contains('CONFIRMED BY')));
     expect(project.distilledTimeline, '[EVENT 1] They met on the porch.');
   });
+
+  // Stories from group chats (docs/design/stories-from-group-chats.md §2):
+  // a group chat's lines name their speaker from the message's speaker id
+  // through the roster, never from the stored sender name, and the
+  // distiller is told who the speakers are.
+  test(
+    'a group chat distills with speakers named by their member id',
+    () async {
+      final db = AppDatabase.forTesting(sameIsolate: true);
+      addTearDown(db.close);
+      final repo = StoryRepository(db);
+      final storage = StorageService();
+      final llm = _RecordingLlm();
+      final pipeline = StoryPipelineService(
+        repo,
+        llm,
+        MemoryService(EmbeddingService(storage), storage, db),
+        db,
+      );
+      await db.insertGroup(GroupsCompanion.insert(id: 'g-crew', name: 'Crew'));
+      for (final (id, name) in [
+        ('m-mira', 'Mira'),
+        ('m-dov', 'Dov'),
+        ('m-ash', 'Ash'),
+      ]) {
+        await db.insertGroupMember(
+          GroupMembersCompanion.insert(id: id, groupId: 'g-crew', name: name),
+        );
+      }
+      await db.insertSession(
+        SessionsCompanion.insert(id: 's-crew', groupId: const Value('g-crew')),
+      );
+      // Dov was renamed after this line was sent: the stored sender is stale
+      // and the speaker id is the truth. Ash never spoke; a guest who is on no
+      // roster keeps the stored name.
+      final lines = [
+        ('Sam', true, null, 'Who left the lamp out?'),
+        ('Mira', false, 'm-mira', 'Not me.'),
+        ('Dovid', false, 'm-dov', 'It was the wind.'),
+        ('Wren', false, 'guest-1', 'I saw nothing.'),
+      ];
+      for (var i = 0; i < lines.length; i++) {
+        final (sender, isUser, speaker, text) = lines[i];
+        await db.insertMessage(
+          MessagesCompanion.insert(
+            id: 's-crew-m$i',
+            sessionId: 's-crew',
+            position: i,
+            sender: sender,
+            isUser: isUser,
+            characterId: Value(speaker),
+            swipes: Value('["$text"]'),
+          ),
+        );
+      }
+      final project = await repo.createProject(title: 'Crew');
+      project
+        ..useChatHistory = true
+        ..chatGroupId = 'g-crew'
+        ..chatHistoryCharacterIds = ['m-mira', 'm-dov', 'm-ash']
+        ..chatHistorySessionIds = ['s-crew'];
+
+      await pipeline.runChatDistiller(project);
+
+      final prompt = llm.prompts.single;
+      expect(prompt, contains('Sam: Who left the lamp out?'));
+      expect(prompt, contains('Mira: Not me.'));
+      expect(prompt, contains('Dov: It was the wind.'));
+      expect(prompt, isNot(contains('Dovid')));
+      expect(prompt, contains('Wren: I saw nothing.'));
+      expect(prompt, contains('group scene'));
+      expect(prompt, contains('the characters are Mira, Dov, Ash & Wren'));
+      expect(prompt, contains('the user plays Sam'));
+      expect(prompt, contains('Name the speaker in every event'));
+      expect(prompt, isNot(contains('between a user and an AI character')));
+      expect(project.distilledTimeline, startsWith('[EVENT 1]'));
+
+      // The canon block every stage reads carries the same cast sentence.
+      final history = StoryChatHistory(
+        StoryPipelineContext(
+          repository: repo,
+          llmService: llm,
+          db: db,
+          store: StoryStudioStore(),
+          lanes: null,
+          loreIndex: StoryLoreIndex(null),
+          notify: () {},
+        ),
+      );
+      final canon = await history.context(project);
+      expect(canon, contains('CANON EVENT TIMELINE'));
+      expect(canon, contains('the characters are Mira, Dov, Ash & Wren'));
+      expect(canon, contains('do not fold two of them into one'));
+    },
+  );
 }

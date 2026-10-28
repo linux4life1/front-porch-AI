@@ -23,7 +23,10 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/ui/story_studio/story_world_lookup.dart';
 
-/// The chat a story starts from (sketch I): one character, one session.
+/// The chat a story starts from (sketch I): one character and one session,
+/// or a group chat with its roster (docs/design/stories-from-group-chats.md):
+/// then [characterName] is the group's name, [characterId] its first
+/// member's id (the default lead) and [members] the roster, cards included.
 class StoryChatSource {
   final String characterId;
   final String characterName;
@@ -33,6 +36,8 @@ class StoryChatSource {
   final int messageCount;
   final DateTime? lastAt;
   bool faithful;
+  final String? groupId;
+  final List<StoryChatMember> members;
 
   StoryChatSource({
     required this.characterId,
@@ -43,7 +48,19 @@ class StoryChatSource {
     this.messageCount = 0,
     this.lastAt,
     this.faithful = true,
+    this.groupId,
+    this.members = const [],
   });
+
+  bool get isGroup => groupId != null;
+
+  /// Who joins the cast: the roster, or the one character.
+  List<String> get castIds =>
+      isGroup ? [for (final m in members) m.id] : [characterId];
+
+  /// "Mira, Dov & Ash", or the character's name.
+  String get castLine =>
+      isGroup ? joinCastNames(members.map((m) => m.name)) : characterName;
 }
 
 /// Everything the New Story flow collects (Idea → Cast → Shape → Engine),
@@ -129,9 +146,32 @@ class StorySetupDraft {
     if (project.userPersonaRole.isNotEmpty) {
       userPersonaRole = project.userPersonaRole;
     }
+    final groupId = project.chatGroupId;
+    final members = <StoryChatMember>[];
     for (final snap in project.characterCardSnapshots) {
       final name = snap['name'] ?? '';
       final role = snap['role'] ?? 'Supporting';
+      final id = snap['id'];
+      // A group member's snapshot carries its id and its card: the roster
+      // is rebuilt from the snapshots, not the library.
+      if (groupId != null &&
+          id != null &&
+          snap['self_insert'] != 'true' &&
+          selectedCharacterIds.contains(id)) {
+        characterRoles[id] = role;
+        members.add(
+          StoryChatMember(
+            id: id,
+            name: name,
+            description: snap['description'] ?? '',
+            personality: snap['personality'] ?? '',
+            scenario: snap['scenario'] ?? '',
+            firstMessage: snap['first_message'] ?? '',
+            systemPrompt: snap['system_prompt'] ?? '',
+          ),
+        );
+        continue;
+      }
       for (final c in charRepo.characters) {
         if (c.dbId != null &&
             c.name == name &&
@@ -149,11 +189,17 @@ class StorySetupDraft {
           .firstOrNull;
       chatSource = StoryChatSource(
         characterId: id,
-        characterName: name ?? 'the chat',
+        characterName: groupId != null
+            ? (project.chatGroupName.isEmpty
+                  ? 'the group'
+                  : project.chatGroupName)
+            : name ?? 'the chat',
         sessionId: project.chatHistorySessionIds.first,
         recap: '',
         userName: '',
         faithful: project.faithfulMode,
+        groupId: groupId,
+        members: members,
       );
     }
     pov = project.pov;
@@ -169,11 +215,18 @@ class StorySetupDraft {
 
   /// Start from a chat: the character joins the cast as protagonist, the
   /// chat becomes canon, and the title/concept get a sensible seed if empty.
+  /// A group's whole roster joins; its first member leads and the rest are
+  /// Supporting (docs/design/stories-from-group-chats.md §1).
   void adoptChat(StoryChatSource source) {
     chatSource = source;
     useChatHistory = true;
-    selectedCharacterIds.add(source.characterId);
-    characterRoles.putIfAbsent(source.characterId, () => 'Protagonist');
+    for (final id in source.castIds) {
+      selectedCharacterIds.add(id);
+      characterRoles.putIfAbsent(
+        id,
+        () => id == source.characterId ? 'Protagonist' : 'Supporting',
+      );
+    }
     // Fit the length to the chat unless one was already chosen.
     if (source.faithful &&
         source.messageCount > 0 &&
@@ -181,13 +234,14 @@ class StorySetupDraft {
       proseLength = suggestedLengthForChat(source.messageCount);
     }
     if (conceptController.text.trim().isEmpty) {
+      final which = source.isGroup ? 'group chat' : 'chat';
       conceptController.text = source.faithful
           ? 'A faithful novelization of the roleplay between '
-                '${source.characterName} and ${source.userName}: the real '
-                'events of their chat, retold as prose.'
+                '${source.castLine} and ${source.userName}: the real '
+                'events of their $which, retold as prose.'
                 '${source.recap.trim().isEmpty ? '' : '\n\nWhere the story stands: ${source.recap}'}'
           : 'A story inspired by the roleplay between '
-                '${source.characterName} and ${source.userName}.';
+                '${source.castLine} and ${source.userName}.';
     }
   }
 
@@ -196,8 +250,10 @@ class StorySetupDraft {
     chatSource = null;
     useChatHistory = false;
     if (source != null) {
-      selectedCharacterIds.remove(source.characterId);
-      characterRoles.remove(source.characterId);
+      for (final id in source.castIds) {
+        selectedCharacterIds.remove(id);
+        characterRoles.remove(id);
+      }
     }
     // A world that only came along with the chat leaves with it.
     if (world?.fromChat ?? false) world = null;
@@ -228,6 +284,10 @@ class StorySetupDraft {
     final source = chatSource;
     project.chatHistorySessionIds = source == null ? [] : [source.sessionId];
     project.faithfulMode = source?.faithful ?? false;
+    project.chatGroupId = source?.groupId;
+    project.chatGroupName = source?.isGroup ?? false
+        ? source!.characterName
+        : '';
     project.worldId = world?.placeId;
     project.worldName = world?.worldName ?? '';
     project.includeUserPersona = includeUserPersona;
@@ -247,9 +307,16 @@ class StorySetupDraft {
     project.maturityRating = maturityRating;
 
     final snapshots = <Map<String, String>>[];
+    // The group's members first, in roster order, from the roster's own
+    // cards; the id on each is what rebuilds the roster on reopen.
+    for (final m in source?.members ?? const <StoryChatMember>[]) {
+      if (!selectedCharacterIds.contains(m.id)) continue;
+      snapshots.add(m.snapshot(characterRoles[m.id] ?? 'Supporting'));
+    }
     for (final char in charRepo.characters) {
       if (char.dbId != null && selectedCharacterIds.contains(char.dbId)) {
         snapshots.add({
+          'id': char.dbId!,
           'name': char.name,
           'description': char.description,
           'personality': char.personality,

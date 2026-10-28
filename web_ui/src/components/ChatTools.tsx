@@ -40,15 +40,22 @@ export function ChatTools({
   focusedId,
   groupId,
   onCommand,
+  cast,
 }: {
   reloadKey: number;
   focusedId?: string | null;
   groupId?: string | null;
   onCommand?: (cmd: string) => void;
+  /** A group chat's roster, for the story's Lead pick; absent in a 1:1. */
+  cast?: { id: string; dbId: string | null; name: string }[];
 }) {
   const [t, setT] = useState<ToolsState | null>(null);
   // Living Time §4: feedback line for "turn this chat into a story".
   const [storyMsg, setStoryMsg] = useState<string | null>(null);
+  // Stories from group chats: who leads. '' is the first member, the
+  // relay's default (docs/design/stories-from-group-chats.md §1).
+  const [storyLead, setStoryLead] = useState('');
+  const roster = (cast ?? []).filter((c) => c.dbId);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showBudget, setShowBudget] = useState(false);
 
@@ -128,18 +135,37 @@ export function ChatTools({
         <summary>Our story</summary>
         <div className="tool-body">
           <MilestonesPanel focusedId={focusedId} reloadKey={reloadKey} />
+          {roster.length > 0 && (
+            <div className="tool-row">
+              <label>
+                Lead{' '}
+                <select
+                  data-testid="story-lead"
+                  aria-label="Story lead"
+                  value={storyLead}
+                  onChange={(e) => setStoryLead(e.target.value)}
+                >
+                  {roster.map((c, i) => (
+                    <option key={c.id} value={i === 0 ? '' : c.dbId ?? ''}>{c.name}</option>
+                  ))}
+                  <option value="persona">You</option>
+                </select>
+              </label>
+            </div>
+          )}
           <div className="tool-row">
             <button
+              data-testid="story-from-chat"
               onClick={async () => {
                 setStoryMsg(null);
                 try {
                   const r = await api.post<{ id: string; title: string }>(
                     '/api/chat/tools/to-story',
-                    {},
+                    storyLead ? { lead: storyLead } : {},
                   );
                   setStoryMsg(`Created "${r.title}" — open Stories to run it.`);
                 } catch {
-                  setStoryMsg('Needs a 1:1 chat with a character.');
+                  setStoryMsg('Needs a chat with a character or a group.');
                 }
               }}
             >

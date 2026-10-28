@@ -150,10 +150,16 @@ class StoryFacade {
       if (raw is Map) {
         raw.forEach((k, v) => roles[k.toString()] = v.toString());
       }
+      // A story from a group chat: the members' cards come from the group's
+      // own rows, so the client cannot write a member's text either.
+      final groupId = updated.chatGroupId;
       updated.characterCardSnapshots = _snapshotBuilder.build(
         updated,
         requestRoles: roles,
         previous: previous,
+        members: groupId == null
+            ? const []
+            : await _pipeline.groupRoster(groupId),
       );
     }
     await _repo.saveProject(updated);

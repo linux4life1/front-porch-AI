@@ -103,6 +103,14 @@ class StoryPipelineService extends ChangeNotifier {
   /// user never wrote anything are left out: a greeting alone is no story.
   Future<List<StoryChatSourceRow>> chatSources() => _run.history.chatSources();
 
+  /// A group's roster as story cast, cards included, for a story that
+  /// starts from one of its chats (docs/design/stories-from-group-chats.md).
+  /// [groupsDir] resolves each member's avatar file.
+  Future<List<StoryChatMember>> groupRoster(
+    String groupId, {
+    String? groupsDir,
+  }) => _run.history.groupRoster(groupId, groupsDir: groupsDir);
+
   /// Called when a run ends: put the chat model back.
   Future<void> restoreLaneHosts() => _run.llm.restoreLaneHosts();
 

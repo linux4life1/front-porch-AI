@@ -29,6 +29,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/ui/story_setup/idea_step.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
@@ -231,4 +232,146 @@ void main() {
     expect(draft.world!.placeId, bare.id);
     expect(draft.world!.detail, startsWith('the world at large'));
   });
+
+  // Stories from group chats (docs/design/stories-from-group-chats.md §4,
+  // §5): Choose a chat… lists a group chat with its roster; picking it
+  // adopts every member, led by the first, and a group chat with a Setting
+  // puts the story there, as a 1:1 chat does.
+  testWidgets('a group chat picked on the Idea step brings its roster and '
+      'its world', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(1000, 1200));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    final library = greenhollow();
+    final kitchens = library.firstWhere((w) => w.name == 'The Kitchens');
+    final d = StorySetupDraft();
+    addTearDown(d.dispose);
+    final worldsWithChat = _WorldsWithChat(library, {'s-crew': kitchens.id});
+    final pipeline = _GroupPipeline();
+    final persona = FakeUserPersonaService();
+    addTearDown(worldsWithChat.dispose);
+    addTearDown(pipeline.dispose);
+    addTearDown(persona.dispose);
+    var ticks = 0;
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<WorldRepository>.value(value: worldsWithChat),
+          ChangeNotifierProvider<StoryPipelineService>.value(value: pipeline),
+          ChangeNotifierProvider<UserPersonaService>.value(value: persona),
+        ],
+        child: MaterialApp(
+          home: StudioTheme(
+            child: Scaffold(
+              body: SingleChildScrollView(
+                child: StatefulBuilder(
+                  builder: (ctx, setLocal) => IdeaStep(
+                    draft: d,
+                    onChanged: () {
+                      ticks++;
+                      setLocal(() {});
+                    },
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(const ValueKey('story-choose-chat')));
+    await tester.pumpAndSettle();
+    expect(find.text('The Crew'), findsOneWidget);
+    expect(find.textContaining('Mira, Dov & Ash'), findsOneWidget);
+    expect(find.text('group'), findsOneWidget);
+    // Search finds the group by a member's name.
+    await tester.enterText(
+      find.byKey(const ValueKey('story-chat-search')),
+      'dov',
+    );
+    await tester.pump();
+    expect(find.byKey(const ValueKey('story-chat-s-crew')), findsOneWidget);
+    expect(find.byKey(const ValueKey('story-chat-s-solo')), findsNothing);
+
+    await tester.tap(find.byKey(const ValueKey('story-chat-s-crew')));
+    await tester.pumpAndSettle();
+
+    final source = d.chatSource!;
+    expect(source.isGroup, isTrue);
+    expect(source.groupId, 'g-crew');
+    expect(source.characterName, 'The Crew');
+    expect(source.members.map((m) => m.name), ['Mira', 'Dov', 'Ash']);
+    expect(source.members.first.description, 'A keeper.');
+    expect(d.selectedCharacterIds, {'m-mira', 'm-dov', 'm-ash'});
+    expect(d.characterRoles, {
+      'm-mira': 'Protagonist',
+      'm-dov': 'Supporting',
+      'm-ash': 'Supporting',
+    });
+    expect(d.conceptController.text, contains('Mira, Dov & Ash and'));
+    expect(find.text('Mira, Dov & Ash · 40 messages'), findsOneWidget);
+    expect(find.textContaining('all join the cast'), findsOneWidget);
+
+    // The group chat's Setting is the story's world, marked from the chat.
+    expect(d.world, isNotNull);
+    expect(d.world!.placeId, kitchens.id);
+    expect(d.world!.worldName, 'Greenhollow Estate');
+    expect(d.world!.fromChat, isTrue);
+    expect(find.text('from the chat'), findsOneWidget);
+    expect(ticks, greaterThanOrEqualTo(2));
+  });
+}
+
+/// A world library whose chats have Settings.
+class _WorldsWithChat extends FakeWorldRepository {
+  _WorldsWithChat(super.worlds, this._settings);
+
+  final Map<String, String> _settings;
+
+  @override
+  Future<ChatPlaceSlots> getChatWorldAttachments(String chatId) async =>
+      ChatPlaceSlots(primaryId: _settings[chatId]);
+}
+
+/// The picker's two chats: a group of three and a 1:1.
+class _GroupPipeline extends ChangeNotifier implements StoryPipelineService {
+  static const _roster = [
+    StoryChatMember(id: 'm-mira', name: 'Mira', description: 'A keeper.'),
+    StoryChatMember(id: 'm-dov', name: 'Dov'),
+    StoryChatMember(id: 'm-ash', name: 'Ash'),
+  ];
+
+  @override
+  Future<List<StoryChatSourceRow>> chatSources() async => [
+    StoryChatSourceRow(
+      characterId: 'm-mira',
+      characterName: 'The Crew',
+      sessionId: 's-crew',
+      sessionName: '',
+      summary: '',
+      createdAt: DateTime(2026, 9, 1),
+      messageCount: 40,
+      groupId: 'g-crew',
+      members: _roster,
+    ),
+    StoryChatSourceRow(
+      characterId: 'c-1',
+      characterName: 'Marigold',
+      sessionId: 's-solo',
+      sessionName: '',
+      summary: '',
+      createdAt: DateTime(2026, 8, 1),
+      messageCount: 30,
+    ),
+  ];
+
+  @override
+  Future<List<StoryChatMember>> groupRoster(
+    String groupId, {
+    String? groupsDir,
+  }) async => groupId == 'g-crew' ? _roster : const [];
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }

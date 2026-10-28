@@ -19,8 +19,10 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/faithful_mode.dart';
+import 'package:front_porch_ai/services/story/story_chat_sources.dart';
 import 'package:front_porch_ai/ui/pages/story_dashboard_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 
@@ -28,8 +30,9 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 /// mode, length, POV — that builds the pre-configured project via the shared
 /// buildChatStoryProject and hands off to the existing Story dashboard,
 /// whose auto-run already goes distiller → architect. Not a wizard by
-/// design: the dashboard IS the flow. 1:1 chats only (the menu hides it in
-/// groups — multi-protagonist novelization is a future effort).
+/// design: the dashboard IS the flow. In a group chat the whole roster is
+/// the cast and a Lead row picks the protagonist
+/// (docs/design/stories-from-group-chats.md §1).
 class ChatToStoryDialog extends StatefulWidget {
   final ChatService chatService;
 
@@ -53,30 +56,63 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
   String _pov = 'Third Person Limited';
   bool _creating = false;
 
+  /// Group chats: the member id (or [kStoryLeadPersona]) leading the story.
+  String? _lead;
+
+  /// The group's roster as story cast; empty in a 1:1 chat.
+  List<StoryChatMember> get _members => [
+    for (final c in widget.chatService.groupCharacters)
+      if (c.dbId != null) storyMemberFromCard(c),
+  ];
+
+  bool get _isGroup =>
+      widget.chatService.isGroupMode && widget.chatService.activeGroup != null;
+
   Future<void> _create() async {
     final chat = widget.chatService;
-    final character = chat.activeCharacter;
     final sessionId = chat.currentSessionId;
-    if (character == null || sessionId == null) return;
-    setState(() => _creating = true);
-
+    if (sessionId == null) return;
     final repo = Provider.of<StoryRepository>(context, listen: false);
     final userName = Provider.of<UserPersonaService>(
       context,
       listen: false,
     ).persona.name;
-    final project = buildChatStoryProject(
-      sessionId: sessionId,
-      character: character,
-      characterId: character.dbId ?? character.name,
-      userName: userName,
-      recap: chat.summary,
-      faithful: _faithful,
-      length: _length,
-      pov: _pov,
-      worldId: chat.chatPrimaryWorldId,
-      worldName: chat.chatSettingName ?? '',
-    );
+    final StoryProject project;
+    final group = chat.activeGroup;
+    if (_isGroup && group != null) {
+      final members = _members;
+      if (members.isEmpty) return;
+      project = buildGroupStoryProject(
+        sessionId: sessionId,
+        groupId: group.id,
+        groupName: group.name,
+        members: members,
+        leadId: _lead,
+        userName: userName,
+        recap: chat.summary,
+        faithful: _faithful,
+        length: _length,
+        pov: _pov,
+        worldId: chat.chatPrimaryWorldId,
+        worldName: chat.chatSettingName ?? '',
+      );
+    } else {
+      final character = chat.activeCharacter;
+      if (character == null) return;
+      project = buildChatStoryProject(
+        sessionId: sessionId,
+        character: character,
+        characterId: character.dbId ?? character.name,
+        userName: userName,
+        recap: chat.summary,
+        faithful: _faithful,
+        length: _length,
+        pov: _pov,
+        worldId: chat.chatPrimaryWorldId,
+        worldName: chat.chatSettingName ?? '',
+      );
+    }
+    setState(() => _creating = true);
     await repo.saveProject(project);
     if (!mounted) return;
     Navigator.of(context).pop();
@@ -132,9 +168,32 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
     );
   }
 
+  /// Group chats only: who leads. The first member unless picked otherwise;
+  /// the persona is a choice too.
+  Widget _leadRow(BuildContext context) {
+    final members = _members;
+    final personaName = Provider.of<UserPersonaService>(
+      context,
+      listen: false,
+    ).persona.name;
+    final options = [
+      for (final m in members) (id: m.id, name: m.name),
+      (id: kStoryLeadPersona, name: 'You ($personaName)'),
+    ];
+    final selected = _lead ?? members.firstOrNull?.id;
+    return _choiceRow<String>(
+      label: 'Lead',
+      options: [for (final o in options) o.id],
+      value: selected ?? '',
+      name: (id) => options.firstWhere((o) => o.id == id).name,
+      onChanged: (v) => setState(() => _lead = v),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final amber = AppColors.porchAmberOf(context);
+    final members = _isGroup ? _members : const <StoryChatMember>[];
     return AlertDialog(
       backgroundColor: AppColors.cardOf(context),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -182,12 +241,18 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
               name: (s) => s.replaceAll('Third Person', '3rd'),
               onChanged: (v) => setState(() => _pov = v),
             ),
+            if (members.isNotEmpty) _leadRow(context),
             const SizedBox(height: 4),
             Text(
-              'Creates a pre-configured Porch Stories project scoped to this '
-              'chat and opens the Story dashboard — the pipeline distills '
-              'your chat, drafts scene by scene, and can export an eBook '
-              'when you\'re happy.',
+              members.isNotEmpty
+                  ? '${joinCastNames(members.map((m) => m.name))} all join '
+                        'the cast; the timeline names who did what. Creates '
+                        'a pre-configured Porch Stories project scoped to '
+                        'this chat and opens the Story dashboard.'
+                  : 'Creates a pre-configured Porch Stories project scoped to '
+                        'this chat and opens the Story dashboard — the '
+                        'pipeline distills your chat, drafts scene by scene, '
+                        'and can export an eBook when you\'re happy.',
               style: TextStyle(
                 fontSize: 11,
                 height: 1.35,

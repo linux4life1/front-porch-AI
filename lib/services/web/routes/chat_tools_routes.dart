@@ -230,12 +230,16 @@ class WebChatToolsRoutes {
   }
 
   /// Living Time §4: create the pre-configured "this chat as a story" project.
+  /// In a group, optional `lead`: a member id or `persona`; absent means the
+  /// first member (docs/design/stories-from-group-chats.md §1).
   Future<shelf.Response> _toStory(shelf.Request request) async {
     final body = await _json(request);
+    final lead = body['lead']?.toString().trim() ?? '';
     final result = await _facade.toStory(
       faithful: body['faithful'] as bool? ?? true,
       length: body['length'] as String? ?? 'Novella',
       pov: body['pov'] as String? ?? 'Third Person Limited',
+      lead: lead.isEmpty ? null : lead,
     );
     return result.containsKey('error')
         ? JsonResponse.badRequest(result['error'] as String)

@@ -1896,3 +1896,87 @@ test('Write a story here on a world card opens New Story set in that world', asy
     await cleanup();
   }
 });
+
+// Stories from group chats (docs/design/stories-from-group-chats.md §5): a
+// group chat the user wrote in is offered by New Story's Choose a chat…, and
+// picking it casts the whole roster with the first member as the lead.
+test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
+  let groupId = '';
+  let storyId = '';
+  test.afterEach(async ({ request }) => {
+    if (storyId) {
+      const gone = await request.post(`/api/stories/${storyId}/delete`);
+      expect(gone.ok(), `removing the story this spec made: ${gone.status()}`).toBe(true);
+      storyId = '';
+    }
+    if (groupId) {
+      const gone = await request.post(`/api/groups/${groupId}/delete`);
+      expect(gone.ok(), `removing the group this spec made: ${gone.status()}`).toBe(true);
+      groupId = '';
+    }
+  });
+
+  test('a story starts from a group chat with its roster as the cast', async ({ page, request }) => {
+    const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+    const name = `Story Crew ${test.info().project.name}`;
+    const created = await request.post('/api/groups', { data: { name, memberIds } });
+    expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+    groupId = ((await created.json()) as { id: string }).id;
+
+    // A chat the user never wrote in is no story: open the group and say one thing.
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await sendLine(page, 'Who left the porch light on?');
+    await waitIdle(page);
+
+    await openRoute(page, '/stories');
+    await page.getByTestId('story-new').click();
+    await expect(page).toHaveURL(/\/stories\/new$/);
+    const title = `Crew Story ${test.info().project.name}`;
+    await page.getByTestId('story-title').fill(title);
+    await page.getByTestId('story-choose-chat').click();
+    const picker = page.getByTestId('story-chat-picker');
+    // Search finds the group by a member's name; the row names the group and its roster.
+    await picker.getByTestId('story-chat-search').fill('second guest');
+    const row = picker.locator('button[data-testid^="story-chat-"]', { hasText: name }).first();
+    await expect(row).toContainText('Porch Tester & Second Guest');
+    await expect(row).toContainText('group');
+    await row.click();
+    await expect(picker).toHaveCount(0);
+
+    // The Idea card shows the group, its roster, and the seeded concept.
+    await expect(page.getByTestId('story-chat-name')).toHaveText(name);
+    await expect(page.getByTestId('story-chat-detail')).toContainText('Porch Tester & Second Guest');
+    await expect(page.getByTestId('story-concept')).toHaveValue(/between Porch Tester & Second Guest and /);
+
+    await page.getByTestId('story-setup-next').click();
+    await expect(page.getByTestId('story-setup-step')).toHaveText('Cast');
+    const cast = page.locator('[data-testid^="story-cast-"]');
+    await expect(cast).toHaveCount(2);
+    await expect(cast.first()).toContainText('Porch Tester');
+    await expect(cast.first()).toContainText('From the group chat');
+    await expect(cast.first().getByRole('button', { name: 'Protagonist', exact: true })).toHaveClass(/\bon\b/);
+    await expect(cast.nth(1)).toContainText('Second Guest');
+    await expect(cast.nth(1).getByRole('button', { name: 'Supporting', exact: true })).toHaveClass(/\bon\b/);
+
+    // The saved story carries the group, every member's card from the group's rows, and the lead.
+    const list = (await (await request.get('/api/stories')).json()) as { id: string; title: string }[];
+    storyId = list.find((s) => s.title === title)!.id;
+    const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
+      chat_group_id?: string; chat_group_name?: string; chat_history_character_ids: string[];
+      chat_history_session_ids?: string[]; character_card_snapshots: Record<string, string>[];
+    };
+    expect(story.chat_group_id).toBe(groupId);
+    expect(story.chat_group_name).toBe(name);
+    expect(story.chat_history_character_ids).toHaveLength(2);
+    expect(story.chat_history_session_ids).toHaveLength(1);
+    expect(story.character_card_snapshots.map((s) => [s.name, s.role])).toEqual([
+      ['Porch Tester', 'Protagonist'],
+      ['Second Guest', 'Supporting'],
+    ]);
+    expect(story.character_card_snapshots[0].description).toBe('Exists only inside the web UI browser E2E.');
+  });
+});

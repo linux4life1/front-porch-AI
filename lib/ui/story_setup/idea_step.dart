@@ -144,9 +144,13 @@ class _IdeaStepState extends State<IdeaStep> {
                           ),
                         ),
                         Text(
-                          chat.messageCount > 0
-                              ? '${chat.messageCount} messages'
-                              : 'this chat',
+                          [
+                            if (chat.isGroup) chat.castLine,
+                            chat.messageCount > 0
+                                ? '${chat.messageCount} messages'
+                                : 'this chat',
+                          ].join(' · '),
+                          key: const ValueKey('story-chat-detail'),
                           style: StudioType.ui(
                             context,
                             size: 12,
@@ -172,13 +176,13 @@ class _IdeaStepState extends State<IdeaStep> {
               SetupNote(
                 'Faithful keeps what happened in the chat as canon for every '
                 'stage. Inspired by uses it as a starting point only. '
-                '${chat.characterName} joins the cast on the next step.',
+                '${chat.isGroup ? '${chat.castLine} all join the cast on the next step; the timeline names who did what.' : '${chat.characterName} joins the cast on the next step.'}',
               ),
             ] else
               const SetupNote(
                 'The chat becomes canon: its events are distilled into a '
-                'timeline the bible must respect, and its character joins '
-                'the cast.',
+                'timeline the bible must respect, and its characters join '
+                'the cast. A group chat brings its whole roster.',
               ),
           ],
         ),

@@ -17,6 +17,11 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/story/story_chat_sources.dart';
+
+/// The lead of a story made from a group chat when the user picks the
+/// persona rather than a member (docs/design/stories-from-group-chats.md §1).
+const String kStoryLeadPersona = 'persona';
 
 /// Living Time §4 — "turn this chat into a story": the faithful-mode prompt
 /// directives and the ONE pre-configured-project builder shared by the
@@ -91,6 +96,63 @@ StoryProject buildChatStoryProject({
         'personality': character.personality,
         'scenario': character.scenario,
       },
+    ],
+  );
+}
+
+/// The group twin of [buildChatStoryProject] for "Turn this chat into a
+/// story…" in a group chat (docs/design/stories-from-group-chats.md §1):
+/// every member of [members] joins the cast, [leadId] (a member id, or
+/// [kStoryLeadPersona]; null means the first member) is the Protagonist,
+/// the persona keeps Protagonist as in a 1:1 story, and everyone else is
+/// Supporting. The member ids are the chat's speaker ids, so the distiller
+/// names each line's speaker through them.
+StoryProject buildGroupStoryProject({
+  required String sessionId,
+  required String groupId,
+  required String groupName,
+  required List<StoryChatMember> members,
+  required String userName,
+  required String recap,
+  required bool faithful,
+  required String length, // 'Short story' | 'Novella'
+  required String pov,
+  String? leadId,
+  String? worldId,
+  String worldName = '',
+}) {
+  final lead = members.any((m) => m.id == leadId) || leadId == kStoryLeadPersona
+      ? leadId
+      : members.firstOrNull?.id;
+  final cast = joinCastNames(members.map((m) => m.name));
+  final title = groupName.trim().isEmpty ? cast : groupName.trim();
+  final isShort = length == 'Short story';
+  return StoryProject(
+    worldId: worldId == null || worldId.isEmpty ? null : worldId,
+    worldName: worldName,
+    chatGroupId: groupId,
+    chatGroupName: groupName,
+    title: faithful ? 'The Story of $title' : 'Inspired by $title',
+    concept:
+        (faithful
+            ? 'A faithful novelization of the roleplay between $cast and '
+                  '$userName — the real events of their group chat, retold '
+                  'as prose.'
+            : 'A story inspired by the roleplay between $cast and '
+                  '$userName.') +
+        (recap.trim().isEmpty ? '' : '\n\nWhere the story stands: $recap'),
+    useChatHistory: true,
+    chatHistoryCharacterIds: [for (final m in members) m.id],
+    chatHistorySessionIds: [sessionId],
+    faithfulMode: faithful,
+    includeUserPersona: true,
+    userPersonaRole: 'Protagonist',
+    pov: pov,
+    actCount: isShort ? 1 : 3,
+    proseLength: isShort ? 'Short' : 'Standard',
+    characterCardSnapshots: [
+      for (final m in members)
+        m.snapshot(m.id == lead ? 'Protagonist' : 'Supporting'),
     ],
   );
 }

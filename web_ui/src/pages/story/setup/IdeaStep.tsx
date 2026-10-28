@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { api } from '../../../api/client';
-import { adoptChat, dropChat, type CharacterRow, type ChatSource, type Draft } from './draft';
+import { adoptChat, dropChat, isGroupSource, sourceCastLine, type CharacterRow, type ChatSource, type Draft } from './draft';
 import { ChatSourcePicker } from './ChatSourcePicker';
 import { Avatar, ConfirmDialog, Field, KeyLabel, Note, Segmented } from './primitives';
 import { characterAvatar } from './useSetupData';
@@ -137,8 +137,10 @@ export function IdeaStep({ draft, set, chars, userName }: {
             <div className="s-row">
               <Avatar name={chat.characterName} src={portrait ? characterAvatar(portrait) : undefined} />
               <div className="s-grow">
-                <b style={{ display: 'block' }}>{chat.characterName}</b>
-                <span className="s-muted s-small">{chat.messageCount > 0 ? `${chat.messageCount} messages` : 'this chat'}</span>
+                <b style={{ display: 'block' }} data-testid="story-chat-name">{chat.characterName}</b>
+                <span className="s-muted s-small" data-testid="story-chat-detail">
+                  {[isGroupSource(chat) ? sourceCastLine(chat) : '', chat.messageCount > 0 ? `${chat.messageCount} messages` : 'this chat'].filter(Boolean).join(' · ')}
+                </span>
               </div>
               <Segmented testid="story-faithful"
                 options={{ faithful: 'Faithful retelling', inspired: 'Inspired by' }}
@@ -147,13 +149,15 @@ export function IdeaStep({ draft, set, chars, userName }: {
             </div>
             <Note>
               Faithful keeps what happened in the chat as canon for every stage. Inspired by uses it as a starting
-              point only. {chat.characterName} joins the cast on the next step.
+              point only. {isGroupSource(chat)
+                ? `${sourceCastLine(chat)} all join the cast on the next step; the timeline names who did what.`
+                : `${chat.characterName} joins the cast on the next step.`}
             </Note>
           </>
         ) : (
           <Note>
             The chat becomes canon: its events are distilled into a timeline the bible must respect, and its
-            character joins the cast.
+            characters join the cast. A group chat brings its whole roster.
           </Note>
         )}
       </div>

@@ -26,18 +26,20 @@ import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
-/// "Choose a chat…": every 1:1 chat the user has written in, newest first,
-/// with a search box, as a studio dialog. Resolves to the chosen chat or
-/// null.
+/// "Choose a chat…": every chat the user has written in, 1:1 and group,
+/// newest first, with a search box, as a studio dialog. Resolves to the
+/// chosen chat or null; a group chat comes with its roster's cards
+/// (docs/design/stories-from-group-chats.md §5).
 Future<StoryChatSource?> showChatSourcePicker(BuildContext context) async {
   final pipeline = Provider.of<StoryPipelineService>(context, listen: false);
   final userName = Provider.of<UserPersonaService>(
     context,
     listen: false,
   ).persona.name;
+  final groupsDir = _groupsDirOrNull(context);
   final rows = await pipeline.chatSources();
   if (!context.mounted) return null;
-  return showStoryDialog<StoryChatSource>(
+  final picked = await showStoryDialog<StoryChatSourceRow>(
     context,
     title: 'Start from a chat',
     width: 460,
@@ -52,18 +54,43 @@ Future<StoryChatSource?> showChatSourcePicker(BuildContext context) async {
               ),
             ),
           )
-        : _ChatSourceList(rows: rows, userName: userName),
+        : _ChatSourceList(rows: rows),
     actions: (ctx) => [
       StoryButton.ghost('Cancel', onPressed: () => Navigator.pop(ctx)),
     ],
   );
+  if (picked == null) return null;
+  final groupId = picked.groupId;
+  return StoryChatSource(
+    characterId: picked.characterId,
+    characterName: picked.characterName,
+    sessionId: picked.sessionId,
+    recap: picked.summary,
+    userName: userName,
+    messageCount: picked.messageCount,
+    lastAt: picked.createdAt,
+    groupId: groupId,
+    // The list carries names only; the cast needs the cards.
+    members: groupId == null
+        ? const []
+        : await pipeline.groupRoster(groupId, groupsDir: groupsDir),
+  );
+}
+
+/// Where group avatars live, for the roster's portraits; null when no
+/// storage is provided (tests of the step alone).
+String? _groupsDirOrNull(BuildContext context) {
+  try {
+    return Provider.of<StorageService>(context, listen: false).groupsDir.path;
+  } on ProviderNotFoundException {
+    return null;
+  }
 }
 
 class _ChatSourceList extends StatefulWidget {
-  const _ChatSourceList({required this.rows, required this.userName});
+  const _ChatSourceList({required this.rows});
 
   final List<StoryChatSourceRow> rows;
-  final String userName;
 
   @override
   State<_ChatSourceList> createState() => _ChatSourceListState();
@@ -90,7 +117,7 @@ class _ChatSourceListState extends State<_ChatSourceList> {
         StoryField(
           key: const ValueKey('story-chat-search'),
           controller: _search,
-          hint: 'Search by character or chat name',
+          hint: 'Search by character, group or chat name',
           onChanged: (_) => setState(() {}),
         ),
         const SizedBox(height: 8),
@@ -106,18 +133,7 @@ class _ChatSourceListState extends State<_ChatSourceList> {
           InkWell(
             key: ValueKey('story-chat-${r.sessionId}'),
             borderRadius: BorderRadius.circular(8),
-            onTap: () => Navigator.pop(
-              context,
-              StoryChatSource(
-                characterId: r.characterId,
-                characterName: r.characterName,
-                sessionId: r.sessionId,
-                recap: r.summary,
-                userName: widget.userName,
-                messageCount: r.messageCount,
-                lastAt: r.createdAt,
-              ),
-            ),
+            onTap: () => Navigator.pop(context, r),
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 6),
               child: Row(
@@ -137,6 +153,7 @@ class _ChatSourceListState extends State<_ChatSourceList> {
                         ),
                         Text(
                           [
+                            if (r.isGroup) r.memberLine,
                             if (r.sessionName.isNotEmpty) r.sessionName,
                             formatRelativeTime(r.createdAt),
                             '${r.messageCount} messages',
@@ -146,6 +163,10 @@ class _ChatSourceListState extends State<_ChatSourceList> {
                       ],
                     ),
                   ),
+                  if (r.isGroup) ...[
+                    const StoryChip('group', tone: 'amber'),
+                    const SizedBox(width: 6),
+                  ],
                   if (r.isShort)
                     const Tooltip(
                       message:

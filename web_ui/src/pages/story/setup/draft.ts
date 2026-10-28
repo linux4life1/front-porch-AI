@@ -29,13 +29,45 @@ export interface CharacterRow {
   avatarVersion?: number;
 }
 
-/** The chat a story starts from: one character, one session. */
+/** One member of the group a story starts from; the id is the speaker id its messages carry. */
+export interface ChatMember {
+  id: string;
+  name: string;
+}
+
+/**
+ * The chat a story starts from: one character and one session, or a group
+ * chat with its roster (docs/design/stories-from-group-chats.md). For a group,
+ * characterName is the group's name and characterId its first member's id, the
+ * default lead.
+ */
 export interface ChatSource {
   characterId: string;
   characterName: string;
   sessionId: string;
   messageCount: number;
   faithful: boolean;
+  groupId?: string;
+  members?: ChatMember[];
+}
+
+export const isGroupSource = (s: ChatSource | null | undefined): boolean => !!s?.groupId;
+
+/** Who joins the cast: the roster, or the one character. */
+export function sourceCastIds(s: ChatSource): string[] {
+  return isGroupSource(s) ? (s.members ?? []).map((m) => m.id) : [s.characterId];
+}
+
+/** "Mira", "Mira & Dov", "Mira, Dov & Ash". Twin of joinCastNames. */
+export function joinCastNames(names: string[]): string {
+  if (names.length === 0) return '';
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(', ')} & ${names[names.length - 1]}`;
+}
+
+/** "Mira, Dov & Ash", or the character's name. */
+export function sourceCastLine(s: ChatSource): string {
+  return isGroupSource(s) ? joinCastNames((s.members ?? []).map((m) => m.name)) : s.characterName;
 }
 
 export interface Draft {
@@ -147,15 +179,25 @@ export function laneToJson(l: StoryLaneChoice): StoryLaneJson {
 
 // ── Chat as the source ───────────────────────────────────────────────────
 
-/** Start from a chat: the character joins the cast as protagonist, the chat becomes canon, an empty idea gets a seed. */
+/**
+ * Start from a chat: the character joins the cast as protagonist, the chat
+ * becomes canon, an empty idea gets a seed. A group's whole roster joins; its
+ * first member leads and the rest are Supporting.
+ */
 export function adoptChat(d: Draft, source: ChatSource, userName: string): Draft {
-  const castIds = d.castIds.includes(source.characterId) ? d.castIds : [...d.castIds, source.characterId];
-  const roles = source.characterId in d.roles ? d.roles : { ...d.roles, [source.characterId]: 'Protagonist' };
+  const castIds = [...d.castIds];
+  const roles = { ...d.roles };
+  for (const id of sourceCastIds(source)) {
+    if (!castIds.includes(id)) castIds.push(id);
+    if (!(id in roles)) roles[id] = id === source.characterId ? 'Protagonist' : 'Supporting';
+  }
+  const cast = sourceCastLine(source);
+  const which = isGroupSource(source) ? 'group chat' : 'chat';
   const concept = d.concept.trim()
     ? d.concept
     : source.faithful
-      ? `A faithful novelization of the roleplay between ${source.characterName} and ${userName}: the real events of their chat, retold as prose.`
-      : `A story inspired by the roleplay between ${source.characterName} and ${userName}.`;
+      ? `A faithful novelization of the roleplay between ${cast} and ${userName}: the real events of their ${which}, retold as prose.`
+      : `A story inspired by the roleplay between ${cast} and ${userName}.`;
   // Fit the length to the chat unless one was already chosen.
   const proseLength = source.faithful && source.messageCount > 0 && d.proseLength === 'Standard'
     ? suggestedLengthForChat(source.messageCount)
@@ -192,14 +234,15 @@ export function dropChat(d: Draft): Draft {
   // A world that only came along with the chat leaves with it.
   const world = d.world?.fromChat ? null : d.world;
   if (!source) return { ...d, useChatHistory: false, world };
+  const gone = sourceCastIds(source);
   const roles = { ...d.roles };
-  delete roles[source.characterId];
+  for (const id of gone) delete roles[id];
   return {
     ...d,
     chatSource: null,
     useChatHistory: false,
     world,
-    castIds: d.castIds.filter((id) => id !== source.characterId),
+    castIds: d.castIds.filter((id) => !gone.includes(id)),
     roles,
   };
 }
@@ -226,20 +269,27 @@ export function draftFromProject(p: StoryProject, chars: CharacterRow[]): Draft 
   d.castIds = [...(p.chat_history_character_ids ?? [])];
   d.includePersona = !!p.include_user_persona;
   if (p.user_persona_role) d.personaRole = p.user_persona_role;
+  // A group member's snapshot carries its id: the roster is rebuilt from the
+  // snapshots, not the library.
+  const groupId = p.chat_group_id ?? undefined;
+  const members: ChatMember[] = [];
   for (const snap of p.character_card_snapshots ?? []) {
     if (snap.self_insert === 'true') continue;
     const id = d.castIds.includes(snap.id) ? snap.id : chars.find((c) => c.name === snap.name && d.castIds.includes(c.id))?.id;
-    if (id) d.roles[id] = snap.role || 'Supporting';
+    if (!id) continue;
+    d.roles[id] = snap.role || 'Supporting';
+    if (groupId && snap.id === id) members.push({ id, name: snap.name });
   }
   const sessions = p.chat_history_session_ids ?? [];
   if (sessions.length > 0 && d.castIds.length > 0) {
     const id = d.castIds[0];
     d.chatSource = {
       characterId: id,
-      characterName: chars.find((c) => c.id === id)?.name ?? 'the chat',
+      characterName: groupId ? (p.chat_group_name || 'the group') : chars.find((c) => c.id === id)?.name ?? 'the chat',
       sessionId: sessions[0],
       messageCount: 0,
       faithful: !!p.faithful_mode,
+      ...(groupId ? { groupId, members } : {}),
     };
   }
   d.pov = p.pov || d.pov;
@@ -258,8 +308,10 @@ export function draftFromProject(p: StoryProject, chars: CharacterRow[]): Draft 
 function buildSnapshots(base: StoryProject, d: Draft, chars: CharacterRow[], personaName: string): Record<string, string>[] {
   const existing = base.character_card_snapshots ?? [];
   const out: Record<string, string>[] = [];
+  const members = isGroupSource(d.chatSource) ? d.chatSource?.members ?? [] : [];
   for (const id of d.castIds) {
-    const c = chars.find((x) => x.id === id);
+    // A group member: the relay reads its card from the group's own rows.
+    const c = chars.find((x) => x.id === id) ?? members.find((m) => m.id === id);
     if (!c) continue;
     const prev = existing.find((s) => s.self_insert !== 'true' && (s.id === id || s.name === c.name));
     out.push({
@@ -300,6 +352,8 @@ export function applyDraft(base: StoryProject, d: Draft, chars: CharacterRow[], 
     chat_history_character_ids: [...d.castIds],
     chat_history_session_ids: d.chatSource ? [d.chatSource.sessionId] : [],
     faithful_mode: d.chatSource?.faithful ?? false,
+    chat_group_id: d.chatSource?.groupId ?? null,
+    chat_group_name: isGroupSource(d.chatSource) ? d.chatSource?.characterName ?? '' : '',
     world_id: d.world?.placeId ?? null,
     world_name: d.world?.worldName ?? '',
     include_user_persona: d.includePersona,
