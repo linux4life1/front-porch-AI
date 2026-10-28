@@ -157,6 +157,7 @@ export function StoriesPage() {
                   <MenuButton entries={entries(s)} label="Story actions" />
                 </div>
                 <span className="s-muted s-small s-ell">{s.genreLine}</span>
+                {s.worldName && <span className="s-muted s-small s-ell" data-testid={`story-book-world-${s.id}`}>◎ {s.worldName}</span>}
                 <ProgressBar s={s} />
                 <div className="s-row nowrap s-muted s-small">
                   <span className="s-grow s-ell">{s.shelf.status}</span>

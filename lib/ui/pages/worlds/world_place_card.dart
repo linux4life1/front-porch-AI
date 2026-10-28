@@ -20,6 +20,10 @@ class WorldPlaceCard extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onExport;
   final VoidCallback onDelete;
+
+  /// Porch Stories: open New Story set in this world
+  /// (docs/design/stories-in-worlds.md §3.4). No menu item without it.
+  final VoidCallback? onWriteStory;
   // Locations slice 3. When set, a "placeCount places inside" chip and an
   // "Add a place inside" action render (root cards with children).
   final int placeCount;
@@ -56,6 +60,7 @@ class WorldPlaceCard extends StatelessWidget {
     required this.world,
     required this.onEdit,
     required this.onExport,
+    this.onWriteStory,
     required this.onDelete,
     this.placeCount = 0,
     this.onNewInside,
@@ -179,6 +184,8 @@ class WorldPlaceCard extends StatelessWidget {
                         switch (action) {
                           case 'edit':
                             onEdit();
+                          case 'story':
+                            onWriteStory?.call();
                           case 'export':
                             onExport();
                           case 'delete':
@@ -197,6 +204,17 @@ class WorldPlaceCard extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (onWriteStory != null)
+                          PopupMenuItem(
+                            value: 'story',
+                            key: Key('world-write-story-${world.id}'),
+                            child: Text(
+                              'Write a story here',
+                              style: TextStyle(
+                                color: AppColors.textPrimary(context),
+                              ),
+                            ),
+                          ),
                         PopupMenuItem(
                           value: 'export',
                           child: Text(

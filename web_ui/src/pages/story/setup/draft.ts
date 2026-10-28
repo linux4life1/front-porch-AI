@@ -14,6 +14,7 @@ import {
   type StoryLaneKind,
   type StoryProject,
 } from '../../../storyTypes';
+import { pickFromProject, type WorldPick } from './worldPick';
 
 export type EngineMode = 'quick' | 'studio';
 export type StoryFormat = 'novel' | 'audioDrama';
@@ -41,6 +42,8 @@ export interface Draft {
   title: string;
   concept: string;
   chatSource: ChatSource | null;
+  /** Where the story happens: a Living World, as the Idea step picked it. */
+  world: WorldPick | null;
   castIds: string[];
   roles: Record<string, string>;
   includePersona: boolean;
@@ -80,6 +83,7 @@ export function emptyDraft(): Draft {
     title: '',
     concept: '',
     chatSource: null,
+    world: null,
     castIds: [],
     roles: {},
     includePersona: false,
@@ -185,13 +189,16 @@ export function toneFromChat(d: Draft): boolean {
 
 export function dropChat(d: Draft): Draft {
   const source = d.chatSource;
-  if (!source) return { ...d, useChatHistory: false };
+  // A world that only came along with the chat leaves with it.
+  const world = d.world?.fromChat ? null : d.world;
+  if (!source) return { ...d, useChatHistory: false, world };
   const roles = { ...d.roles };
   delete roles[source.characterId];
   return {
     ...d,
     chatSource: null,
     useChatHistory: false,
+    world,
     castIds: d.castIds.filter((id) => id !== source.characterId),
     roles,
   };
@@ -215,6 +222,7 @@ export function draftFromProject(p: StoryProject, chars: CharacterRow[]): Draft 
   d.reviewEnabled = p.review_enabled !== false;
   d.lensesEnabled = p.lenses_enabled !== false;
   d.useChatHistory = !!p.use_chat_history;
+  d.world = pickFromProject(p);
   d.castIds = [...(p.chat_history_character_ids ?? [])];
   d.includePersona = !!p.include_user_persona;
   if (p.user_persona_role) d.personaRole = p.user_persona_role;
@@ -292,6 +300,8 @@ export function applyDraft(base: StoryProject, d: Draft, chars: CharacterRow[], 
     chat_history_character_ids: [...d.castIds],
     chat_history_session_ids: d.chatSource ? [d.chatSource.sessionId] : [],
     faithful_mode: d.chatSource?.faithful ?? false,
+    world_id: d.world?.placeId ?? null,
+    world_name: d.world?.worldName ?? '',
     include_user_persona: d.includePersona,
     user_persona_role: d.personaRole,
     pov: d.pov,

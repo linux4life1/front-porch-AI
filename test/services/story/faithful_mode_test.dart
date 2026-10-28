@@ -31,8 +31,7 @@ void main() {
   );
 
   group('buildChatStoryProject', () {
-    test('faithful novella is scoped to the one session and configured',
-        () {
+    test('faithful novella is scoped to the one session and configured', () {
       final p = buildChatStoryProject(
         sessionId: 's-1',
         character: char(),
@@ -93,6 +92,37 @@ void main() {
       expect(legacy.chatHistorySessionIds, isEmpty);
       expect(legacy.faithfulMode, isFalse);
     });
+  });
+
+  test('a chat with a Setting gives the story that world; none leaves it '
+      'unset', () {
+    final set = buildChatStoryProject(
+      sessionId: 's-1',
+      character: char(),
+      characterId: 'c-1',
+      userName: 'Sam',
+      recap: '',
+      faithful: true,
+      length: 'Novella',
+      pov: 'First Person',
+      worldId: 'conservatory',
+      worldName: 'Greenhollow Estate',
+    );
+    expect(set.worldId, 'conservatory');
+    expect(set.worldName, 'Greenhollow Estate');
+    final none = buildChatStoryProject(
+      sessionId: 's-1',
+      character: char(),
+      characterId: 'c-1',
+      userName: 'Sam',
+      recap: '',
+      faithful: true,
+      length: 'Novella',
+      pov: 'First Person',
+      worldId: '',
+    );
+    expect(none.worldId, isNull);
+    expect(none.worldName, '');
   });
 
   test('faithful directives forbid invention and reordering', () {

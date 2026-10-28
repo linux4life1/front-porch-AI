@@ -885,6 +885,7 @@ export function WorldsPage() {
             onEdit: () => beginEdit(w.name),
             // Town › building › room: a room takes no place inside it.
             onNewInside: depth < 2 ? addInside(key) : undefined,
+            onWriteStory: w.id ? () => navigate('/stories/new', { state: { fromWorld: w.id } }) : undefined,
             onMove: () => void beginMove([key]),
             onDelete: () => remove(w),
             selected: selected.has(key),
@@ -934,6 +935,10 @@ export function WorldsPage() {
                           }
                     }
                     onEdit={() => beginEdit(w.name)}
+                    // A world starts its story at its starred place, like a chat.
+                    onWriteStory={summary.id
+                      ? () => navigate('/stories/new', { state: { fromWorld: summary.defaultPlaceId ?? summary.id } })
+                      : undefined}
                     onExport={() =>
                       download(`/api/worlds/${encodeURIComponent(w.name)}/export`)
                     }

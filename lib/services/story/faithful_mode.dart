@@ -53,10 +53,16 @@ StoryProject buildChatStoryProject({
   required bool faithful,
   required String length, // 'Short story' | 'Novella'
   required String pov,
+  // The chat's Setting place, when it has one: the story is set where the
+  // chat was (docs/design/stories-in-worlds.md §3.4).
+  String? worldId,
+  String worldName = '',
 }) {
   final charName = character.name;
   final isShort = length == 'Short story';
   return StoryProject(
+    worldId: worldId == null || worldId.isEmpty ? null : worldId,
+    worldName: worldName,
     title: faithful
         ? 'The Story of $charName & $userName'
         : 'Inspired by $charName & $userName',

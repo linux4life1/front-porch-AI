@@ -28,17 +28,20 @@ import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/story_pipeline_service.dart';
 import 'package:front_porch_ai/services/story_repository.dart';
+import 'package:front_porch_ai/services/world_repository.dart';
 
 /// The pipeline with every collaborator wired: the worker lane for Studio
-/// review jobs, the per-story side files under the storage root, and the
-/// embedding model for lore search. Kept out of `lib/app/root_providers.dart`, which
-/// is at the file-size line.
+/// review jobs, the per-story side files under the storage root, the
+/// embedding model for lore search and the world library for stories set
+/// in a world. Kept out of `lib/app/root_providers.dart`, which is at the
+/// file-size line.
 StoryPipelineService buildStoryPipelineService({
   required StoryRepository repository,
   required LLMProvider llm,
   required StorageService storage,
   required EmbeddingService embeddings,
   required AppDatabase db,
+  WorldRepository? worlds,
 }) {
   return StoryPipelineService(
     repository,
@@ -62,5 +65,6 @@ StoryPipelineService buildStoryPipelineService({
       ),
     ),
     embeddings: embeddings,
+    worldBrief: worlds == null ? null : (id) => worldBriefFrom(worlds, id),
   );
 }

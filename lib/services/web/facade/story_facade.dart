@@ -101,6 +101,7 @@ class StoryFacade {
         'wordCount': p.wordCount,
         'targetWords': p.targetWords,
         'genreLine': storyGenreLine(p),
+        'worldName': p.worldName,
         'shelf': () {
           final st = storyShelfStatus(p);
           return {
@@ -350,6 +351,21 @@ class StoryFacade {
     for (final row in await _pipeline.chatSources()) row.toJson(),
   ];
 
+  /// What the PWA says about a story's world (`GET /api/stories/world`): by
+  /// the place the story starts at, or by the chat it starts from (that
+  /// chat's Setting). `ok: false` when there is no such place.
+  Future<Map<String, dynamic>> worldSummary({
+    String? place,
+    String? session,
+  }) async {
+    var placeId = place?.trim() ?? '';
+    if (placeId.isEmpty && session != null && session.trim().isNotEmpty) {
+      placeId = await _pipeline.chatSettingId(session.trim()) ?? '';
+    }
+    final brief = _pipeline.worldBriefFor(placeId);
+    return StoryWorldSummary.of(brief).toJson(brief);
+  }
+
   /// Quick-concept archetype chips for the setup wizard (genre/style/concept
   /// seeds). Mirrors the desktop "Quick concepts" + Refresh.
   List<Map<String, String>> archetypes({int count = 6}) =>
@@ -386,6 +402,8 @@ class StoryFacade {
       _studio.undoFix(id, act, scene, beat);
   Future<int?> addLore(String id, String name, String text) =>
       _studio.addLore(id, name, text);
+  Future<Map<String, dynamic>?> refreshWorld(String id) =>
+      _studio.refreshWorld(id);
   Future<List<Map<String, dynamic>>?> searchLore(
     String id,
     String query, {

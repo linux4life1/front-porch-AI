@@ -73,6 +73,23 @@ describe('New Story draft ↔ project JSON', () => {
     expect(adoptChat({ ...emptyDraft(), concept: 'My own idea' }, chat, 'Teodor').concept).toBe('My own idea');
   });
 
+  it('a picked world is saved as the place it starts at and read back by name', () => {
+    const world = { placeId: 'conservatory', worldName: 'Greenhollow Estate', detail: 'starts at The Conservatory · 3 places', briefLine: 'World brief: 3 places', fromChat: false };
+    const p = applyDraft(blank, { ...emptyDraft(), world }, chars, 'User');
+    expect(p).toMatchObject({ world_id: 'conservatory', world_name: 'Greenhollow Estate' });
+    // Reopened: the name is known at once, the detail waits for the relay.
+    expect(draftFromProject(p, chars).world).toEqual({ placeId: 'conservatory', worldName: 'Greenhollow Estate', detail: '', briefLine: '', fromChat: false });
+    // No world: both fields are cleared on save, and an older project has none.
+    expect(applyDraft(blank, emptyDraft(), chars, 'User')).toMatchObject({ world_id: null, world_name: '' });
+    expect(draftFromProject(blank, chars).world).toBeNull();
+  });
+
+  it('a world that came with the chat leaves with it; a hand pick stays', () => {
+    const pick = { placeId: 'p', worldName: 'W', detail: '', briefLine: '', fromChat: true };
+    expect(dropChat({ ...adoptChat(emptyDraft(), chat, 'Teodor'), world: pick }).world).toBeNull();
+    expect(dropChat({ ...adoptChat(emptyDraft(), chat, 'Teodor'), world: { ...pick, fromChat: false } }).world).toMatchObject({ placeId: 'p' });
+  });
+
   it('reads a lane stored as an object, or as the bare name older projects hold', () => {
     const fallback = laneFromJson('main', laneFromJson(undefined, { lane: 'main', backend: '', url: '', model: '', kcpps: '' }));
     expect(laneFromJson('worker', fallback).lane).toBe('worker');

@@ -22,10 +22,12 @@ import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/story_setup/chat_source_picker.dart';
 import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
+import 'package:front_porch_ai/ui/story_setup/world_picker_sheet.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 import 'package:front_porch_ai/ui/theme/studio_colors.dart';
 
-/// Step 1 of 4 (sketch I): title, the idea, sparks, and "start from a chat".
+/// Step 1 of 4 (sketch I): title, the idea, sparks, "start from a chat",
+/// and "where does it happen?" (docs/design/stories-in-worlds.md §5).
 class IdeaStep extends StatefulWidget {
   final StorySetupDraft draft;
   final VoidCallback onChanged;
@@ -180,8 +182,110 @@ class _IdeaStepState extends State<IdeaStep> {
               ),
           ],
         ),
+        const SizedBox(height: 12),
+        _worldCard(context),
       ],
     );
+  }
+
+  Widget _worldCard(BuildContext context) {
+    final world = draft.world;
+    return StoryCard(
+      key: const ValueKey('story-world-card'),
+      children: [
+        Row(
+          children: [
+            const Expanded(child: StoryKeyLabel('Where does it happen?')),
+            if (world == null)
+              StoryButton(
+                'Choose a world…',
+                key: const ValueKey('story-choose-world'),
+                onPressed: _chooseWorld,
+              )
+            else
+              StoryButton.ghost(
+                'Remove',
+                key: const ValueKey('story-remove-world'),
+                onPressed: () {
+                  draft.world = null;
+                  widget.onChanged();
+                },
+              ),
+          ],
+        ),
+        if (world != null)
+          Row(
+            children: [
+              Icon(Icons.public, color: StudioColors.honeyOf(context)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      world.worldName.isEmpty ? 'A world' : world.worldName,
+                      style: StudioType.ui(context, weight: FontWeight.w600),
+                    ),
+                    if (world.detail.isNotEmpty)
+                      Text(
+                        world.detail,
+                        style: StudioType.ui(
+                          context,
+                          size: 12,
+                          color: StudioColors.mutedOf(context),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              if (world.fromChat) ...[
+                const StoryChip('from the chat', tone: 'amber'),
+                const SizedBox(width: 8),
+              ],
+              StoryButton(
+                'Change…',
+                key: const ValueKey('story-change-world'),
+                onPressed: _chooseWorld,
+              ),
+            ],
+          ),
+        const SetupNote(
+          'The world\'s places and lore ground every stage. The story reads '
+          'the world; it never changes it.',
+        ),
+      ],
+    );
+  }
+
+  Future<void> _chooseWorld() async {
+    final worlds = worldsOrNull(context);
+    if (worlds == null) return;
+    final chosen = await showStoryWorldPicker(
+      context,
+      places: worlds.placeWorlds,
+    );
+    if (chosen == null || !mounted) return;
+    draft.world = storyWorldPickFor(chosen, worlds);
+    widget.onChanged();
+  }
+
+  /// A chat with a Setting puts the story there, unless a world was already
+  /// picked by hand.
+  Future<void> _adoptChatWorld(StoryChatSource source) async {
+    if (draft.world != null && !draft.world!.fromChat) return;
+    final worlds = worldsOrNull(context);
+    if (worlds == null) return;
+    final slots = await worlds.getChatWorldAttachments(source.sessionId);
+    final id = slots.primaryId;
+    if (!mounted ||
+        id == null ||
+        draft.chatSource?.sessionId != source.sessionId) {
+      return;
+    }
+    final place = worlds.worldById(id);
+    if (place == null) return;
+    draft.world = storyWorldPickFor(place, worlds, fromChat: true);
+    widget.onChanged();
   }
 
   Future<void> _useSpark(String concept) async {
@@ -200,8 +304,9 @@ class _IdeaStepState extends State<IdeaStep> {
 
   Future<void> _chooseChat() async {
     final source = await showChatSourcePicker(context);
-    if (source == null) return;
+    if (source == null || !mounted) return;
     draft.adoptChat(source);
     widget.onChanged();
+    await _adoptChatWorld(source);
   }
 }

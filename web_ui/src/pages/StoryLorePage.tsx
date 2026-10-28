@@ -10,7 +10,8 @@ import { useRef, useState, type ChangeEvent } from 'react';
 import { useParams } from 'react-router-dom';
 import { api, ApiError } from '../api/client';
 import { useStory } from '../hooks/useStory';
-import { forgetFactCopy, removeLoreCopy } from './story/confirmCopy';
+import { detachWorldCopy, forgetFactCopy, removeLoreCopy } from './story/confirmCopy';
+import { isWorldLore, useStoryWorld, worldLine } from './story/setup/worldPick';
 import { editFact, forgetFact, newFact, recordFact, retireFact, type FactFields } from './story/lore/continuity';
 import { FactDialog, RetireDialog } from './story/lore/FactDialogs';
 import { loreSubtitle } from './story/lore/loreShape';
@@ -36,12 +37,41 @@ export function StoryLorePage() {
   const [open, setOpen] = useState<Open | null>(null);
   const [failure, setFailure] = useState('');
   const [notice, setNotice] = useNotice();
+  const [worldBusy, setWorldBusy] = useState(false);
   const { ask, dialog } = useConfirm();
   const picker = useRef<HTMLInputElement | null>(null);
+  const world = useStoryWorld(p?.world_id);
 
   if (!p) return <StudioLoading error={error} />;
 
   const facts = p.continuity ?? [];
+  const placeNames = Object.fromEntries((world.summary?.places ?? []).map((pl) => [pl.id, pl.name]));
+  const copied = p.lore.filter(isWorldLore).length;
+
+  /** Refresh from world: the relay copies the book again and keeps story-grown lore. One write per tap. */
+  const refreshWorld = async () => {
+    if (worldBusy) return;
+    setWorldBusy(true);
+    try {
+      const r = await api.post<{ ok: boolean; copied: number }>(`/api/stories/${id}/world/refresh`, {});
+      if (r.ok) {
+        reload();
+        setNotice(`${r.copied} ${r.copied === 1 ? 'fact' : 'facts'} from the world, refreshed.`);
+      } else {
+        setFailure('The world is no longer in the library; nothing to refresh from.');
+      }
+    } catch (err) {
+      setFailure(err instanceof ApiError ? err.message : 'The world could not be read.');
+    } finally {
+      setWorldBusy(false);
+    }
+  };
+
+  const detachWorld = () => ask(detachWorldCopy(p.world_name ?? ''), () => {
+    if (worldBusy) return;
+    setWorldBusy(true);
+    void save({ world_id: null, world_name: '' }).finally(() => setWorldBusy(false));
+  });
 
   const addFiles = async (e: ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files ?? []);
@@ -87,8 +117,23 @@ export function StoryLorePage() {
           onRetire={(index) => setOpen({ kind: 'retire', index })}
           onForget={(index) => ask(forgetFactCopy(facts[index].key), () => { void save({ continuity: forgetFact(facts, index) }); })} />
       )}
+      {tab === 'lore' && p.world_id && (
+        <section className="s-card raise" data-testid="lore-world-card">
+          <div className="s-row nowrap">
+            <div className="s-grow s-col" style={{ gap: 2 }}>
+              <b data-testid="lore-world-line">{worldLine(p, world.summary, world.gone)}</b>
+              <span className="s-muted s-small">
+                {copied} {copied === 1 ? 'fact' : 'facts'} from this world · the world is read live; its facts were copied when the bible was built
+              </span>
+            </div>
+            <button type="button" className="s-btn-quiet" data-testid="lore-world-refresh" disabled={worldBusy || world.gone}
+              onClick={() => { void refreshWorld(); }}>↻ Refresh from world</button>
+            <button type="button" className="s-btn-danger" data-testid="lore-world-detach" disabled={worldBusy} onClick={detachWorld}>Detach</button>
+          </div>
+        </section>
+      )}
       {tab === 'lore' && (
-        <LoreTab p={p}
+        <LoreTab p={p} placeNames={placeNames}
           onRemove={(index) => ask(removeLoreCopy(p.lore[index].topic), () => { void save({ lore: p.lore.filter((_, i) => i !== index) }); })} />
       )}
       {tab === 'sofar' && <SoFarTab p={p} />}

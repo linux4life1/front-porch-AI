@@ -144,6 +144,8 @@ class ChatToolsScene {
       faithful: faithful,
       length: length,
       pov: pov,
+      worldId: _chat.chatPrimaryWorldId,
+      worldName: _chat.chatSettingName ?? '',
     );
     await repo.saveProject(project);
     return {'id': project.dbId, 'title': project.title};

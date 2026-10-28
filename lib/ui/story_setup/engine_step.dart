@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/ui/story_setup/model_picker_sheet.dart';
 import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
@@ -34,9 +35,22 @@ class EngineStep extends StatelessWidget {
 
   const EngineStep({super.key, required this.draft, required this.onChanged});
 
+  /// What the world gives each stage, when the story has one and the
+  /// library still holds it.
+  String? _worldLine(BuildContext context) {
+    final pick = draft.world;
+    final worlds = worldsOrNull(context);
+    if (pick == null || worlds == null) return null;
+    final brief = worldBriefFrom(worlds, pick.placeId);
+    if (brief.isEmpty) return null;
+    return '${storyWorldBriefLine(brief)}. The brief goes to the bible and '
+        'the planner; the searchable facts reach the writer scene by scene.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final wide = MediaQuery.of(context).size.width >= 760;
+    final worldLine = _worldLine(context);
     final storage = Provider.of<StorageService>(context);
     final llm = Provider.of<LLMProvider>(context);
     final quick = draft.engineMode == StoryEngineMode.quick;
@@ -163,6 +177,8 @@ class EngineStep extends StatelessWidget {
               const SizedBox(height: 12),
               studioCard,
             ],
+            if (worldLine != null)
+              SetupNote(worldLine, key: const ValueKey('story-engine-world')),
           ],
         ),
         const SizedBox(height: 12),

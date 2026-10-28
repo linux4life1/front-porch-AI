@@ -96,6 +96,30 @@ class StoryShelfCard extends StatelessWidget {
             color: StudioColors.mutedOf(context),
           ),
         ),
+        if (p.worldName.trim().isNotEmpty)
+          Row(
+            key: ValueKey('story-book-world-${p.dbId}'),
+            children: [
+              Icon(
+                Icons.public,
+                size: 12,
+                color: StudioColors.mutedOf(context),
+              ),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  p.worldName.trim(),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: StudioType.ui(
+                    context,
+                    size: 12,
+                    color: StudioColors.mutedOf(context),
+                  ),
+                ),
+              ),
+            ],
+          ),
         StoryProgressBar(st.fraction, done: st.done),
         Row(
           children: [

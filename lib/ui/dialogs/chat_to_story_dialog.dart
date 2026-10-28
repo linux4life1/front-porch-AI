@@ -74,6 +74,8 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
       faithful: _faithful,
       length: _length,
       pov: _pov,
+      worldId: chat.chatPrimaryWorldId,
+      worldName: chat.chatSettingName ?? '',
     );
     await repo.saveProject(project);
     if (!mounted) return;

@@ -67,7 +67,7 @@ export function StudioHeader({
           <button type="button" className="studio-title-btn" data-testid="studio-title" disabled={running}
             title={running ? undefined : 'Rename'} onClick={() => setRenaming(true)}>{p.title}</button>
         </h2>
-        <div className="s s-ell">{headerSubtitle(shelf, running, p)}</div>
+        <div className="s s-ell">{headerSubtitle(shelf, running, p)}{p.world_name?.trim() ? ` · ${p.world_name.trim()}` : ''}</div>
       </div>
       <div className="studio-actions">
         {running && (

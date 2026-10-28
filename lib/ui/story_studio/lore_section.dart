@@ -26,6 +26,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/ui/story_studio/lore/lore.dart';
+import 'package:front_porch_ai/ui/story_studio/story_world_lookup.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_buttons.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_cards.dart';
 import 'package:front_porch_ai/ui/story_studio/studio_theme.dart';
@@ -49,10 +50,50 @@ class LoreSection extends StatefulWidget {
 class _LoreSectionState extends State<LoreSection> {
   String _tab = 'continuity';
 
+  /// A world save in flight: Refresh and Detach are disabled meanwhile.
+  bool _worldBusy = false;
+
   StoryProject get p => widget.project;
 
   Future<void> _save() =>
       Provider.of<StoryRepository>(context, listen: false).saveProject(p);
+
+  Future<void> _refreshWorld() async {
+    if (_worldBusy) return;
+    final brief = storyWorldBrief(p, worldsOrNull(context));
+    if (brief == null || brief.isEmpty) return;
+    setState(() => _worldBusy = true);
+    try {
+      StoryWorldContext.copyLore(p, brief);
+      await _save();
+    } finally {
+      if (mounted) setState(() => _worldBusy = false);
+    }
+  }
+
+  Future<void> _detachWorld() async {
+    if (_worldBusy) return;
+    final name = p.worldName.trim().isEmpty ? 'the world' : p.worldName.trim();
+    final ok = await showStoryConfirm(
+      context,
+      title: 'Detach $name?',
+      body:
+          'The story stops reading the world: no setting brief, no places '
+          'for the planner. The facts already copied stay as story lore.',
+      confirmLabel: 'Detach',
+      destructive: true,
+    );
+    if (!ok || !mounted || _worldBusy) return;
+    setState(() => _worldBusy = true);
+    try {
+      p
+        ..worldId = null
+        ..worldName = '';
+      await _save();
+    } finally {
+      if (mounted) setState(() => _worldBusy = false);
+    }
+  }
 
   int get _fileCount => {
     for (final l in p.lore)
@@ -122,13 +163,29 @@ class _LoreSectionState extends State<LoreSection> {
 
   Widget _loreTab() {
     final muted = StudioColors.mutedOf(context);
+    final worlds = worldsOrNull(context);
+    final hasWorld = p.worldId?.isNotEmpty ?? false;
+    final worldCard = hasWorld
+        ? LoreWorldCard(
+            project: p,
+            worlds: worlds,
+            busy: _worldBusy,
+            onRefresh: _refreshWorld,
+            onDetach: _detachWorld,
+          )
+        : null;
     if (p.lore.isEmpty) {
-      return const StoryEmptyState(
-        title: 'No lore yet',
-        detail: 'Add a file, or let the story bible create some.',
+      return Column(
+        children: [
+          if (worldCard != null) ...[worldCard, const SizedBox(height: 10)],
+          const StoryEmptyState(
+            title: 'No lore yet',
+            detail: 'Add a file, or let the story bible create some.',
+          ),
+        ],
       );
     }
-    return StoryCard(
+    final entries = StoryCard(
       children: [
         for (final l in p.lore)
           Row(
@@ -151,12 +208,7 @@ class _LoreSectionState extends State<LoreSection> {
                             weight: FontWeight.w700,
                           ),
                         ),
-                        for (final r in l.relatedTo)
-                          if (r.startsWith('file:'))
-                            StoryChip(
-                              r.substring(5),
-                              icon: Icons.description_outlined,
-                            ),
+                        ...loreSourceChips(context, p, l, worlds),
                         if (l.validFromAct > 1 || l.validFromScene > 1)
                           Text(
                             'from act ${l.validFromAct}, scene ${l.validFromScene}',
@@ -196,6 +248,8 @@ class _LoreSectionState extends State<LoreSection> {
           ),
       ],
     );
+    if (worldCard == null) return entries;
+    return Column(children: [worldCard, const SizedBox(height: 10), entries]);
   }
 
   Widget _soFarTab() {

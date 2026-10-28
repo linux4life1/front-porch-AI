@@ -75,6 +75,17 @@ class StoryQuickProse {
           ? project.beats[sId]![beatIndex + 1]
           : null;
 
+      // The world the scene is set in, and the lore that applies there:
+      // the same place prose and ranking the Studio writer reads.
+      final world = _ctx.worldFor(project);
+      final settingNow = StoryWorldContext.settingNow(world, scene);
+      final lore = (await _ctx.loreIndex.search(
+        '${scene.title}. ${scene.location}. ${beat.description}',
+        StoryLoreIndex.knownAt(project, actIndex, sceneIndex),
+        limit: 4,
+        preferTags: StoryWorldContext.preferTags(world, scene),
+      )).map((h) => '- ${h.entry.topic}: ${h.entry.detail}').join('\n');
+
       // Build character voices
       final voices = scene.castNames
           .map((name) {
@@ -105,7 +116,8 @@ ${beat.description}
 
 ## Characters Present
 $voices
-
+${settingNow.isEmpty ? '' : '\n## Where\n$settingNow\n'}
+${lore.isEmpty ? '' : '\n## Relevant lore\n$lore\n'}
 ## Style & Tone
 ${project.style.writingGuide}
 

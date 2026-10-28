@@ -1824,3 +1824,75 @@ test('a skip the reader is unsure of asks "Did time pass?", and the pick moves t
     await setPot(before ?? false);
   }
 });
+
+// Stories set in Worlds (docs/design/stories-in-worlds.md §5): the Idea step
+// picks a world from the library, the card and the rail name it, and the pick
+// is saved with the draft on Next, so the shelf row and the project carry it.
+test('New Story can be set in a world: the Idea card names it and Next saves it', async ({ page }) => {
+  type Row = { id?: string; name: string };
+  const list = async () => ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+  const cleanup = async () => {
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey World')) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+    const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories ?? [];
+    for (const s of stories) if (s.title === 'World Journey') await page.request.post(`/api/stories/${s.id}/delete`);
+  };
+  await cleanup();
+  const create = (data: Record<string, unknown>) => page.request.post('/api/worlds', { data: { ...data, create: true } });
+  expect((await create({ name: 'Journey World Town', description: 'A town of honey stone.', climateEnabled: true })).ok()).toBe(true);
+  const townId = (await list()).find((w) => w.name === 'Journey World Town')!.id!;
+  expect((await create({ name: 'Journey World Tea Rooms', description: 'Steam and gossip.', climateEnabled: false, parentWorldId: townId })).ok()).toBe(true);
+  try {
+    await openRoute(page, '/stories/new');
+    await page.getByTestId('story-choose-world').click();
+    const picker = page.getByTestId('story-world-picker');
+    await expect(picker).toContainText('Journey World Tea Rooms');
+    await picker.getByTestId(`story-world-row-${townId}`).click();
+    await expect(page.getByTestId('story-world-name')).toHaveText('Journey World Town');
+    await expect(page.getByTestId('story-world-detail')).toContainText('1 place');
+    await expect(page.getByTestId('story-rail')).toContainText('Journey World Town');
+
+    await page.getByTestId('story-title').fill('World Journey');
+    await page.getByTestId('story-concept').fill('Tea, gossip and a locked door in the town.');
+    await page.getByTestId('story-setup-next').click();
+    await expect(page.getByTestId('story-setup-step')).toHaveText('Cast');
+
+    // Next saved the draft: the project carries the world, and the shelf row names it.
+    const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string; worldName?: string }[] }).stories;
+    const saved = stories.find((s) => s.title === 'World Journey');
+    expect(saved?.worldName).toBe('Journey World Town');
+    const project = (await (await page.request.get(`/api/stories/${saved!.id}`)).json()) as { world_id?: string; world_name?: string };
+    expect(project.world_name).toBe('Journey World Town');
+    expect(project.world_id).toBeTruthy();
+    const summary = (await (await page.request.get(`/api/stories/world?place=${encodeURIComponent(project.world_id!)}`)).json()) as { ok: boolean; worldName: string };
+    expect(summary).toMatchObject({ ok: true, worldName: 'Journey World Town' });
+  } finally {
+    await cleanup();
+  }
+});
+
+// "Write a story here" on the Worlds page (docs/design/stories-in-worlds.md §3.4):
+// the world card opens New Story with that world already on the Idea card.
+test('Write a story here on a world card opens New Story set in that world', async ({ page }) => {
+  type Row = { id?: string; name: string };
+  const list = async () => ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+  const cleanup = async () => {
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey Here')) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+  };
+  await cleanup();
+  const made = await page.request.post('/api/worlds', { data: { name: 'Journey Here Harbour', description: 'Salt and rope.', climateEnabled: true, create: true } });
+  expect(made.ok()).toBe(true);
+  const id = (await list()).find((w) => w.name === 'Journey Here Harbour')!.id!;
+  try {
+    await openRoute(page, '/worlds');
+    await page.getByTestId(`world-write-story-${id}`).click();
+    await expect(page).toHaveURL(/\/stories\/new$/);
+    await expect(page.getByTestId('story-world-name')).toHaveText('Journey Here Harbour');
+    await expect(page.getByTestId('story-rail')).toContainText('Journey Here Harbour');
+  } finally {
+    await cleanup();
+  }
+});

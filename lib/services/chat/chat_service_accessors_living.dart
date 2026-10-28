@@ -51,6 +51,14 @@ extension ChatServiceAccessorsLiving on ChatService {
     return sceneBackdropOf(_worldRepository.chainFor(primaryId));
   }
 
+  /// The Setting place's name, for a story made from this chat; null when
+  /// the chat has no Setting or its place is gone from the library.
+  String? get chatSettingName {
+    final primaryId = _chatPlaceSlots.primaryId;
+    if (primaryId == null) return null;
+    return _worldRepository.chainFor(primaryId).firstOrNull?.name;
+  }
+
   /// Pure recompute from existing state — nothing stored, so save/load and
   /// group re-entry agree for free. Gate: a MOVING clock + the global toggle.
   /// Weather is deterministic math over the day count and needs no eval of its

@@ -85,6 +85,7 @@ abstract final class StudioProsePrompts {
     int act,
     int index, {
     String previousTail = '',
+    String settingNow = '',
     String? previous,
     String? feedback,
   }) {
@@ -140,6 +141,7 @@ abstract final class StudioProsePrompts {
       StudioContext.continuity(p, act, index, cast: scene.castNames),
       StudioContext.block('previous_scene_ending', previousTail),
       sceneBlueprint(p, act, index),
+      StudioContext.block('setting_now', settingNow),
       if (next != null)
         StudioContext.block(
           'next_scene_opening',
@@ -288,6 +290,7 @@ PASS when the beats are sound; note small suggestions without failing. FAIL only
     int beat, {
     required String previousProse,
     String lore = '',
+    String settingNow = '',
     String directive = '',
     String? feedback,
     String? previous,
@@ -316,6 +319,7 @@ PASS when the beats are sound; note small suggestions without failing. FAIL only
       ),
       StudioContext.relationships(p, only: scene.castNames),
       sceneBlueprint(p, act, index),
+      StudioContext.block('setting_now', settingNow),
       beatList(beats),
       if (p.lensesEnabled && !audio)
         StudioContext.block('writing_lens', '${lens.name}: ${lens.prompt}'),
@@ -361,6 +365,7 @@ PASS when the beats are sound; note small suggestions without failing. FAIL only
     int beat, {
     required String previousProse,
     required String prose,
+    String settingNow = '',
   }) {
     final scene = p.scenes[act]![index];
     final current = (p.beats['$act-$index'] ?? const <StoryBeat>[])[beat];
@@ -385,6 +390,7 @@ Do NOT fail for taste: word choice, rhythm you would have done differently, or a
         '${p.pov}${scene.pov.isEmpty ? '' : ', through ${scene.pov}'}',
       ),
       StudioContext.continuity(p, act, index, cast: scene.castNames),
+      StudioContext.block('setting_now', settingNow),
       StudioContext.block(
         'beat_plan',
         '[${current.type}] ${current.description}'

@@ -21,6 +21,7 @@ import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/ui/story_studio/story_world_lookup.dart';
 
 /// The chat a story starts from (sketch I): one character, one session.
 class StoryChatSource {
@@ -55,6 +56,9 @@ class StorySetupDraft {
 
   // Idea.
   StoryChatSource? chatSource;
+
+  /// Where the story happens: a Living World, as the Idea step picked it.
+  StoryWorldPick? world;
 
   // Cast.
   final Set<String> selectedCharacterIds = {};
@@ -100,11 +104,16 @@ class StorySetupDraft {
     conceptController.dispose();
   }
 
-  void loadFrom(StoryProject project, CharacterRepository charRepo) {
+  void loadFrom(
+    StoryProject project,
+    CharacterRepository charRepo, {
+    WorldRepository? worlds,
+  }) {
     titleController.text = project.title == 'Untitled Story'
         ? ''
         : project.title;
     conceptController.text = project.concept;
+    world = storyWorldPickFromProject(project, worlds);
     tier = project.promptTier;
     final fresh = project.concept.trim().isEmpty && project.acts.isEmpty;
     engineMode = fresh ? StoryEngineMode.studio : project.engineMode;
@@ -190,6 +199,8 @@ class StorySetupDraft {
       selectedCharacterIds.remove(source.characterId);
       characterRoles.remove(source.characterId);
     }
+    // A world that only came along with the chat leaves with it.
+    if (world?.fromChat ?? false) world = null;
   }
 
   /// Write every choice onto [project], including the character/persona
@@ -217,6 +228,8 @@ class StorySetupDraft {
     final source = chatSource;
     project.chatHistorySessionIds = source == null ? [] : [source.sessionId];
     project.faithfulMode = source?.faithful ?? false;
+    project.worldId = world?.placeId;
+    project.worldName = world?.worldName ?? '';
     project.includeUserPersona = includeUserPersona;
     project.userPersonaRole = userPersonaRole;
 

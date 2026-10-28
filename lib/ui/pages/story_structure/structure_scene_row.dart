@@ -105,14 +105,28 @@ class StructureSceneRow extends StatelessWidget {
                       style: StudioType.ui(context, weight: FontWeight.w600),
                     ),
                     if (detail.isNotEmpty)
-                      Text(
-                        detail,
-                        overflow: TextOverflow.ellipsis,
-                        style: StudioType.ui(
-                          context,
-                          size: 12,
-                          color: StudioColors.mutedOf(context),
-                        ),
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              detail,
+                              overflow: TextOverflow.ellipsis,
+                              style: StudioType.ui(
+                                context,
+                                size: 12,
+                                color: StudioColors.mutedOf(context),
+                              ),
+                            ),
+                          ),
+                          if (storySceneIsNewPlace(p, sc)) ...[
+                            const SizedBox(width: 6),
+                            StoryChip(
+                              'new place',
+                              key: ValueKey('story-scene-new-place-$a-$i'),
+                              tone: 'honey',
+                            ),
+                          ],
+                        ],
                       ),
                   ],
                 ),

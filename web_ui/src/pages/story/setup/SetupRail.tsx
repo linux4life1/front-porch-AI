@@ -56,6 +56,7 @@ function summaryRows(
     ['Title', d.title.trim() || null, 0],
     ['Idea', d.concept.trim() || null, 0],
     ...(chat ? [['From chat', `${chat.characterName} · ${chat.faithful ? 'faithful' : 'inspired by'}`, 0] as [string, string, number]] : []),
+    ...(d.world ? [['World', [d.world.worldName, ...(d.world.detail ? [d.world.detail] : [])].join(' · '), 0] as [string, string, number]] : []),
     ['Cast', cast.length === 0 ? null : cast.join(', '), 1],
     ['Shape', step >= 2 ? shape : null, 2],
     ['Engine', step >= 3 ? engine : null, 3],
