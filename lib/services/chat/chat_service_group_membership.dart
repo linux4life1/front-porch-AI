@@ -232,12 +232,13 @@ extension ChatServiceGroupMembership on ChatService {
     // Switch to the new group (this loads the session we just created)
     await setActiveGroup(group, groupRepo: groupRepo);
 
+    // Writes to _currentSessionId, so only once the group session is live.
+    if (hostSessionId != null) await _copyWikiForForkedSession(hostSessionId);
+
     // Carry the captured 1:1 host realism into the host member's per-character
     // store now that group mode is active (the group-scoped writes are gated on
     // _activeGroup != null). Without this the converted group opens realism-off
     // with the host's relationship/needs reset to defaults (the /promote bug).
-    if (hostSessionId != null) await _copyWikiForForkedSession(hostSessionId);
-
     await _carryHostStateIntoForkedGroup(
       hostName,
       originalCharId,
