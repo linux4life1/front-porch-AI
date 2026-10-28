@@ -16,7 +16,7 @@
 #   - Verifies the result with hard gates and STOPS.
 #   - It NEVER touches `main`, NEVER pushes, NEVER tags. You do that after review.
 #
-# See docs/release-promotion.md for the full runbook and the finish steps.
+# See dev-notes/release-promotion.md for the full runbook and the finish steps.
 #
 set -euo pipefail
 

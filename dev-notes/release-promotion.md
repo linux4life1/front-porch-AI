@@ -53,15 +53,21 @@ ancestry stays connected and the **next** promotion has a clean merge base.
       one you want to ship (these are guarded — edit them on `main`, not Rawhide;
       drafts can be prepared and reviewed on a candidate/practice branch first, but
       they only count once committed to `main`).
-- [ ] **Screenshots are current**: the README hero (`docs/screenshots/home_new.png`)
-      and any shots the release announcement or website will reuse are retaken on the
-      current UI. (The existing `docs/screenshots/` set predates the warm-porch
-      redesign — stale for 1.0.)
-- [ ] **Website refresh prepared**: `frontporchai.app` must be updated alongside the
-      release — new screenshots, current feature descriptions, and version/download
-      links. The site is self-hosted and built from `website/` in this repo; deploy
-      details are private (kept out of the repo on purpose). Publish the refresh when
-      the release goes live, not before.
+- [ ] **Long-form notes on Rawhide**: the `docs/release-notes.md` entry for this
+      version (and the "current stable" line) lands on Rawhide **before** you build
+      the candidate. It is not a guarded file, so if it only existed on the
+      candidate the next "Rawhide wins" promotion would delete it from `main`.
+- [ ] **Screenshots are current**: `main`'s README shows
+      `docs/screenshots/home_new.png` (Rawhide's README also shows
+      `docs/screenshots/chat.png`, which reaches `main` only if `main`'s guarded
+      README is edited to add it). The images themselves are ordinary files that ride in from Rawhide, so retake them on
+      Rawhide when the UI they show has visibly changed. Use demo characters only,
+      never a real chat or user data.
+- [ ] **Website refresh prepared**: `frontporchai.app` is the `docs/` folder
+      (`docs/index.html`, `docs/CNAME`), published by the manual **Deploy GitHub
+      Pages** workflow (`pages.yml`, dispatch only). Update the page's feature text
+      and screenshots on Rawhide so they ride the promotion, then dispatch
+      `pages.yml` on `main` once the release is live, not before.
 - [ ] **APT/RPM deploy hosts are live**: Rawhide's `release.yml` publishes `.deb`/
       `.rpm` to `apt.frontporchai.app` / `rpm.frontporchai.app`. Confirm those are
       configured on the server before tagging, or `publish-apt`/`publish-rpm` fail.
@@ -92,6 +98,15 @@ git push -u origin release/promote-<…>
 gh pr create --base main --head release/promote-<…> --title "Release: promote Rawhide" --fill
 ```
 
+The PR carries every test, golden and baseline edit made on Rawhide since the last
+release, so **Guard protected paths** fails until a maintainer adds
+`approved-test-change`. Those edits were already approved on Rawhide; the label just
+says so again for `main`.
+
+If Rawhide moves while the PR is open (for example the release-notes PR merging),
+rebuild the candidate from the new Rawhide and re-apply the guarded-file commit, so
+`main` lands exactly on Rawhide's tree.
+
 Eyeball the diff — the PR against `main` should show your feature work, and
 `.github/workflows/**` should read as Rawhide's current files (e.g. the
 `frontporchai.app` APT/RPM hosts). `README.md` / `docs/main.md` should be
@@ -106,6 +121,14 @@ git push origin main
 
 git tag vX.Y.Z && git push origin vX.Y.Z     # release.yml runs from the TAG's tree (now = Rawhide's)
 ```
+
+From a Claude Code remote session, pushing a tag is refused (HTTP 403). Use the
+**Cut Release** workflow (`cut-release.yml`) instead: dispatch it with `tag`
+(strict `vX.Y.Z`), `target` (the commit `main` now points at) and `title`
+(for example `vX.Y.Z — Title`). A tag made with the workflow token does not fire
+`on: push`, so then dispatch `release.yml` with the ref set to the new tag. It
+builds every installer, publishes the release, and updates the APT, RPM and AUR
+packages.
 
 ## After a release
 
