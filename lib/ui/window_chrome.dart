@@ -21,22 +21,31 @@ import 'package:window_manager/window_manager.dart';
 /// [TitleBarStyle.hidden] or a transparent background without a replacement
 /// native title bar. Windows/Linux must NOT paint [AppColors.background] onto
 /// the native window — that makes caption buttons low-contrast and kills
-/// hover. They stay a normal decorated window with a transparent background.
+/// hover. Linux stays a normal decorated window with a transparent background.
+///
+/// Windows sets no background at all. window_manager turns any colour there,
+/// transparent included, into an undocumented DWM accent policy on the whole
+/// frame, and in Windows Light mode that has left the caption buttons white
+/// on a white title bar.
 ///
 /// [background] is the saved theme's background, so the Mac window behind
-/// the first frame matches it. [isMacOS] is a test override so Linux CI can
-/// pin both branches.
+/// the first frame matches it. [isMacOS] and [isWindows] are test overrides
+/// so Linux CI can pin every branch.
 WindowOptions mainWindowOptions({
   Size? size,
   bool? isMacOS,
+  bool? isWindows,
   Color? background,
 }) {
   final mac = isMacOS ?? Platform.isMacOS;
+  final windows = isWindows ?? Platform.isWindows;
   return WindowOptions(
     size: size ?? const Size(1280, 720),
     center: true,
     backgroundColor: mac
         ? background ?? AppColors.background
+        : windows
+        ? null
         : Colors.transparent,
     skipTaskbar: false,
     titleBarStyle: TitleBarStyle.normal,
