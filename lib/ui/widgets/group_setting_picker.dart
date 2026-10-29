@@ -18,6 +18,7 @@
 
 import 'package:flutter/material.dart';
 
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/world.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/world_chain.dart';
@@ -396,3 +397,21 @@ String? Function(String id) groupWeatherLabels(WorldRepository repo) => (id) {
     biomeJson: author.biomeJson,
   ).displayName;
 };
+
+/// Top-level world id → the members whose cards link it (or a place in
+/// it), for the picker's "Linked by" hint.
+Map<String, List<String>> worldsLinkedByMembers(
+  List<CharacterCard> members,
+  WorldRepository repo,
+) {
+  final out = <String, List<String>>{};
+  for (final m in members) {
+    for (final ref in m.worldNames) {
+      final w = repo.worldById(ref) ?? repo.worldByName(ref);
+      if (w == null) continue;
+      final names = out.putIfAbsent(topWorldOf(w, repo.worldById).id, () => []);
+      if (!names.contains(m.name)) names.add(m.name);
+    }
+  }
+  return out;
+}

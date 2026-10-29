@@ -19,8 +19,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'package:front_porch_ai/models/models.dart';
-import 'package:front_porch_ai/services/world_chain.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
@@ -75,22 +73,4 @@ class GroupSettingStep extends StatelessWidget {
       ],
     );
   }
-}
-
-/// Top-level world id → the members whose cards link it (or a place in
-/// it), for the picker's "Linked by" hint.
-Map<String, List<String>> worldsLinkedByMembers(
-  List<CharacterCard> members,
-  WorldRepository repo,
-) {
-  final out = <String, List<String>>{};
-  for (final m in members) {
-    for (final ref in m.worldNames) {
-      final w = repo.resolveWorld(ref);
-      if (w == null) continue;
-      final names = out.putIfAbsent(topWorldOf(w, repo.worldById).id, () => []);
-      if (!names.contains(m.name)) names.add(m.name);
-    }
-  }
-  return out;
 }

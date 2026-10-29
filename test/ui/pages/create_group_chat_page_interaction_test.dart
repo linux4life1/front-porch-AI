@@ -131,6 +131,9 @@ void main() {
     await tester.pumpAndSettle();
 
     // ── Steps 2-7, each landmark owned by its part file ───────────────────
+    // Added with the Setting step (one world + starting place), which now
+    // sits between Identity and Prompts.
+    await next('Where does the group meet?', 'group_setting_step');
     await next('Group System Prompt', 'steps_opening (prompts)');
     await next('Add Entry', 'steps_lore');
     await next('Day Number', 'steps_realism');
