@@ -140,8 +140,10 @@ void main() {
     // (soft gate, recovery PR 3) and v60 adds sessions.refractory_tail_
     // minutes / refractory_tail_total (warmth tail, recovery PR 4).
     // 2026-10-20: v61 adds worlds.parent_world_id (locations within
-    // worlds, slice 1), so the ladder ends at 61.
-    expect(first['_meta']!['user_version'], 61);
+    // worlds, slice 1). 2026-10-29: v62 adds groups.lore_world_ids (a
+    // group's lore-only worlds apart from its Setting), so the ladder ends
+    // at 62.
+    expect(first['_meta']!['user_version'], 62);
     expect(first['_meta']!['has_gate'], isTrue);
     for (final spec in chats) {
       final label = spec['label'] as String;
