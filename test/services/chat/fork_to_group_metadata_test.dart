@@ -289,8 +289,12 @@ void main() {
         storage.webSearchSettings.wikiUrlForChat(groupSession),
         'https://tea-rooms.example/wiki/',
       );
+      // Changed with the group Setting split: the group's settings for new
+      // chats now come from the chat's own Setting (Tea Rooms, inside
+      // Bletchfield), stored by world id instead of the card's name ref.
+      // Same world, same starting place for a later New chat.
       expect(promoteChat.activeGroup!.worldIds, [
-        'Bletchfield',
+        'town',
       ], reason: 'a later New chat in the group starts in the host\'s world');
     });
 

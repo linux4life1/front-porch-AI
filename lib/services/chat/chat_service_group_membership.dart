@@ -99,8 +99,10 @@ extension ChatServiceGroupMembership on ChatService {
       // The host's worlds become the group's template, so a later "New chat"
       // in this group starts where the 1:1 would have.
       worldIds: List<String>.of(_activeCharacter!.worldNames),
-      // v31 columns — new groups start with clean defaults.
-      // baselineRealismState remains '{}' until the caller (or UI) seeds explicit values.
+      // The host's book fired in the 1:1; it keeps firing in the group.
+      inheritCharacterLorebooks: true,
+      // Realism, chaos and the chat's own worlds are written by
+      // _saveForkTemplate once the members exist.
       baselineRealismState: '{}',
     );
     await groupRepo.save(group);
@@ -246,6 +248,10 @@ extension ChatServiceGroupMembership on ChatService {
       hostState,
     );
 
+    // Only after the forked chat has loaded: these are the settings for
+    // the group's NEW chats, and the chat above must keep the 1:1's state.
+    await _saveForkTemplate(group, groupRepo, hostState);
+
     // Run any custom entrances WITHOUT blocking the caller, so the wizard can
     // navigate to the group immediately and the entrance messages stream into
     // the now-visible chat instead of waiting behind a spinner. Entrants cut in
@@ -326,5 +332,41 @@ extension ChatServiceGroupMembership on ChatService {
     }
 
     return group;
+  }
+
+  /// Give a fork-made group honest settings for its new chats, read from
+  /// the 1:1 it came from: realism and needs as they were switched (every
+  /// member at the neutral seed, since a new chat starts fresh), chaos, and
+  /// the world the chat is in at that world's starred place. Without this
+  /// Edit Group showed realism off and no world, and a New Chat in the
+  /// group really did start that way.
+  Future<void> _saveForkTemplate(
+    GroupChat group,
+    GroupChatRepository groupRepo,
+    Map<String, dynamic> hostState,
+  ) async {
+    try {
+      if (hostState['realismOn'] as bool? ?? false) {
+        final blobs = neutralGroupRealismBlobs([
+          for (final c in _groupCharacters) _getCharacterIdFromCard(c),
+        ], needsEnabled: hostState['needsSimEnabled'] as bool? ?? false);
+        group.defaultMemberRealismState = blobs.defaultMemberJson;
+        group.baselineRealismState = blobs.baselineJson;
+      }
+      group.chaosModeEnabled = hostState['chaosModeEnabled'] as bool? ?? false;
+      group.chaosNsfwEnabled = hostState['chaosNsfwEnabled'] as bool? ?? false;
+      final worlds = groupWorldChoiceFromChat(
+        primaryId: _chatPlaceSlots.primaryId,
+        loreIds: _chatPlaceSlots.loreIds,
+        lookup: _worldRepository.worldById,
+      );
+      if (worlds != null) {
+        group.worldIds = worlds.fields.worldIds;
+        group.loreWorldIds = worlds.fields.loreWorldIds;
+      }
+      await groupRepo.save(group);
+    } catch (e) {
+      debugPrint('[ChatService] fork group settings not saved: $e');
+    }
   }
 }
