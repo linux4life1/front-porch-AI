@@ -94,7 +94,7 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
         length: _length,
         pov: _pov,
         worldId: chat.chatPrimaryWorldId,
-        worldName: chat.chatSettingName ?? '',
+        worldName: chat.chatSettingWorldName ?? '',
       );
     } else {
       final character = chat.activeCharacter;
@@ -109,7 +109,7 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
         length: _length,
         pov: _pov,
         worldId: chat.chatPrimaryWorldId,
-        worldName: chat.chatSettingName ?? '',
+        worldName: chat.chatSettingWorldName ?? '',
       );
     }
     setState(() => _creating = true);

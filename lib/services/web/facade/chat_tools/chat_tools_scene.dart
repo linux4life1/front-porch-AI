@@ -48,7 +48,10 @@ class ChatToolsScene {
   ({String? id, String name}) _worldOfChat() {
     final read = _chatWorld;
     if (read != null) return read();
-    return (id: _chat.chatPrimaryWorldId, name: _chat.chatSettingName ?? '');
+    return (
+      id: _chat.chatPrimaryWorldId,
+      name: _chat.chatSettingWorldName ?? '',
+    );
   }
 
   ChatService get _chat => _ctx.chat;

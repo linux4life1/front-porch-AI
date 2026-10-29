@@ -134,6 +134,7 @@ export function StoriesPage() {
                   <div className="s-grow">
                     <b className="s-ell" style={{ display: 'block' }}>{s.title}</b>
                     <span className="s-muted s-small" style={{ display: 'block' }}>{s.shelf.status}</span>
+                    {s.worldName && <span className="s-muted s-small s-ell" style={{ display: 'block' }} data-testid={`story-book-world-${s.id}`}>◎ {s.worldName}</span>}
                   </div>
                   <EngineChip s={s} />
                   <MenuButton entries={entries(s)} label="Story actions" />

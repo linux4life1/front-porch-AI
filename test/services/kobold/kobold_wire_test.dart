@@ -9,6 +9,7 @@ import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/io_client.dart';
 
 import 'package:front_porch_ai/services/services.dart' show KoboldWire;
 
@@ -104,5 +105,49 @@ void main() {
     await aWhile();
     expect(second.ended, isFalse, reason: 'an ended call was still held');
     second.client.close();
+  });
+
+  test('Stop from another zone cuts a call still connecting without an '
+      'uncaught error in the zone that opened it', () async {
+    // The connect never finishes on its own, so the cut lands mid-connect.
+    final client = IOClient(
+      HttpClient()
+        ..connectionFactory = (uri, proxyHost, proxyPort) {
+          final socket = Completer<Socket>();
+          return Future.value(
+            ConnectionTask.fromSocket(
+              socket.future,
+              () => socket.completeError(
+                const SocketException('Connection attempt cancelled'),
+              ),
+            ),
+          );
+        },
+    );
+    final uncaught = <Object>[];
+    final caught = Completer<Object?>();
+    runZonedGuarded(() {
+      wire.hold(client);
+      client
+          .get(Uri.parse('http://127.0.0.1:9/'))
+          .then((_) => caught.complete(null), onError: caught.complete);
+    }, (e, _) => uncaught.add(e));
+
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    wire.cut(); // Stop, from the test's own zone
+
+    final error = await caught.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => fail('Stop did not end the connecting call'),
+    );
+    expect(error, isNotNull, reason: 'the cut call must fail to its caller');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(
+      uncaught,
+      isEmpty,
+      reason:
+          'the cancelled connect escaped as uncaught in the zone that '
+          'opened the call, though that call caught it',
+    );
   });
 }
