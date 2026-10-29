@@ -31,6 +31,8 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
+import 'package:front_porch_ai/ui/pages/story_structure/structure_board_actions.dart';
+import 'package:front_porch_ai/ui/pages/story_structure/structure_scene_row.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
 
 import '../../golden/support/fakes.dart';
@@ -275,4 +277,82 @@ void main() {
       );
     });
   });
+  testWidgets('on a narrow window the Lore card puts its buttons under the '
+      'line instead of squeezing it', (tester) async {
+    await pump(tester, project());
+    await tester.binding.setSurfaceSize(const Size(400, 1400));
+    await tester.pump();
+    final line = find.text(
+      'Set in Greenhollow Estate · starts at The Conservatory',
+    );
+    final refresh = find.byKey(const ValueKey('lore-world-refresh'));
+    final detach = find.byKey(const ValueKey('lore-world-detach'));
+    expect(
+      tester.getTopLeft(refresh).dy,
+      greaterThan(tester.getBottomLeft(line).dy),
+    );
+    expect(
+      tester.getTopLeft(detach).dy,
+      greaterThan(tester.getBottomLeft(line).dy),
+    );
+    // The line keeps most of the card's width rather than a word's worth.
+    expect(tester.getSize(line).width, greaterThan(200));
+    expect(tester.takeException(), isNull);
+  });
+
+  for (final width in [400.0, 1440.0]) {
+    testWidgets('a new-place scene row shows its chip without overflowing at '
+        '${width.toInt()} px', (tester) async {
+      await tester.binding.setSurfaceSize(Size(width, 800));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      void noScene(int a, int i) {}
+      final p = project()
+        ..engineMode = StoryEngineMode.studio
+        ..scenes = {
+          1: [
+            StoryScene(
+              number: 1,
+              title: 'The gate at dusk',
+              castNames: const ['Hilde', 'Mara'],
+              location: 'the Gatehouse — dusk',
+            ),
+          ],
+        };
+      await tester.pumpWidget(
+        MaterialApp(
+          home: StudioTheme(
+            child: Scaffold(
+              body: StructureSceneRow(
+                project: p,
+                act: 1,
+                index: 0,
+                running: false,
+                actions: StructureBoardActions(
+                  onToggleAct: (_, _) {},
+                  onEditAct: (_) {},
+                  onGenerateAct: (_) {},
+                  onPlanSequence: (_) {},
+                  onOpenScene: noScene,
+                  onWriteScene: noScene,
+                  onPlanBeats: noScene,
+                  onEditScene: noScene,
+                  onInsertAfter: noScene,
+                  onRewriteScene: noScene,
+                  onDeleteScene: noScene,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      final chip = find.byKey(const ValueKey('story-scene-new-place-1-0'));
+      expect(chip, findsOneWidget);
+      final row = tester.getRect(find.byKey(const ValueKey('story-scene-1-0')));
+      final chipRect = tester.getRect(chip);
+      expect(row.contains(chipRect.topLeft), isTrue);
+      expect(row.contains(chipRect.bottomRight), isTrue);
+    });
+  }
 }

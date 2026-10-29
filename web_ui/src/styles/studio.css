@@ -291,7 +291,9 @@
 .s-scene.next, .s-scene.active { border-color: var(--studio-amber); }
 .s-scene .num { font-family: var(--studio-mono); font-size: 12px; color: var(--studio-muted); }
 .s-scene .t { display: block; max-width: 100%; padding: 0; border: 0; background: none; color: inherit; font: inherit; font-weight: 600; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.s-scene .d { color: var(--studio-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.s-scene .d { display: block; flex: 1 1 120px; min-width: 0; color: var(--studio-muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The "new place" chip sits beside the detail line, and wraps under it when the row is too narrow to show both. */
+.s-scene .d-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
 .s-scene .right { display: flex; align-items: center; gap: 10px; }
 .s-lens { width: 22px; height: 22px; border-radius: 6px; background: var(--studio-raise); display: grid; place-items: center; font-size: 12px; color: var(--studio-amber); }
 .s-tension { display: inline-flex; gap: 2px; align-items: flex-end; height: 14px; }

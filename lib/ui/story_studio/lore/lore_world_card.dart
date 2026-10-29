@@ -59,45 +59,71 @@ class LoreWorldCard extends StatelessWidget {
       key: const ValueKey('lore-world-card'),
       raised: true,
       children: [
-        Row(
-          children: [
-            Icon(Icons.public, color: StudioColors.honeyOf(context)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
+        // Matches the PWA card: under about 600 px the text keeps its own
+        // line and the two buttons wrap beneath it, instead of squeezing the
+        // text into a column a word wide.
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final text = Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  line,
+                  style: StudioType.ui(context, weight: FontWeight.w600),
+                ),
+                Text(
+                  '$copied fact${copied == 1 ? '' : 's'} from this world · '
+                  'the world is read live; its facts were copied when the '
+                  'bible was built',
+                  style: StudioType.ui(
+                    context,
+                    size: 12,
+                    color: StudioColors.mutedOf(context),
+                  ),
+                ),
+              ],
+            );
+            final buttons = [
+              StoryButton(
+                'Refresh from world',
+                key: const ValueKey('lore-world-refresh'),
+                icon: Icons.refresh,
+                onPressed: busy || gone ? null : onRefresh,
+              ),
+              StoryButton.danger(
+                'Detach',
+                key: const ValueKey('lore-world-detach'),
+                onPressed: busy ? null : onDetach,
+              ),
+            ];
+            final head = Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.public, color: StudioColors.honeyOf(context)),
+                const SizedBox(width: 10),
+                Expanded(child: text),
+              ],
+            );
+            if (constraints.maxWidth < 600) {
+              return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    line,
-                    style: StudioType.ui(context, weight: FontWeight.w600),
-                  ),
-                  Text(
-                    '$copied fact${copied == 1 ? '' : 's'} from this world · '
-                    'the world is read live; its facts were copied when the '
-                    'bible was built',
-                    style: StudioType.ui(
-                      context,
-                      size: 12,
-                      color: StudioColors.mutedOf(context),
-                    ),
-                  ),
+                  head,
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 8, runSpacing: 8, children: buttons),
                 ],
-              ),
-            ),
-            const SizedBox(width: 8),
-            StoryButton(
-              'Refresh from world',
-              key: const ValueKey('lore-world-refresh'),
-              icon: Icons.refresh,
-              onPressed: busy || gone ? null : onRefresh,
-            ),
-            const SizedBox(width: 8),
-            StoryButton.danger(
-              'Detach',
-              key: const ValueKey('lore-world-detach'),
-              onPressed: busy ? null : onDetach,
-            ),
-          ],
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: head),
+                const SizedBox(width: 8),
+                buttons[0],
+                const SizedBox(width: 8),
+                buttons[1],
+              ],
+            );
+          },
         ),
       ],
     );

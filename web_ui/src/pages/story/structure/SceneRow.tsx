@@ -58,9 +58,9 @@ export function SceneRow({ p, act, index, running, isNext, lenses, actions }: {
         {/* The row opens the scene on a tap; this button is the same action for the keyboard. */}
         <button type="button" className="t">{sc.title || 'Untitled scene'}</button>
         {detail && (
-          <div className="d">
-            {detail}
-            {sceneIsNewPlace(p, sc) && <> <Chip tone="honey">new place</Chip></>}
+          <div className="d-row">
+            <span className="d">{detail}</span>
+            {sceneIsNewPlace(p, sc) && <Chip tone="honey">new place</Chip>}
           </div>
         )}
       </div>

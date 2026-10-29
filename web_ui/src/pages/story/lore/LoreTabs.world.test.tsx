@@ -12,6 +12,7 @@ import { createElement } from 'react';
 import { afterEach, beforeEach, expect, it } from 'vitest';
 import type { StoryProject } from '../../../storyTypes';
 import { LoreTab } from './LoreTabs';
+import { SceneRow } from '../structure/SceneRow';
 
 const p = {
   world_id: 'conservatory',
@@ -49,4 +50,25 @@ it('copied entries say which world and which room; story lore and files keep the
   const rows = Array.from(container.querySelectorAll('.s-fact'));
   expect(rows[0].textContent).not.toContain('The Conservatory');
   expect(rows[2].querySelectorAll('.s-chip')).toHaveLength(0);
+});
+
+it('a new-place scene keeps its chip outside the clipped detail line, so a phone still shows it', () => {
+  const story = {
+    world_id: 'conservatory',
+    world_name: 'Greenhollow Estate',
+    engine_mode: 'studio',
+    lenses_enabled: false,
+    scenes: { '1': [{ number: 1, title: 'The gate at dusk', cast_names: ['Hilde'], location: 'the Gatehouse — dusk', place_id: '' }] },
+    beats: {},
+  } as unknown as StoryProject;
+  const noop = () => {};
+  act(() => root.render(createElement(SceneRow, {
+    p: story, act: 1, index: 0, running: false, isNext: false, lenses: [],
+    actions: { open: noop, write: noop, planBeats: noop, edit: noop, insertAfter: noop, rewrite: noop, remove: noop },
+  })));
+  const chip = Array.from(container.querySelectorAll('.s-chip')).find((c) => c.textContent === 'new place');
+  expect(chip).toBeTruthy();
+  // `.d` is the one-line ellipsised detail; a chip inside it is cut off on a narrow row.
+  expect(chip!.closest('.d')).toBeNull();
+  expect(container.querySelector('.d')?.textContent).toBe('Hilde · the Gatehouse — dusk');
 });
