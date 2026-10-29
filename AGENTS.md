@@ -10,6 +10,8 @@ The parts of CLAUDE.md that bite most often:
   files, raw colours, raw dialogs, sync I/O in UI), the `## Hand-check`
   rule on UI PRs, and the `approved-test-change` label for any edit to an
   existing test, golden, baseline or workflow.
+- **Style** — every UI element, desktop and web, follows the user-selected
+  theme in light and dark; no colour that only fits Porch.
 - **Chat contracts** — Continue is not regen, Pockets hide and never
   erase, Needs and Objectives are live gates, the clock needs a model call.
 - **Path-complete chat work** — cover Continue, regen, swipe, delete, 1:1
