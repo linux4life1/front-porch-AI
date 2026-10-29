@@ -47,11 +47,28 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   List<String> _storedWorldIds = const [];
   List<String>? _storedLoreWorldIds;
   int _legacyWorldCount = 0;
+  String? _hereLine;
 
   @override
   void initState() {
     super.initState();
     _loadFromActiveGroup();
+    _loadHere();
+  }
+
+  /// Where the open chat is, read from its stored place slots, so nobody
+  /// expects this tab to move it. Left out when the slots can't be read.
+  Future<void> _loadHere() async {
+    try {
+      final sid = widget.chatService.currentSessionId;
+      if (sid == null) return;
+      final repo = Provider.of<WorldRepository>(context, listen: false);
+      final slots = await repo.getChatWorldAttachments(sid);
+      if (!mounted) return;
+      setState(() => _hereLine = _currentChatLine(repo, slots.primaryId));
+    } catch (e) {
+      debugPrint('[GroupSettings] where this chat is unknown: $e');
+    }
   }
 
   void _loadFromActiveGroup() {
@@ -214,8 +231,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
   }
 
   /// Where the open chat is, so nobody expects this tab to move it.
-  String _currentChatLine(WorldRepository repo) {
-    final id = widget.chatService.chatPrimaryWorldId;
+  String _currentChatLine(WorldRepository repo, String? id) {
     final here = id == null ? null : repo.worldById(id);
     if (here == null) {
       return 'This chat has no world. Add one from Places in the sidebar.';
@@ -271,7 +287,7 @@ class _GroupLorebookWorldsTabState extends State<GroupLorebookWorldsTab> {
                     worlds,
                   ),
                   legacyWorldCount: _legacyWorldCount,
-                  currentChatLine: _currentChatLine(worlds),
+                  currentChatLine: _hereLine,
                 ),
                 const SizedBox(height: 24),
 
