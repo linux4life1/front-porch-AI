@@ -43,14 +43,9 @@ class GroupWizardActions {
 // ═══════════════════════════════════════════════════════════════
 
 class GroupWizardStepIndicator extends StatelessWidget {
-  const GroupWizardStepIndicator({
-    super.key,
-    required this.currentStep,
-    required this.memberCount,
-  });
+  const GroupWizardStepIndicator({super.key, required this.currentStep});
 
   final int currentStep;
-  final int memberCount;
 
   @override
   Widget build(BuildContext context) {
@@ -58,11 +53,7 @@ class GroupWizardStepIndicator extends StatelessWidget {
 
     final children = <Widget>[];
     for (int i = 0; i < labels.length; i++) {
-      final isAvailable =
-          i != GroupWizardSteps.dynamics ||
-          memberCount <= GroupWizardSteps.dynamicsMaxMembers;
-
-      children.add(_stepDot(context, i, labels[i], available: isAvailable));
+      children.add(_stepDot(context, i, labels[i]));
       if (i < labels.length - 1) {
         children.add(_stepLine(context));
       }
@@ -160,7 +151,6 @@ class GroupWizardNavButtons extends StatelessWidget {
     final effectiveNextStep = draft.effectiveNextStep(currentStep);
     final isLastStep = effectiveNextStep == null;
 
-    // Skipping Group Dynamics lands on Opening, so it is still plain "Next".
     final nextText = isLastStep ? 'Create Group' : 'Next';
 
     final canGoNext = draft.canAdvanceFromStep(currentStep);

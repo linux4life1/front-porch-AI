@@ -293,6 +293,14 @@ class GroupRealismStep extends StatelessWidget {
           ),
         ],
 
+        // Group Dynamics lives here now, so no step is ever skipped.
+        if (d.realismEnabled) ...[
+          const SizedBox(height: 32),
+          if (d.members.length <= GroupWizardSteps.dynamicsMaxMembers)
+            GroupDynamicsStep(draft: d, actions: actions, showNav: false)
+          else
+            GroupDynamicsDisabledNotice(memberCount: d.members.length),
+        ],
         GroupWizardNavButtons(
           draft: d,
           actions: actions,

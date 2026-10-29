@@ -130,21 +130,30 @@ void main() {
     await tester.enterText(find.byType(TextField).first, 'Seam Probe Ensemble');
     await tester.pumpAndSettle();
 
-    // ── Steps 2-7, each landmark owned by its part file ───────────────────
-    // Added with the Setting step (one world + starting place), which now
-    // sits between Identity and Prompts.
+    // ── Steps 2-6, each landmark owned by its part file ───────────────────
+    // Changed with the seven-step flow: Setting, then Opening (so the
+    // generator knows the place), then Realism with Group Dynamics inside
+    // it, then Prompts and Lore on one page. Dynamics and Lore no longer
+    // have steps of their own, so their landmarks share the page.
     await next('Where does the group meet?', 'group_setting_step');
-    await next('Group System Prompt', 'steps_opening (prompts)');
-    await next('Add Entry', 'steps_lore');
-    await next('Day Number', 'steps_realism');
-    // ('Group Dynamics' also sits in the ever-present step indicator, so the
-    // landmark is step-owned prose instead.)
-    await next(
-      'Pre-seed how the characters feel toward each other. These hidden '
-          'relationships influence behavior in small groups (4 or fewer members).',
-      'steps_dynamics',
-    );
     await next('Opening Scene', 'steps_opening');
+    await next('Day Number', 'steps_realism');
+    // ('Group Dynamics' also sits in the step indicator, so the landmark is
+    // step-owned prose instead.)
+    expect(
+      find.text(
+        'Pre-seed how the characters feel toward each other. These hidden '
+        'relationships influence behavior in small groups (4 or fewer members).',
+      ),
+      findsWidgets,
+      reason: 'Group Dynamics is a section of the Realism step',
+    );
+    await next('Group System Prompt', 'steps_opening (prompts)');
+    expect(
+      find.text('Add Entry'),
+      findsWidgets,
+      reason: 'the group lorebook shares the Prompts & Lore step',
+    );
     await next('Create Group & Enter Chat', 'steps_review');
 
     // The final actions must be genuinely tappable — scrolled into view and
@@ -158,58 +167,52 @@ void main() {
     );
   });
 
-  // With five or more members Group Dynamics is skipped. The dots greyed out
-  // Opening instead, Back from Review jumped to Realism past Opening, and
-  // Back from Opening landed on the "Dynamics unavailable" page Next had
-  // skipped. Every index now comes from GroupWizardSteps.
-  group('step order with Group Dynamics skipped', () {
-    const big = 5;
-    test('Next and Back both step over Dynamics, and only Dynamics', () {
+  // Changed with the seven-step flow. Phase 1 pinned that Next and Back
+  // stepped over Group Dynamics for five or more members; Dynamics is now a
+  // section of Realism, so no step is ever skipped and every dot is live.
+  group('step order', () {
+    test('Next and Back walk every step, in the artifact order', () {
+      expect(GroupWizardSteps.labels, [
+        'Members',
+        'Identity',
+        'Setting',
+        'Opening',
+        'Realism',
+        'Prompts & Lore',
+        'Review',
+      ]);
+      var step = GroupWizardSteps.members;
+      final walked = <int>[step];
+      for (
+        int? n = GroupWizardSteps.next(step);
+        n != null;
+        n = GroupWizardSteps.next(step)
+      ) {
+        walked.add(step = n);
+      }
+      expect(walked, [0, 1, 2, 3, 4, 5, 6]);
       expect(
-        GroupWizardSteps.next(GroupWizardSteps.realism, memberCount: big),
-        GroupWizardSteps.opening,
+        GroupWizardSteps.previous(GroupWizardSteps.review),
+        GroupWizardSteps.promptsLore,
       );
-      expect(
-        GroupWizardSteps.previous(GroupWizardSteps.review, memberCount: big),
-        GroupWizardSteps.opening,
-        reason: 'Back from Review skipped Opening',
-      );
-      expect(
-        GroupWizardSteps.previous(GroupWizardSteps.opening, memberCount: big),
-        GroupWizardSteps.realism,
-      );
-      expect(
-        GroupWizardSteps.previous(GroupWizardSteps.opening, memberCount: 3),
-        GroupWizardSteps.dynamics,
-      );
-      expect(
-        GroupWizardSteps.next(GroupWizardSteps.review, memberCount: 3),
-        isNull,
-      );
+      expect(GroupWizardSteps.previous(GroupWizardSteps.members), 0);
     });
 
-    testWidgets('the greyed-out dot is Group Dynamics, not Opening', (
-      tester,
-    ) async {
+    testWidgets('no dot is greyed out, however big the group', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
         const MaterialApp(
           home: Scaffold(
             body: GroupWizardStepIndicator(
-              currentStep: GroupWizardSteps.realism,
-              memberCount: big,
+              currentStep: GroupWizardSteps.members,
             ),
           ),
         ),
       );
       Color labelColor(String label) =>
           tester.widget<Text>(find.text(label)).style!.color!;
-      expect(
-        labelColor('Group Dynamics'),
-        isNot(labelColor('Opening')),
-        reason: 'with 5 members Dynamics is unavailable and Opening is not',
-      );
+      expect(labelColor('Realism'), labelColor('Review'));
       expect(labelColor('Opening'), labelColor('Review'));
     });
   });

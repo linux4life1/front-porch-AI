@@ -188,13 +188,12 @@ class GroupWizardDraft extends ChangeNotifier {
 
   bool get canLeaveMembersStep => members.length >= 2;
 
-  int? effectiveNextStep(int current) =>
-      GroupWizardSteps.next(current, memberCount: members.length);
+  int? effectiveNextStep(int current) => GroupWizardSteps.next(current);
 
   void goToStep(int step) => update(() => currentStep = step);
 
   void goToPreviousStep(int current) =>
-      goToStep(GroupWizardSteps.previous(current, memberCount: members.length));
+      goToStep(GroupWizardSteps.previous(current));
 
   void setWorldChoice(GroupWorldChoice choice) =>
       update(() => worldChoice = choice);

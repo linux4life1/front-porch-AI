@@ -19,45 +19,37 @@
 /// The Create Group wizard's steps, in order. Every step index in the
 /// wizard (dots, Next, Back, the page's switch) reads these, so inserting
 /// a step can no longer leave one of them pointing at the wrong page.
+///
+/// The Setting comes before the Opening so the generator can write the
+/// scene where chats start. Group Dynamics is a section of Realism and
+/// Prompts share a page with Lore, so every step always exists and Next
+/// and Back never skip.
 abstract final class GroupWizardSteps {
   static const members = 0;
   static const identity = 1;
   static const setting = 2;
-  static const prompts = 3;
-  static const lore = 4;
-  static const realism = 5;
+  static const opening = 3;
+  static const realism = 4;
+  static const promptsLore = 5;
+  static const review = 6;
 
-  /// Only offered to groups of [dynamicsMaxMembers] or fewer.
-  static const dynamics = 6;
-  static const opening = 7;
-  static const review = 8;
-
+  /// Groups this size or smaller get the Group Dynamics section.
   static const dynamicsMaxMembers = 4;
 
   static const labels = [
     'Members',
     'Identity',
     'Setting',
-    'Prompts',
-    'Lore',
-    'Realism',
-    'Group Dynamics',
     'Opening',
+    'Realism',
+    'Prompts & Lore',
     'Review',
   ];
 
   /// The step Next goes to from [current], or null past Review.
-  static int? next(int current, {required int memberCount}) {
-    var step = current + 1;
-    if (step == dynamics && memberCount > dynamicsMaxMembers) step++;
-    return step > review ? null : step;
-  }
+  static int? next(int current) => current >= review ? null : current + 1;
 
-  /// The step Back goes to from [current]; it skips Dynamics the way
-  /// Next does.
-  static int previous(int current, {required int memberCount}) {
-    var step = current - 1;
-    if (step == dynamics && memberCount > dynamicsMaxMembers) step--;
-    return step < members ? members : step;
-  }
+  /// The step Back goes to from [current].
+  static int previous(int current) =>
+      current <= members ? members : current - 1;
 }
