@@ -21,6 +21,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/chat/director/director.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 
 /// The messages of the chats a story is built on, as the distiller, the
@@ -36,7 +37,8 @@ class StoryChatLines {
 
   final AppDatabase _db;
 
-  /// Roster names per group id, loaded once per call to [load].
+  /// Roster names per group id, cleared at the start of every public read
+  /// so a renamed member or a failed read never outlives the call.
   final Map<String, Map<String, String>> _rosters = {};
 
   /// The sessions [project] reads. A listed session is loaded by id (a
@@ -64,18 +66,16 @@ class StoryChatLines {
   /// Every line of [session], `Name: text`, oldest first. Empty swipes and
   /// rows that fail to decode are skipped, as they always were.
   Future<List<DistillLine>> linesFor(Session session) async {
+    _rosters.clear();
     final roster = await _rosterFor(session.groupId);
     final lines = <DistillLine>[];
     for (final msg in await _db.getMessagesForSession(session.id)) {
-      final text = _textOf(msg);
-      if (text.isEmpty) continue;
-      final who = msg.isUser
-          ? msg.sender
-          : roster[msg.characterId] ?? msg.sender;
+      final line = _lineOf(msg, roster);
+      if (line == null) continue;
       lines.add((
         sessionId: session.id,
         position: msg.position,
-        text: '$who: $text',
+        text: '${line.who}: ${line.text}',
       ));
     }
     return lines;
@@ -90,6 +90,7 @@ class StoryChatLines {
     StoryProject project,
     Iterable<String> characterIds,
   ) async {
+    _rosters.clear();
     final sessions = await sessionsFor(project, characterIds);
     final lines = <DistillLine>[];
     final sessionIds = <String>[];
@@ -102,23 +103,20 @@ class StoryChatLines {
         if (!speakers.contains(name)) speakers.add(name);
       }
       for (final msg in await _db.getMessagesForSession(session.id)) {
-        final text = _textOf(msg);
-        if (text.isEmpty) continue;
-        if (msg.isUser) {
-          if (userName.isEmpty) userName = msg.sender;
-          lines.add((
-            sessionId: session.id,
-            position: msg.position,
-            text: '${msg.sender}: $text',
-          ));
-          continue;
+        final line = _lineOf(msg, roster);
+        if (line == null) continue;
+        switch (line.kind) {
+          case _LineKind.user:
+            if (userName.isEmpty) userName = line.who;
+          case _LineKind.character:
+            if (!speakers.contains(line.who)) speakers.add(line.who);
+          case _LineKind.narration:
+            break;
         }
-        final who = roster[msg.characterId] ?? msg.sender;
-        if (!speakers.contains(who)) speakers.add(who);
         lines.add((
           sessionId: session.id,
           position: msg.position,
-          text: '$who: $text',
+          text: '${line.who}: ${line.text}',
         ));
       }
     }
@@ -130,6 +128,45 @@ class StoryChatLines {
       isGroup:
           project.chatGroupId != null || sessions.any((s) => s.groupId != null),
     );
+  }
+
+  /// What one stored row contributes to the history. A narrator beat
+  /// (`/narrate`, a time-skip bridge) is scene text and stays, as
+  /// `Narration:`, but names no speaker and is not the user. A director's
+  /// note is an instruction to the cast, and a status banner is the app
+  /// talking; neither is story, so both are left out.
+  static ({_LineKind kind, String who, String text})? _lineOf(
+    Message msg,
+    Map<String, String> roster,
+  ) {
+    final text = _textOf(msg);
+    if (text.isEmpty) return null;
+    final meta = _metaOf(msg);
+    if (meta[kStatusBannerMeta] == true) return null;
+    if (msg.characterId == kDirectorCharacterId) {
+      if (meta[kDirectorNarrationMeta] != true) return null;
+      return (kind: _LineKind.narration, who: 'Narration', text: text);
+    }
+    if (msg.isUser) return (kind: _LineKind.user, who: msg.sender, text: text);
+    final member = roster[msg.characterId];
+    if (member != null) {
+      return (kind: _LineKind.character, who: member, text: text);
+    }
+    // A presence skip or any other app line the chat wrote as `System`.
+    if (msg.sender == 'System') return null;
+    return (kind: _LineKind.character, who: msg.sender, text: text);
+  }
+
+  static Map<String, dynamic> _metaOf(Message msg) {
+    final raw = msg.metadata;
+    if (raw == null || raw.isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic> ? decoded : const {};
+    } catch (e) {
+      debugPrint('[StoryPipeline] Unreadable message metadata: $e');
+      return const {};
+    }
   }
 
   Future<Map<String, String>> _rosterFor(String? groupId) async {
@@ -159,6 +196,8 @@ class StoryChatLines {
     }
   }
 }
+
+enum _LineKind { user, character, narration }
 
 /// What [StoryChatLines.load] found.
 class StoryChatHistoryLoad {

@@ -301,15 +301,25 @@ void main() {
       );
       // Dov was renamed after this line was sent: the stored sender is stale
       // and the speaker id is the truth. Ash never spoke; a guest who is on no
-      // roster keeps the stored name.
+      // roster keeps the stored name. A director's note, a /narrate beat, a
+      // time-skip bridge and the app's banners are stored the way the chat
+      // writes them: none of them is a character or the user.
+      const narration = '{"is_director_narration":true}';
+      const bridge =
+          '{"is_director_narration":true,"is_time_skip_bridge":true}';
       final lines = [
-        ('Sam', true, null, 'Who left the lamp out?'),
-        ('Mira', false, 'm-mira', 'Not me.'),
-        ('Dovid', false, 'm-dov', 'It was the wind.'),
-        ('Wren', false, 'guest-1', 'I saw nothing.'),
+        ('Director', true, '__director__', null, 'Make Mira nervous.'),
+        ('Sam', true, null, null, 'Who left the lamp out?'),
+        ('Mira', false, 'm-mira', null, 'Not me.'),
+        ('Narrator', true, '__director__', narration, 'Rain hits the glass.'),
+        ('Dovid', false, 'm-dov', null, 'It was the wind.'),
+        ('System', false, null, null, 'Ash is away and skips a turn.'),
+        ('System', false, null, '{"is_status_banner":true}', 'Backend down.'),
+        ('Narrator', true, '__director__', bridge, 'Two days pass.'),
+        ('Wren', false, 'guest-1', null, 'I saw nothing.'),
       ];
       for (var i = 0; i < lines.length; i++) {
-        final (sender, isUser, speaker, text) = lines[i];
+        final (sender, isUser, speaker, meta, text) = lines[i];
         await db.insertMessage(
           MessagesCompanion.insert(
             id: 's-crew-m$i',
@@ -319,6 +329,7 @@ void main() {
             isUser: isUser,
             characterId: Value(speaker),
             swipes: Value('["$text"]'),
+            metadata: Value(meta),
           ),
         );
       }
@@ -342,7 +353,12 @@ void main() {
       expect(prompt, contains('the user plays Sam'));
       expect(prompt, contains('Name the speaker in every event'));
       expect(prompt, isNot(contains('between a user and an AI character')));
-      expect(project.distilledTimeline, startsWith('[EVENT 1]'));
+      expect(prompt, contains('Narration: Rain hits the glass.'));
+      expect(prompt, contains('Narration: Two days pass.'));
+      expect(prompt, isNot(contains('Make Mira nervous')));
+      expect(prompt, isNot(contains('skips a turn')));
+      expect(prompt, isNot(contains('Backend down')));
+      expect(prompt, isNot(contains('plays Director')));
 
       // The canon block every stage reads carries the same cast sentence.
       final history = StoryChatHistory(

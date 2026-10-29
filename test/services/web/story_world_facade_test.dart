@@ -294,6 +294,36 @@ void main() {
         'm-ash',
         'lib-1',
       ]);
+
+      // A later save (a dashboard edit carries no role map) after Ash left
+      // the group, and again after the group is deleted: the cast is the
+      // one the story was made with, from the server's own snapshots.
+      final later = Map<String, dynamic>.of(json)..remove('character_roles');
+      await db.deleteGroupMember('m-ash');
+      expect(await guarded.save(id, later), isTrue);
+      await db.deleteGroupById('g-crew');
+      expect(await guarded.save(id, later), isTrue);
+
+      final kept = repo.getById(id)!;
+      expect(kept.chatGroupName, 'Crew');
+      expect(kept.characterCardSnapshots.map((s) => s['name']), [
+        'Mira',
+        'Dov',
+        'Ash',
+        'Wren',
+      ]);
+      expect(kept.characterCardSnapshots.map((s) => s['description']), [
+        'A keeper.',
+        'A sailor.',
+        'A cook.',
+        '',
+      ]);
+      expect(kept.characterCardSnapshots.map((s) => s['role']), [
+        'Supporting',
+        'Protagonist',
+        'Supporting',
+        'Supporting',
+      ]);
     },
   );
 

@@ -36,7 +36,15 @@ import 'package:front_porch_ai/ui/theme/app_colors.dart';
 class ChatToStoryDialog extends StatefulWidget {
   final ChatService chatService;
 
-  const ChatToStoryDialog({super.key, required this.chatService});
+  /// Opens the saved project. Defaults to the Story dashboard with its
+  /// auto-run; a test passes its own so the dashboard's services stay out.
+  final void Function(BuildContext context, StoryProject project)? openProject;
+
+  const ChatToStoryDialog({
+    super.key,
+    required this.chatService,
+    this.openProject,
+  });
 
   static Future<void> show(
     BuildContext context, {
@@ -69,6 +77,8 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
       widget.chatService.isGroupMode && widget.chatService.activeGroup != null;
 
   Future<void> _create() async {
+    // A second tap before the button rebuilds disabled must not save twice.
+    if (_creating) return;
     final chat = widget.chatService;
     final sessionId = chat.currentSessionId;
     if (sessionId == null) return;
@@ -115,7 +125,12 @@ class _ChatToStoryDialogState extends State<ChatToStoryDialog> {
     setState(() => _creating = true);
     await repo.saveProject(project);
     if (!mounted) return;
+    final open = widget.openProject ?? _openDashboard;
     Navigator.of(context).pop();
+    open(context, project);
+  }
+
+  static void _openDashboard(BuildContext context, StoryProject project) {
     Navigator.of(context).push(
       MaterialPageRoute(
         builder: (_) => StoryDashboardPage(

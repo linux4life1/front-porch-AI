@@ -1983,4 +1983,49 @@ test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
     ]);
     expect(story.character_card_snapshots[0].description).toBe('Exists only inside the web UI browser E2E.');
   });
+
+  // Chat tools → Our story in a group chat: the Lead select picks who leads,
+  // and Turn this chat into a story sends it (desktop dialog's Lead row parity).
+  test('the chat tools turn a group chat into a story led by the picked member', async ({ page, request }) => {
+    const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+    const name = `Lead Crew ${test.info().project.name}`;
+    const created = await request.post('/api/groups', { data: { name, memberIds } });
+    expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+    groupId = ((await created.json()) as { id: string }).id;
+
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await sendLine(page, 'Who takes the first watch?');
+    await waitIdle(page);
+
+    const before = new Set(
+      ((await (await request.get('/api/stories')).json()) as { id: string }[]).map((s) => s.id),
+    );
+    // The insight column on a wide window; the Stats drawer below 1024px.
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    await panel.locator('summary', { hasText: 'Our story' }).click();
+    const lead = panel.getByTestId('story-lead');
+    await expect(lead.locator('option')).toHaveText(['Porch Tester', 'Second Guest', 'You']);
+    await lead.selectOption({ label: 'Second Guest' });
+    await panel.getByTestId('story-from-chat').click();
+    await expect(panel.getByText(/^Created ".+" — open Stories to run it\.$/)).toBeVisible();
+
+    const after = (await (await request.get('/api/stories')).json()) as { id: string }[];
+    storyId = after.find((s) => !before.has(s.id))!.id;
+    const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
+      chat_group_id?: string; character_card_snapshots: Record<string, string>[];
+    };
+    expect(story.chat_group_id).toBe(groupId);
+    expect(story.character_card_snapshots.map((s) => [s.name, s.role])).toEqual([
+      ['Porch Tester', 'Supporting'],
+      ['Second Guest', 'Protagonist'],
+    ]);
+  });
 });

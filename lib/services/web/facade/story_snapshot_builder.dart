@@ -81,6 +81,24 @@ class StorySnapshotBuilder {
         snapshots.add(m.snapshot(roleFor(m.id, m.name)));
       }
 
+      // A cast member who is neither on the roster nor in the library any
+      // more (the group was deleted, the member left it, the card was
+      // removed) keeps the server's own earlier snapshot of them, so a later
+      // save never drops them. The text is the stored copy, never the
+      // client's (docs/design/stories-from-group-chats.md §1).
+      final libraryIds = {
+        for (final card in _charRepo.characters)
+          if (card.dbId != null) card.dbId!,
+      };
+      for (final snap in previous?.characterCardSnapshots ?? const []) {
+        final id = snap['id'];
+        if (id == null || !selected.contains(id)) continue;
+        if (snap['self_insert'] == 'true') continue;
+        if (libraryIds.contains(id) || members.any((m) => m.id == id)) continue;
+        if (snapshots.any((s) => s['id'] == id)) continue;
+        snapshots.add({...snap, 'role': roleFor(id, snap['name'] ?? '')});
+      }
+
       // Iterate repository order so snapshot numbering is stable across saves.
       for (final card in _charRepo.characters) {
         final id = card.dbId;
