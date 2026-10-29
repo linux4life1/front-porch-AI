@@ -1967,7 +1967,7 @@ test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
     await expect(cast.nth(1).getByRole('button', { name: 'Supporting', exact: true })).toHaveClass(/\bon\b/);
 
     // The saved story carries the group, every member's card from the group's rows, and the lead.
-    const list = (await (await request.get('/api/stories')).json()) as { id: string; title: string }[];
+    const list = ((await (await request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories;
     storyId = list.find((s) => s.title === title)!.id;
     const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
       chat_group_id?: string; chat_group_name?: string; chat_history_character_ids: string[];
@@ -2002,7 +2002,7 @@ test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
     await waitIdle(page);
 
     const before = new Set(
-      ((await (await request.get('/api/stories')).json()) as { id: string }[]).map((s) => s.id),
+      ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories.map((s) => s.id),
     );
     // The insight column on a wide window; the Stats drawer below 1024px.
     let panel = page.locator('.chat-aside');
@@ -2017,7 +2017,7 @@ test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
     await panel.getByTestId('story-from-chat').click();
     await expect(panel.getByText(/^Created ".+" — open Stories to run it\.$/)).toBeVisible();
 
-    const after = (await (await request.get('/api/stories')).json()) as { id: string }[];
+    const after = ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories;
     storyId = after.find((s) => !before.has(s.id))!.id;
     const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
       chat_group_id?: string; character_card_snapshots: Record<string, string>[];
