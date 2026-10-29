@@ -249,8 +249,9 @@ void main() {
   final kitchens = g.places.firstWhere((p) => p.name == 'The Kitchens');
   final kitchensTopics = kitchens.lorebook.entries.map((e) => e.name).toSet();
 
-  test('Studio: the bible reads the world, the planner names its places, '
-      'and the writer sees the place and its lore first', () async {
+  test('Studio: the bible reads the world, the planner prompt lists its '
+      'places and a named place resolves to its id, and the writer sees the '
+      'place and its lore first', () async {
     final h = await _harness(g.brief, _studio);
     final p = await h.repo.createProject(title: 'The Locked Library');
     p

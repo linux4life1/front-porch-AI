@@ -26,6 +26,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -37,6 +38,8 @@ import 'package:front_porch_ai/services/memory_service.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/web/facade/story_facade.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
+import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_scene.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -208,5 +211,56 @@ void main() {
     await repo.saveProject(p);
     expect(await facade.refreshWorld(id), {'ok': false, 'copied': 0});
     expect(await facade.refreshWorld('no-such-story'), isNull);
+  });
+  test('a story made from a chat set in a room names the world, not the '
+      'room, through the real chat path', () async {
+    final storage = StorageService();
+    await storage.initialized;
+    final worlds = WorldRepository(storage, db);
+    for (final w in all) {
+      await worlds.saveWorld(w);
+    }
+    final chat = ChatService(
+      KoboldService(storage),
+      UserPersonaService(db),
+      storage,
+      worlds,
+    )..setDatabase(db);
+    addTearDown(chat.dispose);
+    await db.insertCharacter(
+      CharactersCompanion.insert(
+        id: 'c-hilde',
+        name: 'Hilde',
+        imagePath: const Value('/tmp/hilde.png'),
+      ),
+    );
+    await db.insertSession(
+      SessionsCompanion.insert(
+        id: 'sess-hilde',
+        characterId: const Value('c-hilde'),
+        name: const Value('Kitchen chat'),
+      ),
+    );
+    await chat.setActiveCharacter(
+      CharacterCard(name: 'Hilde', imagePath: '/tmp/hilde.png')
+        ..dbId = 'c-hilde',
+    );
+    await chat.loadSession('sess-hilde');
+    expect(chat.currentSessionId, 'sess-hilde');
+    final kitchens = g.places.firstWhere((p) => p.name == 'The Kitchens');
+    await chat.setChatPlaceSlots(primaryId: kitchens.id);
+
+    expect(chat.chatSettingWorldName, 'Greenhollow Estate');
+    // The relay's Turn Into a Story, which shares the desktop dialog's
+    // accessor and builder.
+    final made = await ChatToolsScene(
+      ChatToolsContext(chat, storage, null),
+      storyRepo: repo,
+    ).toStory(faithful: true, length: 'Novella', pov: 'First Person');
+    final story = repo.getById(made['id'] as String)!;
+    expect(story.worldId, kitchens.id);
+    expect(story.worldName, 'Greenhollow Estate');
+    final row = (await facade.list()).firstWhere((s) => s['id'] == story.dbId);
+    expect(row['worldName'], 'Greenhollow Estate');
   });
 }

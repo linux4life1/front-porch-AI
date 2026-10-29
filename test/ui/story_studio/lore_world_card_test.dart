@@ -161,9 +161,17 @@ void main() {
   testWidgets('a double tap on Refresh from world saves once and keeps the '
       'story\'s own lore', (tester) async {
     final p = project();
-    // Pretend the author edited the world's book since the copy.
-    kitchens.lorebook.entries.first.content = 'The oven is lit at four now.';
-    await pump(tester, p);
+    // Pretend the author edited the world's book since the copy. A private
+    // copy of the library, so the edit cannot leak into later tests.
+    final edited = greenhollow();
+    edited
+            .firstWhere((w) => w.name == 'The Kitchens')
+            .lorebook
+            .entries
+            .first
+            .content =
+        'The oven is lit at four now.';
+    await pump(tester, p, worlds: FakeWorldRepository(edited));
     repo.hold();
     await doubleTapNoFrame(
       tester,
