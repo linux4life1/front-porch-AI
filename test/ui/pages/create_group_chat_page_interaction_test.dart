@@ -41,6 +41,7 @@ import 'package:provider/provider.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/create_group_chat_page.dart';
+import 'package:front_porch_ai/ui/pages/create_group_chat_page/create_group_chat_page.dart';
 
 import '../../golden/support/fakes.dart';
 import '../../golden/support/fakes_storage.dart';
@@ -101,7 +102,8 @@ void main() {
       expect(
         find.text(toLandmark),
         findsWidgets,
-        reason: 'after Next, the "$toLandmark" landmark from $part must '
+        reason:
+            'after Next, the "$toLandmark" landmark from $part must '
             'render — either the step gate wrongly blocked, or the part '
             'did not draw',
       );
@@ -118,16 +120,14 @@ void main() {
     expect(
       find.text('Current Roster (2)'),
       findsOneWidget,
-      reason: 'both taps must land in the picker (steps_cast part) and both '
+      reason:
+          'both taps must land in the picker (steps_cast part) and both '
           'members must join the roster',
     );
 
     // ── Step 1: Identity ──────────────────────────────────────────────────
     await next('Group Name', 'steps_cast (identity)');
-    await tester.enterText(
-      find.byType(TextField).first,
-      'Seam Probe Ensemble',
-    );
+    await tester.enterText(find.byType(TextField).first, 'Seam Probe Ensemble');
     await tester.pumpAndSettle();
 
     // ── Steps 2-7, each landmark owned by its part file ───────────────────
@@ -141,7 +141,7 @@ void main() {
     // landmark is step-owned prose instead.)
     await next(
       'Pre-seed how the characters feel toward each other. These hidden '
-      'relationships influence behavior in small groups (4 or fewer members).',
+          'relationships influence behavior in small groups (4 or fewer members).',
       'steps_dynamics',
     );
     await next('Opening Scene', 'steps_opening');
@@ -156,5 +156,61 @@ void main() {
       tester.getRect(find.text('Create Group & Enter Chat')).isEmpty,
       isFalse,
     );
+  });
+
+  // With five or more members Group Dynamics is skipped. The dots greyed out
+  // Opening instead, Back from Review jumped to Realism past Opening, and
+  // Back from Opening landed on the "Dynamics unavailable" page Next had
+  // skipped. Every index now comes from GroupWizardSteps.
+  group('step order with Group Dynamics skipped', () {
+    const big = 5;
+    test('Next and Back both step over Dynamics, and only Dynamics', () {
+      expect(
+        GroupWizardSteps.next(GroupWizardSteps.realism, memberCount: big),
+        GroupWizardSteps.opening,
+      );
+      expect(
+        GroupWizardSteps.previous(GroupWizardSteps.review, memberCount: big),
+        GroupWizardSteps.opening,
+        reason: 'Back from Review skipped Opening',
+      );
+      expect(
+        GroupWizardSteps.previous(GroupWizardSteps.opening, memberCount: big),
+        GroupWizardSteps.realism,
+      );
+      expect(
+        GroupWizardSteps.previous(GroupWizardSteps.opening, memberCount: 3),
+        GroupWizardSteps.dynamics,
+      );
+      expect(
+        GroupWizardSteps.next(GroupWizardSteps.review, memberCount: 3),
+        isNull,
+      );
+    });
+
+    testWidgets('the greyed-out dot is Group Dynamics, not Opening', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(1400, 200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(
+            body: GroupWizardStepIndicator(
+              currentStep: GroupWizardSteps.realism,
+              memberCount: big,
+            ),
+          ),
+        ),
+      );
+      Color labelColor(String label) =>
+          tester.widget<Text>(find.text(label)).style!.color!;
+      expect(
+        labelColor('Group Dynamics'),
+        isNot(labelColor('Opening')),
+        reason: 'with 5 members Dynamics is unavailable and Opening is not',
+      );
+      expect(labelColor('Opening'), labelColor('Review'));
+    });
   });
 }

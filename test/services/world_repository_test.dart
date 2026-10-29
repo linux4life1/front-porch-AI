@@ -16,9 +16,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/fp_world_package.dart';
+import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
+import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/world_envelopes.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
@@ -1396,6 +1398,176 @@ void main() {
         'Verdance Basin',
         'The Cindermaw',
       ]);
+    });
+  });
+
+  // Group Setting split (schema v62). A group used to link any number of
+  // worlds and the flat seed let climate pick the Setting. Now a group names
+  // one Setting and its lore-only worlds apart; a group nobody re-saved keeps
+  // the flat seed, and re-saving it unchanged must seed the same slots.
+  group('Group Setting split (lore_world_ids)', () {
+    late AppDatabase db;
+    late StorageService storage;
+    late WorldRepository repo;
+    late model.World attic; // lore-only bookshelf, no places
+    late model.World vale; // climate, starred place inside
+    late model.World mill; // vale's starred place
+    late model.World bridge; // another place in vale
+    late model.World reach; // climate, no places
+
+    setUp(() async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      storage = StorageService();
+      await storage.initialized;
+      db = AppDatabase.forTesting();
+      repo = WorldRepository(storage, db);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      attic = model.World(
+        name: 'Attic Books',
+        lorebook: Lorebook(entries: []),
+        climateEnabled: false,
+      );
+      vale = model.World(
+        name: 'Green Vale',
+        lorebook: Lorebook(entries: []),
+      );
+      reach = model.World(
+        name: 'Salt Reach',
+        lorebook: Lorebook(entries: []),
+        biomeId: 'coastal',
+      );
+      for (final w in [attic, vale, reach]) {
+        await repo.saveWorld(w);
+      }
+      mill = model.World(
+        name: 'The Mill',
+        lorebook: Lorebook(entries: []),
+        parentWorldId: vale.id,
+        climateEnabled: false,
+      );
+      bridge = model.World(
+        name: 'Old Bridge',
+        lorebook: Lorebook(entries: []),
+        parentWorldId: vale.id,
+        climateEnabled: false,
+      );
+      await repo.saveWorld(mill);
+      await repo.saveWorld(bridge);
+      await repo.setDefaultPlace(vale, mill.id);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    test('an unsplit group re-saved unchanged seeds the same slots', () async {
+      final legacy = GroupChat(
+        id: 'g-legacy',
+        name: 'Legacy',
+        worldIds: [attic.id, vale.id, reach.id],
+      );
+      await repo.applyTemplateWorldsToChat('before', legacy.worldIds);
+      final before = await repo.getChatWorldAttachments('before');
+      expect(before.primaryId, mill.id, reason: 'today: the star wins');
+      expect(before.loreIds, [attic.id, reach.id]);
+
+      final choice = groupWorldChoiceIn(legacy, repo);
+      expect(choice.settingId, vale.id);
+      expect(choice.loreIds, [attic.id, reach.id]);
+      final f = choice.fields;
+      await repo.applyTemplateWorldsToChat(
+        'after',
+        f.worldIds,
+        loreRefs: f.loreWorldIds,
+      );
+      final after = await repo.getChatWorldAttachments('after');
+      expect(after.primaryId, before.primaryId);
+      expect(after.loreIds, before.loreIds);
+    });
+
+    test(
+      'a split Setting is never moved by a lore world with a climate',
+      () async {
+        await repo.applyTemplateWorldsToChat(
+          'split',
+          [attic.id],
+          loreRefs: [reach.id],
+        );
+        final slots = await repo.getChatWorldAttachments('split');
+        expect(slots.primaryId, attic.id);
+        expect(slots.loreIds, [reach.id]);
+      },
+    );
+
+    test(
+      'a picked place starts there; the world itself starts at its star',
+      () async {
+        await repo.applyTemplateWorldsToChat('bridge', [
+          bridge.id,
+        ], loreRefs: const []);
+        expect(
+          (await repo.getChatWorldAttachments('bridge')).primaryId,
+          bridge.id,
+        );
+        await repo.applyTemplateWorldsToChat('star', [
+          vale.id,
+        ], loreRefs: const []);
+        expect((await repo.getChatWorldAttachments('star')).primaryId, mill.id);
+      },
+    );
+
+    test(
+      'an editor save that leaves the worlds alone keeps a group unsplit',
+      () {
+        final stored = [attic.id, vale.id, reach.id];
+        const asLoaded = GroupWorldChoice(settingId: 'v', loreIds: ['a']);
+        final untouched = groupWorldFieldsToSave(
+          storedWorldIds: stored,
+          storedLoreWorldIds: null,
+          chosen: const GroupWorldChoice(settingId: 'v', loreIds: ['a']),
+          asLoaded: asLoaded,
+        );
+        expect(untouched.worldIds, stored);
+        expect(untouched.loreWorldIds, isNull);
+        final changed = groupWorldFieldsToSave(
+          storedWorldIds: stored,
+          storedLoreWorldIds: null,
+          chosen: GroupWorldChoice(settingId: reach.id, loreIds: [attic.id]),
+          asLoaded: asLoaded,
+        );
+        expect(changed.worldIds, [reach.id]);
+        expect(changed.loreWorldIds, [attic.id]);
+      },
+    );
+
+    test('lore_world_ids round-trips, NULL stays NULL, and a deleted world '
+        'leaves both lists', () async {
+      final groups = GroupChatRepository(storage, db);
+      await groups.save(
+        GroupChat(
+          id: 'g-split',
+          name: 'Split',
+          worldIds: [vale.id],
+          loreWorldIds: [reach.id, attic.id],
+        ),
+      );
+      await groups.save(
+        GroupChat(id: 'g-flat', name: 'Flat', worldIds: [reach.id]),
+      );
+      await db.stripWorldRefsFromCharactersAndGroups(
+        ids: {reach.id},
+        names: const {},
+      );
+      await groups.reload();
+      expect(groups.getById('g-split')!.loreWorldIds, [attic.id]);
+      expect(groups.getById('g-split')!.worldIds, [vale.id]);
+      expect(groups.getById('g-flat')!.worldIds, isEmpty);
+      expect(
+        groups.getById('g-flat')!.loreWorldIds,
+        isNull,
+        reason: 'an unsplit group must stay unsplit',
+      );
     });
   });
 }
