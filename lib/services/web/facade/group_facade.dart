@@ -26,6 +26,8 @@ import 'package:uuid/uuid.dart';
 import 'package:front_porch_ai/database/database.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/web/facade/group_create_draft.dart';
+import 'package:front_porch_ai/services/web/facade/group_draft_opening.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -48,6 +50,9 @@ class GroupFacade {
   /// Resolves a group's Setting and lore-only worlds — null in auth-only
   /// boots, where the worlds endpoint answers empty.
   final WorldRepository? worlds;
+
+  /// The web wizard's Generate buttons; null when no model provider is wired.
+  GroupDraftOpening? opening;
 
   final GroupChatRepository _groups;
   final StorageService _storage;
@@ -187,9 +192,11 @@ class GroupFacade {
   /// turn order. Mirrors the desktop create_group_chat_page persist path: each
   /// source character is duplicated into the group's private avatars dir and a
   /// typed GroupMember row (with provenance), then the GroupChat is saved.
-  /// Realism and Needs start on with every member at the neutral seed, as
-  /// the desktop creator's defaults do; an optional `worlds` map sets where
-  /// new chats meet. Returns {id, name} or null.
+  /// The rest of the body is the web wizard's draft (GroupCreateDraft):
+  /// Identity switches, Opening, Realism with Group Dynamics, Prompts & Lore.
+  /// Without it Realism and Needs start on with every member neutral, as the
+  /// desktop creator's defaults do; `worlds` sets where new chats meet.
+  /// Returns {id, name} or null.
   Future<Map<String, dynamic>?> createGroup(Map<String, dynamic> body) async {
     final r = repo;
     final database = db;
@@ -223,10 +230,11 @@ class GroupFacade {
     );
     await avDir.create(recursive: true);
 
-    final memberIds = <String>[];
+    // Library id → the member's own id, for the draft's per-member fields.
+    final idMap = <String, String>{};
     for (final source in sources) {
       final mid = const Uuid().v4();
-      memberIds.add(mid);
+      idMap[source.dbId!] = mid;
       await r.duplicateCharacter(
         source,
         targetDirOverride: avDir.path,
@@ -275,7 +283,8 @@ class GroupFacade {
       );
     }
 
-    final realism = neutralGroupRealismBlobs(memberIds, needsEnabled: true);
+    final draft = GroupCreateDraft.fromBody(body);
+    final realism = draft.realismBlobs(idMap);
     final where =
         (_choiceFrom(body['worlds']) ?? const GroupWorldChoice()).fields;
     await _groups.save(
@@ -283,8 +292,18 @@ class GroupFacade {
         id: groupId,
         name: name,
         turnOrder: turnOrder,
-        defaultMemberRealismState: realism.defaultMemberJson,
-        baselineRealismState: realism.baselineJson,
+        autoAdvance: draft.autoAdvance,
+        directorMode: draft.directorMode,
+        scenario: draft.scenario,
+        firstMessage: draft.firstMessage,
+        alternateGreetings: draft.greetings.greetings,
+        greetingSeeds: draft.greetings.seeds,
+        systemPrompt: draft.systemPrompt,
+        characterSystemPrompts: draft.promptsFor(idMap),
+        groupLorebook: draft.lorebookJson,
+        inheritCharacterLorebooks: draft.inheritCharacterLorebooks,
+        defaultMemberRealismState: realism?.defaultMemberJson ?? '{}',
+        baselineRealismState: realism?.baselineJson ?? '{}',
         worldIds: where.worldIds,
         loreWorldIds: where.loreWorldIds,
       ),

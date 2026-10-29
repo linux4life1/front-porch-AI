@@ -2082,6 +2082,30 @@ test(
       await page.getByTestId(`group-setting-place-${ids.get('Journey Meet Bridge')}`).click();
       await expect(summary).toContainText('New chats start at Journey Meet Bridge in Journey Meet Vale.');
 
+      // Changed with the seven-step web wizard: Create moved to Review, so
+      // the journey walks Opening, Realism and Prompts & Lore on the way.
+      // ── Opening: set where the Setting step put the group ──────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByTestId('group-opening-setting')).toContainText(
+        'New chats start at Journey Meet Bridge in Journey Meet Vale.',
+      );
+      await page.getByPlaceholder('The scene opens with...').fill('The bridge sways in the rain.');
+      // ── Realism, with Group Dynamics inside for a pair ────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByText('Realism Engine for this group')).toBeVisible();
+      await expect(page.getByTestId('group-dynamics')).toBeVisible();
+      // ── Prompts & Lore on one page ─────────────────────────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByText('Group System Prompt')).toBeVisible();
+      await page.getByTestId('group-lore-add').click();
+      await page.getByLabel('Entry content').fill('The bridge was built by the first settlers.');
+      // ── Review names each step's choice ────────────────────────────────
+      await page.getByRole('button', { name: 'Next →' }).click();
+      const review = page.getByTestId('group-review');
+      await expect(review).toContainText('Journey Meet Bridge in Journey Meet Vale');
+      await expect(review).toContainText('Custom first message');
+      await expect(review).toContainText('1 lore entry');
+
       await page.getByRole('button', { name: /Create & open/ }).click();
       await expect(page.locator('.chat-view')).toBeVisible();
 

@@ -60,6 +60,7 @@ class GroupReviewStep extends StatelessWidget {
             ),
             generateWithDynamicsButton(
               context,
+              withDynamics: d.buildDynamicsContextForGeneration().isNotEmpty,
               busy: d.isGeneratingScenario,
               onPressed: () async {
                 final dynamics = d.buildDynamicsContextForGeneration();
@@ -86,6 +87,7 @@ class GroupReviewStep extends StatelessWidget {
             ),
             generateWithDynamicsButton(
               context,
+              withDynamics: d.buildDynamicsContextForGeneration().isNotEmpty,
               busy: d.isGeneratingFirst,
               onPressed: () async {
                 final dynamics = d.buildDynamicsContextForGeneration();

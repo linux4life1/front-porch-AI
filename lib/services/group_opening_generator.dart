@@ -18,7 +18,59 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/ui/widgets/relationship_scale.dart'
+    show relationshipTierName;
 import 'package:front_porch_ai/utils/utils.dart';
+
+/// The hidden inter-character dynamics for an opening, explained for the
+/// model (the -300..+300 scale, its tiers, and how to show it without saying
+/// it). [relationships] maps a member id to how it feels toward other member
+/// ids. Empty for groups too large for Group Dynamics and when no member
+/// feels anything toward another yet. Shared by the desktop
+/// wizard and the web relay, so both send the same words.
+String groupDynamicsContext(
+  List<({String id, String name})> members,
+  Map<String, Map<String, int>> relationships,
+) {
+  if (members.length > 4) return '';
+
+  final buffer = StringBuffer();
+  buffer.writeln(
+    'Hidden inter-character dynamics (these are private feelings the characters have toward each other — the player does not know about them):',
+  );
+  buffer.writeln(
+    'Scale explanation: Values range from -300 (extreme hatred/resentment) to +300 (deep soul-level bond).',
+  );
+  buffer.writeln(
+    'Rough tiers: 80+ = Soulbound / extremely devoted, 50+ = Deep Bond, 20+ = Close, 5+ = Friendly, -4 to +4 = Neutral, -5 to -19 = Uneasy, -20 to -49 = Distant, -50 to -79 = Hostile, -80 and below = Nemesis / intense personal animosity.',
+  );
+  buffer.writeln('');
+
+  var lines = 0;
+  for (final source in members) {
+    final rels = relationships[source.id] ?? const <String, int>{};
+    for (final entry in rels.entries) {
+      final target = members.where((m) => m.id == entry.key).firstOrNull;
+      if (target == null || target.id == source.id) continue;
+
+      final value = entry.value;
+      final tier = relationshipTierName(value);
+      lines++;
+      buffer.writeln(
+        '- ${source.name} feels ${tier.toLowerCase()} toward ${target.name} (score: $value on -300 to +300 scale)',
+      );
+    }
+  }
+
+  if (lines == 0) return '';
+
+  buffer.writeln('');
+  buffer.writeln(
+    'When writing the opening scene, reflect these private feelings naturally through body language, tone, subtext, and how the characters interact with each other. Do not state the scores directly.',
+  );
+
+  return buffer.toString().trim();
+}
 
 /// Scenario and first-message generation for the Create Group wizard. Returns
 /// the cleaned text (possibly empty); the page owns the busy flags, snackbars

@@ -115,6 +115,9 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       : null;
   // A member picture found to be the no-portrait placeholder asks for one
   // library refetch, through the same debounce as the character list.
+  if (llm != null) {
+    groupFacade?.opening = GroupDraftOpening(llm, characters, worlds);
+  }
   groupFacade?.onPlaceholderPortraitsFound =
       characterFacade.onPlaceholderPortraitsFound;
 

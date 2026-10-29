@@ -23,8 +23,7 @@ import 'package:flutter/widgets.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
-import 'package:front_porch_ai/ui/widgets/relationship_scale.dart'
-    show relationshipTierName;
+import 'package:front_porch_ai/services/group_opening_generator.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 import 'group_wizard_steps.dart';
@@ -377,47 +376,14 @@ class GroupWizardDraft extends ChangeNotifier {
   /// relationships (from the Group Dynamics step) to feed into AI generation.
   /// Includes guidance on the -300 to +300 scale so the model actually understands
   /// how to use the data when writing the opening scene.
-  String buildDynamicsContextForGeneration() {
-    if (members.length > 4) return '';
-
-    final buffer = StringBuffer();
-    buffer.writeln(
-      'Hidden inter-character dynamics (these are private feelings the characters have toward each other — the player does not know about them):',
-    );
-    buffer.writeln(
-      'Scale explanation: Values range from -300 (extreme hatred/resentment) to +300 (deep soul-level bond).',
-    );
-    buffer.writeln(
-      'Rough tiers: 80+ = Soulbound / extremely devoted, 50+ = Deep Bond, 20+ = Close, 5+ = Friendly, -4 to +4 = Neutral, -5 to -19 = Uneasy, -20 to -49 = Distant, -50 to -79 = Hostile, -80 and below = Nemesis / intense personal animosity.',
-    );
-    buffer.writeln('');
-
-    for (final source in members) {
-      final sourceId = stableId(source);
-      final seed = memberRealismSeeds[sourceId];
-      final rels = (seed?['relationships'] as Map?)?.cast<String, int>() ?? {};
-      if (rels.isEmpty) continue;
-
-      for (final entry in rels.entries) {
-        final target = members.firstWhere(
-          (m) => stableId(m) == entry.key,
-          orElse: () => source,
-        );
-        if (target == source) continue;
-
-        final value = entry.value;
-        final tier = relationshipTierName(value);
-        buffer.writeln(
-          '- ${source.name} feels ${tier.toLowerCase()} toward ${target.name} (score: $value on -300 to +300 scale)',
-        );
-      }
-    }
-
-    buffer.writeln('');
-    buffer.writeln(
-      'When writing the opening scene, reflect these private feelings naturally through body language, tone, subtext, and how the characters interact with each other. Do not state the scores directly.',
-    );
-
-    return buffer.toString().trim();
-  }
+  String buildDynamicsContextForGeneration() => groupDynamicsContext(
+    [for (final m in members) (id: stableId(m), name: m.name)],
+    {
+      for (final m in members)
+        stableId(m):
+            (memberRealismSeeds[stableId(m)]?['relationships'] as Map?)
+                ?.cast<String, int>() ??
+            const {},
+    },
+  );
 }

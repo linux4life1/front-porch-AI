@@ -27,11 +27,13 @@ import 'package:front_porch_ai/ui/widgets/group_alternate_greetings_editor.dart'
 
 import 'create_group_chat_page.dart';
 
-/// "Generate with Dynamics" button shared by the Opening and Review steps.
+/// The Generate button shared by the Opening and Review steps. It says
+/// "with Dynamics" only when Group Dynamics has something to send.
 Widget generateWithDynamicsButton(
   BuildContext context, {
   required bool busy,
   required Future<void> Function() onPressed,
+  bool withDynamics = true,
 }) {
   return TextButton.icon(
     onPressed: onPressed,
@@ -42,7 +44,11 @@ Widget generateWithDynamicsButton(
             child: CircularProgressIndicator(strokeWidth: 2),
           )
         : Icon(Icons.auto_awesome, color: AccentColors.amberOf(context)),
-    label: Text(busy ? 'Generating...' : 'Generate with Dynamics'),
+    label: Text(
+      busy
+          ? 'Generating...'
+          : (withDynamics ? 'Generate with Dynamics' : 'Generate'),
+    ),
   );
 }
 
@@ -148,6 +154,9 @@ class GroupOpeningStep extends StatelessWidget {
                   generateWithDynamicsButton(
                     context,
                     busy: draft.isGeneratingFirst,
+                    withDynamics: draft
+                        .buildDynamicsContextForGeneration()
+                        .isNotEmpty,
                     onPressed: () async {
                       final dynamics = draft
                           .buildDynamicsContextForGeneration();
@@ -202,6 +211,9 @@ class GroupOpeningStep extends StatelessWidget {
             generateWithDynamicsButton(
               context,
               busy: draft.isGeneratingScenario,
+              withDynamics: draft
+                  .buildDynamicsContextForGeneration()
+                  .isNotEmpty,
               onPressed: () async {
                 final dynamics = draft.buildDynamicsContextForGeneration();
                 await actions.generateScenario(dynamicsContext: dynamics);

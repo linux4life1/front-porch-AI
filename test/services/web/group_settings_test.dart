@@ -13,6 +13,10 @@ import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
 import 'package:front_porch_ai/services/web/facade/group_facade.dart';
+import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/lorebook_import.dart';
+import 'package:front_porch_ai/services/character_repository.dart';
+import 'package:front_porch_ai/utils/utils.dart';
 
 void _setupPathProviderMock() {
   const channel = MethodChannel('plugins.flutter.io/path_provider');
@@ -371,5 +375,120 @@ void main() {
         expect(greetingOverlayAt(restored.greetingSeeds, 1), isNull);
       },
     );
+  });
+
+  // Web parity for the new-group wizard: the PWA used to post only a name,
+  // members and a turn order, so a web-made group had none of the Opening,
+  // Realism, Group Dynamics or Prompts & Lore the desktop wizard sets. The
+  // relay now reads the whole draft. Proven to fail: drop GroupCreateDraft
+  // from GroupFacade.createGroup and every expectation below goes red.
+  group('GroupFacade.createGroup with the wizard draft', () {
+    late AppDatabase db;
+    late GroupChatRepository groups;
+    late GroupFacade facade;
+    late List<String> ids;
+
+    setUp(() async {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting();
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_root_').path,
+      );
+      final chars = CharacterRepository(db, storage);
+      for (final n in ['Juniper', 'Marlow']) {
+        await chars.addCharacter(
+          CharacterCard(name: n, description: 'Only in the draft test.'),
+        );
+      }
+      ids = [for (final c in chars.characters) c.dbId!];
+      groups = GroupChatRepository(storage, db);
+      facade = GroupFacade(groups, storage, chars, db);
+    });
+
+    tearDown(() => db.close());
+
+    test(
+      'every step of the draft lands on the group and its members',
+      () async {
+        final made = await facade.createGroup({
+          'name': 'Porch Regulars',
+          'memberIds': ids,
+          'autoAdvance': true,
+          'directorMode': true,
+          'scenario': 'Rain on the porch roof.',
+          'firstMessage': 'The screen door bangs.',
+          'alternateGreetings': ['A second way in.'],
+          'systemPrompt': 'Keep it cosy.',
+          'memberPrompts': {ids[0]: 'Speak in riddles.'},
+          'groupLore': [
+            {
+              'name': 'The swing',
+              'keys': ['swing'],
+              'content': 'It creaks.',
+            },
+            {'content': 'Always summer here.', 'constant': true},
+          ],
+          'inheritCharacterLorebooks': true,
+          'realism': {
+            'enabled': true,
+            'needsEnabled': false,
+            'timeOfDay': 'evening',
+            'dayCount': 3,
+            'members': {
+              ids[0]: {'affection': 70, 'trust': 60},
+            },
+            'relationships': {
+              ids[0]: {ids[1]: 120},
+            },
+          },
+        });
+        await groups.reload();
+        final g = groups.getById(made!['id'] as String)!;
+        final members = await groups.getMembersForGroup(g.id);
+        final midOf = {for (final m in members) m.originLibraryDbId: m.id};
+        expect(g.autoAdvance, isTrue);
+        expect(g.directorMode, isTrue);
+        expect(g.scenario, 'Rain on the porch roof.');
+        expect(g.firstMessage, 'The screen door bangs.');
+        expect(g.alternateGreetings, ['A second way in.']);
+        expect(g.systemPrompt, 'Keep it cosy.');
+        expect(g.characterSystemPrompts, {midOf[ids[0]]: 'Speak in riddles.'});
+        expect(g.inheritCharacterLorebooks, isTrue);
+        final lore = parseGroupLorebookJson(g.groupLorebook)!.entries;
+        expect(lore.map((e) => e.content), [
+          'It creaks.',
+          'Always summer here.',
+        ]);
+        expect(lore.last.constant, isTrue);
+
+        final seeds = parseGroupRealismSeeds(g.defaultMemberRealismState);
+        expect(seeds.keys.toSet(), midOf.values.toSet());
+        final jun = seeds[midOf[ids[0]]]!;
+        expect(jun['affection'], 70);
+        expect(jun['trust'], 60);
+        expect(jun['relationships'], {midOf[ids[1]]: 120});
+        expect(jun.containsKey('needs'), isFalse, reason: 'needs was off');
+        expect(
+          parseGroupTimeSeed(
+            g.defaultMemberRealismState,
+            g.baselineRealismState,
+          )!.timeOfDay,
+          'evening',
+        );
+      },
+    );
+
+    test('realism off stores no member seeds', () async {
+      final made = await facade.createGroup({
+        'name': 'Quiet',
+        'memberIds': ids,
+        'realism': {'enabled': false},
+      });
+      await groups.reload();
+      final g = groups.getById(made!['id'] as String)!;
+      expect(parseGroupRealismSeeds(g.defaultMemberRealismState), isEmpty);
+    });
   });
 }
