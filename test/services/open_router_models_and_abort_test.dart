@@ -18,6 +18,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/io_client.dart';
 
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/open_router_service.dart';
@@ -121,6 +122,69 @@ void main() {
         'Cancel did not reach the in-flight call — it was disarmed by the '
         'overlapping call that finished first',
       ),
+    );
+  });
+
+  test('abortGeneration from another zone cuts a call still connecting '
+      'without an uncaught error in the caller\'s zone', () async {
+    // The connect never finishes on its own, so the abort lands mid-connect:
+    // the background tool-support ping a chat switch cut at the end of a
+    // macOS E2E suite, which then failed after it had passed.
+    final service = OpenRouterService(
+      apiUrl: 'http://127.0.0.1:9/v1',
+      modelName: 'test-model',
+    );
+    service.httpClientFactory = () => IOClient(
+      HttpClient()
+        ..connectionFactory = (uri, proxyHost, proxyPort) {
+          final socket = Completer<Socket>();
+          return Future.value(
+            ConnectionTask.fromSocket(
+              socket.future,
+              () => socket.completeError(
+                const SocketException('Connection attempt cancelled'),
+              ),
+            ),
+          );
+        },
+    );
+    const params = GenerationParams(
+      prompt: 'Call the report_ping tool.',
+      maxLength: 16,
+      temperature: 0.1,
+      reasoningEnabled: false,
+      toolChoice: 'report_ping',
+    );
+
+    final uncaught = <Object>[];
+    final caught = Completer<Object?>();
+    runZonedGuarded(() {
+      service
+          .generateWithTools(params, const [
+            {
+              'type': 'function',
+              'function': {'name': 'report_ping', 'parameters': {}},
+            },
+          ])
+          .then((_) => caught.complete(null), onError: caught.complete);
+    }, (e, _) => uncaught.add(e));
+
+    // Let the call reach its connect before the abort.
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    service.abortGeneration();
+
+    final error = await caught.future.timeout(
+      const Duration(seconds: 5),
+      onTimeout: () => fail('the abort did not end the connecting call'),
+    );
+    expect(error, isNotNull, reason: 'the cut call must fail to its caller');
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    expect(
+      uncaught,
+      isEmpty,
+      reason:
+          'the cancelled connect escaped as uncaught in the zone that '
+          'opened the call, though that call caught it',
     );
   });
 }
