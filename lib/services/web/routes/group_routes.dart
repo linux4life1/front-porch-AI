@@ -39,6 +39,7 @@ class WebGroupRoutes {
     router.post('/api/groups/<id>/extract', _extract);
     router.post('/api/groups/<id>/delete', _delete);
     router.post('/api/groups/<id>/settings', _settings);
+    router.get('/api/groups/<id>/worlds', _worlds);
   }
 
   final GroupFacade _facade;
@@ -47,7 +48,15 @@ class WebGroupRoutes {
   Future<shelf.Response> _list(shelf.Request request) async =>
       JsonResponse.ok({'groups': await _facade.list()});
 
-  /// Create a group. Body: {name, memberIds:[dbId,…] (>=2), turnOrder?}.
+  /// Where a group's new chats meet: {settingId, loreIds, legacyWorldCount}.
+  shelf.Response _worlds(shelf.Request request, String id) {
+    final worlds = _facade.worldsOf(id);
+    if (worlds == null) return JsonResponse.error(404, 'Group not found');
+    return JsonResponse.ok(worlds);
+  }
+
+  /// Create a group. Body: {name, memberIds:[dbId,…] (>=2), turnOrder?,
+  /// worlds?: {settingId, loreIds}}.
   Future<shelf.Response> _create(shelf.Request request) async {
     Map<String, dynamic> body;
     try {
@@ -57,7 +66,9 @@ class WebGroupRoutes {
     }
     final result = await _facade.createGroup(body);
     if (result == null) {
-      return JsonResponse.badRequest('A group needs a name and at least 2 members');
+      return JsonResponse.badRequest(
+        'A group needs a name and at least 2 members',
+      );
     }
     return JsonResponse.ok(result);
   }

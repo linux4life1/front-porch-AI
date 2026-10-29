@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // Group-chat creation — the web mirror of the desktop create_group_chat_page
-// flow: a stepped wizard (Members → Details) where you pick ≥2 library
-// characters, name the group, choose a turn order, then Create & open. Posts to
+// flow: a stepped wizard (Members → Details → Setting) where you pick ≥2
+// library characters, name the group, choose a turn order, pick the one world
+// new chats meet in and the place they start at, then Create & open. Posts to
 // POST /api/groups (which duplicates each character into private group members,
 // matching the desktop persist) and opens the new group chat.
 
@@ -16,14 +17,25 @@ import {
   type PickerChar,
   type PickerFolder,
 } from '../components/FolderCharacterPicker';
+import { GroupSettingPicker } from '../components/groupSetting/GroupSettingPicker';
+import {
+  NO_WORLD,
+  linkedByMembers,
+  weatherLabels,
+  type WorldChoice,
+} from '../components/groupSetting/groupWorldChoice';
 import { defaultGroupName } from '../groupName';
+import type { TreeWorld } from './worlds/locations';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 
-const STEPS = ['Members', 'Details'];
+const STEPS = ['Members', 'Details', 'Setting'];
 
 export function CreateGroupChatPage() {
   const navigate = useNavigate();
-  const [chars, setChars] = useState<PickerChar[]>([]);
+  const [chars, setChars] = useState<(PickerChar & { worldNames?: string[] })[]>([]);
+  const [worlds, setWorlds] = useState<TreeWorld[]>([]);
+  const [climates, setClimates] = useState<{ id: string; displayName: string }[]>([]);
+  const [worldChoice, setWorldChoice] = useState<WorldChoice>(NO_WORLD);
   const [folders, setFolders] = useState<PickerFolder[]>([]);
   const [selected, setSelected] = useState<string[]>([]);
   const [step, setStep] = useState(0);
@@ -33,12 +45,24 @@ export function CreateGroupChatPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const { prompt, leaveWithoutAsking } = useUnsavedChanges(
-    selected.length > 0 || typedName !== null || turnOrder !== 'roundRobin',
+    selected.length > 0 ||
+      typedName !== null ||
+      turnOrder !== 'roundRobin' ||
+      worldChoice.settingId !== null ||
+      worldChoice.loreIds.length > 0,
   );
 
   useEffect(() => {
     api.get<PickerChar[]>('/api/characters?scope=allCharacters').then(setChars).catch(() => {});
     api.get<{ folders: PickerFolder[] }>('/api/folders').then((r) => setFolders(r.folders)).catch(() => {});
+    api
+      .get<{ worlds?: TreeWorld[] }>('/api/worlds')
+      .then((r) => setWorlds(Array.isArray(r?.worlds) ? r.worlds : []))
+      .catch((e) => console.warn('[create-group] worlds unavailable', e));
+    api
+      .get<{ climates?: { id: string; displayName: string }[] }>('/api/worlds/climates')
+      .then((r) => setClimates(Array.isArray(r?.climates) ? r.climates : []))
+      .catch((e) => console.warn('[create-group] climates unavailable', e));
   }, []);
 
   const toggle = (id: string) =>
@@ -62,6 +86,7 @@ export function CreateGroupChatPage() {
         name: name.trim(),
         memberIds: selected,
         turnOrder,
+        worlds: worldChoice,
       });
       leaveWithoutAsking();
       navigate('/chat?opening=1');
@@ -96,6 +121,26 @@ export function CreateGroupChatPage() {
           </div>
         )}
 
+        {step === 2 && (
+          <div className="cg-config">
+            <h3 className="cg-field-label">Where does the group meet?</h3>
+            <p className="muted small">
+              One world sets the weather and the lore. New chats start at the place you pick inside it.
+            </p>
+            <GroupSettingPicker
+              value={worldChoice}
+              onChange={setWorldChoice}
+              worlds={worlds}
+              weatherOf={weatherLabels(worlds, climates)}
+              linkedBy={linkedByMembers(selectedChars, worlds)}
+            />
+            <button className="primary cg-generate" disabled={!canCreate || busy} onClick={create}>
+              {busy ? 'Creating…' : '👥 Create & open'}
+            </button>
+            {error && <p className="error">{error}</p>}
+          </div>
+        )}
+
         {step === 1 && (
           <div className="cg-config">
             <label className="cg-field">
@@ -120,10 +165,6 @@ export function CreateGroupChatPage() {
                 {selectedChars.map((c) => <span key={c.id} className="cg-chip on">{c.name}</span>)}
               </div>
             </div>
-            <button className="primary cg-generate" disabled={!canCreate || busy} onClick={create}>
-              {busy ? 'Creating…' : '👥 Create & open'}
-            </button>
-            {error && <p className="error">{error}</p>}
           </div>
         )}
       </div>

@@ -12,6 +12,7 @@ import { useEffect, useState } from 'react';
 import { api } from '../api/client';
 import { describeActionFailure } from '../pages/chat/chatActionError';
 import { AltGreetingsEditor } from './AltGreetingsEditor';
+import { GroupWorldsSection } from './groupSetting/GroupWorldsSection';
 import { type GreetingSeed, compactGreetingPairs } from './realism/realismTypes';
 
 export interface GroupBlock {
@@ -130,6 +131,7 @@ export function GroupSettings({
             save({ alternateGreetings: paired.greetings, greetingSeeds: paired.seeds });
           }}
         />
+        <GroupWorldsSection groupId={groupId} />
         <h4 className="section-label">Per-member prompt overrides</h4>
         {group.members.map((m) => (
           <label key={m.id}>

@@ -1824,3 +1824,79 @@ test('a skip the reader is unsure of asks "Did time pass?", and the pick moves t
     await setPot(before ?? false);
   }
 });
+
+test(
+  'create a group in a world, at a place that is not the star',
+  { tag: SERIAL },
+  async ({ page }) => {
+    const request = page.request;
+    const list = async () =>
+      ((await (await request.get('/api/worlds')).json()) as {
+        worlds: { id?: string; name: string }[];
+      }).worlds;
+    const groupIds = async () =>
+      ((await (await request.get('/api/groups')).json()) as { groups: { id: string }[] }).groups.map(
+        (g) => g.id,
+      );
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey Meet '))
+        await request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+    const before = await groupIds();
+    try {
+      // ── A world with a starred place and one more ─────────────────────
+      const root = await request.post('/api/worlds', {
+        data: { name: 'Journey Meet Vale', climateEnabled: true, create: true },
+      });
+      expect(root.ok(), 'create the world').toBe(true);
+      const valeId = (await list()).find((w) => w.name === 'Journey Meet Vale')!.id!;
+      for (const name of ['Journey Meet Mill', 'Journey Meet Bridge']) {
+        const placed = await request.post('/api/worlds', {
+          data: { name, climateEnabled: false, parentWorldId: valeId, create: true },
+        });
+        expect(placed.ok(), `create ${name}`).toBe(true);
+      }
+      const ids = new Map((await list()).map((w) => [w.name, w.id!]));
+      const starred = await request.post('/api/worlds/default-place', {
+        data: { worldId: valeId, placeId: ids.get('Journey Meet Mill') },
+      });
+      expect(starred.ok(), 'star the mill').toBe(true);
+
+      // ── Members, name, then the Setting step ──────────────────────────
+      await openRoute(page, '/create-group');
+      await page.locator('.grp-card', { hasText: 'Porch Tester' }).first().click();
+      await page.locator('.grp-card', { hasText: 'Second Guest' }).first().click();
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await page.getByPlaceholder('Name this group').fill('Journey Meet Group');
+      await page.getByRole('button', { name: 'Next →' }).click();
+      await expect(page.getByText('Where does the group meet?')).toBeVisible();
+
+      await page.getByTestId(`group-setting-world-${valeId}`).click();
+      const summary = page.getByTestId('group-setting-summary');
+      await expect(summary).toContainText('New chats start at Journey Meet Mill in Journey Meet Vale.');
+      await page.getByTestId(`group-setting-place-${ids.get('Journey Meet Bridge')}`).click();
+      await expect(summary).toContainText('New chats start at Journey Meet Bridge in Journey Meet Vale.');
+
+      await page.getByRole('button', { name: /Create & open/ }).click();
+      await expect(page.locator('.chat-view')).toBeVisible();
+
+      // ── The group stored the place itself, so new chats start there ───
+      const made = (await groupIds()).filter((id) => !before.includes(id));
+      expect(made, 'exactly one group was made').toHaveLength(1);
+      const worlds = (await (await request.get(`/api/groups/${made[0]}/worlds`)).json()) as {
+        settingId: string | null;
+        loreIds: string[];
+      };
+      expect(worlds.settingId).toBe(ids.get('Journey Meet Bridge'));
+      expect(worlds.loreIds).toEqual([]);
+    } finally {
+      for (const id of await groupIds()) {
+        if (!before.includes(id)) await request.post(`/api/groups/${id}/delete`);
+      }
+      for (const w of await list()) {
+        if (w.name.startsWith('Journey Meet '))
+          await request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+      }
+    }
+  },
+);
