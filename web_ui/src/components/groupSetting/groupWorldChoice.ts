@@ -96,8 +96,8 @@ export function settingSummary(
   return out;
 }
 
-/** The climate names a slot brings, for display: [climates] is the
- *  /api/worlds/climates list. A custom climate shows as "Custom weather". */
+/** The climate names a slot brings, for display: the relay's climateName,
+ *  else the name from [climates] (/api/worlds/climates). */
 export function weatherLabels(
   worlds: TreeWorld[],
   climates: { id: string; displayName: string }[],
@@ -107,6 +107,7 @@ export function weatherLabels(
   return (id) => {
     const author = climateAuthor(id, byId);
     if (!author) return null;
+    if (author.climateName) return author.climateName;
     const biome = author.biomeId ?? 'temperate';
     return names.get(biome) ?? 'Custom weather';
   };

@@ -70,3 +70,4 @@
   background: var(--card, var(--surface)); color: var(--muted);
 }
 .gs-banner strong { display: block; color: var(--text); margin-bottom: 4px; }
+.gs-title-lg { margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--text); }

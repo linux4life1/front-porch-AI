@@ -123,7 +123,7 @@ export function CreateGroupChatPage() {
 
         {step === 2 && (
           <div className="cg-config">
-            <h3 className="cg-field-label">Where does the group meet?</h3>
+            <h3 className="gs-title-lg">Where does the group meet?</h3>
             <p className="muted small">
               One world sets the weather and the lore. New chats start at the place you pick inside it.
             </p>
