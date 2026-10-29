@@ -194,7 +194,11 @@ class GroupOpeningStep extends StatelessWidget {
           decoration: const InputDecoration(hintText: 'The group is...'),
         ),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 6),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.opening,
+        ),
       ],
     );
   }
@@ -326,7 +330,11 @@ class GroupPromptsStep extends StatelessWidget {
         if (draft.members.isEmpty)
           const Text('Add members first to configure per-character prompts.'),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 2),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.prompts,
+        ),
       ],
     );
   }

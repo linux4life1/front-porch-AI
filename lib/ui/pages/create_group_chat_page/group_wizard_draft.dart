@@ -21,10 +21,13 @@ import 'dart:convert';
 import 'package:flutter/widgets.dart';
 
 import 'package:front_porch_ai/models/models.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 import 'package:front_porch_ai/ui/widgets/relationship_scale.dart'
     show relationshipTierName;
 import 'package:front_porch_ai/utils/utils.dart';
+
+import 'group_wizard_steps.dart';
 
 /// Everything the Create Group wizard edits: roster, prompts, lore, realism
 /// seeds, and the current step. The page rebuilds on every
@@ -60,7 +63,8 @@ class GroupWizardDraft extends ChangeNotifier {
     },
     characterVoices,
     [for (final e in groupLoreEntries) e.toJson()],
-    worldIds,
+    worldChoice.settingId,
+    worldChoice.loreIds,
     inheritCharacterLorebooks,
     realismEnabled,
     memberRealismSeeds,
@@ -74,15 +78,8 @@ class GroupWizardDraft extends ChangeNotifier {
     globalStoryStartTime,
   ], toEncodable: (o) => o.toString());
 
-  int currentStep = 0;
-  // 0 = Members
-  // 1 = Identity
-  // 2 = Opening
-  // 3 = Prompts
-  // 4 = Lore
-  // 5 = Realism
-  // 6 = Group Dynamics (only for groups of 4 or fewer)
-  // 7 = Review
+  /// One of [GroupWizardSteps].
+  int currentStep = GroupWizardSteps.members;
 
   // ── Core State ─────────────────────────────────────────────────────
   final List<CharacterCard> members = [];
@@ -121,7 +118,9 @@ class GroupWizardDraft extends ChangeNotifier {
 
   // Lore & Worlds
   final List<LorebookEntry> groupLoreEntries = [];
-  final List<String> worldIds = [];
+
+  /// Where new chats meet: one Setting and any lore-only worlds.
+  GroupWorldChoice worldChoice = const GroupWorldChoice();
   bool inheritCharacterLorebooks = false;
 
   // Realism / Chaos / Needs (group level + per-member seeds)
@@ -189,35 +188,20 @@ class GroupWizardDraft extends ChangeNotifier {
 
   bool get canLeaveMembersStep => members.length >= 2;
 
-  int? effectiveNextStep(int current) {
-    int next = current + 1;
-
-    // Skip Group Dynamics (now step 5) if group is too large
-    if (next == 5 && members.length > 4) {
-      next = 6; // jump to Opening
-    }
-
-    if (next > 7) return null; // beyond Review
-    return next;
-  }
+  int? effectiveNextStep(int current) =>
+      GroupWizardSteps.next(current, memberCount: members.length);
 
   void goToStep(int step) => update(() => currentStep = step);
 
-  void goToPreviousStep(int current) {
-    int prev = current - 1;
+  void goToPreviousStep(int current) =>
+      goToStep(GroupWizardSteps.previous(current, memberCount: members.length));
 
-    // If we are coming back from Review and skipped Dynamics, go to Realism instead
-    if (current == 7 && members.length > 4) {
-      prev = 4; // Realism
-    }
-
-    if (prev < 0) prev = 0;
-    goToStep(prev);
-  }
+  void setWorldChoice(GroupWorldChoice choice) =>
+      update(() => worldChoice = choice);
 
   bool canAdvanceFromStep(int step) {
-    if (step == 0) return canLeaveMembersStep;
-    if (step == 6) {
+    if (step == GroupWizardSteps.members) return canLeaveMembersStep;
+    if (step == GroupWizardSteps.opening) {
       return members.length >= 2 && nameController.text.trim().isNotEmpty;
     }
     return true;
@@ -386,16 +370,6 @@ class GroupWizardDraft extends ChangeNotifier {
 
   void deleteLoreEntry(int index) {
     update(() => groupLoreEntries.removeAt(index));
-  }
-
-  void toggleWorld(String worldId) {
-    update(() {
-      if (worldIds.contains(worldId)) {
-        worldIds.remove(worldId);
-      } else {
-        worldIds.add(worldId);
-      }
-    });
   }
 
   // ── GENERATION CONTEXT ─────────────────────────────────────────────

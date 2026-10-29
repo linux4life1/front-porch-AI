@@ -136,7 +136,11 @@ class GroupDynamicsStep extends StatelessWidget {
           ),
         ),
 
-        GroupWizardNavButtons(draft: draft, actions: actions, currentStep: 5),
+        GroupWizardNavButtons(
+          draft: draft,
+          actions: actions,
+          currentStep: GroupWizardSteps.dynamics,
+        ),
       ],
     );
   }

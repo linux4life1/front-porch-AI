@@ -17,7 +17,9 @@
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
+import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
@@ -36,6 +38,7 @@ class GroupReviewStep extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final d = draft;
+    final worlds = Provider.of<WorldRepository>(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -132,7 +135,27 @@ class GroupReviewStep extends StatelessWidget {
               ),
               const SizedBox(height: 12),
               Text(
-                '${d.members.length} members • ${d.groupLoreEntries.length} lore entries • ${d.worldIds.length} worlds',
+                '${d.members.length} members • ${d.groupLoreEntries.length} lore entries',
+              ),
+              const SizedBox(height: 8),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(
+                    child: Text(
+                      groupSettingSummary(
+                        d.worldChoice,
+                        worlds.worldById,
+                        groupWeatherLabels(worlds),
+                      ),
+                      key: const ValueKey('group-review-setting'),
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => d.goToStep(GroupWizardSteps.setting),
+                    child: const Text('Change'),
+                  ),
+                ],
               ),
               if (d.chaosModeEnabled)
                 Text(
