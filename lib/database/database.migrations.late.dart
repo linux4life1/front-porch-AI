@@ -379,6 +379,21 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 62) {
+      // v61→v62: a group's lore-only worlds for new chats, apart from its
+      // Setting in world_ids. NULL for every existing row is right — it
+      // means "never split", and those groups keep seeding new chats the
+      // way they always have. Additive, so a downgrade to v61 keeps reading
+      // groups; the column is ignored.
+      try {
+        await customStatement(
+          'ALTER TABLE groups ADD COLUMN lore_world_ids TEXT',
+        );
+        debugPrint('[DB] v62: added groups.lore_world_ids');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

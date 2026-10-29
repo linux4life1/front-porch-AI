@@ -65,6 +65,10 @@ class GroupCard {
   /// resolve worlds by name. Empty when unknown.
   final List<String> worldNames;
 
+  /// The group's lore-only worlds (see GroupChat.loreWorldIds). Null on a
+  /// card from a group that was never split, and on every older card.
+  final List<String>? loreWorldIds;
+
   /// Whether member character lorebooks should be inherited.
   final bool inheritCharacterLorebooks;
 
@@ -108,6 +112,7 @@ class GroupCard {
     this.groupLorebook,
     List<String>? worldIds,
     List<String>? worldNames,
+    this.loreWorldIds,
     this.inheritCharacterLorebooks = false,
     this.chaosModeEnabled = false,
     this.chaosNsfwEnabled = false,
@@ -143,6 +148,9 @@ class GroupCard {
     // Dual-ref for older importers that still bind by name (Living Worlds).
     if (worldNames.isNotEmpty) {
       result['world_names'] = worldNames;
+    }
+    if (loreWorldIds != null) {
+      result['lore_world_ids'] = loreWorldIds;
     }
     result['inherit_character_lorebooks'] = inheritCharacterLorebooks;
 
@@ -234,6 +242,10 @@ class GroupCard {
     final worldNames = list(
       json['world_names'],
     ).map((e) => e.toString()).toList();
+    final rawLore = json['lore_world_ids'];
+    final loreWorldIds = rawLore is List
+        ? rawLore.map((e) => e.toString()).toList()
+        : null;
 
     return GroupCard(
       name: str(json['name'], 'Group'),
@@ -249,6 +261,7 @@ class GroupCard {
       groupLorebook: json['group_lorebook']?.toString(),
       worldIds: worldIds,
       worldNames: worldNames,
+      loreWorldIds: loreWorldIds,
       inheritCharacterLorebooks: flag(
         json['inherit_character_lorebooks'],
         false,

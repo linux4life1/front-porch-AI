@@ -456,14 +456,18 @@ class WorldRepository extends ChangeNotifier {
   /// onto a new chat (session). Refs may be UUIDs or names; unresolved refs
   /// are dropped with a debug note. A world with a starred place starts the
   /// chat there; a fork passes [startAtStar] false to stay where it was.
+  /// [loreRefs] non-null means a split group template: [templateWorldIds]
+  /// is its Setting and [loreRefs] its Lore slots.
   Future<void> applyTemplateWorldsToChat(
     String chatId,
     List<String> templateWorldIds, {
     bool startAtStar = true,
+    List<String>? loreRefs,
   }) => _attachments.applyTemplate(
     chatId,
     templateWorldIds,
     startAtStar: startAtStar,
+    loreRefs: loreRefs,
   );
 
   Future<void> setChatBiome({

@@ -332,6 +332,9 @@ class Groups extends Table {
   TextColumn get worldIds => text().withDefault(
     const Constant('[]'),
   )(); // JSON array of world IDs for scoping
+  // v62: lore-only worlds for new chats (JSON array). NULL = the group was
+  // never split, so world_ids is seeded the legacy way.
+  TextColumn get loreWorldIds => text().nullable()();
   // New groups do not inherit member lorebooks unless the user turns it on.
   // Libraries created before this keep their own SQL default (the ladder's
   // ADD COLUMN); every app write sets the value explicitly.
