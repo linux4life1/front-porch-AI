@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import 'package:flutter/material.dart';
+import 'package:front_porch_ai/ui/dialogs/group_settings/group_settings_support.dart';
 import 'package:front_porch_ai/ui/theme/theme.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/dialogs/group_settings/realism_needs_tab/realism_needs_tab.dart';
@@ -70,6 +71,7 @@ class _GroupRealismNeedsTabState extends State<GroupRealismNeedsTab> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const GroupThisChatNote(),
             // Header
             Row(
               children: [
