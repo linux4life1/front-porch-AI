@@ -105,14 +105,11 @@ class StructureSceneRow extends StatelessWidget {
                       style: StudioType.ui(context, weight: FontWeight.w600),
                     ),
                     if (detail.isNotEmpty)
-                      Text(
-                        detail,
-                        overflow: TextOverflow.ellipsis,
-                        style: StudioType.ui(
-                          context,
-                          size: 12,
-                          color: StudioColors.mutedOf(context),
-                        ),
+                      _SceneDetail(
+                        detail: detail,
+                        newPlaceKey: storySceneIsNewPlace(p, sc)
+                            ? ValueKey('story-scene-new-place-$a-$i')
+                            : null,
                       ),
                   ],
                 ),
@@ -183,4 +180,60 @@ bool isFirstUnfinishedScene(StoryProject p, int a, int i) {
     }
   }
   return false;
+}
+
+/// The scene's cast, place and value line, with the "new place" chip beside
+/// it while the row is wide enough and on its own line beneath it when not,
+/// so a phone-width window neither overflows nor hides the chip (the PWA's
+/// `.s-scene .d-row` wraps the same way).
+class _SceneDetail extends StatelessWidget {
+  const _SceneDetail({required this.detail, required this.newPlaceKey});
+
+  final String detail;
+
+  /// Null when the scene's place is known: no chip.
+  final Key? newPlaceKey;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = Text(
+      detail,
+      overflow: TextOverflow.ellipsis,
+      style: StudioType.ui(
+        context,
+        size: 12,
+        color: StudioColors.mutedOf(context),
+      ),
+    );
+    final key = newPlaceKey;
+    if (key == null) return text;
+    final chip = StoryChip('new place', key: key, tone: 'honey');
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 210) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              text,
+              const SizedBox(height: 4),
+              // At phone width the row's right-hand chips leave this column
+              // narrower than the chip itself; scale it down to fit.
+              FittedBox(
+                fit: BoxFit.scaleDown,
+                alignment: Alignment.centerLeft,
+                child: chip,
+              ),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Flexible(child: text),
+            const SizedBox(width: 6),
+            chip,
+          ],
+        );
+      },
+    );
+  }
 }

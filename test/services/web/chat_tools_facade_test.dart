@@ -9,8 +9,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
 import 'package:front_porch_ai/models/character_card.dart';
+import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/services/chat/objective_rewards.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/story_repository.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools_facade.dart';
 
 import '../../golden/support/fakes.dart';
@@ -148,4 +150,118 @@ void main() {
       expect(await facade.clearObjective('missing'), isFalse);
     });
   });
+
+  // Stories from group chats (docs/design/stories-from-group-chats.md §5):
+  // the relay's to-story accepts a group chat and makes the roster the
+  // cast, led by the member the body names, set in the chat's world.
+  group('ChatToolsFacade.toStory from a group chat', () {
+    late AppDatabase db;
+    late StorageService storage;
+    late StoryRepository stories;
+
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      db = AppDatabase.forTesting(sameIsolate: true);
+      storage = StorageService();
+      stories = StoryRepository(db);
+    });
+    tearDown(() => db.close());
+
+    ChatToolsFacade facadeFor(FakeChatService chat) => ChatToolsFacade(
+      chat,
+      storage,
+      null,
+      storyRepo: stories,
+      personas: FakeUserPersonaService(),
+      chatWorld: () => (id: 'kitchens', name: 'Greenhollow Estate'),
+    );
+
+    test(
+      'three members become a three-member cast with the named lead',
+      () async {
+        final r = await facadeFor(_GroupChat()).toStory(
+          faithful: true,
+          length: 'Novella',
+          pov: 'First Person',
+          lead: 'm-dov',
+        );
+        expect(r['error'], isNull, reason: '$r');
+        final saved = stories.getById(r['id'] as String)!;
+        expect(saved.title, r['title']);
+        expect(saved.chatGroupId, 'g-crew');
+        expect(saved.chatGroupName, 'The Crew');
+        expect(saved.chatHistorySessionIds, ['s-crew']);
+        expect(saved.chatHistoryCharacterIds, ['m-mira', 'm-dov', 'm-ash']);
+        expect(saved.characterCardSnapshots.map((s) => s['name']), [
+          'Mira',
+          'Dov',
+          'Ash',
+        ]);
+        expect(saved.characterCardSnapshots.map((s) => s['role']), [
+          'Supporting',
+          'Protagonist',
+          'Supporting',
+        ]);
+        expect(saved.characterCardSnapshots[1]['personality'], 'Dry.');
+        expect(saved.includeUserPersona, isTrue);
+        expect(saved.worldId, 'kitchens');
+        expect(saved.worldName, 'Greenhollow Estate');
+        expect(saved.concept, contains('between Mira, Dov & Ash'));
+      },
+    );
+
+    test(
+      'no lead named: the first member leads; the persona may lead too',
+      () async {
+        final first = await facadeFor(
+          _GroupChat(),
+        ).toStory(faithful: false, length: 'Short story', pov: 'First Person');
+        final p = stories.getById(first['id'] as String)!;
+        expect(p.characterCardSnapshots.first['role'], 'Protagonist');
+        expect(p.characterCardSnapshots[1]['role'], 'Supporting');
+
+        final you = await facadeFor(_GroupChat()).toStory(
+          faithful: false,
+          length: 'Short story',
+          pov: 'First Person',
+          lead: 'persona',
+        );
+        final q = stories.getById(you['id'] as String)!;
+        expect(q.characterCardSnapshots.map((s) => s['role']).toSet(), {
+          'Supporting',
+        });
+        expect(q.userPersonaRole, 'Protagonist');
+      },
+    );
+
+    test('a 1:1 chat still makes a one-character story', () async {
+      final r = await facadeFor(
+        FakeChatService(activeCharacter: CharacterCard(name: 'Vera')),
+      ).toStory(faithful: true, length: 'Novella', pov: 'First Person');
+      final p = stories.getById(r['id'] as String)!;
+      expect(p.chatGroupId, isNull);
+      expect(p.characterCardSnapshots.single['name'], 'Vera');
+      expect(p.worldId, 'kitchens');
+    });
+  });
+}
+
+/// A group chat of three, as the chat service holds it: the roster's cards
+/// carry the member ids as their dbId.
+class _GroupChat extends FakeChatService {
+  @override
+  bool get isGroupMode => true;
+
+  @override
+  GroupChat? get activeGroup => GroupChat(id: 'g-crew', name: 'The Crew');
+
+  @override
+  List<CharacterCard> get groupCharacters => [
+    CharacterCard(dbId: 'm-mira', name: 'Mira', description: 'A keeper.'),
+    CharacterCard(dbId: 'm-dov', name: 'Dov', personality: 'Dry.'),
+    CharacterCard(dbId: 'm-ash', name: 'Ash'),
+  ];
+
+  @override
+  String? get currentSessionId => 's-crew';
 }

@@ -24,6 +24,7 @@ class WorldPlaceRow extends StatelessWidget {
     required this.onEdit,
     required this.onMove,
     required this.onDelete,
+    this.onWriteStory,
     this.insideName,
     this.starred = false,
     this.onStar,
@@ -40,6 +41,10 @@ class WorldPlaceRow extends StatelessWidget {
   final VoidCallback onEdit;
   final VoidCallback onMove;
   final VoidCallback onDelete;
+
+  /// Porch Stories: open New Story starting at this place. No menu item
+  /// without it.
+  final VoidCallback? onWriteStory;
 
   /// Shown as an "inside X" tag where the tree is not on screen (the
   /// model-made list).
@@ -207,6 +212,8 @@ class WorldPlaceRow extends StatelessWidget {
         switch (action) {
           case 'edit':
             onEdit();
+          case 'story':
+            onWriteStory?.call();
           case 'move':
             onMove();
           case 'delete':
@@ -221,6 +228,15 @@ class WorldPlaceRow extends StatelessWidget {
             style: TextStyle(color: AppColors.textPrimary(context)),
           ),
         ),
+        if (onWriteStory != null)
+          PopupMenuItem(
+            value: 'story',
+            key: Key('place-write-story-${place.id}'),
+            child: Text(
+              'Write a story here',
+              style: TextStyle(color: AppColors.textPrimary(context)),
+            ),
+          ),
         PopupMenuItem(
           value: 'move',
           child: Text(

@@ -18,6 +18,7 @@
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/story/prompts/studio_context.dart';
+import 'package:front_porch_ai/services/story/story_world_context.dart';
 
 /// Studio bible stages: world foundation, character interviews, story arc.
 ///
@@ -44,10 +45,12 @@ abstract final class StudioBiblePrompts {
     StoryProject p, {
     String cards = '',
     String canon = '',
+    String world = '',
     String? previous,
     String? feedback,
   }) {
     final rules = [
+      if (world.isNotEmpty) ...StoryWorldContext.foundationRules,
       'Describe the ordinary world in equilibrium: place, era, rules, and the '
           'social and economic reality people live in. It must be internally '
           'consistent, whether it is a fantasy realm or a suburban kitchen.',
@@ -92,6 +95,7 @@ abstract final class StudioBiblePrompts {
         rules.map((r) => '- $r').join('\n'),
       ),
       StudioContext.block('concept', p.concept),
+      world,
       StudioContext.preferences(p),
       StudioContext.block('required_cast', cards),
       StudioContext.block('canon_events', canon),

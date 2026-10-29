@@ -147,10 +147,10 @@ class ChatManagementMenu extends StatelessWidget {
               ],
             ),
           ),
-          // Living Time §4: chat → novella. 1:1 only for now
-          // (multi-protagonist novelization is a future effort).
-          if (chatService.activeCharacter != null &&
-              chatService.activeGroup == null)
+          // Living Time §4: chat → novella, from a 1:1 or a group
+          // (docs/design/stories-from-group-chats.md).
+          if (chatService.activeCharacter != null ||
+              chatService.activeGroup != null)
             const PopupMenuItem(
               value: 'to_story',
               child: Row(

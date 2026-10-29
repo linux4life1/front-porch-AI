@@ -23,6 +23,7 @@ import { SetupRail } from './story/setup/SetupRail';
 import { ShapeStep } from './story/setup/ShapeStep';
 import { useLaneLabels } from './story/setup/useLaneLabels';
 import { loadCharacters, loadPersonaName } from './story/setup/useSetupData';
+import { loadWorldSummary, pickFromSummary } from './story/setup/worldPick';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import '../styles/studio.css';
 
@@ -35,6 +36,8 @@ export function StorySetupPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const fromChat = (location.state as { fromChat?: ChatSource } | null)?.fromChat;
+  // "Write a story here" from the Worlds page: the place the story starts at.
+  const fromWorld = (location.state as { fromWorld?: string } | null)?.fromWorld;
   const narrow = useNarrow();
 
   const [loaded, setLoaded] = useState(false);
@@ -82,6 +85,13 @@ export function StorySetupPage() {
           setReached(done ? STEPS.length - 1 : start);
         }
         if (fromChat) next = adoptChat(next, fromChat, persona);
+        if (fromWorld && !existing) {
+          try {
+            const s = await loadWorldSummary({ place: fromWorld });
+            if (s.ok) next = { ...next, world: pickFromSummary(s) };
+          } catch { /* the card stays empty */ }
+          if (!live) return;
+        }
         setChars(characters);
         setPersonaName(persona);
         setDraft(next);
@@ -93,7 +103,7 @@ export function StorySetupPage() {
       }
     })();
     return () => { live = false; };
-  }, [routeId, fromChat]);
+  }, [routeId, fromChat, fromWorld]);
 
   // Phones get a fifth "Ready?" screen in place of the rail.
   const stepCount = STEPS.length + (narrow ? 1 : 0);

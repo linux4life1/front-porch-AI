@@ -56,6 +56,11 @@ export function EngineStep({ draft, set, laneLabels }: {
               onChange={quick ? undefined : (on) => set({ ...draft, lensesEnabled: on })} />
           </div>
         </div>
+        {draft.world?.briefLine && (
+          <div data-testid="story-engine-world">
+            <Note>{draft.world.briefLine}. The brief goes to the bible and the planner; the searchable facts reach the writer scene by scene.</Note>
+          </div>
+        )}
       </div>
 
       <div className="s-card">

@@ -43,7 +43,16 @@ class StoryPipelineStudioBible {
       final cards = StoryContext.characterCards(project);
 
       if (!resume || project.cast.isEmpty) {
-        await _foundation(project, canon: canon, cards: cards);
+        // The world's book is copied in before the model writes a word, so
+        // the foundation appends to it instead of inventing the world again.
+        final world = _ctx.worldFor(project);
+        StoryWorldContext.copyLore(project, world);
+        await _foundation(
+          project,
+          canon: canon,
+          cards: cards,
+          world: StoryWorldContext.settingWorld(world),
+        );
       }
 
       final leads = project.cast
@@ -107,6 +116,7 @@ class StoryPipelineStudioBible {
     StoryProject project, {
     required String canon,
     required String cards,
+    String world = '',
   }) async {
     final foundation = await _agent.run(
       project,
@@ -118,6 +128,7 @@ class StoryPipelineStudioBible {
         project,
         cards: cards,
         canon: canon,
+        world: world,
         previous: previous,
         feedback: feedback,
       ),

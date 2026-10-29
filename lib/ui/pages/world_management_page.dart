@@ -243,6 +243,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
             ),
       onNewInside: () => _showWorldDialog(context, repo, presetParentId: w.id),
       onEdit: () => _showWorldDialog(context, repo, world: w),
+      onWriteStory: () => writeStoryHere(context, repo, w),
       onExport: () => exportFpWorldFlow(context, repo, w),
       onDelete: () => _confirmDelete(context, repo, w),
     );
@@ -310,6 +311,7 @@ class _WorldManagementPageState extends State<WorldManagementPage>
       selected: _selected.contains(p.id),
       onSelected: (on) => _select(p.id, on),
       onEdit: () => _showWorldDialog(context, repo, world: p),
+      onWriteStory: () => writeStoryHere(context, repo, p),
       onMove: () =>
           movePlacesInto(context, repo, {p.id}, () => setState(() {})),
       onDelete: () => _confirmDelete(context, repo, p),

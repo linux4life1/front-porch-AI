@@ -65,6 +65,7 @@ class StoryPipelineService extends ChangeNotifier {
     StoryStudioStore? store,
     StoryLanes? lanes,
     EmbeddingService? embeddings,
+    StoryWorldBrief Function(String worldId)? worldBrief,
   }) : store = store ?? StoryStudioStore() {
     _ctx = StoryPipelineContext(
       repository: repository,
@@ -74,6 +75,7 @@ class StoryPipelineService extends ChangeNotifier {
       lanes: lanes,
       loreIndex: StoryLoreIndex(embeddings),
       notify: notifyListeners,
+      worldBrief: worldBrief,
     );
     _run = StoryPipelineRunner(_ctx);
     repository.onDelete = this.store.deleteProject;
@@ -101,8 +103,25 @@ class StoryPipelineService extends ChangeNotifier {
   /// user never wrote anything are left out: a greeting alone is no story.
   Future<List<StoryChatSourceRow>> chatSources() => _run.history.chatSources();
 
+  /// A group's roster as story cast, cards included, for a story that
+  /// starts from one of its chats (docs/design/stories-from-group-chats.md).
+  /// [groupsDir] resolves each member's avatar file.
+  Future<List<StoryChatMember>> groupRoster(
+    String groupId, {
+    String? groupsDir,
+  }) => _run.history.groupRoster(groupId, groupsDir: groupsDir);
+
   /// Called when a run ends: put the chat model back.
   Future<void> restoreLaneHosts() => _run.llm.restoreLaneHosts();
+
+  /// The world a story set at [placeId] reads, live from the library; the
+  /// relay serves its summary to the PWA (docs/design/stories-in-worlds.md).
+  StoryWorldBrief worldBriefFor(String placeId) => _ctx.briefFor(placeId);
+
+  /// A chat's Setting place, for a story made from that chat; null when the
+  /// chat has none.
+  Future<String?> chatSettingId(String sessionId) async =>
+      (await _ctx.db.getChatWorldAttachments(sessionId)).primaryId;
 
   // ── Pipeline operations (guarded; see StoryPipelineRunner) ──────────
 

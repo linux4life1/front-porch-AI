@@ -16,6 +16,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
+import 'package:front_porch_ai/models/models.dart';
+
 /// Below this many messages a chat is flagged as short in the "Start from a
 /// chat" picker: it can still be picked, but there is little for a story to
 /// be built on.
@@ -50,7 +52,74 @@ String? chatLengthWarning(int messages, String length) {
             'A shorter length stays closer to the chat.';
 }
 
-/// One 1:1 chat a story can start from.
+/// One member of the group a story starts from: the card the story
+/// snapshots, keyed by the member id the chat's messages carry as their
+/// speaker (docs/design/stories-from-group-chats.md §1).
+class StoryChatMember {
+  const StoryChatMember({
+    required this.id,
+    required this.name,
+    this.description = '',
+    this.personality = '',
+    this.scenario = '',
+    this.firstMessage = '',
+    this.systemPrompt = '',
+    this.imagePath = '',
+  });
+
+  factory StoryChatMember.fromGroupMember(
+    GroupMember m, {
+    String imagePath = '',
+  }) => StoryChatMember(
+    id: m.id,
+    name: m.name,
+    description: m.description,
+    personality: m.personality,
+    scenario: m.scenario,
+    firstMessage: m.firstMessage,
+    systemPrompt: m.systemPrompt,
+    imagePath: imagePath,
+  );
+
+  final String id;
+  final String name;
+  final String description;
+  final String personality;
+  final String scenario;
+  final String firstMessage;
+  final String systemPrompt;
+
+  /// The member's avatar file in the group's private folder; '' when the
+  /// row came over the wire or the member has none.
+  final String imagePath;
+
+  /// The snapshot the pipeline reads, in the shape of a library card's.
+  Map<String, String> snapshot(String role) => {
+    'id': id,
+    'name': name,
+    'description': description,
+    'personality': personality,
+    'scenario': scenario,
+    'first_message': firstMessage,
+    'system_prompt': systemPrompt,
+    'role': role,
+  };
+
+  /// The wire row: who, not the card text (the relay snapshots that).
+  Map<String, dynamic> toJson() => {'id': id, 'name': name};
+}
+
+/// "Mira", "Mira & Dov", "Mira, Dov & Ash".
+String joinCastNames(Iterable<String> names) {
+  final list = names.toList();
+  if (list.isEmpty) return '';
+  if (list.length == 1) return list.single;
+  return '${list.sublist(0, list.length - 1).join(', ')} & ${list.last}';
+}
+
+/// One chat a story can start from: a 1:1 chat, or a group chat with its
+/// roster (then [characterName] is the group's name and [characterId] its
+/// first member's id, the default lead).
 class StoryChatSourceRow {
   const StoryChatSourceRow({
     required this.characterId,
@@ -60,6 +129,8 @@ class StoryChatSourceRow {
     required this.summary,
     required this.createdAt,
     required this.messageCount,
+    this.groupId,
+    this.members = const [],
   });
 
   final String characterId;
@@ -70,7 +141,17 @@ class StoryChatSourceRow {
   final DateTime createdAt;
   final int messageCount;
 
+  /// The group a group chat belongs to; null for a 1:1 chat.
+  final String? groupId;
+
+  /// The group's roster, names only; empty for a 1:1 chat.
+  final List<StoryChatMember> members;
+
+  bool get isGroup => groupId != null;
   bool get isShort => messageCount < kShortChatMessages;
+
+  /// The roster as one line, for the row under the group's name.
+  String get memberLine => joinCastNames(members.map((m) => m.name));
 
   Map<String, dynamic> toJson() => {
     'character_id': characterId,
@@ -80,10 +161,14 @@ class StoryChatSourceRow {
     'date': createdAt.toIso8601String(),
     'message_count': messageCount,
     'short': isShort,
+    if (groupId != null) 'group_id': groupId,
+    if (groupId != null) 'group_name': characterName,
+    if (groupId != null) 'members': [for (final m in members) m.toJson()],
   };
 }
 
-/// [rows] whose character or chat name contains every word of [query].
+/// [rows] whose character, group, member or chat name contains every word
+/// of [query].
 List<StoryChatSourceRow> filterChatSources(
   List<StoryChatSourceRow> rows,
   String query,
@@ -92,7 +177,22 @@ List<StoryChatSourceRow> filterChatSources(
     ..removeWhere((w) => w.isEmpty);
   if (words.isEmpty) return rows;
   return rows.where((r) {
-    final hay = '${r.characterName} ${r.sessionName}'.toLowerCase();
+    final hay = '${r.characterName} ${r.sessionName} ${r.memberLine}'
+        .toLowerCase();
     return words.every(hay.contains);
   }).toList();
 }
+
+/// A roster member as the chat service holds it (a [CharacterCard] whose
+/// `dbId` is the group member id) as story cast. The card's image path is
+/// the member's avatar file.
+StoryChatMember storyMemberFromCard(CharacterCard card) => StoryChatMember(
+  id: card.dbId ?? card.name,
+  name: card.name,
+  description: card.description,
+  personality: card.personality,
+  scenario: card.scenario,
+  firstMessage: card.firstMessage,
+  systemPrompt: card.systemPrompt,
+  imagePath: card.imagePath ?? '',
+);

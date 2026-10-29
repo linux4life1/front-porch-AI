@@ -18,7 +18,9 @@
 
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/chat/chat.dart';
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/story/faithful_mode.dart';
+import 'package:front_porch_ai/services/story/story_chat_sources.dart';
 import 'package:front_porch_ai/services/web/facade/chat_tools/chat_tools_context.dart';
 
 /// The story clock and the scene it describes — set date/time, nudge,
@@ -28,14 +30,29 @@ class ChatToolsScene {
     this._ctx, {
     StoryRepository? storyRepo,
     UserPersonaService? personas,
+    ChatWorldRead? chatWorld,
   }) : _storyRepo = storyRepo,
-       _personas = personas;
+       _personas = personas,
+       _chatWorld = chatWorld;
 
   final ChatToolsContext _ctx;
 
   /// Living Time §4 story-from-chat deps. Optional; the endpoint 400s without.
   final StoryRepository? _storyRepo;
   final UserPersonaService? _personas;
+
+  /// The chat's Setting for a story made from it. Defaults to the chat's own
+  /// slot accessors; a test double of the chat supplies its own read.
+  final ChatWorldRead? _chatWorld;
+
+  ({String? id, String name}) _worldOfChat() {
+    final read = _chatWorld;
+    if (read != null) return read();
+    return (
+      id: _chat.chatPrimaryWorldId,
+      name: _chat.chatSettingWorldName ?? '',
+    );
+  }
 
   ChatService get _chat => _ctx.chat;
   void _notify() => _ctx.notify();
@@ -121,31 +138,68 @@ class ChatToolsScene {
   }
 
   /// Living Time §4: create the pre-configured "this chat as a story"
-  /// project — same shared builder as the desktop dialog (faithful_mode.dart)
-  /// so the entries cannot drift. Returns {id,title} or an {error}.
+  /// project — same shared builders as the desktop dialog (faithful_mode.dart)
+  /// so the entries cannot drift. A group chat gives its whole roster, led
+  /// by [lead] (a member id, `persona`, or null for the first member;
+  /// docs/design/stories-from-group-chats.md §1). Returns {id,title} or an
+  /// {error}.
   Future<Map<String, dynamic>> toStory({
     required bool faithful,
     required String length,
     required String pov,
+    String? lead,
   }) async {
     final repo = _storyRepo;
-    final character = _chat.activeCharacter;
     final sessionId = _chat.currentSessionId;
     if (repo == null) return {'error': 'stories unavailable'};
-    if (character == null || sessionId == null || _chat.isGroupMode) {
-      return {'error': '1:1 chat with a character required'};
+    final userName = _personas?.persona.name ?? 'User';
+    final world = _worldOfChat();
+    final StoryProject project;
+    final group = _chat.activeGroup;
+    if (_chat.isGroupMode && group != null) {
+      final members = [
+        for (final c in _chat.groupCharacters)
+          if (c.dbId != null) storyMemberFromCard(c),
+      ];
+      if (sessionId == null || members.isEmpty) {
+        return {'error': 'a chat with a character or a group required'};
+      }
+      project = buildGroupStoryProject(
+        sessionId: sessionId,
+        groupId: group.id,
+        groupName: group.name,
+        members: members,
+        leadId: lead,
+        userName: userName,
+        recap: _chat.summary,
+        faithful: faithful,
+        length: length,
+        pov: pov,
+        worldId: world.id,
+        worldName: world.name,
+      );
+    } else {
+      final character = _chat.activeCharacter;
+      if (character == null || sessionId == null) {
+        return {'error': 'a chat with a character or a group required'};
+      }
+      project = buildChatStoryProject(
+        sessionId: sessionId,
+        character: character,
+        characterId: character.dbId ?? character.name,
+        userName: userName,
+        recap: _chat.summary,
+        faithful: faithful,
+        length: length,
+        pov: pov,
+        worldId: world.id,
+        worldName: world.name,
+      );
     }
-    final project = buildChatStoryProject(
-      sessionId: sessionId,
-      character: character,
-      characterId: character.dbId ?? character.name,
-      userName: _personas?.persona.name ?? 'User',
-      recap: _chat.summary,
-      faithful: faithful,
-      length: length,
-      pov: pov,
-    );
     await repo.saveProject(project);
     return {'id': project.dbId, 'title': project.title};
   }
 }
+
+/// The chat's Setting place id and name, for a story made from the chat.
+typedef ChatWorldRead = ({String? id, String name}) Function();

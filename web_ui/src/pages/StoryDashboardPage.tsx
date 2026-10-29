@@ -13,6 +13,7 @@ import { BibleCard } from './story/overview/BibleCard';
 import { CastCard, ChatCard, EngineCard, SoFarCard } from './story/overview/SideCards';
 import { UpNextCard } from './story/overview/UpNextCard';
 import { upNextFor, type UpNextAction } from './story/overview/upNext';
+import { useStoryWorld, worldLine } from './story/setup/worldPick';
 import { StudioLoading, StudioShell, studioPath } from './story/StudioShell';
 import { lensNameFor, useLenses } from './story/structure/LensParts';
 import { useConfirm } from './story/useConfirm';
@@ -23,6 +24,7 @@ export function StoryDashboardPage() {
   const { project: p, status, error, run, stop, save } = useStory(id);
   const lenses = useLenses();
   const { ask, dialog } = useConfirm();
+  const world = useStoryWorld(p?.world_id);
   // Building the bible first distills the chat; the second stage waits here until the first has finished.
   const queued = useRef<string | null>(null);
 
@@ -39,6 +41,7 @@ export function StoryDashboardPage() {
 
   const running = status?.running ?? false;
   const up = upNextFor(p, running, status?.status ?? '', (lens) => lensNameFor(p, lenses, lens));
+  const setIn = worldLine(p, world.summary, world.gone);
 
   const buildBible = () => {
     const distillFirst = p.use_chat_history && p.chat_history_character_ids.length > 0 && !p.distilled_timeline;
@@ -65,6 +68,7 @@ export function StoryDashboardPage() {
   return (
     <StudioShell id={id} project={p} section="overview" status={status} error={error} onStop={stop}>
       <div className="s-col" style={{ gap: 12 }} data-testid="studio-overview">
+        {setIn && <div className="s-muted s-body" data-testid="studio-overview-world">◎ {setIn}</div>}
         <UpNextCard up={up} running={running} onAction={act[up.action]}
           onAutopilot={() => ask(autopilotCopy(p), () => { void run('autopilot'); })} />
         <div className="s-over-cols">

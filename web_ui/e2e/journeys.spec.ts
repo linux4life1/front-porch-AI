@@ -1825,6 +1825,211 @@ test('a skip the reader is unsure of asks "Did time pass?", and the pick moves t
   }
 });
 
+// Stories set in Worlds (docs/design/stories-in-worlds.md §5): the Idea step
+// picks a world from the library, the card and the rail name it, and the pick
+// is saved with the draft on Next, so the shelf row and the project carry it.
+test('New Story can be set in a world: the Idea card names it and Next saves it', async ({ page }) => {
+  type Row = { id?: string; name: string };
+  const list = async () => ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+  const cleanup = async () => {
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey World')) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+    const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories ?? [];
+    for (const s of stories) if (s.title === 'World Journey') await page.request.post(`/api/stories/${s.id}/delete`);
+  };
+  await cleanup();
+  const create = (data: Record<string, unknown>) => page.request.post('/api/worlds', { data: { ...data, create: true } });
+  expect((await create({ name: 'Journey World Town', description: 'A town of honey stone.', climateEnabled: true })).ok()).toBe(true);
+  const townId = (await list()).find((w) => w.name === 'Journey World Town')!.id!;
+  expect((await create({ name: 'Journey World Tea Rooms', description: 'Steam and gossip.', climateEnabled: false, parentWorldId: townId })).ok()).toBe(true);
+  try {
+    await openRoute(page, '/stories/new');
+    await page.getByTestId('story-choose-world').click();
+    const picker = page.getByTestId('story-world-picker');
+    await expect(picker).toContainText('Journey World Tea Rooms');
+    await picker.getByTestId(`story-world-row-${townId}`).click();
+    await expect(page.getByTestId('story-world-name')).toHaveText('Journey World Town');
+    await expect(page.getByTestId('story-world-detail')).toContainText('1 place');
+    // The rail is a wide-screen thing (the phone sums up on a later "Ready?" page), so the card is the check.
+
+    await page.getByTestId('story-title').fill('World Journey');
+    await page.getByTestId('story-concept').fill('Tea, gossip and a locked door in the town.');
+    await page.getByTestId('story-setup-next').click();
+    await expect(page.getByTestId('story-setup-step')).toHaveText('Cast');
+
+    // Next saved the draft: the project carries the world, and the shelf row names it.
+    const stories = ((await (await page.request.get('/api/stories')).json()) as { stories: { id: string; title: string; worldName?: string }[] }).stories;
+    const saved = stories.find((s) => s.title === 'World Journey');
+    expect(saved?.worldName).toBe('Journey World Town');
+    const project = (await (await page.request.get(`/api/stories/${saved!.id}`)).json()) as { world_id?: string; world_name?: string };
+    expect(project.world_name).toBe('Journey World Town');
+    expect(project.world_id).toBeTruthy();
+    const summary = (await (await page.request.get(`/api/stories/world?place=${encodeURIComponent(project.world_id!)}`)).json()) as { ok: boolean; worldName: string };
+    expect(summary).toMatchObject({ ok: true, worldName: 'Journey World Town' });
+
+    // The shelf names the world on the wide book and on the phone row alike.
+    await openRoute(page, '/stories');
+    await expect(page.getByTestId(`story-book-world-${saved!.id}`)).toContainText('Journey World Town');
+  } finally {
+    await cleanup();
+  }
+});
+
+// "Write a story here" on the Worlds page (docs/design/stories-in-worlds.md §3.4):
+// the world card opens New Story with that world already on the Idea card.
+test('Write a story here on a world card opens New Story set in that world', async ({ page }) => {
+  type Row = { id?: string; name: string };
+  const list = async () => ((await (await page.request.get('/api/worlds')).json()) as { worlds: Row[] }).worlds;
+  const cleanup = async () => {
+    for (const w of await list()) {
+      if (w.name.startsWith('Journey Here')) await page.request.post(`/api/worlds/${encodeURIComponent(w.name)}/delete`);
+    }
+  };
+  await cleanup();
+  const made = await page.request.post('/api/worlds', { data: { name: 'Journey Here Harbour', description: 'Salt and rope.', climateEnabled: true, create: true } });
+  expect(made.ok()).toBe(true);
+  const id = (await list()).find((w) => w.name === 'Journey Here Harbour')!.id!;
+  try {
+    await openRoute(page, '/worlds');
+    await page.getByTestId(`world-write-story-${id}`).click();
+    await expect(page).toHaveURL(/\/stories\/new$/);
+    await expect(page.getByTestId('story-world-name')).toHaveText('Journey Here Harbour');
+    await expect(page.getByTestId('story-world-detail')).toContainText('the world at large');
+  } finally {
+    await cleanup();
+  }
+});
+
+// Stories from group chats (docs/design/stories-from-group-chats.md §5): a
+// group chat the user wrote in is offered by New Story's Choose a chat…, and
+// picking it casts the whole roster with the first member as the lead.
+test.describe.serial('Stories from group chats', { tag: SERIAL }, () => {
+  let groupId = '';
+  let storyId = '';
+  test.afterEach(async ({ request }) => {
+    if (storyId) {
+      const gone = await request.post(`/api/stories/${storyId}/delete`);
+      expect(gone.ok(), `removing the story this spec made: ${gone.status()}`).toBe(true);
+      storyId = '';
+    }
+    if (groupId) {
+      const gone = await request.post(`/api/groups/${groupId}/delete`);
+      expect(gone.ok(), `removing the group this spec made: ${gone.status()}`).toBe(true);
+      groupId = '';
+    }
+  });
+
+  test('a story starts from a group chat with its roster as the cast', async ({ page, request }) => {
+    const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+    const name = `Story Crew ${test.info().project.name}`;
+    const created = await request.post('/api/groups', { data: { name, memberIds } });
+    expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+    groupId = ((await created.json()) as { id: string }).id;
+
+    // A chat the user never wrote in is no story: open the group and say one thing.
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await sendLine(page, 'Who left the porch light on?');
+    await waitIdle(page);
+
+    await openRoute(page, '/stories');
+    await page.getByTestId('story-new').click();
+    await expect(page).toHaveURL(/\/stories\/new$/);
+    const title = `Crew Story ${test.info().project.name}`;
+    await page.getByTestId('story-title').fill(title);
+    await page.getByTestId('story-choose-chat').click();
+    const picker = page.getByTestId('story-chat-picker');
+    // Search finds the group by a member's name; the row names the group and its roster.
+    await picker.getByTestId('story-chat-search').fill('second guest');
+    const row = picker.locator('button[data-testid^="story-chat-"]', { hasText: name }).first();
+    await expect(row).toContainText('Porch Tester & Second Guest');
+    await expect(row).toContainText('group');
+    await row.click();
+    await expect(picker).toHaveCount(0);
+
+    // The Idea card shows the group, its roster, and the seeded concept.
+    await expect(page.getByTestId('story-chat-name')).toHaveText(name);
+    await expect(page.getByTestId('story-chat-detail')).toContainText('Porch Tester & Second Guest');
+    await expect(page.getByTestId('story-concept')).toHaveValue(/between Porch Tester & Second Guest and /);
+
+    await page.getByTestId('story-setup-next').click();
+    await expect(page.getByTestId('story-setup-step')).toHaveText('Cast');
+    const cast = page.locator('[data-testid^="story-cast-"]');
+    await expect(cast).toHaveCount(2);
+    await expect(cast.first()).toContainText('Porch Tester');
+    await expect(cast.first()).toContainText('From the group chat');
+    await expect(cast.first().getByRole('button', { name: 'Protagonist', exact: true })).toHaveClass(/\bon\b/);
+    await expect(cast.nth(1)).toContainText('Second Guest');
+    await expect(cast.nth(1).getByRole('button', { name: 'Supporting', exact: true })).toHaveClass(/\bon\b/);
+
+    // The saved story carries the group, every member's card from the group's rows, and the lead.
+    const list = ((await (await request.get('/api/stories')).json()) as { stories: { id: string; title: string }[] }).stories;
+    storyId = list.find((s) => s.title === title)!.id;
+    const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
+      chat_group_id?: string; chat_group_name?: string; chat_history_character_ids: string[];
+      chat_history_session_ids?: string[]; character_card_snapshots: Record<string, string>[];
+    };
+    expect(story.chat_group_id).toBe(groupId);
+    expect(story.chat_group_name).toBe(name);
+    expect(story.chat_history_character_ids).toHaveLength(2);
+    expect(story.chat_history_session_ids).toHaveLength(1);
+    expect(story.character_card_snapshots.map((s) => [s.name, s.role])).toEqual([
+      ['Porch Tester', 'Protagonist'],
+      ['Second Guest', 'Supporting'],
+    ]);
+    expect(story.character_card_snapshots[0].description).toBe('Exists only inside the web UI browser E2E.');
+  });
+
+  // Chat tools → Our story in a group chat: the Lead select picks who leads,
+  // and Turn this chat into a story sends it (desktop dialog's Lead row parity).
+  test('the chat tools turn a group chat into a story led by the picked member', async ({ page, request }) => {
+    const chars = (await (await request.get('/api/characters')).json()) as { id: string; name: string }[];
+    const memberIds = ['Porch Tester', 'Second Guest'].map((n) => chars.find((c) => c.name === n)!.id);
+    const name = `Lead Crew ${test.info().project.name}`;
+    const created = await request.post('/api/groups', { data: { name, memberIds } });
+    expect(created.ok(), `create group: ${created.status()}`).toBe(true);
+    groupId = ((await created.json()) as { id: string }).id;
+
+    await openRoute(page, '/');
+    await page.locator('.lib-card.group-card', { hasText: name }).locator('.lib-open').click();
+    await expect(page.locator('.chat-view')).toBeVisible();
+    await waitIdle(page);
+    await sendLine(page, 'Who takes the first watch?');
+    await waitIdle(page);
+
+    const before = new Set(
+      ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories.map((s) => s.id),
+    );
+    // The insight column on a wide window; the Stats drawer below 1024px.
+    let panel = page.locator('.chat-aside');
+    if ((page.viewportSize()?.width ?? 0) < 1024) {
+      await page.locator('.stats-btn').first().click();
+      panel = page.locator('.stats-drawer');
+    }
+    await panel.locator('summary', { hasText: 'Our story' }).click();
+    const lead = panel.getByTestId('story-lead');
+    await expect(lead.locator('option')).toHaveText(['Porch Tester', 'Second Guest', 'You']);
+    await lead.selectOption({ label: 'Second Guest' });
+    await panel.getByTestId('story-from-chat').click();
+    await expect(panel.getByText(/^Created ".+" — open Stories to run it\.$/)).toBeVisible();
+
+    const after = ((await (await request.get('/api/stories')).json()) as { stories: { id: string }[] }).stories;
+    storyId = after.find((s) => !before.has(s.id))!.id;
+    const story = (await (await request.get(`/api/stories/${storyId}`)).json()) as {
+      chat_group_id?: string; character_card_snapshots: Record<string, string>[];
+    };
+    expect(story.chat_group_id).toBe(groupId);
+    expect(story.character_card_snapshots.map((s) => [s.name, s.role])).toEqual([
+      ['Porch Tester', 'Supporting'],
+      ['Second Guest', 'Protagonist'],
+    ]);
+  });
+});
+
 test(
   'create a group in a world, at a place that is not the star',
   { tag: SERIAL },

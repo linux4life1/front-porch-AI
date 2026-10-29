@@ -18,6 +18,7 @@
 
 import 'package:flutter/foundation.dart';
 import 'package:front_porch_ai/database/database.dart' hide StoryProject;
+import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
 import 'package:front_porch_ai/services/story/story.dart';
 import 'package:front_porch_ai/services/story_pipeline/story_pipeline.dart';
@@ -35,7 +36,24 @@ class StoryPipelineContext {
     required this.lanes,
     required this.loreIndex,
     required VoidCallback notify,
-  }) : _notify = notify;
+    StoryWorldBrief Function(String worldId)? worldBrief,
+  }) : _notify = notify,
+       _worldBrief = worldBrief ?? _noWorld;
+
+  static StoryWorldBrief _noWorld(String _) =>
+      StoryWorldBrief(chain: const [], places: const []);
+
+  final StoryWorldBrief Function(String worldId) _worldBrief;
+
+  /// The Living World a story is set in, read live from the library; an
+  /// empty brief when the story has none or its world was deleted
+  /// (docs/design/stories-in-worlds.md §3.1).
+  StoryWorldBrief worldFor(StoryProject project) =>
+      briefFor(project.worldId ?? '');
+
+  /// The brief for a place id straight from the library; empty for ''.
+  StoryWorldBrief briefFor(String worldId) =>
+      worldId.isEmpty ? _noWorld('') : _worldBrief(worldId);
 
   final StoryRepository repository;
   final LLMService llmService;

@@ -21,6 +21,7 @@ import 'package:front_porch_ai/services/story/prompts/studio_bible_prompts.dart'
 import 'package:front_porch_ai/services/story/prompts/studio_context.dart';
 import 'package:front_porch_ai/services/story/story_lenses.dart';
 import 'package:front_porch_ai/services/story/story_pacing.dart';
+import 'package:front_porch_ai/services/story/story_world_context.dart';
 
 /// Studio structure stages: acts, the eight sequences, and the scenes of one
 /// sequence. Staging and theory adapted from EllipsisProse (Apache-2.0, see
@@ -196,12 +197,14 @@ PASS when the breakdown is sound; note small suggestions without failing. FAIL o
     required int act,
     required int firstScene,
     String canon = '',
+    String places = '',
     String? previous,
     String? feedback,
   }) {
     final pacing = StoryPacing.forTarget(p.targetWords);
     final budget = pacing.scenesFor(sequence.number);
     final rules = [
+      if (places.isNotEmpty) ...StoryWorldContext.sceneRules(p),
       'Write ${budget.min} to ${budget.max} scenes. Together they form a small '
           'story: something starts it, pressure builds, it turns, and there '
           'is fallout.',
@@ -248,6 +251,7 @@ PASS when the breakdown is sound; note small suggestions without failing. FAIL o
       StudioContext.block('scene_rules', rules.map((r) => '- $r').join('\n')),
       StudioContext.style(p),
       StudioContext.storyInfo(p),
+      places,
       StudioContext.threads(p),
       StudioContext.cast(p),
       StudioContext.arcs(p),
@@ -271,6 +275,7 @@ PASS when the breakdown is sound; note small suggestions without failing. FAIL o
       <pov_character>Full name</pov_character>
       <characters_present><character>Full name</character></characters_present>
       <threads_advanced><thread>T1</thread></threads_advanced>
+      ${places.isEmpty ? '' : '<place>The exact name of a place from <places>${p.faithfulMode ? '' : ', or "${StoryWorldContext.newPrefix} Name" for a new place inside the world'}.</place>'}
       <setting>Place, time of day, and the layout and objects that matter.</setting>
       ${p.lensesEnabled ? '<narrative_lens>LENS_ID</narrative_lens>' : ''}
       <scene_objective>What this scene is for.</scene_objective>

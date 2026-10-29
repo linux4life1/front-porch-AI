@@ -127,6 +127,7 @@ abstract final class StoryTools {
           'pov_character': _str('Whose eyes.'),
           'characters_present': _list('character', _str('A name.')),
           'threads_advanced': _list('thread', _str('A thread id.')),
+          'place': _str('A place name from <places>, or "new: Name".'),
           'setting': _str('Where.'),
           'narrative_lens': _str('A lens id, when lenses are on.'),
           'scene_objective': _str('What the scene must achieve.'),
@@ -270,7 +271,10 @@ abstract final class StoryTools {
           'summary': _str('One line a person can tick.'),
           'details': {
             'type': 'object',
-            'properties': {'instructions': _str('Exactly what to change.')},
+            'properties': {
+              'instructions': _str('Exactly what to change.'),
+              'place': _str('For a scene: a place name from <places>.'),
+            },
           },
         },
         'required': ['action_type', 'summary'],

@@ -20,6 +20,8 @@ export interface StoryListItem {
   sceneCount: number;
   proseCount: number;
   hasConcept: boolean;
+  /** The world the story is set in, '' when none (additive). */
+  worldName?: string;
   // The shelf (desktop sketch H): one wording for both surfaces. The relay
   // computes these through the same Dart helpers the desktop shelf calls, so
   // the page shows `shelf.status` and `genreLine` verbatim.
@@ -241,6 +243,8 @@ export interface StoryScene {
   entry?: string;
   exit?: string;
   summary?: string;
+  /** The Living Worlds place this scene happens in; absent or '' when `location` is free text. */
+  place_id?: string;
 }
 
 export interface StoryBeat {
@@ -277,6 +281,12 @@ export interface StoryProject {
   chat_history_character_ids: string[];
   chat_history_session_ids?: string[];
   faithful_mode?: boolean;
+  /** Stories set in Worlds: the place the story starts at, and the world's name for the shelf. */
+  world_id?: string | null;
+  world_name?: string;
+  /** Stories from group chats: the group the source chat belongs to; absent for a 1:1 source. */
+  chat_group_id?: string | null;
+  chat_group_name?: string;
   character_card_snapshots: Record<string, string>[];
   include_user_persona: boolean;
   user_persona_role: string;

@@ -1,8 +1,8 @@
 // Copyright (C) 2026 Front Porch AI
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
-// "Choose a chat…": every 1:1 chat the user has written in, newest first,
-// with a search box, as a studio dialog. Web twin of
+// "Choose a chat…": every chat the user has written in, 1:1 and group,
+// newest first, with a search box, as a studio dialog. Web twin of
 // lib/ui/story_setup/chat_source_picker.dart; the list itself is the
 // desktop's (GET /api/stories/chat-sources).
 
@@ -11,7 +11,7 @@ import { api } from '../../../api/client';
 import { formatRelativeTime } from '../relativeTime';
 import { Chip } from '../StudioShell';
 import { characterAvatar, loadCharacters } from './useSetupData';
-import type { CharacterRow, ChatSource } from './draft';
+import { joinCastNames, type CharacterRow, type ChatMember, type ChatSource } from './draft';
 import { Avatar, Dialog } from './primitives';
 
 export interface ChatSourceRow {
@@ -22,19 +22,40 @@ export interface ChatSourceRow {
   date: string;
   message_count: number;
   short: boolean;
+  /** A group chat: the group and its roster (docs/design/stories-from-group-chats.md §5). */
+  group_id?: string;
+  group_name?: string;
+  members?: ChatMember[];
 }
 
 /** How many chats the list shows at once, same as the desktop picker; search narrows the rest. */
 export const PAGE_SIZE = 50;
 
-/** Rows whose character or chat name contains every word of the query. Twin of filterChatSources. */
+/** "Mira, Dov & Ash" for a group row, '' for a 1:1 chat. */
+export function memberLine(r: ChatSourceRow): string {
+  return joinCastNames((r.members ?? []).map((m) => m.name));
+}
+
+/** Rows whose character, group, member or chat name contains every word of the query. Twin of filterChatSources. */
 export function filterChatSources(rows: ChatSourceRow[], query: string): ChatSourceRow[] {
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   if (words.length === 0) return rows;
   return rows.filter((r) => {
-    const hay = `${r.character_name} ${r.session_name}`.toLowerCase();
+    const hay = `${r.character_name} ${r.session_name} ${memberLine(r)}`.toLowerCase();
     return words.every((w) => hay.includes(w));
   });
+}
+
+/** The source a picked row becomes: a group row brings its roster. */
+export function sourceFromRow(r: ChatSourceRow): ChatSource {
+  return {
+    characterId: r.character_id,
+    characterName: r.character_name,
+    sessionId: r.session_id,
+    messageCount: r.message_count,
+    faithful: true,
+    ...(r.group_id ? { groupId: r.group_id, members: r.members ?? [] } : {}),
+  };
 }
 
 export function ChatSourcePicker({ onPick, onClose }: {
@@ -76,7 +97,7 @@ export function ChatSourcePicker({ onPick, onClose }: {
         : rows.length === 0 ? <div className="body">No chats yet. Talk with a character first, then come back.</div>
         : (
           <div className="s-col" style={{ gap: 2 }}>
-            <input type="text" autoFocus placeholder="Search by character or chat name" value={query}
+            <input type="text" autoFocus placeholder="Search by character, group or chat name" value={query}
               data-testid="story-chat-search" aria-label="Search chats" style={{ marginBottom: 6 }}
               onChange={(e) => setQuery(e.target.value)} />
             {found.length === 0 && <div className="body s-muted">No chat matches that search.</div>}
@@ -84,20 +105,15 @@ export function ChatSourcePicker({ onPick, onClose }: {
               const character = characters.get(r.character_id);
               return (
                 <button key={r.session_id} type="button" className="s-listrow" data-testid={`story-chat-${r.session_id}`}
-                  onClick={() => onPick({
-                    characterId: r.character_id,
-                    characterName: r.character_name,
-                    sessionId: r.session_id,
-                    messageCount: r.message_count,
-                    faithful: true,
-                  })}>
+                  onClick={() => onPick(sourceFromRow(r))}>
                   <Avatar name={r.character_name} src={character ? characterAvatar(character) : undefined} />
                   <span className="s-grow">
                     <b className="s-ell" style={{ display: 'block' }}>{r.character_name}</b>
                     <span className="s-muted s-small s-ell" style={{ display: 'block' }}>
-                      {[r.session_name, formatRelativeTime(r.date), `${r.message_count} messages`].filter(Boolean).join(' · ')}
+                      {[memberLine(r), r.session_name, formatRelativeTime(r.date), `${r.message_count} messages`].filter(Boolean).join(' · ')}
                     </span>
                   </span>
+                  {r.group_id && <Chip tone="amber">group</Chip>}
                   {r.short && <Chip tone="honey" title="Fewer than 20 messages. There may not be enough here for a story.">short chat</Chip>}
                 </button>
               );

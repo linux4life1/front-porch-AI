@@ -95,6 +95,19 @@ class StoryStudio {
     return _pipeline.addLoreDocument(p, name, text);
   }
 
+  /// Refresh from world: copy the world's book again, keeping story-grown
+  /// lore (docs/design/stories-in-worlds.md §3.1). Null for an unknown
+  /// story; `ok: false` when the story has no world or the world is gone.
+  Future<Map<String, dynamic>?> refreshWorld(String id) async {
+    final p = await _project(id);
+    if (p == null) return null;
+    final brief = _pipeline.worldBriefFor(p.worldId ?? '');
+    if (brief.isEmpty) return {'ok': false, 'copied': 0};
+    StoryWorldContext.copyLore(p, brief);
+    await _repo.saveProject(p);
+    return {'ok': true, 'copied': p.lore.where(isWorldLore).length};
+  }
+
   Future<List<Map<String, dynamic>>?> searchLore(
     String id,
     String query, {

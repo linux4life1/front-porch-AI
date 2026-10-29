@@ -9,6 +9,7 @@ import type { StoryLens, StoryProject } from '../../../storyTypes';
 import { Chip } from '../StudioShell';
 import { MenuButton } from '../setup/primitives';
 import { beatsWritten, sceneLabel } from '../storyShape';
+import { sceneIsNewPlace } from '../setup/worldPick';
 import { LensMark, TensionBars } from './LensParts';
 
 export interface SceneActions {
@@ -56,7 +57,12 @@ export function SceneRow({ p, act, index, running, isNext, lenses, actions }: {
       <div className="s-grow">
         {/* The row opens the scene on a tap; this button is the same action for the keyboard. */}
         <button type="button" className="t">{sc.title || 'Untitled scene'}</button>
-        {detail && <div className="d">{detail}</div>}
+        {detail && (
+          <div className="d-row">
+            <span className="d">{detail}</span>
+            {sceneIsNewPlace(p, sc) && <Chip tone="honey">new place</Chip>}
+          </div>
+        )}
       </div>
       <div className="right">
         {studio && <TensionBars tension={sc.tension ?? 0} />}

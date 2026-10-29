@@ -21,6 +21,7 @@ import 'package:provider/provider.dart';
 
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
+import 'package:front_porch_ai/services/story/story_chat_sources.dart';
 import 'package:front_porch_ai/ui/story_setup/setup_widgets.dart';
 import 'package:front_porch_ai/ui/story_setup/story_setup_draft.dart';
 import 'package:front_porch_ai/ui/story_studio/story_studio.dart';
@@ -43,6 +44,10 @@ class CastStep extends StatelessWidget {
         if (c.dbId != null && draft.selectedCharacterIds.contains(c.dbId)) c,
     ];
     final chat = draft.chatSource;
+    final members = [
+      for (final m in chat?.members ?? const <StoryChatMember>[])
+        if (draft.selectedCharacterIds.contains(m.id)) m,
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -59,10 +64,29 @@ class CastStep extends StatelessWidget {
                 ),
               ],
             ),
-            if (picked.isEmpty)
+            if (picked.isEmpty && members.isEmpty)
               const SetupNote(
                 'No one yet. Anyone you don\'t add here, the bible writes for '
                 'you.',
+              ),
+            // The group chat's roster, in roster order, before the library
+            // cards (docs/design/stories-from-group-chats.md §1).
+            for (final m in members)
+              _CastRow(
+                key: ValueKey('story-cast-${m.id}'),
+                name: m.name,
+                detail: 'From the group chat · the card and the chat are canon',
+                imagePath: m.imagePath.isEmpty ? null : m.imagePath,
+                role: draft.characterRoles[m.id] ?? 'Supporting',
+                onRole: (r) {
+                  draft.characterRoles[m.id] = r;
+                  onChanged();
+                },
+                onRemove: () {
+                  draft.selectedCharacterIds.remove(m.id);
+                  draft.characterRoles.remove(m.id);
+                  onChanged();
+                },
               ),
             for (final c in picked)
               _CastRow(
@@ -121,8 +145,9 @@ class CastStep extends StatelessWidget {
                 },
                 label: 'Use the chat as canon',
                 detail:
-                    'The chat with ${chat.characterName} is distilled into a '
-                    'timeline the bible must respect',
+                    'The ${chat.isGroup ? 'group chat' : 'chat'} with '
+                    '${chat.castLine} is distilled into a timeline the '
+                    'bible must respect',
               ),
             ],
           ),
@@ -208,6 +233,7 @@ class _CastRow extends StatelessWidget {
   final VoidCallback onRemove;
 
   const _CastRow({
+    super.key,
     required this.name,
     required this.detail,
     required this.imagePath,

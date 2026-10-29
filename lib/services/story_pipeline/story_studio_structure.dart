@@ -96,6 +96,7 @@ class StoryStudioStructure {
       if (first == -1) first = list.length;
 
       final canon = await _agent.canon(project);
+      final world = _ctx.worldFor(project);
       final budget = StoryPacing.forTarget(
         project.targetWords,
       ).scenesFor(number);
@@ -111,6 +112,7 @@ class StoryStudioStructure {
           act: act,
           firstScene: first,
           canon: canon,
+          places: StoryWorldContext.places(world),
           previous: previous,
           feedback: feedback,
         ),
@@ -124,6 +126,7 @@ class StoryStudioStructure {
         // A little slack: a planner that wrote one scene too many has
         // usually written a better sequence, not a worse one.
         max: budget.max + 1,
+        world: world.isEmpty ? null : world,
       );
       StoryStructure.replaceSequenceScenes(project, number, scenes);
       sequence.summary = '';
@@ -150,6 +153,10 @@ class StoryStudioStructure {
     try {
       final pacing = StoryPacing.forTarget(project.targetWords);
       final tail = StoryAgent.proseBefore(project, act, index, 0);
+      final settingNow = StoryWorldContext.settingNow(
+        _ctx.worldFor(project),
+        scene,
+      );
       final text = await _agent.run(
         project,
         stage: stage,
@@ -163,6 +170,7 @@ class StoryStudioStructure {
           act,
           index,
           previousTail: tail,
+          settingNow: settingNow,
           previous: previous,
           feedback: feedback,
         ),
