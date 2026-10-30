@@ -145,9 +145,9 @@ void main() {
     final form = tester.widget<RealismFormSection>(
       find.byType(RealismFormSection),
     );
-    expect((form.longTermBond, form.trustLevel), (250, 40));
+    expect((form.longTermBond, form.trustLevel), (250, 50));
 
     form.onLongTermBondChanged(100);
-    expect(deltas.single, {'affection': 35, 'longTermScore': 100, 'trust': 40});
+    expect(deltas.single, {'affection': 35, 'longTermScore': 100, 'trust': 50});
   });
 }

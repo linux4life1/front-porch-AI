@@ -211,10 +211,21 @@ void main() {
       expect((b.longTerm, b.trust), (-200, 40));
     });
 
+    test('only a trust past ±100 with no longTermScore reads as the '
+        'mix-up', () {
+      expect(bondSlidersFromMemberSeed({'trust': 100}).trust, 100);
+      expect(bondSlidersFromMemberSeed({'trust': 101}).longTerm, 101);
+      final both = bondSlidersFromMemberSeed({
+        'longTermScore': 20,
+        'trust': 250,
+      });
+      expect((both.longTerm, both.trust), (20, 100));
+    });
+
     test('a seed the old editors left with Long-Term Bond in trust shows it '
         'as Long-Term Bond and the neutral trust', () {
       final b = bondSlidersFromMemberSeed({'affection': 35, 'trust': 250});
-      expect((b.longTerm, b.trust), (250, 40));
+      expect((b.longTerm, b.trust), (250, 50));
     });
   });
 
@@ -237,7 +248,7 @@ void main() {
       expect(bondSliderEdit(seed, longTerm: 100), {
         'affection': 35,
         'longTermScore': 100,
-        'trust': 40,
+        'trust': 50,
       });
     });
   });

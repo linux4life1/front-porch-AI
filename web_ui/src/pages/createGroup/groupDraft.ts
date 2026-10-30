@@ -45,7 +45,8 @@ export interface LoreDraft {
  *  writes the verification and needs fields to the member's extensions. */
 export interface MemberRealism {
   affection: number;
-  /** Long-Term Bond; unset, it follows Short-Term Bond, as the engine does. */
+  /** Long-Term Bond; unset, it follows Short-Term Bond, as the engine reads
+   *  it on a member's first entry. */
   longTermScore?: number;
   trust: number;
   emotion: string;

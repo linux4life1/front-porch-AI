@@ -745,10 +745,20 @@ void main() {
       expect(out, containsPair('trust', 60));
     });
 
-    test('a ±300 number posted as trust is held to Trust Level\'s ±100', () {
+    test('a number past ±100 posted as trust by an older phone app is read '
+        'as Long-Term Bond', () {
       final out = memberSeedOverrides({
         'c1': {'trust': 250},
       }, 'c1');
+      expect(out, containsPair('longTermScore', 250));
+      expect(out.containsKey('trust'), isFalse);
+    });
+
+    test('with longTermScore posted, trust is held to ±100', () {
+      final out = memberSeedOverrides({
+        'c1': {'longTermScore': 20, 'trust': 250},
+      }, 'c1');
+      expect(out['longTermScore'], 20);
       expect(out['trust'], 100);
     });
   });

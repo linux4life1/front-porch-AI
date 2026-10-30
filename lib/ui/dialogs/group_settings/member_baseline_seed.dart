@@ -117,10 +117,12 @@ Map<String, dynamic> applyBaselineToMemberSeed(
 /// What the new-group wizard's and Edit group's Relationship sliders show for
 /// one member's seed (`defaultMemberRealismState.perChar`, the blob a new
 /// chat seeds from). Long-Term Bond reads the engine's `longTermScore` and,
-/// unset, follows Short-Term Bond as the engine does. Both editors used to
-/// save Long-Term Bond into `trust`; a seed left with a ±300 number in that
-/// ±100 field and no `longTermScore` shows the number as Long-Term Bond and
-/// the neutral trust (see [bondSliderEdit]).
+/// unset, follows Short-Term Bond, which is what the engine reads on a
+/// member's first entry. Both editors used to save Long-Term Bond into
+/// `trust`; a seed left with a number past ±100 in that field and no
+/// `longTermScore` shows the number as Long-Term Bond and trust 50, the
+/// default Group Settings' own repair gives it (see [bondSliderEdit]). A
+/// Long-Term Bond within ±100 saved that way cannot be told from a trust.
 MemberBondBaseline bondSlidersFromMemberSeed(Map<String, dynamic> seed) {
   final affection = _int(seed, GroupRealismKeys.affection) ?? 35;
   final longTerm = _int(seed, GroupRealismKeys.longTermScore);
@@ -129,7 +131,7 @@ MemberBondBaseline bondSlidersFromMemberSeed(Map<String, dynamic> seed) {
   return (
     shortTerm: affection.clamp(-300, 300),
     longTerm: (longTerm ?? (mixedUp ? trust! : affection)).clamp(-300, 300),
-    trust: (mixedUp ? 40 : trust ?? 40).clamp(-100, 100),
+    trust: (mixedUp ? 50 : trust ?? 40).clamp(-100, 100),
   );
 }
 

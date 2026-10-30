@@ -18,7 +18,8 @@
 
 /// The seed keys the web wizard posted for one member ([members] is the
 /// body's `realism.members`, keyed by library id), each checked against the
-/// desktop wizard's control: bond and trust −300…300, a non-empty emotion, an
+/// desktop wizard's control: Short-Term and Long-Term Bond −300…300 and
+/// Trust Level −100…100, a non-empty emotion, an
 /// intensity, verification with 1–5 passes and strictness, a Pace, needs
 /// that exist, seven 0–100 baselines and Enjoys low hygiene. Anything
 /// missing or malformed is left out, so the caller's default stands.
@@ -37,10 +38,19 @@ Map<String, dynamic> memberSeedOverrides(Object? members, String? libId) {
   }
 
   // Short-Term Bond, Long-Term Bond (the engine's longTermScore) and Trust
-  // Level, each in its own key and on its own scale.
+  // Level, each in its own key and on its own scale. A phone app from before
+  // the split posts Long-Term Bond as trust: past ±100 it can only be that.
   ranged('affection', -300, 300);
   ranged('longTermScore', -300, 300);
-  ranged('trust', -100, 100);
+  final posted = m['trust'];
+  if (!out.containsKey('longTermScore') &&
+      posted is num &&
+      posted.isFinite &&
+      posted.abs() > 100) {
+    out['longTermScore'] = posted.toInt().clamp(-300, 300);
+  } else {
+    ranged('trust', -100, 100);
+  }
   if (m['emotion'] case final String e when e.trim().isNotEmpty) {
     out['emotion'] = e.trim();
   }

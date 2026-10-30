@@ -20,7 +20,7 @@ import 'package:front_porch_ai/ui/widgets/realism_form_section.dart';
 /// one wiring).
 ///
 /// Reads every value from [seed] (a member's realism seed map: `affection`,
-/// `trust`, `emotion`, `emotionIntensity`, `verification*`,
+/// `longTermScore`, `trust`, `emotion`, `emotionIntensity`, `verification*`,
 /// `needsPace`, `needsOff`, `enjoysLowHygiene`, `needsBaseline*`, …) and
 /// reports each edit through [onUpdate] as a `{key: value}` delta that the caller
 /// merges back into the seed (and rebuilds). Needs enabled/disabled is group-wide,
