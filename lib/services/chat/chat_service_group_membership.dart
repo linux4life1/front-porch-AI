@@ -61,7 +61,7 @@ extension ChatServiceGroupMembership on ChatService {
       'realismOn': _realismEnabled,
       if (_realismEnabled) ..._realismSnapshot.capture(),
       'needsSimEnabled': _needsSimEnabled,
-      'nsfwCooldownEnabled': _nsfwService.nsfwCooldownEnabled,
+      'nsfwCooldownEnabled': _nsfwService.storedNsfwCooldownEnabled,
       'passageOfTimeEnabled': _timeService.passageOfTimeEnabled,
       'chaosModeEnabled': _chaosModeService.chaosModeEnabled,
       'chaosPressure': _chaosModeService.chaosPressure,

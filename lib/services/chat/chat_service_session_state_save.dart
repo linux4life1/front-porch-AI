@@ -243,7 +243,9 @@ extension ChatServiceSessionStateSave on ChatService {
         storyStartDate: drift.Value(_timeService.storyStartDateIso),
         passageOfTimeEnabled: drift.Value(_timeService.passageOfTimeEnabled),
         passageOfTimeGateMigrated: const drift.Value(true),
-        nsfwCooldownEnabled: drift.Value(_nsfwService.nsfwCooldownEnabled),
+        nsfwCooldownEnabled: drift.Value(
+          _nsfwService.storedNsfwCooldownEnabled,
+        ),
         needsSimEnabled: drift.Value(_needsSimEnabled),
         objectivesEnabled: drift.Value(_objectivesEnabled),
         // Persist the kit even when the chat-gear switch is off (hide ≠
