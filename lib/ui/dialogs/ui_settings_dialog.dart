@@ -362,12 +362,30 @@ class _UiSettingsDialogState extends State<UiSettingsDialog> {
   ) async {
     final character = _characterNotifier.value;
     if (character == null) return;
-    final charRepo = Provider.of<CharacterRepository>(context, listen: false);
+    final chat = Provider.of<ChatService>(context, listen: false);
+    // A group member saves its extensions to its own row and refreshes the
+    // roster; the library writer matched no row for it, so the change was
+    // gone on reload. Extensions only: the rest of this copy may be older
+    // than the row.
+    final Future<void> Function(CharacterCard) persist;
+    if (isOpenGroupMember(chat, character)) {
+      final db = liveDatabase(context);
+      persist = (card) async {
+        await saveGroupMemberExtensions(db, card);
+        chat.refreshActiveCharacterCard(card);
+      };
+    } else {
+      persist = Provider.of<CharacterRepository>(
+        context,
+        listen: false,
+      ).updateCharacter;
+    }
     final updatedCharacter = await saveCharacterExtension(
-      charRepo,
+      persist,
       character,
       mutate,
     );
+    if (!mounted) return;
     setState(() {
       _characterNotifier.value = updatedCharacter;
     });

@@ -344,11 +344,10 @@ class EditCharacterDetailsTab extends StatelessWidget {
               // point of the condition. These chips used to render
               // unconditionally while the save wrote them only under
               // `showRealismTab` (edit_character_save.dart), so opening a group
-              // MEMBER from Group Settings gave you fully editable Ambitions,
-              // Likes and Dislikes that were thrown away the moment you pressed
-              // Save — no error, no hint, the chips simply gone on reopen. A
-              // member's extensions are group state and are deliberately left
-              // untouched there; showing an editor for them was the bug.
+              // MEMBER from Edit group gave you fully editable Ambitions, Likes
+              // and Dislikes that were thrown away the moment you pressed Save —
+              // no error, no hint, the chips simply gone on reopen. Shown, they
+              // must save.
               if (showRealismTab)
                 IdentityChipLists(
                   ambitions: d.ambitions,
@@ -392,8 +391,7 @@ class EditCharacterDetailsTab extends StatelessWidget {
                   }),
                 ),
 
-              // ── Realism Engine Summary ── (hidden for group members, whose
-              // realism/needs are group state edited in Group Settings)
+              // ── Realism Engine Summary ── (hidden in Edit group's member Edit)
               if (showRealismTab)
                 EditCharacterRealismSection(draft: d, onChanged: onChanged),
 

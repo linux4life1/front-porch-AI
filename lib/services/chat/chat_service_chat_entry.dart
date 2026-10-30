@@ -29,18 +29,23 @@ extension ChatServiceChatEntry on ChatService {
   /// setActiveCharacter for this, which cancels generation, full-reloads on
   /// rename, and leaves the group — the exact failure modes this exists to
   /// avoid.)
-  void refreshActiveCharacterCard(CharacterCard card) {
+  void _refreshActiveCharacterCardImpl(CharacterCard card) {
     if (_activeGroup != null) {
-      // identical() first: group member cards are library-decoupled copies
-      // whose dbId is often null — the editor mutates the same instance, so
-      // identity is the reliable key; dbId covers reloaded-copy callers.
+      // identical() first: the editor mutates the roster's own instance;
+      // dbId (the member's row id) covers callers that hand back a copy.
       final i = _groupCharacters.indexWhere(
         (c) => identical(c, card) || (c.dbId != null && c.dbId == card.dbId),
       );
       if (i != -1) {
-        // characters is an unmodifiable view. The editor mutates the member
-        // in place, then this refresh replaces the slot when the caller
-        // handed back a copy. Writing the view throws on Save.
+        // A copy from outside the chat (Edit group) has no expression images:
+        // the chat inherits those from the library when it loads the roster.
+        final old = _groupCharacters[i];
+        if (!identical(old, card) && card.avatarImages == null) {
+          card
+            ..avatarImages = old.avatarImages
+            ..primeAvatarIndex = old.primeAvatarIndex;
+        }
+        // characters is an unmodifiable view; writing it throws on Save.
         _groupManager?.replaceCharacterAt(i, card);
         if (_activeCharacter?.dbId == card.dbId) {
           _activeCharacter = card;

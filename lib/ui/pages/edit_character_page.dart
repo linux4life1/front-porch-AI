@@ -45,8 +45,10 @@ class EditCharacterPage extends StatefulWidget {
   /// written to the group (via the caller) so nothing backflows to the library.
   final Future<void> Function(CharacterCard saved)? onSaveOverride;
 
-  /// Show the Realism/Needs section (default true). Hidden for group members,
-  /// whose realism/needs are group state edited in Group Settings.
+  /// Show the Realism/Needs section and the identity chips (default true).
+  /// Edit group's member Edit hides them and writes the member's realism and
+  /// Needs settings back as they were; the chat sidebar's editor shows them
+  /// and saves them to the member's row.
   final bool showRealismTab;
 
   /// Allow changing the avatar (default true). Disabled for group members in this

@@ -905,4 +905,55 @@ void main() {
       expect(testRepo.coverImageFileFor(card), equals(null)); // a2
     });
   });
+
+  group('CharacterRepository — a card with no library row', () {
+    // A group member's private copy can reach the library writer (the
+    // Avatar Gallery falls back to it when no library original is found).
+    // With no library row there is no old id to move memories from, and the
+    // bare-name fallback used to re-key every row filed under that name onto
+    // the member. Red proof: drop `inLibrary` from the re-key condition in
+    // CharacterCardWriter.persistUpdate.
+    test('updating it re-keys nothing filed under its bare name', () async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues(const {});
+      final storage = StorageService();
+      await storage.initialized;
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      final repo = CharacterRepository(db, storage);
+      await Future<void>.delayed(Duration.zero);
+      while (repo.isLoading) {
+        await Future<void>.delayed(const Duration(milliseconds: 5));
+      }
+
+      // A 1:1 quest of the library character Mara, filed under her bare
+      // name as cards with no portrait file are.
+      await db.customStatement(
+        "INSERT INTO objectives (id, character_id, objective) "
+        "VALUES ('quest-1', 'Mara', 'find the brass key')",
+      );
+
+      final dir = Directory.systemTemp.createTempSync('no_row_card_');
+      addTearDown(() => dir.deleteSync(recursive: true));
+      final member = CharacterCard(name: 'Mara', description: 'x');
+      final png = '${dir.path}/mem-mara.png';
+      await V2CardService().saveCardAsPng(member, png, null);
+      member
+        ..imagePath = png
+        ..dbId = 'mem-mara';
+
+      await repo.updateCharacter(member);
+
+      final row = await db
+          .customSelect(
+            "SELECT character_id AS c FROM objectives WHERE id = 'quest-1'",
+          )
+          .getSingle();
+      expect(
+        row.data['c'],
+        'Mara',
+        reason: 'her quest was moved onto a group member\x27s id',
+      );
+    });
+  });
 }
