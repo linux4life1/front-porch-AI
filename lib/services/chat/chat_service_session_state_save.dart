@@ -203,6 +203,13 @@ extension ChatServiceSessionStateSave on ChatService {
     final summaryText = kept.text ?? '';
     final summaryIndex = kept.cursor ?? 0;
 
+    // A 1:1 chat switched off holds no Lust: whatever a rewind, a re-score or
+    // a receipt reloaded while it was off is not saved, so a stored "off"
+    // never reads as the October overwrite the open repairs.
+    final settled =
+        _activeGroup == null && !_nsfwService.storedNsfwCooldownEnabled;
+    final body = settled ? Refractory.none : _nsfwService.refractory;
+
     // Upsert session (INSERT OR REPLACE to avoid UNIQUE constraint errors)
     final timestamp = int.tryParse(sessionId) ?? 0;
     final createdAt = timestamp > 0
@@ -273,30 +280,22 @@ extension ChatServiceSessionStateSave on ChatService {
               : null,
         ),
         groupRealismState: drift.Value(groupRealismJson),
-        arousalLevel: drift.Value(_nsfwService.arousalLevel),
+        arousalLevel: drift.Value(settled ? 0 : _nsfwService.arousalLevel),
         // v55 — story minutes. The old cooldown_turns_* columns are no longer
         // written; a row that never had minutes reads them once on load.
-        refractoryMinutesRemaining: drift.Value(
-          _nsfwService.refractoryMinutesRemaining,
-        ),
-        refractoryMinutesTotal: drift.Value(
-          _nsfwService.refractoryMinutesTotal,
-        ),
-        refractoryOpened: drift.Value(_nsfwService.refractoryOpened),
+        refractoryMinutesRemaining: drift.Value(body.minutes),
+        refractoryMinutesTotal: drift.Value(body.total),
+        refractoryOpened: drift.Value(body.opened),
         // v59 — the soft gate and its peak stamps (PR 3). Defaults stay
         // NULL so a hard body's row is byte-identical to a v58 row.
-        refractorySoft: drift.Value(_nsfwService.refractory.soft ? true : null),
+        refractorySoft: drift.Value(body.soft ? true : null),
         refractoryPeaks: drift.Value(
-          _nsfwService.refractory.peaks.isEmpty
-              ? null
-              : jsonEncode(_nsfwService.refractory.peaks),
+          body.peaks.isEmpty ? null : jsonEncode(body.peaks),
         ),
         // v60 — the warmth tail (PR 4). Written while it exists, frozen or
         // live: a tail asleep under a lock must survive a restart.
-        refractoryTailMinutes: drift.Value(
-          _nsfwService.refractory.tail?.minutes,
-        ),
-        refractoryTailTotal: drift.Value(_nsfwService.refractory.tail?.total),
+        refractoryTailMinutes: drift.Value(body.tail?.minutes),
+        refractoryTailTotal: drift.Value(body.tail?.total),
         trustLevel: drift.Value(_relationshipService.trustLevel),
         activeFixation: drift.Value(_relationshipService.activeFixation),
         fixationLifespan: drift.Value(_relationshipService.fixationLifespan),

@@ -281,22 +281,22 @@ extension ChatServiceControls on ChatService {
 
   /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or the
   /// group chat's. It counts only while Porch Life (with 18+) allows
-  /// Afterglow. Off zeroes Lust and any recovery, as it always has, so a
-  /// chat switched on again starts from calm.
+  /// Afterglow. Either way the chat starts from calm: off zeroes Lust and
+  /// any recovery, as it always has, and on starts from calm whatever a
+  /// rewind or a re-score left in memory while it was off.
   Future<void> _setAfterglowEnabledImpl(bool enabled) async {
+    if (enabled == _afterglowChatSwitchImpl) return;
     if (_activeGroup == null) {
       _nsfwService.setNsfwCooldownEnabled(enabled);
     } else {
       _groupStore.afterglowOn = enabled;
-      if (!enabled) {
-        _nsfwService.resetRuntimeArousalAndCooldown();
-        for (final id in _groupRealism.keys.toList()) {
-          _groupStore.memberForWrite(id)
-            ..arousal = 0
-            ..refractory = Refractory.none;
-        }
+      for (final id in _groupRealism.keys.toList()) {
+        _groupStore.memberForWrite(id)
+          ..arousal = 0
+          ..refractory = Refractory.none;
       }
     }
+    _nsfwService.resetRuntimeArousalAndCooldown();
     await _saveChat();
     notifyListeners();
   }
