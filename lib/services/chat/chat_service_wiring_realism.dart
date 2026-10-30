@@ -307,7 +307,12 @@ extension ChatServiceWiringRealism on ChatService {
       setGroupValue: (charId, key, v) =>
           _groupStore.memberForWrite(charId).setValue(key, v),
       isClockRunning: () => _clockRunning,
-      afterglowOn: () => _storageService.realismSettings.afterglowEnabled,
+      // Porch Life (with 18+) allows it AND this chat's own switch is on.
+      afterglowOn: () =>
+          _storageService.realismSettings.afterglowEnabled &&
+          (_activeGroup == null
+              ? _nsfwService.storedNsfwCooldownEnabled
+              : _groupStore.afterglowOn),
     );
   }
 

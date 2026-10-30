@@ -252,6 +252,28 @@ parseGroupTimeSeed(String defaultMemberJson, String baselineJson) {
   );
 }
 
+/// A group chat's Afterglow switch, kept as a top-level key of a group
+/// realism blob: a chat's own value in its session blob, and the group's
+/// choice for new chats in its definition (`defaultMemberRealismState`),
+/// which a new chat reads until it saves its own. Missing reads on, so groups
+/// and chats from before the switch keep Afterglow wherever Porch Life
+/// allows it.
+const kGroupAfterglowKey = 'afterglow';
+
+/// The Afterglow switch held in [blobJson] (see [kGroupAfterglowKey]).
+bool groupAfterglowIn(String? blobJson) =>
+    _decodeGroupBlob(blobJson ?? '')[kGroupAfterglowKey] != false;
+
+/// [definitionJson] with the group's Afterglow for new chats set to [on]. A
+/// definition with no Realism seeds stays as it is: its new chats start
+/// without Realism, so Afterglow has nothing to switch, and an empty blob
+/// is how the rest of the app reads "no Realism seeds".
+String withGroupAfterglow(String definitionJson, bool on) {
+  final blob = _decodeGroupBlob(definitionJson);
+  if (blob.isEmpty) return definitionJson;
+  return jsonEncode({...blob, kGroupAfterglowKey: on});
+}
+
 Map<String, dynamic> _decodeGroupBlob(String json) {
   if (json.isEmpty || json == '{}') return <String, dynamic>{};
   try {

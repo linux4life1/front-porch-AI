@@ -435,6 +435,7 @@ class ChatService extends ChangeNotifier
   bool? withUserForGroupCharacter(CharacterCard c) =>
       _withUserForGroupCharacterImpl(c);
   bool get objectivesActive => _objectivesActiveImpl;
+  bool get afterglowChatSwitch => _afterglowChatSwitchImpl;
   MemoryService? get memoryService => _memoryService;
   Map<String, dynamic>? get lastRagReceipt => _lastRagReceiptImpl;
   String get standingMoodSummary => _standingMood.summary;

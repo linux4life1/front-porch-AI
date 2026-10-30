@@ -100,6 +100,7 @@ FrontPorchExtensions decodeFrontPorchExtensions(
     chaosModeEnabled: realism['chaos_mode_enabled'] as bool? ?? false,
     needsSimEnabled: realism['needs_sim_enabled'] as bool?,
     pocketsEnabled: realism['pockets_enabled'] as bool? ?? true,
+    afterglowEnabled: realism['afterglow_enabled'] as bool? ?? true,
     enjoysLowHygiene: realism['enjoys_low_hygiene'] as bool? ?? false,
     ambitions: _phrases(realism['ambitions']),
     planLines: _phrases(realism['plan_lines']),
@@ -198,6 +199,7 @@ Map<String, dynamic> encodeFrontPorchExtensions(FrontPorchExtensions e) {
       'needs_sim_enabled': ?e.needsSimChoice,
       // Omit when on (the default) so old cards stay byte-identical.
       if (!e.pocketsEnabled) 'pockets_enabled': false,
+      if (!e.afterglowEnabled) 'afterglow_enabled': false,
       'enjoys_low_hygiene': e.enjoysLowHygiene,
       'ambitions': e.ambitions,
       'plan_lines': e.planLines,

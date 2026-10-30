@@ -131,6 +131,7 @@ extension ChatServiceSessionStateSave on ChatService {
         'characterRAGPriorities': _groupCharacterRAGPriorities,
         'objectives': perCharObjectives,
         kDirectingSessionKey: _observerMode,
+        kGroupAfterglowKey: _groupStore.afterglowOn,
         ..._directorScene.toJsonFragment(),
         'savedAt': DateTime.now().toIso8601String(),
       });

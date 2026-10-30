@@ -155,8 +155,8 @@ void main() {
     return entry is Map ? entry['nsfwCooldownEnabled'] : null;
   }
 
-  /// A card that asks for Afterglow seeds the chat's own flag on, even with
-  /// Porch Life off (the seed ORs the card with the Porch Life default).
+  /// The card's Afterglow switch seeds a new chat's own flag; Porch Life only
+  /// decides whether it runs.
   CharacterCard card(
     String name,
     String id, {
@@ -167,7 +167,7 @@ void main() {
     description: 'Exists only inside the own-flag test.',
     firstMessage: 'The porch light hums.',
     frontPorchExtensions: FrontPorchExtensions(
-      nsfwCooldownEnabled: afterglow,
+      afterglowEnabled: afterglow,
       realismEnabled: realism,
     ),
   )..dbId = id;
@@ -216,8 +216,8 @@ void main() {
     await storage.realismSettings.setNsfwCooldownDefault(true);
     expect(
       chat.nsfwService.nsfwCooldownEnabled,
-      isTrue,
-      reason: 'the live gate follows Porch Life',
+      isFalse,
+      reason: "Porch Life allows it; the chat's own switch is off",
     );
     await chat.sendMessage('Evening.');
     await settle();
@@ -278,19 +278,19 @@ void main() {
     );
   });
 
-  test('collapsing onto a member with no flag of her own gives her none, '
-      'never another member\'s', () async {
-    // Porch Life on, so the gate would say on too. Realism off, so nothing
-    // loads the survivor before the collapse: the chat-level register still
-    // holds the host's flag the fork seeded.
+  test("collapsing to a 1:1 keeps the group chat's own Afterglow switch, "
+      "never a member's old flag", () async {
+    // The group chat took Nia's switch at the fork. Rue never spoke, so she
+    // holds no per-member flag, which the old collapse read as off.
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     await chat.setActiveCharacter(card('Nia', 'char-ownflag-nia'));
     await chat.sendMessage('Evening.');
     await settle();
-    final rue = await libraryCard('Rue', afterglow: false);
+    final rue = await libraryCard('Rue');
     final group = await chat.forkToGroupChat([rue], groupRepo);
     expect(group, isNotNull);
+    expect(chat.afterglowChatSwitch, isTrue, reason: "Nia's switch came along");
 
     final nia = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
     expect(await chat.removeCharacterFromGroup(nia, groupRepo), isTrue);
@@ -299,10 +299,8 @@ void main() {
 
     expect(
       await storedFlag(chat.currentSessionId!),
-      isFalse,
-      reason:
-          'Rue never had Afterglow in the group; the collapse gave her the '
-          'gate or Nia\'s flag',
+      isTrue,
+      reason: 'the 1:1 keeps the switch the group chat showed',
     );
   });
 

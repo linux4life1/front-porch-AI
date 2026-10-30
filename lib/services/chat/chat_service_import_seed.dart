@@ -44,7 +44,7 @@ extension ChatServiceImportSeed on ChatService {
     _sceneGuest.turnsSinceCastScan = 0;
     _sceneGuest.pendingDetection = null;
     _sceneGuest.offeredOrIgnoredNames.clear();
-    _sceneMoves.reset();  // Slice 6: stale offers die with the session too.
+    _sceneMoves.reset(); // Slice 6: stale offers die with the session too.
 
     if (_activeCharacter != null && _activeGroup == null) {
       final extSeed =
@@ -73,9 +73,7 @@ extension ChatServiceImportSeed on ChatService {
       // cooldown are zeroed explicitly on every other fresh path
       // (startNewChat). Without this, ST/.json import bleeds them.
       _nsfwService.seedFromV2OrExt(
-        nsfwCooldownEnabled:
-            extSeed.nsfwCooldownEnabled ||
-            _storageService.realismSettings.nsfwCooldownDefault,
+        nsfwCooldownEnabled: extSeed.afterglowEnabled,
       );
       _nsfwService.resetRuntimeArousalAndCooldown();
       _chaosModeService.seedFromGroupOrExt(
@@ -111,6 +109,9 @@ extension ChatServiceImportSeed on ChatService {
       _expressionService.resetForFreshChat();
       _timeService.resetForFreshChat();
       if (_activeGroup != null) {
+        _groupStore.afterglowOn = groupAfterglowIn(
+          _activeGroup!.defaultMemberRealismState,
+        );
         final timeSeed = parseGroupTimeSeed(
           _activeGroup!.defaultMemberRealismState,
           _activeGroup!.baselineRealismState,

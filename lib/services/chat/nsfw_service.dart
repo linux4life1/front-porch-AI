@@ -73,9 +73,9 @@ class NsfwService {
   /// story minutes while it runs, replies while it is off.
   final bool Function() _isClockRunning;
 
-  /// Porch Life Afterglow (with 18+ on), live. When supplied it IS the gate
-  /// and the stored per-chat / per-member flag below only rides the save
-  /// wire, so a chat made before Afterglow was switched on obeys the switch.
+  /// The live Afterglow gate: Porch Life (with 18+) allows it and the chat's
+  /// own switch is on. When supplied it IS the gate; in a group the stored
+  /// per-member flag below only rides the save wire.
   final bool Function()? _afterglowOn;
 
   // Owned state (moved verbatim from ChatService).
@@ -99,12 +99,11 @@ class NsfwService {
 
   bool get nsfwCooldownEnabled => _afterglowOn?.call() ?? _nsfwCooldownEnabled;
 
-  /// The stored Afterglow choice: the chat's own in a 1:1, the loaded
-  /// speaker's own in a group (each member keeps theirs in the group store).
-  /// Saves and carries between chats (fork, collapse, branch) read this,
-  /// never [nsfwCooldownEnabled]: that one answers the live Porch Life gate,
-  /// and saving it replaced each chat's choice with Porch Life's (hide, never
-  /// erase).
+  /// The stored Afterglow choice: the 1:1 chat's own switch; in a group, the
+  /// loaded speaker's legacy flag, which no gate reads. Saves and carries
+  /// between chats (fork, collapse, branch) read this, never
+  /// [nsfwCooldownEnabled]: that one answers the live gate, and saving it
+  /// replaced each chat's choice with Porch Life's.
   bool get storedNsfwCooldownEnabled => _nsfwCooldownEnabled;
   int get arousalLevel => _arousalLevel;
 

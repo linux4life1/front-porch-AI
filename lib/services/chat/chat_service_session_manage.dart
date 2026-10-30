@@ -156,11 +156,9 @@ extension ChatServiceSessionManage on ChatService {
       );
       _applySeededPassageOfTime();
       _mood.seed(extSeed.characterEmotion, extSeed.emotionIntensity);
+      // The card says how a new chat starts its Afterglow.
       _nsfwService.seedFromV2OrExt(
-        // OR-override for consistency with realism above (imported cards).
-        nsfwCooldownEnabled:
-            extSeed.nsfwCooldownEnabled ||
-            _storageService.realismSettings.nsfwCooldownDefault,
+        nsfwCooldownEnabled: extSeed.afterglowEnabled,
       );
       // Seeded from the CARD or-ed with the Porch Life global, exactly as the
       // chat_entry twin does. Deliberately NOT hoisted below the if/else next
@@ -234,6 +232,9 @@ extension ChatServiceSessionManage on ChatService {
         // of the reset (story-calendar "As built" gap fix). Keep in sync with
         // the _loadLastSession 0-session branch.
         if (_activeGroup != null) {
+          _groupStore.afterglowOn = groupAfterglowIn(
+            _activeGroup!.defaultMemberRealismState,
+          );
           final timeSeed = parseGroupTimeSeed(
             _activeGroup!.defaultMemberRealismState,
             _activeGroup!.baselineRealismState,

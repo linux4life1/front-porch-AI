@@ -275,6 +275,32 @@ extension ChatServiceControls on ChatService {
     notifyListeners();
   }
 
+  bool get _afterglowChatSwitchImpl => _activeGroup == null
+      ? _nsfwService.storedNsfwCooldownEnabled
+      : _groupStore.afterglowOn;
+
+  /// This chat's own Afterglow switch: the 1:1 chat's stored flag, or the
+  /// group chat's. It counts only while Porch Life (with 18+) allows
+  /// Afterglow. Off zeroes Lust and any recovery, as it always has, so a
+  /// chat switched on again starts from calm.
+  Future<void> setAfterglowEnabled(bool enabled) async {
+    if (_activeGroup == null) {
+      _nsfwService.setNsfwCooldownEnabled(enabled);
+    } else {
+      _groupStore.afterglowOn = enabled;
+      if (!enabled) {
+        _nsfwService.resetRuntimeArousalAndCooldown();
+        for (final id in _groupRealism.keys.toList()) {
+          _groupStore.memberForWrite(id)
+            ..arousal = 0
+            ..refractory = Refractory.none;
+        }
+      }
+    }
+    await _saveChat();
+    notifyListeners();
+  }
+
   /// Returns 8 raw events for the wheel. Pair events (`{{other}}`) need a
   /// second group member; user events need the user in the scene.
   List<String> spinWheelEvents() {
