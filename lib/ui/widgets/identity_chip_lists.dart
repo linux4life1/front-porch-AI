@@ -55,8 +55,8 @@ bool adultThemesEnabledOf(BuildContext context) {
   }
 }
 
-/// Porch Life Afterglow with 18+ on — the one Afterglow switch. The card
-/// editors show the Recovery block under it; there is no per-card switch.
+/// Whether Porch Life (with 18+ on) allows Afterglow. While it does, the card
+/// editors show the card's Afterglow switch and chats show their own.
 bool afterglowEnabledOf(BuildContext context) {
   try {
     return Provider.of<StorageService>(

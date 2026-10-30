@@ -175,7 +175,8 @@ class AfterglowPass {
         physiology: ClimaxEval.physiologyFor(speaker),
       );
     }
-    if (verdict == null) return;
+    // Afterglow switched off while the judge was out: nothing lands.
+    if (verdict == null || !active) return;
     final turns = verdict.turns;
     final userClimaxed = verdict.userClimaxed;
 

@@ -147,4 +147,9 @@ describe('ChatToolsNsfw Afterglow switch', () => {
     render(state({ cooldownEnabled: false, afterglowAllowed: false, afterglowSwitch: true }));
     expect(container.textContent).toBe('');
   });
+
+  it("shows nothing while the chat's Realism is off, as on the desktop", () => {
+    render({ ...state({ afterglowAllowed: true, afterglowSwitch: true }), realismEnabled: false });
+    expect(container.textContent).toBe('');
+  });
 });

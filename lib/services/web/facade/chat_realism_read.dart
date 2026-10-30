@@ -88,6 +88,9 @@ class ChatRealismRead {
           'level': arousalLevel,
           'tier': _chat.nsfwService.arousalTierNameForLevel(arousalLevel),
         },
+        // The Lust line shows while Afterglow runs in this chat, as the
+        // desktop's Lust bar does.
+        'lustOn': _chat.nsfwService.nsfwCooldownEnabled,
         'fixation': _chat.getFixationForGroupCharacter(card) ?? '',
         // Gate needs on the SAME flag the host path uses (see snapshot()):
         // getNeedsForGroupCharacter always returns a full vector while group
@@ -144,6 +147,7 @@ class ChatRealismRead {
       'emotionHeld': _chat.emotionHeldTurns,
       'moodLine': _chat.moodLine,
       'arousal': {'level': nsfw.arousalLevel, 'tier': nsfw.arousalTierName},
+      'lustOn': nsfw.nsfwCooldownEnabled,
       'fixation': rel.activeFixation,
       // The bars show while Needs run (the gate, not the chat's stored
       // switch): with Realism or either Needs switch off they would sit

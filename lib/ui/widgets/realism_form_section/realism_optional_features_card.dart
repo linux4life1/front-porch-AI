@@ -64,8 +64,9 @@ class RealismOptionalFeaturesCard extends StatelessWidget {
   /// Recovery block (recovery overhaul PR 2). Rendered only when a caller
   /// supplies the value + setter (the group editors pass neither: per
   /// ruling, members follow their own cards, and the block would be a lie
-  /// there) and Porch Life Afterglow is on (which needs 18+). With Afterglow
-  /// off the settings stay on the card, hidden.
+  /// there), Porch Life Afterglow is on (which needs 18+) and the card's own
+  /// [afterglowEnabled] is on. Otherwise the settings stay on the card,
+  /// hidden.
   final RecoveryProfile? recovery;
   final ValueChanged<RecoveryProfile>? onRecoveryChanged;
   final String sex;

@@ -185,6 +185,7 @@ extension ChatServiceImportSeed on ChatService {
       'needs_sim_enabled': _needsSimEnabled,
       'enjoys_low_hygiene': _enjoysLowHygiene,
       'objectives_enabled': _objectivesEnabled,
+      'afterglow_enabled': _afterglowChatSwitchImpl,
       'summary': _summary,
       'summary_last_index': _summaryLastIndex,
       'affection_score': _relationshipService.affectionScore,
@@ -247,6 +248,15 @@ extension ChatServiceImportSeed on ChatService {
     }
     if (head['objectives_enabled'] is bool) {
       _objectivesEnabled = head['objectives_enabled'] as bool;
+    }
+    // The chat's own Afterglow switch, before the Lust it restores below. A
+    // package saved before it has none and keeps the card's or group's.
+    if (head['afterglow_enabled'] case final bool on) {
+      if (_activeGroup == null) {
+        _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: on);
+      } else {
+        _groupStore.afterglowOn = on;
+      }
     }
     _summary = head['summary'] as String? ?? _summary;
     _summaryLastIndex =

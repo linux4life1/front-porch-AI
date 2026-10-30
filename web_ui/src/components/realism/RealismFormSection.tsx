@@ -60,7 +60,8 @@ export function RealismFormSection({
   /// The install's 18+ master switch, mirroring desktop: the intimate pair is
   /// absent (not disabled) unless the user opted into 18+ themes.
   showIntimate?: boolean;
-  /// Porch Life Afterglow, live (useAdultFlags). Shows the Recovery block.
+  /// Porch Life Afterglow, live (useAdultFlags). Shows the card's Afterglow
+  /// switch, and the Recovery block while that switch is on.
   afterglowOn?: boolean;
   /// The create wizard only: suggests a recovery preset from the authored
   /// intimacy notes, confirmed by the author, never applied silently.

@@ -408,6 +408,7 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 64) await repairAfterglowOverwrittenOff(this);
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

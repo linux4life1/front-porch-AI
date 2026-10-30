@@ -135,8 +135,10 @@ export function ChatToolsChaos({ t, toggle }: { t: ToolsState; toggle: ToolsTogg
 // This chat's own Afterglow switch, shown while Porch Life (with 18+) allows
 // Afterglow, as on the desktop's Afterglow line; Lust and recovery show while
 // it runs. An older desktop sends no afterglowAllowed: the section then shows
-// only while Afterglow runs, with no switch.
+// only while Afterglow runs, with no switch. Like the desktop's Afterglow line,
+// it is absent while the chat's Realism is off.
 export function ChatToolsNsfw({ t, toggle }: { t: ToolsState; toggle: ToolsToggle }) {
+  if (!t.realismEnabled) return null;
   const allowed = t.nsfw.afterglowAllowed;
   if (!allowed && !t.nsfw.cooldownEnabled) return null;
   return (

@@ -135,4 +135,20 @@ void main() {
     expect(chat!.needsSimEnabled, isTrue);
     expect(feedSendsBars(), isFalse);
   });
+
+  // The phone's Lust line follows Afterglow in this chat, as the desktop's
+  // Lust bar does: Porch Life (with 18+) allows it and the chat's switch is on.
+  test("the Lust line's flag follows Porch Life and this chat's own "
+      'switch', () async {
+    await boot();
+    bool lustOn() => ChatRealismRead(chat!).snapshot()['lustOn'] as bool;
+    expect(lustOn(), isFalse, reason: 'Porch Life Afterglow is off');
+
+    await storage!.realismSettings.setAdultThemesEnabled(true);
+    await storage!.realismSettings.setNsfwCooldownDefault(true);
+    expect(lustOn(), isTrue, reason: "the card started the chat's switch on");
+
+    await chat!.setAfterglowEnabled(false);
+    expect(lustOn(), isFalse, reason: "this chat's switch is off");
+  });
 }

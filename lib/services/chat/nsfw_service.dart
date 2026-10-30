@@ -78,6 +78,11 @@ class NsfwService {
   /// per-member flag below only rides the save wire.
   final bool Function()? _afterglowOn;
 
+  /// This chat's own Afterglow switch alone, without Porch Life. While it is
+  /// off the chat holds no Lust, so a rewind (regen, swipe, delete, branch,
+  /// import) keeps it settled instead of reloading a stamp's.
+  final bool Function()? _chatSwitchOn;
+
   // Owned state (moved verbatim from ChatService).
   bool _nsfwCooldownEnabled = false;
   Refractory _refractory = Refractory.none;
@@ -90,8 +95,10 @@ class NsfwService {
     required this.setGroupValue,
     bool Function()? isClockRunning,
     bool Function()? afterglowOn,
+    bool Function()? chatSwitchOn,
   }) : _isClockRunning = isClockRunning ?? _clockOn,
-       _afterglowOn = afterglowOn;
+       _afterglowOn = afterglowOn,
+       _chatSwitchOn = chatSwitchOn;
 
   static bool _clockOn() => true;
 
@@ -344,6 +351,10 @@ class NsfwService {
   /// A key the snapshot does not carry keeps its current value. Snapshots
   /// saved before minutes carry turns, read once as turns × 15.
   void _restoreFromSnapshot(Map<String, dynamic> state) {
+    if (!(_chatSwitchOn?.call() ?? true)) {
+      resetRuntimeArousalAndCooldown();
+      return;
+    }
     final al = state['arousalLevel'];
     _arousalLevel = (al is int ? al : (al is num ? al.toInt() : _arousalLevel))
         .clamp(-100, 100);

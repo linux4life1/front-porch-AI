@@ -27,21 +27,22 @@
 // a member with no flag of her own handed her the gate (or, read from the
 // register, another member's flag).
 //
-// Not covered here: .fpchat export and import. The package never carried the
-// flag, and an import seeds it from the card and Porch Life.
+// Since each chat's own switch came back: the October overwrite is repaired
+// once, by the v64 upgrade step; a chat switched off stays settled through a
+// rewind; a chat package carries the switch; and a collapse keeps the group
+// chat's switch.
 //
 // Red proofs, one site at a time: put `nsfwCooldownEnabled` back for
 // `storedNsfwCooldownEnabled` in the save (chat_service_session_state_save),
 // the fork's host capture (chat_service_group_membership) or the 1:1 branch
-// walk (chat_service_import_walk); make the collapse fallback read the gate or
-// the register instead of `false` (chat_service_cast_shrink); drop the
-// host-member write in _carryHostStateIntoForkedGroup; or drop the kept flag
-// in _restoreGroupRealismWalkingBack. Each fails its own tests.
+// walk (chat_service_import_walk); drop the host-member write in
+// _carryHostStateIntoForkedGroup; or drop the kept flag in
+// _restoreGroupRealismWalkingBack. Each fails its own tests.
 
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:drift/drift.dart' show Variable;
+import 'package:drift/drift.dart' show Migrator, Value, Variable;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -281,13 +282,14 @@ void main() {
   test("collapsing to a 1:1 keeps the group chat's own Afterglow switch, "
       "never a member's old flag", () async {
     // The group chat took Nia's switch at the fork. Rue never spoke, so she
-    // holds no per-member flag, which the old collapse read as off.
+    // holds no per-member flag, which the old collapse read as off, and her
+    // card starts new chats off, which the 1:1 must not take either.
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);
     await chat.setActiveCharacter(card('Nia', 'char-ownflag-nia'));
     await chat.sendMessage('Evening.');
     await settle();
-    final rue = await libraryCard('Rue');
+    final rue = await libraryCard('Rue', afterglow: false);
     final group = await chat.forkToGroupChat([rue], groupRepo);
     expect(group, isNotNull);
     expect(chat.afterglowChatSwitch, isTrue, reason: "Nia's switch came along");
@@ -302,6 +304,53 @@ void main() {
       isTrue,
       reason: 'the 1:1 keeps the switch the group chat showed',
     );
+  });
+
+  test("a collapse keeps the survivor's Lust when the group chat's switch is "
+      "on, whatever her chat row's old flag says", () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final nia = await libraryCard('Nia', realism: true);
+    await chat.setActiveCharacter(nia);
+    await chat.sendMessage('Evening.');
+    await settle();
+    final rue = await libraryCard('Rue', realism: true);
+    final group = await chat.forkToGroupChat([rue], groupRepo);
+    expect(group, isNotNull);
+    expect(chat.afterglowChatSwitch, isTrue);
+    final sid = chat.currentSessionId!;
+    final rueId = groupMemberStoreId(
+      chat.groupCharacters.firstWhere((c) => c.name == 'Rue'),
+    );
+    // Leaving a chat saves it, so it is edited from another character's (a
+    // second group chat would stop the collapse): Rue is partway up, and the
+    // row's legacy flag (a member's, never the group chat's switch) says off.
+    await chat.setActiveCharacter(card('Ivo', 'char-ownflag-ivo'));
+    final row = await db
+        .customSelect(
+          'SELECT group_realism_state AS v FROM sessions WHERE id = ?',
+          variables: [Variable(sid)],
+        )
+        .getSingle();
+    final state = jsonDecode(row.data['v'] as String) as Map<String, dynamic>;
+    final perChar = state['perChar'] as Map<String, dynamic>;
+    perChar[rueId] = {
+      ...?(perChar[rueId] as Map<String, dynamic>?),
+      'arousal': 30,
+    };
+    await db.customUpdate(
+      'UPDATE sessions SET group_realism_state = ?, '
+      'nsfw_cooldown_enabled = 0 WHERE id = ?',
+      variables: [Variable(jsonEncode(state)), Variable(sid)],
+    );
+    await chat.setActiveGroup(group!, groupRepo: groupRepo);
+    expect(chat.currentSessionId, sid);
+
+    final niaMember = chat.groupCharacters.firstWhere((c) => c.name == 'Nia');
+    expect(await chat.removeCharacterFromGroup(niaMember, groupRepo), isTrue);
+    expect(chat.isGroupMode, isFalse, reason: 'the pair collapses to a 1:1');
+    expect(chat.afterglowChatSwitch, isTrue);
+    expect(chat.nsfwService.arousalLevel, 30, reason: "Rue's Lust came along");
   });
 
   test('branching a 1:1 from a message keeps the chat\'s own flag', () async {
@@ -346,44 +395,146 @@ void main() {
     );
   });
 
-  test('a 1:1 chat stored off that still holds Lust opens on; one with none '
-      'stays off', () async {
+  test(
+    'upgrading to v64 switches back on the 1:1 chats the October save '
+    'left off with Lust, a recovery or a warmth tail; nothing else',
+    () async {
+      await groupRepo.save(GroupChat(id: 'g-v64', name: 'The Old Porch'));
+      Future<void> row(
+        String id, {
+        String? group,
+        int lust = 0,
+        int? minutes,
+        int? turns,
+        int? tail,
+      }) => db.insertSession(
+        SessionsCompanion.insert(
+          id: id,
+          groupId: Value(group),
+          nsfwCooldownEnabled: const Value(false),
+          arousalLevel: Value(lust),
+          refractoryMinutesRemaining: Value(minutes),
+          cooldownTurnsRemaining: Value(turns ?? 0),
+          refractoryTailMinutes: Value(tail),
+        ),
+      );
+      await row('v64-lust', lust: 40);
+      await row('v64-aversion', lust: -20);
+      await row('v64-recovering', minutes: 30);
+      await row('v64-turns', turns: 2);
+      await row('v64-tail', tail: 20);
+      await row('v64-calm');
+      await row('v64-spent', minutes: 0, turns: 3);
+      await row('v64-group', group: 'g-v64', lust: 40);
+
+      await db.migration.onUpgrade(Migrator(db), 63, db.schemaVersion);
+
+      for (final id in [
+        'v64-lust',
+        'v64-aversion',
+        'v64-recovering',
+        'v64-turns',
+        'v64-tail',
+      ]) {
+        expect(await storedFlag(id), isTrue, reason: '$id was on');
+      }
+      expect(await storedFlag('v64-calm'), isFalse, reason: 'nothing says on');
+      expect(
+        await storedFlag('v64-spent'),
+        isFalse,
+        reason: 'written minutes outrank the old turns',
+      );
+      expect(
+        await storedFlag('v64-group'),
+        isFalse,
+        reason: 'group chats never read their stored flag',
+      );
+    },
+  );
+
+  test('a 1:1 chat stored off opens off, Lust or not: the repair ran once, '
+      'at the upgrade', () async {
     await chat.setActiveCharacter(card('Mara', 'char-ownflag-mara'));
     await chat.sendMessage('Evening.');
     await settle();
-    final overwritten = chat.currentSessionId!;
+    final stored = chat.currentSessionId!;
+    // Leaving a chat saves it, so it is edited from the next one.
     await chat.startNewChat();
-    await chat.sendMessage('Evening.');
-    await settle();
-    final switchedOff = chat.currentSessionId!;
-    expect(switchedOff, isNot(overwritten));
-    // Leaving a chat saves it, so both are edited from a third.
-    await chat.startNewChat();
-    // v1.6.1 saved Porch Life's off over the first chat's own on, and left
-    // her Lust. Switching a chat off zeroes Lust, so the second never had any.
-    for (final (id, lust) in [(overwritten, 40), (switchedOff, 0)]) {
-      await db.customUpdate(
-        'UPDATE sessions SET nsfw_cooldown_enabled = 0, arousal_level = ? '
-        'WHERE id = ?',
-        variables: [Variable(lust), Variable(id)],
-      );
-    }
-
-    await chat.loadSession(overwritten);
-    expect(
-      chat.afterglowChatSwitch,
-      isTrue,
-      reason: 'a chat stored off with Lust was on: it opens on',
+    await db.customUpdate(
+      'UPDATE sessions SET nsfw_cooldown_enabled = 0, arousal_level = 40 '
+      'WHERE id = ?',
+      variables: [Variable(stored)],
     );
-    expect(chat.nsfwService.arousalLevel, 40, reason: 'and keeps her Lust');
 
-    await chat.loadSession(switchedOff);
+    await chat.loadSession(stored);
     expect(
       chat.afterglowChatSwitch,
       isFalse,
       reason: 'switched off, stays off',
     );
   });
+
+  test('a chat switched off stays settled: a rewind does not bring a '
+      "stamp's Lust back", () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Lena', 'char-ownflag-lena', realism: true),
+    );
+    chat.nsfwService.setArousalLevel(40);
+    await chat.sendMessage('Evening.');
+    await settle();
+    await chat.sendMessage('Still up?');
+    await settle();
+    final sid = chat.currentSessionId!;
+    expect(chat.nsfwService.arousalLevel, 40, reason: 'the stamps hold Lust');
+
+    await chat.setAfterglowEnabled(false);
+    expect(chat.nsfwService.arousalLevel, 0);
+    await chat.regenerateLastMessage();
+    await settle();
+    expect(
+      chat.nsfwService.arousalLevel,
+      0,
+      reason: "the regen's rewind reloaded the earlier stamp's Lust",
+    );
+
+    await chat.startNewChat();
+    await chat.loadSession(sid);
+    expect(chat.afterglowChatSwitch, isFalse);
+    expect(chat.nsfwService.arousalLevel, 0);
+  });
+
+  for (final group in [false, true]) {
+    test("a chat package carries the chat's own Afterglow switch "
+        "(${group ? 'group' : '1:1'})", () async {
+      await storage.realismSettings.setAdultThemesEnabled(true);
+      await storage.realismSettings.setNsfwCooldownDefault(true);
+      final tess = await libraryCard('Tess', realism: true);
+      await chat.setActiveCharacter(tess);
+      await chat.sendMessage('Evening.');
+      await settle();
+      if (group) {
+        final g = await chat.forkToGroupChat([
+          await libraryCard('Uma', realism: true),
+        ], groupRepo);
+        expect(g, isNotNull);
+      }
+      await chat.setAfterglowEnabled(false);
+      final zip = await chat.exportToFpchat();
+      expect(zip, isNotNull);
+
+      await chat.startNewChat();
+      expect(chat.afterglowChatSwitch, isTrue, reason: 'a new chat starts on');
+      final result = await chat.importChatPackage(zip!);
+      expect(result.fullRestore, isTrue);
+      expect(
+        chat.afterglowChatSwitch,
+        isFalse,
+        reason: 'the package came from a chat switched off',
+      );
+    });
+  }
 
   group("a group chat's own Afterglow switch, while Porch Life allows it", () {
     setUp(() async {

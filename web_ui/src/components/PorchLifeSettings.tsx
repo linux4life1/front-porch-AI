@@ -701,7 +701,7 @@ export function PorchLifeSettings() {
       {error && <p className="error pl-error">{error}</p>}
 
       <div className="pl-note">
-        These are the defaults new chats start from. Any single chat can overrule most of them from its sidebar — Chaos Mode, Needs, Objectives, Growth Rings and Afterglow all have a switch there for that one story. Passage of Time is the exception: that row is the live clock switch for every open chat.
+        These are the defaults new chats start from. Any single chat can overrule most of them from its sidebar — Chaos Mode, Needs, Objectives and Growth Rings all have a switch there for that one story. Passage of Time is the exception: that row is the live clock switch for every open chat.
       </div>
       {/* After Dark — the approved sketch gives the 18+ feature its own group,
           "shown only when 18+ themes are enabled": absent, not greyed out, for
