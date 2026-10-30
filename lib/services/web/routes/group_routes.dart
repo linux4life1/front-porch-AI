@@ -40,6 +40,14 @@ class WebGroupRoutes {
     router.post('/api/groups/<id>/delete', _delete);
     router.post('/api/groups/<id>/settings', _settings);
     router.get('/api/groups/<id>/worlds', _worlds);
+    router.post(
+      '/api/groups/draft/scenario',
+      (shelf.Request r) => _draft(r, false),
+    );
+    router.post(
+      '/api/groups/draft/first-message',
+      (shelf.Request r) => _draft(r, true),
+    );
   }
 
   final GroupFacade _facade;
@@ -47,6 +55,28 @@ class WebGroupRoutes {
 
   Future<shelf.Response> _list(shelf.Request request) async =>
       JsonResponse.ok({'groups': await _facade.list()});
+
+  /// Generate for the web wizard's Opening step, for a group not yet made.
+  /// Body: see GroupDraftOpening.generate. Answers {text}, or {error} with 400 for a bad
+  /// draft and 503 when the model can't write.
+  Future<shelf.Response> _draft(
+    shelf.Request request,
+    bool firstMessage,
+  ) async {
+    final opening = _facade.opening;
+    if (opening == null) {
+      return JsonResponse.error(503, 'No model provider is set up.');
+    }
+    Map<String, dynamic> body;
+    try {
+      body = await RequestBody.readJsonMap(request);
+    } catch (_) {
+      return JsonResponse.badRequest('Invalid JSON');
+    }
+    final r = await opening.generate(body, firstMessage: firstMessage);
+    if (r.error != null) return JsonResponse.error(r.status, r.error!);
+    return JsonResponse.ok({'text': r.text ?? ''});
+  }
 
   /// Where a group's new chats meet: {settingId, loreIds, legacyWorldCount}.
   shelf.Response _worlds(shelf.Request request, String id) {

@@ -100,7 +100,11 @@ class GroupChatCommitter {
         charPrompts[mid] = promptCtrl.text.trim();
       }
       final seed = d.memberRealismSeeds[id] ?? d.defaultRealismSeedFor(source);
-      final memberFp = _memberExtensions(source, seed, d.realismEnabled);
+      final memberFp = groupMemberExtensions(
+        source,
+        seed,
+        realismEnabled: d.realismEnabled,
+      );
 
       // Insert typed GroupMember row using the database instance.
       await database.insertGroupMember(
@@ -213,82 +217,5 @@ class GroupChatCommitter {
     }
 
     return group;
-  }
-
-  FrontPorchExtensions? _memberExtensions(
-    CharacterCard source,
-    Map<String, dynamic> seed,
-    bool realismEnabled,
-  ) {
-    final fp = source.frontPorchExtensions;
-    if (fp != null) {
-      return fp.copyWith(
-        enjoysLowHygiene:
-            (seed['enjoysLowHygiene'] as bool?) ?? fp.enjoysLowHygiene,
-        realismVerificationEnabled:
-            (seed['verificationEnabled'] as bool?) ??
-            fp.realismVerificationEnabled,
-        realismVerificationMaxReprocesses:
-            (seed['verificationMaxReprocesses'] as int?) ??
-            fp.realismVerificationMaxReprocesses,
-        realismVerificationStrictness:
-            (seed['verificationStrictness'] as int?) ??
-            fp.realismVerificationStrictness,
-        realismNeedsDirectorAuthority:
-            (seed['needsDirectorAuthority'] as bool?) ??
-            fp.realismNeedsDirectorAuthority,
-        needsPace: (seed['needsPace'] as String?) ?? fp.needsPace,
-        needsOff: seed['needsOff'] is List
-            ? [
-                for (final item in seed['needsOff'] as List)
-                  if (item is String) item,
-              ]
-            : fp.needsOff,
-        // Carry the group-creator's per-member needs baselines, Pace, and
-        // on/off (the seed). Without these blocks, cards that already ship a
-        // FrontPorchExtensions (the common case) silently lost every
-        // adjustment made in the creator at save time.
-        needsBaselineHunger:
-            (seed['needsBaselineHunger'] as int?) ?? fp.needsBaselineHunger,
-        needsBaselineBladder:
-            (seed['needsBaselineBladder'] as int?) ?? fp.needsBaselineBladder,
-        needsBaselineEnergy:
-            (seed['needsBaselineEnergy'] as int?) ?? fp.needsBaselineEnergy,
-        needsBaselineSocial:
-            (seed['needsBaselineSocial'] as int?) ?? fp.needsBaselineSocial,
-        needsBaselineFun:
-            (seed['needsBaselineFun'] as int?) ?? fp.needsBaselineFun,
-        needsBaselineHygiene:
-            (seed['needsBaselineHygiene'] as int?) ?? fp.needsBaselineHygiene,
-        needsBaselineComfort:
-            (seed['needsBaselineComfort'] as int?) ?? fp.needsBaselineComfort,
-      );
-    }
-    if (!realismEnabled) return null;
-    final memberFp = FrontPorchExtensions(
-      enjoysLowHygiene: (seed['enjoysLowHygiene'] as bool?) ?? false,
-      realismVerificationEnabled:
-          (seed['verificationEnabled'] as bool?) ?? false,
-      realismVerificationMaxReprocesses:
-          (seed['verificationMaxReprocesses'] as int?) ?? 1,
-      realismVerificationStrictness:
-          (seed['verificationStrictness'] as int?) ?? 3,
-      realismNeedsDirectorAuthority:
-          (seed['needsDirectorAuthority'] as bool?) ?? false,
-      needsBaselineHunger: (seed['needsBaselineHunger'] as int?) ?? 80,
-      needsBaselineBladder: (seed['needsBaselineBladder'] as int?) ?? 80,
-      needsBaselineEnergy: (seed['needsBaselineEnergy'] as int?) ?? 80,
-      needsBaselineSocial: (seed['needsBaselineSocial'] as int?) ?? 80,
-      needsBaselineFun: (seed['needsBaselineFun'] as int?) ?? 80,
-      needsBaselineHygiene: (seed['needsBaselineHygiene'] as int?) ?? 80,
-      needsBaselineComfort: (seed['needsBaselineComfort'] as int?) ?? 80,
-      needsPace: (seed['needsPace'] as String?) ?? 'normal',
-      needsOff: [
-        for (final item in (seed['needsOff'] as List?) ?? const [])
-          if (item is String) item,
-      ],
-    );
-    memberFp.ensureStableId();
-    return memberFp;
   }
 }

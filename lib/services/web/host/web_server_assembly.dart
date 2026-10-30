@@ -117,6 +117,9 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
   // library refetch, through the same debounce as the character list.
   groupFacade?.onPlaceholderPortraitsFound =
       characterFacade.onPlaceholderPortraitsFound;
+  if (llm != null) {
+    groupFacade?.opening = GroupDraftOpening(llm, characters, worlds);
+  }
 
   final settingsFacade = llm != null
       ? SettingsFacade(storage, llm, chat: chatService)

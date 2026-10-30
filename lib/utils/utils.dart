@@ -36,6 +36,7 @@ export 'gguf_reader.dart';
 export 'gguf_weights.dart';
 export 'group_avatar_compositor.dart';
 export 'character_id.dart';
+export 'group_member_extensions.dart';
 export 'group_realism_blobs.dart';
 export 'json_sanitizer.dart';
 export 'local_model_key.dart';

@@ -19,8 +19,11 @@ export function StepIndicator({
    *  ring on the current step), as the approved AI creator sketch draws them. */
   variant?: 'porch';
 }) {
+  // Past five steps the labels collide on a phone; there only the current
+  // step keeps its label (wizard.css).
+  const classes = ['step-indicator', variant, steps.length > 5 ? 'many' : undefined].filter(Boolean);
   return (
-    <div className={variant ? `step-indicator ${variant}` : 'step-indicator'}>
+    <div className={classes.join(' ')}>
       {steps.map((label, i) => (
         <div key={label} className="step-seg">
           {i > 0 && <span className={`step-line${i <= current ? ' done' : ''}`} />}
