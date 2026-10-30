@@ -138,8 +138,7 @@ void main() {
     await next('Where does the group meet?', 'group_setting_step');
     await next('Opening Scene', 'steps_opening');
     await next('Day Number', 'steps_realism');
-    // ('Group Dynamics' also sits in the step indicator, so the landmark is
-    // step-owned prose instead.)
+    // (Group Dynamics has no dot of its own; its prose is the landmark.)
     expect(
       find.text(
         'Pre-seed how the characters feel toward each other. These hidden '
@@ -198,7 +197,7 @@ void main() {
       expect(GroupWizardSteps.previous(GroupWizardSteps.members), 0);
     });
 
-    testWidgets('no dot is greyed out, however big the group', (tester) async {
+    testWidgets('every dot is live', (tester) async {
       await tester.binding.setSurfaceSize(const Size(1400, 200));
       addTearDown(() => tester.binding.setSurfaceSize(null));
       await tester.pumpWidget(
@@ -216,4 +215,141 @@ void main() {
       expect(labelColor('Opening'), labelColor('Review'));
     });
   });
+
+  // The Opening step's Generate sends where the Setting step put the group.
+  // The recording service only captures what the page sends; it never stands
+  // in for a model's reading.
+  testWidgets('Generate on Opening sends the picked place to the model', (
+    tester,
+  ) async {
+    await tester.binding.setSurfaceSize(const Size(1280, 950));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    final vale = World(
+      id: 'vale',
+      name: 'Green Vale',
+      description: 'Wet lowland forest.',
+      lorebook: Lorebook(entries: []),
+    )..defaultPlaceId = 'mill';
+    final mill = World(
+      id: 'mill',
+      name: 'The Mill',
+      parentWorldId: 'vale',
+      description: 'A flour mill on stilts.',
+      lorebook: Lorebook(entries: []),
+    );
+    final repo = FakeCharacterRepository([
+      CharacterCard(name: 'Aerin', description: 'First.', firstMessage: 'Hi.'),
+      CharacterCard(name: 'Bo', description: 'Second.', firstMessage: 'Yo.'),
+    ]);
+    final chat = FakeChatService();
+    final storage = FakeStorageService();
+    final worlds = FakeWorldRepository([vale, mill]);
+    final folders = FakeFolderService();
+    final groups = FakeGroupChatRepository();
+    final llmService = _RecordingLlm();
+    final llm = _RecordingLlmProvider(llmService);
+    final tts = FakeTtsService();
+    for (final s in [repo, chat, storage, worlds, folders, groups, llm, tts]) {
+      addTearDown(s.dispose);
+    }
+    addTearDown(llmService.dispose);
+
+    await tester.pumpWidget(
+      MultiProvider(
+        providers: [
+          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+          ChangeNotifierProvider<ChatService>.value(value: chat),
+          ChangeNotifierProvider<StorageService>.value(value: storage),
+          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
+          ChangeNotifierProvider<FolderService>.value(value: folders),
+          ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+          ChangeNotifierProvider<LLMProvider>.value(value: llm),
+          ChangeNotifierProvider<TtsService>.value(value: tts),
+        ],
+        child: const MaterialApp(home: CreateGroupChatPage()),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    Future<void> tapNext() async {
+      await tester.ensureVisible(find.text('Next'));
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+    }
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bo').first);
+    await tester.pumpAndSettle();
+    await tapNext();
+    await tester.enterText(find.byType(TextField).first, 'Mill Crew');
+    await tapNext();
+    expect(find.text('Where does the group meet?'), findsWidgets);
+    await tester.ensureVisible(find.text('Green Vale').first);
+    await tester.tap(find.text('Green Vale').first);
+    await tester.pumpAndSettle();
+    while (find.text('Opening Scene').evaluate().isEmpty) {
+      await tapNext();
+    }
+
+    // Scenario and first message each have a Generate button on the step.
+    final generate = find.byIcon(Icons.auto_awesome);
+    expect(generate, findsNWidgets(2));
+    for (var i = 0; i < 2; i++) {
+      llmService.seen.clear();
+      await tester.ensureVisible(generate.at(i));
+      await tester.tap(generate.at(i));
+      await tester.pumpAndSettle();
+      expect(llmService.seen, hasLength(1), reason: 'Generate #$i');
+      final prompt = llmService.seen.single.prompt;
+      expect(prompt, contains('WHERE THE SCENE TAKES PLACE'), reason: '#$i');
+      expect(prompt, contains('The Mill'), reason: '#$i');
+      expect(prompt, contains('Green Vale'), reason: '#$i');
+    }
+  });
+
+  // Realism off hides Group Dynamics and the committer drops them, so
+  // Generate must not send relationships seeded before the switch went off.
+  test('Generate sends no Group Dynamics while Realism is off', () {
+    final draft = GroupWizardDraft();
+    addTearDown(draft.dispose);
+    final a = CharacterCard(name: 'Aerin', description: 'First.');
+    final b = CharacterCard(name: 'Bo', description: 'Second.');
+    draft.members.addAll([a, b]);
+    draft.memberRealismSeeds[draft.stableId(a)] = {
+      'relationships': {draft.stableId(b): 60},
+    };
+    draft.realismEnabled = true;
+    expect(draft.buildDynamicsContextForGeneration(), contains('Bo'));
+    draft.realismEnabled = false;
+    expect(draft.buildDynamicsContextForGeneration(), isEmpty);
+  });
+}
+
+class _RecordingLlm extends LLMService {
+  final List<GenerationParams> seen = [];
+
+  @override
+  Stream<String> generateStream(GenerationParams params) async* {
+    seen.add(params);
+    yield 'The rain drums on the mill roof.';
+  }
+
+  @override
+  bool get isReady => true;
+
+  @override
+  String get backendName => 'recording';
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+class _RecordingLlmProvider extends FakeLLMProvider {
+  _RecordingLlmProvider(this._service);
+  final LLMService _service;
+
+  @override
+  LLMService get activeService => _service;
 }

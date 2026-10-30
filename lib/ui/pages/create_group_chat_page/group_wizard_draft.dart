@@ -373,17 +373,22 @@ class GroupWizardDraft extends ChangeNotifier {
   // ── GENERATION CONTEXT ─────────────────────────────────────────────
 
   /// Builds a rich, explanatory summary of the current hidden inter-character
-  /// relationships (from the Group Dynamics step) to feed into AI generation.
+  /// relationships (Group Dynamics, on the Realism step) to feed into AI generation.
   /// Includes guidance on the -300 to +300 scale so the model actually understands
   /// how to use the data when writing the opening scene.
-  String buildDynamicsContextForGeneration() => groupDynamicsContext(
-    [for (final m in members) (id: stableId(m), name: m.name)],
-    {
-      for (final m in members)
-        stableId(m):
-            (memberRealismSeeds[stableId(m)]?['relationships'] as Map?)
-                ?.cast<String, int>() ??
-            const {},
-    },
-  );
+  String buildDynamicsContextForGeneration() {
+    // Realism off hides Group Dynamics and the committer drops them, so
+    // relationships seeded before the switch went off must not leak here.
+    if (!realismEnabled) return '';
+    return groupDynamicsContext(
+      [for (final m in members) (id: stableId(m), name: m.name)],
+      {
+        for (final m in members)
+          stableId(m):
+              (memberRealismSeeds[stableId(m)]?['relationships'] as Map?)
+                  ?.cast<String, int>() ??
+              const {},
+      },
+    );
+  }
 }

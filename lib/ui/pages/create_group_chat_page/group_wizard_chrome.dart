@@ -61,20 +61,13 @@ class GroupWizardStepIndicator extends StatelessWidget {
     return Row(mainAxisSize: MainAxisSize.min, children: children);
   }
 
-  Widget _stepDot(
-    BuildContext context,
-    int step,
-    String label, {
-    bool available = true,
-  }) {
-    final isActive = available && currentStep >= step;
+  Widget _stepDot(BuildContext context, int step, String label) {
+    final isActive = currentStep >= step;
     final isCurrent = currentStep == step;
 
-    final dotColor = !available
-        ? AppColors.surfaceContainerOf(context).withValues(alpha: 0.5)
-        : (isActive
-              ? AppColors.porchAmberOf(context)
-              : AppColors.surfaceContainerOf(context));
+    final dotColor = isActive
+        ? AppColors.porchAmberOf(context)
+        : AppColors.surfaceContainerOf(context);
 
     final borderColor = isCurrent
         ? AppColors.textPrimary(context)
@@ -84,11 +77,9 @@ class GroupWizardStepIndicator extends StatelessWidget {
         ? StatusColors.onFill
         : AppColors.textTertiary(context);
 
-    final labelColor = !available
-        ? AppColors.textTertiary(context).withValues(alpha: 0.6)
-        : (isActive
-              ? AppColors.textSecondary(context)
-              : AppColors.textTertiary(context));
+    final labelColor = isActive
+        ? AppColors.textSecondary(context)
+        : AppColors.textTertiary(context);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
