@@ -263,7 +263,7 @@ class GroupFacade {
                 ? jsonEncode(source.lorebook!.toJson())
                 : null,
           ),
-          worldNames: Value(jsonEncode(source.worldNames)),
+          worldNames: Value(jsonEncode(source.allWorldNames)),
           frontPorchExtensions: Value(draft.memberExtensionsJson(source)),
           rawExtensions: Value(
             source.rawExtensions != null

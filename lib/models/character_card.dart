@@ -47,6 +47,10 @@ class CharacterCard {
   /// [worldNames] the legacy way, where climate picks the Setting.
   List<String>? loreWorldNames;
 
+  /// Every world the card links, Setting and lore alike. A group member row
+  /// has no lore-only field and feeds Inherit, so it stores this union.
+  List<String> get allWorldNames => [...worldNames, ...?loreWorldNames];
+
   /// Per-character TTS voice assignment.
   ///
   /// This must be a valid voice key for the *currently selected* TTS engine

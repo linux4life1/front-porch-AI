@@ -469,7 +469,7 @@ class CharacterFacade {
         'alternateGreetings': decodeJsonList(c.alternateGreetings),
         'tags': decodeJsonList(c.tags),
         'worldNames': decodeJsonList(c.worldNames),
-        'worlds': characterWorldsJson(inMemory, worlds),
+        'worlds': ?characterWorldsJson(inMemory, worlds),
         'lorebook': normalizeLorebookJson(c.lorebook),
         'ttsVoice': c.ttsVoice,
         'imagePath': c.imagePath,

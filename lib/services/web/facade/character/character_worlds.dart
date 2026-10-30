@@ -22,18 +22,18 @@ import 'package:front_porch_ai/services/world_store/world_store.dart';
 
 /// Where [card]'s new 1:1 chats meet, for the web picker: the Setting (a
 /// world, or a place inside one), the lore-only worlds, and, for an unsplit
-/// card linking several worlds, how many (the two-roles banner).
-Map<String, dynamic> characterWorldsJson(
+/// card linking several worlds, how many (the two-roles banner). Null when
+/// the card or library is not loaded, so the PWA treats the app as older.
+Map<String, dynamic>? characterWorldsJson(
   CharacterCard? card,
   WorldRepository? worlds,
 ) {
-  final choice = card == null || worlds == null
-      ? const GroupWorldChoice()
-      : characterWorldChoiceIn(card, worlds);
+  if (card == null || worlds == null) return null;
+  final choice = characterWorldChoiceIn(card, worlds);
   return {
     'settingId': choice.settingId,
     'loreIds': choice.loreIds,
-    'legacyWorldCount': card != null && characterNeedsWorldSplitNotice(card)
+    'legacyWorldCount': characterNeedsWorldSplitNotice(card)
         ? card.worldNames.length
         : 0,
   };
