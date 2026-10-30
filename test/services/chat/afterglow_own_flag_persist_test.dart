@@ -546,6 +546,52 @@ void main() {
     );
   });
 
+  test('deleting a reply while a chat is off brings no recovery back into '
+      'it', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    final judges = RefractoryJudges()..climax = true;
+    chat.testLlmServiceOverride = judges;
+    await chat.setActiveCharacter(
+      card('Vale', 'char-ownflag-vale', realism: true),
+    );
+    await chat.sendMessage('Evening.');
+    await settle();
+    expect(chat.nsfwService.refractory.running, isTrue, reason: 'a climax');
+    judges.climax = false;
+    await chat.sendMessage('Still with me?');
+    await settle();
+
+    await chat.setAfterglowEnabled(false);
+    // A tail delete replays the reply's beat receipt.
+    await chat.deleteMessage(chat.messages.length - 1);
+    await settle();
+    expect(chat.nsfwService.refractory.running, isFalse);
+  });
+
+  test('a chat that is off records no beat receipts, so a regenerate after '
+      'it is switched back on brings no recovery', () async {
+    await storage.realismSettings.setAdultThemesEnabled(true);
+    await storage.realismSettings.setNsfwCooldownDefault(true);
+    await chat.setActiveCharacter(
+      card('Una', 'char-ownflag-una', realism: true),
+    );
+    await chat.sendMessage('Evening.');
+    await settle();
+    await chat.setAfterglowEnabled(false);
+    // What a receipt could put back while the chat is off.
+    chat.nsfwService.setRefractory(
+      const Refractory(minutes: 75, total: 75, opened: true),
+    );
+    await chat.sendMessage('Still up?');
+    await settle();
+
+    await chat.setAfterglowEnabled(true);
+    await chat.regenerateLastMessage();
+    await settle();
+    expect(chat.nsfwService.refractory.running, isFalse);
+  });
+
   test("'Score again' while a chat is off leaves its Lust alone", () async {
     await storage.realismSettings.setAdultThemesEnabled(true);
     await storage.realismSettings.setNsfwCooldownDefault(true);

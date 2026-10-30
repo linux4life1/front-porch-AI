@@ -276,10 +276,6 @@ extension ChatServiceCastShrink on ChatService {
     final realismOn = state['realismOn'] as bool? ?? false;
     final needsEnabled = state['needsSimEnabled'] as bool? ?? false;
     _needsSimEnabled = needsEnabled;
-    // The group chat takes the 1:1 chat's Afterglow switch, before the
-    // carried Lust below, which a switch that is off keeps settled.
-    final hostNsfw = state['nsfwCooldownEnabled'] as bool? ?? false;
-    _groupStore.afterglowOn = hostNsfw;
 
     // Realism VALUES (gated on realism being on at fork time): relationship +
     // emotion + nsfw + time via the regenerate restore path, then the canonical
@@ -310,8 +306,11 @@ extension ChatServiceCastShrink on ChatService {
     // The host's own Afterglow flag also goes on the host MEMBER, realism or
     // not: in a group the chat-level register is per-speaker state, so a value
     // left only there is gone after the first group reply.
+    final hostNsfw = state['nsfwCooldownEnabled'] as bool? ?? false;
     _nsfwService.seedFromV2OrExt(nsfwCooldownEnabled: hostNsfw);
     _groupStore.memberForWrite(hostId).nsfwCooldownEnabled = hostNsfw;
+    // The group chat takes the 1:1 chat's Afterglow switch.
+    _groupStore.afterglowOn = hostNsfw;
     _chaosModeService.loadScalars(
       modeEnabled: state['chaosModeEnabled'] as bool? ?? false,
       pressure: state['chaosPressure'] as int? ?? 0,

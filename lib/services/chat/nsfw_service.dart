@@ -116,9 +116,12 @@ class NsfwService {
   /// The Lust and recovery a message stamp records: none while this chat's
   /// own switch is off, so a rewind after it is switched back on finds none
   /// of what a receipt or a re-score left in memory meanwhile.
-  int get stampArousal => (_chatSwitchOn?.call() ?? true) ? _arousalLevel : 0;
+  int get stampArousal => chatSwitchOn ? _arousalLevel : 0;
   Refractory get stampRefractory =>
-      (_chatSwitchOn?.call() ?? true) ? _refractory : Refractory.none;
+      chatSwitchOn ? _refractory : Refractory.none;
+
+  /// This chat's own Afterglow switch, without Porch Life.
+  bool get chatSwitchOn => _chatSwitchOn?.call() ?? true;
   int get arousalLevel => _arousalLevel;
 
   Refractory get refractory => _refractory;
