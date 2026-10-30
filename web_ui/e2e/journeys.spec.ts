@@ -2096,7 +2096,7 @@ test(
       await page.getByPlaceholder('The scene opens with...').fill('The bridge sways in the rain.');
       // ── Prompts & Lore on one page ─────────────────────────────────────
       await page.getByRole('button', { name: 'Next →' }).click();
-      await expect(page.getByText('Group System Prompt')).toBeVisible();
+      await expect(page.getByRole('heading', { name: 'Group System Prompt' })).toBeVisible();
       await page.getByTestId('group-lore-add').click();
       await page.getByLabel('Entry content').fill('The bridge was built by the first settlers.');
       // ── Review names each step's choice ────────────────────────────────
