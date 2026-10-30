@@ -894,6 +894,7 @@ void main() {
         ('Voiced', 'af_sky'),
         ('Plain', null),
         ('Third', 'af_bella'),
+        ('Spaced', 'af_nova'),
       ]) {
         await chars.addCharacter(
           CharacterCard(name: name, description: 'x')..ttsVoice = voice,
@@ -906,14 +907,24 @@ void main() {
 
       final made = await facade.createGroup({
         'name': 'Voices',
-        'memberIds': [id('Voiced'), id('Plain'), id('Third')],
-        'memberVoices': {id('Voiced'): '', id('Plain'): 'am_adam'},
+        'memberIds': [id('Voiced'), id('Plain'), id('Third'), id('Spaced')],
+        // Trimmed on the way in: whitespace alone is the global voice too.
+        'memberVoices': {
+          id('Voiced'): '',
+          id('Plain'): ' am_adam ',
+          id('Spaced'): '  ',
+        },
       });
 
       final members = await groups.getMembersForGroup(made!['id'] as String);
       expect(
         {for (final m in members) m.name: m.ttsVoice},
-        {'Voiced': null, 'Plain': 'am_adam', 'Third': 'af_bella'},
+        {
+          'Voiced': null,
+          'Plain': 'am_adam',
+          'Third': 'af_bella',
+          'Spaced': null,
+        },
       );
       expect(
         chars.characters.firstWhere((c) => c.name == 'Voiced').ttsVoice,

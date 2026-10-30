@@ -3,9 +3,9 @@
 //
 // The web new-group wizard's draft past Members and the Setting: Identity
 // switches and member Voices, Realism (with Group Dynamics), Opening,
-// Prompts & Lore. The
-// relay reads the same body (lib/services/web/facade/group_create_draft.dart);
-// member keys are library character ids, which it maps to the new members.
+// Prompts & Lore. The relay reads the same body
+// (lib/services/web/facade/group_create_draft.dart); member keys are library
+// character ids, which it maps to the new members.
 
 import type { GreetingSeed } from '../../components/realism/realismTypes';
 import type { WorldChoice } from '../../components/groupSetting/groupWorldChoice';

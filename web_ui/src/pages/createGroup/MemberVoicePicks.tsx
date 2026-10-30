@@ -34,7 +34,7 @@ export function MemberVoicePicks({
       .catch(() => setStatus(null));
   }, []);
 
-  if (status === null) return null;
+  if (status === null || members.length === 0) return null;
   const list = status.voices ?? [];
   // As on the character page: no voices until text-to-speech is set up.
   if (list.length === 0) {

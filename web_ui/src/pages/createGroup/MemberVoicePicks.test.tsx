@@ -20,22 +20,20 @@ let container: HTMLDivElement;
 let root: Root;
 let latest: Record<string, string> = {};
 
-function Harness() {
+const PAIR = [
+  { id: 'j', name: 'Juniper' },
+  { id: 'm', name: 'Marlow' },
+];
+
+function Harness({ members }: { members: { id: string; name: string }[] }) {
   const [picks, setPicks] = useState<Record<string, string>>({});
   latest = picks;
-  return createElement(MemberVoicePicks, {
-    members: [
-      { id: 'j', name: 'Juniper' },
-      { id: 'm', name: 'Marlow' },
-    ],
-    voices: picks,
-    set: setPicks,
-  });
+  return createElement(MemberVoicePicks, { members, voices: picks, set: setPicks });
 }
 
-async function mount() {
+async function mount(members = PAIR) {
   await act(async () => {
-    root.render(createElement(Harness));
+    root.render(createElement(Harness, { members }));
   });
 }
 
@@ -86,4 +84,10 @@ it('says how to get voices while text-to-speech has none', async () => {
   await mount();
   expect(container.querySelector('select')).toBeNull();
   expect(container.textContent).toContain('Enable text-to-speech on the desktop app');
+});
+
+it('shows nothing while no member is picked', async () => {
+  voices = [{ id: 'af_sky', name: 'Sky', gender: 'Female' }];
+  await mount([]);
+  expect(container.textContent).toBe('');
 });
