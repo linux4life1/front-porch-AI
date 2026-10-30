@@ -133,11 +133,9 @@ void main() {
 
     final live = chat.groupCharacters.firstWhere((c) => c.name == 'Sophia');
     expect(live.description, 'Fixed a typo in Edit group.');
-    expect(
-      live.avatarImages?.map((a) => a.id),
-      ['a-joy'],
-      reason: 'the refresh dropped her expression images',
-    );
+    expect(live.avatarImages?.map((a) => a.id), [
+      'a-joy',
+    ], reason: 'the refresh dropped her expression images');
     expect(live.primeAvatarIndex, 2);
   });
 }
