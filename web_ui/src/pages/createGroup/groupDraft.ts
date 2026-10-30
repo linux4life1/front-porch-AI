@@ -174,12 +174,13 @@ export function draftTouched(d: GroupDraft): boolean {
 }
 
 /** The relationships that count for [memberIds]: only between current
- *  members, and none once the group is too big for Group Dynamics. */
+ *  members, and none while Realism is off or once the group is too big for
+ *  Group Dynamics. */
 export function liveRelationships(
   d: GroupDraft,
   memberIds: string[],
 ): Record<string, Record<string, number>> {
-  if (memberIds.length > DYNAMICS_MAX_MEMBERS) return {};
+  if (!d.realismEnabled || memberIds.length > DYNAMICS_MAX_MEMBERS) return {};
   const out: Record<string, Record<string, number>> = {};
   for (const from of memberIds) {
     const row = d.relationships[from] ?? {};

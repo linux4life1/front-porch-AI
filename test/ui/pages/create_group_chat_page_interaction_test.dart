@@ -302,7 +302,7 @@ void main() {
   });
 
   // The Generate button only promises Dynamics when there are some to send.
-  testWidgets('Generate says "with Dynamics" only when there are some', (
+  testWidgets('the Generate label follows its withDynamics flag', (
     tester,
   ) async {
     Future<void> pump(bool withDynamics) => tester.pumpWidget(

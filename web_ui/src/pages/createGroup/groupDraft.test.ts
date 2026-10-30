@@ -54,6 +54,12 @@ it('keeps Group Dynamics only between current members of a small group', () => {
   expect(liveRelationships(d, ['a', 'b', 'c', 'd', 'e'])).toEqual({});
 });
 
+it('sends no Group Dynamics while Realism is off', () => {
+  const d = { ...EMPTY_DRAFT, realismEnabled: false, relationships: { a: { b: 50 } } };
+  expect(liveRelationships(d, ['a', 'b'])).toEqual({});
+  expect(liveRelationships({ ...d, realismEnabled: true }, ['a', 'b'])).toEqual({ a: { b: 50 } });
+});
+
 it('names scores with the desktop tiers', () => {
   expect([80, 50, 20, 5, 0, -5, -20, -50, -80].map(relationshipTier)).toEqual([
     'Soulbound',
