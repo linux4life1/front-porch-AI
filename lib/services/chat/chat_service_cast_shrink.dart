@@ -100,12 +100,12 @@ extension ChatServiceCastShrink on ChatService {
       ); // loads the survivor's per-char nsfw flag too
       snapshot = _realismSnapshot.capture();
     }
-    // Read the survivor's per-char NSFW flag straight from the group store (the
-    // per-speaker load only ran above when realism is on; reading the live nsfw
-    // scalar otherwise could pick up a stale impersonated value).
+    // Read the survivor's per-char NSFW flag straight from the group store.
+    // Absent is off, as loadNsfwScalarsForSpeaker reads it in the group. Never
+    // the live register: it holds whichever member was loaded or seeded last,
+    // so a survivor with no entry would inherit another member's flag.
     final bool soleNsfwEnabled =
-        _groupRealism[soleId]?.nsfwCooldownEnabled ??
-        _nsfwService.storedNsfwCooldownEnabled;
+        _groupRealism[soleId]?.nsfwCooldownEnabled ?? false;
     // Same reasoning for their Pockets record, and read here for the same reason:
     // step 4 re-enters as a 1:1, which clears _groupRealism. Carried regardless
     // of realism because Pockets does not depend on it — the pass is gated on
