@@ -68,7 +68,11 @@ Future<CharacterCard?> editGroupMemberCard(
                     ? jsonEncode(card.lorebook!.toJson())
                     : null,
               ),
-              worldNames: Value(jsonEncode(card.worldNames)),
+              // A member row has no lore-only field: its worlds feed
+              // Inherit, which reads every linked world as lore anyway.
+              worldNames: Value(
+                jsonEncode([...card.worldNames, ...?card.loreWorldNames]),
+              ),
             ),
           );
         },

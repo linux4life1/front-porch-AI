@@ -6,6 +6,7 @@
 // 0-fail reduction; rename gets real DB-backed coverage because it used to
 // silently duplicate rows and orphan every attachment.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
@@ -15,13 +16,17 @@ import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:front_porch_ai/database/database.dart';
+import 'package:front_porch_ai/models/character_card.dart';
 import 'package:front_porch_ai/models/fp_world_package.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/models/lorebook.dart';
 import 'package:front_porch_ai/models/world.dart' as model;
+import 'package:front_porch_ai/services/character_store/character_row_codec.dart';
 import 'package:front_porch_ai/services/chat/weather_biomes.dart';
 import 'package:front_porch_ai/services/group_chat_repository.dart';
 import 'package:front_porch_ai/services/storage_service.dart';
+import 'package:front_porch_ai/services/v2_card_service.dart';
+import 'package:front_porch_ai/services/web/facade/character/character.dart';
 import 'package:front_porch_ai/services/world_envelopes.dart';
 import 'package:front_porch_ai/services/world_repository.dart';
 import 'package:front_porch_ai/services/world_from_wiki/world_from_wiki.dart';
@@ -1568,6 +1573,194 @@ void main() {
         isNull,
         reason: 'an unsplit group must stay unsplit',
       );
+    });
+  });
+
+  group('Character Setting split (lore_world_names)', () {
+    late AppDatabase db;
+    late WorldRepository repo;
+    late model.World attic; // lore-only bookshelf, no climate
+    late model.World vale; // climate, starred place inside
+    late model.World mill; // vale's starred place
+    late model.World reach; // climate, no places
+
+    setUp(() async {
+      _setupPathProviderMock();
+      SharedPreferences.setMockInitialValues({});
+      final storage = StorageService();
+      await storage.initialized;
+      db = AppDatabase.forTesting();
+      repo = WorldRepository(storage, db);
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      attic = model.World(
+        name: 'Attic Books',
+        lorebook: Lorebook(entries: []),
+        climateEnabled: false,
+      );
+      vale = model.World(
+        name: 'Green Vale',
+        lorebook: Lorebook(entries: []),
+      );
+      reach = model.World(
+        name: 'Salt Reach',
+        lorebook: Lorebook(entries: []),
+        biomeId: 'coastal',
+      );
+      for (final w in [attic, vale, reach]) {
+        await repo.saveWorld(w);
+      }
+      mill = model.World(
+        name: 'The Mill',
+        lorebook: Lorebook(entries: []),
+        parentWorldId: vale.id,
+        climateEnabled: false,
+      );
+      await repo.saveWorld(mill);
+      await repo.setDefaultPlace(vale, mill.id);
+    });
+
+    tearDown(() async {
+      await db.close();
+    });
+
+    Future<void> makeSession(String id) => db
+        .into(db.sessions)
+        .insert(
+          SessionsCompanion.insert(id: id, characterId: const Value('c1')),
+        );
+
+    test('an unsplit card reads as the slots its chats get today', () async {
+      // Names, as older cards store them.
+      final card = CharacterCard(
+        name: 'Mira',
+        worldNames: ['Attic Books', 'Green Vale', 'Salt Reach'],
+      );
+      await repo.applyTemplateWorldsToChat('before', card.worldNames);
+      final before = await repo.getChatWorldAttachments('before');
+
+      final choice = characterWorldChoiceIn(card, repo);
+      expect(choice.settingId, vale.id);
+      expect(choice.loreIds, [attic.id, reach.id]);
+      expect(characterNeedsWorldSplitNotice(card), isTrue);
+      final f = choice.fields;
+      await repo.applyTemplateWorldsToChat(
+        'after',
+        f.worldIds,
+        loreRefs: f.loreWorldIds,
+      );
+      final after = await repo.getChatWorldAttachments('after');
+      expect(after.primaryId, before.primaryId);
+      expect(after.loreIds, before.loreIds);
+    });
+
+    test('a split card back-fills its Setting and Lore apart', () async {
+      await makeSession('old-chat');
+      expect(
+        await repo.backfillChatWorldsFromCharacter(
+          chatId: 'old-chat',
+          characterWorldRefs: [attic.id],
+          characterLoreRefs: [reach.id],
+        ),
+        isTrue,
+      );
+      final slots = await repo.getChatWorldAttachments('old-chat');
+      expect(
+        slots.primaryId,
+        attic.id,
+        reason: 'the picked Setting holds even without a climate',
+      );
+      expect(slots.loreIds, [reach.id]);
+    });
+
+    test(
+      'worlds added to a split card reach empty chats in their roles',
+      () async {
+        await makeSession('empty');
+        final touched = await repo.applyAddedCharacterWorldsToChats(
+          characterId: 'c1',
+          addedRefs: [attic.id],
+          addedLoreRefs: [reach.id],
+        );
+        expect(touched, ['empty']);
+        final slots = await repo.getChatWorldAttachments('empty');
+        expect(slots.primaryId, attic.id);
+        expect(slots.loreIds, [reach.id]);
+      },
+    );
+
+    test('lore_world_names round-trips, NULL stays NULL, and a deleted '
+        'world leaves both lists', () async {
+      Future<void> put(String id, CharacterCard card) => db
+          .into(db.characters)
+          .insert(
+            characterCompanion(card, dbImagePath: null).copyWith(id: Value(id)),
+          );
+      await put(
+        'split',
+        CharacterCard(
+          name: 'Split',
+          worldNames: [vale.id],
+          loreWorldNames: [reach.id, attic.id],
+        ),
+      );
+      await put('flat', CharacterCard(name: 'Flat', worldNames: [reach.id]));
+      await db.stripWorldRefsFromCharactersAndGroups(
+        ids: {reach.id},
+        names: const {},
+      );
+      final split = characterFromRow((await db.getCharacterById('split')));
+      final flat = characterFromRow((await db.getCharacterById('flat')));
+      expect(split.worldNames, [vale.id]);
+      expect(split.loreWorldNames, [attic.id]);
+      expect(flat.worldNames, isEmpty);
+      expect(
+        flat.loreWorldNames,
+        isNull,
+        reason: 'an unsplit card must stay unsplit',
+      );
+    });
+
+    test('the web relay shows today\'s split and saves with the desktop '
+        'rule', () {
+      CharacterCard legacy() => CharacterCard(
+        name: 'Mira',
+        worldNames: ['Attic Books', 'Salt Reach'],
+      );
+      expect(characterWorldsJson(legacy(), repo), {
+        'settingId': reach.id,
+        'loreIds': [attic.id],
+        'legacyWorldCount': 2,
+      });
+
+      final untouched = legacy();
+      applyCharacterWorlds(untouched, {
+        'settingId': reach.id,
+        'loreIds': [attic.id],
+      }, repo);
+      expect(untouched.worldNames, ['Attic Books', 'Salt Reach']);
+      expect(untouched.loreWorldNames, isNull);
+
+      final moved = legacy();
+      applyCharacterWorlds(moved, {
+        'settingId': vale.id,
+        'loreIds': [attic.id, 'gone', vale.id],
+      }, repo);
+      expect(moved.worldNames, [vale.id]);
+      expect(moved.loreWorldNames, [attic.id]);
+    });
+
+    test('lore_world_names survives the card file', () {
+      final card = CharacterCard(
+        name: 'Split',
+        worldNames: [vale.id],
+        loreWorldNames: [attic.id],
+      );
+      final back = V2CardService().parseCardJson(jsonEncode(card.toJson()))!;
+      expect(back.loreWorldNames, [attic.id]);
+      final legacy = V2CardService().parseCardJson(
+        jsonEncode(CharacterCard(name: 'Flat', worldNames: [vale.id]).toJson()),
+      )!;
+      expect(legacy.loreWorldNames, isNull);
     });
   });
 }

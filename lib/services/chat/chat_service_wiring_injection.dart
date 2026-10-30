@@ -161,10 +161,14 @@ extension ChatServiceWiringInjection on ChatService {
       final refs = _activeGroup == null
           ? (_activeCharacter?.worldNames ?? const <String>[])
           : const <String>[];
-      if (refs.isNotEmpty) {
+      final loreRefs = _activeGroup == null
+          ? _activeCharacter?.loreWorldNames
+          : null;
+      if (refs.isNotEmpty || (loreRefs?.isNotEmpty ?? false)) {
         await _worldRepository.backfillChatWorldsFromCharacter(
           chatId: sid,
           characterWorldRefs: refs,
+          characterLoreRefs: loreRefs,
         );
       }
       final slots = await _worldRepository.getChatWorldAttachments(sid);

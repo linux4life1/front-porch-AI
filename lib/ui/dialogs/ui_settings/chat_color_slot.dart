@@ -128,6 +128,9 @@ CharacterCard cloneCharacterWithExtensions(
         ? Lorebook(entries: List.from(character.lorebook!.entries))
         : null,
     worldNames: List.from(character.worldNames),
+    loreWorldNames: character.loreWorldNames == null
+        ? null
+        : List.from(character.loreWorldNames!),
     ttsVoice: character.ttsVoice,
     frontPorchExtensions: extensions,
     rawExtensions: character.rawExtensions != null

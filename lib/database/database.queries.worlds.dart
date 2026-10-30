@@ -162,16 +162,23 @@ extension AppDatabaseWorldQueries on AppDatabase {
     if (ids.isEmpty && names.isEmpty) return 0;
     var touched = 0;
     final charRows = await customSelect(
-      'SELECT id, world_names FROM characters WHERE deleted_at IS NULL',
+      'SELECT id, world_names, lore_world_names FROM characters '
+      'WHERE deleted_at IS NULL',
     ).get();
     for (final row in charRows) {
       final id = row.data['id']?.toString();
       final raw = row.data['world_names']?.toString() ?? '[]';
       final next = _filterWorldRefJson(raw, ids: ids, names: names);
-      if (next == null) continue;
+      // NULL lore stays NULL: an unsplit card keeps its legacy seed.
+      final rawLore = row.data['lore_world_names']?.toString();
+      final nextLore = rawLore == null
+          ? null
+          : _filterWorldRefJson(rawLore, ids: ids, names: names);
+      if (next == null && nextLore == null) continue;
       await customStatement(
-        'UPDATE characters SET world_names = ? WHERE id = ?',
-        [next, id],
+        'UPDATE characters SET world_names = ?, lore_world_names = ? '
+        'WHERE id = ?',
+        [next ?? raw, nextLore ?? rawLore, id],
       );
       touched++;
     }

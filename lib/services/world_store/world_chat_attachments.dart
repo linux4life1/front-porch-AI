@@ -104,14 +104,27 @@ class WorldChatAttachments {
   Future<bool> backfillFromCharacter({
     required String chatId,
     required List<String> characterWorldRefs,
+    List<String>? characterLoreRefs,
   }) async {
-    if (characterWorldRefs.isEmpty) return false;
+    if (characterWorldRefs.isEmpty && (characterLoreRefs?.isEmpty ?? true)) {
+      return false;
+    }
     if (await _db().chatWorldsInitialized(chatId)) return false;
     if ((await _repo.getChatWorldIds(chatId)).isNotEmpty) {
       await _db().markChatWorldsInitialized(chatId);
       return false;
     }
     await _repo.ready;
+    if (characterLoreRefs != null) {
+      // A split card seeds its Setting and Lore apart, as a new chat does.
+      await applyTemplate(
+        chatId,
+        characterWorldRefs,
+        loreRefs: characterLoreRefs,
+      );
+      debugPrint('[Worlds] back-filled chat $chatId from its character');
+      return true;
+    }
     final ids = _resolveRefs(characterWorldRefs, <String>[]);
     if (ids.isEmpty) return false;
     await _repo.setChatWorlds(chatId, ids); // partitions + marks decided
@@ -122,23 +135,34 @@ class WorldChatAttachments {
   Future<List<String>> applyAddedCharacterWorlds({
     required String characterId,
     required List<String> addedRefs,
+    List<String>? addedLoreRefs,
   }) async {
-    if (addedRefs.isEmpty) return const [];
+    if (addedRefs.isEmpty && (addedLoreRefs?.isEmpty ?? true)) {
+      return const [];
+    }
     await _repo.ready;
     final unresolved = <String>[];
     final ids = _resolveRefs(addedRefs, unresolved);
+    final lore = addedLoreRefs == null
+        ? null
+        : _resolveRefs(addedLoreRefs, unresolved);
     if (unresolved.isNotEmpty) {
       debugPrint(
         '[Worlds] unresolved refs on character $characterId: $unresolved',
       );
     }
-    if (ids.isEmpty) return const [];
+    if (ids.isEmpty && (lore?.isEmpty ?? true)) return const [];
 
     final touched = <String>[];
     for (final session in await _db().getSessionsForCharacter(characterId)) {
       final existing = await _repo.getChatWorldIds(session.id);
       if (existing.isNotEmpty) continue; // the chat has its own opinion
-      await _repo.setChatWorlds(session.id, ids);
+      if (lore != null) {
+        // A split card keeps each added world in its role.
+        await applyTemplate(session.id, ids, loreRefs: lore);
+      } else {
+        await _repo.setChatWorlds(session.id, ids);
+      }
       touched.add(session.id);
     }
     if (touched.isNotEmpty) {

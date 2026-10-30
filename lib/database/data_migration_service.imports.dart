@@ -75,6 +75,11 @@ extension _DataMigrationImports on DataMigrationService {
                   : null,
             ),
             worldNames: Value(jsonEncode(card.worldNames)),
+            loreWorldNames: Value(
+              card.loreWorldNames == null
+                  ? null
+                  : jsonEncode(card.loreWorldNames),
+            ),
           ),
         );
         debugPrint('DB_MIGRATION: Imported character: ${card.name}');

@@ -22,7 +22,9 @@ import { NeedsFormSection } from '../components/realism/NeedsFormSection';
 import { TokenBadge } from '../components/realism/controls';
 import { type RealismValues, compactGreetingPairs, realismFromDetail } from '../components/realism/realismTypes';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
-import { linkPickerRows, refsWithoutWorld, type TreeWorld } from './worlds/locations';
+import { type TreeWorld } from './worlds/locations';
+import { CharacterWorldsSection } from '../components/groupSetting/CharacterWorldsSection';
+import { NO_WORLD, type WorldChoice } from '../components/groupSetting/groupWorldChoice';
 
 interface RawLore {
   name?: string;
@@ -49,6 +51,8 @@ interface CharDetail {
   tags: string[];
   alternateGreetings: string[];
   worldNames: string[];
+  /** Where new chats meet (additive; absent from an older app). */
+  worlds?: { settingId: string | null; loreIds: string[]; legacyWorldCount?: number };
   lorebook?: { entries: RawLore[] } | null;
   realism?: Partial<RealismValues> | null;
   ttsVoice?: string | null;
@@ -80,7 +84,7 @@ export function CharacterEditPage() {
   const [greetings, setGreetings] = useState<string[]>([]);
   const [lore, setLore] = useState<LoreEntry[]>([]);
   const [rv, setRv] = useState<RealismValues | null>(null);
-  const [worldNames, setWorldNames] = useState<string[]>([]);
+  const [worldChoice, setWorldChoice] = useState<WorldChoice>(NO_WORLD);
   const [allWorlds, setAllWorlds] = useState<TreeWorld[]>([]);
   const [ttsVoice, setTtsVoice] = useState('');
   const [voiceStatus, setVoiceStatus] = useState<VoiceStatus | null>(null);
@@ -90,7 +94,7 @@ export function CharacterEditPage() {
   // The editable state as loaded; anything else is an unsaved edit.
   const [loaded, setLoaded] = useState<string | null>(null);
   const editable =
-    c && rv ? JSON.stringify({ c, tags, greetings, lore, rv, worldNames, ttsVoice }) : null;
+    c && rv ? JSON.stringify({ c, tags, greetings, lore, rv, worldChoice, ttsVoice }) : null;
   useEffect(() => {
     if (loaded === null && editable !== null) setLoaded(editable);
   }, [loaded, editable]);
@@ -106,7 +110,10 @@ export function CharacterEditPage() {
         setC(d);
         setTags((d.tags ?? []).join(', '));
         setGreetings(d.alternateGreetings ?? []);
-        setWorldNames(d.worldNames ?? []);
+        setWorldChoice({
+          settingId: d.worlds?.settingId ?? null,
+          loreIds: d.worlds?.loreIds ?? [],
+        });
         setTtsVoice(d.ttsVoice ?? '');
         setRv(realismFromDetail(d.realism));
         setLore(
@@ -148,12 +155,6 @@ export function CharacterEditPage() {
 
   const setField = (key: keyof CharDetail, value: string) => setC({ ...c, [key]: value });
   const patch = (p: Partial<RealismValues>) => setRv({ ...rv, ...p });
-  // Links store the world's id. An older link may name the world, or a
-  // place inside it; turning the world off drops every one of them.
-  const toggleWorld = (w: TreeWorld, linked: boolean) => {
-    const rest = refsWithoutWorld(worldNames, w, allWorlds);
-    setWorldNames(linked ? rest : [...rest, w.id ?? w.name]);
-  };
 
   const save = async () => {
     setSaving(true);
@@ -173,7 +174,8 @@ export function CharacterEditPage() {
           const paired = compactGreetingPairs(greetings, rv.greetingSeeds);
           return {
             alternateGreetings: paired.greetings,
-            worldNames,
+            // The relay keeps an untouched unsplit card's worlds as stored.
+            ...(c.worlds ? { worlds: worldChoice } : {}),
             ttsVoice,
             lorebook: lore.filter((e) => e.key.trim() || e.content.trim()),
             ...rv,
@@ -334,25 +336,13 @@ export function CharacterEditPage() {
         </>
       )}
 
-      <h3 className="section-label">Linked worlds</h3>
-      {allWorlds.length === 0 ? (
-        <p className="muted small">No worlds yet. Create one from the Worlds page to link it here.</p>
-      ) : (
-        <>
-          <p className="muted small">Chats start at the world&apos;s starred place.</p>
-          <div className="world-picker">
-            {linkPickerRows(allWorlds, worldNames).map(({ world: w, linked, inside }) => (
-              <label className="tool-toggle" key={w.id ?? w.name}>
-                <span className="world-picker-name">
-                  {w.name}
-                  {inside && <span className="muted small">{inside}</span>}
-                </span>
-                <input type="checkbox" checked={linked} onChange={() => toggleWorld(w, linked)} />
-              </label>
-            ))}
-          </div>
-        </>
-      )}
+      <CharacterWorldsSection
+        name={c.name}
+        value={worldChoice}
+        onChange={setWorldChoice}
+        worlds={allWorlds}
+        legacyWorldCount={c.worlds?.legacyWorldCount ?? 0}
+      />
 
       <h3 className="section-label">Realism Engine</h3>
       <RealismFormSection v={rv} set={patch} showIntimate={adultThemes} afterglowOn={afterglow} />

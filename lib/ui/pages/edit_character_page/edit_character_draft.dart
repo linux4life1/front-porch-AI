@@ -21,6 +21,8 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/chat/chat.dart' show Pockets;
+import 'package:front_porch_ai/services/world_repository.dart';
+import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
 /// Every field the character editor holds between open and Save: the text
@@ -37,8 +39,18 @@ class EditCharacterDraft {
   final StyledTextController postHistoryController;
 
   List<LorebookEntry> loreEntries = [];
-  List<String> selectedWorldNames = [];
+
+  /// Where this character's new chats meet, as the Worlds tab edits it.
+  GroupWorldChoice worldChoice = const GroupWorldChoice();
+
+  /// [worldChoice] as the editor opened. Saving it unchanged keeps the
+  /// stored fields, so an unsplit card stays unsplit.
+  GroupWorldChoice worldsAsLoaded = const GroupWorldChoice();
+
+  /// The stored world fields when the editor opened, for Save and for the
+  /// added-worlds diff.
   List<String> initialWorldNames = const [];
+  List<String>? initialLoreWorldNames;
   List<StyledTextController> altGreetingControllers = [];
   List<GreetingRealismSeed?> altGreetingSeeds = [];
   List<String> tags = [];
@@ -136,6 +148,7 @@ class EditCharacterDraft {
   EditCharacterDraft(
     CharacterCard character, {
     required bool Function() porchLifeNeedsDefault,
+    WorldRepository? worlds,
   }) : nameController = TextEditingController(text: character.name),
        descriptionController = StyledTextController(
          text: character.description,
@@ -172,10 +185,15 @@ class EditCharacterDraft {
       loreEntries = character.lorebook!.entries;
     }
 
-    selectedWorldNames = List.from(character.worldNames);
     // Snapshot for the save-time diff: only worlds ADDED in this edit get
     // pushed onto the character's existing chats.
     initialWorldNames = List.from(character.worldNames);
+    initialLoreWorldNames = character.loreWorldNames == null
+        ? null
+        : List.from(character.loreWorldNames!);
+    if (worlds != null) {
+      worldChoice = worldsAsLoaded = characterWorldChoiceIn(character, worlds);
+    }
 
     altGreetingControllers = character.alternateGreetings
         .map(
@@ -239,7 +257,8 @@ class EditCharacterDraft {
       c.text,
     [for (final s in altGreetingSeeds) s?.toJson()],
     [for (final e in loreEntries) e.toJson()],
-    selectedWorldNames,
+    worldChoice.settingId,
+    worldChoice.loreIds,
     tags,
     ttsVoice,
     ambitions,

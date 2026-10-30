@@ -42,6 +42,11 @@ class CharacterCard {
   Lorebook? lorebook;
   List<String> worldNames;
 
+  /// Lore-only worlds for new chats; [worldNames] then holds at most the
+  /// Setting. Null means the card was never split: new chats seed
+  /// [worldNames] the legacy way, where climate picks the Setting.
+  List<String>? loreWorldNames;
+
   /// Per-character TTS voice assignment.
   ///
   /// This must be a valid voice key for the *currently selected* TTS engine
@@ -81,6 +86,7 @@ class CharacterCard {
     this.folderId,
     this.lorebook,
     this.worldNames = const [],
+    this.loreWorldNames,
     this.ttsVoice,
     this.frontPorchExtensions,
     this.rawExtensions,
@@ -145,6 +151,7 @@ class CharacterCard {
           ? null
           : encodeCharacterBook(lorebook!),
       'world_names': worldNames,
+      'lore_world_names': ?loreWorldNames,
       if (ttsVoice != null) 'tts_voice': ttsVoice,
       if (creator.isNotEmpty) 'creator': creator,
       if (creatorNotes.isNotEmpty) 'creator_notes': creatorNotes,

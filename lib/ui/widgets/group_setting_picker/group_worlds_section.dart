@@ -38,6 +38,7 @@ class GroupWorldsSection extends StatelessWidget {
     this.suggestedBy = const {},
     this.legacyWorldCount = 0,
     this.currentChatLine,
+    this.owner = 'the group',
   });
 
   final GroupWorldChoice value;
@@ -51,6 +52,9 @@ class GroupWorldsSection extends StatelessWidget {
   final int legacyWorldCount;
 
   final String? currentChatLine;
+
+  /// Whose new chats these are: 'the group', or a character's name.
+  final String owner;
 
   @override
   Widget build(BuildContext context) {
@@ -81,8 +85,11 @@ class GroupWorldsSection extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          "Applies to new chats of this group. Chats you've already started "
-          'keep their worlds.',
+          owner == 'the group'
+              ? "Applies to new chats of this group. Chats you've already "
+                    'started keep their worlds.'
+              : "Applies to $owner's new chats. Chats you've already started "
+                    'keep their worlds.',
           style: TextStyle(
             fontSize: 12.5,
             color: AppColors.textSecondary(context),
@@ -102,6 +109,7 @@ class GroupWorldsSection extends StatelessWidget {
         if (legacyWorldCount > 1) ...[
           const SizedBox(height: 12),
           _SplitBanner(
+            owner: owner == 'the group' ? 'This group' : owner,
             worldCount: legacyWorldCount,
             summary: groupSettingSummary(value, lookup, weatherOf),
           ),
@@ -113,6 +121,7 @@ class GroupWorldsSection extends StatelessWidget {
           places: places,
           weatherOf: weatherOf,
           suggestedBy: suggestedBy,
+          owner: owner,
         ),
       ],
     );
@@ -120,8 +129,13 @@ class GroupWorldsSection extends StatelessWidget {
 }
 
 class _SplitBanner extends StatelessWidget {
-  const _SplitBanner({required this.worldCount, required this.summary});
+  const _SplitBanner({
+    required this.owner,
+    required this.worldCount,
+    required this.summary,
+  });
 
+  final String owner;
   final int worldCount;
   final String summary;
 
@@ -154,7 +168,7 @@ class _SplitBanner extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'This group linked $worldCount worlds before one world '
+                  '$owner linked $worldCount worlds before one world '
                   'set the scene and the others added lore. Nothing about '
                   "its chats has changed, and it's filled in below as it "
                   'works today. $summary',

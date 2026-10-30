@@ -50,6 +50,9 @@ class CharacterFacade {
   /// Persona id → picture, for `portraitPersonaId` (wired by the host).
   String? Function(String personaId)? personaPortrait;
 
+  /// The world library, for the Worlds picker (wired by the host).
+  WorldRepository? worlds;
+
   /// List characters with optional search/folder filtering and sort, matching
   /// the legacy `/api/characters` payload.
   ///
@@ -296,11 +299,9 @@ class CharacterFacade {
         .toList();
   }
 
-  /// Edit an existing character's core text fields. Reuses the desktop save
-  /// path (mutate the in-memory CharacterCard + CharacterRepository.update),
-  /// which re-writes the V2 PNG card and the DB row. Returns false if the
-  /// repository isn't wired or the character isn't found. Only keys present in
-  /// [fields] are changed.
+  /// Edit an existing character's fields through the desktop save path (the
+  /// in-memory card + CharacterRepository.update, which re-writes the PNG and
+  /// the DB row). False if unwired or not found. Only keys present change.
   Future<bool> update(String id, Map<String, dynamic> fields) async {
     final repo = _repo;
     if (repo == null) return false;
@@ -312,6 +313,7 @@ class CharacterFacade {
       fields,
       needsSimDefault: _storage.realismSettings.needsSimDefault,
     );
+    applyCharacterWorlds(card, fields['worlds'], worlds);
     await repo.updateCharacter(card);
     // The desktop editor's rule: a moved Needs switch reaches the chats.
     await _chat?.followCardNeedsChoice(card, before: needsBefore);
@@ -467,6 +469,7 @@ class CharacterFacade {
         'alternateGreetings': decodeJsonList(c.alternateGreetings),
         'tags': decodeJsonList(c.tags),
         'worldNames': decodeJsonList(c.worldNames),
+        'worlds': characterWorldsJson(inMemory, worlds),
         'lorebook': normalizeLorebookJson(c.lorebook),
         'ttsVoice': c.ttsVoice,
         'imagePath': c.imagePath,

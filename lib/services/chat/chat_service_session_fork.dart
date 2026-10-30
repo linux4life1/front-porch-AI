@@ -36,9 +36,13 @@ extension ChatServiceSessionFork on ChatService {
         (_activeGroup != null
             ? _activeGroup!.worldIds
             : (_activeCharacter?.worldNames ?? const <String>[]));
-    // A split group names its Setting and Lore apart; null keeps the flat
-    // legacy seed for groups nobody has re-saved.
-    final loreRefs = carryRefs == null ? _activeGroup?.loreWorldIds : null;
+    // A split group or card names its Setting and Lore apart; null keeps the
+    // flat legacy seed for templates nobody has re-saved.
+    final loreRefs = carryRefs != null
+        ? null
+        : (_activeGroup != null
+              ? _activeGroup!.loreWorldIds
+              : _activeCharacter?.loreWorldNames);
     try {
       if (refs.isNotEmpty || (loreRefs?.isNotEmpty ?? false)) {
         // A fork carries the parent's slots as they stand: a scene the
