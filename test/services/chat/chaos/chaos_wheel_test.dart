@@ -582,20 +582,22 @@ void main() {
     }, timeout: const Timeout(Duration(minutes: 2)));
 
     test("random order: a turn between the phone's spin and Accept, and "
-        'Accept still names who answers next', () async {
+        'Accept applies what the reveal showed', () async {
       await enter(TurnOrder.random);
       await chat.setChaosModeEnabled(true);
       expect(chat.requestManualChanceTime(), isTrue);
-      final first = chat.nextCharacter?.name;
-      expect(first, isNotNull);
-      await chat.triggerNextCharacter();
-      await settle();
-      expect(chat.messages.last.sender, first);
-      expect(chat.nextCharacter, isNull, reason: 'that turn took the pick');
-
-      await chat.acceptPendingChanceTime();
+      final shown = chat.webChanceTimeDisplay;
       final named = chat.nextCharacter?.name;
       expect(['Ada', 'Bea', 'Cy'], contains(named));
+      await chat.triggerNextCharacter();
+      await settle();
+      expect(chat.messages.last.sender, named);
+      expect(chat.nextCharacter, isNull, reason: 'that turn took the pick');
+      expect(chat.webChanceTimeDisplay, shown, reason: 'the reveal holds');
+
+      await chat.acceptPendingChanceTime();
+      expect(chat.chaosModeService.pendingChaosInjection, shown);
+      expect(chat.nextCharacter?.name, named, reason: 'held as the next pick');
       await chat.sendMessage('What was that?');
       await settle();
       expect(chat.messages.last.sender, named);

@@ -19,6 +19,7 @@
 // Barrel for chat-specific extracted widgets (opportunistic per policy; high-freq surface for chat_page).
 // Niche ones can be direct imported too.
 
+export 'bubbles/bubble_host.dart';
 export 'bubbles/message_bubble.dart';
 export 'bubbles/selectable_bubble_body.dart';
 export 'bubbles/styled_chat_message.dart';

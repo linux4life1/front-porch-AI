@@ -405,10 +405,26 @@ void main() {
     test("a goal set on the phone with nobody focused is the first member's, "
         'as its header shows', () async {
       await bootGroup();
-      await chat.sendMessage('Evening, both of you.');
+      // A third member, so the first member, the one who answers and the
+      // next speaker are three different people.
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-third',
+          groupId: 'grp-swap',
+          name: 'Tamsin',
+          avatarFilename: const Value('tamsin.png'),
+          frontPorchExtensions: const Value(_off),
+        ),
+      );
+      await chat.setActiveGroup(
+        GroupChat(id: 'grp-swap', name: 'The Cast'),
+        groupRepo: GroupChatRepository(storage, db),
+      );
+      chat.setNextCharacter(member('Senjumaru'));
+      await chat.sendMessage('Evening, all of you.');
       await drain();
-      expect(chat.messages.last.sender, 'Zinna');
-      expect(chat.nextCharacter?.name, 'Senjumaru');
+      expect(chat.messages.last.sender, 'Senjumaru');
+      expect(chat.nextCharacter?.name, 'Tamsin');
 
       await ChatToolsFacade(
         chat,
@@ -421,6 +437,7 @@ void main() {
       ];
       expect(await goalsOf('Zinna'), ['Mend the porch rail']);
       expect(await goalsOf('Senjumaru'), isEmpty);
+      expect(await goalsOf('Tamsin'), isEmpty);
     }, timeout: const Timeout(Duration(minutes: 2)));
 
     test("the phone's pockets with nobody focused are the first "

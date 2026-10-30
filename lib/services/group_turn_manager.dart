@@ -18,6 +18,11 @@ class GroupTurnManager extends ChangeNotifier {
   List<CharacterCard> _characters = [];
   int _turnIndex = 0;
   String? _forcedNextSpeakerId;
+
+  /// Random turn order's next pick, made ahead: a Chance Time spin names who
+  /// reacts before the turn picks. Not a forced speaker, so an Away member
+  /// coming back still answers; the next random pick takes it.
+  String? _previewId;
   ({int index, String? forcedId, String regenId})? _regenHold;
   bool _observerMode = false;
   bool _autoPlayActive = false;
@@ -55,7 +60,26 @@ class GroupTurnManager extends ChangeNotifier {
     if (_group!.turnOrder == TurnOrder.roundRobin) {
       return _characters[_turnIndex % _characters.length];
     }
-    return null; // random decided at pick time
+    return _previewed; // random: decided at pick time unless picked ahead
+  }
+
+  CharacterCard? get _previewed =>
+      _characters.where((c) => _getId(c) == _previewId).firstOrNull;
+
+  /// Random turn order: make the next pick now (see [_previewId]). No-op for
+  /// round robin or while a pick is already held.
+  void previewRandomSpeaker() {
+    if (!isActive || _characters.isEmpty) return;
+    if (_group!.turnOrder != TurnOrder.random || _previewed != null) return;
+    _previewId = _getId(_characters[Random().nextInt(_characters.length)]);
+    notifyListeners();
+  }
+
+  /// Random turn order: hold [character] as the next pick.
+  void previewSpeaker(CharacterCard character) {
+    if (!isActive || _group!.turnOrder != TurnOrder.random) return;
+    _previewId = _getId(character);
+    notifyListeners();
   }
 
   /// Pick (and advance) the next speaker according to turn order.
@@ -80,7 +104,9 @@ class GroupTurnManager extends ChangeNotifier {
     }
 
     if (_group!.turnOrder == TurnOrder.random) {
-      return _characters[Random().nextInt(_characters.length)];
+      final previewed = _previewed;
+      _previewId = null;
+      return previewed ?? _characters[Random().nextInt(_characters.length)];
     }
 
     // Round robin
@@ -169,6 +195,7 @@ class GroupTurnManager extends ChangeNotifier {
   void resetTurnState() {
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _previewId = null;
     _regenHold = null;
     notifyListeners();
   }
@@ -185,6 +212,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = List.of(resolvedCharacters);
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _previewId = null;
     _regenHold = null;
     _observerMode = startInDirectorMode;
     _autoPlayActive = false;
@@ -197,6 +225,7 @@ class GroupTurnManager extends ChangeNotifier {
     _characters = [];
     _turnIndex = 0;
     _forcedNextSpeakerId = null;
+    _previewId = null;
     _regenHold = null;
     _observerMode = false;
     _autoPlayActive = false;

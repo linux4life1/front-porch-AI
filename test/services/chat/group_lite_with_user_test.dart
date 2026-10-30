@@ -229,4 +229,18 @@ void main() {
     expect(glance(named('Misty')), PresenceWhere.withYou);
     expectNoRealismDance();
   });
+
+  // A group has no active character between turns. The glance pass lends the
+  // pointer to the soft member and used to give it back only when it had
+  // held someone, so the soft member stayed active after answering.
+  test('a soft member who answers is not left active', () async {
+    await boot(softWithUser: true);
+    chat!.setNextCharacter(named('Misty'));
+    await chat!.sendMessage('Stay on the porch.');
+    await drainTurn();
+
+    expect(chat!.messages.last.sender, 'Misty');
+    expect(llm!.kinds, contains('with_user'), reason: 'the glance pass ran');
+    expect(chat!.activeCharacter, isNull);
+  });
 }

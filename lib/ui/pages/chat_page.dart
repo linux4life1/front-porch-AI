@@ -315,7 +315,7 @@ class _ChatPageState extends State<ChatPage> {
     // Streamed-text ticks rebuild only the transcript and the status bar.
     return ChatTurnBuilder(
       builder: (context, chatService) {
-        final character = chatService.activeCharacter;
+        final character = bubbleHost(chatService);
         final isGroup = chatService.isGroupMode;
 
         // New chat, new keys: without this a long-lived page pins every past

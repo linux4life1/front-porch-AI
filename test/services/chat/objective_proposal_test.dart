@@ -24,8 +24,11 @@
 // 0 new god privs confirmed, claims exact post live grep/gates/re-reads, etc.).
 
 import 'dart:convert';
+import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/foundation.dart';
+import 'package:flutter/services.dart' show MethodChannel;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:front_porch_ai/database/database.dart' hide AvatarImage;
@@ -34,6 +37,12 @@ import 'package:front_porch_ai/models/chat_message.dart';
 import 'package:front_porch_ai/models/group_chat.dart';
 import 'package:front_porch_ai/services/chat/objective_proposal.dart';
 import 'package:front_porch_ai/services/llm_service.dart';
+import 'package:front_porch_ai/services/services.dart'
+    hide GenerationParams, LLMService;
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../../integration_test/support/fake_backend.dart';
+import '../../helpers/chat_db_teardown.dart';
 
 /// Minimal fake LLMService for objective proposal tests (real stream control for gen/check).
 class _FakeLlmForObjective extends LLMService {
@@ -655,40 +664,69 @@ void main() {
   });
 
   // A group's goal belongs to its member, and a group has no active character
-  // between turns: its steps were written for "the character".
+  // between turns: steps for any member's goal were written for "the
+  // character", or for whoever had answered first.
   test("a group goal's steps are written for its owner", () async {
+    const channel = MethodChannel('plugins.flutter.io/path_provider');
+    TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+        .setMockMethodCallHandler(channel, (call) async {
+          if (call.method != 'getApplicationDocumentsDirectory') return null;
+          return Directory.systemTemp.createTempSync('fpai_goal_owner_').path;
+        });
+    HttpOverrides.global = null;
+    SharedPreferences.setMockInitialValues({
+      'update_auto_check': false,
+      'realism_default': false,
+    });
+    final backend = await FakeBackendServer.start(replyPieces: ['She nods.']);
+    addTearDown(backend.close);
     final prompts = <String>[];
-    final llm = _FakeLlmForObjective((params) {
+    final steps = _FakeLlmForObjective((params) {
       prompts.add(params.prompt);
       return Stream.value('1. Oil the hinge\n2. Sand the arm');
     });
-    final bea = CharacterCard(name: 'Bea', scenario: 'BEA_SCENARIO_MARKER');
-    final p = ObjectiveProposal(
-      stripThinkBlocks: (t) => t,
-      getLlmService: () => llm,
-      getActiveCharacter: () => null,
-      ownerCard: (o) => o.characterId == 'c1' ? bea : null,
-      getActiveGroup: () => GroupChat(id: 'g', name: 'Trio'),
-      getIsObserverMode: () => false,
-      getUserName: () => 'User',
-      getRealismEnabled: () => true,
-      getMessages: () => const [],
-      getActiveObjectives: () => const [],
-      tasksForObjective: (o) => const [],
-      loadActiveObjectives: () async {},
-      saveObjectiveTasks: (id, json) async {},
-      writeSyncedTasks: (obj, tasks) async {},
-      retireObjective: (obj, end) async {},
-      setObjectiveDormant: (obj, dormant) async {},
-      getIsCheckingCompletion: () => false,
-      setIsCheckingCompletion: (v) {},
-      onNotify: () {},
+    final db = AppDatabase.forTesting();
+    final storage = StorageService();
+    final chat =
+        ChatService(
+            KoboldService(storage),
+            UserPersonaService(db),
+            storage,
+            WorldRepository(storage, db),
+          )
+          ..setDatabase(db)
+          ..setCharacterRepository(CharacterRepository(db, storage))
+          ..testLlmServiceOverride = OpenRouterService(
+            apiUrl: '${backend.baseUrl}/v1',
+            modelName: 'smoke-model',
+          )
+          ..testWorkerLlmServiceOverride = steps;
+    addTearDown(() => disposeChatThenCloseDb(chat, db));
+    await storage.initialized;
+    await db.insertGroup(GroupsCompanion.insert(id: 'grp-goal', name: 'Pair'));
+    for (final name in ['Ada', 'Bea']) {
+      await db.insertGroupMember(
+        GroupMembersCompanion.insert(
+          id: 'mem-${name.toLowerCase()}',
+          groupId: 'grp-goal',
+          name: name,
+          avatarFilename: Value('${name.toLowerCase()}.png'),
+          scenario: Value('${name.toUpperCase()}_SCENARIO_MARKER'),
+        ),
+      );
+    }
+    await chat.setActiveGroup(
+      GroupChat(id: 'grp-goal', name: 'Pair'),
+      groupRepo: GroupChatRepository(storage, db),
     );
+    final bea = chat.groupCharacters.firstWhere((c) => c.name == 'Bea');
+    await chat.setObjective('Fix the porch swing', targetCharacter: bea);
+    final goal = (await chat.getActiveObjectivesFor(bea)).single;
 
-    await p.generateObjectiveTasks(_mkObj('o1', 'Fix the porch swing'));
+    await chat.generateObjectiveTasks(goal);
 
     expect(prompts, isNotEmpty);
-    expect(prompts.last, contains('Bea'));
     expect(prompts.last, contains('BEA_SCENARIO_MARKER'));
+    expect(prompts.last, isNot(contains('ADA_SCENARIO_MARKER')));
   });
 }

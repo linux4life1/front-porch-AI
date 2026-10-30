@@ -92,4 +92,48 @@ void main() {
           reason: 'a pin for a departed member must not be returned');
     });
   });
+
+  // A Chance Time spin in random turn order has to name who reacts before the
+  // turn picks. It makes the next random pick ahead; that pick is not forced,
+  // so an Away member coming back still takes the turn.
+  group('a random pick made ahead', () {
+    final members = [_card('Alice'), _card('Bob'), _card('Cara')];
+
+    test('names the next speaker without forcing them, and the next random '
+        'pick takes it', () {
+      final mgr = GroupTurnManager()
+        ..enterGroup(_group(order: TurnOrder.random), members);
+      mgr.previewRandomSpeaker();
+      final named = mgr.nextSpeaker;
+      expect(named, isNotNull);
+      expect(mgr.hasForcedSpeaker, isFalse);
+
+      mgr.previewRandomSpeaker();
+      expect(mgr.nextSpeaker, same(named), reason: 'a held pick stays put');
+      expect(mgr.pickNextSpeaker(), same(named));
+      expect(mgr.nextSpeaker, isNull, reason: 'the pick was used');
+    });
+
+    test('a hand-picked speaker still wins, and round robin ignores it', () {
+      final mgr = GroupTurnManager()
+        ..enterGroup(_group(order: TurnOrder.random), members);
+      mgr.previewSpeaker(members[2]);
+      mgr.setNextSpeaker(members[1]);
+      expect(mgr.pickNextSpeaker().name, 'Bob');
+      expect(mgr.pickNextSpeaker().name, 'Cara', reason: 'the held pick');
+
+      final rr = GroupTurnManager()..enterGroup(_group(), members);
+      rr.previewRandomSpeaker();
+      rr.previewSpeaker(members[2]);
+      expect(rr.nextSpeaker?.name, 'Alice');
+    });
+
+    test('a reset drops the held pick', () {
+      final mgr = GroupTurnManager()
+        ..enterGroup(_group(order: TurnOrder.random), members);
+      mgr.previewSpeaker(members[1]);
+      mgr.resetTurnState();
+      expect(mgr.nextSpeaker, isNull);
+    });
+  });
 }
