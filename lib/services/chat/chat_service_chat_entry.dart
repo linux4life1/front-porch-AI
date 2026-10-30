@@ -29,7 +29,7 @@ extension ChatServiceChatEntry on ChatService {
   /// setActiveCharacter for this, which cancels generation, full-reloads on
   /// rename, and leaves the group — the exact failure modes this exists to
   /// avoid.)
-  void refreshActiveCharacterCard(CharacterCard card) {
+  void _refreshActiveCharacterCardImpl(CharacterCard card) {
     if (_activeGroup != null) {
       // identical() first: group member cards are library-decoupled copies
       // whose dbId is often null — the editor mutates the same instance, so

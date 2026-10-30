@@ -16,24 +16,21 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with Front Porch AI. If not, see <https://www.gnu.org/licenses/>.
 
-import 'dart:convert';
-
-import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:path/path.dart' as p;
 
-import 'package:front_porch_ai/database/database.dart' as db;
 import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/ui/pages/edit_character_page.dart';
 import 'package:front_porch_ai/ui/theme/app_colors.dart';
 import 'package:front_porch_ai/ui/widgets/widgets.dart';
 
-/// Edit one member's card content in the reused single-character editor.
-/// Saves to the group's member row only (never the source library
-/// character), and preserves the member's group state (realism/needs,
-/// avatar) by writing just the content columns. Returns the edited card, or
-/// null when the editor was backed out of.
+/// Edit one member's card in the reused single-character editor. Saves to
+/// the group's member row only (never the source library character): every
+/// column the editor shows, voice and greeting seeds included. The Realism
+/// section is hidden, so the member's realism and Needs settings are written
+/// back as they were. Returns the edited card, or null when the editor was
+/// backed out of.
 Future<CharacterCard?> editGroupMemberCard(
   BuildContext context,
   CharacterCard member,
@@ -49,29 +46,8 @@ Future<CharacterCard?> editGroupMemberCard(
         showRealismTab: false,
         allowAvatarChange: false,
         popWithCardOnSave: true,
-        onSaveOverride: (card) async {
-          await database.updateGroupMember(
-            db.GroupMembersCompanion(
-              id: Value(memberId),
-              name: Value(card.name),
-              description: Value(card.description),
-              personality: Value(card.personality),
-              scenario: Value(card.scenario),
-              firstMessage: Value(card.firstMessage),
-              mesExample: Value(card.mesExample),
-              systemPrompt: Value(card.systemPrompt),
-              postHistoryInstructions: Value(card.postHistoryInstructions),
-              alternateGreetings: Value(jsonEncode(card.alternateGreetings)),
-              tags: Value(jsonEncode(card.tags)),
-              lorebook: Value(
-                card.lorebook != null
-                    ? jsonEncode(card.lorebook!.toJson())
-                    : null,
-              ),
-              worldNames: Value(jsonEncode(card.allWorldNames)),
-            ),
-          );
-        },
+        onSaveOverride: (card) =>
+            saveGroupMemberCard(database, card..dbId = memberId),
       ),
     ),
   );

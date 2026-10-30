@@ -289,6 +289,11 @@ Future<void> showEditCharacterDialog(
   bool ensureRelationshipVisible = false,
 }) async {
   final chatService = Provider.of<ChatService>(context, listen: false);
+  // A group member is the group's own copy: Save writes its row, never the
+  // library writer, which rewrote the PNG, matched no library row and
+  // re-keyed memories filed under the character's bare name.
+  final member = isOpenGroupMember(chatService, character);
+  final db = member ? liveDatabase(context) : null;
   final opened = showDialog<void>(
     context: context,
     builder: (dialogCtx) => Dialog(
@@ -299,6 +304,12 @@ Future<void> showEditCharacterDialog(
         height: MediaQuery.of(dialogCtx).size.height - 96,
         child: EditCharacterPage(
           character: character,
+          // A member's avatar lives in the group's folder, which the
+          // picker does not write.
+          allowAvatarChange: !member,
+          onSaveOverride: db == null
+              ? null
+              : (card) => saveGroupMemberCard(db, card),
           // Light refresh only — never the full setActiveCharacter dance,
           // which cancels in-flight generation, full-reloads on rename,
           // and leaves group mode.

@@ -411,6 +411,8 @@ class ChatService extends ChangeNotifier
   ChatThemeOverrides get sessionThemeOverrides => _sessionThemeOverrides;
   set sessionThemeOverrides(ChatThemeOverrides value) =>
       _setSessionThemeOverridesImpl(value);
+  void refreshActiveCharacterCard(CharacterCard card) =>
+      _refreshActiveCharacterCardImpl(card);
 
   String get summary => _summary;
   bool get summaryPaused => _summaryPaused;

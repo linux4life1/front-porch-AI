@@ -143,6 +143,15 @@ class EditCharacterCardWriter {
         '[_saveCharacter] Saving realism: enabled=${d.realismEnabled}, modified=${d.realismSettingsModified}',
       );
       _writeExtensions(greetingPairs.seeds);
+    } else if (!showRealismTab &&
+        (hasGreetingSeeds || character.frontPorchExtensions != null)) {
+      // Realism hidden (a group member): its other extensions stay as they
+      // were, but the greeting seeds sit with the greetings on the Dialogue
+      // tab, which is shown, so they save with them.
+      final base = character.frontPorchExtensions ?? FrontPorchExtensions();
+      character.frontPorchExtensions = base.copyWith(
+        greetingSeeds: greetingPairs.seeds,
+      );
     }
   }
 
