@@ -105,7 +105,7 @@ class _EditGroupPageState extends State<EditGroupPage>
 
   void _useForkSettings(ForkedGroupSource s) {
     setState(() {
-      if (s.realismOn) {
+      if (s.realismMissingFrom(widget.group)) {
         final blobs = neutralGroupRealismBlobs([
           for (final m in _realismMembers) m.mid,
         ], needsEnabled: s.needsOn);
@@ -113,7 +113,7 @@ class _EditGroupPageState extends State<EditGroupPage>
         _baselineRealismState = blobs.baselineJson;
         _realismGen++;
       }
-      if (s.worlds != null) _worldChoice = s.worlds!;
+      if (s.worldMissingFrom(widget.group)) _worldChoice = s.worlds!;
       _forkApplied = true;
     });
   }
