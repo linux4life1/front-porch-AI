@@ -419,16 +419,17 @@ class WorldRepository extends ChangeNotifier {
       _attachments.markDecided(chatId);
 
   /// Give a chat the worlds its character carries, but ONLY if the chat has
-  /// never had that decision made. Returns true when it seeded.
-  /// This is what rescues chats created before their character had a world:
-  /// they predate any attachment, so their empty list is "undecided", not
-  /// "the user removed them".
+  /// never had that decision made (true when it seeded). This rescues chats
+  /// made before their character had a world: their empty list is
+  /// "undecided", not "the user removed them".
   Future<bool> backfillChatWorldsFromCharacter({
     required String chatId,
     required List<String> characterWorldRefs,
+    List<String>? characterLoreRefs,
   }) => _attachments.backfillFromCharacter(
     chatId: chatId,
     characterWorldRefs: characterWorldRefs,
+    characterLoreRefs: characterLoreRefs,
   );
 
   /// Attach worlds newly added to a CHARACTER onto that character's existing
@@ -440,16 +441,18 @@ class WorldRepository extends ChangeNotifier {
   /// read chat attachments, not the character's list.
   ///
   /// Only [addedRefs] (the diff from this edit) propagate, and only onto chats
-  /// with an EMPTY attachment list. That keeps two things true: editing a
-  /// character for unrelated reasons never re-attaches anything, and a chat the
-  /// user deliberately sent somewhere else is never dragged back.
+  /// with an EMPTY attachment list, so an unrelated edit never re-attaches
+  /// anything and a chat sent elsewhere is never dragged back. A split card
+  /// passes [addedLoreRefs] (non-null) and [addedRefs] is then its Setting.
   /// Returns the ids of the chats that changed, so a live session can refresh.
   Future<List<String>> applyAddedCharacterWorldsToChats({
     required String characterId,
     required List<String> addedRefs,
+    List<String>? addedLoreRefs,
   }) => _attachments.applyAddedCharacterWorlds(
     characterId: characterId,
     addedRefs: addedRefs,
+    addedLoreRefs: addedLoreRefs,
   );
 
   /// Copy template world refs (group template ids or character world names)

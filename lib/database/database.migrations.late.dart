@@ -394,6 +394,20 @@ extension _AppDatabaseMigrationLate on AppDatabase {
         // already present (re-run / dual-version)
       }
     }
+    if (from < 63) {
+      // v62→v63: a character's lore-only worlds for new chats, apart from
+      // its Setting in world_names — the group split of v62, for 1:1 cards.
+      // NULL for every existing row means "never split"; those cards keep
+      // seeding new chats the way they always have. Additive.
+      try {
+        await customStatement(
+          'ALTER TABLE characters ADD COLUMN lore_world_names TEXT',
+        );
+        debugPrint('[DB] v63: added characters.lore_world_names');
+      } catch (_) {
+        // already present (re-run / dual-version)
+      }
+    }
   }
 
   /// True only when this pass actually created `chat_worlds.is_primary`.

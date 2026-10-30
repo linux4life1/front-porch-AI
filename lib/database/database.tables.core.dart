@@ -46,6 +46,9 @@ class Characters extends Table {
   DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
   DateTimeColumn get deletedAt => dateTime().nullable()();
   IntColumn get primeAvatarIndex => integer().withDefault(const Constant(1))();
+  // v63: lore-only worlds for new chats (JSON array). NULL = the card was
+  // never split, so world_names is seeded the legacy way.
+  TextColumn get loreWorldNames => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

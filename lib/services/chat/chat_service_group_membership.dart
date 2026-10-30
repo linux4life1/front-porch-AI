@@ -99,6 +99,10 @@ extension ChatServiceGroupMembership on ChatService {
       // The host's worlds become the group's template, so a later "New chat"
       // in this group starts where the 1:1 would have.
       worldIds: List<String>.of(_activeCharacter!.worldNames),
+      loreWorldIds: switch (_activeCharacter!.loreWorldNames) {
+        final lore? => List<String>.of(lore),
+        null => null,
+      },
       // The host's book fired in the 1:1; it keeps firing in the group.
       inheritCharacterLorebooks: true,
       // Realism, chaos and the chat's own worlds are written by

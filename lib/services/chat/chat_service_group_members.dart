@@ -68,7 +68,7 @@ extension ChatServiceGroupMembers on ChatService {
               ? jsonEncode(character.lorebook!.toJson())
               : null,
         ),
-        worldNames: drift.Value(jsonEncode(character.worldNames)),
+        worldNames: drift.Value(jsonEncode(character.allWorldNames)),
         frontPorchExtensions: drift.Value(
           encodeMemberFrontPorch(
             asLite

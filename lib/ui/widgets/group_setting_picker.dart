@@ -40,6 +40,7 @@ class GroupSettingPicker extends StatefulWidget {
     required this.places,
     required this.weatherOf,
     this.suggestedBy = const {},
+    this.owner = 'the group',
   });
 
   final GroupWorldChoice value;
@@ -53,6 +54,9 @@ class GroupSettingPicker extends StatefulWidget {
 
   /// World id → the members whose cards already link it.
   final Map<String, List<String>> suggestedBy;
+
+  /// Whose new chats these are, for the copy: 'the group' or a character.
+  final String owner;
 
   @override
   State<GroupSettingPicker> createState() => _GroupSettingPickerState();
@@ -75,7 +79,7 @@ class _GroupSettingPickerState extends State<GroupSettingPicker> {
     if (roots.isEmpty) {
       return Text(
         'No worlds in your library yet. Make one on the Worlds page, then '
-        'come back to set where the group meets.',
+        'come back to set ${widget.owner == 'the group' ? 'where the group meets' : "where ${widget.owner}'s chats start"}.',
         style: TextStyle(color: AppColors.textSecondary(context)),
       );
     }

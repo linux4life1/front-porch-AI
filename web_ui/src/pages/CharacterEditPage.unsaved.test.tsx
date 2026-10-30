@@ -134,3 +134,54 @@ describe('Edit character with unsaved edits', () => {
     expect(confirm).not.toHaveBeenCalled();
   });
 });
+
+describe('Edit character: where new chats meet', () => {
+  const WORLDS = [
+    { id: 'vale', name: 'Green Vale', climateEnabled: true, biomeId: 'temperate', defaultPlaceId: 'mill' },
+    { id: 'mill', name: 'The Mill', parentWorldId: 'vale', climateEnabled: false },
+    { id: 'attic', name: 'Attic Books', climateEnabled: false },
+  ];
+
+  function serve(worlds: object) {
+    get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/api/characters/c1/detail'
+          ? { ...DETAIL, worldNames: ['Attic Books', 'Green Vale'], worlds }
+          : url === '/api/worlds'
+            ? { worlds: WORLDS }
+            : {},
+      ),
+    );
+    post.mockResolvedValue({});
+  }
+
+  const tile = (id: string) => container.querySelector(`[data-testid="${id}"]`) as HTMLElement;
+
+  it('shows the card as it seeds today and saves a picked world as a split', async () => {
+    serve({ settingId: 'vale', loreIds: ['attic'], legacyWorldCount: 2 });
+    await mount();
+    expect(container.querySelector('[data-testid="character-worlds-split-banner"]')?.textContent).toContain(
+      'Juniper linked 2 worlds',
+    );
+    expect(tile('group-setting-world-vale').getAttribute('aria-checked')).toBe('true');
+
+    await act(async () => tile('group-setting-world-attic').click());
+    await click('Save character');
+    const body = post.mock.calls.find(([url]) => url === '/api/characters/c1')?.[1];
+    expect(body.worlds).toEqual({ settingId: 'attic', loreIds: [] });
+    expect(body.worldNames).toBeUndefined();
+  });
+
+  it('an older app with no worlds field never posts a choice', async () => {
+    get.mockImplementation((url: string) =>
+      Promise.resolve(
+        url === '/api/characters/c1/detail' ? DETAIL : url === '/api/worlds' ? { worlds: WORLDS } : {},
+      ),
+    );
+    post.mockResolvedValue({});
+    await mount();
+    await click('Save character');
+    const body = post.mock.calls.find(([url]) => url === '/api/characters/c1')?.[1];
+    expect(body.worlds).toBeUndefined();
+  });
+});

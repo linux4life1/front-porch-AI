@@ -128,7 +128,7 @@ class GroupChatCommitter {
                 ? jsonEncode(source.lorebook!.toJson())
                 : null,
           ),
-          worldNames: Value(jsonEncode(source.worldNames)),
+          worldNames: Value(jsonEncode(source.allWorldNames)),
           frontPorchExtensions: Value(
             memberFp != null
                 ? jsonEncode(memberFp.toJson())

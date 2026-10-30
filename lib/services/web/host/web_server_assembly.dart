@@ -80,6 +80,7 @@ import 'package:front_porch_ai/services/web/web_server_deps.dart';
       : null;
   // "Make a Character" from a persona keeps the persona's picture.
   characterFacade.personaPortrait = personaConversionFacade?.portraitPathFor;
+  characterFacade.worlds = worlds;
 
   final characterAuthoringFacade = characters != null
       ? CharacterAuthoringFacade(characters, storage)

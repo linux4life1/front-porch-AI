@@ -120,7 +120,10 @@ void main() {
       // v62: groups.lore_world_ids — a group's lore-only worlds apart from
       //      its Setting. Guarded by the Group Setting split group in
       //      test/services/world_repository_test.dart.
-      expect(db.schemaVersion, 62);
+      // v63: characters.lore_world_names — a character card's lore-only
+      //      worlds apart from its Setting. Guarded by the Character Setting
+      //      split group in test/services/world_repository_test.dart.
+      expect(db.schemaVersion, 63);
     });
 
     test('journal_memories table exists and round-trips (v35)', () async {
