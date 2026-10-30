@@ -24,8 +24,9 @@ import 'package:front_porch_ai/services/web/facade/group_member_seed.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
 /// What the web's new-group wizard posts beyond name, members, turn order
-/// and worlds: the Identity switches, the Opening, Realism (with Group
-/// Dynamics) and Prompts & Lore, as the desktop wizard collects them.
+/// and worlds: the Identity switches with each member's Voice, the Opening,
+/// Realism (with Group Dynamics) and Prompts & Lore, as the desktop wizard
+/// collects them.
 ///
 /// Every field is optional and read defensively, since phones and desktops
 /// run mixed versions: a body with none of them makes the same group the
@@ -42,7 +43,10 @@ class GroupCreateDraft {
       scenario = _text(body['scenario']),
       firstMessage = _text(body['firstMessage']),
       memberPrompts = _stringMap(body['memberPrompts']),
-      memberVoices = _stringMap(body['memberVoices']),
+      memberVoices = {
+        for (final e in _stringMap(body['memberVoices']).entries)
+          e.key: e.value.trim(),
+      },
       groupLore = _lore(body['groupLore']),
       greetings = compactGreetingPairs(
         greetingSlotsFromRaw(body['alternateGreetings']),

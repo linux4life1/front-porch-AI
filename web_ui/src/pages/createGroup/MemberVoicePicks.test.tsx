@@ -81,8 +81,9 @@ it('picks a voice, the global voice, and back to the card own voice', async () =
   expect(latest, 'Their own voice drops the pick').toEqual({ m: '' });
 });
 
-it('shows nothing while text-to-speech has no voices', async () => {
+it('says how to get voices while text-to-speech has none', async () => {
   voices = [];
   await mount();
   expect(container.querySelector('select')).toBeNull();
+  expect(container.textContent).toContain('Enable text-to-speech on the desktop app');
 });

@@ -34,10 +34,17 @@ export function MemberVoicePicks({
       .catch(() => setStatus(null));
   }, []);
 
-  const list = status?.voices ?? [];
+  if (status === null) return null;
+  const list = status.voices ?? [];
   // As on the character page: no voices until text-to-speech is set up.
-  if (list.length === 0) return null;
-  const globalName = status?.globalVoice
+  if (list.length === 0) {
+    return (
+      <p className="muted small">
+        Enable text-to-speech on the desktop app to pick a voice for each member.
+      </p>
+    );
+  }
+  const globalName = status.globalVoice
     ? (list.find((v) => v.id === status.globalVoice)?.name ?? status.globalVoice)
     : null;
 

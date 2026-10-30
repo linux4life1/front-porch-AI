@@ -911,11 +911,10 @@ void main() {
       });
 
       final members = await groups.getMembersForGroup(made!['id'] as String);
-      expect({for (final m in members) m.name: m.ttsVoice}, {
-        'Voiced': null,
-        'Plain': 'am_adam',
-        'Third': 'af_bella',
-      });
+      expect(
+        {for (final m in members) m.name: m.ttsVoice},
+        {'Voiced': null, 'Plain': 'am_adam', 'Third': 'af_bella'},
+      );
       expect(
         chars.characters.firstWhere((c) => c.name == 'Voiced').ttsVoice,
         'af_sky',

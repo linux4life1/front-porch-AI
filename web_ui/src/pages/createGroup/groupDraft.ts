@@ -2,7 +2,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 //
 // The web new-group wizard's draft past Members and the Setting: Identity
-// switches, Realism (with Group Dynamics), Opening, Prompts & Lore. The
+// switches and member Voices, Realism (with Group Dynamics), Opening,
+// Prompts & Lore. The
 // relay reads the same body (lib/services/web/facade/group_create_draft.dart);
 // member keys are library character ids, which it maps to the new members.
 

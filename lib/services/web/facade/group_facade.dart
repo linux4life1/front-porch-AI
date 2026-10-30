@@ -197,7 +197,8 @@ class GroupFacade {
   /// source character is duplicated into the group's private avatars dir and a
   /// typed GroupMember row (with provenance), then the GroupChat is saved.
   /// The rest of the body is the web wizard's draft (GroupCreateDraft):
-  /// Identity switches, Opening, Realism with Group Dynamics, Prompts & Lore.
+  /// Identity switches and member Voices, Opening, Realism with Group
+  /// Dynamics, Prompts & Lore.
   /// Without it Realism and Needs start on with every member neutral, as the
   /// desktop creator's defaults do; `worlds` sets where new chats meet.
   /// Returns {id, name} or null.
