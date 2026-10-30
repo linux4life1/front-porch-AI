@@ -238,39 +238,13 @@ void main() {
       description: 'A flour mill on stilts.',
       lorebook: Lorebook(entries: []),
     );
-    final repo = FakeCharacterRepository([
-      CharacterCard(name: 'Aerin', description: 'First.', firstMessage: 'Hi.'),
-      CharacterCard(name: 'Bo', description: 'Second.', firstMessage: 'Yo.'),
-    ]);
-    final chat = FakeChatService();
-    final storage = FakeStorageService();
-    final worlds = FakeWorldRepository([vale, mill]);
-    final folders = FakeFolderService();
-    final groups = FakeGroupChatRepository();
     final llmService = _RecordingLlm();
-    final llm = _RecordingLlmProvider(llmService);
-    final tts = FakeTtsService();
-    for (final s in [repo, chat, storage, worlds, folders, groups, llm, tts]) {
-      addTearDown(s.dispose);
-    }
     addTearDown(llmService.dispose);
-
-    await tester.pumpWidget(
-      MultiProvider(
-        providers: [
-          ChangeNotifierProvider<CharacterRepository>.value(value: repo),
-          ChangeNotifierProvider<ChatService>.value(value: chat),
-          ChangeNotifierProvider<StorageService>.value(value: storage),
-          ChangeNotifierProvider<WorldRepository>.value(value: worlds),
-          ChangeNotifierProvider<FolderService>.value(value: folders),
-          ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
-          ChangeNotifierProvider<LLMProvider>.value(value: llm),
-          ChangeNotifierProvider<TtsService>.value(value: tts),
-        ],
-        child: const MaterialApp(home: CreateGroupChatPage()),
-      ),
+    await _pumpWizard(
+      tester,
+      worlds: [vale, mill],
+      llm: _RecordingLlmProvider(llmService),
     );
-    await tester.pumpAndSettle();
 
     Future<void> tapNext() async {
       await tester.ensureVisible(find.text('Next'));
@@ -325,6 +299,86 @@ void main() {
     draft.realismEnabled = false;
     expect(draft.buildDynamicsContextForGeneration(), isEmpty);
   });
+
+  // A phone-width window: every step, Back/Next and the title fit, with
+  // Realism on and its per-member header showing.
+  testWidgets('every step fits a 400 px window', (tester) async {
+    await tester.binding.setSurfaceSize(const Size(400, 800));
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+    await _pumpWizard(tester);
+
+    await tester.tap(find.text('Aerin').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Bo').first);
+    await tester.pumpAndSettle();
+    var steps = 1;
+    var sawRealismHeader = false;
+    while (find.text('Create Group & Enter Chat').evaluate().isEmpty) {
+      await tester.ensureVisible(find.text('Next'));
+      await tester.tap(find.text('Next'));
+      await tester.pumpAndSettle();
+      if (find.text('Group Name').evaluate().isNotEmpty) {
+        await tester.enterText(find.byType(TextField).first, 'Narrow');
+        await tester.pumpAndSettle();
+      }
+      sawRealismHeader |= find
+          .text('Initial Realism State per Member')
+          .evaluate()
+          .isNotEmpty;
+      expect(tester.takeException(), isNull, reason: 'step $steps');
+      steps++;
+    }
+    expect(steps, GroupWizardSteps.labels.length);
+    expect(sawRealismHeader, isTrue);
+  });
+}
+
+/// Pumps Create Group over fakes: Aerin and Bo in the library, [worlds] in
+/// the world repository, and [llm] as the model provider.
+Future<void> _pumpWizard(
+  WidgetTester tester, {
+  List<World> worlds = const [],
+  LLMProvider? llm,
+}) async {
+  final repo = FakeCharacterRepository([
+    CharacterCard(name: 'Aerin', description: 'First.', firstMessage: 'Hi.'),
+    CharacterCard(name: 'Bo', description: 'Second.', firstMessage: 'Yo.'),
+  ]);
+  final chat = FakeChatService();
+  final storage = FakeStorageService();
+  final worldRepo = FakeWorldRepository(worlds);
+  final folders = FakeFolderService();
+  final groups = FakeGroupChatRepository();
+  final provider = llm ?? FakeLLMProvider();
+  final tts = FakeTtsService();
+  for (final s in [
+    repo,
+    chat,
+    storage,
+    worldRepo,
+    folders,
+    groups,
+    provider,
+    tts,
+  ]) {
+    addTearDown(s.dispose);
+  }
+  await tester.pumpWidget(
+    MultiProvider(
+      providers: [
+        ChangeNotifierProvider<CharacterRepository>.value(value: repo),
+        ChangeNotifierProvider<ChatService>.value(value: chat),
+        ChangeNotifierProvider<StorageService>.value(value: storage),
+        ChangeNotifierProvider<WorldRepository>.value(value: worldRepo),
+        ChangeNotifierProvider<FolderService>.value(value: folders),
+        ChangeNotifierProvider<GroupChatRepository>.value(value: groups),
+        ChangeNotifierProvider<LLMProvider>.value(value: provider),
+        ChangeNotifierProvider<TtsService>.value(value: tts),
+      ],
+      child: const MaterialApp(home: CreateGroupChatPage()),
+    ),
+  );
+  await tester.pumpAndSettle();
 }
 
 class _RecordingLlm extends LLMService {

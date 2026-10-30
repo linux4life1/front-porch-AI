@@ -169,38 +169,41 @@ class GroupWizardNavButtons extends StatelessWidget {
                 ),
               ),
             if (currentStep > 0) const SizedBox(width: 16),
-            SizedBox(
-              width: 280,
-              height: 52,
-              child: ElevatedButton.icon(
-                onPressed: canGoNext
-                    ? () {
-                        if (currentStep == 0 && !draft.canLeaveMembersStep) {
-                          actions.showSnack(
-                            'A group needs at least 2 characters.',
-                          );
-                          return;
+            // Up to 280 wide; narrower when Back and Next share a phone.
+            Flexible(
+              child: SizedBox(
+                width: 280,
+                height: 52,
+                child: ElevatedButton.icon(
+                  onPressed: canGoNext
+                      ? () {
+                          if (currentStep == 0 && !draft.canLeaveMembersStep) {
+                            actions.showSnack(
+                              'A group needs at least 2 characters.',
+                            );
+                            return;
+                          }
+                          if (isLastStep) {
+                            actions
+                                .createGroup(); // defaults to enterChat: true (primary action)
+                          } else {
+                            draft.goToStep(effectiveNextStep);
+                          }
                         }
-                        if (isLastStep) {
-                          actions
-                              .createGroup(); // defaults to enterChat: true (primary action)
-                        } else {
-                          draft.goToStep(effectiveNextStep);
-                        }
-                      }
-                    : null,
-                icon: Icon(
-                  isLastStep ? Icons.check : Icons.arrow_forward,
-                  size: 20,
-                ),
-                label: Text(nextText, style: const TextStyle(fontSize: 16)),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.porchAmberOf(context),
-                  foregroundColor: AppColors.onAccentOf(context),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
+                      : null,
+                  icon: Icon(
+                    isLastStep ? Icons.check : Icons.arrow_forward,
+                    size: 20,
                   ),
-                  disabledBackgroundColor: AppColors.borderOf(context),
+                  label: Text(nextText, style: const TextStyle(fontSize: 16)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.porchAmberOf(context),
+                    foregroundColor: AppColors.onAccentOf(context),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    disabledBackgroundColor: AppColors.borderOf(context),
+                  ),
                 ),
               ),
             ),

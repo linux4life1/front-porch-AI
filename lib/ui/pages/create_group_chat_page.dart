@@ -260,7 +260,13 @@ class _CreateGroupChatPageState extends State<CreateGroupChatPage> {
               size: 22,
             ),
             const SizedBox(width: 10),
-            const Text('Create Group Chat'),
+            const Flexible(
+              child: Text(
+                'Create Group Chat',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
             const SizedBox(width: 16),
             // The dots outgrow a narrow window; they scroll instead of
             // overflowing the bar.
