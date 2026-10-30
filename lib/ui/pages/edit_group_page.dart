@@ -106,9 +106,13 @@ class _EditGroupPageState extends State<EditGroupPage>
   void _useForkSettings(ForkedGroupSource s) {
     setState(() {
       if (s.realismMissingFrom(widget.group)) {
-        final blobs = neutralGroupRealismBlobs([
-          for (final m in _realismMembers) m.mid,
-        ], needsEnabled: s.needsOn);
+        final blobs = switchGroupTemplateRealism(
+          defaultMemberJson: _defaultMemberRealismState,
+          baselineJson: _baselineRealismState,
+          memberIds: [for (final m in _realismMembers) m.mid],
+          realismOn: true,
+          needsOn: s.needsOn,
+        );
         _defaultMemberRealismState = blobs.defaultMemberJson;
         _baselineRealismState = blobs.baselineJson;
         _realismGen++;

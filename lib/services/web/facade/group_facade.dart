@@ -28,6 +28,7 @@ import 'package:front_porch_ai/models/models.dart';
 import 'package:front_porch_ai/services/services.dart';
 import 'package:front_porch_ai/services/web/facade/group_create_draft.dart';
 import 'package:front_porch_ai/services/web/facade/group_draft_opening.dart';
+import 'package:front_porch_ai/services/web/facade/group_new_chats.dart';
 import 'package:front_porch_ai/services/world_store/world_store.dart';
 import 'package:front_porch_ai/utils/utils.dart';
 
@@ -53,6 +54,9 @@ class GroupFacade {
 
   /// The web wizard's Generate buttons; null when no model provider is wired.
   GroupDraftOpening? opening;
+
+  /// Group Settings' "New chats" switches and the forked-group notice.
+  late final GroupNewChats newChats = GroupNewChats(_groups, db, worlds);
 
   final GroupChatRepository _groups;
   final StorageService _storage;
@@ -193,7 +197,8 @@ class GroupFacade {
   /// source character is duplicated into the group's private avatars dir and a
   /// typed GroupMember row (with provenance), then the GroupChat is saved.
   /// The rest of the body is the web wizard's draft (GroupCreateDraft):
-  /// Identity switches, Opening, Realism with Group Dynamics, Prompts & Lore.
+  /// Identity switches and member Voices, Opening, Realism with Group
+  /// Dynamics, Prompts & Lore.
   /// Without it Realism and Needs start on with every member neutral, as the
   /// desktop creator's defaults do; `worlds` sets where new chats meet.
   /// Returns {id, name} or null.
@@ -257,7 +262,9 @@ class GroupFacade {
           alternateGreetings: Value(jsonEncode(source.alternateGreetings)),
           tags: Value(jsonEncode(source.tags)),
           avatarFilename: Value('$mid.png'),
-          ttsVoice: Value(source.ttsVoice),
+          ttsVoice: Value(
+            memberVoiceFromPick(draft.memberVoices, source.dbId!, source),
+          ),
           lorebook: Value(
             source.lorebook != null
                 ? jsonEncode(source.lorebook!.toJson())

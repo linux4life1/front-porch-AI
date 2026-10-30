@@ -72,6 +72,13 @@
   background: var(--card, var(--surface)); color: var(--muted);
 }
 .gs-banner strong { display: block; color: var(--text); margin-bottom: 4px; }
+.gs-fork-heading { display: block; margin: 10px 0 2px; }
+.gs-fork-row {
+  margin-top: 6px; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border);
+  color: var(--text); overflow-wrap: anywhere;
+}
+.gs-fork-row small { display: block; color: var(--faint, var(--muted)); font-size: 12px; }
+.gs-fork-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; margin-top: 10px; }
 .gs-title-lg { margin: 0; font-size: 1.35rem; font-weight: 700; color: var(--text); }
 
 /* The new-group wizard's own rows (pages/createGroup). */

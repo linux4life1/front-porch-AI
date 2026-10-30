@@ -123,3 +123,44 @@ it('each Review line names its step, and Change goes back to that step', async (
     expect(text()).not.toContain('Create & open');
   }
 });
+
+it("posts each member's Voice from Details, the global voice included", async () => {
+  const { api } = await import('../api/client');
+  const original = api.get;
+  const spy = vi.spyOn(api, 'get').mockImplementation(async (path: string) =>
+    path.startsWith('/api/voice/status')
+      ? {
+          globalVoice: 'af_sky',
+          voices: [
+            { id: 'af_sky', name: 'Sky', gender: 'Female' },
+            { id: 'am_adam', name: 'Adam', gender: 'Male' },
+          ],
+        }
+      : original(path),
+  );
+  try {
+    click('Juniper');
+    click('Marlow');
+    await act(async () => {
+      button('Next').click();
+    });
+    const choose = (who: string, value: string) => {
+      const s = container.querySelector<HTMLSelectElement>(`select[aria-label="${who}'s voice"]`);
+      expect(s, `Details has ${who}'s voice`).not.toBeNull();
+      act(() => {
+        s!.value = value;
+        s!.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    };
+    choose('Juniper', 'am_adam');
+    choose('Marlow', '');
+    while (!text().includes('Create & open')) click('Next');
+    await act(async () => {
+      button('Create & open').click();
+    });
+    const create = posts.find((p) => p.path === '/api/groups');
+    expect((create?.body as { memberVoices?: unknown }).memberVoices).toEqual({ j: 'am_adam', m: '' });
+  } finally {
+    spy.mockRestore();
+  }
+});
