@@ -105,7 +105,8 @@ class BondBars extends StatelessWidget {
           _AfterglowLine(chat: chat, on: nsfw.storedNsfwCooldownEnabled),
         ],
         if (nsfw.nsfwCooldownEnabled) ...[
-          const SizedBox(height: 4),
+          // Closer under the Afterglow line; the old gap without it.
+          SizedBox(height: afterglowEnabledOf(context) ? 4 : 8),
           RealismProgressRow(
             label: 'Lust',
             value: nsfw.arousalLevel.clamp(-100, 100),
