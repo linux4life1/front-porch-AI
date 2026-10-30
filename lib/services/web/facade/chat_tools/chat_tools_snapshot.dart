@@ -47,7 +47,8 @@ class ChatToolsSnapshot {
     final focused = _ctx.focusedParticipant(participantId);
     // Unfocused, the panel speaks for the host or the first member, as the
     // phone's header does; a group has no active character.
-    final focusedCard = _ctx.growthOwner(participantId)?.card;
+    final focusedCard =
+        _ctx.growthOwner(participantId)?.card ?? _chat.activeCharacter;
     final focusedIsMember =
         focused != null && !focused.isHost && focused.realismEnabled;
     return {

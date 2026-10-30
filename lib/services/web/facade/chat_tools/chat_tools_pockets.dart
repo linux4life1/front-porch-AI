@@ -48,7 +48,7 @@ class ChatToolsPockets {
     // kit (see _isGuestFocus). The panel is hidden for a guest focus, but
     // the endpoint must hold the same line a stale bundle could cross.
     if (_ctx.isGuestFocus(focused)) return;
-    final card = _ctx.growthOwner(participantId)?.card;
+    final card = _ctx.growthOwner(participantId)?.card ?? _chat.activeCharacter;
     if (card == null) return;
     final target = switch (section) {
       'worn' => PocketSection.worn,
@@ -79,7 +79,7 @@ class ChatToolsPockets {
     // Same guest guard as the eraser — an add would otherwise write the
     // HOST's record under the guest's name.
     if (_ctx.isGuestFocus(focused)) return;
-    final card = _ctx.growthOwner(participantId)?.card;
+    final card = _ctx.growthOwner(participantId)?.card ?? _chat.activeCharacter;
     if (card == null) return;
     final target = switch (section) {
       'worn' => PocketSection.worn,

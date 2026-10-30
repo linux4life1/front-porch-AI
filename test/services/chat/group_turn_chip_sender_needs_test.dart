@@ -29,9 +29,9 @@ void main() {
     () async {
       final (_, b) = await h.groupWithTwoReplies(aOff: ['social'], bOff: []);
       expect(
-        h.chat.activeCharacter?.name,
-        'Ayla',
-        reason: 'precondition: the active character is the Social-off one',
+        h.chat.activeCharacter,
+        isNull,
+        reason: 'a group has no active character between turns',
       );
       final md = h.chat.messages[b].activeMetadata!;
       final pre = Map<String, dynamic>.from(md['needs_pre_turn_vector'] as Map);
