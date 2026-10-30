@@ -28,6 +28,7 @@ import { defaultGroupName } from '../groupName';
 import type { TreeWorld } from './worlds/locations';
 import { useUnsavedChanges } from '../hooks/useUnsavedChanges';
 import { EMPTY_DRAFT, GROUP_STEPS, createBody, draftTouched, type GroupDraft } from './createGroup/groupDraft';
+import { MemberVoicePicks } from './createGroup/MemberVoicePicks';
 import { OpeningStep } from './createGroup/OpeningStep';
 import { RealismStep } from './createGroup/RealismStep';
 import { PromptsLoreStep } from './createGroup/PromptsLoreStep';
@@ -177,6 +178,11 @@ export function CreateGroupChatPage() {
                 {selectedChars.map((c) => <span key={c.id} className="cg-chip on">{c.name}</span>)}
               </div>
             </div>
+            <MemberVoicePicks
+              members={members}
+              voices={draft.memberVoices}
+              set={(memberVoices) => set({ memberVoices })}
+            />
           </div>
         )}
 

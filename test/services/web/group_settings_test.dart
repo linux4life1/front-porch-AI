@@ -874,4 +874,63 @@ void main() {
       expect(groups.getById('g1')!.inheritCharacterLorebooks, isTrue);
     });
   });
+
+  // The phone's new-group wizard posts each member's Voice pick; the relay
+  // writes it on the member's row with the desktop's rule and never on the
+  // library card.
+  group('GroupFacade.createGroup member voices', () {
+    test('a pick, the global voice and no pick each land as the desktop '
+        'wizard writes them', () async {
+      SharedPreferences.setMockInitialValues({});
+      final db = AppDatabase.forTesting();
+      addTearDown(db.close);
+      await db.select(db.characters).get();
+      final storage = StorageService();
+      await storage.setRootPath(
+        Directory.systemTemp.createTempSync('fpai_voice_root_').path,
+      );
+      final chars = CharacterRepository(db, storage);
+      for (final (name, voice) in [
+        ('Voiced', 'af_sky'),
+        ('Plain', null),
+        ('Third', 'af_bella'),
+        ('Spaced', 'af_nova'),
+      ]) {
+        await chars.addCharacter(
+          CharacterCard(name: name, description: 'x')..ttsVoice = voice,
+        );
+      }
+      String id(String name) =>
+          chars.characters.firstWhere((c) => c.name == name).dbId!;
+      final groups = GroupChatRepository(storage, db);
+      final facade = GroupFacade(groups, storage, chars, db);
+
+      final made = await facade.createGroup({
+        'name': 'Voices',
+        'memberIds': [id('Voiced'), id('Plain'), id('Third'), id('Spaced')],
+        // Trimmed on the way in: whitespace alone is the global voice too.
+        'memberVoices': {
+          id('Voiced'): '',
+          id('Plain'): ' am_adam ',
+          id('Spaced'): '  ',
+        },
+      });
+
+      final members = await groups.getMembersForGroup(made!['id'] as String);
+      expect(
+        {for (final m in members) m.name: m.ttsVoice},
+        {
+          'Voiced': null,
+          'Plain': 'am_adam',
+          'Third': 'af_bella',
+          'Spaced': null,
+        },
+      );
+      expect(
+        chars.characters.firstWhere((c) => c.name == 'Voiced').ttsVoice,
+        'af_sky',
+        reason: 'a pick never reaches the library card',
+      );
+    });
+  });
 }
